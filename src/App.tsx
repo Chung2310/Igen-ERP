@@ -1,0 +1,44 @@
+import React, { useState } from "react";
+import Sidebar from "./components/Sidebar";
+import Header from "./components/Header";
+import DashboardTab from "./components/DashboardTab";
+import HRTab from "./components/HRTab";
+import InventoryTab from "./components/InventoryTab";
+import MarketingTab from "./components/MarketingTab";
+import CRMTab from "./components/CRMTab";
+import AIPerformanceTab from "./components/AIPerformanceTab";
+import { TabType } from "./types";
+
+export default function App() {
+  const [activeTab, setActiveTab] = useState<TabType>("TỔNG QUAN");
+  
+  // Handlers for cross-linking navigation search queries from the Omni-Search Header
+  const handleSearchNavigation = (tab: TabType, subTab?: string) => {
+    setActiveTab(tab);
+    // Custom global triggers can optionally notify components if ref/context is used
+    console.log(`Global Navigation search redirected to Tab: ${tab}, Section: ${subTab || "None"}`);
+  };
+
+  return (
+    <div className="flex h-screen w-screen bg-slate-50 overflow-hidden font-sans" id="app_root_layout">
+      {/* Dynamic Left Sidebar Section */}
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col h-screen overflow-hidden" id="main_content_area">
+        {/* Top Header Utilities search bar */}
+        <Header currentTab={activeTab} onSearchSelect={handleSearchNavigation} />
+
+        {/* Primary Page Canvas */}
+        <main className="flex-1 p-6 overflow-hidden bg-gray-50/50" id="primary_page_container">
+          {activeTab === "TỔNG QUAN" && <DashboardTab />}
+          {activeTab === "NHÂN SỰ" && <HRTab />}
+          {activeTab === "KHO & SẢN PHẨM" && <InventoryTab />}
+          {activeTab === "MARKETING" && <MarketingTab />}
+          {activeTab === "SALES CRM" && <CRMTab />}
+          {activeTab === "HIỆU SUẤT AI" && <AIPerformanceTab />}
+        </main>
+      </div>
+    </div>
+  );
+}
