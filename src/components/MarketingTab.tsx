@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   Sparkles, 
   Send, 
@@ -13,9 +13,13 @@ import {
   Zap, 
   FileEdit,
   Eye,
-  RefreshCw
+  RefreshCw,
+  ArrowRight,
+  ArrowLeft
 } from "lucide-react";
 import { MarketingSubTabType, MarketingConcept, ContentApprovalCard, PublishEvent } from "../types";
+import { collection, onSnapshot, setDoc, doc, deleteDoc, updateDoc } from "firebase/firestore";
+import { db, handleFirestoreError, OperationType } from "../firebase";
 
 export default function MarketingTab() {
   const [subTab, setSubTab] = useState<MarketingSubTabType>("LÊN Ý TƯỞNG AI");
@@ -40,6 +44,54 @@ export default function MarketingTab() {
     }
   ]);
 
+  const [selectedPillars, setSelectedPillars] = useState<string[]>([
+    "Pillar A: Educate & Guides",
+    "Pillar B: Storytelling & Social Proof",
+    "Pillar C: Offers & Promotions"
+  ]);
+
+  const predefinedPillars = [
+    {
+      id: "Pillar A: Educate & Guides",
+      title: "Pillar A: Educate & Guides",
+      ratio: "35% tỉ trọng",
+      description: "Chia sẻ kiến thức bổ ích liên quan đến tư thế ngồi gõ bàn phím, hoặc cách tối ưu hóa vận hành hệ thống.",
+      colorClass: "border-red-200 bg-red-50/50 text-red-700",
+      selectedColorClass: "border-red-500 bg-red-50 text-red-850 ring-2 ring-red-500/20 shadow-xs",
+      bulletColor: "bg-red-500",
+    },
+    {
+      id: "Pillar B: Storytelling & Social Proof",
+      title: "Pillar B: Storytelling & Social Proof",
+      ratio: "40% tỉ trọng",
+      description: "Phỏng vấn thực tế khách hàng cũ trung thành đang nâng hiệu suất cùng iGen ERP.",
+      colorClass: "border-blue-200 bg-blue-50/50 text-blue-700",
+      selectedColorClass: "border-blue-500 bg-blue-50 text-blue-800 ring-2 ring-blue-500/20 shadow-xs",
+      bulletColor: "bg-blue-500",
+    },
+    {
+      id: "Pillar C: Offers & Promotions",
+      title: "Pillar C: Offers & Promotions",
+      ratio: "25% tỉ trọng",
+      description: "Tạo sự thúc giục bằng cách công bố giờ vàng flash sale khẩn cấp.",
+      colorClass: "border-indigo-200 bg-indigo-50/50 text-indigo-700",
+      selectedColorClass: "border-indigo-500 bg-indigo-50 text-indigo-900 ring-2 ring-indigo-500/20 shadow-xs",
+      bulletColor: "bg-indigo-500",
+    },
+  ];
+
+  const togglePillar = (id: string) => {
+    if (selectedPillars.includes(id)) {
+      if (selectedPillars.length === 1) {
+        alert("⚠️ Cần chọn ít nhất 1 trụ cột nội dung để trợ lý AI định hướng.");
+        return;
+      }
+      setSelectedPillars(selectedPillars.filter(p => p !== id));
+    } else {
+      setSelectedPillars([...selectedPillars, id]);
+    }
+  };
+
   const handleGenerateIdeas = async (e: React.FormEvent) => {
     e.preventDefault();
     const topic = campaignInput.trim();
@@ -50,7 +102,10 @@ export default function MarketingTab() {
       const response = await fetch("/api/gemini/marketing-ideas", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ campaignTopic: topic }),
+        body: JSON.stringify({ 
+          campaignTopic: topic,
+          selectedPillars: selectedPillars
+        }),
       });
       const data = await response.json();
       if (data.concepts) {
@@ -73,35 +128,70 @@ export default function MarketingTab() {
   ];
 
   // 2. Content Approval and Pipeline States
-  const [approvalCards, setApprovalCards] = useState<ContentApprovalCard[]>([
-    { id: "mod-1", title: "Review Bàn phím Workspace V2", channel: "Facebook", contentType: "Hình ảnh kèm Caption", status: "pending", bodyText: "⌨️ Bạn đã chán cảnh gõ phím kẹt rít, mỏi nhức tay khi ngồi làm việc liên tục 8 tiếng? Nâng cấp phong cách bàn làm việc của bạn cùng Bàn phím cơ Workspace V2 - trải nghiệm lực gõ êm mượt, tối ưu cho năng suất cực hạn!", generatedAt: "Hôm nay, 09:30" },
-    { id: "mod-2", title: "Khai phá Sức mạnh AI trong iGen ERP", channel: "LinkedIn", contentType: "Bài viết chuyên sâu (Pulse/Article)", status: "pending", bodyText: "📊 Thống kê cho thấy hơn 72% doanh nghiệp vừa và nhỏ tại Đông Nam Á vẫn đau đầu vì thông tin đứt quãng giữa CRM và Kho bãi... Hôm nay, hãng iGen ra mắt giải pháp Tích hợp Tự động AI hóa, kết hợp mô hình Gemini 3.5 dự báo thiếu hàng cực kỳ chính xác.", generatedAt: "Hôm qua, 15:00" },
-    { id: "mod-3", title: "Trải nghiệm Đeo X1 Thể dục", channel: "TikTok", contentType: "Kịch bản Video ngắn 15s", status: "draft", bodyText: "🎬 [Mở đầu camera zoom cận cảnh thiết bị X1] Tiếng beep đếm nhịp tim đập. Giọng nói thoại: 'Đừng để mệt mỏi ngăn cản nhịp đập tiến bước của bạn...' Trải nghiệm thể dục năng động thông minh.", generatedAt: "Hôm nay, 10:15" },
-    { id: "mod-4", title: "Công bố Chương trình Flash Sale Tháng 10", channel: "Facebook", contentType: "Hình ảnh Banner", status: "scheduled", bodyText: "🔥 ĐỘC QUYỀN TRÊN IGEN: GIỜ VÀNG SĂN SHOCK từ 12h-14h hôm nay! Giảm giá tới 40% cho tất cả thiết bị đeo thông minh và linh kiện phụ trợ robot.", generatedAt: "Hôm qua, 11:30" }
-  ]);
+  const [approvalCards, setApprovalCards] = useState<ContentApprovalCard[]>([]);
 
-  const approveContent = (id: string) => {
-    setApprovalCards(approvalCards.map(c => c.id === id ? { ...c, status: "scheduled" } : c));
+  // Real-time Firestore Live Synchronization
+  useEffect(() => {
+    const colRef = collection(db, "marketingContents");
+    const unsubscribe = onSnapshot(colRef, (snapshot) => {
+      const cards: ContentApprovalCard[] = [];
+      snapshot.forEach((doc) => {
+        cards.push(doc.data() as ContentApprovalCard);
+      });
+      
+      // Seed pre-filled high-quality cards if the Firebase collection is completely empty
+      if (snapshot.empty) {
+        const initialCards: ContentApprovalCard[] = [
+          { id: "mod-1", title: "Review Bàn phím Workspace V2", channel: "Facebook", contentType: "Hình ảnh kèm Caption", status: "pending", bodyText: "⌨️ Bạn đã chán cảnh gõ phím kẹt rít, mỏi nhức tay khi ngồi làm việc liên tục 8 tiếng? Nâng cấp phong cách bàn làm việc của bạn cùng Bàn phím cơ Workspace V2 - trải nghiệm lực gõ êm mượt, tối ưu cho năng suất cực hạn!", generatedAt: "Hôm nay, 09:30" },
+          { id: "mod-2", title: "Khai phá Sức mạnh AI trong iGen ERP", channel: "LinkedIn", contentType: "Bài viết chuyên sâu (Pulse/Article)", status: "pending", bodyText: "📊 Thống kê cho thấy hơn 72% doanh nghiệp vừa và nhỏ tại Đông Nam Á vẫn đau đầu vì thông tin đứt quãng giữa CRM và Kho bãi... Hôm nay, hãng iGen ra mắt giải pháp Tích hợp Tự động AI hóa, kết hợp mô hình Gemini 3.5 dự báo thiếu hàng cực kỳ chính xác.", generatedAt: "Hôm qua, 15:00" },
+          { id: "mod-3", title: "Trải nghiệm Đeo X1 Thể dục", channel: "TikTok", contentType: "Kịch bản Video ngắn 15s", status: "draft", bodyText: "🎬 [Mở đầu camera zoom cận cảnh thiết bị X1] Tiếng beep đếm nhịp tim đập. Giọng nói thoại: 'Đừng để mệt mỏi ngăn cản nhịp đập tiến bước của bạn...' Trải nghiệm thể dục năng động thông minh.", generatedAt: "Hôm nay, 10:15" },
+          { id: "mod-4", title: "Công bố Chương trình Flash Sale Tháng 10", channel: "Facebook", contentType: "Hình ảnh Banner", status: "scheduled", bodyText: "🔥 ĐỘC QUYỀN TRÊN IGEN: GIỜ VÀNG SĂN SHOCK từ 12h-14h hôm nay! Giảm giá tới 40% cho tất cả thiết bị đeo thông minh và linh kiện phụ trợ robot.", generatedAt: "Hôm qua, 11:30" }
+        ];
+        initialCards.forEach(async (card) => {
+          try {
+            await setDoc(doc(db, "marketingContents", card.id), card);
+          } catch (e) {
+            handleFirestoreError(e, OperationType.CREATE, "marketingContents/" + card.id);
+          }
+        });
+      } else {
+        setApprovalCards(cards);
+      }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, "marketingContents");
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const updateCardStatus = async (id: string, newStatus: "draft" | "pending" | "approved" | "scheduled") => {
+    try {
+      const cardRef = doc(db, "marketingContents", id);
+      await updateDoc(cardRef, { status: newStatus });
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, "marketingContents/" + id);
+    }
   };
 
-  const rejectContent = (id: string) => {
-    setApprovalCards(approvalCards.filter(c => c.id !== id));
+  const deleteCard = async (id: string) => {
+    try {
+      const cardRef = doc(db, "marketingContents", id);
+      await deleteDoc(cardRef);
+    } catch (e) {
+      handleFirestoreError(e, OperationType.DELETE, "marketingContents/" + id);
+    }
   };
 
   const [promptMore, setPromptMore] = useState("");
-  const handleAIGenerateMore = () => {
+  const handleAIGenerateMore = async () => {
     if (!promptMore.trim()) return;
-    const newCard: ContentApprovalCard = {
-      id: "mod_" + Date.now(),
-      title: "Bản tin phát nhanh: " + promptMore,
-      channel: "Facebook",
-      contentType: "Bài viết AI Copywriter soạn thảo",
-      status: "draft",
-      bodyText: `[AI Content Generator]: Về đề xuất "${promptMore}" - Hãy khởi tạo chiến dịch khuyến mãi, tri ân sâu sắc đến những quý đối tác. Chúng tôi cam kết đưa đến dịch vụ chăm sóc tốt bậc nhất toàn quốc.`,
-      generatedAt: "Vừa xong"
-    };
-    setApprovalCards([newProductiveDraft(promptMore), ...approvalCards]);
-    setPromptMore("");
+    const card = newProductiveDraft(promptMore);
+    try {
+      await setDoc(doc(db, "marketingContents", card.id), card);
+      setPromptMore("");
+    } catch (e) {
+      handleFirestoreError(e, OperationType.CREATE, "marketingContents/" + card.id);
+    }
   };
 
   const newProductiveDraft = (topic: string): ContentApprovalCard => {
@@ -109,11 +199,29 @@ export default function MarketingTab() {
       id: "mod_" + Date.now(),
       title: `Campaign: ${topic.slice(0, 30)}...`,
       channel: "Facebook",
-      contentType: "AI tạo tự động",
-      status: "pending",
-      bodyText: `✨ Chào đón sự bức phá của dự án mới! ${topic} đang mở rộng cơ hội cho hàng nghìn doanh nghiệp toàn cầu tiếp cận chuyển đổi số. Đăng ký ngay hôm nay để nhận thông báo giải pháp tư vấn iGen ERP chi tiết!`,
-      generatedAt: "Mới tạo"
+      contentType: "Bài viết AI Copywriter soạn thảo",
+      status: "draft",
+      bodyText: `✨ Chào đón sự bứt phá của dự án mới! Về chủ đề đề nghị "${topic}", hãy khởi sắc chiến dịch truyền thông hấp dẫn, tri ân sâu sắc để tiếp xúc với hàng triệu khách hàng mục tiêu tiếp cận iGen giải pháp chuyển đổi số toàn diện. Đăng ký ngay hôm nay để nhận tư vấn!`,
+      generatedAt: "Vừa xong"
     };
+  };
+
+  const saveConceptToApproval = async (concept: MarketingConcept) => {
+    const card: ContentApprovalCard = {
+      id: "mod_cust_" + Date.now(),
+      title: concept.title,
+      channel: "Facebook",
+      contentType: "AI sinh ra từ Concept",
+      status: "pending",
+      bodyText: concept.suggestedContent,
+      generatedAt: "Vừa xong"
+    };
+    try {
+      await setDoc(doc(db, "marketingContents", card.id), card);
+      setSubTab("DUYỆT NỘI DUNG");
+    } catch (e) {
+      handleFirestoreError(e, OperationType.CREATE, "marketingContents/" + card.id);
+    }
   };
 
   // 3. Publishing Calendar grid (October 2026 - custom-designed)
@@ -122,6 +230,23 @@ export default function MarketingTab() {
     { id: "cal-2", date: 12, title: "LinkedIn: Số hóa kho cùng iGen", type: "Pulse Article", channel: "LinkedIn", status: "Approved" },
     { id: "cal-3", date: 18, title: "TikTok: Giới thiệu Workspace V2", type: "Video kịch bản", channel: "TikTok", status: "Draft" },
     { id: "cal-4", date: 25, title: "Facebook: Cảnh báo Laptop XPS", type: "Post", channel: "Facebook", status: "Draft" },
+  ];
+
+  const joinedEvents: PublishEvent[] = [
+    ...calendarEvents,
+    ...approvalCards
+      .filter((c) => c.status === "scheduled")
+      .map((c, index) => {
+        const assignedDay = ((index * 5 + 11) % 28) + 1;
+        return {
+          id: c.id,
+          date: assignedDay,
+          title: `[Lịch đăng] ${c.title}`,
+          type: c.contentType,
+          channel: c.channel,
+          status: "Approved" as const,
+        };
+      })
   ];
 
   const [selectedDay, setSelectedDay] = useState<number | null>(4);
@@ -180,16 +305,23 @@ export default function MarketingTab() {
                     <div className="space-y-1.5">
                       <span className="text-[10px] font-bold text-gray-400 font-mono uppercase tracking-wider block">Gợi ý chủ đề nhanh:</span>
                       <div className="flex flex-wrap gap-2">
-                        {quickSuggestions.map((s, idx) => (
-                          <button 
-                            key={idx}
-                            type="button"
-                            onClick={() => setCampaignInput(s)}
-                            className="px-2.5 py-1 bg-white hover:bg-slate-100 border border-gray-200 rounded-md text-[10px] text-gray-600 font-medium transition-colors cursor-pointer select-none"
-                          >
-                            {s}
-                          </button>
-                        ))}
+                        {quickSuggestions.map((s, idx) => {
+                          const isMatch = campaignInput === s;
+                          return (
+                            <button 
+                              key={idx}
+                              type="button"
+                              onClick={() => setCampaignInput(s)}
+                              className={`px-2.5 py-1 text-[10px] rounded-md font-medium transition-all cursor-pointer select-none border ${
+                                isMatch
+                                  ? "bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-600 shadow-xs transform scale-102 font-semibold"
+                                  : "bg-white hover:bg-slate-100 text-gray-650 text-gray-600 border-gray-200"
+                              }`}
+                            >
+                              {s}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   </form>
@@ -217,32 +349,40 @@ export default function MarketingTab() {
                   <h4 className="font-bold text-gray-850 text-sm tracking-wide font-sans uppercase">
                     📚 Content Pillars Đề xuất
                   </h4>
-                  <p className="text-xs text-gray-450 text-slate-500 mt-1">iGen AI định hướng phân chia 3 trụ cột nội dung để chiến dịch đạt hiệu năng cao nhất.</p>
+                  <p className="text-xs text-slate-500 mt-1 mb-4">iGen AI định hướng phân chia 3 trụ cột nội dung. Click vào thẻ để chọn/bỏ chọn nhằm định hình hướng sáng tạo cho Gemini AI:</p>
 
-                  <div className="space-y-4 mt-6 text-xs text-slate-650 text-left">
-                    <div className="p-3 bg-red-50/50 border border-red-100 rounded-lg">
-                      <div className="flex justify-between items-center text-red-700 font-bold">
-                        <span>Pillar A: Educate & Guides</span>
-                        <span className="text-[10px]">35% tỉ trọng</span>
-                      </div>
-                      <p className="text-[10px] mt-1 leading-normal">Chia sẻ kiến thức bổ ích liên quan đến tư thế ngồi gõ bàn phím, hoặc cách tối ưu hóa vận hành hệ thống.</p>
-                    </div>
-
-                    <div className="p-3 bg-blue-50/50 border border-blue-100 rounded-lg">
-                      <div className="flex justify-between items-center text-blue-700 font-bold">
-                        <span>Pillar B: Storytelling & Social Proof</span>
-                        <span className="text-[10px]">40% tỉ trọng</span>
-                      </div>
-                      <p className="text-[10px] mt-1 leading-normal">Phỏng vấn thực tế khách hàng cũ trung thành đang nâng hiệu suất cùng iGen ERP.</p>
-                    </div>
-
-                    <div className="p-3 bg-indigo-50/50 border border-indigo-100 rounded-lg">
-                      <div className="flex justify-between items-center text-indigo-750 text-indigo-700 font-bold">
-                        <span>Pillar C: Offers & Promotions</span>
-                        <span className="text-[10px]">25% tỉ trọng</span>
-                      </div>
-                      <p className="text-[10px] mt-1 leading-normal font-sans text-left">Tạo sự thúc giục bằng cách công bố giờ vàng flash sale khẩn cấp.</p>
-                    </div>
+                  <div className="space-y-3 text-xs text-left">
+                    {predefinedPillars.map((pillar) => {
+                      const isSelected = selectedPillars.includes(pillar.id);
+                      return (
+                        <div 
+                          key={pillar.id}
+                          onClick={() => togglePillar(pillar.id)}
+                          className={`p-3.5 border rounded-xl cursor-pointer transition-all ${
+                            isSelected 
+                              ? pillar.selectedColorClass 
+                              : `${pillar.colorClass} opacity-50 hover:opacity-85`
+                          }`}
+                        >
+                          <div className="flex justify-between items-center font-bold">
+                            <span className="flex items-center gap-1.5 text-xs">
+                              <span className={`w-2.5 h-2.5 rounded-full ${pillar.bulletColor}`} />
+                              {pillar.title}
+                            </span>
+                            <span className="text-[10px] opacity-80 font-mono font-semibold">{pillar.ratio}</span>
+                          </div>
+                          <p className="text-[10px] mt-2 leading-relaxed text-slate-500 font-sans pointer-events-none">
+                            {pillar.description}
+                          </p>
+                          <div className="mt-3 flex items-center justify-between text-[9px] font-mono uppercase font-bold tracking-wider">
+                            <span className={isSelected ? "text-indigo-600 font-semibold" : "text-gray-450 text-gray-400"}>
+                              {isSelected ? "● Đang kích hoạt" : "○ Tạm tắt"}
+                            </span>
+                            <span className="text-slate-400">Click để đổi</span>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -288,22 +428,8 @@ export default function MarketingTab() {
                       
                       <div className="mt-3.5 flex justify-end gap-2 text-xs">
                         <button 
-                          onClick={() => {
-                            setApprovalCards([
-                              {
-                                id: "mod_cust_" + Date.now(),
-                                title: concept.title,
-                                channel: "Facebook",
-                                contentType: "AI sinh ra từ Concept",
-                                status: "pending",
-                                bodyText: concept.suggestedContent,
-                                generatedAt: "Mới phát sinh"
-                              },
-                              ...approvalCards
-                            ]);
-                            alert("Đã gửi bản nháp này sang cột Chờ duyệt!");
-                          }}
-                          className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold select-none text-[10px] transition-colors"
+                          onClick={() => saveConceptToApproval(concept)}
+                          className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold select-none text-[10px] transition-all transform hover:scale-105 active:scale-95 cursor-pointer flex items-center gap-1"
                         >
                           Chuyển sang Chờ duyệt 📋
                         </button>
@@ -342,42 +468,41 @@ export default function MarketingTab() {
               </button>
             </div>
 
-            {/* Content pipeline grid columns */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6" id="moderation_columns">
+            {/* Content pipeline grid columns: 4 distinct stages */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4" id="moderation_columns">
               
-              {/* DRAFT COLUMN (AI GENERATED) */}
-              <div className="bg-gray-50 border border-gray-150 rounded-2xl p-4 flex flex-col min-h-[450px]">
-                <div className="flex justify-between items-center mb-4 pb-2 border-b">
-                  <span className="text-xs font-bold text-slate-700 tracking-wider">BẢN NHÁP (AI TẠO)</span>
-                  <span className="bg-slate-200 text-slate-750 text-[10px] px-2 py-0.5 rounded-full font-bold">
-                    {approvalCards.filter(c => c.status === "draft").length}
+              {/* STATUS 1: DRAFT (BẢN NHÁP) */}
+              <div className="bg-gray-50 border border-gray-150 rounded-2xl p-3 flex flex-col min-h-[450px]">
+                <div className="flex justify-between items-center mb-3 pb-2 border-b border-gray-200">
+                  <span className="text-[11px] font-bold text-slate-700 tracking-wider flex items-center gap-1">
+                    📝 NHÁP ({approvalCards.filter(c => c.status === "draft").length})
                   </span>
                 </div>
-                <div className="space-y-4 flex-1 overflow-y-auto">
+                <div className="space-y-3 flex-1 overflow-y-auto max-h-[500px] pr-1">
                   {approvalCards.filter(c => c.status === "draft").length === 0 ? (
-                    <div className="p-8 text-center text-gray-400 text-xs italic leading-normal">Chưa có bài viết nháp</div>
+                    <div className="p-8 text-center text-gray-400 text-xs italic leading-normal">Hết bài viết nháp</div>
                   ) : (
                     approvalCards.filter(c => c.status === "draft").map(card => (
                       <ModerationPipCard 
                         key={card.id} 
                         card={card} 
-                        onApprove={() => setApprovalCards(approvalCards.map(c => c.id === card.id ? { ...c, status: "pending" } : c))} 
-                        onReject={() => rejectContent(card.id)} 
+                        onNextStatus={() => updateCardStatus(card.id, "pending")}
+                        onPrevStatus={null}
+                        onDelete={() => deleteCard(card.id)} 
                       />
                     ))
                   )}
                 </div>
               </div>
 
-              {/* TO MODERATE (CHỜ QUẢN LÝ DUYỆT) */}
-              <div className="bg-gray-50 border border-gray-150 rounded-2xl p-4 flex flex-col min-h-[450px]">
-                <div className="flex justify-between items-center mb-4 pb-2 border-b">
-                  <span className="text-xs font-bold text-amber-800 tracking-wider">CHỜ QUẢN LÝ DUYỆT</span>
-                  <span className="bg-amber-100 text-amber-800 text-[10px] px-2 py-0.5 rounded-full font-bold">
-                    {approvalCards.filter(c => c.status === "pending").length}
+              {/* STATUS 2: PENDING (CHỜ DUYỆT) */}
+              <div className="bg-gray-50 border border-gray-150 rounded-2xl p-3 flex flex-col min-h-[450px]">
+                <div className="flex justify-between items-center mb-3 pb-2 border-b border-gray-200">
+                  <span className="text-[11px] font-bold text-amber-800 tracking-wider flex items-center gap-1">
+                    ⏳ CHỜ DUYỆT ({approvalCards.filter(c => c.status === "pending").length})
                   </span>
                 </div>
-                <div className="space-y-4 flex-1 overflow-y-auto">
+                <div className="space-y-3 flex-1 overflow-y-auto max-h-[500px] pr-1">
                   {approvalCards.filter(c => c.status === "pending").length === 0 ? (
                     <div className="p-8 text-center text-gray-400 text-xs italic leading-normal">Hết bài duyệt chờ!</div>
                   ) : (
@@ -385,23 +510,47 @@ export default function MarketingTab() {
                       <ModerationPipCard 
                         key={card.id} 
                         card={card} 
-                        onApprove={() => approveContent(card.id)} 
-                        onReject={() => rejectContent(card.id)} 
+                        onNextStatus={() => updateCardStatus(card.id, "approved")}
+                        onPrevStatus={() => updateCardStatus(card.id, "draft")}
+                        onDelete={() => deleteCard(card.id)} 
                       />
                     ))
                   )}
                 </div>
               </div>
 
-              {/* SCHEDULED CONTENT (ĐÃ LÊN LỊCH ĐĂNG) */}
-              <div className="bg-gray-50 border border-gray-150 rounded-2xl p-4 flex flex-col min-h-[450px]">
-                <div className="flex justify-between items-center mb-4 pb-2 border-b">
-                  <span className="text-xs font-bold text-emerald-800 tracking-wider">LỊCH ĐĂNG CONTENT ĐÃ DUYỆT</span>
-                  <span className="bg-emerald-100 text-emerald-850 text-[10px] px-2 py-0.5 rounded-full font-bold">
-                    {approvalCards.filter(c => c.status === "scheduled").length}
+              {/* STATUS 3: APPROVED (ĐÃ DUYỆT) */}
+              <div className="bg-gray-50 border border-gray-150 rounded-2xl p-3 flex flex-col min-h-[450px]">
+                <div className="flex justify-between items-center mb-3 pb-2 border-b border-gray-200">
+                  <span className="text-[11px] font-bold text-blue-800 tracking-wider flex items-center gap-1">
+                    ✓ ĐÃ DUYỆT ({approvalCards.filter(c => c.status === "approved").length})
                   </span>
                 </div>
-                <div className="space-y-4 flex-1 overflow-y-auto">
+                <div className="space-y-3 flex-1 overflow-y-auto max-h-[500px] pr-1">
+                  {approvalCards.filter(c => c.status === "approved").length === 0 ? (
+                    <div className="p-8 text-center text-gray-400 text-xs italic leading-normal">Chưa có bài đã duyệt</div>
+                  ) : (
+                    approvalCards.filter(c => c.status === "approved").map(card => (
+                      <ModerationPipCard 
+                        key={card.id} 
+                        card={card} 
+                        onNextStatus={() => updateCardStatus(card.id, "scheduled")}
+                        onPrevStatus={() => updateCardStatus(card.id, "pending")}
+                        onDelete={() => deleteCard(card.id)} 
+                      />
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* STATUS 4: SCHEDULED (ĐÃ LÊN LỊCH) */}
+              <div className="bg-gray-50 border border-gray-150 rounded-2xl p-3 flex flex-col min-h-[450px]">
+                <div className="flex justify-between items-center mb-3 pb-2 border-b border-gray-200">
+                  <span className="text-[11px] font-bold text-emerald-800 tracking-wider flex items-center gap-1">
+                    📅 ĐÃ LÊN LỊCH ({approvalCards.filter(c => c.status === "scheduled").length})
+                  </span>
+                </div>
+                <div className="space-y-3 flex-1 overflow-y-auto max-h-[500px] pr-1">
                   {approvalCards.filter(c => c.status === "scheduled").length === 0 ? (
                     <div className="p-8 text-center text-gray-400 text-xs italic leading-normal">Kéo duyệt để lên lịch!</div>
                   ) : (
@@ -409,8 +558,9 @@ export default function MarketingTab() {
                       <ModerationPipCard 
                         key={card.id} 
                         card={card} 
-                        onApprove={() => {}} 
-                        onReject={() => rejectContent(card.id)} 
+                        onNextStatus={null}
+                        onPrevStatus={() => updateCardStatus(card.id, "approved")}
+                        onDelete={() => deleteCard(card.id)} 
                       />
                     ))
                   )}
@@ -458,7 +608,7 @@ export default function MarketingTab() {
 
                   {Array.from({ length: 31 }).map((_, dIdx) => {
                     const dayNum = dIdx + 1;
-                    const matchEvents = calendarEvents.filter(e => e.date === dayNum);
+                    const matchEvents = joinedEvents.filter(e => e.date === dayNum);
                     const isSelected = selectedDay === dayNum;
                     return (
                       <div 
@@ -507,12 +657,12 @@ export default function MarketingTab() {
                   <p className="text-xs text-gray-400 mt-1">Danh sách chuỗi nội dung truyền thông cần vận hành trong ngày.</p>
 
                   <div className="h-64 overflow-y-auto mt-6 space-y-4 text-xs text-slate-650 text-left">
-                    {calendarEvents.filter(e => e.date === selectedDay).length === 0 ? (
+                    {joinedEvents.filter(e => e.date === selectedDay).length === 0 ? (
                       <div className="p-8 text-center bg-gray-50 text-gray-400 italic rounded-xl">
                         Không có lịch đăng tải nào được lập cho ngày này! Bạn có thể chuyển bản nháp sang Chờ đăng tải.
                       </div>
                     ) : (
-                      calendarEvents.filter(e => e.date === selectedDay).map(event => (
+                      joinedEvents.filter(e => e.date === selectedDay).map(event => (
                         <div key={event.id} className="p-4 bg-slate-50 border border-gray-150 rounded-xl relative flex flex-col gap-2">
                           <div className="flex justify-between items-center">
                             <span className="px-2 py-0.5 bg-slate-200 rounded-sm font-bold font-mono text-[9px] uppercase">
@@ -562,10 +712,23 @@ export default function MarketingTab() {
   );
 }
 
+interface ModerationPipCardProps {
+  key?: string;
+  card: ContentApprovalCard;
+  onNextStatus?: (() => void) | null;
+  onPrevStatus?: (() => void) | null;
+  onDelete: () => void;
+}
+
 // PIPELINE CARD widget component representing moderation cards
-function ModerationPipCard({ card, onApprove, onReject }: { key?: any; card: ContentApprovalCard; onApprove: () => void; onReject: () => void }) {
+function ModerationPipCard({ 
+  card, 
+  onNextStatus, 
+  onPrevStatus, 
+  onDelete 
+}: ModerationPipCardProps) {
   return (
-    <div className="bg-white border text-left border-gray-150/70 p-4 rounded-xl shadow-xs hover:shadow-md transition-all flex flex-col gap-2.5 relative group" id={`approval_card_${card.id}`}>
+    <div className="bg-white border text-left border-gray-150/70 p-3.5 rounded-xl shadow-xs hover:shadow-md transition-all flex flex-col gap-2 relative group" id={`approval_card_${card.id}`}>
       
       {/* Category header */}
       <div className="flex justify-between items-center">
@@ -575,39 +738,48 @@ function ModerationPipCard({ card, onApprove, onReject }: { key?: any; card: Con
         <span className="text-[9px] text-gray-400 font-mono tracking-wide">{card.contentType}</span>
       </div>
 
-      <h5 className="font-bold text-gray-800 leading-normal text-xs font-sans line-clamp-2">{card.title}</h5>
-      <p className="text-xs text-gray-500 leading-relaxed font-sans mt-1 bg-slate-50/50 p-2.5 rounded-lg border border-dashed select-text">
+      <h5 className="font-bold text-gray-800 leading-tight text-xs font-sans line-clamp-2">{card.title}</h5>
+      <p className="text-[11px] text-gray-500 leading-relaxed font-sans bg-slate-50/50 p-2 rounded-lg border border-dashed select-text max-h-[120px] overflow-y-auto">
         {card.bodyText}
       </p>
 
-      <div className="flex items-center justify-between border-t border-gray-100 pt-2 text-[10px]">
-        <span className="text-gray-400 font-mono">{card.generatedAt}</span>
+      {/* Detail list status */}
+      <div className="flex items-center justify-between border-t border-gray-100 pt-2 text-[9px]">
+        <span className="text-gray-400 font-mono text-[8px]">{card.generatedAt}</span>
         
         {/* Approve/Reject Controls action buttons */}
-        <div className="flex gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
-          {card.status !== "scheduled" && (
+        <div className="flex items-center gap-1">
+          {onPrevStatus && (
             <button 
-              onClick={onReject}
-              className="p-1 px-2.5 text-red-600 bg-red-50 hover:bg-red-100 rounded-md font-bold transition-all flex items-center gap-0.5 select-none"
+              onClick={onPrevStatus}
+              title={card.status === "pending" ? "Mục cũ: Nháp" : card.status === "approved" ? "Mục cũ: Chờ duyệt" : "Mục cũ: Đã duyệt"}
+              className="p-1 text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-md font-bold transition-all flex items-center justify-center cursor-pointer"
             >
-              <X className="h-3 w-3" />
-              <span>Hủy</span>
+              <ArrowLeft className="h-3 w-3" />
             </button>
           )}
 
-          {card.status !== "scheduled" && (
+          <button 
+            onClick={onDelete}
+            title="Xóa bài đăng"
+            className="p-1 text-red-500 hover:bg-red-50 rounded-md font-bold transition-all flex items-center justify-center cursor-pointer"
+          >
+            <Trash2 className="h-3 w-3" />
+          </button>
+
+          {onNextStatus && (
             <button 
-              onClick={onApprove}
-              className="p-1 px-2.5 text-white bg-indigo-600 hover:bg-indigo-700 rounded-md font-bold transition-all flex items-center gap-0.5 select-none"
+              onClick={onNextStatus}
+              className="p-1 px-1.5 text-white bg-indigo-600 hover:bg-indigo-700 rounded-md font-semibold transition-all flex items-center gap-0.5 text-[9px] cursor-pointer"
             >
-              <Check className="h-3 w-3" />
-              <span>Duyệt</span>
+              <span>{card.status === "draft" ? "Sẵn sàng" : card.status === "pending" ? "Duyệt ✓" : "Lên lịch 📅"}</span>
+              <ArrowRight className="h-2.5 w-2.5" />
             </button>
           )}
 
           {card.status === "scheduled" && (
-            <span className="px-2 py-0.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-sm text-[9px] font-bold font-mono">
-              ✓ ĐÃ LÊN LỊCH
+            <span className="px-1.5 py-0.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-sm text-[8px] font-bold font-mono">
+              ✓ ĐỒNG BỘ
             </span>
           )}
         </div>

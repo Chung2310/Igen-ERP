@@ -1,0 +1,44 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global safety net: deny all by default
+    match /{document=**} { 
+      allow read, write: if false; 
+    }
+
+    // ID validation gate
+    function isValidId(id) { 
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-\\:\\.]+$'); 
+    }
+
+    // Helper functions for incoming and existing resources
+    function incoming() { 
+      return request.resource.data; 
+    }
+
+    function existing() { 
+      return resource.data; 
+    }
+
+    // Validation Blueprint for Marketing Content Object
+    function isValidMarketingContent(data) {
+      return data.keys().hasAll(['id', 'title', 'channel', 'contentType', 'status', 'bodyText', 'generatedAt'])
+        && data.keys().size() <= 9
+        && data.id is string && data.id.size() <= 100
+        && data.title is string && data.title.size() <= 300
+        && data.channel is string && data.channel.size() <= 50
+        && data.contentType is string && data.contentType.size() <= 100
+        && data.status is string && data.status.size() <= 50
+        && data.bodyText is string && data.bodyText.size() <= 5000
+        && data.generatedAt is string && data.generatedAt.size() <= 100;
+    }
+
+    // Hardened path rules for marketing content
+    match /marketingContents/{contentId} {
+      allow read: if true;
+      allow create: if isValidId(contentId) && isValidMarketingContent(incoming());
+      allow update: if isValidId(contentId) && isValidMarketingContent(incoming());
+      allow delete: if isValidId(contentId);
+    }
+  }
+}

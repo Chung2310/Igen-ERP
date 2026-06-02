@@ -105,8 +105,12 @@ Thông tin cấu hình hiện tại của bạn:
 
   // Marketing campaign ideation proxy
   app.post("/api/gemini/marketing-ideas", async (req, res) => {
-    const { campaignTopic } = req.body;
+    const { campaignTopic, selectedPillars } = req.body;
     const client = getGeminiClient();
+
+    const pillarsStr = selectedPillars && selectedPillars.length > 0 
+      ? `(Định hướng Trụ cột nội dung: ${selectedPillars.join(", ")})` 
+      : "";
 
     if (!client) {
       // Simulated Campaign Ideas if no API key
@@ -116,21 +120,21 @@ Thông tin cấu hình hiện tại của bạn:
             {
               title: `Chiến dịch: Chạm Đột Phá - ${campaignTopic || "Mua Sắm Cuối Năm"}`,
               matchPercent: 95,
-              summary: "Đột phá doanh số bằng cách nhắm vào nhóm khách hàng trẻ tuổi, tạo xu hướng trải nghiệm công nghệ đeo và phong cách sống lành mạnh.",
+              summary: `Đột phá doanh số nhắm vào đối tượng trẻ tuổi. ${pillarsStr ? `Tập trung sâu vào định hướng truyền thông từ các trụ cột lựa chọn: ${selectedPillars.join(", ")}.` : "Tạo lối sống trải nghiệm công nghệ đeo và phong cách sống lành mạnh."}`,
               channels: ["Tiktok Video", "Influencer Review", "Meta App ads"],
               suggestedContent: "🎬 Kịch bản Tiktok: Biến đổi phong cách thường ngày thành phong cách năng động thể thao chỉ sau 1 cái chạm màn hình X1."
             },
             {
               title: `Trải nghiệm Đỉnh Cao - Tri Ân Hội Viên`,
               matchPercent: 88,
-              summary: "Quảng bá giá trị cốt lõi bền vững thông qua chuỗi bài viết phỏng vấn các khách hàng trung thành thực tế đang nâng tầm công việc cùng Workspace V2.",
+              summary: `Quảng bá giá trị cốt lõi bền vững thông qua chuỗi bài viết phỏng vấn các đối tác trung thành thực tế đang nâng tầm công việc cùng Workspace V2. ${pillarsStr ? `Điều phối theo: ${selectedPillars.join(", ")}.` : ""}`,
               channels: ["Facebook Post", "Email Newsletter", "LinkedIn Article"],
               suggestedContent: "✍️ Facebook Post: 'Gặp gỡ anh Hùng, Giám đốc Sáng tạo, người đã nâng cấp 200% tốc độ gõ nhờ Bàn phím cơ Workspace V2...'"
             },
             {
               title: `Giờ Vàng Giá Sốc - Săn Độc Quyền AI`,
               matchPercent: 78,
-              summary: "Tạo sự gấp rút bằng tính năng đếm ngược flash sale được quản lý tự động bởi thuật toán đề xuất của iGen ERP.",
+              summary: `Tạo sự gấp rút bằng tính năng đếm ngược flash sale được quản lý tự động bởi thuật toán đề xuất của iGen ERP. ${pillarsStr ? `Kế thừa ý tưởng từ các Content Pillar được cấu hình: ${selectedPillars.join(", ")}.` : ""}`,
               channels: ["Instagram Story", "Zalo OA Broadcast"],
               suggestedContent: "🔥 Tin nhắn Zalo: 'Duy nhất hôm nay! Giờ vàng từ 12h-14h, giảm giá 30% toàn bộ tai nghe Không dây Pro Max. Đặt ngay!'"
             }
@@ -142,11 +146,15 @@ Thông tin cấu hình hiện tại của bạn:
     }
 
     try {
-      const prompt = `Hãy tạo 3 ý tưởng/bản nháp chiến dịch marketing chi tiết cho chủ đề/chiến dịch này: "${campaignTopic}".
+      const pillarsContext = selectedPillars && selectedPillars.length > 0
+        ? `\nCác Trụ cột nội dung (Content Pillars) bắt buộc phải tích hợp và bám sát: ${selectedPillars.join(", ")}. Hãy sáng tạo các ý tưởng tập trung xoay quanh các trụ cột này.`
+        : "";
+
+      const prompt = `Hãy tạo 3 ý tưởng/bản nháp chiến dịch marketing chi tiết cho chủ đề/chiến dịch này: "${campaignTopic}".${pillarsContext}
 Mỗi bản nháp phải có thông tin:
-1. title: Tiêu đề chiến dịch
+1. title: Tiêu đề chiến dịch sáng tạo
 2. matchPercent: Độ tương thích thương hiệu (%) (đại lượng số nguyên từ 70 đến 98)
-3. summary: Tóm tắt ý tưởng cốt lõi
+3. summary: Tóm tắt ý tưởng cốt lõi, trong đó có nêu rõ sự kết hợp với các trụ cột nội dung đã chọn.
 4. channels: Các kênh đề xuất đăng tải (mảng string, ví dụ: ["TikTok", "Facebook", "LinkedIn"])
 5. suggestedContent: Bài viết mẫu hoặc kịch bản mẫu ngắn gọn từ AI Copywriter.
 

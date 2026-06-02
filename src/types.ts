@@ -68,7 +68,7 @@ export interface ContentApprovalCard {
   title: string;
   channel: "Facebook" | "TikTok" | "LinkedIn" | "Instagram";
   contentType: string;
-  status: "draft" | "pending" | "scheduled";
+  status: "draft" | "pending" | "approved" | "scheduled";
   bodyText: string;
   imageUrl?: string;
   generatedAt: string;
