@@ -21,6 +21,8 @@ import {
   Activity
 } from "lucide-react";
 import { CRMSubTabType, ChatMessage, CustomerInbox, AIChatConfig, LeadCard } from "../types";
+import { geminiApi } from "../api/gemini";
+import { toast } from "./Toast";
 
 export default function CRMTab() {
   const [subTab, setSubTab] = useState<CRMSubTabType>("OMNI-INBOX CHAT");
@@ -146,18 +148,12 @@ export default function CRMTab() {
     setAIWaiting(true);
 
     try {
-      // Real fetch to Express server.ts proxy endpoint
-      const response = await fetch("/api/gemini/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: msgText,
-          history: chatHistory.map(h => ({ sender: h.sender, text: h.text })),
-          aiConfig
-        }),
-      });
-
-      const data = await response.json();
+      // Gọi API đến Express server qua geminiApi client module
+      const data = await geminiApi.sendChatMessage(
+        msgText,
+        chatHistory.map(h => ({ sender: h.sender, text: h.text })),
+        aiConfig
+      );
       
       // Delay AI answer simulation according to Slider
       setTimeout(() => {
@@ -173,7 +169,7 @@ export default function CRMTab() {
     } catch (err) {
       console.error(err);
       setAIWaiting(false);
-      alert("⚠️ Kết nối AI Trợ Lý Chatbot bị gián đoạn.");
+      toast.error("Kết nối AI Trợ Lý Chatbot bị gián đoạn.");
     }
   };
 
@@ -193,10 +189,10 @@ export default function CRMTab() {
             <button
               key={tab}
               onClick={() => setSubTab(tab as CRMSubTabType)}
-              className={`px-4 py-2 bg-white rounded-lg border font-bold uppercase transition-all tracking-wide ${
+              className={`px-4 py-2 rounded-lg border font-bold uppercase transition-all tracking-wide ${
                 subTab === tab 
                   ? "bg-slate-800 text-white border-slate-800 shadow-xs" 
-                  : "text-gray-500 border-gray-200 hover:bg-gray-100"
+                  : "bg-white text-gray-500 border-gray-200 hover:bg-gray-100"
               }`}
             >
               {tab}

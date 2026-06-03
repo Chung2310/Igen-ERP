@@ -6,12 +6,31 @@ service cloud.firestore {
       allow read, write: if false; 
     }
 
+    // Checking if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper to get requesting user profile role from firestore
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    // Role-based helper functions
+    function isAdmin() {
+      return isAuthenticated() && (getUserRole() == 'admin' || getUserRole() == 'superadmin');
+    }
+
+    function isSuperAdmin() {
+      return isAuthenticated() && getUserRole() == 'superadmin';
+    }
+
     // ID validation gate
     function isValidId(id) { 
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-\\:\\.]+$'); 
     }
 
-    // Helper functions for incoming and existing resources
+    // Helper functions for incoming data
     function incoming() { 
       return request.resource.data; 
     }
@@ -20,10 +39,21 @@ service cloud.firestore {
       return resource.data; 
     }
 
+    // User document rules
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isSuperAdmin());
+      allow create: if isAuthenticated() && request.auth.uid == userId && incoming().role == 'user';
+      allow update: if isAuthenticated() && (
+        (request.auth.uid == userId && incoming().role == existing().role) || 
+        isSuperAdmin()
+      );
+      allow delete: if isSuperAdmin();
+    }
+
     // Validation Blueprint for Marketing Content Object
     function isValidMarketingContent(data) {
       return data.keys().hasAll(['id', 'title', 'channel', 'contentType', 'status', 'bodyText', 'generatedAt'])
-        && data.keys().size() <= 9
+        && data.keys().size() <= 18
         && data.id is string && data.id.size() <= 100
         && data.title is string && data.title.size() <= 300
         && data.channel is string && data.channel.size() <= 50
@@ -35,10 +65,35 @@ service cloud.firestore {
 
     // Hardened path rules for marketing content
     match /marketingContents/{contentId} {
-      allow read: if true;
-      allow create: if isValidId(contentId) && isValidMarketingContent(incoming());
-      allow update: if isValidId(contentId) && isValidMarketingContent(incoming());
-      allow delete: if isValidId(contentId);
+      // User chỉ đọc content của chính mình hoặc admin đọc tất cả
+      allow read: if isAuthenticated() && (
+        isAdmin()
+        || resource.data.authorUid == request.auth.uid
+        || resource.data.authorUid == ''
+      );
+      // User được tạo content và phải gắn authorUid của mình
+      allow create: if isAuthenticated() && isValidId(contentId) && isValidMarketingContent(incoming()) && (
+        isAdmin()
+        || incoming().authorUid == request.auth.uid
+      );
+      // Chỉ admin mới được sửa trạng thái duyệt. User được phép nộp duyệt/thu hồi nháp, lên lịch/hủy lịch và đăng tải bài của mình.
+      allow update: if isAuthenticated() && isValidId(contentId) && (
+        isAdmin()
+        || (
+          existing().authorUid == request.auth.uid
+          && (
+            // Gửi duyệt hoặc thu hồi về nháp
+            (existing().status == 'draft' && incoming().status == 'pending')
+            || (existing().status == 'pending' && incoming().status == 'draft')
+            // Lên lịch đăng bài hoặc hủy lịch về đã duyệt
+            || (existing().status == 'approved' && incoming().status == 'scheduled')
+            || (existing().status == 'scheduled' && incoming().status == 'approved')
+            // Cập nhật trạng thái đã đăng tải lên FB
+            || (existing().status == 'scheduled' && incoming().status == 'published')
+          )
+        )
+      );
+      allow delete: if isAdmin() || existing().authorUid == request.auth.uid;
     }
   }
 }

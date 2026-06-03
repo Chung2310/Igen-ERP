@@ -15,34 +15,72 @@ import {
   Eye,
   RefreshCw,
   ArrowRight,
-  ArrowLeft
+  ArrowLeft,
+  Facebook,
+  ExternalLink,
+  CheckCircle2
 } from "lucide-react";
 import { MarketingSubTabType, MarketingConcept, ContentApprovalCard, PublishEvent } from "../types";
-import { collection, onSnapshot, setDoc, doc, deleteDoc, updateDoc } from "firebase/firestore";
-import { db, handleFirestoreError, OperationType } from "../firebase";
+import { marketingService, splitOutlineAndDraft } from "../services/marketingService";
+import { geminiApi } from "../api/gemini";
+import { toast } from "./Toast";
+import { useAuth } from "../context/AuthContext";
 
 export default function MarketingTab() {
+  const { userProfile } = useAuth();
+  const isUserRole = userProfile?.role === "user";
   const [subTab, setSubTab] = useState<MarketingSubTabType>("LÊN Ý TƯỞNG AI");
 
   // 1. AI Campaign Ideation States
   const [campaignInput, setCampaignInput] = useState("");
+  const [analyzedTopic, setAnalyzedTopic] = useState("");
   const [loadingAI, setLoadingAI] = useState(false);
+  const [quickSuggestions, setQuickSuggestions] = useState<string[]>([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [developingIdx, setDevelopingIdx] = useState<number | null>(null);
+
+  const [schedulingCard, setSchedulingCard] = useState<ContentApprovalCard | null>(null);
+  const [scheduleDate, setScheduleDate] = useState("2026-10-15");
+  const [scheduleTime, setScheduleTime] = useState("09:00");
+
+  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
+
   const [concepts, setConcepts] = useState<MarketingConcept[]>([
     {
       title: "Chiến dịch: Chạm Đột Phá - Sành điệu công nghệ X1",
       matchPercent: 92,
       summary: "Tạo các video ngắn trên TikTok hướng đến lối sống tích cực, nhấn mạnh khả năng kết nối không dây siêu mượt và tính năng đo nhịp tim tự động của thiết bị X1.",
-      channels: ["TikTok Short Video", "Instagram Video Reels"],
-      suggestedContent: "🎬 Kịch bản Reels: Một ngày bận rộn bắt đầu... Chạm nhẹ thiết bị đeo X1 để bật nhạc chạy bộ buổi sáng kết thúc ngày hiệu năng đỉnh cao."
+      channels: ["TikTok", "Instagram"],
+      suggestedContent: "🎬 Kịch bản Reels: Một ngày bận rộn bắt đầu... Chạm nhẹ thiết bị đeo X1 để bật nhạc chạy bộ buổi sáng kết thúc ngày hiệu năng đỉnh cao.",
+      hashtags: ["#iGenX1", "#SmartWearable", "#NangTamCuocSong"]
     },
     {
       title: "Giải pháp chuyển đổi số - Tri ân doanh nghiệp",
       matchPercent: 88,
       summary: "Chiến dịch bài viết uy tín sâu trên LinkedIn & Facebook tri ân các đối tác đã số hóa quản lý Kho hàng nhờ iGen ERP.",
-      channels: ["LinkedIn Article", "Facebook Post", "Email Newsletter"],
-      suggestedContent: "✍️ Câu chuyện: Gặp gỡ thương hiệu thời trang G-Trend, từ bế tắc thất thoát tồn kho đến quản lý an nhàn tự động 100% nhờ iGen-Forecast."
+      channels: ["LinkedIn", "Facebook"],
+      suggestedContent: "✍️ Câu chuyện: Gặp gỡ thương hiệu thời trang G-Trend, từ bế tắc thất thoát tồn kho đến quản lý an nhàn tự động 100% nhờ iGen-Forecast.",
+      hashtags: ["#iGenERP", "#ChuyenDoiSo", "#DigitalTransformation"]
     }
   ]);
+
+  // Load 3 suggestions from AI on mount
+  useEffect(() => {
+    const loadSuggestions = async () => {
+      setLoadingSuggestions(true);
+      try {
+        const suggestions = await marketingService.fetchSuggestions();
+        setQuickSuggestions(suggestions);
+      } catch (err) {
+        console.error("Lỗi tải gợi ý chiến dịch:", err);
+        toast.error("Không thể tải gợi ý chiến dịch marketing từ AI.");
+      } finally {
+        setLoadingSuggestions(false);
+      }
+    };
+    loadSuggestions();
+  }, []);
 
   const [selectedPillars, setSelectedPillars] = useState<string[]>([
     "Pillar A: Educate & Guides",
@@ -85,19 +123,14 @@ export default function MarketingTab() {
     const topic = (typeof rawTopic === "string" ? rawTopic : campaignInput).trim();
     if (!topic) {
       if (!rawTopic) {
-        alert("⚠️ Vui lòng nhập hoặc chọn một chủ đề/mục tiêu chiến dịch trước!");
+        toast.warning("Vui lòng nhập hoặc chọn một chủ đề/mục tiêu chiến dịch trước!");
       }
       return;
     }
 
     setLoadingPillars(true);
     try {
-      const response = await fetch("/api/gemini/marketing-pillars", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ campaignTopic: topic }),
-      });
-      const data = await response.json();
+      const data = await geminiApi.analyzeMarketingPillars(topic);
       if (data.pillars && Array.isArray(data.pillars) && data.pillars.length > 0) {
         const styles = [
           {
@@ -127,6 +160,7 @@ export default function MarketingTab() {
 
         setPillars(mappedPillars);
         setSelectedPillars(mappedPillars.map((p: any) => p.id));
+        setAnalyzedTopic(topic);
       }
     } catch (err) {
       console.error("Lỗi phân tích Content Pillars:", err);
@@ -138,7 +172,7 @@ export default function MarketingTab() {
   const togglePillar = (id: string) => {
     if (selectedPillars.includes(id)) {
       if (selectedPillars.length === 1) {
-        alert("⚠️ Cần chọn ít nhất 1 trụ cột nội dung để trợ lý AI định hướng.");
+        toast.warning("Cần chọn ít nhất 1 trụ cột nội dung để trợ lý AI định hướng.");
         return;
       }
       setSelectedPillars(selectedPillars.filter(p => p !== id));
@@ -154,99 +188,118 @@ export default function MarketingTab() {
 
     setLoadingAI(true);
     try {
-      const response = await fetch("/api/gemini/marketing-ideas", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          campaignTopic: topic,
-          selectedPillars: selectedPillars
-        }),
-      });
-      const data = await response.json();
+      const data = await geminiApi.generateMarketingIdeas(topic, selectedPillars);
       if (data.concepts) {
         setConcepts(data.concepts);
       }
     } catch (err) {
       console.error(err);
-      alert("Kết nối tới AI Marketing Tool thất bại. Hệ thống sẽ tự phục hồi.");
+      toast.error("Kết nối tới AI Marketing Tool thất bại. Hệ thống sẽ tự phục hồi.");
     } finally {
       setLoadingAI(false);
     }
   };
 
-  // Prepopulate standard suggestions
-  const quickSuggestions = [
-    "Khai trương Showroom linh kiện thiết bị robot mới",
-    "Ưu đãi Black Friday giảm giá cực sốc 45% tai nghe Pro Max",
-    "Tuyển dụng chuyên viên AI Copywriter đãi ngộ cực khủng",
-    "Tri ân hội viên VIP tặng mã voucher VIP-10 độc quyền"
-  ];
-
   // 2. Content Approval and Pipeline States
   const [approvalCards, setApprovalCards] = useState<ContentApprovalCard[]>([]);
+  const autoPublishingRef = React.useRef<Set<string>>(new Set());
 
-  // Real-time Firestore Live Synchronization
+  // Real-time Firestore Live Synchronization - filter theo role
   useEffect(() => {
-    const colRef = collection(db, "marketingContents");
-    const unsubscribe = onSnapshot(colRef, (snapshot) => {
-      const cards: ContentApprovalCard[] = [];
-      snapshot.forEach((doc) => {
-        cards.push(doc.data() as ContentApprovalCard);
-      });
-      
-      // Seed pre-filled high-quality cards if the Firebase collection is completely empty
-      if (snapshot.empty) {
-        const initialCards: ContentApprovalCard[] = [
-          { id: "mod-1", title: "Review Bàn phím Workspace V2", channel: "Facebook", contentType: "Hình ảnh kèm Caption", status: "pending", bodyText: "⌨️ Bạn đã chán cảnh gõ phím kẹt rít, mỏi nhức tay khi ngồi làm việc liên tục 8 tiếng? Nâng cấp phong cách bàn làm việc của bạn cùng Bàn phím cơ Workspace V2 - trải nghiệm lực gõ êm mượt, tối ưu cho năng suất cực hạn!", generatedAt: "Hôm nay, 09:30" },
-          { id: "mod-2", title: "Khai phá Sức mạnh AI trong iGen ERP", channel: "LinkedIn", contentType: "Bài viết chuyên sâu (Pulse/Article)", status: "pending", bodyText: "📊 Thống kê cho thấy hơn 72% doanh nghiệp vừa và nhỏ tại Đông Nam Á vẫn đau đầu vì thông tin đứt quãng giữa CRM và Kho bãi... Hôm nay, hãng iGen ra mắt giải pháp Tích hợp Tự động AI hóa, kết hợp mô hình Gemini 3.5 dự báo thiếu hàng cực kỳ chính xác.", generatedAt: "Hôm qua, 15:00" },
-          { id: "mod-3", title: "Trải nghiệm Đeo X1 Thể dục", channel: "TikTok", contentType: "Kịch bản Video ngắn 15s", status: "draft", bodyText: "🎬 [Mở đầu camera zoom cận cảnh thiết bị X1] Tiếng beep đếm nhịp tim đập. Giọng nói thoại: 'Đừng để mệt mỏi ngăn cản nhịp đập tiến bước của bạn...' Trải nghiệm thể dục năng động thông minh.", generatedAt: "Hôm nay, 10:15" },
-          { id: "mod-4", title: "Công bố Chương trình Flash Sale Tháng 10", channel: "Facebook", contentType: "Hình ảnh Banner", status: "scheduled", bodyText: "🔥 ĐỘC QUYỀN TRÊN IGEN: GIỜ VÀNG SĂN SHOCK từ 12h-14h hôm nay! Giảm giá tới 40% cho tất cả thiết bị đeo thông minh và linh kiện phụ trợ robot.", generatedAt: "Hôm qua, 11:30" }
-        ];
-        initialCards.forEach(async (card) => {
-          try {
-            await setDoc(doc(db, "marketingContents", card.id), card);
-          } catch (e) {
-            handleFirestoreError(e, OperationType.CREATE, "marketingContents/" + card.id);
-          }
-        });
-      } else {
+    const unsubscribe = marketingService.subscribeToContents(
+      (cards) => {
         setApprovalCards(cards);
-      }
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, "marketingContents");
-    });
+      },
+      (error) => {
+        console.error("Lỗi đồng bộ dữ liệu marketing:", error);
+      },
+      userProfile?.uid,
+      userProfile?.role
+    );
 
     return () => unsubscribe();
-  }, []);
+  }, [userProfile?.uid, userProfile?.role]);
 
-  const updateCardStatus = async (id: string, newStatus: "draft" | "pending" | "approved" | "scheduled") => {
+  // Real-time Auto-post checker for Scheduled Cards (Client-side background trigger)
+  useEffect(() => {
+    const checkScheduledCards = async () => {
+      const now = new Date();
+      // Format as YYYY-MM-DD
+      const currentDateStr = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, '0') + "-" + String(now.getDate()).padStart(2, '0');
+      // Format as HH:MM
+      const currentTimeStr = String(now.getHours()).padStart(2, '0') + ":" + String(now.getMinutes()).padStart(2, '0');
+
+      const dueCards = approvalCards.filter(card => {
+        if (card.status !== "scheduled" || !card.scheduledDate) return false;
+        const scheduledTime = card.scheduledTime || "00:00";
+        return (
+          card.scheduledDate < currentDateStr ||
+          (card.scheduledDate === currentDateStr && scheduledTime <= currentTimeStr)
+        );
+      });
+
+      for (const card of dueCards) {
+        if (autoPublishingRef.current.has(card.id)) continue;
+        autoPublishingRef.current.add(card.id);
+
+        console.log(`[iGen Autopost Client] Tự động đăng bài do đến lịch: "${card.title}" (ID: ${card.id})`);
+        const fbIntegration = userProfile?.facebookIntegration;
+        if (!fbIntegration?.isConnected) {
+          console.warn(`[iGen Autopost Client] Bỏ qua "${card.title}": Tài khoản chưa kết nối MXH.`);
+          autoPublishingRef.current.delete(card.id);
+          continue;
+        }
+
+        try {
+          await marketingService.publishToFacebook(
+            card.id,
+            fbIntegration.pageAccessToken,
+            fbIntegration.pageId,
+            card.bodyText,
+            !!fbIntegration.isMock,
+            card.imageUrl
+          );
+          toast.success(`[Tự động] Đã đăng bài "${card.title}" lên Facebook Page thành công!`);
+        } catch (e: any) {
+          console.error(`[iGen Autopost Client] Lỗi tự động đăng bài "${card.title}":`, e);
+          const errMsg = e?.message || e?.details || e?.code || "Lỗi tự động đăng bài.";
+          toast.error(`[Tự động thất bại] ${card.title}: ${errMsg}`);
+        } finally {
+          autoPublishingRef.current.delete(card.id);
+        }
+      }
+    };
+
+    const interval = setInterval(checkScheduledCards, 15000); // Kiểm tra mỗi 15 giây
+    return () => clearInterval(interval);
+  }, [approvalCards, userProfile?.facebookIntegration]);
+
+  const updateCardStatus = async (id: string, newStatus: "draft" | "pending" | "approved" | "scheduled" | "published") => {
+    await marketingService.updateCardStatus(id, newStatus);
+  };
+
+  const handleConfirmSchedule = async () => {
+    if (!schedulingCard) return;
     try {
-      const cardRef = doc(db, "marketingContents", id);
-      await updateDoc(cardRef, { status: newStatus });
+      await marketingService.scheduleCard(schedulingCard.id, scheduleDate, scheduleTime);
+      toast.success(`Đã lên lịch đăng bài "${schedulingCard.title}" thành công!`);
+      setSchedulingCard(null);
     } catch (e) {
-      handleFirestoreError(e, OperationType.UPDATE, "marketingContents/" + id);
+      console.error("Lỗi khi lên lịch bài đăng:", e);
+      toast.error("Lỗi khi lên lịch bài đăng.");
     }
   };
 
   const deleteCard = async (id: string) => {
-    try {
-      const cardRef = doc(db, "marketingContents", id);
-      await deleteDoc(cardRef);
-    } catch (e) {
-      handleFirestoreError(e, OperationType.DELETE, "marketingContents/" + id);
-    }
+    await marketingService.deleteCard(id);
   };
 
   const [promptMore, setPromptMore] = useState("");
   const handleAIGenerateMore = async () => {
     if (!promptMore.trim()) return;
     const card = newProductiveDraft(promptMore);
-    try {
-      await setDoc(doc(db, "marketingContents", card.id), card);
-      setPromptMore("");
-    } catch (e) {
-      handleFirestoreError(e, OperationType.CREATE, "marketingContents/" + card.id);
-    }
+    await marketingService.saveCard(card);
+    setPromptMore("");
   };
 
   const newProductiveDraft = (topic: string): ContentApprovalCard => {
@@ -257,54 +310,108 @@ export default function MarketingTab() {
       contentType: "Bài viết AI Copywriter soạn thảo",
       status: "draft",
       bodyText: `✨ Chào đón sự bứt phá của dự án mới! Về chủ đề đề nghị "${topic}", hãy khởi sắc chiến dịch truyền thông hấp dẫn, tri ân sâu sắc để tiếp xúc với hàng triệu khách hàng mục tiêu tiếp cận iGen giải pháp chuyển đổi số toàn diện. Đăng ký ngay hôm nay để nhận tư vấn!`,
-      generatedAt: "Vừa xong"
+      generatedAt: new Date().toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }),
+      authorUid: userProfile?.uid ?? ''
     };
   };
 
-  const saveConceptToApproval = async (concept: MarketingConcept) => {
-    const card: ContentApprovalCard = {
-      id: "mod_cust_" + Date.now(),
-      title: concept.title,
-      channel: "Facebook",
-      contentType: "AI sinh ra từ Concept",
-      status: "pending",
-      bodyText: concept.suggestedContent,
-      generatedAt: "Vừa xong"
-    };
+  const handleDevelopConcept = async (concept: MarketingConcept, idx: number) => {
+    setDevelopingIdx(idx);
     try {
-      await setDoc(doc(db, "marketingContents", card.id), card);
-      setSubTab("DUYỆT NỘI DUNG");
+      const result = await marketingService.developIdea({
+        title: concept.title,
+        summary: concept.summary,
+        suggestedContent: concept.suggestedContent,
+        channels: concept.channels
+      });
+
+      if (result && result.posts) {
+        const newCards: ContentApprovalCard[] = result.posts.map((post: any, index: number) => {
+          const { outline, bodyText } = splitOutlineAndDraft(post.bodyText);
+          return {
+            id: `mod_dev_${Date.now()}_${index}_${Math.floor(Math.random() * 1000)}`,
+            title: concept.title,
+            channel: post.channel as any,
+            contentType: post.contentType,
+            status: "pending",
+            outline,
+            bodyText,
+            generatedAt: "Vừa xong",
+            authorUid: userProfile?.uid ?? ''
+          };
+        });
+
+        await marketingService.saveCards(newCards);
+        setSubTab("DUYỆT NỘI DUNG");
+      }
     } catch (e) {
-      handleFirestoreError(e, OperationType.CREATE, "marketingContents/" + card.id);
+      console.error("Lỗi phát triển ý tưởng đa kênh:", e);
+      toast.error("Lỗi kết nối Trợ lý AI khi lập dàn ý chi tiết.");
+    } finally {
+      setDevelopingIdx(null);
     }
   };
 
-  // 3. Publishing Calendar grid (October 2026 - custom-designed)
-  const calendarEvents: PublishEvent[] = [
-    { id: "cal-1", date: 4, title: "Facebook Post: Mua X1 tặng voucher", type: "Post", channel: "Facebook", status: "Published" },
-    { id: "cal-2", date: 12, title: "LinkedIn: Số hóa kho cùng iGen", type: "Pulse Article", channel: "LinkedIn", status: "Approved" },
-    { id: "cal-3", date: 18, title: "TikTok: Giới thiệu Workspace V2", type: "Video kịch bản", channel: "TikTok", status: "Draft" },
-    { id: "cal-4", date: 25, title: "Facebook: Cảnh báo Laptop XPS", type: "Post", channel: "Facebook", status: "Draft" },
+  // 3. Publishing Calendar grid
+  const monthNamesVi = [
+    "THÁNG 1", "THÁNG 2", "THÁNG 3", "THÁNG 4", "THÁNG 5", "THÁNG 6",
+    "THÁNG 7", "THÁNG 8", "THÁNG 9", "THÁNG 10", "THÁNG 11", "THÁNG 12"
   ];
 
-  const joinedEvents: PublishEvent[] = [
-    ...calendarEvents,
-    ...approvalCards
-      .filter((c) => c.status === "scheduled")
-      .map((c, index) => {
-        const assignedDay = ((index * 5 + 11) % 28) + 1;
-        return {
-          id: c.id,
-          date: assignedDay,
-          title: `[Lịch đăng] ${c.title}`,
-          type: c.contentType,
-          channel: c.channel,
-          status: "Approved" as const,
-        };
-      })
-  ];
+  const handlePrevMonth = () => {
+    if (currentMonth === 0) {
+      setCurrentMonth(11);
+      setCurrentYear(currentYear - 1);
+    } else {
+      setCurrentMonth(currentMonth - 1);
+    }
+    setSelectedDay(null);
+  };
 
-  const [selectedDay, setSelectedDay] = useState<number | null>(4);
+  const handleNextMonth = () => {
+    if (currentMonth === 11) {
+      setCurrentMonth(0);
+      setCurrentYear(currentYear + 1);
+    } else {
+      setCurrentMonth(currentMonth + 1);
+    }
+    setSelectedDay(null);
+  };
+
+  const startOffset = (() => {
+    const firstDayIndex = new Date(currentYear, currentMonth, 1).getDay();
+    return firstDayIndex === 0 ? 6 : firstDayIndex - 1;
+  })();
+
+  const prevMonthLastDate = new Date(currentYear, currentMonth, 0).getDate();
+  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+
+  const joinedEvents: PublishEvent[] = (approvalCards || [])
+    .filter((c) => c.status === "scheduled")
+    .map((c, index) => {
+      let assignedDay = ((index * 5 + 11) % 28) + 1;
+      if (c.scheduledDate) {
+        const dateObj = new Date(c.scheduledDate);
+        if (!isNaN(dateObj.getTime())) {
+          if (dateObj.getFullYear() === currentYear && dateObj.getMonth() === currentMonth) {
+            assignedDay = dateObj.getDate();
+          } else {
+            return null;
+          }
+        }
+      }
+      return {
+        id: c.id,
+        date: assignedDay,
+        title: `[Lịch đăng] ${c.title}${c.scheduledTime ? ` - ${c.scheduledTime}` : ""}`,
+        type: c.contentType,
+        channel: c.channel,
+        status: "Approved" as const,
+      };
+    })
+    .filter((e): e is PublishEvent => e !== null);
+
+  const [selectedDay, setSelectedDay] = useState<number | null>(null);
 
   return (
     <div className="flex flex-col h-full bg-white max-h-[85vh] overflow-hidden" id="marketing_tab_wrapper">
@@ -316,10 +423,10 @@ export default function MarketingTab() {
             <button
               key={tab}
               onClick={() => setSubTab(tab as MarketingSubTabType)}
-              className={`px-4 py-2 bg-white rounded-lg border font-bold uppercase transition-all tracking-wide ${
+              className={`px-4 py-2 rounded-lg border font-bold uppercase transition-all tracking-wide ${
                 subTab === tab 
                   ? "bg-slate-800 text-white border-slate-800 shadow-xs" 
-                  : "text-gray-500 border-gray-200 hover:bg-gray-100"
+                  : "bg-white text-gray-500 border-gray-200 hover:bg-gray-100"
               }`}
             >
               {tab}
@@ -355,31 +462,53 @@ export default function MarketingTab() {
                       value={campaignInput}
                       onChange={(e) => setCampaignInput(e.target.value)}
                     />
+                    {campaignInput.trim() && campaignInput.trim() !== analyzedTopic.trim() && (
+                      <p className="text-[10px] text-amber-600 font-bold font-mono tracking-wide animate-pulse mt-1 select-none text-left">
+                        ⚠️ Bạn đã thay đổi nội dung mục tiêu. Vui lòng bấm "Phân tích Mục tiêu & Đề xuất Trụ cột AI" ở cột bên phải trước để cập nhật định hướng trước khi phát sinh ý tưởng!
+                      </p>
+                    )}
                     
                     {/* Quick suggestions chips bubble list */}
                     <div className="space-y-1.5 font-sans">
                       <span className="text-[10px] font-bold text-gray-400 font-mono uppercase tracking-wider block">Gợi ý chủ đề nhanh:</span>
                       <div className="flex flex-wrap gap-2">
-                        {quickSuggestions.map((s, idx) => {
-                          const isMatch = campaignInput === s;
-                          return (
-                            <button 
-                              key={idx}
-                              type="button"
-                              onClick={() => {
-                                setCampaignInput(s);
-                                handleAnalyzePillars(s);
-                              }}
-                              className={`px-2.5 py-1 text-[10px] rounded-md font-medium transition-all cursor-pointer select-none border ${
-                                isMatch
-                                  ? "bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-600 shadow-xs transform scale-102 font-semibold"
-                                  : "bg-white hover:bg-slate-100 text-gray-650 text-gray-600 border-gray-200"
-                              }`}
-                            >
-                              {s}
-                            </button>
-                          );
-                        })}
+                        {loadingSuggestions ? (
+                          <>
+                            <div className="px-2.5 py-1 text-[10px] rounded-md border border-gray-100 bg-slate-50 text-gray-400 flex items-center gap-1.5 animate-pulse select-none">
+                              <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-ping" />
+                              <span>Gợi ý 1 đang tải...</span>
+                            </div>
+                            <div className="px-2.5 py-1 text-[10px] rounded-md border border-gray-100 bg-slate-50 text-gray-400 flex items-center gap-1.5 animate-pulse select-none">
+                              <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-ping" />
+                              <span>Gợi ý 2 đang tải...</span>
+                            </div>
+                            <div className="px-2.5 py-1 text-[10px] rounded-md border border-gray-100 bg-slate-50 text-gray-400 flex items-center gap-1.5 animate-pulse select-none">
+                              <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-ping" />
+                              <span>Gợi ý 3 đang tải...</span>
+                            </div>
+                          </>
+                        ) : (
+                          quickSuggestions.map((s, idx) => {
+                            const isMatch = campaignInput === s;
+                            return (
+                              <button 
+                                key={idx}
+                                type="button"
+                                onClick={() => {
+                                  setCampaignInput(s);
+                                  handleAnalyzePillars(s);
+                                }}
+                                className={`px-2.5 py-1 text-[10px] rounded-md font-medium transition-all cursor-pointer select-none border ${
+                                  isMatch
+                                    ? "bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-600 shadow-xs transform scale-102 font-semibold"
+                                    : "bg-white hover:bg-slate-100 text-gray-650 text-gray-600 border-gray-200"
+                                }`}
+                              >
+                                {s}
+                              </button>
+                            );
+                          })
+                        )}
                       </div>
                     </div>
                   </form>
@@ -388,9 +517,9 @@ export default function MarketingTab() {
                 <div className="mt-6 pt-4 border-t border-gray-200 flex justify-end">
                   <button 
                     onClick={handleGenerateIdeas}
-                    disabled={loadingAI || !campaignInput.trim()}
+                    disabled={loadingAI || !campaignInput.trim() || campaignInput.trim() !== analyzedTopic.trim()}
                     className={`px-5 py-2.5 rounded-xl text-xs font-bold font-sans flex items-center gap-2 select-none shadow-sm transition-all ${
-                      loadingAI || !campaignInput.trim()
+                      loadingAI || !campaignInput.trim() || campaignInput.trim() !== analyzedTopic.trim()
                         ? "bg-gray-200 text-gray-400 cursor-not-allowed"
                         : "bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer active:scale-95"
                     }`}
@@ -499,6 +628,16 @@ export default function MarketingTab() {
                           </span>
                         ))}
                       </div>
+
+                      {concept.hashtags && concept.hashtags.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          {concept.hashtags.map((tag, tidx) => (
+                            <span key={tidx} className="text-[10px] font-mono text-indigo-500 font-semibold">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                     <div className="mt-5 border-t border-gray-100 pt-4 bg-gray-50 p-4 rounded-xl border border-dashed">
@@ -510,10 +649,22 @@ export default function MarketingTab() {
                       
                       <div className="mt-3.5 flex justify-end gap-2 text-xs">
                         <button 
-                          onClick={() => saveConceptToApproval(concept)}
-                          className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold select-none text-[10px] transition-all transform hover:scale-105 active:scale-95 cursor-pointer flex items-center gap-1"
+                          onClick={() => handleDevelopConcept(concept, idx)}
+                          disabled={developingIdx !== null}
+                          className={`px-3 py-1.5 text-white rounded-lg font-bold select-none text-[10px] transition-all transform hover:scale-105 active:scale-95 cursor-pointer flex items-center gap-1 ${
+                            developingIdx === idx ? "bg-purple-600 hover:bg-purple-700" : "bg-indigo-600 hover:bg-indigo-700"
+                          }`}
                         >
-                          Chuyển sang Chờ duyệt 📋
+                          {developingIdx === idx ? (
+                            <>
+                              <RefreshCw className="h-3 w-3 animate-spin" />
+                              <span>Đang viết chi tiết...</span>
+                            </>
+                          ) : (
+                            <>
+                              <span>Phát triển tiếp 🚀</span>
+                            </>
+                          )}
                         </button>
                       </div>
                     </div>
@@ -529,6 +680,12 @@ export default function MarketingTab() {
         {subTab === "DUYỆT NỘI DUNG" && (
           <div className="space-y-6" id="moderation_pipeline_tab">
             
+            {isUserRole && (
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-center gap-3 text-amber-800 text-xs font-semibold select-none text-left">
+                <span>🔒 Bạn đang sử dụng tài khoản quyền **USER**. Bạn có quyền tạo bài viết mới, gửi duyệt nháp, lên lịch đăng tải và xóa bài viết của mình, nhưng không có quyền phê duyệt bài viết đang chờ duyệt.</span>
+              </div>
+            )}
+
             {/* Quick Prompt generator row */}
             <div className="p-4 bg-slate-50 border border-gray-200 rounded-2xl flex gap-3 items-end" id="prompt_more_bar">
               <div className="flex-1">
@@ -543,15 +700,20 @@ export default function MarketingTab() {
               </div>
               <button 
                 onClick={handleAIGenerateMore}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg flex items-center gap-1 shrink-0"
+                disabled={!promptMore.trim()}
+                className={`px-4 py-2 text-white text-xs font-bold rounded-lg flex items-center gap-1 shrink-0 transition-all ${
+                  !promptMore.trim()
+                    ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                    : "bg-indigo-600 hover:bg-indigo-700 cursor-pointer active:scale-95"
+                }`}
               >
                 <Sparkles className="h-4 w-4" />
                 AI viết bài đăng mới
               </button>
             </div>
 
-            {/* Content pipeline grid columns: 4 distinct stages */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4" id="moderation_columns">
+            {/* Content pipeline grid columns: 5 distinct stages */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4" id="moderation_columns">
               
               {/* STATUS 1: DRAFT (BẢN NHÁP) */}
               <div className="bg-gray-50 border border-gray-150 rounded-2xl p-3 flex flex-col min-h-[450px]">
@@ -592,7 +754,7 @@ export default function MarketingTab() {
                       <ModerationPipCard 
                         key={card.id} 
                         card={card} 
-                        onNextStatus={() => updateCardStatus(card.id, "approved")}
+                        onNextStatus={isUserRole ? null : () => updateCardStatus(card.id, "approved")}
                         onPrevStatus={() => updateCardStatus(card.id, "draft")}
                         onDelete={() => deleteCard(card.id)} 
                       />
@@ -616,8 +778,12 @@ export default function MarketingTab() {
                       <ModerationPipCard 
                         key={card.id} 
                         card={card} 
-                        onNextStatus={() => updateCardStatus(card.id, "scheduled")}
-                        onPrevStatus={() => updateCardStatus(card.id, "pending")}
+                        onNextStatus={() => {
+                          setSchedulingCard(card);
+                          setScheduleDate(new Date().toISOString().split('T')[0]);
+                          setScheduleTime("09:00");
+                        }}
+                        onPrevStatus={isUserRole ? null : () => updateCardStatus(card.id, "pending")}
                         onDelete={() => deleteCard(card.id)} 
                       />
                     ))
@@ -637,13 +803,32 @@ export default function MarketingTab() {
                     <div className="p-8 text-center text-gray-400 text-xs italic leading-normal">Kéo duyệt để lên lịch!</div>
                   ) : (
                     approvalCards.filter(c => c.status === "scheduled").map(card => (
-                      <ModerationPipCard 
+                      <ScheduledCard 
                         key={card.id} 
                         card={card} 
-                        onNextStatus={null}
+                        isUserRole={isUserRole}
                         onPrevStatus={() => updateCardStatus(card.id, "approved")}
-                        onDelete={() => deleteCard(card.id)} 
+                        onDelete={() => deleteCard(card.id)}
+                        fbIntegration={userProfile?.facebookIntegration}
                       />
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* STATUS 5: PUBLISHED (ĐÃ ĐĂNG TẢI) */}
+              <div className="bg-green-50/70 border border-green-200 rounded-2xl p-3 flex flex-col min-h-[450px]">
+                <div className="flex justify-between items-center mb-3 pb-2 border-b border-green-200">
+                  <span className="text-[11px] font-bold text-green-800 tracking-wider flex items-center gap-1">
+                    ✅ ĐÃ ĐĂNG TẢI ({approvalCards.filter(c => c.status === "published").length})
+                  </span>
+                </div>
+                <div className="space-y-3 flex-1 overflow-y-auto max-h-[500px] pr-1">
+                  {approvalCards.filter(c => c.status === "published").length === 0 ? (
+                    <div className="p-8 text-center text-gray-400 text-xs italic leading-normal">Chưa có bài nào được đăng tải!</div>
+                  ) : (
+                    approvalCards.filter(c => c.status === "published").map(card => (
+                      <PublishedCard key={card.id} card={card} onDelete={() => deleteCard(card.id)} isUserRole={isUserRole} />
                     ))
                   )}
                 </div>
@@ -662,12 +847,12 @@ export default function MarketingTab() {
                 <div className="flex justify-between items-center mb-5">
                   <h4 className="font-bold text-slate-800 text-sm font-sans tracking-tight flex items-center gap-2">
                     <Calendar className="h-4.5 w-4.5 text-blue-500" />
-                    Lịch Xuất Bản Content • Tháng 10, 2026
+                    Lịch Xuất Bản Content • {monthNamesVi[currentMonth]}, {currentYear}
                   </h4>
                   <div className="flex items-center gap-1 bg-white p-1 rounded-md border text-[11px] font-mono select-none">
-                    <button className="p-1 hover:bg-slate-100 rounded-sm">‹</button>
-                    <span className="font-bold px-2">THÁNG 10, 2026</span>
-                    <button className="p-1 hover:bg-slate-100 rounded-sm">›</button>
+                    <button onClick={handlePrevMonth} className="p-1 hover:bg-slate-100 rounded-sm cursor-pointer">‹</button>
+                    <span className="font-bold px-2">{monthNamesVi[currentMonth]}, {currentYear}</span>
+                    <button onClick={handleNextMonth} className="p-1 hover:bg-slate-100 rounded-sm cursor-pointer">›</button>
                   </div>
                 </div>
 
@@ -681,14 +866,19 @@ export default function MarketingTab() {
                   <div>CN</div>
                 </div>
 
-                {/* Grid squares rendering 35 items */}
+                {/* Grid squares rendering dynamic items */}
                 <div className="grid grid-cols-7 gap-1 font-mono text-[11px]" id="calendar_days_grid">
                   {/* Mock padded previous month days */}
-                  <div className="h-16 p-2 bg-gray-150 text-gray-300 rounded-lg select-none text-left">28</div>
-                  <div className="h-16 p-2 bg-gray-150 text-gray-300 rounded-lg select-none text-left">29</div>
-                  <div className="h-16 p-2 bg-gray-150 text-gray-300 rounded-lg select-none text-left">30</div>
+                  {Array.from({ length: startOffset }).map((_, idx) => {
+                    const dayVal = prevMonthLastDate - startOffset + idx + 1;
+                    return (
+                      <div key={`prev-${idx}`} className="h-16 p-2 bg-gray-150 text-gray-300 rounded-lg select-none text-left opacity-40">
+                        {dayVal}
+                      </div>
+                    );
+                  })}
 
-                  {Array.from({ length: 31 }).map((_, dIdx) => {
+                  {Array.from({ length: daysInMonth }).map((_, dIdx) => {
                     const dayNum = dIdx + 1;
                     const matchEvents = joinedEvents.filter(e => e.date === dayNum);
                     const isSelected = selectedDay === dayNum;
@@ -733,12 +923,20 @@ export default function MarketingTab() {
             <div className="bg-white border p-6 rounded-2xl flex flex-col justify-between" id="calendar_events_details_col">
               {selectedDay ? (
                 <div>
-                  <h4 className="font-bold text-gray-850 text-sm font-sans tracking-tight uppercase">
-                    📅 Lịch đăng tải ngày {selectedDay}/10/2026
-                  </h4>
+                  <div className="flex justify-between items-center">
+                    <h4 className="font-bold text-gray-850 text-sm font-sans tracking-tight uppercase">
+                      📅 Lịch đăng ngày {selectedDay}/{currentMonth + 1}/{currentYear}
+                    </h4>
+                    <button 
+                      onClick={() => setSelectedDay(null)}
+                      className="px-2 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded font-mono text-[9px] font-bold border border-indigo-150 transition-colors cursor-pointer"
+                    >
+                      Xem tất cả ✕
+                    </button>
+                  </div>
                   <p className="text-xs text-gray-400 mt-1">Danh sách chuỗi nội dung truyền thông cần vận hành trong ngày.</p>
 
-                  <div className="h-64 overflow-y-auto mt-6 space-y-4 text-xs text-slate-650 text-left">
+                  <div className="h-64 overflow-y-auto mt-6 space-y-4 text-xs text-slate-655 text-left">
                     {joinedEvents.filter(e => e.date === selectedDay).length === 0 ? (
                       <div className="p-8 text-center bg-gray-50 text-gray-400 italic rounded-xl">
                         Không có lịch đăng tải nào được lập cho ngày này! Bạn có thể chuyển bản nháp sang Chờ đăng tải.
@@ -771,18 +969,71 @@ export default function MarketingTab() {
                   </div>
                 </div>
               ) : (
-                <div className="p-8 text-center text-gray-400">
-                  Vui lòng click chọn một ngày có sự kiện trên lịch để quan sát.
+                <div>
+                  <div className="flex justify-between items-center">
+                    <h4 className="font-bold text-gray-850 text-sm font-sans tracking-tight uppercase">
+                      📅 Lịch đăng tháng {currentMonth + 1}/{currentYear}
+                    </h4>
+                    <span className="px-2 py-0.5 bg-slate-100 rounded font-mono text-[9px] font-bold border border-gray-205">
+                      {joinedEvents.length} bài viết
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">Tất cả bài đăng dự kiến trong tháng này.</p>
+
+                  <div className="h-64 overflow-y-auto mt-6 space-y-4 text-xs text-slate-655 text-left">
+                    {joinedEvents.length === 0 ? (
+                      <div className="p-8 text-center bg-gray-50 text-gray-400 italic rounded-xl">
+                        Không có lịch đăng tải nào được lập trong tháng này!
+                      </div>
+                    ) : (
+                      [...joinedEvents]
+                        .sort((a, b) => a.date - b.date)
+                        .map(event => (
+                          <div key={event.id} className="p-4 bg-slate-50 border border-gray-150 rounded-xl relative flex flex-col gap-2">
+                            <div className="flex justify-between items-center">
+                              <span className="px-2 py-0.5 bg-slate-200 rounded-sm font-bold font-mono text-[9px] uppercase">
+                                Ngày {event.date} • {event.channel}
+                              </span>
+                              <span className={`px-2 py-0.5 rounded-sm font-bold font-mono text-[9px] uppercase text-white ${
+                                event.status === "Published" 
+                                  ? "bg-green-500" 
+                                  : event.status === "Approved" 
+                                    ? "bg-blue-600" 
+                                    : "bg-amber-500"
+                              }`}>
+                                {event.status}
+                              </span>
+                            </div>
+                            <h5 className="font-bold font-sans text-xs text-slate-800 leading-normal">{event.title}</h5>
+                            <span className="text-[10px] text-slate-400 font-mono flex items-center gap-1">
+                              <Clock className="w-3.5 h-3.5" />
+                              Định dạng: {event.type}
+                            </span>
+                          </div>
+                        ))
+                    )}
+                  </div>
                 </div>
               )}
 
               <div className="mt-4 pt-4 border-t border-gray-150 flex flex-col gap-2">
                 <button 
-                  onClick={() => alert("Kích hoạt kết nốt Autopost tự động qua Meta & Tiktok APIs của iGen ERP!")}
-                  className="w-full text-center py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-2"
+                  onClick={() => {
+                    if (isUserRole) {
+                      toast.error("Tài khoản quyền USER không có quyền kích hoạt Autopost!");
+                      return;
+                    }
+                    toast.success("Kích hoạt kết nối Autopost tự động qua Meta & Tiktok APIs của iGen ERP thành công!");
+                  }}
+                  disabled={isUserRole}
+                  className={`w-full text-center py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-2 ${
+                    isUserRole
+                      ? "bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed select-none"
+                      : "bg-blue-600 hover:bg-blue-700 text-white cursor-pointer active:scale-95"
+                  }`}
                 >
                   <Calendar className="h-4 w-4" />
-                  Kích hoạt Autopost đồng bộ
+                  <span>{isUserRole ? "🔒 Quyền Autopost bị hạn chế" : "Kích hoạt Autopost đồng bộ"}</span>
                 </button>
               </div>
             </div>
@@ -790,6 +1041,80 @@ export default function MarketingTab() {
         )}
 
       </div>
+
+      {schedulingCard && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fadeIn" id="schedule_modal_backdrop">
+          <div className="bg-white rounded-3xl border border-gray-200/50 shadow-2xl w-full max-w-md overflow-hidden font-sans">
+            
+            <div className="p-6 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+              <div>
+                <h4 className="font-bold text-gray-800 text-base flex items-center gap-2">
+                  <Calendar className="h-5 w-5 text-indigo-600 animate-pulse" />
+                  Lên lịch đăng bài viết
+                </h4>
+                <p className="text-xs text-gray-400 mt-1">Chọn ngày và giờ đăng bài lên kênh truyền thông</p>
+              </div>
+              <button 
+                onClick={() => setSchedulingCard(null)}
+                className="p-1 px-3 text-sm text-slate-400 hover:text-slate-655 hover:bg-slate-100 rounded-md font-bold transition-all cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4 text-xs text-left">
+              <div className="bg-slate-50 p-3.5 rounded-xl border border-dashed border-gray-200">
+                <p className="text-[10px] text-gray-400 font-mono uppercase tracking-wider">Bài viết được chọn:</p>
+                <h5 className="font-bold text-gray-800 text-xs mt-1 leading-snug">{schedulingCard.title}</h5>
+                <span className="inline-block mt-1.5 px-2 py-0.5 bg-indigo-50 border border-indigo-150 rounded text-[9px] font-mono text-indigo-700">
+                  Kênh: {schedulingCard.channel}
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-gray-500 font-bold mb-1.5 uppercase tracking-wide text-[10px]">Ngày đăng bài *</label>
+                <input 
+                  type="date" 
+                  required
+                  className="w-full p-2.5 border border-gray-200 rounded-lg text-xs font-mono focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                  value={scheduleDate}
+                  onChange={(e) => setScheduleDate(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-500 font-bold mb-1.5 uppercase tracking-wide text-[10px]">Giờ đăng bài *</label>
+                <input 
+                  type="time" 
+                  required
+                  className="w-full p-2.5 border border-gray-200 rounded-lg text-xs font-mono focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                  value={scheduleTime}
+                  onChange={(e) => setScheduleTime(e.target.value)}
+                />
+              </div>
+
+              <div className="pt-4 border-t border-gray-100 flex gap-2 justify-end">
+                <button 
+                  type="button" 
+                  onClick={() => setSchedulingCard(null)}
+                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-bold transition-all cursor-pointer text-xs"
+                >
+                  Bỏ qua
+                </button>
+                <button 
+                  type="button" 
+                  onClick={handleConfirmSchedule}
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold transition-colors cursor-pointer text-xs shadow-sm"
+                >
+                  Xác nhận lên lịch
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
@@ -799,7 +1124,7 @@ interface ModerationPipCardProps {
   card: ContentApprovalCard;
   onNextStatus?: (() => void) | null;
   onPrevStatus?: (() => void) | null;
-  onDelete: () => void;
+  onDelete?: (() => void) | null;
 }
 
 // PIPELINE CARD widget component representing moderation cards
@@ -825,6 +1150,13 @@ function ModerationPipCard({
         {card.bodyText}
       </p>
 
+      {card.outline && (
+        <details className="text-[10px] text-gray-500 bg-slate-50/80 p-2 rounded-lg border border-gray-150">
+          <summary className="cursor-pointer font-bold text-gray-600 select-none text-[9px] font-mono">🔍 XEM DÀN Ý (OUTLINE)</summary>
+          <div className="mt-1.5 whitespace-pre-wrap font-sans text-gray-500 leading-relaxed border-t border-gray-100 pt-1.5 max-h-[100px] overflow-y-auto">{card.outline}</div>
+        </details>
+      )}
+
       {/* Detail list status */}
       <div className="flex items-center justify-between border-t border-gray-100 pt-2 text-[9px]">
         <span className="text-gray-400 font-mono text-[8px]">{card.generatedAt}</span>
@@ -841,13 +1173,15 @@ function ModerationPipCard({
             </button>
           )}
 
-          <button 
-            onClick={onDelete}
-            title="Xóa bài đăng"
-            className="p-1 text-red-500 hover:bg-red-50 rounded-md font-bold transition-all flex items-center justify-center cursor-pointer"
-          >
-            <Trash2 className="h-3 w-3" />
-          </button>
+          {onDelete && (
+            <button 
+              onClick={onDelete}
+              title="Xóa bài đăng"
+              className="p-1 text-red-500 hover:bg-red-50 rounded-md font-bold transition-all flex items-center justify-center cursor-pointer"
+            >
+              <Trash2 className="h-3 w-3" />
+            </button>
+          )}
 
           {onNextStatus && (
             <button 
@@ -867,6 +1201,134 @@ function ModerationPipCard({
         </div>
       </div>
 
+    </div>
+  );
+}
+
+// SCHEDULED CARD - hiển thị với nút đăng Facebook
+interface ScheduledCardProps {
+  key?: string;
+  card: ContentApprovalCard;
+  isUserRole: boolean;
+  onPrevStatus: () => void;
+  onDelete: () => void;
+  fbIntegration?: { isConnected: boolean; pageId: string; pageName: string; pageAccessToken: string; isMock?: boolean } | null;
+}
+
+function ScheduledCard({ card, isUserRole, onPrevStatus, onDelete, fbIntegration }: ScheduledCardProps) {
+  return (
+    <div className="bg-white border text-left border-gray-150/70 p-3.5 rounded-xl shadow-xs hover:shadow-md transition-all flex flex-col gap-2 relative group" id={`scheduled_card_${card.id}`}>
+      
+      <div className="flex justify-between items-center">
+        <span className="px-2 py-0.5 bg-indigo-50 border border-indigo-150 rounded-sm text-[9px] font-mono font-bold text-indigo-700 tracking-wider">
+          {card.channel}
+        </span>
+        <span className="text-[9px] text-gray-400 font-mono tracking-wide">{card.contentType}</span>
+      </div>
+
+      <h5 className="font-bold text-gray-800 leading-tight text-xs font-sans line-clamp-2">{card.title}</h5>
+      <p className="text-[11px] text-gray-500 leading-relaxed font-sans bg-slate-50/50 p-2 rounded-lg border border-dashed select-text max-h-[100px] overflow-y-auto">
+        {card.bodyText}
+      </p>
+
+      {card.outline && (
+        <details className="text-[10px] text-gray-500 bg-slate-50/80 p-2 rounded-lg border border-gray-150">
+          <summary className="cursor-pointer font-bold text-gray-600 select-none text-[9px] font-mono">🔍 XEM DÀN Ý (OUTLINE)</summary>
+          <div className="mt-1.5 whitespace-pre-wrap font-sans text-gray-500 leading-relaxed border-t border-gray-100 pt-1.5 max-h-[80px] overflow-y-auto">{card.outline}</div>
+        </details>
+      )}
+
+      {card.scheduledDate && (
+        <div className="flex items-center gap-1 text-[10px] text-emerald-700 font-mono bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-md">
+          <Clock className="h-3 w-3" />
+          {card.scheduledDate} {card.scheduledTime && `lúc ${card.scheduledTime}`}
+        </div>
+      )}
+
+      <div className="flex items-center justify-between border-t border-gray-100 pt-2 text-[9px]">
+        <span className="text-gray-400 font-mono text-[8px]">{card.generatedAt}</span>
+        <div className="flex items-center gap-1">
+          <button onClick={onPrevStatus} title="Quay lại: Đã duyệt"
+            className="p-1 text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-md font-bold transition-all flex items-center justify-center cursor-pointer">
+            <ArrowLeft className="h-3 w-3" />
+          </button>
+          <button onClick={onDelete} title="Xóa bài đăng"
+            className="p-1 text-red-500 hover:bg-red-50 rounded-md font-bold transition-all flex items-center justify-center cursor-pointer">
+            <Trash2 className="h-3 w-3" />
+          </button>
+          <span className="px-1.5 py-0.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-sm text-[8px] font-bold font-mono">
+            ✓ LỊCH
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// PUBLISHED CARD - hiển thị bài đã đăng lên Facebook
+interface PublishedCardProps {
+  key?: string;
+  card: ContentApprovalCard;
+  onDelete: () => void;
+  isUserRole: boolean;
+}
+
+function PublishedCard({ card, onDelete, isUserRole }: PublishedCardProps) {
+  const mockPageUrl = `https://www.facebook.com/permalink.php?story_fbid=${card.facebookPostId}&id=mock`;
+
+  return (
+    <div className="bg-white border text-left border-green-200 p-3.5 rounded-xl shadow-xs hover:shadow-md transition-all flex flex-col gap-2 relative" id={`published_card_${card.id}`}>
+      
+      <div className="flex justify-between items-center">
+        <span className="flex items-center gap-1 px-2 py-0.5 bg-green-100 border border-green-300 rounded-sm text-[9px] font-mono font-bold text-green-700 tracking-wider">
+          <CheckCircle2 className="h-3 w-3" /> ĐÃ ĐĂNG
+        </span>
+        <span className="text-[9px] text-gray-400 font-mono">{card.channel}</span>
+      </div>
+
+      <h5 className="font-bold text-gray-800 leading-tight text-xs font-sans line-clamp-2">{card.title}</h5>
+      <p className="text-[11px] text-gray-500 leading-relaxed font-sans bg-green-50/50 p-2 rounded-lg border border-dashed border-green-200 select-text max-h-[80px] overflow-y-auto">
+        {card.bodyText}
+      </p>
+
+      {card.outline && (
+        <details className="text-[10px] text-gray-500 bg-slate-50/80 p-2 rounded-lg border border-gray-150">
+          <summary className="cursor-pointer font-bold text-gray-600 select-none text-[9px] font-mono">🔍 XEM DÀN Ý (OUTLINE)</summary>
+          <div className="mt-1.5 whitespace-pre-wrap font-sans text-gray-500 leading-relaxed border-t border-gray-100 pt-1.5 max-h-[80px] overflow-y-auto">{card.outline}</div>
+        </details>
+      )}
+
+      {card.publishedAt && (
+        <div className="text-[10px] text-green-700 font-mono bg-green-50 border border-green-200 px-2 py-1 rounded-md flex items-center gap-1">
+          <CheckCircle2 className="h-3 w-3" />
+          Đăng lúc: {new Date(card.publishedAt).toLocaleString('vi-VN')}
+        </div>
+      )}
+
+      {card.facebookPostId && (
+        <div
+          title={`Facebook Post ID: ${card.facebookPostId}`}
+          className="text-[10px] text-blue-600 font-mono bg-blue-50 border border-blue-200 px-2 py-1 rounded-md flex items-center justify-between gap-1 cursor-pointer hover:bg-blue-100 transition-colors"
+          onClick={() => {
+            if (card.facebookPostId?.includes('mock')) {
+              toast.success(`[Demo] Bài đăng Facebook ID: ${card.facebookPostId}`);
+            }
+          }}
+        >
+          <span className="flex items-center gap-1">
+            <Facebook className="h-3 w-3" />
+            Post ID: {card.facebookPostId?.slice(0, 20)}...
+          </span>
+          <ExternalLink className="h-3 w-3 shrink-0" />
+        </div>
+      )}
+
+      <div className="flex items-center justify-end border-t border-gray-100 pt-2">
+        <button onClick={onDelete} title="Xóa bài đăng"
+          className="p-1 text-red-400 hover:bg-red-50 rounded-md transition-all flex items-center justify-center cursor-pointer">
+          <Trash2 className="h-3 w-3" />
+        </button>
+      </div>
     </div>
   );
 }

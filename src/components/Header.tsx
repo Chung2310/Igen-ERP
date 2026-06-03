@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-import { Search, Bell, Sparkles, User, Settings, CheckCircle } from "lucide-react";
+import { Search, Bell, Sparkles, User, Settings, CheckCircle, LogOut } from "lucide-react";
 import { TabType } from "../types";
+import { useAuth } from "../context/AuthContext";
 
 interface HeaderProps {
   currentTab: TabType;
@@ -8,9 +9,11 @@ interface HeaderProps {
 }
 
 export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
+  const { userProfile, logout } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [showResults, setShowResults] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
 
   // Match pages/sections for quick omni-search
   const searchIndex = [
@@ -152,14 +155,70 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
         </div>
 
         {/* Profile */}
-        <div className="flex items-center gap-3 pl-4 border-l border-gray-200" id="user_profile_box">
-          <div className="hidden lg:block text-right">
-            <p className="text-sm font-semibold text-gray-800">iGen Administrator</p>
-            <p className="text-[10px] text-gray-400 font-mono">ROLE: SUPER_ADMIN</p>
+        <div className="relative" id="user_profile_container">
+          <div 
+            className="flex items-center gap-3 pl-4 border-l border-gray-200 cursor-pointer select-none group active:scale-98 transition-transform" 
+            id="user_profile_box"
+            onClick={() => setShowProfileMenu(!showProfileMenu)}
+          >
+            <div className="hidden lg:block text-right">
+              <p className="text-sm font-semibold text-gray-800 group-hover:text-blue-600 transition-colors">
+                {userProfile ? userProfile.displayName : "iGen Administrator"}
+              </p>
+            </div>
+            {userProfile?.photoURL ? (
+              <img 
+                src={userProfile.photoURL} 
+                alt={userProfile.displayName} 
+                className="w-9 h-9 rounded-full object-cover border border-gray-200 shadow-md ring-2 ring-blue-50 group-hover:ring-blue-100 transition-all"
+              />
+            ) : (
+              <div className="w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm tracking-wide shadow-md ring-2 ring-blue-50 group-hover:ring-blue-100 transition-all select-none">
+                {userProfile ? userProfile.displayName.slice(0, 2).toUpperCase() : "AD"}
+              </div>
+            )}
           </div>
-          <div className="w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-between font-bold text-sm tracking-wide shadow-md ring-2 ring-blue-50">
-            <div className="w-full text-center">AD</div>
-          </div>
+
+          {/* Profile Dropdown Menu */}
+          {showProfileMenu && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setShowProfileMenu(false)} />
+              <div className="absolute right-0 mt-3 w-56 bg-white/90 backdrop-blur-md rounded-2xl border border-gray-200 shadow-2xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150 font-sans">
+                <div className="px-4 py-2.5 border-b border-gray-100/80">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Tài khoản</p>
+                  <p className="text-sm font-bold text-gray-800 truncate mt-0.5">{userProfile?.displayName}</p>
+                  <p className="text-xs text-gray-500 truncate">{userProfile?.email}</p>
+                  {userProfile?.role && (
+                    <span className="inline-block mt-1 px-1.5 py-0.25 rounded-md font-mono font-bold text-[8px] uppercase bg-blue-50 text-blue-600 border border-blue-100">
+                      {userProfile.role}
+                    </span>
+                  )}
+                </div>
+                <div className="p-1">
+                  <button
+                    onClick={() => {
+                      onSearchSelect("CÀI ĐẶT" as TabType);
+                      setShowProfileMenu(false);
+                    }}
+                    className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-gray-700 hover:bg-blue-50/80 flex items-center gap-2.5 transition-colors cursor-pointer"
+                  >
+                    <Settings className="h-4 w-4 text-gray-500" />
+                    <span>Cài đặt cá nhân</span>
+                  </button>
+                  <button
+                    onClick={async () => {
+                      setShowProfileMenu(false);
+                      await logout();
+                    }}
+                    className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-red-600 hover:bg-red-50/80 flex items-center gap-2.5 transition-colors cursor-pointer border-t border-gray-50 mt-1 pt-2"
+                  >
+                    <LogOut className="h-4 w-4 text-red-500" />
+                    <span>Đăng xuất hệ thống</span>
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </header>

@@ -7,9 +7,13 @@ import {
   MessageSquareShare, 
   LineChart, 
   Sparkles,
-  ChevronRight
+  ChevronRight,
+  LogOut,
+  Shield,
+  Settings
 } from "lucide-react";
 import { TabType } from "../types";
+import { useAuth } from "../context/AuthContext";
 
 interface SidebarProps {
   activeTab: TabType;
@@ -17,6 +21,8 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
+  const { userProfile, logout } = useAuth();
+
   const menuItems = [
     {
       label: "TỔNG QUAN" as TabType,
@@ -61,6 +67,24 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
       color: "text-indigo-600 bg-indigo-50"
     }
   ];
+
+  if (userProfile?.role === "superadmin") {
+    menuItems.push({
+      label: "QUẢN TRỊ USER" as TabType,
+      title: "Quản trị User",
+      icon: Shield,
+      desc: "Cấp quyền & phân vai trò",
+      color: "text-indigo-600 bg-indigo-50"
+    });
+  }
+
+  menuItems.push({
+    label: "CÀI ĐẶT" as TabType,
+    title: "Cài đặt hệ thống",
+    icon: Settings,
+    desc: "Thông tin cá nhân & Cấu hình",
+    color: "text-slate-400 bg-slate-800/20"
+  });
 
   return (
     <aside className="w-80 border-r border-gray-200 bg-[#0F172A] text-slate-100 flex flex-col h-screen shrink-0 sticky top-0" id="sidebar_container">
@@ -123,17 +147,54 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
         })}
       </nav>
 
-      {/* Status Footer */}
-      <div className="p-4 bg-[#0B0F19] border-t border-slate-900 flex flex-col gap-2 rounded-b-xl" id="sidebar_footer">
-        <div className="flex items-center justify-between text-xs text-slate-500 font-mono">
-          <span>Server status:</span>
-          <span className="text-emerald-400 font-bold flex items-center gap-1.5">
+      {/* Account Info & Status Footer */}
+      <div className="p-4 bg-[#0B0F19] border-t border-slate-900 flex flex-col gap-3" id="sidebar_footer">
+        
+        {/* User profile card info */}
+        {userProfile && (
+          <div className="flex items-center justify-between bg-slate-800/30 p-2.5 rounded-xl border border-slate-800/50">
+            <div className="flex items-center gap-2.5 min-w-0">
+              {userProfile.photoURL ? (
+                <img 
+                  src={userProfile.photoURL} 
+                  alt={userProfile.displayName} 
+                  className="w-8 h-8 rounded-full border border-slate-700 object-cover"
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-indigo-650 flex items-center justify-center font-bold text-white text-[11px]">
+                  {userProfile.displayName.slice(0, 2).toUpperCase()}
+                </div>
+              )}
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-white truncate leading-snug">{userProfile.displayName}</p>
+                <span className={`inline-block mt-0.5 px-1.5 py-0.25 rounded-sm font-mono font-bold text-[7.5px] uppercase border ${
+                  userProfile.role === "superadmin" 
+                    ? "bg-rose-500/10 text-rose-400 border-rose-500/20" 
+                    : userProfile.role === "admin" 
+                      ? "bg-amber-500/10 text-amber-400 border-amber-500/20" 
+                      : "bg-slate-500/10 text-slate-400 border-slate-500/20"
+                }`}>
+                  {userProfile.role}
+                </span>
+              </div>
+            </div>
+            
+            <button 
+              onClick={() => logout()}
+              title="Đăng xuất tài khoản"
+              className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all cursor-pointer active:scale-90"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+
+        <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono">
+          <span>Hệ thống ERP:</span>
+          <span className="text-emerald-400 font-bold flex items-center gap-1">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
             ONLINE
           </span>
-        </div>
-        <div className="text-[10px] text-slate-600 text-center font-mono mt-1">
-          &copy; 2026 iGen ERP Copilot Inc.
         </div>
       </div>
     </aside>

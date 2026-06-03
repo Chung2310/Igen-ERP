@@ -1,0 +1,69 @@
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getFirestore } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
+import { getStorage } from 'firebase/storage';
+import { getFunctions } from 'firebase/functions';
+import firebaseConfigRaw from '../../firebase-applet-config.json';
+
+
+interface FirebaseAppletConfig {
+  projectId: string;
+  appId: string;
+  apiKey: string;
+  authDomain: string;
+  firestoreDatabaseId?: string;
+  storageBucket?: string;
+  messagingSenderId?: string;
+  measurementId?: string;
+}
+
+const firebaseConfig = firebaseConfigRaw as FirebaseAppletConfig;
+
+// 1. Xác thực cấu hình bắt buộc trước khi khởi tạo
+const requiredFields = ['apiKey', 'authDomain', 'projectId', 'appId'] as const;
+const missingFields = requiredFields.filter((field) => !firebaseConfig[field]);
+
+if (missingFields.length > 0) {
+  throw new Error(`[Firebase Config Error] Thiếu các trường cấu hình bắt buộc: ${missingFields.join(', ')}`);
+}
+
+// 2. Khởi tạo Firebase App an toàn (Tránh re-initialization khi HMR hoạt động)
+const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig as any);
+
+// 3. Khởi tạo Firestore với Database ID hợp lệ
+const databaseId = firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)'
+  ? firebaseConfig.firestoreDatabaseId
+  : undefined;
+
+export const db = getFirestore(app, databaseId);
+export const auth = getAuth(app);
+export const storage = getStorage(app);
+// Firebase Cloud Functions - region asia-southeast1 (Singapore, gần VN)
+export const functions = getFunctions(app, 'asia-southeast1');
+
+
+// Error Handling helper
+export enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+export interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+}
+
+export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    operationType,
+    path,
+  };
+  console.error('Firestore Production Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
