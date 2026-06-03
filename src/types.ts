@@ -4,7 +4,29 @@ export type TabType =
   | "KHO & SẢN PHẨM" 
   | "MARKETING" 
   | "SALES CRM" 
-  | "HIỆU SUẤT AI";
+  | "HIỆU SUẤT AI"
+  | "QUẢN TRỊ USER"
+  | "CÀI ĐẶT";
+
+
+export interface FacebookIntegration {
+  isConnected: boolean;
+  pageId: string;
+  pageName: string;
+  pageAccessToken: string;
+  connectedAt: any;
+  isMock?: boolean;
+}
+
+export interface UserProfile {
+  uid: string;
+  email: string;
+  displayName: string;
+  photoURL?: string;
+  role: "user" | "admin" | "superadmin";
+  createdAt: any;
+  facebookIntegration?: FacebookIntegration | null;
+}
 
 export type HRSubTabType = "SƠ ĐỒ TỔ CHỨC" | "GIAO VIỆC KANBAN" | "ĐÀO TẠO";
 export type InventorySubTabType = "DANH MỤC" | "NHẬP / XUẤT KHO" | "DỰ BÁO AI";
@@ -61,6 +83,7 @@ export interface MarketingConcept {
   summary: string;
   channels: string[];
   suggestedContent: string;
+  hashtags: string[];
 }
 
 export interface ContentApprovalCard {
@@ -68,11 +91,17 @@ export interface ContentApprovalCard {
   title: string;
   channel: "Facebook" | "TikTok" | "LinkedIn" | "Instagram";
   contentType: string;
-  status: "draft" | "pending" | "approved" | "scheduled";
+  status: "draft" | "pending" | "approved" | "scheduled" | "published";
   bodyText: string;
+  outline?: string;
   imageUrl?: string;
   generatedAt: string;
   feedback?: string;
+  scheduledDate?: string;
+  scheduledTime?: string;
+  authorUid?: string;
+  publishedAt?: string;
+  facebookPostId?: string;
 }
 
 export interface PublishEvent {

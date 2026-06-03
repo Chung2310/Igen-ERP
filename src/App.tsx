@@ -7,11 +7,33 @@ import InventoryTab from "./components/InventoryTab";
 import MarketingTab from "./components/MarketingTab";
 import CRMTab from "./components/CRMTab";
 import AIPerformanceTab from "./components/AIPerformanceTab";
+import UserAdminTab from "./components/UserAdminTab";
+import SettingsTab from "./components/SettingsTab";
 import { TabType } from "./types";
+import { ToastContainer } from "./components/Toast";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import AuthPage from "./components/AuthPage";
+import { RefreshCw } from "lucide-react";
 
-export default function App() {
+function AppContent() {
   const [activeTab, setActiveTab] = useState<TabType>("TỔNG QUAN");
-  
+  const { user, userProfile, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="w-screen h-screen bg-slate-900 flex flex-col items-center justify-center text-center">
+        <RefreshCw className="h-10 w-10 text-indigo-500 animate-spin mb-4" />
+        <span className="text-xs font-bold font-mono text-indigo-300 uppercase tracking-widest animate-pulse">
+          Đang khởi tạo hệ thống ERP...
+        </span>
+      </div>
+    );
+  }
+
+  if (!user || !userProfile) {
+    return <AuthPage />;
+  }
+
   // Handlers for cross-linking navigation search queries from the Omni-Search Header
   const handleSearchNavigation = (tab: TabType, subTab?: string) => {
     setActiveTab(tab);
@@ -37,8 +59,19 @@ export default function App() {
           {activeTab === "MARKETING" && <MarketingTab />}
           {activeTab === "SALES CRM" && <CRMTab />}
           {activeTab === "HIỆU SUẤT AI" && <AIPerformanceTab />}
+          {activeTab === "QUẢN TRỊ USER" && userProfile.role === "superadmin" && <UserAdminTab />}
+          {activeTab === "CÀI ĐẶT" && <SettingsTab />}
         </main>
       </div>
+      <ToastContainer />
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }

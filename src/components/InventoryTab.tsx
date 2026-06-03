@@ -15,6 +15,7 @@ import {
   RefreshCw
 } from "lucide-react";
 import { InventorySubTabType, ProductItem, StockLog } from "../types";
+import { toast } from "./Toast";
 
 export default function InventoryTab() {
   const [subTab, setSubTab] = useState<InventorySubTabType>("DANH MỤC");
@@ -99,10 +100,10 @@ export default function InventoryTab() {
             <button
               key={tab}
               onClick={() => setSubTab(tab as InventorySubTabType)}
-              className={`px-4 py-2 bg-white rounded-lg border font-bold uppercase transition-all tracking-wide ${
+              className={`px-4 py-2 rounded-lg border font-bold uppercase transition-all tracking-wide ${
                 subTab === tab 
                   ? "bg-slate-800 text-white border-slate-800 shadow-xs" 
-                  : "text-gray-500 border-gray-200 hover:bg-gray-100"
+                  : "bg-white text-gray-500 border-gray-200 hover:bg-gray-100"
               }`}
             >
               {tab}
@@ -426,7 +427,7 @@ export default function InventoryTab() {
 
               <div className="mt-6 pt-4 border-t border-gray-150">
                 <button 
-                  onClick={() => alert("Hệ thống iGen ERP đã gửi đề nghị đặt hàng khẩn cấp tới nhà cung cấp!")}
+                  onClick={() => toast.success("Đề nghị đặt hàng khẩn cấp đã được gửi tự động tới nhà cung cấp thành công!")}
                   className="w-full text-center py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5"
                 >
                   <RefreshCw className="h-4 w-4 animate-spin" />
