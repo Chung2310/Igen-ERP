@@ -103,6 +103,155 @@ Thông tin cấu hình hiện tại của bạn:
     }
   });
 
+  // Automatically analyze target objectives and generate core content pillars via AI
+  app.post("/api/gemini/marketing-pillars", async (req, res) => {
+    const { campaignTopic } = req.body;
+    const client = getGeminiClient();
+
+    if (!client) {
+      // High-quality contextual Vietnamese mock content pillars
+      let mockPillars = [
+        {
+          id: "giao_duc_gia_tri",
+          title: "Giáo dục & Giá trị hữu ích",
+          ratio: "35% tỉ trọng",
+          description: `Giải đáp trực quan, hướng dẫn tối ưu và chia sẻ kiến thức nền tảng giúp khách hàng hiểu sâu về giá trị dòng sản phẩm liên quan "${campaignTopic || "Sản phẩm công nghệ"}".`
+        },
+        {
+          id: "cau_chuyen_social_proof",
+          title: "Trải nghiệm & Câu chuyện thực tế",
+          ratio: "40% tỉ trọng",
+          description: `Kịch bản review thực tế, kết quả và phát biểu từ khách hàng uy tín, tạo dựng lòng tin tuyệt đối cho thương hiệu.`
+        },
+        {
+          id: "uu_dai_tuong_tac",
+          title: "Ưu đãi & Kích cầu hành động",
+          ratio: "25% tỉ trọng",
+          description: "Chiến dịch giờ vàng, đặc quyền dùng thử hoặc voucher độc quyền nhằm thúc giục khách hàng ra quyết định mua sắm ngay lập tức."
+        }
+      ];
+
+      const topicLower = campaignTopic ? campaignTopic.toLowerCase() : "";
+      if (topicLower.includes("bàn phím") || topicLower.includes("keyboard") || topicLower.includes("workspace")) {
+        mockPillars = [
+          {
+            id: "kien_thuc_cong_thai_hoc",
+            title: "Kiến thức & Trải nghiệm Công thái học",
+            ratio: "35% tỉ trọng",
+            description: "Hướng dẫn tư thế ngồi gõ phím chuẩn khoa học, cách test switch phím cơ, mẹo lập trình không mỏi tay cho coder chuyên nghiệp."
+          },
+          {
+            id: "review_coder_thuc_te",
+            title: "Đánh giá & Trải nghiệm Lập trình viên",
+            ratio: "40% tỉ trọng",
+            description: "Cảm âm đầm chắc của iGen Workspace V2, quá trình tăng 150% hiệu suất viết mã của kiến trúc sư phần mềm."
+          },
+          {
+            id: "uu_dai_ra_mat",
+            title: "Ưu đãi đặc quyền Early Bird",
+            ratio: "25% tỉ trọng",
+            description: "Quà tặng kệ kê tay gỗ sồi cao cấp và chiết khấu 10% ra mắt độc quyền dành cho 50 khách hàng đầu tiên."
+          }
+        ];
+      } else if (topicLower.includes("tai nghe") || topicLower.includes("nghe nhạc") || topicLower.includes("pro max")) {
+        mockPillars = [
+          {
+            id: "am_thanh_bao_ve_tai",
+            title: "Khoa học Âm thanh & Sức khỏe tai",
+            ratio: "30% tỉ trọng",
+            description: "Nguyên lý hoạt động của chống ồn chủ động ANC và cách bảo vệ thính lực khi đeo tai nghe cường độ cao thường xuyên."
+          },
+          {
+            id: "phong_cach_unboxing",
+            title: "Đập hộp & Định hình Phong cách sống",
+            ratio: "45% tỉ trọng",
+            description: "Phối đồ thời trang dạo phố sành điệu cùng Pro Max, tạo phong thái năng động tự tin cho giới trẻ công nghệ."
+          },
+          {
+            id: "uu_dai_gio_vang",
+            title: "Flash Sale giờ vàng - Săn cực đỉnh",
+            ratio: "25% tỉ trọng",
+            description: "Cơ hội săn deal giảm giá sốc đến 45% độc quyền trong khung giờ trưa từ 12h - 14h, số lượng cực hạn."
+          }
+        ];
+      } else if (topicLower.includes("vip") || topicLower.includes("voucher") || topicLower.includes("tri ân")) {
+        mockPillars = [
+          {
+            id: "dac_quyen_thanh_vien",
+            title: "Giá trị đặc quyền Tri ân",
+            ratio: "35% tỉ trọng",
+            description: "Chi tiết đặc quyền thăng hạng thẻ, chính sách bảo hành trọn đời và tích điểm đổi quà VIP của hệ sinh thái iGen."
+          },
+          {
+            id: "cau_chuyen_thanh_cong",
+            title: "Khoảnh khắc & Khách hàng VIP",
+            ratio: "40% tỉ trọng",
+            description: "Ghi dấu những bức ảnh, cuộc hẹn và cảm ơn chân thành từ iGen ERP tới các đối tác doanh nghiệp lớn đồng hành lâu năm."
+          },
+          {
+            id: "uu_dai_han_muc",
+            title: "Quà tặng và Voucher VIP độc bản",
+            ratio: "25% tỉ trọng",
+            description: "Gửi mã voucher VIP-10 độc bá kèm hộp quà tặng chạm khắc thủ công đặc biệt thiết kế riêng cho khách hàng VIP."
+          }
+        ];
+      }
+
+      setTimeout(() => {
+        res.json({ pillars: mockPillars, isMock: true });
+      }, 700);
+      return;
+    }
+
+    try {
+      const prompt = `Phân tích mục tiêu/chủ đề chiến dịch marketing sau: "${campaignTopic}"
+Hãy đề xuất chính xác 3 trụ cột nội dung cốt lõi (Content Pillars) giúp doanh nghiệp định hình khung nội dung (framework) chuẩn chỉnh ngay từ đầu, đảm bảo tỷ lệ nội dung phân bổ đa dạng, tránh việc chỉ đăng bài bán hàng gây nhàm chán và mất tương tác.
+
+Mỗi trụ cột phải có thông tin:
+1. id: chuỗi ngắn gọn, không dấu cách, viết thường (ví dụ: "kien_thuc_huong_dan", "trai_nghiem_khach_hang", "khuyen_mai_dac_quyen")
+2. title: Tiêu đề trụ cột nội dung tối ưu sáng tạo bằng tiếng Việt (Ví dụ: "Giáo dục & Hướng dẫn", "Câu chuyện khách hàng", "Ưu đãi & Khuyến mãi", "Giá trị cốt lõi")
+3. ratio: Tỷ lệ phần trăm phân bổ hợp lý hiển thị dưới dạng chuỗi (Ví dụ: "35% tỉ trọng", "40% tỉ trọng") đảm bảo tổng 3 cái là 100%. Đa dạng tỷ trọng, tránh bán hàng quá nhiều.
+4. description: Mô tả ngắn gọn trực quan bằng tiếng Việt hướng dẫn cách triển khai cụ thể trụ cột này đối với chiến dịch "${campaignTopic}".
+
+Trả về kết quả ở định dạng JSON phù hợp chính xác với cấu trúc yêu cầu.`;
+
+      const response = await client.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              pillars: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    id: { type: Type.STRING, description: "ID ngắn gọn viết liền không dấu, ví dụ: 'giao_duc'" },
+                    title: { type: Type.STRING, description: "Tiêu đề tiếng Việt của trụ cột nội dung" },
+                    ratio: { type: Type.STRING, description: "Tỉ trọng phân bổ, ví dụ: '35% tỉ trọng'" },
+                    description: { type: Type.STRING, description: "Hướng dẫn đề xuất triển khai chi tiết đối với chủ đề" }
+                  },
+                  required: ["id", "title", "ratio", "description"]
+                },
+                description: "Danh sách đúng 3 trụ cột nội dung"
+              }
+            },
+            required: ["pillars"]
+          }
+        }
+      });
+
+      const responseText = response.text || "{}";
+      const parsedData = JSON.parse(responseText.trim());
+      res.json({ pillars: parsedData.pillars || [], isMock: false });
+    } catch (error: any) {
+      console.error("Gemini Marketing Pillars API Error:", error);
+      res.status(500).json({ error: "Lỗi kết nối AI Marketing Pillars", details: error.message });
+    }
+  });
+
   // Marketing campaign ideation proxy
   app.post("/api/gemini/marketing-ideas", async (req, res) => {
     const { campaignTopic, selectedPillars } = req.body;

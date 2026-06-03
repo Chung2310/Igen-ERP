@@ -50,7 +50,8 @@ export default function MarketingTab() {
     "Pillar C: Offers & Promotions"
   ]);
 
-  const predefinedPillars = [
+  const [loadingPillars, setLoadingPillars] = useState(false);
+  const [pillars, setPillars] = useState([
     {
       id: "Pillar A: Educate & Guides",
       title: "Pillar A: Educate & Guides",
@@ -78,7 +79,61 @@ export default function MarketingTab() {
       selectedColorClass: "border-indigo-500 bg-indigo-50 text-indigo-900 ring-2 ring-indigo-500/20 shadow-xs",
       bulletColor: "bg-indigo-500",
     },
-  ];
+  ]);
+
+  const handleAnalyzePillars = async (rawTopic?: string) => {
+    const topic = (typeof rawTopic === "string" ? rawTopic : campaignInput).trim();
+    if (!topic) {
+      if (!rawTopic) {
+        alert("⚠️ Vui lòng nhập hoặc chọn một chủ đề/mục tiêu chiến dịch trước!");
+      }
+      return;
+    }
+
+    setLoadingPillars(true);
+    try {
+      const response = await fetch("/api/gemini/marketing-pillars", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ campaignTopic: topic }),
+      });
+      const data = await response.json();
+      if (data.pillars && Array.isArray(data.pillars) && data.pillars.length > 0) {
+        const styles = [
+          {
+            colorClass: "border-red-200 bg-red-50/50 text-red-700",
+            selectedColorClass: "border-red-500 bg-red-50 text-red-850 ring-2 ring-red-500/20 shadow-xs",
+            bulletColor: "bg-red-500"
+          },
+          {
+            colorClass: "border-blue-200 bg-blue-50/50 text-blue-700",
+            selectedColorClass: "border-blue-500 bg-blue-50 text-blue-800 ring-2 ring-blue-500/20 shadow-xs",
+            bulletColor: "bg-blue-500"
+          },
+          {
+            colorClass: "border-indigo-200 bg-indigo-50/50 text-indigo-700",
+            selectedColorClass: "border-indigo-500 bg-indigo-50 text-indigo-900 ring-2 ring-indigo-500/20 shadow-xs",
+            bulletColor: "bg-indigo-500"
+          }
+        ];
+
+        const mappedPillars = data.pillars.map((p: any, idx: number) => ({
+          id: p.id,
+          title: p.title,
+          ratio: p.ratio || "33% tỉ trọng",
+          description: p.description,
+          ...styles[idx % styles.length]
+        }));
+
+        setPillars(mappedPillars);
+        setSelectedPillars(mappedPillars.map((p: any) => p.id));
+      }
+    } catch (err) {
+      console.error("Lỗi phân tích Content Pillars:", err);
+    } finally {
+      setLoadingPillars(false);
+    }
+  };
 
   const togglePillar = (id: string) => {
     if (selectedPillars.includes(id)) {
@@ -302,7 +357,7 @@ export default function MarketingTab() {
                     />
                     
                     {/* Quick suggestions chips bubble list */}
-                    <div className="space-y-1.5">
+                    <div className="space-y-1.5 font-sans">
                       <span className="text-[10px] font-bold text-gray-400 font-mono uppercase tracking-wider block">Gợi ý chủ đề nhanh:</span>
                       <div className="flex flex-wrap gap-2">
                         {quickSuggestions.map((s, idx) => {
@@ -311,7 +366,10 @@ export default function MarketingTab() {
                             <button 
                               key={idx}
                               type="button"
-                              onClick={() => setCampaignInput(s)}
+                              onClick={() => {
+                                setCampaignInput(s);
+                                handleAnalyzePillars(s);
+                              }}
                               className={`px-2.5 py-1 text-[10px] rounded-md font-medium transition-all cursor-pointer select-none border ${
                                 isMatch
                                   ? "bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-600 shadow-xs transform scale-102 font-semibold"
@@ -349,10 +407,34 @@ export default function MarketingTab() {
                   <h4 className="font-bold text-gray-850 text-sm tracking-wide font-sans uppercase">
                     📚 Content Pillars Đề xuất
                   </h4>
-                  <p className="text-xs text-slate-500 mt-1 mb-4">iGen AI định hướng phân chia 3 trụ cột nội dung. Click vào thẻ để chọn/bỏ chọn nhằm định hình hướng sáng tạo cho Gemini AI:</p>
+                  <p className="text-xs text-slate-500 mt-1 mb-4">Phân tích mục tiêu để đề xuất ra các trụ cột nội dung cốt lõi của chiến dịch, đảm bảo phân bổ đa dạng:</p>
 
-                  <div className="space-y-3 text-xs text-left">
-                    {predefinedPillars.map((pillar) => {
+                  <div className="mb-4">
+                    <button
+                      type="button"
+                      onClick={() => handleAnalyzePillars()}
+                      disabled={loadingPillars || !campaignInput.trim()}
+                      className={`w-full py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 border ${
+                        loadingPillars || !campaignInput.trim()
+                          ? "bg-gray-50 text-gray-400 border-gray-250 cursor-not-allowed"
+                          : "bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-150 cursor-pointer active:scale-98"
+                      }`}
+                    >
+                      <Sparkles className={`h-4 w-4 text-indigo-500 ${loadingPillars ? "animate-spin" : ""}`} />
+                      {loadingPillars ? "Đang phân tích khung nội dung..." : "Phân tích Mục tiêu & Đề xuất Trụ cột AI"}
+                    </button>
+                  </div>
+
+                  <div className="space-y-3 text-xs text-left relative">
+                    {loadingPillars && (
+                      <div className="absolute inset-0 bg-white/70 backdrop-blur-xs flex flex-col items-center justify-center text-center p-4 z-10 rounded-xl">
+                        <RefreshCw className="h-6 w-6 text-indigo-600 animate-spin mb-2" />
+                        <span className="text-[11px] text-indigo-800 font-bold font-mono">AI ĐANG PHÂN TÍCH KHUNG NỘI DUNG...</span>
+                        <p className="text-[10px] text-gray-400 mt-1">Đảm bảo khung tranh phân phối đa dạng, tránh chỉ đăng tải bán hàng.</p>
+                      </div>
+                    )}
+
+                    {pillars.map((pillar) => {
                       const isSelected = selectedPillars.includes(pillar.id);
                       return (
                         <div 
@@ -365,18 +447,18 @@ export default function MarketingTab() {
                           }`}
                         >
                           <div className="flex justify-between items-center font-bold">
-                            <span className="flex items-center gap-1.5 text-xs">
+                            <span className="flex items-center gap-1.5 text-xs text-slate-800">
                               <span className={`w-2.5 h-2.5 rounded-full ${pillar.bulletColor}`} />
                               {pillar.title}
                             </span>
-                            <span className="text-[10px] opacity-80 font-mono font-semibold">{pillar.ratio}</span>
+                            <span className="text-[10px] opacity-80 font-mono font-semibold text-slate-500">{pillar.ratio}</span>
                           </div>
                           <p className="text-[10px] mt-2 leading-relaxed text-slate-500 font-sans pointer-events-none">
                             {pillar.description}
                           </p>
                           <div className="mt-3 flex items-center justify-between text-[9px] font-mono uppercase font-bold tracking-wider">
-                            <span className={isSelected ? "text-indigo-600 font-semibold" : "text-gray-450 text-gray-400"}>
-                              {isSelected ? "● Đang kích hoạt" : "○ Tạm tắt"}
+                            <span className={isSelected ? "text-indigo-600 font-semibold" : "text-gray-400"}>
+                              {isSelected ? "● Đang tuyển chọn" : "○ Tạm tắt"}
                             </span>
                             <span className="text-slate-400">Click để đổi</span>
                           </div>
