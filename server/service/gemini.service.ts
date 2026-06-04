@@ -1,5 +1,7 @@
 import { Type } from "@google/genai";
 import { getGeminiClient } from "../config/gemini";
+import fs from "fs";
+import path from "path";
 
 export const geminiService = {
   /**
@@ -325,7 +327,62 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
           )}. Hãy sáng tạo các ý tưởng tập trung xoay quanh các trụ cột này.`
         : "";
 
-    const prompt = `Hãy tạo 3 ý tưởng/bản nháp chiến dịch marketing chi tiết cho chủ đề/chiến dịch này: "${campai  async developMarketingIdea(
+    const prompt = `Bạn là một chuyên gia marketing xuất sắc.
+Hãy tạo đúng 3 ý tưởng/bản nháp chiến dịch marketing chi tiết cho chủ đề/chiến dịch này: "\${campaignTopic}".\${pillarsContext}
+Yêu cầu kết quả đầu ra:
+1. Đề xuất tiêu đề chiến dịch sáng tạo.
+2. Tỷ lệ phần trăm phù hợp (matchPercent) ước lượng (số nguyên từ 50-100).
+3. Tóm tắt ý tưởng triển khai ngắn gọn.
+4. Các kênh truyền thông phù hợp đề xuất đăng bài (mảng các chuỗi, ví dụ: ["Facebook", "TikTok"]).
+5. Ý tưởng nội dung gợi ý ban đầu để triển khai bài đăng trên kênh.
+6. Hashtags liên quan phù hợp.
+
+Trả về kết quả ở định dạng JSON phù hợp chính xác với cấu trúc yêu cầu.`;
+
+    const response = await client.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            concepts: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  title: { type: Type.STRING, description: "Tiêu đề ý tưởng chiến dịch" },
+                  matchPercent: { type: Type.INTEGER, description: "Tỷ lệ phù hợp" },
+                  summary: { type: Type.STRING, description: "Tóm tắt ý tưởng" },
+                  channels: {
+                    type: Type.ARRAY,
+                    items: { type: Type.STRING },
+                    description: "Các kênh đề xuất đăng bài",
+                  },
+                  suggestedContent: { type: Type.STRING, description: "Ý tưởng nội dung gợi ý ban đầu" },
+                  hashtags: {
+                    type: Type.ARRAY,
+                    items: { type: Type.STRING },
+                    description: "Hashtags liên quan",
+                  },
+                },
+                required: ["title", "matchPercent", "summary", "channels", "suggestedContent", "hashtags"],
+              },
+              description: "Danh sách 3 ý tưởng/bản nháp chiến dịch marketing",
+            },
+          },
+          required: ["concepts"],
+        },
+      },
+    });
+
+    const responseText = response.text || "{}";
+    const parsedData = JSON.parse(responseText.trim());
+    return { concepts: parsedData.concepts || [], isMock: false };
+  },
+
+  async developMarketingIdea(
     title: string,
     summary: string,
     suggestedContent: string,
@@ -337,24 +394,67 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
     if (!client) {
       const mockPosts = targetChannels.map((chan) => {
         let contentType = "Bài viết truyền thông";
-        let bodyText = "";
         let outline = "";
+        let bodyText = "";
         if (chan === "Facebook") {
           contentType = "Hình ảnh kèm Caption";
-          outline = `📋 DÀN Ý CHI TIẾT (OUTLINE):\n1. Hình ảnh: Ảnh flatlay thiết bị sang trọng trên bàn làm việc hiện đại.\n2. Tiêu đề: Đọc vị phong cách - Chọn ${title}.\n3. Nội dung chính: Giải quyết vấn đề mỏi tay, tăng tốc gõ và tối ưu hóa không gian làm việc.\n4. Call to Action: Đăng ký nhận ưu đãi 10% ra mắt.`;
-          bodyText = `🔥 BẬT PHONG CÁCH - NHÂN HIỆU SUẤT CÙNG ${title}! 🔥\n\nBạn có biết 90% hiệu suất làm việc phụ thuộc vào sự thoải mái của thiết bị đồng hành? Với chiến dịch ${summary}, chúng tôi mang đến giải pháp tối ưu cho bạn:\n👉 Thiết kế công thái học tinh tế.\n👉 Tăng tốc độ phản hồi phím gõ lên 150%.\n👉 Quà tặng kèm kê tay gỗ sồi đặc quyền.\n\n💡 Ý tưởng cốt lõi: "${suggestedContent}"\n\n📥 Nhắn tin ngay cho iGen để nhận deal hời! #iGenERP #WorkspaceV2 #CongNgheSo #Success`;
+          outline = `📋 DÀN Ý CHI TIẾT (OUTLINE):
+1. Hình ảnh: Ảnh flatlay thiết bị sang trọng trên bàn làm việc hiện đại.
+2. Tiêu đề: Độc vị phong cách - Chọn \${title}.
+3. Nội dung chính: Giải quyết vấn đề mỏi tay, tăng tốc gõ và tối ưu hóa không gian làm việc.
+4. Call to Action: Đăng ký nhận ưu đãi 10% ra mắt.`;
+          bodyText = `🔥 BẬT PHONG CÁCH - NHÂN HIỆU SUẤT CÙNG \${title}! 🔥
+
+Bạn có biết 90% hiệu suất làm việc phụ thuộc vào sự thoải mái của thiết bị đồng hành? Với chiến dịch \${summary}, chúng tôi mang đến giải pháp tối ưu cho bạn:
+💻 Thiết kế công thái học tinh tế.
+⚡ Tăng tốc độ phản hồi phím gõ lên 150%.
+🎁 Quà tặng kèm kê tay gỗ sồi đặc quyền.
+
+💡 Ý tưởng cốt lõi: "\${suggestedContent}"
+
+📲 Nhắn tin ngay cho iGen để nhận deal hời! #iGenERP #WorkspaceV2 #CongNgheSo #Success`;
         } else if (chan === "TikTok") {
-          contentType = "Kịch bản Video ngắn 15s-30s";
-          outline = `📋 DÀN Ý CHI TIẾT (OUTLINE):\n1. 0-3s: Hook so sánh tư thế làm việc gù lưng/mỏi tay với tư thế chuẩn.\n2. 3-10s: Show cận cảnh thiết kế sang trọng & âm thanh gõ phím đầm chắc.\n3. 10-15s: Kêu gọi hành động nhấp vào giỏ hàng.`;
-          bodyText = `🎬 [KỊCH BẢN TIKTOK: CỨU TINH DEADLINE]\n\n[Cảnh 1 - 0-3s]: Cận cảnh lập trình viên mệt mỏi, gõ phím rít kẹt kêu lọc cọc. Nhạc nền trầm buồn.\n- Text: "Khi deadline đến mà bàn phím lại phản chủ..."\n\n[Cảnh 2 - 3-10s]: Chuyển cảnh cực nhanh! Bàn tay đặt lên bàn phím ${title}. Ánh sáng lung linh, tiếng clicky giòn giã kích thích thính giác. Nhạc chuyển sôi động.\n- Voiceover: "Nâng cấp năng suất cùng Workspace V2 với ý tưởng: ${summary}"\n\n[Cảnh 3 - 10-15s]: Chỉ tay về phía giỏ hàng TikTok Shop.\n- Voiceover: "Nhận voucher giảm giá 45% ngay hôm nay!"`;
+          contentType = "Kịch bản Video ngắn 8s";
+          outline = `🎬 KỊCH BẢN QUAY (TIMELINE VIDEO SCRIPTS - MAX 8S):
+[0:00 - 0:03]
+- Visual: Hook so sánh tư thế làm việc gù lưng/mỏi tay với tư thế chuẩn.
+- Audio (Voiceover): "Bạn có đang làm việc sai tư thế?"
+
+[0:03 - 0:08]
+- Visual: Show cận cảnh thiết kế sang trọng & âm thanh gõ phím đầm chắc của \${title}.
+- Audio (Voiceover): "Nâng cấp hiệu năng làm việc cực đỉnh cùng \${summary}"`;
+          bodyText = `🔥 Cứu tinh deadline của bạn đây rồi! Nâng cấp hiệu năng làm việc cực đỉnh với \${title}. Đăng ký trải nghiệm ngay hôm nay để nhận voucher giảm giá 45% độc quyền! #iGenERP #WorkspaceV2 #WorkSmart #Deadline`;
         } else if (chan === "LinkedIn") {
           contentType = "Bài viết chuyên sâu (Article)";
-          outline = `📋 DÀN Ý CHI TIẾT (OUTLINE):\n1. Đặt vấn đề: Xu hướng chuyển đổi số và nâng cao năng suất doanh nghiệp.\n2. Phân tích: Vai trò của thiết bị chuẩn công thái học đối với nhân sự IT/Lập trình.\n3. Chiến dịch ${summary} đóng góp giá trị như thế nào.\n4. CTA kết nối nhận tư vấn.`;
-          bodyText = `[XU HƯỚNG VẬN HÀNH] TỐI ƯU HÓA TRẠI NGHIỆM NHÂN SỰ ĐỂ ĐỘT PHÁ HIỆU SUẤT\n\nKính gửi quý đối tác và cộng đồng doanh nghiệp,\n\nTrong quản trị hiện đại, sự hài lòng và sức khỏe thể chất của nhân viên chính là đòn bẩy hiệu năng lớn nhất. Với chiến dịch "${title}" cùng định hướng: ${summary}.\n\nDựa trên gợi ý đề xuất: "${suggestedContent}", iGen ERP mang tới góc nhìn mới giúp doanh nghiệp:\n✅ Giảm thiểu chấn thương cổ tay (RSI) ở bộ phận kỹ thuật.\n✅ Gia tăng sự tập trung và gắn kết công việc.\n✅ Xây dựng môi trường làm việc thông minh và hiện đại.\n\n💼 Hãy thảo luận cùng chúng tôi để thiết kế giải pháp chuyển đổi số toàn diện cho doanh nghiệp của bạn.\n\n#ChuyenDoiSo #iGenERP #LinkedInArticle #CongNgheTuongLai`;
+          outline = `📋 DÀN Ý CHI TIẾT (OUTLINE):
+1. Đặt vấn đề: Xu hướng chuyển đổi số và nâng cao năng suất doanh nghiệp.
+2. Phân tích: Vai trò của thiết bị chuẩn công thái học đối với nhân sự IT/Lập trình.
+3. Chiến dịch \${summary} đóng góp giá trị như thế nào.
+4. CTA kết nối nhận tư vấn.`;
+          bodyText = `[XU HƯỚNG VẬN HÀNH] TỐI ƯU HÓA TRẠI NGHIỆM NHÂN SỰ ĐỂ ĐỘT PHÁ HIỆU SUẤT
+
+Kính gửi quý đối tác và cộng đồng doanh nghiệp,
+
+Trong quản trị hiện đại, sự hài lòng và sức khỏe thể chất của nhân viên chính là đòn bẩy hiệu năng lớn nhất. Với chiến dịch "\${title}" cùng định hướng: \${summary}.
+
+Dựa trên gợi ý đề xuất: "\${suggestedContent}", iGen ERP mang tới góc nhìn mới giúp doanh nghiệp:
+✅ Giảm thiểu chấn thương cổ tay (RSI) ở bộ phận kỹ thuật.
+✅ Gia tăng sự tập trung và gắn kết công việc.
+✅ Xây dựng môi trường làm việc thông minh và hiện đại.
+
+💼 Hãy thảo luận cùng chúng tôi để thiết kế giải pháp chuyển đổi số toàn diện cho doanh nghiệp của bạn.
+
+#ChuyenDoiSo #iGenERP #LinkedInArticle #CongNgheTuongLai`;
         } else {
           contentType = "Bài viết truyền thông đa kênh";
-          outline = `📋 DÀN Ý CHI TIẾT (OUTLINE):\n1. Mở bài cuốn hút.\n2. Phân tích cốt lõi.\n3. CTA kêu gọi hành động.`;
-          bodyText = `Giới thiệu chiến dịch: ${title}!\n\nĐịnh hướng ý tưởng: ${summary}.\nNội dung chi tiết gợi ý: ${suggestedContent}`;
+          outline = `📋 DÀN Ý CHI TIẾT (OUTLINE):
+1. Mở bài cuốn hút.
+2. Phân tích cốt lõi.
+3. CTA kêu gọi hành động.`;
+          bodyText = `Giới thiệu chiến dịch: \${title}!
+
+Định hướng ý tưởng: \${summary}.
+Nội dung chi tiết gợi ý: \${suggestedContent}`;
         }
         return { channel: chan, contentType, outline, bodyText };
       });
@@ -362,18 +462,20 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
     }
 
     const prompt = `Bạn là một chuyên gia viết kịch bản và AI Copywriter xuất sắc.
-Hãy lập dàn ý (Outline) chi tiết và viết bản nháp bài đăng (Draft Content) hoàn chỉnh cho từng kênh sau đây: ${targetChannels.join(
-      ", "
-    )}
-Thông tin chiến dịch marketing:
-- Tiêu đề ý tưởng: "${title}"
-- Tóm tắt ý tưởng: "${summary}"
-- Nội dung gợi ý ban đầu: "${suggestedContent}"
+Hãy lập Dàn ý (Outline) và viết Bản nháp nội dung (Draft Content) cho các kênh sau đây: \${targetChannels.join(", ")}
 
-Yêu cầu cho từng kênh:
-1. Lập dàn ý (Outline) cụ thể, tối ưu và lưu vào trường "outline" trong JSON trả về.
-2. Viết bản nháp nội dung chi tiết (Draft Content) hoàn chỉnh, hấp dẫn, đúng văn văn phong đặc thù của kênh truyền thông đó và lưu vào trường "bodyText" trong JSON trả về. 
-Lưu ý quan trọng: Trường "bodyText" PHẢI chứa nội dung bài đăng sạch, KHÔNG được chứa phần dàn ý ở đầu, KHÔNG được dính các tiêu đề nháp như "(DRAFT CONTENT)", "[DRAFT CONTENT]", "# BẢN NHÁP CHI TIẾT", v.v. để người dùng có thể đăng tải trực tiếp.
+QUY TẮC PHÂN TÁCH DỮ LIỆU BẮT BUỘC CHO TỪNG KÊNH:
+1. Đối với kênh TikTok:
+   - Trường "outline" (Dàn ý): PHẢI chứa toàn bộ kịch bản quay chi tiết (Shooting Script / Storyboard), bao gồm phân đoạn visual (hình ảnh/hành động), audio (lời thoại/âm thanh/voiceover) và mốc thời gian (Timeline dạng [0:00 - 0:03], [0:03 - 0:08]...) cho từng cảnh. Tổng thời lượng kịch bản không được vượt quá 8 giây.
+   - Trường "bodyText" (Nội dung chính): PHẢI là Caption/Description giới thiệu video sạch, cuốn hút kèm hashtag để đăng tải trực tiếp lên TikTok (ví dụ: "🔥 Cứu tinh deadline của bạn đây... #iGenERP..."). TUYỆT ĐỐI không chứa bất kỳ mốc thời gian timeline, phân cảnh, Visual hay Audio nào ở trường này.
+2. Đối với các kênh khác (Facebook, LinkedIn, Instagram...):
+   - Trường "outline": Lập dàn ý chi tiết, cụ thể và tối ưu của bài viết.
+   - Trường "bodyText": Lưu bản nháp nội dung bài viết sạch hoàn chỉnh để đăng tải trực tiếp (không chứa dàn ý hay tiêu đề nháp).
+
+Thông tin chiến dịch marketing:
+- Tiêu đề ý tưởng: "\${title}"
+- Tóm tắt ý tưởng: "\${summary}"
+- Nội dung gợi ý ban đầu: "\${suggestedContent}"
 
 Trả về kết quả ở định dạng JSON phù hợp chính xác với cấu trúc yêu cầu.`;
 
@@ -390,10 +492,16 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
               items: {
                 type: Type.OBJECT,
                 properties: {
-                  channel: { type: Type.STRING, description: "Kênh đăng bài" },
+                  channel: { type: Type.STRING, description: "Kênh đăng bài (ví dụ: Facebook, TikTok, LinkedIn)" },
                   contentType: { type: Type.STRING, description: "Loại nội dung" },
-                  outline: { type: Type.STRING, description: "Dàn ý chi tiết của bài viết" },
-                  bodyText: { type: Type.STRING, description: "Nội dung bài viết sạch hoàn chỉnh để đăng tải" },
+                  outline: { 
+                    type: Type.STRING, 
+                    description: "Dàn ý chi tiết của bài viết. ĐẶC BIỆT với TikTok: Phải lưu KỊCH BẢN QUAY (timeline video script) chi tiết bao gồm Visual, Audio và mốc thời gian dạng [0:00 - 0:03], [0:03 - 0:08]... với tổng thời lượng tối đa không quá 8 giây." 
+                  },
+                  bodyText: { 
+                    type: Type.STRING, 
+                    description: "Nội dung bài đăng/caption sạch để đăng tải trực tiếp. ĐẶC BIỆT với TikTok: Chỉ là Caption/Description giới thiệu video kèm hashtag và call-to-action (TUYỆT ĐỐI không chứa kịch bản quay, visual, audio hay timeline video ở trường này)." 
+                  },
                 },
                 required: ["channel", "contentType", "outline", "bodyText"],
               },
@@ -407,59 +515,126 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
     const responseText = response.text || "{}";
     const parsedData = JSON.parse(responseText.trim());
     return { posts: parsedData.posts || [], isMock: false };
-  },�� hài lòng và sức khỏe thể chất của nhân viên chính là đòn bẩy hiệu năng lớn nhất. Với chiến dịch "${title}" cùng định hướng: ${summary}.\n\nDựa trên gợi ý đề xuất: "${suggestedContent}", iGen ERP mang tới góc nhìn mới giúp doanh nghiệp:\n✅ Giảm thiểu chấn thương cổ tay (RSI) ở bộ phận kỹ thuật.\n✅ Gia tăng sự tập trung và gắn kết công việc.\n✅ Xây dựng môi trường làm việc thông minh và hiện đại.\n\n💼 Hãy thảo luận cùng chúng tôi để thiết kế giải pháp chuyển đổi số toàn diện cho doanh nghiệp của bạn.\n\n#ChuyenDoiSo #iGenERP #LinkedInArticle #CongNgheTuongLai`;
-        } else {
-          contentType = "Bài viết truyền thông đa kênh";
-          bodyText = `📋 DÀN Ý CHI TIẾT (OUTLINE):\n1. Mở bài cuốn hút.\n2. Phân tích cốt lõi.\n3. CTA kêu gọi hành động.\n\n✍️ NỘI DUNG CHI TIẾT (DRAFT CONTENT):\nGiới thiệu chiến dịch: ${title}!\n\nĐịnh hướng ý tưởng: ${summary}.\nNội dung chi tiết gợi ý: ${suggestedContent}`;
+  },
+
+  /**
+   * Sinh ảnh AI bằng model Nano-Banana (gemini-3.1-flash-image)
+   */
+  async generateImage(prompt: string): Promise<{ url: string; isMock: boolean }> {
+    const client = getGeminiClient();
+    const filename = `img_${Date.now()}_${Math.floor(Math.random() * 1000)}.png`;
+    const uploadsDir = path.join(process.cwd(), "uploads");
+    const filePath = path.join(uploadsDir, filename);
+
+    if (!client) {
+      console.log("[geminiService.generateImage] Running in MOCK mode");
+      try {
+        const res = await fetch("https://picsum.photos/800/600");
+        if (res.ok) {
+          const buffer = Buffer.from(await res.arrayBuffer());
+          fs.writeFileSync(filePath, buffer);
+          return { url: `/uploads/${filename}`, isMock: true };
         }
-        return { channel: chan, contentType, bodyText };
-      });
-      return { posts: mockPosts, isMock: true };
+      } catch (err) {
+        console.warn("[geminiService.generateImage] Failed to fetch placeholder image, using fallback 1x1 PNG", err);
+      }
+      const fallbackPng = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64");
+      fs.writeFileSync(filePath, fallbackPng);
+      return { url: `/uploads/${filename}`, isMock: true };
     }
 
-    const prompt = `Bạn là một chuyên gia viết kịch bản và AI Copywriter xuất sắc.
-Hãy lập dàn ý (Outline) chi tiết và viết bản nháp bài đăng (Draft Content) hoàn chỉnh cho từng kênh sau đây: ${targetChannels.join(
-      ", "
-    )}
-Thông tin chiến dịch marketing:
-- Tiêu đề ý tưởng: "${title}"
-- Tóm tắt ý tưởng: "${summary}"
-- Nội dung gợi ý ban đầu: "${suggestedContent}"
-
-Yêu cầu cho từng kênh:
-1. Lập dàn ý (Outline) cụ thể, tối ưu.
-2. Viết bản nháp nội dung chi tiết (Draft Content) hoàn chỉnh, hấp dẫn, đúng văn phong đặc thù của kênh truyền thông đó (Facebook cần biểu tượng sinh động và CTA, TikTok cần kịch bản quay/giọng nói/visual chi tiết kèm mốc thời gian, LinkedIn cần chuyên nghiệp sâu sắc dạng bài viết doanh nghiệp).
-
-Trả về kết quả ở định dạng JSON phù hợp chính xác với cấu trúc yêu cầu.`;
-
-    const response = await client.models.generateContent({
-      model: "gemini-3.5-flash",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            posts: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  channel: { type: Type.STRING, description: "Kênh đăng bài" },
-                  contentType: { type: Type.STRING, description: "Loại nội dung" },
-                  bodyText: { type: Type.STRING, description: "Dàn ý và bài đăng chi tiết dạng Markdown" },
-                },
-                required: ["channel", "contentType", "bodyText"],
-              },
-            },
-          },
-          required: ["posts"],
+    try {
+      const response = await client.models.generateImages({
+        model: "imagen-4.0-generate-001",
+        prompt: prompt,
+        config: {
+          numberOfImages: 1,
+          outputMimeType: "image/png",
+          aspectRatio: "16:9",
         },
-      },
-    });
+      });
 
-    const responseText = response.text || "{}";
-    const parsedData = JSON.parse(responseText.trim());
-    return { posts: parsedData.posts || [], isMock: false };
+      const generatedImage = response.generatedImages?.[0];
+      const base64Bytes = generatedImage?.image?.imageBytes;
+      if (!base64Bytes) {
+        throw new Error("Không nhận được dữ liệu ảnh từ Gemini API");
+      }
+
+      const buffer = Buffer.from(base64Bytes, "base64");
+      fs.writeFileSync(filePath, buffer);
+      return { url: `/uploads/${filename}`, isMock: false };
+    } catch (error: any) {
+      console.error("[geminiService.generateImage] Error:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Sinh video AI bằng model Veo3 (veo-3.1-generate-preview)
+   */
+  async generateVideo(prompt: string, durationSeconds: number = 6): Promise<{ url: string; isMock: boolean }> {
+    const client = getGeminiClient();
+    const filename = `vid_${Date.now()}_${Math.floor(Math.random() * 1000)}.mp4`;
+    const uploadsDir = path.join(process.cwd(), "uploads");
+    const filePath = path.join(uploadsDir, filename);
+
+    if (!client) {
+      console.log("[geminiService.generateVideo] Running in MOCK mode");
+      try {
+        const res = await fetch("https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4");
+        if (res.ok) {
+          const buffer = Buffer.from(await res.arrayBuffer());
+          fs.writeFileSync(filePath, buffer);
+          return { url: `/uploads/${filename}`, isMock: true };
+        }
+      } catch (err) {
+        console.warn("[geminiService.generateVideo] Failed to fetch placeholder video, using fallback empty mp4", err);
+      }
+      fs.writeFileSync(filePath, Buffer.from("dummy video content"));
+      return { url: `/uploads/${filename}`, isMock: true };
+    }
+
+    try {
+      let operation = await client.models.generateVideos({
+        model: "veo-3.1-generate-preview",
+        prompt: prompt,
+        config: {
+          numberOfVideos: 1,
+          durationSeconds: durationSeconds,
+          aspectRatio: "16:9",
+        },
+      });
+
+      let attempts = 0;
+      const maxAttempts = 60; // Max 10 minutes
+      while (!operation.done && attempts < maxAttempts) {
+        await new Promise((resolve) => setTimeout(resolve, 10000));
+        operation = await client.operations.getVideosOperation({ operation });
+        attempts++;
+      }
+
+      if (!operation.done) {
+        throw new Error("Quá thời gian chờ tạo video từ Veo API");
+      }
+
+      if (operation.error) {
+        throw new Error(`Lỗi từ Veo API: ${JSON.stringify(operation.error)}`);
+      }
+
+      const generatedVideo = operation.response?.generatedVideos?.[0];
+      if (!generatedVideo) {
+        throw new Error("Không tìm thấy video được tạo trong phản hồi");
+      }
+
+      await client.files.download({
+        file: generatedVideo,
+        downloadPath: filePath,
+      });
+
+      return { url: `/uploads/${filename}`, isMock: false };
+    } catch (error: any) {
+      console.error("[geminiService.generateVideo] Error:", error);
+      throw error;
+    }
   },
 };

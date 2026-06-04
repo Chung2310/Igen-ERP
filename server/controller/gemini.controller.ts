@@ -90,4 +90,40 @@ export const geminiController = {
       });
     }
   },
+
+  /**
+   * POST /api/v1/gemini/generate-image
+   */
+  async generateImage(req: Request, res: Response) {
+    try {
+      const { prompt } = req.body;
+      const result = await geminiService.generateImage(prompt);
+      return res.status(200).json(result);
+    } catch (error: any) {
+      console.error("[geminiController.generateImage] Error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Lỗi sinh ảnh AI",
+        details: error.message,
+      });
+    }
+  },
+
+  /**
+   * POST /api/v1/gemini/generate-video
+   */
+  async generateVideo(req: Request, res: Response) {
+    try {
+      const { prompt, durationSeconds } = req.body;
+      const result = await geminiService.generateVideo(prompt, durationSeconds);
+      return res.status(200).json(result);
+    } catch (error: any) {
+      console.error("[geminiController.generateVideo] Error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Lỗi sinh video AI",
+        details: error.message,
+      });
+    }
+  },
 };

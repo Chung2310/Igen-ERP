@@ -112,4 +112,33 @@ export const geminiApi = {
     }
     return response.json();
   },
+
+  /**
+   * Sinh ảnh minh họa AI.
+   */
+  async generateImage(prompt: string): Promise<{ url: string; isMock: boolean }> {
+    const headers = await getHeaders(true);
+    const response = await fetch('/api/v1/gemini/generate-image', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ prompt }),
+    });
+    if (!response.ok) {
+      throw new Error('Lỗi khi sinh ảnh minh họa AI');
+    }
+    return response.json();
+  },
+
+  async generateVideo(prompt: string, durationSeconds?: number): Promise<{ url: string; isMock: boolean }> {
+    const headers = await getHeaders(true);
+    const response = await fetch('/api/v1/gemini/generate-video', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ prompt, durationSeconds }),
+    });
+    if (!response.ok) {
+      throw new Error('Lỗi khi sinh video AI');
+    }
+    return response.json();
+  },
 };

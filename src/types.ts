@@ -18,6 +18,22 @@ export interface FacebookIntegration {
   isMock?: boolean;
 }
 
+export interface TikTokIntegration {
+  isConnected: boolean;
+  /** Username hiển thị (e.g. @igen_tech) */
+  username: string;
+  /** Tên hiển thị trong UI */
+  displayName: string;
+  /** URL ảnh đại diện TikTok */
+  avatarUrl?: string;
+  /** Thời điểm kết nối */
+  connectedAt: any;
+  /** Mộc quyền riêng tư mặc định khi đăng (PUBLIC_TO_EVERYONE / SELF_ONLY) */
+  privacyLevel?: 'PUBLIC_TO_EVERYONE' | 'MUTUAL_FOLLOW_FRIENDS' | 'SELF_ONLY';
+  /** Chế độ giả lập — không cần API thật */
+  isMock?: boolean;
+}
+
 export interface UserProfile {
   uid: string;
   email: string;
@@ -26,6 +42,7 @@ export interface UserProfile {
   role: "user" | "admin" | "superadmin";
   createdAt: any;
   facebookIntegration?: FacebookIntegration | null;
+  tiktokIntegration?: TikTokIntegration | null;
 }
 
 export type HRSubTabType = "SƠ ĐỒ TỔ CHỨC" | "GIAO VIỆC KANBAN" | "ĐÀO TẠO";
@@ -95,6 +112,7 @@ export interface ContentApprovalCard {
   bodyText: string;
   outline?: string;
   imageUrl?: string;
+  videoUrl?: string;
   generatedAt: string;
   feedback?: string;
   scheduledDate?: string;
@@ -102,6 +120,8 @@ export interface ContentApprovalCard {
   authorUid?: string;
   publishedAt?: string;
   facebookPostId?: string;
+  tiktokPostId?: string;
+  tiktokShareUrl?: string;
 }
 
 export interface PublishEvent {

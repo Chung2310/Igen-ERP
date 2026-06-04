@@ -1,6 +1,7 @@
-import { collection, onSnapshot, setDoc, doc, deleteDoc, updateDoc, writeBatch, query, where, orderBy } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType, functions } from '../config/firebase';
+import { collection, onSnapshot, setDoc, doc, deleteDoc, updateDoc, writeBatch, query, where, deleteField } from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType, functions, storage } from '../config/firebase';
 import { httpsCallable } from 'firebase/functions';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { ContentApprovalCard } from '../types';
 import { geminiApi } from '../api/gemini';
 
@@ -109,7 +110,15 @@ export const marketingService = {
   async updateCardStatus(id: string, newStatus: 'draft' | 'pending' | 'approved' | 'scheduled' | 'published'): Promise<void> {
     try {
       const cardRef = doc(db, COLLECTION_NAME, id);
-      await updateDoc(cardRef, { status: newStatus });
+      if (newStatus === 'approved') {
+        await updateDoc(cardRef, { 
+          status: newStatus,
+          scheduledDate: deleteField(),
+          scheduledTime: deleteField()
+        });
+      } else {
+        await updateDoc(cardRef, { status: newStatus });
+      }
     } catch (e) {
       handleFirestoreError(e, OperationType.UPDATE, `${COLLECTION_NAME}/${id}`);
     }
@@ -243,6 +252,98 @@ export const marketingService = {
    */
   async fetchSuggestions(): Promise<string[]> {
     return geminiApi.fetchMarketingSuggestions();
+  },
+
+  async updateCardMedia(mediaUrl: string | null, type: 'image' | 'video', cardIds: string[]): Promise<void> {
+    try {
+      if (cardIds.length === 0) return;
+      // Dùng Promise.all + updateDoc thay vì writeBatch
+      // vì Firestore Security Rules không cho phép gọi get() bên trong batch context
+      // (isAdmin() gọi get() để lấy role → batch sẽ luôn thất bại với user thường)
+      await Promise.all(
+        cardIds.map((id) => {
+          const docRef = doc(db, COLLECTION_NAME, id);
+          const updateData: Record<string, unknown> = {};
+          if (type === 'image') {
+            updateData.imageUrl = mediaUrl ? mediaUrl : deleteField();
+          } else {
+            updateData.videoUrl = mediaUrl ? mediaUrl : deleteField();
+          }
+          return updateDoc(docRef, updateData);
+        })
+      );
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, `${COLLECTION_NAME}/[media-update]`);
+    }
+  },
+
+  /**
+   * Tải tệp tạm của backend lên Firebase Storage và trả về URL download công khai
+   */
+  async uploadMediaToStorage(tempUrl: string, filename: string, type: 'image' | 'video'): Promise<string> {
+    try {
+      const response = await fetch(tempUrl);
+      if (!response.ok) {
+        throw new Error(`Không thể fetch tệp tạm: ${response.statusText}`);
+      }
+      const blob = await response.blob();
+      const folder = type === 'image' ? 'images' : 'videos';
+      const storageRef = ref(storage, `marketing/${folder}/${filename}`);
+      await uploadBytes(storageRef, blob);
+      const downloadUrl = await getDownloadURL(storageRef);
+      return downloadUrl;
+    } catch (e) {
+      console.error("[marketingService.uploadMediaToStorage] Error:", e);
+      throw e;
+    }
+  },
+
+  /**
+   * Đăng bài lên TikTok.
+   * - isMock = true: giả lập thành công sau 1.5s (không cần API thật)
+   * - isMock = false: gọi Firebase Cloud Function `postToTikTok` (cần TikTok Developer App)
+   */
+  async publishToTikTok(
+    id: string,
+    caption: string,
+    videoUrl: string,
+    isMock: boolean,
+    privacyLevel: string = 'SELF_ONLY'
+  ): Promise<string> {
+    if (isMock) {
+      // Chế độ giả lập: delay 1.5s rồi trả về mock post ID
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      const mockPostId = `tiktok_mock_${Date.now()}`;
+      const cardRef = doc(db, COLLECTION_NAME, id);
+      await updateDoc(cardRef, {
+        status: 'published',
+        publishedAt: new Date().toISOString(),
+        tiktokPostId: mockPostId,
+        tiktokShareUrl: `https://www.tiktok.com/@demo/video/${mockPostId}`
+      });
+      console.log(`[iGen ERP TikTok (MOCK)]: Đã đăng video thành công. ID: ${mockPostId}`);
+      return mockPostId;
+    }
+
+    // Real Mode: gọi Firebase Cloud Function (cần cấu hình TikTok Developer App)
+    const postToTikTokFn = httpsCallable<
+      { cardId: string; caption: string; videoUrl: string; privacyLevel: string },
+      { postId: string; shareUrl: string; success: boolean }
+    >(functions, 'postToTikTok');
+
+    const result = await postToTikTokFn({ cardId: id, caption, videoUrl, privacyLevel });
+    const { postId, shareUrl } = result.data;
+
+    const cardRef = doc(db, COLLECTION_NAME, id);
+    await updateDoc(cardRef, {
+      status: 'published',
+      publishedAt: new Date().toISOString(),
+      tiktokPostId: postId,
+      tiktokShareUrl: shareUrl
+    });
+
+    console.log(`[iGen ERP TikTok]: Đã đăng video thành công. Post ID: ${postId}`);
+    return postId;
   },
 };
 

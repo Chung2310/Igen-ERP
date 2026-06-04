@@ -103,7 +103,7 @@ exports.postToFacebook = (0, https_1.onCall)({
     }
 });
 exports.publishScheduledPosts = (0, scheduler_1.onSchedule)({
-    schedule: "* * * * *", // Chạy mỗi phút
+    schedule: "*/15 * * * *", // Chạy mỗi 15 phút
     timeZone: "Asia/Ho_Chi_Minh", // Múi giờ Việt Nam
     region: "asia-southeast1",
     memory: "256MiB",

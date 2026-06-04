@@ -21,7 +21,7 @@ import {
 import { httpsCallable } from "firebase/functions";
 import { auth, db, functions } from "../config/firebase";
 import { authService } from "../services/authService";
-import { UserProfile, FacebookIntegration } from "../types";
+import { UserProfile, FacebookIntegration, TikTokIntegration } from "../types";
 import { toast } from "../components/Toast";
 
 interface AuthContextType {
@@ -37,6 +37,8 @@ interface AuthContextType {
   uploadAvatar: (file: File) => Promise<string>;
   saveFacebookIntegration: (integration: FacebookIntegration) => Promise<void>;
   removeFacebookIntegration: () => Promise<void>;
+  saveTikTokIntegration: (integration: TikTokIntegration) => Promise<void>;
+  removeTikTokIntegration: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -231,17 +233,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const loginWithGoogle = async (rememberMe: boolean = true) => {
-    setLoading(true);
+    // Không gọi setLoading(true) ở đây — popup Google có UX loading riêng,
+    // nếu setLoading(true) thì App sẽ render màn hình loading và block UI
     try {
       await applyPersistence(rememberMe);
       await authService.loginWithGoogle();
       toast.success("Đăng nhập bằng Google thành công!");
     } catch (error: any) {
-      console.error(error);
-      toast.error("Đăng nhập Google thất bại hoặc bị hủy bỏ.");
+      // Bỏ qua silently nếu user tự đóng popup — đây không phải lỗi thực sự
+      const cancelCodes = [
+        "auth/popup-closed-by-user",
+        "auth/cancelled-popup-request",
+        "auth/user-cancelled",
+      ];
+      if (cancelCodes.includes(error?.code)) {
+        // User chủ động tắt popup → không làm gì, giữ nguyên trang login
+        return;
+      }
+      // Lỗi thực sự (network, cấu hình sai, v.v.) → thông báo
+      console.error("[loginWithGoogle]", error);
+      let msg = "Đăng nhập Google thất bại. Vui lòng thử lại.";
+      if (error.code === "auth/popup-blocked") {
+        msg = "Trình duyệt đã chặn cửa sổ đăng nhập Google. Vui lòng cho phép popup trong cài đặt trình duyệt.";
+      } else if (error.code === "auth/network-request-failed") {
+        msg = "Lỗi kết nối mạng. Vui lòng kiểm tra đường truyền internet.";
+      }
+      toast.error(msg);
       throw error;
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -353,6 +371,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const saveTikTokIntegration = async (integration: TikTokIntegration) => {
+    if (!user) return;
+    try {
+      await updateDoc(doc(db, "users", user.uid), {
+        tiktokIntegration: integration
+      });
+      setUserProfile((prev) => prev ? { ...prev, tiktokIntegration: integration } : null);
+      toast.success("Kết nối TikTok thành công!");
+    } catch (error) {
+      console.error("Lỗi lưu TikTok integration:", error);
+      toast.error("Không thể kết nối TikTok. Vui lòng thử lại.");
+      throw error;
+    }
+  };
+
+  const removeTikTokIntegration = async () => {
+    if (!user) return;
+    try {
+      await updateDoc(doc(db, "users", user.uid), {
+        tiktokIntegration: null
+      });
+      setUserProfile((prev) => prev ? { ...prev, tiktokIntegration: null } : null);
+      toast.success("Đã hủy liên kết TikTok.");
+    } catch (error) {
+      console.error("Lỗi xóa TikTok integration:", error);
+      toast.error("Lỗi khi hủy liên kết TikTok.");
+      throw error;
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -368,6 +416,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         uploadAvatar,
         saveFacebookIntegration,
         removeFacebookIntegration,
+        saveTikTokIntegration,
+        removeTikTokIntegration,
       }}
     >
       {children}
