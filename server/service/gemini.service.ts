@@ -2,6 +2,7 @@ import { Type } from "@google/genai";
 import { getGeminiClient } from "../config/gemini";
 import fs from "fs";
 import path from "path";
+import os from "os";
 
 export const geminiService = {
   /**
@@ -328,7 +329,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
         : "";
 
     const prompt = `Bạn là một chuyên gia marketing xuất sắc.
-Hãy tạo đúng 3 ý tưởng/bản nháp chiến dịch marketing chi tiết cho chủ đề/chiến dịch này: "\${campaignTopic}".\${pillarsContext}
+Hãy tạo đúng 3 ý tưởng/bản nháp chiến dịch marketing chi tiết cho chủ đề/chiến dịch này: "${campaignTopic}".${pillarsContext}
 Yêu cầu kết quả đầu ra:
 1. Đề xuất tiêu đề chiến dịch sáng tạo.
 2. Tỷ lệ phần trăm phù hợp (matchPercent) ước lượng (số nguyên từ 50-100).
@@ -400,17 +401,17 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
           contentType = "Hình ảnh kèm Caption";
           outline = `📋 DÀN Ý CHI TIẾT (OUTLINE):
 1. Hình ảnh: Ảnh flatlay thiết bị sang trọng trên bàn làm việc hiện đại.
-2. Tiêu đề: Độc vị phong cách - Chọn \${title}.
+2. Tiêu đề: Độc vị phong cách - Chọn ${title}.
 3. Nội dung chính: Giải quyết vấn đề mỏi tay, tăng tốc gõ và tối ưu hóa không gian làm việc.
 4. Call to Action: Đăng ký nhận ưu đãi 10% ra mắt.`;
-          bodyText = `🔥 BẬT PHONG CÁCH - NHÂN HIỆU SUẤT CÙNG \${title}! 🔥
+          bodyText = `🔥 BẬT PHONG CÁCH - NHÂN HIỆU SUẤT CÙNG ${title}! 🔥
 
-Bạn có biết 90% hiệu suất làm việc phụ thuộc vào sự thoải mái của thiết bị đồng hành? Với chiến dịch \${summary}, chúng tôi mang đến giải pháp tối ưu cho bạn:
+Bạn có biết 90% hiệu suất làm việc phụ thuộc vào sự thoải mái của thiết bị đồng hành? Với chiến dịch ${summary}, chúng tôi mang đến giải pháp tối ưu cho bạn:
 💻 Thiết kế công thái học tinh tế.
 ⚡ Tăng tốc độ phản hồi phím gõ lên 150%.
 🎁 Quà tặng kèm kê tay gỗ sồi đặc quyền.
 
-💡 Ý tưởng cốt lõi: "\${suggestedContent}"
+💡 Ý tưởng cốt lõi: "${suggestedContent}"
 
 📲 Nhắn tin ngay cho iGen để nhận deal hời! #iGenERP #WorkspaceV2 #CongNgheSo #Success`;
         } else if (chan === "TikTok") {
@@ -421,23 +422,23 @@ Bạn có biết 90% hiệu suất làm việc phụ thuộc vào sự thoải m
 - Audio (Voiceover): "Bạn có đang làm việc sai tư thế?"
 
 [0:03 - 0:08]
-- Visual: Show cận cảnh thiết kế sang trọng & âm thanh gõ phím đầm chắc của \${title}.
-- Audio (Voiceover): "Nâng cấp hiệu năng làm việc cực đỉnh cùng \${summary}"`;
-          bodyText = `🔥 Cứu tinh deadline của bạn đây rồi! Nâng cấp hiệu năng làm việc cực đỉnh với \${title}. Đăng ký trải nghiệm ngay hôm nay để nhận voucher giảm giá 45% độc quyền! #iGenERP #WorkspaceV2 #WorkSmart #Deadline`;
+- Visual: Show cận cảnh thiết kế sang trọng & âm thanh gõ phím đầm chắc của ${title}.
+- Audio (Voiceover): "Nâng cấp hiệu năng làm việc cực đỉnh cùng ${summary}"`;
+          bodyText = `🔥 Cứu tinh deadline của bạn đây rồi! Nâng cấp hiệu năng làm việc cực đỉnh với ${title}. Đăng ký trải nghiệm ngay hôm nay để nhận voucher giảm giá 45% độc quyền! #iGenERP #WorkspaceV2 #WorkSmart #Deadline`;
         } else if (chan === "LinkedIn") {
           contentType = "Bài viết chuyên sâu (Article)";
           outline = `📋 DÀN Ý CHI TIẾT (OUTLINE):
 1. Đặt vấn đề: Xu hướng chuyển đổi số và nâng cao năng suất doanh nghiệp.
 2. Phân tích: Vai trò của thiết bị chuẩn công thái học đối với nhân sự IT/Lập trình.
-3. Chiến dịch \${summary} đóng góp giá trị như thế nào.
+3. Chiến dịch ${summary} đóng góp giá trị như thế nào.
 4. CTA kết nối nhận tư vấn.`;
           bodyText = `[XU HƯỚNG VẬN HÀNH] TỐI ƯU HÓA TRẠI NGHIỆM NHÂN SỰ ĐỂ ĐỘT PHÁ HIỆU SUẤT
 
 Kính gửi quý đối tác và cộng đồng doanh nghiệp,
 
-Trong quản trị hiện đại, sự hài lòng và sức khỏe thể chất của nhân viên chính là đòn bẩy hiệu năng lớn nhất. Với chiến dịch "\${title}" cùng định hướng: \${summary}.
+Trong quản trị hiện đại, sự hài lòng và sức khỏe thể chất của nhân viên chính là đòn bẩy hiệu năng lớn nhất. Với chiến dịch "${title}" cùng định hướng: ${summary}.
 
-Dựa trên gợi ý đề xuất: "\${suggestedContent}", iGen ERP mang tới góc nhìn mới giúp doanh nghiệp:
+Dựa trên gợi ý đề xuất: "${suggestedContent}", iGen ERP mang tới góc nhìn mới giúp doanh nghiệp:
 ✅ Giảm thiểu chấn thương cổ tay (RSI) ở bộ phận kỹ thuật.
 ✅ Gia tăng sự tập trung và gắn kết công việc.
 ✅ Xây dựng môi trường làm việc thông minh và hiện đại.
@@ -451,10 +452,10 @@ Dựa trên gợi ý đề xuất: "\${suggestedContent}", iGen ERP mang tới g
 1. Mở bài cuốn hút.
 2. Phân tích cốt lõi.
 3. CTA kêu gọi hành động.`;
-          bodyText = `Giới thiệu chiến dịch: \${title}!
+          bodyText = `Giới thiệu chiến dịch: ${title}!
 
-Định hướng ý tưởng: \${summary}.
-Nội dung chi tiết gợi ý: \${suggestedContent}`;
+Định hướng ý tưởng: ${summary}.
+Nội dung chi tiết gợi ý: ${suggestedContent}`;
         }
         return { channel: chan, contentType, outline, bodyText };
       });
@@ -462,7 +463,7 @@ Nội dung chi tiết gợi ý: \${suggestedContent}`;
     }
 
     const prompt = `Bạn là một chuyên gia viết kịch bản và AI Copywriter xuất sắc.
-Hãy lập Dàn ý (Outline) và viết Bản nháp nội dung (Draft Content) cho các kênh sau đây: \${targetChannels.join(", ")}
+Hãy lập Dàn ý (Outline) và viết Bản nháp nội dung (Draft Content) cho các kênh sau đây: ${targetChannels.join(", ")}
 
 QUY TẮC PHÂN TÁCH DỮ LIỆU BẮT BUỘC CHO TỪNG KÊNH:
 1. Đối với kênh TikTok:
@@ -473,9 +474,9 @@ QUY TẮC PHÂN TÁCH DỮ LIỆU BẮT BUỘC CHO TỪNG KÊNH:
    - Trường "bodyText": Lưu bản nháp nội dung bài viết sạch hoàn chỉnh để đăng tải trực tiếp (không chứa dàn ý hay tiêu đề nháp).
 
 Thông tin chiến dịch marketing:
-- Tiêu đề ý tưởng: "\${title}"
-- Tóm tắt ý tưởng: "\${summary}"
-- Nội dung gợi ý ban đầu: "\${suggestedContent}"
+- Tiêu đề ý tưởng: "${title}"
+- Tóm tắt ý tưởng: "${summary}"
+- Nội dung gợi ý ban đầu: "${suggestedContent}"
 
 Trả về kết quả ở định dạng JSON phù hợp chính xác với cấu trúc yêu cầu.`;
 
@@ -522,25 +523,11 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
    */
   async generateImage(prompt: string): Promise<{ url: string; isMock: boolean }> {
     const client = getGeminiClient();
-    const filename = `img_${Date.now()}_${Math.floor(Math.random() * 1000)}.png`;
-    const uploadsDir = path.join(process.cwd(), "uploads");
-    const filePath = path.join(uploadsDir, filename);
 
     if (!client) {
       console.log("[geminiService.generateImage] Running in MOCK mode");
-      try {
-        const res = await fetch("https://picsum.photos/800/600");
-        if (res.ok) {
-          const buffer = Buffer.from(await res.arrayBuffer());
-          fs.writeFileSync(filePath, buffer);
-          return { url: `/uploads/${filename}`, isMock: true };
-        }
-      } catch (err) {
-        console.warn("[geminiService.generateImage] Failed to fetch placeholder image, using fallback 1x1 PNG", err);
-      }
-      const fallbackPng = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64");
-      fs.writeFileSync(filePath, fallbackPng);
-      return { url: `/uploads/${filename}`, isMock: true };
+      const seed = Math.floor(Math.random() * 1000000);
+      return { url: `https://picsum.photos/seed/${seed}/800/600`, isMock: true };
     }
 
     try {
@@ -560,9 +547,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
         throw new Error("Không nhận được dữ liệu ảnh từ Gemini API");
       }
 
-      const buffer = Buffer.from(base64Bytes, "base64");
-      fs.writeFileSync(filePath, buffer);
-      return { url: `/uploads/${filename}`, isMock: false };
+      return { url: `data:image/png;base64,${base64Bytes}`, isMock: false };
     } catch (error: any) {
       console.error("[geminiService.generateImage] Error:", error);
       throw error;
@@ -574,25 +559,17 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
    */
   async generateVideo(prompt: string, durationSeconds: number = 6): Promise<{ url: string; isMock: boolean }> {
     const client = getGeminiClient();
-    const filename = `vid_${Date.now()}_${Math.floor(Math.random() * 1000)}.mp4`;
-    const uploadsDir = path.join(process.cwd(), "uploads");
-    const filePath = path.join(uploadsDir, filename);
 
     if (!client) {
       console.log("[geminiService.generateVideo] Running in MOCK mode");
-      try {
-        const res = await fetch("https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4");
-        if (res.ok) {
-          const buffer = Buffer.from(await res.arrayBuffer());
-          fs.writeFileSync(filePath, buffer);
-          return { url: `/uploads/${filename}`, isMock: true };
-        }
-      } catch (err) {
-        console.warn("[geminiService.generateVideo] Failed to fetch placeholder video, using fallback empty mp4", err);
-      }
-      fs.writeFileSync(filePath, Buffer.from("dummy video content"));
-      return { url: `/uploads/${filename}`, isMock: true };
+      return { 
+        url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4", 
+        isMock: true 
+      };
     }
+
+    const filename = `vid_${Date.now()}_${Math.floor(Math.random() * 1000)}.mp4`;
+    const tempFilePath = path.join(os.tmpdir(), filename);
 
     try {
       let operation = await client.models.generateVideos({
@@ -628,11 +605,30 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
 
       await client.files.download({
         file: generatedVideo,
-        downloadPath: filePath,
+        downloadPath: tempFilePath,
       });
 
-      return { url: `/uploads/${filename}`, isMock: false };
+      // Đọc tệp vào bộ nhớ dưới dạng base64
+      const videoBuffer = fs.readFileSync(tempFilePath);
+      const base64Video = videoBuffer.toString("base64");
+
+      // Xóa tệp tạm lập tức
+      try {
+        fs.unlinkSync(tempFilePath);
+      } catch (err) {
+        console.warn(`[geminiService.generateVideo] Không thể xóa tệp tạm: ${tempFilePath}`, err);
+      }
+
+      return { url: `data:video/mp4;base64,${base64Video}`, isMock: false };
     } catch (error: any) {
+      // Dọn dẹp tệp tạm trong trường hợp có lỗi
+      if (fs.existsSync(tempFilePath)) {
+        try {
+          fs.unlinkSync(tempFilePath);
+        } catch (err) {
+          console.warn(`[geminiService.generateVideo] Không thể dọn dẹp tệp tạm: ${tempFilePath}`, err);
+        }
+      }
       console.error("[geminiService.generateVideo] Error:", error);
       throw error;
     }

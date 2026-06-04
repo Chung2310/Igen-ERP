@@ -129,6 +129,59 @@ export const postToFacebook = onCall(
   }
 );
 
+export const postToTikTok = onCall(
+  {
+    cors: true,
+    timeoutSeconds: 30,
+    memory: "256MiB",
+    region: "asia-southeast1",
+  },
+  async (request) => {
+    // 1. Kiểm tra đã đăng nhập
+    if (!request.auth) {
+      throw new HttpsError(
+        "unauthenticated",
+        "Bạn cần đăng nhập để sử dụng tính năng này."
+      );
+    }
+
+    const { cardId, caption, videoUrl, privacyLevel } = request.data as {
+      cardId: string;
+      caption: string;
+      videoUrl: string;
+      privacyLevel?: string;
+    };
+
+    if (!cardId?.trim()) {
+      throw new HttpsError("invalid-argument", "Card ID không được để trống.");
+    }
+    if (!videoUrl?.trim()) {
+      throw new HttpsError("invalid-argument", "Video URL không được để trống.");
+    }
+
+    console.log(`[iGen TikTok] Đăng video cho card ${cardId} (uid: ${request.auth.uid}) với caption: "${caption || ""}" và privacy: ${privacyLevel || "mặc định"}`);
+
+    try {
+      // Vì chưa có TikTok Developer App, giả lập đăng video thành công hoặc ghi nhận theo mock.
+      const mockPostId = `tiktok_mock_${Date.now()}`;
+      const shareUrl = `https://www.tiktok.com/@demo/video/${mockPostId}`;
+
+      console.log(`[iGen TikTok] Đăng thành công (MOCK). Post ID: ${mockPostId}, Video URL: ${videoUrl}`);
+
+      return {
+        success: true,
+        postId: mockPostId,
+        shareUrl,
+      };
+    } catch (err) {
+      if (err instanceof HttpsError) throw err;
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[iGen TikTok] Lỗi không mong đợi:", msg);
+      throw new HttpsError("internal", `Lỗi server: ${msg}`);
+    }
+  }
+);
+
 export const publishScheduledPosts = onSchedule(
   {
     schedule: "*/15 * * * *", // Chạy mỗi 15 phút
@@ -185,63 +238,87 @@ export const publishScheduledPosts = onSchedule(
           }
 
           const userProfile = userDoc.data();
-          const fbIntegration = userProfile?.facebookIntegration;
+          const channel = card.channel || "Facebook";
 
-          if (!fbIntegration || !fbIntegration.isConnected) {
-            console.log(`[iGen Scheduler] Facebook not connected for user ${authorUid}. Skipping.`);
-            continue;
-          }
+          if (channel === "Facebook") {
+            const fbIntegration = userProfile?.facebookIntegration;
 
-          const { pageId, pageAccessToken, isMock } = fbIntegration;
-
-          if (isMock) {
-            const mockPostId = `mock-post-scheduled-${Date.now()}`;
-            await docSnap.ref.update({
-              status: "published",
-              publishedAt: new Date().toISOString(),
-              facebookPostId: mockPostId
-            });
-            console.log(`[iGen Scheduler] Mock published card ${docSnap.id} successfully!`);
-          } else {
-            let endpoint = `https://graph.facebook.com/v20.0/${pageId}/feed`;
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const payload: Record<string, any> = {
-              access_token: pageAccessToken.trim(),
-            };
-
-            const cleanMessage = extractDraftContent(card.bodyText || "");
-            if (card.imageUrl?.trim()) {
-              endpoint = `https://graph.facebook.com/v20.0/${pageId}/photos`;
-              payload.url = card.imageUrl.trim();
-              payload.caption = cleanMessage;
-            } else {
-              payload.message = cleanMessage;
-            }
-
-            const response = await fetch(endpoint, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Accept: "application/json",
-              },
-              body: JSON.stringify(payload),
-            });
-
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const data = (await response.json()) as Record<string, any>;
-
-            if (!response.ok || data.error) {
-              console.error(`[iGen Scheduler] Meta API error for card ${docSnap.id}:`, data.error);
+            if (!fbIntegration || !fbIntegration.isConnected) {
+              console.log(`[iGen Scheduler] Facebook not connected for user ${authorUid}. Skipping.`);
               continue;
             }
 
-            const postId = data.id ?? data.post_id ?? "unknown";
+            const { pageId, pageAccessToken, isMock } = fbIntegration;
+
+            if (isMock) {
+              const mockPostId = `mock-post-scheduled-${Date.now()}`;
+              await docSnap.ref.update({
+                status: "published",
+                publishedAt: new Date().toISOString(),
+                facebookPostId: mockPostId
+              });
+              console.log(`[iGen Scheduler] Mock published card ${docSnap.id} to Facebook successfully!`);
+            } else {
+              let endpoint = `https://graph.facebook.com/v20.0/${pageId}/feed`;
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const payload: Record<string, any> = {
+                access_token: pageAccessToken.trim(),
+              };
+
+              const cleanMessage = extractDraftContent(card.bodyText || "");
+              if (card.imageUrl?.trim()) {
+                endpoint = `https://graph.facebook.com/v20.0/${pageId}/photos`;
+                payload.url = card.imageUrl.trim();
+                payload.caption = cleanMessage;
+              } else {
+                payload.message = cleanMessage;
+              }
+
+              const response = await fetch(endpoint, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Accept: "application/json",
+                },
+                body: JSON.stringify(payload),
+              });
+
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const data = (await response.json()) as Record<string, any>;
+
+              if (!response.ok || data.error) {
+                console.error(`[iGen Scheduler] Meta API error for card ${docSnap.id}:`, data.error);
+                continue;
+              }
+
+              const postId = data.id ?? data.post_id ?? "unknown";
+              await docSnap.ref.update({
+                status: "published",
+                publishedAt: new Date().toISOString(),
+                facebookPostId: postId
+              });
+              console.log(`[iGen Scheduler] Published card ${docSnap.id} to Facebook Page successfully. Post ID: ${postId}`);
+            }
+          } else if (channel === "TikTok") {
+            const tiktokIntegration = userProfile?.tiktokIntegration;
+
+            if (!tiktokIntegration || !tiktokIntegration.isConnected) {
+              console.log(`[iGen Scheduler] TikTok not connected for user ${authorUid}. Skipping.`);
+              continue;
+            }
+
+            const mockPostId = `tiktok_mock_scheduled_${Date.now()}`;
+            const mockShareUrl = `https://www.tiktok.com/@demo/video/${mockPostId}`;
+
             await docSnap.ref.update({
               status: "published",
               publishedAt: new Date().toISOString(),
-              facebookPostId: postId
+              tiktokPostId: mockPostId,
+              tiktokShareUrl: mockShareUrl
             });
-            console.log(`[iGen Scheduler] Published card ${docSnap.id} to Facebook Page successfully. Post ID: ${postId}`);
+            console.log(`[iGen Scheduler] Mock published card ${docSnap.id} to TikTok successfully!`);
+          } else {
+            console.warn(`[iGen Scheduler] Channel "${channel}" is not supported yet for auto-publish.`);
           }
         } catch (err) {
           console.error(`[iGen Scheduler] Error processing scheduled card ${docSnap.id}:`, err);

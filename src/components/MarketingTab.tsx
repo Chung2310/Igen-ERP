@@ -407,7 +407,14 @@ export default function MarketingTab() {
       }
 
       const tempUrl = result.url;
-      const filename = tempUrl.split("/").pop() || `${aiGenType}_${Date.now()}`;
+      let filename = `${aiGenType}_${Date.now()}`;
+      if (tempUrl.startsWith("http") && !tempUrl.startsWith("data:")) {
+        filename = tempUrl.split("/").pop() || filename;
+      } else {
+        const mime = tempUrl.match(/data:([^;]+);/)?.[1] || "";
+        const ext = mime.split("/")[1] || (aiGenType === "image" ? "png" : "mp4");
+        filename = `${aiGenType}_${Date.now()}.${ext}`;
+      }
 
       // Upload to Firebase Storage
       setAiGenLoadingText("Đang tải phương tiện lên Firebase Storage...");
@@ -451,7 +458,14 @@ export default function MarketingTab() {
       }
 
       const tempUrl = result.url;
-      const filename = tempUrl.split("/").pop() || `${activeLightboxType}_${Date.now()}`;
+      let filename = `${activeLightboxType}_${Date.now()}`;
+      if (tempUrl.startsWith("http") && !tempUrl.startsWith("data:")) {
+        filename = tempUrl.split("/").pop() || filename;
+      } else {
+        const mime = tempUrl.match(/data:([^;]+);/)?.[1] || "";
+        const ext = mime.split("/")[1] || (activeLightboxType === "image" ? "png" : "mp4");
+        filename = `${activeLightboxType}_${Date.now()}.${ext}`;
+      }
 
       const storageUrl = await marketingService.uploadMediaToStorage(tempUrl, filename, activeLightboxType);
 
