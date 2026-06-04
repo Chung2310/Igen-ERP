@@ -6,7 +6,6 @@ import HRTab from "./components/HRTab";
 import InventoryTab from "./components/InventoryTab";
 import MarketingTab from "./components/MarketingTab";
 import CRMTab from "./components/CRMTab";
-import AIPerformanceTab from "./components/AIPerformanceTab";
 import UserAdminTab from "./components/UserAdminTab";
 import SettingsTab from "./components/SettingsTab";
 import { TabType } from "./types";
@@ -21,9 +20,9 @@ function AppContent() {
 
   if (loading) {
     return (
-      <div className="w-screen h-screen bg-slate-900 flex flex-col items-center justify-center text-center">
-        <RefreshCw className="h-10 w-10 text-indigo-500 animate-spin mb-4" />
-        <span className="text-xs font-bold font-mono text-indigo-300 uppercase tracking-widest animate-pulse">
+      <div className="w-screen h-screen bg-inverse-surface flex flex-col items-center justify-center text-center">
+        <RefreshCw className="h-10 w-10 text-inverse-primary animate-spin mb-4" />
+        <span className="text-xs font-bold font-mono text-inverse-on-surface uppercase tracking-widest animate-pulse">
           Đang khởi tạo hệ thống ERP...
         </span>
       </div>
@@ -42,7 +41,7 @@ function AppContent() {
   };
 
   return (
-    <div className="flex h-screen w-screen bg-slate-50 overflow-hidden font-sans" id="app_root_layout">
+    <div className="flex h-screen w-screen bg-background text-on-surface overflow-hidden font-sans" id="app_root_layout">
       {/* Dynamic Left Sidebar Section */}
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
 
@@ -52,13 +51,12 @@ function AppContent() {
         <Header currentTab={activeTab} onSearchSelect={handleSearchNavigation} />
 
         {/* Primary Page Canvas */}
-        <main className="flex-1 p-6 overflow-hidden bg-gray-50/50" id="primary_page_container">
+        <main className="flex-1 p-6 overflow-hidden bg-surface" id="primary_page_container">
           {activeTab === "TỔNG QUAN" && <DashboardTab />}
           {activeTab === "NHÂN SỰ" && <HRTab />}
           {activeTab === "KHO & SẢN PHẨM" && <InventoryTab />}
           {activeTab === "MARKETING" && <MarketingTab />}
           {activeTab === "SALES CRM" && <CRMTab />}
-          {activeTab === "HIỆU SUẤT AI" && <AIPerformanceTab />}
           {activeTab === "QUẢN TRỊ USER" && userProfile.role === "superadmin" && <UserAdminTab />}
           {activeTab === "CÀI ĐẶT" && <SettingsTab />}
         </main>
