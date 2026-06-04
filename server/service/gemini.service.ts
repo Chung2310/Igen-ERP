@@ -4,6 +4,10 @@ import fs from "fs";
 import path from "path";
 import os from "os";
 
+const GEMINI_TEXT_MODEL = process.env.GEMINI_MODEL || "gemini-3.1-flash-lite";
+const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || "imagen-4.0-generate-001";
+const GEMINI_VIDEO_MODEL = process.env.GEMINI_VIDEO_MODEL || "veo-3.1-generate-preview";
+
 export const geminiService = {
   /**
    * Trợ lý Chat CRM Omni-Inbox
@@ -57,7 +61,7 @@ Thông tin cấu hình hiện tại của bạn:
     });
 
     const response = await client.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: GEMINI_TEXT_MODEL,
       contents,
       config: {
         systemInstruction,
@@ -90,7 +94,7 @@ Mỗi ý tưởng đề xuất phải là một câu ngắn gọn (dưới 25 t�
 Trả về kết quả ở định dạng JSON phù hợp chính xác với cấu trúc yêu cầu.`;
 
     const response = await client.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: GEMINI_TEXT_MODEL,
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -234,7 +238,7 @@ Mỗi trụ cột phải có thông tin:
 Trả về kết quả ở định dạng JSON phù hợp chính xác với cấu trúc yêu cầu.`;
 
     const response = await client.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: GEMINI_TEXT_MODEL,
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -341,7 +345,7 @@ Yêu cầu kết quả đầu ra:
 Trả về kết quả ở định dạng JSON phù hợp chính xác với cấu trúc yêu cầu.`;
 
     const response = await client.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: GEMINI_TEXT_MODEL,
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -481,7 +485,7 @@ Thông tin chiến dịch marketing:
 Trả về kết quả ở định dạng JSON phù hợp chính xác với cấu trúc yêu cầu.`;
 
     const response = await client.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: GEMINI_TEXT_MODEL,
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -532,7 +536,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
 
     try {
       const response = await client.models.generateImages({
-        model: "imagen-4.0-generate-001",
+        model: GEMINI_IMAGE_MODEL,
         prompt: prompt,
         config: {
           numberOfImages: 1,
@@ -573,7 +577,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
 
     try {
       let operation = await client.models.generateVideos({
-        model: "veo-3.1-generate-preview",
+        model: GEMINI_VIDEO_MODEL,
         prompt: prompt,
         config: {
           numberOfVideos: 1,

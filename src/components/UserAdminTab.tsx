@@ -9,6 +9,7 @@ export default function UserAdminTab() {
   const { userProfile } = useAuth();
   const [usersList, setUsersList] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  const visibleUsers = usersList.filter((usr) => usr.role !== "user");
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -80,7 +81,7 @@ export default function UserAdminTab() {
             <RefreshCw className="h-8 w-8 text-indigo-650 animate-spin mb-3" />
             <span className="text-xs font-bold font-mono text-indigo-800 uppercase tracking-widest">Đang tải danh sách tài khoản...</span>
           </div>
-        ) : usersList.length === 0 ? (
+        ) : visibleUsers.length === 0 ? (
           <div className="p-12 text-center bg-gray-50 text-gray-400 italic rounded-2xl border border-dashed">
             Không tìm thấy tài khoản nào trong hệ thống!
           </div>
@@ -97,7 +98,7 @@ export default function UserAdminTab() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 text-slate-700">
-                {usersList.map((usr) => {
+                {visibleUsers.map((usr) => {
                   const isSelf = usr.uid === userProfile?.uid;
                   return (
                     <tr key={usr.uid} className="hover:bg-slate-50/40 transition-colors">
@@ -160,7 +161,6 @@ export default function UserAdminTab() {
                               isSelf ? "opacity-50 cursor-not-allowed bg-gray-50" : ""
                             }`}
                           >
-                            <option value="user">USER (Chỉ xem)</option>
                             <option value="admin">ADMIN (Quản lý)</option>
                             <option value="superadmin">SUPERADMIN (Toàn quyền)</option>
                           </select>
