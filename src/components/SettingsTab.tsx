@@ -791,18 +791,94 @@ export default function SettingsTab() {
                 )}
               </div>
 
-              {/* TikTok Coming Soon */}
-              <div className="bg-white/80 backdrop-blur-md border border-gray-200/80 rounded-2xl p-6 shadow-xs">
+              {/* TikTok Autopost */}
+              <div className="bg-white/80 backdrop-blur-md border border-gray-200/80 rounded-2xl p-6 shadow-xs" id="tiktok_integration_section">
                 <h3 className="text-base font-bold text-gray-800 mb-1 flex items-center gap-2">
-                  <span className="w-8 h-8 rounded-lg bg-black flex items-center justify-center text-white text-sm font-black">T</span>
+                  <span className="w-8 h-8 rounded-lg bg-black flex items-center justify-center text-white text-sm font-black shrink-0">
+                    ♪
+                  </span>
                   TikTok Autopost
-                  <span className="px-2 py-0.5 bg-purple-100 border border-purple-300 text-purple-700 rounded-full text-[9px] font-bold font-mono">SẮP RA MẮT</span>
+                  {!userProfile?.tiktokIntegration?.isConnected && (
+                    <span className="px-2 py-0.5 bg-purple-100 border border-purple-300 text-purple-700 rounded-full text-[9px] font-bold font-mono">MOCK READY</span>
+                  )}
                 </h3>
-                <p className="text-xs text-gray-500 mb-4">Tự động đăng Video ngắn MP4 lên TikTok Business. Đang phát triển theo Hướng A, hỗ trợ file Video ngắn (≤60s) định dạng MP4.</p>
-                <div className="p-4 bg-gray-50 border border-dashed border-gray-300 rounded-xl text-center">
-                  <span className="text-2xl">🚧</span>
-                  <p className="text-xs text-gray-400 mt-1 font-mono">Đang phát triển - Hướng A (TikTok Business API v2)</p>
-                </div>
+                <p className="text-xs text-gray-500 mb-5">
+                  Kết nối tài khoản TikTok để tự động đăng video ngắn marketing. Hỗ trợ Mock Mode để test ngay mà không cần TikTok Developer App.
+                </p>
+
+                {userProfile?.tiktokIntegration?.isConnected ? (
+                  /* Connected State */
+                  <div className="space-y-4">
+                    <div className="flex items-start gap-4 p-4 bg-slate-50/80 border border-slate-200 rounded-xl">
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-slate-700 to-black flex items-center justify-center shrink-0 shadow-md text-white text-xl font-black">
+                        ♪
+                      </div>
+                      <div className="flex-1 text-left min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="text-sm font-bold text-gray-800 truncate">
+                            {userProfile.tiktokIntegration.displayName}
+                          </h4>
+                          <span className="text-[11px] text-gray-500 font-mono">@{userProfile.tiktokIntegration.username}</span>
+                          {userProfile.tiktokIntegration.isMock && (
+                            <span className="px-2 py-0.5 bg-amber-100 border border-amber-300 text-amber-700 rounded-full text-[9px] font-bold font-mono shrink-0">DEMO</span>
+                          )}
+                          <span className="flex items-center gap-1 px-2 py-0.5 bg-green-100 border border-green-300 text-green-700 rounded-full text-[10px] font-bold shrink-0">
+                            <CheckCircle className="h-3 w-3" /> Đang hoạt động
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-gray-400 font-mono mt-1">
+                          Kết nối lúc: {userProfile.tiktokIntegration.connectedAt
+                            ? (typeof userProfile.tiktokIntegration.connectedAt === 'string'
+                              ? new Date(userProfile.tiktokIntegration.connectedAt).toLocaleString('vi-VN')
+                              : 'Vừa xong')
+                            : 'N/A'}
+                        </p>
+                        <p className="text-[10px] text-gray-400 mt-1">
+                          Quyền riêng tư mặc định: <span className="font-mono font-bold">{userProfile.tiktokIntegration.privacyLevel || 'SELF_ONLY'}</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2 text-xs">
+                      <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-bold text-amber-800">Lưu ý về TikTok API</p>
+                        <p className="text-amber-700 mt-0.5">
+                          {userProfile.tiktokIntegration.isMock
+                            ? "Đang chạy ở chế độ Demo — bài đăng được giả lập, không thật sự lên TikTok. Kết nối API thật khi có TikTok Developer App."
+                            : "Bài đăng sẽ được đăng ở chế độ Private cho đến khi TikTok duyệt Developer App của bạn."}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3 pt-2 border-t border-gray-100">
+                      <TikTokConnectSection />
+                    </div>
+                  </div>
+                ) : (
+                  /* Not Connected State */
+                  <div className="space-y-5">
+                    {/* Hướng dẫn tạo Developer App */}
+                    <div className="p-4 bg-blue-50/70 border border-blue-200 rounded-xl space-y-2 text-xs">
+                      <p className="font-bold text-blue-800 flex items-center gap-1.5">
+                        <ExternalLink className="h-3.5 w-3.5" />
+                        Chưa có TikTok Developer App? Tạo miễn phí tại:
+                      </p>
+                      <ol className="text-blue-700 space-y-1 ml-4 list-decimal">
+                        <li>Truy cập <span className="font-mono bg-blue-100 px-1 rounded">developers.tiktok.com</span> → Đăng nhập bằng TK TikTok</li>
+                        <li>Tạo App → Thêm sản phẩm <b>Content Posting API</b></li>
+                        <li>Lấy <b>Client Key</b> và <b>Client Secret</b> → điền vào <span className="font-mono bg-blue-100 px-1 rounded">.env</span></li>
+                        <li>Đăng ký redirect URI: <span className="font-mono bg-blue-100 px-1 rounded">http://localhost:5173/tiktok-callback</span></li>
+                      </ol>
+                      <p className="text-blue-600 mt-2">
+                        📋 Trong khi chờ, dùng <b>Demo Mode</b> bên dưới để test toàn bộ flow đăng bài.
+                      </p>
+                    </div>
+
+                    {/* Demo 1-Click */}
+                    <TikTokConnectSection />
+                  </div>
+                )}
               </div>
 
             </div>
@@ -815,3 +891,79 @@ export default function SettingsTab() {
     </div>
   );
 }
+
+// Component kết nối TikTok — tách ra để dùng useAuth hook trực tiếp
+function TikTokConnectSection() {
+  const { saveTikTokIntegration, removeTikTokIntegration, userProfile } = useAuth();
+  const [connecting, setConnecting] = React.useState(false);
+  const [disconnecting, setDisconnecting] = React.useState(false);
+
+  const handleConnectDemo = async () => {
+    setConnecting(true);
+    try {
+      await saveTikTokIntegration({
+        isConnected: true,
+        username: 'igen_tech_demo',
+        displayName: 'iGen Tech Demo',
+        avatarUrl: '',
+        connectedAt: new Date().toISOString(),
+        privacyLevel: 'SELF_ONLY',
+        isMock: true,
+      });
+    } finally {
+      setConnecting(false);
+    }
+  };
+
+  const handleDisconnect = async () => {
+    setDisconnecting(true);
+    try {
+      await removeTikTokIntegration();
+    } finally {
+      setDisconnecting(false);
+    }
+  };
+
+  if (userProfile?.tiktokIntegration?.isConnected) {
+    return (
+      <button
+        type="button"
+        onClick={handleDisconnect}
+        disabled={disconnecting}
+        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 rounded-xl text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
+      >
+        <Unlink className="h-4 w-4" />
+        {disconnecting ? 'Đang hủy...' : 'Hủy liên kết TikTok'}
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex flex-col sm:flex-row gap-3">
+      {/* Demo 1-Click */}
+      <button
+        type="button"
+        onClick={handleConnectDemo}
+        disabled={connecting}
+        className="flex-1 flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-slate-800 to-black hover:from-slate-700 hover:to-slate-900 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer"
+        id="tiktok_demo_connect_btn"
+      >
+        <Sparkles className="h-4 w-4" />
+        {connecting ? 'Đang kết nối...' : '🎬 Kết nối Demo TikTok (1-Click)'}
+      </button>
+
+      {/* Real Connect - disabled khi chưa có client key */}
+      <button
+        type="button"
+        disabled
+        title="Cần điền VITE_TIKTOK_CLIENT_KEY vào .env trước"
+        className="flex-1 flex items-center justify-center gap-2 px-5 py-3 bg-gray-100 text-gray-400 rounded-xl text-xs font-bold border border-dashed border-gray-300 cursor-not-allowed"
+      >
+        <Link className="h-4 w-4" />
+        Kết nối TikTok thật
+        <span className="text-[9px] bg-gray-200 px-1.5 py-0.5 rounded font-mono">Cần API Key</span>
+      </button>
+    </div>
+  );
+}
+

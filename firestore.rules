@@ -80,10 +80,12 @@ service cloud.firestore {
       allow update: if isAuthenticated() && isValidId(contentId) && (
         isAdmin()
         || (
-          existing().authorUid == request.auth.uid
+          (existing().authorUid == request.auth.uid || existing().authorUid == '')
           && (
+            // Cho phép cập nhật thông tin (ảnh, video, text...) khi giữ nguyên trạng thái (chưa xuất bản)
+            (existing().status == incoming().status && existing().status != 'published')
             // Gửi duyệt hoặc thu hồi về nháp
-            (existing().status == 'draft' && incoming().status == 'pending')
+            || (existing().status == 'draft' && incoming().status == 'pending')
             || (existing().status == 'pending' && incoming().status == 'draft')
             // Lên lịch đăng bài hoặc hủy lịch về đã duyệt
             || (existing().status == 'approved' && incoming().status == 'scheduled')
@@ -93,7 +95,7 @@ service cloud.firestore {
           )
         )
       );
-      allow delete: if isAdmin() || existing().authorUid == request.auth.uid;
+      allow delete: if isAdmin() || existing().authorUid == request.auth.uid || existing().authorUid == '';
     }
   }
 }

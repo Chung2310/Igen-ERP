@@ -1,5 +1,6 @@
 import express from "express";
 import path from "path";
+import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
 import { apiRouter } from "./server/router";
@@ -34,6 +35,15 @@ async function startServer() {
 
   // 2. Tài liệu API Swagger tại đường dẫn /api-docs
   app.use("/api-docs", swaggerRouter);
+
+  // Đảm bảo thư mục uploads tồn tại
+  const uploadsDir = path.join(process.cwd(), "uploads");
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+
+  // Phục vụ tĩnh thư mục uploads
+  app.use("/uploads", express.static(uploadsDir));
 
   // 3. Đăng ký Versioned API Router với tiền tố /api/v1/
   app.use("/api/v1", apiRouter);

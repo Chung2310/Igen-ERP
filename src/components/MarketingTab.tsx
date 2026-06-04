@@ -21,7 +21,7 @@ import {
   CheckCircle2
 } from "lucide-react";
 import { MarketingSubTabType, MarketingConcept, ContentApprovalCard, PublishEvent } from "../types";
-import { marketingService, splitOutlineAndDraft } from "../services/marketingService";
+import { marketingService, extractDraftContent } from "../services/marketingService";
 import { geminiApi } from "../api/gemini";
 import { toast } from "./Toast";
 import { useAuth } from "../context/AuthContext";
@@ -30,6 +30,22 @@ export default function MarketingTab() {
   const { userProfile } = useAuth();
   const isUserRole = userProfile?.role === "user";
   const [subTab, setSubTab] = useState<MarketingSubTabType>("LÊN Ý TƯỞNG AI");
+
+  // AI Media Generation States
+  const [aiGenCard, setAiGenCard] = useState<ContentApprovalCard | null>(null);
+  const [aiGenType, setAiGenType] = useState<'image' | 'video' | null>(null);
+  const [aiGenPrompt, setAiGenPrompt] = useState("");
+  const [videoDuration, setVideoDuration] = useState<number>(6);
+  const [isGeneratingMedia, setIsGeneratingMedia] = useState(false);
+  const [aiGenLoadingText, setAiGenLoadingText] = useState("");
+  const [publishingTikTokId, setPublishingTikTokId] = useState<string | null>(null);
+
+  // Lightbox Preview States
+  const [activeLightboxCard, setActiveLightboxCard] = useState<ContentApprovalCard | null>(null);
+  const [activeLightboxType, setActiveLightboxType] = useState<'image' | 'video' | null>(null);
+  const [activeLightboxUrl, setActiveLightboxUrl] = useState<string | null>(null);
+  const [isRegenerating, setIsRegenerating] = useState(false);
+  const [regeneratePrompt, setRegeneratePrompt] = useState("");
 
   // 1. AI Campaign Ideation States
   const [campaignInput, setCampaignInput] = useState("");
@@ -280,6 +296,18 @@ export default function MarketingTab() {
 
   const handleConfirmSchedule = async () => {
     if (!schedulingCard) return;
+
+    if (schedulingCard.channel === "Facebook") {
+      const isFbConnected = userProfile?.facebookIntegration?.isConnected;
+      if (!isFbConnected) {
+        toast.error("Không thể lên lịch: Tài khoản chưa liên kết với Facebook Page. Vui lòng kết nối ở phần Cài đặt.");
+        return;
+      }
+    } else if (schedulingCard.channel === "TikTok") {
+      toast.error("Không thể lên lịch: Tính năng đăng bài tự động lên TikTok hiện đang được phát triển và chưa hoạt động.");
+      return;
+    }
+
     try {
       await marketingService.scheduleCard(schedulingCard.id, scheduleDate, scheduleTime);
       toast.success(`Đã lên lịch đăng bài "${schedulingCard.title}" thành công!`);
@@ -327,15 +355,14 @@ export default function MarketingTab() {
 
       if (result && result.posts) {
         const newCards: ContentApprovalCard[] = result.posts.map((post: any, index: number) => {
-          const { outline, bodyText } = splitOutlineAndDraft(post.bodyText);
           return {
             id: `mod_dev_${Date.now()}_${index}_${Math.floor(Math.random() * 1000)}`,
             title: concept.title,
             channel: post.channel as any,
             contentType: post.contentType,
             status: "pending",
-            outline,
-            bodyText,
+            outline: post.outline || "",
+            bodyText: post.bodyText || "",
             generatedAt: "Vừa xong",
             authorUid: userProfile?.uid ?? ''
           };
@@ -349,6 +376,140 @@ export default function MarketingTab() {
       toast.error("Lỗi kết nối Trợ lý AI khi lập dàn ý chi tiết.");
     } finally {
       setDevelopingIdx(null);
+    }
+  };
+
+  // AI Media generation and management handlers
+  const handleInitAIGeneration = (card: ContentApprovalCard, type?: 'image' | 'video') => {
+    setAiGenCard(card);
+    // Nếu không truyền type, mặc định theo kênh nhưng user vẫn có thể thay đổi trong modal
+    setAiGenType(type ?? (card.channel === 'TikTok' ? 'video' : 'image'));
+    const cleanText = extractDraftContent(card.bodyText);
+    setAiGenPrompt(cleanText);
+  };
+
+  const handleExecuteAIGeneration = async () => {
+    if (!aiGenCard || !aiGenType || !aiGenPrompt.trim()) return;
+
+    setIsGeneratingMedia(true);
+    setAiGenLoadingText(
+      aiGenType === "image"
+        ? "AI đang vẽ ảnh minh họa..."
+        : "AI đang dựng video, việc này có thể tốn từ 1-2 phút..."
+    );
+
+    try {
+      let result;
+      if (aiGenType === "image") {
+        result = await geminiApi.generateImage(aiGenPrompt);
+      } else {
+        result = await geminiApi.generateVideo(aiGenPrompt, videoDuration);
+      }
+
+      const tempUrl = result.url;
+      const filename = tempUrl.split("/").pop() || `${aiGenType}_${Date.now()}`;
+
+      // Upload to Firebase Storage
+      setAiGenLoadingText("Đang tải phương tiện lên Firebase Storage...");
+      const storageUrl = await marketingService.uploadMediaToStorage(tempUrl, filename, aiGenType);
+
+      // Update media only for this card
+      setAiGenLoadingText("Đang cập nhật cơ sở dữ liệu...");
+      await marketingService.updateCardMedia(storageUrl, aiGenType, [aiGenCard.id]);
+
+      toast.success(`Sinh ${aiGenType === "image" ? "ảnh" : "video"} AI và tải lên Storage thành công!`);
+      
+      // Clear state
+      setAiGenCard(null);
+      setAiGenType(null);
+    } catch (e: any) {
+      console.error("Lỗi sinh phương tiện AI:", e);
+      toast.error(e.message || "Lỗi trong quá trình tạo phương tiện AI.");
+    } finally {
+      setIsGeneratingMedia(false);
+    }
+  };
+
+  const handleOpenLightbox = (card: ContentApprovalCard, type: 'image' | 'video', url: string) => {
+    setActiveLightboxCard(card);
+    setActiveLightboxType(type);
+    setActiveLightboxUrl(url);
+    const cleanText = extractDraftContent(card.bodyText);
+    setRegeneratePrompt(cleanText);
+  };
+
+  const handleRegenerateMedia = async () => {
+    if (!activeLightboxCard || !activeLightboxType || !regeneratePrompt.trim()) return;
+
+    setIsRegenerating(true);
+    try {
+      let result;
+      if (activeLightboxType === "image") {
+        result = await geminiApi.generateImage(regeneratePrompt);
+      } else {
+        result = await geminiApi.generateVideo(regeneratePrompt, videoDuration);
+      }
+
+      const tempUrl = result.url;
+      const filename = tempUrl.split("/").pop() || `${activeLightboxType}_${Date.now()}`;
+
+      const storageUrl = await marketingService.uploadMediaToStorage(tempUrl, filename, activeLightboxType);
+
+      await marketingService.updateCardMedia(storageUrl, activeLightboxType, [activeLightboxCard.id]);
+
+      setActiveLightboxUrl(storageUrl);
+      toast.success("Đã tạo lại phương tiện mới thành công!");
+    } catch (e: any) {
+      console.error("Lỗi tạo lại phương tiện AI:", e);
+      toast.error(e.message || "Lỗi khi tạo lại phương tiện.");
+    } finally {
+      setIsRegenerating(false);
+    }
+  };
+
+  const handleDeleteMedia = async () => {
+    if (!activeLightboxCard || !activeLightboxType) return;
+
+    if (!confirm("Bạn có chắc chắn muốn xóa phương tiện này khỏi bài đăng?")) return;
+
+    try {
+      await marketingService.updateCardMedia(null, activeLightboxType, [activeLightboxCard.id]);
+      toast.success("Đã xóa phương tiện thành công!");
+      setActiveLightboxCard(null);
+      setActiveLightboxType(null);
+      setActiveLightboxUrl(null);
+    } catch (e: any) {
+      console.error("Lỗi xóa phương tiện:", e);
+      toast.error("Không thể xóa phương tiện lúc này.");
+    }
+  };
+
+  const handlePublishToTikTok = async (card: ContentApprovalCard) => {
+    const tiktok = userProfile?.tiktokIntegration;
+    if (!tiktok?.isConnected) {
+      toast.error("Chưa kết nối TikTok. Vui lòng vào Cài đặt → Liên kết MXH để kết nối.");
+      return;
+    }
+    if (!card.videoUrl) {
+      toast.error("Bài đăng TikTok cần có video. Hãy tạo video AI trước.");
+      return;
+    }
+    setPublishingTikTokId(card.id);
+    try {
+      const caption = extractDraftContent(card.bodyText).slice(0, 2200); // TikTok caption max 2200 chars
+      const postId = await marketingService.publishToTikTok(
+        card.id,
+        caption,
+        card.videoUrl,
+        tiktok.isMock ?? true,
+        tiktok.privacyLevel ?? 'SELF_ONLY'
+      );
+      toast.success(`Đã đăng video lên TikTok thành công! ${tiktok.isMock ? '(Demo)' : ''} ID: ${postId.slice(-8)}`);
+    } catch (e: any) {
+      console.error("Lỗi đăng TikTok:", e);
+      toast.error(e.message || "Không thể đăng bài lên TikTok. Vui lòng thử lại.");
+    } finally {
+      setPublishingTikTokId(null);
     }
   };
 
@@ -733,6 +894,8 @@ export default function MarketingTab() {
                         onNextStatus={() => updateCardStatus(card.id, "pending")}
                         onPrevStatus={null}
                         onDelete={() => deleteCard(card.id)} 
+                        onPreviewMedia={(type, url) => handleOpenLightbox(card, type, url)}
+                        onGenerateMedia={(c, type) => handleInitAIGeneration(c, type)}
                       />
                     ))
                   )}
@@ -757,6 +920,8 @@ export default function MarketingTab() {
                         onNextStatus={isUserRole ? null : () => updateCardStatus(card.id, "approved")}
                         onPrevStatus={() => updateCardStatus(card.id, "draft")}
                         onDelete={() => deleteCard(card.id)} 
+                        onPreviewMedia={(type, url) => handleOpenLightbox(card, type, url)}
+                        onGenerateMedia={(c, type) => handleInitAIGeneration(c, type)}
                       />
                     ))
                   )}
@@ -779,12 +944,28 @@ export default function MarketingTab() {
                         key={card.id} 
                         card={card} 
                         onNextStatus={() => {
+                          if (card.channel === "Facebook") {
+                            const isFbConnected = userProfile?.facebookIntegration?.isConnected;
+                            if (!isFbConnected) {
+                              toast.error(
+                                "Không thể lên lịch: Tài khoản chưa liên kết với Facebook Page. Vui lòng kết nối Fanpage trong phần Cài đặt -> Liên kết MXH trước."
+                              );
+                              return;
+                            }
+                          } else if (card.channel === "TikTok") {
+                            toast.error(
+                              "Không thể lên lịch: Kết nối tự động qua TikTok API hiện đang được phát triển và chưa hoạt động."
+                            );
+                            return;
+                          }
                           setSchedulingCard(card);
                           setScheduleDate(new Date().toISOString().split('T')[0]);
                           setScheduleTime("09:00");
                         }}
                         onPrevStatus={isUserRole ? null : () => updateCardStatus(card.id, "pending")}
                         onDelete={() => deleteCard(card.id)} 
+                        onPreviewMedia={(type, url) => handleOpenLightbox(card, type, url)}
+                        onGenerateMedia={(c, type) => handleInitAIGeneration(c, type)}
                       />
                     ))
                   )}
@@ -810,6 +991,11 @@ export default function MarketingTab() {
                         onPrevStatus={() => updateCardStatus(card.id, "approved")}
                         onDelete={() => deleteCard(card.id)}
                         fbIntegration={userProfile?.facebookIntegration}
+                        tiktokIntegration={userProfile?.tiktokIntegration}
+                        onPreviewMedia={(type, url) => handleOpenLightbox(card, type, url)}
+                        onGenerateMedia={(c, type) => handleInitAIGeneration(c, type)}
+                        onPublishToTikTok={() => handlePublishToTikTok(card)}
+                        isPublishingTikTok={publishingTikTokId === card.id}
                       />
                     ))
                   )}
@@ -828,7 +1014,13 @@ export default function MarketingTab() {
                     <div className="p-8 text-center text-gray-400 text-xs italic leading-normal">Chưa có bài nào được đăng tải!</div>
                   ) : (
                     approvalCards.filter(c => c.status === "published").map(card => (
-                      <PublishedCard key={card.id} card={card} onDelete={() => deleteCard(card.id)} isUserRole={isUserRole} />
+                      <PublishedCard 
+                        key={card.id} 
+                        card={card} 
+                        onDelete={() => deleteCard(card.id)} 
+                        isUserRole={isUserRole} 
+                        onPreviewMedia={(type, url) => handleOpenLightbox(card, type, url)}
+                      />
                     ))
                   )}
                 </div>
@@ -1042,6 +1234,266 @@ export default function MarketingTab() {
 
       </div>
 
+      {/* Glassmorphic Lightbox Preview modal */}
+      {activeLightboxCard && activeLightboxUrl && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-3xl shadow-2xl w-full max-w-4xl overflow-hidden text-left flex flex-col md:flex-row max-h-[85vh]">
+            
+            {/* Left side: Media preview */}
+            <div className="flex-1 bg-black/40 flex items-center justify-center p-4 relative min-h-[300px]">
+              {activeLightboxType === "image" ? (
+                <img 
+                  src={activeLightboxUrl} 
+                  alt="AI Preview" 
+                  className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-lg animate-scaleIn"
+                />
+              ) : (
+                <video 
+                  src={activeLightboxUrl} 
+                  controls 
+                  autoPlay 
+                  className="max-w-full max-h-[70vh] rounded-lg shadow-lg"
+                />
+              )}
+            </div>
+
+            {/* Right side: Prompt details & actions */}
+            <div className="w-full md:w-80 bg-slate-900/90 text-white p-6 flex flex-col justify-between border-t md:border-t-0 md:border-l border-white/10 overflow-y-auto">
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <span className="px-2.5 py-0.5 bg-purple-500/20 text-purple-300 border border-purple-500/30 rounded-full font-bold text-[10px] tracking-wide uppercase">
+                    Preview Phương Tiện
+                  </span>
+                  <button 
+                    onClick={() => {
+                      setActiveLightboxCard(null);
+                      setActiveLightboxType(null);
+                      setActiveLightboxUrl(null);
+                    }}
+                    className="text-gray-400 hover:text-white transition-colors p-1"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div className="space-y-1">
+                  <h4 className="font-bold text-sm tracking-tight text-slate-100">{activeLightboxCard.title}</h4>
+                  <p className="text-[10px] text-slate-400 font-mono">Kênh đăng: {activeLightboxCard.channel}</p>
+                </div>
+
+                <div className="border-t border-white/15 pt-3">
+                  <label className="block text-[9px] font-bold text-purple-400 font-mono uppercase tracking-wider mb-1">
+                    Prompt AI đã sử dụng:
+                  </label>
+                  <textarea 
+                    value={regeneratePrompt}
+                    onChange={(e) => setRegeneratePrompt(e.target.value)}
+                    placeholder="Nhập prompt điều chỉnh để tạo lại..."
+                    className="w-full h-24 p-2 bg-white/5 border border-white/10 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 transition-colors leading-relaxed"
+                  />
+                </div>
+
+                {activeLightboxType === "video" && (
+                  <div className="border-t border-white/15 pt-3">
+                    <label className="block text-[9px] font-bold text-purple-400 font-mono uppercase tracking-wider mb-1">
+                      Thời lượng Video:
+                    </label>
+                    <div className="flex gap-2">
+                      {[4, 6, 8].map((sec) => (
+                        <button
+                          key={sec}
+                          type="button"
+                          onClick={() => setVideoDuration(sec)}
+                          className={`flex-1 py-1.5 rounded-lg font-bold border text-[10px] transition-all cursor-pointer ${
+                            videoDuration === sec
+                              ? "bg-purple-600 border-purple-600 text-white shadow-sm"
+                              : "bg-white/5 border-white/10 text-slate-300 hover:bg-white/10"
+                          }`}
+                        >
+                          {sec} giây
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="text-[10px] text-slate-400 italic bg-white/5 p-2 rounded-lg leading-relaxed">
+                  Tip: Bạn có thể sửa prompt trên để tạo lại hình ảnh/video mới cho bài viết này.
+                </div>
+              </div>
+
+              <div className="space-y-2.5 pt-4 border-t border-white/15">
+                <button 
+                  onClick={handleRegenerateMedia}
+                  disabled={isRegenerating || !regeneratePrompt.trim()}
+                  className="w-full flex items-center justify-center gap-1.5 py-2 px-4 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  {isRegenerating ? (
+                    <>
+                      <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                      <span>Đang tạo lại...</span>
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="h-3.5 w-3.5" />
+                      <span>Tạo lại bằng AI</span>
+                    </>
+                  )}
+                </button>
+
+                <button 
+                  onClick={handleDeleteMedia}
+                  className="w-full flex items-center justify-center gap-1.5 py-2 px-4 bg-red-950/40 hover:bg-red-900/60 text-red-300 hover:text-red-200 border border-red-900/50 hover:border-red-800 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  <span>Xóa phương tiện</span>
+                </button>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI Prompt fine-tuning popup */}
+      {aiGenCard && aiGenType && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="bg-white rounded-3xl border border-gray-200/50 shadow-2xl w-full max-w-md overflow-hidden font-sans text-left">
+            <div className="p-6 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+              <div>
+                <h4 className="font-bold text-gray-800 text-base flex items-center gap-1.5">
+                  <Sparkles className="h-5 w-5 text-purple-600 animate-pulse" />
+                  Tạo Media AI
+                </h4>
+                <p className="text-xs text-gray-400 mt-1">Chọn loại, tinh chỉnh prompt và để AI sáng tạo nội dung</p>
+              </div>
+              <button 
+                onClick={() => {
+                  setAiGenCard(null);
+                  setAiGenType(null);
+                }}
+                className="p-1 px-3 text-sm text-slate-400 hover:text-slate-655 hover:bg-slate-100 rounded-md font-bold transition-all cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 text-xs">
+              {/* Media type selector */}
+              <div>
+                <label className="block text-gray-500 font-bold mb-2 uppercase tracking-wide text-[10px]">Loại Media *</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAiGenType('image')}
+                    className={`flex flex-col items-center gap-2 py-3 px-4 rounded-xl border-2 font-bold transition-all cursor-pointer ${
+                      aiGenType === 'image'
+                        ? 'bg-purple-600 border-purple-600 text-white shadow-md'
+                        : 'bg-white border-gray-200 text-gray-600 hover:border-purple-300 hover:bg-purple-50'
+                    }`}
+                  >
+                    <span className="text-lg">🖼️</span>
+                    <span className="text-[11px]">Ảnh Minh Họa</span>
+                    <span className={`text-[9px] font-normal ${aiGenType === 'image' ? 'text-purple-200' : 'text-gray-400'}`}>gemini-flash-image</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAiGenType('video')}
+                    className={`flex flex-col items-center gap-2 py-3 px-4 rounded-xl border-2 font-bold transition-all cursor-pointer ${
+                      aiGenType === 'video'
+                        ? 'bg-purple-600 border-purple-600 text-white shadow-md'
+                        : 'bg-white border-gray-200 text-gray-600 hover:border-purple-300 hover:bg-purple-50'
+                    }`}
+                  >
+                    <span className="text-lg">🎬</span>
+                    <span className="text-[11px]">Video Ngắn</span>
+                    <span className={`text-[9px] font-normal ${aiGenType === 'video' ? 'text-purple-200' : 'text-gray-400'}`}>veo-3 · 4–8 giây</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Model info badge */}
+              <div className="bg-purple-50/50 p-3 rounded-xl border border-purple-100 text-purple-950 leading-relaxed">
+                <span className="font-bold">Mô hình AI:</span> {aiGenType === "image" ? "Nano-Banana (gemini-3.1-flash-image)" : "Veo3 (veo-3.1-generate-preview)"}
+              </div>
+
+              <div>
+                <label className="block text-gray-500 font-bold mb-1.5 uppercase tracking-wide text-[10px]">Nhập Prompt Điều Khiển AI *</label>
+                <textarea 
+                  value={aiGenPrompt}
+                  onChange={(e) => setAiGenPrompt(e.target.value)}
+                  placeholder="Mô tả chi tiết những gì bạn muốn xuất hiện..."
+                  className="w-full h-28 p-3 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none leading-relaxed"
+                />
+                <span className="text-[10px] text-gray-400 mt-1 block">
+                  Mẹo: Prompt mô tả chi tiết, trực quan sẽ giúp mô hình tạo ra kết quả đẹp mắt hơn.
+                </span>
+              </div>
+
+              {aiGenType === "video" && (
+                <div>
+                  <label className="block text-gray-500 font-bold mb-1.5 uppercase tracking-wide text-[10px]">Thời lượng Video *</label>
+                  <div className="flex gap-2">
+                    {[4, 6, 8].map((sec) => (
+                      <button
+                        key={sec}
+                        type="button"
+                        onClick={() => setVideoDuration(sec)}
+                        className={`flex-1 py-2 rounded-lg font-bold border text-xs transition-all cursor-pointer ${
+                          videoDuration === sec
+                            ? "bg-purple-600 border-purple-600 text-white shadow-sm"
+                            : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+                        }`}
+                      >
+                        {sec}s
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="pt-4 border-t border-gray-100 flex gap-2 justify-end">
+                <button 
+                  type="button" 
+                  onClick={() => {
+                    setAiGenCard(null);
+                    setAiGenType(null);
+                  }}
+                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-bold transition-all cursor-pointer text-xs"
+                >
+                  Hủy bỏ
+                </button>
+                <button 
+                  type="button" 
+                  onClick={handleExecuteAIGeneration}
+                  disabled={!aiGenPrompt.trim()}
+                  className="px-5 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-bold transition-colors cursor-pointer text-xs shadow-sm flex items-center gap-1.5"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  <span>Bắt đầu {aiGenType === 'image' ? 'Vẽ Ảnh' : 'Dựng Video'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Loading overlay */}
+      {isGeneratingMedia && (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-md flex flex-col items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-2xl p-6 shadow-2xl flex flex-col items-center max-w-xs text-center border border-gray-100">
+            <RefreshCw className="h-8 w-8 text-purple-600 animate-spin mb-4" />
+            <span className="text-xs font-bold text-gray-800 uppercase tracking-wide">Đang xử lý với AI</span>
+            <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">{aiGenLoadingText}</p>
+            {aiGenType === "video" && (
+              <span className="text-[9px] text-purple-500 font-mono mt-3 animate-pulse uppercase font-semibold">
+                Quá trình này tốn từ 1 - 2 phút để render
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
       {schedulingCard && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fadeIn" id="schedule_modal_backdrop">
           <div className="bg-white rounded-3xl border border-gray-200/50 shadow-2xl w-full max-w-md overflow-hidden font-sans">
@@ -1125,6 +1577,8 @@ interface ModerationPipCardProps {
   onNextStatus?: (() => void) | null;
   onPrevStatus?: (() => void) | null;
   onDelete?: (() => void) | null;
+  onPreviewMedia: (type: 'image' | 'video', url: string) => void;
+  onGenerateMedia: (card: ContentApprovalCard, type?: 'image' | 'video') => void;
 }
 
 // PIPELINE CARD widget component representing moderation cards
@@ -1132,7 +1586,9 @@ function ModerationPipCard({
   card, 
   onNextStatus, 
   onPrevStatus, 
-  onDelete 
+  onDelete,
+  onPreviewMedia,
+  onGenerateMedia
 }: ModerationPipCardProps) {
   return (
     <div className="bg-white border text-left border-gray-150/70 p-3.5 rounded-xl shadow-xs hover:shadow-md transition-all flex flex-col gap-2 relative group" id={`approval_card_${card.id}`}>
@@ -1145,8 +1601,43 @@ function ModerationPipCard({
         <span className="text-[9px] text-gray-400 font-mono tracking-wide">{card.contentType}</span>
       </div>
 
+      {/* Media Thumbnails */}
+      {card.imageUrl && (
+        <div 
+          onClick={() => onPreviewMedia('image', card.imageUrl!)}
+          className="relative cursor-pointer overflow-hidden rounded-lg aspect-video w-full border border-gray-100 shadow-xs hover:scale-[1.02] transition-transform bg-slate-50"
+        >
+          <img src={card.imageUrl} alt="AI Illustration" className="w-full h-full object-cover" />
+        </div>
+      )}
+
+      {card.videoUrl && (
+        <div 
+          onClick={() => onPreviewMedia('video', card.videoUrl!)}
+          className="relative cursor-pointer overflow-hidden rounded-lg aspect-video w-full border border-gray-100 shadow-xs hover:scale-[1.02] transition-transform bg-slate-900 flex items-center justify-center"
+        >
+          <video src={card.videoUrl} className="w-full h-full object-cover opacity-80 animate-fadeIn" muted />
+          <div className="absolute inset-0 flex items-center justify-center bg-black/20 hover:bg-black/10 transition-colors">
+            <div className="w-8 h-8 rounded-full bg-white/95 flex items-center justify-center text-slate-800 shadow-md">
+              <span className="ml-0.5 text-xs">▶</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Generate Media Button if none exists */}
+      {!card.imageUrl && !card.videoUrl && card.status !== 'published' && (
+        <button
+          onClick={() => onGenerateMedia(card)}
+          className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 bg-purple-50 hover:bg-purple-100 text-purple-700 hover:text-purple-800 border border-purple-200 rounded-lg text-[10px] font-bold transition-all shadow-xs cursor-pointer active:scale-[0.98]"
+        >
+          <Sparkles className="h-3 w-3 text-purple-500 animate-pulse" />
+          <span>Tạo Ảnh / Video AI</span>
+        </button>
+      )}
+
       <h5 className="font-bold text-gray-800 leading-tight text-xs font-sans line-clamp-2">{card.title}</h5>
-      <p className="text-[11px] text-gray-500 leading-relaxed font-sans bg-slate-50/50 p-2 rounded-lg border border-dashed select-text max-h-[120px] overflow-y-auto">
+      <p className="text-[11px] text-gray-500 leading-relaxed font-sans bg-slate-50/50 p-2 rounded-lg border border-dashed select-text max-h-[120px] overflow-y-auto whitespace-pre-wrap">
         {card.bodyText}
       </p>
 
@@ -1205,7 +1696,7 @@ function ModerationPipCard({
   );
 }
 
-// SCHEDULED CARD - hiển thị với nút đăng Facebook
+// SCHEDULED CARD - hiển thị với nút đăng Facebook / TikTok
 interface ScheduledCardProps {
   key?: string;
   card: ContentApprovalCard;
@@ -1213,9 +1704,25 @@ interface ScheduledCardProps {
   onPrevStatus: () => void;
   onDelete: () => void;
   fbIntegration?: { isConnected: boolean; pageId: string; pageName: string; pageAccessToken: string; isMock?: boolean } | null;
+  tiktokIntegration?: { isConnected: boolean; username: string; displayName: string; isMock?: boolean; privacyLevel?: string } | null;
+  onPreviewMedia: (type: 'image' | 'video', url: string) => void;
+  onGenerateMedia: (card: ContentApprovalCard, type?: 'image' | 'video') => void;
+  onPublishToTikTok?: () => void;
+  isPublishingTikTok?: boolean;
 }
 
-function ScheduledCard({ card, isUserRole, onPrevStatus, onDelete, fbIntegration }: ScheduledCardProps) {
+function ScheduledCard({ 
+  card, 
+  isUserRole, 
+  onPrevStatus, 
+  onDelete, 
+  fbIntegration,
+  tiktokIntegration,
+  onPreviewMedia,
+  onGenerateMedia,
+  onPublishToTikTok,
+  isPublishingTikTok = false,
+}: ScheduledCardProps) {
   return (
     <div className="bg-white border text-left border-gray-150/70 p-3.5 rounded-xl shadow-xs hover:shadow-md transition-all flex flex-col gap-2 relative group" id={`scheduled_card_${card.id}`}>
       
@@ -1226,8 +1733,43 @@ function ScheduledCard({ card, isUserRole, onPrevStatus, onDelete, fbIntegration
         <span className="text-[9px] text-gray-400 font-mono tracking-wide">{card.contentType}</span>
       </div>
 
+      {/* Media Thumbnails */}
+      {card.imageUrl && (
+        <div 
+          onClick={() => onPreviewMedia('image', card.imageUrl!)}
+          className="relative cursor-pointer overflow-hidden rounded-lg aspect-video w-full border border-gray-100 shadow-xs hover:scale-[1.02] transition-transform bg-slate-50"
+        >
+          <img src={card.imageUrl} alt="AI Illustration" className="w-full h-full object-cover" />
+        </div>
+      )}
+
+      {card.videoUrl && (
+        <div 
+          onClick={() => onPreviewMedia('video', card.videoUrl!)}
+          className="relative cursor-pointer overflow-hidden rounded-lg aspect-video w-full border border-gray-100 shadow-xs hover:scale-[1.02] transition-transform bg-slate-900 flex items-center justify-center"
+        >
+          <video src={card.videoUrl} className="w-full h-full object-cover opacity-80 animate-fadeIn" muted />
+          <div className="absolute inset-0 flex items-center justify-center bg-black/20 hover:bg-black/10 transition-colors">
+            <div className="w-8 h-8 rounded-full bg-white/95 flex items-center justify-center text-slate-800 shadow-md">
+              <span className="ml-0.5 text-xs">▶</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Generate Media Button if none exists */}
+      {!card.imageUrl && !card.videoUrl && (
+        <button
+          onClick={() => onGenerateMedia(card)}
+          className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 bg-purple-50 hover:bg-purple-100 text-purple-700 hover:text-purple-800 border border-purple-200 rounded-lg text-[10px] font-bold transition-all shadow-xs cursor-pointer active:scale-[0.98]"
+        >
+          <Sparkles className="h-3 w-3 text-purple-500 animate-pulse" />
+          <span>Tạo Ảnh / Video AI</span>
+        </button>
+      )}
+
       <h5 className="font-bold text-gray-800 leading-tight text-xs font-sans line-clamp-2">{card.title}</h5>
-      <p className="text-[11px] text-gray-500 leading-relaxed font-sans bg-slate-50/50 p-2 rounded-lg border border-dashed select-text max-h-[100px] overflow-y-auto">
+      <p className="text-[11px] text-gray-500 leading-relaxed font-sans bg-slate-50/50 p-2 rounded-lg border border-dashed select-text max-h-[100px] overflow-y-auto whitespace-pre-wrap">
         {card.bodyText}
       </p>
 
@@ -1243,6 +1785,29 @@ function ScheduledCard({ card, isUserRole, onPrevStatus, onDelete, fbIntegration
           <Clock className="h-3 w-3" />
           {card.scheduledDate} {card.scheduledTime && `lúc ${card.scheduledTime}`}
         </div>
+      )}
+
+      {/* TikTok Publish Button - chỉ hiện khi channel TikTok và đã kết nối */}
+      {card.channel === 'TikTok' && tiktokIntegration?.isConnected && onPublishToTikTok && (
+        <button
+          onClick={onPublishToTikTok}
+          disabled={isPublishingTikTok || !card.videoUrl}
+          title={!card.videoUrl ? 'Cần có video để đăng lên TikTok' : (isPublishingTikTok ? 'Đang đăng...' : 'Đăng video lên TikTok')}
+          className={`w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-[10px] font-bold transition-all cursor-pointer border ${
+            !card.videoUrl
+              ? 'bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed'
+              : isPublishingTikTok
+              ? 'bg-slate-800 text-white border-slate-700 opacity-75 cursor-wait'
+              : 'bg-black hover:bg-slate-800 text-white border-black shadow-md hover:shadow-lg active:scale-[0.98]'
+          }`}
+          id={`tiktok_publish_btn_${card.id}`}
+        >
+          {isPublishingTikTok ? (
+            <><RefreshCw className="h-3 w-3 animate-spin" /><span>Đang đăng lên TikTok...</span></>
+          ) : (
+            <><span className="text-sm">♪</span><span>Đăng lên TikTok {tiktokIntegration.isMock ? '(Demo)' : ''}</span></>
+          )}
+        </button>
       )}
 
       <div className="flex items-center justify-between border-t border-gray-100 pt-2 text-[9px]">
@@ -1271,9 +1836,10 @@ interface PublishedCardProps {
   card: ContentApprovalCard;
   onDelete: () => void;
   isUserRole: boolean;
+  onPreviewMedia: (type: 'image' | 'video', url: string) => void;
 }
 
-function PublishedCard({ card, onDelete, isUserRole }: PublishedCardProps) {
+function PublishedCard({ card, onDelete, isUserRole, onPreviewMedia }: PublishedCardProps) {
   const mockPageUrl = `https://www.facebook.com/permalink.php?story_fbid=${card.facebookPostId}&id=mock`;
 
   return (
@@ -1286,8 +1852,32 @@ function PublishedCard({ card, onDelete, isUserRole }: PublishedCardProps) {
         <span className="text-[9px] text-gray-400 font-mono">{card.channel}</span>
       </div>
 
+      {/* Media Thumbnails */}
+      {card.imageUrl && (
+        <div 
+          onClick={() => onPreviewMedia('image', card.imageUrl!)}
+          className="relative cursor-pointer overflow-hidden rounded-lg aspect-video w-full border border-gray-100 shadow-xs hover:scale-[1.02] transition-transform bg-slate-50"
+        >
+          <img src={card.imageUrl} alt="AI Illustration" className="w-full h-full object-cover" />
+        </div>
+      )}
+
+      {card.videoUrl && (
+        <div 
+          onClick={() => onPreviewMedia('video', card.videoUrl!)}
+          className="relative cursor-pointer overflow-hidden rounded-lg aspect-video w-full border border-gray-100 shadow-xs hover:scale-[1.02] transition-transform bg-slate-900 flex items-center justify-center"
+        >
+          <video src={card.videoUrl} className="w-full h-full object-cover opacity-80" muted />
+          <div className="absolute inset-0 flex items-center justify-center bg-black/20 hover:bg-black/10 transition-colors">
+            <div className="w-8 h-8 rounded-full bg-white/95 flex items-center justify-center text-slate-800 shadow-md">
+              <span className="ml-0.5 text-xs">▶</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       <h5 className="font-bold text-gray-800 leading-tight text-xs font-sans line-clamp-2">{card.title}</h5>
-      <p className="text-[11px] text-gray-500 leading-relaxed font-sans bg-green-50/50 p-2 rounded-lg border border-dashed border-green-200 select-text max-h-[80px] overflow-y-auto">
+      <p className="text-[11px] text-gray-500 leading-relaxed font-sans bg-green-50/50 p-2 rounded-lg border border-dashed border-green-200 select-text max-h-[80px] overflow-y-auto whitespace-pre-wrap">
         {card.bodyText}
       </p>
 

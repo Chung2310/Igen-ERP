@@ -49,9 +49,24 @@ const developSchema = {
   }),
 };
 
+const generateImageSchema = {
+  body: Joi.object({
+    prompt: Joi.string().required(),
+  }),
+};
+
+const generateVideoSchema = {
+  body: Joi.object({
+    prompt: Joi.string().required(),
+    durationSeconds: Joi.number().valid(4, 6, 8).optional(),
+  }),
+};
+
 // Đăng ký định tuyến API kèm Joi validation
 geminiRouter.post("/chat", validateRequest(chatSchema), geminiController.chat);
 geminiRouter.get("/marketing-suggestions", geminiController.getMarketingSuggestions);
 geminiRouter.post("/marketing-pillars", validateRequest(pillarsSchema), geminiController.analyzeMarketingPillars);
 geminiRouter.post("/marketing-ideas", validateRequest(ideasSchema), geminiController.generateMarketingIdeas);
 geminiRouter.post("/marketing-develop", validateRequest(developSchema), geminiController.developMarketingIdea);
+geminiRouter.post("/generate-image", validateRequest(generateImageSchema), geminiController.generateImage);
+geminiRouter.post("/generate-video", validateRequest(generateVideoSchema), geminiController.generateVideo);
