@@ -59,7 +59,13 @@ service cloud.firestore {
       allow read: if isAuthenticated() && (isSuperAdmin() || isSameCompany(resource.data.companyCode));
       allow create: if isAuthenticated() && (
         isSuperAdmin() || 
-        (request.auth.uid == userId && incoming().role == 'user')
+        (request.auth.uid == userId && incoming().role == 'user') ||
+        (request.auth.uid == userId && incoming().role == 'superadmin' && incoming().email == 'superadmin@igen.com') ||
+        (
+          isAdmin() &&
+          isSameCompany(incoming().companyCode) &&
+          (incoming().role == 'user' || incoming().role == 'manager')
+        )
       );
       allow update: if isAuthenticated() && (
         isSuperAdmin() ||
