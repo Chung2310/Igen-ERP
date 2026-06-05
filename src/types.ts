@@ -39,10 +39,29 @@ export interface UserProfile {
   email: string;
   displayName: string;
   photoURL?: string;
-  role: "user" | "admin" | "superadmin";
+  role: "user" | "manager" | "admin" | "superadmin";
   createdAt: any;
   facebookIntegration?: FacebookIntegration | null;
   tiktokIntegration?: TikTokIntegration | null;
+  
+  // Org Chart & SaaS fields
+  jobTitle?: string;
+  department?: string;
+  phone?: string;
+  level?: number;
+  parentId?: string;
+  status?: "online" | "offline";
+  division?: string;
+  companyCode?: string;
+  companyName?: string;
+}
+
+export interface CompanyProfile {
+  id: string;
+  code: string;
+  name: string;
+  createdAt: any;
+  ownerEmail: string;
 }
 
 export type HRSubTabType = "SƠ ĐỒ TỔ CHỨC" | "GIAO VIỆC KANBAN" | "ĐÀO TẠO";
@@ -178,6 +197,8 @@ export interface EmployeeNode {
   avatar: string;
   level: number; // 1 = CEO, 2 = Director, 3 = Manager, 4 = Staff
   parentId?: string;
+  status: "online" | "offline";
+  division: string;
 }
 
 export interface HRTask {
