@@ -6,8 +6,10 @@ WORKDIR /app
 # Copy package management files
 COPY package.json yarn.lock ./
 
-# Install devDependencies and dependencies for bundling
-RUN yarn install
+# Install ALL dependencies (including devDependencies needed for build)
+# NODE_ENV must NOT be "production" here so devDeps are installed
+ENV NODE_ENV=development
+RUN yarn install --frozen-lockfile
 
 # Copy the entire workspace
 COPY . .
@@ -28,7 +30,7 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/package.json /app/yarn.lock ./
 
 # Install only production dependencies
-RUN yarn install --production
+RUN yarn install --production --frozen-lockfile
 
 # Expose Express server port
 EXPOSE 3000
