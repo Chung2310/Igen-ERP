@@ -168,11 +168,18 @@ export const authService = {
     return users;
   },
 
-  // Cập nhật vai trò người dùng (Chỉ dành cho superadmin)
+  // Cập nhật vai trò người dùng (Chỉ dành cho superadmin và admin)
   async updateUserRole(uid: string, newRole: "user" | "manager" | "admin" | "superadmin"): Promise<void> {
     const userDocRef = doc(db, "users", uid);
+    const dept = newRole === "admin" || newRole === "superadmin" ? "Ban Giám Đốc" : (newRole === "manager" ? "Quản lý" : "Nhân sự");
+    const div = newRole === "admin" || newRole === "superadmin" ? "Ban Giám Đốc" : (newRole === "manager" ? "Quản lý" : "Nhân sự");
+    const title = newRole === "admin" ? "Chief Executive Officer (CEO)" : (newRole === "manager" ? "Quản lý phòng ban" : "Nhân viên");
+
     await updateDoc(userDocRef, {
       role: newRole,
+      department: dept,
+      division: div,
+      jobTitle: title
     });
   },
 

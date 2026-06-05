@@ -126,7 +126,15 @@ export default function UserAdminTab() {
       toast.success(`Đã cập nhật quyền hạn cho "${targetName}" thành ${newRole.toUpperCase()}!`);
       // Cập nhật lại list ở client
       setUsersList((prev) =>
-        prev.map((u) => (u.uid === targetUid ? { ...u, role: newRole } : u))
+        prev.map((u) => {
+          if (u.uid === targetUid) {
+            const dept = newRole === "admin" || newRole === "superadmin" ? "Ban Giám Đốc" : (newRole === "manager" ? "Quản lý" : "Nhân sự");
+            const div = newRole === "admin" || newRole === "superadmin" ? "Ban Giám Đốc" : (newRole === "manager" ? "Quản lý" : "Nhân sự");
+            const title = newRole === "admin" ? "Chief Executive Officer (CEO)" : (newRole === "manager" ? "Quản lý phòng ban" : "Nhân viên");
+            return { ...u, role: newRole, department: dept, division: div, jobTitle: title };
+          }
+          return u;
+        })
       );
     } catch (error) {
       console.error("Lỗi cập nhật quyền:", error);
