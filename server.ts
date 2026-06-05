@@ -1,7 +1,6 @@
 import express from "express";
 import path from "path";
 import fs from "fs";
-import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
 import { apiRouter } from "./server/router";
 import { swaggerRouter } from "./server/swagger";
@@ -50,6 +49,8 @@ async function startServer() {
 
   // 4. Cấu hình phục vụ tệp tĩnh (Vite Dev Server hoặc Static production files)
   if (process.env.NODE_ENV !== "production") {
+    // Dynamic import để tránh require vite trong production bundle
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
