@@ -31,6 +31,7 @@ export default function UserAdminTab() {
   const [userRole, setUserRole] = useState<"user" | "manager" | "admin">("user");
   const [userCompanyCode, setUserCompanyCode] = useState<string>("");
   const [userParentId, setUserParentId] = useState<string>("");
+  const [userDepartment, setUserDepartment] = useState("");
   const [submittingUser, setSubmittingUser] = useState(false);
 
   // Initialize company code when modal opens
@@ -61,6 +62,25 @@ export default function UserAdminTab() {
       }
     }
   }, [userRole, userCompanyCode, usersList, isUserModalOpen]);
+
+  // Auto fill department based on manager (parentId) for user role
+  useEffect(() => {
+    if (isUserModalOpen && userRole === "user" && userParentId) {
+      const selectedManager = usersList.find(u => u.uid === userParentId);
+      if (selectedManager && selectedManager.department) {
+        setUserDepartment(selectedManager.department);
+      }
+    } else if (isUserModalOpen && userRole === "user" && !userParentId) {
+      setUserDepartment("");
+    }
+  }, [userRole, userParentId, usersList, isUserModalOpen]);
+
+  // Reset userDepartment when modal is closed
+  useEffect(() => {
+    if (!isUserModalOpen) {
+      setUserDepartment("");
+    }
+  }, [isUserModalOpen]);
 
   // Fetch users list from Firestore
   const fetchUsers = async () => {
@@ -228,7 +248,9 @@ export default function UserAdminTab() {
         userCompanyCode,
         compName,
         userParentId || undefined,
-        managerProfile?.level
+        managerProfile?.level,
+        userDepartment.trim() || undefined,
+        userDepartment.trim() || undefined
       );
 
       toast.success(`Đăng ký tài khoản cho "${userDisplayName}" thành công!`);
@@ -239,6 +261,7 @@ export default function UserAdminTab() {
       setUserPassword("");
       setUserRole("user");
       setUserParentId("");
+      setUserDepartment("");
       // Refresh lists
       await fetchUsers();
     } catch (error: any) {
@@ -738,7 +761,7 @@ export default function UserAdminTab() {
                           <option value="">— Không có / Chọn sau —</option>
                           {eligibleManagers.map((mgr) => (
                             <option key={mgr.uid} value={mgr.uid}>
-                              {`${mgr.displayName} (Manager${mgr.jobTitle ? " · " + mgr.jobTitle : ""})`}
+                              {`${mgr.displayName} (Manager${mgr.jobTitle ? " · " + mgr.jobTitle : ""}${mgr.department ? " · " + mgr.department : ""})`}
                             </option>
                           ))}
                         </select>
@@ -753,6 +776,29 @@ export default function UserAdminTab() {
                       </div>
                     );
                   })()}
+                </div>
+              )}
+
+              {/* Phòng ban */}
+              {(userRole === "user" || userRole === "manager") && (
+                <div className="space-y-1.5 text-left">
+                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
+                    {userRole === "manager" ? "Phòng ban quản lý *" : "Phòng ban *"}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    disabled={userRole === "user" && !!userParentId}
+                    placeholder="Ví dụ: Phòng Kỹ Thuật"
+                    value={userDepartment}
+                    onChange={(e) => setUserDepartment(e.target.value)}
+                    className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none disabled:bg-gray-50 disabled:text-gray-450"
+                  />
+                  {userRole === "user" && !!userParentId && (
+                    <p className="text-[10px] text-indigo-650 font-mono mt-0.5">
+                      Tự động điền theo phòng ban của quản lý trực tiếp.
+                    </p>
+                  )}
                 </div>
               )}
               {/* Form Actions */}

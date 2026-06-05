@@ -286,6 +286,25 @@ export default function HRTab() {
     }
   }, [addRole, isAddModalOpen, selectedCompanyCode, userProfile, usersList]);
 
+  // Auto fill department based on manager (addParentId) in HRTab
+  useEffect(() => {
+    if (isAddModalOpen && addRole === "user" && addParentId) {
+      const selectedManager = usersList.find(u => u.uid === addParentId);
+      if (selectedManager && selectedManager.department) {
+        setAddDepartment(selectedManager.department);
+      }
+    } else if (isAddModalOpen && addRole === "user" && !addParentId) {
+      setAddDepartment("");
+    }
+  }, [addRole, addParentId, usersList, isAddModalOpen]);
+
+  // Reset addDepartment when modal closes
+  useEffect(() => {
+    if (!isAddModalOpen) {
+      setAddDepartment("Phòng Kỹ Thuật");
+    }
+  }, [isAddModalOpen]);
+
   // 2. HR Tasks Data for Recruitment & Onboarding Kanban
   const [tasks, setTasks] = useState<HRTask[]>([
     { id: "t1", title: "Phỏng vấn ứng viên Sales Supervisor", assignee: "Vũ Thùy Linh", assigneeAvatar: "👩‍⚕️", dueDate: "Ngày mai, 14:00", priority: "Cao", status: "todo", category: "Tuyển dụng" },
@@ -551,12 +570,12 @@ export default function HRTab() {
         photoURL: "👨‍💻",
         role: addRole,
         jobTitle: addRole === "manager" ? "Quản lý phòng ban" : "Nhân viên",
-        department: addRole === "manager" ? "Quản lý" : addDepartment,
+        department: addDepartment.trim() || (addRole === "manager" ? "Quản lý" : "Nhân sự"),
         phone: addPhone.trim() || "Chưa cập nhật",
         level,
         parentId: addParentId || null,
         status: "online",
-        division: addRole === "manager" ? "Quản lý" : addDepartment.trim() || "Nhân sự",
+        division: addDepartment.trim() || (addRole === "manager" ? "Quản lý" : "Nhân sự"),
         companyCode: compCode,
         companyName: compName,
         createdAt: new Date()
@@ -571,6 +590,7 @@ export default function HRTab() {
       setAddPhone("");
       setAddParentId("");
       setAddRole("user");
+      setAddDepartment("Phòng Kỹ Thuật");
 
       await fetchUsers();
     } catch (err) {
@@ -1299,22 +1319,33 @@ export default function HRTab() {
                       }
                       return false;
                     }).map(emp => (
-                      <option key={emp.id} value={emp.id}>{emp.name} ({emp.role})</option>
+                      <option key={emp.id} value={emp.id}>
+                        {emp.name} ({emp.role}{emp.department ? ` · ${emp.department}` : ""})
+                      </option>
                     ))}
                   </select>
                 </div>
               )}
 
-              {addRole === "user" && (
+              {(addRole === "user" || addRole === "manager") && (
                 <div>
-                  <label className="block font-bold text-gray-500 mb-1">Phòng ban</label>
+                  <label className="block font-bold text-gray-500 mb-1">
+                    {addRole === "manager" ? "Phòng ban quản lý *" : "Phòng ban *"}
+                  </label>
                   <input 
                     type="text" 
+                    required
+                    disabled={addRole === "user" && !!addParentId}
                     placeholder="Ví dụ: Phòng Kỹ Thuật"
                     value={addDepartment}
                     onChange={(e) => setAddDepartment(e.target.value)}
-                    className="w-full px-3.5 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3.5 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-400"
                   />
+                  {addRole === "user" && !!addParentId && (
+                    <p className="text-[10px] text-indigo-650 font-mono mt-0.5">
+                      Tự động điền theo phòng ban của quản lý trực tiếp.
+                    </p>
+                  )}
                 </div>
               )}
             </div>

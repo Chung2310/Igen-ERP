@@ -271,7 +271,9 @@ export const authService = {
     companyCode: string,
     companyName: string,
     parentId?: string,
-    managerLevel?: number
+    managerLevel?: number,
+    department?: string,
+    division?: string
   ): Promise<void> {
     const normalizedCode = companyCode.toUpperCase().trim();
     // Tính level: nếu có quản lý thì level = level của quản lý + 1, không thì mặc định theo role
@@ -299,8 +301,8 @@ export const authService = {
         companyCode: normalizedCode === "SYSTEM" ? "" : normalizedCode,
         companyName: normalizedCode === "SYSTEM" ? "Hệ thống" : companyName.trim(),
         jobTitle: role === "admin" ? "Chief Executive Officer (CEO)" : (role === "manager" ? "Quản lý phòng ban" : "Nhân viên"),
-        department: role === "admin" ? "Ban Giám Đốc" : (role === "manager" ? "Quản lý" : "Nhân sự"),
-        division: role === "admin" ? "Ban Giám Đốc" : (role === "manager" ? "Quản lý" : "Nhân sự"),
+        department: department || (role === "admin" ? "Ban Giám Đốc" : (role === "manager" ? "Quản lý" : "Nhân sự")),
+        division: division || (role === "admin" ? "Ban Giám Đốc" : (role === "manager" ? "Quản lý" : "Nhân sự")),
         level,
         parentId: parentId || undefined,
         status: "offline"
