@@ -170,6 +170,10 @@ export default function UserAdminTab() {
       toast.warning("Mật khẩu phải từ 6 ký tự trở lên!");
       return;
     }
+    if (userProfile?.role === "admin" && userRole === "admin") {
+      toast.warning("Chủ doanh nghiệp không được phép tạo tài khoản có vai trò Admin!");
+      return;
+    }
 
     setSubmittingUser(true);
     try {
@@ -629,7 +633,9 @@ export default function UserAdminTab() {
                   >
                     <option value="user">USER (Nhân viên)</option>
                     <option value="manager">MANAGER (Quản lý)</option>
-                    <option value="admin">ADMIN (Chủ doanh nghiệp)</option>
+                    {userProfile?.role === "superadmin" && (
+                      <option value="admin">ADMIN (Chủ doanh nghiệp)</option>
+                    )}
                   </select>
                 </div>
 
