@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { authService } from "../services/authService";
 import { UserProfile } from "../types";
@@ -33,7 +33,7 @@ export default function UserAdminTab() {
   const [userParentId, setUserParentId] = useState<string>("");
   const [submittingUser, setSubmittingUser] = useState(false);
 
-  // Initialize company code and reset parentId when modal opens
+  // Initialize company code when modal opens
   useEffect(() => {
     if (isUserModalOpen) {
       if (userProfile?.role === "admin") {
@@ -41,9 +41,26 @@ export default function UserAdminTab() {
       } else {
         setUserCompanyCode(selectedCompanyCode === "all" ? "SYSTEM" : selectedCompanyCode);
       }
-      setUserParentId("");
     }
   }, [isUserModalOpen, userProfile, selectedCompanyCode]);
+
+  // Handle parentId based on userRole and userCompanyCode automatically
+  useEffect(() => {
+    if (isUserModalOpen) {
+      if (userRole === "manager") {
+        if (userCompanyCode && userCompanyCode !== "SYSTEM") {
+          const companyAdmin = usersList.find(
+            (u) => u.companyCode === userCompanyCode && u.role === "admin"
+          );
+          setUserParentId(companyAdmin?.uid || "");
+        } else {
+          setUserParentId("");
+        }
+      } else {
+        setUserParentId("");
+      }
+    }
+  }, [userRole, userCompanyCode, usersList, isUserModalOpen]);
 
   // Fetch users list from Firestore
   const fetchUsers = async () => {
@@ -688,8 +705,8 @@ export default function UserAdminTab() {
               </div>
 
 
-              {/* Ng\u01b0\u1eddi qu\u1ea3n l\u00fd tr\u1ef1c ti\u1ebfp */}
-              {userCompanyCode && userCompanyCode !== "SYSTEM" && (
+              {/* Người quản lý trực tiếp */}
+              {userCompanyCode && userCompanyCode !== "SYSTEM" && userRole === "user" && (
                 <div className="space-y-1.5 text-left">
                   <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
                     Người quản lý trực tiếp
@@ -697,7 +714,7 @@ export default function UserAdminTab() {
                   </label>
                   {(() => {
                     const eligibleManagers = usersList.filter(
-                      (u) => u.companyCode === userCompanyCode && (u.role === "admin" || u.role === "manager")
+                      (u) => u.companyCode === userCompanyCode && u.role === "manager"
                     );
                     return eligibleManagers.length === 0 ? (
                       <div className="w-full px-3.5 py-2 border border-dashed border-gray-200 rounded-xl text-xs text-gray-400 italic bg-gray-50/60">
@@ -713,7 +730,7 @@ export default function UserAdminTab() {
                           <option value="">— Không có / Chọn sau —</option>
                           {eligibleManagers.map((mgr) => (
                             <option key={mgr.uid} value={mgr.uid}>
-                              {`${mgr.displayName} (${mgr.role === "admin" ? "Admin" : "Manager"}${mgr.jobTitle ? " · " + mgr.jobTitle : ""})`}
+                              {`${mgr.displayName} (Manager${mgr.jobTitle ? " · " + mgr.jobTitle : ""})`}
                             </option>
                           ))}
                         </select>
