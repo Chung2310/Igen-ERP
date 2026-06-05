@@ -4,8 +4,10 @@ import {
   signOut, 
   signInWithPopup, 
   GoogleAuthProvider,
-  updateProfile
+  updateProfile,
+  getAuth
 } from "firebase/auth";
+import { initializeApp, deleteApp } from "firebase/app";
 import { 
   doc, 
   setDoc, 
@@ -15,11 +17,12 @@ import {
   getDocs, 
   query, 
   orderBy,
+  where,
   serverTimestamp
 } from "firebase/firestore";
 import { auth, db, storage } from "../config/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { UserProfile } from "../types";
+import { UserProfile, CompanyProfile } from "../types";
 
 const googleProvider = new GoogleAuthProvider();
 
@@ -122,17 +125,134 @@ export const authService = {
         photoURL: data.photoURL || "",
         role: data.role || "user",
         createdAt: data.createdAt ? data.createdAt.toDate() : new Date(),
+        companyCode: data.companyCode || "",
+        companyName: data.companyName || "",
+        jobTitle: data.jobTitle || "",
+        department: data.department || "",
+        phone: data.phone || "",
+        level: data.level || 4,
+        parentId: data.parentId || "",
+        status: data.status || "offline",
+        division: data.division || ""
+      });
+    });
+    return users;
+  },
+
+  // Lấy danh sách người dùng theo Doanh nghiệp (Dành cho chủ doanh nghiệp/manager/staff)
+  async getUsersByCompany(companyCode: string): Promise<UserProfile[]> {
+    const usersCol = collection(db, "users");
+    const q = query(usersCol, where("companyCode", "==", companyCode));
+    const querySnapshot = await getDocs(q);
+    const users: UserProfile[] = [];
+    querySnapshot.forEach((docSnap) => {
+      const data = docSnap.data();
+      users.push({
+        uid: docSnap.id,
+        email: data.email || "",
+        displayName: data.displayName || "",
+        photoURL: data.photoURL || "",
+        role: data.role || "user",
+        createdAt: data.createdAt ? data.createdAt.toDate() : new Date(),
+        companyCode: data.companyCode || "",
+        companyName: data.companyName || "",
+        jobTitle: data.jobTitle || "",
+        department: data.department || "",
+        phone: data.phone || "",
+        level: data.level || 4,
+        parentId: data.parentId || "",
+        status: data.status || "offline",
+        division: data.division || ""
       });
     });
     return users;
   },
 
   // Cập nhật vai trò người dùng (Chỉ dành cho superadmin)
-  async updateUserRole(uid: string, newRole: "user" | "admin" | "superadmin"): Promise<void> {
+  async updateUserRole(uid: string, newRole: "user" | "manager" | "admin" | "superadmin"): Promise<void> {
     const userDocRef = doc(db, "users", uid);
     await updateDoc(userDocRef, {
       role: newRole,
     });
+  },
+
+  // Lấy danh sách tất cả doanh nghiệp (Chỉ dành cho superadmin)
+  async getAllCompanies(): Promise<CompanyProfile[]> {
+    const companiesCol = collection(db, "companies");
+    const q = query(companiesCol, orderBy("createdAt", "desc"));
+    const querySnapshot = await getDocs(q);
+    const companies: CompanyProfile[] = [];
+    querySnapshot.forEach((docSnap) => {
+      const data = docSnap.data();
+      companies.push({
+        id: docSnap.id,
+        code: data.code || "",
+        name: data.name || "",
+        createdAt: data.createdAt ? data.createdAt.toDate() : new Date(),
+        ownerEmail: data.ownerEmail || ""
+      });
+    });
+    return companies;
+  },
+
+  // Đăng ký doanh nghiệp mới và tạo tài khoản Admin tương ứng (Chỉ dành cho superadmin)
+  async registerCompanyAndAdmin(
+    companyName: string,
+    companyCode: string,
+    ownerName: string,
+    ownerEmail: string,
+    ownerPassword: string
+  ): Promise<void> {
+    const normalizedCode = companyCode.toUpperCase().trim();
+    // 1. Tạo bản ghi trong collection "companies"
+    const companyDocRef = doc(db, "companies", normalizedCode);
+    await setDoc(companyDocRef, {
+      id: normalizedCode,
+      code: normalizedCode,
+      name: companyName.trim(),
+      ownerEmail: ownerEmail.trim(),
+      createdAt: serverTimestamp()
+    });
+
+    // 2. Tạo tài khoản admin cho doanh nghiệp bằng Firebase App phụ để tránh logout superadmin hiện tại
+    const tempApp = initializeApp(auth.app.options, `TempApp_${Date.now()}`);
+    const tempAuth = getAuth(tempApp);
+    try {
+      const userCredential = await createUserWithEmailAndPassword(tempAuth, ownerEmail.trim(), ownerPassword);
+      const user = userCredential.user;
+
+      await updateProfile(user, { displayName: ownerName.trim() });
+
+      // Lưu hồ sơ user vào Firestore
+      const userDocRef = doc(db, "users", user.uid);
+      const userProfile: UserProfile = {
+        uid: user.uid,
+        email: ownerEmail.trim(),
+        displayName: ownerName.trim(),
+        photoURL: "",
+        role: "admin",
+        createdAt: new Date(),
+        companyCode: normalizedCode,
+        companyName: companyName.trim(),
+        jobTitle: "Chief Executive Officer (CEO)",
+        department: "Ban Giám Đốc",
+        division: "Ban Giám Đốc",
+        level: 1, // CEO level
+        status: "offline"
+      };
+
+      await setDoc(userDocRef, {
+        ...userProfile,
+        createdAt: serverTimestamp()
+      });
+
+      await signOut(tempAuth);
+    } catch (error) {
+      console.error("Lỗi khi tạo tài khoản admin doanh nghiệp:", error);
+      throw error;
+    } finally {
+      await deleteApp(tempApp);
+    }
   },
 
   // Cập nhật thông tin hồ sơ cá nhân

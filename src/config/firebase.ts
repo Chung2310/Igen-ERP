@@ -2,7 +2,7 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
-import { getFunctions } from 'firebase/functions';
+import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
 import firebaseConfigRaw from '../../firebase-applet-config.json';
 
 
@@ -40,6 +40,12 @@ export const auth = getAuth(app);
 export const storage = getStorage(app);
 // Firebase Cloud Functions - region asia-southeast1 (Singapore, gần VN)
 export const functions = getFunctions(app, 'asia-southeast1');
+
+// Connect to local functions emulator in development mode
+if (import.meta.env.DEV) {
+  connectFunctionsEmulator(functions, '127.0.0.1', 5001);
+  console.log('[Firebase Config] Connected to local functions emulator on port 5001');
+}
 
 
 // Error Handling helper

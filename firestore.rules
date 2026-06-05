@@ -39,21 +39,54 @@ service cloud.firestore {
       return resource.data; 
     }
 
+    // Helper to check if role field is not changed
+    function roleUnchanged() {
+      return request.resource.data.role == resource.data.role;
+    }
+
+    // Helper to get companyCode of requesting user
+    function getMyCompanyCode() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyCode;
+    }
+
+    // Check if target company code matches requestor's company code
+    function isSameCompany(targetCompanyCode) {
+      return getMyCompanyCode() == targetCompanyCode;
+    }
+
     // User document rules
     match /users/{userId} {
-      allow read: if isAuthenticated() && (request.auth.uid == userId || isSuperAdmin());
-      allow create: if isAuthenticated() && request.auth.uid == userId && incoming().role == 'user';
-      allow update: if isAuthenticated() && (
-        (request.auth.uid == userId && incoming().role == existing().role) || 
-        isSuperAdmin()
+      allow read: if isAuthenticated() && (isSuperAdmin() || isSameCompany(resource.data.companyCode));
+      allow create: if isAuthenticated() && (
+        isSuperAdmin() || 
+        (request.auth.uid == userId && incoming().role == 'user')
       );
-      allow delete: if isSuperAdmin();
+      allow update: if isAuthenticated() && (
+        isSuperAdmin() ||
+        (
+          isAdmin() &&
+          isSameCompany(existing().companyCode) &&
+          existing().role != 'superadmin' &&
+          incoming().role != 'superadmin'
+        ) ||
+        (
+          request.auth.uid == userId &&
+          roleUnchanged()
+        )
+      );
+      allow delete: if isSuperAdmin() || (isAdmin() && isSameCompany(existing().companyCode) && existing().role != 'superadmin');
+    }
+
+    // Companies collection
+    match /companies/{companyId} {
+      allow read: if isAuthenticated();
+      allow write: if isSuperAdmin();
     }
 
     // Validation Blueprint for Marketing Content Object
     function isValidMarketingContent(data) {
       return data.keys().hasAll(['id', 'title', 'channel', 'contentType', 'status', 'bodyText', 'generatedAt'])
-        && data.keys().size() <= 18
+        && data.keys().size() <= 20
         && data.id is string && data.id.size() <= 100
         && data.title is string && data.title.size() <= 300
         && data.channel is string && data.channel.size() <= 50
@@ -65,37 +98,41 @@ service cloud.firestore {
 
     // Hardened path rules for marketing content
     match /marketingContents/{contentId} {
-      // User chỉ đọc content của chính mình hoặc admin đọc tất cả
-      allow read: if isAuthenticated() && (
+      function isContentSameCompany() {
+        return isSuperAdmin() || !('companyCode' in resource.data) || isSameCompany(resource.data.companyCode);
+      }
+      function isIncomingSameCompany() {
+        return isSuperAdmin() || !('companyCode' in incoming()) || isSameCompany(incoming().companyCode);
+      }
+
+      // User chỉ đọc content của chính mình hoặc admin đọc tất cả trong cùng doanh nghiệp
+      allow read: if isAuthenticated() && isContentSameCompany() && (
         isAdmin()
         || resource.data.authorUid == request.auth.uid
         || resource.data.authorUid == ''
       );
-      // User được tạo content và phải gắn authorUid của mình
-      allow create: if isAuthenticated() && isValidId(contentId) && isValidMarketingContent(incoming()) && (
+      // User được tạo content trong cùng doanh nghiệp
+      allow create: if isAuthenticated() && isValidId(contentId) && isIncomingSameCompany() && isValidMarketingContent(incoming()) && (
         isAdmin()
         || incoming().authorUid == request.auth.uid
       );
-      // Chỉ admin mới được sửa trạng thái duyệt. User được phép nộp duyệt/thu hồi nháp, lên lịch/hủy lịch và đăng tải bài của mình.
-      allow update: if isAuthenticated() && isValidId(contentId) && (
+      allow update: if isAuthenticated() && isValidId(contentId) && isContentSameCompany() && isIncomingSameCompany() && (
         isAdmin()
         || (
           (existing().authorUid == request.auth.uid || existing().authorUid == '')
           && (
-            // Cho phép cập nhật thông tin (ảnh, video, text...) khi giữ nguyên trạng thái (chưa xuất bản)
             (existing().status == incoming().status && existing().status != 'published')
-            // Gửi duyệt hoặc thu hồi về nháp
             || (existing().status == 'draft' && incoming().status == 'pending')
             || (existing().status == 'pending' && incoming().status == 'draft')
-            // Lên lịch đăng bài hoặc hủy lịch về đã duyệt
             || (existing().status == 'approved' && incoming().status == 'scheduled')
             || (existing().status == 'scheduled' && incoming().status == 'approved')
-            // Cập nhật trạng thái đã đăng tải lên FB
             || (existing().status == 'scheduled' && incoming().status == 'published')
           )
         )
       );
-      allow delete: if isAdmin() || existing().authorUid == request.auth.uid || existing().authorUid == '';
+      allow delete: if isAuthenticated() && isContentSameCompany() && (
+        isAdmin() || existing().authorUid == request.auth.uid || existing().authorUid == ''
+      );
     }
   }
 }
