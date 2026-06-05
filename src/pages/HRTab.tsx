@@ -34,6 +34,26 @@ import { doc, updateDoc, setDoc, deleteDoc, writeBatch, collection, getDocs, add
 import { authService } from "../services/authService";
 import { toast } from "./Toast";
 
+const isUrl = (str?: string): boolean => {
+  if (!str) return false;
+  return str.startsWith("http://") || str.startsWith("https://") || str.startsWith("data:image/") || str.startsWith("/");
+};
+
+const renderAvatar = (avatar: string, sizeClasses: string = "w-8 h-8", textClass: string = "text-base") => {
+  if (isUrl(avatar)) {
+    return (
+      <div className={`${sizeClasses} rounded-full overflow-hidden shrink-0 flex items-center justify-center border border-gray-150`}>
+        <img src={avatar} className="w-full h-full object-cover" alt="" />
+      </div>
+    );
+  }
+  return (
+    <div className={`${sizeClasses} bg-slate-50 rounded-full shrink-0 flex items-center justify-center border border-gray-100 select-none`}>
+      <span className={textClass}>{avatar || "👤"}</span>
+    </div>
+  );
+};
+
 export default function HRTab() {
   const { userProfile } = useAuth();
   const isManager = userProfile?.role === "superadmin" || userProfile?.role === "admin" || userProfile?.role === "manager";
@@ -1156,7 +1176,9 @@ export default function HRTab() {
             )}
           </div>
 
-          <div className="text-3xl mb-1 inline-block p-1.5 bg-slate-50 rounded-full select-none">{node.avatar}</div>
+          <div className="mb-1 mx-auto flex items-center justify-center">
+            {renderAvatar(node.avatar, "w-12 h-12", "text-2xl")}
+          </div>
           <h4 className="font-bold text-xs leading-tight text-slate-800 font-sans truncate px-1">{node.name}</h4>
           <p className="text-[9px] text-indigo-650 font-bold font-mono mt-0.5 uppercase tracking-wide truncate px-1">{node.role}</p>
           
@@ -1323,9 +1345,9 @@ export default function HRTab() {
               ) : selectedEmp ? (
                 <div>
                   <div className="text-center relative">
-                    <div className="text-5xl my-4 inline-block p-4 bg-white rounded-full shadow-md select-none border border-gray-150 relative">
-                      {selectedEmp.avatar}
-                      <span className={`absolute bottom-2 right-2 w-3.5 h-3.5 rounded-full border-2 border-white ${
+                    <div className="my-4 mx-auto relative w-20 h-20">
+                      {renderAvatar(selectedEmp.avatar, "w-full h-full", "text-4xl")}
+                      <span className={`absolute bottom-0.5 right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white ${
                         selectedEmp.status === 'online' ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'
                       }`} />
                     </div>
@@ -1378,7 +1400,7 @@ export default function HRTab() {
                               onClick={() => setSelectedEmp(sub)}
                               className="p-1.5 bg-white border border-gray-150 hover:border-indigo-300 hover:text-indigo-650 rounded-xl text-[10px] font-semibold text-slate-700 transition-all cursor-pointer flex items-center gap-1.5"
                             >
-                              <span>{sub.avatar}</span>
+                              {renderAvatar(sub.avatar, "w-5 h-5", "text-xs")}
                               <span className="truncate">{sub.name}</span>
                               {sub.status === 'online' && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse ml-auto" />}
                             </div>
@@ -1714,7 +1736,7 @@ export default function HRTab() {
                                       {/* Assignee */}
                                       <td className="p-3 border-r border-gray-150/60 min-w-[130px]">
                                         <div className="flex items-center gap-1.5">
-                                          <span className="text-xs">{task.assigneeAvatar || "👨‍💻"}</span>
+                                          {renderAvatar(task.assigneeAvatar || "👨‍💻", "w-5 h-5", "text-[10px]")}
                                           <span className="font-semibold text-slate-700">{task.assignee}</span>
                                         </div>
                                       </td>
@@ -2071,7 +2093,7 @@ export default function HRTab() {
                             {/* Assignee */}
                             <td className="p-3 border-r border-gray-150/60 min-w-[130px]">
                               <div className="flex items-center gap-1.5">
-                                <span>{task.assigneeAvatar || "👨‍💻"}</span>
+                                {renderAvatar(task.assigneeAvatar || "👨‍💻", "w-5 h-5", "text-[10px]")}
                                 <span className="font-semibold text-slate-700">{task.assignee}</span>
                               </div>
                             </td>
@@ -3002,7 +3024,7 @@ function KanbanCard({ task, onMove, onDelete, canDelete, onClick, projects }: { 
       <div className="flex items-center justify-between border-t border-gray-100 pt-2.5 text-[10px]">
         {/* Assignee profile avatar */}
         <div className="flex items-center gap-1.5">
-          <span className="text-sm select-none">{task.assigneeAvatar || "👨‍💻"}</span>
+          {renderAvatar(task.assigneeAvatar || "👨‍💻", "w-6 h-6", "text-xs")}
           <span className="text-slate-600 font-semibold">{task.assignee}</span>
         </div>
 
