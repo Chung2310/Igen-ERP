@@ -8,9 +8,9 @@ import {
   Package,
   Settings,
   Shield,
-  Sparkles,
   Users,
 } from "lucide-react";
+import { BRAND_LOGO_URL, BRAND_NAME, BRAND_TAGLINE } from "../config/brand";
 import { TabType } from "../types";
 import { useAuth } from "../context/AuthContext";
 
@@ -141,12 +141,14 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
     >
       <div className="flex items-center justify-between border-b border-gray-100 p-6" id="sidebar_brand_header">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-500 shadow-lg shadow-blue-500/20">
-            <Sparkles className="h-5 w-5 text-white" />
-          </div>
+          <img
+            src={BRAND_LOGO_URL}
+            alt={BRAND_NAME}
+            className="h-11 w-11 shrink-0 rounded-2xl border border-blue-100 object-cover shadow-lg shadow-blue-500/15"
+          />
           <div className="min-w-0">
-            <h1 className="truncate font-sans text-lg font-bold tracking-tight text-blue-700">iGen ERP</h1>
-            <p className="truncate font-mono text-[10px] uppercase tracking-widest text-gray-500">Enterprise Hub</p>
+            <h1 className="truncate font-sans text-lg font-bold tracking-tight text-blue-700">{BRAND_NAME}</h1>
+            <p className="truncate font-mono text-[10px] uppercase tracking-widest text-gray-500">{BRAND_TAGLINE}</p>
           </div>
         </div>
 

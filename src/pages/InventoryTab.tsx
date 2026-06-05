@@ -1,32 +1,67 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { onAuthStateChanged } from "firebase/auth";
 import { CheckCircle, Cpu, FolderTree, Pencil, Plus, Search, Tags, Trash2 } from "lucide-react";
 import { InventorySubTabType, ProductCategory, ProductItem, StockLog } from "../types";
 import { toast } from "./Toast";
 import { AiForecastPanel } from "../components/inventory/AiForecastPanel";
 import { CategoryModal } from "../components/inventory/CategoryModal";
-import { initialCategories, initialProducts, initialStockLogs, inventoryTabs } from "../components/inventory/data";
+import { initialStockLogs, inventoryTabs } from "../components/inventory/data";
 import { ProductCard } from "../components/inventory/ProductCard";
 import { ProductModal } from "../components/inventory/ProductModal";
 import { StockLogPanel } from "../components/inventory/StockLogPanel";
 import { SummaryCard } from "../components/inventory/SummaryCard";
+import { auth } from "../config/firebase";
+import { inventoryCategoryService } from "../services/inventoryCategoryService";
+import { inventoryProductService } from "../services/inventoryProductService";
+
+function getInventoryErrorMessage(error: unknown, fallbackMessage: string) {
+  if (!(error instanceof Error)) return fallbackMessage;
+
+  try {
+    const parsed = JSON.parse(error.message) as { error?: string; path?: string };
+    const rawMessage = parsed.error || "";
+
+    if (rawMessage.includes("permission") || rawMessage.includes("Permission")) {
+      return `Firebase đang chặn thao tác trên ${parsed.path || "inventory"}. Kiểm tra lại rules hoặc quyền role admin/superadmin.`;
+    }
+
+    if (rawMessage.includes("storage") || rawMessage.includes("object") || rawMessage.includes("bucket")) {
+      return "Upload ảnh sản phẩm đang bị chặn. Kiểm tra lại Firebase Storage rules trước khi thêm ảnh.";
+    }
+
+    if (rawMessage.includes("index")) {
+      return "Firestore đang yêu cầu tạo index cho truy vấn này. Mở console Firebase để tạo index còn thiếu.";
+    }
+  } catch {
+    return error.message || fallbackMessage;
+  }
+
+  return error.message || fallbackMessage;
+}
 
 export default function InventoryTab() {
   const [subTab, setSubTab] = useState<InventorySubTabType>("DANH MỤC");
-  const [products, setProducts] = useState<ProductItem[]>(initialProducts);
-  const [categories, setCategories] = useState<ProductCategory[]>(initialCategories);
+  const [products, setProducts] = useState<ProductItem[]>([]);
+  const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [stockLogs, setStockLogs] = useState<StockLog[]>(initialStockLogs);
+  const [categoryLoading, setCategoryLoading] = useState(true);
+  const [productLoading, setProductLoading] = useState(true);
+  const [productSubmitting, setProductSubmitting] = useState(false);
 
   const [searchProduct, setSearchProduct] = useState("");
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState("Tất cả");
   const [searchCategory, setSearchCategory] = useState("");
   const [searchLog, setSearchLog] = useState("");
 
-  const [showAddModal, setShowAddModal] = useState(false);
+  const [showProductModal, setShowProductModal] = useState(false);
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [newProdName, setNewProdName] = useState("");
-  const [newProdCategory, setNewProdCategory] = useState("Thiết bị đeo");
+  const [newProdCategory, setNewProdCategory] = useState("");
   const [newProdStock, setNewProdStock] = useState("");
   const [newProdPrice, setNewProdPrice] = useState("");
   const [newProdSKU, setNewProdSKU] = useState("");
+  const [newProdImageFile, setNewProdImageFile] = useState<File | null>(null);
+  const [newProdImagePreview, setNewProdImagePreview] = useState("");
 
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
@@ -34,12 +69,70 @@ export default function InventoryTab() {
   const [newCategoryCode, setNewCategoryCode] = useState("");
   const [newCategoryDescription, setNewCategoryDescription] = useState("");
 
-  const shortStockProducts = products.filter((product) => product.stock <= product.minStockAlert);
+  useEffect(() => {
+    let unsubscribeCategories = () => {};
+    let unsubscribeProducts = () => {};
+
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      unsubscribeCategories();
+      unsubscribeProducts();
+
+      if (!user) {
+        setCategoryLoading(false);
+        setProductLoading(false);
+        return;
+      }
+
+      setCategoryLoading(true);
+      setProductLoading(true);
+
+      unsubscribeCategories = inventoryCategoryService.subscribe(
+        (nextCategories) => {
+          setCategories(nextCategories);
+          setCategoryLoading(false);
+        },
+        () => {
+          setCategoryLoading(false);
+          toast.error("Không thể tải phân loại sản phẩm từ Firebase.");
+        }
+      );
+
+      unsubscribeProducts = inventoryProductService.subscribe(
+        (nextProducts) => {
+          setProducts(nextProducts);
+          setProductLoading(false);
+        },
+        () => {
+          setProductLoading(false);
+          toast.error("Không thể tải danh mục sản phẩm từ Firebase.");
+        }
+      );
+    });
+
+    return () => {
+      unsubscribeAuth();
+      unsubscribeCategories();
+      unsubscribeProducts();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!categories.length || newProdCategory) return;
+    const activeCategory = categories.find((category) => category.status === "Đang dùng");
+    setNewProdCategory(activeCategory?.name || categories[0].name);
+  }, [categories, newProdCategory]);
+
+  const shortStockProducts = useMemo(
+    () => products.filter((product) => product.stock <= product.minStockAlert),
+    [products]
+  );
+
   const activeCategoryCount = categories.filter((category) => category.status === "Đang dùng").length;
   const filteredCategories = categories.filter((category) =>
     category.name.toLowerCase().includes(searchCategory.toLowerCase()) ||
     category.code.toLowerCase().includes(searchCategory.toLowerCase())
   );
+
   const filteredProducts = products.filter((product) => {
     const query = searchProduct.toLowerCase();
     const matchesSearch = product.name.toLowerCase().includes(query) || product.sku.toLowerCase().includes(query);
@@ -47,42 +140,131 @@ export default function InventoryTab() {
     return matchesSearch && matchesCategory;
   });
 
-  const handleAddProduct = (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!newProdName.trim() || !newProdSKU.trim()) return;
-
-    const newProduct: ProductItem = {
-      id: "p_" + Date.now(),
-      sku: newProdSKU.trim().toUpperCase(),
-      name: newProdName.trim(),
-      category: newProdCategory,
-      stock: parseInt(newProdStock, 10) || 0,
-      minStockAlert: 15,
-      price: parseFloat(newProdPrice) || 100000,
-      demandForecast: "Ổn định",
-      imageUrl: "SP",
-    };
-
-    setProducts([newProduct, ...products]);
-    setStockLogs([
-      {
-        id: "NK-" + Date.now(),
-        type: "nhập",
-        sku: newProduct.sku,
-        productName: newProduct.name,
-        quantity: newProduct.stock,
-        operatorName: "iGen Admin System",
-        createdAt: "Hôm nay, 10:20",
-        notes: "Nhập mới sản phẩm khởi tạo",
-        status: "Thành công",
-      },
-      ...stockLogs,
-    ]);
-    setShowAddModal(false);
+  const resetProductForm = () => {
+    setEditingProductId(null);
+    setShowProductModal(false);
     setNewProdName("");
-    setNewProdSKU("");
     setNewProdStock("");
     setNewProdPrice("");
+    setNewProdSKU("");
+    setNewProdImageFile(null);
+    setNewProdImagePreview("");
+    const activeCategory = categories.find((category) => category.status === "Đang dùng");
+    setNewProdCategory(activeCategory?.name || categories[0]?.name || "");
+  };
+
+  const openCreateProductModal = () => {
+    resetProductForm();
+    setShowProductModal(true);
+  };
+
+  const openEditProductModal = (product: ProductItem) => {
+    setEditingProductId(product.id);
+    setNewProdName(product.name);
+    setNewProdCategory(product.category);
+    setNewProdStock(String(product.stock));
+    setNewProdPrice(String(product.price));
+    setNewProdSKU(product.sku);
+    setNewProdImageFile(null);
+    setNewProdImagePreview(product.imageUrl);
+    setShowProductModal(true);
+  };
+
+  const handleProductImageChange = (file: File | null) => {
+    setNewProdImageFile(file);
+    if (!file) {
+      if (!editingProductId) setNewProdImagePreview("");
+      return;
+    }
+
+    const nextPreview = URL.createObjectURL(file);
+    setNewProdImagePreview(nextPreview);
+  };
+
+  const handleSaveProduct = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!newProdName.trim() || !newProdSKU.trim() || !newProdCategory) return;
+
+    const sku = newProdSKU.trim().toUpperCase();
+    const name = newProdName.trim();
+    const stock = parseInt(newProdStock, 10) || 0;
+    const price = parseInt(newProdPrice, 10) || 0;
+
+    setProductSubmitting(true);
+
+    try {
+      const isSkuAvailable = await inventoryProductService.ensureSkuAvailable(sku, editingProductId || undefined);
+      if (!isSkuAvailable) {
+        toast.error("SKU này đã tồn tại trong kho.");
+        setProductSubmitting(false);
+        return;
+      }
+
+      if (editingProductId) {
+        const currentProduct = products.find((product) => product.id === editingProductId);
+        const result = await inventoryProductService.updateProduct(editingProductId, {
+          sku,
+          name,
+          category: newProdCategory,
+          stock,
+          price,
+          imageFile: newProdImageFile,
+          imageUrl: currentProduct?.imageUrl || "",
+        });
+
+        if (result?.imageUploadFailed) {
+          toast.success("Đã cập nhật sản phẩm, nhưng ảnh chưa tải lên được do Storage đang lỗi quota.");
+        } else {
+          toast.success("Đã cập nhật sản phẩm.");
+        }
+      } else {
+        const result = await inventoryProductService.createProduct({
+          sku,
+          name,
+          category: newProdCategory,
+          stock,
+          price,
+          imageFile: newProdImageFile,
+        });
+
+        setStockLogs((currentLogs) => [
+          {
+            id: `NK-${Date.now()}`,
+            type: "nhập",
+            sku,
+            productName: name,
+            quantity: stock,
+            operatorName: "iGen Admin System",
+            createdAt: "Hôm nay",
+            notes: "Khởi tạo sản phẩm mới trong danh mục",
+            status: "Thành công",
+          },
+          ...currentLogs,
+        ]);
+        if (result?.imageUploadFailed) {
+          toast.success("Đã tạo sản phẩm mới, nhưng ảnh chưa tải lên được do Storage đang lỗi quota.");
+        } else {
+          toast.success("Đã tạo sản phẩm mới.");
+        }
+      }
+
+      resetProductForm();
+    } catch (error) {
+      toast.error(getInventoryErrorMessage(error, "Không thể lưu sản phẩm. Vui lòng thử lại."));
+    } finally {
+      setProductSubmitting(false);
+    }
+  };
+
+  const handleDeleteProduct = async (product: ProductItem) => {
+    if (!window.confirm(`Xóa sản phẩm "${product.name}" khỏi danh mục kho?`)) return;
+
+    try {
+      await inventoryProductService.deleteProduct(product.id);
+      toast.success("Đã xóa sản phẩm.");
+    } catch (error) {
+      toast.error(getInventoryErrorMessage(error, "Không thể xóa sản phẩm. Vui lòng thử lại."));
+    }
   };
 
   const resetCategoryForm = () => {
@@ -106,57 +288,53 @@ export default function InventoryTab() {
     setShowCategoryModal(true);
   };
 
-  const handleSaveCategory = (event: React.FormEvent) => {
+  const handleSaveCategory = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!newCategoryName.trim() || !newCategoryCode.trim()) return;
 
     const cleanName = newCategoryName.trim();
+    const cleanCode = newCategoryCode.trim().toUpperCase();
     const currentCategory = editingCategoryId ? categories.find((category) => category.id === editingCategoryId) : null;
-    const existed = categories.some((category) => category.id !== editingCategoryId && category.name.toLowerCase() === cleanName.toLowerCase());
+    const existed = categories.some(
+      (category) => category.id !== editingCategoryId && category.name.toLowerCase() === cleanName.toLowerCase()
+    );
 
     if (existed) {
       toast.error("Phân loại này đã có trong danh mục kho.");
       return;
     }
 
-    if (editingCategoryId) {
-      setCategories(categories.map((category) =>
-        category.id === editingCategoryId
-          ? {
-              ...category,
-              name: cleanName,
-              code: newCategoryCode.trim().toUpperCase(),
-              description: newCategoryDescription.trim() || "Chưa có mô tả. Có thể bổ sung sau.",
-            }
-          : category
-      ));
+    try {
+      if (editingCategoryId) {
+        await inventoryCategoryService.updateCategory(editingCategoryId, {
+          name: cleanName,
+          code: cleanCode,
+          description: newCategoryDescription.trim() || "Chưa có mô tả. Có thể bổ sung sau.",
+        });
 
-      if (currentCategory && currentCategory.name !== cleanName) {
-        setProducts(products.map((product) => product.category === currentCategory.name ? { ...product, category: cleanName } : product));
-        if (selectedCategoryFilter === currentCategory.name) setSelectedCategoryFilter(cleanName);
+        if (currentCategory && currentCategory.name !== cleanName) {
+          await inventoryProductService.updateProductsCategoryName(currentCategory.name, cleanName);
+          if (selectedCategoryFilter === currentCategory.name) setSelectedCategoryFilter(cleanName);
+        }
+
+        toast.success("Đã cập nhật phân loại sản phẩm.");
+      } else {
+        await inventoryCategoryService.createCategory({
+          name: cleanName,
+          code: cleanCode,
+          description: newCategoryDescription.trim() || "Chưa có mô tả. Có thể bổ sung sau.",
+        });
+        setNewProdCategory(cleanName);
+        toast.success("Đã tạo phân loại sản phẩm.");
       }
 
       resetCategoryForm();
-      toast.success("Đã cập nhật phân loại sản phẩm.");
-      return;
+    } catch (error) {
+      toast.error(getInventoryErrorMessage(error, "Không thể lưu phân loại sản phẩm. Vui lòng thử lại."));
     }
-
-    const newCategory: ProductCategory = {
-      id: "cat_" + Date.now(),
-      name: cleanName,
-      code: newCategoryCode.trim().toUpperCase(),
-      description: newCategoryDescription.trim() || "Chưa có mô tả. Có thể bổ sung sau.",
-      colorClass: "bg-blue-50 text-blue-700 border-blue-100",
-      status: "Đang dùng",
-    };
-
-    setCategories([newCategory, ...categories]);
-    setNewProdCategory(newCategory.name);
-    resetCategoryForm();
-    toast.success("Đã tạo phân loại sản phẩm.");
   };
 
-  const handleDeleteCategory = (category: ProductCategory) => {
+  const handleDeleteCategory = async (category: ProductCategory) => {
     const linkedProductCount = products.filter((product) => product.category === category.name).length;
     const message = linkedProductCount > 0
       ? `Phân loại "${category.name}" đang được dùng bởi ${linkedProductCount} sản phẩm. Xóa và chuyển các sản phẩm đó về "Chưa phân loại"?`
@@ -164,12 +342,16 @@ export default function InventoryTab() {
 
     if (!window.confirm(message)) return;
 
-    setCategories(categories.filter((item) => item.id !== category.id));
-    if (linkedProductCount > 0) {
-      setProducts(products.map((product) => product.category === category.name ? { ...product, category: "Chưa phân loại" } : product));
+    try {
+      if (linkedProductCount > 0) {
+        await inventoryProductService.moveProductsToUncategorized(category.name);
+      }
+      await inventoryCategoryService.deleteCategory(category.id);
+      if (selectedCategoryFilter === category.name) setSelectedCategoryFilter("Tất cả");
+      toast.success("Đã xóa phân loại sản phẩm.");
+    } catch (error) {
+      toast.error(getInventoryErrorMessage(error, "Không thể xóa phân loại sản phẩm. Vui lòng thử lại."));
     }
-    if (selectedCategoryFilter === category.name) setSelectedCategoryFilter("Tất cả");
-    toast.success("Đã xóa phân loại sản phẩm.");
   };
 
   return (
@@ -218,11 +400,15 @@ export default function InventoryTab() {
                   onChange={(event) => setSelectedCategoryFilter(event.target.value)}
                 >
                   <option value="Tất cả">Tất cả phân loại</option>
-                  {categories.map((category) => <option key={category.id} value={category.name}>{category.name}</option>)}
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.name}>
+                      {category.name}
+                    </option>
+                  ))}
                 </select>
               </div>
               <button
-                onClick={() => setShowAddModal(true)}
+                onClick={openCreateProductModal}
                 className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition-all hover:bg-blue-700"
                 id="open_add_product_modal"
               >
@@ -231,29 +417,45 @@ export default function InventoryTab() {
               </button>
             </div>
 
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" id="products_grid">
-              {filteredProducts.map((product) => (
-                <React.Fragment key={product.id}>
-                  <ProductCard product={product} />
-                </React.Fragment>
-              ))}
-            </div>
+            {productLoading ? (
+              <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-10 text-center">
+                <p className="font-bold text-gray-700">Đang tải danh mục sản phẩm...</p>
+                <p className="mt-1 text-xs text-gray-500">Dữ liệu đang được đồng bộ từ Firebase.</p>
+              </div>
+            ) : filteredProducts.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-10 text-center">
+                <p className="font-bold text-gray-700">Chưa có sản phẩm phù hợp</p>
+                <p className="mt-1 text-xs text-gray-500">Thử đổi bộ lọc hoặc tạo sản phẩm mới để bắt đầu quản lý kho.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" id="products_grid">
+                {filteredProducts.map((product) => (
+                  <div key={product.id}>
+                    <ProductCard product={product} onDelete={handleDeleteProduct} onEdit={openEditProductModal} />
+                  </div>
+                ))}
+              </div>
+            )}
 
-            {showAddModal && (
+            {showProductModal && (
               <ProductModal
                 categories={categories}
+                imagePreview={newProdImagePreview}
+                isEditing={Boolean(editingProductId)}
+                isSubmitting={productSubmitting}
                 newProdCategory={newProdCategory}
                 newProdName={newProdName}
                 newProdPrice={newProdPrice}
                 newProdSKU={newProdSKU}
                 newProdStock={newProdStock}
-                onClose={() => setShowAddModal(false)}
+                onClose={resetProductForm}
                 onCreateCategory={() => {
-                  setShowAddModal(false);
+                  setShowProductModal(false);
                   openCreateCategoryModal();
                   setSubTab("PHÂN LOẠI SẢN PHẨM");
                 }}
-                onSubmit={handleAddProduct}
+                onImageChange={handleProductImageChange}
+                onSubmit={handleSaveProduct}
                 setNewProdCategory={setNewProdCategory}
                 setNewProdName={setNewProdName}
                 setNewProdPrice={setNewProdPrice}
@@ -312,20 +514,29 @@ export default function InventoryTab() {
                   <p className="mt-4 min-h-10 text-xs leading-5 text-gray-500">{category.description}</p>
                   <div className="mt-5 flex items-center justify-end gap-2 border-t border-gray-100 pt-4">
                     <button type="button" onClick={() => openEditCategoryModal(category)} className="flex items-center gap-1.5 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-[11px] font-bold text-blue-700 transition-colors hover:bg-blue-100">
-                      <Pencil className="h-3.5 w-3.5" />Sửa
+                      <Pencil className="h-3.5 w-3.5" />
+                      Sửa
                     </button>
                     <button type="button" onClick={() => handleDeleteCategory(category)} className="flex items-center gap-1.5 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-[11px] font-bold text-red-700 transition-colors hover:bg-red-100">
-                      <Trash2 className="h-3.5 w-3.5" />Xóa
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Xóa
                     </button>
                   </div>
                 </div>
               ))}
             </div>
 
-            {filteredCategories.length === 0 && (
+            {!categoryLoading && filteredCategories.length === 0 && (
               <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-10 text-center">
                 <p className="font-bold text-gray-700">Không tìm thấy phân loại phù hợp</p>
                 <p className="mt-1 text-xs text-gray-500">Thử đổi từ khóa tìm kiếm hoặc thêm phân loại mới.</p>
+              </div>
+            )}
+
+            {categoryLoading && (
+              <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-10 text-center">
+                <p className="font-bold text-gray-700">Đang tải phân loại sản phẩm...</p>
+                <p className="mt-1 text-xs text-gray-500">Dữ liệu đang được đồng bộ từ Firebase.</p>
               </div>
             )}
 

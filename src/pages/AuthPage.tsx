@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useAuth } from "../context/AuthContext";
-import { Sparkles, Mail, Lock, User, RefreshCw, ArrowRight } from "lucide-react";
+import { Mail, Lock, User, RefreshCw, ArrowRight } from "lucide-react";
+import { BRAND_LOGO_URL, BRAND_NAME } from "../config/brand";
 
 export default function AuthPage() {
   const { loginWithEmail, registerWithEmail, loginWithGoogle } = useAuth();
@@ -57,10 +58,12 @@ export default function AuthPage() {
         
         {/* Brand Header */}
         <div className="text-center space-y-2">
-          <div className="w-12 h-12 rounded-2xl bg-indigo-600 mx-auto flex items-center justify-center shadow-lg shadow-indigo-500/30">
-            <Sparkles className="h-6 w-6 text-white animate-pulse" />
-          </div>
-          <h2 className="text-2xl font-bold text-white tracking-tight">Hệ thống Quản trị iGen ERP</h2>
+          <img
+            src={BRAND_LOGO_URL}
+            alt={BRAND_NAME}
+            className="mx-auto h-14 w-14 rounded-2xl border border-white/10 object-cover shadow-lg shadow-slate-950/30"
+          />
+          <h2 className="text-2xl font-bold text-white tracking-tight">Hệ thống Quản trị {BRAND_NAME}</h2>
           <p className="text-xs text-slate-400">Đăng nhập tài khoản doanh nghiệp để bắt đầu</p>
         </div>
 
