@@ -46,7 +46,7 @@ export interface UserProfile {
 }
 
 export type HRSubTabType = "SƠ ĐỒ TỔ CHỨC" | "GIAO VIỆC KANBAN" | "ĐÀO TẠO";
-export type InventorySubTabType = "DANH MỤC" | "NHẬP / XUẤT KHO" | "DỰ BÁO AI";
+export type InventorySubTabType = "DANH MỤC" | "PHÂN LOẠI SẢN PHẨM" | "NHẬP / XUẤT KHO" | "DỰ BÁO AI";
 export type MarketingSubTabType = "LÊN Ý TƯỞNG AI" | "DUYỆT NỘI DUNG" | "LỊCH ĐĂNG CONTENT";
 export type CRMSubTabType = "PHỄU KHÁCH HÀNG" | "OMNI-INBOX CHAT";
 
@@ -144,6 +144,15 @@ export interface ProductItem {
   price: number;
   demandForecast: "Tăng mạnh" | "Ổn định" | "Giảm nhẹ";
   imageUrl: string;
+}
+
+export interface ProductCategory {
+  id: string;
+  name: string;
+  code: string;
+  description: string;
+  colorClass: string;
+  status: "Đang dùng" | "Tạm khóa";
 }
 
 export interface StockLog {
