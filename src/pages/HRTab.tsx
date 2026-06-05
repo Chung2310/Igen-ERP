@@ -25,7 +25,7 @@ import {
 import { HRSubTabType, EmployeeNode, HRTask, TrainingCourse, UserProfile } from "../types";
 import { useAuth } from "../context/AuthContext";
 import { db } from "../config/firebase";
-import { doc, updateDoc, setDoc, deleteDoc, writeBatch } from "firebase/firestore";
+import { doc, updateDoc, setDoc, deleteDoc, writeBatch, collection, getDocs, query, where } from "firebase/firestore";
 import { authService } from "../services/authService";
 import { toast } from "./Toast";
 
@@ -298,6 +298,13 @@ export default function HRTab() {
     }
   }, [addRole, addParentId, usersList, isAddModalOpen]);
 
+  useEffect(() => {
+    if (selectedCompanyCode) {
+      fetchUsers();
+      fetchTasks();
+    }
+  }, [selectedCompanyCode, userProfile?.uid]);
+
   // Reset addDepartment when modal closes
   useEffect(() => {
     if (!isAddModalOpen) {
@@ -306,40 +313,125 @@ export default function HRTab() {
   }, [isAddModalOpen]);
 
   // 2. HR Tasks Data for Recruitment & Onboarding Kanban
-  const [tasks, setTasks] = useState<HRTask[]>([
-    { id: "t1", title: "Phỏng vấn ứng viên Sales Supervisor", assignee: "Vũ Thùy Linh", assigneeAvatar: "👩‍⚕️", dueDate: "Ngày mai, 14:00", priority: "Cao", status: "todo", category: "Tuyển dụng" },
-    { id: "t2", title: "Thiết lập tài khoản ERP cho nhân sự Kho mới", assignee: "Hoàng Gia Huy", assigneeAvatar: "📦", dueDate: "15/10/2026", priority: "Trung bình", status: "doing", category: "Onboarding" },
-    { id: "t3", title: "Hoàn thành video Đào tạo Bảo mật hệ thống", assignee: "Trần Mai Anh", assigneeAvatar: "👩‍💼", dueDate: "18/10/2026", priority: "Thấp", status: "doing", category: "Đào tạo" },
-    { id: "t4", title: "Soạn thảo tài liệu Quy tắc Văn hóa Ứng xử", assignee: "Phạm Minh Hoàng", assigneeAvatar: "👨‍💼", dueDate: "Đã xong", priority: "Cao", status: "done", category: "Văn hóa" },
-  ]);
+  const [tasks, setTasks] = useState<HRTask[]>([]);
+
+  const fetchTasks = async () => {
+    if (!selectedCompanyCode) return;
+    try {
+      const q = query(
+        collection(db, "kanbanTasks"),
+        where("companyCode", "==", selectedCompanyCode)
+      );
+      const querySnapshot = await getDocs(q);
+      const tasksData: HRTask[] = [];
+      querySnapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        tasksData.push({
+          id: docSnap.id,
+          title: data.title || "",
+          description: data.description || "",
+          assigneeUid: data.assigneeUid || "",
+          assignee: data.assignee || "",
+          assigneeAvatar: data.assigneeAvatar || "",
+          dueDate: data.dueDate || "",
+          priority: data.priority || "Trung bình",
+          status: data.status || "todo",
+          category: data.category || "Onboarding",
+          companyCode: data.companyCode || "",
+          creatorUid: data.creatorUid || "",
+          createdAt: data.createdAt
+        });
+      });
+      setTasks(tasksData);
+    } catch (error) {
+      console.error("Lỗi khi tải danh sách công việc:", error);
+    }
+  };
 
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskCategory, setNewTaskCategory] = useState<"Onboarding" | "Đào tạo" | "Tuyển dụng" | "Văn hóa">("Onboarding");
   const [newTaskPriority, setNewTaskPriority] = useState<"Cao" | "Trung bình" | "Thấp">("Trung bình");
+  const [newTaskAssigneeUid, setNewTaskAssigneeUid] = useState("");
+  const [newTaskDueDate, setNewTaskDueDate] = useState("Hôm nay");
+  const [newTaskDescription, setNewTaskDescription] = useState("");
 
-  const handleAddTask = (e: React.FormEvent) => {
+  const handleAddTask = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newTaskTitle.trim() === "") return;
-    const newTask: HRTask = {
-      id: "t_" + Date.now(),
-      title: newTaskTitle,
-      assignee: kanbanFilter || "Chưa phân công",
-      assigneeAvatar: kanbanFilter ? (employees.find(emp => emp.name === kanbanFilter)?.avatar || "🤔") : "🤔",
-      dueDate: "Chưa cập nhật",
-      priority: newTaskPriority,
-      status: "todo",
-      category: newTaskCategory
-    };
-    setTasks([...tasks, newTask]);
-    setNewTaskTitle("");
+    if (newTaskTitle.trim() === "") {
+      toast.warning("Vui lòng nhập tiêu đề công việc!");
+      return;
+    }
+    if (!newTaskAssigneeUid) {
+      toast.warning("Vui lòng chọn nhân sự được giao việc!");
+      return;
+    }
+
+    const assignedEmp = employees.find(emp => emp.id === newTaskAssigneeUid);
+    if (!assignedEmp) {
+      toast.error("Nhân sự được giao việc không hợp lệ!");
+      return;
+    }
+
+    const compCode = selectedCompanyCode || userProfile?.companyCode || "SYSTEM";
+    const creatorUid = userProfile?.uid || "";
+
+    try {
+      const taskId = "task_" + Date.now();
+      const newTaskDoc = {
+        title: newTaskTitle.trim(),
+        description: newTaskDescription.trim(),
+        assigneeUid: newTaskAssigneeUid,
+        assignee: assignedEmp.name,
+        assigneeAvatar: assignedEmp.avatar || "👨‍💻",
+        dueDate: newTaskDueDate.trim() || "Chưa cập nhật",
+        priority: newTaskPriority,
+        status: "todo" as const,
+        category: newTaskCategory,
+        companyCode: compCode,
+        creatorUid: creatorUid,
+        createdAt: new Date()
+      };
+
+      await setDoc(doc(db, "kanbanTasks", taskId), newTaskDoc);
+      toast.success("Đã thêm công việc thành công!");
+
+      // Update state locally
+      setTasks(prev => [...prev, { id: taskId, ...newTaskDoc }]);
+
+      // Reset fields
+      setNewTaskTitle("");
+      setNewTaskDescription("");
+      setNewTaskAssigneeUid("");
+      setNewTaskDueDate("Hôm nay");
+    } catch (error) {
+      console.error("Lỗi khi thêm công việc:", error);
+      toast.error("Không thể thêm công việc. Bạn có thể không có quyền.");
+    }
   };
 
-  const moveTaskStatus = (id: string, newStatus: "todo" | "doing" | "done") => {
-    setTasks(tasks.map(t => t.id === id ? { ...t, status: newStatus } : t));
+  const moveTaskStatus = async (id: string, newStatus: "todo" | "doing" | "done") => {
+    try {
+      const taskRef = doc(db, "kanbanTasks", id);
+      await updateDoc(taskRef, { status: newStatus });
+      setTasks(prev => prev.map(t => t.id === id ? { ...t, status: newStatus } : t));
+      toast.success("Đã cập nhật trạng thái công việc!");
+    } catch (error) {
+      console.error("Lỗi khi cập nhật trạng thái công việc:", error);
+      toast.error("Không thể cập nhật trạng thái. Chỉ người được giao hoặc quản lý mới có quyền.");
+    }
   };
 
-  const deleteTask = (id: string) => {
-    setTasks(tasks.filter(t => t.id !== id));
+  const deleteTask = async (id: string) => {
+    if (!window.confirm("Bạn có chắc chắn muốn xóa công việc này?")) return;
+    try {
+      const taskRef = doc(db, "kanbanTasks", id);
+      await deleteDoc(taskRef);
+      setTasks(prev => prev.filter(t => t.id !== id));
+      toast.success("Đã xóa công việc thành công!");
+    } catch (error) {
+      console.error("Lỗi khi xóa công việc:", error);
+      toast.error("Không thể xóa công việc. Chỉ quản lý mới có quyền.");
+    }
   };
 
   // 3. Onboarding Video Training Courses List Catalog
@@ -985,50 +1077,79 @@ export default function HRTab() {
             )}
 
             {/* Quick Task creation panel */}
-            <form onSubmit={handleAddTask} className="bg-slate-50 border border-gray-200 p-5 rounded-2xl flex flex-wrap gap-4 items-end" id="add_task_form">
-              <div className="flex-1 min-w-[200px] text-left">
-                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Công việc mới</label>
-                <input 
-                  type="text" 
-                  placeholder={kanbanFilter ? `Giao việc cho ${kanbanFilter}...` : "Ví dụ: Hoàn tất giấy tờ tuyển dụng thử việc..."} 
-                  className="w-full px-4 py-2 border border-gray-200 bg-white rounded-xl text-xs font-sans focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
-                  value={newTaskTitle}
-                  onChange={(e) => setNewTaskTitle(e.target.value)}
-                />
-              </div>
+            {isManager && (
+              <form onSubmit={handleAddTask} className="bg-slate-50 border border-gray-200 p-5 rounded-2xl flex flex-wrap gap-4 items-end" id="add_task_form">
+                <div className="flex-1 min-w-[200px] text-left">
+                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Công việc mới *</label>
+                  <input 
+                    type="text" 
+                    required
+                    placeholder="Ví dụ: Hoàn tất giấy tờ tuyển dụng thử việc..." 
+                    className="w-full px-4 py-2 border border-gray-200 bg-white rounded-xl text-xs font-sans focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                    value={newTaskTitle}
+                    onChange={(e) => setNewTaskTitle(e.target.value)}
+                  />
+                </div>
 
-              <div className="text-left">
-                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 font-sans">Bắc Phận</label>
-                <select 
-                  className="px-3 py-2 border border-gray-200 bg-white rounded-xl text-xs font-semibold focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer"
-                  value={newTaskCategory}
-                  onChange={(e: any) => setNewTaskCategory(e.target.value)}
-                >
-                  <option value="Onboarding">Onboarding</option>
-                  <option value="Đào tạo">Đào tạo</option>
-                  <option value="Tuyển dụng">Tuyển dụng</option>
-                  <option value="Văn hóa">Văn hóa</option>
-                </select>
-              </div>
+                <div className="text-left min-w-[150px]">
+                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 font-sans">Giao cho *</label>
+                  <select 
+                    required
+                    className="w-full px-3 py-2 border border-gray-200 bg-white rounded-xl text-xs font-semibold focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer"
+                    value={newTaskAssigneeUid}
+                    onChange={(e) => setNewTaskAssigneeUid(e.target.value)}
+                  >
+                    <option value="">— Chọn nhân viên —</option>
+                    {employees.map(emp => (
+                      <option key={emp.id} value={emp.id}>{emp.name} ({emp.role})</option>
+                    ))}
+                  </select>
+                </div>
 
-              <div className="text-left">
-                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 font-sans">Độ ưu tiên</label>
-                <select 
-                  className="px-3 py-2 border border-gray-200 bg-white rounded-xl text-xs font-semibold focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer"
-                  value={newTaskPriority}
-                  onChange={(e: any) => setNewTaskPriority(e.target.value)}
-                >
-                  <option value="Cao">Cao</option>
-                  <option value="Trung bình">Trung bình</option>
-                  <option value="Thấp">Thấp</option>
-                </select>
-              </div>
+                <div className="text-left min-w-[120px]">
+                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 font-sans">Hạn hoàn thành</label>
+                  <input 
+                    type="text" 
+                    placeholder="Ví dụ: Hôm nay" 
+                    className="w-full px-3 py-2 border border-gray-200 bg-white rounded-xl text-xs font-sans focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                    value={newTaskDueDate}
+                    onChange={(e) => setNewTaskDueDate(e.target.value)}
+                  />
+                </div>
 
-              <button type="submit" className="px-5 py-2.5 bg-indigo-650 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shrink-0 select-none shadow-sm transition-all focus:outline-hidden cursor-pointer active:scale-95">
-                <Plus className="h-4 w-4" />
-                Thêm Công Việc
-              </button>
-            </form>
+                <div className="text-left">
+                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 font-sans">Phân loại</label>
+                  <select 
+                    className="px-3 py-2 border border-gray-200 bg-white rounded-xl text-xs font-semibold focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer"
+                    value={newTaskCategory}
+                    onChange={(e: any) => setNewTaskCategory(e.target.value)}
+                  >
+                    <option value="Onboarding">Onboarding</option>
+                    <option value="Đào tạo">Đào tạo</option>
+                    <option value="Tuyển dụng">Tuyển dụng</option>
+                    <option value="Văn hóa">Văn hóa</option>
+                  </select>
+                </div>
+
+                <div className="text-left">
+                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 font-sans">Độ ưu tiên</label>
+                  <select 
+                    className="px-3 py-2 border border-gray-200 bg-white rounded-xl text-xs font-semibold focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer"
+                    value={newTaskPriority}
+                    onChange={(e: any) => setNewTaskPriority(e.target.value)}
+                  >
+                    <option value="Cao">Cao</option>
+                    <option value="Trung bình">Trung bình</option>
+                    <option value="Thấp">Thấp</option>
+                  </select>
+                </div>
+
+                <button type="submit" className="px-5 py-2.5 bg-indigo-650 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shrink-0 select-none shadow-sm transition-all focus:outline-hidden cursor-pointer active:scale-95">
+                  <Plus className="h-4 w-4" />
+                  Thêm Công Việc
+                </button>
+              </form>
+            )}
 
             {/* Kanban columns flex board */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6" id="three_column_kanban">
@@ -1051,6 +1172,7 @@ export default function HRTab() {
                         task={task} 
                         onMove={(newSt) => moveTaskStatus(task.id, newSt)} 
                         onDelete={() => deleteTask(task.id)}
+                        canDelete={isManager}
                       />
                     ))
                   )}
@@ -1075,6 +1197,7 @@ export default function HRTab() {
                         task={task} 
                         onMove={(newSt) => moveTaskStatus(task.id, newSt)} 
                         onDelete={() => deleteTask(task.id)}
+                        canDelete={isManager}
                       />
                     ))
                   )}
@@ -1099,6 +1222,7 @@ export default function HRTab() {
                         task={task} 
                         onMove={(newSt) => moveTaskStatus(task.id, newSt)} 
                         onDelete={() => deleteTask(task.id)}
+                        canDelete={isManager}
                       />
                     ))
                   )}
@@ -1373,7 +1497,7 @@ export default function HRTab() {
 }
 
 // Kanban drag helper subcard
-function KanbanCard({ task, onMove, onDelete }: { key?: any; task: HRTask; onMove: (status: "todo" | "doing" | "done") => void; onDelete: () => void }) {
+function KanbanCard({ task, onMove, onDelete, canDelete }: { key?: any; task: HRTask; onMove: (status: "todo" | "doing" | "done") => void; onDelete: () => void; canDelete: boolean }) {
   return (
     <div className="bg-white border text-left border-gray-200 p-4 rounded-2xl shadow-2xs hover:shadow-md transition-all flex flex-col gap-3 relative group" id={`kanban_card_${task.id}`}>
       
@@ -1408,12 +1532,16 @@ function KanbanCard({ task, onMove, onDelete }: { key?: any; task: HRTask; onMov
 
       {/* Interactive transition buttons */}
       <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between opacity-80 group-hover:opacity-100 transition-opacity">
-        <button 
-          onClick={onDelete}
-          className="text-rose-500 hover:text-rose-700 text-[10px] font-extrabold font-mono transition-colors cursor-pointer"
-        >
-          Xóa bỏ
-        </button>
+        {canDelete ? (
+          <button 
+            onClick={onDelete}
+            className="text-rose-500 hover:text-rose-700 text-[10px] font-extrabold font-mono transition-colors cursor-pointer"
+          >
+            Xóa bỏ
+          </button>
+        ) : (
+          <div />
+        )}
         <div className="flex gap-2">
           {task.status !== "todo" && (
             <button 

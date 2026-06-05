@@ -195,5 +195,46 @@ service cloud.firestore {
         || existing().authorUid == ''
       );
     }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // /kanbanTasks/{taskId}
+    // ══════════════════════════════════════════════════════════════════════════
+    match /kanbanTasks/{taskId} {
+      allow read: if isAuthenticated() && (isSuperAdmin() || isSameCompany(resource.data.companyCode));
+      allow create: if isAuthenticated() && (
+        isSuperAdmin() || 
+        (
+          (isAdmin() || isManager()) && 
+          isSameCompany(incoming().companyCode) && 
+          request.auth.uid == incoming().creatorUid
+        )
+      );
+      allow update: if isAuthenticated() && (
+        isSuperAdmin() || 
+        (
+          (isAdmin() || isManager()) && 
+          isSameCompany(existing().companyCode) && 
+          isSameCompany(incoming().companyCode)
+        ) ||
+        (
+          isSameCompany(existing().companyCode) &&
+          existing().assigneeUid == request.auth.uid &&
+          // Regular user can only update status
+          incoming().title == existing().title &&
+          incoming().assigneeUid == existing().assigneeUid &&
+          incoming().category == existing().category &&
+          incoming().priority == existing().priority &&
+          incoming().companyCode == existing().companyCode &&
+          incoming().creatorUid == existing().creatorUid
+        )
+      );
+      allow delete: if isAuthenticated() && (
+        isSuperAdmin() || 
+        (
+          (isAdmin() || isManager()) && 
+          isSameCompany(existing().companyCode)
+        )
+      );
+    }
   }
 }

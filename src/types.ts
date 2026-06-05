@@ -204,12 +204,17 @@ export interface EmployeeNode {
 export interface HRTask {
   id: string;
   title: string;
+  description?: string;
+  assigneeUid: string;
   assignee: string;
   assigneeAvatar: string;
   dueDate: string;
   priority: "Cao" | "Trung bình" | "Thấp";
   status: "todo" | "doing" | "done";
   category: "Onboarding" | "Đào tạo" | "Tuyển dụng" | "Văn hóa";
+  companyCode: string;
+  creatorUid: string;
+  createdAt: any;
 }
 
 export interface TrainingCourse {
