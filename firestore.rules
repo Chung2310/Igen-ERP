@@ -207,5 +207,49 @@ service cloud.firestore {
         || existing().authorUid == ''
       );
     }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // /projects/{projectId}
+    // ══════════════════════════════════════════════════════════════════════════
+    match /projects/{projectId} {
+      allow read: if isAuthenticated() && (isSuperAdmin() || isSameCompany(resource.data.companyCode));
+      allow create: if isAuthenticated() && (isSuperAdmin() || isSameCompany(incoming().companyCode));
+      allow update: if isAuthenticated() && (
+        isSuperAdmin() || 
+        (
+          isSameCompany(existing().companyCode) && 
+          isSameCompany(incoming().companyCode)
+        )
+      );
+      allow delete: if isAuthenticated() && (
+        isSuperAdmin() || 
+        (
+          (isAdmin() || isManager()) && 
+          isSameCompany(existing().companyCode)
+        )
+      );
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // /kanbanTasks/{taskId}
+    // ══════════════════════════════════════════════════════════════════════════
+    match /kanbanTasks/{taskId} {
+      allow read: if isAuthenticated() && (isSuperAdmin() || isSameCompany(resource.data.companyCode));
+      allow create: if isAuthenticated() && (isSuperAdmin() || isSameCompany(incoming().companyCode));
+      allow update: if isAuthenticated() && (
+        isSuperAdmin() || 
+        (
+          isSameCompany(existing().companyCode) && 
+          isSameCompany(incoming().companyCode)
+        )
+      );
+      allow delete: if isAuthenticated() && (
+        isSuperAdmin() || 
+        (
+          (isAdmin() || isManager()) && 
+          isSameCompany(existing().companyCode)
+        )
+      );
+    }
   }
 }
