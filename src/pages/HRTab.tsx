@@ -51,9 +51,7 @@ export default function HRTab() {
   const [addName, setAddName] = useState("");
   const [addEmail, setAddEmail] = useState("");
   const [addPhone, setAddPhone] = useState("");
-  const [addJobTitle, setAddJobTitle] = useState("");
   const [addDepartment, setAddDepartment] = useState("Phòng Kỹ Thuật");
-  const [addDivision, setAddDivision] = useState("Khối Kỹ Thuật");
   const [addParentId, setAddParentId] = useState("");
   const [addRole, setAddRole] = useState<"user" | "manager">("user");
 
@@ -193,10 +191,14 @@ export default function HRTab() {
       if (userProfile?.role === "manager") {
         setAddParentId(userProfile.uid);
       } else {
-        setAddParentId("");
+        const compCode = selectedCompanyCode || userProfile?.companyCode || "SYSTEM";
+        const firstCompanyManager = usersList.find(
+          (u) => u.companyCode === compCode && u.role === "manager"
+        );
+        setAddParentId(firstCompanyManager?.uid || "");
       }
     }
-  }, [isAddModalOpen, userProfile]);
+  }, [isAddModalOpen, userProfile, selectedCompanyCode, usersList]);
 
   // Handle parentId based on addRole automatically in HRTab modal
   useEffect(() => {
@@ -211,7 +213,10 @@ export default function HRTab() {
         if (userProfile?.role === "manager") {
           setAddParentId(userProfile.uid);
         } else {
-          setAddParentId("");
+          const firstCompanyManager = usersList.find(
+            (u) => u.companyCode === compCode && u.role === "manager"
+          );
+          setAddParentId(firstCompanyManager?.uid || "");
         }
       }
     }
@@ -481,13 +486,13 @@ export default function HRTab() {
         displayName: addName.trim(),
         photoURL: "👨‍💻",
         role: addRole,
-        jobTitle: addJobTitle.trim() || (addRole === "manager" ? "Quản lý phòng ban" : "Nhân viên"),
+        jobTitle: addRole === "manager" ? "Quản lý phòng ban" : "Nhân viên",
         department: addRole === "manager" ? "Quản lý" : addDepartment,
         phone: addPhone.trim() || "Chưa cập nhật",
         level,
         parentId: addParentId || null,
         status: "online",
-        division: addRole === "manager" ? "Quản lý" : addDivision,
+        division: addRole === "manager" ? "Quản lý" : addDepartment.trim() || "Nhân sự",
         companyCode: compCode,
         companyName: compName,
         createdAt: new Date()
@@ -500,7 +505,6 @@ export default function HRTab() {
       setAddName("");
       setAddEmail("");
       setAddPhone("");
-      setAddJobTitle("");
       setAddParentId("");
       setAddRole("user");
 
@@ -1181,28 +1185,16 @@ export default function HRTab() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-gray-500 mb-1">Quyền hạn (Role) *</label>
-                  <select
-                    value={addRole}
-                    onChange={(e) => setAddRole(e.target.value as any)}
-                    className="w-full p-2 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer"
-                  >
-                    <option value="user">USER (Nhân viên)</option>
-                    <option value="manager">MANAGER (Quản lý)</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block font-bold text-gray-500 mb-1">Chức danh công việc</label>
-                  <input 
-                    type="text" 
-                    placeholder="Ví dụ: Giám đốc Công nghệ"
-                    value={addJobTitle}
-                    onChange={(e) => setAddJobTitle(e.target.value)}
-                    className="w-full px-3.5 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
+              <div>
+                <label className="block font-bold text-gray-500 mb-1">Quyền hạn (Role) *</label>
+                <select
+                  value={addRole}
+                  onChange={(e) => setAddRole(e.target.value as any)}
+                  className="w-full p-2 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer"
+                >
+                  <option value="user">USER (Nhân viên)</option>
+                  <option value="manager">MANAGER (Quản lý)</option>
+                </select>
               </div>
 
               {addRole === "user" && (
@@ -1213,7 +1205,6 @@ export default function HRTab() {
                     onChange={(e) => setAddParentId(e.target.value)}
                     className="w-full p-2 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer"
                   >
-                    <option value="">Không có (Cấp Root / CEO)</option>
                     {employees.filter(emp => {
                       // Only show managers
                       const rawUser = usersList.find(u => u.uid === emp.id);
@@ -1240,30 +1231,15 @@ export default function HRTab() {
               )}
 
               {addRole === "user" && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block font-bold text-gray-500 mb-1">Phòng ban</label>
-                    <input 
-                      type="text" 
-                      placeholder="Ví dụ: Phòng Kỹ Thuật"
-                      value={addDepartment}
-                      onChange={(e) => setAddDepartment(e.target.value)}
-                      className="w-full px-3.5 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-bold text-gray-500 mb-1">Khối chuyên môn</label>
-                    <select
-                      value={addDivision}
-                      onChange={(e) => setAddDivision(e.target.value)}
-                      className="w-full p-2 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer"
-                    >
-                      <option value="Khối Kỹ Thuật">Khối Kỹ Thuật</option>
-                      <option value="Khối Vận Hành">Khối Vận Hành</option>
-                      <option value="Khối Marketing">Khối Marketing</option>
-                      <option value="Khối Sales">Khối Sales</option>
-                    </select>
-                  </div>
+                <div>
+                  <label className="block font-bold text-gray-500 mb-1">Phòng ban</label>
+                  <input 
+                    type="text" 
+                    placeholder="Ví dụ: Phòng Kỹ Thuật"
+                    value={addDepartment}
+                    onChange={(e) => setAddDepartment(e.target.value)}
+                    className="w-full px-3.5 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
                 </div>
               )}
             </div>
