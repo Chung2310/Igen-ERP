@@ -20,9 +20,14 @@ import {
   Users,
   Activity,
   Trash2,
-  X
+  X,
+  Calendar,
+  AlertCircle,
+  Tag,
+  User,
+  Target
 } from "lucide-react";
-import { HRSubTabType, EmployeeNode, HRTask, TrainingCourse, UserProfile } from "../types";
+import { HRSubTabType, EmployeeNode, HRTask, TrainingCourse, UserProfile, Project, TaskHistoryEntry } from "../types";
 import { useAuth } from "../context/AuthContext";
 import { db } from "../config/firebase";
 import { doc, updateDoc, setDoc, deleteDoc, writeBatch, collection, getDocs, query, where } from "firebase/firestore";
@@ -302,6 +307,7 @@ export default function HRTab() {
     if (selectedCompanyCode) {
       fetchUsers();
       fetchTasks();
+      fetchProjects();
     }
   }, [selectedCompanyCode, userProfile?.uid]);
 
@@ -314,6 +320,210 @@ export default function HRTab() {
 
   // 2. HR Tasks Data for Recruitment & Onboarding Kanban
   const [tasks, setTasks] = useState<HRTask[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [kanbanViewTab, setKanbanViewTab] = useState<"By project" | "Board" | "All tasks">("By project");
+  const [selectedKanbanTask, setSelectedKanbanTask] = useState<HRTask | null>(null);
+
+  const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
+  const [newProjectName, setNewProjectName] = useState("");
+  const [expandedProjects, setExpandedProjects] = useState<Record<string, boolean>>({});
+
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editAssigneeUid, setEditAssigneeUid] = useState("");
+  const [editStatus, setEditStatus] = useState<"Not Started" | "In Progress" | "Review/Testing" | "Done" | "Archived">("Not Started");
+  const [editPriority, setEditPriority] = useState<"High" | "Medium" | "Low">("Medium");
+  const [editDueDate, setEditDueDate] = useState("");
+
+  // New Notion Task fields
+  const [editProjectId, setEditProjectId] = useState("");
+  const [editStartTime, setEditStartTime] = useState("");
+  const [editEndTime, setEditEndTime] = useState("");
+  const [editEstTime, setEditEstTime] = useState<number | "">("");
+  const [editActualTime, setEditActualTime] = useState<number | "">("");
+  const [editTags, setEditTags] = useState("");
+  const [editLinkNote, setEditLinkNote] = useState("");
+  const [taskHistory, setTaskHistory] = useState<TaskHistoryEntry[]>([]);
+  const [editCategory, setEditCategory] = useState<"Onboarding" | "Đào tạo" | "Tuyển dụng" | "Văn hóa">("Onboarding");
+
+  useEffect(() => {
+    if (selectedKanbanTask) {
+      setEditTitle(selectedKanbanTask.title || "");
+      setEditDescription(selectedKanbanTask.description || "");
+      setEditAssigneeUid(selectedKanbanTask.assigneeUid || "");
+      
+      // Status mapping for compatibility
+      let initialStatus = selectedKanbanTask.status || "Not Started";
+      if (initialStatus === "todo") initialStatus = "Not Started";
+      else if (initialStatus === "doing") initialStatus = "In Progress";
+      else if (initialStatus === "done") initialStatus = "Done";
+      setEditStatus(initialStatus as any);
+
+      // Priority mapping for compatibility
+      let initialPriority = selectedKanbanTask.priority || "Medium";
+      if (initialPriority === "Cao") initialPriority = "High";
+      else if (initialPriority === "Trung bình") initialPriority = "Medium";
+      else if (initialPriority === "Thấp") initialPriority = "Low";
+      setEditPriority(initialPriority as any);
+
+      setEditDueDate(selectedKanbanTask.dueDate || "");
+
+      // Notion specific fields
+      setEditProjectId(selectedKanbanTask.projectId || "");
+      setEditStartTime(selectedKanbanTask.startTime || "");
+      setEditEndTime(selectedKanbanTask.endTime || "");
+      setEditEstTime(selectedKanbanTask.estTime ?? "");
+      setEditActualTime(selectedKanbanTask.actualTime ?? "");
+      setEditTags(selectedKanbanTask.tags ? selectedKanbanTask.tags.join(", ") : "");
+      setEditLinkNote(selectedKanbanTask.linkNote || "");
+      setTaskHistory(selectedKanbanTask.history || []);
+      setEditCategory(selectedKanbanTask.category || "Onboarding");
+    }
+  }, [selectedKanbanTask]);
+
+  const handleSaveTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedKanbanTask) return;
+    
+    if (editTitle.trim() === "") {
+      toast.warning("Vui lòng nhập tiêu đề công việc!");
+      return;
+    }
+
+    const assignedEmp = employees.find(emp => emp.id === editAssigneeUid);
+    if (!assignedEmp) {
+      toast.error("Nhân sự được giao việc không hợp lệ!");
+      return;
+    }
+
+    try {
+      const compCode = selectedCompanyCode || userProfile?.companyCode || "SYSTEM";
+      const creatorUid = userProfile?.uid || "";
+      const userName = userProfile?.displayName || userProfile?.email || "Thành viên";
+      
+      const parsedTags = editTags.split(",")
+        .map(t => t.trim())
+        .filter(t => t.length > 0);
+
+      const estNum = editEstTime === "" ? 0 : Number(editEstTime);
+      const actNum = editActualTime === "" ? 0 : Number(editActualTime);
+
+      if (selectedKanbanTask.id === "new") {
+        const taskId = "task_" + Date.now();
+        const initialHistory = [
+          {
+            time: new Date().toLocaleString("vi-VN"),
+            user: userName,
+            action: "Tạo công việc mới"
+          }
+        ];
+
+        const newTaskDoc = {
+          title: editTitle.trim(),
+          description: editDescription.trim(),
+          assigneeUid: editAssigneeUid,
+          assignee: assignedEmp.name,
+          assigneeAvatar: assignedEmp.avatar || "👨‍💻",
+          dueDate: editDueDate.trim() || "Chưa cập nhật",
+          priority: editPriority,
+          status: editStatus,
+          companyCode: compCode,
+          creatorUid: creatorUid,
+          createdAt: new Date(),
+          
+          projectId: editProjectId,
+          startTime: editStartTime,
+          endTime: editEndTime,
+          estTime: estNum,
+          actualTime: actNum,
+          tags: parsedTags,
+          linkNote: editLinkNote.trim(),
+          history: initialHistory,
+          category: editCategory
+        };
+
+        await setDoc(doc(db, "kanbanTasks", taskId), newTaskDoc);
+        toast.success("Đã thêm công việc thành công!");
+        setTasks(prev => [...prev, { id: taskId, ...newTaskDoc }]);
+      } else {
+        const taskRef = doc(db, "kanbanTasks", selectedKanbanTask.id);
+        
+        const changes: string[] = [];
+        if ((selectedKanbanTask.title || "") !== editTitle.trim()) {
+          changes.push(`Đổi tên việc: "${selectedKanbanTask.title || 'Trống'}" → "${editTitle.trim()}"`);
+        }
+        if ((selectedKanbanTask.status || "") !== editStatus) {
+          changes.push(`Đổi trạng thái: "${selectedKanbanTask.status}" → "${editStatus}"`);
+        }
+        if ((selectedKanbanTask.priority || "") !== editPriority) {
+          changes.push(`Đổi độ ưu tiên: "${selectedKanbanTask.priority}" → "${editPriority}"`);
+        }
+        if ((selectedKanbanTask.assigneeUid || "") !== editAssigneeUid) {
+          changes.push(`Đổi người thực hiện: "${selectedKanbanTask.assignee || 'Chưa phân công'}" → "${assignedEmp.name}"`);
+        }
+        if ((selectedKanbanTask.projectId || "") !== editProjectId) {
+          const oldProj = projects.find(p => p.id === selectedKanbanTask.projectId)?.name || "Không có dự án";
+          const newProj = projects.find(p => p.id === editProjectId)?.name || "Không có dự án";
+          changes.push(`Chuyển dự án: "${oldProj}" → "${newProj}"`);
+        }
+        if ((selectedKanbanTask.startTime || "") !== editStartTime) {
+          changes.push(`Sửa TG bắt đầu: "${selectedKanbanTask.startTime || 'Chưa thiết lập'}" → "${editStartTime || 'Chưa thiết lập'}"`);
+        }
+        if ((selectedKanbanTask.endTime || "") !== editEndTime) {
+          changes.push(`Sửa TG kết thúc: "${selectedKanbanTask.endTime || 'Chưa thiết lập'}" → "${editEndTime || 'Chưa thiết lập'}"`);
+        }
+        if ((selectedKanbanTask.estTime ?? 0) !== estNum) {
+          changes.push(`Sửa giờ dự tính: ${selectedKanbanTask.estTime ?? 0}h → ${estNum}h`);
+        }
+        if ((selectedKanbanTask.actualTime ?? 0) !== actNum) {
+          changes.push(`Sửa giờ thực tế: ${selectedKanbanTask.actualTime ?? 0}h → ${actNum}h`);
+        }
+        if ((selectedKanbanTask.linkNote || "") !== editLinkNote.trim()) {
+          changes.push(`Cập nhật link ghi chú`);
+        }
+        if ((selectedKanbanTask.category || "Onboarding") !== editCategory) {
+          changes.push(`Đổi phân loại: "${selectedKanbanTask.category || 'Onboarding'}" → "${editCategory}"`);
+        }
+
+        const updatedHistory = [
+          ...(selectedKanbanTask.history || []),
+          ...(changes.length > 0 ? [{
+            time: new Date().toLocaleString("vi-VN"),
+            user: userName,
+            action: changes.join(", ")
+          }] : [])
+        ];
+
+        const updatedFields = {
+          title: editTitle.trim(),
+          description: editDescription.trim(),
+          assigneeUid: editAssigneeUid,
+          assignee: assignedEmp.name,
+          assigneeAvatar: assignedEmp.avatar || "👨‍💻",
+          dueDate: editDueDate.trim() || "Chưa cập nhật",
+          priority: editPriority,
+          status: editStatus,
+          projectId: editProjectId,
+          startTime: editStartTime,
+          endTime: editEndTime,
+          estTime: estNum,
+          actualTime: actNum,
+          tags: parsedTags,
+          linkNote: editLinkNote.trim(),
+          history: updatedHistory,
+          category: editCategory
+        };
+
+        await updateDoc(taskRef, updatedFields);
+        toast.success("Đã lưu thay đổi công việc!");
+        setTasks(prev => prev.map(t => t.id === selectedKanbanTask.id ? { ...t, ...updatedFields } : t));
+      }
+      setSelectedKanbanTask(null);
+    } catch (error) {
+      console.error("Lỗi khi lưu công việc:", error);
+      toast.error("Không thể lưu thay đổi. Vui lòng kiểm tra quyền hạn.");
+    }
+  };
 
   const fetchTasks = async () => {
     if (!selectedCompanyCode) return;
@@ -334,12 +544,20 @@ export default function HRTab() {
           assignee: data.assignee || "",
           assigneeAvatar: data.assigneeAvatar || "",
           dueDate: data.dueDate || "",
-          priority: data.priority || "Trung bình",
-          status: data.status || "todo",
+          priority: data.priority || "Medium",
+          status: data.status || "Not Started",
           category: data.category || "Onboarding",
           companyCode: data.companyCode || "",
           creatorUid: data.creatorUid || "",
-          createdAt: data.createdAt
+          createdAt: data.createdAt,
+          projectId: data.projectId || "",
+          startTime: data.startTime || "",
+          estTime: data.estTime,
+          endTime: data.endTime || "",
+          actualTime: data.actualTime,
+          tags: data.tags || [],
+          linkNote: data.linkNote || "",
+          history: data.history || []
         });
       });
       setTasks(tasksData);
@@ -348,76 +566,89 @@ export default function HRTab() {
     }
   };
 
-  const [newTaskTitle, setNewTaskTitle] = useState("");
-  const [newTaskCategory, setNewTaskCategory] = useState<"Onboarding" | "Đào tạo" | "Tuyển dụng" | "Văn hóa">("Onboarding");
-  const [newTaskPriority, setNewTaskPriority] = useState<"Cao" | "Trung bình" | "Thấp">("Trung bình");
-  const [newTaskAssigneeUid, setNewTaskAssigneeUid] = useState("");
-  const [newTaskDueDate, setNewTaskDueDate] = useState("Hôm nay");
-  const [newTaskDescription, setNewTaskDescription] = useState("");
-
-  const handleAddTask = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newTaskTitle.trim() === "") {
-      toast.warning("Vui lòng nhập tiêu đề công việc!");
-      return;
-    }
-    if (!newTaskAssigneeUid) {
-      toast.warning("Vui lòng chọn nhân sự được giao việc!");
-      return;
-    }
-
-    const assignedEmp = employees.find(emp => emp.id === newTaskAssigneeUid);
-    if (!assignedEmp) {
-      toast.error("Nhân sự được giao việc không hợp lệ!");
-      return;
-    }
-
-    const compCode = selectedCompanyCode || userProfile?.companyCode || "SYSTEM";
-    const creatorUid = userProfile?.uid || "";
-
+  const fetchProjects = async () => {
+    if (!selectedCompanyCode) return;
     try {
-      const taskId = "task_" + Date.now();
-      const newTaskDoc = {
-        title: newTaskTitle.trim(),
-        description: newTaskDescription.trim(),
-        assigneeUid: newTaskAssigneeUid,
-        assignee: assignedEmp.name,
-        assigneeAvatar: assignedEmp.avatar || "👨‍💻",
-        dueDate: newTaskDueDate.trim() || "Chưa cập nhật",
-        priority: newTaskPriority,
-        status: "todo" as const,
-        category: newTaskCategory,
-        companyCode: compCode,
-        creatorUid: creatorUid,
-        createdAt: new Date()
-      };
-
-      await setDoc(doc(db, "kanbanTasks", taskId), newTaskDoc);
-      toast.success("Đã thêm công việc thành công!");
-
-      // Update state locally
-      setTasks(prev => [...prev, { id: taskId, ...newTaskDoc }]);
-
-      // Reset fields
-      setNewTaskTitle("");
-      setNewTaskDescription("");
-      setNewTaskAssigneeUid("");
-      setNewTaskDueDate("Hôm nay");
+      const q = query(
+        collection(db, "projects"),
+        where("companyCode", "==", selectedCompanyCode)
+      );
+      const querySnapshot = await getDocs(q);
+      const projData: Project[] = [];
+      querySnapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        projData.push({
+          id: docSnap.id,
+          name: data.name || "",
+          companyCode: data.companyCode || "",
+          creatorUid: data.creatorUid || "",
+          createdAt: data.createdAt
+        });
+      });
+      setProjects(projData);
+      
+      const expanded: Record<string, boolean> = {};
+      projData.forEach(p => {
+        expanded[p.id] = true;
+      });
+      expanded["unassigned"] = true;
+      setExpandedProjects(expanded);
     } catch (error) {
-      console.error("Lỗi khi thêm công việc:", error);
-      toast.error("Không thể thêm công việc. Bạn có thể không có quyền.");
+      console.error("Lỗi khi tải danh sách dự án:", error);
     }
   };
 
-  const moveTaskStatus = async (id: string, newStatus: "todo" | "doing" | "done") => {
+  const handleCreateProject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newProjectName.trim() === "") {
+      toast.warning("Vui lòng nhập tên dự án!");
+      return;
+    }
+    try {
+      const compCode = selectedCompanyCode || userProfile?.companyCode || "SYSTEM";
+      const projectId = "project_" + Date.now();
+      const newProj = {
+        name: newProjectName.trim(),
+        companyCode: compCode,
+        creatorUid: userProfile?.uid || "",
+        createdAt: new Date()
+      };
+      await setDoc(doc(db, "projects", projectId), newProj);
+      toast.success("Đã tạo dự án mới thành công!");
+      setProjects(prev => [...prev, { id: projectId, ...newProj }]);
+      setExpandedProjects(prev => ({ ...prev, [projectId]: true }));
+      setNewProjectName("");
+      setIsNewProjectModalOpen(false);
+    } catch (error) {
+      console.error("Lỗi khi tạo dự án:", error);
+      toast.error("Không thể tạo dự án. Vui lòng thử lại.");
+    }
+  };
+
+  const moveTaskStatus = async (id: string, newStatus: "Not Started" | "In Progress" | "Review/Testing" | "Done" | "Archived") => {
     try {
       const taskRef = doc(db, "kanbanTasks", id);
-      await updateDoc(taskRef, { status: newStatus });
-      setTasks(prev => prev.map(t => t.id === id ? { ...t, status: newStatus } : t));
+      const taskObj = tasks.find(t => t.id === id);
+      const userName = userProfile?.displayName || userProfile?.email || "Thành viên";
+      const oldStatus = taskObj?.status || "Not Started";
+      const updatedHistory = [
+        ...(taskObj?.history || []),
+        {
+          time: new Date().toLocaleString("vi-VN"),
+          user: userName,
+          action: `Đổi trạng thái: "${oldStatus}" → "${newStatus}"`
+        }
+      ];
+
+      await updateDoc(taskRef, { 
+        status: newStatus,
+        history: updatedHistory
+      });
+      setTasks(prev => prev.map(t => t.id === id ? { ...t, status: newStatus, history: updatedHistory } : t));
       toast.success("Đã cập nhật trạng thái công việc!");
     } catch (error) {
       console.error("Lỗi khi cập nhật trạng thái công việc:", error);
-      toast.error("Không thể cập nhật trạng thái. Chỉ người được giao hoặc quản lý mới có quyền.");
+      toast.error("Không thể cập nhật trạng thái. Vui lòng thử lại.");
     }
   };
 
@@ -1058,178 +1289,650 @@ export default function HRTab() {
 
         {/* SUB TAB 2: GIAO VIỆC KANBAN */}
         {subTab === "GIAO VIỆC KANBAN" && (
-          <div className="space-y-6" id="job_delegation_kanban">
+          <div className="bg-white text-slate-800 p-8 rounded-3xl border border-gray-200 shadow-xs space-y-6 text-left" id="job_delegation_kanban">
             
-            {/* Filter active banner */}
-            {kanbanFilter && (
-              <div className="bg-indigo-50 border border-indigo-150 text-indigo-850 text-xs p-3.5 rounded-2xl flex justify-between items-center mb-4 font-semibold text-left">
-                <span className="flex items-center gap-1.5 text-indigo-800">
-                  <UserSquare className="h-4.5 w-4.5 text-indigo-600" />
-                  Đang lọc hiển thị công việc được giao cho: <strong className="text-indigo-950 font-bold">{kanbanFilter}</strong>
+            {/* Header section */}
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 pb-4 border-b border-gray-200">
+              <div className="flex items-center gap-4">
+                <h2 className="text-2xl font-bold font-sans text-slate-800">Tasks</h2>
+                
+                {/* Tab buttons */}
+                <div className="flex bg-gray-100 border border-gray-200 p-1 rounded-xl text-xs font-semibold gap-1 select-none">
+                  <button
+                    onClick={() => setKanbanViewTab("By project")}
+                    className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
+                      kanbanViewTab === "By project" ? "bg-slate-800 text-white shadow-xs" : "text-gray-500 hover:text-slate-800"
+                    }`}
+                  >
+                    <Target className="h-3.5 w-3.5" />
+                    By project
+                  </button>
+                  <button
+                    onClick={() => setKanbanViewTab("Board")}
+                    className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
+                      kanbanViewTab === "Board" ? "bg-slate-800 text-white shadow-xs" : "text-gray-500 hover:text-slate-800"
+                    }`}
+                  >
+                    <Activity className="h-3.5 w-3.5" />
+                    Board
+                  </button>
+                  <button
+                    onClick={() => setKanbanViewTab("All tasks")}
+                    className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
+                      kanbanViewTab === "All tasks" ? "bg-slate-800 text-white shadow-xs" : "text-gray-500 hover:text-slate-800"
+                    }`}
+                  >
+                    <BookOpen className="h-3.5 w-3.5" />
+                    All tasks
+                  </button>
+                </div>
+              </div>
+
+              {/* Action Buttons on the right */}
+              <div className="flex items-center gap-3">
+                {/* Search / Filter Active Badge */}
+                {kanbanFilter && (
+                  <span className="text-[10px] bg-indigo-50 border border-indigo-200 text-indigo-700 font-mono font-bold px-2.5 py-1 rounded-lg flex items-center gap-1.5">
+                    Lọc: {kanbanFilter}
+                    <button onClick={() => setKanbanFilter(null)} className="hover:text-indigo-900 cursor-pointer"><X className="h-3 w-3" /></button>
+                  </span>
+                )}
+                <span className="text-[10px] text-gray-400 font-mono font-semibold flex items-center gap-1 select-none">
+                  <Clock className="h-3 w-3" />
+                  Đã khóa
                 </span>
-                <button 
-                  onClick={() => setKanbanFilter(null)}
-                  className="px-3 py-1 bg-white hover:bg-slate-100 border border-indigo-200 rounded-xl text-indigo-750 font-bold transition-all shadow-xs cursor-pointer text-xs"
-                >
-                  Hiển thị tất cả nhân sự
-                </button>
-              </div>
-            )}
-
-            {/* Quick Task creation panel */}
-            {isManager && (
-              <form onSubmit={handleAddTask} className="bg-slate-50 border border-gray-200 p-5 rounded-2xl flex flex-wrap gap-4 items-end" id="add_task_form">
-                <div className="flex-1 min-w-[200px] text-left">
-                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Công việc mới *</label>
-                  <input 
-                    type="text" 
-                    required
-                    placeholder="Ví dụ: Hoàn tất giấy tờ tuyển dụng thử việc..." 
-                    className="w-full px-4 py-2 border border-gray-200 bg-white rounded-xl text-xs font-sans focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
-                    value={newTaskTitle}
-                    onChange={(e) => setNewTaskTitle(e.target.value)}
-                  />
-                </div>
-
-                <div className="text-left min-w-[150px]">
-                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 font-sans">Giao cho *</label>
-                  <select 
-                    required
-                    className="w-full px-3 py-2 border border-gray-200 bg-white rounded-xl text-xs font-semibold focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer"
-                    value={newTaskAssigneeUid}
-                    onChange={(e) => setNewTaskAssigneeUid(e.target.value)}
+                
+                {/* Mới Dropdown / Action buttons */}
+                <div className="relative flex gap-2">
+                  <button 
+                    onClick={() => setIsNewProjectModalOpen(true)}
+                    className="px-3 py-1.5 bg-white border border-gray-200 text-gray-600 hover:text-slate-850 hover:bg-gray-55/40 hover:bg-gray-50 rounded-xl text-xs font-bold transition-all shadow-xxs flex items-center gap-1.5 cursor-pointer font-sans"
                   >
-                    <option value="">— Chọn nhân viên —</option>
-                    {employees.map(emp => (
-                      <option key={emp.id} value={emp.id}>{emp.name} ({emp.role})</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="text-left min-w-[120px]">
-                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 font-sans">Hạn hoàn thành</label>
-                  <input 
-                    type="text" 
-                    placeholder="Ví dụ: Hôm nay" 
-                    className="w-full px-3 py-2 border border-gray-200 bg-white rounded-xl text-xs font-sans focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
-                    value={newTaskDueDate}
-                    onChange={(e) => setNewTaskDueDate(e.target.value)}
-                  />
-                </div>
-
-                <div className="text-left">
-                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 font-sans">Phân loại</label>
-                  <select 
-                    className="px-3 py-2 border border-gray-200 bg-white rounded-xl text-xs font-semibold focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer"
-                    value={newTaskCategory}
-                    onChange={(e: any) => setNewTaskCategory(e.target.value)}
+                    <Plus className="h-3.5 w-3.5" />
+                    Dự án mới
+                  </button>
+                  <button 
+                    onClick={() => setSelectedKanbanTask({
+                      id: "new",
+                      title: "",
+                      description: "",
+                      assigneeUid: employees[0]?.id || "",
+                      assignee: employees[0]?.name || "",
+                      assigneeAvatar: employees[0]?.avatar || "👨‍💻",
+                      dueDate: "Hôm nay",
+                      priority: "Medium",
+                      status: "Not Started",
+                      companyCode: selectedCompanyCode || userProfile?.companyCode || "SYSTEM",
+                      creatorUid: userProfile?.uid || "",
+                      createdAt: new Date(),
+                      projectId: projects[0]?.id || ""
+                    })}
+                    className="px-4 py-1.5 bg-indigo-650 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer font-sans"
                   >
-                    <option value="Onboarding">Onboarding</option>
-                    <option value="Đào tạo">Đào tạo</option>
-                    <option value="Tuyển dụng">Tuyển dụng</option>
-                    <option value="Văn hóa">Văn hóa</option>
-                  </select>
-                </div>
-
-                <div className="text-left">
-                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 font-sans">Độ ưu tiên</label>
-                  <select 
-                    className="px-3 py-2 border border-gray-200 bg-white rounded-xl text-xs font-semibold focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer"
-                    value={newTaskPriority}
-                    onChange={(e: any) => setNewTaskPriority(e.target.value)}
-                  >
-                    <option value="Cao">Cao</option>
-                    <option value="Trung bình">Trung bình</option>
-                    <option value="Thấp">Thấp</option>
-                  </select>
-                </div>
-
-                <button type="submit" className="px-5 py-2.5 bg-indigo-650 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shrink-0 select-none shadow-sm transition-all focus:outline-hidden cursor-pointer active:scale-95">
-                  <Plus className="h-4 w-4" />
-                  Thêm Công Việc
-                </button>
-              </form>
-            )}
-
-            {/* Kanban columns flex board */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6" id="three_column_kanban">
-              
-              {/* TO DO (CẦN LÀM) */}
-              <div className="bg-slate-50/50 rounded-2xl p-4 border border-gray-200 flex flex-col min-h-[450px]">
-                <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-200/50">
-                  <span className="text-xs font-bold text-slate-700 tracking-wider font-sans uppercase">CHỜ THỰC HIỆN</span>
-                  <span className="bg-slate-200 text-slate-700 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                    {visibleTasks.filter(t => t.status === "todo").length}
-                  </span>
-                </div>
-                <div className="space-y-3 flex-1 overflow-y-auto">
-                  {visibleTasks.filter(t => t.status === "todo").length === 0 ? (
-                    <div className="p-8 text-center text-gray-400 text-xs italic">Hết công việc chờ!</div>
-                  ) : (
-                    visibleTasks.filter(t => t.status === "todo").map(task => (
-                      <KanbanCard 
-                        key={task.id} 
-                        task={task} 
-                        onMove={(newSt) => moveTaskStatus(task.id, newSt)} 
-                        onDelete={() => deleteTask(task.id)}
-                        canDelete={isManager}
-                      />
-                    ))
-                  )}
+                    <Plus className="h-3.5 w-3.5" />
+                    Mới
+                  </button>
                 </div>
               </div>
-
-              {/* DOING (ĐANG LÀM) */}
-              <div className="bg-slate-50/50 rounded-2xl p-4 border border-gray-200 flex flex-col min-h-[450px]">
-                <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-200/50">
-                  <span className="text-xs font-bold text-amber-700 tracking-wider font-sans uppercase">ĐANG THỰC HIỆN</span>
-                  <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                    {visibleTasks.filter(t => t.status === "doing").length}
-                  </span>
-                </div>
-                <div className="space-y-3 flex-1 overflow-y-auto">
-                  {visibleTasks.filter(t => t.status === "doing").length === 0 ? (
-                    <div className="p-8 text-center text-gray-400 text-xs italic">Kéo thả hoặc click tiến độ để bắt đầu</div>
-                  ) : (
-                    visibleTasks.filter(t => t.status === "doing").map(task => (
-                      <KanbanCard 
-                        key={task.id} 
-                        task={task} 
-                        onMove={(newSt) => moveTaskStatus(task.id, newSt)} 
-                        onDelete={() => deleteTask(task.id)}
-                        canDelete={isManager}
-                      />
-                    ))
-                  )}
-                </div>
-              </div>
-
-              {/* DONE (ĐÃ XONG) */}
-              <div className="bg-slate-50/50 rounded-2xl p-4 border border-gray-200 flex flex-col min-h-[450px]">
-                <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-200/50">
-                  <span className="text-xs font-bold text-emerald-800 tracking-wider font-sans uppercase font-medium">ĐÃ HOÀN THÀNH</span>
-                  <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                    {visibleTasks.filter(t => t.status === "done").length}
-                  </span>
-                </div>
-                <div className="space-y-3 flex-1 overflow-y-auto">
-                  {visibleTasks.filter(t => t.status === "done").length === 0 ? (
-                    <div className="p-8 text-center text-gray-400 text-xs italic">Chưa có công việc nào hoàn tất</div>
-                  ) : (
-                    visibleTasks.filter(t => t.status === "done").map(task => (
-                      <KanbanCard 
-                        key={task.id} 
-                        task={task} 
-                        onMove={(newSt) => moveTaskStatus(task.id, newSt)} 
-                        onDelete={() => deleteTask(task.id)}
-                        canDelete={isManager}
-                      />
-                    ))
-                  )}
-                </div>
-              </div>
-
             </div>
+
+            {/* TAB CONTENT: By project */}
+            {kanbanViewTab === "By project" && (
+              <div className="space-y-6">
+                {projects.length === 0 && (
+                  <div className="p-12 text-center text-gray-500 border border-gray-200 border-dashed rounded-2xl">
+                    Chưa có dự án nào được tạo. Hãy bấm <strong>+ Dự án mới</strong> để bắt đầu!
+                  </div>
+                )}
+                
+                {/* Render task lists grouped by project */}
+                {[...projects, { id: "unassigned", name: "Không phân loại dự án" }].map((proj) => {
+                  const projTasks = visibleTasks.filter(t => proj.id === "unassigned" ? !t.projectId : t.projectId === proj.id);
+                  if (proj.id === "unassigned" && projTasks.length === 0) return null;
+                  
+                  const isExpanded = expandedProjects[proj.id] !== false;
+                  
+                  return (
+                    <div key={proj.id} className="border border-gray-200 bg-white rounded-2xl overflow-hidden transition-all shadow-xxs">
+                      {/* Accordion header */}
+                      <div 
+                        onClick={() => setExpandedProjects(prev => ({ ...prev, [proj.id]: !isExpanded }))}
+                        className="px-5 py-3.5 bg-gray-50/50 border-b border-gray-200 flex items-center justify-between cursor-pointer select-none hover:bg-gray-55/40 hover:bg-gray-50"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <span className="text-gray-400 text-[10px] transition-transform duration-200" style={{ display: "inline-block", transform: isExpanded ? "rotate(0deg)" : "rotate(-90deg)" }}>
+                            ▼
+                          </span>
+                          <span className="text-sm font-bold text-slate-800 flex items-center gap-1.5 font-sans">
+                            🎯 {proj.name}
+                          </span>
+                          <span className="bg-gray-150 text-gray-500 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                            {projTasks.length}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      {/* Accordion task list table */}
+                      {isExpanded && (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-xs text-left border-collapse font-sans">
+                            <thead>
+                              <tr className="border-b border-gray-200 bg-gray-50/60 text-gray-500 font-bold">
+                                <th className="p-3 border-r border-gray-200 min-w-[200px]">Task name</th>
+                                <th className="p-3 border-r border-gray-200">Status</th>
+                                <th className="p-3 border-r border-gray-200">Priority</th>
+                                <th className="p-3 border-r border-gray-200">Tags</th>
+                                <th className="p-3 border-r border-gray-200">Assignee</th>
+                                <th className="p-3 border-r border-gray-200">Start Time</th>
+                                <th className="p-3 border-r border-gray-200">Est. Time (Hour)</th>
+                                <th className="p-3 border-r border-gray-200">End Time</th>
+                                <th className="p-3 border-r border-gray-200">Actual Time (Hour)</th>
+                                <th className="p-3 border-r border-gray-200">KPI</th>
+                                <th className="p-3 border-r border-gray-200">Description</th>
+                                <th className="p-3 border-r border-gray-200">Link note</th>
+                                <th className="p-3 text-center">Action</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {projTasks.length === 0 ? (
+                                <tr>
+                                  <td colSpan={13} className="p-8 text-center text-gray-400 italic">
+                                    Chưa có nhiệm vụ nào trong dự án này.
+                                  </td>
+                                </tr>
+                              ) : (
+                                projTasks.map(task => {
+                                  const est = task.estTime || 0;
+                                  const act = task.actualTime || 0;
+                                  
+                                  let kpiText = "Not Started";
+                                  let kpiColor = "bg-gray-100 text-gray-600 border border-gray-200";
+                                  
+                                  let finalStatus = task.status || "Not Started";
+                                  if (finalStatus === "todo") finalStatus = "Not Started";
+                                  else if (finalStatus === "doing") finalStatus = "In Progress";
+                                  else if (finalStatus === "done") finalStatus = "Done";
+
+                                  if (finalStatus === "Not Started") {
+                                    kpiText = "⚪ Not Started";
+                                    kpiColor = "bg-slate-50 text-slate-500 border border-slate-200";
+                                  } else {
+                                    if (act === 0) {
+                                      kpiText = "⚪ Not Started";
+                                      kpiColor = "bg-slate-50 text-slate-500 border border-slate-200";
+                                    } else if (act > est) {
+                                      const delay = (act - est).toFixed(1);
+                                      kpiText = `❌ Trễ hạn ${delay}h`;
+                                      kpiColor = "bg-red-50 text-red-700 border border-red-200";
+                                    } else {
+                                      kpiText = "✅ Đúng hạn";
+                                      kpiColor = "bg-emerald-50 text-emerald-700 border border-emerald-200";
+                                    }
+                                  }
+
+                                  return (
+                                    <tr 
+                                      key={task.id} 
+                                      className="border-b border-gray-150/60 hover:bg-gray-50/45 cursor-pointer font-sans"
+                                      onClick={() => setSelectedKanbanTask(task)}
+                                    >
+                                      {/* Task name */}
+                                      <td className="p-3 border-r border-gray-150/60 font-semibold text-slate-800 flex items-center gap-1.5 min-w-[200px] select-text">
+                                        📄 {task.title || "Không có tiêu đề"}
+                                      </td>
+                                      
+                                      {/* Status */}
+                                      <td className="p-3 border-r border-gray-150/60">
+                                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                                          finalStatus === "Done" ? "bg-emerald-50 border border-emerald-250 border-emerald-200 text-emerald-700" :
+                                          finalStatus === "In Progress" ? "bg-blue-50 border border-blue-200 text-blue-700" :
+                                          finalStatus === "Review/Testing" ? "bg-amber-50 border border-amber-250 border-amber-200 text-amber-700" :
+                                          finalStatus === "Archived" ? "bg-gray-100 border border-gray-250/70 border-gray-200 text-gray-600" :
+                                          "bg-gray-50 border border-gray-250/70 text-gray-500"
+                                        }`}>
+                                          {finalStatus}
+                                        </span>
+                                      </td>
+                                      
+                                      {/* Priority */}
+                                      <td className="p-3 border-r border-gray-150/60">
+                                        <span className={`px-2.5 py-0.5 rounded-lg text-[10px] font-bold ${
+                                          task.priority === "High" || task.priority === "Cao" ? "bg-red-50 border border-red-150 border-red-100 text-red-700" :
+                                          task.priority === "Medium" || task.priority === "Trung bình" ? "bg-amber-50 border border-amber-150 border-amber-100 text-amber-750" :
+                                          "bg-blue-50 border border-blue-150 border-blue-100 text-blue-700"
+                                        }`}>
+                                          {task.priority || "Medium"}
+                                        </span>
+                                      </td>
+                                      
+                                      {/* Tags */}
+                                      <td className="p-3 border-r border-gray-150/60 min-w-[100px]">
+                                        <div className="flex flex-wrap gap-1">
+                                          {(task.tags || []).map((t, idx) => (
+                                            <span key={idx} className="px-2 py-0.5 bg-gray-100 border border-gray-200 text-gray-600 rounded-md text-[9px] font-mono font-semibold">
+                                              {t}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      </td>
+                                      
+                                      {/* Assignee */}
+                                      <td className="p-3 border-r border-gray-150/60 min-w-[130px]">
+                                        <div className="flex items-center gap-1.5">
+                                          <span className="text-xs">{task.assigneeAvatar || "👨‍💻"}</span>
+                                          <span className="font-semibold text-slate-700">{task.assignee}</span>
+                                        </div>
+                                      </td>
+                                      
+                                      {/* Start Time */}
+                                      <td className="p-3 border-r border-gray-150/60 font-mono text-slate-500 min-w-[110px]">
+                                        {task.startTime ? new Date(task.startTime).toLocaleDateString("vi-VN") : "—"}
+                                      </td>
+                                      
+                                      {/* Est Time */}
+                                      <td className="p-3 border-r border-gray-150/60 font-mono text-right font-bold text-slate-700">
+                                        {task.estTime ?? 0}h
+                                      </td>
+                                      
+                                      {/* End Time */}
+                                      <td className="p-3 border-r border-gray-150/60 font-mono text-slate-500 min-w-[110px]">
+                                        {task.endTime ? new Date(task.endTime).toLocaleDateString("vi-VN") : "—"}
+                                      </td>
+                                      
+                                      {/* Actual Time */}
+                                      <td className="p-3 border-r border-gray-150/60 font-mono text-right font-bold text-slate-700">
+                                        {task.actualTime ?? 0}h
+                                      </td>
+                                      
+                                      {/* KPI */}
+                                      <td className="p-3 border-r border-gray-150/60 min-w-[120px]">
+                                        <span className={`px-2.5 py-0.5 rounded-lg text-[10px] font-semibold ${kpiColor}`}>
+                                          {kpiText}
+                                        </span>
+                                      </td>
+                                      
+                                      {/* Description */}
+                                      <td className="p-3 border-r border-gray-150/60 text-slate-500 truncate max-w-[150px] min-w-[100px]">
+                                        {task.description || "—"}
+                                      </td>
+                                      
+                                      {/* Link Note */}
+                                      <td className="p-3 border-r border-gray-150/60 text-indigo-650 hover:underline min-w-[100px]">
+                                        {task.linkNote ? (
+                                          <a href={task.linkNote} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="flex items-center gap-1 font-semibold">
+                                            Link note
+                                            <ExternalLink className="h-3 w-3" />
+                                          </a>
+                                        ) : "—"}
+                                      </td>
+                                      
+                                      {/* Action */}
+                                      <td className="p-3 text-center" onClick={(e) => e.stopPropagation()}>
+                                        {isManager && (
+                                          <button 
+                                            onClick={() => deleteTask(task.id)}
+                                            className="p-1 hover:bg-slate-100 text-gray-400 hover:text-red-650 rounded-lg transition-colors cursor-pointer"
+                                          >
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                          </button>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  );
+                                })
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                      
+                      {/* Accordion footer button */}
+                      {isExpanded && (
+                        <div className="px-5 py-3 border-t border-gray-200 bg-gray-50/20 text-left">
+                          <button
+                            onClick={() => setSelectedKanbanTask({
+                              id: "new",
+                              title: "",
+                              description: "",
+                              assigneeUid: employees[0]?.id || "",
+                              assignee: employees[0]?.name || "",
+                              assigneeAvatar: employees[0]?.avatar || "👨‍💻",
+                              dueDate: "Hôm nay",
+                              priority: "Medium",
+                              status: "Not Started",
+                              companyCode: selectedCompanyCode || userProfile?.companyCode || "SYSTEM",
+                              creatorUid: userProfile?.uid || "",
+                              createdAt: new Date(),
+                              projectId: proj.id === "unassigned" ? "" : proj.id
+                            })}
+                            className="text-slate-500 hover:text-indigo-650 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer font-sans"
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                            Nhiệm vụ mới
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* TAB CONTENT: Board */}
+            {kanbanViewTab === "Board" && (
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6" id="three_column_kanban">
+                
+                {/* 1. NOT STARTED */}
+                <div className="bg-slate-50/70 rounded-2xl p-4 border border-gray-200/60 flex flex-col min-h-[450px]">
+                  <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-200 select-none">
+                    <span className="text-xs font-bold text-gray-500 tracking-wider font-sans uppercase">⚪ Not Started</span>
+                    <span className="bg-gray-200 text-gray-650 text-[10px] font-bold px-2 py-0.5 rounded-full border border-gray-300/60">
+                      {visibleTasks.filter(t => (t.status === "Not Started" || t.status === "todo")).length}
+                    </span>
+                  </div>
+                  <div className="space-y-3 flex-1 overflow-y-auto">
+                    {visibleTasks.filter(t => (t.status === "Not Started" || t.status === "todo")).length === 0 ? (
+                      <div className="p-8 text-center text-gray-400 text-xs italic">Hết công việc chờ!</div>
+                    ) : (
+                      visibleTasks.filter(t => (t.status === "Not Started" || t.status === "todo")).map(task => (
+                        <KanbanCard 
+                          key={task.id} 
+                          task={task} 
+                          onMove={(newSt) => moveTaskStatus(task.id, newSt)} 
+                          onDelete={() => deleteTask(task.id)}
+                          canDelete={isManager}
+                          onClick={() => setSelectedKanbanTask(task)}
+                          projects={projects}
+                        />
+                      ))
+                    )}
+                  </div>
+                  <button
+                    onClick={() => setSelectedKanbanTask({
+                      id: "new",
+                      title: "",
+                      description: "",
+                      assigneeUid: employees[0]?.id || "",
+                      assignee: employees[0]?.name || "",
+                      assigneeAvatar: employees[0]?.avatar || "👨‍💻",
+                      dueDate: "Hôm nay",
+                      priority: "Medium",
+                      status: "Not Started",
+                      companyCode: selectedCompanyCode || userProfile?.companyCode || "SYSTEM",
+                      creatorUid: userProfile?.uid || "",
+                      createdAt: new Date(),
+                      projectId: projects[0]?.id || ""
+                    })}
+                    className="mt-3 w-full py-2 border border-dashed border-gray-300 hover:border-indigo-500 hover:bg-slate-50 rounded-xl text-xs font-semibold text-slate-500 hover:text-indigo-650 transition-all flex items-center justify-center gap-1.5 cursor-pointer select-none font-sans"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Nhiệm vụ mới
+                  </button>
+                </div>
+
+                {/* 2. IN PROGRESS */}
+                <div className="bg-slate-50/70 rounded-2xl p-4 border border-gray-200/60 flex flex-col min-h-[450px]">
+                  <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-200 select-none">
+                    <span className="text-xs font-bold text-blue-650 tracking-wider font-sans uppercase">🔵 In Progress</span>
+                    <span className="bg-blue-50 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-blue-100">
+                      {visibleTasks.filter(t => (t.status === "In Progress" || t.status === "doing")).length}
+                    </span>
+                  </div>
+                  <div className="space-y-3 flex-1 overflow-y-auto">
+                    {visibleTasks.filter(t => (t.status === "In Progress" || t.status === "doing")).length === 0 ? (
+                      <div className="p-8 text-center text-gray-400 text-xs italic">Kéo thả hoặc chuyển tiến độ để bắt đầu</div>
+                    ) : (
+                      visibleTasks.filter(t => (t.status === "In Progress" || t.status === "doing")).map(task => (
+                        <KanbanCard 
+                          key={task.id} 
+                          task={task} 
+                          onMove={(newSt) => moveTaskStatus(task.id, newSt)} 
+                          onDelete={() => deleteTask(task.id)}
+                          canDelete={isManager}
+                          onClick={() => setSelectedKanbanTask(task)}
+                          projects={projects}
+                        />
+                      ))
+                    )}
+                  </div>
+                  <button
+                    onClick={() => setSelectedKanbanTask({
+                      id: "new",
+                      title: "",
+                      description: "",
+                      assigneeUid: employees[0]?.id || "",
+                      assignee: employees[0]?.name || "",
+                      assigneeAvatar: employees[0]?.avatar || "👨‍💻",
+                      dueDate: "Hôm nay",
+                      priority: "Medium",
+                      status: "In Progress",
+                      companyCode: selectedCompanyCode || userProfile?.companyCode || "SYSTEM",
+                      creatorUid: userProfile?.uid || "",
+                      createdAt: new Date(),
+                      projectId: projects[0]?.id || ""
+                    })}
+                    className="mt-3 w-full py-2 border border-dashed border-gray-300 hover:border-indigo-500 hover:bg-slate-50 rounded-xl text-xs font-semibold text-slate-500 hover:text-indigo-650 transition-all flex items-center justify-center gap-1.5 cursor-pointer select-none font-sans"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Nhiệm vụ mới
+                  </button>
+                </div>
+
+                {/* 3. REVIEW / TESTING */}
+                <div className="bg-slate-50/70 rounded-2xl p-4 border border-gray-200/60 flex flex-col min-h-[450px]">
+                  <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-200 select-none">
+                    <span className="text-xs font-bold text-amber-650 tracking-wider font-sans uppercase">🟡 Review/Testing</span>
+                    <span className="bg-amber-50 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-100">
+                      {visibleTasks.filter(t => t.status === "Review/Testing").length}
+                    </span>
+                  </div>
+                  <div className="space-y-3 flex-1 overflow-y-auto">
+                    {visibleTasks.filter(t => t.status === "Review/Testing").length === 0 ? (
+                      <div className="p-8 text-center text-gray-400 text-xs italic">Không có nhiệm vụ nào cần review</div>
+                    ) : (
+                      visibleTasks.filter(t => t.status === "Review/Testing").map(task => (
+                        <KanbanCard 
+                          key={task.id} 
+                          task={task} 
+                          onMove={(newSt) => moveTaskStatus(task.id, newSt)} 
+                          onDelete={() => deleteTask(task.id)}
+                          canDelete={isManager}
+                          onClick={() => setSelectedKanbanTask(task)}
+                          projects={projects}
+                        />
+                      ))
+                    )}
+                  </div>
+                  <button
+                    onClick={() => setSelectedKanbanTask({
+                      id: "new",
+                      title: "",
+                      description: "",
+                      assigneeUid: employees[0]?.id || "",
+                      assignee: employees[0]?.name || "",
+                      assigneeAvatar: employees[0]?.avatar || "👨‍💻",
+                      dueDate: "Hôm nay",
+                      priority: "Medium",
+                      status: "Review/Testing",
+                      companyCode: selectedCompanyCode || userProfile?.companyCode || "SYSTEM",
+                      creatorUid: userProfile?.uid || "",
+                      createdAt: new Date(),
+                      projectId: projects[0]?.id || ""
+                    })}
+                    className="mt-3 w-full py-2 border border-dashed border-gray-300 hover:border-indigo-500 hover:bg-slate-50 rounded-xl text-xs font-semibold text-slate-500 hover:text-indigo-650 transition-all flex items-center justify-center gap-1.5 cursor-pointer select-none font-sans"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Nhiệm vụ mới
+                  </button>
+                </div>
+
+                {/* 4. DONE */}
+                <div className="bg-slate-50/70 rounded-2xl p-4 border border-gray-200/60 flex flex-col min-h-[450px]">
+                  <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-200 select-none">
+                    <span className="text-xs font-bold text-emerald-650 tracking-wider font-sans uppercase">🟢 Done</span>
+                    <span className="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-100">
+                      {visibleTasks.filter(t => (t.status === "Done" || t.status === "done")).length}
+                    </span>
+                  </div>
+                  <div className="space-y-3 flex-1 overflow-y-auto">
+                    {visibleTasks.filter(t => (t.status === "Done" || t.status === "done")).length === 0 ? (
+                      <div className="p-8 text-center text-gray-400 text-xs italic">Chưa có công việc nào hoàn thành</div>
+                    ) : (
+                      visibleTasks.filter(t => (t.status === "Done" || t.status === "done")).map(task => (
+                        <KanbanCard 
+                          key={task.id} 
+                          task={task} 
+                          onMove={(newSt) => moveTaskStatus(task.id, newSt)} 
+                          onDelete={() => deleteTask(task.id)}
+                          canDelete={isManager}
+                          onClick={() => setSelectedKanbanTask(task)}
+                          projects={projects}
+                        />
+                      ))
+                    )}
+                  </div>
+                  <button
+                    onClick={() => setSelectedKanbanTask({
+                      id: "new",
+                      title: "",
+                      description: "",
+                      assigneeUid: employees[0]?.id || "",
+                      assignee: employees[0]?.name || "",
+                      assigneeAvatar: employees[0]?.avatar || "👨‍💻",
+                      dueDate: "Hôm nay",
+                      priority: "Medium",
+                      status: "Done",
+                      companyCode: selectedCompanyCode || userProfile?.companyCode || "SYSTEM",
+                      creatorUid: userProfile?.uid || "",
+                      createdAt: new Date(),
+                      projectId: projects[0]?.id || ""
+                    })}
+                    className="mt-3 w-full py-2 border border-dashed border-gray-300 hover:border-indigo-500 hover:bg-slate-50 rounded-xl text-xs font-semibold text-slate-500 hover:text-indigo-650 transition-all flex items-center justify-center gap-1.5 cursor-pointer select-none font-sans"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Nhiệm vụ mới
+                  </button>
+                </div>
+
+              </div>
+            )}
+
+            {/* TAB CONTENT: All tasks */}
+            {kanbanViewTab === "All tasks" && (
+              <div className="overflow-x-auto border border-gray-200 bg-white rounded-2xl shadow-xxs">
+                <table className="w-full text-xs text-left border-collapse font-sans">
+                  <thead>
+                    <tr className="border-b border-gray-200 bg-gray-50/60 text-gray-500 font-bold">
+                      <th className="p-3 border-r border-gray-200">Task name</th>
+                      <th className="p-3 border-r border-gray-200">Status</th>
+                      <th className="p-3 border-r border-gray-200">Assignee</th>
+                      <th className="p-3 border-r border-gray-200">Est. Time (Detail)</th>
+                      <th className="p-3 border-r border-gray-200">Priority</th>
+                      <th className="p-3 border-r border-gray-200">Tags</th>
+                      <th className="p-3 border-r border-gray-200">Project</th>
+                      <th className="p-3 text-center">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visibleTasks.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="p-12 text-center text-gray-400 italic">
+                          Chưa có nhiệm vụ nào được tạo.
+                        </td>
+                      </tr>
+                    ) : (
+                      visibleTasks.map(task => {
+                        let finalStatus = task.status || "Not Started";
+                        if (finalStatus === "todo") finalStatus = "Not Started";
+                        else if (finalStatus === "doing") finalStatus = "In Progress";
+                        else if (finalStatus === "done") finalStatus = "Done";
+
+                        const taskProj = projects.find(p => p.id === task.projectId);
+
+                        return (
+                          <tr 
+                            key={task.id} 
+                            className="border-b border-gray-150/60 hover:bg-gray-55/45 cursor-pointer font-sans"
+                            onClick={() => setSelectedKanbanTask(task)}
+                          >
+                            {/* Task name */}
+                            <td className="p-3 border-r border-gray-150/60 font-semibold text-slate-800 flex items-center gap-1.5 min-w-[200px] select-text">
+                              📄 {task.title || "Không có tiêu đề"}
+                            </td>
+                            
+                            {/* Status */}
+                            <td className="p-3 border-r border-gray-150/60">
+                              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                                finalStatus === "Done" ? "bg-emerald-50 border border-emerald-255 border-emerald-200 text-emerald-700" :
+                                finalStatus === "In Progress" ? "bg-blue-50 border border-blue-200 text-blue-700" :
+                                finalStatus === "Review/Testing" ? "bg-amber-50 border border-amber-250 border-amber-200 text-amber-700" :
+                                finalStatus === "Archived" ? "bg-gray-100 border border-gray-200 text-gray-600" :
+                                "bg-gray-50 border border-gray-250/70 text-gray-500"
+                              }`}>
+                                {finalStatus}
+                              </span>
+                            </td>
+                            
+                            {/* Assignee */}
+                            <td className="p-3 border-r border-gray-150/60 min-w-[130px]">
+                              <div className="flex items-center gap-1.5">
+                                <span>{task.assigneeAvatar || "👨‍💻"}</span>
+                                <span className="font-semibold text-slate-700">{task.assignee}</span>
+                              </div>
+                            </td>
+                            
+                            {/* Est Time Detail */}
+                            <td className="p-3 border-r border-gray-150/60 font-mono text-slate-700 font-bold">
+                              {task.estTime ?? 0}h
+                            </td>
+                            
+                            {/* Priority */}
+                            <td className="p-3 border-r border-gray-150/60">
+                              <span className={`px-2.5 py-0.5 rounded-lg text-[10px] font-bold ${
+                                task.priority === "High" || task.priority === "Cao" ? "bg-red-50 border border-red-100 text-red-700" :
+                                task.priority === "Medium" || task.priority === "Trung bình" ? "bg-amber-50 border border-amber-100 text-amber-750" :
+                                "bg-blue-50 border border-blue-100 text-blue-700"
+                              }`}>
+                                {task.priority || "Medium"}
+                              </span>
+                            </td>
+                            
+                            {/* Tags */}
+                            <td className="p-3 border-r border-gray-150/60 min-w-[120px]">
+                              <div className="flex flex-wrap gap-1">
+                                {(task.tags || []).map((t, idx) => (
+                                  <span key={idx} className="px-2 py-0.5 bg-gray-100 border border-gray-200 text-gray-600 rounded-md text-[9px] font-mono font-semibold">
+                                    {t}
+                                  </span>
+                                ))}
+                              </div>
+                            </td>
+                            
+                            {/* Project */}
+                            <td className="p-3 border-r border-gray-150/60 font-semibold text-slate-600 min-w-[150px]">
+                              {taskProj ? `🎯 {taskProj.name}` : "Không có dự án"}
+                            </td>
+                            
+                            {/* Action */}
+                            <td className="p-3 text-center" onClick={(e) => e.stopPropagation()}>
+                              {isManager && (
+                                <button 
+                                  onClick={() => deleteTask(task.id)}
+                                  className="p-1 hover:bg-slate-100 text-gray-400 hover:text-red-650 rounded-lg transition-colors cursor-pointer"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
           </div>
         )}
 
@@ -1355,6 +2058,395 @@ export default function HRTab() {
         )}
 
       </div>
+
+      {/* Notion-style Task Detail Modal */}
+      {selectedKanbanTask && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-2xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white border border-gray-200 text-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl p-8 relative text-left flex flex-col max-h-[90vh] overflow-y-auto font-sans">
+            
+            {/* Top Breadcrumb and Close */}
+            <div className="flex justify-between items-center mb-6 text-[11px] text-gray-450 font-semibold uppercase tracking-wider select-none">
+              <div className="flex items-center gap-1">
+                <span className="text-gray-500">Nhân sự</span>
+                <ChevronRight className="h-3 w-3 text-gray-450" />
+                <span className="text-gray-500">Kanban</span>
+                <ChevronRight className="h-3 w-3 text-gray-450" />
+                <span className="text-indigo-650">{editCategory || "Onboarding"}</span>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setSelectedKanbanTask(null)} 
+                className="p-1.5 hover:bg-slate-50 rounded-lg text-gray-400 hover:text-slate-800 transition-colors cursor-pointer"
+              >
+                <X className="h-4.5 w-4.5" />
+              </button>
+            </div>
+
+            {/* Notion-style Title Input */}
+            <div className="mb-6">
+              <input 
+                type="text"
+                placeholder="Không có tiêu đề"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                className="w-full text-2xl font-bold text-slate-800 placeholder-gray-300 border-none outline-none focus:ring-0 p-0 bg-transparent font-sans"
+              />
+            </div>
+
+            {/* Notion-style Properties Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3.5 mb-8 pb-6 border-b border-gray-150 text-xs">
+              
+              {/* Project Property */}
+              <div className="flex items-center">
+                <div className="w-28 flex items-center gap-2 text-gray-500 font-medium select-none font-sans">
+                  <Target className="h-3.5 w-3.5 text-gray-400" />
+                  <span>Dự án</span>
+                </div>
+                <div className="flex-1">
+                  <select
+                    value={editProjectId}
+                    onChange={(e) => setEditProjectId(e.target.value)}
+                    className="w-full px-2 py-1 bg-transparent hover:bg-slate-50 border border-transparent hover:border-gray-200 outline-none focus:bg-slate-50 focus:border-gray-200 rounded-lg text-slate-800 font-semibold cursor-pointer transition-all font-sans"
+                  >
+                    <option value="" className="bg-white text-slate-650">Không phân loại dự án</option>
+                    {projects.map(p => (
+                      <option key={p.id} value={p.id} className="bg-white text-slate-850">
+                        🎯 {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Status Property */}
+              <div className="flex items-center">
+                <div className="w-28 flex items-center gap-2 text-gray-500 font-medium select-none font-sans">
+                  <Activity className="h-3.5 w-3.5 text-gray-400" />
+                  <span>Trạng thái</span>
+                </div>
+                <div className="flex-1">
+                  <select
+                    value={editStatus}
+                    onChange={(e: any) => setEditStatus(e.target.value)}
+                    className="w-full px-2 py-1 bg-transparent hover:bg-slate-50 border border-transparent hover:border-gray-200 outline-none focus:bg-slate-50 focus:border-gray-200 rounded-lg text-slate-800 font-semibold cursor-pointer transition-all font-sans"
+                  >
+                    <option value="Not Started" className="bg-white text-slate-850">⚪ Not Started</option>
+                    <option value="In Progress" className="bg-white text-slate-850">🔵 In Progress</option>
+                    <option value="Review/Testing" className="bg-white text-slate-850">🟡 Review/Testing</option>
+                    <option value="Done" className="bg-white text-slate-850">🟢 Done</option>
+                    <option value="Archived" className="bg-white text-slate-850">⚫ Archived</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Assignee Property */}
+              <div className="flex items-center">
+                <div className="w-28 flex items-center gap-2 text-gray-500 font-medium select-none font-sans">
+                  <User className="h-3.5 w-3.5 text-gray-400" />
+                  <span>Giao cho</span>
+                </div>
+                <div className="flex-1">
+                  <select
+                    value={editAssigneeUid}
+                    onChange={(e) => setEditAssigneeUid(e.target.value)}
+                    className="w-full px-2 py-1 bg-transparent hover:bg-slate-50 border border-transparent hover:border-gray-200 outline-none focus:bg-slate-50 focus:border-gray-200 rounded-lg text-slate-800 font-semibold cursor-pointer transition-all font-sans"
+                  >
+                    <option value="" className="bg-white text-slate-655">— Chưa chọn —</option>
+                    {employees.map(emp => (
+                      <option key={emp.id} value={emp.id} className="bg-white text-slate-855">
+                        {emp.name} ({emp.role})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Due Date Property */}
+              <div className="flex items-center">
+                <div className="w-28 flex items-center gap-2 text-gray-500 font-medium select-none font-sans">
+                  <Calendar className="h-3.5 w-3.5 text-gray-400" />
+                  <span>Hạn hoàn thành</span>
+                </div>
+                <div className="flex-1">
+                  <input 
+                    type="text" 
+                    placeholder="Ví dụ: Hôm nay" 
+                    value={editDueDate}
+                    onChange={(e) => setEditDueDate(e.target.value)}
+                    className="w-full px-2 py-1 bg-transparent hover:bg-slate-50 border border-transparent hover:border-gray-200 outline-none focus:bg-slate-50 focus:border-gray-200 rounded-lg text-slate-800 font-semibold transition-all font-sans"
+                  />
+                </div>
+              </div>
+
+              {/* Start Time Property */}
+              <div className="flex items-center">
+                <div className="w-28 flex items-center gap-2 text-gray-500 font-medium select-none font-sans">
+                  <Calendar className="h-3.5 w-3.5 text-gray-400" />
+                  <span>TG Bắt đầu</span>
+                </div>
+                <div className="flex-1">
+                  <input 
+                    type="datetime-local" 
+                    value={editStartTime}
+                    onChange={(e) => setEditStartTime(e.target.value)}
+                    className="w-full px-2 py-1 bg-transparent hover:bg-slate-50 border border-transparent hover:border-gray-200 outline-none focus:bg-slate-50 focus:border-gray-200 rounded-lg text-slate-800 font-semibold transition-all font-sans"
+                  />
+                </div>
+              </div>
+
+              {/* End Time Property */}
+              <div className="flex items-center">
+                <div className="w-28 flex items-center gap-2 text-gray-500 font-medium select-none font-sans">
+                  <Calendar className="h-3.5 w-3.5 text-gray-400" />
+                  <span>TG Kết thúc</span>
+                </div>
+                <div className="flex-1">
+                  <input 
+                    type="datetime-local" 
+                    value={editEndTime}
+                    onChange={(e) => setEditEndTime(e.target.value)}
+                    className="w-full px-2 py-1 bg-transparent hover:bg-slate-50 border border-transparent hover:border-gray-200 outline-none focus:bg-slate-50 focus:border-gray-200 rounded-lg text-slate-800 font-semibold transition-all font-sans"
+                  />
+                </div>
+              </div>
+
+              {/* Est Time Property */}
+              <div className="flex items-center">
+                <div className="w-28 flex items-center gap-2 text-gray-500 font-medium select-none font-sans">
+                  <Clock className="h-3.5 w-3.5 text-gray-400" />
+                  <span>Giờ dự tính (h)</span>
+                </div>
+                <div className="flex-1">
+                  <input 
+                    type="number" 
+                    min="0"
+                    placeholder="0"
+                    value={editEstTime}
+                    onChange={(e) => setEditEstTime(e.target.value === "" ? "" : Number(e.target.value))}
+                    className="w-full px-2 py-1 bg-transparent hover:bg-slate-50 border border-transparent hover:border-gray-200 outline-none focus:bg-slate-50 focus:border-gray-200 rounded-lg text-slate-800 font-semibold transition-all font-sans"
+                  />
+                </div>
+              </div>
+
+              {/* Actual Time Property */}
+              <div className="flex items-center">
+                <div className="w-28 flex items-center gap-2 text-gray-500 font-medium select-none font-sans">
+                  <Clock className="h-3.5 w-3.5 text-gray-400" />
+                  <span>Giờ thực tế (h)</span>
+                </div>
+                <div className="flex-1">
+                  <input 
+                    type="number" 
+                    min="0"
+                    placeholder="0"
+                    value={editActualTime}
+                    onChange={(e) => setEditActualTime(e.target.value === "" ? "" : Number(e.target.value))}
+                    className="w-full px-2 py-1 bg-transparent hover:bg-slate-50 border border-transparent hover:border-gray-200 outline-none focus:bg-slate-50 focus:border-gray-200 rounded-lg text-slate-800 font-semibold transition-all font-sans"
+                  />
+                </div>
+              </div>
+
+              {/* Priority Property */}
+              <div className="flex items-center">
+                <div className="w-28 flex items-center gap-2 text-gray-500 font-medium select-none font-sans">
+                  <AlertCircle className="h-3.5 w-3.5 text-gray-400" />
+                  <span>Độ ưu tiên</span>
+                </div>
+                <div className="flex-1">
+                  <select
+                    value={editPriority}
+                    onChange={(e: any) => setEditPriority(e.target.value)}
+                    className="w-full px-2 py-1 bg-transparent hover:bg-slate-50 border border-transparent hover:border-gray-200 outline-none focus:bg-slate-50 focus:border-gray-200 rounded-lg text-slate-800 font-semibold cursor-pointer transition-all font-sans"
+                  >
+                    <option value="High" className="bg-white text-slate-850">Cao</option>
+                    <option value="Medium" className="bg-white text-slate-850">Trung bình</option>
+                    <option value="Low" className="bg-white text-slate-850">Thấp</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Category Property */}
+              <div className="flex items-center">
+                <div className="w-28 flex items-center gap-2 text-gray-500 font-medium select-none font-sans">
+                  <Tag className="h-3.5 w-3.5 text-gray-400" />
+                  <span>Phân loại</span>
+                </div>
+                <div className="flex-1">
+                  <select
+                    value={editCategory}
+                    onChange={(e: any) => setEditCategory(e.target.value)}
+                    className="w-full px-2 py-1 bg-transparent hover:bg-slate-50 border border-transparent hover:border-gray-200 outline-none focus:bg-slate-50 focus:border-gray-200 rounded-lg text-slate-800 font-semibold cursor-pointer transition-all font-sans"
+                  >
+                    <option value="Onboarding" className="bg-white text-slate-855">Onboarding</option>
+                    <option value="Đào tạo" className="bg-white text-slate-855">Đào tạo</option>
+                    <option value="Tuyển dụng" className="bg-white text-slate-855">Tuyển dụng</option>
+                    <option value="Văn hóa" className="bg-white text-slate-855">Văn hóa</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Tags Property */}
+              <div className="flex items-center">
+                <div className="w-28 flex items-center gap-2 text-gray-500 font-medium select-none font-sans">
+                  <Tag className="h-3.5 w-3.5 text-gray-400" />
+                  <span>Thẻ (Tags)</span>
+                </div>
+                <div className="flex-1">
+                  <input 
+                    type="text" 
+                    placeholder="Phân cách bằng dấu phẩy (,)" 
+                    value={editTags}
+                    onChange={(e) => setEditTags(e.target.value)}
+                    className="w-full px-2 py-1 bg-transparent hover:bg-slate-50 border border-transparent hover:border-gray-200 outline-none focus:bg-slate-50 focus:border-gray-200 rounded-lg text-slate-800 font-semibold transition-all font-sans"
+                  />
+                </div>
+              </div>
+
+              {/* Link Note Property */}
+              <div className="flex items-center">
+                <div className="w-28 flex items-center gap-2 text-gray-500 font-medium select-none font-sans">
+                  <ExternalLink className="h-3.5 w-3.5 text-gray-400" />
+                  <span>Link ghi chú</span>
+                </div>
+                <div className="flex-1">
+                  <input 
+                    type="text" 
+                    placeholder="https://..." 
+                    value={editLinkNote}
+                    onChange={(e) => setEditLinkNote(e.target.value)}
+                    className="w-full px-2 py-1 bg-transparent hover:bg-slate-50 border border-transparent hover:border-gray-200 outline-none focus:bg-slate-50 focus:border-gray-200 rounded-lg text-indigo-650 font-semibold transition-all font-sans placeholder-gray-300"
+                  />
+                </div>
+              </div>
+
+              {/* Creator Property */}
+              <div className="flex items-center">
+                <div className="w-28 flex items-center gap-2 text-gray-500 font-medium select-none font-sans">
+                  <UserPlus className="h-3.5 w-3.5 text-gray-400" />
+                  <span>Người giao</span>
+                </div>
+                <div className="flex-1 px-2 py-1 text-gray-500 font-semibold select-none font-sans">
+                  {selectedKanbanTask.id === "new" ? (
+                    <span>{userProfile?.displayName || userProfile?.email || "iGen Admin"} (Bạn)</span>
+                  ) : (
+                    <span>
+                      {usersList.find(u => u.uid === selectedKanbanTask.creatorUid)?.displayName || 
+                       usersList.find(u => u.uid === selectedKanbanTask.creatorUid)?.email || 
+                       selectedKanbanTask.creatorUid || 
+                       "iGen Admin"}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+            </div>
+
+            {/* Notion-style Description Title */}
+            <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 select-none font-sans">Mô tả chi tiết</div>
+
+            {/* Notion-style Document Description Editor */}
+            <div className="flex-1 min-h-[120px] mb-6 border border-gray-200 hover:border-gray-300 p-3 rounded-xl bg-slate-50/40">
+              <textarea
+                placeholder="Viết mô tả hoặc ghi chú cho công việc này..."
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                className="w-full h-full min-h-[120px] p-0 border-none outline-none focus:ring-0 text-slate-700 bg-transparent resize-none text-xs font-sans placeholder-gray-400 leading-relaxed"
+              />
+            </div>
+
+            {/* Timeline Edit History logs */}
+            <div className="mt-6 pt-6 border-t border-gray-150">
+              <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4 select-none font-sans flex items-center gap-2">
+                <Clock className="h-3.5 w-3.5 text-gray-400" />
+                Lịch sử chỉnh sửa
+              </div>
+              <div className="space-y-3 max-h-[150px] overflow-y-auto pr-2">
+                {taskHistory.length === 0 ? (
+                  <p className="text-xs text-gray-400 italic">Chưa có lịch sử ghi chép.</p>
+                ) : (
+                  taskHistory.map((h, idx) => (
+                    <div key={idx} className="flex gap-3 text-[11px] leading-relaxed font-sans">
+                      <span className="text-gray-400 shrink-0 select-none">{h.time}</span>
+                      <span className="text-slate-750 font-bold shrink-0">{h.user}:</span>
+                      <span className="text-slate-600">{h.action}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Bottom Actions */}
+            <div className="flex justify-end gap-3.5 pt-6 mt-6 border-t border-gray-150 text-xs font-bold">
+              <button 
+                type="button" 
+                onClick={() => setSelectedKanbanTask(null)} 
+                className="px-4 py-2 border border-gray-200 text-slate-500 hover:text-slate-800 rounded-xl bg-white hover:bg-slate-50 cursor-pointer transition-all active:scale-95 font-sans"
+              >
+                Hủy bỏ
+              </button>
+              <button 
+                type="button" 
+                onClick={(e) => handleSaveTask(e)}
+                className="px-5 py-2 bg-indigo-650 hover:bg-indigo-700 text-white rounded-xl shadow-xs cursor-pointer transition-all active:scale-95 font-sans"
+              >
+                {selectedKanbanTask.id === "new" ? "Tạo công việc" : "Lưu thay đổi"}
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* Notion-style New Project Modal */}
+      {isNewProjectModalOpen && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-2xs flex items-center justify-center z-50 p-4">
+          <form onSubmit={handleCreateProject} className="bg-white border border-gray-200 rounded-2xl shadow-xl w-full max-w-md p-6 relative text-left space-y-4">
+            <div className="flex justify-between items-center pb-3 border-b border-gray-150">
+              <h4 className="font-bold text-slate-800 text-sm font-sans uppercase flex items-center gap-2">
+                <Target className="h-4 w-4 text-indigo-655" />
+                Tạo Dự Án Mới
+              </h4>
+              <button 
+                type="button" 
+                onClick={() => setIsNewProjectModalOpen(false)} 
+                className="text-gray-400 hover:text-slate-800 cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            
+            <div className="space-y-4 text-xs">
+              <div>
+                <label className="block font-bold text-gray-500 mb-1.5 font-sans">Tên dự án *</label>
+                <input 
+                  type="text" 
+                  required
+                  placeholder="Ví dụ: Thiết kế Landing Page"
+                  value={newProjectName}
+                  onChange={(e) => setNewProjectName(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-white border border-gray-200 text-slate-800 placeholder-gray-300 hover:border-gray-300 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 rounded-xl font-sans"
+                />
+              </div>
+            </div>
+            
+            <div className="pt-4 border-t border-gray-150 flex justify-end gap-3 text-xs font-bold">
+              <button 
+                type="button" 
+                onClick={() => setIsNewProjectModalOpen(false)} 
+                className="px-4 py-2 border border-gray-200 text-slate-500 hover:text-slate-800 rounded-xl bg-white hover:bg-slate-50 cursor-pointer transition-all active:scale-95 font-sans"
+              >
+                Hủy bỏ
+              </button>
+              <button 
+                type="submit" 
+                className="px-5 py-2 bg-indigo-650 hover:bg-indigo-700 text-white rounded-xl cursor-pointer transition-all active:scale-95 font-sans"
+              >
+                Lưu dự án
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* Add Employee Modal */}
       {isAddModalOpen && (
@@ -1497,45 +2589,61 @@ export default function HRTab() {
 }
 
 // Kanban drag helper subcard
-function KanbanCard({ task, onMove, onDelete, canDelete }: { key?: any; task: HRTask; onMove: (status: "todo" | "doing" | "done") => void; onDelete: () => void; canDelete: boolean }) {
+function KanbanCard({ task, onMove, onDelete, canDelete, onClick, projects }: { key?: any; task: HRTask; onMove: (status: "Not Started" | "In Progress" | "Review/Testing" | "Done" | "Archived") => void; onDelete: () => void; canDelete: boolean; onClick: () => void; projects: Project[] }) {
+  const taskProj = projects.find(p => p.id === task.projectId);
+
   return (
-    <div className="bg-white border text-left border-gray-200 p-4 rounded-2xl shadow-2xs hover:shadow-md transition-all flex flex-col gap-3 relative group" id={`kanban_card_${task.id}`}>
+    <div 
+      onClick={onClick}
+      className="bg-white border text-left border-gray-200/80 p-4 rounded-2xl shadow-xs hover:shadow-md hover:border-slate-300 transition-all flex flex-col gap-3 relative group cursor-pointer select-none font-sans" 
+      id={`kanban_card_${task.id}`}
+    >
       
       {/* Category and priority indicator tags */}
       <div className="flex justify-between items-center">
-        <span className="px-2 py-0.5 bg-slate-50 border border-gray-200 rounded-md text-[9px] font-mono font-bold text-gray-400 uppercase tracking-wider">
-          {task.category}
+        <span className="px-2 py-0.5 bg-slate-50 border border-gray-200 rounded-md text-[9px] font-mono font-bold text-slate-500 uppercase tracking-wider">
+          {task.category || "Onboarding"}
         </span>
         <span className={`px-2 py-0.5 rounded-md text-[9px] font-mono font-bold uppercase ${
-          task.priority === "Cao" 
+          task.priority === "High" || task.priority === "Cao"
             ? "bg-rose-50 border border-rose-100 text-rose-700" 
-            : task.priority === "Trung bình" 
+            : task.priority === "Medium" || task.priority === "Trung bình" 
               ? "bg-amber-50 border border-amber-100 text-amber-700" 
-              : "bg-indigo-50 border border-indigo-100 text-indigo-750"
+              : "bg-sky-50 border border-sky-100 text-sky-700"
         }`}>
-          ƯU TIÊN: {task.priority}
+          {task.priority || "Medium"}
         </span>
       </div>
 
-      <h5 className="font-semibold text-slate-800 leading-normal text-xs font-sans line-clamp-2">{task.title}</h5>
+      <div>
+        <h5 className="font-semibold text-slate-800 leading-normal text-xs font-sans line-clamp-2">{task.title || "Không có tiêu đề"}</h5>
+        {taskProj && (
+          <span className="text-[10px] text-gray-400 font-semibold mt-1 block">
+            @ {taskProj.name}
+          </span>
+        )}
+      </div>
 
-      <div className="flex items-center justify-between border-t border-slate-100 pt-2.5 text-[10px]">
+      <div className="flex items-center justify-between border-t border-gray-100 pt-2.5 text-[10px]">
         {/* Assignee profile avatar */}
         <div className="flex items-center gap-1.5">
-          <span className="text-sm select-none">{task.assigneeAvatar}</span>
-          <span className="text-slate-500 font-semibold">{task.assignee}</span>
+          <span className="text-sm select-none">{task.assigneeAvatar || "👨‍💻"}</span>
+          <span className="text-slate-600 font-semibold">{task.assignee}</span>
         </div>
 
         {/* Due date */}
-        <span className="text-slate-400 font-mono font-medium">Hạn: {task.dueDate}</span>
+        <span className="text-gray-400 font-mono font-medium">Hạn: {task.dueDate}</span>
       </div>
 
-      {/* Interactive transition buttons */}
-      <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between opacity-80 group-hover:opacity-100 transition-opacity">
+      {/* Interactive transition buttons - visible on hover */}
+      <div className="mt-2 pt-2 border-t border-gray-100 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity duration-200">
         {canDelete ? (
           <button 
-            onClick={onDelete}
-            className="text-rose-500 hover:text-rose-700 text-[10px] font-extrabold font-mono transition-colors cursor-pointer"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+            className="text-rose-650 hover:text-rose-800 text-[10px] font-extrabold font-mono transition-colors cursor-pointer"
           >
             Xóa bỏ
           </button>
@@ -1543,20 +2651,36 @@ function KanbanCard({ task, onMove, onDelete, canDelete }: { key?: any; task: HR
           <div />
         )}
         <div className="flex gap-2">
-          {task.status !== "todo" && (
+          {task.status !== "Not Started" && task.status !== "todo" && (
             <button 
-              onClick={() => onMove(task.status === "done" ? "doing" : "todo")}
-              className="px-2 py-1 bg-slate-50 hover:bg-slate-100 border text-slate-700 rounded-lg text-[9px] font-bold cursor-pointer"
+              onClick={(e) => {
+                e.stopPropagation();
+                const currentStatus = task.status;
+                let prevStatus: "Not Started" | "In Progress" | "Review/Testing" | "Done" = "Not Started";
+                if (currentStatus === "In Progress" || currentStatus === "doing") prevStatus = "Not Started";
+                else if (currentStatus === "Review/Testing") prevStatus = "In Progress";
+                else if (currentStatus === "Done" || currentStatus === "done") prevStatus = "Review/Testing";
+                onMove(prevStatus);
+              }}
+              className="px-2 py-0.5 bg-slate-50 hover:bg-slate-100 border border-gray-200 text-slate-600 hover:text-slate-800 rounded-lg text-[9px] font-bold cursor-pointer"
             >
-              ← Quay lại
+              ←
             </button>
           )}
-          {task.status !== "done" && (
+          {task.status !== "Done" && task.status !== "done" && (
             <button 
-              onClick={() => onMove(task.status === "todo" ? "doing" : "done")}
-              className="px-2 py-1 bg-indigo-650 hover:bg-indigo-700 text-white rounded-lg text-[9px] font-bold cursor-pointer"
+              onClick={(e) => {
+                e.stopPropagation();
+                const currentStatus = task.status;
+                let nextStatus: "Not Started" | "In Progress" | "Review/Testing" | "Done" = "Done";
+                if (currentStatus === "Not Started" || currentStatus === "todo") nextStatus = "In Progress";
+                else if (currentStatus === "In Progress" || currentStatus === "doing") nextStatus = "Review/Testing";
+                else if (currentStatus === "Review/Testing") nextStatus = "Done";
+                onMove(nextStatus);
+              }}
+              className="px-2 py-0.5 bg-indigo-650 hover:bg-indigo-700 text-white rounded-lg text-[9px] font-bold cursor-pointer"
             >
-              Tiếp tục →
+              →
             </button>
           )}
         </div>

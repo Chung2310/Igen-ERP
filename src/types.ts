@@ -201,6 +201,20 @@ export interface EmployeeNode {
   division: string;
 }
 
+export interface Project {
+  id: string;
+  name: string;
+  companyCode: string;
+  creatorUid: string;
+  createdAt: any;
+}
+
+export interface TaskHistoryEntry {
+  time: string;
+  user: string;
+  action: string;
+}
+
 export interface HRTask {
   id: string;
   title: string;
@@ -209,12 +223,22 @@ export interface HRTask {
   assignee: string;
   assigneeAvatar: string;
   dueDate: string;
-  priority: "Cao" | "Trung bình" | "Thấp";
-  status: "todo" | "doing" | "done";
-  category: "Onboarding" | "Đào tạo" | "Tuyển dụng" | "Văn hóa";
+  priority: "High" | "Medium" | "Low" | "Cao" | "Trung bình" | "Thấp";
+  status: "Not Started" | "In Progress" | "Review/Testing" | "Done" | "Archived" | "todo" | "doing" | "done";
+  category?: "Onboarding" | "Đào tạo" | "Tuyển dụng" | "Văn hóa";
   companyCode: string;
   creatorUid: string;
   createdAt: any;
+
+  // New Notion fields
+  projectId?: string;
+  startTime?: string;
+  estTime?: number;
+  endTime?: string;
+  actualTime?: number;
+  tags?: string[];
+  linkNote?: string;
+  history?: TaskHistoryEntry[];
 }
 
 export interface TrainingCourse {
