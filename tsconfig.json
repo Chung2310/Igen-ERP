@@ -18,6 +18,9 @@
     "paths": {
       "@/*": [
         "./*"
+      ],
+      "xlsx": [
+        "./node_modules/xlsx/types/index.d.ts"
       ]
     },
     "allowImportingTsExtensions": true,
