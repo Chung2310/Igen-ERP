@@ -174,16 +174,30 @@ export interface ProductCategory {
   status: "Đang dùng" | "Tạm khóa";
 }
 
+export interface StockLogItem {
+  productId: string;
+  sku: string;
+  productName: string;
+  quantity: number;
+}
+
 export interface StockLog {
   id: string;
   type: "nhập" | "xuất";
+  /** Tiêu đề phiếu (ví dụ: "Nhập hàng từ NCC A") */
+  title?: string;
+  /** Danh sách sản phẩm trong phiếu (multi-item) */
+  items?: StockLogItem[];
+  /** Legacy: SKU đại diện (dùng cho import/export Excel & backward compat) */
   sku: string;
+  /** Legacy: tên sản phẩm đại diện */
   productName: string;
+  /** Legacy: tổng số lượng */
   quantity: number;
   operatorName: string;
   createdAt: string;
   notes: string;
-  status: "Thành công" | "Đang xử lý";
+  status: "Thành công" | "Đang xử lý" | "Đang chờ" | "Hoàn thành";
 }
 
 // HR Employee and Onboarding Tasks

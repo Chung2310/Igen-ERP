@@ -1,18 +1,26 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
-import { CheckCircle, Cpu, FolderTree, Pencil, Plus, Search, Tags, Trash2 } from "lucide-react";
+import { CheckCircle, Cpu, Download, FolderTree, Pencil, Plus, Search, Tags, Trash2, Upload } from "lucide-react";
 import { InventorySubTabType, ProductCategory, ProductItem, StockLog } from "../types";
 import { toast } from "./Toast";
 import { AiForecastPanel } from "../components/inventory/AiForecastPanel";
 import { CategoryModal } from "../components/inventory/CategoryModal";
-import { initialStockLogs, inventoryTabs } from "../components/inventory/data";
+import { inventoryTabs } from "../components/inventory/data";
 import { ProductCard } from "../components/inventory/ProductCard";
+import { Pagination } from "../components/common/Pagination";
 import { ProductModal } from "../components/inventory/ProductModal";
 import { StockLogPanel } from "../components/inventory/StockLogPanel";
 import { SummaryCard } from "../components/inventory/SummaryCard";
 import { auth } from "../config/firebase";
 import { inventoryCategoryService } from "../services/inventoryCategoryService";
 import { inventoryProductService } from "../services/inventoryProductService";
+import { inventoryStockLogService } from "../services/inventoryStockLogService";
+import {
+  exportProductsToExcel,
+  exportStockLogsToExcel,
+  importProductsFromExcel,
+  importStockLogsFromExcel,
+} from "../utils/inventoryExcel";
 
 function getInventoryErrorMessage(error: unknown, fallbackMessage: string) {
   if (!(error instanceof Error)) return fallbackMessage;
@@ -39,19 +47,38 @@ function getInventoryErrorMessage(error: unknown, fallbackMessage: string) {
   return error.message || fallbackMessage;
 }
 
+type TransactionStatus = "Đang chờ" | "Đang xử lý" | "Hoàn thành";
+
+function getStockLogItems(log: StockLog) {
+  const typedLog = log as StockLog & {
+    title?: string;
+    items?: Array<{ productId?: string; sku: string; productName: string; quantity: number }>;
+  };
+
+  if (typedLog.items?.length) {
+    return typedLog.items;
+  }
+
+  return [{ sku: log.sku, productName: log.productName, quantity: log.quantity }];
+}
+
 export default function InventoryTab() {
   const [subTab, setSubTab] = useState<InventorySubTabType>("DANH MỤC");
   const [products, setProducts] = useState<ProductItem[]>([]);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
-  const [stockLogs, setStockLogs] = useState<StockLog[]>(initialStockLogs);
+  const [stockLogs, setStockLogs] = useState<StockLog[]>([]);
   const [categoryLoading, setCategoryLoading] = useState(true);
   const [productLoading, setProductLoading] = useState(true);
+  const [stockLogLoading, setStockLogLoading] = useState(true);
   const [productSubmitting, setProductSubmitting] = useState(false);
 
   const [searchProduct, setSearchProduct] = useState("");
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState("Tất cả");
   const [searchCategory, setSearchCategory] = useState("");
   const [searchLog, setSearchLog] = useState("");
+  const [productExcelImporting, setProductExcelImporting] = useState(false);
+  const [stockLogExcelImporting, setStockLogExcelImporting] = useState(false);
+  const [productPage, setProductPage] = useState(1);
 
   const [showProductModal, setShowProductModal] = useState(false);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
@@ -68,23 +95,29 @@ export default function InventoryTab() {
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newCategoryCode, setNewCategoryCode] = useState("");
   const [newCategoryDescription, setNewCategoryDescription] = useState("");
+  const productImportInputRef = useRef<HTMLInputElement | null>(null);
+  const stockLogImportInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     let unsubscribeCategories = () => {};
     let unsubscribeProducts = () => {};
+    let unsubscribeStockLogs = () => {};
 
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       unsubscribeCategories();
       unsubscribeProducts();
+      unsubscribeStockLogs();
 
       if (!user) {
         setCategoryLoading(false);
         setProductLoading(false);
+        setStockLogLoading(false);
         return;
       }
 
       setCategoryLoading(true);
       setProductLoading(true);
+      setStockLogLoading(true);
 
       unsubscribeCategories = inventoryCategoryService.subscribe(
         (nextCategories) => {
@@ -107,12 +140,24 @@ export default function InventoryTab() {
           toast.error("Không thể tải danh mục sản phẩm từ Firebase.");
         }
       );
+
+      unsubscribeStockLogs = inventoryStockLogService.subscribe(
+        (nextLogs) => {
+          setStockLogs(nextLogs);
+          setStockLogLoading(false);
+        },
+        () => {
+          setStockLogLoading(false);
+          toast.error("Không thể tải phiếu nhập xuất kho từ Firebase.");
+        }
+      );
     });
 
     return () => {
       unsubscribeAuth();
       unsubscribeCategories();
       unsubscribeProducts();
+      unsubscribeStockLogs();
     };
   }, []);
 
@@ -121,6 +166,10 @@ export default function InventoryTab() {
     const activeCategory = categories.find((category) => category.status === "Đang dùng");
     setNewProdCategory(activeCategory?.name || categories[0].name);
   }, [categories, newProdCategory]);
+
+  useEffect(() => {
+    setProductPage(1);
+  }, [searchProduct, selectedCategoryFilter]);
 
   const shortStockProducts = useMemo(
     () => products.filter((product) => product.stock <= product.minStockAlert),
@@ -139,6 +188,15 @@ export default function InventoryTab() {
     const matchesCategory = selectedCategoryFilter === "Tất cả" || product.category === selectedCategoryFilter;
     return matchesSearch && matchesCategory;
   });
+  const productsPerPage = 8;
+  const totalProductPages = Math.max(1, Math.ceil(filteredProducts.length / productsPerPage));
+  const paginatedProducts = filteredProducts.slice((productPage - 1) * productsPerPage, productPage * productsPerPage);
+
+  useEffect(() => {
+    if (productPage > totalProductPages) {
+      setProductPage(totalProductPages);
+    }
+  }, [productPage, totalProductPages]);
 
   const resetProductForm = () => {
     setEditingProductId(null);
@@ -354,6 +412,294 @@ export default function InventoryTab() {
     }
   };
 
+  const handleExportProductsExcel = () => {
+    exportProductsToExcel(filteredProducts);
+    toast.success("Da xuat danh muc san pham ra Excel.");
+  };
+
+  const handleOpenProductImport = () => {
+    productImportInputRef.current?.click();
+  };
+
+  const handleImportProductsExcel = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) return;
+
+    setProductExcelImporting(true);
+
+    try {
+      const importedRows = await importProductsFromExcel(file);
+
+      if (importedRows.length === 0) {
+        toast.error("File Excel khong co dong san pham hop le.");
+        return;
+      }
+
+      const existingSkus = new Set(products.map((product) => product.sku.toUpperCase()));
+      const importedSkus = new Set<string>();
+      let createdCount = 0;
+      let skippedCount = 0;
+
+      for (const row of importedRows) {
+        if (existingSkus.has(row.sku) || importedSkus.has(row.sku)) {
+          skippedCount += 1;
+          continue;
+        }
+
+        await inventoryProductService.createProduct({
+          sku: row.sku,
+          name: row.name,
+          category: row.category,
+          stock: row.stock,
+          price: row.price,
+          imageUrl: row.imageUrl || "",
+        });
+
+        importedSkus.add(row.sku);
+        createdCount += 1;
+      }
+
+      if (createdCount > 0) {
+        setStockLogs((currentLogs) => [
+          ...importedRows
+            .filter((row) => importedSkus.has(row.sku))
+            .map((row, index) => ({
+              id: `NK-IMPORT-${Date.now()}-${index}`,
+              type: "nhập" as const,
+              sku: row.sku,
+              productName: row.name,
+              quantity: row.stock,
+              operatorName: "Excel Import",
+              createdAt: "Import tu Excel",
+              notes: "Tao san pham tu file Excel",
+              status: "Thành công" as const,
+            })),
+          ...currentLogs,
+        ]);
+      }
+
+      if (createdCount === 0) {
+        toast.error("Khong co san pham moi nao duoc import. Kiem tra SKU bi trung.");
+        return;
+      }
+
+      if (skippedCount > 0) {
+        toast.success(`Da import ${createdCount} san pham, bo qua ${skippedCount} dong SKU trung.`);
+      } else {
+        toast.success(`Da import ${createdCount} san pham tu Excel.`);
+      }
+    } catch (error) {
+      toast.error(getInventoryErrorMessage(error, "Khong the import san pham tu Excel."));
+    } finally {
+      setProductExcelImporting(false);
+    }
+  };
+
+  const handleExportStockLogsExcel = () => {
+    exportStockLogsToExcel(stockLogs);
+    toast.success("Da xuat phieu nhap xuat kho ra Excel.");
+  };
+
+  const handleOpenStockLogImport = () => {
+    stockLogImportInputRef.current?.click();
+  };
+
+  const handleImportStockLogsExcel = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) return;
+
+    setStockLogExcelImporting(true);
+
+    try {
+      const importedLogs = await importStockLogsFromExcel(file);
+
+      if (importedLogs.length === 0) {
+        toast.error("File Excel khong co phieu nhap xuat hop le.");
+        return;
+      }
+
+      let addedCount = 0;
+
+      setStockLogs((currentLogs) => {
+        const existingIds = new Set(currentLogs.map((log) => log.id));
+        const nextLogs = importedLogs.filter((log) => !existingIds.has(log.id));
+        addedCount = nextLogs.length;
+        return [...nextLogs, ...currentLogs];
+      });
+
+      if (addedCount === 0) {
+        toast.error("Khong co phieu moi nao duoc import. Kiem tra ma phieu bi trung.");
+        return;
+      }
+
+      toast.success(`Da import ${addedCount} phieu nhap/xuat kho tu Excel.`);
+    } catch (error) {
+      toast.error("Khong the import phieu nhap/xuat kho tu Excel.");
+    } finally {
+      setStockLogExcelImporting(false);
+    }
+  };
+
+  const handleCreateTransaction = async (payload: {
+    type: "nhập" | "xuất";
+    title: string;
+    operatorName: string;
+    notes: string;
+    status: TransactionStatus;
+    items: Array<{ productId: string; quantity: number }>;
+  }) => {
+    const resolvedItems = payload.items.map((item) => {
+      const product = products.find((entry) => entry.id === item.productId);
+      if (!product) {
+        throw new Error(JSON.stringify({ error: "Không tìm thấy sản phẩm trong kho." }));
+      }
+      return { product, quantity: item.quantity };
+    });
+
+    for (const item of resolvedItems) {
+      if (payload.type === "xuất" && item.product.stock < item.quantity) {
+        throw new Error(JSON.stringify({ error: `Số lượng tồn kho của ${item.product.name} không đủ để xuất.` }));
+      }
+    }
+
+    // Cập nhật tồn kho trước
+    await Promise.all(
+      resolvedItems.map((item) =>
+        inventoryProductService.updateProductStock(
+          item.product.id,
+          payload.type === "nhập" ? item.product.stock + item.quantity : item.product.stock - item.quantity
+        )
+      )
+    );
+
+    const logItems = resolvedItems.map((item) => ({
+      productId: item.product.id,
+      sku: item.product.sku,
+      productName: item.product.name,
+      quantity: item.quantity,
+    }));
+
+    // Lưu phiếu vào Firebase
+    await inventoryStockLogService.createLog({
+      type: payload.type,
+      title: payload.title,
+      items: logItems,
+      sku: resolvedItems[0].product.sku,
+      productName: resolvedItems[0].product.name,
+      quantity: resolvedItems.reduce((sum, item) => sum + item.quantity, 0),
+      operatorName: payload.operatorName,
+      notes: payload.notes || (payload.type === "nhập" ? "Phiếu nhập kho mới" : "Phiếu xuất kho mới"),
+      status: payload.status,
+    });
+
+    toast.success(payload.type === "nhập" ? "Đã tạo phiếu nhập kho." : "Đã tạo phiếu xuất kho.");
+  };
+
+  const handleUpdateTransaction = async (payload: {
+    id?: string;
+    type: "nhập" | "xuất";
+    title: string;
+    operatorName: string;
+    notes: string;
+    status: TransactionStatus;
+    items: Array<{ productId: string; quantity: number }>;
+  }) => {
+    if (!payload.id) return;
+
+    const existingLog = stockLogs.find((log) => log.id === payload.id);
+    if (!existingLog) {
+      throw new Error(JSON.stringify({ error: "Không tìm thấy phiếu cần chỉnh sửa." }));
+    }
+
+    const oldType = existingLog.type as "nhập" | "xuất";
+    const oldItems = getStockLogItems(existingLog);
+
+    const normalizedOldItems = oldItems.map((item) => {
+      const product = products.find((entry) => entry.sku === item.sku);
+      if (!product) {
+        throw new Error(JSON.stringify({ error: `Không tìm thấy sản phẩm cũ ${item.productName} trong kho.` }));
+      }
+      return { product, quantity: item.quantity, type: oldType };
+    });
+
+    const normalizedNewItems = payload.items.map((item) => {
+      const product = products.find((entry) => entry.id === item.productId);
+      if (!product) {
+        throw new Error(JSON.stringify({ error: "Không tìm thấy sản phẩm mới trong kho." }));
+      }
+      return { product, quantity: item.quantity, type: payload.type };
+    });
+
+    // Tính delta tồn kho
+    const adjustments = new Map<string, number>();
+    for (const item of normalizedOldItems) {
+      const restoreAmount = item.type === "nhập" ? -item.quantity : item.quantity;
+      adjustments.set(item.product.id, (adjustments.get(item.product.id) || 0) + restoreAmount);
+    }
+    for (const item of normalizedNewItems) {
+      const applyAmount = item.type === "nhập" ? item.quantity : -item.quantity;
+      adjustments.set(item.product.id, (adjustments.get(item.product.id) || 0) + applyAmount);
+    }
+
+    for (const [productId, delta] of adjustments.entries()) {
+      const product = products.find((entry) => entry.id === productId);
+      if (!product) continue;
+      if (product.stock + delta < 0) {
+        throw new Error(JSON.stringify({ error: `Số lượng tồn kho của ${product.name} không đủ sau khi cập nhật phiếu.` }));
+      }
+    }
+
+    // Cập nhật tồn kho
+    await Promise.all(
+      Array.from(adjustments.entries()).map(async ([productId, delta]) => {
+        const product = products.find((entry) => entry.id === productId);
+        if (!product) return;
+        await inventoryProductService.updateProductStock(productId, product.stock + delta);
+      })
+    );
+
+    const logItems = normalizedNewItems.map((item) => ({
+      productId: item.product.id,
+      sku: item.product.sku,
+      productName: item.product.name,
+      quantity: item.quantity,
+    }));
+
+    // Cập nhật phiếu trong Firebase
+    await inventoryStockLogService.updateLog(payload.id, {
+      type: payload.type,
+      title: payload.title,
+      items: logItems,
+      sku: normalizedNewItems[0].product.sku,
+      productName: normalizedNewItems[0].product.name,
+      quantity: normalizedNewItems.reduce((sum, item) => sum + item.quantity, 0),
+      operatorName: payload.operatorName,
+      notes: payload.notes,
+      status: payload.status,
+    });
+
+    toast.success("Đã cập nhật phiếu nhập xuất kho.");
+  };
+
+  const handleDeleteTransaction = async (logId: string) => {
+    if (!window.confirm("Xóa phiếu này khỏi hệ thống? Hành động không thể hoàn tác và không hoàn trả tồn kho.")) return;
+    try {
+      await inventoryStockLogService.deleteLog(logId);
+      toast.success("Đã xóa phiếu.");
+    } catch (error) {
+      toast.error(getInventoryErrorMessage(error, "Không thể xóa phiếu. Vui lòng thử lại."));
+    }
+  };
+
+  const handleNavigateToCreateProduct = () => {
+    setSubTab("DANH MỤC");
+    openCreateProductModal();
+  };
+
   return (
     <div className="flex h-full max-h-[85vh] flex-col overflow-hidden bg-white" id="inventory_tab_wrapper">
       <div className="flex shrink-0 justify-between border-b border-gray-200 bg-gray-50/50 p-2 text-xs" id="inventory_tabs_switch">
@@ -379,6 +725,13 @@ export default function InventoryTab() {
       <div className="flex-1 overflow-y-auto p-6" id="inventory_tab_content">
         {subTab === "DANH MỤC" && (
           <div className="space-y-6" id="product_catalog_menu">
+            <input
+              ref={productImportInputRef}
+              type="file"
+              accept=".xlsx,.xls"
+              className="hidden"
+              onChange={handleImportProductsExcel}
+            />
             <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center" id="catalog_filters">
               <div className="flex flex-col gap-2 sm:flex-row">
                 <div className="relative w-full sm:w-72">
@@ -407,14 +760,33 @@ export default function InventoryTab() {
                   ))}
                 </select>
               </div>
-              <button
-                onClick={openCreateProductModal}
-                className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition-all hover:bg-blue-700"
-                id="open_add_product_modal"
-              >
-                <Plus className="h-4 w-4" />
-                Khai báo sản phẩm mới
-              </button>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={handleOpenProductImport}
+                  disabled={productExcelImporting}
+                  className="flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-white px-4 py-2 text-xs font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Upload className="h-4 w-4" />
+                  {productExcelImporting ? "Đang nhập Excel..." : "Nhập Excel"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExportProductsExcel}
+                  className="flex items-center justify-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-700 shadow-sm transition-all hover:bg-emerald-100"
+                >
+                  <Download className="h-4 w-4" />
+                  Xuất Excel
+                </button>
+                <button
+                  onClick={openCreateProductModal}
+                  className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition-all hover:bg-blue-700"
+                  id="open_add_product_modal"
+                >
+                  <Plus className="h-4 w-4" />
+                  Khai báo sản phẩm mới
+                </button>
+              </div>
             </div>
 
             {productLoading ? (
@@ -428,12 +800,15 @@ export default function InventoryTab() {
                 <p className="mt-1 text-xs text-gray-500">Thử đổi bộ lọc hoặc tạo sản phẩm mới để bắt đầu quản lý kho.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" id="products_grid">
-                {filteredProducts.map((product) => (
-                  <div key={product.id}>
-                    <ProductCard product={product} onDelete={handleDeleteProduct} onEdit={openEditProductModal} />
-                  </div>
-                ))}
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" id="products_grid">
+                  {paginatedProducts.map((product) => (
+                    <div key={product.id}>
+                      <ProductCard product={product} onDelete={handleDeleteProduct} onEdit={openEditProductModal} />
+                    </div>
+                  ))}
+                </div>
+                <Pagination currentPage={productPage} totalPages={totalProductPages} onPageChange={setProductPage} />
               </div>
             )}
 
@@ -556,7 +931,31 @@ export default function InventoryTab() {
           </div>
         )}
 
-        {subTab === "NHẬP / XUẤT KHO" && <StockLogPanel searchLog={searchLog} setSearchLog={setSearchLog} stockLogs={stockLogs} />}
+        {subTab === "NHẬP / XUẤT KHO" && (
+          <>
+            <input
+              ref={stockLogImportInputRef}
+              type="file"
+              accept=".xlsx,.xls"
+              className="hidden"
+              onChange={handleImportStockLogsExcel}
+            />
+            <StockLogPanel
+              products={products}
+              searchLog={searchLog}
+              setSearchLog={setSearchLog}
+              stockLogs={stockLogs}
+              isLoading={stockLogLoading}
+              onExportExcel={handleExportStockLogsExcel}
+              onImportExcel={handleOpenStockLogImport}
+              isImporting={stockLogExcelImporting}
+              onNavigateToCreateProduct={handleNavigateToCreateProduct}
+              onCreateTransaction={handleCreateTransaction}
+              onUpdateTransaction={handleUpdateTransaction}
+              onDeleteTransaction={handleDeleteTransaction}
+            />
+          </>
+        )}
         {subTab === "DỰ BÁO AI" && <AiForecastPanel products={shortStockProducts} />}
       </div>
     </div>
