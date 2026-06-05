@@ -344,8 +344,8 @@ function DonutCard({ compact = false }: { compact?: boolean }) {
   return (
     <div className={compact ? "" : "rounded-3xl border border-gray-100 bg-white p-6 shadow-xs"}>
       {!compact && <h3 className="mb-8 text-sm font-semibold uppercase tracking-widest text-gray-800">Hiệu suất kênh Marketing</h3>}
-      <div className="flex flex-col items-center gap-8 md:flex-row md:justify-center">
-        <div className="relative h-56 w-56 shrink-0">
+      <div className="grid items-center gap-7 md:grid-cols-[minmax(160px,224px)_minmax(0,1fr)]">
+        <div className="relative mx-auto h-48 w-48 shrink-0 sm:h-56 sm:w-56">
           <svg className="h-full w-full -rotate-90" viewBox="0 0 180 180" aria-label="Marketing channel performance">
             <circle cx="90" cy="90" r={radius} fill="none" stroke="#eef4ff" strokeWidth="28" />
             {segments.map((segment) => {
@@ -373,7 +373,7 @@ function DonutCard({ compact = false }: { compact?: boolean }) {
             <strong className="font-mono text-3xl font-bold text-gray-800">100%</strong>
           </div>
         </div>
-        <div className="w-full max-w-xs space-y-4 text-sm">
+        <div className="min-w-0 space-y-4 text-sm">
           {segments.map((segment) => (
             <Legend key={segment.label} color={segment.className} label={segment.label} value={`${segment.value}%`} />
           ))}
@@ -485,9 +485,12 @@ function Recommendation({ title, body, action, danger = false }: any) {
 
 function Legend({ color, label, value }: any) {
   return (
-    <div className="flex min-w-56 items-center justify-between gap-8">
-      <span className="flex items-center gap-3 text-gray-800"><i className={`h-3.5 w-3.5 rounded-full ${color}`} />{label}</span>
-      <strong className="text-gray-800">{value}</strong>
+    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
+      <span className="flex min-w-0 items-center gap-3 text-gray-800">
+        <i className={`h-3.5 w-3.5 shrink-0 rounded-full ${color}`} />
+        <span className="truncate">{label}</span>
+      </span>
+      <strong className="font-mono text-gray-800">{value}</strong>
     </div>
   );
 }

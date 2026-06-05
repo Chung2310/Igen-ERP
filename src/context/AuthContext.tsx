@@ -22,7 +22,7 @@ import { httpsCallable } from "firebase/functions";
 import { auth, db, functions } from "../config/firebase";
 import { authService } from "../services/authService";
 import { UserProfile, FacebookIntegration, TikTokIntegration } from "../types";
-import { toast } from "../components/Toast";
+import { toast } from "../pages/Toast";
 
 interface AuthContextType {
   user: User | null;
