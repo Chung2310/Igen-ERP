@@ -27,7 +27,7 @@ jobs:
 
       - name: Deploy rules and functions
         run: |
-          firebase deploy --only firestore:rules,storage:rules,functions
+          firebase deploy --only firestore:rules,storage,functions
 
   deploy-docker-vps:
     name: Build Docker & Deploy VPS
