@@ -108,12 +108,16 @@ service cloud.firestore {
           )
       );
 
-      // Xóa: superadmin xóa bất kỳ | admin xóa user/manager cùng công ty
-      // superadmin@igen.com email bypass: cho phép xóa chính mình để reseed
+      // Xóa: 
+      //   • superadmin xóa bất kỳ
+      //   • superadmin@igen.com email bypass
+      //   • admin xóa user/manager cùng công ty (không đụng superadmin)
+      //   • manager xóa user cùng công ty (không đụng admin/superadmin/manager)
       allow delete: if isAuthenticated() && (
         isSuperAdmin()
         || (request.auth.uid == userId && request.auth.token.email == 'superadmin@igen.com')
         || (isAdmin() && isSameCompany(existing().companyCode) && existing().role != 'superadmin')
+        || (isManager() && isSameCompany(existing().companyCode) && existing().role == 'user')
       );
     }
 

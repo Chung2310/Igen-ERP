@@ -25,13 +25,77 @@ import {
 import { HRSubTabType, EmployeeNode, HRTask, TrainingCourse, UserProfile } from "../types";
 import { useAuth } from "../context/AuthContext";
 import { db } from "../config/firebase";
-import { doc, updateDoc, setDoc } from "firebase/firestore";
+import { doc, updateDoc, setDoc, deleteDoc, writeBatch } from "firebase/firestore";
 import { authService } from "../services/authService";
 import { toast } from "./Toast";
 
 export default function HRTab() {
   const { userProfile } = useAuth();
   const isManager = userProfile?.role === "superadmin" || userProfile?.role === "admin" || userProfile?.role === "manager";
+
+  const canDeleteEmployee = (selectedEmpId: string): boolean => {
+    if (!userProfile) return false;
+    if (selectedEmpId === userProfile.uid) return false; // Không tự xóa chính mình
+
+    const selectedUserRaw = usersList.find(u => u.uid === selectedEmpId);
+    if (!selectedUserRaw) return false;
+
+    const rolesHierarchy = {
+      superadmin: 4,
+      admin: 3,
+      manager: 2,
+      user: 1
+    };
+
+    const currentUserWeight = rolesHierarchy[userProfile.role as keyof typeof rolesHierarchy] || 0;
+    const selectedUserWeight = rolesHierarchy[selectedUserRaw.role as keyof typeof rolesHierarchy] || 0;
+
+    return currentUserWeight > selectedUserWeight;
+  };
+
+  const handleDeleteEmployeeSubmit = async (empId: string) => {
+    const targetEmp = employees.find(e => e.id === empId);
+    if (!targetEmp) return;
+
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa nhân sự "${targetEmp.name}" khỏi hệ thống? Sơ đồ sẽ tự động chuyển cấp dưới trực thuộc của nhân sự này báo cáo lên quản lý cấp trên.`)) {
+      return;
+    }
+
+    try {
+      const batch = writeBatch(db);
+
+      // 1. Delete user doc
+      const userRef = doc(db, "users", empId);
+      batch.delete(userRef);
+
+      // 2. Find children and update their parentId to the parentId of the deleted user
+      const deletedUser = usersList.find(u => u.uid === empId);
+      const parentId = deletedUser?.parentId || null;
+      let parentLevel = 1;
+      if (parentId) {
+        const parentUser = usersList.find(u => u.uid === parentId);
+        parentLevel = parentUser?.level || 1;
+      }
+
+      const children = usersList.filter(u => u.parentId === empId);
+      for (const child of children) {
+        const childRef = doc(db, "users", child.uid);
+        batch.update(childRef, {
+          parentId: parentId || null,
+          level: parentLevel + 1
+        });
+      }
+
+      await batch.commit();
+      toast.success("Đã xóa nhân sự thành công!");
+      setSelectedEmp(null);
+      await fetchUsers();
+    } catch (error) {
+      console.error("Lỗi khi xóa nhân sự:", error);
+      toast.error("Không thể xóa nhân sự. Vui lòng kiểm tra quyền hạn.");
+    }
+  };
+
   const [subTab, setSubTab] = useState<HRSubTabType>("SƠ ĐỒ TỔ CHỨC");
   const [usersList, setUsersList] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -808,6 +872,17 @@ export default function HRTab() {
                       <BookOpen className="h-3.5 w-3.5" />
                       Giám sát tiến độ học tập
                     </button>
+
+                    {/* Delete button (Manager/Admin/Superadmin only) */}
+                    {canDeleteEmployee(selectedEmp.id) && (
+                      <button 
+                        onClick={() => handleDeleteEmployeeSubmit(selectedEmp.id)}
+                        className="w-full text-center py-2.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-150 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer shadow-2xs mt-2"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Xóa nhân sự khỏi sơ đồ
+                      </button>
+                    )}
                   </div>
                 </div>
               ) : (
