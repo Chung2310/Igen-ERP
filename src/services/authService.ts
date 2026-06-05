@@ -262,9 +262,15 @@ export const authService = {
     password: string,
     role: "user" | "manager" | "admin",
     companyCode: string,
-    companyName: string
+    companyName: string,
+    parentId?: string,
+    managerLevel?: number
   ): Promise<void> {
     const normalizedCode = companyCode.toUpperCase().trim();
+    // Tính level: nếu có quản lý thì level = level của quản lý + 1, không thì mặc định theo role
+    const defaultLevel = role === "admin" ? 1 : (role === "manager" ? 3 : 4);
+    const level = parentId && managerLevel ? managerLevel + 1 : defaultLevel;
+
     // Tạo tài khoản mới bằng Firebase App phụ
     const tempApp = initializeApp(auth.app.options, `TempAppUser_${Date.now()}`);
     const tempAuth = getAuth(tempApp);
@@ -288,7 +294,8 @@ export const authService = {
         jobTitle: role === "admin" ? "Chief Executive Officer (CEO)" : (role === "manager" ? "Quản lý phòng ban" : "Nhân viên"),
         department: role === "admin" ? "Ban Giám Đốc" : (role === "manager" ? "Quản lý" : "Nhân sự"),
         division: role === "admin" ? "Ban Giám Đốc" : (role === "manager" ? "Quản lý" : "Nhân sự"),
-        level: role === "admin" ? 1 : (role === "manager" ? 3 : 4),
+        level,
+        parentId: parentId || undefined,
         status: "offline"
       };
 

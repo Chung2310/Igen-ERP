@@ -59,7 +59,9 @@ export default function HRTab() {
   // Load companies for superadmin, or set selected company code for admin/manager/user
   useEffect(() => {
     const loadCompanies = async () => {
-      if (userProfile?.role === "superadmin") {
+      if (!userProfile) return;
+      
+      if (userProfile.role === "superadmin") {
         try {
           const comps = await authService.getAllCompanies();
           setCompanies(comps);
@@ -72,7 +74,7 @@ export default function HRTab() {
           console.error("Lỗi khi tải danh sách công ty:", err);
           setSelectedCompanyCode("SYSTEM");
         }
-      } else if (userProfile?.companyCode) {
+      } else if (userProfile.companyCode) {
         setSelectedCompanyCode(userProfile.companyCode);
       } else {
         setSelectedCompanyCode("SYSTEM");

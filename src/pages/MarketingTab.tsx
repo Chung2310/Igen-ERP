@@ -28,7 +28,7 @@ import { useAuth } from "../context/AuthContext";
 
 export default function MarketingTab() {
   const { userProfile } = useAuth();
-  const isUserRole = userProfile?.role === "user";
+  const isUserRole = userProfile?.role === "user" || userProfile?.role === "manager";
   const [subTab, setSubTab] = useState<MarketingSubTabType>("LÊN Ý TƯỞNG AI");
 
   // AI Media Generation States

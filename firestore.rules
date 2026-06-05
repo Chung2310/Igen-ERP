@@ -6,31 +6,45 @@ service cloud.firestore {
       allow read, write: if false; 
     }
 
-    // Checking if user is authenticated
+    // ─── Helper: lấy profile của người dùng đang request (single get() call) ───
+    function myProfile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // Helper to get requesting user profile role from firestore
-    function getUserRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    // Role helpers — tất cả đọc từ myProfile() (1 get() call duy nhất per evaluation)
+    function myRole() {
+      return myProfile().role;
     }
 
-    // Role-based helper functions
-    function isAdmin() {
-      return isAuthenticated() && (getUserRole() == 'admin' || getUserRole() == 'superadmin');
+    function myCompanyCode() {
+      return myProfile().companyCode;
     }
 
     function isSuperAdmin() {
-      return isAuthenticated() && getUserRole() == 'superadmin';
+      return isAuthenticated() && myRole() == 'superadmin';
     }
 
-    // ID validation gate
+    function isAdmin() {
+      return isAuthenticated() && (myRole() == 'admin' || myRole() == 'superadmin');
+    }
+
+    function isManager() {
+      return isAuthenticated() && myRole() == 'manager';
+    }
+
+    function isSameCompany(targetCompanyCode) {
+      return myCompanyCode() == targetCompanyCode;
+    }
+
+    // ─── Helpers ──────────────────────────────────────────────────────────────
     function isValidId(id) { 
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-\\:\\.]+$'); 
     }
 
-    // Helper functions for incoming data
     function incoming() { 
       return request.resource.data; 
     }
@@ -39,57 +53,82 @@ service cloud.firestore {
       return resource.data; 
     }
 
-    // Helper to check if role field is not changed
     function roleUnchanged() {
       return request.resource.data.role == resource.data.role;
     }
 
-    // Helper to get companyCode of requesting user
-    function getMyCompanyCode() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyCode;
-    }
-
-    // Check if target company code matches requestor's company code
-    function isSameCompany(targetCompanyCode) {
-      return getMyCompanyCode() == targetCompanyCode;
-    }
-
-    // User document rules
+    // ══════════════════════════════════════════════════════════════════════════
+    // /users/{userId}
+    // ══════════════════════════════════════════════════════════════════════════
     match /users/{userId} {
-      allow read: if isAuthenticated() && (isSuperAdmin() || isSameCompany(resource.data.companyCode));
+      // Đọc: chính mình | superadmin | cùng công ty
+      allow read: if isAuthenticated() && (
+        request.auth.uid == userId
+        || isSuperAdmin()
+        || isSameCompany(resource.data.companyCode)
+      );
+
+      // Tạo mới:
+      //   • superadmin tạo bất kỳ ai
+      //   • Người dùng tự tạo hồ sơ mình (role=user hoặc superadmin seed đặc biệt)
+      //   • admin/manager tạo user/manager trong cùng công ty (không được tạo admin)
       allow create: if isAuthenticated() && (
-        isSuperAdmin() || 
-        (request.auth.uid == userId && incoming().role == 'user') ||
-        (request.auth.uid == userId && incoming().role == 'superadmin' && incoming().email == 'superadmin@igen.com') ||
-        (
-          isAdmin() &&
-          isSameCompany(incoming().companyCode) &&
-          (incoming().role == 'user' || incoming().role == 'manager')
-        )
+        isSuperAdmin()
+        || (request.auth.uid == userId && incoming().role == 'user')
+        || (request.auth.uid == userId && incoming().role == 'superadmin' && incoming().email == 'superadmin@igen.com')
+        || (
+            (isAdmin() || isManager())
+            && isSameCompany(incoming().companyCode)
+            && (incoming().role == 'user' || incoming().role == 'manager')
+          )
       );
+
+      // Cập nhật:
+      //   • chính mình nhưng không đổi role
+      //   • superadmin@igen.com self-repair: cho phép cập nhật chính mình dù role field bị mất
+      //   • superadmin cập nhật bất kỳ
+      //   • admin cập nhật user/manager cùng công ty (không đụng superadmin)
+      //   • manager cập nhật user cùng công ty (không đổi role, không đụng admin)
       allow update: if isAuthenticated() && (
-        isSuperAdmin() ||
-        (
-          isAdmin() &&
-          isSameCompany(existing().companyCode) &&
-          existing().role != 'superadmin' &&
-          incoming().role != 'superadmin'
-        ) ||
-        (
-          request.auth.uid == userId &&
-          roleUnchanged()
-        )
+        (request.auth.uid == userId && roleUnchanged())
+        || (request.auth.uid == userId && request.auth.token.email == 'superadmin@igen.com' && incoming().role == 'superadmin')
+        || isSuperAdmin()
+        || (
+            isAdmin()
+            && isSameCompany(existing().companyCode)
+            && existing().role != 'superadmin'
+            && incoming().role != 'superadmin'
+          )
+        || (
+            isManager()
+            && isSameCompany(existing().companyCode)
+            && roleUnchanged()
+            && existing().role != 'superadmin'
+            && existing().role != 'admin'
+          )
       );
-      allow delete: if isSuperAdmin() || (isAdmin() && isSameCompany(existing().companyCode) && existing().role != 'superadmin');
+
+      // Xóa: superadmin xóa bất kỳ | admin xóa user/manager cùng công ty
+      // superadmin@igen.com email bypass: cho phép xóa chính mình để reseed
+      allow delete: if isAuthenticated() && (
+        isSuperAdmin()
+        || (request.auth.uid == userId && request.auth.token.email == 'superadmin@igen.com')
+        || (isAdmin() && isSameCompany(existing().companyCode) && existing().role != 'superadmin')
+      );
     }
 
-    // Companies collection
+    // ══════════════════════════════════════════════════════════════════════════
+    // /companies/{companyId}
+    // ══════════════════════════════════════════════════════════════════════════
     match /companies/{companyId} {
-      allow read: if isAuthenticated();
-      allow write: if isSuperAdmin();
+      allow read:  if isAuthenticated();
+      allow write: if isSuperAdmin()
+        || (request.auth.token.email == 'superadmin@igen.com' && isAuthenticated());
     }
 
-    // Validation Blueprint for Marketing Content Object
+    // ══════════════════════════════════════════════════════════════════════════
+    // /marketingContents/{contentId}
+    // ══════════════════════════════════════════════════════════════════════════
     function isValidMarketingContent(data) {
       return data.keys().hasAll(['id', 'title', 'channel', 'contentType', 'status', 'bodyText', 'generatedAt'])
         && data.keys().size() <= 20
@@ -102,42 +141,54 @@ service cloud.firestore {
         && data.generatedAt is string && data.generatedAt.size() <= 100;
     }
 
-    // Hardened path rules for marketing content
     match /marketingContents/{contentId} {
-      function isContentSameCompany() {
-        return isSuperAdmin() || !('companyCode' in resource.data) || isSameCompany(resource.data.companyCode);
+      function contentSameCompany() {
+        return isSuperAdmin()
+          || !('companyCode' in resource.data)
+          || isSameCompany(resource.data.companyCode);
       }
-      function isIncomingSameCompany() {
-        return isSuperAdmin() || !('companyCode' in incoming()) || isSameCompany(incoming().companyCode);
+      function incomingSameCompany() {
+        return isSuperAdmin()
+          || !('companyCode' in incoming())
+          || isSameCompany(incoming().companyCode);
       }
 
-      // User chỉ đọc content của chính mình hoặc admin đọc tất cả trong cùng doanh nghiệp
-      allow read: if isAuthenticated() && isContentSameCompany() && (
+      allow read: if isAuthenticated() && contentSameCompany() && (
         isAdmin()
+        || isManager()
         || resource.data.authorUid == request.auth.uid
         || resource.data.authorUid == ''
       );
-      // User được tạo content trong cùng doanh nghiệp
-      allow create: if isAuthenticated() && isValidId(contentId) && isIncomingSameCompany() && isValidMarketingContent(incoming()) && (
+
+      allow create: if isAuthenticated()
+        && isValidId(contentId)
+        && incomingSameCompany()
+        && isValidMarketingContent(incoming())
+        && (isAdmin() || incoming().authorUid == request.auth.uid);
+
+      allow update: if isAuthenticated()
+        && isValidId(contentId)
+        && contentSameCompany()
+        && incomingSameCompany()
+        && (
+          isAdmin()
+          || (
+              (existing().authorUid == request.auth.uid || existing().authorUid == '')
+              && (
+                (existing().status == incoming().status && existing().status != 'published')
+                || (existing().status == 'draft'     && incoming().status == 'pending')
+                || (existing().status == 'pending'   && incoming().status == 'draft')
+                || (existing().status == 'approved'  && incoming().status == 'scheduled')
+                || (existing().status == 'scheduled' && incoming().status == 'approved')
+                || (existing().status == 'scheduled' && incoming().status == 'published')
+              )
+            )
+        );
+
+      allow delete: if isAuthenticated() && contentSameCompany() && (
         isAdmin()
-        || incoming().authorUid == request.auth.uid
-      );
-      allow update: if isAuthenticated() && isValidId(contentId) && isContentSameCompany() && isIncomingSameCompany() && (
-        isAdmin()
-        || (
-          (existing().authorUid == request.auth.uid || existing().authorUid == '')
-          && (
-            (existing().status == incoming().status && existing().status != 'published')
-            || (existing().status == 'draft' && incoming().status == 'pending')
-            || (existing().status == 'pending' && incoming().status == 'draft')
-            || (existing().status == 'approved' && incoming().status == 'scheduled')
-            || (existing().status == 'scheduled' && incoming().status == 'approved')
-            || (existing().status == 'scheduled' && incoming().status == 'published')
-          )
-        )
-      );
-      allow delete: if isAuthenticated() && isContentSameCompany() && (
-        isAdmin() || existing().authorUid == request.auth.uid || existing().authorUid == ''
+        || existing().authorUid == request.auth.uid
+        || existing().authorUid == ''
       );
     }
   }

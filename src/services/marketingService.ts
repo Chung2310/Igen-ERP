@@ -21,8 +21,8 @@ export const marketingService = {
   ): () => void {
     const colRef = collection(db, COLLECTION_NAME);
 
-    // User role: chỉ xem của mình
-    const isUserRole = currentRole === 'user';
+    // User/Manager role: chỉ xem của mình
+    const isUserRole = currentRole === 'user' || currentRole === 'manager';
     const q = isUserRole && currentUid
       ? query(colRef, where('authorUid', '==', currentUid))
       : query(colRef);

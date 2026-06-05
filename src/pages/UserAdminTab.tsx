@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { authService } from "../services/authService";
 import { UserProfile } from "../types";
@@ -30,9 +30,10 @@ export default function UserAdminTab() {
   const [userPassword, setUserPassword] = useState("");
   const [userRole, setUserRole] = useState<"user" | "manager" | "admin">("user");
   const [userCompanyCode, setUserCompanyCode] = useState<string>("");
+  const [userParentId, setUserParentId] = useState<string>("");
   const [submittingUser, setSubmittingUser] = useState(false);
 
-  // Initialize company code for new user
+  // Initialize company code and reset parentId when modal opens
   useEffect(() => {
     if (isUserModalOpen) {
       if (userProfile?.role === "admin") {
@@ -40,6 +41,7 @@ export default function UserAdminTab() {
       } else {
         setUserCompanyCode(selectedCompanyCode === "all" ? "SYSTEM" : selectedCompanyCode);
       }
+      setUserParentId("");
     }
   }, [isUserModalOpen, userProfile, selectedCompanyCode]);
 
@@ -93,6 +95,12 @@ export default function UserAdminTab() {
   const handleRoleChange = async (targetUid: string, targetName: string, newRole: "user" | "manager" | "admin" | "superadmin") => {
     if (targetUid === userProfile?.uid) {
       toast.warning("Bạn không thể tự thay đổi vai trò của chính mình!");
+      return;
+    }
+
+    // Admin không được phép nâng cấp lên admin hoặc superadmin — chỉ superadmin mới được
+    if (userProfile?.role === "admin" && (newRole === "admin" || newRole === "superadmin")) {
+      toast.error("Chủ doanh nghiệp không có quyền cấp vai trò Admin hoặc Superadmin cho tài khoản khác!");
       return;
     }
 
@@ -185,13 +193,17 @@ export default function UserAdminTab() {
         compName = found ? found.name : userCompanyCode;
       }
 
+      // Tìm level của người quản lý để tính level nhân viên mới
+      const managerProfile = userParentId ? usersList.find(u => u.uid === userParentId) : null;
       await authService.registerUserForCompany(
         userDisplayName,
         userEmail,
         userPassword,
         userRole,
         userCompanyCode,
-        compName
+        compName,
+        userParentId || undefined,
+        managerProfile?.level
       );
 
       toast.success(`Đăng ký tài khoản cho "${userDisplayName}" thành công!`);
@@ -201,6 +213,7 @@ export default function UserAdminTab() {
       setUserEmail("");
       setUserPassword("");
       setUserRole("user");
+      setUserParentId("");
       // Refresh lists
       await fetchUsers();
     } catch (error: any) {
@@ -385,18 +398,26 @@ export default function UserAdminTab() {
                       <td className="p-4 pr-6">
                         <div className="flex justify-center">
                           <select
-                            disabled={isSelf || (usr.role === "superadmin" && userProfile?.role !== "superadmin")}
+                            disabled={
+                              isSelf ||
+                              usr.role === "superadmin" ||
+                              (usr.role === "admin" && userProfile?.role === "admin")
+                            }
                             value={usr.role}
                             onChange={(e) => handleRoleChange(usr.uid, usr.displayName, e.target.value as any)}
                             className={`p-1.5 px-2.5 border border-gray-200 rounded-lg text-xs font-medium outline-none bg-white focus:ring-1 focus:ring-indigo-500 cursor-pointer ${
-                              isSelf || (usr.role === "superadmin" && userProfile?.role !== "superadmin")
+                              isSelf ||
+                              usr.role === "superadmin" ||
+                              (usr.role === "admin" && userProfile?.role === "admin")
                                 ? "opacity-50 cursor-not-allowed bg-gray-50"
                                 : ""
                             }`}
                           >
                             <option value="user">USER (Nhân viên)</option>
                             <option value="manager">MANAGER (Quản lý)</option>
-                            <option value="admin">ADMIN (Chủ doanh nghiệp)</option>
+                            {userProfile?.role === "superadmin" && (
+                              <option value="admin">ADMIN (Chủ doanh nghiệp)</option>
+                            )}
                             {userProfile?.role === "superadmin" && (
                               <option value="superadmin">SUPERADMIN (Toàn quyền)</option>
                             )}
@@ -666,6 +687,49 @@ export default function UserAdminTab() {
                 </div>
               </div>
 
+
+              {/* Ng\u01b0\u1eddi qu\u1ea3n l\u00fd tr\u1ef1c ti\u1ebfp */}
+              {userCompanyCode && userCompanyCode !== "SYSTEM" && (
+                <div className="space-y-1.5 text-left">
+                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
+                    Người quản lý trực tiếp
+                    <span className="ml-1.5 font-normal normal-case text-gray-400">(tuỳ chọn — xác định cấp bậc trong sơ đồ nhân sự)</span>
+                  </label>
+                  {(() => {
+                    const eligibleManagers = usersList.filter(
+                      (u) => u.companyCode === userCompanyCode && (u.role === "admin" || u.role === "manager")
+                    );
+                    return eligibleManagers.length === 0 ? (
+                      <div className="w-full px-3.5 py-2 border border-dashed border-gray-200 rounded-xl text-xs text-gray-400 italic bg-gray-50/60">
+                        Chưa có quản lý nào trong công ty này
+                      </div>
+                    ) : (
+                      <div>
+                        <select
+                          value={userParentId}
+                          onChange={(e) => setUserParentId(e.target.value)}
+                          className="w-full p-2 pl-3.5 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer outline-none"
+                        >
+                          <option value="">— Không có / Chọn sau —</option>
+                          {eligibleManagers.map((mgr) => (
+                            <option key={mgr.uid} value={mgr.uid}>
+                              {`${mgr.displayName} (${mgr.role === "admin" ? "Admin" : "Manager"}${mgr.jobTitle ? " · " + mgr.jobTitle : ""})`}
+                            </option>
+                          ))}
+                        </select>
+                        {userParentId && (
+                          <div className="mt-1.5 flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 border border-indigo-100 rounded-lg w-max">
+                            <span className="text-[9px] font-bold text-indigo-500 uppercase tracking-wider">Cấp bậc nhân viên mới:</span>
+                            <span className="text-[10px] font-bold text-indigo-700 font-mono">
+                              Level {(usersList.find((u) => u.uid === userParentId)?.level ?? 0) + 1}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
               {/* Form Actions */}
               <div className="flex gap-3 justify-end pt-4 border-t border-gray-100">
                 <button
