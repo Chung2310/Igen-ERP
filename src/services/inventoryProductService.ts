@@ -29,6 +29,7 @@ type ProductInput = {
 
 type ProductMutationResult = {
   imageUploadFailed: boolean;
+  productId?: string;
 };
 
 const collectionRef = collection(db, COLLECTION_NAME);
@@ -83,7 +84,7 @@ export const inventoryProductService = {
       const uploadedImageUrl = input.imageFile ? await uploadProductImage(input.imageFile, input.sku) : null;
       const imageUploadFailed = Boolean(input.imageFile) && !uploadedImageUrl;
 
-      await addDoc(collectionRef, {
+      const createdDoc = await addDoc(collectionRef, {
         sku: input.sku,
         name: input.name,
         category: input.category,
@@ -94,7 +95,7 @@ export const inventoryProductService = {
         imageUrl: uploadedImageUrl || input.imageUrl || "",
       });
 
-      return { imageUploadFailed };
+      return { imageUploadFailed, productId: createdDoc.id };
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, COLLECTION_NAME);
     }
@@ -139,6 +140,14 @@ export const inventoryProductService = {
       await Promise.all(snapshot.docs.map((item) => updateDoc(item.ref, { category: "Chưa phân loại" })));
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, COLLECTION_NAME);
+    }
+  },
+
+  async updateProductStock(id: string, stock: number) {
+    try {
+      await updateDoc(doc(db, COLLECTION_NAME, id), { stock });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `${COLLECTION_NAME}/${id}/stock`);
     }
   },
 
