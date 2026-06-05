@@ -23,6 +23,26 @@ export default function UserAdminTab() {
   const [ownerPassword, setOwnerPassword] = useState("");
   const [submittingCompany, setSubmittingCompany] = useState(false);
 
+  // Register User Modal States
+  const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+  const [userDisplayName, setUserDisplayName] = useState("");
+  const [userEmail, setUserEmail] = useState("");
+  const [userPassword, setUserPassword] = useState("");
+  const [userRole, setUserRole] = useState<"user" | "manager" | "admin">("user");
+  const [userCompanyCode, setUserCompanyCode] = useState<string>("");
+  const [submittingUser, setSubmittingUser] = useState(false);
+
+  // Initialize company code for new user
+  useEffect(() => {
+    if (isUserModalOpen) {
+      if (userProfile?.role === "admin") {
+        setUserCompanyCode(userProfile.companyCode || "");
+      } else {
+        setUserCompanyCode(selectedCompanyCode === "all" ? "SYSTEM" : selectedCompanyCode);
+      }
+    }
+  }, [isUserModalOpen, userProfile, selectedCompanyCode]);
+
   // Fetch users list from Firestore
   const fetchUsers = async () => {
     setLoading(true);
@@ -140,6 +160,59 @@ export default function UserAdminTab() {
     }
   };
 
+  const handleRegisterUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!userDisplayName.trim() || !userEmail.trim() || !userPassword.trim() || !userCompanyCode) {
+      toast.warning("Vui lòng điền đầy đủ thông tin người dùng!");
+      return;
+    }
+    if (userPassword.length < 6) {
+      toast.warning("Mật khẩu phải từ 6 ký tự trở lên!");
+      return;
+    }
+
+    setSubmittingUser(true);
+    try {
+      let compName = "";
+      if (userCompanyCode === "SYSTEM") {
+        compName = "Hệ thống";
+      } else {
+        const found = companies.find(c => c.code === userCompanyCode);
+        compName = found ? found.name : userCompanyCode;
+      }
+
+      await authService.registerUserForCompany(
+        userDisplayName,
+        userEmail,
+        userPassword,
+        userRole,
+        userCompanyCode,
+        compName
+      );
+
+      toast.success(`Đăng ký tài khoản cho "${userDisplayName}" thành công!`);
+      setIsUserModalOpen(false);
+      // Reset form
+      setUserDisplayName("");
+      setUserEmail("");
+      setUserPassword("");
+      setUserRole("user");
+      // Refresh lists
+      await fetchUsers();
+    } catch (error: any) {
+      console.error("Lỗi đăng ký người dùng:", error);
+      let errMsg = "Không thể đăng ký người dùng mới.";
+      if (error?.code === "auth/email-already-in-use") {
+        errMsg = "Email đã được sử dụng bởi tài khoản khác.";
+      } else if (error?.message) {
+        errMsg += ` Chi tiết: ${error.message}`;
+      }
+      toast.error(errMsg);
+    } finally {
+      setSubmittingUser(false);
+    }
+  };
+
   return (
     <div className="flex flex-col h-full bg-white max-h-[85vh] overflow-hidden" id="user_admin_tab_wrapper">
       
@@ -190,6 +263,17 @@ export default function UserAdminTab() {
                 Đăng ký Doanh nghiệp
               </button>
             </>
+          )}
+
+          {/* Add User button */}
+          {(userProfile?.role === "superadmin" || userProfile?.role === "admin") && (
+            <button
+              onClick={() => setIsUserModalOpen(true)}
+              className="p-2 px-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold font-sans flex items-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-95"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Thêm Người dùng
+            </button>
           )}
 
           <button 
@@ -452,6 +536,151 @@ export default function UserAdminTab() {
                     </>
                   ) : (
                     "Khởi tạo Doanh nghiệp"
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Đăng ký Người dùng mới */}
+      {isUserModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden transform transition-all scale-100">
+            {/* Modal Header */}
+            <div className="bg-slate-900 text-white p-6 flex justify-between items-center relative">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-indigo-600 rounded-xl shadow-lg shadow-indigo-500/20">
+                  <User className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm uppercase tracking-wider font-sans">Thêm Người dùng Mới</h3>
+                  <p className="text-[10px] text-slate-350 font-mono mt-0.5">Tạo tài khoản và gán doanh nghiệp</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsUserModalOpen(false)}
+                className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-all cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Modal Content / Form */}
+            <form onSubmit={handleRegisterUser} className="p-6 space-y-4">
+              {/* Tên hiển thị */}
+              <div className="space-y-1.5 text-left">
+                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Họ và Tên *</label>
+                <div className="relative">
+                  <User className="absolute left-3.5 top-2.5 h-4 w-4 text-gray-400" />
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ví dụ: Nguyễn Văn A"
+                    value={userDisplayName}
+                    onChange={(e) => setUserDisplayName(e.target.value)}
+                    className="w-full pl-10 pr-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Email */}
+              <div className="space-y-1.5 text-left">
+                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Địa chỉ Email *</label>
+                <div className="relative">
+                  <Mail className="absolute left-3.5 top-2.5 h-4 w-4 text-gray-400" />
+                  <input
+                    type="email"
+                    required
+                    placeholder="name@company.com"
+                    value={userEmail}
+                    onChange={(e) => setUserEmail(e.target.value)}
+                    className="w-full pl-10 pr-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none font-mono font-medium"
+                  />
+                </div>
+              </div>
+
+              {/* Mật khẩu */}
+              <div className="space-y-1.5 text-left">
+                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Mật khẩu *</label>
+                <div className="relative">
+                  <Lock className="absolute left-3.5 top-2.5 h-4 w-4 text-gray-400" />
+                  <input
+                    type="password"
+                    required
+                    placeholder="Tối thiểu 6 ký tự"
+                    value={userPassword}
+                    onChange={(e) => setUserPassword(e.target.value)}
+                    className="w-full pl-10 pr-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                {/* Vai trò */}
+                <div className="space-y-1.5 text-left">
+                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Quyền hạn (Role) *</label>
+                  <select
+                    value={userRole}
+                    onChange={(e) => setUserRole(e.target.value as any)}
+                    className="w-full p-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer outline-none"
+                  >
+                    <option value="user">USER (Nhân viên)</option>
+                    <option value="manager">MANAGER (Quản lý)</option>
+                    <option value="admin">ADMIN (Chủ doanh nghiệp)</option>
+                  </select>
+                </div>
+
+                {/* Doanh nghiệp */}
+                <div className="space-y-1.5 text-left">
+                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Doanh nghiệp *</label>
+                  {userProfile?.role === "superadmin" ? (
+                    <select
+                      value={userCompanyCode}
+                      onChange={(e) => setUserCompanyCode(e.target.value)}
+                      className="w-full p-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer outline-none"
+                    >
+                      <option value="SYSTEM">Hệ thống (SYSTEM)</option>
+                      {companies.map((c) => (
+                        <option key={c.id} value={c.code}>
+                          {c.name} ({c.code})
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      disabled
+                      value={userProfile?.companyName || userProfile?.companyCode || ""}
+                      className="w-full px-3.5 py-2 border border-gray-150 bg-gray-50 text-gray-500 rounded-xl text-xs outline-none"
+                    />
+                  )}
+                </div>
+              </div>
+
+              {/* Form Actions */}
+              <div className="flex gap-3 justify-end pt-4 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setIsUserModalOpen(false)}
+                  className="px-4 py-2 border border-gray-200 rounded-xl text-xs font-bold text-gray-500 hover:bg-gray-50 transition-all cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingUser}
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-600/10 flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                >
+                  {submittingUser ? (
+                    <>
+                      <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                      Đang đăng ký...
+                    </>
+                  ) : (
+                    "Lưu người dùng"
                   )}
                 </button>
               </div>

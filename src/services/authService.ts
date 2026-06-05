@@ -255,6 +255,57 @@ export const authService = {
     }
   },
 
+  // Đăng ký người dùng mới cho doanh nghiệp (Chỉ dành cho superadmin hoặc admin)
+  async registerUserForCompany(
+    displayName: string,
+    email: string,
+    password: string,
+    role: "user" | "manager" | "admin",
+    companyCode: string,
+    companyName: string
+  ): Promise<void> {
+    const normalizedCode = companyCode.toUpperCase().trim();
+    // Tạo tài khoản mới bằng Firebase App phụ
+    const tempApp = initializeApp(auth.app.options, `TempAppUser_${Date.now()}`);
+    const tempAuth = getAuth(tempApp);
+    try {
+      const userCredential = await createUserWithEmailAndPassword(tempAuth, email.trim(), password);
+      const user = userCredential.user;
+
+      await updateProfile(user, { displayName: displayName.trim() });
+
+      // Lưu hồ sơ user vào Firestore
+      const userDocRef = doc(db, "users", user.uid);
+      const userProfile: UserProfile = {
+        uid: user.uid,
+        email: email.trim(),
+        displayName: displayName.trim(),
+        photoURL: "👨‍💻",
+        role: role,
+        createdAt: new Date(),
+        companyCode: normalizedCode === "SYSTEM" ? "" : normalizedCode,
+        companyName: normalizedCode === "SYSTEM" ? "Hệ thống" : companyName.trim(),
+        jobTitle: role === "admin" ? "Chief Executive Officer (CEO)" : (role === "manager" ? "Quản lý phòng ban" : "Nhân viên"),
+        department: role === "admin" ? "Ban Giám Đốc" : (role === "manager" ? "Quản lý" : "Nhân sự"),
+        division: role === "admin" ? "Ban Giám Đốc" : (role === "manager" ? "Quản lý" : "Nhân sự"),
+        level: role === "admin" ? 1 : (role === "manager" ? 3 : 4),
+        status: "offline"
+      };
+
+      await setDoc(userDocRef, {
+        ...userProfile,
+        createdAt: serverTimestamp()
+      });
+
+      await signOut(tempAuth);
+    } catch (error) {
+      console.error("Lỗi khi đăng ký tài khoản thành viên doanh nghiệp:", error);
+      throw error;
+    } finally {
+      await deleteApp(tempApp);
+    }
+  },
+
   // Cập nhật thông tin hồ sơ cá nhân
   async updateProfileInfo(uid: string, displayName: string, photoURL: string): Promise<void> {
     const userDocRef = doc(db, "users", uid);
