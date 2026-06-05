@@ -30,7 +30,7 @@ Dự án này sử dụng GitHub Actions để tự động hóa toàn bộ quá
 
 | Tên Secret | Mô tả chi tiết | Cách lấy thông tin |
 | :--- | :--- | :--- |
-| `FIREBASE_TOKEN` | Token xác thực CLI để deploy Rules & Functions lên Firebase. | Chạy lệnh `firebase login:ci` ở local để tạo token. |
+| `GCP_SA_KEY` | Khóa tài khoản dịch vụ (JSON Key) để xác thực và deploy Rules & Functions lên Firebase. | Tạo Service Account với vai trò Editor trong GCP IAM Console và tải file JSON Key về. |
 | `SSH_HOST` | Địa chỉ IP hoặc tên miền của máy chủ VPS đích. | Địa chỉ máy chủ VPS của bạn. |
 | `SSH_USER` | Tên tài khoản đăng nhập SSH của VPS. | Thường là `root`, `ubuntu`, hoặc `centos`. |
 | `SSH_KEY` | Nội dung khóa Private Key SSH dùng để xác thực kết nối. | Khóa SSH Private tương ứng với Public Key được thêm vào `authorized_keys` của VPS. |
