@@ -711,6 +711,7 @@ export default function HRTab() {
   const handleCreateCourse = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!userProfile?.companyCode || !courseFormTitle.trim()) return;
+    const creatorName = userProfile.displayName || userProfile.email || "iGen Academy";
     try {
       const docRef = await addDoc(collection(db, "trainingCourses"), {
         title: courseFormTitle.trim(),
@@ -718,9 +719,9 @@ export default function HRTab() {
         category: courseFormCategory,
         tags: courseFormIsRequired ? ["Bắt buộc"] : [courseFormCategory],
         isRequired: courseFormIsRequired,
-        icon: courseFormIcon || "📚",
+        icon: "📚",
         duration: courseFormDuration.trim() || "Chưa xác định",
-        instructor: courseFormInstructor.trim() || "iGen Academy",
+        instructor: creatorName,
         companyCode: userProfile.companyCode,
         creatorUid: userProfile.uid,
         createdAt: serverTimestamp(),
@@ -730,16 +731,16 @@ export default function HRTab() {
       });
       toast.success("Đã tạo khóa học thành công!");
       setIsAddCourseModalOpen(false);
-      setCourseFormTitle(""); setCourseFormDesc(""); setCourseFormInstructor("");
-      setCourseFormDuration(""); setCourseFormIcon("📚");
+      setCourseFormTitle(""); setCourseFormDesc("");
+      setCourseFormDuration("");
       setCourseFormIsRequired(false); setCourseFormAutoOnboarding(false);
       // Thêm vào local state ngay không cần reload
       setCourses(prev => [...prev, {
         id: docRef.id, title: courseFormTitle.trim(), description: courseFormDesc.trim(),
         category: courseFormCategory, tags: courseFormIsRequired ? ["Bắt buộc"] : [courseFormCategory],
-        isRequired: courseFormIsRequired, icon: courseFormIcon || "📚",
+        isRequired: courseFormIsRequired, icon: "📚",
         duration: courseFormDuration.trim() || "Chưa xác định",
-        instructor: courseFormInstructor.trim() || "iGen Academy",
+        instructor: creatorName,
         companyCode: userProfile.companyCode!, creatorUid: userProfile.uid,
         createdAt: new Date(), enrolledCount: 0, companyProgress: 0,
         autoAssignOnboarding: courseFormAutoOnboarding,
@@ -2689,45 +2690,30 @@ export default function HRTab() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-gray-500 mb-1.5 font-sans">Danh mục</label>
-                  <select
-                    value={courseFormCategory}
-                    onChange={(e) => setCourseFormCategory(e.target.value)}
-                    className="w-full px-3 py-2.5 bg-white border border-gray-200 text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-50 rounded-xl font-sans cursor-pointer"
-                  >
-                    <option>Văn hóa</option>
-                    <option>Onboarding</option>
-                    <option>Kỹ năng mềm</option>
-                    <option>Nghiệp vụ</option>
-                    <option>Công cụ AI</option>
-                    <option>Sales CRM</option>
-                    <option>ERP System</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block font-bold text-gray-500 mb-1.5 font-sans">Icon (emoji)</label>
-                  <input
-                    type="text"
-                    placeholder="📚"
-                    value={courseFormIcon}
-                    onChange={(e) => setCourseFormIcon(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-white border border-gray-200 text-slate-800 placeholder-gray-300 hover:border-gray-300 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-50 rounded-xl font-sans text-xl"
-                  />
-                </div>
+              <div>
+                <label className="block font-bold text-gray-500 mb-1.5 font-sans">Danh mục</label>
+                <select
+                  value={courseFormCategory}
+                  onChange={(e) => setCourseFormCategory(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-white border border-gray-200 text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-50 rounded-xl font-sans cursor-pointer"
+                >
+                  <option>Văn hóa</option>
+                  <option>Onboarding</option>
+                  <option>Kỹ năng mềm</option>
+                  <option>Nghiệp vụ</option>
+                  <option>Công cụ AI</option>
+                  <option>Sales CRM</option>
+                  <option>ERP System</option>
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-gray-500 mb-1.5 font-sans">Giảng viên</label>
-                  <input
-                    type="text"
-                    placeholder="iGen Academy"
-                    value={courseFormInstructor}
-                    onChange={(e) => setCourseFormInstructor(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-white border border-gray-200 text-slate-800 placeholder-gray-300 hover:border-gray-300 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-50 rounded-xl font-sans"
-                  />
+                  <div className="w-full px-3.5 py-2.5 bg-slate-50 border border-gray-200 text-slate-600 rounded-xl font-sans text-xs flex items-center gap-1.5">
+                    <span className="text-sm">👤</span>
+                    <span className="font-semibold">{userProfile?.displayName || userProfile?.email || 'Bạn'}</span>
+                  </div>
                 </div>
                 <div>
                   <label className="block font-bold text-gray-500 mb-1.5 font-sans">Thời lượng</label>
