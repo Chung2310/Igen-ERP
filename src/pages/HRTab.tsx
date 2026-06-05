@@ -27,10 +27,10 @@ import {
   User,
   Target
 } from "lucide-react";
-import { HRSubTabType, EmployeeNode, HRTask, TrainingCourse, UserProfile, Project, TaskHistoryEntry } from "../types";
+import { HRSubTabType, EmployeeNode, HRTask, TrainingCourse, TrainingEnrollment, UserProfile, Project, TaskHistoryEntry } from "../types";
 import { useAuth } from "../context/AuthContext";
 import { db } from "../config/firebase";
-import { doc, updateDoc, setDoc, deleteDoc, writeBatch, collection, getDocs, query, where } from "firebase/firestore";
+import { doc, updateDoc, setDoc, deleteDoc, writeBatch, collection, getDocs, addDoc, serverTimestamp, query, where, orderBy } from "firebase/firestore";
 import { authService } from "../services/authService";
 import { toast } from "./Toast";
 
@@ -308,6 +308,10 @@ export default function HRTab() {
       fetchUsers();
       fetchTasks();
       fetchProjects();
+      fetchCourses(selectedCompanyCode);
+    }
+    if (selectedCompanyCode && userProfile?.uid) {
+      fetchMyEnrollments(userProfile.uid, selectedCompanyCode);
     }
   }, [selectedCompanyCode, userProfile?.uid]);
 
@@ -665,22 +669,208 @@ export default function HRTab() {
     }
   };
 
-  // 3. Onboarding Video Training Courses List Catalog
-  const [courses, setCourses] = useState<TrainingCourse[]>([
-    { id: "c1", title: "Hội nhập Văn hóa doanh nghiệp iGen", category: "Văn hóa", duration: "1.5 giờ (5 bài học)", progress: 100, instructor: "Phạm Minh Hoàng", icon: "🏫", enrolledStudents: 15 },
-    { id: "c2", title: "Làm chủ AI Copywriter & Ideas Engine", category: "Công cụ AI", duration: "2 giờ (6 bài học)", progress: 45, instructor: "Phan Đình Nam", icon: "🧠", enrolledStudents: 8 },
-    { id: "c3", title: "Quy trình Vận hành phân khu Kho ERP", category: "Nghiệp vụ", duration: "1 tiếng (4 bài học)", progress: 0, instructor: "Hoàng Gia Huy", icon: "📦", enrolledStudents: 12 },
-    { id: "c4", title: "Kỹ năng Chăm sóc khách hàng VIP & Giải quyết than phiền", category: "Sales CRM", duration: "3 giờ (8 bài học)", progress: 85, instructor: "Trần Mai Anh", icon: "🏅", enrolledStudents: 22 }
-  ]);
+  // 3. Training / e-Learning — Firestore-backed
+  const [courses, setCourses] = useState<TrainingCourse[]>([]);
+  const [enrollments, setEnrollments] = useState<TrainingEnrollment[]>([]);
+  const [isAddCourseModalOpen, setIsAddCourseModalOpen] = useState(false);
+  const [courseFormTitle, setCourseFormTitle] = useState("");
+  const [courseFormDesc, setCourseFormDesc] = useState("");
+  const [courseFormCategory, setCourseFormCategory] = useState("Văn hóa");
+  const [courseFormInstructor, setCourseFormInstructor] = useState("");
+  const [courseFormDuration, setCourseFormDuration] = useState("");
+  const [courseFormIcon, setCourseFormIcon] = useState("📚");
+  const [courseFormIsRequired, setCourseFormIsRequired] = useState(false);
+  const [courseFormAutoOnboarding, setCourseFormAutoOnboarding] = useState(false);
 
-  const handleStudyProgress = (courseId: string) => {
-    setCourses(courses.map(course => {
-      if (course.id === courseId) {
-        const nextProgress = Math.min(course.progress + 15, 100);
-        return { ...course, progress: nextProgress };
+  const fetchCourses = async (companyCode: string) => {
+    try {
+      const q = query(collection(db, "trainingCourses"), where("companyCode", "==", companyCode));
+      const snap = await getDocs(q);
+      const list: TrainingCourse[] = snap.docs.map(d => ({ id: d.id, ...d.data() } as TrainingCourse));
+      setCourses(list);
+    } catch (err) {
+      console.error("Lỗi tải khóa học:", err);
+    }
+  };
+
+  const fetchMyEnrollments = async (uid: string, companyCode: string) => {
+    try {
+      const q = query(
+        collection(db, "trainingEnrollments"),
+        where("uid", "==", uid),
+        where("companyCode", "==", companyCode)
+      );
+      const snap = await getDocs(q);
+      const list: TrainingEnrollment[] = snap.docs.map(d => ({ id: d.id, ...d.data() } as TrainingEnrollment));
+      setEnrollments(list);
+    } catch (err) {
+      console.error("Lỗi tải tiến độ học:", err);
+    }
+  };
+
+  const handleCreateCourse = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!userProfile?.companyCode || !courseFormTitle.trim()) return;
+    try {
+      const docRef = await addDoc(collection(db, "trainingCourses"), {
+        title: courseFormTitle.trim(),
+        description: courseFormDesc.trim(),
+        category: courseFormCategory,
+        tags: courseFormIsRequired ? ["Bắt buộc"] : [courseFormCategory],
+        isRequired: courseFormIsRequired,
+        icon: courseFormIcon || "📚",
+        duration: courseFormDuration.trim() || "Chưa xác định",
+        instructor: courseFormInstructor.trim() || "iGen Academy",
+        companyCode: userProfile.companyCode,
+        creatorUid: userProfile.uid,
+        createdAt: serverTimestamp(),
+        enrolledCount: 0,
+        companyProgress: 0,
+        autoAssignOnboarding: courseFormAutoOnboarding,
+      });
+      toast.success("Đã tạo khóa học thành công!");
+      setIsAddCourseModalOpen(false);
+      setCourseFormTitle(""); setCourseFormDesc(""); setCourseFormInstructor("");
+      setCourseFormDuration(""); setCourseFormIcon("📚");
+      setCourseFormIsRequired(false); setCourseFormAutoOnboarding(false);
+      // Thêm vào local state ngay không cần reload
+      setCourses(prev => [...prev, {
+        id: docRef.id, title: courseFormTitle.trim(), description: courseFormDesc.trim(),
+        category: courseFormCategory, tags: courseFormIsRequired ? ["Bắt buộc"] : [courseFormCategory],
+        isRequired: courseFormIsRequired, icon: courseFormIcon || "📚",
+        duration: courseFormDuration.trim() || "Chưa xác định",
+        instructor: courseFormInstructor.trim() || "iGen Academy",
+        companyCode: userProfile.companyCode!, creatorUid: userProfile.uid,
+        createdAt: new Date(), enrolledCount: 0, companyProgress: 0,
+        autoAssignOnboarding: courseFormAutoOnboarding,
+      }]);
+    } catch (err) {
+      console.error("Lỗi tạo khóa học:", err);
+      toast.error("Không thể tạo khóa học.");
+    }
+  };
+
+  const handleEnrollAndStart = async (course: TrainingCourse) => {
+    if (!userProfile) return;
+    const existing = enrollments.find(e => e.courseId === course.id);
+    if (existing) {
+      // Đã enroll → tăng progress +20%
+      const nextProgress = Math.min(existing.progress + 20, 100);
+      const newStatus: TrainingEnrollment["status"] = nextProgress >= 100 ? "completed" : "in_progress";
+      try {
+        await updateDoc(doc(db, "trainingEnrollments", existing.id), {
+          progress: nextProgress,
+          status: newStatus,
+          ...(newStatus === "completed" ? { completedAt: serverTimestamp() } : {}),
+        });
+        setEnrollments(prev => prev.map(e => e.id === existing.id
+          ? { ...e, progress: nextProgress, status: newStatus }
+          : e
+        ));
+        if (newStatus === "completed") toast.success(`🎉 Bạn đã hoàn thành khóa học "${course.title}"!`);
+      } catch (err) {
+        toast.error("Không thể cập nhật tiến độ.");
       }
-      return course;
-    }));
+    } else {
+      // Chưa enroll → tạo enrollment mới
+      try {
+        const enrollRef = await addDoc(collection(db, "trainingEnrollments"), {
+          courseId: course.id,
+          courseTitle: course.title,
+          uid: userProfile.uid,
+          userName: userProfile.displayName || userProfile.email,
+          companyCode: userProfile.companyCode,
+          progress: 20,
+          status: "in_progress",
+          startedAt: serverTimestamp(),
+          createdAt: serverTimestamp(),
+        });
+        // Tăng enrolledCount trên course
+        await updateDoc(doc(db, "trainingCourses", course.id), {
+          enrolledCount: (course.enrolledCount || 0) + 1
+        });
+        setEnrollments(prev => [...prev, {
+          id: enrollRef.id, courseId: course.id, courseTitle: course.title,
+          uid: userProfile.uid, userName: userProfile.displayName || userProfile.email,
+          companyCode: userProfile.companyCode || "", progress: 20,
+          status: "in_progress", createdAt: new Date(),
+        }]);
+        setCourses(prev => prev.map(c => c.id === course.id
+          ? { ...c, enrolledCount: c.enrolledCount + 1 }
+          : c
+        ));
+        toast.success(`Bắt đầu học "${course.title}" — Tiến độ: 20%`);
+      } catch (err) {
+        console.error(err);
+        toast.error("Không thể đăng ký khóa học.");
+      }
+    }
+  };
+
+  const handleDeleteCourse = async (courseId: string) => {
+    if (!window.confirm("Xác nhận xóa khóa học này?")) return;
+    try {
+      await deleteDoc(doc(db, "trainingCourses", courseId));
+      setCourses(prev => prev.filter(c => c.id !== courseId));
+      toast.success("Đã xóa khóa học.");
+    } catch (err) {
+      toast.error("Không thể xóa khóa học.");
+    }
+  };
+
+  // Tự động gán khóa học Onboarding + tạo Kanban task khi thêm nhân viên mới
+  const autoAssignCourseOnNewEmployee = async (newEmpUid: string, newEmpName: string, companyCode: string) => {
+    const onboardingCourses = courses.filter(c => c.autoAssignOnboarding && c.companyCode === companyCode);
+    for (const course of onboardingCourses) {
+      try {
+        // Tạo enrollment
+        await addDoc(collection(db, "trainingEnrollments"), {
+          courseId: course.id,
+          courseTitle: course.title,
+          uid: newEmpUid,
+          userName: newEmpName,
+          companyCode,
+          progress: 0,
+          status: "not_started",
+          createdAt: serverTimestamp(),
+        });
+        // Tạo Kanban task tương ứng
+        const taskDueDate = new Date();
+        taskDueDate.setDate(taskDueDate.getDate() + 7);
+        const taskId = `onboarding_${newEmpUid}_${course.id}_${Date.now()}`;
+        await setDoc(doc(db, "kanbanTasks", taskId), {
+          id: taskId,
+          title: `[Đào tạo] ${course.title}`,
+          description: `Khóa học Onboarding bắt buộc. Hoàn thành trong vòng 7 ngày kể từ ngày vào công ty.`,
+          assigneeUid: newEmpUid,
+          assignee: newEmpName,
+          assigneeAvatar: "👤",
+          dueDate: taskDueDate.toLocaleDateString("vi-VN"),
+          priority: course.isRequired ? "High" : "Medium",
+          status: "Not Started",
+          category: "Đào tạo",
+          companyCode,
+          creatorUid: userProfile?.uid || "system",
+          createdAt: new Date(),
+          projectId: "",
+          tags: course.tags,
+          linkNote: "",
+          history: [{
+            time: new Date().toLocaleString("vi-VN"),
+            user: "Hệ thống",
+            action: `Tự động tạo từ khóa học Onboarding: "${course.title}"`
+          }]
+        });
+      } catch (err) {
+        console.error(`Lỗi auto-assign course ${course.id}:`, err);
+      }
+    }
+  };
+
+  // Legacy: kept for compatibility
+  const handleStudyProgress = (courseId: string) => {
+    const course = courses.find(c => c.id === courseId);
+    if (course) handleEnrollAndStart(course);
   };
 
   // Drag & Drop logic for reorganizing reporting structures
@@ -905,6 +1095,10 @@ export default function HRTab() {
       });
 
       toast.success(`Đã thêm nhân sự "${addName}" thành công!`);
+
+      // Tự động gán khóa học Onboarding + tạo Kanban task
+      await autoAssignCourseOnNewEmployee(newUid, addName.trim(), compCode);
+
       setIsAddModalOpen(false);
 
       // Reset Form
@@ -1939,34 +2133,19 @@ export default function HRTab() {
         {/* SUB TAB 3: ĐÀO TẠO */}
         {subTab === "ĐÀO TẠO" && (
           <div className="space-y-6" id="elearning_catalog">
-            
-            {/* Monitor Training Progress Section */}
+
+            {/* Monitor Training Progress Banner */}
             {trainingFilter && (
-              <div className="bg-emerald-50 border border-emerald-250 text-emerald-850 p-5 rounded-2xl mb-6 relative text-left">
+              <div className="bg-emerald-50 border border-emerald-200 text-emerald-850 p-5 rounded-2xl mb-6 relative text-left">
                 <h5 className="font-bold text-xs uppercase tracking-wider text-emerald-900 flex items-center gap-1.5 mb-2">
                   <Award className="h-4.5 w-4.5 text-emerald-700 animate-bounce" />
                   Tiến trình Đào tạo của: {trainingFilter}
                 </h5>
                 <p className="text-xs text-emerald-700 mb-4">Các khóa học chuyên môn nhân sự này đã hoàn thành hoặc đang nghiên cứu phục vụ đánh giá thăng cấp và KPI.</p>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="bg-white border border-emerald-100 p-3.5 rounded-xl shadow-2xs">
-                    <span className="text-[10px] text-slate-400 block font-mono font-bold">KHÓA HỌC ĐÃ TỐT NGHIỆP</span>
-                    <span className="font-bold text-slate-800 text-xs mt-1 block">🏫 Hội nhập Văn hóa doanh nghiệp iGen</span>
-                    <span className="text-[10px] text-emerald-600 font-bold font-mono mt-1.5 block">● Đạt 100% điểm thi kiểm tra</span>
-                  </div>
-                  <div className="bg-white border border-emerald-100 p-3.5 rounded-xl shadow-2xs">
-                    <span className="text-[10px] text-slate-400 block font-mono font-bold">KHÓA HỌC ĐANG THEO HỌC</span>
-                    <span className="font-bold text-slate-800 text-xs mt-1 block">🧠 Làm chủ AI Copywriter & Ideas Engine</span>
-                    <span className="text-[10px] text-amber-600 font-bold font-mono mt-1.5 block">○ Đang hoàn thành 45% bài giảng</span>
-                  </div>
-                </div>
-                
-                <div className="mt-4 pt-4 border-t border-emerald-150 flex justify-between items-center text-xs">
-                  <span className="text-emerald-700 font-medium">Đánh giá chung: <strong className="text-emerald-900">Mức độ hoàn thành đạt chuẩn chỉ tiêu</strong></span>
-                  <button 
+                <div className="mt-4 pt-4 border-t border-emerald-150 flex justify-end items-center text-xs">
+                  <button
                     onClick={() => setTrainingFilter(null)}
-                    className="px-3 py-1 bg-white hover:bg-slate-100 border border-emerald-250 rounded-xl text-emerald-750 font-bold transition-all shadow-xs cursor-pointer text-xs"
+                    className="px-3 py-1 bg-white hover:bg-slate-100 border border-emerald-200 rounded-xl text-emerald-750 font-bold transition-all shadow-xs cursor-pointer text-xs"
                   >
                     Đóng giám sát
                   </button>
@@ -1974,58 +2153,134 @@ export default function HRTab() {
               </div>
             )}
 
+            {/* Header */}
             <div className="flex justify-between items-center text-left" id="training_header_info">
               <div>
                 <h4 className="text-sm font-bold text-slate-800 font-sans tracking-wide uppercase">Cổng Học Tập & Hội Nhập iGen e-Learning</h4>
                 <p className="text-xs text-gray-500 mt-1">Đào tạo nhân sự tự động, rèn luyện kỹ năng và nắm bắt hệ thống ERP</p>
               </div>
-              <div className="flex gap-2 text-xs font-semibold px-3 py-1.5 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-xl">
-                <Award className="h-4 w-4 animate-bounce text-indigo-650" />
-                <span>Hoàn tất khóa học nhận ERP Token</span>
+              <div className="flex items-center gap-2">
+                <div className="flex gap-2 text-xs font-semibold px-3 py-1.5 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-xl">
+                  <Award className="h-4 w-4 animate-bounce text-indigo-650" />
+                  <span>Hoàn tất khóa học nhận ERP Token</span>
+                </div>
+                {isManager && (
+                  <button
+                    onClick={() => setIsAddCourseModalOpen(true)}
+                    id="btn_create_course"
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-650 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl cursor-pointer transition-all active:scale-95 shadow-xs"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Tạo khóa học mới
+                  </button>
+                )}
               </div>
             </div>
 
-            {/* Courses grid */}
+            {/* Empty state */}
+            {courses.length === 0 && (
+              <div className="text-center py-16 border-2 border-dashed border-gray-200 rounded-2xl">
+                <div className="text-4xl mb-3">📚</div>
+                <p className="text-sm font-bold text-slate-700">Chưa có khóa học nào</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  {isManager ? 'Nhấn "Tạo khóa học mới" để thêm khóa học đầu tiên.' : 'Quản lý sẽ sớm thêm khóa học cho bạn.'}
+                </p>
+              </div>
+            )}
+
+            {/* Courses Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5" id="courses_grid">
               {courses.map((course) => {
-                const isCompleted = course.progress === 100;
+                const myEnrollment = enrollments.find(e => e.courseId === course.id);
+                const myProgress = myEnrollment?.progress ?? 0;
+                const isCompleted = myEnrollment?.status === "completed";
+                const isStarted = myEnrollment?.status === "in_progress";
+
                 return (
-                  <div key={course.id} className="p-5 bg-white border border-gray-250/70 hover:border-indigo-300 hover:shadow-md rounded-2xl transition-all flex flex-col justify-between" id={`course_card_${course.id}`}>
+                  <div key={course.id} className="p-5 bg-white border border-gray-200/70 hover:border-indigo-300 hover:shadow-md rounded-2xl transition-all flex flex-col justify-between" id={`course_card_${course.id}`}>
                     <div className="text-left">
-                      <div className="flex justify-between items-start gap-4">
-                        <div className="p-3 bg-slate-50 border rounded-2xl my-1 text-2xl select-none">{course.icon}</div>
-                        <div className="text-right">
-                          <span className="inline-block px-2.5 py-0.5 bg-slate-100 text-[9px] font-bold font-mono rounded-full text-slate-500 uppercase tracking-widest leading-none">
-                            {course.category}
-                          </span>
-                          <p className="text-[10px] text-gray-400 mt-1.5 font-mono">Giảng viên: {course.instructor}</p>
+
+                      {/* Card Header: Icon + Tags + Admin Actions */}
+                      <div className="flex justify-between items-start gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="p-3 bg-slate-50 border border-gray-100 rounded-2xl text-2xl select-none flex-shrink-0">{course.icon}</div>
+                          <div className="flex flex-wrap gap-1">
+                            {course.isRequired && (
+                              <span className="inline-flex items-center px-2 py-0.5 bg-rose-50 border border-rose-200 text-rose-700 text-[9px] font-black font-mono rounded-full uppercase tracking-widest">
+                                🔴 Bắt buộc
+                              </span>
+                            )}
+                            {(course.tags || []).filter(t => t !== 'Bắt buộc').map(tag => (
+                              <span key={tag} className="inline-flex items-center px-2 py-0.5 bg-indigo-50 border border-indigo-100 text-indigo-600 text-[9px] font-bold font-mono rounded-full uppercase tracking-widest">
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
                         </div>
+                        {isManager && (
+                          <button
+                            onClick={() => handleDeleteCourse(course.id)}
+                            className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-rose-500 transition-colors cursor-pointer p-1 rounded-lg hover:bg-rose-50 flex-shrink-0"
+                            title="Xóa khóa học"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                       </div>
 
-                      <h4 className="text-sm font-bold text-slate-800 font-sans text-left mt-4 leading-snug">{course.title}</h4>
-                      
-                      <div className="flex items-center gap-2 text-[11px] text-gray-500 mt-2">
-                        <Clock className="w-3.5 h-3.5 text-gray-400" />
-                        <span>{course.duration}</span>
-                        <span className="mx-1">•</span>
-                        <span>{course.enrolledStudents} học viên đang học</span>
+                      {/* Title */}
+                      <h4 className="text-sm font-bold text-slate-800 font-sans text-left mt-3.5 leading-snug">{course.title}</h4>
+
+                      {/* Description */}
+                      {course.description && (
+                        <p className="text-[11px] text-gray-400 mt-1.5 leading-relaxed line-clamp-2">{course.description}</p>
+                      )}
+
+                      {/* Meta: instructor + enrolled */}
+                      <div className="flex items-center gap-3 text-[11px] text-gray-500 mt-3">
+                        <div className="flex items-center gap-1">
+                          <Clock className="w-3 h-3 text-gray-400" />
+                          <span>{course.duration}</span>
+                        </div>
+                        <span className="text-gray-200">|</span>
+                        <div className="flex items-center gap-1">
+                          <Users className="w-3 h-3 text-gray-400" />
+                          <span><strong className="text-slate-700">{course.enrolledCount}</strong> nhân viên đang học</span>
+                        </div>
                       </div>
                     </div>
 
-                    {/* Progression Bar section */}
+                    {/* Progress Section */}
                     <div className="mt-5 border-t border-gray-100 pt-4 text-left">
-                      <div className="flex items-center justify-between text-xs mb-1">
-                        <span className="font-mono text-gray-450 font-medium">Tiến trình lớp học:</span>
-                        <span className="font-bold text-slate-700 font-mono">{course.progress}%</span>
-                      </div>
-                      
-                      <div className="w-full bg-slate-150 bg-slate-100 h-2 rounded-full overflow-hidden mb-4">
-                        <div 
-                          className={`h-full transition-all duration-500 ${isCompleted ? "bg-emerald-500" : "bg-indigo-650"}`}
-                          style={{ width: `${course.progress}%` }}
-                        />
+                      {/* Company average progress */}
+                      <div className="mb-3">
+                        <div className="flex items-center justify-between text-[10px] mb-1">
+                          <span className="font-mono text-gray-400 font-medium">Tiến độ trung bình toàn công ty:</span>
+                          <span className="font-bold text-slate-600 font-mono">{course.companyProgress ?? 0}%</span>
+                        </div>
+                        <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-indigo-200 transition-all duration-500"
+                            style={{ width: `${course.companyProgress ?? 0}%` }}
+                          />
+                        </div>
                       </div>
 
+                      {/* My personal progress */}
+                      <div className="mb-4">
+                        <div className="flex items-center justify-between text-xs mb-1">
+                          <span className="font-mono text-gray-500 font-medium">Tiến độ của bạn:</span>
+                          <span className="font-bold text-slate-700 font-mono">{myProgress}%</span>
+                        </div>
+                        <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full transition-all duration-500 ${isCompleted ? 'bg-emerald-500' : 'bg-indigo-650'}`}
+                            style={{ width: `${myProgress}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Action row */}
                       <div className="flex justify-between items-center text-xs">
                         {isCompleted ? (
                           <span className="text-emerald-600 font-bold flex items-center gap-1">
@@ -2033,19 +2288,19 @@ export default function HRTab() {
                             Đã hoàn thành
                           </span>
                         ) : (
-                          <span className="text-gray-400 font-mono text-[10px]">ERP Token: 15 đ</span>
+                          <span className="text-gray-400 font-mono text-[10px]">{isStarted ? `Đang học • ${myProgress}%` : 'ERP Token: 15 đ'}</span>
                         )}
-
-                        <button 
-                          onClick={() => handleStudyProgress(course.id)}
-                          className={`px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
-                            isCompleted 
-                              ? "bg-slate-100 text-slate-400 cursor-not-allowed border" 
-                              : "bg-indigo-650 hover:bg-indigo-700 text-white active:scale-95 shadow-2xs"
-                          }`}
+                        <button
+                          onClick={() => handleEnrollAndStart(course)}
                           disabled={isCompleted}
+                          id={`btn_study_${course.id}`}
+                          className={`px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                            isCompleted
+                              ? 'bg-slate-100 text-slate-400 cursor-not-allowed border'
+                              : 'bg-indigo-650 hover:bg-indigo-700 text-white active:scale-95 shadow-2xs'
+                          }`}
                         >
-                          {course.progress === 0 ? "Bắt đầu học" : isCompleted ? "Xem văn bằng" : "Học tiếp bài sau"}
+                          {!myEnrollment ? 'Bắt đầu học' : isCompleted ? 'Xem văn bằng' : 'Học tiếp bài sau'}
                         </button>
                       </div>
                     </div>
@@ -2394,6 +2649,140 @@ export default function HRTab() {
             </div>
 
           </div>
+        </div>
+      )}
+
+      {/* Modal Tạo Khóa Học Mới */}
+      {isAddCourseModalOpen && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-2xs flex items-center justify-center z-50 p-4">
+          <form onSubmit={handleCreateCourse} className="bg-white border border-gray-200 rounded-2xl shadow-xl w-full max-w-lg p-6 relative text-left space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center pb-3 border-b border-gray-150">
+              <h4 className="font-bold text-slate-800 text-sm font-sans uppercase flex items-center gap-2">
+                <Award className="h-4 w-4 text-indigo-655" />
+                Tạo Khóa Học Mới
+              </h4>
+              <button type="button" onClick={() => setIsAddCourseModalOpen(false)} className="text-gray-400 hover:text-slate-800 cursor-pointer">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3.5 text-xs">
+              <div>
+                <label className="block font-bold text-gray-500 mb-1.5 font-sans">Tên khóa học *</label>
+                <input
+                  type="text" required
+                  placeholder="Ví dụ: Văn hóa Doanh nghiệp iGen"
+                  value={courseFormTitle}
+                  onChange={(e) => setCourseFormTitle(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-white border border-gray-200 text-slate-800 placeholder-gray-300 hover:border-gray-300 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-50 rounded-xl font-sans"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-gray-500 mb-1.5 font-sans">Mô tả ngắn</label>
+                <textarea
+                  rows={2}
+                  placeholder="Mô tả nội dung và mục tiêu khóa học..."
+                  value={courseFormDesc}
+                  onChange={(e) => setCourseFormDesc(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-white border border-gray-200 text-slate-800 placeholder-gray-300 hover:border-gray-300 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-50 rounded-xl font-sans resize-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-gray-500 mb-1.5 font-sans">Danh mục</label>
+                  <select
+                    value={courseFormCategory}
+                    onChange={(e) => setCourseFormCategory(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-white border border-gray-200 text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-50 rounded-xl font-sans cursor-pointer"
+                  >
+                    <option>Văn hóa</option>
+                    <option>Onboarding</option>
+                    <option>Kỹ năng mềm</option>
+                    <option>Nghiệp vụ</option>
+                    <option>Công cụ AI</option>
+                    <option>Sales CRM</option>
+                    <option>ERP System</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-bold text-gray-500 mb-1.5 font-sans">Icon (emoji)</label>
+                  <input
+                    type="text"
+                    placeholder="📚"
+                    value={courseFormIcon}
+                    onChange={(e) => setCourseFormIcon(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-white border border-gray-200 text-slate-800 placeholder-gray-300 hover:border-gray-300 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-50 rounded-xl font-sans text-xl"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-gray-500 mb-1.5 font-sans">Giảng viên</label>
+                  <input
+                    type="text"
+                    placeholder="iGen Academy"
+                    value={courseFormInstructor}
+                    onChange={(e) => setCourseFormInstructor(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-white border border-gray-200 text-slate-800 placeholder-gray-300 hover:border-gray-300 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-50 rounded-xl font-sans"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-gray-500 mb-1.5 font-sans">Thời lượng</label>
+                  <input
+                    type="text"
+                    placeholder="Ví dụ: 2 giờ (6 bài học)"
+                    value={courseFormDuration}
+                    onChange={(e) => setCourseFormDuration(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-white border border-gray-200 text-slate-800 placeholder-gray-300 hover:border-gray-300 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-50 rounded-xl font-sans"
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2.5 pt-1">
+                <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={courseFormIsRequired}
+                    onChange={(e) => setCourseFormIsRequired(e.target.checked)}
+                    className="w-4 h-4 accent-rose-600 rounded cursor-pointer"
+                  />
+                  <span className="text-xs font-semibold text-slate-700">
+                    🔴 Khóa học <strong>Bắt buộc</strong> (hiển thị nhãn đỏ)
+                  </span>
+                </label>
+                <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={courseFormAutoOnboarding}
+                    onChange={(e) => setCourseFormAutoOnboarding(e.target.checked)}
+                    className="w-4 h-4 accent-indigo-600 rounded cursor-pointer"
+                  />
+                  <span className="text-xs font-semibold text-slate-700">
+                    🔄 Tự động gán cho <strong>nhân viên mới</strong> + tạo Kanban task
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-gray-150 flex justify-end gap-3 text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => setIsAddCourseModalOpen(false)}
+                className="px-4 py-2 border border-gray-200 text-slate-500 hover:text-slate-800 rounded-xl bg-white hover:bg-slate-50 cursor-pointer transition-all active:scale-95 font-sans"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2 bg-indigo-650 hover:bg-indigo-700 text-white rounded-xl cursor-pointer transition-all active:scale-95 font-sans"
+              >
+                Tạo khóa học
+              </button>
+            </div>
+          </form>
         </div>
       )}
 
