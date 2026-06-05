@@ -1,17 +1,17 @@
 import React, { useState } from "react";
-import Sidebar from "./components/Sidebar";
-import Header from "./components/Header";
-import DashboardTab from "./components/DashboardTab";
-import HRTab from "./components/HRTab";
-import InventoryTab from "./components/InventoryTab";
-import MarketingTab from "./components/MarketingTab";
-import CRMTab from "./components/CRMTab";
-import UserAdminTab from "./components/UserAdminTab";
-import SettingsTab from "./components/SettingsTab";
+import Sidebar from "./pages/Sidebar";
+import Header from "./pages/Header";
+import DashboardTab from "./pages/DashboardTab";
+import HRTab from "./pages/HRTab";
+import InventoryTab from "./pages/InventoryTab";
+import MarketingTab from "./pages/MarketingTab";
+import CRMTab from "./pages/CRMTab";
+import UserAdminTab from "./pages/UserAdminTab";
+import SettingsTab from "./pages/SettingsTab";
 import { TabType } from "./types";
-import { ToastContainer } from "./components/Toast";
+import { ToastContainer } from "./pages/Toast";
 import { AuthProvider, useAuth } from "./context/AuthContext";
-import AuthPage from "./components/AuthPage";
+import AuthPage from "./pages/AuthPage";
 import { RefreshCw } from "lucide-react";
 
 function AppContent() {
