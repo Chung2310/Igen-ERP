@@ -383,7 +383,7 @@ export default function UserAdminTab() {
                     <tr key={usr.uid} className="hover:bg-slate-50/40 transition-colors">
                       {/* Name / Avatar */}
                       <td className="p-4 pl-6 flex items-center gap-3">
-                        {usr.photoURL ? (
+                        {usr.photoURL && (usr.photoURL.startsWith("http") || usr.photoURL.startsWith("/")) ? (
                           <img 
                             src={usr.photoURL} 
                             alt={usr.displayName} 

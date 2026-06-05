@@ -149,7 +149,7 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
                 {userProfile ? userProfile.displayName : "iGen Administrator"}
               </p>
             </div>
-            {userProfile?.photoURL ? (
+            {userProfile?.photoURL && (userProfile.photoURL.startsWith("http") || userProfile.photoURL.startsWith("/")) ? (
               <img
                 src={userProfile.photoURL}
                 alt={userProfile.displayName}

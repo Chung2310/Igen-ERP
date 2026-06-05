@@ -258,7 +258,9 @@ export default function HRTab() {
     department: usr.department || "Ban Giám Đốc",
     email: usr.email,
     phone: usr.phone || "Chưa cập nhật",
-    avatar: usr.photoURL || (usr.role === "superadmin" ? "👨‍💼" : "👨‍💻"),
+    avatar: usr.photoURL && (usr.photoURL.startsWith("http") || usr.photoURL.startsWith("/"))
+      ? usr.photoURL
+      : `https://ui-avatars.com/api/?name=${encodeURIComponent(usr.displayName)}&background=random&color=fff`,
     level: usr.level || 4,
     parentId: usr.parentId,
     status: usr.status || "offline",
@@ -1101,7 +1103,7 @@ export default function HRTab() {
         uid: newUid,
         email: addEmail.trim(),
         displayName: addName.trim(),
-        photoURL: "👨‍💻",
+        photoURL: `https://ui-avatars.com/api/?name=${encodeURIComponent(addName.trim())}&background=random&color=fff`,
         role: addRole,
         jobTitle: addRole === "manager" ? "Quản lý phòng ban" : "Nhân viên",
         department: addDepartment.trim() || (addRole === "manager" ? "Quản lý" : "Nhân sự"),
