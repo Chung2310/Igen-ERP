@@ -74,6 +74,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Deploy via SSH to VPS
+        if: github.ref_name == 'develop'
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -81,16 +82,9 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           port: ${{ secrets.SSH_PORT || '22' }}
           script: |
-            # Xác định các tham số dựa trên nhánh (develop -> staging, main -> production)
-            if [ "${{ github.ref_name }}" = "main" ]; then
-              TARGET_DIR="/opt/igen-erp/production"
-              IMAGE_TAG="main"
-              CONTAINER_NAME="igen-erp-production"
-            else
-              TARGET_DIR="/opt/igen-erp/staging"
-              IMAGE_TAG="develop"
-              CONTAINER_NAME="igen-erp-staging"
-            fi
+            TARGET_DIR="/opt/igen-erp/staging"
+            IMAGE_TAG="develop"
+            CONTAINER_NAME="igen-erp-staging"
 
             # Tạo thư mục đích nếu chưa tồn tại và chuyển vào
             mkdir -p "$TARGET_DIR"
