@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { Bell, LogOut, Plus, Search, Settings } from "lucide-react";
+import { Bell, LogOut, Plus, Search, Settings, Moon, Sun } from "lucide-react";
 import { TabType } from "../types";
 import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../context/ThemeContext";
 
 interface HeaderProps {
   currentTab: TabType;
@@ -31,6 +32,7 @@ const notifications = [
 
 export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
   const { userProfile, logout } = useAuth();
+  const { dark, toggleTheme } = useTheme();
   const [searchQuery, setSearchQuery] = useState("");
   const [showResults, setShowResults] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -47,15 +49,27 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
         );
 
   return (
-    <header className="sticky top-0 z-40 flex h-18 items-center justify-between border-b border-gray-100 bg-white px-6 shadow-xs" id="app_header">
+    <header 
+      className={`sticky top-0 z-40 flex h-18 items-center justify-between px-6 transition-colors duration-200 ${
+        dark 
+          ? "border-b border-[#262626]/40 bg-[#141414] shadow-none" 
+          : "border-b border-gray-100 bg-white shadow-xs"
+      }`} 
+      id="app_header"
+    >
+      {/* Ô TÌM KIẾM ĐEN CARBON */}
       <div className="relative w-full max-w-2xl" id="search_container">
         <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
-          <Search className="h-5 w-5 text-gray-400" />
+          <Search className={`h-5 w-5 ${dark ? "text-neutral-500" : "text-gray-400"}`} />
         </div>
         <input
           type="text"
           placeholder="Tìm kiếm trong ERP..."
-          className="block h-12 w-full rounded-full border border-gray-200 bg-white pl-12 pr-5 text-sm text-gray-900 shadow-[0_8px_24px_rgba(15,23,42,0.05)] outline-none transition-all placeholder:text-gray-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+          className={`block h-12 w-full rounded-full border text-sm outline-none transition-all pl-12 pr-5 ${
+            dark
+              ? "border-[#262626] bg-[#1a1a1a] text-neutral-100 placeholder:text-neutral-500 focus:border-neutral-700 focus:ring-4 focus:ring-neutral-800/20 shadow-none"
+              : "border-gray-200 bg-white text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 shadow-[0_8px_24px_rgba(15,23,42,0.05)]"
+          }`}
           value={searchQuery}
           onChange={(event) => {
             setSearchQuery(event.target.value);
@@ -65,9 +79,14 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
           id="global_search_input"
         />
 
+        {/* DROPDOWN KẾT QUẢ TÌM KIẾM THUẦN ĐEN */}
         {showResults && searchQuery.trim() !== "" && (
-          <div className="absolute left-0 z-50 mt-3 w-full overflow-hidden rounded-2xl border border-gray-100 bg-white font-sans text-xs shadow-2xl">
-            <div className="border-b border-gray-100 bg-gray-50 px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-gray-400">
+          <div className={`absolute left-0 z-50 mt-3 w-full overflow-hidden rounded-2xl border font-sans text-xs shadow-2xl ${
+            dark ? "border-[#262626] bg-[#141414]" : "border-gray-100 bg-white"
+          }`}>
+            <div className={`border-b px-4 py-3 text-[10px] font-bold uppercase tracking-wider ${
+              dark ? "border-[#262626] bg-[#1a1a1a] text-neutral-400" : "border-gray-100 bg-gray-50 text-gray-400"
+            }`}>
               Kết quả tìm kiếm ({filteredResults.length})
             </div>
             {filteredResults.length > 0 ? (
@@ -80,10 +99,14 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
                       setSearchQuery("");
                       setShowResults(false);
                     }}
-                    className="flex w-full flex-col gap-1 border-b border-gray-100 px-4 py-3 text-left transition-colors last:border-0 hover:bg-blue-50/60"
+                    className={`flex w-full flex-col gap-1 border-b px-4 py-3 text-left transition-colors last:border-0 ${
+                      dark 
+                        ? "border-[#262626]/60 hover:bg-[#1a1a1a]" 
+                        : "border-gray-100 hover:bg-blue-50/60"
+                    }`}
                   >
-                    <span className="text-sm font-semibold text-gray-800">{item.label}</span>
-                    <span className="text-[10px] text-gray-400">
+                    <span className={`text-sm font-semibold ${dark ? "text-neutral-200" : "text-gray-800"}`}>{item.label}</span>
+                    <span className={`text-[10px] ${dark ? "text-neutral-500" : "text-gray-400"}`}>
                       {item.tab}
                       {item.subTab ? ` › ${item.subTab}` : ""}
                     </span>
@@ -91,73 +114,110 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
                 ))}
               </div>
             ) : (
-              <div className="p-5 text-center text-sm text-gray-500">Không tìm thấy phân mục phù hợp.</div>
+              <div className={`p-5 text-center text-sm ${dark ? "text-neutral-400" : "text-gray-500"}`}>
+                Không tìm thấy phân mục phù hợp.
+              </div>
             )}
           </div>
         )}
         {showResults && <div className="fixed inset-0 z-[-1]" onClick={() => setShowResults(false)} />}
       </div>
 
+      {/* ĐIỀU KHIỂN HỆ THỐNG BÊN PHẢI */}
       <div className="ml-6 flex items-center gap-3" id="header_controls">
+        
+        {/* NÚT TẠO MỚI (MÀU XANH THEO HÌNH MẪU) */}
         <button
           onClick={() => onSearchSelect(currentTab)}
-          className="hidden items-center gap-2 rounded-xl bg-blue-500 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-blue-600 md:flex"
+          className="hidden items-center gap-2 rounded-full bg-[#00b2cb] px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-all hover:bg-[#009cb2] active:scale-95 md:flex"
         >
           <Plus className="h-4 w-4" />
           <span>Tạo mới</span>
         </button>
 
+        {/* NÚT ĐỔI TRẠNG THÁI (ĐEN ĐỒNG BỘ) */}
+        {/* <button
+          type="button"
+          onClick={toggleTheme}
+          className={`flex items-center gap-2 rounded-full border px-4 py-2.5 text-xs font-bold transition active:scale-95 ${
+            dark 
+              ? "border-[#262626] bg-[#1a1a1a] text-neutral-300 hover:bg-[#262626]" 
+              : "border-slate-200 bg-white text-slate-900 hover:bg-slate-50"
+          }`}
+        >
+          {dark ? <Sun className="h-4 w-4 text-neutral-400" /> : <Moon className="h-4 w-4 text-slate-600" />}
+          <span>{dark ? "Sáng" : "Tối"}</span>
+        </button> */}
+
+        {/* CHUÔNG THÔNG BÁO */}
         <div className="relative" id="notification_dropdown_button">
           <button
             onClick={() => setShowNotifications(!showNotifications)}
-            className="relative rounded-xl p-2.5 text-gray-600 transition-all hover:bg-gray-50 active:scale-95"
+            className={`relative rounded-xl p-2.5 transition-all active:scale-95 ${
+              dark ? "text-neutral-400 hover:bg-[#1a1a1a]" : "text-gray-600 hover:bg-gray-50"
+            }`}
           >
             <Bell className="h-5 w-5" />
-            <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
+            <span className={`absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500 ring-2 ${dark ? "ring-[#141414]" : "ring-white"}`} />
           </button>
 
           {showNotifications && (
-            <div className="absolute right-0 z-50 mt-3 w-80 overflow-hidden rounded-2xl border border-gray-100 bg-white font-sans shadow-2xl">
-              <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-4 py-3">
-                <span className="text-sm font-bold text-gray-800">Thông báo</span>
-                <button className="text-xs font-semibold text-blue-600 hover:underline">Đánh dấu đã đọc</button>
+            <div className={`absolute right-0 z-50 mt-3 w-80 overflow-hidden rounded-2xl border font-sans shadow-2xl ${
+              dark ? "border-[#262626] bg-[#141414]" : "border-gray-100 bg-white"
+            }`}>
+              <div className={`flex items-center justify-between border-b px-4 py-3 ${
+                dark ? "border-[#262626] bg-[#1a1a1a]" : "border-gray-100 bg-gray-50"
+              }`}>
+                <span className={`text-sm font-bold ${dark ? "text-neutral-200" : "text-gray-800"}`}>Thông báo</span>
+                <button className={`text-xs font-semibold hover:underline ${dark ? "text-neutral-400" : "text-blue-600"}`}>
+                  Đánh dấu đã đọc
+                </button>
               </div>
-              <div className="max-h-72 divide-y divide-gray-100 overflow-y-auto">
+              <div className={`max-h-72 divide-y overflow-y-auto ${dark ? "divide-[#262626]" : "divide-gray-100"}`}>
                 {notifications.map((notification) => (
-                  <div key={notification.id} className="flex flex-col gap-1 p-4 text-xs hover:bg-gray-50/70">
-                    <p className="font-medium leading-relaxed text-gray-700">{notification.text}</p>
-                    <span className="font-mono text-[10px] text-gray-400">{notification.time}</span>
+                  <div key={notification.id} className={`flex flex-col gap-1 p-4 text-xs ${dark ? "hover:bg-[#1a1a1a]" : "hover:bg-gray-50/70"}`}>
+                    <p className={`font-medium leading-relaxed ${dark ? "text-neutral-300" : "text-gray-700"}`}>{notification.text}</p>
+                    <span className={`font-mono text-[10px] ${dark ? "text-neutral-500" : "text-gray-400"}`}>{notification.time}</span>
                   </div>
                 ))}
               </div>
-              <div className="border-t border-gray-100 bg-gray-50 p-3 text-center">
-                <button className="w-full text-xs font-semibold text-gray-500 hover:text-blue-600">Xem tất cả thông báo</button>
+              <div className={`border-t p-3 text-center ${dark ? "border-[#262626] bg-[#1a1a1a]" : "border-gray-100 bg-gray-50"}`}>
+                <button className={`w-full text-xs font-semibold ${dark ? "text-neutral-400" : "text-neutral-300"}`}>
+                  Xem tất cả thông báo
+                </button>
               </div>
             </div>
           )}
           {showNotifications && <div className="fixed inset-0 z-[-1]" onClick={() => setShowNotifications(false)} />}
         </div>
 
+        {/* THÔNG TIN PROFILE USER */}
         <div className="relative" id="user_profile_container">
           <div
-            className="flex cursor-pointer select-none items-center gap-3 border-l border-gray-200 pl-4 transition-transform active:scale-98"
+            className={`flex cursor-pointer select-none items-center gap-3 border-l pl-4 transition-transform active:scale-98 ${
+              dark ? "border-[#262626]" : "border-gray-200"
+            }`}
             id="user_profile_box"
             onClick={() => setShowProfileMenu(!showProfileMenu)}
           >
             <div className="hidden text-right lg:block">
-              <p className="text-sm font-semibold text-gray-800 transition-colors hover:text-blue-600">
-                {userProfile ? userProfile.displayName : "iGen Administrator"}
+              <p className={`text-sm font-semibold transition-colors ${dark ? "text-neutral-200" : "text-gray-800"}`}>
+                {userProfile ? userProfile.displayName : "nguyễn văn A"}
               </p>
             </div>
             {userProfile?.photoURL ? (
               <img
                 src={userProfile.photoURL}
                 alt={userProfile.displayName}
-                className="h-9 w-9 rounded-full border border-gray-200 object-cover shadow-md ring-2 ring-blue-50 transition-all hover:ring-blue-100"
+                className={`h-9 w-9 rounded-full border object-cover shadow-md ring-2 transition-all ${
+                  dark ? "border-neutral-700 ring-[#141414]" : "border-gray-200 ring-blue-50"
+                }`}
               />
             ) : (
-              <div className="flex h-9 w-9 select-none items-center justify-center rounded-full bg-blue-600 text-sm font-bold tracking-wide text-white shadow-md ring-2 ring-blue-50 transition-all hover:ring-blue-100">
-                {userProfile ? userProfile.displayName.slice(0, 2).toUpperCase() : "AD"}
+              <div className={`flex h-9 w-9 select-none items-center justify-center rounded-full text-sm font-bold tracking-wide text-white shadow-md ring-2 transition-all ${
+                dark ? "bg-neutral-700 ring-[#141414]" : "bg-blue-600 ring-blue-50"
+              }`}>
+                {userProfile ? userProfile.displayName.slice(0, 2).toUpperCase() : "NG"}
               </div>
             )}
           </div>
@@ -165,16 +225,13 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
           {showProfileMenu && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setShowProfileMenu(false)} />
-              <div className="absolute right-0 z-50 mt-3 w-56 rounded-2xl border border-gray-100 bg-white/95 py-2 font-sans shadow-2xl backdrop-blur-md">
-                <div className="border-b border-gray-100 px-4 py-2.5">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Tài khoản</p>
-                  <p className="mt-0.5 truncate text-sm font-bold text-gray-800">{userProfile?.displayName}</p>
-                  <p className="truncate text-xs text-gray-500">{userProfile?.email}</p>
-                  {userProfile?.role && (
-                    <span className="mt-1 inline-block rounded-md border border-blue-100 bg-blue-50 px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase text-blue-600">
-                      {userProfile.role}
-                    </span>
-                  )}
+              <div className={`absolute right-0 z-50 mt-3 w-56 rounded-2xl border py-2 font-sans shadow-2xl backdrop-blur-md ${
+                dark ? "border-[#262626] bg-[#141414]/95" : "border-gray-100 bg-white/95"
+              }`}>
+                <div className={`border-b px-4 py-2.5 ${dark ? "border-[#262626]" : "border-gray-100"}`}>
+                  <p className={`text-[10px] font-bold uppercase tracking-wider ${dark ? "text-neutral-500" : "text-gray-400"}`}>Tài khoản</p>
+                  <p className={`mt-0.5 truncate text-sm font-bold ${dark ? "text-neutral-200" : "text-gray-800"}`}>{userProfile?.displayName || "nguyễn văn A"}</p>
+                  <p className={`truncate text-xs ${dark ? "text-neutral-400" : "text-gray-500"}`}>{userProfile?.email || "tiendj28@gmail.com"}</p>
                 </div>
                 <div className="p-1">
                   <button
@@ -182,9 +239,11 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
                       onSearchSelect("CÀI ĐẶT" as TabType);
                       setShowProfileMenu(false);
                     }}
-                    className="flex w-full cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-semibold text-gray-700 transition-colors hover:bg-blue-50/80"
+                    className={`flex w-full cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-semibold transition-colors ${
+                      dark ? "text-neutral-300 hover:bg-[#1a1a1a]" : "text-gray-700 hover:bg-blue-50/80"
+                    }`}
                   >
-                    <Settings className="h-4 w-4 text-gray-500" />
+                    <Settings className="h-4 w-4 text-neutral-400" />
                     <span>Cài đặt cá nhân</span>
                   </button>
                   <button
@@ -192,7 +251,9 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
                       setShowProfileMenu(false);
                       await logout();
                     }}
-                    className="mt-1 flex w-full cursor-pointer items-center gap-2.5 rounded-xl border-t border-gray-50 px-3 py-2 pt-2 text-left text-xs font-semibold text-red-600 transition-colors hover:bg-red-50/80"
+                    className={`mt-1 flex w-full cursor-pointer items-center gap-2.5 rounded-xl border-t px-3 py-2 pt-2 text-left text-xs font-semibold text-red-500 transition-colors ${
+                      dark ? "border-[#262626]/50 hover:bg-red-950/20" : "border-gray-50 hover:bg-red-50/80"
+                    }`}
                   >
                     <LogOut className="h-4 w-4 text-red-500" />
                     <span>Đăng xuất hệ thống</span>
