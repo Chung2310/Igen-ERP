@@ -743,7 +743,8 @@ export default function HRTab() {
 
   const handleCreateCourse = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!userProfile?.companyCode || !courseFormTitle.trim()) return;
+    if (!userProfile || !courseFormTitle.trim()) return;
+    const companyCode = selectedCompanyCode || userProfile.companyCode || "SYSTEM";
     const creatorName = userProfile.displayName || userProfile.email || "iGen Academy";
     try {
       const docRef = await addDoc(collection(db, "trainingCourses"), {
@@ -755,7 +756,7 @@ export default function HRTab() {
         icon: "📚",
         duration: courseFormDuration.trim() || "Chưa xác định",
         instructor: creatorName,
-        companyCode: userProfile.companyCode,
+        companyCode: companyCode,
         creatorUid: userProfile.uid,
         createdAt: serverTimestamp(),
         enrolledCount: 0,
@@ -778,7 +779,7 @@ export default function HRTab() {
         isRequired: courseFormIsRequired, icon: "📚",
         duration: courseFormDuration.trim() || "Chưa xác định",
         instructor: creatorName,
-        companyCode: userProfile.companyCode!, creatorUid: userProfile.uid,
+        companyCode: companyCode, creatorUid: userProfile.uid,
         createdAt: new Date(), enrolledCount: 0, companyProgress: 0,
         autoAssignOnboarding: courseFormAutoOnboarding,
         lessons: courseFormLessons,
@@ -801,7 +802,7 @@ export default function HRTab() {
           courseTitle: course.title,
           uid: userProfile.uid,
           userName: userProfile.displayName || userProfile.email || "Nhân viên",
-          companyCode: userProfile.companyCode,
+          companyCode: course.companyCode,
           progress: 0,
           status: "in_progress",
           startedAt: serverTimestamp(),
@@ -816,7 +817,7 @@ export default function HRTab() {
         const newEnroll: TrainingEnrollment = {
           id: enrollRef.id, courseId: course.id, courseTitle: course.title,
           uid: userProfile.uid, userName: userProfile.displayName || userProfile.email || "Nhân viên",
-          companyCode: userProfile.companyCode || "", progress: 0,
+          companyCode: course.companyCode, progress: 0,
           status: "in_progress", createdAt: new Date(),
           completedLessons: [],
           quizPassed: false,
