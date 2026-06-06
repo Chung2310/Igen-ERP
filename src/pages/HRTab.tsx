@@ -1881,7 +1881,7 @@ export default function HRTab() {
                                       
                                       {/* Status */}
                                       <td className="p-3 border-r border-gray-150/60">
-                                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap ${
                                           finalStatus === "Done" ? "bg-emerald-50 border border-emerald-250 border-emerald-200 text-emerald-700" :
                                           finalStatus === "In Progress" ? "bg-blue-50 border border-blue-200 text-blue-700" :
                                           finalStatus === "Review/Testing" ? "bg-amber-50 border border-amber-250 border-amber-200 text-amber-700" :
@@ -1894,7 +1894,7 @@ export default function HRTab() {
                                       
                                       {/* Priority */}
                                       <td className="p-3 border-r border-gray-150/60">
-                                        <span className={`px-2.5 py-0.5 rounded-lg text-[10px] font-bold ${
+                                        <span className={`px-2.5 py-0.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${
                                           task.priority === "High" || task.priority === "Cao" ? "bg-red-50 border border-red-150 border-red-100 text-red-700" :
                                           task.priority === "Medium" || task.priority === "Trung bình" ? "bg-amber-50 border border-amber-150 border-amber-100 text-amber-750" :
                                           "bg-blue-50 border border-blue-150 border-blue-100 text-blue-700"
@@ -1944,7 +1944,7 @@ export default function HRTab() {
                                       
                                       {/* KPI */}
                                       <td className="p-3 border-r border-gray-150/60 min-w-[120px]">
-                                        <span className={`px-2.5 py-0.5 rounded-lg text-[10px] font-semibold ${kpiColor}`}>
+                                        <span className={`px-2.5 py-0.5 rounded-lg text-[10px] font-semibold whitespace-nowrap ${kpiColor}`}>
                                           {kpiText}
                                         </span>
                                       </td>
@@ -2260,7 +2260,7 @@ export default function HRTab() {
                             
                             {/* Status */}
                             <td className="p-3 border-r border-gray-150/60">
-                              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap ${
                                 finalStatus === "Done" ? "bg-emerald-50 border border-emerald-255 border-emerald-200 text-emerald-700" :
                                 finalStatus === "In Progress" ? "bg-blue-50 border border-blue-200 text-blue-700" :
                                 finalStatus === "Review/Testing" ? "bg-amber-50 border border-amber-250 border-amber-200 text-amber-700" :
@@ -2286,7 +2286,7 @@ export default function HRTab() {
                             
                             {/* Priority */}
                             <td className="p-3 border-r border-gray-150/60">
-                              <span className={`px-2.5 py-0.5 rounded-lg text-[10px] font-bold ${
+                              <span className={`px-2.5 py-0.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${
                                 task.priority === "High" || task.priority === "Cao" ? "bg-red-50 border border-red-100 text-red-700" :
                                 task.priority === "Medium" || task.priority === "Trung bình" ? "bg-amber-50 border border-amber-100 text-amber-750" :
                                 "bg-blue-50 border border-blue-100 text-blue-700"
