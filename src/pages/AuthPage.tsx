@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { Mail, Lock, RefreshCw, ArrowRight, Eye, EyeOff, AlertCircle } from "lucide-react";
 import { BRAND_LOGO_URL, BRAND_NAME } from "../config/brand";
+import { parseFirebaseError } from "../utils/firebaseErrorParser";
 
 export default function AuthPage() {
   const { loginWithEmail } = useAuth();
@@ -53,17 +54,7 @@ export default function AuthPage() {
       await loginWithEmail(email.trim(), password.trim(), rememberMe);
     } catch (err: any) {
       console.error(err);
-      // Map Firebase errors to user-friendly messages
-      let msg = "Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.";
-      if (err.code === "auth/user-not-found" || err.code === "auth/wrong-password" || err.code === "auth/invalid-credential") {
-        msg = "Email hoặc mật khẩu không chính xác.";
-      } else if (err.code === "auth/invalid-email") {
-        msg = "Địa chỉ email không đúng định dạng.";
-      } else if (err.code === "auth/network-request-failed") {
-        msg = "Lỗi kết nối mạng. Vui lòng kiểm tra internet.";
-      } else if (err.message) {
-        msg = err.message;
-      }
+      const msg = parseFirebaseError(err, "Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.");
       setError(msg);
     } finally {
       setLoading(false);

@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { CheckCircle, Cpu, Download, FolderTree, Pencil, Plus, Search, Tags, Trash2, Upload } from "lucide-react";
 import { InventoryForecastSummary, InventorySubTabType, ProductCategory, ProductItem, StockLog } from "../types";
@@ -23,30 +23,10 @@ import {
   importStockLogsFromExcel,
 } from "../utils/inventoryExcel";
 import { buildInventoryForecast } from "../utils/inventoryForecast";
+import { parseFirebaseError } from "../utils/firebaseErrorParser";
 
 function getInventoryErrorMessage(error: unknown, fallbackMessage: string) {
-  if (!(error instanceof Error)) return fallbackMessage;
-
-  try {
-    const parsed = JSON.parse(error.message) as { error?: string; path?: string };
-    const rawMessage = parsed.error || "";
-
-    if (rawMessage.includes("permission") || rawMessage.includes("Permission")) {
-      return `Firebase đang chặn thao tác trên ${parsed.path || "inventory"}. Kiểm tra lại rules hoặc quyền role admin/superadmin.`;
-    }
-
-    if (rawMessage.includes("storage") || rawMessage.includes("object") || rawMessage.includes("bucket")) {
-      return "Upload ảnh sản phẩm đang bị chặn. Kiểm tra lại Firebase Storage rules trước khi thêm ảnh.";
-    }
-
-    if (rawMessage.includes("index")) {
-      return "Firestore đang yêu cầu tạo index cho truy vấn này. Mở console Firebase để tạo index còn thiếu.";
-    }
-  } catch {
-    return error.message || fallbackMessage;
-  }
-
-  return error.message || fallbackMessage;
+  return parseFirebaseError(error, fallbackMessage);
 }
 
 type TransactionStatus = "Đang chờ" | "Đang xử lý" | "Hoàn thành";
@@ -284,7 +264,8 @@ export default function InventoryTab() {
         });
 
         if (result?.imageUploadFailed) {
-          toast.success("Đã cập nhật sản phẩm, nhưng ảnh chưa tải lên được do Storage đang lỗi quota.");
+          const uploadErrMsg = parseFirebaseError(result.imageUploadError, "Lỗi kết nối bộ lưu trữ.");
+          toast.success(`Đã cập nhật sản phẩm, nhưng không thể tải lên hình ảnh (${uploadErrMsg})`);
         } else {
           toast.success("Đã cập nhật sản phẩm.");
         }
@@ -313,7 +294,8 @@ export default function InventoryTab() {
           ...currentLogs,
         ]);
         if (result?.imageUploadFailed) {
-          toast.success("Đã tạo sản phẩm mới, nhưng ảnh chưa tải lên được do Storage đang lỗi quota.");
+          const uploadErrMsg = parseFirebaseError(result.imageUploadError, "Lỗi kết nối bộ lưu trữ.");
+          toast.success(`Đã tạo sản phẩm mới, nhưng không thể tải lên hình ảnh (${uploadErrMsg})`);
         } else {
           toast.success("Đã tạo sản phẩm mới.");
         }

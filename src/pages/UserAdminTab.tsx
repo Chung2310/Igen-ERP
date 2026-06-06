@@ -4,6 +4,7 @@ import { authService } from "../services/authService";
 import { UserProfile } from "../types";
 import { toast } from "./Toast";
 import { Users, Shield, RefreshCw, Plus, Building2, Mail, Lock, User, X } from "lucide-react";
+import { parseFirebaseError } from "../utils/firebaseErrorParser";
 
 export default function UserAdminTab() {
   const { userProfile } = useAuth();
@@ -238,14 +239,7 @@ export default function UserAdminTab() {
       await fetchCompanies();
     } catch (error: any) {
       console.error("Lỗi đăng ký doanh nghiệp:", error);
-      let errMsg = "Không thể đăng ký doanh nghiệp mới.";
-      if (error?.code === "auth/email-already-in-use") {
-        errMsg = "Email của chủ sở hữu đã được sử dụng.";
-      } else if (error?.message) {
-        errMsg += ` Chi tiết: ${error.message}`;
-      } else {
-        errMsg += ` Chi tiết: ${JSON.stringify(error)}`;
-      }
+      const errMsg = parseFirebaseError(error, "Không thể đăng ký doanh nghiệp mới.");
       toast.error(errMsg);
     } finally {
       setSubmittingCompany(false);
@@ -305,12 +299,7 @@ export default function UserAdminTab() {
       await fetchUsers();
     } catch (error: any) {
       console.error("Lỗi đăng ký người dùng:", error);
-      let errMsg = "Không thể đăng ký người dùng mới.";
-      if (error?.code === "auth/email-already-in-use") {
-        errMsg = "Email đã được sử dụng bởi tài khoản khác.";
-      } else if (error?.message) {
-        errMsg += ` Chi tiết: ${error.message}`;
-      }
+      const errMsg = parseFirebaseError(error, "Không thể đăng ký người dùng mới.");
       toast.error(errMsg);
     } finally {
       setSubmittingUser(false);

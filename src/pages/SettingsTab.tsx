@@ -31,6 +31,7 @@ import { auth } from "../config/firebase";
 import { updatePassword } from "firebase/auth";
 import { toast } from "./Toast";
 import { FacebookIntegration } from "../types";
+import { parseFirebaseError } from "../utils/firebaseErrorParser";
 
 export default function SettingsTab() {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -149,11 +150,8 @@ export default function SettingsTab() {
       }
     } catch (err: any) {
       console.error(err);
-      if (err.code === "auth/requires-recent-login") {
-        toast.error("Hành động này yêu cầu bạn phải đăng nhập lại gần đây để xác thực.");
-      } else {
-        toast.error("Thay đổi mật khẩu thất bại. Vui lòng thử lại.");
-      }
+      const errMsg = parseFirebaseError(err, "Thay đổi mật khẩu thất bại. Vui lòng thử lại.");
+      toast.error(errMsg);
     } finally {
       setUpdatingPassword(false);
     }
