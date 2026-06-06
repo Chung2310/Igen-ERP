@@ -1,6 +1,8 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300..900;1,300..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Space+Grotesk:wght@300..700&display=swap');
 @import "tailwindcss";
 
+/* Dark mode disabled — theme forcing to light is handled in src/context/ThemeContext.tsx */
+
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
@@ -174,13 +176,101 @@
 
 :root {
   color-scheme: light;
-  background-color: var(--color-background);
-  color: var(--color-on-surface);
+  background-color: #ffffff;
+  color: #0f172a;
 }
 
 body {
-  background: var(--color-background);
-  color: var(--color-on-surface);
+  min-height: 100vh;
+  background: #ffffff;
+  color: #0f172a;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
+html.dark body {
+  background: #000000;
+  color: #f8fafc;
+}
+
+html.dark .bg-white {
+  background-color: #000000 !important;
+}
+
+html.dark .bg-white\/90,
+html.dark .bg-white {
+  background-color: rgba(0,0,0,0.9) !important;
+}
+
+html.dark .text-gray-800 {
+  color: #f8fafc !important;
+}
+
+html.dark .bg-slate-50,
+html.dark .bg-gray-50,
+html.dark .bg-gray-100,
+html.dark .bg-gray-200,
+html.dark .bg-slate-100,
+html.dark .bg-slate-200 {
+  background-color: #000000 !important;
+}
+
+html.dark .bg-white\/90,
+html.dark .bg-white {
+  background-color: rgba(15,23,42,0.9) !important;
+}
+
+html.dark .border-gray-100,
+html.dark .border-gray-200 {
+  border-color: #334155 !important;
+}
+
+html.dark .bg-gray-50,
+html.dark .bg-gray-100,
+html.dark .bg-gray-200 {
+  background-color: #0f172a !important;
+}
+
+html.dark .bg-slate-900\/60 {
+  background-color: rgba(15,23,42,0.6) !important;
+}
+
+html.dark .bg-slate-900\/90 {
+  background-color: rgba(15,23,42,0.9) !important;
+}
+
+html.dark .text-slate-300 {
+  color: #cbd5e1 !important;
+}
+
+html.dark .text-gray-500 {
+  color: #94a3b8 !important;
+}
+
+@keyframes confetti-fall {
+  0% {
+    transform: translateY(-10vh) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(120vh) rotate(720deg);
+    opacity: 0;
+  }
+}
+
+@keyframes confetti-sway {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(12px);
+  }
+}
+
+.confetti-piece {
+  animation: confetti-fall 2.4s ease-out forwards, confetti-sway 0.8s ease-in-out infinite alternate;
 }
 
 /* Custom Scrollbar Styles */
