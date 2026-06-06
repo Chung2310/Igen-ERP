@@ -25,6 +25,9 @@ jobs:
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
+      - name: Enable Cloud Billing API
+        run: gcloud services enable cloudbilling.googleapis.com --project=igen-25811
+
       - name: Deploy rules and functions
         run: |
           firebase deploy --only firestore:rules,storage,functions
