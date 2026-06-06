@@ -745,6 +745,10 @@ export default function HRTab() {
     e.preventDefault();
     if (!userProfile || !courseFormTitle.trim()) return;
     const companyCode = selectedCompanyCode || userProfile.companyCode || "SYSTEM";
+    if (userProfile.role !== "superadmin" && (!companyCode || companyCode === "SYSTEM")) {
+      toast.error("Tài khoản của bạn chưa được gắn với doanh nghiệp. Không thể tạo khóa học.");
+      return;
+    }
     const creatorName = userProfile.displayName || userProfile.email || "iGen Academy";
     try {
       const docRef = await addDoc(collection(db, "trainingCourses"), {
@@ -3005,7 +3009,7 @@ export default function HRTab() {
                     </div>
                     <div>
                       <input
-                        type="url"
+                        type="text"
                         required
                         placeholder="Link (ví dụ: https://youtube.com/watch?v=... hoặc link tài liệu)"
                         value={les.url}
