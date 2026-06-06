@@ -287,8 +287,9 @@ export const authService = {
     parentId?: string,
     managerLevel?: number,
     department?: string,
-    division?: string
-  ): Promise<void> {
+    division?: string,
+    phone?: string
+  ): Promise<string> {
     const normalizedCode = companyCode.toUpperCase().trim();
     // Tính level: nếu có quản lý thì level = level của quản lý + 1, không thì mặc định theo role
     const defaultLevel = role === "admin" ? 1 : (role === "manager" ? 3 : 4);
@@ -319,7 +320,8 @@ export const authService = {
         division: division || (role === "admin" ? "Ban Giám Đốc" : (role === "manager" ? "Quản lý" : "Nhân sự")),
         level,
         parentId: parentId || undefined,
-        status: "offline"
+        status: "offline",
+        phone: phone || "Chưa cập nhật"
       };
 
       await setDoc(userDocRef, {
@@ -328,6 +330,7 @@ export const authService = {
       });
 
       await signOut(tempAuth);
+      return user.uid;
     } catch (error) {
       console.error("Lỗi khi đăng ký tài khoản thành viên doanh nghiệp:", error);
       throw error;
