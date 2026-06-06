@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useAuth } from "../context/AuthContext";
-import { Mail, Lock, RefreshCw, ArrowRight, Eye, EyeOff } from "lucide-react";
+import { Mail, Lock, RefreshCw, ArrowRight, Eye, EyeOff, AlertCircle } from "lucide-react";
 import { BRAND_LOGO_URL, BRAND_NAME } from "../config/brand";
 
 export default function AuthPage() {
@@ -10,16 +10,61 @@ export default function AuthPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
+  
+  // Error states for local validation & server responses
+  const [error, setError] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+
+  const validateForm = () => {
+    let isValid = true;
+    setEmailError(null);
+    setPasswordError(null);
+    setError(null);
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email.trim()) {
+      setEmailError("Email không được để trống.");
+      isValid = false;
+    } else if (!emailRegex.test(email.trim())) {
+      setEmailError("Địa chỉ email không đúng định dạng.");
+      isValid = false;
+    }
+
+    // Validate password
+    if (!password) {
+      setPasswordError("Mật khẩu không được để trống.");
+      isValid = false;
+    } else if (password.length < 6) {
+      setPasswordError("Mật khẩu phải chứa ít nhất 6 ký tự.");
+      isValid = false;
+    }
+
+    return isValid;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim() || !password.trim()) return;
+    if (!validateForm()) return;
 
     setLoading(true);
     try {
       await loginWithEmail(email.trim(), password.trim(), rememberMe);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      // Map Firebase errors to user-friendly messages
+      let msg = "Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.";
+      if (err.code === "auth/user-not-found" || err.code === "auth/wrong-password" || err.code === "auth/invalid-credential") {
+        msg = "Email hoặc mật khẩu không chính xác.";
+      } else if (err.code === "auth/invalid-email") {
+        msg = "Địa chỉ email không đúng định dạng.";
+      } else if (err.code === "auth/network-request-failed") {
+        msg = "Lỗi kết nối mạng. Vui lòng kiểm tra internet.";
+      } else if (err.message) {
+        msg = err.message;
+      }
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -51,35 +96,66 @@ export default function AuthPage() {
           </div>
         </div>
 
+        {/* Global Error Banner */}
+        {error && (
+          <div className="bg-red-50 border border-red-200/50 text-red-600 rounded-xl p-3.5 text-xs flex items-center gap-2.5 animate-fade-in-up">
+            <AlertCircle className="h-4.5 w-4.5 shrink-0 text-red-500" />
+            <span className="font-semibold">{error}</span>
+          </div>
+        )}
+
         {/* Input Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} noValidate className="space-y-4">
           
           <div className="space-y-1.5">
             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Địa chỉ Email *</label>
             <div className="relative group">
-              <Mail className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-400 group-focus-within:text-blue-600 transition-colors" />
+              <Mail className={`absolute left-3.5 top-3.5 h-4 w-4 transition-colors ${
+                emailError ? "text-red-500" : "text-slate-400 group-focus-within:text-blue-600"
+              }`} />
               <input 
                 type="email" 
-                required
                 placeholder="name@company.com" 
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200"
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (emailError) setEmailError(null);
+                  if (error) setError(null);
+                }}
+                className={`w-full pl-11 pr-4 py-3 bg-slate-50 border rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:bg-white outline-none transition-all duration-200 ${
+                  emailError 
+                    ? "border-red-300 focus:ring-4 focus:ring-red-500/10 focus:border-red-500" 
+                    : "border-slate-200 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500"
+                }`}
               />
             </div>
+            {emailError && (
+              <span className="text-[10px] text-red-500 font-bold mt-1 block pl-1 animate-fade-in-up">
+                {emailError}
+              </span>
+            )}
           </div>
 
           <div className="space-y-1.5">
             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Mật khẩu *</label>
             <div className="relative group">
-              <Lock className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-400 group-focus-within:text-blue-600 transition-colors" />
+              <Lock className={`absolute left-3.5 top-3.5 h-4 w-4 transition-colors ${
+                passwordError ? "text-red-500" : "text-slate-400 group-focus-within:text-blue-600"
+              }`} />
               <input 
                 type={showPassword ? "text" : "password"} 
-                required
                 placeholder="••••••••" 
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-11 pr-11 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200"
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (passwordError) setPasswordError(null);
+                  if (error) setError(null);
+                }}
+                className={`w-full pl-11 pr-11 py-3 bg-slate-50 border rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:bg-white outline-none transition-all duration-200 ${
+                  passwordError 
+                    ? "border-red-300 focus:ring-4 focus:ring-red-500/10 focus:border-red-500" 
+                    : "border-slate-200 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500"
+                }`}
               />
               <button
                 type="button"
@@ -89,6 +165,11 @@ export default function AuthPage() {
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
+            {passwordError && (
+              <span className="text-[10px] text-red-500 font-bold mt-1 block pl-1 animate-fade-in-up">
+                {passwordError}
+              </span>
+            )}
           </div>
 
           {/* Remember me checkbox */}
