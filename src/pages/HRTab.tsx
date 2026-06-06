@@ -27,7 +27,7 @@ import {
   User,
   Target
 } from "lucide-react";
-import { HRSubTabType, EmployeeNode, HRTask, TrainingCourse, TrainingEnrollment, UserProfile, Project, TaskHistoryEntry } from "../types";
+import { HRSubTabType, EmployeeNode, HRTask, TrainingCourse, TrainingEnrollment, UserProfile, Project, TaskHistoryEntry, Lesson, QuizQuestion } from "../types";
 import { useAuth } from "../context/AuthContext";
 import { db } from "../config/firebase";
 import { doc, updateDoc, setDoc, deleteDoc, writeBatch, collection, getDocs, addDoc, serverTimestamp, query, where, orderBy } from "firebase/firestore";
@@ -704,6 +704,17 @@ export default function HRTab() {
   const [courseFormIsRequired, setCourseFormIsRequired] = useState(false);
   const [courseFormAutoOnboarding, setCourseFormAutoOnboarding] = useState(false);
 
+  // New state variables for lessons and quizzes
+  const [courseFormLessons, setCourseFormLessons] = useState<Lesson[]>([]);
+  const [courseFormQuizzes, setCourseFormQuizzes] = useState<QuizQuestion[]>([]);
+
+  // Active study player state
+  const [activeStudyCourse, setActiveStudyCourse] = useState<TrainingCourse | null>(null);
+  const [activeLessonIndex, setActiveLessonIndex] = useState<number>(-1);
+  const [quizAnswers, setQuizAnswers] = useState<number[]>([]);
+  const [quizSubmitted, setQuizSubmitted] = useState<boolean>(false);
+  const [quizErrors, setQuizErrors] = useState<boolean[]>([]);
+
   const fetchCourses = async (companyCode: string) => {
     try {
       const q = query(collection(db, "trainingCourses"), where("companyCode", "==", companyCode));
@@ -750,12 +761,16 @@ export default function HRTab() {
         enrolledCount: 0,
         companyProgress: 0,
         autoAssignOnboarding: courseFormAutoOnboarding,
+        lessons: courseFormLessons,
+        quizzes: courseFormQuizzes,
       });
       toast.success("Đã tạo khóa học thành công!");
       setIsAddCourseModalOpen(false);
       setCourseFormTitle(""); setCourseFormDesc("");
       setCourseFormDuration("");
       setCourseFormIsRequired(false); setCourseFormAutoOnboarding(false);
+      setCourseFormLessons([]);
+      setCourseFormQuizzes([]);
       // Thêm vào local state ngay không cần reload
       setCourses(prev => [...prev, {
         id: docRef.id, title: courseFormTitle.trim(), description: courseFormDesc.trim(),
@@ -766,6 +781,8 @@ export default function HRTab() {
         companyCode: userProfile.companyCode!, creatorUid: userProfile.uid,
         createdAt: new Date(), enrolledCount: 0, companyProgress: 0,
         autoAssignOnboarding: courseFormAutoOnboarding,
+        lessons: courseFormLessons,
+        quizzes: courseFormQuizzes,
       }]);
     } catch (err) {
       console.error("Lỗi tạo khóa học:", err);
@@ -776,57 +793,214 @@ export default function HRTab() {
   const handleEnrollAndStart = async (course: TrainingCourse) => {
     if (!userProfile) return;
     const existing = enrollments.find(e => e.courseId === course.id);
-    if (existing) {
-      // Đã enroll → tăng progress +20%
-      const nextProgress = Math.min(existing.progress + 20, 100);
-      const newStatus: TrainingEnrollment["status"] = nextProgress >= 100 ? "completed" : "in_progress";
-      try {
-        await updateDoc(doc(db, "trainingEnrollments", existing.id), {
-          progress: nextProgress,
-          status: newStatus,
-          ...(newStatus === "completed" ? { completedAt: serverTimestamp() } : {}),
-        });
-        setEnrollments(prev => prev.map(e => e.id === existing.id
-          ? { ...e, progress: nextProgress, status: newStatus }
-          : e
-        ));
-        if (newStatus === "completed") toast.success(`🎉 Bạn đã hoàn thành khóa học "${course.title}"!`);
-      } catch (err) {
-        toast.error("Không thể cập nhật tiến độ.");
-      }
-    } else {
+    if (!existing) {
       // Chưa enroll → tạo enrollment mới
       try {
         const enrollRef = await addDoc(collection(db, "trainingEnrollments"), {
           courseId: course.id,
           courseTitle: course.title,
           uid: userProfile.uid,
-          userName: userProfile.displayName || userProfile.email,
+          userName: userProfile.displayName || userProfile.email || "Nhân viên",
           companyCode: userProfile.companyCode,
-          progress: 20,
+          progress: 0,
           status: "in_progress",
           startedAt: serverTimestamp(),
           createdAt: serverTimestamp(),
+          completedLessons: [],
+          quizPassed: false,
         });
         // Tăng enrolledCount trên course
         await updateDoc(doc(db, "trainingCourses", course.id), {
           enrolledCount: (course.enrolledCount || 0) + 1
         });
-        setEnrollments(prev => [...prev, {
+        const newEnroll: TrainingEnrollment = {
           id: enrollRef.id, courseId: course.id, courseTitle: course.title,
-          uid: userProfile.uid, userName: userProfile.displayName || userProfile.email,
-          companyCode: userProfile.companyCode || "", progress: 20,
+          uid: userProfile.uid, userName: userProfile.displayName || userProfile.email || "Nhân viên",
+          companyCode: userProfile.companyCode || "", progress: 0,
           status: "in_progress", createdAt: new Date(),
-        }]);
+          completedLessons: [],
+          quizPassed: false,
+        };
+        setEnrollments(prev => [...prev, newEnroll]);
         setCourses(prev => prev.map(c => c.id === course.id
           ? { ...c, enrolledCount: c.enrolledCount + 1 }
           : c
         ));
-        toast.success(`Bắt đầu học "${course.title}" — Tiến độ: 20%`);
+        
+        // Mở modal học tập
+        setActiveStudyCourse(course);
+        setActiveLessonIndex(-1); // Intro
+        setQuizAnswers([]);
+        setQuizSubmitted(false);
+        setQuizErrors([]);
+        toast.success(`Bắt đầu học "${course.title}"!`);
       } catch (err) {
         console.error(err);
         toast.error("Không thể đăng ký khóa học.");
       }
+    } else {
+      // Đã enroll → Mở modal học tập
+      setActiveStudyCourse(course);
+      
+      const completed = existing.completedLessons || [];
+      const lessons = course.lessons || [];
+      let nextIdx = -1;
+      for (let i = 0; i < lessons.length; i++) {
+        if (!completed.includes(lessons[i].url)) {
+          nextIdx = i;
+          break;
+        }
+      }
+      
+      if (nextIdx === -1 && lessons.length > 0 && !existing.quizPassed && (course.quizzes && course.quizzes.length > 0)) {
+        nextIdx = lessons.length;
+      }
+      
+      setActiveLessonIndex(nextIdx);
+      setQuizAnswers([]);
+      setQuizSubmitted(false);
+      setQuizErrors([]);
+    }
+  };
+
+  const handleMarkLessonComplete = async (lesson: Lesson) => {
+    if (!activeStudyCourse || !userProfile) return;
+    const enroll = enrollments.find(e => e.courseId === activeStudyCourse.id);
+    if (!enroll) return;
+
+    const completed = enroll.completedLessons || [];
+    if (!completed.includes(lesson.url)) {
+      const nextCompleted = [...completed, lesson.url];
+      
+      const totalLessons = activeStudyCourse.lessons?.length ?? 0;
+      const totalQuizzes = (activeStudyCourse.quizzes && activeStudyCourse.quizzes.length > 0) ? 1 : 0;
+      const totalItems = totalLessons + totalQuizzes;
+      
+      const finishedItems = nextCompleted.length + (enroll.quizPassed ? 1 : 0);
+      const progressPercent = Math.round((finishedItems / (totalItems || 1)) * 100);
+      const isCourseDone = progressPercent >= 100;
+      const newStatus = isCourseDone ? "completed" : "in_progress";
+
+      try {
+        await updateDoc(doc(db, "trainingEnrollments", enroll.id), {
+          completedLessons: nextCompleted,
+          progress: progressPercent,
+          status: newStatus,
+          ...(isCourseDone ? { completedAt: serverTimestamp() } : {}),
+        });
+
+        setEnrollments(prev => prev.map(e => e.id === enroll.id
+          ? { ...e, completedLessons: nextCompleted, progress: progressPercent, status: newStatus }
+          : e
+        ));
+
+        // Tự động chuyển bài học tiếp theo hoặc quiz
+        const lessons = activeStudyCourse.lessons || [];
+        const currentIndex = lessons.findIndex(l => l.url === lesson.url);
+        if (currentIndex < lessons.length - 1) {
+          setActiveLessonIndex(currentIndex + 1);
+        } else if (totalQuizzes > 0) {
+          setActiveLessonIndex(lessons.length); // Chuyển sang phần thi trắc nghiệm
+        } else {
+          toast.success(`🎉 Chúc mừng! Bạn đã hoàn thành khóa học "${activeStudyCourse.title}"!`);
+          setActiveStudyCourse(null);
+          fetchCourses(userProfile.companyCode!);
+        }
+      } catch (err) {
+        toast.error("Không thể lưu tiến độ học tập.");
+      }
+    } else {
+      const lessons = activeStudyCourse.lessons || [];
+      const currentIndex = lessons.findIndex(l => l.url === lesson.url);
+      const totalQuizzes = (activeStudyCourse.quizzes && activeStudyCourse.quizzes.length > 0) ? 1 : 0;
+      
+      if (currentIndex < lessons.length - 1) {
+        setActiveLessonIndex(currentIndex + 1);
+      } else if (totalQuizzes > 0) {
+        setActiveLessonIndex(lessons.length);
+      } else {
+        setActiveStudyCourse(null);
+      }
+    }
+  };
+
+  const handleSubmitQuiz = async () => {
+    if (!activeStudyCourse || !userProfile) return;
+    const enroll = enrollments.find(e => e.courseId === activeStudyCourse.id);
+    if (!enroll) return;
+
+    const quizzes = activeStudyCourse.quizzes || [];
+    if (quizzes.length === 0) return;
+
+    let allCorrect = true;
+    const errorsCopy = new Array(quizzes.length).fill(false);
+    for (let i = 0; i < quizzes.length; i++) {
+      if (quizAnswers[i] !== quizzes[i].correctOptionIndex) {
+        allCorrect = false;
+        errorsCopy[i] = true;
+      }
+    }
+
+    setQuizSubmitted(true);
+    setQuizErrors(errorsCopy);
+
+    if (allCorrect) {
+      const totalLessons = activeStudyCourse.lessons?.length ?? 0;
+      const totalItems = totalLessons + 1; 
+      const finishedItems = (enroll.completedLessons || []).length + 1;
+      const progressPercent = Math.round((finishedItems / (totalItems || 1)) * 100);
+      const isCourseDone = progressPercent >= 100;
+      const newStatus = isCourseDone ? "completed" : "in_progress";
+
+      try {
+        await updateDoc(doc(db, "trainingEnrollments", enroll.id), {
+          quizPassed: true,
+          progress: progressPercent,
+          status: newStatus,
+          ...(isCourseDone ? { completedAt: serverTimestamp() } : {}),
+        });
+
+        setEnrollments(prev => prev.map(e => e.id === enroll.id
+          ? { ...e, quizPassed: true, progress: progressPercent, status: newStatus }
+          : e
+        ));
+
+        toast.success("🎉 Xuất sắc! Bạn đã trả lời đúng tất cả các câu hỏi trắc nghiệm!");
+      } catch (err) {
+        toast.error("Không thể lưu kết quả thi.");
+      }
+    } else {
+      toast.error("Có câu trả lời chưa đúng. Vui lòng kiểm tra lại!");
+    }
+  };
+
+  const handleFinishCourse = () => {
+    if (!activeStudyCourse || !userProfile) return;
+    toast.success(`🎉 Chúc mừng! Bạn đã hoàn thành khóa học "${activeStudyCourse.title}"!`);
+    setActiveStudyCourse(null);
+    fetchCourses(userProfile.companyCode!);
+  };
+
+  const handleCompleteCourseDirectly = async () => {
+    if (!activeStudyCourse || !userProfile) return;
+    const enroll = enrollments.find(e => e.courseId === activeStudyCourse.id);
+    if (!enroll) return;
+
+    try {
+      await updateDoc(doc(db, "trainingEnrollments", enroll.id), {
+        progress: 100,
+        status: "completed",
+        completedAt: serverTimestamp(),
+      });
+      setEnrollments(prev => prev.map(e => e.id === enroll.id
+        ? { ...e, progress: 100, status: "completed" }
+        : e
+      ));
+      toast.success(`🎉 Bạn đã hoàn thành khóa học "${activeStudyCourse.title}"!`);
+      setActiveStudyCourse(null);
+      fetchCourses(userProfile.companyCode!);
+    } catch (err) {
+      toast.error("Không thể hoàn thành khóa học.");
     }
   };
 
@@ -2775,6 +2949,153 @@ export default function HRTab() {
                   </span>
                 </label>
               </div>
+              {/* Dynamic Lessons Creator */}
+              <div className="border-t border-gray-100 pt-3.5 space-y-2">
+                <div className="flex justify-between items-center">
+                  <label className="block font-bold text-gray-500 font-sans flex items-center gap-1">
+                    <span>📚 Bài học ({courseFormLessons.length})</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setCourseFormLessons(prev => [...prev, { title: "", url: "", type: "youtube" }])}
+                    className="px-2 py-1 bg-indigo-50 text-indigo-650 hover:bg-indigo-100 rounded-lg font-bold text-[10px] flex items-center gap-1 cursor-pointer transition-all active:scale-95"
+                  >
+                    <Plus className="h-3 w-3" />
+                    Thêm bài học
+                  </button>
+                </div>
+                {courseFormLessons.map((les, index) => (
+                  <div key={index} className="p-3 bg-slate-50 rounded-xl space-y-2 border border-gray-150 relative">
+                    <button
+                      type="button"
+                      onClick={() => setCourseFormLessons(prev => prev.filter((_, idx) => idx !== index))}
+                      className="absolute top-2 right-2 text-gray-400 hover:text-rose-500 cursor-pointer"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="col-span-2">
+                        <input
+                          type="text"
+                          required
+                          placeholder="Tên bài học (ví dụ: Giới thiệu văn hóa)"
+                          value={les.title}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setCourseFormLessons(prev => prev.map((l, idx) => idx === index ? { ...l, title: val } : l));
+                          }}
+                          className="w-full px-2.5 py-1.5 bg-white border border-gray-200 text-slate-800 rounded-lg text-xs"
+                        />
+                      </div>
+                      <div>
+                        <select
+                          value={les.type}
+                          onChange={(e) => {
+                            const val = e.target.value as any;
+                            setCourseFormLessons(prev => prev.map((l, idx) => idx === index ? { ...l, type: val } : l));
+                          }}
+                          className="w-full px-2 py-1.5 bg-white border border-gray-200 text-slate-800 rounded-lg text-xs cursor-pointer"
+                        >
+                          <option value="youtube">YouTube</option>
+                          <option value="document">Tài liệu</option>
+                          <option value="other">Khác</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div>
+                      <input
+                        type="url"
+                        required
+                        placeholder="Link (ví dụ: https://youtube.com/watch?v=... hoặc link tài liệu)"
+                        value={les.url}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setCourseFormLessons(prev => prev.map((l, idx) => idx === index ? { ...l, url: val } : l));
+                        }}
+                        className="w-full px-2.5 py-1.5 bg-white border border-gray-200 text-slate-800 rounded-lg text-xs"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Dynamic Quizzes Creator */}
+              <div className="border-t border-gray-100 pt-3.5 space-y-2">
+                <div className="flex justify-between items-center">
+                  <label className="block font-bold text-gray-500 font-sans flex items-center gap-1">
+                    <span>📝 Câu hỏi trắc nghiệm ({courseFormQuizzes.length})</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setCourseFormQuizzes(prev => [...prev, { question: "", options: ["", "", "", ""], correctOptionIndex: 0 }])}
+                    className="px-2 py-1 bg-indigo-50 text-indigo-650 hover:bg-indigo-100 rounded-lg font-bold text-[10px] flex items-center gap-1 cursor-pointer transition-all active:scale-95"
+                  >
+                    <Plus className="h-3 w-3" />
+                    Thêm câu hỏi
+                  </button>
+                </div>
+                {courseFormQuizzes.map((quiz, qIdx) => (
+                  <div key={qIdx} className="p-3 bg-slate-50 rounded-xl space-y-2.5 border border-gray-150 relative">
+                    <button
+                      type="button"
+                      onClick={() => setCourseFormQuizzes(prev => prev.filter((_, idx) => idx !== qIdx))}
+                      className="absolute top-2 right-2 text-gray-400 hover:text-rose-500 cursor-pointer"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                    <div>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Câu hỏi (ví dụ: Sứ mệnh của iGen là gì?)"
+                        value={quiz.question}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setCourseFormQuizzes(prev => prev.map((q, idx) => idx === qIdx ? { ...q, question: val } : q));
+                        }}
+                        className="w-full px-2.5 py-1.5 bg-white border border-gray-200 text-slate-800 rounded-lg text-xs font-semibold"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-[10px]">
+                      {quiz.options.map((opt, oIdx) => (
+                        <div key={oIdx} className="flex items-center gap-1">
+                          <span className="font-bold text-gray-400">{String.fromCharCode(65 + oIdx)}.</span>
+                          <input
+                            type="text"
+                            required
+                            placeholder={`Đáp án ${String.fromCharCode(65 + oIdx)}`}
+                            value={opt}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setCourseFormQuizzes(prev => prev.map((q, idx) => idx === qIdx ? {
+                                ...q,
+                                options: q.options.map((o, oi) => oi === oIdx ? val : o)
+                              } : q));
+                            }}
+                            className="w-full px-2 py-1 bg-white border border-gray-200 text-slate-800 rounded-lg"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="font-bold text-gray-450 font-sans">Đáp án đúng:</span>
+                      <select
+                        value={quiz.correctOptionIndex}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value);
+                          setCourseFormQuizzes(prev => prev.map((q, idx) => idx === qIdx ? { ...q, correctOptionIndex: val } : q));
+                        }}
+                        className="px-2 py-1 bg-white border border-gray-200 text-slate-800 rounded-lg font-bold"
+                      >
+                        <option value={0}>A</option>
+                        <option value={1}>B</option>
+                        <option value={2}>C</option>
+                        <option value={3}>D</option>
+                      </select>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
 
             <div className="pt-4 border-t border-gray-150 flex justify-end gap-3 text-xs font-bold">
@@ -2793,6 +3114,401 @@ export default function HRTab() {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* Course Player Modal */}
+      {activeStudyCourse && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-0 sm:p-4">
+          <div className="bg-white text-slate-800 w-full h-full sm:h-[90vh] sm:max-w-5xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden font-sans">
+            
+            {/* Header */}
+            <div className="flex justify-between items-center px-6 py-4 border-b border-gray-150 flex-shrink-0 bg-indigo-950 text-white">
+              <div className="text-left">
+                <span className="px-2 py-0.5 bg-indigo-800 text-indigo-100 rounded text-[9px] font-mono font-bold uppercase tracking-wider">
+                  {activeStudyCourse.category}
+                </span>
+                <h4 className="font-bold text-sm sm:text-base font-sans leading-tight mt-1">
+                  {activeStudyCourse.title}
+                </h4>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => {
+                  setActiveStudyCourse(null);
+                  if (userProfile?.companyCode) fetchCourses(userProfile.companyCode);
+                }} 
+                className="p-1.5 hover:bg-white/10 rounded-lg text-gray-300 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Split Screen Layout */}
+            <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0">
+              
+              {/* Left Sidebar - Lesson Navigation */}
+              <div className="w-full md:w-80 border-r border-gray-150 flex flex-col overflow-y-auto bg-slate-50 flex-shrink-0 text-left">
+                <div className="p-4 border-b border-gray-150 bg-slate-100/50">
+                  <div className="flex items-center justify-between text-xs mb-1">
+                    <span className="font-mono text-gray-500 font-bold">Tiến độ bài học:</span>
+                    <span className="font-bold text-indigo-650 font-mono">
+                      {enrollments.find(e => e.courseId === activeStudyCourse.id)?.progress ?? 0}%
+                    </span>
+                  </div>
+                  <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-indigo-600 transition-all duration-500"
+                      style={{ width: `${enrollments.find(e => e.courseId === activeStudyCourse.id)?.progress ?? 0}%` }}
+                    />
+                  </div>
+                </div>
+
+                <div className="divide-y divide-gray-150/60 flex-1">
+                  
+                  {/* Introduction Item */}
+                  <button
+                    type="button"
+                    onClick={() => setActiveLessonIndex(-1)}
+                    className={`w-full p-4 flex items-start gap-3 transition-colors text-left ${
+                      activeLessonIndex === -1 ? "bg-white border-l-4 border-indigo-600 font-bold" : "hover:bg-slate-100/80"
+                    }`}
+                  >
+                    <BookOpen className="h-4.5 w-4.5 text-gray-400 mt-0.5 shrink-0" />
+                    <div className="text-xs">
+                      <h6 className="text-slate-800">Giới thiệu khóa học</h6>
+                      <p className="text-[10px] text-gray-400 mt-0.5 font-medium">Tổng quan & mục tiêu</p>
+                    </div>
+                  </button>
+
+                  {/* Lessons List */}
+                  {(activeStudyCourse.lessons || []).map((les, index) => {
+                    const isCompleted = enrollments.find(e => e.courseId === activeStudyCourse.id)?.completedLessons?.includes(les.url);
+                    const isActive = activeLessonIndex === index;
+
+                    return (
+                      <button
+                        key={index}
+                        type="button"
+                        onClick={() => setActiveLessonIndex(index)}
+                        className={`w-full p-4 flex items-start gap-3 transition-colors text-left ${
+                          isActive ? "bg-white border-l-4 border-indigo-600 font-bold" : "hover:bg-slate-100/80"
+                        }`}
+                      >
+                        {isCompleted ? (
+                          <CheckCircle className="h-4.5 w-4.5 text-emerald-500 mt-0.5 shrink-0" />
+                        ) : (
+                          <div className="w-4.5 h-4.5 border-2 border-gray-300 rounded-full flex items-center justify-center text-[9px] font-mono text-gray-400 font-bold mt-0.5 shrink-0">
+                            {index + 1}
+                          </div>
+                        )}
+                        <div className="text-xs">
+                          <h6 className="text-slate-800 line-clamp-2">{les.title || `Bài học ${index + 1}`}</h6>
+                          <p className="text-[10px] text-gray-400 mt-0.5 font-mono capitalize">
+                            {les.type === "youtube" ? "🎥 Video YouTube" : "📄 Tài liệu đọc"}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
+
+                  {/* Quiz Item (if course has quizzes) */}
+                  {activeStudyCourse.quizzes && activeStudyCourse.quizzes.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setActiveLessonIndex(activeStudyCourse.lessons?.length ?? 0)}
+                      className={`w-full p-4 flex items-start gap-3 transition-colors text-left ${
+                        activeLessonIndex === (activeStudyCourse.lessons?.length ?? 0)
+                          ? "bg-white border-l-4 border-indigo-600 font-bold"
+                          : "hover:bg-slate-100/80"
+                      }`}
+                    >
+                      {enrollments.find(e => e.courseId === activeStudyCourse.id)?.quizPassed ? (
+                        <Award className="h-4.5 w-4.5 text-amber-500 mt-0.5 shrink-0" />
+                      ) : (
+                        <Activity className="h-4.5 w-4.5 text-gray-400 mt-0.5 shrink-0" />
+                      )}
+                      <div className="text-xs">
+                        <h6 className="text-slate-800">Bài kiểm tra trắc nghiệm</h6>
+                        <p className="text-[10px] text-gray-400 mt-0.5 font-medium">
+                          {activeStudyCourse.quizzes.length} câu hỏi trắc nghiệm
+                        </p>
+                      </div>
+                    </button>
+                  )}
+
+                </div>
+              </div>
+
+              {/* Right Main Panel - Player Area */}
+              <div className="flex-1 flex flex-col overflow-y-auto p-6 text-left">
+                
+                {/* 1. Intro Panel */}
+                {activeLessonIndex === -1 && (
+                  <div className="space-y-4 max-w-2xl">
+                    <h3 className="text-lg font-bold text-slate-800">Chào mừng bạn đến với khóa học</h3>
+                    <p className="text-xs text-slate-650 leading-relaxed whitespace-pre-wrap">
+                      {activeStudyCourse.description || "Khóa học này hiện chưa cập nhật mô tả chi tiết."}
+                    </p>
+                    <div className="p-4 bg-indigo-50 border border-indigo-150 rounded-xl space-y-2 text-xs">
+                      <h5 className="font-bold text-indigo-855 flex items-center gap-1.5">
+                        <Award className="h-4 w-4 text-indigo-700 animate-pulse" />
+                        Thông tin tổng quan:
+                      </h5>
+                      <ul className="space-y-1 text-slate-650 list-disc list-inside pl-1">
+                        <li>Thời lượng ước tính: <strong className="text-slate-700">{activeStudyCourse.duration}</strong></li>
+                        <li>Số bài học: <strong className="text-slate-700">{activeStudyCourse.lessons?.length ?? 0} bài học</strong></li>
+                        <li>Mã môn học: <strong className="text-slate-700 font-mono">{activeStudyCourse.id}</strong></li>
+                        <li>Giảng viên hướng dẫn: <strong className="text-slate-700">{activeStudyCourse.instructor}</strong></li>
+                      </ul>
+                    </div>
+                    
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (activeStudyCourse.lessons && activeStudyCourse.lessons.length > 0) {
+                          setActiveLessonIndex(0);
+                        } else if (activeStudyCourse.quizzes && activeStudyCourse.quizzes.length > 0) {
+                          setActiveLessonIndex(0);
+                        } else {
+                          handleCompleteCourseDirectly();
+                        }
+                      }}
+                      className="px-5 py-2.5 bg-indigo-650 hover:bg-indigo-700 active:scale-95 text-white font-bold rounded-xl text-xs shadow-xs transition-all cursor-pointer"
+                    >
+                      Bắt đầu học ngay →
+                    </button>
+                  </div>
+                )}
+
+                {/* 2. Lesson Player Panel */}
+                {activeLessonIndex >= 0 && activeLessonIndex < (activeStudyCourse.lessons?.length ?? 0) && (() => {
+                  const les = activeStudyCourse.lessons?.[activeLessonIndex];
+                  if (!les) return null;
+                  const isCompleted = enrollments.find(e => e.courseId === activeStudyCourse.id)?.completedLessons?.includes(les.url);
+
+                  // Extract YouTube ID if valid
+                  let youtubeId: string | null = null;
+                  if (les.type === "youtube") {
+                    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+                    const match = les.url.match(regExp);
+                    if (match && match[2].length === 11) {
+                      youtubeId = match[2];
+                    }
+                  }
+
+                  return (
+                    <div className="space-y-5 flex-1 flex flex-col">
+                      <div className="flex justify-between items-center gap-4">
+                        <h3 className="text-base font-bold text-slate-800">
+                          Bài {activeLessonIndex + 1}: {les.title}
+                        </h3>
+                        {isCompleted && (
+                          <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-[10px] font-bold flex items-center gap-1">
+                            <CheckCircle className="h-3.5 w-3.5" />
+                            Đã học xong
+                          </span>
+                        )}
+                      </div>
+
+                      {/* YouTube Player */}
+                      {les.type === "youtube" && youtubeId && (
+                        <div className="w-full aspect-video bg-black rounded-2xl overflow-hidden shadow-md border border-gray-200">
+                          <iframe
+                            className="w-full h-full"
+                            src={`https://www.youtube.com/embed/${youtubeId}?rel=0`}
+                            title={les.title}
+                            frameBorder="0"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                            allowFullScreen
+                          />
+                        </div>
+                      )}
+
+                      {/* Document Viewer / External Link */}
+                      {les.type === "document" && (
+                        <div className="p-8 bg-slate-50 border-2 border-dashed border-gray-200 rounded-2xl text-center space-y-4 max-w-xl self-center w-full my-auto">
+                          <div className="text-4xl">📄</div>
+                          <div>
+                            <h5 className="font-bold text-slate-700 text-xs">Tài liệu học tập đính kèm</h5>
+                            <p className="text-[11px] text-gray-400 mt-1">Vui lòng nhấp vào nút bên dưới để mở tài liệu nghiên cứu chi tiết bài học này.</p>
+                          </div>
+                          <a
+                            href={les.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-650 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-xs active:scale-95 transition-all"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            Mở tài liệu đọc
+                          </a>
+                        </div>
+                      )}
+
+                      {/* Other URL */}
+                      {les.type === "other" && (
+                        <div className="p-8 bg-slate-50 border-2 border-dashed border-gray-200 rounded-2xl text-center space-y-4 max-w-xl self-center w-full my-auto">
+                          <div className="text-4xl">🔗</div>
+                          <div>
+                            <h5 className="font-bold text-slate-700 text-xs">Liên kết học tập bên ngoài</h5>
+                            <p className="text-[11px] text-gray-400 mt-1">Truy cập đường dẫn bên dưới để tìm hiểu và hoàn thành phần học này.</p>
+                          </div>
+                          <a
+                            href={les.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-650 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-xs active:scale-95 transition-all"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            Truy cập liên kết
+                          </a>
+                        </div>
+                      )}
+
+                      {/* Complete Lesson Action */}
+                      <div className="pt-4 border-t border-gray-150 flex justify-between items-center mt-auto">
+                        <button
+                          type="button"
+                          disabled={activeLessonIndex === 0}
+                          onClick={() => setActiveLessonIndex(prev => prev - 1)}
+                          className="px-4 py-2 border border-gray-200 text-slate-500 hover:text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl text-xs font-bold bg-white hover:bg-slate-50 transition-all cursor-pointer font-sans"
+                        >
+                          ← Bài trước
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleMarkLessonComplete(les)}
+                          className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold rounded-xl text-xs shadow-xs transition-all flex items-center gap-1.5 cursor-pointer font-sans"
+                        >
+                          <CheckCircle className="h-4 w-4" />
+                          Hoàn thành bài & Tiếp tục →
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* 3. Quiz Player Panel */}
+                {activeLessonIndex === (activeStudyCourse.lessons?.length ?? 0) && activeStudyCourse.quizzes && activeStudyCourse.quizzes.length > 0 && (() => {
+                  const enroll = enrollments.find(e => e.courseId === activeStudyCourse.id);
+                  const isQuizPassed = enroll?.quizPassed;
+
+                  return (
+                    <div className="space-y-5 flex-1 flex flex-col">
+                      <div className="flex justify-between items-center gap-4">
+                        <h3 className="text-base font-bold text-slate-800">
+                          Bài thi trắc nghiệm đánh giá năng lực
+                        </h3>
+                        {isQuizPassed && (
+                          <span className="px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg text-[10px] font-bold flex items-center gap-1">
+                            <Award className="h-3.5 w-3.5" />
+                            Đã vượt qua bài thi
+                          </span>
+                        )}
+                      </div>
+
+                      {quizSubmitted && !isQuizPassed && (
+                        <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs font-semibold">
+                          ⚠️ Rất tiếc, bạn đã chọn sai đáp án. Vui lòng kiểm tra lại các câu đánh dấu đỏ và làm lại bài thi.
+                        </div>
+                      )}
+
+                      <div className="space-y-6 flex-1 pr-2">
+                        {activeStudyCourse.quizzes.map((quiz, qIdx) => {
+                          const selectedOpt = quizAnswers[qIdx];
+                          const isCorrect = selectedOpt === quiz.correctOptionIndex;
+                          const showErr = quizSubmitted && !isCorrect;
+
+                          return (
+                            <div key={qIdx} className={`p-4 rounded-xl border transition-all ${
+                              showErr ? "bg-rose-50/40 border-rose-200" : isQuizPassed ? "bg-emerald-50/10 border-emerald-150" : "bg-slate-50/50 border-gray-150"
+                            }`}>
+                              <h5 className="font-bold text-xs text-slate-800 flex items-start gap-1.5 leading-snug">
+                                <span className="text-indigo-650 shrink-0 font-mono">Câu {qIdx + 1}:</span>
+                                <span>{quiz.question}</span>
+                              </h5>
+                              <div className="mt-3.5 grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                                {quiz.options.map((opt, oIdx) => {
+                                  const isChecked = selectedOpt === oIdx;
+
+                                  return (
+                                    <label
+                                      key={oIdx}
+                                      className={`flex items-start gap-2.5 p-2.5 border rounded-xl cursor-pointer transition-all select-none hover:bg-white ${
+                                        isChecked 
+                                          ? "border-indigo-500 bg-indigo-50/20 font-semibold text-indigo-750" 
+                                          : "border-gray-200 bg-white"
+                                      }`}
+                                    >
+                                      <input
+                                        type="radio"
+                                        name={`quiz_q_${qIdx}`}
+                                        disabled={isQuizPassed}
+                                        checked={isChecked}
+                                        onChange={() => {
+                                          setQuizAnswers(prev => {
+                                            const copy = [...prev];
+                                            copy[qIdx] = oIdx;
+                                            return copy;
+                                          });
+                                        }}
+                                        className="mt-0.5 w-4.5 h-4.5 accent-indigo-650 cursor-pointer"
+                                      />
+                                      <div className="leading-snug">
+                                        <span className="font-mono text-gray-400 font-bold mr-1">{String.fromCharCode(65 + oIdx)}.</span>
+                                        <span>{opt}</span>
+                                      </div>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Quiz Actions */}
+                      <div className="pt-4 border-t border-gray-150 flex justify-between items-center mt-auto">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (activeStudyCourse.lessons && activeStudyCourse.lessons.length > 0) {
+                              setActiveLessonIndex(activeStudyCourse.lessons.length - 1);
+                            } else {
+                              setActiveLessonIndex(-1);
+                            }
+                          }}
+                          className="px-4 py-2 border border-gray-200 text-slate-500 hover:text-slate-700 rounded-xl text-xs font-bold bg-white hover:bg-slate-50 transition-all cursor-pointer font-sans"
+                        >
+                          ← Bài trước
+                        </button>
+
+                        {!isQuizPassed ? (
+                          <button
+                            type="button"
+                            onClick={handleSubmitQuiz}
+                            className="px-5 py-2.5 bg-indigo-650 hover:bg-indigo-700 active:scale-95 text-white font-bold rounded-xl text-xs shadow-xs transition-all cursor-pointer font-sans"
+                          >
+                            Nộp bài thi & Đánh giá →
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={handleFinishCourse}
+                            className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold rounded-xl text-xs shadow-md transition-all cursor-pointer font-sans"
+                          >
+                            🎉 Hoàn thành & Nhận Tokens!
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+              </div>
+            </div>
+
+          </div>
         </div>
       )}
 

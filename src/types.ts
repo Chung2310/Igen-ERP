@@ -255,6 +255,18 @@ export interface HRTask {
   history?: TaskHistoryEntry[];
 }
 
+export interface Lesson {
+  title: string;
+  url: string;
+  type: "youtube" | "document" | "other";
+}
+
+export interface QuizQuestion {
+  question: string;
+  options: string[];
+  correctOptionIndex: number;
+}
+
 export interface TrainingCourse {
   id: string;
   title: string;
@@ -272,6 +284,8 @@ export interface TrainingCourse {
   enrolledCount: number;
   companyProgress: number;
   autoAssignOnboarding: boolean;
+  lessons?: Lesson[];
+  quizzes?: QuizQuestion[];
 }
 
 export interface TrainingEnrollment {
@@ -286,4 +300,6 @@ export interface TrainingEnrollment {
   startedAt?: any;
   completedAt?: any;
   createdAt: any;
+  completedLessons?: string[];
+  quizPassed?: boolean;
 }
