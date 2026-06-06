@@ -14,8 +14,6 @@ import {
   Save,
   Terminal,
   Bell,
-  Moon,
-  Sun,
   Image as ImageIcon,
   CheckCircle,
   Sliders,
@@ -47,7 +45,7 @@ export default function SettingsTab() {
 
   // Sub-tabs in Settings
   const [activeSubTab, setActiveSubTab] = useState<"profile" | "security" | "erp" | "integrations">("profile");
-  const { dark, toggleTheme } = useTheme();
+  const { dark } = useTheme();
 
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [aiModel, setAiModel] = useState("gemini-2.5-flash");
@@ -429,30 +427,7 @@ export default function SettingsTab() {
                 </h3>
 
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-slate-50 px-4 py-3 transition-colors dark:border-slate-700 dark:bg-slate-900/80">
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${dark ? "bg-slate-700 text-amber-300" : "bg-amber-50 text-amber-600"}`}>
-                        {dark ? <Moon className="h-4.5 w-4.5" /> : <Sun className="h-4.5 w-4.5" />}
-                      </div>
-                      <div>
-                        <h4 className="text-xs font-bold text-gray-800 dark:text-slate-100">Chế độ giao diện tối (Dark Mode)</h4>
-                        <p className="text-[10px] text-gray-500 mt-0.5 dark:text-slate-400">Tiết kiệm năng lượng và giảm mỏi mắt ban đêm.</p>
-                      </div>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={dark}
-                        onChange={() => {
-                          toggleTheme();
-                          toast.success(!dark ? "Đã chuyển sang giao diện tối" : "Đã chuyển sang giao diện sáng");
-                        }}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 rounded-full bg-gray-200 transition-colors peer-checked:bg-indigo-600 dark:bg-slate-700"></div>
-                      <div className="pointer-events-none absolute left-[4px] top-[4px] h-4 w-4 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5"></div>
-                    </label>
-                  </div>
+
 
                   {/* Email notification toggle */}
                   <div className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors">

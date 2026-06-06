@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
-import { Mail, Lock, User, RefreshCw, ArrowRight, Moon, Sun } from "lucide-react";
+import { Mail, Lock, User, RefreshCw, ArrowRight } from "lucide-react";
 import { BRAND_LOGO_URL, BRAND_NAME } from "../config/brand";
-import RegistrationSuccessModal from "../components/RegistrationSuccessModal";
 
 type AuthMode = "login" | "register";
 const AUTH_MODE_STORAGE_KEY = "igenerp-auth-mode";
@@ -24,8 +23,7 @@ export default function AuthPage() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [formError, setFormError] = useState("");
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const { dark, toggleTheme } = useTheme();
+  const { dark } = useTheme();
 
   const isLogin = authMode === "login";
 
@@ -70,7 +68,6 @@ export default function AuthPage() {
         await loginWithEmail(email.trim(), password.trim(), rememberMe);
       } else {
         await registerWithEmail(email.trim(), password.trim(), displayName.trim(), rememberMe);
-        setShowSuccessModal(true);
       }
     } catch (error) {
       setFormError(getErrorMessage(error));
@@ -95,10 +92,7 @@ export default function AuthPage() {
     }
   };
 
-  const themeToggleButtonClass = `flex items-center gap-2 rounded-full border px-4 py-2.5 text-xs font-semibold transition ${dark ? "border-slate-700 bg-slate-900 text-slate-100 hover:bg-slate-800" : "border-slate-200 bg-white text-slate-900 hover:bg-slate-50"}`;
   const authCardClass = dark ? "bg-slate-900/90 border border-slate-700/50" : "bg-white border border-slate-200 shadow-xl";
-  const authToggleGroupClass = dark ? "flex bg-slate-800/80 p-1.5 rounded-xl border border-slate-700/30 select-none" : "flex bg-slate-100/80 p-1.5 rounded-xl border border-slate-200 select-none";
-  const authToggleInactiveClass = dark ? "text-slate-400 hover:text-slate-200" : "text-slate-500 hover:text-slate-700";
   const authInputClass = dark
     ? "w-full pl-11 pr-4 py-3 bg-slate-850/80 border border-slate-700/50 rounded-xl text-xs text-white placeholder-slate-550 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none"
     : "w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-xs text-slate-950 placeholder-slate-400 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none";
@@ -118,14 +112,7 @@ export default function AuthPage() {
       <div className={`absolute top-[-20%] left-[-10%] w-[600px] h-[600px] rounded-full ${dark ? "bg-blue-500/10" : "bg-sky-300/20"} blur-[120px] pointer-events-none`} />
       <div className={`absolute bottom-[-20%] right-[-10%] w-[600px] h-[600px] rounded-full ${dark ? "bg-purple-500/10" : "bg-fuchsia-300/15"} blur-[120px] pointer-events-none`} />
 
-      {/* <button
-        type="button"
-        onClick={toggleTheme}
-        className={`absolute right-4 top-4 z-20 ${themeToggleButtonClass}`}
-      >
-        {dark ? <Sun className="h-4 w-4 text-yellow-300" /> : <Moon className="h-4 w-4 text-slate-600" />}
-        <span>{dark ? "Chuyển sáng" : "Chuyển tối"}</span>
-      </button> */}
+
 
       <div className={`w-full max-w-md rounded-3xl p-8 shadow-2xl z-10 flex flex-col gap-6 text-left ${authCardClass}`}>
         <div className="flex flex-col items-center gap-4 text-center">
@@ -140,15 +127,7 @@ export default function AuthPage() {
           </div>
         </div>
 
-        {/* <div className={authToggleGroupClass}>
-          <button
-            type="button"
-            onClick={() => setMode("login")}
-            className={`flex-1 text-center py-2.5 rounded-full text-xs font-bold transition-all ${activeGreenButtonClass}`}
-          >
-            ĐĂNG NHẬP
-          </button>
-        </div> */}
+
 
         {formError ? (
           <div className="rounded-2xl border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
@@ -231,7 +210,6 @@ export default function AuthPage() {
           <div className="flex-1 h-[1px] bg-slate-800" />
         </div>
       </div>
-      {showSuccessModal && <RegistrationSuccessModal onClose={() => setShowSuccessModal(false)} />}
     </div>
   );
 }

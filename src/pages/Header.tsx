@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Bell, LogOut, Plus, Search, Settings, Moon, Sun } from "lucide-react";
+import { Bell, LogOut, Plus, Search, Settings } from "lucide-react";
 import { TabType } from "../types";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
@@ -32,7 +32,7 @@ const notifications = [
 
 export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
   const { userProfile, logout } = useAuth();
-  const { dark, toggleTheme } = useTheme();
+  const { dark } = useTheme();
   const [searchQuery, setSearchQuery] = useState("");
   const [showResults, setShowResults] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -135,19 +135,7 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
           <span>Tạo mới</span>
         </button>
 
-        {/* NÚT ĐỔI TRẠNG THÁI (ĐEN ĐỒNG BỘ) */}
-        {/* <button
-          type="button"
-          onClick={toggleTheme}
-          className={`flex items-center gap-2 rounded-full border px-4 py-2.5 text-xs font-bold transition active:scale-95 ${
-            dark 
-              ? "border-[#262626] bg-[#1a1a1a] text-neutral-300 hover:bg-[#262626]" 
-              : "border-slate-200 bg-white text-slate-900 hover:bg-slate-50"
-          }`}
-        >
-          {dark ? <Sun className="h-4 w-4 text-neutral-400" /> : <Moon className="h-4 w-4 text-slate-600" />}
-          <span>{dark ? "Sáng" : "Tối"}</span>
-        </button> */}
+
 
         {/* CHUÔNG THÔNG BÁO */}
         <div className="relative" id="notification_dropdown_button">
