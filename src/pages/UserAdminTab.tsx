@@ -89,7 +89,7 @@ export default function UserAdminTab() {
       let data: UserProfile[] = [];
       if (userProfile?.role === "superadmin") {
         data = await authService.getAllUsers();
-      } else if (userProfile?.companyCode) {
+      } else if (userProfile?.companyCode && userProfile?.companyCode !== "SYSTEM") {
         data = await authService.getUsersByCompany(userProfile.companyCode);
       }
       setUsersList(data);
@@ -391,7 +391,7 @@ export default function UserAdminTab() {
                           />
                         ) : (
                           <div className="w-8 h-8 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center font-bold text-indigo-700 text-xs">
-                            {usr.displayName.slice(0, 2).toUpperCase()}
+                            {(usr.displayName || usr.email || "US").slice(0, 2).toUpperCase()}
                           </div>
                         )}
                         <div>
