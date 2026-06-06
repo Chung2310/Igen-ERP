@@ -130,6 +130,11 @@ service cloud.firestore {
         || (request.auth.token.email == 'superadmin@igen.com' && isAuthenticated());
     }
 
+    // CRM Leads
+    match /crmLeads/{leadId} {
+      allow read, write: if isAuthenticated();
+    }
+
     // Inventory products
     match /inventoryProducts/{productId} {
       allow read: if isAuthenticated();

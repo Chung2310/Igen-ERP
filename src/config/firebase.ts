@@ -1,5 +1,10 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
+import { 
+  initializeFirestore, 
+  persistentLocalCache, 
+  persistentMultipleTabManager,
+  getFirestore 
+} from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
 import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
@@ -30,12 +35,23 @@ if (missingFields.length > 0) {
 // 2. Khởi tạo Firebase App an toàn (Tránh re-initialization khi HMR hoạt động)
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig as any);
 
-// 3. Khởi tạo Firestore với Database ID hợp lệ
+// 3. Khởi tạo Firestore với Database ID hợp lệ và local cache persistence
 const databaseId = firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)'
   ? firebaseConfig.firestoreDatabaseId
   : undefined;
 
-export const db = getFirestore(app, databaseId);
+let firestoreDb;
+try {
+  firestoreDb = initializeFirestore(app, {
+    localCache: persistentLocalCache({
+      tabManager: persistentMultipleTabManager()
+    })
+  }, databaseId);
+} catch (e) {
+  firestoreDb = getFirestore(app, databaseId);
+}
+
+export const db = firestoreDb;
 export const auth = getAuth(app);
 export const storage = getStorage(app);
 // Firebase Cloud Functions - region asia-southeast1 (Singapore, gần VN)
