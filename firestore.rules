@@ -142,6 +142,12 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
 
+    // Inventory stock logs (nhập / xuất kho)
+    match /inventoryStockLogs/{logId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
+    }
+
     // ══════════════════════════════════════════════════════════════════════════
     // /marketingContents/{contentId}
     // ══════════════════════════════════════════════════════════════════════════
@@ -249,6 +255,56 @@ service cloud.firestore {
           (isAdmin() || isManager()) && 
           isSameCompany(existing().companyCode)
         )
+      );
+    }
+    // ══════════════════════════════════════════════════════════════════════════
+    // /trainingCourses/{courseId}
+    // ══════════════════════════════════════════════════════════════════════════
+    match /trainingCourses/{courseId} {
+      // Đọc: mọi thành viên đã xác thực cùng công ty
+      allow read: if isAuthenticated() && (isSuperAdmin() || isSameCompany(resource.data.companyCode));
+      // Tạo mới: admin/manager/superadmin
+      allow create: if isAuthenticated() && (isSuperAdmin() || (
+        (isAdmin() || isManager()) && isSameCompany(incoming().companyCode)
+      ));
+      // Sửa: admin/manager/superadmin cùng công ty
+      allow update: if isAuthenticated() && (isSuperAdmin() || (
+        (isAdmin() || isManager()) &&
+        isSameCompany(existing().companyCode) &&
+        isSameCompany(incoming().companyCode)
+      ));
+      // Xóa: chỉ admin/superadmin
+      allow delete: if isAuthenticated() && (isSuperAdmin() || (
+        isAdmin() && isSameCompany(existing().companyCode)
+      ));
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // /trainingEnrollments/{enrollmentId}
+    // ══════════════════════════════════════════════════════════════════════════
+    match /trainingEnrollments/{enrollmentId} {
+      // Đọc: admin/manager đọc tất cả cùng công ty; user chỉ đọc enrollment của mình
+      allow read: if isAuthenticated() && (
+        isSuperAdmin()
+        || ((isAdmin() || isManager()) && isSameCompany(resource.data.companyCode))
+        || (resource.data.uid == request.auth.uid && isSameCompany(resource.data.companyCode))
+      );
+      // Tạo: admin/manager hoặc chính người học tự enroll
+      allow create: if isAuthenticated() && (
+        isSuperAdmin()
+        || ((isAdmin() || isManager()) && isSameCompany(incoming().companyCode))
+        || (incoming().uid == request.auth.uid && isSameCompany(incoming().companyCode))
+      );
+      // Sửa: chính người học cập nhật progress/status, hoặc admin/manager
+      allow update: if isAuthenticated() && (
+        isSuperAdmin()
+        || ((isAdmin() || isManager()) && isSameCompany(existing().companyCode))
+        || (existing().uid == request.auth.uid && isSameCompany(existing().companyCode))
+      );
+      // Xóa: chỉ admin/superadmin
+      allow delete: if isAuthenticated() && (
+        isSuperAdmin()
+        || (isAdmin() && isSameCompany(existing().companyCode))
       );
     }
   }

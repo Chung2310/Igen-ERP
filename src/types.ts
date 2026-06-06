@@ -174,16 +174,30 @@ export interface ProductCategory {
   status: "Đang dùng" | "Tạm khóa";
 }
 
+export interface StockLogItem {
+  productId: string;
+  sku: string;
+  productName: string;
+  quantity: number;
+}
+
 export interface StockLog {
   id: string;
   type: "nhập" | "xuất";
+  /** Tiêu đề phiếu (ví dụ: "Nhập hàng từ NCC A") */
+  title?: string;
+  /** Danh sách sản phẩm trong phiếu (multi-item) */
+  items?: StockLogItem[];
+  /** Legacy: SKU đại diện (dùng cho import/export Excel & backward compat) */
   sku: string;
+  /** Legacy: tên sản phẩm đại diện */
   productName: string;
+  /** Legacy: tổng số lượng */
   quantity: number;
   operatorName: string;
   createdAt: string;
   notes: string;
-  status: "Thành công" | "Đang xử lý";
+  status: "Thành công" | "Đang xử lý" | "Đang chờ" | "Hoàn thành";
 }
 
 // HR Employee and Onboarding Tasks
@@ -244,10 +258,32 @@ export interface HRTask {
 export interface TrainingCourse {
   id: string;
   title: string;
+  description: string;
   category: string;
-  duration: string;
-  progress: number;
-  instructor: string;
+  tags: string[];
+  isRequired: boolean;
   icon: string;
-  enrolledStudents: number;
+  imageUrl?: string;
+  duration: string;
+  instructor: string;
+  companyCode: string;
+  creatorUid: string;
+  createdAt: any;
+  enrolledCount: number;
+  companyProgress: number;
+  autoAssignOnboarding: boolean;
+}
+
+export interface TrainingEnrollment {
+  id: string;
+  courseId: string;
+  courseTitle: string;
+  uid: string;
+  userName: string;
+  companyCode: string;
+  progress: number;
+  status: "not_started" | "in_progress" | "completed";
+  startedAt?: any;
+  completedAt?: any;
+  createdAt: any;
 }
