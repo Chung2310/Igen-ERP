@@ -178,8 +178,12 @@ export default function HRTab() {
     try {
       let data: UserProfile[] = [];
       if (selectedCompanyCode === "SYSTEM") {
-        const allUsers = await authService.getAllUsers();
-        data = allUsers.filter(u => !u.companyCode || u.companyCode === "SYSTEM");
+        if (userProfile?.role === "superadmin") {
+          const allUsers = await authService.getAllUsers();
+          data = allUsers.filter(u => !u.companyCode || u.companyCode === "SYSTEM");
+        } else {
+          data = userProfile ? [userProfile] : [];
+        }
       } else {
         data = await authService.getUsersByCompany(selectedCompanyCode);
       }
@@ -229,8 +233,12 @@ export default function HRTab() {
         
         // Fetch again after seeding
         if (selectedCompanyCode === "SYSTEM") {
-          const allUsers = await authService.getAllUsers();
-          data = allUsers.filter(u => !u.companyCode || u.companyCode === "SYSTEM");
+          if (userProfile?.role === "superadmin") {
+            const allUsers = await authService.getAllUsers();
+            data = allUsers.filter(u => !u.companyCode || u.companyCode === "SYSTEM");
+          } else {
+            data = userProfile ? [userProfile] : [];
+          }
         } else {
           data = await authService.getUsersByCompany(selectedCompanyCode);
         }

@@ -26,6 +26,20 @@ import { UserProfile, CompanyProfile } from "../types";
 
 const googleProvider = new GoogleAuthProvider();
 
+function safeToDate(val: any): Date {
+  if (!val) return new Date();
+  if (typeof val.toDate === "function") return val.toDate();
+  if (val instanceof Date) return val;
+  if (typeof val === "string" || typeof val === "number") {
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? new Date() : d;
+  }
+  if (val && typeof val === "object" && typeof val.seconds === "number") {
+    return new Date(val.seconds * 1000);
+  }
+  return new Date();
+}
+
 export const authService = {
   // Đăng ký bằng Email & Mật khẩu
   async registerWithEmail(email: string, password: string, displayName: string): Promise<UserProfile> {
@@ -124,7 +138,7 @@ export const authService = {
         displayName: data.displayName || "",
         photoURL: data.photoURL || "",
         role: data.role || "user",
-        createdAt: data.createdAt ? data.createdAt.toDate() : new Date(),
+        createdAt: safeToDate(data.createdAt),
         companyCode: data.companyCode || "",
         companyName: data.companyName || "",
         jobTitle: data.jobTitle || "",
@@ -153,7 +167,7 @@ export const authService = {
         displayName: data.displayName || "",
         photoURL: data.photoURL || "",
         role: data.role || "user",
-        createdAt: data.createdAt ? data.createdAt.toDate() : new Date(),
+        createdAt: safeToDate(data.createdAt),
         companyCode: data.companyCode || "",
         companyName: data.companyName || "",
         jobTitle: data.jobTitle || "",
@@ -195,7 +209,7 @@ export const authService = {
         id: docSnap.id,
         code: data.code || "",
         name: data.name || "",
-        createdAt: data.createdAt ? data.createdAt.toDate() : new Date(),
+        createdAt: safeToDate(data.createdAt),
         ownerEmail: data.ownerEmail || ""
       });
     });
