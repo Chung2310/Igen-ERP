@@ -23,6 +23,7 @@ import { auth, db, functions } from "../config/firebase";
 import { authService } from "../services/authService";
 import { UserProfile, FacebookIntegration, TikTokIntegration } from "../types";
 import { toast } from "../pages/Toast";
+import { parseFirebaseError } from "../utils/firebaseErrorParser";
 
 interface AuthContextType {
   user: User | null;
@@ -291,7 +292,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       toast.success("Cập nhật thông tin tài khoản thành công!");
     } catch (error) {
       console.error(error);
-      toast.error("Cập nhật thông tin thất bại.");
+      const errMsg = parseFirebaseError(error, "Lỗi kết nối máy chủ.");
+      toast.error(`Cập nhật thông tin thất bại: ${errMsg}`);
       throw error;
     }
   };
@@ -306,7 +308,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return downloadURL;
     } catch (error) {
       console.error("Lỗi upload avatar:", error);
-      toast.error("Tải lên ảnh đại diện thất bại.");
+      const errMsg = parseFirebaseError(error, "Lỗi kết nối bộ lưu trữ.");
+      toast.error(`Tải lên ảnh đại diện thất bại: ${errMsg}`);
       throw error;
     }
   };

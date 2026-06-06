@@ -25,6 +25,7 @@ import { marketingService, extractDraftContent } from "../services/marketingServ
 import { geminiApi } from "../api/gemini";
 import { toast } from "./Toast";
 import { useAuth } from "../context/AuthContext";
+import { parseFirebaseError } from "../utils/firebaseErrorParser";
 
 export default function MarketingTab() {
   const { userProfile } = useAuth();
@@ -431,7 +432,7 @@ export default function MarketingTab() {
       setAiGenType(null);
     } catch (e: any) {
       console.error("Lỗi sinh phương tiện AI:", e);
-      toast.error(e.message || "Lỗi trong quá trình tạo phương tiện AI.");
+      toast.error(parseFirebaseError(e, "Lỗi trong quá trình tạo phương tiện AI."));
     } finally {
       setIsGeneratingMedia(false);
     }
@@ -475,7 +476,7 @@ export default function MarketingTab() {
       toast.success("Đã tạo lại phương tiện mới thành công!");
     } catch (e: any) {
       console.error("Lỗi tạo lại phương tiện AI:", e);
-      toast.error(e.message || "Lỗi khi tạo lại phương tiện.");
+      toast.error(parseFirebaseError(e, "Lỗi khi tạo lại phương tiện."));
     } finally {
       setIsRegenerating(false);
     }
@@ -521,7 +522,7 @@ export default function MarketingTab() {
       toast.success(`Đã đăng video lên TikTok thành công! ${tiktok.isMock ? '(Demo)' : ''} ID: ${postId.slice(-8)}`);
     } catch (e: any) {
       console.error("Lỗi đăng TikTok:", e);
-      toast.error(e.message || "Không thể đăng bài lên TikTok. Vui lòng thử lại.");
+      toast.error(parseFirebaseError(e, "Không thể đăng bài lên TikTok. Vui lòng thử lại."));
     } finally {
       setPublishingTikTokId(null);
     }
