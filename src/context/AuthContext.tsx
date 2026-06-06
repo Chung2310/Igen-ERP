@@ -275,7 +275,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .replace(/^ +/, "")
           .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
       });
-      // Đăng xuất được xử lý im lặng để tránh toast trùng lặp khi điều hướng về trang auth.
+      toast.success("Đã đăng xuất tài khoản thành công!");
     } catch (error) {
       toast.error("Lỗi khi đăng xuất.");
     } finally {
