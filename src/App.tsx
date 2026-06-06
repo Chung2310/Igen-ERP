@@ -20,11 +20,17 @@ function AppContent() {
 
   if (loading) {
     return (
-      <div className="w-screen h-screen bg-inverse-surface flex flex-col items-center justify-center text-center">
-        <RefreshCw className="h-10 w-10 text-inverse-primary animate-spin mb-4" />
-        <span className="text-xs font-bold font-mono text-inverse-on-surface uppercase tracking-widest animate-pulse">
-          Đang khởi tạo hệ thống ERP...
-        </span>
+      <div className="w-screen h-screen bg-gradient-to-br from-[#f6f8fd] via-[#eef2f7] to-[#e3ecf5] flex flex-col items-center justify-center text-center relative overflow-hidden font-sans">
+        {/* Background Decorative Blobs */}
+        <div className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] rounded-full bg-blue-400/5 blur-[120px] pointer-events-none" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] rounded-full bg-indigo-400/5 blur-[120px] pointer-events-none" />
+
+        <div className="z-10 flex flex-col items-center">
+          <RefreshCw className="h-10 w-10 text-blue-600 animate-spin mb-4" />
+          <span className="text-xs font-bold text-slate-500 uppercase tracking-widest animate-pulse">
+            Đang khởi tạo hệ thống ERP...
+          </span>
+        </div>
       </div>
     );
   }
