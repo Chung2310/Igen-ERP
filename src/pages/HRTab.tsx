@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { 
-  Building2, 
-  UserSquare, 
-  Briefcase, 
-  MapPin, 
-  Phone, 
-  Mail, 
-  Plus, 
-  UserPlus, 
-  BookOpen, 
+import {
+  Building2,
+  UserSquare,
+  Briefcase,
+  MapPin,
+  Phone,
+  Mail,
+  Plus,
+  UserPlus,
+  BookOpen,
   Search,
   CheckCircle,
   Clock,
@@ -25,7 +25,8 @@ import {
   AlertCircle,
   Tag,
   User,
-  Target
+  Target,
+  RefreshCw
 } from "lucide-react";
 import { HRSubTabType, EmployeeNode, HRTask, TrainingCourse, TrainingEnrollment, UserProfile, Project, TaskHistoryEntry, Lesson, QuizQuestion } from "../types";
 import { useAuth } from "../context/AuthContext";
@@ -130,15 +131,17 @@ export default function HRTab() {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [kanbanFilter, setKanbanFilter] = useState<string | null>(null);
   const [trainingFilter, setTrainingFilter] = useState<string | null>(null);
-  
+
   // SaaS States
   const [companies, setCompanies] = useState<any[]>([]);
   const [selectedCompanyCode, setSelectedCompanyCode] = useState<string>("");
-  
+
   // Add Employee Modal States
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isAddingEmployee, setIsAddingEmployee] = useState(false);
   const [addName, setAddName] = useState("");
   const [addEmail, setAddEmail] = useState("");
+  const [addPassword, setAddPassword] = useState("");
   const [addPhone, setAddPhone] = useState("");
   const [addDepartment, setAddDepartment] = useState("Phòng Kỹ Thuật");
   const [addParentId, setAddParentId] = useState("");
@@ -148,7 +151,7 @@ export default function HRTab() {
   useEffect(() => {
     const loadCompanies = async () => {
       if (!userProfile) return;
-      
+
       if (userProfile.role === "superadmin") {
         try {
           const comps = await authService.getAllCompanies();
@@ -187,14 +190,14 @@ export default function HRTab() {
       } else {
         data = await authService.getUsersByCompany(selectedCompanyCode);
       }
-      
+
       // Seed initial structure if database is empty/contains only 1 user for this company
       if (data.length <= 1 && userProfile) {
         const currentCompanyOwner = data.find(u => u.role === "admin") || data.find(u => u.role === "superadmin") || userProfile;
         const companyName = currentCompanyOwner.companyName || (selectedCompanyCode === "SYSTEM" ? "iGen Tech" : selectedCompanyCode);
-        
+
         console.log(`[iGen HR Hub] Seeding default organizational structure connected to CEO: ${currentCompanyOwner.uid} for company ${selectedCompanyCode}`);
-        
+
         // 1. Update current owner profile to CEO
         const ownerRef = doc(db, "users", currentCompanyOwner.uid);
         await updateDoc(ownerRef, {
@@ -208,7 +211,7 @@ export default function HRTab() {
           companyCode: selectedCompanyCode,
           companyName: companyName
         });
-        
+
         // 2. Seed other mock employees with matching companyCode and companyName
         const mockEmployees = [
           { uid: `e2_${selectedCompanyCode}`, email: `hai.nl@${selectedCompanyCode.toLowerCase()}.vn`, displayName: "Nguyễn Lê Hải", jobTitle: "Chief Operations Officer (COO)", department: "Ban Giám Đốc", phone: "0901112223", photoURL: "👨‍💻", level: 2, parentId: currentCompanyOwner.uid, role: "admin", division: "Khối Vận Hành", status: "online" },
@@ -220,7 +223,7 @@ export default function HRTab() {
           { uid: `e8_${selectedCompanyCode}`, email: `nam.pd@${selectedCompanyCode.toLowerCase()}.vn`, displayName: "Phan Đình Nam", jobTitle: "AI Copywriter Specialist", department: "Phòng Marketing", phone: "0909990002", photoURL: "💡", level: 4, parentId: `e5_${selectedCompanyCode}`, role: "user", division: "Khối Marketing", status: "online" },
           { uid: `e9_${selectedCompanyCode}`, email: `linh.vt@${selectedCompanyCode.toLowerCase()}.vn`, displayName: "Vũ Thùy Linh", jobTitle: "Chăm sóc khách hàng VIP", department: "Phòng Sales", phone: "0909990003", photoURL: "👩‍⚕️", level: 4, parentId: `e6_${selectedCompanyCode}`, role: "user", division: "Khối Sales", status: "online" }
         ];
-        
+
         for (const emp of mockEmployees) {
           const docRef = doc(db, "users", emp.uid);
           await setDoc(docRef, {
@@ -230,7 +233,7 @@ export default function HRTab() {
             createdAt: new Date()
           });
         }
-        
+
         // Fetch again after seeding
         if (selectedCompanyCode === "SYSTEM") {
           if (userProfile?.role === "superadmin") {
@@ -385,7 +388,7 @@ export default function HRTab() {
       setEditTitle(selectedKanbanTask.title || "");
       setEditDescription(selectedKanbanTask.description || "");
       setEditAssigneeUid(selectedKanbanTask.assigneeUid || "");
-      
+
       // Status mapping for compatibility
       let initialStatus = selectedKanbanTask.status || "Not Started";
       if (initialStatus === "todo") initialStatus = "Not Started";
@@ -418,7 +421,7 @@ export default function HRTab() {
   const handleSaveTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedKanbanTask) return;
-    
+
     if (editTitle.trim() === "") {
       toast.warning("Vui lòng nhập tiêu đề công việc!");
       return;
@@ -434,7 +437,7 @@ export default function HRTab() {
       const compCode = selectedCompanyCode || userProfile?.companyCode || "SYSTEM";
       const creatorUid = userProfile?.uid || "";
       const userName = userProfile?.displayName || userProfile?.email || "Thành viên";
-      
+
       const parsedTags = editTags.split(",")
         .map(t => t.trim())
         .filter(t => t.length > 0);
@@ -464,7 +467,7 @@ export default function HRTab() {
           companyCode: compCode,
           creatorUid: creatorUid,
           createdAt: new Date(),
-          
+
           projectId: editProjectId,
           startTime: editStartTime,
           endTime: editEndTime,
@@ -481,7 +484,7 @@ export default function HRTab() {
         setTasks(prev => [...prev, { id: taskId, ...newTaskDoc }]);
       } else {
         const taskRef = doc(db, "kanbanTasks", selectedKanbanTask.id);
-        
+
         const changes: string[] = [];
         if ((selectedKanbanTask.title || "") !== editTitle.trim()) {
           changes.push(`Đổi tên việc: "${selectedKanbanTask.title || 'Trống'}" → "${editTitle.trim()}"`);
@@ -620,7 +623,7 @@ export default function HRTab() {
         });
       });
       setProjects(projData);
-      
+
       const expanded: Record<string, boolean> = {};
       projData.forEach(p => {
         expanded[p.id] = true;
@@ -674,7 +677,7 @@ export default function HRTab() {
         }
       ];
 
-      await updateDoc(taskRef, { 
+      await updateDoc(taskRef, {
         status: newStatus,
         history: updatedHistory
       });
@@ -722,6 +725,7 @@ export default function HRTab() {
   const [quizAnswers, setQuizAnswers] = useState<number[]>([]);
   const [quizSubmitted, setQuizSubmitted] = useState<boolean>(false);
   const [quizErrors, setQuizErrors] = useState<boolean[]>([]);
+  const [isQuizEvaluating, setIsQuizEvaluating] = useState<boolean>(false);
 
   const fetchCourses = async (companyCode: string) => {
     try {
@@ -777,6 +781,45 @@ export default function HRTab() {
         lessons: courseFormLessons,
         quizzes: courseFormQuizzes,
       });
+
+      let enrolledCount = 0;
+      if (courseFormIsRequired) {
+        try {
+          const companyUsers = await authService.getUsersByCompany(companyCode);
+          // Lọc danh sách nhân viên: cùng công ty và không phải superadmin
+          const targetEmployees = companyUsers.filter(u => u.role !== "superadmin");
+
+          if (targetEmployees.length > 0) {
+            const batch = writeBatch(db);
+            targetEmployees.forEach((emp) => {
+              const enrollRef = doc(collection(db, "trainingEnrollments"));
+              batch.set(enrollRef, {
+                courseId: docRef.id,
+                courseTitle: courseFormTitle.trim(),
+                uid: emp.uid,
+                userName: emp.displayName || emp.email || "Nhân viên",
+                companyCode: companyCode,
+                progress: 0,
+                status: "in_progress",
+                createdAt: serverTimestamp(),
+                startedAt: serverTimestamp(),
+                completedLessons: [],
+                quizPassed: false,
+              });
+            });
+            await batch.commit();
+            enrolledCount = targetEmployees.length;
+
+            // Cập nhật lại enrolledCount trên khóa học
+            await updateDoc(doc(db, "trainingCourses", docRef.id), {
+              enrolledCount: enrolledCount
+            });
+          }
+        } catch (enrollErr) {
+          console.error("Lỗi tự động gán khóa học bắt buộc:", enrollErr);
+        }
+      }
+
       toast.success("Đã tạo khóa học thành công!");
       setIsAddCourseModalOpen(false);
       setCourseFormTitle(""); setCourseFormDesc("");
@@ -784,6 +827,7 @@ export default function HRTab() {
       setCourseFormIsRequired(false); setCourseFormAutoOnboarding(false);
       setCourseFormLessons([]);
       setCourseFormQuizzes([]);
+
       // Thêm vào local state ngay không cần reload
       setCourses(prev => [...prev, {
         id: docRef.id, title: courseFormTitle.trim(), description: courseFormDesc.trim(),
@@ -792,11 +836,18 @@ export default function HRTab() {
         duration: courseFormDuration.trim() || "Chưa xác định",
         instructor: creatorName,
         companyCode: companyCode, creatorUid: userProfile.uid,
-        createdAt: new Date(), enrolledCount: 0, companyProgress: 0,
+        createdAt: new Date(),
+        enrolledCount: enrolledCount,
+        companyProgress: 0,
         autoAssignOnboarding: courseFormAutoOnboarding,
         lessons: courseFormLessons,
         quizzes: courseFormQuizzes,
       }]);
+
+      if (courseFormIsRequired) {
+        // Tải lại danh sách enrollment cá nhân để cập nhật giao diện học tập nếu bản thân là đối tượng được gán
+        await fetchMyEnrollments(userProfile.uid, companyCode);
+      }
     } catch (err) {
       console.error("Lỗi tạo khóa học:", err);
       toast.error("Không thể tạo khóa học.");
@@ -839,7 +890,7 @@ export default function HRTab() {
           ? { ...c, enrolledCount: c.enrolledCount + 1 }
           : c
         ));
-        
+
         // Mở modal học tập
         setActiveStudyCourse(course);
         setActiveLessonIndex(-1); // Intro
@@ -854,21 +905,21 @@ export default function HRTab() {
     } else {
       // Đã enroll → Mở modal học tập
       setActiveStudyCourse(course);
-      
+
       const completed = existing.completedLessons || [];
       const lessons = course.lessons || [];
       let nextIdx = -1;
       for (let i = 0; i < lessons.length; i++) {
-        if (!completed.includes(lessons[i].url)) {
+        if (!completed.includes(`lesson_${i}`)) {
           nextIdx = i;
           break;
         }
       }
-      
+
       if (nextIdx === -1 && lessons.length > 0 && !existing.quizPassed && (course.quizzes && course.quizzes.length > 0)) {
         nextIdx = lessons.length;
       }
-      
+
       setActiveLessonIndex(nextIdx);
       setQuizAnswers([]);
       setQuizSubmitted(false);
@@ -876,19 +927,23 @@ export default function HRTab() {
     }
   };
 
-  const handleMarkLessonComplete = async (lesson: Lesson) => {
+  const handleMarkLessonComplete = async (lesson: Lesson, currentIdx?: number) => {
     if (!activeStudyCourse || !userProfile) return;
     const enroll = enrollments.find(e => e.courseId === activeStudyCourse.id);
     if (!enroll) return;
 
     const completed = enroll.completedLessons || [];
-    if (!completed.includes(lesson.url)) {
-      const nextCompleted = [...completed, lesson.url];
-      
-      const totalLessons = activeStudyCourse.lessons?.length ?? 0;
+    const lessons = activeStudyCourse.lessons || [];
+    const currentIndex = currentIdx !== undefined ? currentIdx : lessons.findIndex(l => l.url === lesson.url);
+    const lessonKey = `lesson_${currentIndex}`;
+
+    if (!completed.includes(lessonKey)) {
+      const nextCompleted = [...completed, lessonKey];
+
+      const totalLessons = lessons.length;
       const totalQuizzes = (activeStudyCourse.quizzes && activeStudyCourse.quizzes.length > 0) ? 1 : 0;
       const totalItems = totalLessons + totalQuizzes;
-      
+
       const finishedItems = nextCompleted.length + (enroll.quizPassed ? 1 : 0);
       const progressPercent = Math.round((finishedItems / (totalItems || 1)) * 100);
       const isCourseDone = progressPercent >= 100;
@@ -908,8 +963,6 @@ export default function HRTab() {
         ));
 
         // Tự động chuyển bài học tiếp theo hoặc quiz
-        const lessons = activeStudyCourse.lessons || [];
-        const currentIndex = lessons.findIndex(l => l.url === lesson.url);
         if (currentIndex < lessons.length - 1) {
           setActiveLessonIndex(currentIndex + 1);
         } else if (totalQuizzes > 0) {
@@ -923,10 +976,8 @@ export default function HRTab() {
         toast.error("Không thể lưu tiến độ học tập.");
       }
     } else {
-      const lessons = activeStudyCourse.lessons || [];
-      const currentIndex = lessons.findIndex(l => l.url === lesson.url);
       const totalQuizzes = (activeStudyCourse.quizzes && activeStudyCourse.quizzes.length > 0) ? 1 : 0;
-      
+
       if (currentIndex < lessons.length - 1) {
         setActiveLessonIndex(currentIndex + 1);
       } else if (totalQuizzes > 0) {
@@ -945,6 +996,13 @@ export default function HRTab() {
     const quizzes = activeStudyCourse.quizzes || [];
     if (quizzes.length === 0) return;
 
+    // Kiểm tra xem đã trả lời hết câu hỏi chưa
+    const unanswered = quizzes.some((_, idx) => quizAnswers[idx] === undefined || quizAnswers[idx] === null);
+    if (unanswered) {
+      toast.warning("Vui lòng trả lời đầy đủ tất cả các câu hỏi trắc nghiệm!");
+      return;
+    }
+
     let allCorrect = true;
     const errorsCopy = new Array(quizzes.length).fill(false);
     for (let i = 0; i < quizzes.length; i++) {
@@ -954,12 +1012,10 @@ export default function HRTab() {
       }
     }
 
-    setQuizSubmitted(true);
-    setQuizErrors(errorsCopy);
-
     if (allCorrect) {
+      setIsQuizEvaluating(true);
       const totalLessons = activeStudyCourse.lessons?.length ?? 0;
-      const totalItems = totalLessons + 1; 
+      const totalItems = totalLessons + 1;
       const finishedItems = (enroll.completedLessons || []).length + 1;
       const progressPercent = Math.round((finishedItems / (totalItems || 1)) * 100);
       const isCourseDone = progressPercent >= 100;
@@ -978,11 +1034,18 @@ export default function HRTab() {
           : e
         ));
 
+        setQuizSubmitted(true);
+        setQuizErrors(errorsCopy);
         toast.success("🎉 Xuất sắc! Bạn đã trả lời đúng tất cả các câu hỏi trắc nghiệm!");
       } catch (err) {
+        console.error(err);
         toast.error("Không thể lưu kết quả thi.");
+      } finally {
+        setIsQuizEvaluating(false);
       }
     } else {
+      setQuizSubmitted(true);
+      setQuizErrors(errorsCopy);
       toast.error("Có câu trả lời chưa đúng. Vui lòng kiểm tra lại!");
     }
   };
@@ -1028,10 +1091,10 @@ export default function HRTab() {
     }
   };
 
-  // Tự động gán khóa học Onboarding + tạo Kanban task khi thêm nhân viên mới
+  // Tự động gán khóa học Onboarding / Bắt buộc + tạo Kanban task khi thêm nhân viên mới
   const autoAssignCourseOnNewEmployee = async (newEmpUid: string, newEmpName: string, companyCode: string) => {
-    const onboardingCourses = courses.filter(c => c.autoAssignOnboarding && c.companyCode === companyCode);
-    for (const course of onboardingCourses) {
+    const targetCourses = courses.filter(c => (c.autoAssignOnboarding || c.isRequired) && c.companyCode === companyCode);
+    for (const course of targetCourses) {
       try {
         // Tạo enrollment
         await addDoc(collection(db, "trainingEnrollments"), {
@@ -1041,9 +1104,18 @@ export default function HRTab() {
           userName: newEmpName,
           companyCode,
           progress: 0,
-          status: "not_started",
+          status: "in_progress",
           createdAt: serverTimestamp(),
+          startedAt: serverTimestamp(),
+          completedLessons: [],
+          quizPassed: false,
         });
+
+        // Tăng enrolledCount trên khóa học
+        await updateDoc(doc(db, "trainingCourses", course.id), {
+          enrolledCount: (course.enrolledCount || 0) + 1
+        });
+
         // Tạo Kanban task tương ứng
         const taskDueDate = new Date();
         taskDueDate.setDate(taskDueDate.getDate() + 7);
@@ -1051,7 +1123,9 @@ export default function HRTab() {
         await setDoc(doc(db, "kanbanTasks", taskId), {
           id: taskId,
           title: `[Đào tạo] ${course.title}`,
-          description: `Khóa học Onboarding bắt buộc. Hoàn thành trong vòng 7 ngày kể từ ngày vào công ty.`,
+          description: course.isRequired
+            ? `Khóa học bắt buộc của công ty. Hoàn thành trong vòng 7 ngày kể từ ngày vào công ty.`
+            : `Khóa học Onboarding. Hoàn thành trong vòng 7 ngày kể từ ngày vào công ty.`,
           assigneeUid: newEmpUid,
           assignee: newEmpName,
           assigneeAvatar: "👤",
@@ -1068,7 +1142,7 @@ export default function HRTab() {
           history: [{
             time: new Date().toLocaleString("vi-VN"),
             user: "Hệ thống",
-            action: `Tự động tạo từ khóa học Onboarding: "${course.title}"`
+            action: `Tự động tạo từ khóa học ${course.isRequired ? "Bắt buộc" : "Onboarding"}: "${course.title}"`
           }]
         });
       } catch (err) {
@@ -1100,7 +1174,7 @@ export default function HRTab() {
         e.preventDefault();
         return;
       }
-      
+
       const checkIsDescendant = (parentId: string, childId: string): boolean => {
         const child = employees.find(emp => emp.id === childId);
         if (!child || !child.parentId) return false;
@@ -1179,9 +1253,9 @@ export default function HRTab() {
     const updateHierarchy = (list: EmployeeNode[], dragged: string, target: string): EmployeeNode[] => {
       const parent = list.find(emp => emp.id === target);
       if (!parent) return list;
-      
+
       const newLevel = parent.level + 1;
-      
+
       const nextList = list.map(emp => {
         if (emp.id === dragged) {
           return { ...emp, parentId: target, level: newLevel };
@@ -1254,55 +1328,66 @@ export default function HRTab() {
     const matchSearch = searchQuery.trim() === "" ||
       emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       emp.role.toLowerCase().includes(searchQuery.toLowerCase());
-    
+
     const matchDivision = filterDivision === "Tất cả" || emp.division === filterDivision;
-    
+
     return matchSearch && matchDivision;
   };
 
   // Handle adding new employee user profile
   const handleAddEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!addName.trim() || !addEmail.trim()) {
-      toast.warning("Vui lòng nhập đầy đủ Họ tên và Email!");
+    if (!addName.trim() || !addEmail.trim() || !addPassword.trim()) {
+      toast.warning("Vui lòng nhập đầy đủ Họ tên, Email và Mật khẩu!");
+      return;
+    }
+    if (addPassword.length < 6) {
+      toast.warning("Mật khẩu phải chứa ít nhất 6 ký tự!");
       return;
     }
 
-    let level = 1;
-    if (addParentId) {
-      const manager = employees.find(emp => emp.id === addParentId);
-      if (manager) {
-        level = manager.level + 1;
-      }
-    } else {
-      level = addRole === "manager" ? 2 : 4;
+    // Kiểm tra email trùng trong công ty
+    const emailNormalized = addEmail.trim().toLowerCase();
+    const duplicateEmail = usersList.find(u => u.email?.toLowerCase() === emailNormalized);
+    if (duplicateEmail) {
+      toast.error(`❌ Email "${addEmail.trim()}" đã được sử dụng bởi nhân sự "${duplicateEmail.displayName || duplicateEmail.email}". Vui lòng dùng email khác!`);
+      return;
     }
 
-    const newUid = "emp_" + Date.now();
+    // Kiểm tra số điện thoại trùng (nếu có nhập)
+    if (addPhone.trim()) {
+      const phoneNormalized = addPhone.trim().replace(/\s+/g, "");
+      const duplicatePhone = usersList.find(u => u.phone && u.phone.replace(/\s+/g, "") === phoneNormalized);
+      if (duplicatePhone) {
+        toast.error(`❌ Số điện thoại "${addPhone.trim()}" đã được sử dụng bởi nhân sự "${duplicatePhone.displayName || duplicatePhone.email}". Vui lòng dùng số khác!`);
+        return;
+      }
+    }
+
     const compCode = selectedCompanyCode || userProfile?.companyCode || "SYSTEM";
-    const compName = userProfile?.role === "superadmin" 
+    const compName = userProfile?.role === "superadmin"
       ? (companies.find(c => c.code === selectedCompanyCode)?.name || "SYSTEM")
       : (userProfile?.companyName || "");
 
+    const manager = addParentId ? employees.find(emp => emp.id === addParentId) : undefined;
+    const managerLevel = manager ? manager.level : undefined;
+    const deptName = addDepartment.trim() || (addRole === "manager" ? "Quản lý" : "Nhân sự");
+
     try {
-      const docRef = doc(db, "users", newUid);
-      await setDoc(docRef, {
-        uid: newUid,
-        email: addEmail.trim(),
-        displayName: addName.trim(),
-        photoURL: `https://ui-avatars.com/api/?name=${encodeURIComponent(addName.trim())}&background=random&color=fff`,
-        role: addRole,
-        jobTitle: addRole === "manager" ? "Quản lý phòng ban" : "Nhân viên",
-        department: addDepartment.trim() || (addRole === "manager" ? "Quản lý" : "Nhân sự"),
-        phone: addPhone.trim() || "Chưa cập nhật",
-        level,
-        parentId: addParentId || null,
-        status: "online",
-        division: addDepartment.trim() || (addRole === "manager" ? "Quản lý" : "Nhân sự"),
-        companyCode: compCode,
-        companyName: compName,
-        createdAt: new Date()
-      });
+      setIsAddingEmployee(true);
+      const newUid = await authService.registerUserForCompany(
+        addName.trim(),
+        addEmail.trim(),
+        addPassword,
+        addRole,
+        compCode,
+        compName,
+        addParentId || undefined,
+        managerLevel,
+        deptName,
+        deptName,
+        addPhone.trim()
+      );
 
       toast.success(`Đã thêm nhân sự "${addName}" thành công!`);
 
@@ -1314,15 +1399,21 @@ export default function HRTab() {
       // Reset Form
       setAddName("");
       setAddEmail("");
+      setAddPassword("");
       setAddPhone("");
       setAddParentId("");
       setAddRole("user");
       setAddDepartment("Phòng Kỹ Thuật");
 
       await fetchUsers();
+      if (compCode) {
+        await fetchCourses(compCode);
+      }
     } catch (err) {
       console.error(err);
       toast.error("Lỗi khi thêm thành viên mới.");
+    } finally {
+      setIsAddingEmployee(false);
     }
   };
 
@@ -1335,25 +1426,23 @@ export default function HRTab() {
     const isSelected = selectedEmp?.id === node.id;
     const isMatch = isMatchingFilter(node);
     const isFilteredOut = (searchQuery.trim() !== "" || filterDivision !== "Tất cả") && !isMatch;
-    
+
     const directReportsCount = employees.filter(e => e.parentId === node.id).length;
 
     return (
       <div className="flex flex-col items-center" key={node.id}>
         {/* Smart Employee Card */}
-        <div 
+        <div
           draggable={isManager ? "true" : "false"}
           onDragStart={(e) => handleDragStart(e, node.id)}
           onDragOver={handleDragOver}
           onDrop={(e) => handleDrop(e, node.id)}
           onClick={() => setSelectedEmp(node)}
-          className={`p-3 bg-white text-gray-800 border rounded-2xl shadow-xs w-52 text-center cursor-pointer relative hover:scale-104 active:scale-95 transition-all duration-300 ${
-            isSelected 
-              ? "ring-4 ring-indigo-500 shadow-indigo-200 border-transparent z-10" 
+          className={`p-3 bg-white text-gray-800 border rounded-2xl shadow-xs w-52 text-center cursor-pointer relative hover:scale-104 active:scale-95 transition-all duration-300 ${isSelected
+              ? "ring-4 ring-indigo-500 shadow-indigo-200 border-transparent z-10"
               : "border-gray-250 hover:border-indigo-300 hover:shadow-md"
-          } ${
-            isFilteredOut ? "opacity-30 blur-[0.5px] scale-98" : "opacity-100"
-          }`}
+            } ${isFilteredOut ? "opacity-30 blur-[0.5px] scale-98" : "opacity-100"
+            }`}
           id={`org_node_${node.id}`}
         >
           {/* Online/Offline Dot Indicator */}
@@ -1370,7 +1459,7 @@ export default function HRTab() {
           </div>
           <h4 className="font-bold text-xs leading-tight text-slate-800 font-sans truncate px-1">{node.name}</h4>
           <p className="text-[9px] text-indigo-650 font-bold font-mono mt-0.5 uppercase tracking-wide truncate px-1">{node.role}</p>
-          
+
           <div className="mt-2 pt-1.5 border-t border-gray-100 flex items-center justify-center gap-1 flex-wrap">
             <span className={`text-[8px] font-bold border px-1 rounded-sm uppercase tracking-wider font-mono ${getDivisionBadgeStyles(node.division)}`}>
               {node.division}
@@ -1394,7 +1483,7 @@ export default function HRTab() {
                 const isFirst = index === 0;
                 const isLast = index === children.length - 1;
                 const hasSiblings = children.length > 1;
-                
+
                 return (
                   <div key={child.id} className="flex flex-col items-center px-4 relative">
                     {/* Horizontal Connector bar */}
@@ -1405,7 +1494,7 @@ export default function HRTab() {
                       </div>
                     )}
                     <div className="w-0.5 h-6 border-l-2 border-slate-300" />
-                    
+
                     {renderBranch(child)}
                   </div>
                 );
@@ -1418,7 +1507,7 @@ export default function HRTab() {
   };
 
   // Filter tasks in Kanban Board based on selected employee name filter
-  const visibleTasks = kanbanFilter 
+  const visibleTasks = kanbanFilter
     ? tasks.filter(t => t.assignee.toLowerCase() === kanbanFilter.toLowerCase())
     : tasks;
 
@@ -1431,11 +1520,10 @@ export default function HRTab() {
             <button
               key={tab}
               onClick={() => setSubTab(tab as HRSubTabType)}
-              className={`px-4 py-2 rounded-lg border font-bold uppercase transition-all tracking-wide ${
-                subTab === tab 
-                  ? "bg-slate-800 text-white border-slate-800 shadow-xs" 
+              className={`px-4 py-2 rounded-lg border font-bold uppercase transition-all tracking-wide ${subTab === tab
+                  ? "bg-slate-800 text-white border-slate-800 shadow-xs"
                   : "bg-white text-gray-500 border-gray-200 hover:bg-gray-100"
-              }`}
+                }`}
             >
               {tab}
             </button>
@@ -1462,7 +1550,7 @@ export default function HRTab() {
               />
             </div>
           </div>
-          
+
           <div className="flex flex-wrap items-center gap-4 text-xs font-semibold">
             {/* SaaS Multi-tenant Company Filter for Superadmin */}
             {userProfile?.role === "superadmin" && (
@@ -1502,12 +1590,12 @@ export default function HRTab() {
             {/* Slider zoom controls */}
             <div className="flex items-center gap-2 font-mono">
               <span className="text-slate-400 text-xxs font-bold font-sans">THU PHÓNG:</span>
-              <input 
-                type="range" 
-                min="0.5" 
-                max="1.5" 
+              <input
+                type="range"
+                min="0.5"
+                max="1.5"
                 step="0.05"
-                value={zoomLevel} 
+                value={zoomLevel}
                 onChange={(e) => setZoomLevel(parseFloat(e.target.value))}
                 className="w-28 h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-650"
               />
@@ -1519,11 +1607,11 @@ export default function HRTab() {
 
       {/* Primary Sub Tab Layout View */}
       <div className="flex-1 p-6 overflow-y-auto" id="hr_tab_content">
-        
+
         {/* SUB TAB 1: SƠ ĐỒ TỔ CHỨC */}
         {subTab === "SƠ ĐỒ TỔ CHỨC" && (
           <div className="grid grid-cols-1 xl:grid-cols-4 gap-6 h-full min-h-[500px]" id="org_chart_block">
-            
+
             {/* Sidebar View employee card detail panel */}
             <div className="xl:col-span-1 bg-slate-50 p-5 rounded-2xl border border-gray-200 max-h-[70vh] overflow-y-auto flex flex-col justify-between" id="employee_detail_card">
               {loading ? (
@@ -1536,13 +1624,12 @@ export default function HRTab() {
                   <div className="text-center relative">
                     <div className="my-4 mx-auto relative w-20 h-20">
                       {renderAvatar(selectedEmp.avatar, "w-full h-full", "text-4xl")}
-                      <span className={`absolute bottom-0.5 right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white ${
-                        selectedEmp.status === 'online' ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'
-                      }`} />
+                      <span className={`absolute bottom-0.5 right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white ${selectedEmp.status === 'online' ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'
+                        }`} />
                     </div>
                     <h3 className="text-base font-bold text-slate-800 font-sans">{selectedEmp.name}</h3>
                     <p className="text-xs text-indigo-650 font-bold uppercase tracking-wider mt-1 leading-tight">{selectedEmp.role}</p>
-                    
+
                     <div className="mt-3.5 flex flex-col gap-1.5 items-center justify-center">
                       <span className="px-3 py-0.5 bg-white border border-gray-200 rounded-full text-[10px] text-gray-500 font-mono">
                         Phòng: {selectedEmp.department}
@@ -1566,7 +1653,7 @@ export default function HRTab() {
                       <UserSquare className="h-4 w-4 text-gray-400 shrink-0" />
                       <span>Cấp quản lý: <strong className="text-slate-800 font-semibold font-mono">Cấp {selectedEmp.level}</strong></span>
                     </div>
-                    
+
                     {/* Boss / Manager details */}
                     {selectedEmp.parentId && (
                       <div className="flex items-center gap-2.5">
@@ -1577,15 +1664,15 @@ export default function HRTab() {
                         }}>{employees.find(e => e.id === selectedEmp.parentId)?.name || 'Quản lý cấp trên'}</strong></span>
                       </div>
                     )}
-                    
+
                     {/* Direct Subordinates list */}
                     {employees.some(e => e.parentId === selectedEmp.id) && (
                       <div className="pt-2">
                         <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 font-mono">Nhân sự dưới quyền ({employees.filter(e => e.parentId === selectedEmp.id).length}):</span>
                         <div className="space-y-1 max-h-[120px] overflow-y-auto pr-1">
                           {employees.filter(e => e.parentId === selectedEmp.id).map(sub => (
-                            <div 
-                              key={sub.id} 
+                            <div
+                              key={sub.id}
                               onClick={() => setSelectedEmp(sub)}
                               className="p-1.5 bg-white border border-gray-150 hover:border-indigo-300 hover:text-indigo-650 rounded-xl text-[10px] font-semibold text-slate-700 transition-all cursor-pointer flex items-center gap-1.5"
                             >
@@ -1598,10 +1685,10 @@ export default function HRTab() {
                       </div>
                     )}
                   </div>
-                  
+
                   {/* Linked Navigation Operations */}
                   <div className="mt-6 pt-4 border-t border-gray-200 space-y-2">
-                    <button 
+                    <button
                       onClick={() => {
                         setSubTab("GIAO VIỆC KANBAN");
                         setKanbanFilter(selectedEmp.name);
@@ -1611,7 +1698,7 @@ export default function HRTab() {
                       <UserSquare className="h-3.5 w-3.5" />
                       Kiểm tra công việc Kanban
                     </button>
-                    <button 
+                    <button
                       onClick={() => {
                         setSubTab("ĐÀO TẠO");
                         setTrainingFilter(selectedEmp.name);
@@ -1624,7 +1711,7 @@ export default function HRTab() {
 
                     {/* Delete button (Manager/Admin/Superadmin only) */}
                     {canDeleteEmployee(selectedEmp.id) && (
-                      <button 
+                      <button
                         onClick={() => handleDeleteEmployeeSubmit(selectedEmp.id)}
                         className="w-full text-center py-2.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-150 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer shadow-2xs mt-2"
                       >
@@ -1642,7 +1729,7 @@ export default function HRTab() {
 
               {isManager ? (
                 <div className="mt-6 pt-4 border-t border-gray-200">
-                  <button 
+                  <button
                     onClick={() => setIsAddModalOpen(true)}
                     className="w-full text-center py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-md active:scale-95 cursor-pointer"
                   >
@@ -1660,7 +1747,7 @@ export default function HRTab() {
 
             {/* Hierarchical Org Index tree container */}
             <div className="xl:col-span-3 bg-slate-50/50 border border-gray-200 rounded-3xl relative overflow-hidden flex flex-col justify-between" id="org_chart_interactive_canvas">
-              
+
               {/* Reset view helper */}
               <div className="absolute top-4 left-4 bg-white/90 shadow-md border border-gray-150 rounded-xl p-1.5 flex items-center gap-1.5 text-[10px] font-bold text-slate-650 font-sans z-10 select-none">
                 <Activity className="h-3.5 w-3.5 text-indigo-500 animate-pulse" />
@@ -1696,37 +1783,34 @@ export default function HRTab() {
         {/* SUB TAB 2: GIAO VIỆC KANBAN */}
         {subTab === "GIAO VIỆC KANBAN" && (
           <div className="bg-white text-slate-800 p-8 rounded-3xl border border-gray-200 shadow-xs space-y-6 text-left" id="job_delegation_kanban">
-            
+
             {/* Header section */}
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 pb-4 border-b border-gray-200">
               <div className="flex items-center gap-4">
                 <h2 className="text-2xl font-bold font-sans text-slate-800">Tasks</h2>
-                
+
                 {/* Tab buttons */}
                 <div className="flex bg-gray-100 border border-gray-200 p-1 rounded-xl text-xs font-semibold gap-1 select-none">
                   <button
                     onClick={() => setKanbanViewTab("By project")}
-                    className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
-                      kanbanViewTab === "By project" ? "bg-slate-800 text-white shadow-xs" : "text-gray-500 hover:text-slate-800"
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${kanbanViewTab === "By project" ? "bg-slate-800 text-white shadow-xs" : "text-gray-500 hover:text-slate-800"
+                      }`}
                   >
                     <Target className="h-3.5 w-3.5" />
                     By project
                   </button>
                   <button
                     onClick={() => setKanbanViewTab("Board")}
-                    className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
-                      kanbanViewTab === "Board" ? "bg-slate-800 text-white shadow-xs" : "text-gray-500 hover:text-slate-800"
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${kanbanViewTab === "Board" ? "bg-slate-800 text-white shadow-xs" : "text-gray-500 hover:text-slate-800"
+                      }`}
                   >
                     <Activity className="h-3.5 w-3.5" />
                     Board
                   </button>
                   <button
                     onClick={() => setKanbanViewTab("All tasks")}
-                    className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
-                      kanbanViewTab === "All tasks" ? "bg-slate-800 text-white shadow-xs" : "text-gray-500 hover:text-slate-800"
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${kanbanViewTab === "All tasks" ? "bg-slate-800 text-white shadow-xs" : "text-gray-500 hover:text-slate-800"
+                      }`}
                   >
                     <BookOpen className="h-3.5 w-3.5" />
                     All tasks
@@ -1747,17 +1831,17 @@ export default function HRTab() {
                   <Clock className="h-3 w-3" />
                   Đã khóa
                 </span>
-                
+
                 {/* Mới Dropdown / Action buttons */}
                 <div className="relative flex gap-2">
-                  <button 
+                  <button
                     onClick={() => setIsNewProjectModalOpen(true)}
                     className="px-3 py-1.5 bg-white border border-gray-200 text-gray-600 hover:text-slate-850 hover:bg-gray-55/40 hover:bg-gray-50 rounded-xl text-xs font-bold transition-all shadow-xxs flex items-center gap-1.5 cursor-pointer font-sans"
                   >
                     <Plus className="h-3.5 w-3.5" />
                     Dự án mới
                   </button>
-                  <button 
+                  <button
                     onClick={() => setSelectedKanbanTask({
                       id: "new",
                       title: "",
@@ -1790,18 +1874,18 @@ export default function HRTab() {
                     Chưa có dự án nào được tạo. Hãy bấm <strong>+ Dự án mới</strong> để bắt đầu!
                   </div>
                 )}
-                
+
                 {/* Render task lists grouped by project */}
                 {[...projects, { id: "unassigned", name: "Không phân loại dự án" }].map((proj) => {
                   const projTasks = visibleTasks.filter(t => proj.id === "unassigned" ? !t.projectId : t.projectId === proj.id);
                   if (proj.id === "unassigned" && projTasks.length === 0) return null;
-                  
+
                   const isExpanded = expandedProjects[proj.id] !== false;
-                  
+
                   return (
                     <div key={proj.id} className="border border-gray-200 bg-white rounded-2xl overflow-hidden transition-all shadow-xxs">
                       {/* Accordion header */}
-                      <div 
+                      <div
                         onClick={() => setExpandedProjects(prev => ({ ...prev, [proj.id]: !isExpanded }))}
                         className="px-5 py-3.5 bg-gray-50/50 border-b border-gray-200 flex items-center justify-between cursor-pointer select-none hover:bg-gray-55/40 hover:bg-gray-50"
                       >
@@ -1817,7 +1901,7 @@ export default function HRTab() {
                           </span>
                         </div>
                       </div>
-                      
+
                       {/* Accordion task list table */}
                       {isExpanded && (
                         <div className="overflow-x-auto">
@@ -1850,10 +1934,10 @@ export default function HRTab() {
                                 projTasks.map(task => {
                                   const est = task.estTime || 0;
                                   const act = task.actualTime || 0;
-                                  
+
                                   let kpiText = "Not Started";
                                   let kpiColor = "bg-gray-100 text-gray-600 border border-gray-200";
-                                  
+
                                   let finalStatus = task.status || "Not Started";
                                   if (finalStatus === "todo") finalStatus = "Not Started";
                                   else if (finalStatus === "doing") finalStatus = "In Progress";
@@ -1877,8 +1961,8 @@ export default function HRTab() {
                                   }
 
                                   return (
-                                    <tr 
-                                      key={task.id} 
+                                    <tr
+                                      key={task.id}
                                       className="border-b border-gray-150/60 hover:bg-gray-50/45 cursor-pointer font-sans"
                                       onClick={() => setSelectedKanbanTask(task)}
                                     >
@@ -1886,31 +1970,29 @@ export default function HRTab() {
                                       <td className="p-3 border-r border-gray-150/60 font-semibold text-slate-800 flex items-center gap-1.5 min-w-[200px] select-text">
                                         📄 {task.title || "Không có tiêu đề"}
                                       </td>
-                                      
+
                                       {/* Status */}
                                       <td className="p-3 border-r border-gray-150/60">
-                                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap ${
-                                          finalStatus === "Done" ? "bg-emerald-50 border border-emerald-250 border-emerald-200 text-emerald-700" :
-                                          finalStatus === "In Progress" ? "bg-blue-50 border border-blue-200 text-blue-700" :
-                                          finalStatus === "Review/Testing" ? "bg-amber-50 border border-amber-250 border-amber-200 text-amber-700" :
-                                          finalStatus === "Archived" ? "bg-gray-100 border border-gray-250/70 border-gray-200 text-gray-600" :
-                                          "bg-gray-50 border border-gray-250/70 text-gray-500"
-                                        }`}>
+                                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap ${finalStatus === "Done" ? "bg-emerald-50 border border-emerald-250 border-emerald-200 text-emerald-700" :
+                                            finalStatus === "In Progress" ? "bg-blue-50 border border-blue-200 text-blue-700" :
+                                              finalStatus === "Review/Testing" ? "bg-amber-50 border border-amber-250 border-amber-200 text-amber-700" :
+                                                finalStatus === "Archived" ? "bg-gray-100 border border-gray-250/70 border-gray-200 text-gray-600" :
+                                                  "bg-gray-50 border border-gray-250/70 text-gray-500"
+                                          }`}>
                                           {finalStatus}
                                         </span>
                                       </td>
-                                      
+
                                       {/* Priority */}
                                       <td className="p-3 border-r border-gray-150/60">
-                                        <span className={`px-2.5 py-0.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${
-                                          task.priority === "High" || task.priority === "Cao" ? "bg-red-50 border border-red-150 border-red-100 text-red-700" :
-                                          task.priority === "Medium" || task.priority === "Trung bình" ? "bg-amber-50 border border-amber-150 border-amber-100 text-amber-750" :
-                                          "bg-blue-50 border border-blue-150 border-blue-100 text-blue-700"
-                                        }`}>
+                                        <span className={`px-2.5 py-0.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${task.priority === "High" || task.priority === "Cao" ? "bg-red-50 border border-red-150 border-red-100 text-red-700" :
+                                            task.priority === "Medium" || task.priority === "Trung bình" ? "bg-amber-50 border border-amber-150 border-amber-100 text-amber-750" :
+                                              "bg-blue-50 border border-blue-150 border-blue-100 text-blue-700"
+                                          }`}>
                                           {task.priority || "Medium"}
                                         </span>
                                       </td>
-                                      
+
                                       {/* Tags */}
                                       <td className="p-3 border-r border-gray-150/60 min-w-[100px]">
                                         <div className="flex flex-wrap gap-1">
@@ -1921,7 +2003,7 @@ export default function HRTab() {
                                           ))}
                                         </div>
                                       </td>
-                                      
+
                                       {/* Assignee */}
                                       <td className="p-3 border-r border-gray-150/60 min-w-[130px]">
                                         <div className="flex items-center gap-1.5">
@@ -1929,39 +2011,39 @@ export default function HRTab() {
                                           <span className="font-semibold text-slate-700">{task.assignee}</span>
                                         </div>
                                       </td>
-                                      
+
                                       {/* Start Time */}
                                       <td className="p-3 border-r border-gray-150/60 font-mono text-slate-500 min-w-[110px]">
                                         {task.startTime ? new Date(task.startTime).toLocaleDateString("vi-VN") : "—"}
                                       </td>
-                                      
+
                                       {/* Est Time */}
                                       <td className="p-3 border-r border-gray-150/60 font-mono text-right font-bold text-slate-700">
                                         {task.estTime ?? 0}h
                                       </td>
-                                      
+
                                       {/* End Time */}
                                       <td className="p-3 border-r border-gray-150/60 font-mono text-slate-500 min-w-[110px]">
                                         {task.endTime ? new Date(task.endTime).toLocaleDateString("vi-VN") : "—"}
                                       </td>
-                                      
+
                                       {/* Actual Time */}
                                       <td className="p-3 border-r border-gray-150/60 font-mono text-right font-bold text-slate-700">
                                         {task.actualTime ?? 0}h
                                       </td>
-                                      
+
                                       {/* KPI */}
                                       <td className="p-3 border-r border-gray-150/60 min-w-[120px]">
                                         <span className={`px-2.5 py-0.5 rounded-lg text-[10px] font-semibold whitespace-nowrap ${kpiColor}`}>
                                           {kpiText}
                                         </span>
                                       </td>
-                                      
+
                                       {/* Description */}
                                       <td className="p-3 border-r border-gray-150/60 text-slate-500 truncate max-w-[150px] min-w-[100px]">
                                         {task.description || "—"}
                                       </td>
-                                      
+
                                       {/* Link Note */}
                                       <td className="p-3 border-r border-gray-150/60 text-indigo-650 hover:underline min-w-[100px]">
                                         {task.linkNote ? (
@@ -1971,11 +2053,11 @@ export default function HRTab() {
                                           </a>
                                         ) : "—"}
                                       </td>
-                                      
+
                                       {/* Action */}
                                       <td className="p-3 text-center" onClick={(e) => e.stopPropagation()}>
                                         {isManager && (
-                                          <button 
+                                          <button
                                             onClick={() => deleteTask(task.id)}
                                             className="p-1 hover:bg-slate-100 text-gray-400 hover:text-red-650 rounded-lg transition-colors cursor-pointer"
                                           >
@@ -1991,7 +2073,7 @@ export default function HRTab() {
                           </table>
                         </div>
                       )}
-                      
+
                       {/* Accordion footer button */}
                       {isExpanded && (
                         <div className="px-5 py-3 border-t border-gray-200 bg-gray-50/20 text-left">
@@ -2027,7 +2109,7 @@ export default function HRTab() {
             {/* TAB CONTENT: Board */}
             {kanbanViewTab === "Board" && (
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6" id="three_column_kanban">
-                
+
                 {/* 1. NOT STARTED */}
                 <div className="bg-slate-50/70 rounded-2xl p-4 border border-gray-200/60 flex flex-col min-h-[450px]">
                   <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-200 select-none">
@@ -2041,10 +2123,10 @@ export default function HRTab() {
                       <div className="p-8 text-center text-gray-400 text-xs italic">Hết công việc chờ!</div>
                     ) : (
                       visibleTasks.filter(t => (t.status === "Not Started" || t.status === "todo")).map(task => (
-                        <KanbanCard 
-                          key={task.id} 
-                          task={task} 
-                          onMove={(newSt) => moveTaskStatus(task.id, newSt)} 
+                        <KanbanCard
+                          key={task.id}
+                          task={task}
+                          onMove={(newSt) => moveTaskStatus(task.id, newSt)}
                           onDelete={() => deleteTask(task.id)}
                           canDelete={isManager}
                           onClick={() => setSelectedKanbanTask(task)}
@@ -2089,10 +2171,10 @@ export default function HRTab() {
                       <div className="p-8 text-center text-gray-400 text-xs italic">Kéo thả hoặc chuyển tiến độ để bắt đầu</div>
                     ) : (
                       visibleTasks.filter(t => (t.status === "In Progress" || t.status === "doing")).map(task => (
-                        <KanbanCard 
-                          key={task.id} 
-                          task={task} 
-                          onMove={(newSt) => moveTaskStatus(task.id, newSt)} 
+                        <KanbanCard
+                          key={task.id}
+                          task={task}
+                          onMove={(newSt) => moveTaskStatus(task.id, newSt)}
                           onDelete={() => deleteTask(task.id)}
                           canDelete={isManager}
                           onClick={() => setSelectedKanbanTask(task)}
@@ -2137,10 +2219,10 @@ export default function HRTab() {
                       <div className="p-8 text-center text-gray-400 text-xs italic">Không có nhiệm vụ nào cần review</div>
                     ) : (
                       visibleTasks.filter(t => t.status === "Review/Testing").map(task => (
-                        <KanbanCard 
-                          key={task.id} 
-                          task={task} 
-                          onMove={(newSt) => moveTaskStatus(task.id, newSt)} 
+                        <KanbanCard
+                          key={task.id}
+                          task={task}
+                          onMove={(newSt) => moveTaskStatus(task.id, newSt)}
                           onDelete={() => deleteTask(task.id)}
                           canDelete={isManager}
                           onClick={() => setSelectedKanbanTask(task)}
@@ -2185,10 +2267,10 @@ export default function HRTab() {
                       <div className="p-8 text-center text-gray-400 text-xs italic">Chưa có công việc nào hoàn thành</div>
                     ) : (
                       visibleTasks.filter(t => (t.status === "Done" || t.status === "done")).map(task => (
-                        <KanbanCard 
-                          key={task.id} 
-                          task={task} 
-                          onMove={(newSt) => moveTaskStatus(task.id, newSt)} 
+                        <KanbanCard
+                          key={task.id}
+                          task={task}
+                          onMove={(newSt) => moveTaskStatus(task.id, newSt)}
                           onDelete={() => deleteTask(task.id)}
                           canDelete={isManager}
                           onClick={() => setSelectedKanbanTask(task)}
@@ -2256,8 +2338,8 @@ export default function HRTab() {
                         const taskProj = projects.find(p => p.id === task.projectId);
 
                         return (
-                          <tr 
-                            key={task.id} 
+                          <tr
+                            key={task.id}
                             className="border-b border-gray-150/60 hover:bg-gray-55/45 cursor-pointer font-sans"
                             onClick={() => setSelectedKanbanTask(task)}
                           >
@@ -2265,20 +2347,19 @@ export default function HRTab() {
                             <td className="p-3 border-r border-gray-150/60 font-semibold text-slate-800 flex items-center gap-1.5 min-w-[200px] select-text">
                               📄 {task.title || "Không có tiêu đề"}
                             </td>
-                            
+
                             {/* Status */}
                             <td className="p-3 border-r border-gray-150/60">
-                              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap ${
-                                finalStatus === "Done" ? "bg-emerald-50 border border-emerald-255 border-emerald-200 text-emerald-700" :
-                                finalStatus === "In Progress" ? "bg-blue-50 border border-blue-200 text-blue-700" :
-                                finalStatus === "Review/Testing" ? "bg-amber-50 border border-amber-250 border-amber-200 text-amber-700" :
-                                finalStatus === "Archived" ? "bg-gray-100 border border-gray-200 text-gray-600" :
-                                "bg-gray-50 border border-gray-250/70 text-gray-500"
-                              }`}>
+                              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap ${finalStatus === "Done" ? "bg-emerald-50 border border-emerald-255 border-emerald-200 text-emerald-700" :
+                                  finalStatus === "In Progress" ? "bg-blue-50 border border-blue-200 text-blue-700" :
+                                    finalStatus === "Review/Testing" ? "bg-amber-50 border border-amber-250 border-amber-200 text-amber-700" :
+                                      finalStatus === "Archived" ? "bg-gray-100 border border-gray-200 text-gray-600" :
+                                        "bg-gray-50 border border-gray-250/70 text-gray-500"
+                                }`}>
                                 {finalStatus}
                               </span>
                             </td>
-                            
+
                             {/* Assignee */}
                             <td className="p-3 border-r border-gray-150/60 min-w-[130px]">
                               <div className="flex items-center gap-1.5">
@@ -2286,23 +2367,22 @@ export default function HRTab() {
                                 <span className="font-semibold text-slate-700">{task.assignee}</span>
                               </div>
                             </td>
-                            
+
                             {/* Est Time Detail */}
                             <td className="p-3 border-r border-gray-150/60 font-mono text-slate-700 font-bold">
                               {task.estTime ?? 0}h
                             </td>
-                            
+
                             {/* Priority */}
                             <td className="p-3 border-r border-gray-150/60">
-                              <span className={`px-2.5 py-0.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${
-                                task.priority === "High" || task.priority === "Cao" ? "bg-red-50 border border-red-100 text-red-700" :
-                                task.priority === "Medium" || task.priority === "Trung bình" ? "bg-amber-50 border border-amber-100 text-amber-750" :
-                                "bg-blue-50 border border-blue-100 text-blue-700"
-                              }`}>
+                              <span className={`px-2.5 py-0.5 rounded-lg text-[10px] font-bold whitespace-nowrap ${task.priority === "High" || task.priority === "Cao" ? "bg-red-50 border border-red-100 text-red-700" :
+                                  task.priority === "Medium" || task.priority === "Trung bình" ? "bg-amber-50 border border-amber-100 text-amber-750" :
+                                    "bg-blue-50 border border-blue-100 text-blue-700"
+                                }`}>
                                 {task.priority || "Medium"}
                               </span>
                             </td>
-                            
+
                             {/* Tags */}
                             <td className="p-3 border-r border-gray-150/60 min-w-[120px]">
                               <div className="flex flex-wrap gap-1">
@@ -2313,16 +2393,16 @@ export default function HRTab() {
                                 ))}
                               </div>
                             </td>
-                            
+
                             {/* Project */}
                             <td className="p-3 border-r border-gray-150/60 font-semibold text-slate-600 min-w-[150px]">
                               {taskProj ? `🎯 {taskProj.name}` : "Không có dự án"}
                             </td>
-                            
+
                             {/* Action */}
                             <td className="p-3 text-center" onClick={(e) => e.stopPropagation()}>
                               {isManager && (
-                                <button 
+                                <button
                                   onClick={() => deleteTask(task.id)}
                                   className="p-1 hover:bg-slate-100 text-gray-400 hover:text-red-650 rounded-lg transition-colors cursor-pointer"
                                 >
@@ -2506,11 +2586,10 @@ export default function HRTab() {
                           onClick={() => handleEnrollAndStart(course)}
                           disabled={isCompleted}
                           id={`btn_study_${course.id}`}
-                          className={`px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
-                            isCompleted
+                          className={`px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${isCompleted
                               ? 'bg-slate-100 text-slate-400 cursor-not-allowed border'
                               : 'bg-indigo-650 hover:bg-indigo-700 text-white active:scale-95 shadow-2xs'
-                          }`}
+                            }`}
                         >
                           {!myEnrollment ? 'Bắt đầu học' : isCompleted ? 'Xem văn bằng' : 'Học tiếp bài sau'}
                         </button>
@@ -2530,7 +2609,7 @@ export default function HRTab() {
       {selectedKanbanTask && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-2xs flex items-center justify-center z-50 p-4">
           <div className="bg-white border border-gray-200 text-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl p-8 relative text-left flex flex-col max-h-[90vh] overflow-y-auto font-sans">
-            
+
             {/* Top Breadcrumb and Close */}
             <div className="flex justify-between items-center mb-6 text-[11px] text-gray-450 font-semibold uppercase tracking-wider select-none">
               <div className="flex items-center gap-1">
@@ -2540,9 +2619,9 @@ export default function HRTab() {
                 <ChevronRight className="h-3 w-3 text-gray-450" />
                 <span className="text-indigo-650">{editCategory || "Onboarding"}</span>
               </div>
-              <button 
-                type="button" 
-                onClick={() => setSelectedKanbanTask(null)} 
+              <button
+                type="button"
+                onClick={() => setSelectedKanbanTask(null)}
                 className="p-1.5 hover:bg-slate-50 rounded-lg text-gray-400 hover:text-slate-800 transition-colors cursor-pointer"
               >
                 <X className="h-4.5 w-4.5" />
@@ -2551,7 +2630,7 @@ export default function HRTab() {
 
             {/* Notion-style Title Input */}
             <div className="mb-6">
-              <input 
+              <input
                 type="text"
                 placeholder="Không có tiêu đề"
                 value={editTitle}
@@ -2562,7 +2641,7 @@ export default function HRTab() {
 
             {/* Notion-style Properties Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3.5 mb-8 pb-6 border-b border-gray-150 text-xs">
-              
+
               {/* Project Property */}
               <div className="flex items-center">
                 <div className="w-28 flex items-center gap-2 text-gray-500 font-medium select-none font-sans">
@@ -2635,9 +2714,9 @@ export default function HRTab() {
                   <span>Hạn hoàn thành</span>
                 </div>
                 <div className="flex-1">
-                  <input 
-                    type="text" 
-                    placeholder="Ví dụ: Hôm nay" 
+                  <input
+                    type="text"
+                    placeholder="Ví dụ: Hôm nay"
                     value={editDueDate}
                     onChange={(e) => setEditDueDate(e.target.value)}
                     className="w-full px-2 py-1 bg-transparent hover:bg-slate-50 border border-transparent hover:border-gray-200 outline-none focus:bg-slate-50 focus:border-gray-200 rounded-lg text-slate-800 font-semibold transition-all font-sans"
@@ -2652,8 +2731,8 @@ export default function HRTab() {
                   <span>TG Bắt đầu</span>
                 </div>
                 <div className="flex-1">
-                  <input 
-                    type="datetime-local" 
+                  <input
+                    type="datetime-local"
                     value={editStartTime}
                     onChange={(e) => setEditStartTime(e.target.value)}
                     className="w-full px-2 py-1 bg-transparent hover:bg-slate-50 border border-transparent hover:border-gray-200 outline-none focus:bg-slate-50 focus:border-gray-200 rounded-lg text-slate-800 font-semibold transition-all font-sans"
@@ -2668,8 +2747,8 @@ export default function HRTab() {
                   <span>TG Kết thúc</span>
                 </div>
                 <div className="flex-1">
-                  <input 
-                    type="datetime-local" 
+                  <input
+                    type="datetime-local"
                     value={editEndTime}
                     onChange={(e) => setEditEndTime(e.target.value)}
                     className="w-full px-2 py-1 bg-transparent hover:bg-slate-50 border border-transparent hover:border-gray-200 outline-none focus:bg-slate-50 focus:border-gray-200 rounded-lg text-slate-800 font-semibold transition-all font-sans"
@@ -2684,8 +2763,8 @@ export default function HRTab() {
                   <span>Giờ dự tính (h)</span>
                 </div>
                 <div className="flex-1">
-                  <input 
-                    type="number" 
+                  <input
+                    type="number"
                     min="0"
                     placeholder="0"
                     value={editEstTime}
@@ -2702,8 +2781,8 @@ export default function HRTab() {
                   <span>Giờ thực tế (h)</span>
                 </div>
                 <div className="flex-1">
-                  <input 
-                    type="number" 
+                  <input
+                    type="number"
                     min="0"
                     placeholder="0"
                     value={editActualTime}
@@ -2759,9 +2838,9 @@ export default function HRTab() {
                   <span>Thẻ (Tags)</span>
                 </div>
                 <div className="flex-1">
-                  <input 
-                    type="text" 
-                    placeholder="Phân cách bằng dấu phẩy (,)" 
+                  <input
+                    type="text"
+                    placeholder="Phân cách bằng dấu phẩy (,)"
                     value={editTags}
                     onChange={(e) => setEditTags(e.target.value)}
                     className="w-full px-2 py-1 bg-transparent hover:bg-slate-50 border border-transparent hover:border-gray-200 outline-none focus:bg-slate-50 focus:border-gray-200 rounded-lg text-slate-800 font-semibold transition-all font-sans"
@@ -2776,9 +2855,9 @@ export default function HRTab() {
                   <span>Link ghi chú</span>
                 </div>
                 <div className="flex-1">
-                  <input 
-                    type="text" 
-                    placeholder="https://..." 
+                  <input
+                    type="text"
+                    placeholder="https://..."
                     value={editLinkNote}
                     onChange={(e) => setEditLinkNote(e.target.value)}
                     className="w-full px-2 py-1 bg-transparent hover:bg-slate-50 border border-transparent hover:border-gray-200 outline-none focus:bg-slate-50 focus:border-gray-200 rounded-lg text-indigo-650 font-semibold transition-all font-sans placeholder-gray-300"
@@ -2797,10 +2876,10 @@ export default function HRTab() {
                     <span>{userProfile?.displayName || userProfile?.email || "iGen Admin"} (Bạn)</span>
                   ) : (
                     <span>
-                      {usersList.find(u => u.uid === selectedKanbanTask.creatorUid)?.displayName || 
-                       usersList.find(u => u.uid === selectedKanbanTask.creatorUid)?.email || 
-                       selectedKanbanTask.creatorUid || 
-                       "iGen Admin"}
+                      {usersList.find(u => u.uid === selectedKanbanTask.creatorUid)?.displayName ||
+                        usersList.find(u => u.uid === selectedKanbanTask.creatorUid)?.email ||
+                        selectedKanbanTask.creatorUid ||
+                        "iGen Admin"}
                     </span>
                   )}
                 </div>
@@ -2844,15 +2923,15 @@ export default function HRTab() {
 
             {/* Bottom Actions */}
             <div className="flex justify-end gap-3.5 pt-6 mt-6 border-t border-gray-150 text-xs font-bold">
-              <button 
-                type="button" 
-                onClick={() => setSelectedKanbanTask(null)} 
+              <button
+                type="button"
+                onClick={() => setSelectedKanbanTask(null)}
                 className="px-4 py-2 border border-gray-200 text-slate-500 hover:text-slate-800 rounded-xl bg-white hover:bg-slate-50 cursor-pointer transition-all active:scale-95 font-sans"
               >
                 Hủy bỏ
               </button>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={(e) => handleSaveTask(e)}
                 className="px-5 py-2 bg-indigo-650 hover:bg-indigo-700 text-white rounded-xl shadow-xs cursor-pointer transition-all active:scale-95 font-sans"
               >
@@ -3134,7 +3213,7 @@ export default function HRTab() {
       {activeStudyCourse && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-0 sm:p-4">
           <div className="bg-white text-slate-800 w-full h-full sm:h-[90vh] sm:max-w-5xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden font-sans">
-            
+
             {/* Header */}
             <div className="flex justify-between items-center px-6 py-4 border-b border-gray-150 flex-shrink-0 bg-indigo-950 text-white">
               <div className="text-left">
@@ -3145,12 +3224,12 @@ export default function HRTab() {
                   {activeStudyCourse.title}
                 </h4>
               </div>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={() => {
                   setActiveStudyCourse(null);
                   if (userProfile?.companyCode) fetchCourses(userProfile.companyCode);
-                }} 
+                }}
                 className="p-1.5 hover:bg-white/10 rounded-lg text-gray-300 hover:text-white transition-colors cursor-pointer"
               >
                 <X className="h-5 w-5" />
@@ -3159,7 +3238,7 @@ export default function HRTab() {
 
             {/* Split Screen Layout */}
             <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0">
-              
+
               {/* Left Sidebar - Lesson Navigation */}
               <div className="w-full md:w-80 border-r border-gray-150 flex flex-col overflow-y-auto bg-slate-50 flex-shrink-0 text-left">
                 <div className="p-4 border-b border-gray-150 bg-slate-100/50">
@@ -3178,14 +3257,13 @@ export default function HRTab() {
                 </div>
 
                 <div className="divide-y divide-gray-150/60 flex-1">
-                  
+
                   {/* Introduction Item */}
                   <button
                     type="button"
                     onClick={() => setActiveLessonIndex(-1)}
-                    className={`w-full p-4 flex items-start gap-3 transition-colors text-left ${
-                      activeLessonIndex === -1 ? "bg-white border-l-4 border-indigo-600 font-bold" : "hover:bg-slate-100/80"
-                    }`}
+                    className={`w-full p-4 flex items-start gap-3 transition-colors text-left ${activeLessonIndex === -1 ? "bg-white border-l-4 border-indigo-600 font-bold" : "hover:bg-slate-100/80"
+                      }`}
                   >
                     <BookOpen className="h-4.5 w-4.5 text-gray-400 mt-0.5 shrink-0" />
                     <div className="text-xs">
@@ -3195,67 +3273,99 @@ export default function HRTab() {
                   </button>
 
                   {/* Lessons List */}
-                  {(activeStudyCourse.lessons || []).map((les, index) => {
-                    const isCompleted = enrollments.find(e => e.courseId === activeStudyCourse.id)?.completedLessons?.includes(les.url);
-                    const isActive = activeLessonIndex === index;
+                  {(() => {
+                    const myEnroll = enrollments.find(e => e.courseId === activeStudyCourse.id);
+                    const completedLessons = myEnroll?.completedLessons || [];
+                    const lessons = activeStudyCourse.lessons || [];
+
+                    let currentUncompletedIdx = 0;
+                    for (let i = 0; i < lessons.length; i++) {
+                      if (!completedLessons.includes(`lesson_${i}`)) {
+                        currentUncompletedIdx = i;
+                        break;
+                      }
+                      if (i === lessons.length - 1) {
+                        currentUncompletedIdx = lessons.length;
+                      }
+                    }
 
                     return (
-                      <button
-                        key={index}
-                        type="button"
-                        onClick={() => setActiveLessonIndex(index)}
-                        className={`w-full p-4 flex items-start gap-3 transition-colors text-left ${
-                          isActive ? "bg-white border-l-4 border-indigo-600 font-bold" : "hover:bg-slate-100/80"
-                        }`}
-                      >
-                        {isCompleted ? (
-                          <CheckCircle className="h-4.5 w-4.5 text-emerald-500 mt-0.5 shrink-0" />
-                        ) : (
-                          <div className="w-4.5 h-4.5 border-2 border-gray-300 rounded-full flex items-center justify-center text-[9px] font-mono text-gray-400 font-bold mt-0.5 shrink-0">
-                            {index + 1}
-                          </div>
-                        )}
-                        <div className="text-xs">
-                          <h6 className="text-slate-800 line-clamp-2">{les.title || `Bài học ${index + 1}`}</h6>
-                          <p className="text-[10px] text-gray-400 mt-0.5 font-mono capitalize">
-                            {les.type === "youtube" ? "🎥 Video YouTube" : "📄 Tài liệu đọc"}
-                          </p>
-                        </div>
-                      </button>
-                    );
-                  })}
+                      <>
+                        {lessons.map((les, index) => {
+                          const isCompleted = completedLessons.includes(`lesson_${index}`);
+                          const isActive = activeLessonIndex === index;
+                          const isUnlocked = index <= currentUncompletedIdx;
 
-                  {/* Quiz Item (if course has quizzes) */}
-                  {activeStudyCourse.quizzes && activeStudyCourse.quizzes.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setActiveLessonIndex(activeStudyCourse.lessons?.length ?? 0)}
-                      className={`w-full p-4 flex items-start gap-3 transition-colors text-left ${
-                        activeLessonIndex === (activeStudyCourse.lessons?.length ?? 0)
-                          ? "bg-white border-l-4 border-indigo-600 font-bold"
-                          : "hover:bg-slate-100/80"
-                      }`}
-                    >
-                      {enrollments.find(e => e.courseId === activeStudyCourse.id)?.quizPassed ? (
-                        <Award className="h-4.5 w-4.5 text-amber-500 mt-0.5 shrink-0" />
-                      ) : (
-                        <Activity className="h-4.5 w-4.5 text-gray-400 mt-0.5 shrink-0" />
-                      )}
-                      <div className="text-xs">
-                        <h6 className="text-slate-800">Bài kiểm tra trắc nghiệm</h6>
-                        <p className="text-[10px] text-gray-400 mt-0.5 font-medium">
-                          {activeStudyCourse.quizzes.length} câu hỏi trắc nghiệm
-                        </p>
-                      </div>
-                    </button>
-                  )}
+                          return (
+                            <button
+                              key={index}
+                              type="button"
+                              disabled={!isUnlocked}
+                              onClick={() => setActiveLessonIndex(index)}
+                              className={`w-full p-4 flex items-start gap-3 transition-colors text-left ${isActive
+                                  ? "bg-white border-l-4 border-indigo-600 font-bold"
+                                  : isUnlocked
+                                    ? "hover:bg-slate-100/80"
+                                    : "opacity-50 cursor-not-allowed"
+                                }`}
+                            >
+                              {isCompleted ? (
+                                <CheckCircle className="h-4.5 w-4.5 text-emerald-500 mt-0.5 shrink-0" />
+                              ) : (
+                                <div className="w-4.5 h-4.5 border-2 border-gray-300 rounded-full flex items-center justify-center text-[9px] font-mono text-gray-400 font-bold mt-0.5 shrink-0">
+                                  {index + 1}
+                                </div>
+                              )}
+                              <div className="text-xs">
+                                <h6 className="text-slate-800 line-clamp-2">{les.title || `Bài học ${index + 1}`}</h6>
+                                <p className="text-[10px] text-gray-400 mt-0.5 font-mono capitalize">
+                                  {les.type === "youtube" ? "🎥 Video YouTube" : "📄 Tài liệu đọc"}
+                                </p>
+                              </div>
+                            </button>
+                          );
+                        })}
+
+                        {/* Quiz Item (if course has quizzes) */}
+                        {activeStudyCourse.quizzes && activeStudyCourse.quizzes.length > 0 && (() => {
+                          const isQuizUnlocked = currentUncompletedIdx === lessons.length;
+
+                          return (
+                            <button
+                              type="button"
+                              disabled={!isQuizUnlocked}
+                              onClick={() => setActiveLessonIndex(lessons.length)}
+                              className={`w-full p-4 flex items-start gap-3 transition-colors text-left ${activeLessonIndex === lessons.length
+                                  ? "bg-white border-l-4 border-indigo-600 font-bold"
+                                  : isQuizUnlocked
+                                    ? "hover:bg-slate-100/80"
+                                    : "opacity-50 cursor-not-allowed"
+                                }`}
+                            >
+                              {myEnroll?.quizPassed ? (
+                                <Award className="h-4.5 w-4.5 text-amber-500 mt-0.5 shrink-0" />
+                              ) : (
+                                <Activity className="h-4.5 w-4.5 text-gray-400 mt-0.5 shrink-0" />
+                              )}
+                              <div className="text-xs">
+                                <h6 className="text-slate-800">Bài kiểm tra trắc nghiệm</h6>
+                                <p className="text-[10px] text-gray-400 mt-0.5 font-medium">
+                                  {activeStudyCourse.quizzes.length} câu hỏi trắc nghiệm
+                                </p>
+                              </div>
+                            </button>
+                          );
+                        })()}
+                      </>
+                    );
+                  })()}
 
                 </div>
               </div>
 
               {/* Right Main Panel - Player Area */}
               <div className="flex-1 flex flex-col overflow-y-auto p-6 text-left">
-                
+
                 {/* 1. Intro Panel */}
                 {activeLessonIndex === -1 && (
                   <div className="space-y-4 max-w-2xl">
@@ -3275,7 +3385,7 @@ export default function HRTab() {
                         <li>Giảng viên hướng dẫn: <strong className="text-slate-700">{activeStudyCourse.instructor}</strong></li>
                       </ul>
                     </div>
-                    
+
                     <button
                       type="button"
                       onClick={() => {
@@ -3298,7 +3408,7 @@ export default function HRTab() {
                 {activeLessonIndex >= 0 && activeLessonIndex < (activeStudyCourse.lessons?.length ?? 0) && (() => {
                   const les = activeStudyCourse.lessons?.[activeLessonIndex];
                   if (!les) return null;
-                  const isCompleted = enrollments.find(e => e.courseId === activeStudyCourse.id)?.completedLessons?.includes(les.url);
+                  const isCompleted = enrollments.find(e => e.courseId === activeStudyCourse.id)?.completedLessons?.includes(`lesson_${activeLessonIndex}`);
 
                   // Extract YouTube ID if valid
                   let youtubeId: string | null = null;
@@ -3390,11 +3500,11 @@ export default function HRTab() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleMarkLessonComplete(les)}
+                          onClick={() => handleMarkLessonComplete(les, activeLessonIndex)}
                           className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold rounded-xl text-xs shadow-xs transition-all flex items-center gap-1.5 cursor-pointer font-sans"
                         >
                           <CheckCircle className="h-4 w-4" />
-                          Hoàn thành bài & Tiếp tục →
+                          {activeLessonIndex === (activeStudyCourse.lessons?.length ?? 0) - 1 ? "Hoàn thành" : "Hoàn thành bài & Tiếp tục →"}
                         </button>
                       </div>
                     </div>
@@ -3420,7 +3530,7 @@ export default function HRTab() {
                         )}
                       </div>
 
-                      {quizSubmitted && !isQuizPassed && (
+                      {quizSubmitted && !isQuizPassed && !isQuizEvaluating && (
                         <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs font-semibold">
                           ⚠️ Rất tiếc, bạn đã chọn sai đáp án. Vui lòng kiểm tra lại các câu đánh dấu đỏ và làm lại bài thi.
                         </div>
@@ -3433,9 +3543,8 @@ export default function HRTab() {
                           const showErr = quizSubmitted && !isCorrect;
 
                           return (
-                            <div key={qIdx} className={`p-4 rounded-xl border transition-all ${
-                              showErr ? "bg-rose-50/40 border-rose-200" : isQuizPassed ? "bg-emerald-50/10 border-emerald-150" : "bg-slate-50/50 border-gray-150"
-                            }`}>
+                            <div key={qIdx} className={`p-4 rounded-xl border transition-all ${showErr ? "bg-rose-50/40 border-rose-200" : isQuizPassed ? "bg-emerald-50/10 border-emerald-150" : "bg-slate-50/50 border-gray-150"
+                              }`}>
                               <h5 className="font-bold text-xs text-slate-800 flex items-start gap-1.5 leading-snug">
                                 <span className="text-indigo-650 shrink-0 font-mono">Câu {qIdx + 1}:</span>
                                 <span>{quiz.question}</span>
@@ -3447,11 +3556,10 @@ export default function HRTab() {
                                   return (
                                     <label
                                       key={oIdx}
-                                      className={`flex items-start gap-2.5 p-2.5 border rounded-xl cursor-pointer transition-all select-none hover:bg-white ${
-                                        isChecked 
-                                          ? "border-indigo-500 bg-indigo-50/20 font-semibold text-indigo-750" 
+                                      className={`flex items-start gap-2.5 p-2.5 border rounded-xl cursor-pointer transition-all select-none hover:bg-white ${isChecked
+                                          ? "border-indigo-500 bg-indigo-50/20 font-semibold text-indigo-750"
                                           : "border-gray-200 bg-white"
-                                      }`}
+                                        }`}
                                     >
                                       <input
                                         type="radio"
@@ -3499,10 +3607,18 @@ export default function HRTab() {
                         {!isQuizPassed ? (
                           <button
                             type="button"
+                            disabled={isQuizEvaluating}
                             onClick={handleSubmitQuiz}
-                            className="px-5 py-2.5 bg-indigo-650 hover:bg-indigo-700 active:scale-95 text-white font-bold rounded-xl text-xs shadow-xs transition-all cursor-pointer font-sans"
+                            className="px-5 py-2.5 bg-indigo-650 hover:bg-indigo-700 active:scale-95 text-white font-bold rounded-xl text-xs shadow-xs transition-all cursor-pointer font-sans disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
                           >
-                            Nộp bài thi & Đánh giá →
+                            {isQuizEvaluating ? (
+                              <>
+                                <RefreshCw className="animate-spin h-3.5 w-3.5" />
+                                Đang chấm bài...
+                              </>
+                            ) : (
+                              "Nộp bài thi & Đánh giá →"
+                            )}
                           </button>
                         ) : (
                           <button
@@ -3534,20 +3650,20 @@ export default function HRTab() {
                 <Target className="h-4 w-4 text-indigo-655" />
                 Tạo Dự Án Mới
               </h4>
-              <button 
-                type="button" 
-                onClick={() => setIsNewProjectModalOpen(false)} 
+              <button
+                type="button"
+                onClick={() => setIsNewProjectModalOpen(false)}
                 className="text-gray-400 hover:text-slate-800 cursor-pointer"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
-            
+
             <div className="space-y-4 text-xs">
               <div>
                 <label className="block font-bold text-gray-500 mb-1.5 font-sans">Tên dự án *</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   required
                   placeholder="Ví dụ: Thiết kế Landing Page"
                   value={newProjectName}
@@ -3556,17 +3672,17 @@ export default function HRTab() {
                 />
               </div>
             </div>
-            
+
             <div className="pt-4 border-t border-gray-150 flex justify-end gap-3 text-xs font-bold">
-              <button 
-                type="button" 
-                onClick={() => setIsNewProjectModalOpen(false)} 
+              <button
+                type="button"
+                onClick={() => setIsNewProjectModalOpen(false)}
                 className="px-4 py-2 border border-gray-200 text-slate-500 hover:text-slate-800 rounded-xl bg-white hover:bg-slate-50 cursor-pointer transition-all active:scale-95 font-sans"
               >
                 Hủy bỏ
               </button>
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 className="px-5 py-2 bg-indigo-650 hover:bg-indigo-700 text-white rounded-xl cursor-pointer transition-all active:scale-95 font-sans"
               >
                 Lưu dự án
@@ -3586,12 +3702,12 @@ export default function HRTab() {
                 <X className="h-4 w-4" />
               </button>
             </div>
-            
+
             <div className="space-y-3.5 text-xs">
               <div>
                 <label className="block font-bold text-gray-500 mb-1">Họ tên *</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   required
                   placeholder="Ví dụ: Lê Thị B"
                   value={addName}
@@ -3599,12 +3715,12 @@ export default function HRTab() {
                   className="w-full px-3.5 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
-              
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-gray-500 mb-1">Email *</label>
-                  <input 
-                    type="email" 
+                  <input
+                    type="email"
                     required
                     placeholder="b.lt@igen.vn"
                     value={addEmail}
@@ -3614,14 +3730,26 @@ export default function HRTab() {
                 </div>
                 <div>
                   <label className="block font-bold text-gray-500 mb-1">Số điện thoại</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     placeholder="090XXXXXXXX"
                     value={addPhone}
                     onChange={(e) => setAddPhone(e.target.value)}
                     className="w-full px-3.5 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-gray-500 mb-1">Mật khẩu khởi tạo *</label>
+                <input
+                  type="password"
+                  required
+                  placeholder="Tối thiểu 6 ký tự"
+                  value={addPassword}
+                  onChange={(e) => setAddPassword(e.target.value)}
+                  className="w-full px-3.5 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500"
+                />
               </div>
 
               <div>
@@ -3676,8 +3804,8 @@ export default function HRTab() {
                   <label className="block font-bold text-gray-500 mb-1">
                     {addRole === "manager" ? "Phòng ban quản lý *" : "Phòng ban *"}
                   </label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     required
                     disabled={addRole === "user" && !!addParentId}
                     placeholder="Ví dụ: Phòng Kỹ Thuật"
@@ -3693,20 +3821,29 @@ export default function HRTab() {
                 </div>
               )}
             </div>
-            
+
             <div className="pt-4 border-t flex justify-end gap-3 text-xs font-bold">
-              <button 
-                type="button" 
-                onClick={() => setIsAddModalOpen(false)} 
-                className="px-4 py-2 border rounded-xl hover:bg-slate-50 cursor-pointer"
+              <button
+                type="button"
+                disabled={isAddingEmployee}
+                onClick={() => setIsAddModalOpen(false)}
+                className="px-4 py-2 border rounded-xl hover:bg-slate-50 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Hủy bỏ
               </button>
-              <button 
-                type="submit" 
-                className="px-5 py-2 bg-indigo-650 hover:bg-indigo-700 text-white rounded-xl cursor-pointer transition-all active:scale-95"
+              <button
+                type="submit"
+                disabled={isAddingEmployee}
+                className="px-5 py-2 bg-indigo-650 hover:bg-indigo-700 text-white rounded-xl cursor-pointer transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
               >
-                Lưu nhân sự
+                {isAddingEmployee ? (
+                  <>
+                    <RefreshCw className="animate-spin h-3.5 w-3.5" />
+                    Đang tạo tài khoản...
+                  </>
+                ) : (
+                  "Lưu nhân sự"
+                )}
               </button>
             </div>
           </form>
@@ -3721,24 +3858,23 @@ function KanbanCard({ task, onMove, onDelete, canDelete, onClick, projects }: { 
   const taskProj = projects.find(p => p.id === task.projectId);
 
   return (
-    <div 
+    <div
       onClick={onClick}
-      className="bg-white border text-left border-gray-200/80 p-4 rounded-2xl shadow-xs hover:shadow-md hover:border-slate-300 transition-all flex flex-col gap-3 relative group cursor-pointer select-none font-sans" 
+      className="bg-white border text-left border-gray-200/80 p-4 rounded-2xl shadow-xs hover:shadow-md hover:border-slate-300 transition-all flex flex-col gap-3 relative group cursor-pointer select-none font-sans"
       id={`kanban_card_${task.id}`}
     >
-      
+
       {/* Category and priority indicator tags */}
       <div className="flex justify-between items-center">
         <span className="px-2 py-0.5 bg-slate-50 border border-gray-200 rounded-md text-[9px] font-mono font-bold text-slate-500 uppercase tracking-wider">
           {task.category || "Onboarding"}
         </span>
-        <span className={`px-2 py-0.5 rounded-md text-[9px] font-mono font-bold uppercase ${
-          task.priority === "High" || task.priority === "Cao"
-            ? "bg-rose-50 border border-rose-100 text-rose-700" 
-            : task.priority === "Medium" || task.priority === "Trung bình" 
-              ? "bg-amber-50 border border-amber-100 text-amber-700" 
+        <span className={`px-2 py-0.5 rounded-md text-[9px] font-mono font-bold uppercase ${task.priority === "High" || task.priority === "Cao"
+            ? "bg-rose-50 border border-rose-100 text-rose-700"
+            : task.priority === "Medium" || task.priority === "Trung bình"
+              ? "bg-amber-50 border border-amber-100 text-amber-700"
               : "bg-sky-50 border border-sky-100 text-sky-700"
-        }`}>
+          }`}>
           {task.priority || "Medium"}
         </span>
       </div>
@@ -3766,7 +3902,7 @@ function KanbanCard({ task, onMove, onDelete, canDelete, onClick, projects }: { 
       {/* Interactive transition buttons - visible on hover */}
       <div className="mt-2 pt-2 border-t border-gray-100 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity duration-200">
         {canDelete ? (
-          <button 
+          <button
             onClick={(e) => {
               e.stopPropagation();
               onDelete();
@@ -3780,7 +3916,7 @@ function KanbanCard({ task, onMove, onDelete, canDelete, onClick, projects }: { 
         )}
         <div className="flex gap-2">
           {task.status !== "Not Started" && task.status !== "todo" && (
-            <button 
+            <button
               onClick={(e) => {
                 e.stopPropagation();
                 const currentStatus = task.status;
@@ -3796,7 +3932,7 @@ function KanbanCard({ task, onMove, onDelete, canDelete, onClick, projects }: { 
             </button>
           )}
           {task.status !== "Done" && task.status !== "done" && (
-            <button 
+            <button
               onClick={(e) => {
                 e.stopPropagation();
                 const currentStatus = task.status;
