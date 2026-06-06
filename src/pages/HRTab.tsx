@@ -131,6 +131,28 @@ export default function HRTab() {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [kanbanFilter, setKanbanFilter] = useState<string | null>(null);
   const [trainingFilter, setTrainingFilter] = useState<string | null>(null);
+  const [collapsedNodes, setCollapsedNodes] = useState<Set<string>>(new Set());
+
+  const toggleCollapse = (nodeId: string) => {
+    setCollapsedNodes(prev => {
+      const next = new Set(prev);
+      if (next.has(nodeId)) next.delete(nodeId);
+      else next.add(nodeId);
+      return next;
+    });
+  };
+
+  const collapseAll = () => {
+    // Collapse all nodes that have children (non-leaf nodes)
+    const nodesWithChildren = new Set(
+      employees
+        .filter(e => employees.some(c => c.parentId === e.id))
+        .map(e => e.id)
+    );
+    setCollapsedNodes(nodesWithChildren);
+  };
+
+  const expandAll = () => setCollapsedNodes(new Set());
 
   // SaaS States
   const [companies, setCompanies] = useState<any[]>([]);
@@ -1426,6 +1448,7 @@ export default function HRTab() {
     const isSelected = selectedEmp?.id === node.id;
     const isMatch = isMatchingFilter(node);
     const isFilteredOut = (searchQuery.trim() !== "" || filterDivision !== "Tất cả") && !isMatch;
+    const isCollapsed = collapsedNodes.has(node.id);
 
     const directReportsCount = employees.filter(e => e.parentId === node.id).length;
 
@@ -1466,16 +1489,23 @@ export default function HRTab() {
             </span>
           </div>
 
-          {/* Subordinates counter badge */}
+          {/* Collapse/Expand toggle badge */}
           {directReportsCount > 0 && (
-            <span className="absolute -bottom-2 -right-2 bg-emerald-500 text-white text-[9px] font-extrabold w-5 h-5 rounded-full flex items-center justify-center shadow-sm border-2 border-white select-none" title={`${directReportsCount} báo cáo trực tiếp`}>
-              {directReportsCount}
-            </span>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); toggleCollapse(node.id); }}
+              title={isCollapsed ? `Mở rộng ${directReportsCount} nhân viên cấp dưới` : `Thu gọn ${directReportsCount} nhân viên cấp dưới`}
+              className={`absolute -bottom-2 -right-2 text-white text-[9px] font-extrabold w-5 h-5 rounded-full flex items-center justify-center shadow-sm border-2 border-white select-none transition-colors cursor-pointer ${
+                isCollapsed ? "bg-indigo-500 hover:bg-indigo-600" : "bg-emerald-500 hover:bg-emerald-600"
+              }`}
+            >
+              {isCollapsed ? `+${directReportsCount}` : directReportsCount}
+            </button>
           )}
         </div>
 
         {/* Children Render recursive block */}
-        {children.length > 0 && (
+        {children.length > 0 && !isCollapsed && (
           <>
             <div className="w-0.5 h-6 bg-slate-300" />
             <div className="flex relative items-start">
@@ -1588,18 +1618,36 @@ export default function HRTab() {
             </div>
 
             {/* Slider zoom controls */}
-            <div className="flex items-center gap-2 font-mono">
-              <span className="text-slate-400 text-xxs font-bold font-sans">THU PHÓNG:</span>
-              <input
-                type="range"
-                min="0.5"
-                max="1.5"
-                step="0.05"
-                value={zoomLevel}
-                onChange={(e) => setZoomLevel(parseFloat(e.target.value))}
-                className="w-28 h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-650"
-              />
-              <span className="w-10 text-right text-[10px] font-bold text-slate-650">{Math.round(zoomLevel * 100)}%</span>
+            <div className="flex items-center gap-3 font-mono">
+              <div className="flex items-center gap-2">
+                <span className="text-slate-400 text-xxs font-bold font-sans">THU PHÓNG:</span>
+                <input
+                  type="range"
+                  min="0.5"
+                  max="1.5"
+                  step="0.05"
+                  value={zoomLevel}
+                  onChange={(e) => setZoomLevel(parseFloat(e.target.value))}
+                  className="w-28 h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-650"
+                />
+                <span className="w-10 text-right text-[10px] font-bold text-slate-650">{Math.round(zoomLevel * 100)}%</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={expandAll}
+                  className="px-2 py-1 text-[9px] font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg cursor-pointer transition-colors"
+                >
+                  Mở rộng tất cả
+                </button>
+                <button
+                  type="button"
+                  onClick={collapseAll}
+                  className="px-2 py-1 text-[9px] font-bold bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 rounded-lg cursor-pointer transition-colors"
+                >
+                  Thu gọn tất cả
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1746,7 +1794,7 @@ export default function HRTab() {
             </div>
 
             {/* Hierarchical Org Index tree container */}
-            <div className="xl:col-span-3 bg-slate-50/50 border border-gray-200 rounded-3xl relative overflow-hidden flex flex-col justify-between" id="org_chart_interactive_canvas">
+            <div className="xl:col-span-3 bg-slate-50/50 border border-gray-200 rounded-3xl relative overflow-auto flex flex-col justify-between" id="org_chart_interactive_canvas">
 
               {/* Reset view helper */}
               <div className="absolute top-4 left-4 bg-white/90 shadow-md border border-gray-150 rounded-xl p-1.5 flex items-center gap-1.5 text-[10px] font-bold text-slate-650 font-sans z-10 select-none">
@@ -1755,7 +1803,10 @@ export default function HRTab() {
               </div>
 
               {/* Hierarchy Tree Grid Canvas */}
-              <div className="p-8 flex-1 flex flex-col justify-center items-center overflow-auto min-h-[500px]" style={{ transform: `scale(${zoomLevel})`, transformOrigin: "center center", transition: "transform 0.2s ease-out" }}>
+              <div
+                className="p-8 flex-1 flex flex-col justify-center items-center min-h-[500px]"
+                style={{ zoom: zoomLevel, transition: "zoom 0.2s ease-out" }}
+              >
                 {loading ? (
                   <div className="flex flex-col items-center justify-center py-20">
                     <Activity className="h-8 w-8 text-indigo-600 animate-spin mb-3" />
@@ -1766,7 +1817,7 @@ export default function HRTab() {
                     Không tìm thấy nhân sự cấp cao nhất (CEO). Vui lòng thêm nhân sự mới làm CEO.
                   </div>
                 ) : (
-                  <div className="flex gap-20 items-start justify-center">
+                  <div className="flex gap-20 items-start justify-center min-w-max">
                     {rootEmployees.map(root => renderBranch(root))}
                   </div>
                 )}
