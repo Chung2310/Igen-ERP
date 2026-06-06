@@ -116,7 +116,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
   const { userProfile } = useAuth();
   const menuItems = [...baseMenuItems];
 
-  if (userProfile?.role === "superadmin" || userProfile?.role === "admin") {
+  if (userProfile?.role === "superadmin") {
     menuItems.push({
       label: "QUẢN TRỊ USER" as TabType,
       title: "Quản trị User",
