@@ -13,6 +13,11 @@ export default function UserAdminTab() {
   // SaaS States
   const [companies, setCompanies] = useState<any[]>([]);
   const [selectedCompanyCode, setSelectedCompanyCode] = useState<string>("all");
+
+  // Advanced Filter States
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterStartDate, setFilterStartDate] = useState("");
+  const [filterEndDate, setFilterEndDate] = useState("");
   
   // Register Company Modal States
   const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
@@ -121,12 +126,46 @@ export default function UserAdminTab() {
   // - Superadmin: see all, filter by selectedCompanyCode
   // - Admin: see all users in the same company (except superadmins)
   const visibleUsers = usersList.filter((usr) => {
+    // 1. Lọc theo Doanh nghiệp
     if (userProfile?.role === "superadmin") {
-      if (selectedCompanyCode === "all") return true;
-      return usr.companyCode === selectedCompanyCode;
+      if (selectedCompanyCode !== "all" && usr.companyCode !== selectedCompanyCode) {
+        return false;
+      }
+    } else {
+      // Admin only sees users within their company, hiding superadmin accounts
+      if (usr.companyCode !== userProfile?.companyCode || usr.role === "superadmin") {
+        return false;
+      }
     }
-    // Admin only sees users within their company, hiding superadmin accounts
-    return usr.companyCode === userProfile?.companyCode && usr.role !== "superadmin";
+
+    // 2. Lọc theo Tên hoặc Email
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      const matchName = usr.displayName?.toLowerCase().includes(query);
+      const matchEmail = usr.email?.toLowerCase().includes(query);
+      if (!matchName && !matchEmail) return false;
+    }
+
+    // 3. Lọc theo Ngày đăng ký (createdAt)
+    if (filterStartDate || filterEndDate) {
+      if (!usr.createdAt) return false;
+      const userDate = new Date(usr.createdAt);
+      userDate.setHours(0, 0, 0, 0);
+
+      if (filterStartDate) {
+        const start = new Date(filterStartDate);
+        start.setHours(0, 0, 0, 0);
+        if (userDate < start) return false;
+      }
+
+      if (filterEndDate) {
+        const end = new Date(filterEndDate);
+        end.setHours(23, 59, 59, 999);
+        if (userDate > end) return false;
+      }
+    }
+
+    return true;
   });
 
   const handleRoleChange = async (targetUid: string, targetName: string, newRole: "user" | "manager" | "admin" | "superadmin") => {
@@ -350,6 +389,71 @@ export default function UserAdminTab() {
             Tải lại danh sách
           </button>
         </div>
+      </div>
+
+      {/* Filter Bar */}
+      <div className="bg-white border-b border-gray-200 px-6 py-3.5 flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center shrink-0">
+        <div className="flex flex-wrap items-center gap-3 flex-1">
+          {/* Lọc theo Tên/Email */}
+          <div className="relative min-w-[240px] flex-1 max-w-sm">
+            <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+              🔍
+            </span>
+            <input
+              type="text"
+              placeholder="Tìm theo tên hoặc email..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-3.5 py-1.5 border border-gray-200 bg-gray-50/50 hover:bg-white focus:bg-white rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-650 text-[10px] font-bold"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
+          {/* Lọc theo Ngày đăng ký */}
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-gray-400 font-bold uppercase text-[9px] tracking-wider font-mono">Từ ngày:</span>
+            <input
+              type="date"
+              value={filterStartDate}
+              onChange={(e) => setFilterStartDate(e.target.value)}
+              className="p-1.5 border border-gray-200 bg-gray-50/50 hover:bg-white focus:bg-white rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-semibold cursor-pointer"
+            />
+            
+            <span className="text-gray-400 font-bold uppercase text-[9px] tracking-wider font-mono">Đến ngày:</span>
+            <input
+              type="date"
+              value={filterEndDate}
+              onChange={(e) => setFilterEndDate(e.target.value)}
+              className="p-1.5 border border-gray-200 bg-gray-50/50 hover:bg-white focus:bg-white rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-semibold cursor-pointer"
+            />
+          </div>
+
+          {/* Hiển thị số lượng kết quả */}
+          <div className="text-[10px] text-gray-400 font-semibold font-mono">
+            Kết quả: {visibleUsers.length} / {usersList.length}
+          </div>
+        </div>
+
+        {/* Nút Clear Filters */}
+        {(searchQuery || filterStartDate || filterEndDate) && (
+          <button
+            onClick={() => {
+              setSearchQuery("");
+              setFilterStartDate("");
+              setFilterEndDate("");
+            }}
+            className="px-3.5 py-1.5 border border-dashed border-red-200 hover:border-red-400 bg-red-50/30 hover:bg-red-50 text-red-650 hover:text-red-700 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 shrink-0 active:scale-95"
+          >
+            ✕ Xóa bộ lọc
+          </button>
+        )}
       </div>
 
       {/* Main List Area */}
