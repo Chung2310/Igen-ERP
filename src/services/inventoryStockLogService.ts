@@ -7,14 +7,13 @@ import {
   orderBy,
   query,
   serverTimestamp,
+  setDoc,
   updateDoc,
 } from "firebase/firestore";
 import { db, handleFirestoreError, OperationType } from "../config/firebase";
 import { StockLog, StockLogItem } from "../types";
 
 const COLLECTION_NAME = "inventoryStockLogs";
-
-// ─── Input types ──────────────────────────────────────────────────────────────
 
 export type StockLogCreateInput = {
   type: "nhập" | "xuất";
@@ -23,31 +22,18 @@ export type StockLogCreateInput = {
   notes: string;
   status: "Đang chờ" | "Đang xử lý" | "Hoàn thành";
   items: StockLogItem[];
-  /** Trường legacy — SKU của item đầu tiên */
   sku: string;
-  /** Trường legacy — tên sản phẩm đầu tiên */
   productName: string;
-  /** Trường legacy — tổng số lượng */
   quantity: number;
+  createdAt?: string;
 };
 
 export type StockLogUpdateInput = StockLogCreateInput & { id: string };
 
-// ─── Collection reference ──────────────────────────────────────────────────────
-
 const collectionRef = collection(db, COLLECTION_NAME);
 
-// ─── Service ──────────────────────────────────────────────────────────────────
-
 export const inventoryStockLogService = {
-  /**
-   * Lắng nghe real-time danh sách phiếu, sắp xếp mới nhất trước.
-   * Trả về hàm unsubscribe.
-   */
-  subscribe(
-    callback: (logs: StockLog[]) => void,
-    onError?: (error: unknown) => void
-  ) {
+  subscribe(callback: (logs: StockLog[]) => void, onError?: (error: unknown) => void) {
     const logQuery = query(collectionRef, orderBy("createdAtTimestamp", "desc"));
 
     return onSnapshot(
@@ -69,7 +55,6 @@ export const inventoryStockLogService = {
     );
   },
 
-  /** Tạo phiếu mới và ghi vào Firestore */
   async createLog(input: StockLogCreateInput): Promise<string> {
     try {
       const createdDoc = await addDoc(collectionRef, {
@@ -82,7 +67,7 @@ export const inventoryStockLogService = {
         operatorName: input.operatorName,
         notes: input.notes,
         status: input.status,
-        createdAt: new Date().toLocaleString("vi-VN"),
+        createdAt: input.createdAt || new Date().toLocaleString("vi-VN"),
         createdAtTimestamp: serverTimestamp(),
       });
       return createdDoc.id;
@@ -92,7 +77,6 @@ export const inventoryStockLogService = {
     }
   },
 
-  /** Cập nhật phiếu đã tồn tại */
   async updateLog(id: string, input: StockLogCreateInput): Promise<void> {
     try {
       await updateDoc(doc(db, COLLECTION_NAME, id), {
@@ -114,7 +98,27 @@ export const inventoryStockLogService = {
     }
   },
 
-  /** Xóa phiếu khỏi Firestore (không hoàn tác tồn kho) */
+  async saveImportedLog(id: string, input: StockLogCreateInput): Promise<void> {
+    try {
+      await setDoc(doc(db, COLLECTION_NAME, id), {
+        type: input.type,
+        title: input.title,
+        items: input.items,
+        sku: input.sku,
+        productName: input.productName,
+        quantity: input.quantity,
+        operatorName: input.operatorName,
+        notes: input.notes,
+        status: input.status,
+        createdAt: input.createdAt || new Date().toLocaleString("vi-VN"),
+        createdAtTimestamp: serverTimestamp(),
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, `${COLLECTION_NAME}/${id}`);
+      throw error;
+    }
+  },
+
   async deleteLog(id: string): Promise<void> {
     try {
       await deleteDoc(doc(db, COLLECTION_NAME, id));

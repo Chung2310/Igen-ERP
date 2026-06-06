@@ -29,20 +29,26 @@ type ProductInput = {
 
 type ProductMutationResult = {
   imageUploadFailed: boolean;
+  imageUploadError?: string;
   productId?: string;
 };
 
 const collectionRef = collection(db, COLLECTION_NAME);
 
-async function uploadProductImage(file: File, sku: string) {
+async function uploadProductImage(file: File, sku: string): Promise<{ url: string | null; error?: string }> {
   try {
     const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
     const safeSku = sku.replace(/[^a-zA-Z0-9-_]/g, "_");
     const storageRef = ref(storage, `${STORAGE_FOLDER}/${safeSku}_${Date.now()}.${extension}`);
-    const snapshot = await uploadBytes(storageRef, file);
-    return await getDownloadURL(snapshot.ref);
-  } catch {
-    return null;
+    const snapshot = await uploadBytes(storageRef, file, {
+      contentType: file.type || `image/${extension}`,
+    });
+    return { url: await getDownloadURL(snapshot.ref) };
+  } catch (error) {
+    return {
+      url: null,
+      error: error instanceof Error ? error.message : String(error),
+    };
   }
 }
 
@@ -81,7 +87,8 @@ export const inventoryProductService = {
 
   async createProduct(input: ProductInput): Promise<ProductMutationResult> {
     try {
-      const uploadedImageUrl = input.imageFile ? await uploadProductImage(input.imageFile, input.sku) : null;
+      const uploadResult = input.imageFile ? await uploadProductImage(input.imageFile, input.sku) : { url: null };
+      const uploadedImageUrl = uploadResult.url;
       const imageUploadFailed = Boolean(input.imageFile) && !uploadedImageUrl;
 
       const createdDoc = await addDoc(collectionRef, {
@@ -95,7 +102,7 @@ export const inventoryProductService = {
         imageUrl: uploadedImageUrl || input.imageUrl || "",
       });
 
-      return { imageUploadFailed, productId: createdDoc.id };
+      return { imageUploadFailed, imageUploadError: uploadResult.error, productId: createdDoc.id };
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, COLLECTION_NAME);
     }
@@ -103,7 +110,8 @@ export const inventoryProductService = {
 
   async updateProduct(id: string, input: ProductInput): Promise<ProductMutationResult> {
     try {
-      const uploadedImageUrl = input.imageFile ? await uploadProductImage(input.imageFile, input.sku) : input.imageUrl;
+      const uploadResult = input.imageFile ? await uploadProductImage(input.imageFile, input.sku) : { url: input.imageUrl || null };
+      const uploadedImageUrl = uploadResult.url;
       const imageUploadFailed = Boolean(input.imageFile) && !uploadedImageUrl;
 
       await updateDoc(doc(db, COLLECTION_NAME, id), {
@@ -115,7 +123,7 @@ export const inventoryProductService = {
         imageUrl: uploadedImageUrl || input.imageUrl || "",
       });
 
-      return { imageUploadFailed };
+      return { imageUploadFailed, imageUploadError: uploadResult.error };
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `${COLLECTION_NAME}/${id}`);
     }

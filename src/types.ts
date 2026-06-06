@@ -200,6 +200,48 @@ export interface StockLog {
   status: "Thành công" | "Đang xử lý" | "Đang chờ" | "Hoàn thành";
 }
 
+export interface InventoryForecastSeriesPoint {
+  isoDate: string;
+  label: string;
+  actual: number;
+  forecast: number;
+  period: "history" | "forecast";
+}
+
+export interface InventoryForecastItem {
+  productId: string;
+  sku: string;
+  name: string;
+  category: string;
+  currentStock: number;
+  minStockAlert: number;
+  averageDailyDemand: number;
+  last7DaysDemand: number;
+  last30DaysDemand: number;
+  forecast30Days: number;
+  daysOfCover: number | null;
+  suggestedReorderQty: number;
+  overstockDays: number | null;
+  riskLevel: "high" | "medium" | "low";
+  series: InventoryForecastSeriesPoint[];
+}
+
+export interface InventoryForecastRecommendation {
+  id: string;
+  sku: string;
+  productName: string;
+  tone: "danger" | "warning" | "info";
+  title: string;
+  body: string;
+}
+
+export interface InventoryForecastSummary {
+  items: InventoryForecastItem[];
+  recommendations: InventoryForecastRecommendation[];
+  warningItems: InventoryForecastItem[];
+  hasHistoricalDemand: boolean;
+}
+
 // HR Employee and Onboarding Tasks
 export interface EmployeeNode {
   id: string;

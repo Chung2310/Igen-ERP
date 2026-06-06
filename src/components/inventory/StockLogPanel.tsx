@@ -31,6 +31,7 @@ type StockLogPanelProps = {
   onNavigateToCreateProduct: () => void;
   onCreateTransaction: (payload: DraftPayload) => Promise<void>;
   onUpdateTransaction: (payload: DraftPayload) => Promise<void>;
+  onUpdateStatus?: (logId: string, status: TransactionStatus) => Promise<void>;
   onDeleteTransaction?: (logId: string) => Promise<void>;
 };
 
@@ -47,8 +48,8 @@ function getLogStatus(log: StockLog): TransactionStatus {
 }
 
 function getStatusTone(status: TransactionStatus) {
-  if (status === "Hoàn thành") return "bg-sky-50 text-sky-700";
-  if (status === "Đang xử lý") return "bg-amber-50 text-amber-700";
+  if (status === "Hoàn thành") return "bg-emerald-50 text-emerald-700";
+  if (status === "Đang xử lý") return "bg-orange-50 text-orange-700";
   return "bg-slate-100 text-slate-700";
 }
 
@@ -93,6 +94,7 @@ export function StockLogPanel({
   onNavigateToCreateProduct,
   onCreateTransaction,
   onUpdateTransaction,
+  onUpdateStatus,
   onDeleteTransaction,
 }: StockLogPanelProps) {
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -106,6 +108,7 @@ export function StockLogPanel({
   const [draftStatus, setDraftStatus] = useState<TransactionStatus>("Đang chờ");
   const [draftLines, setDraftLines] = useState<DraftLine[]>([{ productId: "", quantity: "" }]);
   const [submitting, setSubmitting] = useState(false);
+  const [statusUpdatingId, setStatusUpdatingId] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<"all" | "inbound" | "outbound">("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "processing" | "completed">("all");
 
@@ -340,7 +343,31 @@ export function StockLogPanel({
                     <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-gray-500">
                       <span>{log.operatorName}</span>
                       <span>{log.createdAt}</span>
-                      <span className={`rounded-full px-2 py-0.5 font-semibold ${getStatusTone(status)}`}>{status}</span>
+                      {onUpdateStatus ? (
+                        <select
+                          value={status}
+                          disabled={statusUpdatingId === log.id}
+                          onChange={async (event) => {
+                            const nextStatus = event.target.value as TransactionStatus;
+                            if (nextStatus === status) return;
+                            try {
+                              setStatusUpdatingId(log.id);
+                              await onUpdateStatus(log.id, nextStatus);
+                            } finally {
+                              setStatusUpdatingId(null);
+                            }
+                          }}
+                          className={`rounded-full border px-2 py-0.5 font-semibold ${getStatusTone(status)} ${
+                            statusUpdatingId === log.id ? "cursor-wait opacity-70" : "cursor-pointer"
+                          }`}
+                        >
+                          <option value="Đang chờ">Đang chờ</option>
+                          <option value="Đang xử lý">Đang xử lý</option>
+                          <option value="Hoàn thành">Hoàn thành</option>
+                        </select>
+                      ) : (
+                        <span className={`rounded-full px-2 py-0.5 font-semibold ${getStatusTone(status)}`}>{status}</span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -608,3 +635,4 @@ export function StockLogPanel({
     </div>
   );
 }
+

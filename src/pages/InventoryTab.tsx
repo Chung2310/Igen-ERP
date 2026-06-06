@@ -1,10 +1,11 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+﻿import React, { useEffect, useMemo, useRef, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { CheckCircle, Cpu, Download, FolderTree, Pencil, Plus, Search, Tags, Trash2, Upload } from "lucide-react";
-import { InventorySubTabType, ProductCategory, ProductItem, StockLog } from "../types";
+import { InventoryForecastSummary, InventorySubTabType, ProductCategory, ProductItem, StockLog } from "../types";
 import { toast } from "./Toast";
 import { AiForecastPanel } from "../components/inventory/AiForecastPanel";
 import { CategoryModal } from "../components/inventory/CategoryModal";
+import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { inventoryTabs } from "../components/inventory/data";
 import { ProductCard } from "../components/inventory/ProductCard";
 import { Pagination } from "../components/common/Pagination";
@@ -21,6 +22,7 @@ import {
   importProductsFromExcel,
   importStockLogsFromExcel,
 } from "../utils/inventoryExcel";
+import { buildInventoryForecast } from "../utils/inventoryForecast";
 
 function getInventoryErrorMessage(error: unknown, fallbackMessage: string) {
   if (!(error instanceof Error)) return fallbackMessage;
@@ -48,6 +50,15 @@ function getInventoryErrorMessage(error: unknown, fallbackMessage: string) {
 }
 
 type TransactionStatus = "Đang chờ" | "Đang xử lý" | "Hoàn thành";
+
+type DeleteTarget =
+  | { type: "product"; id: string; title: string; description: string; confirmLabel: string; tone: "danger" | "warning" }
+  | { type: "category"; id: string; title: string; description: string; confirmLabel: string; tone: "danger" | "warning" }
+  | { type: "log"; id: string; title: string; description: string; confirmLabel: string; tone: "danger" | "warning" };
+
+function isCompletedTransactionStatus(status: TransactionStatus | string) {
+  return String(status).trim().toLowerCase() === "hoàn thành";
+}
 
 function getStockLogItems(log: StockLog) {
   const typedLog = log as StockLog & {
@@ -95,6 +106,8 @@ export default function InventoryTab() {
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newCategoryCode, setNewCategoryCode] = useState("");
   const [newCategoryDescription, setNewCategoryDescription] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const productImportInputRef = useRef<HTMLInputElement | null>(null);
   const stockLogImportInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -171,9 +184,9 @@ export default function InventoryTab() {
     setProductPage(1);
   }, [searchProduct, selectedCategoryFilter]);
 
-  const shortStockProducts = useMemo(
-    () => products.filter((product) => product.stock <= product.minStockAlert),
-    [products]
+  const forecastSummary = useMemo<InventoryForecastSummary>(
+    () => buildInventoryForecast(products, stockLogs),
+    [products, stockLogs]
   );
 
   const activeCategoryCount = categories.filter((category) => category.status === "Đang dùng").length;
@@ -315,14 +328,19 @@ export default function InventoryTab() {
   };
 
   const handleDeleteProduct = async (product: ProductItem) => {
-    if (!window.confirm(`Xóa sản phẩm "${product.name}" khỏi danh mục kho?`)) return;
+    setDeleteTarget({
+      type: "product",
+      id: product.id,
+      title: "Xóa sản phẩm",
+      description: `Bạn có chắc muốn xóa sản phẩm "${product.name}" khỏi danh mục kho không?`,
+      confirmLabel: "Xóa sản phẩm",
+      tone: "danger",
+    });
+  };
 
-    try {
-      await inventoryProductService.deleteProduct(product.id);
-      toast.success("Đã xóa sản phẩm.");
-    } catch (error) {
-      toast.error(getInventoryErrorMessage(error, "Không thể xóa sản phẩm. Vui lòng thử lại."));
-    }
+  const deleteProductById = async (productId: string) => {
+    await inventoryProductService.deleteProduct(productId);
+    toast.success("Đã xóa sản phẩm.");
   };
 
   const resetCategoryForm = () => {
@@ -394,22 +412,33 @@ export default function InventoryTab() {
 
   const handleDeleteCategory = async (category: ProductCategory) => {
     const linkedProductCount = products.filter((product) => product.category === category.name).length;
-    const message = linkedProductCount > 0
-      ? `Phân loại "${category.name}" đang được dùng bởi ${linkedProductCount} sản phẩm. Xóa và chuyển các sản phẩm đó về "Chưa phân loại"?`
-      : `Xóa phân loại "${category.name}"?`;
+    setDeleteTarget({
+      type: "category",
+      id: category.id,
+      title: "Xóa phân loại",
+      description:
+        linkedProductCount > 0
+          ? `Phân loại "${category.name}" đang được dùng bởi ${linkedProductCount} sản phẩm. Khi xóa, các sản phẩm đó sẽ được chuyển về "Chưa phân loại".`
+          : `Bạn có chắc muốn xóa phân loại "${category.name}" không?`,
+      confirmLabel: "Xóa phân loại",
+      tone: linkedProductCount > 0 ? "warning" : "danger",
+    });
+  };
 
-    if (!window.confirm(message)) return;
-
-    try {
-      if (linkedProductCount > 0) {
-        await inventoryProductService.moveProductsToUncategorized(category.name);
-      }
-      await inventoryCategoryService.deleteCategory(category.id);
-      if (selectedCategoryFilter === category.name) setSelectedCategoryFilter("Tất cả");
-      toast.success("Đã xóa phân loại sản phẩm.");
-    } catch (error) {
-      toast.error(getInventoryErrorMessage(error, "Không thể xóa phân loại sản phẩm. Vui lòng thử lại."));
+  const deleteCategoryById = async (categoryId: string) => {
+    const category = categories.find((entry) => entry.id === categoryId);
+    if (!category) {
+      throw new Error(JSON.stringify({ error: "Không tìm thấy phân loại cần xóa." }));
     }
+
+    const linkedProductCount = products.filter((product) => product.category === category.name).length;
+    if (linkedProductCount > 0) {
+      await inventoryProductService.moveProductsToUncategorized(category.name);
+    }
+
+    await inventoryCategoryService.deleteCategory(categoryId);
+    if (selectedCategoryFilter === category.name) setSelectedCategoryFilter("Tất cả");
+    toast.success("Đã xóa phân loại sản phẩm.");
   };
 
   const handleExportProductsExcel = () => {
@@ -522,18 +551,73 @@ export default function InventoryTab() {
         return;
       }
 
+      const existingIds = new Set(stockLogs.map((log) => log.id));
+      const nextLogs = importedLogs.filter((log) => !existingIds.has(log.id));
       let addedCount = 0;
 
-      setStockLogs((currentLogs) => {
-        const existingIds = new Set(currentLogs.map((log) => log.id));
-        const nextLogs = importedLogs.filter((log) => !existingIds.has(log.id));
-        addedCount = nextLogs.length;
-        return [...nextLogs, ...currentLogs];
-      });
-
-      if (addedCount === 0) {
-        toast.error("Khong co phieu moi nao duoc import. Kiem tra ma phieu bi trung.");
+      if (nextLogs.length === 0) {
+        toast.error("Khong co phieu hop le nao duoc import.");
         return;
+      }
+
+      const runningStocks = new Map(products.map((product) => [product.id, product.stock]));
+
+      for (const log of nextLogs) {
+        const logItems = getStockLogItems(log);
+        const resolvedItems = logItems.map((item) => {
+          const product = products.find((entry) => entry.sku === item.sku);
+          if (!product) {
+            throw new Error(JSON.stringify({ error: `Khong tim thay san pham SKU ${item.sku} trong danh muc kho.` }));
+          }
+          return { product, quantity: item.quantity };
+        });
+
+        const normalizedStatus: TransactionStatus =
+          log.status === "Hoàn thành" || log.status === "Thành công"
+            ? "Hoàn thành"
+            : log.status === "Đang xử lý"
+              ? "Đang xử lý"
+              : "Đang chờ";
+
+        if (isCompletedTransactionStatus(normalizedStatus)) {
+          for (const item of resolvedItems) {
+            const currentStock = runningStocks.get(item.product.id) ?? item.product.stock;
+            if (log.type === "xuất" && currentStock < item.quantity) {
+              throw new Error(
+                JSON.stringify({ error: `So luong ton kho cua ${item.product.name} khong du de import phieu xuat hoan thanh.` })
+              );
+            }
+          }
+
+          await Promise.all(
+            resolvedItems.map((item) => {
+              const currentStock = runningStocks.get(item.product.id) ?? item.product.stock;
+              const nextStock = log.type === "nhập" ? currentStock + item.quantity : currentStock - item.quantity;
+              runningStocks.set(item.product.id, nextStock);
+              return inventoryProductService.updateProductStock(item.product.id, nextStock);
+            })
+          );
+        }
+
+        await inventoryStockLogService.saveImportedLog(log.id, {
+          type: log.type as "nhập" | "xuất",
+          title: (log as StockLog & { title?: string }).title || `${log.type === "nhập" ? "Phiếu nhập" : "Phiếu xuất"} import`,
+          items: resolvedItems.map((item) => ({
+            productId: item.product.id,
+            sku: item.product.sku,
+            productName: item.product.name,
+            quantity: item.quantity,
+          })),
+          sku: resolvedItems[0].product.sku,
+          productName: resolvedItems[0].product.name,
+          quantity: resolvedItems.reduce((sum, item) => sum + item.quantity, 0),
+          operatorName: log.operatorName || "Excel Import",
+          notes: log.notes || "",
+          status: normalizedStatus,
+          createdAt: log.createdAt,
+        });
+
+        addedCount += 1;
       }
 
       toast.success(`Da import ${addedCount} phieu nhap/xuat kho tu Excel.`);
@@ -560,21 +644,22 @@ export default function InventoryTab() {
       return { product, quantity: item.quantity };
     });
 
-    for (const item of resolvedItems) {
-      if (payload.type === "xuất" && item.product.stock < item.quantity) {
-        throw new Error(JSON.stringify({ error: `Số lượng tồn kho của ${item.product.name} không đủ để xuất.` }));
+    if (isCompletedTransactionStatus(payload.status)) {
+      for (const item of resolvedItems) {
+        if (payload.type === "xuất" && item.product.stock < item.quantity) {
+          throw new Error(JSON.stringify({ error: `Số lượng tồn kho của ${item.product.name} không đủ để xuất.` }));
+        }
       }
-    }
 
-    // Cập nhật tồn kho trước
-    await Promise.all(
-      resolvedItems.map((item) =>
-        inventoryProductService.updateProductStock(
-          item.product.id,
-          payload.type === "nhập" ? item.product.stock + item.quantity : item.product.stock - item.quantity
+      await Promise.all(
+        resolvedItems.map((item) =>
+          inventoryProductService.updateProductStock(
+            item.product.id,
+            payload.type === "nhập" ? item.product.stock + item.quantity : item.product.stock - item.quantity
+          )
         )
-      )
-    );
+      );
+    }
 
     const logItems = resolvedItems.map((item) => ({
       productId: item.product.id,
@@ -616,6 +701,7 @@ export default function InventoryTab() {
     }
 
     const oldType = existingLog.type as "nhập" | "xuất";
+    const oldStatus = existingLog.status;
     const oldItems = getStockLogItems(existingLog);
 
     const normalizedOldItems = oldItems.map((item) => {
@@ -634,15 +720,21 @@ export default function InventoryTab() {
       return { product, quantity: item.quantity, type: payload.type };
     });
 
-    // Tính delta tồn kho
+    const shouldReverseOldStock = isCompletedTransactionStatus(oldStatus);
+    const shouldApplyNewStock = isCompletedTransactionStatus(payload.status);
+
     const adjustments = new Map<string, number>();
-    for (const item of normalizedOldItems) {
-      const restoreAmount = item.type === "nhập" ? -item.quantity : item.quantity;
-      adjustments.set(item.product.id, (adjustments.get(item.product.id) || 0) + restoreAmount);
+    if (shouldReverseOldStock) {
+      for (const item of normalizedOldItems) {
+        const restoreAmount = item.type === "nhập" ? -item.quantity : item.quantity;
+        adjustments.set(item.product.id, (adjustments.get(item.product.id) || 0) + restoreAmount);
+      }
     }
-    for (const item of normalizedNewItems) {
-      const applyAmount = item.type === "nhập" ? item.quantity : -item.quantity;
-      adjustments.set(item.product.id, (adjustments.get(item.product.id) || 0) + applyAmount);
+    if (shouldApplyNewStock) {
+      for (const item of normalizedNewItems) {
+        const applyAmount = item.type === "nhập" ? item.quantity : -item.quantity;
+        adjustments.set(item.product.id, (adjustments.get(item.product.id) || 0) + applyAmount);
+      }
     }
 
     for (const [productId, delta] of adjustments.entries()) {
@@ -653,14 +745,15 @@ export default function InventoryTab() {
       }
     }
 
-    // Cập nhật tồn kho
-    await Promise.all(
-      Array.from(adjustments.entries()).map(async ([productId, delta]) => {
-        const product = products.find((entry) => entry.id === productId);
-        if (!product) return;
-        await inventoryProductService.updateProductStock(productId, product.stock + delta);
-      })
-    );
+    if (adjustments.size > 0) {
+      await Promise.all(
+        Array.from(adjustments.entries()).map(async ([productId, delta]) => {
+          const product = products.find((entry) => entry.id === productId);
+          if (!product) return;
+          await inventoryProductService.updateProductStock(productId, product.stock + delta);
+        })
+      );
+    }
 
     const logItems = normalizedNewItems.map((item) => ({
       productId: item.product.id,
@@ -685,13 +778,73 @@ export default function InventoryTab() {
     toast.success("Đã cập nhật phiếu nhập xuất kho.");
   };
 
+  const handleQuickUpdateTransactionStatus = async (logId: string, status: TransactionStatus) => {
+    const existingLog = stockLogs.find((log) => log.id === logId);
+    if (!existingLog) {
+      throw new Error(JSON.stringify({ error: "Không tìm thấy phiếu cần cập nhật trạng thái." }));
+    }
+
+    const items = getStockLogItems(existingLog).map((item) => {
+      const product = products.find((entry) => entry.sku === item.sku);
+      if (!product) {
+        throw new Error(JSON.stringify({ error: `Không tìm thấy sản phẩm ${item.productName} trong kho.` }));
+      }
+      return { productId: product.id, quantity: item.quantity };
+    });
+
+    await handleUpdateTransaction({
+      id: existingLog.id,
+      type: existingLog.type as "nhập" | "xuất",
+      title: (existingLog as StockLog & { title?: string }).title || `${existingLog.type === "nhập" ? "Phiếu nhập" : "Phiếu xuất"}: ${existingLog.productName}`,
+      operatorName: existingLog.operatorName,
+      notes: existingLog.notes,
+      status,
+      items,
+    });
+  };
+
   const handleDeleteTransaction = async (logId: string) => {
-    if (!window.confirm("Xóa phiếu này khỏi hệ thống? Hành động không thể hoàn tác và không hoàn trả tồn kho.")) return;
+    setDeleteTarget({
+      type: "log",
+      id: logId,
+      title: "Xóa phiếu nhập xuất",
+      description: "Phiếu sẽ bị xóa khỏi hệ thống và thao tác này không thể hoàn tác. Dữ liệu tồn kho hiện tại sẽ không tự hoàn trả.",
+      confirmLabel: "Xóa phiếu",
+      tone: "danger",
+    });
+  };
+
+  const deleteLogById = async (logId: string) => {
+    await inventoryStockLogService.deleteLog(logId);
+    toast.success("Đã xóa phiếu.");
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+
+    setDeleteSubmitting(true);
+
     try {
-      await inventoryStockLogService.deleteLog(logId);
-      toast.success("Đã xóa phiếu.");
+      if (deleteTarget.type === "product") {
+        await deleteProductById(deleteTarget.id);
+      } else if (deleteTarget.type === "category") {
+        await deleteCategoryById(deleteTarget.id);
+      } else {
+        await deleteLogById(deleteTarget.id);
+      }
+
+      setDeleteTarget(null);
     } catch (error) {
-      toast.error(getInventoryErrorMessage(error, "Không thể xóa phiếu. Vui lòng thử lại."));
+      const fallbackMessage =
+        deleteTarget.type === "product"
+          ? "Không thể xóa sản phẩm. Vui lòng thử lại."
+          : deleteTarget.type === "category"
+            ? "Không thể xóa phân loại sản phẩm. Vui lòng thử lại."
+            : "Không thể xóa phiếu. Vui lòng thử lại.";
+
+      toast.error(getInventoryErrorMessage(error, fallbackMessage));
+    } finally {
+      setDeleteSubmitting(false);
     }
   };
 
@@ -952,12 +1105,26 @@ export default function InventoryTab() {
               onNavigateToCreateProduct={handleNavigateToCreateProduct}
               onCreateTransaction={handleCreateTransaction}
               onUpdateTransaction={handleUpdateTransaction}
+              onUpdateStatus={handleQuickUpdateTransactionStatus}
               onDeleteTransaction={handleDeleteTransaction}
             />
           </>
         )}
-        {subTab === "DỰ BÁO AI" && <AiForecastPanel products={shortStockProducts} />}
+        {subTab === "DỰ BÁO AI" && <AiForecastPanel forecast={forecastSummary} />}
       </div>
+      <ConfirmDialog
+        isOpen={Boolean(deleteTarget)}
+        title={deleteTarget?.title || ""}
+        description={deleteTarget?.description || ""}
+        confirmLabel={deleteTarget?.confirmLabel || "Xác nhận"}
+        tone={deleteTarget?.tone || "danger"}
+        isSubmitting={deleteSubmitting}
+        onClose={() => {
+          if (deleteSubmitting) return;
+          setDeleteTarget(null);
+        }}
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   );
 }
