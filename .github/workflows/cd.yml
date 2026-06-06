@@ -95,26 +95,24 @@ jobs:
               touch .env
             fi
 
-            # Ghi đè file docker-compose.yml động
-            cat << EOF > docker-compose.yml
-version: '3.8'
-
-services:
-  igen-erp:
-    image: ghcr.io/chung2310/igen-erp:${IMAGE_TAG}
-    container_name: ${CONTAINER_NAME}
-    restart: always
-    ports:
-      - "3000:3000"
-    env_file:
-      - .env
-    networks:
-      - erpnet
-
-networks:
-  erpnet:
-    driver: bridge
-EOF
+            # Ghi đè file docker-compose.yml bằng echo để đảm bảo định dạng YAML trong cd.yml không bị lỗi
+            echo "version: '3.8'" > docker-compose.yml
+            echo "" >> docker-compose.yml
+            echo "services:" >> docker-compose.yml
+            echo "  igen-erp:" >> docker-compose.yml
+            echo "    image: ghcr.io/chung2310/igen-erp:${IMAGE_TAG}" >> docker-compose.yml
+            echo "    container_name: ${CONTAINER_NAME}" >> docker-compose.yml
+            echo "    restart: always" >> docker-compose.yml
+            echo "    ports:" >> docker-compose.yml
+            echo "      - \"3000:3000\"" >> docker-compose.yml
+            echo "    env_file:" >> docker-compose.yml
+            echo "      - .env" >> docker-compose.yml
+            echo "    networks:" >> docker-compose.yml
+            echo "      - erpnet" >> docker-compose.yml
+            echo "" >> docker-compose.yml
+            echo "networks:" >> docker-compose.yml
+            echo "  erpnet:" >> docker-compose.yml
+            echo "    driver: bridge" >> docker-compose.yml
 
             # Đăng nhập vào GHCR trên VPS
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
