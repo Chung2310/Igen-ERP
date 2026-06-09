@@ -28,6 +28,8 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
   handleSendChatMessage,
 }) => {
   const [filterInbox, setFilterInbox] = useState("");
+  const [activeChannel, setActiveChannel] = useState<"all" | "facebook" | "zalo">("all");
+  const [showConfig, setShowConfig] = useState(false);
   const chatBottomRef = useRef<HTMLDivElement>(null);
 
   // Tự động cuộn xuống cuối khung chat khi có tin nhắn mới hoặc AI đang xử lý
@@ -35,31 +37,79 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
     chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatHistory, aiWaiting]);
 
+  // Bộ đếm hội thoại theo từng kênh
+  const counts = {
+    all: inboxCustomers.length,
+    facebook: inboxCustomers.filter((c) => c.channel === "facebook").length,
+    zalo: inboxCustomers.filter((c) => c.channel === "zalo").length,
+  };
+
   return (
-    <div className="flex h-full overflow-hidden" id="omni_inbox_layout">
+    <div className="flex h-full overflow-hidden bg-slate-50/50" id="omni_inbox_layout">
       
       {/* L-Col: Inbox Customers list */}
-      <div className="w-72 border-r border-slate-100 flex flex-col justify-between shrink-0 h-full" id="inbox_sidebar">
-        <div className="p-4 border-b border-slate-100">
+      <div className="w-80 border-r border-slate-100 bg-white flex flex-col justify-between shrink-0 h-full shadow-sm" id="inbox_sidebar">
+        
+        {/* Search & Channel Filters Group */}
+        <div className="flex flex-col gap-3 p-4 border-b border-slate-100 shrink-0">
           <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <Search className="h-3.5 w-3.5 text-slate-400" />
             </div>
             <input 
               type="text" 
-              placeholder="Tìm hộp thư khách hàng..." 
+              placeholder="Tìm tên khách hàng..." 
               value={filterInbox}
               onChange={(e) => setFilterInbox(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 border border-slate-200 bg-slate-50 rounded-lg text-xs"
+              className="w-full pl-9 pr-3 py-2 border border-slate-200 bg-slate-50/60 focus:bg-white rounded-xl text-xs outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all duration-200"
               id="inbox_sidebar_search"
             />
+          </div>
+
+          {/* Premium Channel Segmented Controls */}
+          <div className="flex bg-slate-100 p-1 rounded-xl text-[10px] font-bold" id="inbox_channel_filters">
+            {[
+              { id: "all", label: "Tất cả", count: counts.all },
+              { id: "facebook", label: "Facebook", count: counts.facebook },
+              { id: "zalo", label: "Zalo", count: counts.zalo },
+            ].map((btn) => {
+              const isActive = activeChannel === btn.id;
+              return (
+                <button
+                  key={btn.id}
+                  onClick={() => setActiveChannel(btn.id as any)}
+                  className={`flex-1 py-2 px-1 rounded-lg font-bold transition-all duration-250 cursor-pointer flex items-center justify-center gap-1.5 ${
+                    isActive
+                      ? "bg-white text-slate-900 shadow-sm border border-slate-200/20"
+                      : "text-slate-500 hover:text-slate-800 hover:bg-white/40"
+                  }`}
+                >
+                  {btn.id === "facebook" && (
+                    <svg className="h-3 w-3 fill-current text-blue-600 shrink-0" viewBox="0 0 24 24">
+                      <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                    </svg>
+                  )}
+                  {btn.id === "zalo" && (
+                    <span className="w-3.5 h-3.5 bg-blue-500 text-white text-[8px] font-extrabold rounded-full flex items-center justify-center leading-none shrink-0 font-sans shadow-xxs">Z</span>
+                  )}
+                  <span>{btn.label}</span>
+                  <span className={`px-1.5 py-0.2 rounded-full text-[8px] ${
+                    isActive ? "bg-slate-900 text-white" : "bg-slate-200 text-slate-500"
+                  }`}>{btn.count}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
         {/* Thread list scroll content */}
-        <div className="flex-1 overflow-y-auto divide-y divide-slate-50" id="inbox_thread_list">
+        <div className="flex-1 overflow-y-auto divide-y divide-slate-100/60" id="inbox_thread_list">
           {inboxCustomers
-            .filter(c => c.name.toLowerCase().includes(filterInbox.toLowerCase()))
+            .filter((c) => {
+              const matchesSearch = c.name.toLowerCase().includes(filterInbox.toLowerCase());
+              const matchesChannel = activeChannel === "all" || c.channel === activeChannel;
+              return matchesSearch && matchesChannel;
+            })
             .map((cust) => {
               const isActive = activeCustomer?.id === cust.id;
               const hasHotTag = cust.tags.includes("Khách Nóng");
@@ -68,16 +118,29 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                 <div 
                   key={cust.id} 
                   onClick={() => handleSelectCustomer(cust)}
-                  className={`p-4 flex items-start gap-3 cursor-pointer transition-colors text-left relative ${
-                    isActive ? "bg-slate-50 border-l-4 border-blue-500" : "hover:bg-slate-50/40"
+                  className={`p-4 flex items-start gap-3.5 cursor-pointer transition-all duration-200 text-left relative ${
+                    isActive ? "bg-slate-50 border-l-4 border-blue-600" : "hover:bg-slate-50/50"
                   }`}
                   id={`inbox_thread_${cust.id}`}
                 >
-                  <div className="text-2xl p-1 bg-white border border-slate-100 rounded-full select-none relative shadow-xxs shrink-0">
+                  {/* Avatar with dynamic channel source badge */}
+                  <div className="text-2xl p-1.5 bg-white border border-slate-100 rounded-full select-none relative shadow-sm shrink-0">
                     {cust.avatar}
                     {cust.status === "online" && (
-                      <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full border border-white" />
+                      <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full border border-white shadow-sm" />
                     )}
+                    {/* Channel source badge in top-right */}
+                    {cust.channel === "facebook" ? (
+                      <span className="absolute -top-1.5 -right-1.5 p-0.5 bg-blue-600 text-white rounded-full border border-white shadow-sm flex items-center justify-center">
+                        <svg className="h-2.5 w-2.5 fill-current" viewBox="0 0 24 24">
+                          <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                        </svg>
+                      </span>
+                    ) : cust.channel === "zalo" ? (
+                      <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-blue-500 text-white text-[7px] font-extrabold rounded-full border border-white shadow-sm flex items-center justify-center leading-none font-sans">
+                        Z
+                      </span>
+                    ) : null}
                   </div>
 
                   <div className="flex-1 min-w-0">
@@ -88,7 +151,7 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                     
                     <p className="text-[10px] text-slate-500 truncate mt-1 leading-normal select-none">{cust.lastMessage}</p>
                     
-                    <div className="flex flex-wrap items-center gap-1 mt-2">
+                    <div className="flex flex-wrap items-center gap-1 mt-2.5">
                       {hasHotTag && (
                         <span className="animate-pulse px-1.5 py-0.5 bg-red-500 text-white text-[8px] font-extrabold rounded-md shadow-sm flex items-center gap-0.5">
                           <span className="w-1.5 h-1.5 bg-white rounded-full animate-ping shrink-0" />
@@ -102,8 +165,8 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                             tag === "Khách Ấm"
                               ? "bg-orange-50 text-orange-600 border-orange-100"
                               : tag === "Khách VIP"
-                                ? "bg-purple-55 bg-purple-50 text-purple-650 text-purple-600 border-purple-100"
-                                : "bg-slate-50 text-slate-500 border-slate-150"
+                                ? "bg-purple-50 text-purple-600 border-purple-100"
+                                : "bg-slate-55 bg-slate-50 text-slate-500 border-slate-150"
                           }`}>
                             {tag}
                           </span>
@@ -113,7 +176,7 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                   </div>
 
                   {cust.unreadCount > 0 && (
-                    <span className="absolute right-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 bg-rose-500 text-white text-[9px] font-extrabold rounded-full flex items-center justify-center shadow-sm">
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 bg-rose-500 text-white text-[9px] font-extrabold rounded-full flex items-center justify-center shadow-md animate-scale-in">
                       {cust.unreadCount}
                     </span>
                   )}
@@ -140,7 +203,7 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
         ) : (
           <>
             {/* Active Customer Info Top Header */}
-            <div className="p-4 border-b border-slate-100 bg-white flex items-center justify-between shrink-0" id="chat_header">
+            <div className="p-4 border-b border-slate-100 bg-white flex items-center justify-between shrink-0 shadow-sm" id="chat_header">
               <div className="flex items-center gap-3 text-left">
                 <span className="text-2xl p-1 bg-slate-50 border border-slate-100 rounded-full select-none shadow-xxs">
                   {activeCustomer.avatar}
@@ -152,16 +215,47 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                       <span className="px-1.5 py-0.5 bg-amber-500 text-white text-[8px] font-extrabold rounded-md shadow-sm">VIP</span>
                     )}
                   </h4>
-                  <p className="text-[9.5px] text-slate-400 font-mono mt-0.5 flex items-center gap-1">
+                  <p className="text-[9.5px] text-slate-400 font-mono mt-0.5 flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full shrink-0" />
                     Đang trực tuyến • ID: {activeCustomer.id}
                   </p>
                 </div>
               </div>
               
-              <div className="flex items-center gap-1.5">
-                <span className="px-2.5 py-1 bg-blue-50 border border-blue-200 rounded-full text-blue-700 text-[10px] font-bold font-mono">
-                  HỘP THƯ CHÍNH
+              {/* Header Actions: Collapsible config and channel badge */}
+              <div className="flex items-center gap-2">
+                {/* Collapsible toggle button */}
+                <button
+                  onClick={() => setShowConfig(!showConfig)}
+                  className={`px-3 py-1.5 rounded-xl text-[10px] font-extrabold transition-all border flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95 ${
+                    showConfig
+                      ? "bg-slate-900 text-white border-slate-900"
+                      : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                  }`}
+                >
+                  <Sliders className="h-3.5 w-3.5" />
+                  <span>{showConfig ? "Ẩn cấu hình AI" : "Cấu hình trợ lý AI"}</span>
+                </button>
+
+                {/* Source logo info */}
+                <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold font-sans flex items-center gap-1.5 border ${
+                  activeCustomer.channel === "facebook" 
+                    ? "bg-blue-50 text-blue-700 border-blue-150" 
+                    : "bg-indigo-50 text-indigo-700 border-indigo-150"
+                }`}>
+                  {activeCustomer.channel === "facebook" ? (
+                    <>
+                      <svg className="h-3 w-3 fill-current" viewBox="0 0 24 24">
+                        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                      </svg>
+                      <span>FACEBOOK MESSENGER</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="w-3.5 h-3.5 bg-blue-500 text-white text-[8px] font-extrabold rounded-full flex items-center justify-center leading-none font-sans shrink-0">Z</span>
+                      <span>ZALO INBOX</span>
+                    </>
+                  )}
                 </span>
               </div>
             </div>
@@ -176,7 +270,7 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                 return (
                   <div 
                     key={h.id}
-                    className={`flex flex-col ${isMe ? "items-end" : "items-start"}`}
+                    className={`flex flex-col ${isMe ? "items-end" : "items-start"} animate-fade-in-up`}
                   >
                     <div className="flex items-end gap-2 max-w-[75%] relative">
                       {!isMe && (
@@ -187,11 +281,11 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
 
                       <div className={`p-3.5 rounded-2xl relative ${
                         isMe 
-                          ? "bg-slate-900 border border-slate-700 text-white rounded-br-none text-right font-sans text-xs" 
+                          ? "bg-slate-900 border border-slate-800 text-white rounded-br-none text-right font-sans text-xs shadow-sm" 
                           : isSystem
-                            ? "bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-bl-none text-left font-mono text-[10.5px]"
+                            ? "bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-bl-none text-left font-mono text-[10.5px] shadow-sm"
                             : isAI
-                              ? "bg-indigo-50/70 border border-indigo-100 text-indigo-900 rounded-bl-none text-left font-sans text-xs"
+                              ? "bg-indigo-50/70 border border-indigo-100 text-indigo-900 rounded-bl-none text-left font-sans text-xs shadow-xs"
                               : "bg-slate-100 text-slate-800 rounded-bl-none text-left font-sans text-xs"
                       }`}>
                         {isAI && (
@@ -232,7 +326,7 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
             </div>
 
             {/* Chat Send Input Box area */}
-            <form onSubmit={handleSendChatMessage} className="p-4 border-t border-slate-100 bg-white" id="chat_input_section">
+            <form onSubmit={handleSendChatMessage} className="p-4 border-t border-slate-100 bg-white shrink-0" id="chat_input_section">
               <div className="flex gap-3">
                 <input 
                   type="text" 
@@ -259,104 +353,106 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
         )}
       </div>
 
-      {/* R-Col: Config side-panel sidebar for custom AI assistant parameters */}
-      <div className="w-72 border-l border-slate-100 bg-slate-50/30 p-5 text-xs text-left overflow-y-auto shrink-0 h-full flex flex-col justify-between" id="ai_assistant_config_side_panel">
-        <div className="space-y-5">
-          <h4 className="font-bold text-slate-800 text-sm font-sans tracking-tight flex items-center gap-2 uppercase">
-            <Sliders className="h-4.5 w-4.5 text-blue-500" />
-            Cấu hình trợ lý AI
-          </h4>
-          <p className="text-slate-400 text-[10px] leading-relaxed font-sans">Tham số hóa hành vi tự động trả lời, phân tích tâm lý khách hàng đồng bộ thời gian trễ.</p>
+      {/* R-Col: Config side-panel sidebar for custom AI assistant parameters (Collapsible) */}
+      {showConfig && (
+        <div className="w-80 border-l border-slate-100 bg-white p-5 text-xs text-left overflow-y-auto shrink-0 h-full flex flex-col justify-between shadow-sm animate-slide-in-right" id="ai_assistant_config_side_panel">
+          <div className="space-y-5">
+            <h4 className="font-extrabold text-slate-800 text-sm font-sans tracking-tight flex items-center gap-2 uppercase">
+              <Sliders className="h-4 w-4 text-blue-600" />
+              Cấu hình trợ lý AI
+            </h4>
+            <p className="text-slate-400 text-[10px] leading-relaxed font-sans">Tham số hóa hành vi tự động trả lời, phân tích tâm lý khách hàng đồng bộ thời gian trễ.</p>
 
-          {/* AI switchers */}
-          <div className="space-y-4 pt-4 border-t border-slate-100" id="config_switches">
-            
-            {/* auto classify */}
-            <div className="flex justify-between items-start gap-4">
-              <div>
-                <h5 className="font-bold text-slate-700 font-sans tracking-tight">Tự phân loại khách</h5>
-                <p className="text-[9.5px] text-slate-400 mt-0.5 leading-normal">AI tự phân tích và tag nhóm hội thoại Khách VIP/Hỏi giá.</p>
+            {/* AI switchers */}
+            <div className="space-y-4 pt-4 border-t border-slate-100" id="config_switches">
+              
+              {/* auto classify */}
+              <div className="flex justify-between items-start gap-4">
+                <div>
+                  <h5 className="font-extrabold text-slate-700 font-sans tracking-tight text-xs">Tự phân loại khách</h5>
+                  <p className="text-[9.5px] text-slate-400 mt-0.5 leading-normal">AI tự phân tích và tag nhóm hội thoại Khách VIP/Hỏi giá.</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer select-none shrink-0 mt-0.5">
+                  <input 
+                    type="checkbox" 
+                    checked={aiConfig.autoClassify}
+                    onChange={(e) => setAIConfig({ ...aiConfig, autoClassify: e.target.checked })}
+                    className="sr-only peer" 
+                  />
+                  <div className="w-8 h-4 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3.5 after:transition-all peer-checked:bg-blue-600" />
+                </label>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer select-none shrink-0">
-                <input 
-                  type="checkbox" 
-                  checked={aiConfig.autoClassify}
-                  onChange={(e) => setAIConfig({ ...aiConfig, autoClassify: e.target.checked })}
-                  className="sr-only peer" 
-                />
-                <div className="w-8 h-4 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-350 after:border after:rounded-full after:h-3 after:w-3.5 after:transition-all peer-checked:bg-blue-600" />
-              </label>
+
+              {/* auto close deal */}
+              <div className="flex justify-between items-start gap-4">
+                <div>
+                  <h5 className="font-extrabold text-slate-700 font-sans tracking-tight text-xs">Tự động chốt đơn AI *</h5>
+                  <p className="text-[9.5px] text-slate-400 mt-0.5 leading-normal">Hướng hội thoại xin địa chỉ, tạo vận đơn tự động lên ERP.</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer select-none shrink-0 mt-0.5">
+                  <input 
+                    type="checkbox" 
+                    checked={aiConfig.autoCloseDeal}
+                    onChange={(e) => setAIConfig({ ...aiConfig, autoCloseDeal: e.target.checked })}
+                    className="sr-only peer" 
+                  />
+                  <div className="w-8 h-4 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3.5 after:transition-all peer-checked:bg-blue-600" />
+                </label>
+              </div>
+
+              {/* auto request feedback */}
+              <div className="flex justify-between items-start gap-4">
+                <div>
+                  <h5 className="font-extrabold text-slate-700 font-sans tracking-tight text-xs">Tự xin feedback quý</h5>
+                  <p className="text-[9.5px] text-slate-400 mt-0.5 leading-normal">Lịch sự xin đánh giá sao sau khi khách hàng chào tạm biệt.</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer select-none shrink-0 mt-0.5">
+                  <input 
+                    type="checkbox" 
+                    checked={aiConfig.autoFeedback}
+                    onChange={(e) => setAIConfig({ ...aiConfig, autoFeedback: e.target.checked })}
+                    className="sr-only peer" 
+                  />
+                  <div className="w-8 h-4 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3.5 after:transition-all peer-checked:bg-blue-600" />
+                </label>
+              </div>
+
             </div>
 
-            {/* auto close deal */}
-            <div className="flex justify-between items-start gap-4">
-              <div>
-                <h5 className="font-bold text-slate-700 font-sans tracking-tight">Tự động chốt đơn AI *</h5>
-                <p className="text-[9.5px] text-slate-400 mt-0.5 leading-normal">Hướng hội thoại xin địa chỉ, tạo vận đơn tự động lên ERP.</p>
+            {/* delay slider config */}
+            <div className="pt-4 border-t border-slate-100 space-y-2">
+              <div className="flex justify-between items-center text-xs">
+                <span className="font-extrabold text-slate-700 font-sans">Thời gian trễ trả lời</span>
+                <strong className="font-mono bg-slate-50 px-2 py-0.5 border border-slate-200 rounded text-slate-600">{aiConfig.replyDelay} giây (s)</strong>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer select-none shrink-0">
-                <input 
-                  type="checkbox" 
-                  checked={aiConfig.autoCloseDeal}
-                  onChange={(e) => setAIConfig({ ...aiConfig, autoCloseDeal: e.target.checked })}
-                  className="sr-only peer" 
-                />
-                <div className="w-8 h-4 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-350 after:border after:rounded-full after:h-3 after:w-3.5 after:transition-all peer-checked:bg-blue-600" />
-              </label>
+              <input 
+                type="range" 
+                min={1} 
+                max={45} 
+                value={aiConfig.replyDelay}
+                onChange={(e) => setAIConfig({ ...aiConfig, replyDelay: parseInt(e.target.value) })}
+                className="w-full h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600 animate-pulse-slow"
+              />
+              <span className="text-[9px] text-slate-400 block leading-normal text-left">Độ trễ giúp chatbot hành xử tương thích như người chăm sóc thật phục vụ hội thoại.</span>
             </div>
 
-            {/* auto request feedback */}
-            <div className="flex justify-between items-start gap-4">
-              <div>
-                <h5 className="font-bold text-slate-700 font-sans tracking-tight">Tự xin feedback quý</h5>
-                <p className="text-[9.5px] text-slate-400 mt-0.5 leading-normal">Lịch sự xin đánh giá sao sau khi khách hàng chào tạm biệt.</p>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer select-none shrink-0">
-                <input 
-                  type="checkbox" 
-                  checked={aiConfig.autoFeedback}
-                  onChange={(e) => setAIConfig({ ...aiConfig, autoFeedback: e.target.checked })}
-                  className="sr-only peer" 
-                />
-                <div className="w-8 h-4 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-350 after:border after:rounded-full after:h-3 after:w-3.5 after:transition-all peer-checked:bg-blue-600" />
-              </label>
+            {/* Custom active coreinstructions constraints */}
+            <div className="pt-4 border-t border-slate-100 space-y-2">
+              <label className="block font-extrabold text-slate-700">Cài đặt nâng cao (AI Prompts)</label>
+              <textarea 
+                placeholder="Nhập luật hành xử nghiêm ngặt cho AI..."
+                value={aiConfig.advancedInstructions}
+                onChange={(e) => setAIConfig({ ...aiConfig, advancedInstructions: e.target.value })}
+                className="w-full h-32 p-3 border border-slate-200 bg-slate-50 focus:bg-white rounded-xl text-xs leading-relaxed focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all duration-200"
+              />
             </div>
-
           </div>
 
-          {/* delay slider config */}
-          <div className="pt-4 border-t border-slate-100 space-y-2">
-            <div className="flex justify-between items-center text-xs">
-              <span className="font-bold text-slate-700 font-sans">Thời gian trễ trả lời</span>
-              <strong className="font-mono bg-white px-2 py-0.5 border border-slate-200 rounded text-slate-600">{aiConfig.replyDelay} giây (s)</strong>
-            </div>
-            <input 
-              type="range" 
-              min={1} 
-              max={45} 
-              value={aiConfig.replyDelay}
-              onChange={(e) => setAIConfig({ ...aiConfig, replyDelay: parseInt(e.target.value) })}
-              className="w-full h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
-            />
-            <span className="text-[9px] text-slate-400 block leading-normal text-left">Độ trễ giúp chatbot hành xử tương thích như người chăm sóc thật phục vụ hội thoại.</span>
-          </div>
-
-          {/* Custom active coreinstructions constraints */}
-          <div className="pt-4 border-t border-slate-100 space-y-2">
-            <label className="block font-bold text-slate-700">Cài đặt nâng cao (AI Prompts)</label>
-            <textarea 
-              placeholder="Nhập luật hành xử nghiêm ngặt cho AI..."
-              value={aiConfig.advancedInstructions}
-              onChange={(e) => setAIConfig({ ...aiConfig, advancedInstructions: e.target.value })}
-              className="w-full h-24 p-3 border border-slate-200 bg-white rounded-xl text-xxs leading-relaxed focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none"
-            />
+          <div className="mt-6 pt-4 border-t border-slate-100 font-mono text-center text-[9px] text-slate-400 select-none">
+            Cấu hình trợ lý AI tự động lưu
           </div>
         </div>
-
-        <div className="mt-6 pt-4 border-t border-slate-100 font-mono text-center text-[9px] text-slate-400 select-none">
-          Lưu tự động cấu hình trợ lý AI
-        </div>
-      </div>
+      )}
 
     </div>
   );

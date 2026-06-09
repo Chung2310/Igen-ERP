@@ -51,6 +51,13 @@ async function startServer() {
   // Phục vụ tĩnh thư mục uploads
   app.use("/uploads", express.static(uploadsDir));
 
+  // Global Request Logger - Log tất cả API requests để dễ debug
+  app.use("/api", (req, res, next) => {
+    const timestamp = new Date().toLocaleTimeString("vi-VN");
+    console.log(`[Server ${timestamp}] ${req.method} ${req.originalUrl} - IP: ${req.ip}`);
+    next();
+  });
+
   // 3. Đăng ký Versioned API Router với tiền tố /api/v1/
   app.use("/api/v1", apiRouter);
 
