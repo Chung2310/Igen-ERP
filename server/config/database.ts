@@ -11,12 +11,24 @@ async function seedSuperAdmin() {
     const saPassword = process.env.VITE_SUPERADMIN_PASSWORD || "superadmin123";
     const saName = process.env.VITE_SUPERADMIN_NAME || "Super Admin";
 
+    // 1. Kiểm tra xem đã có bất kỳ tài khoản superadmin nào trong hệ thống chưa
     const existingSA = await UserModel.findOne({ role: "superadmin" });
     if (existingSA) {
       console.log("[Backend Database] Super Admin đã tồn tại trong database.");
       return;
     }
 
+    // 2. Nếu chưa có superadmin, kiểm tra xem có tài khoản trùng email cấu hình chưa
+    const userWithEmail = await UserModel.findOne({ email: saEmail });
+    if (userWithEmail) {
+      console.log(`[Backend Database] Tìm thấy tài khoản trùng email ${saEmail}. Nâng cấp lên Super Admin...`);
+      userWithEmail.role = "superadmin";
+      await userWithEmail.save();
+      console.log("[Backend Database] Nâng cấp tài khoản lên Super Admin thành công.");
+      return;
+    }
+
+    // 3. Nếu chưa có cả hai, tiến hành tạo mới tài khoản superadmin
     const hashedPassword = await bcrypt.hash(saPassword, 10);
     const superAdmin = new UserModel({
       email: saEmail,
