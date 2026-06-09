@@ -1,59 +1,21 @@
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { 
-  initializeFirestore, 
-  persistentLocalCache, 
-  persistentMultipleTabManager,
-  getFirestore 
-} from 'firebase/firestore';
+import { initializeApp } from 'firebase/app';
+import { getFirestore } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
-import firebaseConfigRaw from '../../firebase-applet-config.json';
 
+const dummyConfig = {
+  apiKey: "mock-api-key-to-prevent-sdk-crashing",
+  authDomain: "mock-app.firebaseapp.com",
+  projectId: "mock-app",
+  storageBucket: "mock-app.appspot.com",
+  messagingSenderId: "1234567890",
+  appId: "1:1234567890:web:abcdef123456"
+};
 
-interface FirebaseAppletConfig {
-  projectId: string;
-  appId: string;
-  apiKey: string;
-  authDomain: string;
-  firestoreDatabaseId?: string;
-  storageBucket?: string;
-  messagingSenderId?: string;
-  measurementId?: string;
-}
-
-const firebaseConfig = firebaseConfigRaw as FirebaseAppletConfig;
-
-// 1. Xác thực cấu hình bắt buộc trước khi khởi tạo
-const requiredFields = ['apiKey', 'authDomain', 'projectId', 'appId'] as const;
-const missingFields = requiredFields.filter((field) => !firebaseConfig[field]);
-
-if (missingFields.length > 0) {
-  throw new Error(`[Firebase Config Error] Thiếu các trường cấu hình bắt buộc: ${missingFields.join(', ')}`);
-}
-
-// 2. Khởi tạo Firebase App an toàn (Tránh re-initialization khi HMR hoạt động)
-const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig as any);
-
-// 3. Khởi tạo Firestore với Database ID hợp lệ và local cache persistence
-const databaseId = firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)'
-  ? firebaseConfig.firestoreDatabaseId
-  : undefined;
-
-let firestoreDb;
-try {
-  firestoreDb = initializeFirestore(app, {
-    localCache: persistentLocalCache({
-      tabManager: persistentMultipleTabManager()
-    })
-  }, databaseId);
-} catch (e) {
-  firestoreDb = getFirestore(app, databaseId);
-}
-
-export const db = firestoreDb;
+const app = initializeApp(dummyConfig);
+export const db = getFirestore(app);
 export const auth = getAuth(app);
 export const storage = getStorage(app);
-
 
 // Error Handling helper
 export enum OperationType {

@@ -1,221 +1,167 @@
-import { 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  signOut, 
-  signInWithPopup, 
-  GoogleAuthProvider,
-  updateProfile,
-  getAuth
-} from "firebase/auth";
-import { initializeApp, deleteApp } from "firebase/app";
-import { 
-  doc, 
-  setDoc, 
-  getDoc, 
-  updateDoc, 
-  collection, 
-  getDocs, 
-  query, 
-  orderBy,
-  where,
-  serverTimestamp
-} from "firebase/firestore";
-import { auth, db } from "../config/firebase";
 import { UserProfile, CompanyProfile } from "../types";
 
-const googleProvider = new GoogleAuthProvider();
-
-function safeToDate(val: any): Date {
-  if (!val) return new Date();
-  if (typeof val.toDate === "function") return val.toDate();
-  if (val instanceof Date) return val;
-  if (typeof val === "string" || typeof val === "number") {
-    const d = new Date(val);
-    return isNaN(d.getTime()) ? new Date() : d;
-  }
-  if (val && typeof val === "object" && typeof val.seconds === "number") {
-    return new Date(val.seconds * 1000);
-  }
-  return new Date();
+// Helper để lấy token từ localStorage
+export function getAccessToken(): string | null {
+  return localStorage.getItem("accessToken");
 }
 
 export const authService = {
   // Đăng ký bằng Email & Mật khẩu
-  async registerWithEmail(email: string, password: string, displayName: string): Promise<UserProfile> {
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    const user = userCredential.user;
-
-    // Cập nhật profile Firebase Auth
-    await updateProfile(user, { displayName });
-
-    // Tạo hồ sơ người dùng trong Firestore với role mặc định "user"
-    const userProfile: UserProfile = {
-      uid: user.uid,
-      email: user.email || email,
-      displayName: displayName || user.displayName || "User",
-      photoURL: user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName || user.displayName || "User")}&background=random&color=fff`,
-      role: "user",
-      createdAt: new Date(),
-    };
-
-    const userDocRef = doc(db, "users", user.uid);
-    await setDoc(userDocRef, {
-      ...userProfile,
-      createdAt: serverTimestamp(),
+  async registerWithEmail(email: string, password: string, displayName: string): Promise<any> {
+    const res = await fetch("/api/v1/auth/register", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email, password, displayName }),
     });
 
-    return userProfile;
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.message || "Đăng ký thất bại");
+    }
+
+    const result = await res.json();
+    return result.data;
   },
 
   // Đăng nhập bằng Email & Mật khẩu
-  async loginWithEmail(email: string, password: string) {
-    return await signInWithEmailAndPassword(auth, email, password);
+  async loginWithEmail(email: string, password: string): Promise<any> {
+    const res = await fetch("/api/v1/auth/login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email, password }),
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.message || "Đăng nhập thất bại");
+    }
+
+    const result = await res.json();
+    // Lưu token truy cập vào localStorage
+    if (result.accessToken) {
+      localStorage.setItem("accessToken", result.accessToken);
+    }
+    return result;
   },
 
-  // Đăng nhập bằng Google
-  async loginWithGoogle(): Promise<UserProfile> {
-    const userCredential = await signInWithPopup(auth, googleProvider);
-    const user = userCredential.user;
-
-    // Kiểm tra xem người dùng đã tồn tại trong Firestore chưa
-    const userDocRef = doc(db, "users", user.uid);
-    const docSnap = await getDoc(userDocRef);
-
-    if (docSnap.exists()) {
-      return docSnap.data() as UserProfile;
-    } else {
-      // Đăng nhập lần đầu, tạo tài khoản mặc định "user"
-      const userProfile: UserProfile = {
-        uid: user.uid,
-        email: user.email || "",
-        displayName: user.displayName || "User",
-        photoURL: user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName || "User")}&background=random&color=fff`,
-        role: "user",
-        createdAt: new Date(),
-      };
-
-      await setDoc(userDocRef, {
-        ...userProfile,
-        createdAt: serverTimestamp(),
-      });
-
-      return userProfile;
-    }
+  // Đăng nhập bằng Google (Chuyển sang JWT nên tạm thời báo không hỗ trợ)
+  async loginWithGoogle(): Promise<any> {
+    throw new Error("Đăng nhập bằng Google hiện không khả dụng. Vui lòng sử dụng tài khoản Email.");
   },
 
   // Đăng xuất
   async logout(): Promise<void> {
-    await signOut(auth);
+    localStorage.removeItem("accessToken");
+    try {
+      await fetch("/api/v1/auth/logout", {
+        method: "POST",
+      });
+    } catch (err) {
+      console.error("Lỗi khi gọi API đăng xuất phía server:", err);
+    }
   },
 
-  // Lấy chi tiết hồ sơ người dùng từ Firestore
+  // Lấy chi tiết hồ sơ người dùng từ backend
   async getUserProfile(uid: string): Promise<UserProfile | null> {
     try {
-      const userDocRef = doc(db, "users", uid);
-      const docSnap = await getDoc(userDocRef);
-      if (docSnap.exists()) {
-        return docSnap.data() as UserProfile;
+      const res = await fetch("/api/v1/auth/me", {
+        headers: {
+          "Authorization": `Bearer ${getAccessToken()}`,
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.user && (data.user._id === uid || data.user.uid === uid)) {
+          return {
+            ...data.user,
+            uid: data.user._id,
+          };
+        }
       }
       return null;
     } catch (error) {
-      console.error("Lỗi khi lấy thông tin người dùng từ Firestore:", error);
+      console.error("Lỗi khi lấy thông tin người dùng từ Backend:", error);
       return null;
     }
   },
 
-  // Lấy danh sách toàn bộ người dùng (Chỉ dành cho superadmin)
+  // Lấy thông tin người dùng hiện tại thông qua JWT Token
+  async getMe(): Promise<UserProfile | null> {
+    try {
+      const token = getAccessToken();
+      if (!token) return null;
+
+      const res = await fetch("/api/v1/auth/me", {
+        headers: {
+          "Authorization": `Bearer ${token}`,
+        },
+      });
+
+      if (!res.ok) {
+        // Nếu token hết hạn, thử làm mới bằng refresh-token (cookie)
+        const refreshRes = await fetch("/api/v1/auth/refresh-token", {
+          method: "POST",
+        });
+
+        if (refreshRes.ok) {
+          const refreshData = await refreshRes.json();
+          if (refreshData.accessToken) {
+            localStorage.setItem("accessToken", refreshData.accessToken);
+            
+            // Gọi lại API me với access token mới
+            const retryRes = await fetch("/api/v1/auth/me", {
+              headers: {
+                "Authorization": `Bearer ${refreshData.accessToken}`,
+              },
+            });
+            if (retryRes.ok) {
+              const retryData = await retryRes.json();
+              return {
+                ...retryData.user,
+                uid: retryData.user._id,
+              };
+            }
+          }
+        }
+        return null;
+      }
+
+      const data = await res.json();
+      return {
+        ...data.user,
+        uid: data.user._id,
+      };
+    } catch (error) {
+      console.error("Lỗi khi tự động lấy thông tin phiên làm việc getMe:", error);
+      return null;
+    }
+  },
+
+  // Lấy danh sách toàn bộ người dùng (Sẽ tích hợp REST API sau)
   async getAllUsers(): Promise<UserProfile[]> {
-    const usersCol = collection(db, "users");
-    const q = query(usersCol, orderBy("createdAt", "desc"));
-    const querySnapshot = await getDocs(q);
-    const users: UserProfile[] = [];
-    querySnapshot.forEach((docSnap) => {
-      const data = docSnap.data();
-      users.push({
-        uid: docSnap.id,
-        email: data.email || "",
-        displayName: data.displayName || "",
-        photoURL: data.photoURL || "",
-        role: data.role || "user",
-        createdAt: safeToDate(data.createdAt),
-        companyCode: data.companyCode || "",
-        companyName: data.companyName || "",
-        jobTitle: data.jobTitle || "",
-        department: data.department || "",
-        phone: data.phone || "",
-        level: data.level || 4,
-        parentId: data.parentId || "",
-        status: data.status || "offline",
-        division: data.division || ""
-      });
-    });
-    return users;
+    return [];
   },
 
-  // Lấy danh sách người dùng theo Doanh nghiệp (Dành cho chủ doanh nghiệp/manager/staff)
+  // Lấy danh sách người dùng theo Doanh nghiệp (Sẽ tích hợp REST API sau)
   async getUsersByCompany(companyCode: string): Promise<UserProfile[]> {
-    const usersCol = collection(db, "users");
-    const q = query(usersCol, where("companyCode", "==", companyCode));
-    const querySnapshot = await getDocs(q);
-    const users: UserProfile[] = [];
-    querySnapshot.forEach((docSnap) => {
-      const data = docSnap.data();
-      users.push({
-        uid: docSnap.id,
-        email: data.email || "",
-        displayName: data.displayName || "",
-        photoURL: data.photoURL || "",
-        role: data.role || "user",
-        createdAt: safeToDate(data.createdAt),
-        companyCode: data.companyCode || "",
-        companyName: data.companyName || "",
-        jobTitle: data.jobTitle || "",
-        department: data.department || "",
-        phone: data.phone || "",
-        level: data.level || 4,
-        parentId: data.parentId || "",
-        status: data.status || "offline",
-        division: data.division || ""
-      });
-    });
-    return users;
+    return [];
   },
 
-  // Cập nhật vai trò người dùng (Chỉ dành cho superadmin và admin)
+  // Cập nhật vai trò người dùng (Sẽ tích hợp REST API sau)
   async updateUserRole(uid: string, newRole: "user" | "manager" | "admin" | "superadmin"): Promise<void> {
-    const userDocRef = doc(db, "users", uid);
-    const dept = newRole === "admin" || newRole === "superadmin" ? "Ban Giám Đốc" : (newRole === "manager" ? "Quản lý" : "Nhân sự");
-    const div = newRole === "admin" || newRole === "superadmin" ? "Ban Giám Đốc" : (newRole === "manager" ? "Quản lý" : "Nhân sự");
-    const title = newRole === "admin" ? "Chief Executive Officer (CEO)" : (newRole === "manager" ? "Quản lý phòng ban" : "Nhân viên");
-
-    await updateDoc(userDocRef, {
-      role: newRole,
-      department: dept,
-      division: div,
-      jobTitle: title
-    });
+    // Placeholder
   },
 
-  // Lấy danh sách tất cả doanh nghiệp (Chỉ dành cho superadmin)
+  // Lấy danh sách tất cả doanh nghiệp (Sẽ tích hợp REST API sau)
   async getAllCompanies(): Promise<CompanyProfile[]> {
-    const companiesCol = collection(db, "companies");
-    const q = query(companiesCol, orderBy("createdAt", "desc"));
-    const querySnapshot = await getDocs(q);
-    const companies: CompanyProfile[] = [];
-    querySnapshot.forEach((docSnap) => {
-      const data = docSnap.data();
-      companies.push({
-        id: docSnap.id,
-        code: data.code || "",
-        name: data.name || "",
-        createdAt: safeToDate(data.createdAt),
-        ownerEmail: data.ownerEmail || ""
-      });
-    });
-    return companies;
+    return [];
   },
 
-  // Đăng ký doanh nghiệp mới và tạo tài khoản Admin tương ứng (Chỉ dành cho superadmin)
+  // Đăng ký doanh nghiệp mới và tạo tài khoản Admin tương ứng qua REST API
   async registerCompanyAndAdmin(
     companyName: string,
     companyCode: string,
@@ -223,59 +169,28 @@ export const authService = {
     ownerEmail: string,
     ownerPassword: string
   ): Promise<void> {
-    const normalizedCode = companyCode.toUpperCase().trim();
-    // 1. Tạo bản ghi trong collection "companies"
-    const companyDocRef = doc(db, "companies", normalizedCode);
-    await setDoc(companyDocRef, {
-      id: normalizedCode,
-      code: normalizedCode,
-      name: companyName.trim(),
-      ownerEmail: ownerEmail.trim(),
-      createdAt: serverTimestamp()
+    const res = await fetch("/api/v1/auth/register-company", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${getAccessToken()}`,
+      },
+      body: JSON.stringify({
+        companyName,
+        companyCode,
+        ownerName,
+        ownerEmail,
+        ownerPassword,
+      }),
     });
 
-    // 2. Tạo tài khoản admin cho doanh nghiệp bằng Firebase App phụ để tránh logout superadmin hiện tại
-    const tempApp = initializeApp(auth.app.options, `TempApp_${Date.now()}`);
-    const tempAuth = getAuth(tempApp);
-    try {
-      const userCredential = await createUserWithEmailAndPassword(tempAuth, ownerEmail.trim(), ownerPassword);
-      const user = userCredential.user;
-
-      await updateProfile(user, { displayName: ownerName.trim() });
-
-      // Lưu hồ sơ user vào Firestore
-      const userDocRef = doc(db, "users", user.uid);
-      const userProfile: UserProfile = {
-        uid: user.uid,
-        email: ownerEmail.trim(),
-        displayName: ownerName.trim(),
-        photoURL: `https://ui-avatars.com/api/?name=${encodeURIComponent(ownerName.trim())}&background=random&color=fff`,
-        role: "admin",
-        createdAt: new Date(),
-        companyCode: normalizedCode,
-        companyName: companyName.trim(),
-        jobTitle: "Chief Executive Officer (CEO)",
-        department: "Ban Giám Đốc",
-        division: "Ban Giám Đốc",
-        level: 1, // CEO level
-        status: "offline"
-      };
-
-      await setDoc(userDocRef, {
-        ...userProfile,
-        createdAt: serverTimestamp()
-      });
-
-      await signOut(tempAuth);
-    } catch (error) {
-      console.error("Lỗi khi tạo tài khoản admin doanh nghiệp:", error);
-      throw error;
-    } finally {
-      await deleteApp(tempApp);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.message || "Đăng ký doanh nghiệp thất bại");
     }
   },
 
-  // Đăng ký người dùng mới cho doanh nghiệp (Chỉ dành cho superadmin hoặc admin)
+  // Đăng ký người dùng mới cho doanh nghiệp qua REST API
   async registerUserForCompany(
     displayName: string,
     email: string,
@@ -289,72 +204,82 @@ export const authService = {
     division?: string,
     phone?: string
   ): Promise<string> {
-    const normalizedCode = companyCode.toUpperCase().trim();
-    // Tính level: nếu có quản lý thì level = level của quản lý + 1, không thì mặc định theo role
-    const defaultLevel = role === "admin" ? 1 : (role === "manager" ? 3 : 4);
-    const level = parentId && managerLevel ? managerLevel + 1 : defaultLevel;
+    const res = await fetch("/api/v1/auth/register-user", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${getAccessToken()}`,
+      },
+      body: JSON.stringify({
+        displayName,
+        email,
+        password,
+        role,
+        companyCode,
+        companyName,
+        parentId,
+        level: parentId && managerLevel ? managerLevel + 1 : undefined,
+        department,
+        division,
+        phone,
+      }),
+    });
 
-    // Tạo tài khoản mới bằng Firebase App phụ
-    const tempApp = initializeApp(auth.app.options, `TempAppUser_${Date.now()}`);
-    const tempAuth = getAuth(tempApp);
-    try {
-      const userCredential = await createUserWithEmailAndPassword(tempAuth, email.trim(), password);
-      const user = userCredential.user;
-
-      await updateProfile(user, { displayName: displayName.trim() });
-
-      // Lưu hồ sơ user vào Firestore
-      const userDocRef = doc(db, "users", user.uid);
-      const userProfile: UserProfile = {
-        uid: user.uid,
-        email: email.trim(),
-        displayName: displayName.trim(),
-        photoURL: `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName.trim())}&background=random&color=fff`,
-        role: role,
-        createdAt: new Date(),
-        companyCode: normalizedCode === "SYSTEM" ? "" : normalizedCode,
-        companyName: normalizedCode === "SYSTEM" ? "Hệ thống" : companyName.trim(),
-        jobTitle: role === "admin" ? "Chief Executive Officer (CEO)" : (role === "manager" ? "Quản lý phòng ban" : "Nhân viên"),
-        department: department || (role === "admin" ? "Ban Giám Đốc" : (role === "manager" ? "Quản lý" : "Nhân sự")),
-        division: division || (role === "admin" ? "Ban Giám Đốc" : (role === "manager" ? "Quản lý" : "Nhân sự")),
-        level,
-        parentId: parentId || undefined,
-        status: "offline",
-        phone: phone || "Chưa cập nhật"
-      };
-
-      await setDoc(userDocRef, {
-        ...userProfile,
-        createdAt: serverTimestamp()
-      });
-
-      await signOut(tempAuth);
-      return user.uid;
-    } catch (error) {
-      console.error("Lỗi khi đăng ký tài khoản thành viên doanh nghiệp:", error);
-      throw error;
-    } finally {
-      await deleteApp(tempApp);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.message || "Đăng ký thành viên thất bại");
     }
+
+    const result = await res.json();
+    return result.data._id; // Trả về ID của user vừa tạo
   },
 
   // Cập nhật thông tin hồ sơ cá nhân
   async updateProfileInfo(uid: string, displayName: string, photoURL: string): Promise<void> {
-    const userDocRef = doc(db, "users", uid);
-    await updateDoc(userDocRef, {
-      displayName: displayName.trim(),
-      photoURL: photoURL.trim(),
+    await this.updateProfile({ displayName, photoURL });
+  },
+
+  // Cập nhật một hoặc nhiều trường trong hồ sơ qua REST API
+  async updateProfile(updateData: any): Promise<UserProfile> {
+    const res = await fetch("/api/v1/auth/profile", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${getAccessToken()}`,
+      },
+      body: JSON.stringify(updateData),
     });
 
-    if (auth.currentUser) {
-      await updateProfile(auth.currentUser, {
-        displayName: displayName.trim(),
-        photoURL: photoURL.trim(),
-      });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.message || "Cập nhật hồ sơ thất bại");
+    }
+
+    const result = await res.json();
+    return {
+      ...result.user,
+      uid: result.user._id,
+    };
+  },
+
+  // Thay đổi mật khẩu người dùng qua REST API
+  async changePassword(password: string): Promise<void> {
+    const res = await fetch("/api/v1/auth/change-password", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${getAccessToken()}`,
+      },
+      body: JSON.stringify({ password }),
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.message || "Thay đổi mật khẩu thất bại");
     }
   },
 
-  // Tải ảnh đại diện lên Cloudinary
+  // Tải ảnh đại diện lên Cloudinary thông qua Relay API trên server
   async uploadAvatar(uid: string, file: File): Promise<string> {
     try {
       const base64Data = await new Promise<string>((resolve, reject) => {
@@ -368,6 +293,7 @@ export const authService = {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${getAccessToken()}`
         },
         body: JSON.stringify({
           file: base64Data,
@@ -388,4 +314,3 @@ export const authService = {
     }
   }
 };
-

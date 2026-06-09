@@ -1,9 +1,11 @@
 import { Router } from "express";
+import mongoose from "mongoose";
 import { geminiRouter } from "./gemini.router";
 import { facebookPostRouter } from "./facebook-post.router";
 import { tiktokRouter } from "./tiktok.router";
 import { schedulerRouter } from "./scheduler.router";
 import { mediaRouter } from "./media.router";
+import { authRouter } from "./auth.router";
 
 export const apiRouter = Router();
 
@@ -12,12 +14,13 @@ export const apiRouter = Router();
  * Health Check API để giám sát trạng thái của hệ thống
  */
 apiRouter.get("/health", (req, res) => {
+  const isDbConnected = mongoose.connection.readyState === 1;
   res.status(200).json({
     status: "ok",
     timestamp: new Date().toISOString(),
     services: {
       server: "up",
-      database: "online (connected via client-side firestore)",
+      database: isDbConnected ? "online (connected via MongoDB)" : "offline",
     },
   });
 });
@@ -36,6 +39,9 @@ apiRouter.use("/scheduler", schedulerRouter);
 
 // Gắn kết router phụ của Media Cloudinary Relay
 apiRouter.use("/media", mediaRouter);
+
+// Gắn kết router phụ của Xác thực JWT
+apiRouter.use("/auth", authRouter);
 
 
 
