@@ -42,4 +42,5 @@ export interface IUser extends Document {
   division?: string;
   companyCode?: string;
   companyName?: string;
+  permissions?: string[];
 }

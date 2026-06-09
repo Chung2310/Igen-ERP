@@ -2,7 +2,7 @@ import { Router } from "express";
 import Joi from "joi";
 import { facebookPostController } from "../controller/facebook-post.controller";
 import { validateRequest } from "../middleware/validation";
-import { requireAuth } from "../middleware/auth";
+import { requireAuth, requirePermission } from "../middleware/auth";
 
 export const facebookPostRouter = Router();
 
@@ -29,7 +29,6 @@ const publishSchema = {
   }),
 };
 
-
 const validateTokenSchema = {
   body: Joi.object({
     pageId: Joi.string().required(),
@@ -37,18 +36,20 @@ const validateTokenSchema = {
   }),
 };
 
-// Route đăng bài viết lên Facebook Page qua n8n
+// Route đăng bài viết lên Facebook Page qua n8n (Yêu cầu đăng nhập và có quyền marketing:post)
 facebookPostRouter.post(
   "/publish",
   requireAuth as any,
+  requirePermission("marketing:post") as any,
   validateRequest(publishSchema),
-  facebookPostController.publish
+  facebookPostController.publish as any
 );
 
-// Route xác thực token liên kết Page Facebook qua n8n
+// Route xác thực token liên kết Page Facebook qua n8n (Yêu cầu đăng nhập và có quyền marketing:post)
 facebookPostRouter.post(
   "/validate-token",
   requireAuth as any,
+  requirePermission("marketing:post") as any,
   validateRequest(validateTokenSchema),
-  facebookPostController.validateToken
+  facebookPostController.validateToken as any
 );

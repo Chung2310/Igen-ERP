@@ -1,8 +1,9 @@
 import { Router } from "express";
 import Joi from "joi";
 import { authController } from "../controller/auth.controller";
-import { requireAuth, requireRole } from "../middleware/auth";
+import { requireAuth, requireRole, requirePermission, requireCompanyAccess, requireHierarchyAccess } from "../middleware/auth";
 import { validateRequest } from "../middleware/validation";
+import { UserModel } from "../model/user.model";
 
 export const authRouter = Router();
 
@@ -173,8 +174,8 @@ const registerUserSchema = {
   }),
 };
 
-// Đăng ký thành viên mới của doanh nghiệp (yêu cầu Access Token và vai trò superadmin hoặc admin)
-authRouter.post("/register-user", requireAuth as any, requireRole(["superadmin", "admin"]) as any, validateRequest(registerUserSchema), authController.registerUser as any);
+// Đăng ký thành viên mới của doanh nghiệp (yêu cầu Access Token và quyền user:manage)
+authRouter.post("/register-user", requireAuth as any, requirePermission("user:manage") as any, validateRequest(registerUserSchema), authController.registerUser as any);
 
 const getUsersSchema = {
   query: Joi.object({
@@ -182,8 +183,8 @@ const getUsersSchema = {
   }),
 };
 
-// Lấy danh sách thành viên doanh nghiệp (yêu cầu Access Token)
-authRouter.get("/users", requireAuth as any, validateRequest(getUsersSchema), authController.getUsers as any);
+// Lấy danh sách thành viên doanh nghiệp (yêu cầu Access Token và quyền user:read)
+authRouter.get("/users", requireAuth as any, requirePermission("user:read") as any, validateRequest(getUsersSchema), authController.getUsers as any);
 
 // Lấy danh sách tất cả doanh nghiệp (yêu cầu Access Token và vai trò superadmin)
 authRouter.get("/companies", requireAuth as any, requireRole(["superadmin"]) as any, authController.getCompanies as any);
@@ -237,11 +238,11 @@ const deleteUserSchema = {
   }),
 };
 
-// Cập nhật cấu trúc sơ đồ tổ chức hàng loạt (yêu cầu Access Token và vai trò admin/superadmin)
-authRouter.patch("/users/bulk", requireAuth as any, requireRole(["superadmin", "admin"]) as any, validateRequest(bulkUpdateUsersSchema), authController.bulkUpdateUsers as any);
+// Cập nhật cấu trúc sơ đồ tổ chức hàng loạt (yêu cầu Access Token và quyền user:manage)
+authRouter.patch("/users/bulk", requireAuth as any, requirePermission("user:manage") as any, validateRequest(bulkUpdateUsersSchema), authController.bulkUpdateUsers as any);
 
-// Cập nhật chi tiết một thành viên (yêu cầu Access Token và vai trò admin/superadmin)
-authRouter.patch("/users/:id", requireAuth as any, requireRole(["superadmin", "admin"]) as any, validateRequest(updateUserSchema), authController.updateUser as any);
+// Cập nhật chi tiết một thành viên (yêu cầu Access Token, quyền user:manage, thuộc cùng công ty và thuộc nhánh quản lý nếu là manager)
+authRouter.patch("/users/:id", requireAuth as any, requirePermission("user:manage") as any, requireCompanyAccess(UserModel, "id") as any, requireHierarchyAccess("id") as any, validateRequest(updateUserSchema), authController.updateUser as any);
 
-// Xóa thành viên và điều chuyển cấp dưới (yêu cầu Access Token và vai trò admin/superadmin)
-authRouter.delete("/users/:id", requireAuth as any, requireRole(["superadmin", "admin"]) as any, validateRequest(deleteUserSchema), authController.deleteUser as any);
+// Xóa thành viên và điều chuyển cấp dưới (yêu cầu Access Token, quyền user:manage, thuộc cùng công ty và thuộc nhánh quản lý nếu là manager)
+authRouter.delete("/users/:id", requireAuth as any, requirePermission("user:manage") as any, requireCompanyAccess(UserModel, "id") as any, requireHierarchyAccess("id") as any, validateRequest(deleteUserSchema), authController.deleteUser as any);

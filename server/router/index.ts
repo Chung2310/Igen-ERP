@@ -7,6 +7,8 @@ import { tiktokRouter } from "./tiktok.router";
 import { schedulerRouter } from "./scheduler.router";
 import { mediaRouter } from "./media.router";
 import { authRouter } from "./auth.router";
+import { permissionRouter } from "./permission.router";
+import { rolePermissionRouter } from "./role-permission.router";
 
 export const apiRouter = Router();
 
@@ -46,5 +48,8 @@ apiRouter.use("/media", mediaRouter);
 // Gắn kết router phụ của Xác thực JWT
 apiRouter.use("/auth", authRouter);
 
+// Gắn kết router phụ của Quản lý mã quyền hệ thống
+apiRouter.use("/permissions", permissionRouter);
 
-
+// Gắn kết router phụ của Cấu hình gán quyền cho Role theo doanh nghiệp
+apiRouter.use("/role-permissions", rolePermissionRouter);

@@ -2,7 +2,7 @@ import { Router } from "express";
 import Joi from "joi";
 import { tiktokController } from "../controller/tiktok.controller";
 import { validateRequest } from "../middleware/validation";
-import { requireAuth } from "../middleware/auth";
+import { requireAuth, requirePermission } from "../middleware/auth";
 
 export const tiktokRouter = Router();
 
@@ -28,12 +28,13 @@ const publishSchema = {
   }),
 };
 
-// Route đăng bài viết lên TikTok (MOCK)
+// Route đăng bài viết lên TikTok (MOCK) (Yêu cầu đăng nhập và có quyền marketing:post)
 tiktokRouter.post(
   "/publish",
   requireAuth as any,
+  requirePermission("marketing:post") as any,
   validateRequest(publishSchema),
-  tiktokController.publish
+  tiktokController.publish as any
 );
 
 const validateTokenSchema = {
@@ -49,11 +50,11 @@ const validateTokenSchema = {
   }),
 };
 
-// Route xác thực token liên kết TikTok qua n8n
+// Route xác thực token liên kết TikTok qua n8n (Yêu cầu đăng nhập và có quyền marketing:post)
 tiktokRouter.post(
   "/validate-token",
   requireAuth as any,
+  requirePermission("marketing:post") as any,
   validateRequest(validateTokenSchema),
-  tiktokController.validateToken
+  tiktokController.validateToken as any
 );
-
