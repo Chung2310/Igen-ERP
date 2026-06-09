@@ -344,6 +344,10 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                 const isMe = h.sender === "agent";
                 const isAI = h.sender === "ai";
                 const isSystem = h.text.includes("[AI AUTOMATION]");
+                const attachments = h.attachments || [];
+                const primaryAttachment = attachments[0];
+                const hasImageAttachment = primaryAttachment?.url && ["image", "sticker"].includes(primaryAttachment.type);
+                const displayText = h.text || (attachments.length > 0 ? (primaryAttachment?.type === "sticker" ? "[Biểu tượng]" : "[Đính kèm]") : "");
                 
                 return (
                   <div 
@@ -373,7 +377,18 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                             {isSystem ? "✦ HỆ THỐNG AI TỰ ĐỘNG CHỐT SALES" : "✦ iGen AI Assistant (Trả lời tự động)"}
                           </span>
                         )}
-                        <p className="leading-relaxed whitespace-pre-wrap select-text">{h.text}</p>
+                        {hasImageAttachment && (
+                          <img
+                            src={primaryAttachment.url}
+                            alt={primaryAttachment.type === "sticker" ? "Facebook sticker" : "Facebook attachment"}
+                            className="max-w-[180px] max-h-[180px] rounded-2xl mb-2 object-contain bg-white/70"
+                            loading="lazy"
+                            referrerPolicy="no-referrer"
+                          />
+                        )}
+                        {displayText ? (
+                          <p className="leading-relaxed whitespace-pre-wrap select-text">{displayText}</p>
+                        ) : null}
                       </div>
                     </div>
                     

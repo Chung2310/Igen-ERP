@@ -80,6 +80,10 @@ export interface ChatMessage {
   text: string;
   timestamp: Date;
   status?: "sent" | "delivered" | "read";
+  attachments?: Array<{
+    type: string;
+    url: string;
+  }>;
 }
 
 export interface ChatPagination {

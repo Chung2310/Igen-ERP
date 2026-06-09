@@ -125,7 +125,7 @@ export const fbMessengerService = {
     const latestStoredMessage = await FBMessageModel.findOne({ conversationId: refreshedConversation._id }).sort({ timestamp: -1 });
     const latestStoredTime = latestStoredMessage?.timestamp ? new Date(latestStoredMessage.timestamp).getTime() : 0;
 
-    const fields = ["id", "message", "created_time", "from", "to"].join(",");
+    const fields = ["id", "message", "created_time", "from", "to", "attachments"].join(",");
     const url = `https://graph.facebook.com/v19.0/${refreshedConversation.facebookConversationId}/messages?fields=${encodeURIComponent(fields)}&limit=25&access_token=${encodeURIComponent(token)}`;
     const data = await this.fetchGraphJson(url);
     const messages = Array.isArray(data?.data) ? data.data : [];
@@ -143,6 +143,13 @@ export const fbMessengerService = {
       const matchedRecipientId = direction === "outbound"
         ? (toList.find((item: any) => item?.id && item.id !== pageId)?.id || recipientId)
         : recipientId;
+      const attachmentList = Array.isArray(fbMessage?.attachments?.data)
+        ? fbMessage.attachments.data.map((attachment: any) => ({
+            type: attachment?.mime_type?.startsWith("image/") ? "image" : (attachment?.mime_type || attachment?.type || "attachment"),
+            url: attachment?.image_data?.url || attachment?.file_url || attachment?.video_data?.url || attachment?.payload?.url || "",
+          }))
+        : [];
+      const normalizedText = fbMessage?.message || "";
 
       await FBMessageModel.findOneAndUpdate(
         { messageId: fbMessage.id },
@@ -151,8 +158,8 @@ export const fbMessengerService = {
           senderId: fromId || (direction === "outbound" ? pageId : recipientId),
           recipientId: matchedRecipientId,
           direction,
-          text: fbMessage?.message || "",
-          attachments: [],
+          text: normalizedText,
+          attachments: attachmentList,
           messageId: fbMessage.id,
           timestamp: fbMessage?.created_time ? new Date(fbMessage.created_time) : new Date(),
           status: "delivered",

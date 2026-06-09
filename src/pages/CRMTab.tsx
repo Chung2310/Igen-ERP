@@ -77,8 +77,9 @@ export default function CRMTab() {
   const mapFbMessages = (msgs: any[]): ChatMessage[] => msgs.map((m: any) => ({
     id: m._id || m.messageId,
     sender: m.direction === "inbound" ? "user" : "agent",
-    text: m.text || "[Đính kèm]",
-    timestamp: new Date(m.timestamp)
+    text: m.text || "",
+    timestamp: new Date(m.timestamp),
+    attachments: Array.isArray(m.attachments) ? m.attachments : []
   }));
 
   const areMessagesEqual = (left: ChatMessage[], right: ChatMessage[]) => {
@@ -88,7 +89,8 @@ export default function CRMTab() {
         left[i].id !== right[i].id ||
         left[i].sender !== right[i].sender ||
         left[i].text !== right[i].text ||
-        left[i].timestamp.getTime() !== right[i].timestamp.getTime()
+        left[i].timestamp.getTime() !== right[i].timestamp.getTime() ||
+        JSON.stringify(left[i].attachments || []) !== JSON.stringify(right[i].attachments || [])
       ) {
         return false;
       }
