@@ -1,5 +1,9 @@
 import { Router } from "express";
 import { geminiRouter } from "./gemini.router";
+import { facebookPostRouter } from "./facebook-post.router";
+import { tiktokRouter } from "./tiktok.router";
+import { schedulerRouter } from "./scheduler.router";
+import { mediaRouter } from "./media.router";
 
 export const apiRouter = Router();
 
@@ -20,3 +24,18 @@ apiRouter.get("/health", (req, res) => {
 
 // Gắn kết router phụ của Gemini
 apiRouter.use("/gemini", geminiRouter);
+
+// Gắn kết router phụ của Facebook Post qua n8n
+apiRouter.use("/facebook", facebookPostRouter);
+
+// Gắn kết router phụ của TikTok
+apiRouter.use("/tiktok", tiktokRouter);
+
+// Gắn kết router phụ của Scheduler
+apiRouter.use("/scheduler", schedulerRouter);
+
+// Gắn kết router phụ của Media Cloudinary Relay
+apiRouter.use("/media", mediaRouter);
+
+
+

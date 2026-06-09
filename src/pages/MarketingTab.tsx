@@ -237,59 +237,7 @@ export default function MarketingTab() {
     return () => unsubscribe();
   }, [userProfile?.uid, userProfile?.role]);
 
-  // Real-time Auto-post checker for Scheduled Cards (Client-side background trigger)
-  useEffect(() => {
-    const checkScheduledCards = async () => {
-      const now = new Date();
-      // Format as YYYY-MM-DD
-      const currentDateStr = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, '0') + "-" + String(now.getDate()).padStart(2, '0');
-      // Format as HH:MM
-      const currentTimeStr = String(now.getHours()).padStart(2, '0') + ":" + String(now.getMinutes()).padStart(2, '0');
 
-      const dueCards = approvalCards.filter(card => {
-        if (card.status !== "scheduled" || !card.scheduledDate) return false;
-        const scheduledTime = card.scheduledTime || "00:00";
-        return (
-          card.scheduledDate < currentDateStr ||
-          (card.scheduledDate === currentDateStr && scheduledTime <= currentTimeStr)
-        );
-      });
-
-      for (const card of dueCards) {
-        if (autoPublishingRef.current.has(card.id)) continue;
-        autoPublishingRef.current.add(card.id);
-
-        console.log(`[iGen Autopost Client] Tự động đăng bài do đến lịch: "${card.title}" (ID: ${card.id})`);
-        const fbIntegration = userProfile?.facebookIntegration;
-        if (!fbIntegration?.isConnected) {
-          console.warn(`[iGen Autopost Client] Bỏ qua "${card.title}": Tài khoản chưa kết nối MXH.`);
-          autoPublishingRef.current.delete(card.id);
-          continue;
-        }
-
-        try {
-          await marketingService.publishToFacebook(
-            card.id,
-            fbIntegration.pageAccessToken,
-            fbIntegration.pageId,
-            card.bodyText,
-            !!fbIntegration.isMock,
-            card.imageUrl
-          );
-          toast.success(`[Tự động] Đã đăng bài "${card.title}" lên Facebook Page thành công!`);
-        } catch (e: any) {
-          console.error(`[iGen Autopost Client] Lỗi tự động đăng bài "${card.title}":`, e);
-          const errMsg = e?.message || e?.details || e?.code || "Lỗi tự động đăng bài.";
-          toast.error(`[Tự động thất bại] ${card.title}: ${errMsg}`);
-        } finally {
-          autoPublishingRef.current.delete(card.id);
-        }
-      }
-    };
-
-    const interval = setInterval(checkScheduledCards, 15000); // Kiểm tra mỗi 15 giây
-    return () => clearInterval(interval);
-  }, [approvalCards, userProfile?.facebookIntegration]);
 
   const updateCardStatus = async (id: string, newStatus: "draft" | "pending" | "approved" | "scheduled" | "published") => {
     await marketingService.updateCardStatus(id, newStatus);

@@ -1,6 +1,10 @@
 import { Router } from "express";
 import swaggerUi from "swagger-ui-express";
 import { geminiSwagger } from "./gemini.swagger";
+import { facebookPostSwagger } from "./facebook-post.swagger";
+import { tiktokSwagger } from "./tiktok.swagger";
+import { schedulerSwagger } from "./scheduler.swagger";
+import { mediaSwagger } from "./media.swagger";
 
 const swaggerDocument = {
   openapi: "3.0.0",
@@ -17,6 +21,10 @@ const swaggerDocument = {
   ],
   paths: {
     ...geminiSwagger.paths,
+    ...facebookPostSwagger.paths,
+    ...tiktokSwagger.paths,
+    ...schedulerSwagger.paths,
+    ...mediaSwagger.paths,
   },
 };
 
@@ -24,3 +32,6 @@ export const swaggerRouter = Router();
 
 // Phục vụ tài liệu Swagger UI tại đường dẫn /api-docs
 swaggerRouter.use("/", swaggerUi.serve as any, swaggerUi.setup(swaggerDocument) as any);
+
+
+

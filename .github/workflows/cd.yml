@@ -5,26 +5,6 @@ on:
     branches: [ develop, main ]
 
 jobs:
-  deploy-firebase:
-    name: Deploy to Firebase
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: 'npm'
-          cache-dependency-path: 'functions/package-lock.json'
-      - name: Install functions dependencies
-        run: npm ci --prefix functions
-      - name: Build functions
-        run: npm run build --prefix functions
-      - name: Deploy rules and functions
-        run: |
-          echo '${{ secrets.GCP_SA_KEY }}' > gcp-key.json
-          export GOOGLE_APPLICATION_CREDENTIALS=gcp-key.json
-          npx firebase-tools deploy --only firestore:rules,storage,functions --non-interactive
 
   deploy-docker-vps:
     name: Build Docker & Deploy VPS

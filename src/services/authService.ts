@@ -20,8 +20,7 @@ import {
   where,
   serverTimestamp
 } from "firebase/firestore";
-import { auth, db, storage } from "../config/firebase";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { auth, db } from "../config/firebase";
 import { UserProfile, CompanyProfile } from "../types";
 
 const googleProvider = new GoogleAuthProvider();
@@ -355,17 +354,38 @@ export const authService = {
     }
   },
 
-  // Tải ảnh đại diện lên Firebase Storage
+  // Tải ảnh đại diện lên Cloudinary
   async uploadAvatar(uid: string, file: File): Promise<string> {
-    const extension = file.name.split('.').pop() || 'jpg';
-    const storageRef = ref(storage, `avatars/${uid}/avatar_${Date.now()}.${extension}`);
-    
-    // Upload file
-    const snapshot = await uploadBytes(storageRef, file);
-    
-    // Lấy link tải về
-    const downloadURL = await getDownloadURL(snapshot.ref);
-    return downloadURL;
+    try {
+      const base64Data = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = (error) => reject(error);
+      });
+
+      const response = await fetch('/api/v1/media/upload', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          file: base64Data,
+          folder: `igen_erp/avatars`,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Lỗi tải lên Cloudinary: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data.url;
+    } catch (e) {
+      console.error("[authService.uploadAvatar] Error:", e);
+      throw e;
+    }
   }
 };
 
