@@ -34,18 +34,75 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
   const [filterInbox, setFilterInbox] = useState("");
   const [activeChannel, setActiveChannel] = useState<"all" | "facebook" | "zalo">("all");
   const [showConfig, setShowConfig] = useState(false);
+  const chatStreamRef = useRef<HTMLDivElement>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
+  const previousMessageCountRef = useRef(0);
+  const previousFirstMessageIdRef = useRef<string | null>(null);
 
-  // Tự động cuộn xuống cuối khung chat khi có tin nhắn mới hoặc AI đang xử lý
+  // Chỉ auto-scroll khi đang ở gần cuối khung chat và có tin nhắn mới ở cuối.
   useEffect(() => {
+    const container = chatStreamRef.current;
+    if (!container) return;
+
+    const previousCount = previousMessageCountRef.current;
+    const currentCount = chatHistory.length;
+    const previousFirstId = previousFirstMessageIdRef.current;
+    const currentFirstId = chatHistory[0]?.id || null;
+    const prependedOlderMessages = previousFirstId !== null && currentFirstId !== null && previousFirstId !== currentFirstId;
+    const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 120;
+
+    if (prependedOlderMessages) {
+      previousMessageCountRef.current = currentCount;
+      previousFirstMessageIdRef.current = currentFirstId;
+      return;
+    }
+
+    if (currentCount > previousCount && isNearBottom) {
+      chatBottomRef.current?.scrollIntoView({ behavior: previousCount === 0 ? "auto" : "smooth" });
+    }
+
+    previousMessageCountRef.current = currentCount;
+    previousFirstMessageIdRef.current = currentFirstId;
+  }, [chatHistory]);
+
+  useEffect(() => {
+    if (!aiWaiting) return;
     chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chatHistory, aiWaiting]);
+  }, [aiWaiting]);
 
   // Bộ đếm hội thoại theo từng kênh
   const counts = {
     all: inboxCustomers.length,
     facebook: inboxCustomers.filter((c) => c.channel === "facebook").length,
     zalo: inboxCustomers.filter((c) => c.channel === "zalo").length,
+  };
+
+  const renderCustomerAvatar = (customer: CustomerInbox, sizeClass: string) => {
+    const hasImage = typeof customer.avatarUrl === "string" && customer.avatarUrl.startsWith("http");
+    const initials = customer.name
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() || "")
+      .join("") || "FB";
+
+    if (hasImage) {
+      return (
+        <img
+          src={customer.avatarUrl}
+          alt={customer.name}
+          className={`${sizeClass} rounded-full object-cover`}
+          loading="lazy"
+          referrerPolicy="no-referrer"
+        />
+      );
+    }
+
+    return (
+      <span className={`${sizeClass} rounded-full bg-gradient-to-br from-sky-100 to-blue-200 text-sky-800 flex items-center justify-center font-extrabold text-[11px]`}>
+        {initials}
+      </span>
+    );
   };
 
   return (
@@ -128,11 +185,8 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                   id={`inbox_thread_${cust.id}`}
                 >
                   {/* Avatar with dynamic channel source badge */}
-                  <div className="text-2xl p-1.5 bg-white border border-slate-100 rounded-full select-none relative shadow-sm shrink-0">
-                    {cust.avatar}
-                    {cust.status === "online" && (
-                      <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full border border-white shadow-sm" />
-                    )}
+                  <div className="p-1.5 bg-white border border-slate-100 rounded-full select-none relative shadow-sm shrink-0">
+                    {renderCustomerAvatar(cust, "h-10 w-10")}
                     {/* Channel source badge in top-right */}
                     {cust.channel === "facebook" ? (
                       <span className="absolute -top-1.5 -right-1.5 p-0.5 bg-blue-600 text-white rounded-full border border-white shadow-sm flex items-center justify-center">
@@ -154,6 +208,7 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                     </div>
                     
                     <p className="text-[10px] text-slate-500 truncate mt-1 leading-normal select-none">{cust.lastMessage}</p>
+                    <p className="text-[9px] text-slate-400 mt-1">Khách Facebook • PSID {cust.recipientId || cust.id}</p>
                     
                     <div className="flex flex-wrap items-center gap-1 mt-2.5">
                       {hasHotTag && (
@@ -209,8 +264,8 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
             {/* Active Customer Info Top Header */}
             <div className="p-4 border-b border-slate-200/80 bg-white/90 backdrop-blur flex items-center justify-between shrink-0 shadow-sm" id="chat_header">
               <div className="flex items-center gap-3 text-left">
-                <span className="text-2xl p-1.5 bg-gradient-to-br from-white to-slate-100 border border-slate-200 rounded-full select-none shadow-sm">
-                  {activeCustomer.avatar}
+                <span className="p-1.5 bg-gradient-to-br from-white to-slate-100 border border-slate-200 rounded-full select-none shadow-sm">
+                  {renderCustomerAvatar(activeCustomer, "h-11 w-11")}
                 </span>
                 <div>
                   <h4 className="font-extrabold text-slate-800 text-sm flex items-center gap-1.5 font-sans">
@@ -220,8 +275,8 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                     )}
                   </h4>
                   <p className="text-[10px] text-slate-500 font-mono mt-1 flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full shrink-0" />
-                    Đang trực tuyến • PSID: {activeCustomer.recipientId || activeCustomer.id}
+                    <span className="w-1.5 h-1.5 bg-blue-500 rounded-full shrink-0" />
+                    Khách Facebook • PSID: {activeCustomer.recipientId || activeCustomer.id}
                   </p>
                 </div>
               </div>
@@ -263,7 +318,7 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
             </div>
 
             {/* Messages dialogue stream feed */}
-            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4" id="chat_messages_stream" style={{ maxHeight: "calc(85vh - 200px)" }}>
+            <div ref={chatStreamRef} className="flex-1 overflow-y-auto px-6 py-4 space-y-4" id="chat_messages_stream" style={{ maxHeight: "calc(85vh - 200px)" }}>
               <div className="sticky top-0 z-10 flex justify-center pb-2">
                 {chatPagination.hasMore ? (
                   <button
