@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { fbMessengerService } from "../service/fb-messenger.service";
+import { UserModel } from "../model/user.model";
 
 export const fbMessengerController = {
   /**
@@ -50,11 +51,19 @@ export const fbMessengerController = {
    */
   async getConversations(req: any, res: Response): Promise<any> {
     try {
-      const user = req.user;
-      const pageId = user?.facebookIntegration?.pageId;
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Người dùng chưa đăng nhập."
+        });
+      }
+
+      const dbUser = await UserModel.findById(userId).lean();
+      const pageId = dbUser?.facebookIntegration?.pageId;
 
       // Nếu người dùng hiện tại chưa kết nối Facebook Page, trả về mảng rỗng ngay lập tức
-      if (!user?.facebookIntegration?.isConnected || !pageId) {
+      if (!dbUser?.facebookIntegration?.isConnected || !pageId) {
         return res.status(200).json({
           success: true,
           data: []
@@ -81,12 +90,20 @@ export const fbMessengerController = {
   async getMessages(req: any, res: Response): Promise<any> {
     try {
       const { recipientId } = req.params;
-      const user = req.user;
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Người dùng chưa đăng nhập."
+        });
+      }
+
+      const dbUser = await UserModel.findById(userId).lean();
+      const pageId = dbUser?.facebookIntegration?.pageId;
 
       // Bảo vệ: Đảm bảo khách hàng này thuộc về Page ID của người dùng hiện tại
       // (Tránh trường hợp user A truy cập hội thoại của user B)
-      const pageId = user?.facebookIntegration?.pageId;
-      if (!user?.facebookIntegration?.isConnected || !pageId) {
+      if (!dbUser?.facebookIntegration?.isConnected || !pageId) {
         return res.status(403).json({
           success: false,
           message: "Quyền truy cập bị từ chối. Bạn chưa cấu hình tích hợp Facebook."
@@ -113,10 +130,18 @@ export const fbMessengerController = {
   async sendReply(req: any, res: Response): Promise<any> {
     try {
       const { recipientId, text } = req.body;
-      const user = req.user;
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Người dùng chưa đăng nhập."
+        });
+      }
 
-      const pageId = user?.facebookIntegration?.pageId;
-      if (!user?.facebookIntegration?.isConnected || !pageId) {
+      const dbUser = await UserModel.findById(userId).lean();
+      const pageId = dbUser?.facebookIntegration?.pageId;
+
+      if (!dbUser?.facebookIntegration?.isConnected || !pageId) {
         return res.status(403).json({
           success: false,
           message: "Quyền truy cập bị từ chối. Bạn chưa cấu hình tích hợp Facebook."
