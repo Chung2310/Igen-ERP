@@ -179,9 +179,10 @@ export const fbMessengerService = {
    */
   async processReadReceipt(event: any) {
     const senderId = event.sender.id;
+    const pageId = event.recipient?.id;
     console.log(`[FB Service processReadReceipt] Cập nhật số tin nhắn chưa đọc về 0 cho khách hàng PSID: ${senderId}`);
     await FBConversationModel.findOneAndUpdate(
-      { recipientId: senderId },
+      pageId ? { recipientId: senderId, pageId } : { recipientId: senderId },
       { unreadCount: 0 }
     );
   },
@@ -209,19 +210,19 @@ export const fbMessengerService = {
   /**
    * Gửi tin nhắn phản hồi tới khách hàng qua Facebook Send API (sử dụng Token của Page tương ứng)
    */
-  async sendReply(recipientPsid: string, text: string) {
+  async sendReply(pageId: string, recipientPsid: string, text: string) {
     console.log(`[FB Service sendReply] Khởi tạo quá trình gửi tin nhắn trả lời tới PSID ${recipientPsid}`);
 
     // Tìm cuộc hội thoại để xác định Page ID tương ứng của khách hàng
-    const conversation = await FBConversationModel.findOne({ recipientId: recipientPsid });
-    const pageId = conversation?.pageId || process.env.FB_PAGE_ID || "";
+    let conversation = await FBConversationModel.findOne({ recipientId: recipientPsid, pageId });
+    const resolvedPageId = conversation?.pageId || pageId || process.env.FB_PAGE_ID || "";
     
     // Lấy token động của Page này từ DB
-    const token = await this.getPageAccessTokenByPageId(pageId);
+    const token = await this.getPageAccessTokenByPageId(resolvedPageId);
     
     if (!token) {
-      console.error(`[FB Service sendReply] Lỗi: Không thể tìm thấy Access Token cấu hình cho Page ID: ${pageId}`);
-      throw new Error(`Không tìm thấy Access Token cấu hình cho Page ID: ${pageId}`);
+      console.error(`[FB Service sendReply] Lỗi: Không thể tìm thấy Access Token cấu hình cho Page ID: ${resolvedPageId}`);
+      throw new Error(`Không tìm thấy Access Token cấu hình cho Page ID: ${resolvedPageId}`);
     }
 
     const url = `https://graph.facebook.com/v19.0/me/messages?access_token=${token}`;
@@ -256,13 +257,26 @@ export const fbMessengerService = {
         conversation.lastMessageAt = new Date();
         conversation.unreadCount = 0;
         await conversation.save();
+      } else {
+        console.log(`[FB Service sendReply] Chưa có conversation cho PSID ${recipientPsid}. Tạo mới để đồng bộ lịch sử chat.`);
+        conversation = new FBConversationModel({
+          recipientId: recipientPsid,
+          senderName: "Khách hàng Facebook",
+          avatarUrl: "",
+          pageId: resolvedPageId,
+          lastMessageText: text,
+          lastMessageAt: new Date(),
+          unreadCount: 0,
+          status: "open",
+        });
+        await conversation.save();
       }
 
       // Lưu tin nhắn gửi đi vào DB
       console.log(`[FB Service sendReply] Tiến hành lưu tin nhắn outbound vào cơ sở dữ liệu.`);
       const newMsg = new FBMessageModel({
         conversationId: conversation?._id,
-        senderId: pageId,
+        senderId: resolvedPageId,
         recipientId: recipientPsid,
         direction: "outbound",
         text,
@@ -296,11 +310,11 @@ export const fbMessengerService = {
   /**
    * Lấy lịch sử tin nhắn của cuộc hội thoại
    */
-  async getMessages(recipientId: string) {
-    console.log(`[FB Service getMessages] Lấy tin nhắn cho cuộc hội thoại của khách hàng PSID: ${recipientId}`);
-    const conversation = await FBConversationModel.findOne({ recipientId });
+  async getMessages(pageId: string, recipientId: string) {
+    console.log(`[FB Service getMessages] Lấy tin nhắn cho cuộc hội thoại của khách hàng PSID: ${recipientId} thuộc Page ID: ${pageId}`);
+    const conversation = await FBConversationModel.findOne({ recipientId, pageId });
     if (!conversation) {
-      console.warn(`[FB Service getMessages] Không tìm thấy cuộc hội thoại cho khách hàng PSID: ${recipientId}. Trả về mảng tin nhắn rỗng.`);
+      console.warn(`[FB Service getMessages] Không tìm thấy cuộc hội thoại cho khách hàng PSID: ${recipientId} thuộc Page ID: ${pageId}. Trả về mảng tin nhắn rỗng.`);
       return [];
     }
 
