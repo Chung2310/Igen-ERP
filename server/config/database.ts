@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import { UserModel } from "../model/user.model";
+import { PermissionModel } from "../model/permission.model";
 
 /**
  * Tự động tạo tài khoản Super Admin nếu chưa tồn tại
@@ -47,6 +48,37 @@ async function seedSuperAdmin() {
 }
 
 /**
+ * Tự động seed danh sách mã quyền hệ thống ban đầu
+ */
+async function seedPermissions() {
+  try {
+    const defaultPermissions = [
+      { code: "user:read", name: "Xem thông tin nhân sự", module: "user", description: "Xem danh sách và sơ đồ nhân sự doanh nghiệp" },
+      { code: "user:manage", name: "Quản trị nhân sự", module: "user", description: "Thêm, sửa, xóa tài khoản thành viên trong doanh nghiệp" },
+      { code: "crm:read", name: "Xem CRM Ticket", module: "crm", description: "Xem danh sách và chi tiết các cơ hội bán hàng CRM" },
+      { code: "crm:manage", name: "Quản trị CRM Ticket", module: "crm", description: "Thêm, sửa, cập nhật trạng thái, xóa cơ hội bán hàng CRM" },
+      { code: "kanban:read", name: "Xem Kanban Task", module: "kanban", description: "Xem bảng công việc Kanban" },
+      { code: "kanban:manage", name: "Quản trị Kanban Task", module: "kanban", description: "Tạo, cập nhật, phân công, kéo thả và xóa Kanban task" },
+      { code: "project:read", name: "Xem Dự án", module: "project", description: "Xem danh sách dự án trong công ty" },
+      { code: "project:manage", name: "Quản trị/Thiết lập Dự án", module: "project", description: "Tạo mới, chỉnh sửa thông tin dự án" },
+      { code: "stock:read", name: "Xem Nhật ký Kho", module: "stock", description: "Xem lịch sử xuất nhập kho" },
+      { code: "stock:manage", name: "Quản trị Kho", module: "stock", description: "Tạo phiếu nhập xuất kho hàng" },
+      { code: "marketing:post", name: "Đăng bài và liên kết MXH", module: "marketing", description: "Đăng bài Facebook/TikTok, liên kết tài khoản MXH" }
+    ];
+
+    for (const perm of defaultPermissions) {
+      const existing = await PermissionModel.findOne({ code: perm.code });
+      if (!existing) {
+        await new PermissionModel(perm).save();
+        console.log(`[Backend Database] Khởi tạo mã quyền mặc định: ${perm.code}`);
+      }
+    }
+  } catch (error) {
+    console.error("[Backend Database] Lỗi khi tự động khởi tạo mã quyền:", error);
+  }
+}
+
+/**
  * Khởi tạo kết nối cơ sở dữ liệu MongoDB
  */
 export async function connectDB() {
@@ -77,8 +109,9 @@ export async function connectDB() {
   try {
     await mongoose.connect(connectionUri);
     console.log("[Backend Database] Kết nối MongoDB thành công.");
-    // Chạy seeder Super Admin
+    // Chạy các seeder dữ liệu hệ thống
     await seedSuperAdmin();
+    await seedPermissions();
   } catch (error) {
     console.error("[Backend Database] Lỗi kết nối MongoDB:", error);
     process.exit(1);

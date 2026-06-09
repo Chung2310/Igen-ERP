@@ -45,6 +45,7 @@ const UserSchema = new Schema<IUser>({
   division: { type: String },
   companyCode: { type: String, index: true },
   companyName: { type: String },
+  permissions: { type: [String], default: [] },
 });
 
 export const UserModel = model<IUser>("User", UserSchema);

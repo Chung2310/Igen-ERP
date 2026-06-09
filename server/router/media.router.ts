@@ -2,6 +2,7 @@ import { Router } from "express";
 import Joi from "joi";
 import { mediaController } from "../controller/media.controller";
 import { validateRequest } from "../middleware/validation";
+import { requireAuth } from "../middleware/auth";
 
 export const mediaRouter = Router();
 
@@ -17,9 +18,10 @@ const uploadSchema = {
   }),
 };
 
-// Route tải lên đa phương tiện tới Cloudinary qua Backend Relay
+// Route tải lên đa phương tiện tới Cloudinary qua Backend Relay (Yêu cầu đăng nhập)
 mediaRouter.post(
   "/upload",
+  requireAuth as any,
   validateRequest(uploadSchema),
-  mediaController.upload
+  mediaController.upload as any
 );
