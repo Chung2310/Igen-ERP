@@ -1,28 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { 
-  User, 
-  onAuthStateChanged,
-  setPersistence,
-  browserLocalPersistence,
-  browserSessionPersistence,
-  createUserWithEmailAndPassword,
-  updateProfile
-} from "firebase/auth";
-import { 
-  collection, 
-  query, 
-  where, 
-  getDocs, 
-  doc, 
-  setDoc, 
-  updateDoc,
-  serverTimestamp 
-} from "firebase/firestore";
-import { auth, db } from "../config/firebase";
+import type { User } from "firebase/auth";
 import { authService } from "../services/authService";
 import { UserProfile, FacebookIntegration, TikTokIntegration } from "../types";
 import { toast } from "../pages/Toast";
-import { parseFirebaseError } from "../utils/firebaseErrorParser";
 
 interface AuthContextType {
   user: User | null;
@@ -43,169 +23,62 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-let isSeeding = false;
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
-  const fetchProfile = async (uid: string, currentUser?: User) => {
-    try {
-      let profile = await authService.getUserProfile(uid);
-      if (!profile && currentUser) {
-        console.log("iGen ERP: Hồ sơ chưa tồn tại trên Firestore. Tự động tạo hồ sơ mặc định...");
-        
-        const newProfile: UserProfile = {
-          uid: currentUser.uid,
-          email: currentUser.email || "",
-          displayName: currentUser.displayName || "User",
-          photoURL: currentUser.photoURL || "",
-          role: "user",
-          createdAt: new Date(),
-        };
-
-        await setDoc(doc(db, "users", currentUser.uid), {
-          ...newProfile,
-          createdAt: serverTimestamp(),
-        });
-        
-        profile = newProfile;
-      }
-      setUserProfile(profile);
-    } catch (error) {
-      console.error("Lỗi khi tải hoặc tạo hồ sơ người dùng:", error);
-      setUserProfile(null);
-    }
-  };
-
-  const checkAndSeedSuperAdmin = async () => {
-    const saEmail = import.meta.env.VITE_SUPERADMIN_EMAIL;
-    const saPassword = import.meta.env.VITE_SUPERADMIN_PASSWORD;
-    const saName = import.meta.env.VITE_SUPERADMIN_NAME || "Super Admin";
-
-    if (!saEmail || !saPassword) return;
-    if (isSeeding) return;
-
-    isSeeding = true;
-    try {
-      const usersCol = collection(db, "users");
-      
-      // 1. Kiểm tra xem ĐÃ CÓ tài khoản superadmin nào trong hệ thống chưa
-      const saQuery = query(usersCol, where("role", "==", "superadmin"));
-      const saSnapshot = await getDocs(saQuery);
-
-      if (!saSnapshot.empty) {
-        // Nếu có nhiều hơn 1 tài khoản superadmin, tự động hạ cấp các tài khoản thừa
-        if (saSnapshot.size > 1) {
-          console.log(`iGen ERP Auto-Seeder: Phát hiện ${saSnapshot.size} tài khoản Super Admin. Tiến hành hạ cấp bớt...`);
-          
-          // Xác định tài khoản nào sẽ được giữ làm Super Admin duy nhất (ưu tiên trùng email cấu hình)
-          let mainSaDoc = saSnapshot.docs.find(d => d.data().email === saEmail.trim());
-          if (!mainSaDoc) {
-            mainSaDoc = saSnapshot.docs[0];
-          }
-
-          // Hạ cấp các tài khoản superadmin còn lại xuống "admin"
-          for (const saDoc of saSnapshot.docs) {
-            if (saDoc.id !== mainSaDoc.id) {
-              console.log(`iGen ERP Auto-Seeder: Hạ cấp tài khoản dư thừa: ${saDoc.data().email} xuống admin`);
-              await updateDoc(doc(db, "users", saDoc.id), {
-                role: "admin"
-              });
-            }
-          }
-          console.log("iGen ERP Auto-Seeder: Đã dọn dẹp xong, chỉ giữ lại duy nhất 1 tài khoản Super Admin.");
-        } else {
-          console.log("iGen ERP Auto-Seeder: Hệ thống đã có tài khoản Super Admin duy nhất. Bỏ qua seeding.");
-        }
-        isSeeding = false;
-        return;
-      }
-
-      // 2. Nếu chưa có bất kỳ Super Admin nào, tiến hành seed
-      const emailQuery = query(usersCol, where("email", "==", saEmail.trim()));
-      const emailSnapshot = await getDocs(emailQuery);
-
-      if (emailSnapshot.empty) {
-        console.log("iGen ERP Auto-Seeder: Khởi tạo tài khoản Super Admin...");
-        const userCredential = await createUserWithEmailAndPassword(auth, saEmail.trim(), saPassword.trim());
-        const user = userCredential.user;
-
-        await updateProfile(user, { displayName: saName });
-
-        const userProfile: UserProfile = {
-          uid: user.uid,
-          email: saEmail.trim(),
-          displayName: saName,
-          photoURL: "",
-          role: "superadmin",
-          createdAt: new Date(),
-        };
-
-        await setDoc(doc(db, "users", user.uid), {
-          ...userProfile,
-          createdAt: serverTimestamp(),
-        });
-        console.log("iGen ERP Auto-Seeder: Đã seed tài khoản Super Admin thành công!");
-      } else {
-        // Nâng cấp tài khoản trùng email lên superadmin nếu hệ thống chưa có ai là superadmin
-        const existingUserDoc = emailSnapshot.docs[0];
-        console.log(`iGen ERP Auto-Seeder: Nâng cấp tài khoản ${saEmail} lên Super Admin...`);
-        await updateDoc(doc(db, "users", existingUserDoc.id), {
-          role: "superadmin"
-        });
-        console.log("iGen ERP Auto-Seeder: Đã nâng cấp thành công!");
-      }
-    } catch (error) {
-      console.error("iGen ERP Auto-Seeder: Lỗi khi tự động seed Super Admin:", error);
-    } finally {
-      isSeeding = false;
-    }
-  };
-
+  // Khởi tạo trạng thái đăng nhập khi mount app
   useEffect(() => {
-    const seedAndListen = async () => {
-      await checkAndSeedSuperAdmin();
-    };
-    seedAndListen();
-
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
-      if (currentUser) {
-        await fetchProfile(currentUser.uid, currentUser);
-      } else {
+    const initAuth = async () => {
+      try {
+        const profile = await authService.getMe();
+        if (profile) {
+          setUser(profile as any);
+          setUserProfile(profile);
+        } else {
+          setUser(null);
+          setUserProfile(null);
+        }
+      } catch (error) {
+        console.error("Lỗi khi tự động khôi phục phiên đăng nhập JWT:", error);
+        setUser(null);
         setUserProfile(null);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
-    });
+    };
+    initAuth();
 
-    return () => unsubscribe();
+    // Thiết lập tự động làm mới access token mỗi 10 phút
+    const refreshInterval = setInterval(async () => {
+      const token = localStorage.getItem("accessToken");
+      if (token) {
+        try {
+          await authService.getMe();
+        } catch (err) {
+          console.error("Lỗi làm mới token định kỳ:", err);
+        }
+      }
+    }, 10 * 60 * 1000);
+
+    return () => clearInterval(refreshInterval);
   }, []);
-
-  const applyPersistence = async (rememberMe?: boolean) => {
-    try {
-      const mode = rememberMe ? browserLocalPersistence : browserSessionPersistence;
-      await setPersistence(auth, mode);
-    } catch (error) {
-      console.error("Lỗi cấu hình lưu trữ phiên đăng nhập:", error);
-    }
-  };
 
   const loginWithEmail = async (email: string, password: string, rememberMe: boolean = true) => {
     setLoading(true);
     try {
-      await applyPersistence(rememberMe);
-      await authService.loginWithEmail(email, password);
+      const result = await authService.loginWithEmail(email, password);
+      const profile: UserProfile = {
+        ...result.user,
+        uid: result.user._id,
+      };
+      setUser(profile as any);
+      setUserProfile(profile);
       toast.success("Đăng nhập tài khoản thành công!");
     } catch (error: any) {
-      let msg = "Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.";
-      if (error.code === "auth/user-not-found" || error.code === "auth/wrong-password" || error.code === "auth/invalid-credential") {
-        msg = "Email hoặc mật khẩu không chính xác.";
-      } else if (error.code === "auth/invalid-email") {
-        msg = "Địa chỉ email không đúng định dạng.";
-      }
-      toast.error(msg);
+      console.error("[loginWithEmail] Error:", error);
+      toast.error(error.message || "Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.");
       throw error;
     } finally {
       setLoading(false);
@@ -215,17 +88,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const registerWithEmail = async (email: string, password: string, displayName: string, rememberMe: boolean = true) => {
     setLoading(true);
     try {
-      await applyPersistence(rememberMe);
       await authService.registerWithEmail(email, password, displayName);
-      toast.success("Tạo tài khoản và đăng nhập thành công!");
+      // Tự động đăng nhập sau khi đăng ký thành công
+      await loginWithEmail(email, password, rememberMe);
     } catch (error: any) {
-      let msg = "Đăng ký thất bại. Vui lòng thử lại.";
-      if (error.code === "auth/email-already-in-use") {
-        msg = "Địa chỉ email này đã được đăng ký sử dụng.";
-      } else if (error.code === "auth/weak-password") {
-        msg = "Mật khẩu quá yếu (phải chứa ít nhất 6 ký tự).";
-      }
-      toast.error(msg);
+      console.error("[registerWithEmail] Error:", error);
+      toast.error(error.message || "Đăng ký thất bại. Vui lòng thử lại.");
       throw error;
     } finally {
       setLoading(false);
@@ -233,32 +101,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const loginWithGoogle = async (rememberMe: boolean = true) => {
-    // Không gọi setLoading(true) ở đây — popup Google có UX loading riêng,
-    // nếu setLoading(true) thì App sẽ render màn hình loading và block UI
     try {
-      await applyPersistence(rememberMe);
       await authService.loginWithGoogle();
-      toast.success("Đăng nhập bằng Google thành công!");
     } catch (error: any) {
-      // Bỏ qua silently nếu user tự đóng popup — đây không phải lỗi thực sự
-      const cancelCodes = [
-        "auth/popup-closed-by-user",
-        "auth/cancelled-popup-request",
-        "auth/user-cancelled",
-      ];
-      if (cancelCodes.includes(error?.code)) {
-        // User chủ động tắt popup → không làm gì, giữ nguyên trang login
-        return;
-      }
-      // Lỗi thực sự (network, cấu hình sai, v.v.) → thông báo
-      console.error("[loginWithGoogle]", error);
-      let msg = "Đăng nhập Google thất bại. Vui lòng thử lại.";
-      if (error.code === "auth/popup-blocked") {
-        msg = "Trình duyệt đã chặn cửa sổ đăng nhập Google. Vui lòng cho phép popup trong cài đặt trình duyệt.";
-      } else if (error.code === "auth/network-request-failed") {
-        msg = "Lỗi kết nối mạng. Vui lòng kiểm tra đường truyền internet.";
-      }
-      toast.error(msg);
+      toast.error(error.message || "Đăng nhập bằng Google thất bại.");
       throw error;
     }
   };
@@ -267,16 +113,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(true);
     try {
       await authService.logout();
-      // Xóa thông tin lưu trữ local và cookies
-      localStorage.clear();
-      sessionStorage.clear();
-      document.cookie.split(";").forEach((c) => {
-        document.cookie = c
-          .replace(/^ +/, "")
-          .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
-      });
+      setUser(null);
+      setUserProfile(null);
       toast.success("Đã đăng xuất tài khoản thành công!");
     } catch (error) {
+      console.error("[logout] Error:", error);
       toast.error("Lỗi khi đăng xuất.");
     } finally {
       setLoading(false);
@@ -284,50 +125,56 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateProfileInfo = async (displayName: string, photoURL: string) => {
-    if (!user) return;
+    if (!userProfile) return;
     try {
-      await authService.updateProfileInfo(user.uid, displayName, photoURL);
-      await fetchProfile(user.uid);
+      const updatedProfile = await authService.updateProfile({ displayName, photoURL });
+      setUser(updatedProfile as any);
+      setUserProfile(updatedProfile);
       toast.success("Cập nhật thông tin tài khoản thành công!");
-    } catch (error) {
-      console.error(error);
-      const errMsg = parseFirebaseError(error, "Lỗi kết nối máy chủ.");
-      toast.error(`Cập nhật thông tin thất bại: ${errMsg}`);
+    } catch (error: any) {
+      console.error("[updateProfileInfo] Error:", error);
+      toast.error(error.message || "Cập nhật thông tin thất bại.");
       throw error;
     }
   };
 
   const uploadAvatar = async (file: File): Promise<string> => {
-    if (!user) throw new Error("Chưa đăng nhập");
+    if (!userProfile) throw new Error("Chưa đăng nhập");
     try {
-      const downloadURL = await authService.uploadAvatar(user.uid, file);
-      await authService.updateProfileInfo(user.uid, userProfile?.displayName || user.displayName || "User", downloadURL);
-      await fetchProfile(user.uid);
+      const downloadURL = await authService.uploadAvatar(userProfile.uid, file);
+      const updatedProfile = await authService.updateProfile({ photoURL: downloadURL });
+      setUser(updatedProfile as any);
+      setUserProfile(updatedProfile);
       toast.success("Tải lên ảnh đại diện thành công!");
       return downloadURL;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Lỗi upload avatar:", error);
-      const errMsg = parseFirebaseError(error, "Lỗi kết nối bộ lưu trữ.");
-      toast.error(`Tải lên ảnh đại diện thất bại: ${errMsg}`);
+      toast.error(error.message || "Tải lên ảnh đại diện thất bại.");
       throw error;
     }
   };
 
   const refreshProfile = async () => {
-    if (user) {
-      await fetchProfile(user.uid);
+    if (!userProfile) return;
+    try {
+      const profile = await authService.getMe();
+      if (profile) {
+        setUser(profile as any);
+        setUserProfile(profile);
+      }
+    } catch (error) {
+      console.error("Lỗi khi làm mới hồ sơ:", error);
     }
   };
 
   const saveFacebookIntegration = async (integration: FacebookIntegration) => {
-    if (!user) return;
+    if (!userProfile) return;
     const finalIntegration = { ...integration };
 
     try {
       if (!integration.isMock) {
-        console.log("[iGen FB Connect] Đang gửi yêu cầu xác thực tới Express Backend...", {
+        console.log("[iGen FB Connect] Xác thực kết nối qua Express Backend...", {
           pageId: integration.pageId,
-          tokenLength: integration.pageAccessToken?.length
         });
         
         const response = await fetch('/api/v1/facebook/validate-token', {
@@ -351,29 +198,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         finalIntegration.pageName = result.pageName;
       }
 
-      console.log("[iGen FB Connect] Đang cập nhật Firestore cho user:", user.uid, finalIntegration);
-      await updateDoc(doc(db, "users", user.uid), {
+      const updatedProfile = await authService.updateProfile({
         facebookIntegration: finalIntegration
       });
-      setUserProfile((prev) => prev ? { ...prev, facebookIntegration: finalIntegration } : null);
+      setUser(updatedProfile as any);
+      setUserProfile(updatedProfile);
       toast.success("Kết nối Facebook Page thành công!");
     } catch (error: any) {
-      console.error("[iGen FB Connect] Gặp lỗi nghiêm trọng hoặc xác thực thất bại:", error);
-      const errMsg = error?.message || error?.details || "Không thể kết nối và xác thực với Facebook Page. Vui lòng kiểm tra lại ID và Token.";
-      toast.error(errMsg);
+      console.error("[iGen FB Connect] Lỗi kết nối:", error);
+      toast.error(error.message || "Không thể kết nối Facebook Page. Vui lòng kiểm tra lại.");
       throw error;
     }
   };
 
   const removeFacebookIntegration = async () => {
-    if (!user) return;
+    if (!userProfile) return;
     try {
-      await updateDoc(doc(db, "users", user.uid), {
+      const updatedProfile = await authService.updateProfile({
         facebookIntegration: null
       });
-      setUserProfile((prev) => prev ? { ...prev, facebookIntegration: null } : null);
+      setUser(updatedProfile as any);
+      setUserProfile(updatedProfile);
       toast.success("Đã hủy liên kết Facebook Page.");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Lỗi xóa Facebook integration:", error);
       toast.error("Lỗi khi hủy liên kết Facebook.");
       throw error;
@@ -381,10 +228,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const saveTikTokIntegration = async (integration: TikTokIntegration) => {
-    if (!user) return;
-    try {
-      const finalIntegration = { ...integration };
+    if (!userProfile) return;
+    const finalIntegration = { ...integration };
 
+    try {
       if (!integration.isMock) {
         console.log("[iGen TikTok Connect] Đang xác thực với n8n...");
         const response = await fetch("/api/v1/tiktok/validate-token", {
@@ -409,29 +256,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         finalIntegration.avatarUrl = result.avatarUrl;
       }
 
-      console.log("[iGen TikTok Connect] Đang cập nhật Firestore cho user:", user.uid, finalIntegration);
-      await updateDoc(doc(db, "users", user.uid), {
+      const updatedProfile = await authService.updateProfile({
         tiktokIntegration: finalIntegration
       });
-      setUserProfile((prev) => prev ? { ...prev, tiktokIntegration: finalIntegration } : null);
+      setUser(updatedProfile as any);
+      setUserProfile(updatedProfile);
       toast.success("Kết nối TikTok thành công!");
     } catch (error: any) {
-      console.error("[iGen TikTok Connect] Gặp lỗi xác thực hoặc kết nối:", error);
-      const errMsg = error?.message || "Không thể kết nối và xác thực tài khoản TikTok. Vui lòng kiểm tra lại.";
-      toast.error(errMsg);
+      console.error("[iGen TikTok Connect] Lỗi kết nối:", error);
+      toast.error(error.message || "Không thể kết nối TikTok. Vui lòng kiểm tra lại.");
       throw error;
     }
   };
 
   const removeTikTokIntegration = async () => {
-    if (!user) return;
+    if (!userProfile) return;
     try {
-      await updateDoc(doc(db, "users", user.uid), {
+      const updatedProfile = await authService.updateProfile({
         tiktokIntegration: null
       });
-      setUserProfile((prev) => prev ? { ...prev, tiktokIntegration: null } : null);
+      setUser(updatedProfile as any);
+      setUserProfile(updatedProfile);
       toast.success("Đã hủy liên kết TikTok.");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Lỗi xóa TikTok integration:", error);
       toast.error("Lỗi khi hủy liên kết TikTok.");
       throw error;

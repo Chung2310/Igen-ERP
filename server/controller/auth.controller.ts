@@ -147,4 +147,70 @@ export const authController = {
       });
     }
   },
+
+  /**
+   * PATCH /api/v1/auth/profile
+   */
+  async updateProfile(req: AuthenticatedRequest, res: Response) {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({
+          status: "error",
+          message: "Người dùng chưa xác thực.",
+        });
+      }
+
+      const updatedUser = await authService.updateProfile(userId, req.body);
+      if (!updatedUser) {
+        return res.status(404).json({
+          status: "error",
+          message: "Không tìm thấy hồ sơ người dùng.",
+        });
+      }
+
+      return res.status(200).json({
+        status: "success",
+        message: "Cập nhật hồ sơ người dùng thành công",
+        user: updatedUser,
+      });
+    } catch (error: any) {
+      console.error("[authController.updateProfile] Error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Không thể cập nhật hồ sơ người dùng",
+        details: error.message,
+      });
+    }
+  },
+
+  /**
+   * POST /api/v1/auth/change-password
+   */
+  async changePassword(req: AuthenticatedRequest, res: Response) {
+    try {
+      const userId = req.user?.id;
+      const { password } = req.body;
+
+      if (!userId) {
+        return res.status(401).json({
+          status: "error",
+          message: "Người dùng chưa xác thực.",
+        });
+      }
+
+      await authService.changePassword(userId, password);
+      return res.status(200).json({
+        status: "success",
+        message: "Thay đổi mật khẩu thành công",
+      });
+    } catch (error: any) {
+      console.error("[authController.changePassword] Error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Không thể thay đổi mật khẩu",
+        details: error.message,
+      });
+    }
+  },
 };

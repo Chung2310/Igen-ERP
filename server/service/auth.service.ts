@@ -105,4 +105,19 @@ export const authService = {
   async getMe(id: string): Promise<IUser | null> {
     return await UserModel.findById(id).select("-password");
   },
+
+  /**
+   * Cập nhật thông tin tài khoản người dùng
+   */
+  async updateProfile(id: string, updateData: any): Promise<IUser | null> {
+    return await UserModel.findByIdAndUpdate(id, { $set: updateData }, { new: true }).select("-password");
+  },
+
+  /**
+   * Thay đổi mật khẩu người dùng
+   */
+  async changePassword(id: string, newPassword: string): Promise<void> {
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await UserModel.findByIdAndUpdate(id, { $set: { password: hashedPassword } });
+  },
 };

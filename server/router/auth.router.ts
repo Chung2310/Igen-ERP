@@ -53,6 +53,35 @@ const loginSchema = {
   }),
 };
 
+const updateProfileSchema = {
+  body: Joi.object({
+    displayName: Joi.string().optional().messages({
+      "string.empty": "Tên hiển thị không được để trống.",
+    }),
+    photoURL: Joi.string().uri().optional().allow("").messages({
+      "string.uri": "Ảnh đại diện phải là một đường dẫn URL hợp lệ.",
+    }),
+    facebookIntegration: Joi.object({
+      isConnected: Joi.boolean().required(),
+      pageId: Joi.string().allow(""),
+      pageName: Joi.string().allow(""),
+      pageAccessToken: Joi.string().allow(""),
+      connectedAt: Joi.date().optional(),
+      isMock: Joi.boolean().optional(),
+    }).optional().allow(null),
+    tiktokIntegration: Joi.object({
+      isConnected: Joi.boolean().required(),
+      username: Joi.string().allow(""),
+      displayName: Joi.string().allow(""),
+      avatarUrl: Joi.string().uri().optional().allow(""),
+      accessToken: Joi.string().allow(""),
+      connectedAt: Joi.date().optional(),
+      privacyLevel: Joi.string().optional(),
+      isMock: Joi.boolean().optional(),
+    }).optional().allow(null),
+  }),
+};
+
 // Đăng ký tài khoản mới
 authRouter.post("/register", validateRequest(registerSchema), authController.register);
 
@@ -67,3 +96,19 @@ authRouter.post("/logout", authController.logout);
 
 // Lấy thông tin tài khoản hiện tại (yêu cầu Access Token)
 authRouter.get("/me", requireAuth as any, authController.getMe as any);
+
+// Cập nhật thông tin tài khoản hiện tại (yêu cầu Access Token)
+authRouter.patch("/profile", requireAuth as any, validateRequest(updateProfileSchema), authController.updateProfile as any);
+
+const changePasswordSchema = {
+  body: Joi.object({
+    password: Joi.string().min(6).required().messages({
+      "any.required": "Trường 'password' là bắt buộc.",
+      "string.empty": "Trường 'password' không được để trống.",
+      "string.min": "Mật khẩu phải có ít nhất 6 ký tự.",
+    }),
+  }),
+};
+
+// Thay đổi mật khẩu người dùng hiện tại (yêu cầu Access Token)
+authRouter.post("/change-password", requireAuth as any, validateRequest(changePasswordSchema), authController.changePassword as any);

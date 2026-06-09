@@ -12,7 +12,7 @@ import { Pagination } from "../components/common/Pagination";
 import { ProductModal } from "../components/inventory/ProductModal";
 import { StockLogPanel } from "../components/inventory/StockLogPanel";
 import { SummaryCard } from "../components/inventory/SummaryCard";
-import { auth } from "../config/firebase";
+import { useAuth } from "../context/AuthContext";
 import { inventoryCategoryService } from "../services/inventoryCategoryService";
 import { inventoryProductService } from "../services/inventoryProductService";
 import { inventoryStockLogService } from "../services/inventoryStockLogService";
@@ -54,6 +54,7 @@ function getStockLogItems(log: StockLog) {
 }
 
 export default function InventoryTab() {
+  const { user } = useAuth();
   const [subTab, setSubTab] = useState<InventorySubTabType>("DANH MỤC");
   const [products, setProducts] = useState<ProductItem[]>([]);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
@@ -96,63 +97,56 @@ export default function InventoryTab() {
     let unsubscribeProducts = () => {};
     let unsubscribeStockLogs = () => {};
 
-    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
-      unsubscribeCategories();
-      unsubscribeProducts();
-      unsubscribeStockLogs();
+    if (!user) {
+      setCategoryLoading(false);
+      setProductLoading(false);
+      setStockLogLoading(false);
+      return;
+    }
 
-      if (!user) {
+    setCategoryLoading(true);
+    setProductLoading(true);
+    setStockLogLoading(true);
+
+    unsubscribeCategories = inventoryCategoryService.subscribe(
+      (nextCategories) => {
+        setCategories(nextCategories);
         setCategoryLoading(false);
-        setProductLoading(false);
-        setStockLogLoading(false);
-        return;
+      },
+      () => {
+        setCategoryLoading(false);
+        toast.error("Không thể tải phân loại sản phẩm.");
       }
+    );
 
-      setCategoryLoading(true);
-      setProductLoading(true);
-      setStockLogLoading(true);
+    unsubscribeProducts = inventoryProductService.subscribe(
+      (nextProducts) => {
+        setProducts(nextProducts);
+        setProductLoading(false);
+      },
+      () => {
+        setProductLoading(false);
+        toast.error("Không thể tải danh mục sản phẩm.");
+      }
+    );
 
-      unsubscribeCategories = inventoryCategoryService.subscribe(
-        (nextCategories) => {
-          setCategories(nextCategories);
-          setCategoryLoading(false);
-        },
-        () => {
-          setCategoryLoading(false);
-          toast.error("Không thể tải phân loại sản phẩm từ Firebase.");
-        }
-      );
-
-      unsubscribeProducts = inventoryProductService.subscribe(
-        (nextProducts) => {
-          setProducts(nextProducts);
-          setProductLoading(false);
-        },
-        () => {
-          setProductLoading(false);
-          toast.error("Không thể tải danh mục sản phẩm từ Firebase.");
-        }
-      );
-
-      unsubscribeStockLogs = inventoryStockLogService.subscribe(
-        (nextLogs) => {
-          setStockLogs(nextLogs);
-          setStockLogLoading(false);
-        },
-        () => {
-          setStockLogLoading(false);
-          toast.error("Không thể tải phiếu nhập xuất kho từ Firebase.");
-        }
-      );
-    });
+    unsubscribeStockLogs = inventoryStockLogService.subscribe(
+      (nextLogs) => {
+        setStockLogs(nextLogs);
+        setStockLogLoading(false);
+      },
+      () => {
+        setStockLogLoading(false);
+        toast.error("Không thể tải phiếu nhập xuất kho.");
+      }
+    );
 
     return () => {
-      unsubscribeAuth();
       unsubscribeCategories();
       unsubscribeProducts();
       unsubscribeStockLogs();
     };
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (!categories.length || newProdCategory) return;

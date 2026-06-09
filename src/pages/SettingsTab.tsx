@@ -27,11 +27,9 @@ import {
   Copy,
   FileEdit
 } from "lucide-react";
-import { auth } from "../config/firebase";
-import { updatePassword } from "firebase/auth";
+import { authService } from "../services/authService";
 import { toast } from "./Toast";
 import { FacebookIntegration, TikTokIntegration } from "../types";
-import { parseFirebaseError } from "../utils/firebaseErrorParser";
 
 export default function SettingsTab() {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -207,19 +205,13 @@ export default function SettingsTab() {
 
     setUpdatingPassword(true);
     try {
-      const currentUser = auth.currentUser;
-      if (currentUser) {
-        await updatePassword(currentUser, newPassword);
-        toast.success("Thay đổi mật khẩu thành công!");
-        setNewPassword("");
-        setConfirmPassword("");
-      } else {
-        toast.error("Không tìm thấy thông tin phiên đăng nhập.");
-      }
+      await authService.changePassword(newPassword);
+      toast.success("Thay đổi mật khẩu thành công!");
+      setNewPassword("");
+      setConfirmPassword("");
     } catch (err: any) {
       console.error(err);
-      const errMsg = parseFirebaseError(err, "Thay đổi mật khẩu thất bại. Vui lòng thử lại.");
-      toast.error(errMsg);
+      toast.error(err.message || "Thay đổi mật khẩu thất bại. Vui lòng thử lại.");
     } finally {
       setUpdatingPassword(false);
     }
