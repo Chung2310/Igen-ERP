@@ -3,6 +3,7 @@ import mongoose, { Schema, Document } from "mongoose";
 // Interface cho Cuộc hội thoại
 export interface IFBConversation extends Document {
   recipientId: string;    // Facebook PSID (Page-Scoped User ID) của khách hàng
+  facebookConversationId?: string;
   senderName: string;     // Tên khách hàng (lấy từ Graph API)
   avatarUrl: string;      // Ảnh đại diện khách hàng
   pageId: string;         // ID Fanpage của mình
@@ -37,6 +38,7 @@ export interface IFBMessage extends Document {
 const FBConversationSchema: Schema = new Schema(
   {
     recipientId: { type: String, required: true },
+    facebookConversationId: { type: String, default: "" },
     senderName: { type: String, default: "Khách hàng Facebook" },
     avatarUrl: { type: String, default: "" },
     pageId: { type: String, required: true },
