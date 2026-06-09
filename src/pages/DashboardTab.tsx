@@ -234,6 +234,12 @@ export default function DashboardTab() {
     toast.info("AI đã gợi ý tạo Agent trả lời tự động để xử lý mẫu yêu cầu khách hàng tương tự.");
   };
 
+  const todayLabel = new Date().toLocaleDateString("vi-VN", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+
   return (
     <div className="mx-auto max-h-[85vh] max-w-7xl overflow-y-auto pr-2 text-left" id="dashboard_tab_view">
       <div className="mb-8 flex flex-col gap-5">
@@ -242,7 +248,7 @@ export default function DashboardTab() {
             <h2 className="font-sans text-3xl font-bold tracking-tight text-gray-800">
               {activeView === "ai" ? "Hiệu suất AI" : activeView === "revenue" ? "Phân tích doanh thu" : "Tổng quan Doanh nghiệp"}
             </h2>
-            <p className="mt-2 text-sm text-gray-600">Hôm nay, Thứ Năm, 24 Tháng Mười</p>
+            <p className="mt-2 text-sm text-gray-600">Hôm nay, {todayLabel}</p>
           </div>
           <div className="flex w-fit items-center gap-2 rounded-full border border-green-200 bg-green-50 px-3 py-1.5 text-xs font-medium text-green-700">
             <CheckCircle className="h-4 w-4" />
