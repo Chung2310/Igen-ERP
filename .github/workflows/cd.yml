@@ -62,8 +62,9 @@ jobs:
             cd "$TARGET_DIR"
 
             # Tạo file .env trống nếu chưa có để tránh lỗi docker compose
-            if [ ! -f .env ]; then
-              touch .env
+            if [ ! -f /root/Igen-ERP/.env ]; then
+              mkdir -p /root/Igen-ERP
+              touch /root/Igen-ERP/.env
             fi
 
             # Ghi đè file docker-compose.yml bằng echo để đảm bảo định dạng YAML trong cd.yml không bị lỗi
@@ -77,7 +78,9 @@ jobs:
             echo "    ports:" >> docker-compose.yml
             echo "      - \"3000:3000\"" >> docker-compose.yml
             echo "    env_file:" >> docker-compose.yml
-            echo "      - .env" >> docker-compose.yml
+            echo "      - /root/Igen-ERP/.env" >> docker-compose.yml
+            echo "    volumes:" >> docker-compose.yml
+            echo "      - /root/Igen-ERP/.env:/app/.env" >> docker-compose.yml
             echo "    networks:" >> docker-compose.yml
             echo "      - default_network" >> docker-compose.yml
             echo "" >> docker-compose.yml
