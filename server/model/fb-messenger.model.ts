@@ -36,7 +36,7 @@ export interface IFBMessage extends Document {
 // Schema Cuộc hội thoại
 const FBConversationSchema: Schema = new Schema(
   {
-    recipientId: { type: String, required: true, unique: true },
+    recipientId: { type: String, required: true },
     senderName: { type: String, default: "Khách hàng Facebook" },
     avatarUrl: { type: String, default: "" },
     pageId: { type: String, required: true },
@@ -49,6 +49,9 @@ const FBConversationSchema: Schema = new Schema(
   },
   { timestamps: true }
 );
+
+// PSID is only unique within a specific Facebook page, not globally.
+FBConversationSchema.index({ pageId: 1, recipientId: 1 }, { unique: true });
 
 // Schema Tin nhắn
 const FBMessageSchema: Schema = new Schema(

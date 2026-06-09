@@ -134,7 +134,7 @@ export const fbMessengerController = {
         });
       }
 
-      const messages = await fbMessengerService.getMessages(recipientId);
+      const messages = await fbMessengerService.getMessages(pageId, recipientId);
       console.log(`[FB Controller getMessages] Lấy thành công ${messages.length} tin nhắn giữa Page ${pageId} và khách hàng PSID ${recipientId}`);
 
       res.status(200).json({
@@ -186,7 +186,7 @@ export const fbMessengerController = {
         });
       }
 
-      const result = await fbMessengerService.sendReply(recipientId, text);
+      const result = await fbMessengerService.sendReply(pageId, recipientId, text);
       console.log(`[FB Controller sendReply] Đã gửi thành công phản hồi tới PSID: ${recipientId}. Mã tin nhắn: ${result.messageId}`);
 
       res.status(200).json({
