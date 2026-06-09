@@ -55,20 +55,27 @@ export async function connectDB() {
   const pass = process.env.MONGODB_PASSWORD;
   const authSource = process.env.MONGODB_AUTH_SOURCE || "admin";
 
-  const options: mongoose.ConnectOptions = {};
-
+  let connectionUri = uri;
   if (user && pass) {
-    options.user = user;
-    options.pass = pass;
-    options.authSource = authSource;
+    const protocol = uri.startsWith("mongodb+srv://") ? "mongodb+srv://" : "mongodb://";
+    const uriWithoutProtocol = uri.replace(protocol, "");
+    
+    if (!uriWithoutProtocol.includes("@")) {
+      connectionUri = `${protocol}${encodeURIComponent(user)}:${encodeURIComponent(pass)}@${uriWithoutProtocol}`;
+    }
+    
+    if (authSource && !connectionUri.includes("authSource=")) {
+      const separator = connectionUri.includes("?") ? "&" : "?";
+      connectionUri = `${connectionUri}${separator}authSource=${authSource}`;
+    }
   }
 
   // Log URI ẩn mật khẩu để dễ debug cấu hình trên VPS
-  const redactedUri = uri.replace(/:([^:@]+)@/, ":******@");
+  const redactedUri = connectionUri.replace(/:([^:@]+)@/, ":******@");
   console.log(`[Backend Database] Đang kết nối tới MongoDB qua URI: ${redactedUri}`);
 
   try {
-    await mongoose.connect(uri, options);
+    await mongoose.connect(connectionUri);
     console.log("[Backend Database] Kết nối MongoDB thành công.");
     // Chạy seeder Super Admin
     await seedSuperAdmin();
