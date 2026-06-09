@@ -2,6 +2,7 @@ import { Router } from "express";
 import mongoose from "mongoose";
 import { geminiRouter } from "./gemini.router";
 import { facebookPostRouter } from "./facebook-post.router";
+import { fbMessengerRouter } from "./fb-messenger.router";
 import { tiktokRouter } from "./tiktok.router";
 import { schedulerRouter } from "./scheduler.router";
 import { mediaRouter } from "./media.router";
@@ -28,8 +29,10 @@ apiRouter.get("/health", (req, res) => {
 // Gắn kết router phụ của Gemini
 apiRouter.use("/gemini", geminiRouter);
 
-// Gắn kết router phụ của Facebook Post qua n8n
+// Gắn kết router phụ của Facebook Post qua n8n & Facebook Messenger
 apiRouter.use("/facebook", facebookPostRouter);
+apiRouter.use("/facebook", fbMessengerRouter);
+
 
 // Gắn kết router phụ của TikTok
 apiRouter.use("/tiktok", tiktokRouter);
