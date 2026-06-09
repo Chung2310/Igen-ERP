@@ -175,3 +175,73 @@ const registerUserSchema = {
 
 // Đăng ký thành viên mới của doanh nghiệp (yêu cầu Access Token và vai trò superadmin hoặc admin)
 authRouter.post("/register-user", requireAuth as any, requireRole(["superadmin", "admin"]) as any, validateRequest(registerUserSchema), authController.registerUser as any);
+
+const getUsersSchema = {
+  query: Joi.object({
+    companyCode: Joi.string().optional().allow(""),
+  }),
+};
+
+// Lấy danh sách thành viên doanh nghiệp (yêu cầu Access Token)
+authRouter.get("/users", requireAuth as any, validateRequest(getUsersSchema), authController.getUsers as any);
+
+// Lấy danh sách tất cả doanh nghiệp (yêu cầu Access Token và vai trò superadmin)
+authRouter.get("/companies", requireAuth as any, requireRole(["superadmin"]) as any, authController.getCompanies as any);
+
+const bulkUpdateUsersSchema = {
+  body: Joi.object({
+    updates: Joi.array().items(
+      Joi.object({
+        id: Joi.string().regex(/^[0-9a-fA-F]{24}$/).required().messages({
+          "any.required": "Trường 'id' là bắt buộc đối với mỗi cập nhật.",
+          "string.pattern.base": "ID người dùng không đúng định dạng.",
+        }),
+        parentId: Joi.string().regex(/^[0-9a-fA-F]{24}$/).optional().allow(null, ""),
+        level: Joi.number().integer().optional(),
+        role: Joi.string().valid("user", "manager", "admin", "superadmin").optional(),
+        department: Joi.string().optional().allow(""),
+        division: Joi.string().optional().allow(""),
+        jobTitle: Joi.string().optional().allow(""),
+      })
+    ).required().messages({
+      "any.required": "Danh sách 'updates' là bắt buộc.",
+    }),
+  }),
+};
+
+const updateUserSchema = {
+  params: Joi.object({
+    id: Joi.string().regex(/^[0-9a-fA-F]{24}$/).required().messages({
+      "any.required": "ID người dùng là bắt buộc.",
+      "string.pattern.base": "ID người dùng không đúng định dạng.",
+    }),
+  }),
+  body: Joi.object({
+    role: Joi.string().valid("user", "manager", "admin", "superadmin").optional(),
+    parentId: Joi.string().regex(/^[0-9a-fA-F]{24}$/).optional().allow(null, ""),
+    level: Joi.number().integer().optional(),
+    department: Joi.string().optional().allow(""),
+    division: Joi.string().optional().allow(""),
+    jobTitle: Joi.string().optional().allow(""),
+    displayName: Joi.string().optional().allow(""),
+    phone: Joi.string().optional().allow(""),
+  }),
+};
+
+const deleteUserSchema = {
+  params: Joi.object({
+    id: Joi.string().regex(/^[0-9a-fA-F]{24}$/).required().messages({
+      "any.required": "ID người dùng cần xóa là bắt buộc.",
+      "string.pattern.base": "ID người dùng không đúng định dạng.",
+    }),
+  }),
+};
+
+// Cập nhật cấu trúc sơ đồ tổ chức hàng loạt (yêu cầu Access Token và vai trò admin/superadmin)
+authRouter.patch("/users/bulk", requireAuth as any, requireRole(["superadmin", "admin"]) as any, validateRequest(bulkUpdateUsersSchema), authController.bulkUpdateUsers as any);
+
+// Cập nhật chi tiết một thành viên (yêu cầu Access Token và vai trò admin/superadmin)
+authRouter.patch("/users/:id", requireAuth as any, requireRole(["superadmin", "admin"]) as any, validateRequest(updateUserSchema), authController.updateUser as any);
+
+// Xóa thành viên và điều chuyển cấp dưới (yêu cầu Access Token và vai trò admin/superadmin)
+authRouter.delete("/users/:id", requireAuth as any, requireRole(["superadmin", "admin"]) as any, validateRequest(deleteUserSchema), authController.deleteUser as any);

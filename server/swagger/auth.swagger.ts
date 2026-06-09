@@ -288,5 +288,127 @@ export const authSwagger = {
         },
       },
     },
+    "/api/v1/auth/users/bulk": {
+      patch: {
+        summary: "Cập nhật hàng loạt cấu trúc/thành viên (kéo thả sơ đồ tổ chức)",
+        tags: ["Xác thực (Auth)"],
+        security: [
+          {
+            BearerAuth: [],
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  updates: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        id: { type: "string", example: "6472f85fa32490bb4ca15f8e" },
+                        parentId: { type: "string", nullable: true, example: "6472f85fa32490bb4ca15f8d" },
+                        level: { type: "integer", example: 2 },
+                        role: { type: "string", example: "user" },
+                        department: { type: "string", example: "Phòng Kho Vận" },
+                        division: { type: "string", example: "Khối Vận Hành" },
+                        jobTitle: { type: "string", example: "Chuyên viên Vận chuyển" },
+                      },
+                      required: ["id"],
+                    },
+                  },
+                },
+                required: ["updates"],
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Cập nhật thành công",
+          },
+          400: {
+            description: "Lỗi định dạng đầu vào hoặc thiếu quyền hạn",
+          },
+        },
+      },
+    },
+    "/api/v1/auth/users/{id}": {
+      patch: {
+        summary: "Cập nhật thông tin/vai trò chi tiết một thành viên",
+        tags: ["Xác thực (Auth)"],
+        security: [
+          {
+            BearerAuth: [],
+          },
+        ],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+            description: "ID người dùng (ObjectId)",
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  role: { type: "string", enum: ["user", "manager", "admin", "superadmin"] },
+                  parentId: { type: "string", nullable: true },
+                  level: { type: "integer" },
+                  department: { type: "string" },
+                  division: { type: "string" },
+                  jobTitle: { type: "string" },
+                  displayName: { type: "string" },
+                  phone: { type: "string" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Cập nhật thành công",
+          },
+          400: {
+            description: "Lỗi định dạng đầu vào hoặc thiếu quyền hạn",
+          },
+        },
+      },
+      delete: {
+        summary: "Xóa thành viên và tự động tái sắp xếp cấp dưới",
+        tags: ["Xác thực (Auth)"],
+        security: [
+          {
+            BearerAuth: [],
+          },
+        ],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+            description: "ID người dùng cần xóa",
+          },
+        ],
+        responses: {
+          200: {
+            description: "Xóa thành công",
+          },
+          400: {
+            description: "Lỗi hoặc thiếu quyền hạn",
+          },
+        },
+      },
+    },
   },
 };

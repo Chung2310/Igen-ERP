@@ -88,31 +88,7 @@ export default function HRTab() {
     }
 
     try {
-      const batch = writeBatch(db);
-
-      // 1. Delete user doc
-      const userRef = doc(db, "users", empId);
-      batch.delete(userRef);
-
-      // 2. Find children and update their parentId to the parentId of the deleted user
-      const deletedUser = usersList.find(u => u.uid === empId);
-      const parentId = deletedUser?.parentId || null;
-      let parentLevel = 1;
-      if (parentId) {
-        const parentUser = usersList.find(u => u.uid === parentId);
-        parentLevel = parentUser?.level || 1;
-      }
-
-      const children = usersList.filter(u => u.parentId === empId);
-      for (const child of children) {
-        const childRef = doc(db, "users", child.uid);
-        batch.update(childRef, {
-          parentId: parentId || null,
-          level: parentLevel + 1
-        });
-      }
-
-      await batch.commit();
+      await authService.deleteUser(empId);
       toast.success("Đã xóa nhân sự thành công!");
       setSelectedEmp(null);
       await fetchUsers();
@@ -212,65 +188,9 @@ export default function HRTab() {
       } else {
         data = await authService.getUsersByCompany(selectedCompanyCode);
       }
-
-      // Seed initial structure if database is empty/contains only 1 user for this company
-      if (data.length <= 1 && userProfile) {
-        const currentCompanyOwner = data.find(u => u.role === "admin") || data.find(u => u.role === "superadmin") || userProfile;
-        const companyName = currentCompanyOwner.companyName || (selectedCompanyCode === "SYSTEM" ? "iGen Tech" : selectedCompanyCode);
-
-        console.log(`[iGen HR Hub] Seeding default organizational structure connected to CEO: ${currentCompanyOwner.uid} for company ${selectedCompanyCode}`);
-
-        // 1. Update current owner profile to CEO
-        const ownerRef = doc(db, "users", currentCompanyOwner.uid);
-        await updateDoc(ownerRef, {
-          jobTitle: "Chief Executive Officer (CEO)",
-          department: "Ban Giám Đốc",
-          division: "Ban Giám Đốc",
-          phone: "0901234567",
-          photoURL: "👨‍💼",
-          level: 1,
-          status: "online",
-          companyCode: selectedCompanyCode,
-          companyName: companyName
-        });
-
-        // 2. Seed other mock employees with matching companyCode and companyName
-        const mockEmployees = [
-          { uid: `e2_${selectedCompanyCode}`, email: `hai.nl@${selectedCompanyCode.toLowerCase()}.vn`, displayName: "Nguyễn Lê Hải", jobTitle: "Chief Operations Officer (COO)", department: "Ban Giám Đốc", phone: "0901112223", photoURL: "👨‍💻", level: 2, parentId: currentCompanyOwner.uid, role: "admin", division: "Khối Vận Hành", status: "online" },
-          { uid: `e3_${selectedCompanyCode}`, email: `anh.tm@${selectedCompanyCode.toLowerCase()}.vn`, displayName: "Trần Mai Anh", jobTitle: "Chief CMO", department: "Ban Giám Đốc", phone: "0903334445", photoURL: "👩‍💼", level: 2, parentId: currentCompanyOwner.uid, role: "admin", division: "Khối Marketing", status: "online" },
-          { uid: `e4_${selectedCompanyCode}`, email: `huy.hg@${selectedCompanyCode.toLowerCase()}.vn`, displayName: "Hoàng Gia Huy", jobTitle: "Trưởng phòng Kho vận", department: "Phòng Kho Vận", phone: "0905556667", photoURL: "📦", level: 3, parentId: `e2_${selectedCompanyCode}`, role: "user", division: "Khối Vận Hành", status: "online" },
-          { uid: `e5_${selectedCompanyCode}`, email: `tuan.lq@${selectedCompanyCode.toLowerCase()}.vn`, displayName: "Lưu Quốc Tuấn", jobTitle: "Trưởng phòng Marketing", department: "Phòng Marketing", phone: "0907778889", photoURL: "📣", level: 3, parentId: `e3_${selectedCompanyCode}`, role: "user", division: "Khối Marketing", status: "offline" },
-          { uid: `e6_${selectedCompanyCode}`, email: `vy.nb@${selectedCompanyCode.toLowerCase()}.vn`, displayName: "Nguyễn Bích Vy", jobTitle: "Trưởng phòng Sales CRM", department: "Phòng Sales", phone: "0908889990", photoURL: "👩‍💻", level: 3, parentId: `e2_${selectedCompanyCode}`, role: "user", division: "Khối Sales", status: "online" },
-          { uid: `e7_${selectedCompanyCode}`, email: `sang.ln@${selectedCompanyCode.toLowerCase()}.vn`, displayName: "Lê Ngọc Sang", jobTitle: "Chuyên viên Vận chuyển", department: "Phòng Kho Vận", phone: "0909990001", photoURL: "🚛", level: 4, parentId: `e4_${selectedCompanyCode}`, role: "user", division: "Khối Vận Hành", status: "offline" },
-          { uid: `e8_${selectedCompanyCode}`, email: `nam.pd@${selectedCompanyCode.toLowerCase()}.vn`, displayName: "Phan Đình Nam", jobTitle: "AI Copywriter Specialist", department: "Phòng Marketing", phone: "0909990002", photoURL: "💡", level: 4, parentId: `e5_${selectedCompanyCode}`, role: "user", division: "Khối Marketing", status: "online" },
-          { uid: `e9_${selectedCompanyCode}`, email: `linh.vt@${selectedCompanyCode.toLowerCase()}.vn`, displayName: "Vũ Thùy Linh", jobTitle: "Chăm sóc khách hàng VIP", department: "Phòng Sales", phone: "0909990003", photoURL: "👩‍⚕️", level: 4, parentId: `e6_${selectedCompanyCode}`, role: "user", division: "Khối Sales", status: "online" }
-        ];
-
-        for (const emp of mockEmployees) {
-          const docRef = doc(db, "users", emp.uid);
-          await setDoc(docRef, {
-            ...emp,
-            companyCode: selectedCompanyCode,
-            companyName: companyName,
-            createdAt: new Date()
-          });
-        }
-
-        // Fetch again after seeding
-        if (selectedCompanyCode === "SYSTEM") {
-          if (userProfile?.role === "superadmin") {
-            const allUsers = await authService.getAllUsers();
-            data = allUsers.filter(u => !u.companyCode || u.companyCode === "SYSTEM");
-          } else {
-            data = userProfile ? [userProfile] : [];
-          }
-        } else {
-          data = await authService.getUsersByCompany(selectedCompanyCode);
-        }
-      }
       setUsersList(data);
     } catch (error) {
-      console.error("Lỗi khi tải hoặc seed danh sách nhân sự:", error);
+      console.error("Lỗi khi tải danh sách nhân sự:", error);
       toast.error("Không thể tải sơ đồ nhân sự.");
     } finally {
       setLoading(false);
@@ -1306,26 +1226,26 @@ export default function HRTab() {
     const updatedEmployees = updateHierarchy(employees, draggedId, targetId);
 
     try {
-      // Filter out only modified employees to commit updates to Firestore
-      const updatePromises = updatedEmployees
+      // Filter out only modified employees to commit updates
+      const updates = updatedEmployees
         .filter(emp => {
           const original = employees.find(o => o.id === emp.id);
           return original && (original.parentId !== emp.parentId || original.level !== emp.level);
         })
-        .map(emp => {
-          const docRef = doc(db, "users", emp.id);
-          return updateDoc(docRef, {
-            parentId: emp.parentId || null,
-            level: emp.level
-          });
-        });
+        .map(emp => ({
+          id: emp.id,
+          parentId: emp.parentId || null,
+          level: emp.level
+        }));
 
-      await Promise.all(updatePromises);
+      if (updates.length > 0) {
+        await authService.bulkUpdateUsers(updates);
+      }
       toast.success(`Đã điều chuyển ${draggedEmp.name} báo cáo cho ${targetEmp.name}. Quyền hệ thống được đồng bộ.`);
       await fetchUsers();
     } catch (err) {
       console.error("Lỗi cập nhật cơ cấu:", err);
-      toast.error("Không thể lưu cập nhật cơ cấu nhân sự lên cloud.");
+      toast.error("Không thể lưu cập nhật cơ cấu nhân sự.");
     }
   };
 
