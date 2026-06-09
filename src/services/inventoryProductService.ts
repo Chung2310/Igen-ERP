@@ -10,8 +10,7 @@ import {
   updateDoc,
   where,
 } from "firebase/firestore";
-import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
-import { db, handleFirestoreError, OperationType, storage } from "../config/firebase";
+import { db, handleFirestoreError, OperationType } from "../config/firebase";
 import { ProductItem } from "../types";
 
 const COLLECTION_NAME = "inventoryProducts";
@@ -37,13 +36,31 @@ const collectionRef = collection(db, COLLECTION_NAME);
 
 async function uploadProductImage(file: File, sku: string): Promise<{ url: string | null; error?: string }> {
   try {
-    const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
-    const safeSku = sku.replace(/[^a-zA-Z0-9-_]/g, "_");
-    const storageRef = ref(storage, `${STORAGE_FOLDER}/${safeSku}_${Date.now()}.${extension}`);
-    const snapshot = await uploadBytes(storageRef, file, {
-      contentType: file.type || `image/${extension}`,
+    const base64Data = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = (error) => reject(error);
     });
-    return { url: await getDownloadURL(snapshot.ref) };
+
+    const response = await fetch('/api/v1/media/upload', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        file: base64Data,
+        folder: 'igen_erp/products',
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `Lỗi tải lên Cloudinary: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return { url: data.url };
   } catch (error) {
     return {
       url: null,

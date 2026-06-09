@@ -30,7 +30,7 @@ import {
 import { auth } from "../config/firebase";
 import { updatePassword } from "firebase/auth";
 import { toast } from "./Toast";
-import { FacebookIntegration } from "../types";
+import { FacebookIntegration, TikTokIntegration } from "../types";
 import { parseFirebaseError } from "../utils/firebaseErrorParser";
 
 export default function SettingsTab() {
@@ -64,6 +64,15 @@ export default function SettingsTab() {
   const [isEditingFb, setIsEditingFb] = useState(false);
   const { saveFacebookIntegration, removeFacebookIntegration } = useAuth();
 
+  // TikTok integration form states
+  const [ttUsername, setTtUsername] = useState("");
+  const [ttToken, setTtToken] = useState("");
+  const [connectingTt, setConnectingTt] = useState(false);
+  const [disconnectingTt, setDisconnectingTt] = useState(false);
+  const [isEditingTt, setIsEditingTt] = useState(false);
+  const [showConnectedTtToken, setShowConnectedTtToken] = useState(false);
+  const { saveTikTokIntegration, removeTikTokIntegration } = useAuth();
+
   // Đồng bộ thông tin liên kết Facebook từ userProfile lên các ô nhập liệu
   React.useEffect(() => {
     if (userProfile?.facebookIntegration) {
@@ -76,6 +85,65 @@ export default function SettingsTab() {
       setFbPageToken("");
     }
   }, [userProfile?.facebookIntegration]);
+
+  // Đồng bộ thông tin liên kết TikTok từ userProfile lên các ô nhập liệu
+  React.useEffect(() => {
+    if (userProfile?.tiktokIntegration) {
+      setTtUsername(userProfile.tiktokIntegration.username || "");
+      setTtToken(userProfile.tiktokIntegration.accessToken || "");
+    } else {
+      setTtUsername("");
+      setTtToken("");
+    }
+  }, [userProfile?.tiktokIntegration]);
+
+  const handleConnectTtDemo = async () => {
+    setConnectingTt(true);
+    try {
+      await saveTikTokIntegration({
+        isConnected: true,
+        username: "igen_tech_demo",
+        displayName: "iGen Tech Demo",
+        avatarUrl: "",
+        connectedAt: new Date().toISOString(),
+        privacyLevel: "SELF_ONLY",
+        isMock: true,
+      });
+    } finally {
+      setConnectingTt(false);
+    }
+  };
+
+  const handleConnectTtReal = async () => {
+    if (!ttUsername.trim() || !ttToken.trim()) {
+      toast.error("Vui lòng điền đầy đủ Username và Access Token của TikTok!");
+      return;
+    }
+    setConnectingTt(true);
+    try {
+      await saveTikTokIntegration({
+        isConnected: true,
+        username: ttUsername.trim(),
+        displayName: "TikTok User",
+        accessToken: ttToken.trim(),
+        connectedAt: new Date().toISOString(),
+        privacyLevel: "SELF_ONLY",
+        isMock: false,
+      });
+      setIsEditingTt(false);
+    } finally {
+      setConnectingTt(false);
+    }
+  };
+
+  const handleDisconnectTt = async () => {
+    setDisconnectingTt(true);
+    try {
+      await removeTikTokIntegration();
+    } finally {
+      setDisconnectingTt(false);
+    }
+  };
 
   const handleAvatarClick = () => {
     fileInputRef.current?.click();
@@ -801,10 +869,10 @@ export default function SettingsTab() {
                   )}
                 </h3>
                 <p className="text-xs text-gray-500 mb-5">
-                  Kết nối tài khoản TikTok để tự động đăng video ngắn marketing. Hỗ trợ Mock Mode để test ngay mà không cần TikTok Developer App.
+                  Kết nối tài khoản TikTok để tự động đăng video ngắn marketing. Hỗ trợ Mock Mode để test ngay không cần API thật.
                 </p>
 
-                {userProfile?.tiktokIntegration?.isConnected ? (
+                {userProfile?.tiktokIntegration?.isConnected && !isEditingTt ? (
                   /* Connected State */
                   <div className="space-y-4">
                     <div className="flex items-start gap-4 p-4 bg-slate-50/80 border border-slate-200 rounded-xl">
@@ -831,9 +899,6 @@ export default function SettingsTab() {
                               : 'Vừa xong')
                             : 'N/A'}
                         </p>
-                        <p className="text-[10px] text-gray-400 mt-1">
-                          Quyền riêng tư mặc định: <span className="font-mono font-bold">{userProfile.tiktokIntegration.privacyLevel || 'SELF_ONLY'}</span>
-                        </p>
                       </div>
                     </div>
 
@@ -843,38 +908,111 @@ export default function SettingsTab() {
                         <p className="font-bold text-amber-800">Lưu ý về TikTok API</p>
                         <p className="text-amber-700 mt-0.5">
                           {userProfile.tiktokIntegration.isMock
-                            ? "Đang chạy ở chế độ Demo — bài đăng được giả lập, không thật sự lên TikTok. Kết nối API thật khi có TikTok Developer App."
-                            : "Bài đăng sẽ được đăng ở chế độ Private cho đến khi TikTok duyệt Developer App của bạn."}
+                            ? "Đang chạy ở chế độ Demo — bài đăng được giả lập, không thật sự lên TikTok."
+                            : "Sau khi kết nối, các video marketing ở trạng thái ĐÃ LÊN LỊCH (Scheduled) sẽ được tự động đăng trực tiếp lên TikTok khi đến giờ hẹn."}
                         </p>
                       </div>
                     </div>
 
-                    <div className="flex gap-3 pt-2 border-t border-gray-100">
-                      <TikTokConnectSection />
+                    <div className="flex flex-col sm:flex-row gap-3 pt-2 border-t border-gray-100">
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingTt(true)}
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                      >
+                        <FileEdit className="h-4 w-4" />
+                        Chỉnh sửa liên kết
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleDisconnectTt}
+                        disabled={disconnectingTt}
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 rounded-xl text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
+                      >
+                        <Unlink className="h-4 w-4" />
+                        {disconnectingTt ? "Đang hủy..." : "Hủy liên kết"}
+                      </button>
                     </div>
                   </div>
                 ) : (
-                  /* Not Connected State */
-                  <div className="space-y-5">
-                    {/* Hướng dẫn tạo Developer App */}
-                    <div className="p-4 bg-blue-50/70 border border-blue-200 rounded-xl space-y-2 text-xs">
-                      <p className="font-bold text-blue-800 flex items-center gap-1.5">
-                        <ExternalLink className="h-3.5 w-3.5" />
-                        Chưa có TikTok Developer App? Tạo miễn phí tại:
-                      </p>
-                      <ol className="text-blue-700 space-y-1 ml-4 list-decimal">
-                        <li>Truy cập <span className="font-mono bg-blue-100 px-1 rounded">developers.tiktok.com</span> → Đăng nhập bằng TK TikTok</li>
-                        <li>Tạo App → Thêm sản phẩm <b>Content Posting API</b></li>
-                        <li>Lấy <b>Client Key</b> và <b>Client Secret</b> → điền vào <span className="font-mono bg-blue-100 px-1 rounded">.env</span></li>
-                        <li>Đăng ký redirect URI: <span className="font-mono bg-blue-100 px-1 rounded">http://localhost:5173/tiktok-callback</span></li>
-                      </ol>
-                      <p className="text-blue-600 mt-2">
-                        📋 Trong khi chờ, dùng <b>Demo Mode</b> bên dưới để test toàn bộ flow đăng bài.
-                      </p>
+                  /* Not Connected / Editing State */
+                  <div className="space-y-4">
+                    {isEditingTt && (
+                      <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-start gap-2 text-xs">
+                        <Sliders className="h-4 w-4 text-slate-600 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-bold text-slate-800">Đang chỉnh sửa cấu hình TikTok</p>
+                          <p className="text-slate-700 mt-0.5">Bạn đang cập nhật trực tiếp thông tin tài khoản TikTok đã lưu. Nhấn Cập nhật để lưu đè lên dữ liệu cũ.</p>
+                        </div>
+                      </div>
+                    )}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">TikTok Username *</label>
+                        <div className="relative">
+                          <span className="absolute left-3.5 top-3 text-sm text-gray-400 font-bold select-none">@</span>
+                          <input
+                            type="text"
+                            value={ttUsername}
+                            onChange={(e) => setTtUsername(e.target.value)}
+                            placeholder="igen_tech"
+                            className="w-full pl-8 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-800 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-slate-800/25 focus:border-slate-800 outline-none transition-all"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Access Token *</label>
+                        <div className="relative">
+                          <Key className="absolute left-3.5 top-3.5 h-4 w-4 text-gray-400" />
+                          <input
+                            type="password"
+                            value={ttToken}
+                            onChange={(e) => setTtToken(e.target.value)}
+                            placeholder="Nhập Access Token TikTok"
+                            className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-xs font-mono text-gray-800 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-slate-800/25 focus:border-slate-800 outline-none transition-all"
+                          />
+                        </div>
+                      </div>
                     </div>
 
-                    {/* Demo 1-Click */}
-                    <TikTokConnectSection />
+                    <div className="flex flex-col sm:flex-row gap-3 pt-2 border-t border-gray-100">
+                      {/* Kết nối / Cập nhật */}
+                      <button
+                        type="button"
+                        onClick={handleConnectTtReal}
+                        disabled={connectingTt}
+                        className="flex-1 flex items-center justify-center gap-2 px-5 py-3 bg-slate-900 hover:bg-slate-950 disabled:bg-slate-400 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer"
+                      >
+                        <Link className="h-4 w-4" />
+                        {connectingTt ? "Đang lưu..." : (isEditingTt ? "Cập nhật tài khoản" : "Kết nối tài khoản thật")}
+                      </button>
+
+                      {/* Kết nối Demo (1-Click) */}
+                      {!isEditingTt && (
+                        <button
+                          type="button"
+                          onClick={handleConnectTtDemo}
+                          disabled={connectingTt}
+                          className="flex-1 flex items-center justify-center gap-2 px-5 py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-amber-400 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer"
+                        >
+                          <Sparkles className="h-4 w-4" />
+                          Kết nối Demo TikTok (1-Click)
+                        </button>
+                      )}
+
+                      {/* Hủy bỏ */}
+                      {isEditingTt && (
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingTt(false)}
+                          className="flex-1 flex items-center justify-center gap-2 px-5 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition-all border border-gray-200 cursor-pointer"
+                        >
+                          Hủy bỏ
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -886,81 +1024,6 @@ export default function SettingsTab() {
 
       </div>
 
-    </div>
-  );
-}
-
-// Component kết nối TikTok — tách ra để dùng useAuth hook trực tiếp
-function TikTokConnectSection() {
-  const { saveTikTokIntegration, removeTikTokIntegration, userProfile } = useAuth();
-  const [connecting, setConnecting] = React.useState(false);
-  const [disconnecting, setDisconnecting] = React.useState(false);
-
-  const handleConnectDemo = async () => {
-    setConnecting(true);
-    try {
-      await saveTikTokIntegration({
-        isConnected: true,
-        username: 'igen_tech_demo',
-        displayName: 'iGen Tech Demo',
-        avatarUrl: '',
-        connectedAt: new Date().toISOString(),
-        privacyLevel: 'SELF_ONLY',
-        isMock: true,
-      });
-    } finally {
-      setConnecting(false);
-    }
-  };
-
-  const handleDisconnect = async () => {
-    setDisconnecting(true);
-    try {
-      await removeTikTokIntegration();
-    } finally {
-      setDisconnecting(false);
-    }
-  };
-
-  if (userProfile?.tiktokIntegration?.isConnected) {
-    return (
-      <button
-        type="button"
-        onClick={handleDisconnect}
-        disabled={disconnecting}
-        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 rounded-xl text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
-      >
-        <Unlink className="h-4 w-4" />
-        {disconnecting ? 'Đang hủy...' : 'Hủy liên kết TikTok'}
-      </button>
-    );
-  }
-
-  return (
-    <div className="flex flex-col sm:flex-row gap-3">
-      {/* Demo 1-Click */}
-      <button
-        type="button"
-        onClick={handleConnectDemo}
-        disabled={connecting}
-        className="flex-1 flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-slate-800 to-black hover:from-slate-700 hover:to-slate-900 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer"
-        id="tiktok_demo_connect_btn"
-      >
-        <Sparkles className="h-4 w-4" />
-        {connecting ? 'Đang kết nối...' : '🎬 Kết nối Demo TikTok (1-Click)'}
-      </button>
-
-      {/* Real Connect - disabled khi chưa có client key */}
-      <button
-        type="button"
-        disabled
-        title="Cần điền VITE_TIKTOK_CLIENT_KEY vào .env trước"
-        className="flex-1 flex items-center justify-center gap-2 px-5 py-3 bg-gray-100 text-gray-400 rounded-xl text-xs font-bold border border-dashed border-gray-300 cursor-not-allowed"
-      >
-        <Link className="h-4 w-4" />
-        Kết nối TikTok thật
-        <span className="text-[9px] bg-gray-200 px-1.5 py-0.5 rounded font-mono">Cần API Key</span>
-      </button>
     </div>
   );
 }

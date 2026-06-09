@@ -18,8 +18,7 @@ import {
   updateDoc,
   serverTimestamp 
 } from "firebase/firestore";
-import { httpsCallable } from "firebase/functions";
-import { auth, db, functions } from "../config/firebase";
+import { auth, db } from "../config/firebase";
 import { authService } from "../services/authService";
 import { UserProfile, FacebookIntegration, TikTokIntegration } from "../types";
 import { toast } from "../pages/Toast";
@@ -326,23 +325,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       if (!integration.isMock) {
-        console.log("[iGen FB Connect] Đang gửi yêu cầu xác thực tới Cloud Function...", {
+        console.log("[iGen FB Connect] Đang gửi yêu cầu xác thực tới Express Backend...", {
           pageId: integration.pageId,
           tokenLength: integration.pageAccessToken?.length
         });
         
-        const validateFn = httpsCallable<
-          { pageId: string; pageAccessToken: string },
-          { valid: boolean; pageName: string }
-        >(functions, 'validateFacebookToken');
-
-        const result = await validateFn({
-          pageId: integration.pageId,
-          pageAccessToken: integration.pageAccessToken
+        const response = await fetch('/api/v1/facebook/validate-token', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            pageId: integration.pageId,
+            accessToken: integration.pageAccessToken
+          })
         });
-        
-        console.log("[iGen FB Connect] Xác thực thành công từ Meta API:", result.data);
-        finalIntegration.pageName = result.data.pageName;
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData.message || errData.details || "Không thể kết nối và xác thực với Facebook Page.");
+        }
+
+        const result = await response.json();
+        console.log("[iGen FB Connect] Xác thực thành công:", result);
+        finalIntegration.pageName = result.pageName;
       }
 
       console.log("[iGen FB Connect] Đang cập nhật Firestore cho user:", user.uid, finalIntegration);
@@ -377,14 +383,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const saveTikTokIntegration = async (integration: TikTokIntegration) => {
     if (!user) return;
     try {
+      const finalIntegration = { ...integration };
+
+      if (!integration.isMock) {
+        console.log("[iGen TikTok Connect] Đang xác thực với n8n...");
+        const response = await fetch("/api/v1/tiktok/validate-token", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            username: integration.username,
+            accessToken: integration.accessToken,
+          }),
+        });
+
+        if (!response.ok) {
+          const errText = await response.text();
+          throw new Error(`Xác thực kết nối TikTok thất bại: ${response.status} - ${errText}`);
+        }
+
+        const result = await response.json();
+        console.log("[iGen TikTok Connect] Xác thực thành công:", result);
+        finalIntegration.displayName = result.displayName;
+        finalIntegration.avatarUrl = result.avatarUrl;
+      }
+
+      console.log("[iGen TikTok Connect] Đang cập nhật Firestore cho user:", user.uid, finalIntegration);
       await updateDoc(doc(db, "users", user.uid), {
-        tiktokIntegration: integration
+        tiktokIntegration: finalIntegration
       });
-      setUserProfile((prev) => prev ? { ...prev, tiktokIntegration: integration } : null);
+      setUserProfile((prev) => prev ? { ...prev, tiktokIntegration: finalIntegration } : null);
       toast.success("Kết nối TikTok thành công!");
-    } catch (error) {
-      console.error("Lỗi lưu TikTok integration:", error);
-      toast.error("Không thể kết nối TikTok. Vui lòng thử lại.");
+    } catch (error: any) {
+      console.error("[iGen TikTok Connect] Gặp lỗi xác thực hoặc kết nối:", error);
+      const errMsg = error?.message || "Không thể kết nối và xác thực tài khoản TikTok. Vui lòng kiểm tra lại.";
+      toast.error(errMsg);
       throw error;
     }
   };

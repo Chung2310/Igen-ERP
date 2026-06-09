@@ -26,6 +26,8 @@ export interface TikTokIntegration {
   displayName: string;
   /** URL ảnh đại diện TikTok */
   avatarUrl?: string;
+  /** Access Token kết nối API thật */
+  accessToken?: string;
   /** Thời điểm kết nối */
   connectedAt: any;
   /** Mộc quyền riêng tư mặc định khi đăng (PUBLIC_TO_EVERYONE / SELF_ONLY) */

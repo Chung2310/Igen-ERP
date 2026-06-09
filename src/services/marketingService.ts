@@ -1,7 +1,5 @@
-import { collection, onSnapshot, setDoc, doc, deleteDoc, updateDoc, writeBatch, query, where, deleteField } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType, functions, storage } from '../config/firebase';
-import { httpsCallable } from 'firebase/functions';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { collection, onSnapshot, setDoc, doc, getDoc, deleteDoc, updateDoc, writeBatch, query, where, deleteField } from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType } from '../config/firebase';
 import { ContentApprovalCard } from '../types';
 import { geminiApi } from '../api/gemini';
 
@@ -130,12 +128,91 @@ export const marketingService = {
   async scheduleCard(id: string, scheduledDate: string, scheduledTime: string): Promise<void> {
     try {
       const cardRef = doc(db, COLLECTION_NAME, id);
+      
+      // 1. Cập nhật ngày giờ lên lịch vào Firestore trước
       await updateDoc(cardRef, {
         status: 'scheduled',
         scheduledDate,
         scheduledTime
       });
-    } catch (e) {
+
+      // 2. Lấy dữ liệu bài đăng đầy đủ
+      const cardSnap = await getDoc(cardRef);
+      if (!cardSnap.exists()) {
+        throw new Error("Không tìm thấy dữ liệu bài đăng.");
+      }
+      const cardData = cardSnap.data() as ContentApprovalCard;
+
+      if (!cardData.authorUid) {
+        throw new Error("Bài đăng không có thông tin tác giả (authorUid).");
+      }
+
+      // 3. Đọc cấu hình liên kết mạng xã hội của tác giả
+      const userSnap = await getDoc(doc(db, 'users', cardData.authorUid));
+      if (!userSnap.exists()) {
+        throw new Error("Không tìm thấy thông tin hồ sơ của tác giả.");
+      }
+      const userProfile = userSnap.data();
+      const channel = cardData.channel || 'Facebook';
+      let integrationInfo: any = null;
+
+      if (channel === 'Facebook') {
+        const fbInt = userProfile.facebookIntegration;
+        if (!fbInt || !fbInt.isConnected) {
+          throw new Error("Tác giả chưa kết nối với Facebook Page.");
+        }
+        integrationInfo = {
+          pageId: fbInt.pageId,
+          pageAccessToken: fbInt.pageAccessToken,
+          isMock: !!fbInt.isMock
+        };
+      } else if (channel === 'TikTok') {
+        const ttInt = userProfile.tiktokIntegration;
+        if (!ttInt || !ttInt.isConnected) {
+          throw new Error("Tác giả chưa kết nối với tài khoản TikTok.");
+        }
+        integrationInfo = {
+          username: ttInt.username,
+          displayName: ttInt.displayName,
+          isMock: !!ttInt.isMock
+        };
+      } else {
+        throw new Error(`Kênh đăng tải "${channel}" chưa hỗ trợ tự động lên lịch.`);
+      }
+
+      // 4. Gọi API Express Backend gửi yêu cầu schedule sang n8n
+      const response = await fetch('/api/v1/scheduler/schedule-post', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          cardId: id,
+          channel,
+          title: cardData.title,
+          bodyText: cardData.bodyText,
+          imageUrl: cardData.imageUrl || '',
+          videoUrl: cardData.videoUrl || '',
+          scheduledDate,
+          scheduledTime,
+          integration: integrationInfo
+        })
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Lên lịch qua n8n thất bại: ${response.status} - ${errText}`);
+      }
+
+      const resData = await response.json();
+      if (resData.status !== 'success') {
+        throw new Error(resData.message || 'Lỗi không xác định từ máy chủ khi lên lịch.');
+      }
+
+      console.log(`[iGen Schedule Service]: Đã lên lịch bài đăng ${id} thành công qua n8n!`);
+
+    } catch (e: any) {
+      console.error("[marketingService.scheduleCard] Error:", e);
       handleFirestoreError(e, OperationType.UPDATE, `${COLLECTION_NAME}/${id}`);
     }
   },
@@ -191,7 +268,8 @@ export const marketingService = {
     pageId: string,
     bodyText: string,
     isMock: boolean,
-    imageUrl?: string
+    imageUrl?: string,
+    videoUrl?: string
   ): Promise<string> {
     if (isMock) {
       // Chế độ giả lập: delay 1.5s rồi trả về mock post ID
@@ -207,21 +285,29 @@ export const marketingService = {
       return mockPostId;
     }
 
-    // Chế độ thật: gọi Firebase Cloud Function để relay Meta Graph API
-    // Cloud Function chạy phía server nên không bị CORS
-    const postToFacebook = httpsCallable<
-      { pageId: string; pageAccessToken: string; message: string; imageUrl?: string },
-      { postId: string; success: boolean; postedAt: string }
-    >(functions, 'postToFacebook');
-
-    const result = await postToFacebook({
-      pageId,
-      pageAccessToken,
-      message: extractDraftContent(bodyText),
-      imageUrl
+    // Gọi trực tiếp Express Backend thay vì Firebase Cloud Function
+    const response = await fetch('/api/v1/facebook/publish', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        pageId,
+        accessToken: pageAccessToken,
+        content: extractDraftContent(bodyText),
+        imageUrl,
+        videoUrl
+      })
     });
 
-    const postId = result.data.postId;
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData.message || errData.details || `Lỗi máy chủ HTTP ${response.status}`);
+    }
+
+    const result = await response.json();
+    const fbData = result.data?.data ?? result.data;
+    const postId = fbData.id ?? fbData.post_id ?? `post-${Date.now()}`;
 
     // Cập nhật Firestore
     const cardRef = doc(db, COLLECTION_NAME, id);
@@ -231,7 +317,7 @@ export const marketingService = {
       facebookPostId: postId
     });
 
-    console.log(`[iGen ERP Autopost]: Đã đăng bài thành công lên Facebook Page. Post ID: ${postId}`);
+    console.log(`[iGen ERP Autopost]: Đã đăng bài thành công lên Facebook Page qua n8n. Post ID: ${postId}`);
     return postId;
   },
 
@@ -278,20 +364,28 @@ export const marketingService = {
   },
 
   /**
-   * Tải tệp tạm của backend lên Firebase Storage và trả về URL download công khai
+   * Tải tệp lên Cloudinary và trả về URL công khai
    */
   async uploadMediaToStorage(tempUrl: string, filename: string, type: 'image' | 'video'): Promise<string> {
     try {
-      const response = await fetch(tempUrl);
+      const response = await fetch('/api/v1/media/upload', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          file: tempUrl,
+          folder: 'igen_erp/marketing',
+        }),
+      });
+
       if (!response.ok) {
-        throw new Error(`Không thể fetch tệp tạm: ${response.statusText}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Lỗi tải lên Cloudinary: ${response.statusText}`);
       }
-      const blob = await response.blob();
-      const folder = type === 'image' ? 'images' : 'videos';
-      const storageRef = ref(storage, `marketing/${folder}/${filename}`);
-      await uploadBytes(storageRef, blob);
-      const downloadUrl = await getDownloadURL(storageRef);
-      return downloadUrl;
+
+      const data = await response.json();
+      return data.url;
     } catch (e) {
       console.error("[marketingService.uploadMediaToStorage] Error:", e);
       throw e;
@@ -325,14 +419,31 @@ export const marketingService = {
       return mockPostId;
     }
 
-    // Real Mode: gọi Firebase Cloud Function (cần cấu hình TikTok Developer App)
-    const postToTikTokFn = httpsCallable<
-      { cardId: string; caption: string; videoUrl: string; privacyLevel: string },
-      { postId: string; shareUrl: string; success: boolean }
-    >(functions, 'postToTikTok');
+    // Real Mode: gọi API Local Express Server
+    const response = await fetch('/api/v1/tiktok/publish', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        cardId: id,
+        caption,
+        videoUrl,
+        privacyLevel,
+      }),
+    });
 
-    const result = await postToTikTokFn({ cardId: id, caption, videoUrl, privacyLevel });
-    const { postId, shareUrl } = result.data;
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Đăng TikTok thất bại: ${response.status} - ${errText}`);
+    }
+
+    const resData = await response.json();
+    if (resData.status !== 'success') {
+      throw new Error(resData.message || 'Lỗi không xác định từ máy chủ khi đăng TikTok.');
+    }
+
+    const { postId, shareUrl } = resData.data;
 
     const cardRef = doc(db, COLLECTION_NAME, id);
     await updateDoc(cardRef, {
