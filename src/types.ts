@@ -94,6 +94,7 @@ export interface CustomerInbox {
   recipientId?: string;
   name: string;
   avatar: string;
+  avatarUrl?: string;
   lastMessage: string;
   time: string;
   unreadCount: number;

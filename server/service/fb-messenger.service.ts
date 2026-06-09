@@ -1,7 +1,22 @@
 import { FBConversationModel, FBMessageModel } from "../model/fb-messenger.model";
 import { UserModel } from "../model/user.model";
 
+const syncTimestamps = new Map<string, number>();
+const CONVERSATION_SYNC_TTL_MS = 15000;
+const MESSAGE_SYNC_TTL_MS = 5000;
+
 export const fbMessengerService = {
+  shouldSync(key: string, ttlMs: number) {
+    const now = Date.now();
+    const lastRun = syncTimestamps.get(key) || 0;
+    if (now - lastRun < ttlMs) {
+      return false;
+    }
+
+    syncTimestamps.set(key, now);
+    return true;
+  },
+
   async fetchGraphJson(url: string) {
     const response = await (globalThis as any).fetch(url);
     const rawText = await response.text();
@@ -21,6 +36,7 @@ export const fbMessengerService = {
   },
 
   async syncConversationsFromFacebook(pageId: string) {
+    const startedAt = Date.now();
     console.log(`[FB Service syncConversations] Bắt đầu đồng bộ hội thoại trực tiếp từ Facebook cho Page ID: ${pageId}`);
     const token = await this.getPageAccessTokenByPageId(pageId);
     if (!token) {
@@ -51,6 +67,16 @@ export const fbMessengerService = {
         continue;
       }
 
+      let avatarUrl = "";
+      if (recipientId) {
+        try {
+          const profile = await this.getSenderProfile(recipientId, token);
+          avatarUrl = profile?.profile_pic || "";
+        } catch (error) {
+          console.warn(`[FB Service syncConversations] Không lấy được avatar cho PSID ${recipientId}:`, error);
+        }
+      }
+
       await FBConversationModel.findOneAndUpdate(
         { pageId, facebookConversationId: fbConversation.id || "" },
         {
@@ -58,6 +84,7 @@ export const fbMessengerService = {
           pageId,
           facebookConversationId: fbConversation.id || "",
           senderName: nonPageSender?.name || "Khách hàng Facebook",
+          avatarUrl,
           lastMessageText: latestMessage?.message || "[Đính kèm]",
           lastMessageAt: latestMessage?.created_time ? new Date(latestMessage.created_time) : new Date(fbConversation?.updated_time || Date.now()),
           status: "open",
@@ -70,10 +97,11 @@ export const fbMessengerService = {
       );
     }
 
-    console.log(`[FB Service syncConversations] Đồng bộ xong ${conversations.length} hội thoại từ Facebook cho Page ID: ${pageId}`);
+    console.log(`[FB Service syncConversations] Đồng bộ xong ${conversations.length} hội thoại từ Facebook cho Page ID: ${pageId} trong ${Date.now() - startedAt}ms`);
   },
 
   async syncMessagesFromFacebook(pageId: string, recipientId: string) {
+    const startedAt = Date.now();
     console.log(`[FB Service syncMessages] Bắt đầu đồng bộ tin nhắn từ Facebook cho PSID ${recipientId}, Page ID: ${pageId}`);
     const conversation = await FBConversationModel.findOne({ pageId, recipientId });
     const conversationGraphId = conversation?.facebookConversationId;
@@ -94,12 +122,21 @@ export const fbMessengerService = {
       throw new Error(`Không tìm thấy Access Token cấu hình cho Page ID: ${pageId}`);
     }
 
+    const latestStoredMessage = await FBMessageModel.findOne({ conversationId: refreshedConversation._id }).sort({ timestamp: -1 });
+    const latestStoredTime = latestStoredMessage?.timestamp ? new Date(latestStoredMessage.timestamp).getTime() : 0;
+
     const fields = ["id", "message", "created_time", "from", "to"].join(",");
-    const url = `https://graph.facebook.com/v19.0/${refreshedConversation.facebookConversationId}/messages?fields=${encodeURIComponent(fields)}&limit=100&access_token=${encodeURIComponent(token)}`;
+    const url = `https://graph.facebook.com/v19.0/${refreshedConversation.facebookConversationId}/messages?fields=${encodeURIComponent(fields)}&limit=25&access_token=${encodeURIComponent(token)}`;
     const data = await this.fetchGraphJson(url);
     const messages = Array.isArray(data?.data) ? data.data : [];
+    let upsertedCount = 0;
 
     for (const fbMessage of messages) {
+      const fbCreatedTime = fbMessage?.created_time ? new Date(fbMessage.created_time).getTime() : 0;
+      if (latestStoredTime && fbCreatedTime && fbCreatedTime < latestStoredTime) {
+        continue;
+      }
+
       const fromId = fbMessage?.from?.id || "";
       const direction = fromId === pageId ? "outbound" : "inbound";
       const toList = Array.isArray(fbMessage?.to?.data) ? fbMessage.to.data : [];
@@ -126,9 +163,10 @@ export const fbMessengerService = {
           setDefaultsOnInsert: true,
         }
       );
+      upsertedCount += 1;
     }
 
-    console.log(`[FB Service syncMessages] Đồng bộ xong ${messages.length} tin nhắn từ Facebook cho PSID ${recipientId}`);
+    console.log(`[FB Service syncMessages] Đồng bộ xong ${upsertedCount}/${messages.length} tin nhắn từ Facebook cho PSID ${recipientId} trong ${Date.now() - startedAt}ms`);
     return FBMessageModel.find({ conversationId: refreshedConversation._id }).sort({ timestamp: 1 });
   },
 
@@ -460,18 +498,15 @@ export const fbMessengerService = {
   async getConversations(pageId?: string) {
     console.log(`[FB Service getConversations] Lọc hội thoại theo Page ID: ${pageId || "Tất cả"}`);
     const filter = pageId ? { pageId } : {};
-    let conversations = await FBConversationModel.find(filter).sort({ lastMessageAt: -1 });
-
-    if (pageId && conversations.length === 0) {
+    if (pageId && this.shouldSync(`conversations:${pageId}`, CONVERSATION_SYNC_TTL_MS)) {
       try {
         await this.syncConversationsFromFacebook(pageId);
-        conversations = await FBConversationModel.find(filter).sort({ lastMessageAt: -1 });
       } catch (error) {
         console.error(`[FB Service getConversations] Đồng bộ trực tiếp từ Facebook thất bại cho Page ID ${pageId}:`, error);
       }
     }
 
-    return conversations;
+    return FBConversationModel.find(filter).sort({ lastMessageAt: -1 });
   },
 
   /**
@@ -501,7 +536,7 @@ export const fbMessengerService = {
 
     let existingMessages = await FBMessageModel.find(filter).sort({ timestamp: -1 }).limit(limit + 1);
 
-    if (existingMessages.length === 0 && !beforeDate && conversation.recipientId) {
+    if (!beforeDate && conversation.recipientId && this.shouldSync(`messages:${pageId}:${conversation._id}`, MESSAGE_SYNC_TTL_MS)) {
       await this.syncMessagesFromFacebook(pageId, conversation.recipientId);
       existingMessages = await FBMessageModel.find(filter).sort({ timestamp: -1 }).limit(limit + 1);
     }

@@ -81,6 +81,21 @@ export default function CRMTab() {
     timestamp: new Date(m.timestamp)
   }));
 
+  const areMessagesEqual = (left: ChatMessage[], right: ChatMessage[]) => {
+    if (left.length !== right.length) return false;
+    for (let i = 0; i < left.length; i += 1) {
+      if (
+        left[i].id !== right[i].id ||
+        left[i].sender !== right[i].sender ||
+        left[i].text !== right[i].text ||
+        left[i].timestamp.getTime() !== right[i].timestamp.getTime()
+      ) {
+        return false;
+      }
+    }
+    return true;
+  };
+
   const loadConversationMessages = async (conversationId: string, mode: "replace" | "prepend" = "replace") => {
     const before = mode === "prepend" ? chatPagination.nextBefore || undefined : undefined;
     if (mode === "prepend") {
@@ -95,10 +110,13 @@ export default function CRMTab() {
         setChatHistory((prev) => {
           const seen = new Set(prev.map((item) => item.id));
           const older = mappedMsgs.filter((item) => !seen.has(item.id));
+          if (older.length === 0) {
+            return prev;
+          }
           return [...older, ...prev];
         });
       } else {
-        setChatHistory(mappedMsgs);
+        setChatHistory((prev) => (areMessagesEqual(prev, mappedMsgs) ? prev : mappedMsgs));
       }
 
       setChatPagination({
@@ -128,11 +146,12 @@ export default function CRMTab() {
             recipientId: c.recipientId,
             name: c.senderName || "Khách hàng Facebook",
             avatar: c.avatarUrl || "👤",
+            avatarUrl: c.avatarUrl || "",
             lastMessage: c.lastMessageText || "[Đính kèm]",
             time: new Date(c.lastMessageAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
             unreadCount: c.unreadCount || 0,
             isVip: c.isVip || false,
-            status: "online",
+            status: "offline",
             tags: c.tags || [],
             channel: "facebook"
           }));
@@ -157,7 +176,7 @@ export default function CRMTab() {
     fetchFbConversations();
     const interval = setInterval(fetchFbConversations, 5000);
     return () => clearInterval(interval);
-  }, [subTab, isFbConnected, activeCustomer]);
+  }, [subTab, isFbConnected, activeCustomer?.id]);
 
   // 2. Polling lịch sử tin nhắn của hội thoại Facebook đang chọn
   useEffect(() => {
