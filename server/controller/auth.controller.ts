@@ -213,4 +213,63 @@ export const authController = {
       });
     }
   },
+
+  /**
+   * POST /api/v1/auth/register-company
+   * (Chỉ dành cho superadmin)
+   */
+  async registerCompany(req: AuthenticatedRequest, res: Response) {
+    try {
+      const result = await authService.registerCompanyAndAdmin(req.body);
+      const adminObj = result.admin.toObject();
+      delete adminObj.password;
+
+      return res.status(201).json({
+        status: "success",
+        message: "Đăng ký doanh nghiệp và tài khoản Admin thành công",
+        data: {
+          company: result.company,
+          admin: adminObj,
+        },
+      });
+    } catch (error: any) {
+      console.error("[authController.registerCompany] Error:", error);
+      return res.status(400).json({
+        status: "error",
+        message: error.message || "Không thể đăng ký doanh nghiệp",
+      });
+    }
+  },
+
+  /**
+   * POST /api/v1/auth/register-user
+   * (Dành cho superadmin hoặc admin)
+   */
+  async registerUser(req: AuthenticatedRequest, res: Response) {
+    try {
+      const callerRole = req.user?.role;
+      const callerCompanyCode = req.user?.companyCode;
+
+      if (callerRole === "admin") {
+        // Admin chỉ được đăng ký user cho chính công ty mình
+        req.body.companyCode = callerCompanyCode;
+      }
+
+      const newUser = await authService.registerUserForCompany(req.body);
+      const userObj = newUser.toObject();
+      delete userObj.password;
+
+      return res.status(201).json({
+        status: "success",
+        message: "Đăng ký thành viên doanh nghiệp thành công",
+        data: userObj,
+      });
+    } catch (error: any) {
+      console.error("[authController.registerUser] Error:", error);
+      return res.status(400).json({
+        status: "error",
+        message: error.message || "Không thể đăng ký thành viên",
+      });
+    }
+  },
 };

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import Joi from "joi";
 import { authController } from "../controller/auth.controller";
-import { requireAuth } from "../middleware/auth";
+import { requireAuth, requireRole } from "../middleware/auth";
 import { validateRequest } from "../middleware/validation";
 
 export const authRouter = Router();
@@ -112,3 +112,66 @@ const changePasswordSchema = {
 
 // Thay đổi mật khẩu người dùng hiện tại (yêu cầu Access Token)
 authRouter.post("/change-password", requireAuth as any, validateRequest(changePasswordSchema), authController.changePassword as any);
+
+const registerCompanySchema = {
+  body: Joi.object({
+    companyName: Joi.string().required().messages({
+      "any.required": "Tên doanh nghiệp là bắt buộc.",
+      "string.empty": "Tên doanh nghiệp không được để trống.",
+    }),
+    companyCode: Joi.string().required().messages({
+      "any.required": "Mã doanh nghiệp là bắt buộc.",
+      "string.empty": "Mã doanh nghiệp không được để trống.",
+    }),
+    ownerName: Joi.string().required().messages({
+      "any.required": "Tên người đại diện là bắt buộc.",
+      "string.empty": "Tên người đại diện không được để trống.",
+    }),
+    ownerEmail: Joi.string().email().required().messages({
+      "any.required": "Email người đại diện là bắt buộc.",
+      "string.empty": "Email không được để trống.",
+      "string.email": "Email không đúng định dạng.",
+    }),
+    ownerPassword: Joi.string().min(6).required().messages({
+      "any.required": "Mật khẩu là bắt buộc.",
+      "string.empty": "Mật khẩu không được để trống.",
+      "string.min": "Mật khẩu phải có ít nhất 6 ký tự.",
+    }),
+  }),
+};
+
+// Đăng ký doanh nghiệp và tài khoản Admin (yêu cầu Access Token và vai trò superadmin)
+authRouter.post("/register-company", requireAuth as any, requireRole(["superadmin"]) as any, validateRequest(registerCompanySchema), authController.registerCompany as any);
+
+const registerUserSchema = {
+  body: Joi.object({
+    displayName: Joi.string().required().messages({
+      "any.required": "Tên thành viên là bắt buộc.",
+      "string.empty": "Tên thành viên không được để trống.",
+    }),
+    email: Joi.string().email().required().messages({
+      "any.required": "Email thành viên là bắt buộc.",
+      "string.empty": "Email không được để trống.",
+      "string.email": "Email không đúng định dạng.",
+    }),
+    password: Joi.string().min(6).required().messages({
+      "any.required": "Mật khẩu là bắt buộc.",
+      "string.empty": "Mật khẩu không được để trống.",
+      "string.min": "Mật khẩu phải có ít nhất 6 ký tự.",
+    }),
+    role: Joi.string().valid("user", "manager", "admin").required().messages({
+      "any.required": "Vai trò thành viên là bắt buộc.",
+      "any.only": "Vai trò thành viên không hợp lệ.",
+    }),
+    companyCode: Joi.string().optional().allow(""),
+    companyName: Joi.string().optional().allow(""),
+    parentId: Joi.string().optional().allow(""),
+    level: Joi.number().integer().optional(),
+    department: Joi.string().optional().allow(""),
+    division: Joi.string().optional().allow(""),
+    phone: Joi.string().optional().allow(""),
+  }),
+};
+
+// Đăng ký thành viên mới của doanh nghiệp (yêu cầu Access Token và vai trò superadmin hoặc admin)
+authRouter.post("/register-user", requireAuth as any, requireRole(["superadmin", "admin"]) as any, validateRequest(registerUserSchema), authController.registerUser as any);

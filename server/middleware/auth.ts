@@ -46,3 +46,18 @@ export function requireAuth(req: AuthenticatedRequest, res: Response, next: Next
     });
   }
 }
+
+/**
+ * Middleware yêu cầu người dùng phải có vai trò phù hợp
+ */
+export function requireRole(roles: string[]) {
+  return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    if (!req.user || !roles.includes(req.user.role)) {
+      return res.status(403).json({
+        status: "error",
+        message: "Bạn không có quyền truy cập tài nguyên này.",
+      });
+    }
+    next();
+  };
+}

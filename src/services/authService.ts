@@ -161,7 +161,7 @@ export const authService = {
     return [];
   },
 
-  // Đăng ký doanh nghiệp mới và tạo tài khoản Admin tương ứng (Sẽ tích hợp REST API sau)
+  // Đăng ký doanh nghiệp mới và tạo tài khoản Admin tương ứng qua REST API
   async registerCompanyAndAdmin(
     companyName: string,
     companyCode: string,
@@ -169,10 +169,28 @@ export const authService = {
     ownerEmail: string,
     ownerPassword: string
   ): Promise<void> {
-    // Placeholder
+    const res = await fetch("/api/v1/auth/register-company", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${getAccessToken()}`,
+      },
+      body: JSON.stringify({
+        companyName,
+        companyCode,
+        ownerName,
+        ownerEmail,
+        ownerPassword,
+      }),
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.message || "Đăng ký doanh nghiệp thất bại");
+    }
   },
 
-  // Đăng ký người dùng mới cho doanh nghiệp (Sẽ tích hợp REST API sau)
+  // Đăng ký người dùng mới cho doanh nghiệp qua REST API
   async registerUserForCompany(
     displayName: string,
     email: string,
@@ -186,7 +204,34 @@ export const authService = {
     division?: string,
     phone?: string
   ): Promise<string> {
-    return "";
+    const res = await fetch("/api/v1/auth/register-user", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${getAccessToken()}`,
+      },
+      body: JSON.stringify({
+        displayName,
+        email,
+        password,
+        role,
+        companyCode,
+        companyName,
+        parentId,
+        level: parentId && managerLevel ? managerLevel + 1 : undefined,
+        department,
+        division,
+        phone,
+      }),
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.message || "Đăng ký thành viên thất bại");
+    }
+
+    const result = await res.json();
+    return result.data._id; // Trả về ID của user vừa tạo
   },
 
   // Cập nhật thông tin hồ sơ cá nhân

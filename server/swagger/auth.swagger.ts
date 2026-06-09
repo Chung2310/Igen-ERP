@@ -178,5 +178,115 @@ export const authSwagger = {
         },
       },
     },
+    "/api/v1/auth/register-company": {
+      post: {
+        summary: "Đăng ký doanh nghiệp và tài khoản Admin mặc định (Superadmin only)",
+        tags: ["Xác thực (Auth)"],
+        security: [
+          {
+            BearerAuth: [],
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  companyName: { type: "string", example: "Tập đoàn ABC" },
+                  companyCode: { type: "string", example: "ABC" },
+                  ownerName: { type: "string", example: "Nguyễn Văn Admin" },
+                  ownerEmail: { type: "string", example: "admin@abc.com" },
+                  ownerPassword: { type: "string", example: "123456" },
+                },
+                required: ["companyName", "companyCode", "ownerName", "ownerEmail", "ownerPassword"],
+              },
+            },
+          },
+        },
+        responses: {
+          201: {
+            description: "Đăng ký doanh nghiệp thành công",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    status: { type: "string", example: "success" },
+                    message: { type: "string", example: "Đăng ký doanh nghiệp và tài khoản Admin thành công" },
+                    data: { type: "object" },
+                  },
+                },
+              },
+            },
+          },
+          400: {
+            description: "Mã doanh nghiệp hoặc Email đã được sử dụng",
+          },
+          403: {
+            description: "Bạn không có quyền truy cập tài nguyên này (Yêu cầu vai trò superadmin)",
+          },
+        },
+      },
+    },
+    "/api/v1/auth/register-user": {
+      post: {
+        summary: "Đăng ký thành viên mới của doanh nghiệp (Superadmin/Admin only)",
+        tags: ["Xác thực (Auth)"],
+        security: [
+          {
+            BearerAuth: [],
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  displayName: { type: "string", example: "Nguyễn Văn Nhân Viên" },
+                  email: { type: "string", example: "staff@abc.com" },
+                  password: { type: "string", example: "123456" },
+                  role: { type: "string", enum: ["user", "manager", "admin"], example: "user" },
+                  companyCode: { type: "string", example: "ABC" },
+                  companyName: { type: "string", example: "Tập đoàn ABC" },
+                  parentId: { type: "string", example: "admin_user_id" },
+                  level: { type: "integer", example: 4 },
+                  department: { type: "string", example: "Nhân sự" },
+                  division: { type: "string", example: "Nhân sự" },
+                  phone: { type: "string", example: "0987654321" },
+                },
+                required: ["displayName", "email", "password", "role"],
+              },
+            },
+          },
+        },
+        responses: {
+          201: {
+            description: "Đăng ký thành viên thành công",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    status: { type: "string", example: "success" },
+                    message: { type: "string", example: "Đăng ký thành viên doanh nghiệp thành công" },
+                    data: { type: "object" },
+                  },
+                },
+              },
+            },
+          },
+          400: {
+            description: "Mã doanh nghiệp hoặc Email đã được sử dụng",
+          },
+          403: {
+            description: "Bạn không có quyền truy cập tài nguyên này (Yêu cầu vai trò superadmin hoặc admin)",
+          },
+        },
+      },
+    },
   },
 };

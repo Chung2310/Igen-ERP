@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { UserModel } from "../model/user.model";
+import { CompanyModel } from "../model/company.model";
 import { IUser } from "../interface/user.interface";
 
 const ACCESS_TOKEN_SECRET = process.env.JWT_ACCESS_SECRET || "your_jwt_access_secret_key";
@@ -120,4 +121,101 @@ export const authService = {
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     await UserModel.findByIdAndUpdate(id, { $set: { password: hashedPassword } });
   },
+
+  /**
+   * Đăng ký doanh nghiệp mới và tài khoản admin tương ứng
+   */
+  async registerCompanyAndAdmin(data: any): Promise<any> {
+    const { companyName, companyCode, ownerName, ownerEmail, ownerPassword } = data;
+    const normalizedCode = companyCode.toUpperCase().trim();
+    const emailLower = ownerEmail.toLowerCase().trim();
+
+    // 1. Kiểm tra mã doanh nghiệp
+    const existingCompany = await CompanyModel.findOne({ code: normalizedCode });
+    if (existingCompany) {
+      throw new Error(`Mã doanh nghiệp "${normalizedCode}" đã tồn tại trên hệ thống.`);
+    }
+
+    // 2. Kiểm tra email admin
+    const existingUser = await UserModel.findOne({ email: emailLower });
+    if (existingUser) {
+      throw new Error(`Địa chỉ email "${emailLower}" đã được sử dụng cho một tài khoản khác.`);
+    }
+
+    // 3. Tạo doanh nghiệp
+    const newCompany = new CompanyModel({
+      code: normalizedCode,
+      name: companyName.trim(),
+      ownerEmail: emailLower,
+      createdAt: new Date()
+    });
+    await newCompany.save();
+
+    // 4. Tạo tài khoản admin của doanh nghiệp đó
+    const hashedPassword = await bcrypt.hash(ownerPassword, 10);
+    const adminUser = new UserModel({
+      email: emailLower,
+      password: hashedPassword,
+      displayName: ownerName.trim(),
+      role: "admin",
+      createdAt: new Date(),
+      companyCode: normalizedCode,
+      companyName: companyName.trim(),
+      jobTitle: "Chief Executive Officer (CEO)",
+      department: "Ban Giám Đốc",
+      division: "Ban Giám Đốc",
+      level: 1,
+      status: "offline",
+      photoURL: `https://ui-avatars.com/api/?name=${encodeURIComponent(ownerName.trim())}&background=random&color=fff`
+    });
+
+    await adminUser.save();
+    return { company: newCompany, admin: adminUser };
+  },
+
+  /**
+   * Đăng ký người dùng mới cho doanh nghiệp
+   */
+  async registerUserForCompany(data: any): Promise<IUser> {
+    const {
+      displayName,
+      email,
+      password,
+      role,
+      companyCode,
+      companyName,
+      parentId,
+      level,
+      department,
+      division,
+      phone,
+    } = data;
+
+    const emailLower = email.toLowerCase().trim();
+    const existingUser = await UserModel.findOne({ email: emailLower });
+    if (existingUser) {
+      throw new Error(`Địa chỉ email "${emailLower}" đã được sử dụng cho một tài khoản khác.`);
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newUser = new UserModel({
+      email: emailLower,
+      password: hashedPassword,
+      displayName: displayName.trim(),
+      role,
+      companyCode: companyCode?.toUpperCase().trim(),
+      companyName: companyName?.trim(),
+      parentId: parentId || undefined,
+      level: level || (role === "admin" ? 1 : (role === "manager" ? 3 : 4)),
+      department: department || (role === "admin" ? "Ban Giám Đốc" : (role === "manager" ? "Quản lý" : "Nhân sự")),
+      division: division || (role === "admin" ? "Ban Giám Đốc" : (role === "manager" ? "Quản lý" : "Nhân sự")),
+      jobTitle: role === "admin" ? "Chief Executive Officer (CEO)" : (role === "manager" ? "Quản lý phòng ban" : "Nhân viên"),
+      phone: phone || "Chưa cập nhật",
+      createdAt: new Date(),
+      status: "offline",
+      photoURL: `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName.trim())}&background=random&color=fff`
+    });
+
+    return await newUser.save();
+  }
 };
