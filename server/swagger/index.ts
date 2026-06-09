@@ -5,6 +5,7 @@ import { facebookPostSwagger } from "./facebook-post.swagger";
 import { tiktokSwagger } from "./tiktok.swagger";
 import { schedulerSwagger } from "./scheduler.swagger";
 import { mediaSwagger } from "./media.swagger";
+import { authSwagger } from "./auth.swagger";
 
 const swaggerDocument = {
   openapi: "3.0.0",
@@ -25,6 +26,17 @@ const swaggerDocument = {
     ...tiktokSwagger.paths,
     ...schedulerSwagger.paths,
     ...mediaSwagger.paths,
+    ...authSwagger.paths,
+  },
+  components: {
+    securitySchemes: {
+      BearerAuth: {
+        type: "http",
+        scheme: "bearer",
+        bearerFormat: "JWT",
+        description: "Điền JWT Access Token vào ô dưới đây dạng: eyJhbG...",
+      },
+    },
   },
 };
 

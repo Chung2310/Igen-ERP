@@ -2,6 +2,8 @@ import express from "express";
 import path from "path";
 import fs from "fs";
 import dotenv from "dotenv";
+import cookieParser from "cookie-parser";
+import { connectDB } from "./server/config/database";
 import { apiRouter } from "./server/router";
 import { swaggerRouter } from "./server/swagger";
 
@@ -10,7 +12,11 @@ dotenv.config();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 async function startServer() {
+  // Kết nối cơ sở dữ liệu MongoDB
+  await connectDB();
+
   const app = express();
+  app.use(cookieParser());
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
