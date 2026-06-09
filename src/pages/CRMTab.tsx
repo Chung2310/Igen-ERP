@@ -50,20 +50,11 @@ export default function CRMTab() {
   const { userProfile } = useAuth();
   const isFbConnected = userProfile?.facebookIntegration?.isConnected ?? false;
 
-  const [inboxCustomers, setInboxCustomers] = useState<CustomerInbox[]>([
-    { id: "cust-1", name: "Nguyễn Thị Mai", avatar: "👩‍💼", lastMessage: "Giá thiết bị đeo thông minh X1 là bao nhiêu ạ?", time: "3 phút trước", unreadCount: 1, isVip: true, status: "online", tags: ["Khách VIP", "Hỏi giá X1", "Khách Nóng"] },
-    { id: "cust-2", name: "Trần Hùng", avatar: "👨‍💻", lastMessage: "Bên mình có free ship nội thành Hà Nội không?", time: "18 phút trước", unreadCount: 0, isVip: false, status: "offline", tags: ["Hỏi Ship", "Khách Lạnh"] },
-    { id: "cust-3", name: "Nguyễn Văn A", avatar: "🧘", lastMessage: "Tôi đã nhận được bản thảo hợp đồng, để tôi xem lại.", time: "2 giờ trước", unreadCount: 0, isVip: true, status: "online", tags: ["Khách VIP", "Khách Nóng", "Sắp chốt HD"] },
-    { id: "cust-4", name: "Phạm Thị D", avatar: "👩‍⚕️", lastMessage: "Đã gửi lại yêu cầu số lượng, kiểm tra giúp mình nhé.", time: "1 ngày trước", unreadCount: 0, isVip: false, status: "offline", tags: ["Khách Ấm", "Đã gửi báo giá"] }
-  ]);
+  const [inboxCustomers, setInboxCustomers] = useState<CustomerInbox[]>([]);
 
-  const [activeCustomer, setActiveCustomer] = useState<CustomerInbox>(inboxCustomers[0]);
+  const [activeCustomer, setActiveCustomer] = useState<CustomerInbox | null>(null);
 
-  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([
-    { id: "c-1", sender: "user", text: "Xin chào, tôi là Mai. Tôi đang chuẩn bị quà tặng cho toàn thể nhân viên trong công ty.", timestamp: new Date(Date.now() - 3600000 * 2) },
-    { id: "c-2", sender: "ai", text: "Dạ, iGen ERP hân hạnh chào đón chị Nguyễn Thị Mai (khách VIP). Rất tuyệt vời khi chị quan tâm quà tặng công nghệ nâng cao phong cách sống cho doanh nghiệp ạ! Chị đang muốn tìm kiếm phân khúc nào ạ?", timestamp: new Date(Date.now() - 3600000) },
-    { id: "c-3", sender: "user", text: "Tôi muốn tham khảo thiết bị đeo thông minh X1. Giá thiết bị này là bao nhiêu ạ?", timestamp: new Date(Date.now() - 180000) }
-  ]);
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
 
   const [typeMessage, setTypeMessage] = useState("");
   const [aiWaiting, setAIWaiting] = useState(false);
@@ -222,7 +213,7 @@ export default function CRMTab() {
 - Link thanh toán: ${mockPayment}
 (Trạng thái: Sắp chốt HD - Khách Nóng)`;
 
-    if (activeCustomer.name.toLowerCase() === lead.customerName.toLowerCase()) {
+    if (activeCustomer && activeCustomer.name.toLowerCase() === lead.customerName.toLowerCase()) {
       setChatHistory(prev => [
         ...prev,
         {
@@ -443,6 +434,7 @@ export default function CRMTab() {
 
   // Sync active Customer status tags when leads change
   useEffect(() => {
+    if (!activeCustomer) return;
     const updatedActive = inboxCustomers.find(c => c.id === activeCustomer.id);
     if (updatedActive && updatedActive !== activeCustomer) {
       setActiveCustomer(updatedActive);

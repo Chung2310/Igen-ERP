@@ -4,7 +4,7 @@ import { CustomerInbox, ChatMessage, AIChatConfig } from "../../types";
 
 type OmniChatTabProps = {
   inboxCustomers: CustomerInbox[];
-  activeCustomer: CustomerInbox;
+  activeCustomer: CustomerInbox | null;
   chatHistory: ChatMessage[];
   typeMessage: string;
   setTypeMessage: (val: string) => void;
@@ -61,7 +61,7 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
           {inboxCustomers
             .filter(c => c.name.toLowerCase().includes(filterInbox.toLowerCase()))
             .map((cust) => {
-              const isActive = activeCustomer.id === cust.id;
+              const isActive = activeCustomer?.id === cust.id;
               const hasHotTag = cust.tags.includes("Khách Nóng");
               
               return (
@@ -131,123 +131,132 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
 
       {/* M-Col: Active Conversation details */}
       <div className="flex-1 bg-slate-50/20 flex flex-col justify-between h-full overflow-hidden" id="chat_conversation_area">
-        
-        {/* Active Customer Info Top Header */}
-        <div className="p-4 border-b border-slate-100 bg-white flex items-center justify-between shrink-0" id="chat_header">
-          <div className="flex items-center gap-3 text-left">
-            <span className="text-2xl p-1 bg-slate-50 border border-slate-100 rounded-full select-none shadow-xxs">
-              {activeCustomer.avatar}
-            </span>
-            <div>
-              <h4 className="font-extrabold text-slate-800 text-xs flex items-center gap-1.5 font-sans">
-                {activeCustomer.name}
-                {activeCustomer.isVip && (
-                  <span className="px-1.5 py-0.5 bg-amber-500 text-white text-[8px] font-extrabold rounded-md shadow-sm">VIP</span>
-                )}
-              </h4>
-              <p className="text-[9.5px] text-slate-400 font-mono mt-0.5 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full shrink-0" />
-                Đang trực tuyến • ID: {activeCustomer.id}
-              </p>
-            </div>
+        {!activeCustomer ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-400 bg-white">
+            <MessageSquare className="w-12 h-12 text-slate-200 mb-3 animate-pulse" />
+            <h4 className="font-extrabold text-slate-700 text-sm font-sans mb-1">Chưa chọn cuộc hội thoại</h4>
+            <p className="text-[11px] text-slate-400 leading-normal max-w-xs font-sans">Vui lòng chọn một cuộc trò chuyện từ danh sách bên trái hoặc nhắn tin từ thẻ cơ hội bán hàng để bắt đầu.</p>
           </div>
-          
-          <div className="flex items-center gap-1.5">
-            <span className="px-2.5 py-1 bg-blue-50 border border-blue-200 rounded-full text-blue-700 text-[10px] font-bold font-mono">
-              HỘP THƯ CHÍNH
-            </span>
-          </div>
-        </div>
-
-        {/* Messages dialogue stream feed */}
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4" id="chat_messages_stream" style={{ maxHeight: "calc(85vh - 200px)" }}>
-          {chatHistory.map((h) => {
-            const isMe = h.sender === "user";
-            const isAI = h.sender === "ai";
-            const isSystem = h.text.includes("[AI AUTOMATION]");
-            
-            return (
-              <div 
-                key={h.id}
-                className={`flex flex-col ${isMe ? "items-end" : "items-start"}`}
-              >
-                <div className="flex items-end gap-2 max-w-[75%] relative">
-                  {!isMe && (
-                    <span className="text-xl p-1 bg-slate-50 border border-slate-100 rounded-full select-none mr-1 shrink-0 shadow-xxs">
-                      {isAI ? "🤖" : "🎙️"}
-                    </span>
-                  )}
-
-                  <div className={`p-3.5 rounded-2xl relative ${
-                    isMe 
-                      ? "bg-slate-900 border border-slate-700 text-white rounded-br-none text-right font-sans text-xs" 
-                      : isSystem
-                        ? "bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-bl-none text-left font-mono text-[10.5px]"
-                        : isAI
-                          ? "bg-indigo-50/70 border border-indigo-100 text-indigo-900 rounded-bl-none text-left font-sans text-xs"
-                          : "bg-slate-100 text-slate-800 rounded-bl-none text-left font-sans text-xs"
-                  }`}>
-                    {isAI && (
-                      <span className={`text-[8px] font-mono block font-bold tracking-wider mb-1 uppercase ${
-                        isSystem ? "text-emerald-600" : "text-indigo-500"
-                      }`}>
-                        {isSystem ? "✦ HỆ THỐNG AI TỰ ĐỘNG CHỐT SALES" : "✦ iGen AI Assistant (Trả lời tự động)"}
-                      </span>
+        ) : (
+          <>
+            {/* Active Customer Info Top Header */}
+            <div className="p-4 border-b border-slate-100 bg-white flex items-center justify-between shrink-0" id="chat_header">
+              <div className="flex items-center gap-3 text-left">
+                <span className="text-2xl p-1 bg-slate-50 border border-slate-100 rounded-full select-none shadow-xxs">
+                  {activeCustomer.avatar}
+                </span>
+                <div>
+                  <h4 className="font-extrabold text-slate-800 text-xs flex items-center gap-1.5 font-sans">
+                    {activeCustomer.name}
+                    {activeCustomer.isVip && (
+                      <span className="px-1.5 py-0.5 bg-amber-500 text-white text-[8px] font-extrabold rounded-md shadow-sm">VIP</span>
                     )}
-                    <p className="leading-relaxed whitespace-pre-wrap select-text">{h.text}</p>
-                  </div>
+                  </h4>
+                  <p className="text-[9.5px] text-slate-400 font-mono mt-0.5 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full shrink-0" />
+                    Đang trực tuyến • ID: {activeCustomer.id}
+                  </p>
                 </div>
-                
-                <span className="text-[8.5px] text-slate-400 font-mono mt-1.5 select-none font-sans">
-                  {isMe ? "CRM Operator • " : ""}
-                  {new Date(h.timestamp).toLocaleTimeString("vi-VN", { hour: "numeric", minute: "numeric" })}
+              </div>
+              
+              <div className="flex items-center gap-1.5">
+                <span className="px-2.5 py-1 bg-blue-50 border border-blue-200 rounded-full text-blue-700 text-[10px] font-bold font-mono">
+                  HỘP THƯ CHÍNH
                 </span>
               </div>
-            );
-          })}
-
-          {/* Pulsing Loading active thinking response from AI */}
-          {aiWaiting && (
-            <div className="flex items-start gap-2.5" id="ai_thinking_marker">
-              <span className="text-xl p-1 bg-slate-50 border border-indigo-100 rounded-full select-none shrink-0 shadow-xxs animate-spin-slow">🤖</span>
-              <div className="p-3 bg-indigo-50/50 border border-indigo-100 rounded-2xl rounded-bl-none text-left">
-                <span className="text-[8px] font-mono block text-indigo-400 font-bold mb-1 uppercase tracking-widest">Trợ lý AI đang soạn câu trả lời...</span>
-                <div className="flex gap-1.5 justify-center py-1">
-                  <span className="w-1.5 h-1.5 bg-indigo-600 rounded-full animate-bounce" style={{ animationDelay: "0s" }} />
-                  <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: "0.2s" }} />
-                  <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: "0.4s" }} />
-                </div>
-              </div>
             </div>
-          )}
-          
-          <div ref={chatBottomRef} />
-        </div>
 
-        {/* Chat Send Input Box area */}
-        <form onSubmit={handleSendChatMessage} className="p-4 border-t border-slate-100 bg-white" id="chat_input_section">
-          <div className="flex gap-3">
-            <input 
-              type="text" 
-              placeholder={`Gửi phản hồi cho ${activeCustomer.name}...`}
-              className="flex-1 text-left px-4 py-3 border border-slate-200 bg-slate-50/40 rounded-xl text-xs focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none font-sans"
-              value={typeMessage}
-              onChange={(e) => setTypeMessage(e.target.value)}
-              disabled={aiWaiting}
-            />
-            <button 
-              type="submit"
-              disabled={aiWaiting || !typeMessage.trim()}
-              className={`p-3 rounded-xl transition-all shadow-sm flex items-center justify-center shrink-0 ${
-                aiWaiting || !typeMessage.trim()
-                  ? "bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200"
-                  : "bg-blue-600 hover:bg-blue-700 text-white cursor-pointer active:scale-95 shadow-md shadow-blue-500/10"
-              }`}
-            >
-              <Send className="w-4 h-4" />
-            </button>
-          </div>
-        </form>
+            {/* Messages dialogue stream feed */}
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4" id="chat_messages_stream" style={{ maxHeight: "calc(85vh - 200px)" }}>
+              {chatHistory.map((h) => {
+                const isMe = h.sender === "user";
+                const isAI = h.sender === "ai";
+                const isSystem = h.text.includes("[AI AUTOMATION]");
+                
+                return (
+                  <div 
+                    key={h.id}
+                    className={`flex flex-col ${isMe ? "items-end" : "items-start"}`}
+                  >
+                    <div className="flex items-end gap-2 max-w-[75%] relative">
+                      {!isMe && (
+                        <span className="text-xl p-1 bg-slate-50 border border-slate-100 rounded-full select-none mr-1 shrink-0 shadow-xxs">
+                          {isAI ? "🤖" : "🎙️"}
+                        </span>
+                      )}
+
+                      <div className={`p-3.5 rounded-2xl relative ${
+                        isMe 
+                          ? "bg-slate-900 border border-slate-700 text-white rounded-br-none text-right font-sans text-xs" 
+                          : isSystem
+                            ? "bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-bl-none text-left font-mono text-[10.5px]"
+                            : isAI
+                              ? "bg-indigo-50/70 border border-indigo-100 text-indigo-900 rounded-bl-none text-left font-sans text-xs"
+                              : "bg-slate-100 text-slate-800 rounded-bl-none text-left font-sans text-xs"
+                      }`}>
+                        {isAI && (
+                          <span className={`text-[8px] font-mono block font-bold tracking-wider mb-1 uppercase ${
+                            isSystem ? "text-emerald-600" : "text-indigo-500"
+                          }`}>
+                            {isSystem ? "✦ HỆ THỐNG AI TỰ ĐỘNG CHỐT SALES" : "✦ iGen AI Assistant (Trả lời tự động)"}
+                          </span>
+                        )}
+                        <p className="leading-relaxed whitespace-pre-wrap select-text">{h.text}</p>
+                      </div>
+                    </div>
+                    
+                    <span className="text-[8.5px] text-slate-400 font-mono mt-1.5 select-none font-sans">
+                      {isMe ? "CRM Operator • " : ""}
+                      {new Date(h.timestamp).toLocaleTimeString("vi-VN", { hour: "numeric", minute: "numeric" })}
+                    </span>
+                  </div>
+                );
+              })}
+
+              {/* Pulsing Loading active thinking response from AI */}
+              {aiWaiting && (
+                <div className="flex items-start gap-2.5" id="ai_thinking_marker">
+                  <span className="text-xl p-1 bg-slate-50 border border-indigo-100 rounded-full select-none shrink-0 shadow-xxs animate-spin-slow">🤖</span>
+                  <div className="p-3 bg-indigo-50/50 border border-indigo-100 rounded-2xl rounded-bl-none text-left">
+                    <span className="text-[8px] font-mono block text-indigo-400 font-bold mb-1 uppercase tracking-widest">Trợ lý AI đang soạn câu trả lời...</span>
+                    <div className="flex gap-1.5 justify-center py-1">
+                      <span className="w-1.5 h-1.5 bg-indigo-600 rounded-full animate-bounce" style={{ animationDelay: "0s" }} />
+                      <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: "0.2s" }} />
+                      <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: "0.4s" }} />
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              <div ref={chatBottomRef} />
+            </div>
+
+            {/* Chat Send Input Box area */}
+            <form onSubmit={handleSendChatMessage} className="p-4 border-t border-slate-100 bg-white" id="chat_input_section">
+              <div className="flex gap-3">
+                <input 
+                  type="text" 
+                  placeholder={`Gửi phản hồi cho ${activeCustomer.name}...`}
+                  className="flex-1 text-left px-4 py-3 border border-slate-200 bg-slate-50/40 rounded-xl text-xs focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none font-sans"
+                  value={typeMessage}
+                  onChange={(e) => setTypeMessage(e.target.value)}
+                  disabled={aiWaiting}
+                />
+                <button 
+                  type="submit"
+                  disabled={aiWaiting || !typeMessage.trim()}
+                  className={`p-3 rounded-xl transition-all shadow-sm flex items-center justify-center shrink-0 ${
+                    aiWaiting || !typeMessage.trim()
+                      ? "bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200"
+                      : "bg-blue-600 hover:bg-blue-700 text-white cursor-pointer active:scale-95 shadow-md shadow-blue-500/10"
+                  }`}
+                >
+                  <Send className="w-4 h-4" />
+                </button>
+              </div>
+            </form>
+          </>
+        )}
       </div>
 
       {/* R-Col: Config side-panel sidebar for custom AI assistant parameters */}
