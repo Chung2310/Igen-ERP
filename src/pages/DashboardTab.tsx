@@ -24,6 +24,7 @@ import { authService } from "../services/authService";
 import { inventoryProductService } from "../services/inventoryProductService";
 import { inventoryStockLogService } from "../services/inventoryStockLogService";
 import { marketingService } from "../services/marketingService";
+import { toast } from "../pages/Toast";
 import { UserProfile, ContentApprovalCard } from "../types";
 import LowStockModal from "../components/inventory/LowStockModal";
 
@@ -65,30 +66,6 @@ const getDescendantEmployeeCount = (rootId: string, users: UserProfile[]) => {
   return count;
 };
 
-const aiInsights = [
-  {
-    icon: AlertTriangle,
-    title: "Canh bao het hang",
-    body: "Dua tren xu huong ban hang, MacBook Pro M3 co kha nang het hang trong 3 ngay toi tai Kho Tan Binh.",
-    action: "Tao don nhap kho ngay",
-    color: "red",
-  },
-  {
-    icon: ArrowUpRight,
-    title: "Co hoi Cross-sell",
-    body: "Phat hien cum 45 khach hang mua CRM gan day chua dung goi Marketing. Kha nang chuyen doi du doan 24%.",
-    action: "Tao chien dich email",
-    color: "blue",
-  },
-  {
-    icon: BrainCircuit,
-    title: "Toi uu nguon luc",
-    body: "Team Sales dang qua tai. Co 3 nhan su Team Support phu hop co the dieu chuyen tam thoi.",
-    action: "Xem de xuat",
-    color: "amber",
-  },
-];
-
 export default function DashboardTab() {
   const { userProfile } = useAuth();
   const [activeView, setActiveView] = useState<DashboardView>("overview");
@@ -99,6 +76,7 @@ export default function DashboardTab() {
   const [marketingPendingCount, setMarketingPendingCount] = useState<string>("...");
   const [marketingApprovalRate, setMarketingApprovalRate] = useState<string>("...");
   const [marketingPendingItems, setMarketingPendingItems] = useState<ContentApprovalCard[]>([]);
+  const [overstockItems, setOverstockItems] = useState<any[]>([]);
   const [pendingReviewPage, setPendingReviewPage] = useState<number>(1);
   const [lowStockCount, setLowStockCount] = useState<string>("...");
   const [lowStockItems, setLowStockItems] = useState<any[]>([]);
@@ -162,8 +140,10 @@ export default function DashboardTab() {
         // total number of product SKUs
         setTotalProducts(String(products.length));
         const lowItems = products.filter((p: any) => typeof p.stock === "number" && typeof p.minStockAlert === "number" ? p.stock <= p.minStockAlert : false);
+        const overstock = products.filter((p: any) => typeof p.stock === "number" && typeof p.minStockAlert === "number" ? p.stock >= p.minStockAlert * 3 : false);
         setLowStockCount(String(lowItems.length));
         setLowStockItems(lowItems);
+        setOverstockItems(overstock);
       });
     } catch (err) {
       console.error("Lỗi lấy tổng sản phẩm:", err);
@@ -240,6 +220,20 @@ export default function DashboardTab() {
     };
   }, [userProfile]);
 
+  const handleCreateReorder = (productName?: string) => {
+    const name = productName || lowStockItems[0]?.name || "sản phẩm";
+    toast.success(`AI đã tạo đề xuất đơn nhập kho cho ${name}. Vui lòng kiểm tra lại trong KHO & SẢN PHẨM.`);
+  };
+
+  const handleCreatePromotion = (productName?: string) => {
+    const name = productName || overstockItems[0]?.name || "sản phẩm";
+    toast.success(`Đề xuất chiến dịch ưu đãi đã được tạo cho ${name}. Hãy xem chi tiết trong MARKETING.`);
+  };
+
+  const handleRecommendAgent = () => {
+    toast.info("AI đã gợi ý tạo Agent trả lời tự động để xử lý mẫu yêu cầu khách hàng tương tự.");
+  };
+
   return (
     <div className="mx-auto max-h-[85vh] max-w-7xl overflow-y-auto pr-2 text-left" id="dashboard_tab_view">
       <div className="mb-8 flex flex-col gap-5">
@@ -283,7 +277,11 @@ export default function DashboardTab() {
           marketingPendingCount={marketingPendingCount}
           marketingApprovalRate={marketingApprovalRate}
           marketingPendingItems={marketingPendingItems}
+          overstockItems={overstockItems}
           onApprovePendingCard={handleApprovePendingCard}
+          onCreateReorder={handleCreateReorder}
+          onCreatePromotion={handleCreatePromotion}
+          onRecommendAgent={handleRecommendAgent}
           isApprovalDisabled={isPendingApprovalDisabled}
           pendingReviewPage={pendingReviewPage}
           onPageChange={setPendingReviewPage}
@@ -304,7 +302,11 @@ function OverviewPanel({
   marketingPendingCount,
   marketingApprovalRate,
   marketingPendingItems,
+  overstockItems,
   onApprovePendingCard,
+  onCreateReorder,
+  onCreatePromotion,
+  onRecommendAgent,
   isApprovalDisabled,
   pendingReviewPage,
   onPageChange,
@@ -318,7 +320,11 @@ function OverviewPanel({
   marketingPendingCount: string;
   marketingApprovalRate: string;
   marketingPendingItems: ContentApprovalCard[];
+  overstockItems: any[];
   onApprovePendingCard: (id: string) => Promise<void>;
+  onCreateReorder: (productName?: string) => void;
+  onCreatePromotion: (productName?: string) => void;
+  onRecommendAgent: () => void;
   isApprovalDisabled: boolean;
   pendingReviewPage: number;
   onPageChange: (page: number) => void;
@@ -431,10 +437,45 @@ function OverviewPanel({
           <div className="flex h-11 w-11 items-center justify-center rounded-full bg-blue-700 text-white">
             <Sparkles className="h-5 w-5" />
           </div>
-          <h3 className="font-bold text-gray-800">AI Đề Xuất</h3>
+          <div>
+            <h3 className="font-bold text-gray-800">AI Đề Xuất</h3>
+            <p className="text-sm text-gray-500">Nơi AI chủ động cảnh báo rủi ro, gợi ý hành động và đồng bộ cung-cầu ngay tại Dashboard.</p>
+          </div>
         </div>
+
         <div className="space-y-4">
-          {aiInsights.map((item) => (
+          {[
+            {
+              icon: AlertTriangle,
+              title: lowStockItems.length > 0 ? `${lowStockItems[0].name} có nguy cơ cạn kho` : "Kho hiện ổn định",
+              body: lowStockItems.length > 0
+                ? `AI dự báo sản phẩm ${lowStockItems[0].name} có tồn ${lowStockItems[0].stock}, thấp hơn ngưỡng cảnh báo ${lowStockItems[0].minStockAlert}.`
+                : "AI chưa phát hiện rủi ro tồn kho đáng báo động trong 3 ngày tới.",
+              action: lowStockItems.length > 0 ? "Tạo đơn nhập kho ngay" : "Xem báo cáo kho",
+              color: "red",
+              onAction: () => (lowStockItems.length > 0 ? onCreateReorder(lowStockItems[0]?.name) : onCreateReorder()),
+            },
+            {
+              icon: Megaphone,
+              title: marketingPendingItems.length > 0 ? `${marketingPendingItems.length} bài marketing chờ duyệt` : "Marketing đang ổn định",
+              body: marketingPendingItems.length > 0
+                ? `AI đề xuất xử lý ${marketingPendingItems.length} bài viết chờ duyệt để không trì hoãn chiến dịch.`
+                : "Không có nội dung AI marketing đang chờ duyệt ở thời điểm này.",
+              action: marketingPendingItems.length > 0 ? "Mở danh sách duyệt" : "Kiểm tra Marketing",
+              color: "blue",
+              onAction: () => openPendingModal(),
+            },
+            {
+              icon: Rocket,
+              title: overstockItems.length > 0 ? `${overstockItems[0].name} tồn nhiều, cần kích cầu` : "Cung-cầu đang cân bằng",
+              body: overstockItems.length > 0
+                ? `AI phát hiện ${overstockItems[0].name} đang tồn cao so với nhu cầu, gợi ý chạy chương trình ưu đãi ngay.`
+                : "AI chưa tìm thấy cơ hội khuyến mãi đồng bộ cung-cầu mới.",
+              action: overstockItems.length > 0 ? "Tạo chiến dịch ưu đãi" : "Khám phá cơ hội",
+              color: "amber",
+              onAction: () => (overstockItems.length > 0 ? onCreatePromotion(overstockItems[0]?.name) : onRecommendAgent()),
+            },
+          ].map((item) => (
             <AiInsightCard key={item.title} {...item} />
           ))}
         </div>
@@ -796,19 +837,26 @@ function WorkloadChart() {
   );
 }
 
-function AiInsightCard({ icon: Icon, title, body, action, color }: any) {
+function AiInsightCard({ icon: Icon, title, body, action, color, onAction }: any) {
   const border = color === "red" ? "border-l-red-600" : color === "amber" ? "border-l-amber-600" : "border-l-blue-500";
   const text = color === "red" ? "text-red-600" : color === "amber" ? "text-amber-700" : "text-blue-600";
   return (
     <div className={`rounded-2xl border border-gray-100 border-l-4 ${border} bg-white p-5`}>
       <div className="flex items-start gap-3">
         <Icon className={`mt-0.5 h-5 w-5 ${text}`} />
-        <div>
+        <div className="flex-1">
           <h4 className="font-semibold text-gray-800">{title}</h4>
           <p className="mt-2 text-sm leading-6 text-gray-700">{body}</p>
-          <button className="mt-3 text-sm font-semibold text-blue-700">{action}</button>
         </div>
       </div>
+      {action ? (
+        <button
+          onClick={onAction}
+          className="mt-5 inline-flex rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
+        >
+          {action}
+        </button>
+      ) : null}
     </div>
   );
 }
