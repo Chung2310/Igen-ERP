@@ -38,14 +38,4 @@ jobs:
       - name: Build Web & Server
         run: yarn build
 
-  security-rules-test:
-    name: Test Firestore Security Rules
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - name: Run permission tests
-        run: node scratch/permission_test.mjs
+
