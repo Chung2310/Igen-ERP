@@ -3,6 +3,7 @@ import type { User } from "firebase/auth";
 import { authService } from "../services/authService";
 import { UserProfile, FacebookIntegration, TikTokIntegration } from "../types";
 import { toast } from "../pages/Toast";
+import { parseFirebaseError } from "../utils/firebaseErrorParser";
 
 interface AuthContextType {
   user: User | null;
@@ -78,7 +79,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       toast.success("Đăng nhập tài khoản thành công!");
     } catch (error: any) {
       console.error("[loginWithEmail] Error:", error);
-      toast.error(error.message || "Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.");
+      const friendlyMsg = parseFirebaseError(error, "Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.");
+      toast.error(friendlyMsg);
       throw error;
     } finally {
       setLoading(false);
@@ -93,7 +95,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await loginWithEmail(email, password, rememberMe);
     } catch (error: any) {
       console.error("[registerWithEmail] Error:", error);
-      toast.error(error.message || "Đăng ký thất bại. Vui lòng thử lại.");
+      const friendlyMsg = parseFirebaseError(error, "Đăng ký thất bại. Vui lòng thử lại.");
+      toast.error(friendlyMsg);
       throw error;
     } finally {
       setLoading(false);

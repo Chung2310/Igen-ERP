@@ -82,6 +82,17 @@ export function parseFirebaseError(error: any, fallbackMessage: string = "Đã x
     return "Lỗi kết nối mạng. Vui lòng kiểm tra lại đường truyền Internet.";
   }
 
+  // --- Express JWT & Connection Errors ---
+  if (cleanMsg.includes("failed to fetch") || cleanMsg.includes("fetch failed") || cleanMsg.includes("typeerror")) {
+    return "Không thể kết nối tới máy chủ. Vui lòng kiểm tra kết nối Internet hoặc máy chủ đang bảo trì.";
+  }
+  if (cleanMsg.includes("tài khoản hoặc mật khẩu không chính xác") || cleanMsg.includes("email hoặc mật khẩu không chính xác") || cleanMsg.includes("wrong-password")) {
+    return "Tài khoản hoặc mật khẩu không chính xác. Vui lòng kiểm tra lại.";
+  }
+  if (cleanMsg.includes("không tìm thấy") || cleanMsg.includes("không tồn tại")) {
+    return "Tài khoản không tồn tại trên hệ thống.";
+  }
+
   // --- Firebase Storage Errors ---
   if (cleanCode === "storage/quota-exceeded" || cleanMsg.includes("quota-exceeded") || cleanMsg.includes("quota exceeded")) {
     return "Không thể tải lên tệp tin: Dung lượng lưu trữ (Storage Quota) của hệ thống đã bị vượt quá giới hạn hoặc tài khoản thanh toán bị tạm khóa. Vui lòng liên hệ quản trị viên để nâng cấp gói hoặc kiểm tra lại thẻ Visa liên kết.";
