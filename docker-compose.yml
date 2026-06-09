@@ -11,6 +11,8 @@ services:
       - "3000:3000"
     env_file:
       - .env
+    volumes:
+      - .env:/app/.env
     networks:
       - default_network
 networks:

@@ -79,11 +79,11 @@ jobs:
             echo "    env_file:" >> docker-compose.yml
             echo "      - .env" >> docker-compose.yml
             echo "    networks:" >> docker-compose.yml
-            echo "      - erpnet" >> docker-compose.yml
+            echo "      - default_network" >> docker-compose.yml
             echo "" >> docker-compose.yml
             echo "networks:" >> docker-compose.yml
-            echo "  erpnet:" >> docker-compose.yml
-            echo "    driver: bridge" >> docker-compose.yml
+            echo "  default_network:" >> docker-compose.yml
+            echo "    external: true" >> docker-compose.yml
 
             # Đăng nhập vào GHCR trên VPS
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
