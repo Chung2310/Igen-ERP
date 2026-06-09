@@ -2,6 +2,7 @@ import { Router } from "express";
 import Joi from "joi";
 import { tiktokController } from "../controller/tiktok.controller";
 import { validateRequest } from "../middleware/validation";
+import { requireAuth } from "../middleware/auth";
 
 export const tiktokRouter = Router();
 
@@ -30,6 +31,7 @@ const publishSchema = {
 // Route đăng bài viết lên TikTok (MOCK)
 tiktokRouter.post(
   "/publish",
+  requireAuth as any,
   validateRequest(publishSchema),
   tiktokController.publish
 );
@@ -50,6 +52,7 @@ const validateTokenSchema = {
 // Route xác thực token liên kết TikTok qua n8n
 tiktokRouter.post(
   "/validate-token",
+  requireAuth as any,
   validateRequest(validateTokenSchema),
   tiktokController.validateToken
 );

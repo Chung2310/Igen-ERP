@@ -2,6 +2,7 @@ import { Router } from "express";
 import Joi from "joi";
 import { facebookPostController } from "../controller/facebook-post.controller";
 import { validateRequest } from "../middleware/validation";
+import { requireAuth } from "../middleware/auth";
 
 export const facebookPostRouter = Router();
 
@@ -39,6 +40,7 @@ const validateTokenSchema = {
 // Route đăng bài viết lên Facebook Page qua n8n
 facebookPostRouter.post(
   "/publish",
+  requireAuth as any,
   validateRequest(publishSchema),
   facebookPostController.publish
 );
@@ -46,6 +48,7 @@ facebookPostRouter.post(
 // Route xác thực token liên kết Page Facebook qua n8n
 facebookPostRouter.post(
   "/validate-token",
+  requireAuth as any,
   validateRequest(validateTokenSchema),
   facebookPostController.validateToken
 );
