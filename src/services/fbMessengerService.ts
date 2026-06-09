@@ -26,9 +26,14 @@ export const fbMessengerService = {
   /**
    * Lấy lịch sử tin nhắn của một cuộc hội thoại cụ thể
    */
-  async getMessages(recipientId: string): Promise<any[]> {
+  async getMessages(recipientId: string, options?: { limit?: number; before?: string }): Promise<{ data: any[]; pagination: { limit: number; hasMore: boolean; nextBefore: string | null } }> {
+    const params = new URLSearchParams();
+    params.set("limit", String(options?.limit || 20));
+    if (options?.before) {
+      params.set("before", options.before);
+    }
     console.log(`[FE FB Service] Bắt đầu gọi API getMessages cho khách hàng PSID: ${recipientId}...`);
-    const res = await fetch(`/api/v1/facebook/messenger/conversations/${recipientId}/messages`, {
+    const res = await fetch(`/api/v1/facebook/messenger/conversations/${recipientId}/messages?${params.toString()}`, {
       headers: {
         "Authorization": `Bearer ${getAccessToken()}`,
       },
@@ -42,7 +47,10 @@ export const fbMessengerService = {
     
     const result = await res.json();
     console.log(`[FE FB Service] API getMessages cho PSID ${recipientId} thành công. Số lượng tin nhắn: ${result.data?.length || 0}`);
-    return result.data || [];
+    return {
+      data: result.data || [],
+      pagination: result.pagination || { limit: options?.limit || 20, hasMore: false, nextBefore: null }
+    };
   },
 
   /**

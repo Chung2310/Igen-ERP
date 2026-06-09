@@ -82,8 +82,16 @@ export interface ChatMessage {
   status?: "sent" | "delivered" | "read";
 }
 
+export interface ChatPagination {
+  limit: number;
+  hasMore: boolean;
+  nextBefore: string | null;
+  loadingMore: boolean;
+}
+
 export interface CustomerInbox {
   id: string;
+  recipientId?: string;
   name: string;
   avatar: string;
   lastMessage: string;

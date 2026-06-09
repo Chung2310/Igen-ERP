@@ -111,9 +111,11 @@ export const fbMessengerController = {
    */
   async getMessages(req: any, res: Response): Promise<any> {
     try {
-      const { recipientId } = req.params;
+      const { recipientId: conversationId } = req.params;
       const userId = req.user?.id;
-      console.log(`[FB Controller getMessages] Lấy tin nhắn với khách hàng PSID: ${recipientId}, User ID yêu cầu: ${userId}`);
+      const limit = Number(req.query.limit || 20);
+      const before = typeof req.query.before === "string" ? req.query.before : undefined;
+      console.log(`[FB Controller getMessages] Lấy tin nhắn với Conversation ID: ${conversationId}, User ID yêu cầu: ${userId}`);
 
       if (!userId) {
         return res.status(401).json({
@@ -134,12 +136,13 @@ export const fbMessengerController = {
         });
       }
 
-      const messages = await fbMessengerService.getMessages(pageId, recipientId);
-      console.log(`[FB Controller getMessages] Lấy thành công ${messages.length} tin nhắn giữa Page ${pageId} và khách hàng PSID ${recipientId}`);
+      const result = await fbMessengerService.getMessages(pageId, conversationId, { limit, before });
+      console.log(`[FB Controller getMessages] Lấy thành công ${result.messages.length} tin nhắn cho conversation ${conversationId} của Page ${pageId}`);
 
       res.status(200).json({
         success: true,
-        data: messages
+        data: result.messages,
+        pagination: result.pagination
       });
     } catch (error: any) {
       console.error("[FB Controller getMessages] Lỗi khi lấy lịch sử tin nhắn:", error);
@@ -156,10 +159,10 @@ export const fbMessengerController = {
    */
   async sendReply(req: any, res: Response): Promise<any> {
     try {
-      const { recipientId, text } = req.body;
+      const { recipientId: conversationId, text } = req.body;
       const userId = req.user?.id;
 
-      console.log(`[FB Controller sendReply] Yêu cầu gửi phản hồi từ User ID ${userId} tới khách hàng PSID ${recipientId}. Nội dung: "${text}"`);
+      console.log(`[FB Controller sendReply] Yêu cầu gửi phản hồi từ User ID ${userId} tới conversation ${conversationId}. Nội dung: "${text}"`);
 
       if (!userId) {
         return res.status(401).json({
@@ -179,15 +182,15 @@ export const fbMessengerController = {
         });
       }
 
-      if (!recipientId || !text) {
+      if (!conversationId || !text) {
         return res.status(400).json({
           success: false,
           message: "Thiếu recipientId hoặc nội dung text."
         });
       }
 
-      const result = await fbMessengerService.sendReply(pageId, recipientId, text);
-      console.log(`[FB Controller sendReply] Đã gửi thành công phản hồi tới PSID: ${recipientId}. Mã tin nhắn: ${result.messageId}`);
+      const result = await fbMessengerService.sendReply(pageId, conversationId, text);
+      console.log(`[FB Controller sendReply] Đã gửi thành công phản hồi tới conversation: ${conversationId}. Mã tin nhắn: ${result.messageId}`);
 
       res.status(200).json({
         success: true,
