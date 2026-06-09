@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Activity, Zap, FileText, DollarSign, MessageSquare } from "lucide-react";
-import { CRMSubTabType, ChatMessage, CustomerInbox, AIChatConfig } from "../types";
+import { CRMSubTabType, ChatMessage, CustomerInbox, AIChatConfig, ChatPagination } from "../types";
 import { geminiApi } from "../api/gemini";
 import { toast } from "./Toast";
 import { crmService, ExtendedLeadCard } from "../services/crmService";
@@ -55,6 +55,12 @@ export default function CRMTab() {
   const [activeCustomer, setActiveCustomer] = useState<CustomerInbox | null>(null);
 
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+  const [chatPagination, setChatPagination] = useState<ChatPagination>({
+    limit: 20,
+    hasMore: false,
+    nextBefore: null,
+    loadingMore: false,
+  });
 
   const [typeMessage, setTypeMessage] = useState("");
   const [aiWaiting, setAIWaiting] = useState(false);
@@ -68,6 +74,45 @@ export default function CRMTab() {
     advancedInstructions: "Luôn ưu tiên xưng hô lịch thiệp. Hỏi thăm nhu cầu chăm sóc sức khỏe của doanh nghiệp."
   });
 
+  const mapFbMessages = (msgs: any[]): ChatMessage[] => msgs.map((m: any) => ({
+    id: m._id || m.messageId,
+    sender: m.direction === "inbound" ? "user" : "agent",
+    text: m.text || "[Đính kèm]",
+    timestamp: new Date(m.timestamp)
+  }));
+
+  const loadConversationMessages = async (conversationId: string, mode: "replace" | "prepend" = "replace") => {
+    const before = mode === "prepend" ? chatPagination.nextBefore || undefined : undefined;
+    if (mode === "prepend") {
+      setChatPagination((prev) => ({ ...prev, loadingMore: true }));
+    }
+
+    try {
+      const result = await fbMessengerService.getMessages(conversationId, { limit: 20, before });
+      const mappedMsgs = mapFbMessages(result.data);
+
+      if (mode === "prepend") {
+        setChatHistory((prev) => {
+          const seen = new Set(prev.map((item) => item.id));
+          const older = mappedMsgs.filter((item) => !seen.has(item.id));
+          return [...older, ...prev];
+        });
+      } else {
+        setChatHistory(mappedMsgs);
+      }
+
+      setChatPagination({
+        limit: result.pagination.limit || 20,
+        hasMore: !!result.pagination.hasMore,
+        nextBefore: result.pagination.nextBefore || null,
+        loadingMore: false,
+      });
+    } catch (err) {
+      setChatPagination((prev) => ({ ...prev, loadingMore: false }));
+      throw err;
+    }
+  };
+
   // 1. Polling danh sách hội thoại Facebook thật nếu đã kết nối
   useEffect(() => {
     if (subTab !== "OMNI-INBOX CHAT" || !isFbConnected) return;
@@ -79,7 +124,8 @@ export default function CRMTab() {
         console.log("[FE CRMTab] Đã lấy dữ liệu hội thoại Facebook:", data);
         if (data && data.length > 0) {
           const mapped: CustomerInbox[] = data.map((c: any) => ({
-            id: c.recipientId, // PSID của khách hàng
+            id: c._id, // DB conversation id
+            recipientId: c.recipientId,
             name: c.senderName || "Khách hàng Facebook",
             avatar: c.avatarUrl || "👤",
             lastMessage: c.lastMessageText || "[Đính kèm]",
@@ -117,18 +163,11 @@ export default function CRMTab() {
   useEffect(() => {
     if (subTab !== "OMNI-INBOX CHAT" || !activeCustomer) return;
 
-    const fetchFbMessages = async () => {
-      console.log(`[FE CRMTab] Polling lịch sử tin nhắn cho khách hàng ID: ${activeCustomer.id}...`);
-      try {
-        const msgs = await fbMessengerService.getMessages(activeCustomer.id);
-        const mappedMsgs: ChatMessage[] = msgs.map((m: any) => ({
-          id: m._id || m.messageId,
-          sender: m.direction === "inbound" ? "user" : "agent",
-          text: m.text,
-          timestamp: new Date(m.timestamp)
-        }));
-        console.log(`[FE CRMTab] Đã tải ${mappedMsgs.length} tin nhắn cho khách hàng ID: ${activeCustomer.id}`);
-        setChatHistory(mappedMsgs);
+      const fetchFbMessages = async () => {
+        console.log(`[FE CRMTab] Polling lịch sử tin nhắn cho conversation ID: ${activeCustomer.id}...`);
+        try {
+        await loadConversationMessages(activeCustomer.id, "replace");
+        console.log(`[FE CRMTab] Đã tải tin nhắn mới nhất cho conversation ID: ${activeCustomer.id}`);
       } catch (err) {
         console.error("[FE CRMTab] Lỗi khi tải tin nhắn Facebook:", err);
       }
@@ -145,17 +184,20 @@ export default function CRMTab() {
     console.log(`[FE CRMTab] Khách hàng thật (Facebook) "${cust.name}". Tải tin nhắn từ server...`);
     // Real Facebook flow
     try {
-      const msgs = await fbMessengerService.getMessages(cust.id);
-      const mappedMsgs: ChatMessage[] = msgs.map((m: any) => ({
-        id: m._id || m.messageId,
-        sender: m.direction === "inbound" ? "user" : "agent",
-        text: m.text,
-        timestamp: new Date(m.timestamp)
-      }));
-      console.log(`[FE CRMTab] Tải tin nhắn cho khách hàng thật thành công. Số lượng: ${mappedMsgs.length}`);
-      setChatHistory(mappedMsgs);
+      await loadConversationMessages(cust.id, "replace");
+      console.log(`[FE CRMTab] Tải tin nhắn cho khách hàng thật thành công.`);
     } catch (err) {
       console.error("[FE CRMTab] Lỗi khi lấy lịch sử tin nhắn khách hàng thật:", err);
+    }
+  };
+
+  const handleLoadOlderMessages = async () => {
+    if (!activeCustomer || !chatPagination.hasMore || chatPagination.loadingMore) return;
+    try {
+      await loadConversationMessages(activeCustomer.id, "prepend");
+    } catch (err) {
+      console.error("[FE CRMTab] Lỗi khi tải thêm tin nhắn cũ:", err);
+      toast.error("Không thể tải thêm tin nhắn cũ.");
     }
   };
 
@@ -343,7 +385,7 @@ export default function CRMTab() {
 
     const userMsg: ChatMessage = {
       id: "user_" + Date.now(),
-      sender: "user",
+      sender: "agent",
       text: msgText,
       timestamp: new Date(),
     };
@@ -426,6 +468,7 @@ export default function CRMTab() {
             inboxCustomers={inboxCustomers}
             activeCustomer={activeCustomer}
             chatHistory={chatHistory}
+            chatPagination={chatPagination}
             typeMessage={typeMessage}
             setTypeMessage={setTypeMessage}
             aiWaiting={aiWaiting}
@@ -433,6 +476,7 @@ export default function CRMTab() {
             setAIConfig={setAIConfig}
             handleSelectCustomer={handleSelectCustomer}
             handleSendChatMessage={handleSendChatMessage}
+            handleLoadOlderMessages={handleLoadOlderMessages}
           />
         )}
       </div>

@@ -1,11 +1,12 @@
 import React, { useRef, useEffect, useState } from "react";
-import { Search, Send, Sliders, Zap, FileText, DollarSign, MessageSquare } from "lucide-react";
-import { CustomerInbox, ChatMessage, AIChatConfig } from "../../types";
+import { Search, Send, Sliders, Zap, FileText, DollarSign, MessageSquare, ChevronDown, Facebook, Clock3 } from "lucide-react";
+import { CustomerInbox, ChatMessage, AIChatConfig, ChatPagination } from "../../types";
 
 type OmniChatTabProps = {
   inboxCustomers: CustomerInbox[];
   activeCustomer: CustomerInbox | null;
   chatHistory: ChatMessage[];
+  chatPagination: ChatPagination;
   typeMessage: string;
   setTypeMessage: (val: string) => void;
   aiWaiting: boolean;
@@ -13,12 +14,14 @@ type OmniChatTabProps = {
   setAIConfig: (config: AIChatConfig) => void;
   handleSelectCustomer: (cust: CustomerInbox) => void;
   handleSendChatMessage: (e: React.FormEvent) => void;
+  handleLoadOlderMessages: () => void;
 };
 
 export const OmniChatTab: React.FC<OmniChatTabProps> = ({
   inboxCustomers,
   activeCustomer,
   chatHistory,
+  chatPagination,
   typeMessage,
   setTypeMessage,
   aiWaiting,
@@ -26,6 +29,7 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
   setAIConfig,
   handleSelectCustomer,
   handleSendChatMessage,
+  handleLoadOlderMessages,
 }) => {
   const [filterInbox, setFilterInbox] = useState("");
   const [activeChannel, setActiveChannel] = useState<"all" | "facebook" | "zalo">("all");
@@ -45,7 +49,7 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
   };
 
   return (
-    <div className="flex h-full overflow-hidden bg-slate-50/50" id="omni_inbox_layout">
+      <div className="flex h-full overflow-hidden bg-[linear-gradient(180deg,#f8fbff_0%,#f4f7fb_100%)]" id="omni_inbox_layout">
       
       {/* L-Col: Inbox Customers list */}
       <div className="w-80 border-r border-slate-100 bg-white flex flex-col justify-between shrink-0 h-full shadow-sm" id="inbox_sidebar">
@@ -193,7 +197,7 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
       </div>
 
       {/* M-Col: Active Conversation details */}
-      <div className="flex-1 bg-slate-50/20 flex flex-col justify-between h-full overflow-hidden" id="chat_conversation_area">
+      <div className="flex-1 bg-[radial-gradient(circle_at_top,_rgba(191,219,254,0.22),_transparent_32%),linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] flex flex-col justify-between h-full overflow-hidden" id="chat_conversation_area">
         {!activeCustomer ? (
           <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-400 bg-white">
             <MessageSquare className="w-12 h-12 text-slate-200 mb-3 animate-pulse" />
@@ -203,21 +207,21 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
         ) : (
           <>
             {/* Active Customer Info Top Header */}
-            <div className="p-4 border-b border-slate-100 bg-white flex items-center justify-between shrink-0 shadow-sm" id="chat_header">
+            <div className="p-4 border-b border-slate-200/80 bg-white/90 backdrop-blur flex items-center justify-between shrink-0 shadow-sm" id="chat_header">
               <div className="flex items-center gap-3 text-left">
-                <span className="text-2xl p-1 bg-slate-50 border border-slate-100 rounded-full select-none shadow-xxs">
+                <span className="text-2xl p-1.5 bg-gradient-to-br from-white to-slate-100 border border-slate-200 rounded-full select-none shadow-sm">
                   {activeCustomer.avatar}
                 </span>
                 <div>
-                  <h4 className="font-extrabold text-slate-800 text-xs flex items-center gap-1.5 font-sans">
+                  <h4 className="font-extrabold text-slate-800 text-sm flex items-center gap-1.5 font-sans">
                     {activeCustomer.name}
                     {activeCustomer.isVip && (
                       <span className="px-1.5 py-0.5 bg-amber-500 text-white text-[8px] font-extrabold rounded-md shadow-sm">VIP</span>
                     )}
                   </h4>
-                  <p className="text-[9.5px] text-slate-400 font-mono mt-0.5 flex items-center gap-1.5">
+                  <p className="text-[10px] text-slate-500 font-mono mt-1 flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full shrink-0" />
-                    Đang trực tuyến • ID: {activeCustomer.id}
+                    Đang trực tuyến • PSID: {activeCustomer.recipientId || activeCustomer.id}
                   </p>
                 </div>
               </div>
@@ -238,16 +242,14 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                 </button>
 
                 {/* Source logo info */}
-                <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold font-sans flex items-center gap-1.5 border ${
+                <span className={`px-3 py-1.5 rounded-full text-[10px] font-bold font-sans flex items-center gap-1.5 border shadow-sm ${
                   activeCustomer.channel === "facebook" 
                     ? "bg-blue-50 text-blue-700 border-blue-150" 
                     : "bg-indigo-50 text-indigo-700 border-indigo-150"
                 }`}>
                   {activeCustomer.channel === "facebook" ? (
                     <>
-                      <svg className="h-3 w-3 fill-current" viewBox="0 0 24 24">
-                        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-                      </svg>
+                      <Facebook className="h-3 w-3" />
                       <span>FACEBOOK MESSENGER</span>
                     </>
                   ) : (
@@ -262,8 +264,29 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
 
             {/* Messages dialogue stream feed */}
             <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4" id="chat_messages_stream" style={{ maxHeight: "calc(85vh - 200px)" }}>
+              <div className="sticky top-0 z-10 flex justify-center pb-2">
+                {chatPagination.hasMore ? (
+                  <button
+                    type="button"
+                    onClick={handleLoadOlderMessages}
+                    disabled={chatPagination.loadingMore}
+                    className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-[11px] font-bold shadow-sm backdrop-blur transition-all ${
+                      chatPagination.loadingMore
+                        ? "cursor-wait border-slate-200 bg-white/85 text-slate-400"
+                        : "border-blue-200 bg-white/90 text-blue-700 hover:border-blue-300 hover:bg-blue-50"
+                    }`}
+                  >
+                    {chatPagination.loadingMore ? <Clock3 className="h-3.5 w-3.5 animate-spin" /> : <ChevronDown className="h-3.5 w-3.5 rotate-180" />}
+                    <span>{chatPagination.loadingMore ? "Đang tải cuộc trò chuyện cũ..." : "Tải cuộc trò chuyện cũ hơn"}</span>
+                  </button>
+                ) : (
+                  <span className="rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-[10px] font-semibold text-slate-400 shadow-sm">
+                    Đang xem đoạn chat mới nhất
+                  </span>
+                )}
+              </div>
               {chatHistory.map((h) => {
-                const isMe = h.sender === "user";
+                const isMe = h.sender === "agent";
                 const isAI = h.sender === "ai";
                 const isSystem = h.text.includes("[AI AUTOMATION]");
                 
@@ -272,21 +295,21 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                     key={h.id}
                     className={`flex flex-col ${isMe ? "items-end" : "items-start"} animate-fade-in-up`}
                   >
-                    <div className="flex items-end gap-2 max-w-[75%] relative">
+                    <div className={`flex items-end gap-2 max-w-[78%] relative ${isMe ? "flex-row-reverse" : ""}`}>
                       {!isMe && (
-                        <span className="text-xl p-1 bg-slate-50 border border-slate-100 rounded-full select-none mr-1 shrink-0 shadow-xxs">
+                        <span className="text-xl p-1.5 bg-white border border-slate-200 rounded-full select-none mr-1 shrink-0 shadow-sm">
                           {isAI ? "🤖" : "🎙️"}
                         </span>
                       )}
 
-                      <div className={`p-3.5 rounded-2xl relative ${
+                      <div className={`p-3.5 rounded-3xl relative shadow-sm ${
                         isMe 
-                          ? "bg-slate-900 border border-slate-800 text-white rounded-br-none text-right font-sans text-xs shadow-sm" 
+                          ? "bg-[linear-gradient(135deg,#0f172a_0%,#1e293b_100%)] border border-slate-800 text-white rounded-br-md text-left font-sans text-xs" 
                           : isSystem
-                            ? "bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-bl-none text-left font-mono text-[10.5px] shadow-sm"
+                            ? "bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-bl-md text-left font-mono text-[10.5px]"
                             : isAI
-                              ? "bg-indigo-50/70 border border-indigo-100 text-indigo-900 rounded-bl-none text-left font-sans text-xs shadow-xs"
-                              : "bg-slate-100 text-slate-800 rounded-bl-none text-left font-sans text-xs"
+                              ? "bg-indigo-50/70 border border-indigo-100 text-indigo-900 rounded-bl-md text-left font-sans text-xs"
+                              : "bg-white border border-slate-200 text-slate-800 rounded-bl-md text-left font-sans text-xs"
                       }`}>
                         {isAI && (
                           <span className={`text-[8px] font-mono block font-bold tracking-wider mb-1 uppercase ${
@@ -300,7 +323,7 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                     </div>
                     
                     <span className="text-[8.5px] text-slate-400 font-mono mt-1.5 select-none font-sans">
-                      {isMe ? "CRM Operator • " : ""}
+                      {isMe ? "CRM Operator • " : "Khách Facebook • "}
                       {new Date(h.timestamp).toLocaleTimeString("vi-VN", { hour: "numeric", minute: "numeric" })}
                     </span>
                   </div>

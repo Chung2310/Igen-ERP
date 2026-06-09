@@ -52,7 +52,7 @@ export const fbMessengerService = {
       }
 
       await FBConversationModel.findOneAndUpdate(
-        { pageId, recipientId },
+        { pageId, facebookConversationId: fbConversation.id || "" },
         {
           recipientId,
           pageId,
@@ -378,12 +378,16 @@ export const fbMessengerService = {
   /**
    * Gửi tin nhắn phản hồi tới khách hàng qua Facebook Send API (sử dụng Token của Page tương ứng)
    */
-  async sendReply(pageId: string, recipientPsid: string, text: string) {
-    console.log(`[FB Service sendReply] Khởi tạo quá trình gửi tin nhắn trả lời tới PSID ${recipientPsid}`);
+  async sendReply(pageId: string, conversationId: string, text: string) {
+    console.log(`[FB Service sendReply] Khởi tạo quá trình gửi tin nhắn trả lời cho conversation ${conversationId}`);
 
-    // Tìm cuộc hội thoại để xác định Page ID tương ứng của khách hàng
-    let conversation = await FBConversationModel.findOne({ recipientId: recipientPsid, pageId });
-    const resolvedPageId = conversation?.pageId || pageId || process.env.FB_PAGE_ID || "";
+    const conversation = await FBConversationModel.findOne({ _id: conversationId, pageId });
+    if (!conversation) {
+      throw new Error("Không tìm thấy cuộc hội thoại để gửi phản hồi.");
+    }
+
+    const recipientPsid = conversation.recipientId;
+    const resolvedPageId = conversation.pageId || pageId || process.env.FB_PAGE_ID || "";
     
     // Lấy token động của Page này từ DB
     const token = await this.getPageAccessTokenByPageId(resolvedPageId);
@@ -418,27 +422,11 @@ export const fbMessengerService = {
       const data = await response.json();
       console.log(`[FB Service sendReply] Send API phản hồi thành công:`, JSON.stringify(data));
 
-      // Cập nhật conversation
-      if (conversation) {
-        console.log(`[FB Service sendReply] Cập nhật thông tin tin nhắn cuối cùng trong cuộc hội thoại.`);
-        conversation.lastMessageText = text;
-        conversation.lastMessageAt = new Date();
-        conversation.unreadCount = 0;
-        await conversation.save();
-      } else {
-        console.log(`[FB Service sendReply] Chưa có conversation cho PSID ${recipientPsid}. Tạo mới để đồng bộ lịch sử chat.`);
-        conversation = new FBConversationModel({
-          recipientId: recipientPsid,
-          senderName: "Khách hàng Facebook",
-          avatarUrl: "",
-          pageId: resolvedPageId,
-          lastMessageText: text,
-          lastMessageAt: new Date(),
-          unreadCount: 0,
-          status: "open",
-        });
-        await conversation.save();
-      }
+      console.log(`[FB Service sendReply] Cập nhật thông tin tin nhắn cuối cùng trong cuộc hội thoại.`);
+      conversation.lastMessageText = text;
+      conversation.lastMessageAt = new Date();
+      conversation.unreadCount = 0;
+      await conversation.save();
 
       // Lưu tin nhắn gửi đi vào DB
       console.log(`[FB Service sendReply] Tiến hành lưu tin nhắn outbound vào cơ sở dữ liệu.`);
@@ -489,19 +477,47 @@ export const fbMessengerService = {
   /**
    * Lấy lịch sử tin nhắn của cuộc hội thoại
    */
-  async getMessages(pageId: string, recipientId: string) {
-    console.log(`[FB Service getMessages] Lấy tin nhắn cho cuộc hội thoại của khách hàng PSID: ${recipientId} thuộc Page ID: ${pageId}`);
-    const conversation = await FBConversationModel.findOne({ recipientId, pageId });
+  async getMessages(pageId: string, conversationId: string, options?: { limit?: number; before?: string }) {
+    console.log(`[FB Service getMessages] Lấy tin nhắn cho conversation ${conversationId} thuộc Page ID: ${pageId}`);
+    const conversation = await FBConversationModel.findOne({ _id: conversationId, pageId });
     if (!conversation) {
-      console.warn(`[FB Service getMessages] Không tìm thấy cuộc hội thoại cho khách hàng PSID: ${recipientId} thuộc Page ID: ${pageId}. Thử đồng bộ trực tiếp từ Facebook.`);
-      return this.syncMessagesFromFacebook(pageId, recipientId);
+      console.warn(`[FB Service getMessages] Không tìm thấy conversation ${conversationId} thuộc Page ID: ${pageId}.`);
+      return {
+        messages: [],
+        pagination: {
+          limit: Math.min(Math.max(Number(options?.limit || 20), 1), 100),
+          hasMore: false,
+          nextBefore: null,
+        },
+      };
     }
 
-    const existingMessages = await FBMessageModel.find({ conversationId: conversation._id }).sort({ timestamp: 1 });
-    if (existingMessages.length > 0) {
-      return existingMessages;
+    const limit = Math.min(Math.max(Number(options?.limit || 20), 1), 100);
+    const beforeDate = options?.before ? new Date(options.before) : null;
+    const filter: any = { conversationId: conversation._id };
+    if (beforeDate && !Number.isNaN(beforeDate.getTime())) {
+      filter.timestamp = { $lt: beforeDate };
     }
 
-    return this.syncMessagesFromFacebook(pageId, recipientId);
+    let existingMessages = await FBMessageModel.find(filter).sort({ timestamp: -1 }).limit(limit + 1);
+
+    if (existingMessages.length === 0 && !beforeDate && conversation.recipientId) {
+      await this.syncMessagesFromFacebook(pageId, conversation.recipientId);
+      existingMessages = await FBMessageModel.find(filter).sort({ timestamp: -1 }).limit(limit + 1);
+    }
+
+    const hasMore = existingMessages.length > limit;
+    const trimmedMessages = hasMore ? existingMessages.slice(0, limit) : existingMessages;
+    const orderedMessages = [...trimmedMessages].reverse();
+    const oldestMessage = orderedMessages[0];
+
+    return {
+      messages: orderedMessages,
+      pagination: {
+        limit,
+        hasMore,
+        nextBefore: oldestMessage?.timestamp ? new Date(oldestMessage.timestamp).toISOString() : null,
+      },
+    };
   }
 };
