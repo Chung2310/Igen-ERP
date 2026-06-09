@@ -50,7 +50,7 @@ async function seedSuperAdmin() {
  * Khởi tạo kết nối cơ sở dữ liệu MongoDB
  */
 export async function connectDB() {
-  const uri = process.env.MONGODB_URI || "mongodb://localhost:27017/igen-erp";
+  const uri = process.env.MONGODB_URI || "mongodb://mongodb/igen-erp";
   const user = process.env.MONGODB_USER;
   const pass = process.env.MONGODB_PASSWORD;
   const authSource = process.env.MONGODB_AUTH_SOURCE || "admin";
@@ -62,6 +62,10 @@ export async function connectDB() {
     options.pass = pass;
     options.authSource = authSource;
   }
+
+  // Log URI ẩn mật khẩu để dễ debug cấu hình trên VPS
+  const redactedUri = uri.replace(/:([^:@]+)@/, ":******@");
+  console.log(`[Backend Database] Đang kết nối tới MongoDB qua URI: ${redactedUri}`);
 
   try {
     await mongoose.connect(uri, options);
