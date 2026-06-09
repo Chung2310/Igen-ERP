@@ -68,12 +68,37 @@ export const facebookPostService = {
 
   /**
    * Gửi yêu cầu xác thực token kết nối Facebook Page sang n8n Webhook
+   * Hỗ trợ xác thực trực tiếp qua Facebook Graph API trước khi fallback qua n8n.
    */
   async validateToken(pageId: string, accessToken: string) {
+    // 1. Thử xác thực trực tiếp bằng cách gọi Facebook Graph API
+    try {
+      console.log(`[Facebook Service] Đang xác thực trực tiếp Page ID ${pageId} qua Graph API...`);
+      const url = `https://graph.facebook.com/v19.0/${pageId}?fields=name&access_token=${accessToken}`;
+      const response = await (globalThis as any).fetch(url);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log(`[Facebook Service] Xác thực Graph API thành công! Page Name: ${data.name}`);
+        return {
+          status: "success",
+          message: "Xác thực token kết nối Facebook Page trực tiếp thành công",
+          valid: true,
+          pageName: data.name || "Facebook Page",
+        };
+      } else {
+        const errText = await response.text();
+        console.warn(`[Facebook Service] Graph API trả về lỗi: ${response.status} - ${errText}`);
+      }
+    } catch (err: any) {
+      console.warn("[Facebook Service] Lỗi kết nối trực tiếp tới Facebook Graph API:", err.message);
+    }
+
+    // 2. Fallback sang xác thực qua n8n (nếu có cấu hình)
     const webhookUrl = process.env.N8N_FB_VALIDATE_URL;
     if (!webhookUrl) {
       throw new Error(
-        "Cấu hình N8N_FB_VALIDATE_URL chưa được thiết lập trong biến môi trường."
+        "Mã Token hoặc Page ID không đúng. Không thể xác thực trực tiếp và N8N_FB_VALIDATE_URL chưa được thiết lập."
       );
     }
 
@@ -122,3 +147,4 @@ export const facebookPostService = {
     }
   },
 };
+
