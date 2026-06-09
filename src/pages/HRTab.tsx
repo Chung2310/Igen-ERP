@@ -1636,7 +1636,7 @@ export default function HRTab() {
                     {/* Direct Subordinates list */}
                     {employees.some(e => e.parentId === selectedEmp.id) && (
                       <div className="pt-2">
-                        <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 font-mono">Nhân sự dưới quyền ({employees.filter(e => e.parentId === selectedEmp.id).length}):</span>
+                        <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 font-mono">Tổng nhân sự ({employees.filter(e => e.parentId === selectedEmp.id).length}):</span>
                         <div className="space-y-1 max-h-[120px] overflow-y-auto pr-1">
                           {employees.filter(e => e.parentId === selectedEmp.id).map(sub => (
                             <div
