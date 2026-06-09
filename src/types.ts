@@ -92,6 +92,7 @@ export interface CustomerInbox {
   isVip: boolean;
   status: "online" | "offline";
   tags: string[];
+  channel?: "facebook" | "zalo";
 }
 
 export interface AIChatConfig {
