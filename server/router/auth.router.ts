@@ -7,12 +7,16 @@ import { UserModel } from "../model/user.model";
 
 export const authRouter = Router();
 
+// Định nghĩa regex cho email và số điện thoại Việt Nam
+const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+const vnPhoneRegex = /^(0|\+84|84)(3|5|7|8|9)[0-9]{8}$/;
+
 const registerSchema = {
   body: Joi.object({
-    email: Joi.string().email().required().messages({
+    email: Joi.string().pattern(emailRegex).required().messages({
       "any.required": "Trường 'email' là bắt buộc và không thể thiếu.",
       "string.empty": "Trường 'email' không được để trống.",
-      "string.email": "Định dạng 'email' không hợp lệ.",
+      "string.pattern.base": "Địa chỉ email không đúng định dạng.",
     }),
     password: Joi.string().min(6).required().messages({
       "any.required": "Trường 'password' là bắt buộc và không thể thiếu.",
@@ -34,7 +38,9 @@ const registerSchema = {
     jobTitle: Joi.string().optional().allow(""),
     department: Joi.string().optional().allow(""),
     division: Joi.string().optional().allow(""),
-    phone: Joi.string().optional().allow(""),
+    phone: Joi.string().pattern(vnPhoneRegex).optional().allow("").messages({
+      "string.pattern.base": "Số điện thoại Việt Nam không đúng định dạng (ví dụ: 0987654321).",
+    }),
     level: Joi.number().integer().optional(),
     parentId: Joi.string().optional().allow(""),
   }),
@@ -42,10 +48,10 @@ const registerSchema = {
 
 const loginSchema = {
   body: Joi.object({
-    email: Joi.string().email().required().messages({
+    email: Joi.string().pattern(emailRegex).required().messages({
       "any.required": "Trường 'email' là bắt buộc và không thể thiếu.",
       "string.empty": "Trường 'email' không được để trống.",
-      "string.email": "Định dạng 'email' không hợp lệ.",
+      "string.pattern.base": "Địa chỉ email không đúng định dạng.",
     }),
     password: Joi.string().required().messages({
       "any.required": "Trường 'password' là bắt buộc và không thể thiếu.",
@@ -128,10 +134,10 @@ const registerCompanySchema = {
       "any.required": "Tên người đại diện là bắt buộc.",
       "string.empty": "Tên người đại diện không được để trống.",
     }),
-    ownerEmail: Joi.string().email().required().messages({
+    ownerEmail: Joi.string().pattern(emailRegex).required().messages({
       "any.required": "Email người đại diện là bắt buộc.",
       "string.empty": "Email không được để trống.",
-      "string.email": "Email không đúng định dạng.",
+      "string.pattern.base": "Email người đại diện không đúng định dạng.",
     }),
     ownerPassword: Joi.string().min(6).required().messages({
       "any.required": "Mật khẩu là bắt buộc.",
@@ -150,10 +156,10 @@ const registerUserSchema = {
       "any.required": "Tên thành viên là bắt buộc.",
       "string.empty": "Tên thành viên không được để trống.",
     }),
-    email: Joi.string().email().required().messages({
+    email: Joi.string().pattern(emailRegex).required().messages({
       "any.required": "Email thành viên là bắt buộc.",
       "string.empty": "Email không được để trống.",
-      "string.email": "Email không đúng định dạng.",
+      "string.pattern.base": "Email thành viên không đúng định dạng.",
     }),
     password: Joi.string().min(6).required().messages({
       "any.required": "Mật khẩu là bắt buộc.",
@@ -170,7 +176,9 @@ const registerUserSchema = {
     level: Joi.number().integer().optional(),
     department: Joi.string().optional().allow(""),
     division: Joi.string().optional().allow(""),
-    phone: Joi.string().optional().allow(""),
+    phone: Joi.string().pattern(vnPhoneRegex).optional().allow("").messages({
+      "string.pattern.base": "Số điện thoại Việt Nam không đúng định dạng (ví dụ: 0987654321).",
+    }),
   }),
 };
 
@@ -225,7 +233,9 @@ const updateUserSchema = {
     division: Joi.string().optional().allow(""),
     jobTitle: Joi.string().optional().allow(""),
     displayName: Joi.string().optional().allow(""),
-    phone: Joi.string().optional().allow(""),
+    phone: Joi.string().pattern(vnPhoneRegex).optional().allow("").messages({
+      "string.pattern.base": "Số điện thoại Việt Nam không đúng định dạng (ví dụ: 0987654321).",
+    }),
   }),
 };
 
