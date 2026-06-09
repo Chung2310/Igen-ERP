@@ -141,24 +141,127 @@ export const authService = {
     }
   },
 
-  // Lấy danh sách toàn bộ người dùng (Sẽ tích hợp REST API sau)
+  // Lấy danh sách toàn bộ người dùng
   async getAllUsers(): Promise<UserProfile[]> {
-    return [];
+    const res = await fetch("/api/v1/auth/users", {
+      headers: {
+        "Authorization": `Bearer ${getAccessToken()}`,
+      },
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.message || "Không thể lấy danh sách người dùng");
+    }
+
+    const result = await res.json();
+    return (result.data || []).map((u: any) => ({
+      ...u,
+      uid: u._id,
+    }));
   },
 
-  // Lấy danh sách người dùng theo Doanh nghiệp (Sẽ tích hợp REST API sau)
+  // Lấy danh sách người dùng theo Doanh nghiệp
   async getUsersByCompany(companyCode: string): Promise<UserProfile[]> {
-    return [];
+    const res = await fetch(`/api/v1/auth/users?companyCode=${encodeURIComponent(companyCode)}`, {
+      headers: {
+        "Authorization": `Bearer ${getAccessToken()}`,
+      },
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.message || "Không thể lấy danh sách người dùng doanh nghiệp");
+    }
+
+    const result = await res.json();
+    return (result.data || []).map((u: any) => ({
+      ...u,
+      uid: u._id,
+    }));
   },
 
-  // Cập nhật vai trò người dùng (Sẽ tích hợp REST API sau)
+  // Cập nhật vai trò người dùng
   async updateUserRole(uid: string, newRole: "user" | "manager" | "admin" | "superadmin"): Promise<void> {
-    // Placeholder
+    const res = await fetch(`/api/v1/auth/users/${uid}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${getAccessToken()}`,
+      },
+      body: JSON.stringify({ role: newRole }),
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.message || "Cập nhật vai trò thất bại");
+    }
   },
 
-  // Lấy danh sách tất cả doanh nghiệp (Sẽ tích hợp REST API sau)
+  // Lấy danh sách tất cả doanh nghiệp
   async getAllCompanies(): Promise<CompanyProfile[]> {
-    return [];
+    const res = await fetch("/api/v1/auth/companies", {
+      headers: {
+        "Authorization": `Bearer ${getAccessToken()}`,
+      },
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.message || "Không thể lấy danh sách doanh nghiệp");
+    }
+
+    const result = await res.json();
+    return result.data || [];
+  },
+
+  // Cập nhật chi tiết thông tin một nhân sự
+  async updateUser(uid: string, updateData: any): Promise<void> {
+    const res = await fetch(`/api/v1/auth/users/${uid}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${getAccessToken()}`,
+      },
+      body: JSON.stringify(updateData),
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.message || "Cập nhật thông tin nhân sự thất bại");
+    }
+  },
+
+  // Cập nhật hàng loạt thông tin cấu trúc sơ đồ tổ chức
+  async bulkUpdateUsers(updates: any[]): Promise<void> {
+    const res = await fetch("/api/v1/auth/users/bulk", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${getAccessToken()}`,
+      },
+      body: JSON.stringify({ updates }),
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.message || "Cập nhật cấu trúc sơ đồ tổ chức thất bại");
+    }
+  },
+
+  // Xóa nhân sự
+  async deleteUser(uid: string): Promise<void> {
+    const res = await fetch(`/api/v1/auth/users/${uid}`, {
+      method: "DELETE",
+      headers: {
+        "Authorization": `Bearer ${getAccessToken()}`,
+      },
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.message || "Xóa nhân sự thất bại");
+    }
   },
 
   // Đăng ký doanh nghiệp mới và tạo tài khoản Admin tương ứng qua REST API

@@ -272,4 +272,147 @@ export const authController = {
       });
     }
   },
+
+  /**
+   * GET /api/v1/auth/users
+   */
+  async getUsers(req: AuthenticatedRequest, res: Response) {
+    try {
+      let companyCode = req.query.companyCode as string;
+
+      // Bảo vệ dữ liệu đa doanh nghiệp (Tenant Isolation)
+      if (req.user?.role !== "superadmin") {
+        companyCode = req.user?.companyCode;
+      }
+
+      const filter = companyCode ? { companyCode } : {};
+      const users = await authService.getUsers(filter);
+
+      return res.status(200).json({
+        status: "success",
+        data: users,
+      });
+    } catch (error: any) {
+      console.error("[authController.getUsers] Error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Không thể lấy danh sách nhân sự",
+        details: error.message,
+      });
+    }
+  },
+
+  /**
+   * GET /api/v1/auth/companies
+   * (Chỉ dành cho superadmin)
+   */
+  async getCompanies(req: AuthenticatedRequest, res: Response) {
+    try {
+      const companies = await authService.getAllCompanies();
+      return res.status(200).json({
+        status: "success",
+        data: companies,
+      });
+    } catch (error: any) {
+      console.error("[authController.getCompanies] Error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Không thể lấy danh sách doanh nghiệp",
+        details: error.message,
+      });
+    }
+  },
+
+  /**
+   * PATCH /api/v1/auth/users/bulk
+   */
+  async bulkUpdateUsers(req: AuthenticatedRequest, res: Response) {
+    try {
+      const callerRole = req.user?.role;
+      const callerCompanyCode = req.user?.companyCode;
+
+      if (callerRole !== "superadmin" && callerRole !== "admin") {
+        return res.status(403).json({
+          status: "error",
+          message: "Bạn không có quyền thực hiện thao tác này.",
+        });
+      }
+
+      await authService.bulkUpdateUsers(req.body.updates, callerCompanyCode!, callerRole);
+
+      return res.status(200).json({
+        status: "success",
+        message: "Cập nhật cấu trúc nhân sự thành công",
+      });
+    } catch (error: any) {
+      console.error("[authController.bulkUpdateUsers] Error:", error);
+      return res.status(400).json({
+        status: "error",
+        message: error.message || "Không thể cập nhật cấu trúc nhân sự",
+      });
+    }
+  },
+
+  /**
+   * PATCH /api/v1/auth/users/:id
+   */
+  async updateUser(req: AuthenticatedRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      const callerRole = req.user?.role;
+      const callerCompanyCode = req.user?.companyCode;
+
+      if (callerRole !== "superadmin" && callerRole !== "admin") {
+        return res.status(403).json({
+          status: "error",
+          message: "Bạn không có quyền thực hiện thao tác này.",
+        });
+      }
+
+      const updatedUser = await authService.updateUser(id, req.body, callerCompanyCode!, callerRole);
+
+      return res.status(200).json({
+        status: "success",
+        message: "Cập nhật thông tin nhân sự thành công",
+        data: updatedUser,
+      });
+    } catch (error: any) {
+      console.error("[authController.updateUser] Error:", error);
+      return res.status(400).json({
+        status: "error",
+        message: error.message || "Không thể cập nhật thông tin nhân sự",
+      });
+    }
+  },
+
+  /**
+   * DELETE /api/v1/auth/users/:id
+   */
+  async deleteUser(req: AuthenticatedRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      const callerRole = req.user?.role;
+      const callerCompanyCode = req.user?.companyCode;
+
+      if (callerRole !== "superadmin" && callerRole !== "admin") {
+        return res.status(403).json({
+          status: "error",
+          message: "Bạn không có quyền thực hiện thao tác này.",
+        });
+      }
+
+      await authService.deleteUser(id, callerCompanyCode!, callerRole);
+
+      return res.status(200).json({
+        status: "success",
+        message: "Xóa nhân sự thành công",
+      });
+    } catch (error: any) {
+      console.error("[authController.deleteUser] Error:", error);
+      return res.status(400).json({
+        status: "error",
+        message: error.message || "Không thể xóa nhân sự",
+      });
+    }
+  },
 };
