@@ -14,6 +14,8 @@ export interface FacebookIntegration {
   pageId: string;
   pageName: string;
   pageAccessToken: string;
+  appSecret?: string;
+  verifyToken?: string;
   connectedAt: any;
   isMock?: boolean;
 }

@@ -5,16 +5,29 @@ export const fbMessengerService = {
   /**
    * Xác thực Webhook (GET request) từ Facebook gửi qua
    */
-  verifyWebhook(mode: string | undefined, token: string | undefined, challenge: string | undefined) {
+  async verifyWebhook(mode: string | undefined, token: string | undefined, challenge: string | undefined) {
     const verifyToken = process.env.FB_VERIFY_TOKEN || "igen_erp_fb_verify_2026";
 
-    if (mode === "subscribe" && token === verifyToken) {
-      console.log("[Facebook Webhook] Xác thực Webhook thành công!");
-      return challenge;
-    } else {
-      console.error("[Facebook Webhook] Xác thực thất bại. Verify Token không khớp.");
-      throw new Error("Mã xác minh không chính xác");
+    if (mode === "subscribe") {
+      if (token === verifyToken) {
+        console.log("[Facebook Webhook] Xác thực Webhook thành công với Token mặc định!");
+        return challenge;
+      }
+
+      // Check if any user in DB has configured this verifyToken
+      const user = await UserModel.findOne({
+        "facebookIntegration.isConnected": true,
+        "facebookIntegration.verifyToken": token
+      });
+
+      if (user) {
+        console.log(`[Facebook Webhook] Xác thực Webhook thành công cho user: ${user.email}`);
+        return challenge;
+      }
     }
+
+    console.error("[Facebook Webhook] Xác thực thất bại. Verify Token không khớp.");
+    throw new Error("Mã xác minh không chính xác");
   },
 
   /**
