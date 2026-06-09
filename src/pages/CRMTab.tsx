@@ -73,8 +73,10 @@ export default function CRMTab() {
     if (subTab !== "OMNI-INBOX CHAT" || !isFbConnected) return;
 
     const fetchFbConversations = async () => {
+      console.log("[FE CRMTab] Polling danh sách hội thoại Facebook từ server...");
       try {
         const data = await fbMessengerService.getConversations();
+        console.log("[FE CRMTab] Đã lấy dữ liệu hội thoại Facebook:", data);
         if (data && data.length > 0) {
           const mapped: CustomerInbox[] = data.map((c: any) => ({
             id: c.recipientId, // PSID của khách hàng
@@ -85,30 +87,38 @@ export default function CRMTab() {
             unreadCount: c.unreadCount || 0,
             isVip: c.isVip || false,
             status: "online",
-            tags: c.tags || []
+            tags: c.tags || [],
+            channel: "facebook"
           }));
+
           setInboxCustomers(mapped);
+          console.log("[FE CRMTab] Cập nhật danh sách inboxCustomers mới:", mapped);
           
           // Tự động chọn cuộc hội thoại đầu tiên nếu chưa có
-          if (!activeCustomer || activeCustomer.id.startsWith("cust-")) {
+          if (!activeCustomer) {
+            console.log("[FE CRMTab] Chưa có active customer. Tự động chọn cuộc trò chuyện đầu tiên:", mapped[0]);
             setActiveCustomer(mapped[0]);
           }
+        } else {
+          console.log("[FE CRMTab] Không tìm thấy cuộc hội thoại nào trên Facebook.");
+          setInboxCustomers([]);
         }
       } catch (err) {
-        console.error("Lỗi khi tải danh sách hội thoại Facebook:", err);
+        console.error("[FE CRMTab] Lỗi khi tải danh sách hội thoại Facebook:", err);
       }
     };
 
     fetchFbConversations();
     const interval = setInterval(fetchFbConversations, 5000);
     return () => clearInterval(interval);
-  }, [subTab, isFbConnected]);
+  }, [subTab, isFbConnected, activeCustomer]);
 
   // 2. Polling lịch sử tin nhắn của hội thoại Facebook đang chọn
   useEffect(() => {
-    if (subTab !== "OMNI-INBOX CHAT" || !activeCustomer || activeCustomer.id.startsWith("cust-")) return;
+    if (subTab !== "OMNI-INBOX CHAT" || !activeCustomer) return;
 
     const fetchFbMessages = async () => {
+      console.log(`[FE CRMTab] Polling lịch sử tin nhắn cho khách hàng ID: ${activeCustomer.id}...`);
       try {
         const msgs = await fbMessengerService.getMessages(activeCustomer.id);
         const mappedMsgs: ChatMessage[] = msgs.map((m: any) => ({
@@ -117,9 +127,10 @@ export default function CRMTab() {
           text: m.text,
           timestamp: new Date(m.timestamp)
         }));
+        console.log(`[FE CRMTab] Đã tải ${mappedMsgs.length} tin nhắn cho khách hàng ID: ${activeCustomer.id}`);
         setChatHistory(mappedMsgs);
       } catch (err) {
-        console.error("Lỗi khi tải tin nhắn Facebook:", err);
+        console.error("[FE CRMTab] Lỗi khi tải tin nhắn Facebook:", err);
       }
     };
 
@@ -129,40 +140,22 @@ export default function CRMTab() {
   }, [subTab, activeCustomer?.id]);
 
   const handleSelectCustomer = async (cust: CustomerInbox) => {
+    console.log("[FE CRMTab] Nhân viên chọn khách hàng từ danh sách:", cust);
     setActiveCustomer(cust);
-    if (cust.id.startsWith("cust-")) {
-      // Mock data flow
-      if (cust.name === "Nguyễn Thị Mai") {
-        setChatHistory([
-          { id: "c-1", sender: "user", text: "Xin chào, tôi là Mai. Tôi đang chuẩn bị quà tặng cho toàn thể nhân viên.", timestamp: new Date(Date.now() - 3600000 * 2) },
-          { id: "c-2", sender: "ai", text: "Dạ, iGen ERP hân hạnh chào đón chị Nguyễn Thị Mai (khách VIP). Rất tuyệt vời khi chị ghé thăm ạ!", timestamp: new Date(Date.now() - 3600000) },
-          { id: "c-3", sender: "user", text: "Tôi muốn tham khảo thiết bị đeo thông minh X1. Giá thiết bị này là bao nhiêu ạ?", timestamp: new Date(Date.now() - 180000) }
-        ]);
-      } else if (cust.name === "Nguyễn Văn A") {
-        setChatHistory([
-          { id: "c-11", sender: "user", text: "Chào bạn, tôi muốn đặt mua số lượng lớn thiết bị X1 cho văn phòng Global Tech.", timestamp: new Date(Date.now() - 7200000) },
-          { id: "c-12", sender: "ai", text: "Chào anh Nguyễn Văn A, dự án X1 cho Global Tech rất tiềm năng ạ. Em gửi báo giá trị giá 45tr và chuẩn bị hợp đồng chốt nhé.", timestamp: new Date(Date.now() - 3600000) },
-          { id: "c-13", sender: "user", text: "Tôi đã nhận được bản thảo hợp đồng, để tôi xem lại.", timestamp: new Date(Date.now() - 7200000) }
-        ]);
-      } else {
-        setChatHistory([
-          { id: "c-a", sender: "user", text: `Xin chào! Cho tôi hỏi thông tin về ${cust.name === "Trần Hùng" ? "Vận chuyển ship" : cust.name === "Phạm Thị D" ? "Hóa Đơn mua hàng" : "Khuyến mãi"}`, timestamp: new Date() }
-        ]);
-      }
-    } else {
-      // Real Facebook flow
-      try {
-        const msgs = await fbMessengerService.getMessages(cust.id);
-        const mappedMsgs: ChatMessage[] = msgs.map((m: any) => ({
-          id: m._id || m.messageId,
-          sender: m.direction === "inbound" ? "user" : "agent",
-          text: m.text,
-          timestamp: new Date(m.timestamp)
-        }));
-        setChatHistory(mappedMsgs);
-      } catch (err) {
-        console.error("Lỗi khi lấy tin nhắn:", err);
-      }
+    console.log(`[FE CRMTab] Khách hàng thật (Facebook) "${cust.name}". Tải tin nhắn từ server...`);
+    // Real Facebook flow
+    try {
+      const msgs = await fbMessengerService.getMessages(cust.id);
+      const mappedMsgs: ChatMessage[] = msgs.map((m: any) => ({
+        id: m._id || m.messageId,
+        sender: m.direction === "inbound" ? "user" : "agent",
+        text: m.text,
+        timestamp: new Date(m.timestamp)
+      }));
+      console.log(`[FE CRMTab] Tải tin nhắn cho khách hàng thật thành công. Số lượng: ${mappedMsgs.length}`);
+      setChatHistory(mappedMsgs);
+    } catch (err) {
+      console.error("[FE CRMTab] Lỗi khi lấy lịch sử tin nhắn khách hàng thật:", err);
     }
   };
 
@@ -256,20 +249,7 @@ export default function CRMTab() {
       const fullLead = { ...newLead, id: createdId };
 
       const customerExists = inboxCustomers.some(c => c.name.toLowerCase() === newLead.customerName.toLowerCase());
-      if (!customerExists) {
-        const newCust: CustomerInbox = {
-          id: "cust_" + Date.now(),
-          name: newLead.customerName,
-          avatar: newLead.avatar,
-          lastMessage: `Khởi tạo mối liên hệ mới`,
-          time: "Vừa xong",
-          unreadCount: 0,
-          isVip: val >= 40000000,
-          status: "online",
-          tags: [newLeadStatus === "cold" ? "Khách Lạnh" : newLeadStatus === "warm" ? "Khách Ấm" : "Khách Nóng", newLeadTouchpoint]
-        };
-        setInboxCustomers(prev => [newCust, ...prev]);
-      } else {
+      if (customerExists) {
         syncLeadTagToInbox(newLead.customerName, newLeadStatus, newLeadTouchpoint);
       }
 
@@ -359,7 +339,7 @@ export default function CRMTab() {
   const handleSendChatMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     const msgText = typeMessage.trim();
-    if (!msgText) return;
+    if (!msgText || !activeCustomer) return;
 
     const userMsg: ChatMessage = {
       id: "user_" + Date.now(),
@@ -371,39 +351,12 @@ export default function CRMTab() {
     setChatHistory((prev) => [...prev, userMsg]);
     setTypeMessage("");
 
-    if (activeCustomer && !activeCustomer.id.startsWith("cust-")) {
-      try {
-        await fbMessengerService.sendReply(activeCustomer.id, msgText);
-      } catch (err: any) {
-        console.error(err);
-        toast.error(err.message || "Không thể gửi tin nhắn qua Facebook Page.");
-        setChatHistory((prev) => prev.filter((h) => h.id !== userMsg.id));
-      }
-      return;
-    }
-
-    setAIWaiting(true);
     try {
-      const data = await geminiApi.sendChatMessage(
-        msgText,
-        chatHistory.map(h => ({ sender: h.sender, text: h.text })),
-        aiConfig
-      );
-      
-      setTimeout(() => {
-        const aiMsg: ChatMessage = {
-          id: "ai_" + Date.now(),
-          sender: "ai",
-          text: data.text || "Dạ, Trợ lý AI đang bận kết nối. Vui lòng thử lại ạ!",
-          timestamp: new Date()
-        };
-        setChatHistory((prev) => [...prev, aiMsg]);
-        setAIWaiting(false);
-      }, aiConfig.replyDelay * 100);
-    } catch (err) {
+      await fbMessengerService.sendReply(activeCustomer.id, msgText);
+    } catch (err: any) {
       console.error(err);
-      setAIWaiting(false);
-      toast.error("Kết nối AI Trợ Lý Chatbot bị gián đoạn.");
+      toast.error(err.message || "Không thể gửi tin nhắn qua Facebook Page.");
+      setChatHistory((prev) => prev.filter((h) => h.id !== userMsg.id));
     }
   };
 
@@ -413,23 +366,10 @@ export default function CRMTab() {
       setActiveCustomer(cust);
       handleSelectCustomer(cust);
       setSubTab("OMNI-INBOX CHAT");
+      toast.info(`Đã mở cuộc trò chuyện với ${customerName}`);
     } else {
-      const newCust: CustomerInbox = {
-        id: "cust_" + Date.now(),
-        name: customerName,
-        avatar: "👤",
-        lastMessage: "Chưa có cuộc hội thoại nào.",
-        time: "Vừa xong",
-        unreadCount: 0,
-        isVip: false,
-        status: "online",
-        tags: ["Khách Mới"]
-      };
-      setInboxCustomers(prev => [newCust, ...prev]);
-      setActiveCustomer(newCust);
-      setSubTab("OMNI-INBOX CHAT");
+      toast.warning("Khách hàng này chưa từng tương tác/nhắn tin tới Fanpage, không thể tự khởi tạo chat.");
     }
-    toast.info(`Đã mở cuộc trò chuyện với ${customerName}`);
   };
 
   // Sync active Customer status tags when leads change
