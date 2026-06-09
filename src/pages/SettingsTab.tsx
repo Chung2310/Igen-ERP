@@ -56,6 +56,8 @@ export default function SettingsTab() {
   const [fbPageId, setFbPageId] = useState("");
   const [fbPageName, setFbPageName] = useState("");
   const [fbPageToken, setFbPageToken] = useState("");
+  const [fbAppSecret, setFbAppSecret] = useState("");
+  const [fbVerifyToken, setFbVerifyToken] = useState("");
   const [connectingFb, setConnectingFb] = useState(false);
   const [disconnectingFb, setDisconnectingFb] = useState(false);
   const [showConnectedToken, setShowConnectedToken] = useState(false);
@@ -77,10 +79,14 @@ export default function SettingsTab() {
       setFbPageId(userProfile.facebookIntegration.pageId || "");
       setFbPageName(userProfile.facebookIntegration.pageName || "");
       setFbPageToken(userProfile.facebookIntegration.pageAccessToken || "");
+      setFbAppSecret(userProfile.facebookIntegration.appSecret || "");
+      setFbVerifyToken(userProfile.facebookIntegration.verifyToken || "");
     } else {
       setFbPageId("");
       setFbPageName("");
       setFbPageToken("");
+      setFbAppSecret("");
+      setFbVerifyToken("");
     }
   }, [userProfile?.facebookIntegration]);
 
@@ -597,9 +603,9 @@ export default function SettingsTab() {
                   <span className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center">
                     <Facebook className="h-4 w-4 text-white" />
                   </span>
-                  Facebook Page Autopost
+                  Facebook Page Integration
                 </h3>
-                <p className="text-xs text-gray-500 mb-5">Kết nối Facebook Page để tự động đăng bài viết marketing đã được duyệt lên trang doanh nghiệp.</p>
+                <p className="text-xs text-gray-500 mb-5">Kết nối Facebook Page để tự động đăng bài viết marketing và kích hoạt Omni-Inbox Chat theo thời gian thực.</p>
 
                 {userProfile?.facebookIntegration?.isConnected && !isEditingFb ? (
                   /* Connected State */
@@ -629,7 +635,7 @@ export default function SettingsTab() {
                     </div>
 
                     {/* Chi tiết thông tin cấu hình liên kết */}
-                    <div className="space-y-3.5 bg-gray-50 border border-gray-150 rounded-xl p-4">
+                    <div className="space-y-3.5 bg-gray-50 border border-gray-150 rounded-xl p-4 text-left">
                       <div className="space-y-1">
                         <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Facebook Page ID</span>
                         <div className="relative">
@@ -676,13 +682,46 @@ export default function SettingsTab() {
                           </div>
                         </div>
                       </div>
+
+                      {userProfile.facebookIntegration.appSecret && (
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">App Secret</span>
+                          <div className="relative">
+                            <Lock className="absolute left-3.5 top-3.5 h-4 w-4 text-gray-400" />
+                            <input
+                              type="password"
+                              readOnly
+                              value={userProfile.facebookIntegration.appSecret}
+                              className="w-full pl-11 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-xs font-mono text-gray-700 outline-none cursor-default"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {userProfile.facebookIntegration.verifyToken && (
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Verify Token Webhook</span>
+                          <div className="relative">
+                            <Shield className="absolute left-3.5 top-3.5 h-4 w-4 text-gray-400" />
+                            <input
+                              type="text"
+                              readOnly
+                              value={userProfile.facebookIntegration.verifyToken}
+                              className="w-full pl-11 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-xs font-mono text-gray-700 outline-none cursor-default"
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
 
-                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2 text-xs">
+                    <div className="p-3 bg-amber-55 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2 text-xs">
                       <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
                       <div>
-                        <p className="font-bold text-amber-800">Lưu ý quan trọng</p>
-                        <p className="text-amber-700 mt-0.5">Sau khi kết nối, các bài viết marketing ở trạng thái <b>ĐÃ LÊN LỊCH</b> (Scheduled) sẽ được tự động đăng trực tiếp lên Facebook Page này khi đến giờ hẹn.</p>
+                        <p className="font-bold text-amber-800 text-left">Lưu ý quan trọng</p>
+                        <ul className="list-disc pl-4 mt-1 space-y-1 text-amber-700 text-left">
+                          <li>Bài viết marketing ở trạng thái <b>ĐÃ LÊN LỊCH</b> (Scheduled) sẽ được tự động đăng trực tiếp lên Facebook Page này khi đến giờ hẹn.</li>
+                          <li>Tin nhắn gửi tới Fanpage này sẽ được tự động đồng bộ về <b>Omni-Inbox Chat</b> theo thời gian thực (sau khi cấu hình Webhook Meta thành công).</li>
+                        </ul>
                       </div>
                     </div>
 
@@ -756,7 +795,7 @@ export default function SettingsTab() {
                       </div>
                     </div>
 
-                    <div className="space-y-1.5">
+                    <div className="space-y-1.5 text-left">
                       <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Page Access Token *</label>
                       <div className="relative">
                         <Key className="absolute left-3.5 top-3.5 h-4 w-4 text-gray-400" />
@@ -772,6 +811,36 @@ export default function SettingsTab() {
                         <ExternalLink className="h-3 w-3" />
                         Lấy Page Access Token tại <span className="font-mono text-blue-600">developers.facebook.com/tools/explorer</span>
                       </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Facebook App Secret (Không bắt buộc)</label>
+                        <div className="relative">
+                          <Lock className="absolute left-3.5 top-3.5 h-4 w-4 text-gray-400" />
+                          <input
+                            type="password"
+                            value={fbAppSecret}
+                            onChange={(e) => setFbAppSecret(e.target.value)}
+                            placeholder="Nhập App Secret nếu có"
+                            className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-xs font-mono text-gray-800 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500/25 focus:border-blue-500 outline-none transition-all"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Webhook Verify Token (Không bắt buộc)</label>
+                        <div className="relative">
+                          <Shield className="absolute left-3.5 top-3.5 h-4 w-4 text-gray-400" />
+                          <input
+                            type="text"
+                            value={fbVerifyToken}
+                            onChange={(e) => setFbVerifyToken(e.target.value)}
+                            placeholder="Mặc định: igen_erp_fb_verify_2026"
+                            className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-xs font-mono text-gray-800 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500/25 focus:border-blue-500 outline-none transition-all"
+                          />
+                        </div>
+                      </div>
                     </div>
 
                     <div className="flex flex-col sm:flex-row gap-3 pt-2 border-t border-gray-100">
@@ -790,6 +859,8 @@ export default function SettingsTab() {
                               pageId: fbPageId.trim(),
                               pageName: fbPageName.trim(),
                               pageAccessToken: fbPageToken.trim(),
+                              appSecret: fbAppSecret.trim() || undefined,
+                              verifyToken: fbVerifyToken.trim() || undefined,
                               connectedAt: new Date().toISOString(),
                               isMock: false
                             };
@@ -818,6 +889,8 @@ export default function SettingsTab() {
                                 pageId: "102938475610293",
                                 pageName: "iGen Tech Demo Page",
                                 pageAccessToken: "EAA_mock_token_igen_erp_demo_123456789",
+                                appSecret: "mock_app_secret_123",
+                                verifyToken: "igen_erp_fb_verify_2026",
                                 connectedAt: new Date().toISOString(),
                                 isMock: true
                               };

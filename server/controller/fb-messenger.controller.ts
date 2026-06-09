@@ -12,7 +12,7 @@ export const fbMessengerController = {
       const token = req.query["hub.verify_token"] as string;
       const challenge = req.query["hub.challenge"] as string;
 
-      const result = fbMessengerService.verifyWebhook(mode, token, challenge);
+      const result = await fbMessengerService.verifyWebhook(mode, token, challenge);
       
       // Phản hồi lại chuỗi challenge bằng plain text
       res.status(200).send(result);
