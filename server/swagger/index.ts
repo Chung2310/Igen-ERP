@@ -6,6 +6,8 @@ import { tiktokSwagger } from "./tiktok.swagger";
 import { schedulerSwagger } from "./scheduler.swagger";
 import { mediaSwagger } from "./media.swagger";
 import { authSwagger } from "./auth.swagger";
+import { permissionSwagger } from "./permission.swagger";
+import { rolePermissionSwagger } from "./role-permission.swagger";
 
 const swaggerDocument = {
   openapi: "3.0.0",
@@ -27,6 +29,8 @@ const swaggerDocument = {
     ...schedulerSwagger.paths,
     ...mediaSwagger.paths,
     ...authSwagger.paths,
+    ...permissionSwagger.paths,
+    ...rolePermissionSwagger.paths,
   },
   components: {
     securitySchemes: {
@@ -44,6 +48,3 @@ export const swaggerRouter = Router();
 
 // Phục vụ tài liệu Swagger UI tại đường dẫn /api-docs
 swaggerRouter.use("/", swaggerUi.serve as any, swaggerUi.setup(swaggerDocument) as any);
-
-
-

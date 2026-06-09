@@ -180,8 +180,8 @@ export const authService = {
   async getUsers(filter: { companyCode?: string } = {}): Promise<IUser[]> {
     let users = await UserModel.find(filter).select("-password").sort({ createdAt: -1 });
 
-    // Tự động seed sơ đồ tổ chức mẫu nếu là doanh nghiệp thật và có <= 1 thành viên
-    if (filter.companyCode && filter.companyCode !== "SYSTEM" && users.length <= 1) {
+    // Tự động seed sơ đồ tổ chức mẫu nếu cấu hình SEED_MOCK_USERS=true và có <= 1 thành viên
+    if (process.env.SEED_MOCK_USERS === "true" && filter.companyCode && filter.companyCode !== "SYSTEM" && users.length <= 1) {
       const companyCode = filter.companyCode;
       let ceo = users.find(u => u.role === "admin" || u.role === "superadmin");
       if (!ceo) {

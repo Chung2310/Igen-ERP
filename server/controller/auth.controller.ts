@@ -250,8 +250,8 @@ export const authController = {
       const callerRole = req.user?.role;
       const callerCompanyCode = req.user?.companyCode;
 
-      if (callerRole === "admin") {
-        // Admin chỉ được đăng ký user cho chính công ty mình
+      if (callerRole !== "superadmin") {
+        // Chỉ superadmin mới được đăng ký user cho công ty khác
         req.body.companyCode = callerCompanyCode;
       }
 
@@ -331,14 +331,7 @@ export const authController = {
       const callerRole = req.user?.role;
       const callerCompanyCode = req.user?.companyCode;
 
-      if (callerRole !== "superadmin" && callerRole !== "admin") {
-        return res.status(403).json({
-          status: "error",
-          message: "Bạn không có quyền thực hiện thao tác này.",
-        });
-      }
-
-      await authService.bulkUpdateUsers(req.body.updates, callerCompanyCode!, callerRole);
+      await authService.bulkUpdateUsers(req.body.updates, callerCompanyCode!, callerRole!);
 
       return res.status(200).json({
         status: "success",
@@ -362,14 +355,7 @@ export const authController = {
       const callerRole = req.user?.role;
       const callerCompanyCode = req.user?.companyCode;
 
-      if (callerRole !== "superadmin" && callerRole !== "admin") {
-        return res.status(403).json({
-          status: "error",
-          message: "Bạn không có quyền thực hiện thao tác này.",
-        });
-      }
-
-      const updatedUser = await authService.updateUser(id, req.body, callerCompanyCode!, callerRole);
+      const updatedUser = await authService.updateUser(id, req.body, callerCompanyCode!, callerRole!);
 
       return res.status(200).json({
         status: "success",
@@ -394,14 +380,7 @@ export const authController = {
       const callerRole = req.user?.role;
       const callerCompanyCode = req.user?.companyCode;
 
-      if (callerRole !== "superadmin" && callerRole !== "admin") {
-        return res.status(403).json({
-          status: "error",
-          message: "Bạn không có quyền thực hiện thao tác này.",
-        });
-      }
-
-      await authService.deleteUser(id, callerCompanyCode!, callerRole);
+      await authService.deleteUser(id, callerCompanyCode!, callerRole!);
 
       return res.status(200).json({
         status: "success",
