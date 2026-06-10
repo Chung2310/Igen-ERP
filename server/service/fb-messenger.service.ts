@@ -1,5 +1,6 @@
 import { FBConversationModel, FBMessageModel } from "../model/fb-messenger.model";
 import { UserModel } from "../model/user.model";
+import { emitToPage } from "../socket";
 
 const syncTimestamps = new Map<string, number>();
 const CONVERSATION_SYNC_TTL_MS = 15000;
@@ -314,8 +315,6 @@ export const fbMessengerService = {
       url: att.payload?.url || "",
     }));
 
-    console.log(`[FB Service processIncomingMessage] Bắt đầu xử lý tin nhắn. Khách: ${senderId} -> Page: ${recipientId}. Nội dung: "${text}"`);
-
     // Lấy token động từ DB dựa theo Page ID của tin nhắn đến
     const token = await this.getPageAccessTokenByPageId(recipientId);
 
@@ -328,14 +327,10 @@ export const fbMessengerService = {
 
       if (token) {
         try {
-          console.log(`[FB Service processIncomingMessage] Đang gọi Graph API lấy profile cho khách hàng PSID: ${senderId}`);
           const profile = await this.getSenderProfile(senderId, token);
           if (profile) {
             senderName = `${profile.first_name || ""} ${profile.last_name || ""}`.trim() || "Khách hàng Facebook";
             avatarUrl = profile.profile_pic || "";
-            console.log(`[FB Service processIncomingMessage] Lấy thành công thông tin khách hàng từ Facebook: Name="${senderName}", Avatar="${avatarUrl}"`);
-          } else {
-            console.warn(`[FB Service processIncomingMessage] Graph API trả về rỗng cho PSID: ${senderId}. Dùng thông tin mặc định.`);
           }
         } catch (err) {
           console.error("[FB Service processIncomingMessage] Thất bại khi lấy thông tin profile từ Graph API:", err);
@@ -344,7 +339,6 @@ export const fbMessengerService = {
         console.warn("[FB Service processIncomingMessage] Không có Access Token hợp lệ để gọi Profile Graph API.");
       }
 
-      console.log(`[FB Service processIncomingMessage] Tạo cuộc hội thoại mới trong Database cho PSID ${senderId}`);
       conversation = new FBConversationModel({
         recipientId: senderId,
         senderName,
@@ -357,7 +351,6 @@ export const fbMessengerService = {
       });
       await conversation.save();
     } else {
-      console.log(`[FB Service processIncomingMessage] Đã tồn tại cuộc hội thoại với PSID ${senderId}. Cập nhật tin nhắn mới nhất.`);
       conversation.lastMessageText = text || "[Đính kèm]";
       conversation.lastMessageAt = timestamp;
       conversation.unreadCount += 1;
@@ -368,7 +361,6 @@ export const fbMessengerService = {
     // 2. Lưu tin nhắn chi tiết vào DB
     const existingMsg = await FBMessageModel.findOne({ messageId });
     if (!existingMsg) {
-      console.log(`[FB Service processIncomingMessage] Lưu chi tiết tin nhắn mới vào DB. ID tin nhắn: ${messageId}`);
       const newMsg = new FBMessageModel({
         conversationId: conversation._id,
         senderId,
@@ -381,9 +373,13 @@ export const fbMessengerService = {
         status: "delivered",
       });
       await newMsg.save();
-      console.log(`[FB Service processIncomingMessage] Lưu tin nhắn thành công.`);
-    } else {
-      console.log(`[FB Service processIncomingMessage] Bỏ qua lưu tin nhắn vì ID tin nhắn ${messageId} đã tồn tại trong DB.`);
+
+      // Realtime update via Socket.IO
+      emitToPage(recipientId, "new_message", {
+        message: newMsg,
+        conversation: conversation
+      });
+      emitToPage(recipientId, "conversation_updated", conversation);
     }
   },
 
@@ -393,7 +389,6 @@ export const fbMessengerService = {
   async processReadReceipt(event: any) {
     const senderId = event.sender.id;
     const pageId = event.recipient?.id;
-    console.log(`[FB Service processReadReceipt] Cập nhật số tin nhắn chưa đọc về 0 cho khách hàng PSID: ${senderId}`);
     await FBConversationModel.findOneAndUpdate(
       pageId ? { recipientId: senderId, pageId } : { recipientId: senderId },
       { unreadCount: 0 }
@@ -424,8 +419,6 @@ export const fbMessengerService = {
    * Gửi tin nhắn phản hồi tới khách hàng qua Facebook Send API (sử dụng Token của Page tương ứng)
    */
   async sendReply(pageId: string, conversationId: string, text: string) {
-    console.log(`[FB Service sendReply] Khởi tạo quá trình gửi tin nhắn trả lời cho conversation ${conversationId}`);
-
     const conversation = await FBConversationModel.findOne({ _id: conversationId, pageId });
     if (!conversation) {
       throw new Error("Không tìm thấy cuộc hội thoại để gửi phản hồi.");
@@ -451,7 +444,6 @@ export const fbMessengerService = {
     };
 
     try {
-      console.log(`[FB Service sendReply] Đang gọi Facebook Send API...`);
       const response = await (globalThis as any).fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -465,16 +457,12 @@ export const fbMessengerService = {
       }
 
       const data = await response.json();
-      console.log(`[FB Service sendReply] Send API phản hồi thành công:`, JSON.stringify(data));
 
-      console.log(`[FB Service sendReply] Cập nhật thông tin tin nhắn cuối cùng trong cuộc hội thoại.`);
       conversation.lastMessageText = text;
       conversation.lastMessageAt = new Date();
       conversation.unreadCount = 0;
       await conversation.save();
 
-      // Lưu tin nhắn gửi đi vào DB
-      console.log(`[FB Service sendReply] Tiến hành lưu tin nhắn outbound vào cơ sở dữ liệu.`);
       const newMsg = new FBMessageModel({
         conversationId: conversation?._id,
         senderId: resolvedPageId,
@@ -487,7 +475,13 @@ export const fbMessengerService = {
         status: "sent",
       });
       await newMsg.save();
-      console.log(`[FB Service sendReply] Lưu tin nhắn outbound thành công.`);
+
+      // Realtime update via Socket.IO
+      emitToPage(resolvedPageId, "new_message", {
+        message: newMsg,
+        conversation: conversation
+      });
+      emitToPage(resolvedPageId, "conversation_updated", conversation);
 
       return {
         status: "success",

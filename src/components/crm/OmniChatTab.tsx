@@ -39,7 +39,13 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
   const previousMessageCountRef = useRef(0);
   const previousFirstMessageIdRef = useRef<string | null>(null);
 
-  // Chỉ auto-scroll khi đang ở gần cuối khung chat và có tin nhắn mới ở cuối.
+  // Reset refs when active customer changes to ensure correct scroll logic on load
+  useEffect(() => {
+    previousMessageCountRef.current = 0;
+    previousFirstMessageIdRef.current = null;
+  }, [activeCustomer?.id]);
+
+  // Auto-scroll when new messages arrive or conversation loaded
   useEffect(() => {
     const container = chatStreamRef.current;
     if (!container) return;
@@ -49,7 +55,12 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
     const previousFirstId = previousFirstMessageIdRef.current;
     const currentFirstId = chatHistory[0]?.id || null;
     const prependedOlderMessages = previousFirstId !== null && currentFirstId !== null && previousFirstId !== currentFirstId;
-    const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 120;
+    
+    // Increased bottom threshold to 300px for a better scroll trigger
+    const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 300;
+    
+    const lastMessage = chatHistory[chatHistory.length - 1];
+    const isAgentMessage = lastMessage?.sender === "agent";
 
     if (prependedOlderMessages) {
       previousMessageCountRef.current = currentCount;
@@ -57,8 +68,18 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
       return;
     }
 
-    if (currentCount > previousCount && isNearBottom) {
-      chatBottomRef.current?.scrollIntoView({ behavior: previousCount === 0 ? "auto" : "smooth" });
+    if (currentCount > previousCount) {
+      if (previousCount === 0) {
+        // First load scroll to bottom immediately
+        setTimeout(() => {
+          chatBottomRef.current?.scrollIntoView({ behavior: "auto" });
+        }, 50);
+      } else if (isAgentMessage || isNearBottom) {
+        // Send by agent or near bottom, scroll smoothly
+        setTimeout(() => {
+          chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
+        }, 50);
+      }
     }
 
     previousMessageCountRef.current = currentCount;
@@ -67,7 +88,9 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
 
   useEffect(() => {
     if (!aiWaiting) return;
-    chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    setTimeout(() => {
+      chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 50);
   }, [aiWaiting]);
 
   // Bộ đếm hội thoại theo từng kênh
