@@ -7,6 +7,8 @@ const FacebookIntegrationSchema = new Schema(
     pageId: { type: String, default: "" },
     pageName: { type: String, default: "" },
     pageAccessToken: { type: String, default: "" },
+    appSecret: { type: String, default: "" },
+    verifyToken: { type: String, default: "" },
     connectedAt: { type: Date },
     isMock: { type: Boolean, default: false },
   },

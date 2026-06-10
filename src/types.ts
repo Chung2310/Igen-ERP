@@ -14,6 +14,8 @@ export interface FacebookIntegration {
   pageId: string;
   pageName: string;
   pageAccessToken: string;
+  appSecret?: string;
+  verifyToken?: string;
   connectedAt: any;
   isMock?: boolean;
 }
@@ -78,18 +80,32 @@ export interface ChatMessage {
   text: string;
   timestamp: Date;
   status?: "sent" | "delivered" | "read";
+  attachments?: Array<{
+    type: string;
+    url: string;
+  }>;
+}
+
+export interface ChatPagination {
+  limit: number;
+  hasMore: boolean;
+  nextBefore: string | null;
+  loadingMore: boolean;
 }
 
 export interface CustomerInbox {
   id: string;
+  recipientId?: string;
   name: string;
   avatar: string;
+  avatarUrl?: string;
   lastMessage: string;
   time: string;
   unreadCount: number;
   isVip: boolean;
   status: "online" | "offline";
   tags: string[];
+  channel?: "facebook" | "zalo";
 }
 
 export interface AIChatConfig {

@@ -184,6 +184,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem("accessToken")}`
           },
           body: JSON.stringify({
             pageId: integration.pageId,
@@ -241,6 +242,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            "Authorization": `Bearer ${localStorage.getItem("accessToken")}`
           },
           body: JSON.stringify({
             username: integration.username,

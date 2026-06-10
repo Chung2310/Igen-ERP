@@ -62,6 +62,7 @@ export function requireAuth(req: AuthenticatedRequest, res: Response, next: Next
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    console.warn(`[requireAuth] Từ chối truy cập ${req.method} ${req.originalUrl}: Không có Authorization header.`);
     return res.status(401).json({
       status: "error",
       message: "Yêu cầu đăng nhập. Không tìm thấy mã xác thực.",
@@ -83,8 +84,10 @@ export function requireAuth(req: AuthenticatedRequest, res: Response, next: Next
       companyCode: decoded.companyCode,
     };
 
+    console.log(`[requireAuth] Xác thực thành công: ${req.method} ${req.originalUrl} - User: ${decoded.email} (${decoded.role}), ID: ${decoded.id}`);
     return next();
   } catch (error) {
+    console.warn(`[requireAuth] JWT không hợp lệ hoặc hết hạn cho ${req.method} ${req.originalUrl}:`, (error as Error).message);
     return res.status(401).json({
       status: "error",
       message: "Mã xác thực không hợp lệ hoặc đã hết hạn. Vui lòng đăng nhập lại.",
