@@ -7,7 +7,8 @@ export type SupportedModelName =
   | "projects"
   | "kanban-tasks"
   | "training-courses"
-  | "training-enrollments";
+  | "training-enrollments"
+  | "users";
 
 export interface ICRUDQueryOptions {
   page?: number;
