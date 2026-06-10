@@ -280,7 +280,6 @@ export const geminiController = {
   },
 
   /**
-<<<<<<< Updated upstream
    * POST /api/v1/gemini/sync-drive
    */
   async syncGoogleDrive(req: AuthenticatedRequest, res: Response) {

@@ -26,11 +26,14 @@ export const zaloMessengerService = {
   /**
    * Lấy lịch sử tin nhắn của một cuộc hội thoại cụ thể
    */
-  async getMessages(recipientId: string, options?: { limit?: number; before?: string }): Promise<{ data: any[]; pagination: { limit: number; hasMore: boolean; nextBefore: string | null } }> {
+  async getMessages(recipientId: string, options?: { limit?: number; before?: string; sync?: boolean }): Promise<{ data: any[]; pagination: { limit: number; hasMore: boolean; nextBefore: string | null } }> {
     const params = new URLSearchParams();
     params.set("limit", String(options?.limit || 20));
     if (options?.before) {
       params.set("before", options.before);
+    }
+    if (options?.sync) {
+      params.set("sync", "1");
     }
     console.log(`[FE Zalo Service] Bắt đầu gọi API getMessages cho khách hàng ID: ${recipientId}...`);
     const res = await fetch(`/api/v1/zalo/conversations/${recipientId}/messages?${params.toString()}`, {
@@ -56,6 +59,25 @@ export const zaloMessengerService = {
   /**
    * Gửi phản hồi tin nhắn cho khách hàng qua Zalo OA
    */
+  async markRead(recipientId: string): Promise<any> {
+    console.log(`[FE Zalo Service] Báº¯t Ä‘áº§u gá»i API markRead cho ID ${recipientId}...`);
+    const res = await fetch(`/api/v1/zalo/conversations/${recipientId}/mark-read`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${getAccessToken()}`,
+      },
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      console.error(`[FE Zalo Service] API markRead cho ID ${recipientId} tháº¥t báº¡i:`, res.status, data);
+      throw new Error(data.message || "KhÃ´ng thá»ƒ Ä‘Ã¡nh dáº¥u Ä‘Ã£ Ä‘á»c cuá»™c há»™i thoáº¡i Zalo.");
+    }
+
+    const result = await res.json();
+    return result.data;
+  },
+
   async sendReply(recipientId: string, text: string): Promise<any> {
     console.log(`[FE Zalo Service] Bắt đầu gọi API sendReply tới ID ${recipientId}. Nội dung: "${text}"`);
     const res = await fetch("/api/v1/zalo/reply", {

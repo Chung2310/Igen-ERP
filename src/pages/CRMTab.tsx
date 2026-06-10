@@ -74,6 +74,8 @@ export default function CRMTab() {
 
   const [typeMessage, setTypeMessage] = useState("");
   const [aiWaiting, setAIWaiting] = useState(false);
+  const [socketConnected, setSocketConnected] = useState(false);
+  const conversationRefreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // AI assistant configurations
   const [aiConfig, setAIConfig] = useState<AIChatConfig>({
@@ -135,7 +137,12 @@ export default function CRMTab() {
     return true;
   };
 
-  const loadConversationMessages = async (conversationId: string, mode: "replace" | "prepend" = "replace", channel?: "facebook" | "zalo") => {
+  const loadConversationMessages = async (
+    conversationId: string,
+    mode: "replace" | "prepend" = "replace",
+    channel?: "facebook" | "zalo",
+    options?: { syncChannel?: boolean }
+  ) => {
     const before = mode === "prepend" ? chatPagination.nextBefore || undefined : undefined;
     if (mode === "prepend") {
       setChatPagination((prev) => ({ ...prev, loadingMore: true }));
@@ -145,8 +152,8 @@ export default function CRMTab() {
 
     try {
       const result = targetChannel === "zalo"
-        ? await zaloMessengerService.getMessages(conversationId, { limit: 20, before })
-        : await fbMessengerService.getMessages(conversationId, { limit: 20, before });
+        ? await zaloMessengerService.getMessages(conversationId, { limit: 20, before, sync: !!options?.syncChannel })
+        : await fbMessengerService.getMessages(conversationId, { limit: 20, before, sync: !!options?.syncChannel });
 
       // Ngăn chặn race-condition khi người dùng chuyển đổi khách hàng nhanh
       if (activeCustomerRef.current?.id !== conversationId) {
@@ -204,7 +211,7 @@ export default function CRMTab() {
     }
   };
 
-  const fetchOmniConversations = async (forceSelectFirst = false) => {
+  const fetchOmniConversations = async (forceSelectFirst = false, options?: { syncFacebook?: boolean }) => {
     console.log("[FE CRMTab] fetchOmniConversations: Đang lấy dữ liệu hội thoại (FB & Zalo)...");
     try {
       let fbConvs: any[] = [];
@@ -212,7 +219,7 @@ export default function CRMTab() {
 
       if (isFbConnected) {
         try {
-          fbConvs = await fbMessengerService.getConversations();
+          fbConvs = await fbMessengerService.getConversations({ sync: !!options?.syncFacebook });
         } catch (err) {
           console.error("Lỗi lấy hội thoại Facebook:", err);
         }
@@ -285,6 +292,17 @@ export default function CRMTab() {
     }
   };
 
+  const scheduleConversationRefresh = (options?: { syncFacebook?: boolean }) => {
+    if (conversationRefreshTimeoutRef.current) {
+      clearTimeout(conversationRefreshTimeoutRef.current);
+    }
+
+    conversationRefreshTimeoutRef.current = setTimeout(() => {
+      conversationRefreshTimeoutRef.current = null;
+      fetchOmniConversations(false, options);
+    }, 180);
+  };
+
   // Connect and disconnect Socket.IO client when active
   useEffect(() => {
     if (subTab !== "OMNI-INBOX CHAT" || (!isFbConnected && !isZaloConnected)) {
@@ -296,8 +314,10 @@ export default function CRMTab() {
     if (token) {
       socketService.connect(token);
     }
+    const unsubscribeStatus = socketService.onStatusChange(setSocketConnected);
 
     return () => {
+      unsubscribeStatus();
       socketService.disconnect();
     };
   }, [subTab, isFbConnected, isZaloConnected]);
@@ -332,9 +352,9 @@ export default function CRMTab() {
           
           // Gửi request ngầm lên server để reset unreadCount về 0 trong DB
           if (activeCust.channel === "zalo") {
-            zaloMessengerService.getMessages(activeId, { limit: 1 }).catch(() => {});
+            zaloMessengerService.markRead(activeId).catch(() => {});
           } else {
-            fbMessengerService.getMessages(activeId, { limit: 1 }).catch(() => {});
+            fbMessengerService.markRead(activeId).catch(() => {});
           }
 
           const mapped = mapFbMessages([message])[0];
@@ -360,12 +380,12 @@ export default function CRMTab() {
       }
 
       // Refresh conversations list to update unread count / last message
-      fetchOmniConversations();
+      scheduleConversationRefresh();
     };
 
     const handleConversationUpdated = async (conversation: any) => {
       console.log("[FE CRMTab] socket conversation_updated event received:", conversation);
-      fetchOmniConversations();
+      scheduleConversationRefresh();
     };
 
     const unsubscribeNewMsg = socketService.onNewMessage(handleNewMessage);
@@ -377,21 +397,29 @@ export default function CRMTab() {
     };
   }, [subTab, isFbConnected, isZaloConnected]);
 
+  useEffect(() => {
+    return () => {
+      if (conversationRefreshTimeoutRef.current) {
+        clearTimeout(conversationRefreshTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // 1. Polling danh sách hội thoại (FB & Zalo) - Tối ưu hiệu năng Visibility
   useEffect(() => {
     if (subTab !== "OMNI-INBOX CHAT" || (!isFbConnected && !isZaloConnected)) return;
 
     const runFetch = () => {
       if (!document.hidden) {
-        fetchOmniConversations();
+        fetchOmniConversations(false, { syncFacebook: !socketConnected });
       }
     };
 
     runFetch();
-    const interval = setInterval(runFetch, 15000); // Polling 15s (Tối ưu hóa tần suất cập nhật danh sách)
+    const interval = setInterval(runFetch, socketConnected ? 60000 : 15000);
 
     const handleVisibility = () => {
-      if (!document.hidden) runFetch();
+      if (!document.hidden) fetchOmniConversations(false, { syncFacebook: true });
     };
     document.addEventListener("visibilitychange", handleVisibility);
 
@@ -399,7 +427,7 @@ export default function CRMTab() {
       clearInterval(interval);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [subTab, isFbConnected, isZaloConnected, activeCustomer?.id]);
+  }, [subTab, isFbConnected, isZaloConnected, activeCustomer?.id, socketConnected]);
 
   // 2. Polling lịch sử tin nhắn của hội thoại đang chọn - Tối ưu hiệu năng Visibility
   useEffect(() => {
@@ -407,19 +435,26 @@ export default function CRMTab() {
 
     const fetchMessages = async () => {
       if (document.hidden) return;
+      if (socketConnected) return;
       console.log(`[FE CRMTab] Fallback polling lịch sử tin nhắn cho conversation ID: ${activeCustomer.id}...`);
       try {
-        await loadConversationMessages(activeCustomer.id, "replace", activeCustomer.channel);
+        await loadConversationMessages(activeCustomer.id, "replace", activeCustomer.channel, { syncChannel: true });
       } catch (err) {
         console.error("[FE CRMTab] Lỗi khi tải tin nhắn:", err);
       }
     };
 
-    fetchMessages();
-    const interval = setInterval(fetchMessages, 5000); // Polling 5s (Đảm bảo tin nhắn mới đồng bộ gần như realtime)
+    loadConversationMessages(activeCustomer.id, "replace", activeCustomer.channel, { syncChannel: !socketConnected }).catch((err) => {
+      console.error("[FE CRMTab] Lỗi khi tải lịch sử tin nhắn ban đầu:", err);
+    });
+    const interval = setInterval(fetchMessages, 30000);
 
     const handleVisibility = () => {
-      if (!document.hidden) fetchMessages();
+      if (!document.hidden) {
+        loadConversationMessages(activeCustomer.id, "replace", activeCustomer.channel, { syncChannel: true }).catch((err) => {
+          console.error("[FE CRMTab] Lỗi khi đồng bộ tin nhắn sau khi quay lại tab:", err);
+        });
+      }
     };
     document.addEventListener("visibilitychange", handleVisibility);
 
@@ -427,7 +462,7 @@ export default function CRMTab() {
       clearInterval(interval);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [subTab, activeCustomer?.id]);
+  }, [subTab, activeCustomer?.id, socketConnected]);
 
   const handleSelectCustomer = (cust: CustomerInbox) => {
     console.log("[FE CRMTab] Nhân viên chọn khách hàng từ danh sách:", cust);

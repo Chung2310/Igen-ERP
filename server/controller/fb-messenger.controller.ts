@@ -79,7 +79,8 @@ export const fbMessengerController = {
         });
       }
 
-      const conversations = await fbMessengerService.getConversations(pageId);
+      const shouldSync = req.query.sync === "1" || req.query.sync === "true";
+      const conversations = await fbMessengerService.getConversations(pageId, { sync: shouldSync });
       
       res.status(200).json({
         success: true,
@@ -104,6 +105,7 @@ export const fbMessengerController = {
       const userId = req.user?.id;
       const limit = Number(req.query.limit || 20);
       const before = typeof req.query.before === "string" ? req.query.before : undefined;
+      const shouldSync = req.query.sync === "1" || req.query.sync === "true";
 
       if (!userId) {
         return res.status(401).json({
@@ -123,7 +125,7 @@ export const fbMessengerController = {
         });
       }
 
-      const result = await fbMessengerService.getMessages(pageId, conversationId, { limit, before });
+      const result = await fbMessengerService.getMessages(pageId, conversationId, { limit, before, sync: shouldSync });
 
       res.status(200).json({
         success: true,
@@ -143,6 +145,44 @@ export const fbMessengerController = {
    * POST /api/v1/facebook/messenger/reply
    * API để nhân viên/AI gửi tin nhắn trả lời khách hàng
    */
+  async markRead(req: any, res: Response): Promise<any> {
+    try {
+      const { recipientId: conversationId } = req.params;
+      const userId = req.user?.id;
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: "NgÆ°á»i dÃ¹ng chÆ°a Ä‘Äƒng nháº­p."
+        });
+      }
+
+      const dbUser = await UserModel.findById(userId).lean();
+      const pageId = dbUser?.facebookIntegration?.pageId;
+
+      if (!dbUser?.facebookIntegration?.isConnected || !pageId) {
+        return res.status(403).json({
+          success: false,
+          message: "Quyá»n truy cáº­p bá»‹ tá»« chá»‘i. Báº¡n chÆ°a cáº¥u hÃ¬nh tÃ­ch há»£p Facebook."
+        });
+      }
+
+      const conversation = await fbMessengerService.markConversationRead(pageId, conversationId);
+
+      res.status(200).json({
+        success: true,
+        message: "ÄÃ£ Ä‘Ã¡nh dáº¥u Ä‘Ã£ Ä‘á»c cuá»™c há»™i thoáº¡i Facebook.",
+        data: conversation
+      });
+    } catch (error: any) {
+      console.error("[FB Controller markRead] Lá»—i khi Ä‘Ã¡nh dáº¥u Ä‘Ã£ Ä‘á»c:", error);
+      res.status(500).json({
+        success: false,
+        message: error.message || "KhÃ´ng thá»ƒ Ä‘Ã¡nh dáº¥u Ä‘Ã£ Ä‘á»c cuá»™c há»™i thoáº¡i."
+      });
+    }
+  },
+
   async sendReply(req: any, res: Response): Promise<any> {
     try {
       const { recipientId: conversationId, text } = req.body;
@@ -184,6 +224,35 @@ export const fbMessengerController = {
       res.status(500).json({
         success: false,
         message: error.message || "Gửi tin nhắn thất bại."
+      });
+    }
+  },
+
+  /**
+   * GET /api/v1/facebook/messenger/diagnostics/:conversationId
+   * Kiểm tra nhanh vì sao Facebook auto-reply không gửi.
+   */
+  async diagnoseConversation(req: any, res: Response): Promise<any> {
+    try {
+      const userId = req.user?.id;
+      const { conversationId } = req.params;
+      if (!userId) {
+        return res.status(401).json({ success: false, message: "Người dùng chưa đăng nhập." });
+      }
+
+      const dbUser = await UserModel.findById(userId).lean();
+      const pageId = dbUser?.facebookIntegration?.pageId;
+      if (!dbUser?.facebookIntegration?.isConnected || !pageId) {
+        return res.status(403).json({ success: false, message: "Bạn chưa cấu hình tích hợp Facebook." });
+      }
+
+      const diagnostic = await fbMessengerService.diagnoseConversation(pageId, conversationId);
+      return res.status(200).json({ success: true, data: diagnostic });
+    } catch (error: any) {
+      console.error("[FB Controller diagnoseConversation] Lỗi:", error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || "Không thể chẩn đoán hội thoại Facebook.",
       });
     }
   }

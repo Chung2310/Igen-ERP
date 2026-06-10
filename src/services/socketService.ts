@@ -4,6 +4,7 @@ class SocketService {
   private socket: Socket | null = null;
   private messageCallbacks: Array<(data: { message: any; conversation: any }) => void> = [];
   private conversationCallbacks: Array<(conversation: any) => void> = [];
+  private statusCallbacks: Array<(connected: boolean) => void> = [];
 
   connect(token: string) {
     if (this.socket?.connected) {
@@ -28,6 +29,7 @@ class SocketService {
 
     this.socket.on("connect", () => {
       console.log(`[SocketService] Connected successfully (Socket ID: ${this.socket?.id})`);
+      this.statusCallbacks.forEach((cb) => cb(true));
     });
 
     this.socket.on("connect_error", (error) => {
@@ -36,6 +38,7 @@ class SocketService {
 
     this.socket.on("disconnect", (reason) => {
       console.warn("[SocketService] Disconnected:", reason);
+      this.statusCallbacks.forEach((cb) => cb(false));
     });
 
     // Listen to incoming messages
@@ -56,7 +59,12 @@ class SocketService {
       console.log("[SocketService] Disconnecting...");
       this.socket.disconnect();
       this.socket = null;
+      this.statusCallbacks.forEach((cb) => cb(false));
     }
+  }
+
+  isConnected() {
+    return !!this.socket?.connected;
   }
 
   onNewMessage(callback: (data: { message: any; conversation: any }) => void) {
@@ -70,6 +78,14 @@ class SocketService {
     this.conversationCallbacks.push(callback);
     return () => {
       this.conversationCallbacks = this.conversationCallbacks.filter((cb) => cb !== callback);
+    };
+  }
+
+  onStatusChange(callback: (connected: boolean) => void) {
+    this.statusCallbacks.push(callback);
+    callback(this.isConnected());
+    return () => {
+      this.statusCallbacks = this.statusCallbacks.filter((cb) => cb !== callback);
     };
   }
 }
