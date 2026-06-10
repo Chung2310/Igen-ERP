@@ -205,9 +205,29 @@ export const geminiController = {
    */
   async generateImage(req: Request, res: Response) {
     try {
-      const { prompt } = req.body;
-      const result = await geminiService.generateImage(prompt);
-      return res.status(200).json(result);
+      const { prompt, aspectRatio, modelName, resolution, existingImageUris } = req.body;
+      const userId = (req as any).user?.id;
+      
+      const result = await geminiService.generateImage(prompt, {
+        aspectRatio,
+        modelName,
+        resolution,
+        existingImageUris,
+      });
+
+      let record = null;
+      if (userId && result.url) {
+        record = await geminiService.saveGeneratedMediaRecord(userId, "image", result.url, prompt, {
+          aspectRatio,
+          resolution,
+          modelName,
+        });
+      }
+
+      return res.status(200).json({
+        ...result,
+        record,
+      });
     } catch (error: any) {
       console.error("[geminiController.generateImage] Error:", error);
       return res.status(500).json({
@@ -223,9 +243,32 @@ export const geminiController = {
    */
   async generateVideo(req: Request, res: Response) {
     try {
-      const { prompt, durationSeconds } = req.body;
-      const result = await geminiService.generateVideo(prompt, durationSeconds);
-      return res.status(200).json(result);
+      const { prompt, durationSeconds, aspectRatio, modelName, resolution, referenceVideoUri, referenceImageUris } = req.body;
+      const userId = (req as any).user?.id;
+
+      const result = await geminiService.generateVideo(prompt, durationSeconds, {
+        aspectRatio,
+        modelName,
+        resolution,
+        referenceVideoUri,
+        referenceImageUris,
+      });
+
+      let record = null;
+      if (userId && result.url) {
+        record = await geminiService.saveGeneratedMediaRecord(userId, "video", result.url, prompt, {
+          aspectRatio,
+          resolution,
+          modelName,
+          durationSeconds,
+          originalVeoUrl: referenceVideoUri,
+        });
+      }
+
+      return res.status(200).json({
+        ...result,
+        record,
+      });
     } catch (error: any) {
       console.error("[geminiController.generateVideo] Error:", error);
       return res.status(500).json({
@@ -237,6 +280,7 @@ export const geminiController = {
   },
 
   /**
+<<<<<<< Updated upstream
    * POST /api/v1/gemini/sync-drive
    */
   async syncGoogleDrive(req: AuthenticatedRequest, res: Response) {
@@ -337,6 +381,128 @@ A: Hoàn toàn MIỄN PHÍ. Đội ngũ kỹ thuật của iGen sẽ hỗ trợ 
       return res.status(500).json({
         status: "error",
         message: "Lỗi đồng bộ dữ liệu từ Google Drive",
+        details: error.message,
+      });
+    }
+  },
+
+  /**
+   * POST /api/v1/gemini/generate-voice
+   */
+  async generateVoice(req: Request, res: Response) {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
+      }
+      const record = await geminiService.generateVoice(userId, req.body);
+      return res.status(200).json({
+        status: "success",
+        record,
+      });
+    } catch (error: any) {
+      console.error("[geminiController.generateVoice] Error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Lỗi tạo giọng nói AI",
+        details: error.message,
+      });
+    }
+  },
+
+  /**
+   * POST /api/v1/gemini/optimize-script
+   */
+  async optimizeScript(req: Request, res: Response) {
+    try {
+      const { text, readingStyle } = req.body;
+      const result = await geminiService.optimizeScript(text, readingStyle);
+      return res.status(200).json(result);
+    } catch (error: any) {
+      console.error("[geminiController.optimizeScript] Error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Lỗi tối ưu kịch bản",
+        details: error.message,
+      });
+    }
+  },
+
+  /**
+   * POST /api/v1/gemini/optimize-prompt
+   */
+  async optimizeImagePrompt(req: Request, res: Response) {
+    try {
+      const { description, imageUris } = req.body;
+      const result = await geminiService.optimizeImagePrompt(description, imageUris);
+      return res.status(200).json(result);
+    } catch (error: any) {
+      console.error("[geminiController.optimizeImagePrompt] Error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Lỗi tối ưu prompt ảnh",
+        details: error.message,
+      });
+    }
+  },
+
+  /**
+   * POST /api/v1/gemini/optimize-video-prompt
+   */
+  async optimizeVideoPrompt(req: Request, res: Response) {
+    try {
+      const { description, imageUris } = req.body;
+      const result = await geminiService.optimizeVideoPrompt(description, imageUris);
+      return res.status(200).json(result);
+    } catch (error: any) {
+      console.error("[geminiController.optimizeVideoPrompt] Error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Lỗi tối ưu prompt video",
+        details: error.message,
+      });
+    }
+  },
+
+  /**
+   * GET /api/v1/gemini/media-history
+   */
+  async getMediaHistory(req: Request, res: Response) {
+    try {
+      const userId = (req as any).user?.id;
+      const { type } = req.query;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
+      }
+      const history = await geminiService.getMediaHistory(userId, type as any);
+      return res.status(200).json({ status: "success", history });
+    } catch (error: any) {
+      console.error("[geminiController.getMediaHistory] Error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Lỗi lấy lịch sử sinh đa phương tiện",
+        details: error.message,
+      });
+    }
+  },
+
+  /**
+   * DELETE /api/v1/gemini/media-history/:id
+   */
+  async deleteMediaHistory(req: Request, res: Response) {
+    try {
+      const userId = (req as any).user?.id;
+      const { id } = req.params;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
+      }
+      const result = await geminiService.deleteMediaHistory(userId, id);
+      return res.status(200).json(result);
+    } catch (error: any) {
+      console.error("[geminiController.deleteMediaHistory] Error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Lỗi xóa bản ghi lịch sử",
         details: error.message,
       });
     }

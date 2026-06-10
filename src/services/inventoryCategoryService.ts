@@ -1,14 +1,4 @@
-import {
-  addDoc,
-  collection,
-  deleteDoc,
-  doc,
-  onSnapshot,
-  orderBy,
-  query,
-  updateDoc,
-} from "firebase/firestore";
-import { db, handleFirestoreError, OperationType } from "../config/firebase";
+import { getAccessToken } from "./authService";
 import { ProductCategory } from "../types";
 
 const COLLECTION_NAME = "inventoryProductCategories";
@@ -19,62 +9,106 @@ type CategoryInput = {
   description: string;
 };
 
-const collectionRef = collection(db, COLLECTION_NAME);
-
 export const inventoryCategoryService = {
   subscribe(callback: (categories: ProductCategory[]) => void, onError?: (error: unknown) => void) {
-    const categoryQuery = query(collectionRef, orderBy("name", "asc"));
-
-    return onSnapshot(
-      categoryQuery,
-      (snapshot) => {
-        const categories = snapshot.docs.map((item) => ({
-          id: item.id,
-          ...(item.data() as Omit<ProductCategory, "id">),
+    const fetchCategories = async () => {
+      try {
+        const res = await fetch("/api/v1/crud/categories?sort=name", {
+          headers: {
+            "Authorization": `Bearer ${getAccessToken()}`,
+          },
+        });
+        if (!res.ok) {
+          throw new Error("Không thể tải danh sách danh mục.");
+        }
+        const json = await res.json();
+        const categories = (json.data || []).map((item: any) => ({
+          ...item,
+          id: item._id,
         }));
         callback(categories);
-      },
-      (error) => {
+      } catch (err) {
         if (onError) {
-          onError(error);
-          return;
+          onError(err);
+        } else {
+          console.error("Lỗi khi tải danh sách danh mục:", err);
         }
-        handleFirestoreError(error, OperationType.LIST, COLLECTION_NAME);
       }
-    );
+    };
+
+    fetchCategories();
+    const interval = setInterval(fetchCategories, 5000);
+    return () => clearInterval(interval);
   },
 
   async createCategory(input: CategoryInput) {
     try {
-      await addDoc(collectionRef, {
-        name: input.name,
-        code: input.code,
-        description: input.description,
-        colorClass: "bg-blue-50 text-blue-700 border-blue-100",
-        status: "Đang dùng",
+      const res = await fetch("/api/v1/crud/categories", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${getAccessToken()}`,
+        },
+        body: JSON.stringify({
+          name: input.name,
+          code: input.code,
+          description: input.description,
+          colorClass: "bg-blue-50 text-blue-700 border-blue-100",
+          status: "Đang dùng",
+        }),
       });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.message || "Tạo danh mục thất bại.");
+      }
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, COLLECTION_NAME);
+      console.error(error);
+      throw error;
     }
   },
 
   async updateCategory(id: string, input: CategoryInput) {
     try {
-      await updateDoc(doc(db, COLLECTION_NAME, id), {
-        name: input.name,
-        code: input.code,
-        description: input.description,
+      const res = await fetch(`/api/v1/crud/categories/${id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${getAccessToken()}`,
+        },
+        body: JSON.stringify({
+          name: input.name,
+          code: input.code,
+          description: input.description,
+        }),
       });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.message || "Cập nhật danh mục thất bại.");
+      }
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `${COLLECTION_NAME}/${id}`);
+      console.error(error);
+      throw error;
     }
   },
 
   async deleteCategory(id: string) {
     try {
-      await deleteDoc(doc(db, COLLECTION_NAME, id));
+      const res = await fetch(`/api/v1/crud/categories/${id}`, {
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${getAccessToken()}`,
+        },
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.message || "Xóa danh mục thất bại.");
+      }
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `${COLLECTION_NAME}/${id}`);
+      console.error(error);
+      throw error;
     }
   },
 };

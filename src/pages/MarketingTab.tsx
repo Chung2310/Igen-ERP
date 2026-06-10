@@ -26,6 +26,23 @@ import { geminiApi } from "../api/gemini";
 import { toast } from "./Toast";
 import { useAuth } from "../context/AuthContext";
 import { parseFirebaseError } from "../utils/firebaseErrorParser";
+import { ContentStudioWorkspace } from "../components/content-studio/ContentStudioWorkspace";
+
+const formatCardDate = (dateStr: any): string => {
+  if (!dateStr) return "";
+  try {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return String(dateStr);
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${hours}:${minutes} ${day}/${month}/${year}`;
+  } catch (e) {
+    return String(dateStr);
+  }
+};
 
 export default function MarketingTab() {
   const { userProfile } = useAuth();
@@ -33,20 +50,18 @@ export default function MarketingTab() {
   const [subTab, setSubTab] = useState<MarketingSubTabType>("LÊN Ý TƯỞNG AI");
 
   // AI Media Generation States
-  const [aiGenCard, setAiGenCard] = useState<ContentApprovalCard | null>(null);
-  const [aiGenType, setAiGenType] = useState<'image' | 'video' | null>(null);
-  const [aiGenPrompt, setAiGenPrompt] = useState("");
-  const [videoDuration, setVideoDuration] = useState<number>(6);
-  const [isGeneratingMedia, setIsGeneratingMedia] = useState(false);
-  const [aiGenLoadingText, setAiGenLoadingText] = useState("");
   const [publishingTikTokId, setPublishingTikTokId] = useState<string | null>(null);
+  const [contentStudioParams, setContentStudioParams] = useState<{
+    tab: 'image' | 'video' | 'voice';
+    prompt: string;
+    cardId: string;
+  } | null>(null);
 
   // Lightbox Preview States
   const [activeLightboxCard, setActiveLightboxCard] = useState<ContentApprovalCard | null>(null);
   const [activeLightboxType, setActiveLightboxType] = useState<'image' | 'video' | null>(null);
   const [activeLightboxUrl, setActiveLightboxUrl] = useState<string | null>(null);
-  const [isRegenerating, setIsRegenerating] = useState(false);
-  const [regeneratePrompt, setRegeneratePrompt] = useState("");
+  const [showDeleteMediaConfirm, setShowDeleteMediaConfirm] = useState(false);
 
   // 1. AI Campaign Ideation States
   const [campaignInput, setCampaignInput] = useState("");
@@ -241,6 +256,7 @@ export default function MarketingTab() {
 
   const updateCardStatus = async (id: string, newStatus: "draft" | "pending" | "approved" | "scheduled" | "published") => {
     await marketingService.updateCardStatus(id, newStatus);
+    setApprovalCards(prev => prev.map(c => c.id === id ? { ...c, status: newStatus } : c));
   };
 
   const handleConfirmSchedule = async () => {
@@ -260,6 +276,7 @@ export default function MarketingTab() {
     try {
       await marketingService.scheduleCard(schedulingCard.id, scheduleDate, scheduleTime);
       toast.success(`Đã lên lịch đăng bài "${schedulingCard.title}" thành công!`);
+      setApprovalCards(prev => prev.map(c => c.id === schedulingCard.id ? { ...c, status: "scheduled", scheduledDate: scheduleDate, scheduledTime: scheduleTime } : c));
       setSchedulingCard(null);
     } catch (e) {
       console.error("Lỗi khi lên lịch bài đăng:", e);
@@ -269,13 +286,15 @@ export default function MarketingTab() {
 
   const deleteCard = async (id: string) => {
     await marketingService.deleteCard(id);
+    setApprovalCards(prev => prev.filter(c => c.id !== id));
   };
 
   const [promptMore, setPromptMore] = useState("");
   const handleAIGenerateMore = async () => {
     if (!promptMore.trim()) return;
     const card = newProductiveDraft(promptMore);
-    await marketingService.saveCard(card);
+    const savedCard = await marketingService.saveCard(card);
+    setApprovalCards(prev => [...prev, savedCard]);
     setPromptMore("");
   };
 
@@ -287,20 +306,23 @@ export default function MarketingTab() {
       contentType: "Bài viết AI Copywriter soạn thảo",
       status: "draft",
       bodyText: `✨ Chào đón sự bứt phá của dự án mới! Về chủ đề đề nghị "${topic}", hãy khởi sắc chiến dịch truyền thông hấp dẫn, tri ân sâu sắc để tiếp xúc với hàng triệu khách hàng mục tiêu tiếp cận iGen giải pháp chuyển đổi số toàn diện. Đăng ký ngay hôm nay để nhận tư vấn!`,
-      generatedAt: new Date().toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }),
+      generatedAt: new Date().toISOString(),
       authorUid: userProfile?.uid ?? ''
     };
   };
 
   const handleDevelopConcept = async (concept: MarketingConcept, idx: number) => {
+    console.log("[handleDevelopConcept] Starting development for concept:", concept.title);
     setDevelopingIdx(idx);
     try {
+      console.log("[handleDevelopConcept] Calling marketingService.developIdea...");
       const result = await marketingService.developIdea({
         title: concept.title,
         summary: concept.summary,
         suggestedContent: concept.suggestedContent,
         channels: concept.channels
       });
+      console.log("[handleDevelopConcept] Received result from API:", result);
 
       if (result && result.posts) {
         const newCards: ContentApprovalCard[] = result.posts.map((post: any, index: number) => {
@@ -312,131 +334,80 @@ export default function MarketingTab() {
             status: "pending",
             outline: post.outline || "",
             bodyText: post.bodyText || "",
-            generatedAt: "Vừa xong",
+            generatedAt: new Date().toISOString(),
             authorUid: userProfile?.uid ?? ''
           };
         });
 
-        await marketingService.saveCards(newCards);
+        console.log("[handleDevelopConcept] Saving new cards to MongoDB:", newCards);
+        const savedCards = await marketingService.saveCards(newCards);
+        console.log("[handleDevelopConcept] Cards saved successfully. Updating local state and switching subTab...");
+        setApprovalCards(prev => [...prev, ...savedCards]);
         setSubTab("DUYỆT NỘI DUNG");
+      } else {
+        console.warn("[handleDevelopConcept] Result has no posts:", result);
       }
     } catch (e) {
       console.error("Lỗi phát triển ý tưởng đa kênh:", e);
       toast.error("Lỗi kết nối Trợ lý AI khi lập dàn ý chi tiết.");
     } finally {
+      console.log("[handleDevelopConcept] Resetting developing index.");
       setDevelopingIdx(null);
     }
   };
 
   // AI Media generation and management handlers
   const handleInitAIGeneration = (card: ContentApprovalCard, type?: 'image' | 'video') => {
-    setAiGenCard(card);
-    // Nếu không truyền type, mặc định theo kênh nhưng user vẫn có thể thay đổi trong modal
-    setAiGenType(type ?? (card.channel === 'TikTok' ? 'video' : 'image'));
-    const cleanText = extractDraftContent(card.bodyText);
-    setAiGenPrompt(cleanText);
+    const selectedType = type ?? (card.channel === 'TikTok' ? 'video' : 'image');
+    
+    // For video generation, use the storyboard outline first, fallback to body text.
+    // For image generation, extract the draft content from the body text.
+    let cleanText = "";
+    if (selectedType === 'video') {
+      cleanText = card.outline || card.bodyText || "";
+    } else {
+      cleanText = extractDraftContent(card.bodyText);
+    }
+
+    setContentStudioParams({
+      tab: selectedType,
+      prompt: cleanText,
+      cardId: card.id
+    });
+    setSubTab("XƯỞNG NỘI DUNG");
   };
 
-  const handleExecuteAIGeneration = async () => {
-    if (!aiGenCard || !aiGenType || !aiGenPrompt.trim()) return;
-
-    setIsGeneratingMedia(true);
-    setAiGenLoadingText(
-      aiGenType === "image"
-        ? "AI đang vẽ ảnh minh họa..."
-        : "AI đang dựng video, việc này có thể tốn từ 1-2 phút..."
-    );
-
-    try {
-      let result;
-      if (aiGenType === "image") {
-        result = await geminiApi.generateImage(aiGenPrompt);
-      } else {
-        result = await geminiApi.generateVideo(aiGenPrompt, videoDuration);
-      }
-
-      const tempUrl = result.url;
-      let filename = `${aiGenType}_${Date.now()}`;
-      if (tempUrl.startsWith("http") && !tempUrl.startsWith("data:")) {
-        filename = tempUrl.split("/").pop() || filename;
-      } else {
-        const mime = tempUrl.match(/data:([^;]+);/)?.[1] || "";
-        const ext = mime.split("/")[1] || (aiGenType === "image" ? "png" : "mp4");
-        filename = `${aiGenType}_${Date.now()}.${ext}`;
-      }
-
-      // Upload to Firebase Storage
-      setAiGenLoadingText("Đang tải phương tiện lên Firebase Storage...");
-      const storageUrl = await marketingService.uploadMediaToStorage(tempUrl, filename, aiGenType);
-
-      // Update media only for this card
-      setAiGenLoadingText("Đang cập nhật cơ sở dữ liệu...");
-      await marketingService.updateCardMedia(storageUrl, aiGenType, [aiGenCard.id]);
-
-      toast.success(`Sinh ${aiGenType === "image" ? "ảnh" : "video"} AI và tải lên Storage thành công!`);
-      
-      // Clear state
-      setAiGenCard(null);
-      setAiGenType(null);
-    } catch (e: any) {
-      console.error("Lỗi sinh phương tiện AI:", e);
-      toast.error(parseFirebaseError(e, "Lỗi trong quá trình tạo phương tiện AI."));
-    } finally {
-      setIsGeneratingMedia(false);
-    }
+  const handleMediaSaved = (cardId: string, mediaUrl: string, type: 'image' | 'video') => {
+    setApprovalCards(prev => prev.map(c => c.id === cardId ? {
+      ...c,
+      imageUrl: type === 'image' ? mediaUrl : c.imageUrl,
+      videoUrl: type === 'video' ? mediaUrl : c.videoUrl
+    } : c));
   };
 
   const handleOpenLightbox = (card: ContentApprovalCard, type: 'image' | 'video', url: string) => {
     setActiveLightboxCard(card);
     setActiveLightboxType(type);
     setActiveLightboxUrl(url);
-    const cleanText = extractDraftContent(card.bodyText);
-    setRegeneratePrompt(cleanText);
   };
 
-  const handleRegenerateMedia = async () => {
-    if (!activeLightboxCard || !activeLightboxType || !regeneratePrompt.trim()) return;
-
-    setIsRegenerating(true);
-    try {
-      let result;
-      if (activeLightboxType === "image") {
-        result = await geminiApi.generateImage(regeneratePrompt);
-      } else {
-        result = await geminiApi.generateVideo(regeneratePrompt, videoDuration);
-      }
-
-      const tempUrl = result.url;
-      let filename = `${activeLightboxType}_${Date.now()}`;
-      if (tempUrl.startsWith("http") && !tempUrl.startsWith("data:")) {
-        filename = tempUrl.split("/").pop() || filename;
-      } else {
-        const mime = tempUrl.match(/data:([^;]+);/)?.[1] || "";
-        const ext = mime.split("/")[1] || (activeLightboxType === "image" ? "png" : "mp4");
-        filename = `${activeLightboxType}_${Date.now()}.${ext}`;
-      }
-
-      const storageUrl = await marketingService.uploadMediaToStorage(tempUrl, filename, activeLightboxType);
-
-      await marketingService.updateCardMedia(storageUrl, activeLightboxType, [activeLightboxCard.id]);
-
-      setActiveLightboxUrl(storageUrl);
-      toast.success("Đã tạo lại phương tiện mới thành công!");
-    } catch (e: any) {
-      console.error("Lỗi tạo lại phương tiện AI:", e);
-      toast.error(parseFirebaseError(e, "Lỗi khi tạo lại phương tiện."));
-    } finally {
-      setIsRegenerating(false);
-    }
-  };
-
-  const handleDeleteMedia = async () => {
+  const handleDeleteMedia = () => {
     if (!activeLightboxCard || !activeLightboxType) return;
+    setShowDeleteMediaConfirm(true);
+  };
 
-    if (!confirm("Bạn có chắc chắn muốn xóa phương tiện này khỏi bài đăng?")) return;
-
+  const handleConfirmDeleteMedia = async () => {
+    if (!activeLightboxCard || !activeLightboxType) return;
+    setShowDeleteMediaConfirm(false);
     try {
       await marketingService.updateCardMedia(null, activeLightboxType, [activeLightboxCard.id]);
+      
+      setApprovalCards(prev => prev.map(c => c.id === activeLightboxCard.id ? {
+        ...c,
+        imageUrl: activeLightboxType === 'image' ? null : c.imageUrl,
+        videoUrl: activeLightboxType === 'video' ? null : c.videoUrl
+      } : c));
+
       toast.success("Đã xóa phương tiện thành công!");
       setActiveLightboxCard(null);
       setActiveLightboxType(null);
@@ -543,7 +514,7 @@ export default function MarketingTab() {
       {/* Sub Tabs control header switcher */}
       <div className="border-b border-gray-200 bg-gray-50/50 p-2 text-xs flex justify-between shrink-0" id="marketing_sub_tabs_switch">
         <div className="flex gap-2">
-          {["LÊN Ý TƯỞNG AI", "DUYỆT NỘI DUNG", "LỊCH ĐĂNG CONTENT"].map((tab) => (
+          {["LÊN Ý TƯỞNG AI", "DUYỆT NỘI DUNG", "LỊCH ĐĂNG CONTENT", "XƯỞNG NỘI DUNG"].map((tab) => (
             <button
               key={tab}
               onClick={() => setSubTab(tab as MarketingSubTabType)}
@@ -1195,6 +1166,15 @@ export default function MarketingTab() {
           </div>
         )}
 
+        {/* SUB TAB 4: XƯỞNG NỘI DUNG */}
+        {subTab === "XƯỞNG NỘI DUNG" && (
+          <ContentStudioWorkspace 
+            initialParams={contentStudioParams}
+            onClearParams={() => setContentStudioParams(null)}
+            onMediaSaved={handleMediaSaved}
+          />
+        )}
+
       </div>
 
       {/* Glassmorphic Lightbox Preview modal */}
@@ -1232,6 +1212,7 @@ export default function MarketingTab() {
                       setActiveLightboxCard(null);
                       setActiveLightboxType(null);
                       setActiveLightboxUrl(null);
+                      setShowDeleteMediaConfirm(false);
                     }}
                     className="text-gray-400 hover:text-white transition-colors p-1"
                   >
@@ -1244,69 +1225,12 @@ export default function MarketingTab() {
                   <p className="text-[10px] text-slate-400 font-mono">Kênh đăng: {activeLightboxCard.channel}</p>
                 </div>
 
-                <div className="border-t border-white/15 pt-3">
-                  <label className="block text-[9px] font-bold text-purple-400 font-mono uppercase tracking-wider mb-1">
-                    Prompt AI đã sử dụng:
-                  </label>
-                  <textarea 
-                    value={regeneratePrompt}
-                    onChange={(e) => setRegeneratePrompt(e.target.value)}
-                    placeholder="Nhập prompt điều chỉnh để tạo lại..."
-                    className="w-full h-24 p-2 bg-white/5 border border-white/10 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 transition-colors leading-relaxed"
-                  />
-                </div>
-
-                {activeLightboxType === "video" && (
-                  <div className="border-t border-white/15 pt-3">
-                    <label className="block text-[9px] font-bold text-purple-400 font-mono uppercase tracking-wider mb-1">
-                      Thời lượng Video:
-                    </label>
-                    <div className="flex gap-2">
-                      {[4, 6, 8].map((sec) => (
-                        <button
-                          key={sec}
-                          type="button"
-                          onClick={() => setVideoDuration(sec)}
-                          className={`flex-1 py-1.5 rounded-lg font-bold border text-[10px] transition-all cursor-pointer ${
-                            videoDuration === sec
-                              ? "bg-purple-600 border-purple-600 text-white shadow-sm"
-                              : "bg-white/5 border-white/10 text-slate-300 hover:bg-white/10"
-                          }`}
-                        >
-                          {sec} giây
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <div className="text-[10px] text-slate-400 italic bg-white/5 p-2 rounded-lg leading-relaxed">
-                  Tip: Bạn có thể sửa prompt trên để tạo lại hình ảnh/video mới cho bài viết này.
-                </div>
               </div>
 
-              <div className="space-y-2.5 pt-4 border-t border-white/15">
-                <button 
-                  onClick={handleRegenerateMedia}
-                  disabled={isRegenerating || !regeneratePrompt.trim()}
-                  className="w-full flex items-center justify-center gap-1.5 py-2 px-4 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                >
-                  {isRegenerating ? (
-                    <>
-                      <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                      <span>Đang tạo lại...</span>
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="h-3.5 w-3.5" />
-                      <span>Tạo lại bằng AI</span>
-                    </>
-                  )}
-                </button>
-
+              <div className="pt-4 border-t border-white/15">
                 <button 
                   onClick={handleDeleteMedia}
-                  className="w-full flex items-center justify-center gap-1.5 py-2 px-4 bg-red-950/40 hover:bg-red-900/60 text-red-300 hover:text-red-200 border border-red-900/50 hover:border-red-800 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                  className="w-full flex items-center justify-center gap-1.5 py-2.5 px-4 bg-red-950/40 hover:bg-red-900/60 text-red-300 hover:text-red-200 border border-red-900/50 hover:border-red-800 rounded-xl text-xs font-bold transition-all cursor-pointer"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                   <span>Xóa phương tiện</span>
@@ -1318,141 +1242,34 @@ export default function MarketingTab() {
         </div>
       )}
 
-      {/* AI Prompt fine-tuning popup */}
-      {aiGenCard && aiGenType && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fadeIn">
-          <div className="bg-white rounded-3xl border border-gray-200/50 shadow-2xl w-full max-w-md overflow-hidden font-sans text-left">
-            <div className="p-6 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
-              <div>
-                <h4 className="font-bold text-gray-800 text-base flex items-center gap-1.5">
-                  <Sparkles className="h-5 w-5 text-purple-600 animate-pulse" />
-                  Tạo Media AI
-                </h4>
-                <p className="text-xs text-gray-400 mt-1">Chọn loại, tinh chỉnh prompt và để AI sáng tạo nội dung</p>
+      {showDeleteMediaConfirm && activeLightboxCard && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-[60] p-4 animate-fadeIn">
+          <div className="bg-white rounded-3xl border border-gray-200/50 shadow-2xl w-full max-w-sm overflow-hidden font-sans animate-scaleIn">
+            <div className="p-6 text-center flex flex-col items-center">
+              <div className="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center mb-4 border border-red-100">
+                <Trash2 className="h-6 w-6 text-red-500" />
               </div>
-              <button 
-                onClick={() => {
-                  setAiGenCard(null);
-                  setAiGenType(null);
-                }}
-                className="p-1 px-3 text-sm text-slate-400 hover:text-slate-655 hover:bg-slate-100 rounded-md font-bold transition-all cursor-pointer"
+              <h4 className="font-bold text-gray-800 text-base mb-2">Xóa phương tiện?</h4>
+              <p className="text-xs text-gray-500 leading-relaxed max-w-xs">
+                Bạn có chắc chắn muốn xóa {activeLightboxType === 'image' ? 'hình ảnh' : 'video'} này khỏi bài đăng? Hành động này không thể hoàn tác.
+              </p>
+            </div>
+            <div className="p-6 bg-gray-50/50 border-t border-gray-100 flex gap-3 w-full">
+              <button
+                type="button"
+                onClick={() => setShowDeleteMediaConfirm(false)}
+                className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-xs transition-all cursor-pointer"
               >
-                ✕
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteMedia}
+                className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-xs transition-colors cursor-pointer shadow-sm shadow-red-200"
+              >
+                Xác nhận xóa
               </button>
             </div>
-
-            <div className="p-6 space-y-4 text-xs">
-              {/* Media type selector */}
-              <div>
-                <label className="block text-gray-500 font-bold mb-2 uppercase tracking-wide text-[10px]">Loại Media *</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setAiGenType('image')}
-                    className={`flex flex-col items-center gap-2 py-3 px-4 rounded-xl border-2 font-bold transition-all cursor-pointer ${
-                      aiGenType === 'image'
-                        ? 'bg-purple-600 border-purple-600 text-white shadow-md'
-                        : 'bg-white border-gray-200 text-gray-600 hover:border-purple-300 hover:bg-purple-50'
-                    }`}
-                  >
-                    <span className="text-lg">🖼️</span>
-                    <span className="text-[11px]">Ảnh Minh Họa</span>
-                    <span className={`text-[9px] font-normal ${aiGenType === 'image' ? 'text-purple-200' : 'text-gray-400'}`}>gemini-flash-image</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAiGenType('video')}
-                    className={`flex flex-col items-center gap-2 py-3 px-4 rounded-xl border-2 font-bold transition-all cursor-pointer ${
-                      aiGenType === 'video'
-                        ? 'bg-purple-600 border-purple-600 text-white shadow-md'
-                        : 'bg-white border-gray-200 text-gray-600 hover:border-purple-300 hover:bg-purple-50'
-                    }`}
-                  >
-                    <span className="text-lg">🎬</span>
-                    <span className="text-[11px]">Video Ngắn</span>
-                    <span className={`text-[9px] font-normal ${aiGenType === 'video' ? 'text-purple-200' : 'text-gray-400'}`}>veo-3 · 4–8 giây</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Model info badge */}
-              <div className="bg-purple-50/50 p-3 rounded-xl border border-purple-100 text-purple-950 leading-relaxed">
-                <span className="font-bold">Mô hình AI:</span> {aiGenType === "image" ? "Nano-Banana (gemini-3.1-flash-image)" : "Veo3 (veo-3.1-generate-preview)"}
-              </div>
-
-              <div>
-                <label className="block text-gray-500 font-bold mb-1.5 uppercase tracking-wide text-[10px]">Nhập Prompt Điều Khiển AI *</label>
-                <textarea 
-                  value={aiGenPrompt}
-                  onChange={(e) => setAiGenPrompt(e.target.value)}
-                  placeholder="Mô tả chi tiết những gì bạn muốn xuất hiện..."
-                  className="w-full h-28 p-3 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none leading-relaxed"
-                />
-                <span className="text-[10px] text-gray-400 mt-1 block">
-                  Mẹo: Prompt mô tả chi tiết, trực quan sẽ giúp mô hình tạo ra kết quả đẹp mắt hơn.
-                </span>
-              </div>
-
-              {aiGenType === "video" && (
-                <div>
-                  <label className="block text-gray-500 font-bold mb-1.5 uppercase tracking-wide text-[10px]">Thời lượng Video *</label>
-                  <div className="flex gap-2">
-                    {[4, 6, 8].map((sec) => (
-                      <button
-                        key={sec}
-                        type="button"
-                        onClick={() => setVideoDuration(sec)}
-                        className={`flex-1 py-2 rounded-lg font-bold border text-xs transition-all cursor-pointer ${
-                          videoDuration === sec
-                            ? "bg-purple-600 border-purple-600 text-white shadow-sm"
-                            : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
-                        }`}
-                      >
-                        {sec}s
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="pt-4 border-t border-gray-100 flex gap-2 justify-end">
-                <button 
-                  type="button" 
-                  onClick={() => {
-                    setAiGenCard(null);
-                    setAiGenType(null);
-                  }}
-                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-bold transition-all cursor-pointer text-xs"
-                >
-                  Hủy bỏ
-                </button>
-                <button 
-                  type="button" 
-                  onClick={handleExecuteAIGeneration}
-                  disabled={!aiGenPrompt.trim()}
-                  className="px-5 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-bold transition-colors cursor-pointer text-xs shadow-sm flex items-center gap-1.5"
-                >
-                  <Sparkles className="h-4 w-4" />
-                  <span>Bắt đầu {aiGenType === 'image' ? 'Vẽ Ảnh' : 'Dựng Video'}</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Loading overlay */}
-      {isGeneratingMedia && (
-        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-md flex flex-col items-center justify-center z-[60] p-4">
-          <div className="bg-white rounded-2xl p-6 shadow-2xl flex flex-col items-center max-w-xs text-center border border-gray-100">
-            <RefreshCw className="h-8 w-8 text-purple-600 animate-spin mb-4" />
-            <span className="text-xs font-bold text-gray-800 uppercase tracking-wide">Đang xử lý với AI</span>
-            <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">{aiGenLoadingText}</p>
-            {aiGenType === "video" && (
-              <span className="text-[9px] text-purple-500 font-mono mt-3 animate-pulse uppercase font-semibold">
-                Quá trình này tốn từ 1 - 2 phút để render
-              </span>
-            )}
           </div>
         </div>
       )}
@@ -1613,7 +1430,7 @@ function ModerationPipCard({
 
       {/* Detail list status */}
       <div className="flex items-center justify-between border-t border-gray-100 pt-2 text-[9px]">
-        <span className="text-gray-400 font-mono text-[8px]">{card.generatedAt}</span>
+        <span className="text-gray-400 font-mono text-[8px]">{formatCardDate(card.generatedAt)}</span>
         
         {/* Approve/Reject Controls action buttons */}
         <div className="flex items-center gap-1">
@@ -1774,7 +1591,7 @@ function ScheduledCard({
       )}
 
       <div className="flex items-center justify-between border-t border-gray-100 pt-2 text-[9px]">
-        <span className="text-gray-400 font-mono text-[8px]">{card.generatedAt}</span>
+        <span className="text-gray-400 font-mono text-[8px]">{formatCardDate(card.generatedAt)}</span>
         <div className="flex items-center gap-1">
           <button onClick={onPrevStatus} title="Quay lại: Đã duyệt"
             className="p-1 text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-md font-bold transition-all flex items-center justify-center cursor-pointer">

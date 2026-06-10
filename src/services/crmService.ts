@@ -1,15 +1,4 @@
-import {
-  addDoc,
-  collection,
-  deleteDoc,
-  doc,
-  onSnapshot,
-  orderBy,
-  query,
-  updateDoc,
-  writeBatch,
-} from "firebase/firestore";
-import { db, handleFirestoreError, OperationType } from "../config/firebase";
+import { getAccessToken } from "./authService";
 import { LeadCard } from "../types";
 
 export interface LeadProductSelection {
@@ -26,9 +15,6 @@ export interface ExtendedLeadCard extends LeadCard {
   selectedProducts?: LeadProductSelection[];
 }
 
-const COLLECTION_NAME = "crmLeads";
-const collectionRef = collection(db, COLLECTION_NAME);
-
 function logCrmTiming(
   operation: "subscribe" | "create" | "update" | "delete" | "bulkUpdate",
   startedAt: number,
@@ -36,103 +22,121 @@ function logCrmTiming(
 ) {
   const durationMs = Date.now() - startedAt;
   console.info(`[CRM:${operation}]`, {
-    collection: COLLECTION_NAME,
     durationMs,
     ...details,
   });
 }
 
 export const crmService = {
-  subscribeLeads(callback: (leads: ExtendedLeadCard[]) => void, onError?: (error: unknown) => void) {
-    const leadsQuery = query(collectionRef, orderBy("createdAt", "desc"));
-
-    return onSnapshot(
-      leadsQuery,
-      (snapshot) => {
-        const startedAt = Date.now();
-        const leads = snapshot.docs.map((item) => ({
-          id: item.id,
-          ...(item.data() as Omit<ExtendedLeadCard, "id">),
-        }));
-
-        logCrmTiming("subscribe", startedAt, {
-          count: leads.length,
-          empty: snapshot.empty,
-          fromCache: snapshot.metadata.fromCache,
-          hasPendingWrites: snapshot.metadata.hasPendingWrites,
-        });
-        callback(leads);
+  async getLeads(): Promise<ExtendedLeadCard[]> {
+    const res = await fetch("/api/v1/crud/crm-tickets", {
+      headers: {
+        "Authorization": `Bearer ${getAccessToken()}`,
       },
-      (error) => {
+    });
+    if (!res.ok) {
+      throw new Error("Không thể tải danh sách cơ hội bán hàng.");
+    }
+    const json = await res.json();
+    return (json.data || []).map((item: any) => ({
+      ...item,
+      id: item._id, // Bản đồ MongoDB _id sang id
+    }));
+  },
+
+  subscribeLeads(callback: (leads: ExtendedLeadCard[]) => void, onError?: (error: unknown) => void) {
+    const fetchLeads = async () => {
+      try {
+        const data = await this.getLeads();
+        callback(data);
+      } catch (err) {
         if (onError) {
-          onError(error);
-          return;
+          onError(err);
+        } else {
+          console.error("Lỗi khi tải danh sách leads:", err);
         }
-        handleFirestoreError(error, OperationType.LIST, COLLECTION_NAME);
       }
-    );
+    };
+
+    fetchLeads();
+    const interval = setInterval(fetchLeads, 5000);
+    return () => clearInterval(interval);
   },
 
   async createLead(lead: Omit<ExtendedLeadCard, "id">): Promise<string> {
     const startedAt = Date.now();
-    try {
-      const docRef = await addDoc(collectionRef, {
+    const res = await fetch("/api/v1/crud/crm-tickets", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${getAccessToken()}`,
+      },
+      body: JSON.stringify({
         ...lead,
         createdAt: Date.now(),
-      });
-      logCrmTiming("create", startedAt, { id: docRef.id });
-      return docRef.id;
-    } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, COLLECTION_NAME);
-      throw error;
+      }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || "Tạo cơ hội bán hàng thất bại.");
     }
+
+    const json = await res.json();
+    logCrmTiming("create", startedAt, { id: json.data._id });
+    return json.data._id;
   },
 
   async updateLead(id: string, lead: Partial<ExtendedLeadCard>): Promise<void> {
     const startedAt = Date.now();
-    try {
-      await updateDoc(doc(db, COLLECTION_NAME, id), {
+    const res = await fetch(`/api/v1/crud/crm-tickets/${id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${getAccessToken()}`,
+      },
+      body: JSON.stringify({
         ...lead,
         updatedAt: Date.now(),
-      });
-      logCrmTiming("update", startedAt, { id, fields: Object.keys(lead) });
-    } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `${COLLECTION_NAME}/${id}`);
-      throw error;
+      }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || "Cập nhật cơ hội bán hàng thất bại.");
     }
+
+    logCrmTiming("update", startedAt, { id, fields: Object.keys(lead) });
   },
 
   async deleteLead(id: string): Promise<void> {
     const startedAt = Date.now();
-    try {
-      await deleteDoc(doc(db, COLLECTION_NAME, id));
-      logCrmTiming("delete", startedAt, { id });
-    } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `${COLLECTION_NAME}/${id}`);
-      throw error;
+    const res = await fetch(`/api/v1/crud/crm-tickets/${id}`, {
+      method: "DELETE",
+      headers: {
+        "Authorization": `Bearer ${getAccessToken()}`,
+      },
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || "Xóa cơ hội bán hàng thất bại.");
     }
+
+    logCrmTiming("delete", startedAt, { id });
   },
 
   async bulkUpdateLeads(updates: Array<{ id: string; lead: Partial<ExtendedLeadCard> }>): Promise<void> {
     const startedAt = Date.now();
-    try {
-      if (updates.length === 0) return;
+    if (updates.length === 0) return;
 
-      const batch = writeBatch(db);
-      updates.forEach(({ id, lead }) => {
-        batch.update(doc(db, COLLECTION_NAME, id), {
-          ...lead,
-          updatedAt: Date.now(),
-        });
-      });
-      await batch.commit();
-      logCrmTiming("bulkUpdate", startedAt, {
-        count: updates.length,
-        ids: updates.map(({ id }) => id),
-      });
-    } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `${COLLECTION_NAME}/bulk-update`);
-      throw error;
-    }
+    await Promise.all(
+      updates.map(({ id, lead }) => this.updateLead(id, lead))
+    );
+
+    logCrmTiming("bulkUpdate", startedAt, {
+      count: updates.length,
+      ids: updates.map(({ id }) => id),
+    });
   },
 };
