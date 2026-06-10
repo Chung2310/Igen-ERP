@@ -3,6 +3,35 @@ import { geminiService } from "../service/gemini.service";
 import { AuthenticatedRequest } from "../middleware/auth";
 import { aiKnowledgeService } from "../service/ai-knowledge.service";
 
+function handleGeminiError(res: Response, error: any, defaultMessage: string) {
+  let errMsg = defaultMessage;
+  const details = error.message || String(error);
+  let statusCode = 500;
+
+  const errStr = String(error.message || "").toUpperCase();
+  const status = error.status || error.statusCode;
+
+  if (status === 503 || errStr.includes("503") || errStr.includes("UNAVAILABLE")) {
+    errMsg = "Dịch vụ AI của Gemini hiện đang quá tải hoặc tạm thời không khả dụng. Vui lòng thử lại sau ít phút.";
+    statusCode = 503;
+  } else if (status === 429 || errStr.includes("429") || errStr.includes("RESOURCE_EXHAUSTED")) {
+    errMsg = "Yêu cầu vượt quá giới hạn tần suất (Rate Limit) cho phép của API Key. Vui lòng đợi và thử lại sau.";
+    statusCode = 429;
+  } else if (status === 400 || errStr.includes("400") || errStr.includes("INVALID_ARGUMENT")) {
+    errMsg = "Tham số yêu cầu không hợp lệ hoặc bị từ chối bởi quy tắc an toàn nội dung của Google AI.";
+    statusCode = 400;
+  } else if (status === 403 || errStr.includes("403") || errStr.includes("PERMISSION_DENIED")) {
+    errMsg = "API Key không hợp lệ hoặc không có quyền truy cập vào mô hình AI.";
+    statusCode = 403;
+  }
+
+  return res.status(statusCode).json({
+    status: "error",
+    message: errMsg,
+    details: details,
+  });
+}
+
 export const geminiController = {
   /**
    * POST /api/v1/gemini/chat
@@ -14,11 +43,7 @@ export const geminiController = {
       return res.status(200).json(result);
     } catch (error: any) {
       console.error("[geminiController.chat] Error:", error);
-      return res.status(500).json({
-        status: "error",
-        message: "Lỗi kết nối Trợ lý AI Chatbot",
-        details: error.message,
-      });
+      return handleGeminiError(res, error, "Lỗi kết nối Trợ lý AI Chatbot");
     }
   },
 
@@ -83,11 +108,7 @@ export const geminiController = {
       });
     } catch (error: any) {
       console.error("[geminiController.testReply] Error:", error);
-      return res.status(500).json({
-        status: "error",
-        message: "Không thể tạo câu trả lời thử",
-        details: error.message,
-      });
+      return handleGeminiError(res, error, "Không thể tạo câu trả lời thử");
     }
   },
 
@@ -138,11 +159,7 @@ export const geminiController = {
       return res.status(200).json({ suggestions });
     } catch (error: any) {
       console.error("[geminiController.getMarketingSuggestions] Error:", error);
-      return res.status(500).json({
-        status: "error",
-        message: "Lỗi tạo gợi ý chủ đề marketing",
-        details: error.message,
-      });
+      return handleGeminiError(res, error, "Lỗi tạo gợi ý chủ đề marketing");
     }
   },
 
@@ -156,11 +173,7 @@ export const geminiController = {
       return res.status(200).json(result);
     } catch (error: any) {
       console.error("[geminiController.analyzeMarketingPillars] Error:", error);
-      return res.status(500).json({
-        status: "error",
-        message: "Lỗi phân tích khung nội dung content pillars",
-        details: error.message,
-      });
+      return handleGeminiError(res, error, "Lỗi phân tích khung nội dung content pillars");
     }
   },
 
@@ -174,11 +187,7 @@ export const geminiController = {
       return res.status(200).json(result);
     } catch (error: any) {
       console.error("[geminiController.generateMarketingIdeas] Error:", error);
-      return res.status(500).json({
-        status: "error",
-        message: "Lỗi phát sinh ý tưởng chiến dịch AI",
-        details: error.message,
-      });
+      return handleGeminiError(res, error, "Lỗi phát sinh ý tưởng chiến dịch AI");
     }
   },
 
@@ -192,11 +201,7 @@ export const geminiController = {
       return res.status(200).json(result);
     } catch (error: any) {
       console.error("[geminiController.developMarketingIdea] Error:", error);
-      return res.status(500).json({
-        status: "error",
-        message: "Lỗi lập dàn ý và phát triển bài đăng chi tiết",
-        details: error.message,
-      });
+      return handleGeminiError(res, error, "Lỗi lập dàn ý và phát triển bài đăng chi tiết");
     }
   },
 
@@ -230,11 +235,7 @@ export const geminiController = {
       });
     } catch (error: any) {
       console.error("[geminiController.generateImage] Error:", error);
-      return res.status(500).json({
-        status: "error",
-        message: "Lỗi sinh ảnh AI",
-        details: error.message,
-      });
+      return handleGeminiError(res, error, "Lỗi sinh ảnh AI");
     }
   },
 
@@ -271,11 +272,7 @@ export const geminiController = {
       });
     } catch (error: any) {
       console.error("[geminiController.generateVideo] Error:", error);
-      return res.status(500).json({
-        status: "error",
-        message: "Lỗi sinh video AI",
-        details: error.message,
-      });
+      return handleGeminiError(res, error, "Lỗi sinh video AI");
     }
   },
 
@@ -377,11 +374,7 @@ A: Hoàn toàn MIỄN PHÍ. Đội ngũ kỹ thuật của iGen sẽ hỗ trợ 
       });
     } catch (error: any) {
       console.error("[geminiController.syncGoogleDrive] Error:", error);
-      return res.status(500).json({
-        status: "error",
-        message: "Lỗi đồng bộ dữ liệu từ Google Drive",
-        details: error.message,
-      });
+      return handleGeminiError(res, error, "Lỗi đồng bộ dữ liệu từ Google Drive");
     }
   },
 
@@ -401,11 +394,7 @@ A: Hoàn toàn MIỄN PHÍ. Đội ngũ kỹ thuật của iGen sẽ hỗ trợ 
       });
     } catch (error: any) {
       console.error("[geminiController.generateVoice] Error:", error);
-      return res.status(500).json({
-        status: "error",
-        message: "Lỗi tạo giọng nói AI",
-        details: error.message,
-      });
+      return handleGeminiError(res, error, "Lỗi tạo giọng nói AI");
     }
   },
 
@@ -419,11 +408,7 @@ A: Hoàn toàn MIỄN PHÍ. Đội ngũ kỹ thuật của iGen sẽ hỗ trợ 
       return res.status(200).json(result);
     } catch (error: any) {
       console.error("[geminiController.optimizeScript] Error:", error);
-      return res.status(500).json({
-        status: "error",
-        message: "Lỗi tối ưu kịch bản",
-        details: error.message,
-      });
+      return handleGeminiError(res, error, "Lỗi tối ưu kịch bản");
     }
   },
 
@@ -437,11 +422,7 @@ A: Hoàn toàn MIỄN PHÍ. Đội ngũ kỹ thuật của iGen sẽ hỗ trợ 
       return res.status(200).json(result);
     } catch (error: any) {
       console.error("[geminiController.optimizeImagePrompt] Error:", error);
-      return res.status(500).json({
-        status: "error",
-        message: "Lỗi tối ưu prompt ảnh",
-        details: error.message,
-      });
+      return handleGeminiError(res, error, "Lỗi tối ưu prompt ảnh");
     }
   },
 
@@ -455,11 +436,7 @@ A: Hoàn toàn MIỄN PHÍ. Đội ngũ kỹ thuật của iGen sẽ hỗ trợ 
       return res.status(200).json(result);
     } catch (error: any) {
       console.error("[geminiController.optimizeVideoPrompt] Error:", error);
-      return res.status(500).json({
-        status: "error",
-        message: "Lỗi tối ưu prompt video",
-        details: error.message,
-      });
+      return handleGeminiError(res, error, "Lỗi tối ưu prompt video");
     }
   },
 

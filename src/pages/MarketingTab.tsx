@@ -74,6 +74,7 @@ export default function MarketingTab() {
   const [schedulingCard, setSchedulingCard] = useState<ContentApprovalCard | null>(null);
   const [scheduleDate, setScheduleDate] = useState("2026-10-15");
   const [scheduleTime, setScheduleTime] = useState("09:00");
+  const [isScheduling, setIsScheduling] = useState(false);
 
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
@@ -273,6 +274,7 @@ export default function MarketingTab() {
       return;
     }
 
+    setIsScheduling(true);
     try {
       await marketingService.scheduleCard(schedulingCard.id, scheduleDate, scheduleTime);
       toast.success(`Đã lên lịch đăng bài "${schedulingCard.title}" thành công!`);
@@ -281,6 +283,8 @@ export default function MarketingTab() {
     } catch (e) {
       console.error("Lỗi khi lên lịch bài đăng:", e);
       toast.error("Lỗi khi lên lịch bài đăng.");
+    } finally {
+      setIsScheduling(false);
     }
   };
 
@@ -1308,7 +1312,10 @@ export default function MarketingTab() {
                 <input 
                   type="date" 
                   required
-                  className="w-full p-2.5 border border-gray-200 rounded-lg text-xs font-mono focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                  disabled={isScheduling}
+                  className={`w-full p-2.5 border border-gray-200 rounded-lg text-xs font-mono focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none ${
+                    isScheduling ? "bg-gray-50 text-gray-400 cursor-not-allowed" : ""
+                  }`}
                   value={scheduleDate}
                   onChange={(e) => setScheduleDate(e.target.value)}
                 />
@@ -1319,7 +1326,10 @@ export default function MarketingTab() {
                 <input 
                   type="time" 
                   required
-                  className="w-full p-2.5 border border-gray-200 rounded-lg text-xs font-mono focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                  disabled={isScheduling}
+                  className={`w-full p-2.5 border border-gray-200 rounded-lg text-xs font-mono focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none ${
+                    isScheduling ? "bg-gray-50 text-gray-400 cursor-not-allowed" : ""
+                  }`}
                   value={scheduleTime}
                   onChange={(e) => setScheduleTime(e.target.value)}
                 />
@@ -1328,17 +1338,30 @@ export default function MarketingTab() {
               <div className="pt-4 border-t border-gray-100 flex gap-2 justify-end">
                 <button 
                   type="button" 
+                  disabled={isScheduling}
                   onClick={() => setSchedulingCard(null)}
-                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-bold transition-all cursor-pointer text-xs"
+                  className={`px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-bold transition-all text-xs ${
+                    isScheduling ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
+                  }`}
                 >
                   Bỏ qua
                 </button>
                 <button 
                   type="button" 
+                  disabled={isScheduling}
                   onClick={handleConfirmSchedule}
-                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold transition-colors cursor-pointer text-xs shadow-sm"
+                  className={`px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold transition-colors text-xs shadow-sm flex items-center gap-1.5 ${
+                    isScheduling ? "opacity-75 cursor-not-allowed" : "cursor-pointer"
+                  }`}
                 >
-                  Xác nhận lên lịch
+                  {isScheduling ? (
+                    <>
+                      <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                      Đang xử lý...
+                    </>
+                  ) : (
+                    "Xác nhận lên lịch"
+                  )}
                 </button>
               </div>
             </div>

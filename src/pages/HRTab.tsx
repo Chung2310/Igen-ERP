@@ -168,7 +168,7 @@ export default function HRTab() {
       }
     };
     loadCompanies();
-  }, [userProfile]);
+  }, [userProfile?.uid, userProfile?.role, userProfile?.companyCode]);
 
   // Fetch users list from Firestore based on company filter
   const fetchUsers = async () => {
