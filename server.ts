@@ -3,9 +3,11 @@ import path from "path";
 import fs from "fs";
 import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
+import { createServer } from "http";
 import { connectDB } from "./server/config/database";
 import { apiRouter } from "./server/router";
 import { swaggerRouter } from "./server/swagger";
+import { initSocketServer } from "./server/socket";
 
 dotenv.config();
 
@@ -78,10 +80,15 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Express server running on http://localhost:${PORT}`);
+  // Tạo HTTP Server bọc Express để hỗ trợ cả HTTP & Socket.IO
+  const httpServer = createServer(app);
+  initSocketServer(httpServer);
+
+  httpServer.listen(PORT, "0.0.0.0", () => {
+    console.log(`Express and Socket.IO server running on http://localhost:${PORT}`);
     console.log(`Swagger documentation available at http://localhost:${PORT}/api-docs`);
   });
 }
 
 startServer();
+

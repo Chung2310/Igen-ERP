@@ -6,6 +6,8 @@ import { toast } from "./Toast";
 import { crmService, ExtendedLeadCard } from "../services/crmService";
 import { useAuth } from "../context/AuthContext";
 import { fbMessengerService } from "../services/fbMessengerService";
+import { getAccessToken } from "../services/authService";
+import { socketService } from "../services/socketService";
 import { PipelineTab } from "../components/crm/PipelineTab";
 import { OmniChatTab } from "../components/crm/OmniChatTab";
 
@@ -133,15 +135,109 @@ export default function CRMTab() {
     }
   };
 
-  // 1. Polling danh sách hội thoại Facebook thật nếu đã kết nối
+  // Connect and disconnect Socket.IO client when active
+  useEffect(() => {
+    if (subTab !== "OMNI-INBOX CHAT" || !isFbConnected) {
+      socketService.disconnect();
+      return;
+    }
+
+    const token = getAccessToken();
+    if (token) {
+      socketService.connect(token);
+    }
+
+    return () => {
+      socketService.disconnect();
+    };
+  }, [subTab, isFbConnected]);
+
+  // Handle Socket.IO realtime events
+  useEffect(() => {
+    if (subTab !== "OMNI-INBOX CHAT" || !isFbConnected) return;
+
+    const handleNewMessage = async (data: { message: any; conversation: any }) => {
+      console.log("[FE CRMTab] socket new_message event received:", data);
+      const { message } = data;
+
+      // If the incoming message belongs to the currently active customer/conversation
+      if (activeCustomer && (activeCustomer.id === message.conversationId || activeCustomer.recipientId === message.senderId || activeCustomer.recipientId === message.recipientId)) {
+        const mapped = mapFbMessages([message])[0];
+        setChatHistory((prev) => {
+          if (prev.some((m) => m.id === mapped.id)) return prev;
+          return [...prev, mapped];
+        });
+      }
+
+      // Refresh conversations list to update unread count / last message
+      try {
+        const list = await fbMessengerService.getConversations();
+        if (list && list.length > 0) {
+          const mapped: CustomerInbox[] = list.map((c: any) => ({
+            id: c._id,
+            recipientId: c.recipientId,
+            name: c.senderName || "Khách hàng Facebook",
+            avatar: c.avatarUrl || "👤",
+            avatarUrl: c.avatarUrl || "",
+            lastMessage: c.lastMessageText || "[Đính kèm]",
+            time: new Date(c.lastMessageAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
+            unreadCount: c.unreadCount || 0,
+            isVip: c.isVip || false,
+            status: "offline",
+            tags: c.tags || [],
+            channel: "facebook"
+          }));
+          setInboxCustomers(mapped);
+        }
+      } catch (err) {
+        console.error("Error refreshing conversations on new message:", err);
+      }
+    };
+
+    const handleConversationUpdated = async (conversation: any) => {
+      console.log("[FE CRMTab] socket conversation_updated event received:", conversation);
+      try {
+        const list = await fbMessengerService.getConversations();
+        if (list && list.length > 0) {
+          const mapped: CustomerInbox[] = list.map((c: any) => ({
+            id: c._id,
+            recipientId: c.recipientId,
+            name: c.senderName || "Khách hàng Facebook",
+            avatar: c.avatarUrl || "👤",
+            avatarUrl: c.avatarUrl || "",
+            lastMessage: c.lastMessageText || "[Đính kèm]",
+            time: new Date(c.lastMessageAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
+            unreadCount: c.unreadCount || 0,
+            isVip: c.isVip || false,
+            status: "offline",
+            tags: c.tags || [],
+            channel: "facebook"
+          }));
+          setInboxCustomers(mapped);
+        }
+      } catch (err) {
+        console.error("Error refreshing conversations on conversation update:", err);
+      }
+    };
+
+    const unsubscribeNewMsg = socketService.onNewMessage(handleNewMessage);
+    const unsubscribeConvUpdate = socketService.onConversationUpdated(handleConversationUpdated);
+
+    return () => {
+      unsubscribeNewMsg();
+      unsubscribeConvUpdate();
+    };
+  }, [subTab, isFbConnected, activeCustomer?.id]);
+
+  // 1. Polling danh sách hội thoại Facebook thật nếu đã kết nối (tăng thời gian lên 60s làm fallback)
   useEffect(() => {
     if (subTab !== "OMNI-INBOX CHAT" || !isFbConnected) return;
 
     const fetchFbConversations = async () => {
-      console.log("[FE CRMTab] Polling danh sách hội thoại Facebook từ server...");
+      console.log("[FE CRMTab] Fallback polling danh sách hội thoại Facebook từ server...");
       try {
         const data = await fbMessengerService.getConversations();
-        console.log("[FE CRMTab] Đã lấy dữ liệu hội thoại Facebook:", data);
+        console.log("[FE CRMTab] Đã lấy dữ liệu hội thoại Facebook (polling):", data);
         if (data && data.length > 0) {
           const mapped: CustomerInbox[] = data.map((c: any) => ({
             id: c._id, // DB conversation id
@@ -159,7 +255,6 @@ export default function CRMTab() {
           }));
 
           setInboxCustomers(mapped);
-          console.log("[FE CRMTab] Cập nhật danh sách inboxCustomers mới:", mapped);
           
           // Tự động chọn cuộc hội thoại đầu tiên nếu chưa có
           if (!activeCustomer) {
@@ -167,7 +262,6 @@ export default function CRMTab() {
             setActiveCustomer(mapped[0]);
           }
         } else {
-          console.log("[FE CRMTab] Không tìm thấy cuộc hội thoại nào trên Facebook.");
           setInboxCustomers([]);
         }
       } catch (err) {
@@ -176,26 +270,25 @@ export default function CRMTab() {
     };
 
     fetchFbConversations();
-    const interval = setInterval(fetchFbConversations, 5000);
+    const interval = setInterval(fetchFbConversations, 60000); // Polling 60s
     return () => clearInterval(interval);
   }, [subTab, isFbConnected, activeCustomer?.id]);
 
-  // 2. Polling lịch sử tin nhắn của hội thoại Facebook đang chọn
+  // 2. Polling lịch sử tin nhắn của hội thoại Facebook đang chọn (tăng thời gian lên 60s làm fallback)
   useEffect(() => {
     if (subTab !== "OMNI-INBOX CHAT" || !activeCustomer) return;
 
-      const fetchFbMessages = async () => {
-        console.log(`[FE CRMTab] Polling lịch sử tin nhắn cho conversation ID: ${activeCustomer.id}...`);
-        try {
+    const fetchFbMessages = async () => {
+      console.log(`[FE CRMTab] Fallback polling lịch sử tin nhắn cho conversation ID: ${activeCustomer.id}...`);
+      try {
         await loadConversationMessages(activeCustomer.id, "replace");
-        console.log(`[FE CRMTab] Đã tải tin nhắn mới nhất cho conversation ID: ${activeCustomer.id}`);
       } catch (err) {
         console.error("[FE CRMTab] Lỗi khi tải tin nhắn Facebook:", err);
       }
     };
 
     fetchFbMessages();
-    const interval = setInterval(fetchFbMessages, 4000);
+    const interval = setInterval(fetchFbMessages, 60000); // Polling 60s
     return () => clearInterval(interval);
   }, [subTab, activeCustomer?.id]);
 
