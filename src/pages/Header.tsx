@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Bell, LogOut, Plus, Search, Settings } from "lucide-react";
+import { Bell, LogOut, Search, Settings } from "lucide-react";
 import { TabType } from "../types";
 import { useAuth } from "../context/AuthContext";
 
@@ -99,13 +99,6 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
       </div>
 
       <div className="ml-6 flex items-center gap-3" id="header_controls">
-        <button
-          onClick={() => onSearchSelect(currentTab)}
-          className="hidden items-center gap-2 rounded-xl bg-blue-500 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-blue-600 md:flex"
-        >
-          <Plus className="h-4 w-4" />
-          <span>Tạo mới</span>
-        </button>
 
         <div className="relative" id="notification_dropdown_button">
           <button

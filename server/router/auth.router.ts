@@ -30,9 +30,7 @@ const registerSchema = {
     photoURL: Joi.string().uri().optional().allow("").messages({
       "string.uri": "photoURL phải là một đường dẫn URL hợp lệ.",
     }),
-    role: Joi.string().valid("user", "manager", "admin", "superadmin").optional().messages({
-      "any.only": "Vai trò người dùng không hợp lệ.",
-    }),
+    role: Joi.string().optional(),
     companyCode: Joi.string().optional().allow(""),
     companyName: Joi.string().optional().allow(""),
     jobTitle: Joi.string().optional().allow(""),
@@ -166,9 +164,8 @@ const registerUserSchema = {
       "string.empty": "Mật khẩu không được để trống.",
       "string.min": "Mật khẩu phải có ít nhất 6 ký tự.",
     }),
-    role: Joi.string().valid("user", "manager", "admin").required().messages({
+    role: Joi.string().required().messages({
       "any.required": "Vai trò thành viên là bắt buộc.",
-      "any.only": "Vai trò thành viên không hợp lệ.",
     }),
     companyCode: Joi.string().optional().allow(""),
     companyName: Joi.string().optional().allow(""),
@@ -207,7 +204,7 @@ const bulkUpdateUsersSchema = {
         }),
         parentId: Joi.string().regex(/^[0-9a-fA-F]{24}$/).optional().allow(null, ""),
         level: Joi.number().integer().optional(),
-        role: Joi.string().valid("user", "manager", "admin", "superadmin").optional(),
+        role: Joi.string().optional(),
         department: Joi.string().optional().allow(""),
         division: Joi.string().optional().allow(""),
         jobTitle: Joi.string().optional().allow(""),
@@ -226,7 +223,7 @@ const updateUserSchema = {
     }),
   }),
   body: Joi.object({
-    role: Joi.string().valid("user", "manager", "admin", "superadmin").optional(),
+    role: Joi.string().optional(),
     parentId: Joi.string().regex(/^[0-9a-fA-F]{24}$/).optional().allow(null, ""),
     level: Joi.number().integer().optional(),
     department: Joi.string().optional().allow(""),

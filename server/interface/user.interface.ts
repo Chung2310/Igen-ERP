@@ -25,7 +25,7 @@ export interface IUser extends Document {
   password?: string; // Hashed password
   displayName: string;
   photoURL?: string;
-  role: "user" | "manager" | "admin" | "superadmin";
+  role: string;
   createdAt: Date;
   facebookIntegration?: IFacebookIntegration | null;
   tiktokIntegration?: ITikTokIntegration | null;

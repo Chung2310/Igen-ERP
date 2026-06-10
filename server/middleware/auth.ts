@@ -46,6 +46,16 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
 };
 
 /**
+ * Cấp bậc mặc định của các vai trò hệ thống (Số nhỏ hơn = cấp cao hơn)
+ */
+export const DEFAULT_ROLE_LEVELS: Record<string, number> = {
+  superadmin: 1,
+  admin: 2,
+  manager: 3,
+  user: 4
+};
+
+/**
  * Middleware yêu cầu đăng nhập bằng Access Token
  */
 export function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {

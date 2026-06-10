@@ -5,6 +5,7 @@ import { UserProfile } from "../types";
 import { toast } from "./Toast";
 import { Users, Shield, RefreshCw, Plus, Building2, Mail, Lock, User, X } from "lucide-react";
 import { parseFirebaseError } from "../utils/firebaseErrorParser";
+import { rolePermissionService, RolePermission, Permission } from "../services/rolePermissionService";
 
 export default function UserAdminTab() {
   const { userProfile } = useAuth();
@@ -34,11 +35,28 @@ export default function UserAdminTab() {
   const [userDisplayName, setUserDisplayName] = useState("");
   const [userEmail, setUserEmail] = useState("");
   const [userPassword, setUserPassword] = useState("");
-  const [userRole, setUserRole] = useState<"user" | "manager" | "admin">("user");
+  const [userRole, setUserRole] = useState<string>("user");
   const [userCompanyCode, setUserCompanyCode] = useState<string>("");
   const [userParentId, setUserParentId] = useState<string>("");
   const [userDepartment, setUserDepartment] = useState("");
   const [submittingUser, setSubmittingUser] = useState(false);
+
+  // Sub-tabs State
+  const [activeTab, setActiveTab] = useState<"users" | "roles">("users");
+
+  // Role Permission States
+  const [rolePermissionsList, setRolePermissionsList] = useState<RolePermission[]>([]);
+  const [systemPermissions, setSystemPermissions] = useState<Permission[]>([]);
+  const [roleLoading, setRoleLoading] = useState(false);
+
+  // Add / Edit Role Modal States
+  const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
+  const [editingRole, setEditingRole] = useState<RolePermission | null>(null);
+  const [roleSlug, setRoleSlug] = useState("");
+  const [roleDisplayName, setRoleDisplayName] = useState("");
+  const [roleLevel, setRoleLevel] = useState<number>(3);
+  const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
+  const [submittingRole, setSubmittingRole] = useState(false);
 
   // Initialize company code when modal opens
   useEffect(() => {
@@ -118,10 +136,71 @@ export default function UserAdminTab() {
     }
   };
 
+  const fetchRolePermissions = async () => {
+    setRoleLoading(true);
+    try {
+      let code = undefined;
+      if (userProfile?.role === "superadmin") {
+        code = selectedCompanyCode === "all" ? "SYSTEM" : selectedCompanyCode;
+      } else {
+        code = userProfile?.companyCode;
+      }
+      const data = await rolePermissionService.getRolePermissions(code);
+      setRolePermissionsList(data);
+    } catch (error) {
+      console.error("Lỗi khi tải cấu hình vai trò:", error);
+    } finally {
+      setRoleLoading(false);
+    }
+  };
+
+  const fetchSystemPermissions = async () => {
+    try {
+      const data = await rolePermissionService.getPermissions();
+      setSystemPermissions(data);
+    } catch (error) {
+      console.error("Lỗi khi tải mã quyền hệ thống:", error);
+    }
+  };
+
   useEffect(() => {
     fetchUsers();
     fetchCompanies();
-  }, [userProfile]);
+    fetchRolePermissions();
+    fetchSystemPermissions();
+  }, [userProfile, selectedCompanyCode]);
+
+  const getAvailableRoles = () => {
+    const defaultRoles = [
+      { role: "user", displayName: "USER (Nhân viên)", level: 4 },
+      { role: "manager", displayName: "MANAGER (Quản lý)", level: 3 }
+    ];
+    
+    if (userProfile?.role === "superadmin") {
+      defaultRoles.push(
+        { role: "admin", displayName: "ADMIN (Chủ doanh nghiệp)", level: 2 },
+        { role: "superadmin", displayName: "SUPERADMIN (Toàn quyền)", level: 1 }
+      );
+    } else if (userProfile?.role === "admin") {
+      defaultRoles.push(
+        { role: "admin", displayName: "ADMIN (Chủ doanh nghiệp)", level: 2 }
+      );
+    }
+
+    // Merge with custom roles
+    const customRoles = rolePermissionsList
+      .filter(rp => !["user", "manager", "admin", "superadmin"].includes(rp.role))
+      .map(rp => ({
+        role: rp.role,
+        displayName: `${rp.role.toUpperCase()} (${rp.displayName || rp.role})`,
+        level: rp.level
+      }));
+
+    const allRoles = [...defaultRoles, ...customRoles];
+    const callerLevel = userProfile?.role === "superadmin" ? 1 : 2;
+
+    return allRoles.filter(r => r.level >= callerLevel);
+  };
 
   // Filter visible users:
   // - Superadmin: see all, filter by selectedCompanyCode
@@ -380,199 +459,416 @@ export default function UserAdminTab() {
         </div>
       </div>
 
-      {/* Filter Bar */}
-      <div className="bg-white border-b border-gray-200 px-6 py-3.5 flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center shrink-0">
-        <div className="flex flex-wrap items-center gap-3 flex-1">
-          {/* Lọc theo Tên/Email */}
-          <div className="relative min-w-[240px] flex-1 max-w-sm">
-            <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-              🔍
-            </span>
-            <input
-              type="text"
-              placeholder="Tìm theo tên hoặc email..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3.5 py-1.5 border border-gray-200 bg-gray-50/50 hover:bg-white focus:bg-white rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium"
-            />
-            {searchQuery && (
+      {/* Sub-tab selection */}
+      <div className="border-b border-gray-200 px-6 py-2 bg-slate-50 flex gap-4 shrink-0" id="user_admin_subtabs">
+        <button
+          onClick={() => setActiveTab("users")}
+          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+            activeTab === "users"
+              ? "bg-slate-900 text-white shadow-xs"
+              : "text-slate-600 hover:bg-slate-250"
+          }`}
+        >
+          👤 Danh sách tài khoản
+        </button>
+        <button
+          onClick={() => setActiveTab("roles")}
+          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+            activeTab === "roles"
+              ? "bg-slate-900 text-white shadow-xs"
+              : "text-slate-600 hover:bg-slate-250"
+          }`}
+        >
+          🛡️ Vai trò & Phân quyền
+        </button>
+      </div>
+
+      {activeTab === "users" ? (
+        <>
+          {/* Filter Bar */}
+          <div className="bg-white border-b border-gray-200 px-6 py-3.5 flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center shrink-0">
+            <div className="flex flex-wrap items-center gap-3 flex-1">
+              {/* Lọc theo Tên/Email */}
+              <div className="relative min-w-[240px] flex-1 max-w-sm">
+                <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                  🔍
+                </span>
+                <input
+                  type="text"
+                  placeholder="Tìm theo tên hoặc email..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-3.5 py-1.5 border border-gray-200 bg-gray-50/50 hover:bg-white focus:bg-white rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-650 text-[10px] font-bold"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
+              {/* Lọc theo Ngày đăng ký */}
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-gray-400 font-bold uppercase text-[9px] tracking-wider font-mono">Từ ngày:</span>
+                <input
+                  type="date"
+                  value={filterStartDate}
+                  onChange={(e) => setFilterStartDate(e.target.value)}
+                  className="p-1.5 border border-gray-200 bg-gray-50/50 hover:bg-white focus:bg-white rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-semibold cursor-pointer"
+                />
+                
+                <span className="text-gray-400 font-bold uppercase text-[9px] tracking-wider font-mono">Đến ngày:</span>
+                <input
+                  type="date"
+                  value={filterEndDate}
+                  onChange={(e) => setFilterEndDate(e.target.value)}
+                  className="p-1.5 border border-gray-200 bg-gray-50/50 hover:bg-white focus:bg-white rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-semibold cursor-pointer"
+                />
+              </div>
+
+              {/* Hiển thị số lượng kết quả */}
+              <div className="text-[10px] text-gray-400 font-semibold font-mono">
+                Kết quả: {visibleUsers.length} / {usersList.length}
+              </div>
+            </div>
+
+            {/* Nút Clear Filters */}
+            {(searchQuery || filterStartDate || filterEndDate) && (
               <button
-                onClick={() => setSearchQuery("")}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-650 text-[10px] font-bold"
+                onClick={() => {
+                  setSearchQuery("");
+                  setFilterStartDate("");
+                  setFilterEndDate("");
+                }}
+                className="px-3.5 py-1.5 border border-dashed border-red-200 hover:border-red-400 bg-red-50/30 hover:bg-red-50 text-red-650 hover:text-red-700 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 shrink-0 active:scale-95"
               >
-                ✕
+                ✕ Xóa bộ lọc
               </button>
             )}
           </div>
 
-          {/* Lọc theo Ngày đăng ký */}
-          <div className="flex items-center gap-2 text-xs">
-            <span className="text-gray-400 font-bold uppercase text-[9px] tracking-wider font-mono">Từ ngày:</span>
-            <input
-              type="date"
-              value={filterStartDate}
-              onChange={(e) => setFilterStartDate(e.target.value)}
-              className="p-1.5 border border-gray-200 bg-gray-50/50 hover:bg-white focus:bg-white rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-semibold cursor-pointer"
-            />
-            
-            <span className="text-gray-400 font-bold uppercase text-[9px] tracking-wider font-mono">Đến ngày:</span>
-            <input
-              type="date"
-              value={filterEndDate}
-              onChange={(e) => setFilterEndDate(e.target.value)}
-              className="p-1.5 border border-gray-200 bg-gray-50/50 hover:bg-white focus:bg-white rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-semibold cursor-pointer"
-            />
-          </div>
-
-          {/* Hiển thị số lượng kết quả */}
-          <div className="text-[10px] text-gray-400 font-semibold font-mono">
-            Kết quả: {visibleUsers.length} / {usersList.length}
-          </div>
-        </div>
-
-        {/* Nút Clear Filters */}
-        {(searchQuery || filterStartDate || filterEndDate) && (
-          <button
-            onClick={() => {
-              setSearchQuery("");
-              setFilterStartDate("");
-              setFilterEndDate("");
-            }}
-            className="px-3.5 py-1.5 border border-dashed border-red-200 hover:border-red-400 bg-red-50/30 hover:bg-red-50 text-red-650 hover:text-red-700 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 shrink-0 active:scale-95"
-          >
-            ✕ Xóa bộ lọc
-          </button>
-        )}
-      </div>
-
-      {/* Main List Area */}
-      <div className="flex-1 p-6 overflow-y-auto" id="user_admin_content">
-        {loading ? (
-          <div className="h-48 flex flex-col items-center justify-center text-center">
-            <RefreshCw className="h-8 w-8 text-indigo-650 animate-spin mb-3" />
-            <span className="text-xs font-bold font-mono text-indigo-800 uppercase tracking-widest">Đang tải danh sách tài khoản...</span>
-          </div>
-        ) : visibleUsers.length === 0 ? (
-          <div className="p-12 text-center bg-gray-50 text-gray-400 italic rounded-2xl border border-dashed">
-            Không tìm thấy tài khoản nào trong hệ thống!
-          </div>
-        ) : (
-          <div className="bg-white border border-gray-150 rounded-2xl overflow-hidden shadow-xs">
-            <table className="w-full text-left border-collapse text-xs font-sans">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-150 text-[10px] font-bold text-gray-400 font-mono uppercase tracking-wider">
-                  <th className="p-4 pl-6">Thành viên</th>
-                  <th className="p-4">Địa chỉ Email</th>
-                  {userProfile?.role === "superadmin" && <th className="p-4">Doanh nghiệp</th>}
-                  <th className="p-4">Ngày đăng ký</th>
-                  <th className="p-4">Quyền hạn (Role)</th>
-                  <th className="p-4 pr-6 text-center">Hành động cấp quyền</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 text-slate-700">
-                {visibleUsers.map((usr) => {
-                  const isSelf = usr.uid === userProfile?.uid;
-                  return (
-                    <tr key={usr.uid} className="hover:bg-slate-50/40 transition-colors">
-                      {/* Name / Avatar */}
-                      <td className="p-4 pl-6 flex items-center gap-3">
-                        {usr.photoURL && (usr.photoURL.startsWith("http") || usr.photoURL.startsWith("/")) ? (
-                          <img 
-                            src={usr.photoURL} 
-                            alt={usr.displayName} 
-                            className="w-8 h-8 rounded-full object-cover border border-gray-200" 
-                          />
-                        ) : (
-                          <div className="w-8 h-8 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center font-bold text-indigo-700 text-xs">
-                            {(usr.displayName || usr.email || "US").slice(0, 2).toUpperCase()}
-                          </div>
-                        )}
-                        <div>
-                          <span className="font-semibold text-slate-800 flex items-center gap-1.5">
-                            {usr.displayName}
-                            {isSelf && (
-                              <span className="px-1.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-150 rounded-sm text-[8px] font-bold font-mono">
-                                BẠN
-                              </span>
-                            )}
-                          </span>
-                          <span className="text-[10px] text-gray-400 font-mono block mt-0.5">UID: {usr.uid.slice(0, 8)}...</span>
-                        </div>
-                      </td>
-
-                      {/* Email */}
-                      <td className="p-4 font-mono">{usr.email}</td>
-
-                      {/* Company Name / Code (SaaS only) */}
-                      {userProfile?.role === "superadmin" && (
-                        <td className="p-4 font-semibold text-slate-700">
-                          {usr.companyName ? (
-                            <span title={usr.companyCode}>{usr.companyName}</span>
-                          ) : (
-                            <span className="text-gray-400 italic">Hệ thống ({usr.companyCode || "SYSTEM"})</span>
-                          )}
-                        </td>
-                      )}
-
-                      {/* Created At */}
-                      <td className="p-4 text-gray-400 font-mono">
-                        {usr.createdAt instanceof Date ? usr.createdAt.toLocaleDateString("vi-VN") : "Hôm nay"}
-                      </td>
-
-                      {/* Current Role Badge */}
-                      <td className="p-4">
-                        <span className={`px-2.5 py-0.75 rounded-full font-bold font-mono text-[9px] uppercase tracking-wider flex items-center gap-1.5 w-max ${
-                          usr.role === "superadmin"
-                            ? "bg-rose-50 border border-rose-200 text-rose-800"
-                            : usr.role === "admin"
-                              ? "bg-amber-50 border border-amber-200 text-amber-800"
-                              : usr.role === "manager"
-                                ? "bg-indigo-50 border border-indigo-200 text-indigo-850"
-                                : "bg-slate-50 border border-slate-200 text-slate-600"
-                        }`}>
-                          <Shield className="h-3 w-3" />
-                          {usr.role}
-                        </span>
-                      </td>
-
-                      {/* Role Modify Selector */}
-                      <td className="p-4 pr-6">
-                        <div className="flex justify-center">
-                          <select
-                            disabled={
-                              isSelf ||
-                              usr.role === "superadmin" ||
-                              (usr.role === "admin" && userProfile?.role === "admin")
-                            }
-                            value={usr.role}
-                            onChange={(e) => handleRoleChange(usr.uid, usr.displayName, e.target.value as any)}
-                            className={`p-1.5 px-2.5 border border-gray-200 rounded-lg text-xs font-medium outline-none bg-white focus:ring-1 focus:ring-indigo-500 cursor-pointer ${
-                              isSelf ||
-                              usr.role === "superadmin" ||
-                              (usr.role === "admin" && userProfile?.role === "admin")
-                                ? "opacity-50 cursor-not-allowed bg-gray-50"
-                                : ""
-                            }`}
-                          >
-                            <option value="user">USER (Nhân viên)</option>
-                            <option value="manager">MANAGER (Quản lý)</option>
-                            {userProfile?.role === "superadmin" && (
-                              <option value="admin">ADMIN (Chủ doanh nghiệp)</option>
-                            )}
-                            {userProfile?.role === "superadmin" && (
-                              <option value="superadmin">SUPERADMIN (Toàn quyền)</option>
-                            )}
-                          </select>
-                        </div>
-                      </td>
+          {/* Main List Area */}
+          <div className="flex-1 p-6 overflow-y-auto" id="user_admin_content">
+            {loading ? (
+              <div className="h-48 flex flex-col items-center justify-center text-center">
+                <RefreshCw className="h-8 w-8 text-indigo-650 animate-spin mb-3" />
+                <span className="text-xs font-bold font-mono text-indigo-800 uppercase tracking-widest">Đang tải danh sách tài khoản...</span>
+              </div>
+            ) : visibleUsers.length === 0 ? (
+              <div className="p-12 text-center bg-gray-50 text-gray-400 italic rounded-2xl border border-dashed">
+                Không tìm thấy tài khoản nào trong hệ thống!
+              </div>
+            ) : (
+              <div className="bg-white border border-gray-150 rounded-2xl overflow-hidden shadow-xs">
+                <table className="w-full text-left border-collapse text-xs font-sans">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-150 text-[10px] font-bold text-gray-400 font-mono uppercase tracking-wider">
+                      <th className="p-4 pl-6">Thành viên</th>
+                      <th className="p-4">Địa chỉ Email</th>
+                      {userProfile?.role === "superadmin" && <th className="p-4">Doanh nghiệp</th>}
+                      <th className="p-4">Ngày đăng ký</th>
+                      <th className="p-4">Quyền hạn (Role)</th>
+                      <th className="p-4 pr-6 text-center">Hành động cấp quyền</th>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 text-slate-700">
+                    {visibleUsers.map((usr) => {
+                      const isSelf = usr.uid === userProfile?.uid;
+                      return (
+                        <tr key={usr.uid} className="hover:bg-slate-50/40 transition-colors">
+                          {/* Name / Avatar */}
+                          <td className="p-4 pl-6 flex items-center gap-3">
+                            {usr.photoURL && (usr.photoURL.startsWith("http") || usr.photoURL.startsWith("/")) ? (
+                              <img 
+                                src={usr.photoURL} 
+                                alt={usr.displayName} 
+                                className="w-8 h-8 rounded-full object-cover border border-gray-200" 
+                              />
+                            ) : (
+                              <div className="w-8 h-8 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center font-bold text-indigo-700 text-xs">
+                                {(usr.displayName || usr.email || "US").slice(0, 2).toUpperCase()}
+                              </div>
+                            )}
+                            <div>
+                              <span className="font-semibold text-slate-800 flex items-center gap-1.5">
+                                {usr.displayName}
+                                {isSelf && (
+                                  <span className="px-1.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-150 rounded-sm text-[8px] font-bold font-mono">
+                                    BẠN
+                                  </span>
+                                )}
+                              </span>
+                              <span className="text-[10px] text-gray-400 font-mono block mt-0.5">UID: {usr.uid.slice(0, 8)}...</span>
+                            </div>
+                          </td>
+
+                          {/* Email */}
+                          <td className="p-4 font-mono">{usr.email}</td>
+
+                          {/* Company Name / Code (SaaS only) */}
+                          {userProfile?.role === "superadmin" && (
+                            <td className="p-4 font-semibold text-slate-700">
+                              {usr.companyName ? (
+                                <span title={usr.companyCode}>{usr.companyName}</span>
+                              ) : (
+                                <span className="text-gray-400 italic">Hệ thống ({usr.companyCode || "SYSTEM"})</span>
+                              )}
+                            </td>
+                          )}
+
+                          {/* Created At */}
+                          <td className="p-4 text-gray-400 font-mono">
+                            {usr.createdAt instanceof Date ? usr.createdAt.toLocaleDateString("vi-VN") : "Hôm nay"}
+                          </td>
+
+                          {/* Current Role Badge */}
+                          <td className="p-4">
+                            <span className={`px-2.5 py-0.75 rounded-full font-bold font-mono text-[9px] uppercase tracking-wider flex items-center gap-1.5 w-max ${
+                              usr.role === "superadmin"
+                                ? "bg-rose-50 border border-rose-200 text-rose-800"
+                                : usr.role === "admin"
+                                  ? "bg-amber-50 border border-amber-200 text-amber-800"
+                                  : usr.role === "manager"
+                                    ? "bg-blue-50 border border-blue-200 text-blue-800"
+                                    : usr.role === "user"
+                                      ? "bg-slate-50 border border-slate-200 text-slate-600"
+                                      : "bg-indigo-50 border border-indigo-200 text-indigo-700"
+                            }`}>
+                              <Shield className="h-3 w-3" />
+                              {usr.role === "superadmin"
+                                ? "superadmin"
+                                : usr.role === "admin"
+                                  ? "admin"
+                                  : usr.role === "manager"
+                                    ? "manager"
+                                    : usr.role === "user"
+                                      ? "user"
+                                      : (rolePermissionsList.find(rp => rp.role === usr.role)?.displayName || usr.role)}
+                            </span>
+                          </td>
+
+                          {/* Role Modify Selector */}
+                          <td className="p-4 pr-6">
+                            <div className="flex justify-center">
+                              <select
+                                disabled={
+                                  isSelf ||
+                                  usr.role === "superadmin" ||
+                                  (usr.role === "admin" && userProfile?.role === "admin")
+                                }
+                                value={usr.role}
+                                onChange={(e) => handleRoleChange(usr.uid, usr.displayName, e.target.value)}
+                                className={`p-1.5 px-2.5 border border-gray-200 rounded-lg text-xs font-medium outline-none bg-white focus:ring-1 focus:ring-indigo-500 cursor-pointer ${
+                                  isSelf ||
+                                  usr.role === "superadmin" ||
+                                  (usr.role === "admin" && userProfile?.role === "admin")
+                                    ? "opacity-50 cursor-not-allowed bg-gray-50"
+                                    : ""
+                                }`}
+                              >
+                                {(() => {
+                                  const rolesForSelect = [...getAvailableRoles()];
+                                  if (!rolesForSelect.some(r => r.role === usr.role)) {
+                                    rolesForSelect.push({
+                                      role: usr.role,
+                                      displayName: usr.role.toUpperCase(),
+                                      level: 99
+                                    });
+                                  }
+                                  return rolesForSelect.map(r => (
+                                    <option key={r.role} value={r.role}>
+                                      {r.displayName}
+                                    </option>
+                                  ));
+                                })()}
+                              </select>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </>
+      ) : (
+        <div className="flex-1 p-6 overflow-y-auto space-y-6" id="roles_permissions_tab_content">
+          <div className="flex flex-col sm:flex-row justify-between sm:items-center bg-gray-50 p-4 rounded-2xl border border-gray-150 gap-4">
+            <div>
+              <h5 className="font-bold text-slate-800 text-sm">Danh sách vai trò & Cấu hình phân quyền</h5>
+              <p className="text-xs text-gray-500 mt-0.5">Tạo vai trò tùy chỉnh và thiết lập danh sách quyền tương ứng cho nhân sự.</p>
+            </div>
+            <button
+              onClick={() => {
+                setEditingRole(null);
+                setRoleSlug("");
+                setRoleDisplayName("");
+                setRoleLevel(3);
+                setSelectedPermissions([]);
+                setIsRoleModalOpen(true);
+              }}
+              className="p-2 px-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold font-sans flex items-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-95 text-center justify-center"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Thêm vai trò tùy chỉnh
+            </button>
+          </div>
+
+          {roleLoading ? (
+            <div className="h-48 flex flex-col items-center justify-center text-center">
+              <RefreshCw className="h-8 w-8 text-indigo-650 animate-spin mb-3" />
+              <span className="text-xs font-bold font-mono text-indigo-800 uppercase tracking-widest">Đang tải danh sách vai trò...</span>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* Render Default roles and Custom roles */}
+              {(() => {
+                const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
+                  admin: ["*"],
+                  manager: [
+                    "user:read", "user:manage",
+                    "crm:read", "crm:manage",
+                    "kanban:read", "kanban:manage",
+                    "project:read", "project:manage",
+                    "stock:read",
+                    "marketing:post"
+                  ],
+                  user: [
+                    "user:read",
+                    "crm:read",
+                    "kanban:read", "kanban:manage",
+                    "project:read",
+                    "stock:read",
+                    "marketing:post"
+                  ]
+                };
+
+                const defaultRolesList = [
+                  { role: "admin", displayName: "ADMIN (Chủ doanh nghiệp)", level: 2, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.admin },
+                  { role: "manager", displayName: "MANAGER (Quản lý)", level: 3, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.manager },
+                  { role: "user", displayName: "USER (Nhân viên)", level: 4, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.user }
+                ];
+                
+                const customRolesList = rolePermissionsList.filter(rp => !["superadmin", "admin", "manager", "user"].includes(rp.role));
+                
+                const rolesToDisplay = [
+                  ...defaultRolesList.map(dr => {
+                    const dbRecord = rolePermissionsList.find(rp => rp.role === dr.role);
+                    return {
+                      ...dr,
+                      permissions: dbRecord ? dbRecord.permissions : (DEFAULT_ROLE_PERMISSIONS[dr.role] || []),
+                      displayName: dbRecord?.displayName || dr.displayName,
+                      level: dbRecord?.level || dr.level,
+                      _id: dbRecord?._id
+                    };
+                  }),
+                  ...customRolesList.map(cr => ({
+                    role: cr.role,
+                    displayName: cr.displayName || cr.role.toUpperCase(),
+                    level: cr.level,
+                    permissions: cr.permissions,
+                    isDefault: false,
+                    _id: cr._id
+                  }))
+                ];
+
+                return rolesToDisplay.map((roleInfo) => {
+                  return (
+                    <div key={roleInfo.role} className="bg-white border border-gray-150 hover:border-indigo-200 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all flex flex-col justify-between gap-4">
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <span className="px-2 py-0.5 bg-slate-100 text-slate-700 border border-slate-200 rounded text-[9px] font-bold font-mono tracking-wider">
+                              LEVEL {userProfile?.role === "superadmin" ? roleInfo.level : roleInfo.level - 1}
+                            </span>
+                            <h6 className="font-bold text-slate-800 text-sm mt-1">{roleInfo.displayName}</h6>
+                            <span className="text-[10px] text-gray-400 font-mono block">Mã: {roleInfo.role}</span>
+                          </div>
+                          {roleInfo.isDefault && (
+                            <span className="px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-150 rounded-sm text-[8px] font-bold font-mono">
+                              MẶC ĐỊNH
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Permissions display */}
+                        <div className="space-y-1 text-left">
+                          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Mã quyền cấp phép:</span>
+                          <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto pr-1">
+                            {roleInfo.permissions.length === 0 ? (
+                              <span className="text-[10px] text-gray-450 italic">Chưa cấu hình quyền nào</span>
+                            ) : roleInfo.permissions.includes("*") ? (
+                              <span className="px-1.5 py-0.5 bg-rose-50 text-rose-700 border border-rose-150 rounded text-[9px] font-semibold font-mono">
+                                * (Tất cả quyền)
+                              </span>
+                            ) : (
+                              roleInfo.permissions.map(p => (
+                                <span key={p} className="px-1.5 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-150 rounded text-[9px] font-semibold font-mono" title={systemPermissions.find(sp => sp.code === p)?.name || p}>
+                                  {p}
+                                </span>
+                              ))
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="border-t border-gray-100 pt-3 flex justify-end gap-2 mt-auto">
+                        {roleInfo.role !== "admin" && (
+                          <button
+                            onClick={() => {
+                              setEditingRole(roleInfo as any);
+                              setRoleSlug(roleInfo.role);
+                              setRoleDisplayName(roleInfo.displayName);
+                              setRoleLevel(roleInfo.level);
+                              setSelectedPermissions(roleInfo.permissions);
+                              setIsRoleModalOpen(true);
+                            }}
+                            className="p-1.5 px-3 bg-white hover:bg-slate-100 border border-gray-205 rounded-xl text-[10px] font-bold text-slate-700 cursor-pointer transition-all active:scale-95 flex items-center gap-1"
+                          >
+                            ⚙️ Thiết lập quyền
+                          </button>
+                        )}
+                        {!roleInfo.isDefault && (
+                          <button
+                            onClick={async () => {
+                              if (window.confirm(`Bạn có chắc chắn muốn xóa vai trò "${roleInfo.displayName}"? Hành động này sẽ gỡ bỏ phân quyền vai trò.`)) {
+                                try {
+                                  let code = undefined;
+                                  if (userProfile?.role === "superadmin") {
+                                    code = selectedCompanyCode === "all" ? "SYSTEM" : selectedCompanyCode;
+                                  } else {
+                                    code = userProfile?.companyCode;
+                                  }
+                                  await rolePermissionService.deleteRolePermission(roleInfo.role, code);
+                                  toast.success("Xóa cấu hình vai trò thành công!");
+                                  await fetchRolePermissions();
+                                } catch (error: any) {
+                                  console.error(error);
+                                  toast.error(error.message || "Xóa vai trò thất bại.");
+                                }
+                              }
+                            }}
+                            className="p-1.5 bg-red-50 hover:bg-red-100 border border-red-200 rounded-xl text-[10px] font-bold text-red-650 cursor-pointer transition-all active:scale-95"
+                            title="Xóa vai trò"
+                          >
+                            🗑️ Xóa
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Modal Đăng ký Doanh nghiệp mới */}
       {isCompanyModalOpen && (
@@ -793,11 +1089,11 @@ export default function UserAdminTab() {
                     onChange={(e) => setUserRole(e.target.value as any)}
                     className="w-full p-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer outline-none"
                   >
-                    <option value="user">USER (Nhân viên)</option>
-                    <option value="manager">MANAGER (Quản lý)</option>
-                    {userProfile?.role === "superadmin" && (
-                      <option value="admin">ADMIN (Chủ doanh nghiệp)</option>
-                    )}
+                    {getAvailableRoles().map(r => (
+                      <option key={r.role} value={r.role}>
+                        {r.displayName}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -862,7 +1158,10 @@ export default function UserAdminTab() {
                           <div className="mt-1.5 flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 border border-indigo-100 rounded-lg w-max">
                             <span className="text-[9px] font-bold text-indigo-500 uppercase tracking-wider">Cấp bậc nhân viên mới:</span>
                             <span className="text-[10px] font-bold text-indigo-700 font-mono">
-                              Level {(usersList.find((u) => u.uid === userParentId)?.level ?? 0) + 1}
+                              Level {(() => {
+                                const rawL = (usersList.find((u) => u.uid === userParentId)?.level ?? 0) + 1;
+                                return userProfile?.role === "superadmin" ? rawL : rawL - 1;
+                              })()}
                             </span>
                           </div>
                         )}
@@ -915,6 +1214,219 @@ export default function UserAdminTab() {
                     </>
                   ) : (
                     "Lưu người dùng"
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Cấu hình Phân quyền Vai trò */}
+      {isRoleModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl max-w-2xl w-full overflow-hidden transform transition-all scale-100 flex flex-col max-h-[90vh]">
+            {/* Modal Header */}
+            <div className="bg-slate-900 text-white p-6 flex justify-between items-center shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-indigo-650 rounded-xl">
+                  <Shield className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm uppercase tracking-wider font-sans">
+                    {editingRole ? "Cấu hình vai trò & Phân quyền" : "Tạo vai trò tùy chỉnh mới"}
+                  </h3>
+                  <p className="text-[10px] text-slate-300 font-mono mt-0.5">
+                    {editingRole ? `Vai trò: ${roleSlug}` : "Thiết lập vai trò động cho doanh nghiệp"}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsRoleModalOpen(false)}
+                className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-all cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!roleSlug.trim() || !roleDisplayName.trim()) {
+                  toast.warning("Vui lòng nhập đầy đủ thông tin vai trò!");
+                  return;
+                }
+
+                setSubmittingRole(true);
+                try {
+                  let code = undefined;
+                  if (userProfile?.role === "superadmin") {
+                    code = selectedCompanyCode === "all" ? "SYSTEM" : selectedCompanyCode;
+                  } else {
+                    code = userProfile?.companyCode;
+                  }
+
+                  const payload = {
+                    role: roleSlug.toLowerCase().trim(),
+                    displayName: roleDisplayName.trim(),
+                    level: roleLevel,
+                    permissions: selectedPermissions,
+                    companyCode: code,
+                  };
+
+                  await rolePermissionService.saveRolePermission(payload);
+                  toast.success(editingRole ? "Cập nhật vai trò thành công!" : "Tạo vai trò mới thành công!");
+                  setIsRoleModalOpen(false);
+                  await fetchRolePermissions();
+                } catch (error: any) {
+                  console.error(error);
+                  toast.error(error.message || "Không thể cập nhật cấu hình vai trò.");
+                } finally {
+                  setSubmittingRole(false);
+                }
+              }}
+              className="flex flex-col flex-1 overflow-hidden"
+            >
+              <div className="p-6 space-y-4 overflow-y-auto flex-1 text-left">
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Mã vai trò */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Mã vai trò (slug) *</label>
+                    <input
+                      type="text"
+                      required
+                      disabled={!!editingRole}
+                      placeholder="Ví dụ: hr_lead (viết thường, không dấu)"
+                      value={roleSlug}
+                      onChange={(e) => setRoleSlug(e.target.value)}
+                      className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none font-mono disabled:bg-gray-100 disabled:text-gray-400"
+                    />
+                  </div>
+
+                  {/* Tên hiển thị */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Tên hiển thị (Tiếng Việt) *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ví dụ: Trưởng phòng nhân sự"
+                      value={roleDisplayName}
+                      onChange={(e) => setRoleDisplayName(e.target.value)}
+                      className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Level vai trò */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block flex items-center gap-1">
+                    Cấp bậc vai trò (Level) *
+                    <span className="text-[9px] font-normal normal-case text-gray-400">
+                      {userProfile?.role === "superadmin"
+                        ? "(2 = cao nhất, 10 = thấp nhất. Superadmin mặc định level 1)"
+                        : "(1 = cao nhất, 9 = thấp nhất)"}
+                    </span>
+                  </label>
+                  <select
+                    value={roleLevel}
+                    onChange={(e) => setRoleLevel(parseInt(e.target.value, 10))}
+                    disabled={editingRole?.role === "admin" || editingRole?.role === "superadmin"}
+                    className="w-full p-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer outline-none disabled:bg-gray-150 disabled:cursor-not-allowed"
+                  >
+                    {(() => {
+                      const minLevel = userProfile?.role === "superadmin" ? 1 : 3;
+                      const levels = [];
+                      for (let i = minLevel; i <= 10; i++) {
+                        levels.push(i);
+                      }
+                      return levels.map(l => {
+                        const displayL = userProfile?.role === "superadmin" ? l : l - 1;
+                        return (
+                          <option key={l} value={l}>
+                            Cấp độ {displayL}
+                          </option>
+                        );
+                      });
+                    })()}
+                  </select>
+                </div>
+
+                {/* Danh sách mã quyền gán */}
+                <div className="space-y-2 border-t border-gray-100 pt-3">
+                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Thiết lập các mã quyền được phép truy cập *</label>
+                  
+                  {editingRole?.role === "superadmin" ? (
+                    <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl text-xs text-rose-700 font-mono italic">
+                      Vai trò Superadmin tự động có tất cả quyền trong hệ thống (*) và không thể sửa đổi quyền.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-60 overflow-y-auto p-1 pr-2">
+                      {systemPermissions.map((perm) => {
+                        const isChecked = selectedPermissions.includes(perm.code) || selectedPermissions.includes("*");
+                        return (
+                          <div
+                            key={perm.code}
+                            onClick={() => {
+                              if (selectedPermissions.includes("*")) return; // Super permissions overrides all
+                              setSelectedPermissions((prev) => {
+                                if (prev.includes(perm.code)) {
+                                  return prev.filter((p) => p !== perm.code);
+                                } else {
+                                  return [...prev, perm.code];
+                                }
+                              });
+                            }}
+                            className={`flex items-start gap-2.5 p-2.5 border rounded-xl cursor-pointer transition-all select-none hover:border-indigo-300 ${
+                              isChecked
+                                ? "bg-indigo-50/50 border-indigo-200"
+                                : "bg-white border-gray-150"
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              disabled={selectedPermissions.includes("*")}
+                              readOnly
+                              className="mt-0.5 cursor-pointer accent-indigo-650"
+                            />
+                            <div>
+                              <span className="text-xs font-bold text-slate-800 block leading-tight">{perm.name}</span>
+                              <span className="text-[9px] text-indigo-600 font-mono leading-none block mt-0.5">{perm.code}</span>
+                              {perm.description && (
+                                <span className="text-[9px] text-gray-400 mt-1 block leading-normal">{perm.description}</span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Form Actions */}
+              <div className="flex gap-3 justify-end p-6 border-t border-gray-100 shrink-0 bg-gray-50/50">
+                <button
+                  type="button"
+                  onClick={() => setIsRoleModalOpen(false)}
+                  className="px-4 py-2 border border-gray-200 bg-white rounded-xl text-xs font-bold text-gray-500 hover:bg-gray-50 transition-all cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingRole || editingRole?.role === "superadmin"}
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-600/10 flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                >
+                  {submittingRole ? (
+                    <>
+                      <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                      Đang cập nhật...
+                    </>
+                  ) : (
+                    "Lưu cấu hình"
                   )}
                 </button>
               </div>
