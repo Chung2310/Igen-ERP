@@ -66,6 +66,22 @@ const getDescendantEmployeeCount = (rootId: string, users: UserProfile[]) => {
   return count;
 };
 
+const formatCardDate = (dateStr: any): string => {
+  if (!dateStr) return "";
+  try {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return String(dateStr);
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${hours}:${minutes} ${day}/${month}/${year}`;
+  } catch (e) {
+    return String(dateStr);
+  }
+};
+
 export default function DashboardTab() {
   const { userProfile } = useAuth();
   const [activeView, setActiveView] = useState<DashboardView>("overview");
@@ -408,7 +424,7 @@ function OverviewPanel({
                     </div>
                     <p className="mt-3 text-sm text-gray-600 line-clamp-3">{item.bodyText}</p>
                     <div className="mt-4 flex items-center justify-between gap-3">
-                      <p className="text-[11px] text-gray-400">{item.generatedAt}</p>
+                      <p className="text-[11px] text-gray-400">{formatCardDate(item.generatedAt)}</p>
                       <button
                         onClick={() => onApprovePendingCard(item.id)}
                         disabled={isApprovalDisabled}
@@ -540,7 +556,7 @@ function PendingReviewModal({
                   </div>
                   <p className="mt-3 text-sm text-gray-600 line-clamp-4">{item.bodyText}</p>
                   <div className="mt-4 flex items-center justify-between gap-3">
-                    <p className="text-xs text-gray-400">{item.generatedAt}</p>
+                    <p className="text-xs text-gray-400">{formatCardDate(item.generatedAt)}</p>
                     <button
                       disabled={isApprovalDisabled}
                       onClick={() => onApprove(item.id)}

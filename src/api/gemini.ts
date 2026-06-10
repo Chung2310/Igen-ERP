@@ -1,9 +1,8 @@
-import { auth } from "../config/firebase";
-
 export interface MarketingDevelopPost {
   channel: string;
   contentType: string;
   bodyText: string;
+  outline?: string;
 }
 
 function getJwtHeaders(withContentType: boolean = true) {
@@ -23,15 +22,9 @@ async function getHeaders(withContentType: boolean = true) {
   if (withContentType) {
     headers['Content-Type'] = 'application/json';
   }
-  const user = auth.currentUser;
-  if (user) {
-    try {
-      // getIdToken() will automatically renew the token if expired (silently)
-      const token = await user.getIdToken();
-      headers['Authorization'] = `Bearer ${token}`;
-    } catch (error) {
-      console.error("Lỗi khi lấy Firebase ID Token:", error);
-    }
+  const token = localStorage.getItem("accessToken");
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
   }
   return headers;
 }
@@ -172,12 +165,15 @@ export const geminiApi = {
   /**
    * Sinh ảnh minh họa AI.
    */
-  async generateImage(prompt: string): Promise<{ url: string; isMock: boolean }> {
+  async generateImage(
+    prompt: string,
+    options?: { aspectRatio?: string; modelName?: string; resolution?: string; existingImageUris?: string[] }
+  ): Promise<{ url: string; isMock: boolean; record?: any }> {
     const headers = await getHeaders(true);
     const response = await fetch('/api/v1/gemini/generate-image', {
       method: 'POST',
       headers,
-      body: JSON.stringify({ prompt }),
+      body: JSON.stringify({ prompt, ...options }),
     });
     if (!response.ok) {
       throw new Error('Lỗi khi sinh ảnh minh họa AI');
@@ -185,15 +181,103 @@ export const geminiApi = {
     return response.json();
   },
 
-  async generateVideo(prompt: string, durationSeconds?: number): Promise<{ url: string; isMock: boolean }> {
+  async generateVideo(
+    prompt: string,
+    durationSeconds?: number,
+    options?: { aspectRatio?: string; modelName?: string; resolution?: string; referenceVideoUri?: string; referenceImageUris?: string[] }
+  ): Promise<{ url: string; isMock: boolean; record?: any }> {
     const headers = await getHeaders(true);
     const response = await fetch('/api/v1/gemini/generate-video', {
       method: 'POST',
       headers,
-      body: JSON.stringify({ prompt, durationSeconds }),
+      body: JSON.stringify({ prompt, durationSeconds, ...options }),
     });
     if (!response.ok) {
       throw new Error('Lỗi khi sinh video AI');
+    }
+    return response.json();
+  },
+
+  async generateVoice(input: {
+    textToSpeak: string;
+    styleInstructions?: string;
+    mode?: "single" | "multi";
+    temperature?: number;
+    modelName?: string;
+    voiceName?: string;
+    speakerA?: string;
+    speakerB?: string;
+  }): Promise<{ status: string; record: any }> {
+    const headers = await getHeaders(true);
+    const response = await fetch('/api/v1/gemini/generate-voice', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(input),
+    });
+    if (!response.ok) {
+      throw new Error('Lỗi khi sinh giọng nói AI');
+    }
+    return response.json();
+  },
+
+  async optimizeScript(text: string, readingStyle?: string): Promise<{ optimizedText: string }> {
+    const headers = await getHeaders(true);
+    const response = await fetch('/api/v1/gemini/optimize-script', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ text, readingStyle }),
+    });
+    if (!response.ok) {
+      throw new Error('Lỗi khi tối ưu kịch bản');
+    }
+    return response.json();
+  },
+
+  async optimizeImagePrompt(description: string, imageUris?: string[]): Promise<any> {
+    const headers = await getHeaders(true);
+    const response = await fetch('/api/v1/gemini/optimize-prompt', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ description, imageUris }),
+    });
+    if (!response.ok) {
+      throw new Error('Lỗi khi tối ưu prompt ảnh');
+    }
+    return response.json();
+  },
+
+  async optimizeVideoPrompt(description: string, imageUris?: string[]): Promise<any> {
+    const headers = await getHeaders(true);
+    const response = await fetch('/api/v1/gemini/optimize-video-prompt', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ description, imageUris }),
+    });
+    if (!response.ok) {
+      throw new Error('Lỗi khi tối ưu prompt video');
+    }
+    return response.json();
+  },
+
+  async getMediaHistory(type: "image" | "video" | "voice"): Promise<{ status: string; history: any[] }> {
+    const headers = await getHeaders(false);
+    const response = await fetch(`/api/v1/gemini/media-history?type=${type}`, {
+      headers,
+    });
+    if (!response.ok) {
+      throw new Error('Lỗi lấy lịch sử sinh đa phương tiện');
+    }
+    return response.json();
+  },
+
+  async deleteMediaHistory(id: string): Promise<{ status: string }> {
+    const headers = await getHeaders(false);
+    const response = await fetch(`/api/v1/gemini/media-history/${id}`, {
+      method: 'DELETE',
+      headers,
+    });
+    if (!response.ok) {
+      throw new Error('Lỗi khi xóa bản ghi lịch sử');
     }
     return response.json();
   },

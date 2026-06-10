@@ -3,6 +3,8 @@ import { getGeminiClient } from "../config/gemini";
 import fs from "fs";
 import path from "path";
 import os from "os";
+import { AIMediaModel } from "../model/ai-media.model";
+import { cloudinaryService } from "./cloudinary.service";
 
 const GEMINI_TEXT_MODEL = process.env.GEMINI_MODEL || "gemini-3.1-flash-lite";
 const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || "imagen-4.0-generate-001";
@@ -464,7 +466,26 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
     channels: string[]
   ): Promise<{ posts: any[]; isMock: boolean }> {
     const client = getGeminiClient();
-    const targetChannels = Array.isArray(channels) ? channels : ["Facebook"];
+    const validChannels = ["Facebook", "TikTok", "LinkedIn", "Instagram"];
+    
+    // Normalize target channels: filter out invalid channels, map input to valid ones
+    const normalizeChannel = (chan: string): string => {
+      if (!chan) return "Facebook";
+      const c = chan.toLowerCase().trim();
+      if (c.includes("facebook") || c.includes("fb")) return "Facebook";
+      if (c.includes("tiktok") || c.includes("tik tok") || c.includes("reels") || c.includes("video ngắn")) return "TikTok";
+      if (c.includes("linkedin") || c.includes("linked in") || c.includes("link")) return "LinkedIn";
+      if (c.includes("instagram") || c.includes("insta") || c.includes("ig")) return "Instagram";
+      return "Facebook";
+    };
+
+    let targetChannels = (Array.isArray(channels) ? channels : ["Facebook"])
+      .map(ch => normalizeChannel(ch))
+      .filter((v, i, a) => a.indexOf(v) === i); // Deduplicate
+
+    if (targetChannels.length === 0) {
+      targetChannels = ["Facebook"];
+    }
 
     if (!client) {
       const mockPosts = targetChannels.map((chan) => {
@@ -567,7 +588,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
               items: {
                 type: Type.OBJECT,
                 properties: {
-                  channel: { type: Type.STRING, description: "Kênh đăng bài (ví dụ: Facebook, TikTok, LinkedIn)" },
+                  channel: { type: Type.STRING, description: "Kênh đăng bài (ví dụ: Facebook, TikTok, LinkedIn, Instagram)" },
                   contentType: { type: Type.STRING, description: "Loại nội dung" },
                   outline: { 
                     type: Type.STRING, 
@@ -589,14 +610,24 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
 
     const responseText = response.text || "{}";
     const parsedData = JSON.parse(responseText.trim());
-    return { posts: parsedData.posts || [], isMock: false };
+    const posts = (parsedData.posts || []).map((post: any) => ({
+      ...post,
+      channel: normalizeChannel(post.channel)
+    }));
+    return { posts, isMock: false };
   },
 
+
   /**
-   * Sinh ảnh AI bằng model Nano-Banana (gemini-3.1-flash-image)
+   * Sinh ảnh AI bằng model Nano-Banana hoặc Imagen 4
    */
-  async generateImage(prompt: string): Promise<{ url: string; isMock: boolean }> {
+  async generateImage(
+    prompt: string,
+    options?: { aspectRatio?: string; modelName?: string; resolution?: string; existingImageUris?: string[] }
+  ): Promise<{ url: string; isMock: boolean }> {
     const client = getGeminiClient();
+    const modelToUse = options?.modelName || GEMINI_IMAGE_MODEL;
+    const aspect = options?.aspectRatio || "1:1";
 
     if (!client) {
       console.log("[geminiService.generateImage] Running in MOCK mode");
@@ -605,18 +636,86 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
     }
 
     try {
-      const response = await client.models.generateImages({
-        model: GEMINI_IMAGE_MODEL,
-        prompt: prompt,
-        config: {
-          numberOfImages: 1,
-          outputMimeType: "image/png",
-          aspectRatio: "16:9",
-        },
-      });
+      let finalTextPrompt = prompt;
+      const hasReferenceImages = options?.existingImageUris && options.existingImageUris.length > 0;
+      if (modelToUse.startsWith("imagen-") && hasReferenceImages) {
+        console.log(`[geminiService.generateImage] Imagen model + reference images -> Preprocessing with Nano Banana`);
+        const parts: any[] = [];
+        for (const uri of options.existingImageUris!) {
+          if (uri.startsWith("data:")) {
+            const match = uri.match(/^data:([^;]+);base64,(.+)$/);
+            if (match) {
+              parts.push({
+                inlineData: { mimeType: match[1], data: match[2] }
+              });
+            }
+          }
+        }
+        parts.push({
+          text: `Analyze the reference image(s) above and combine your understanding with the user's request to create ONE ultra-detailed English prompt that Imagen can use to generate a matching image.
+USER'S REQUEST: "${prompt}"
+Output ONLY the final detailed prompt in English.`
+        });
+        
+        const preRes = await client.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: parts,
+        });
+        if (preRes.text) {
+          finalTextPrompt = preRes.text.trim();
+        }
+      }
 
-      const generatedImage = response.generatedImages?.[0];
-      const base64Bytes = generatedImage?.image?.imageBytes;
+      const isImagen = modelToUse.startsWith("imagen-");
+      let response;
+      if (isImagen) {
+        response = await client.models.generateImages({
+          model: modelToUse,
+          prompt: finalTextPrompt,
+          config: {
+            numberOfImages: 1,
+            aspectRatio: aspect as any,
+          },
+        });
+      } else {
+        const parts: any[] = [{ text: finalTextPrompt }];
+        if (hasReferenceImages) {
+          for (const uri of options.existingImageUris!) {
+            if (uri.startsWith("data:")) {
+              const match = uri.match(/^data:([^;]+);base64,(.+)$/);
+              if (match) {
+                parts.push({
+                  inlineData: { mimeType: match[1], data: match[2] }
+                });
+              }
+            }
+          }
+        }
+
+        const config: any = {
+          responseModalities: ["IMAGE"],
+          imageConfig: { aspectRatio: aspect },
+        };
+        if (options?.resolution) {
+          config.imageConfig.imageSize = options.resolution;
+        }
+
+        response = await client.models.generateContent({
+          model: modelToUse,
+          contents: parts,
+          config,
+        });
+      }
+
+      let base64Bytes = "";
+      if (isImagen) {
+        const generatedImage = (response as any).generatedImages?.[0];
+        base64Bytes = generatedImage?.image?.imageBytes;
+      } else {
+        const part = (response as any).candidates?.[0]?.content?.parts?.[0];
+        base64Bytes = part?.inlineData?.data;
+      }
+
       if (!base64Bytes) {
         throw new Error("Không nhận được dữ liệu ảnh từ Gemini API");
       }
@@ -629,15 +728,21 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
   },
 
   /**
-   * Sinh video AI bằng model Veo3 (veo-3.1-generate-preview)
+   * Sinh video AI bằng model Veo3 hoặc Veo2
    */
-  async generateVideo(prompt: string, durationSeconds: number = 6): Promise<{ url: string; isMock: boolean }> {
+  async generateVideo(
+    prompt: string,
+    durationSeconds: number = 6,
+    options?: { aspectRatio?: string; modelName?: string; resolution?: string; referenceVideoUri?: string; referenceImageUris?: string[] }
+  ): Promise<{ url: string; isMock: boolean }> {
     const client = getGeminiClient();
+    const modelToUse = options?.modelName || GEMINI_VIDEO_MODEL;
+    const aspect = options?.aspectRatio || "16:9";
 
     if (!client) {
       console.log("[geminiService.generateVideo] Running in MOCK mode");
       return { 
-        url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4", 
+        url: "https://www.w3schools.com/html/mov_bbb.mp4", 
         isMock: true 
       };
     }
@@ -646,14 +751,73 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
     const tempFilePath = path.join(os.tmpdir(), filename);
 
     try {
+      const config: any = {
+        numberOfVideos: 1,
+        aspectRatio: aspect,
+      };
+
+      const isVeo2 = modelToUse.includes("veo-2");
+      let duration = durationSeconds;
+      if (isVeo2) {
+        if (![4, 5, 6, 8].includes(duration)) duration = 8;
+      } else {
+        // Veo3 supports 4, 6, 8 seconds
+        if (![4, 6, 8].includes(duration)) duration = 8;
+      }
+      config.durationSeconds = duration;
+
+      if (!isVeo2 && options?.resolution) {
+        let resolution = options.resolution;
+        // Google Veo API constraint: 1080p is NOT supported for 4-second videos
+        // Minimum duration for 1080p is 5 seconds (for Veo2) or 6 seconds (for Veo3)
+        if (resolution === "1080p" && duration <= 4) {
+          console.warn(
+            `[geminiService.generateVideo] 1080p không hỗ trợ cho video ${duration}s. Tự động chuyển sang 720p.`
+          );
+          resolution = "720p";
+        }
+        config.resolution = resolution;
+      } else if (isVeo2 && options?.resolution) {
+        // Veo2 also has resolution constraints
+        let resolution = options.resolution;
+        if (resolution === "1080p" && duration < 5) {
+          console.warn(
+            `[geminiService.generateVideo] Veo2: 1080p không hỗ trợ cho video ${duration}s. Tự động chuyển sang 720p.`
+          );
+          resolution = "720p";
+        }
+        config.resolution = resolution;
+      }
+
+      const instance: any = { prompt };
+
+      if (options?.referenceImageUris && options.referenceImageUris.length > 0) {
+        const uri = options.referenceImageUris[0];
+        if (uri.startsWith("data:")) {
+          const match = uri.match(/^data:([^;]+);base64,(.+)$/);
+          if (match) {
+            instance.image = { bytesBase64Encoded: match[2], mimeType: match[1] };
+          }
+        }
+      }
+
+      if (options?.referenceVideoUri) {
+        let videoUri = options.referenceVideoUri;
+        if (videoUri.includes("?key=")) {
+          videoUri = videoUri.split("?key=")[0];
+        } else if (videoUri.includes("&key=")) {
+          videoUri = videoUri.replace(/[&?]key=[^&]+/, "");
+        }
+        instance.video = { uri: videoUri };
+        delete config.durationSeconds;
+        delete config.aspectRatio;
+        delete config.numberOfVideos;
+      }
+
       let operation = await client.models.generateVideos({
-        model: GEMINI_VIDEO_MODEL,
+        model: modelToUse,
         prompt: prompt,
-        config: {
-          numberOfVideos: 1,
-          durationSeconds: durationSeconds,
-          aspectRatio: "16:9",
-        },
+        config,
       });
 
       let attempts = 0;
@@ -682,11 +846,9 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
         downloadPath: tempFilePath,
       });
 
-      // Đọc tệp vào bộ nhớ dưới dạng base64
       const videoBuffer = fs.readFileSync(tempFilePath);
       const base64Video = videoBuffer.toString("base64");
 
-      // Xóa tệp tạm lập tức
       try {
         fs.unlinkSync(tempFilePath);
       } catch (err) {
@@ -695,7 +857,6 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
 
       return { url: `data:video/mp4;base64,${base64Video}`, isMock: false };
     } catch (error: any) {
-      // Dọn dẹp tệp tạm trong trường hợp có lỗi
       if (fs.existsSync(tempFilePath)) {
         try {
           fs.unlinkSync(tempFilePath);
@@ -707,4 +868,315 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
       throw error;
     }
   },
+
+  /**
+   * Tạo giọng nói TTS (Gemini Voice Modality)
+   */
+  async generateVoice(userId: string, input: any) {
+    const client = getGeminiClient();
+    const { textToSpeak, styleInstructions, mode, temperature, modelName, voiceName, speakerA, speakerB } = input;
+    
+    let promptText = textToSpeak;
+    if (styleInstructions && styleInstructions.trim() !== '') {
+       promptText = `Read aloud following these style instructions:\n${styleInstructions.trim()}\n\nText:\n${textToSpeak}`;
+    }
+
+    let speechConfig: any;
+    if (mode === 'multi') {
+        speechConfig = {
+           multiSpeakerVoiceConfig: {
+              speakerVoiceConfigs: [
+                 { speaker: 'SpeakerA', voiceConfig: { prebuiltVoiceConfig: { voiceName: speakerA || 'Aoede' } } },
+                 { speaker: 'SpeakerB', voiceConfig: { prebuiltVoiceConfig: { voiceName: speakerB || 'Puck' } } }
+              ]
+           }
+        };
+    } else {
+        speechConfig = {
+           voiceConfig: {
+              prebuiltVoiceConfig: { voiceName: voiceName || 'Aoede' },
+           }
+        };
+    }
+
+    let audioDataUri = "";
+    if (!client) {
+      console.log("[geminiService.generateVoice] Running in MOCK mode");
+      audioDataUri = "data:audio/wav;base64,UklGRigAAABXQVZFlm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAAAG";
+    } else {
+      try {
+        const response = await client.models.generateContent({
+          model: modelName || "gemini-2.5-flash-preview-tts",
+          contents: promptText,
+          config: {
+            temperature: temperature ?? 1.0,
+            responseModalities: ["AUDIO"],
+            speechConfig: speechConfig,
+          } as any,
+        });
+
+        const part = response.candidates?.[0]?.content?.parts?.[0];
+        const inlineData = part?.inlineData;
+        if (!inlineData || !inlineData.data) {
+          throw new Error("Không nhận được dữ liệu âm thanh từ Gemini TTS API");
+        }
+
+        const pcmBuffer = Buffer.from(inlineData.data, 'base64');
+        const wavBuffer = pcmToWav(pcmBuffer, 24000, 1, 16);
+        const wavBase64 = wavBuffer.toString('base64');
+        audioDataUri = 'data:audio/wav;base64,' + wavBase64;
+      } catch (error: any) {
+        console.error("[geminiService.generateVoice] Error:", error);
+        throw error;
+      }
+    }
+
+    // Upload to Cloudinary
+    const cloudinaryUrl = await cloudinaryService.uploadMedia(audioDataUri, "igen_erp/marketing/voice");
+
+    // Save to MongoDB
+    const record = await AIMediaModel.create({
+      userId,
+      mediaType: "voice",
+      url: cloudinaryUrl,
+      prompt: textToSpeak,
+      metadata: {
+        voiceName: mode === 'multi' ? `Multi (${speakerA} & ${speakerB})` : voiceName,
+        duration: estimateAudioDuration(textToSpeak),
+        resolution: modelName,
+      }
+    });
+
+    return record;
+  },
+
+  /**
+   * Tối ưu kịch bản giọng nói
+   */
+  async optimizeScript(text: string, readingStyle: string) {
+    const client = getGeminiClient();
+    if (!client) {
+      return { optimizedText: `[Tối ưu hóa Giả lập] ${text}` };
+    }
+    try {
+      const systemInstruction = "Bạn là chuyên gia biên soạn kịch bản và viết nội dung phát thanh radio. Hãy tối ưu hóa văn bản của người dùng để trở nên tự nhiên, cuốn hút, dễ đọc và phù hợp nhất với phong cách được yêu cầu. Trả về DUY NHẤT văn bản đã tối ưu hóa, không có thêm lời giải thích hay ký tự đặc biệt.";
+      const response = await client.models.generateContent({
+        model: GEMINI_TEXT_MODEL,
+        contents: `Phong cách: ${readingStyle || "hấp dẫn, lôi cuốn"}\nVăn bản gốc:\n${text}`,
+        config: {
+          systemInstruction,
+          temperature: 0.7,
+        }
+      });
+      return { optimizedText: response.text || text };
+    } catch (error: any) {
+      console.error("[geminiService.optimizeScript] Error:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Tối ưu prompt hình ảnh (cấu trúc JSON)
+   */
+  async optimizeImagePrompt(description: string, imageUris?: string[]) {
+    const client = getGeminiClient();
+    if (!client) {
+      return {
+        subject: description,
+        clothing_material: "",
+        action_pose: "",
+        setting_lighting: "",
+        camera_parameters: "",
+        optimized_english_prompt: `A professional studio photo representing: ${description}`,
+        negative_prompt: "ugly, blurry, low quality",
+      };
+    }
+    try {
+      const systemInstruction = `You are an expert prompt engineer for Imagen 4. Optimize the user's image description into a high-quality, descriptive English prompt. Output must be in JSON format matching the schema.`;
+      const parts: any[] = [];
+      if (imageUris && imageUris.length > 0) {
+        for (const uri of imageUris) {
+          if (uri.startsWith('data:')) {
+            const match = uri.match(/^data:([^;]+);base64,(.+)$/);
+            if (match) {
+              parts.push({
+                inlineData: { mimeType: match[1], data: match[2] }
+              });
+            }
+          }
+        }
+      }
+      parts.push({ text: `Optimize this prompt: ${description}` });
+
+      const response = await client.models.generateContent({
+        model: GEMINI_TEXT_MODEL,
+        contents: parts,
+        config: {
+          systemInstruction,
+          temperature: 0.7,
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              subject: { type: Type.STRING },
+              clothing_material: { type: Type.STRING },
+              action_pose: { type: Type.STRING },
+              setting_lighting: { type: Type.STRING },
+              camera_parameters: { type: Type.STRING },
+              optimized_english_prompt: { type: Type.STRING },
+              negative_prompt: { type: Type.STRING },
+            },
+            required: ["optimized_english_prompt"],
+          }
+        }
+      });
+      const responseText = response.text || "{}";
+      return JSON.parse(responseText.trim());
+    } catch (error: any) {
+      console.error("[geminiService.optimizeImagePrompt] Error:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Tối ưu prompt video (cấu trúc JSON)
+   */
+  async optimizeVideoPrompt(description: string, imageUris?: string[]) {
+    const client = getGeminiClient();
+    if (!client) {
+      return {
+        motion_analysis: "smooth motion",
+        camera_movement: "slow pan",
+        optimized_english_prompt: `A high quality cinematic video representing: ${description}`,
+      };
+    }
+    try {
+      const systemInstruction = `You are an expert prompt engineer for Veo video generator. Optimize the description into a high-quality video prompt. Output must be in JSON format matching the schema.`;
+      const parts: any[] = [];
+      if (imageUris && imageUris.length > 0) {
+        for (const uri of imageUris) {
+          if (uri.startsWith('data:')) {
+            const match = uri.match(/^data:([^;]+);base64,(.+)$/);
+            if (match) {
+              parts.push({
+                inlineData: { mimeType: match[1], data: match[2] }
+              });
+            }
+          }
+        }
+      }
+      parts.push({ text: `Optimize this prompt: ${description}` });
+
+      const response = await client.models.generateContent({
+        model: GEMINI_TEXT_MODEL,
+        contents: parts,
+        config: {
+          systemInstruction,
+          temperature: 0.7,
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              motion_analysis: { type: Type.STRING },
+              camera_movement: { type: Type.STRING },
+              optimized_english_prompt: { type: Type.STRING },
+            },
+            required: ["optimized_english_prompt"],
+          }
+        }
+      });
+      const responseText = response.text || "{}";
+      return JSON.parse(responseText.trim());
+    } catch (error: any) {
+      console.error("[geminiService.optimizeVideoPrompt] Error:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Lấy lịch sử tạo đa phương tiện theo user và loại
+   */
+  async getMediaHistory(userId: string, mediaType: "image" | "video" | "voice") {
+    try {
+      return await AIMediaModel.find({ userId, mediaType })
+        .sort({ createdAt: -1 })
+        .limit(50)
+        .lean();
+    } catch (error: any) {
+      console.error("[geminiService.getMediaHistory] Error:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Xóa một bản ghi lịch sử
+   */
+  async deleteMediaHistory(userId: string, id: string) {
+    try {
+      const result = await AIMediaModel.deleteOne({ _id: id, userId });
+      if (result.deletedCount === 0) {
+        throw new Error("Không tìm thấy bản ghi hoặc không có quyền xóa");
+      }
+      return { status: "success" };
+    } catch (error: any) {
+      console.error("[geminiService.deleteMediaHistory] Error:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Đồng bộ lưu trữ nâng cao của Image/Video sau khi sinh thành công
+   */
+  async saveGeneratedMediaRecord(userId: string, mediaType: "image" | "video", base64OrUrl: string, prompt: string, metadata?: any) {
+    try {
+      let finalUrl = base64OrUrl;
+      if (base64OrUrl.startsWith("data:")) {
+        finalUrl = await cloudinaryService.uploadMedia(base64OrUrl, `igen_erp/marketing/${mediaType}`);
+      }
+      
+      const record = await AIMediaModel.create({
+        userId,
+        mediaType,
+        url: finalUrl,
+        prompt,
+        metadata,
+      });
+      return record;
+    } catch (error: any) {
+      console.error("[geminiService.saveGeneratedMediaRecord] Error:", error);
+      throw error;
+    }
+  }
 };
+
+/**
+ * Chuyển đổi PCM sang WAV 16-bit Mono (Pure JS/Node)
+ */
+function pcmToWav(pcmBuffer: Buffer, sampleRate: number = 24000, numChannels: number = 1, bitDepth: number = 16): Buffer {
+  const header = Buffer.alloc(44);
+  const blockAlign = numChannels * (bitDepth / 8);
+  const byteRate = sampleRate * blockAlign;
+  const dataSize = pcmBuffer.length;
+  const fileSize = 36 + dataSize;
+
+  header.write('RIFF', 0);
+  header.writeUInt32LE(fileSize, 4);
+  header.write('WAVE', 8);
+  header.write('fmt ', 12);
+  header.writeUInt32LE(16, 16);
+  header.writeUInt16LE(1, 20);
+  header.writeUInt16LE(numChannels, 22);
+  header.writeUInt32LE(sampleRate, 24);
+  header.writeUInt32LE(byteRate, 28);
+  header.writeUInt16LE(blockAlign, 32);
+  header.writeUInt16LE(bitDepth, 34);
+  header.write('data', 36);
+  header.writeUInt32LE(dataSize, 40);
+
+  return Buffer.concat([header, pcmBuffer]);
+}
+
+function estimateAudioDuration(text: string): number {
+  return Math.max(1, Math.ceil(text.length / 13));
+}
+

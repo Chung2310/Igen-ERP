@@ -30,9 +30,7 @@ import {
 } from "lucide-react";
 import { HRSubTabType, EmployeeNode, HRTask, TrainingCourse, TrainingEnrollment, UserProfile, Project, TaskHistoryEntry, Lesson, QuizQuestion } from "../types";
 import { useAuth } from "../context/AuthContext";
-import { db } from "../config/firebase";
-import { doc, updateDoc, setDoc, deleteDoc, writeBatch, collection, getDocs, addDoc, serverTimestamp, query, where, orderBy } from "firebase/firestore";
-import { authService } from "../services/authService";
+import { authService, getAccessToken } from "../services/authService";
 import { toast } from "./Toast";
 
 const isUrl = (str?: string): boolean => {
@@ -388,7 +386,6 @@ export default function HRTab() {
       const actNum = editActualTime === "" ? 0 : Number(editActualTime);
 
       if (selectedKanbanTask.id === "new") {
-        const taskId = "task_" + Date.now();
         const initialHistory = [
           {
             time: new Date().toLocaleString("vi-VN"),
@@ -408,7 +405,7 @@ export default function HRTab() {
           status: editStatus,
           companyCode: compCode,
           creatorUid: creatorUid,
-          createdAt: new Date(),
+          createdAt: new Date().toISOString(),
 
           projectId: editProjectId,
           startTime: editStartTime,
@@ -421,12 +418,29 @@ export default function HRTab() {
           category: editCategory
         };
 
-        await setDoc(doc(db, "kanbanTasks", taskId), newTaskDoc);
-        toast.success("Đã thêm công việc thành công!");
-        setTasks(prev => [...prev, { id: taskId, ...newTaskDoc }]);
-      } else {
-        const taskRef = doc(db, "kanbanTasks", selectedKanbanTask.id);
+        const res = await fetch("/api/v1/crud/kanban-tasks", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${getAccessToken()}`,
+          },
+          body: JSON.stringify(newTaskDoc),
+        });
 
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.message || "Tạo công việc thất bại");
+        }
+
+        const json = await res.json();
+        const createdTask = {
+          ...newTaskDoc,
+          id: json.data._id,
+        };
+
+        toast.success("Đã thêm công việc thành công!");
+        setTasks(prev => [...prev, createdTask]);
+      } else {
         const changes: string[] = [];
         if ((selectedKanbanTask.title || "") !== editTitle.trim()) {
           changes.push(`Đổi tên việc: "${selectedKanbanTask.title || 'Trống'}" → "${editTitle.trim()}"`);
@@ -493,7 +507,20 @@ export default function HRTab() {
           category: editCategory
         };
 
-        await updateDoc(taskRef, updatedFields);
+        const res = await fetch(`/api/v1/crud/kanban-tasks/${selectedKanbanTask.id}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${getAccessToken()}`,
+          },
+          body: JSON.stringify(updatedFields),
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.message || "Cập nhật công việc thất bại");
+        }
+
         toast.success("Đã lưu thay đổi công việc!");
         setTasks(prev => prev.map(t => t.id === selectedKanbanTask.id ? { ...t, ...updatedFields } : t));
       }
@@ -507,38 +534,19 @@ export default function HRTab() {
   const fetchTasks = async () => {
     if (!selectedCompanyCode) return;
     try {
-      const q = query(
-        collection(db, "kanbanTasks"),
-        where("companyCode", "==", selectedCompanyCode)
-      );
-      const querySnapshot = await getDocs(q);
-      const tasksData: HRTask[] = [];
-      querySnapshot.forEach((docSnap) => {
-        const data = docSnap.data();
-        tasksData.push({
-          id: docSnap.id,
-          title: data.title || "",
-          description: data.description || "",
-          assigneeUid: data.assigneeUid || "",
-          assignee: data.assignee || "",
-          assigneeAvatar: data.assigneeAvatar || "",
-          dueDate: data.dueDate || "",
-          priority: data.priority || "Medium",
-          status: data.status || "Not Started",
-          category: data.category || "Onboarding",
-          companyCode: data.companyCode || "",
-          creatorUid: data.creatorUid || "",
-          createdAt: data.createdAt,
-          projectId: data.projectId || "",
-          startTime: data.startTime || "",
-          estTime: data.estTime,
-          endTime: data.endTime || "",
-          actualTime: data.actualTime,
-          tags: data.tags || [],
-          linkNote: data.linkNote || "",
-          history: data.history || []
-        });
+      const res = await fetch("/api/v1/crud/kanban-tasks", {
+        headers: {
+          "Authorization": `Bearer ${getAccessToken()}`,
+        },
       });
+      if (!res.ok) {
+        throw new Error("Không thể tải danh sách công việc");
+      }
+      const json = await res.json();
+      const tasksData: HRTask[] = (json.data || []).map((item: any) => ({
+        ...item,
+        id: item._id,
+      }));
       setTasks(tasksData);
     } catch (error) {
       console.error("Lỗi khi tải danh sách công việc:", error);
@@ -548,22 +556,19 @@ export default function HRTab() {
   const fetchProjects = async () => {
     if (!selectedCompanyCode) return;
     try {
-      const q = query(
-        collection(db, "projects"),
-        where("companyCode", "==", selectedCompanyCode)
-      );
-      const querySnapshot = await getDocs(q);
-      const projData: Project[] = [];
-      querySnapshot.forEach((docSnap) => {
-        const data = docSnap.data();
-        projData.push({
-          id: docSnap.id,
-          name: data.name || "",
-          companyCode: data.companyCode || "",
-          creatorUid: data.creatorUid || "",
-          createdAt: data.createdAt
-        });
+      const res = await fetch("/api/v1/crud/projects", {
+        headers: {
+          "Authorization": `Bearer ${getAccessToken()}`,
+        },
       });
+      if (!res.ok) {
+        throw new Error("Không thể tải danh sách dự án");
+      }
+      const json = await res.json();
+      const projData: Project[] = (json.data || []).map((item: any) => ({
+        ...item,
+        id: item._id,
+      }));
       setProjects(projData);
 
       const expanded: Record<string, boolean> = {};
@@ -585,17 +590,36 @@ export default function HRTab() {
     }
     try {
       const compCode = selectedCompanyCode || userProfile?.companyCode || "SYSTEM";
-      const projectId = "project_" + Date.now();
       const newProj = {
         name: newProjectName.trim(),
         companyCode: compCode,
         creatorUid: userProfile?.uid || "",
-        createdAt: new Date()
+        createdAt: new Date().toISOString()
       };
-      await setDoc(doc(db, "projects", projectId), newProj);
+
+      const res = await fetch("/api/v1/crud/projects", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${getAccessToken()}`,
+        },
+        body: JSON.stringify(newProj),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Tạo dự án thất bại");
+      }
+
+      const json = await res.json();
+      const createdProj = {
+        ...newProj,
+        id: json.data._id,
+      };
+
       toast.success("Đã tạo dự án mới thành công!");
-      setProjects(prev => [...prev, { id: projectId, ...newProj }]);
-      setExpandedProjects(prev => ({ ...prev, [projectId]: true }));
+      setProjects(prev => [...prev, createdProj]);
+      setExpandedProjects(prev => ({ ...prev, [createdProj.id]: true }));
       setNewProjectName("");
       setIsNewProjectModalOpen(false);
     } catch (error) {
@@ -606,7 +630,6 @@ export default function HRTab() {
 
   const moveTaskStatus = async (id: string, newStatus: "Not Started" | "In Progress" | "Review/Testing" | "Done" | "Archived") => {
     try {
-      const taskRef = doc(db, "kanbanTasks", id);
       const taskObj = tasks.find(t => t.id === id);
       const userName = userProfile?.displayName || userProfile?.email || "Thành viên";
       const oldStatus = taskObj?.status || "Not Started";
@@ -619,10 +642,23 @@ export default function HRTab() {
         }
       ];
 
-      await updateDoc(taskRef, {
-        status: newStatus,
-        history: updatedHistory
+      const res = await fetch(`/api/v1/crud/kanban-tasks/${id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${getAccessToken()}`,
+        },
+        body: JSON.stringify({
+          status: newStatus,
+          history: updatedHistory
+        }),
       });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Cập nhật trạng thái thất bại");
+      }
+
       setTasks(prev => prev.map(t => t.id === id ? { ...t, status: newStatus, history: updatedHistory } : t));
       toast.success("Đã cập nhật trạng thái công việc!");
     } catch (error) {
@@ -634,8 +670,18 @@ export default function HRTab() {
   const deleteTask = async (id: string) => {
     if (!window.confirm("Bạn có chắc chắn muốn xóa công việc này?")) return;
     try {
-      const taskRef = doc(db, "kanbanTasks", id);
-      await deleteDoc(taskRef);
+      const res = await fetch(`/api/v1/crud/kanban-tasks/${id}`, {
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${getAccessToken()}`,
+        },
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Xóa công việc thất bại");
+      }
+
       setTasks(prev => prev.filter(t => t.id !== id));
       toast.success("Đã xóa công việc thành công!");
     } catch (error) {
@@ -671,9 +717,17 @@ export default function HRTab() {
 
   const fetchCourses = async (companyCode: string) => {
     try {
-      const q = query(collection(db, "trainingCourses"), where("companyCode", "==", companyCode));
-      const snap = await getDocs(q);
-      const list: TrainingCourse[] = snap.docs.map(d => ({ id: d.id, ...d.data() } as TrainingCourse));
+      const res = await fetch("/api/v1/crud/training-courses", {
+        headers: {
+          "Authorization": `Bearer ${getAccessToken()}`,
+        },
+      });
+      if (!res.ok) throw new Error("Không thể tải danh sách khóa học");
+      const json = await res.json();
+      const list: TrainingCourse[] = (json.data || []).map((item: any) => ({
+        ...item,
+        id: item._id,
+      }));
       setCourses(list);
     } catch (err) {
       console.error("Lỗi tải khóa học:", err);
@@ -682,13 +736,17 @@ export default function HRTab() {
 
   const fetchMyEnrollments = async (uid: string, companyCode: string) => {
     try {
-      const q = query(
-        collection(db, "trainingEnrollments"),
-        where("uid", "==", uid),
-        where("companyCode", "==", companyCode)
-      );
-      const snap = await getDocs(q);
-      const list: TrainingEnrollment[] = snap.docs.map(d => ({ id: d.id, ...d.data() } as TrainingEnrollment));
+      const res = await fetch(`/api/v1/crud/training-enrollments?uid=${encodeURIComponent(uid)}`, {
+        headers: {
+          "Authorization": `Bearer ${getAccessToken()}`,
+        },
+      });
+      if (!res.ok) throw new Error("Không thể tải tiến độ học");
+      const json = await res.json();
+      const list: TrainingEnrollment[] = (json.data || []).map((item: any) => ({
+        ...item,
+        id: item._id,
+      }));
       setEnrollments(list);
     } catch (err) {
       console.error("Lỗi tải tiến độ học:", err);
@@ -705,7 +763,7 @@ export default function HRTab() {
     }
     const creatorName = userProfile.displayName || userProfile.email || "iGen Academy";
     try {
-      const docRef = await addDoc(collection(db, "trainingCourses"), {
+      const courseData = {
         title: courseFormTitle.trim(),
         description: courseFormDesc.trim(),
         category: courseFormCategory,
@@ -716,45 +774,74 @@ export default function HRTab() {
         instructor: creatorName,
         companyCode: companyCode,
         creatorUid: userProfile.uid,
-        createdAt: serverTimestamp(),
+        createdAt: new Date().toISOString(),
         enrolledCount: 0,
         companyProgress: 0,
         autoAssignOnboarding: courseFormAutoOnboarding,
         lessons: courseFormLessons,
         quizzes: courseFormQuizzes,
+      };
+
+      const res = await fetch("/api/v1/crud/training-courses", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${getAccessToken()}`,
+        },
+        body: JSON.stringify(courseData),
       });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Tạo khóa học thất bại");
+      }
+
+      const json = await res.json();
+      const createdCourseId = json.data._id;
 
       let enrolledCount = 0;
       if (courseFormIsRequired) {
         try {
           const companyUsers = await authService.getUsersByCompany(companyCode);
-          // Lọc danh sách nhân viên: cùng công ty và không phải superadmin
           const targetEmployees = companyUsers.filter(u => u.role !== "superadmin");
 
           if (targetEmployees.length > 0) {
-            const batch = writeBatch(db);
-            targetEmployees.forEach((emp) => {
-              const enrollRef = doc(collection(db, "trainingEnrollments"));
-              batch.set(enrollRef, {
-                courseId: docRef.id,
-                courseTitle: courseFormTitle.trim(),
-                uid: emp.uid,
-                userName: emp.displayName || emp.email || "Nhân viên",
-                companyCode: companyCode,
-                progress: 0,
-                status: "in_progress",
-                createdAt: serverTimestamp(),
-                startedAt: serverTimestamp(),
-                completedLessons: [],
-                quizPassed: false,
-              });
-            });
-            await batch.commit();
+            await Promise.all(
+              targetEmployees.map(emp =>
+                fetch("/api/v1/crud/training-enrollments", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${getAccessToken()}`,
+                  },
+                  body: JSON.stringify({
+                    courseId: createdCourseId,
+                    courseTitle: courseFormTitle.trim(),
+                    uid: emp.uid,
+                    userName: emp.displayName || emp.email || "Nhân viên",
+                    companyCode: companyCode,
+                    progress: 0,
+                    status: "in_progress",
+                    createdAt: new Date().toISOString(),
+                    startedAt: new Date().toISOString(),
+                    completedLessons: [],
+                    quizPassed: false,
+                  }),
+                })
+              )
+            );
             enrolledCount = targetEmployees.length;
 
             // Cập nhật lại enrolledCount trên khóa học
-            await updateDoc(doc(db, "trainingCourses", docRef.id), {
-              enrolledCount: enrolledCount
+            await fetch(`/api/v1/crud/training-courses/${createdCourseId}`, {
+              method: "PATCH",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${getAccessToken()}`,
+              },
+              body: JSON.stringify({
+                enrolledCount: enrolledCount
+              }),
             });
           }
         } catch (enrollErr) {
@@ -772,22 +859,12 @@ export default function HRTab() {
 
       // Thêm vào local state ngay không cần reload
       setCourses(prev => [...prev, {
-        id: docRef.id, title: courseFormTitle.trim(), description: courseFormDesc.trim(),
-        category: courseFormCategory, tags: courseFormIsRequired ? ["Bắt buộc"] : [courseFormCategory],
-        isRequired: courseFormIsRequired, icon: "📚",
-        duration: courseFormDuration.trim() || "Chưa xác định",
-        instructor: creatorName,
-        companyCode: companyCode, creatorUid: userProfile.uid,
-        createdAt: new Date(),
+        ...courseData,
+        id: createdCourseId,
         enrolledCount: enrolledCount,
-        companyProgress: 0,
-        autoAssignOnboarding: courseFormAutoOnboarding,
-        lessons: courseFormLessons,
-        quizzes: courseFormQuizzes,
       }]);
 
       if (courseFormIsRequired) {
-        // Tải lại danh sách enrollment cá nhân để cập nhật giao diện học tập nếu bản thân là đối tượng được gán
         await fetchMyEnrollments(userProfile.uid, companyCode);
       }
     } catch (err) {
@@ -800,27 +877,50 @@ export default function HRTab() {
     if (!userProfile) return;
     const existing = enrollments.find(e => e.courseId === course.id);
     if (!existing) {
-      // Chưa enroll → tạo enrollment mới
       try {
-        const enrollRef = await addDoc(collection(db, "trainingEnrollments"), {
-          courseId: course.id,
-          courseTitle: course.title,
-          uid: userProfile.uid,
-          userName: userProfile.displayName || userProfile.email || "Nhân viên",
-          companyCode: course.companyCode,
-          progress: 0,
-          status: "in_progress",
-          startedAt: serverTimestamp(),
-          createdAt: serverTimestamp(),
-          completedLessons: [],
-          quizPassed: false,
+        const res = await fetch("/api/v1/crud/training-enrollments", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${getAccessToken()}`,
+          },
+          body: JSON.stringify({
+            courseId: course.id,
+            courseTitle: course.title,
+            uid: userProfile.uid,
+            userName: userProfile.displayName || userProfile.email || "Nhân viên",
+            companyCode: course.companyCode,
+            progress: 0,
+            status: "in_progress",
+            startedAt: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
+            completedLessons: [],
+            quizPassed: false,
+          }),
         });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.message || "Đăng ký khóa học thất bại");
+        }
+
+        const json = await res.json();
+        const createdEnrollId = json.data._id;
+
         // Tăng enrolledCount trên course
-        await updateDoc(doc(db, "trainingCourses", course.id), {
-          enrolledCount: (course.enrolledCount || 0) + 1
+        await fetch(`/api/v1/crud/training-courses/${course.id}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${getAccessToken()}`,
+          },
+          body: JSON.stringify({
+            enrolledCount: (course.enrolledCount || 0) + 1
+          }),
         });
+
         const newEnroll: TrainingEnrollment = {
-          id: enrollRef.id, courseId: course.id, courseTitle: course.title,
+          id: createdEnrollId, courseId: course.id, courseTitle: course.title,
           uid: userProfile.uid, userName: userProfile.displayName || userProfile.email || "Nhân viên",
           companyCode: course.companyCode, progress: 0,
           status: "in_progress", createdAt: new Date(),
@@ -829,7 +929,7 @@ export default function HRTab() {
         };
         setEnrollments(prev => [...prev, newEnroll]);
         setCourses(prev => prev.map(c => c.id === course.id
-          ? { ...c, enrolledCount: c.enrolledCount + 1 }
+          ? { ...c, enrolledCount: (c.enrolledCount || 0) + 1 }
           : c
         ));
 
@@ -892,12 +992,28 @@ export default function HRTab() {
       const newStatus = isCourseDone ? "completed" : "in_progress";
 
       try {
-        await updateDoc(doc(db, "trainingEnrollments", enroll.id), {
+        const updateData: Record<string, any> = {
           completedLessons: nextCompleted,
           progress: progressPercent,
           status: newStatus,
-          ...(isCourseDone ? { completedAt: serverTimestamp() } : {}),
+        };
+        if (isCourseDone) {
+          updateData.completedAt = new Date().toISOString();
+        }
+
+        const res = await fetch(`/api/v1/crud/training-enrollments/${enroll.id}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${getAccessToken()}`,
+          },
+          body: JSON.stringify(updateData),
         });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.message || "Cập nhật bài học thất bại");
+        }
 
         setEnrollments(prev => prev.map(e => e.id === enroll.id
           ? { ...e, completedLessons: nextCompleted, progress: progressPercent, status: newStatus }
@@ -938,7 +1054,6 @@ export default function HRTab() {
     const quizzes = activeStudyCourse.quizzes || [];
     if (quizzes.length === 0) return;
 
-    // Kiểm tra xem đã trả lời hết câu hỏi chưa
     const unanswered = quizzes.some((_, idx) => quizAnswers[idx] === undefined || quizAnswers[idx] === null);
     if (unanswered) {
       toast.warning("Vui lòng trả lời đầy đủ tất cả các câu hỏi trắc nghiệm!");
@@ -964,12 +1079,28 @@ export default function HRTab() {
       const newStatus = isCourseDone ? "completed" : "in_progress";
 
       try {
-        await updateDoc(doc(db, "trainingEnrollments", enroll.id), {
+        const updateData: Record<string, any> = {
           quizPassed: true,
           progress: progressPercent,
           status: newStatus,
-          ...(isCourseDone ? { completedAt: serverTimestamp() } : {}),
+        };
+        if (isCourseDone) {
+          updateData.completedAt = new Date().toISOString();
+        }
+
+        const res = await fetch(`/api/v1/crud/training-enrollments/${enroll.id}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${getAccessToken()}`,
+          },
+          body: JSON.stringify(updateData),
         });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.message || "Nộp bài thi thất bại");
+        }
 
         setEnrollments(prev => prev.map(e => e.id === enroll.id
           ? { ...e, quizPassed: true, progress: progressPercent, status: newStatus }
@@ -1005,11 +1136,24 @@ export default function HRTab() {
     if (!enroll) return;
 
     try {
-      await updateDoc(doc(db, "trainingEnrollments", enroll.id), {
-        progress: 100,
-        status: "completed",
-        completedAt: serverTimestamp(),
+      const res = await fetch(`/api/v1/crud/training-enrollments/${enroll.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${getAccessToken()}`,
+        },
+        body: JSON.stringify({
+          progress: 100,
+          status: "completed",
+          completedAt: new Date().toISOString(),
+        }),
       });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Hoàn thành khóa học thất bại");
+      }
+
       setEnrollments(prev => prev.map(e => e.id === enroll.id
         ? { ...e, progress: 100, status: "completed" }
         : e
@@ -1025,7 +1169,18 @@ export default function HRTab() {
   const handleDeleteCourse = async (courseId: string) => {
     if (!window.confirm("Xác nhận xóa khóa học này?")) return;
     try {
-      await deleteDoc(doc(db, "trainingCourses", courseId));
+      const res = await fetch(`/api/v1/crud/training-courses/${courseId}`, {
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${getAccessToken()}`,
+        },
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Xóa khóa học thất bại");
+      }
+
       setCourses(prev => prev.filter(c => c.id !== courseId));
       toast.success("Đã xóa khóa học.");
     } catch (err) {
@@ -1039,53 +1194,72 @@ export default function HRTab() {
     for (const course of targetCourses) {
       try {
         // Tạo enrollment
-        await addDoc(collection(db, "trainingEnrollments"), {
-          courseId: course.id,
-          courseTitle: course.title,
-          uid: newEmpUid,
-          userName: newEmpName,
-          companyCode,
-          progress: 0,
-          status: "in_progress",
-          createdAt: serverTimestamp(),
-          startedAt: serverTimestamp(),
-          completedLessons: [],
-          quizPassed: false,
+        await fetch("/api/v1/crud/training-enrollments", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${getAccessToken()}`,
+          },
+          body: JSON.stringify({
+            courseId: course.id,
+            courseTitle: course.title,
+            uid: newEmpUid,
+            userName: newEmpName,
+            companyCode,
+            progress: 0,
+            status: "in_progress",
+            createdAt: new Date().toISOString(),
+            startedAt: new Date().toISOString(),
+            completedLessons: [],
+            quizPassed: false,
+          }),
         });
 
         // Tăng enrolledCount trên khóa học
-        await updateDoc(doc(db, "trainingCourses", course.id), {
-          enrolledCount: (course.enrolledCount || 0) + 1
+        await fetch(`/api/v1/crud/training-courses/${course.id}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${getAccessToken()}`,
+          },
+          body: JSON.stringify({
+            enrolledCount: (course.enrolledCount || 0) + 1
+          }),
         });
 
         // Tạo Kanban task tương ứng
         const taskDueDate = new Date();
         taskDueDate.setDate(taskDueDate.getDate() + 7);
-        const taskId = `onboarding_${newEmpUid}_${course.id}_${Date.now()}`;
-        await setDoc(doc(db, "kanbanTasks", taskId), {
-          id: taskId,
-          title: `[Đào tạo] ${course.title}`,
-          description: course.isRequired
-            ? `Khóa học bắt buộc của công ty. Hoàn thành trong vòng 7 ngày kể từ ngày vào công ty.`
-            : `Khóa học Onboarding. Hoàn thành trong vòng 7 ngày kể từ ngày vào công ty.`,
-          assigneeUid: newEmpUid,
-          assignee: newEmpName,
-          assigneeAvatar: "👤",
-          dueDate: taskDueDate.toLocaleDateString("vi-VN"),
-          priority: course.isRequired ? "High" : "Medium",
-          status: "Not Started",
-          category: "Đào tạo",
-          companyCode,
-          creatorUid: userProfile?.uid || "system",
-          createdAt: new Date(),
-          projectId: "",
-          tags: course.tags,
-          linkNote: "",
-          history: [{
-            time: new Date().toLocaleString("vi-VN"),
-            user: "Hệ thống",
-            action: `Tự động tạo từ khóa học ${course.isRequired ? "Bắt buộc" : "Onboarding"}: "${course.title}"`
-          }]
+        await fetch("/api/v1/crud/kanban-tasks", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${getAccessToken()}`,
+          },
+          body: JSON.stringify({
+            title: `[Đào tạo] ${course.title}`,
+            description: course.isRequired
+              ? `Khóa học bắt buộc của công ty. Hoàn thành trong vòng 7 ngày kể từ ngày vào công ty.`
+              : `Khóa học Onboarding. Hoàn thành trong vòng 7 ngày kể từ ngày vào công ty.`,
+            assigneeUid: newEmpUid,
+            assignee: newEmpName,
+            assigneeAvatar: "👤",
+            dueDate: taskDueDate.toLocaleDateString("vi-VN"),
+            priority: course.isRequired ? "High" : "Medium",
+            status: "Not Started",
+            category: "Đào tạo",
+            companyCode,
+            creatorUid: userProfile?.uid || "system",
+            createdAt: new Date().toISOString(),
+            projectId: "",
+            tags: course.tags,
+            linkNote: "",
+            history: [{
+              time: new Date().toLocaleString("vi-VN"),
+              user: "Hệ thống",
+              action: `Tự động tạo từ khóa học ${course.isRequired ? "Bắt buộc" : "Onboarding"}: "${course.title}"`
+            }]
+          }),
         });
       } catch (err) {
         console.error(`Lỗi auto-assign course ${course.id}:`, err);

@@ -1,20 +1,7 @@
-import {
-  addDoc,
-  collection,
-  deleteDoc,
-  doc,
-  getDocs,
-  onSnapshot,
-  orderBy,
-  query,
-  updateDoc,
-  where,
-} from "firebase/firestore";
-import { db, handleFirestoreError, OperationType } from "../config/firebase";
+import { getAccessToken } from "./authService";
 import { ProductItem } from "../types";
 
 const COLLECTION_NAME = "inventoryProducts";
-const STORAGE_FOLDER = "inventory/products";
 
 type ProductInput = {
   sku: string;
@@ -32,8 +19,6 @@ type ProductMutationResult = {
   productId?: string;
 };
 
-const collectionRef = collection(db, COLLECTION_NAME);
-
 async function uploadProductImage(file: File, sku: string): Promise<{ url: string | null; error?: string }> {
   try {
     const base64Data = await new Promise<string>((resolve, reject) => {
@@ -47,6 +32,7 @@ async function uploadProductImage(file: File, sku: string): Promise<{ url: strin
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${getAccessToken()}`,
       },
       body: JSON.stringify({
         file: base64Data,
@@ -71,34 +57,52 @@ async function uploadProductImage(file: File, sku: string): Promise<{ url: strin
 
 export const inventoryProductService = {
   subscribe(callback: (products: ProductItem[]) => void, onError?: (error: unknown) => void) {
-    const productQuery = query(collectionRef, orderBy("name", "asc"));
-
-    return onSnapshot(
-      productQuery,
-      (snapshot) => {
-        const products = snapshot.docs.map((item) => ({
-          id: item.id,
-          ...(item.data() as Omit<ProductItem, "id">),
+    const fetchProducts = async () => {
+      try {
+        const res = await fetch("/api/v1/crud/products?sort=name", {
+          headers: {
+            "Authorization": `Bearer ${getAccessToken()}`,
+          },
+        });
+        if (!res.ok) {
+          throw new Error("Không thể tải danh sách sản phẩm.");
+        }
+        const json = await res.json();
+        const products = (json.data || []).map((item: any) => ({
+          ...item,
+          id: item._id,
         }));
         callback(products);
-      },
-      (error) => {
+      } catch (err) {
         if (onError) {
-          onError(error);
-          return;
+          onError(err);
+        } else {
+          console.error("Lỗi khi tải danh sách sản phẩm:", err);
         }
-        handleFirestoreError(error, OperationType.LIST, COLLECTION_NAME);
       }
-    );
+    };
+
+    fetchProducts();
+    const interval = setInterval(fetchProducts, 5000);
+    return () => clearInterval(interval);
   },
 
   async ensureSkuAvailable(sku: string, ignoreId?: string) {
     try {
-      const skuQuery = query(collectionRef, where("sku", "==", sku));
-      const snapshot = await getDocs(skuQuery);
-      return !snapshot.docs.some((item) => item.id !== ignoreId);
+      const res = await fetch(`/api/v1/crud/products?filters[sku]=${encodeURIComponent(sku)}`, {
+        headers: {
+          "Authorization": `Bearer ${getAccessToken()}`,
+        },
+      });
+      if (!res.ok) {
+        throw new Error("Không thể kiểm tra SKU.");
+      }
+      const json = await res.json();
+      const items = json.data || [];
+      return !items.some((item: any) => item._id !== ignoreId);
     } catch (error) {
-      handleFirestoreError(error, OperationType.GET, COLLECTION_NAME);
+      console.error(error);
+      return false;
     }
   },
 
@@ -108,20 +112,34 @@ export const inventoryProductService = {
       const uploadedImageUrl = uploadResult.url;
       const imageUploadFailed = Boolean(input.imageFile) && !uploadedImageUrl;
 
-      const createdDoc = await addDoc(collectionRef, {
-        sku: input.sku,
-        name: input.name,
-        category: input.category,
-        stock: input.stock,
-        minStockAlert: 15,
-        price: input.price,
-        demandForecast: "Ổn định",
-        imageUrl: uploadedImageUrl || input.imageUrl || "",
+      const res = await fetch("/api/v1/crud/products", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${getAccessToken()}`,
+        },
+        body: JSON.stringify({
+          sku: input.sku,
+          name: input.name,
+          category: input.category,
+          stock: input.stock,
+          minStockAlert: 15,
+          price: input.price,
+          demandForecast: "Ổn định",
+          imageUrl: uploadedImageUrl || input.imageUrl || "",
+        }),
       });
 
-      return { imageUploadFailed, imageUploadError: uploadResult.error, productId: createdDoc.id };
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.message || "Tạo sản phẩm thất bại.");
+      }
+
+      const json = await res.json();
+      return { imageUploadFailed, imageUploadError: uploadResult.error, productId: json.data._id };
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, COLLECTION_NAME);
+      console.error(error);
+      throw error;
     }
   },
 
@@ -131,56 +149,130 @@ export const inventoryProductService = {
       const uploadedImageUrl = uploadResult.url;
       const imageUploadFailed = Boolean(input.imageFile) && !uploadedImageUrl;
 
-      await updateDoc(doc(db, COLLECTION_NAME, id), {
-        sku: input.sku,
-        name: input.name,
-        category: input.category,
-        stock: input.stock,
-        price: input.price,
-        imageUrl: uploadedImageUrl || input.imageUrl || "",
+      const res = await fetch(`/api/v1/crud/products/${id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${getAccessToken()}`,
+        },
+        body: JSON.stringify({
+          sku: input.sku,
+          name: input.name,
+          category: input.category,
+          stock: input.stock,
+          price: input.price,
+          imageUrl: uploadedImageUrl || input.imageUrl || "",
+        }),
       });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.message || "Cập nhật sản phẩm thất bại.");
+      }
 
       return { imageUploadFailed, imageUploadError: uploadResult.error };
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `${COLLECTION_NAME}/${id}`);
+      console.error(error);
+      throw error;
     }
   },
 
   async updateProductsCategoryName(previousCategoryName: string, nextCategoryName: string) {
     try {
-      const productQuery = query(collectionRef, where("category", "==", previousCategoryName));
-      const snapshot = await getDocs(productQuery);
+      const res = await fetch(`/api/v1/crud/products?filters[category]=${encodeURIComponent(previousCategoryName)}`, {
+        headers: {
+          "Authorization": `Bearer ${getAccessToken()}`,
+        },
+      });
+      if (!res.ok) {
+        throw new Error("Không thể tải danh sách sản phẩm để cập nhật danh mục.");
+      }
+      const json = await res.json();
+      const items = json.data || [];
 
-      await Promise.all(snapshot.docs.map((item) => updateDoc(item.ref, { category: nextCategoryName })));
+      await Promise.all(
+        items.map((item: any) =>
+          fetch(`/api/v1/crud/products/${item._id}`, {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${getAccessToken()}`,
+            },
+            body: JSON.stringify({ category: nextCategoryName }),
+          })
+        )
+      );
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, COLLECTION_NAME);
+      console.error(error);
+      throw error;
     }
   },
 
   async moveProductsToUncategorized(categoryName: string) {
     try {
-      const productQuery = query(collectionRef, where("category", "==", categoryName));
-      const snapshot = await getDocs(productQuery);
+      const res = await fetch(`/api/v1/crud/products?filters[category]=${encodeURIComponent(categoryName)}`, {
+        headers: {
+          "Authorization": `Bearer ${getAccessToken()}`,
+        },
+      });
+      if (!res.ok) {
+        throw new Error("Không thể tải danh sách sản phẩm để chuyển danh mục.");
+      }
+      const json = await res.json();
+      const items = json.data || [];
 
-      await Promise.all(snapshot.docs.map((item) => updateDoc(item.ref, { category: "Chưa phân loại" })));
+      await Promise.all(
+        items.map((item: any) =>
+          fetch(`/api/v1/crud/products/${item._id}`, {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${getAccessToken()}`,
+            },
+            body: JSON.stringify({ category: "Chưa phân loại" }),
+          })
+        )
+      );
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, COLLECTION_NAME);
+      console.error(error);
+      throw error;
     }
   },
 
   async updateProductStock(id: string, stock: number) {
     try {
-      await updateDoc(doc(db, COLLECTION_NAME, id), { stock });
+      const res = await fetch(`/api/v1/crud/products/${id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${getAccessToken()}`,
+        },
+        body: JSON.stringify({ stock }),
+      });
+      if (!res.ok) {
+        throw new Error("Không thể cập nhật số lượng tồn kho sản phẩm.");
+      }
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `${COLLECTION_NAME}/${id}/stock`);
+      console.error(error);
+      throw error;
     }
   },
 
   async deleteProduct(id: string) {
     try {
-      await deleteDoc(doc(db, COLLECTION_NAME, id));
+      const res = await fetch(`/api/v1/crud/products/${id}`, {
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${getAccessToken()}`,
+        },
+      });
+      if (!res.ok) {
+        throw new Error("Không thể xóa sản phẩm.");
+      }
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `${COLLECTION_NAME}/${id}`);
+      console.error(error);
+      throw error;
     }
   },
 };
+

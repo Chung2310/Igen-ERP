@@ -1,16 +1,4 @@
-import {
-  addDoc,
-  collection,
-  deleteDoc,
-  doc,
-  onSnapshot,
-  orderBy,
-  query,
-  serverTimestamp,
-  setDoc,
-  updateDoc,
-} from "firebase/firestore";
-import { db, handleFirestoreError, OperationType } from "../config/firebase";
+import { getAccessToken } from "./authService";
 import { StockLog, StockLogItem } from "../types";
 
 const COLLECTION_NAME = "inventoryStockLogs";
@@ -30,77 +18,114 @@ export type StockLogCreateInput = {
 
 export type StockLogUpdateInput = StockLogCreateInput & { id: string };
 
-const collectionRef = collection(db, COLLECTION_NAME);
-
 export const inventoryStockLogService = {
   subscribe(callback: (logs: StockLog[]) => void, onError?: (error: unknown) => void) {
-    const logQuery = query(collectionRef, orderBy("createdAtTimestamp", "desc"));
-
-    return onSnapshot(
-      logQuery,
-      (snapshot) => {
-        const logs = snapshot.docs.map((item) => ({
-          id: item.id,
-          ...(item.data() as Omit<StockLog, "id">),
+    const fetchLogs = async () => {
+      try {
+        const res = await fetch("/api/v1/crud/stock-logs?sort=-createdAt", {
+          headers: {
+            "Authorization": `Bearer ${getAccessToken()}`,
+          },
+        });
+        if (!res.ok) {
+          throw new Error("Không thể tải lịch sử kho hàng.");
+        }
+        const json = await res.json();
+        const logs = (json.data || []).map((item: any) => ({
+          ...item,
+          id: item._id,
         }));
         callback(logs);
-      },
-      (error) => {
+      } catch (err) {
         if (onError) {
-          onError(error);
-          return;
+          onError(err);
+        } else {
+          console.error("Lỗi khi tải lịch sử kho:", err);
         }
-        handleFirestoreError(error, OperationType.LIST, COLLECTION_NAME);
       }
-    );
+    };
+
+    fetchLogs();
+    const interval = setInterval(fetchLogs, 5000);
+    return () => clearInterval(interval);
   },
 
   async createLog(input: StockLogCreateInput): Promise<string> {
     try {
-      const createdDoc = await addDoc(collectionRef, {
-        type: input.type,
-        title: input.title,
-        items: input.items,
-        sku: input.sku,
-        productName: input.productName,
-        quantity: input.quantity,
-        operatorName: input.operatorName,
-        notes: input.notes,
-        status: input.status,
-        createdAt: input.createdAt || new Date().toLocaleString("vi-VN"),
-        createdAtTimestamp: serverTimestamp(),
+      const res = await fetch("/api/v1/crud/stock-logs", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${getAccessToken()}`,
+        },
+        body: JSON.stringify({
+          type: input.type,
+          title: input.title,
+          items: input.items,
+          sku: input.sku,
+          productName: input.productName,
+          quantity: input.quantity,
+          operatorName: input.operatorName,
+          notes: input.notes,
+          status: input.status,
+          createdAt: input.createdAt || new Date().toLocaleString("vi-VN"),
+        }),
       });
-      return createdDoc.id;
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.message || "Tạo lịch sử kho thất bại.");
+      }
+
+      const json = await res.json();
+      return json.data._id;
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, COLLECTION_NAME);
+      console.error(error);
       throw error;
     }
   },
 
   async updateLog(id: string, input: StockLogCreateInput): Promise<void> {
     try {
-      await updateDoc(doc(db, COLLECTION_NAME, id), {
-        type: input.type,
-        title: input.title,
-        items: input.items,
-        sku: input.sku,
-        productName: input.productName,
-        quantity: input.quantity,
-        operatorName: input.operatorName,
-        notes: input.notes,
-        status: input.status,
-        updatedAt: new Date().toLocaleString("vi-VN"),
-        updatedAtTimestamp: serverTimestamp(),
+      const res = await fetch(`/api/v1/crud/stock-logs/${id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${getAccessToken()}`,
+        },
+        body: JSON.stringify({
+          type: input.type,
+          title: input.title,
+          items: input.items,
+          sku: input.sku,
+          productName: input.productName,
+          quantity: input.quantity,
+          operatorName: input.operatorName,
+          notes: input.notes,
+          status: input.status,
+          updatedAt: new Date().toLocaleString("vi-VN"),
+        }),
       });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.message || "Cập nhật lịch sử kho thất bại.");
+      }
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `${COLLECTION_NAME}/${id}`);
+      console.error(error);
       throw error;
     }
   },
 
   async saveImportedLog(id: string, input: StockLogCreateInput): Promise<void> {
     try {
-      await setDoc(doc(db, COLLECTION_NAME, id), {
+      const checkRes = await fetch(`/api/v1/crud/stock-logs/${id}`, {
+        headers: {
+          "Authorization": `Bearer ${getAccessToken()}`,
+        },
+      });
+
+      const bodyData = {
         type: input.type,
         title: input.title,
         items: input.items,
@@ -111,19 +136,57 @@ export const inventoryStockLogService = {
         notes: input.notes,
         status: input.status,
         createdAt: input.createdAt || new Date().toLocaleString("vi-VN"),
-        createdAtTimestamp: serverTimestamp(),
-      });
+      };
+
+      let res;
+      if (checkRes.ok) {
+        res = await fetch(`/api/v1/crud/stock-logs/${id}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${getAccessToken()}`,
+          },
+          body: JSON.stringify(bodyData),
+        });
+      } else {
+        res = await fetch("/api/v1/crud/stock-logs", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${getAccessToken()}`,
+          },
+          body: JSON.stringify({
+            ...bodyData,
+            _id: id,
+          }),
+        });
+      }
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.message || "Lưu lịch sử kho import thất bại.");
+      }
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, `${COLLECTION_NAME}/${id}`);
+      console.error(error);
       throw error;
     }
   },
 
   async deleteLog(id: string): Promise<void> {
     try {
-      await deleteDoc(doc(db, COLLECTION_NAME, id));
+      const res = await fetch(`/api/v1/crud/stock-logs/${id}`, {
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${getAccessToken()}`,
+        },
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.message || "Xóa lịch sử kho thất bại.");
+      }
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `${COLLECTION_NAME}/${id}`);
+      console.error(error);
       throw error;
     }
   },
