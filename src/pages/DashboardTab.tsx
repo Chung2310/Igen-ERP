@@ -146,7 +146,7 @@ export default function DashboardTab() {
     };
 
     loadEmployeeData();
-  }, [userProfile]);
+  }, [userProfile?.uid, userProfile?.role, userProfile?.companyCode]);
 
   // Subscribe to inventory products to compute total products
   useEffect(() => {
@@ -234,7 +234,7 @@ export default function DashboardTab() {
     return () => {
       if (unsubMarketing) unsubMarketing();
     };
-  }, [userProfile]);
+  }, [userProfile?.uid, userProfile?.role]);
 
   const handleCreateReorder = (productName?: string) => {
     const name = productName || lowStockItems[0]?.name || "sản phẩm";
