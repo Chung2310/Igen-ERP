@@ -245,6 +245,16 @@ export default function CRMTab() {
       if (activeCustomer && (activeCustomer.id === message.conversationId || activeCustomer.recipientId === message.senderId || activeCustomer.recipientId === message.recipientId)) {
         const mapped = mapFbMessages([message])[0];
         setChatHistory((prev) => {
+          // Khử trùng lặp và thay thế tin nhắn tạm thời (optimistic update)
+          const optimisticIndex = prev.findIndex(
+            (m) => m.id.startsWith("user_") && m.text === mapped.text && m.sender === mapped.sender
+          );
+          if (optimisticIndex !== -1) {
+            const nextHistory = [...prev];
+            nextHistory[optimisticIndex] = mapped; // Thay thế bằng tin nhắn chính thức từ DB
+            return nextHistory;
+          }
+
           if (prev.some((m) => m.id === mapped.id)) return prev;
           return [...prev, mapped];
         });
