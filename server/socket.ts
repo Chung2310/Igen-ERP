@@ -61,21 +61,26 @@ export function initSocketServer(httpServer: HTTPServer) {
 
   io.on("connection", (socket: Socket) => {
     const user = socket.data.user;
-    const pageId = user?.facebookIntegration?.pageId;
-    const oaId = user?.zaloIntegration?.oaId;
+    
+    // Đọc Page ID từ thông tin liên kết của user hoặc fallback về cấu hình mặc định trong file .env
+    const pageId = (user?.facebookIntegration?.isConnected && user.facebookIntegration.pageId) 
+      || process.env.FB_PAGE_ID;
+      
+    const oaId = (user?.zaloIntegration?.isConnected && user.zaloIntegration.oaId)
+      || process.env.ZALO_OA_ID;
 
     console.log(`[Socket.IO] Client connected: ${user?.email || "Unknown"} (Socket: ${socket.id})`);
 
-    if (pageId && user?.facebookIntegration?.isConnected) {
+    if (pageId) {
       const room = `page:${pageId}`;
       socket.join(room);
-      console.log(`[Socket.IO] User ${user.email} joined room: ${room}`);
+      console.log(`[Socket.IO] User ${user?.email} joined room: ${room}`);
     }
 
-    if (oaId && user?.zaloIntegration?.isConnected) {
+    if (oaId) {
       const room = `page:${oaId}`;
       socket.join(room);
-      console.log(`[Socket.IO] User ${user.email} joined room: ${room}`);
+      console.log(`[Socket.IO] User ${user?.email} joined room: ${room}`);
     }
 
     socket.on("disconnect", () => {
