@@ -119,21 +119,14 @@ export const marketingService = {
   },
 
   async scheduleCard(id: string, scheduledDate: string, scheduledTime: string): Promise<void> {
-    // 1. Cập nhật ngày giờ lên lịch vào MongoDB trước
-    await this.updateCard(id, {
-      status: 'scheduled',
-      scheduledDate,
-      scheduledTime
-    });
-
-    // 2. Lấy dữ liệu bài đăng đầy đủ
+    // 1. Lấy dữ liệu bài đăng đầy đủ trước
     const cardData = await this.getCardById(id);
 
     if (!cardData.authorUid) {
       throw new Error("Bài đăng không có thông tin tác giả (authorUid).");
     }
 
-    // 3. Đọc cấu hình liên kết mạng xã hội của tác giả qua user API
+    // 2. Đọc cấu hình liên kết mạng xã hội của tác giả qua user API
     const userRes = await fetch(`/api/v1/crud/users/${cardData.authorUid}`, {
       headers: {
         "Authorization": `Bearer ${getAccessToken()}`,
@@ -172,7 +165,7 @@ export const marketingService = {
       throw new Error(`Kênh đăng tải "${channel}" chưa hỗ trợ tự động lên lịch.`);
     }
 
-    // 4. Gọi API Express Backend gửi yêu cầu schedule sang n8n
+    // 3. Gọi API Express Backend gửi yêu cầu schedule sang n8n
     const response = await fetch('/api/v1/scheduler/schedule-post', {
       method: 'POST',
       headers: {
@@ -202,11 +195,15 @@ export const marketingService = {
       throw new Error(resData.message || 'Lỗi không xác định từ máy chủ khi lên lịch.');
     }
 
-    // 5. Cập nhật thêm facebookPostId nhận được từ n8n vào MongoDB
+    // 4. Chỉ khi thành công hết, mới lưu thời gian đặt lịch, đổi status sang scheduled và lưu facebookPostId
     const fbPostId = resData.data?.id || resData.data?.data?.id || '';
-    if (fbPostId) {
-      await this.updateCard(id, { facebookPostId: fbPostId });
-    }
+    
+    await this.updateCard(id, {
+      status: 'scheduled',
+      scheduledDate,
+      scheduledTime,
+      ...(fbPostId ? { facebookPostId: fbPostId } : {})
+    });
 
     console.log(`[iGen Schedule Service]: Đã lên lịch bài đăng ${id} thành công qua n8n! ID bài viết: ${fbPostId}`);
   },
