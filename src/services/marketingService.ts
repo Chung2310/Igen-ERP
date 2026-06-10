@@ -355,6 +355,14 @@ export const marketingService = {
     summary: string;
     suggestedContent: string;
     channels: string[];
+    mediaType?: string;
+    imageModel?: string;
+    imageResolution?: string;
+    imageAspectRatio?: string;
+    videoModel?: string;
+    videoQuality?: string;
+    videoDuration?: number;
+    videoAspectRatio?: string;
   }) {
     return geminiApi.developMarketingIdea(concept);
   },

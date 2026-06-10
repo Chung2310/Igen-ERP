@@ -40,6 +40,8 @@ const ideasSchema = {
   body: Joi.object({
     campaignTopic: Joi.string().required(),
     selectedPillars: Joi.array().items(Joi.string()).required(),
+    channels: Joi.array().items(Joi.string()).optional(),
+    mediaType: Joi.string().valid("image", "video", "none").optional(),
   }),
 };
 
@@ -49,6 +51,14 @@ const developSchema = {
     summary: Joi.string().required(),
     suggestedContent: Joi.string().required(),
     channels: Joi.array().items(Joi.string()).required(),
+    mediaType: Joi.string().valid("image", "video", "none").optional(),
+    imageModel: Joi.string().optional().allow(""),
+    imageResolution: Joi.string().optional().allow(""),
+    imageAspectRatio: Joi.string().optional().allow(""),
+    videoModel: Joi.string().optional().allow(""),
+    videoQuality: Joi.string().optional().allow(""),
+    videoDuration: Joi.string().optional().allow(""),
+    videoAspectRatio: Joi.string().optional().allow(""),
   }),
 };
 
