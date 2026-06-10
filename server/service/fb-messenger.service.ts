@@ -1,6 +1,7 @@
 import { FBConversationModel, FBMessageModel } from "../model/fb-messenger.model";
 import { UserModel } from "../model/user.model";
 import { emitToPage } from "../socket";
+import { aiAutoReplyService } from "./ai-auto-reply.service";
 
 const syncTimestamps = new Map<string, number>();
 const CONVERSATION_SYNC_TTL_MS = 15000;
@@ -380,6 +381,9 @@ export const fbMessengerService = {
         conversation: conversation
       });
       emitToPage(recipientId, "conversation_updated", conversation);
+
+      // Kích hoạt AI Auto-Reply Bot bất đồng bộ
+      aiAutoReplyService.triggerAutoReply("facebook", recipientId, conversation._id.toString(), text);
     }
   },
 
@@ -423,6 +427,9 @@ export const fbMessengerService = {
     if (!conversation) {
       throw new Error("Không tìm thấy cuộc hội thoại để gửi phản hồi.");
     }
+
+    // Hủy các phản hồi AI đang lên lịch do nhân viên đã can thiệp
+    aiAutoReplyService.cancelPendingReply(conversationId);
 
     const recipientPsid = conversation.recipientId;
     const resolvedPageId = conversation.pageId || pageId || process.env.FB_PAGE_ID || "";

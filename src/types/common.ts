@@ -1,4 +1,5 @@
 import { FacebookIntegration, TikTokIntegration, ZaloIntegration } from "./integrations";
+import { AIChatConfig } from "./crm";
 
 export type TabType = 
   | "TỔNG QUAN" 
@@ -20,6 +21,7 @@ export interface UserProfile {
   facebookIntegration?: FacebookIntegration | null;
   tiktokIntegration?: TikTokIntegration | null;
   zaloIntegration?: ZaloIntegration | null;
+  aiAutoReplyConfig?: AIChatConfig | null;
   
   // Org Chart & SaaS fields
   jobTitle?: string;

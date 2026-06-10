@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState } from "react";
 import { Search, Send, Sliders, Zap, FileText, DollarSign, MessageSquare, ChevronDown, Facebook, Clock3 } from "lucide-react";
 import { CustomerInbox, ChatMessage, AIChatConfig, ChatPagination } from "../../types";
+import { toast } from "../../pages/Toast";
 
 type OmniChatTabProps = {
   inboxCustomers: CustomerInbox[];
@@ -36,6 +37,44 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
   const [showConfig, setShowConfig] = useState(false);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const [showScrollBottom, setShowScrollBottom] = useState(false);
+
+  // Google Drive integrations for Omni-Inbox
+  const [driveLink, setDriveLink] = useState("");
+  const [syncingDrive, setSyncingDrive] = useState(false);
+
+  const handleSyncDrive = async () => {
+    if (!driveLink.trim()) {
+      toast.error("Vui lòng nhập đường dẫn tài liệu Google Drive / Doc.");
+      return;
+    }
+    setSyncingDrive(true);
+    try {
+      const token = localStorage.getItem("accessToken");
+      const res = await fetch("/api/v1/gemini/sync-drive", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({ docLink: driveLink })
+      });
+      const data = await res.json();
+      if (res.ok && data.status === "success") {
+        setAIConfig({
+          ...aiConfig,
+          trainingKnowledge: data.text
+        });
+        toast.success(`Đồng bộ thành công từ ${data.title}!`);
+      } else {
+        toast.error(data.message || "Lỗi đồng bộ từ Google Drive.");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Không thể kết nối tới máy chủ.");
+    } finally {
+      setSyncingDrive(false);
+    }
+  };
 
   const chatStreamRef = useRef<HTMLDivElement>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
@@ -535,6 +574,26 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
             {/* AI switchers */}
             <div className="space-y-4 pt-4 border-t border-slate-100" id="config_switches">
               
+              {/* auto reply status */}
+              <div className="flex justify-between items-start gap-4 pb-3 border-b border-slate-100/50">
+                <div>
+                  <h5 className="font-extrabold text-blue-600 font-sans tracking-tight text-xs flex items-center gap-1">
+                    <Zap className="h-3.5 w-3.5 fill-blue-600/20 text-blue-600" />
+                    Tự động trả lời AI
+                  </h5>
+                  <p className="text-[9.5px] text-slate-400 mt-0.5 leading-normal">Cho phép bot AI trả lời tin nhắn từ Facebook và Zalo.</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer select-none shrink-0 mt-0.5">
+                  <input 
+                    type="checkbox" 
+                    checked={aiConfig.enabled}
+                    onChange={(e) => setAIConfig({ ...aiConfig, enabled: e.target.checked })}
+                    className="sr-only peer" 
+                  />
+                  <div className="w-8 h-4 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3.5 after:transition-all peer-checked:bg-blue-600" />
+                </label>
+              </div>
+
               {/* auto classify */}
               <div className="flex justify-between items-start gap-4">
                 <div>
@@ -612,8 +671,63 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                 placeholder="Nhập luật hành xử nghiêm ngặt cho AI..."
                 value={aiConfig.advancedInstructions}
                 onChange={(e) => setAIConfig({ ...aiConfig, advancedInstructions: e.target.value })}
-                className="w-full h-32 p-3 border border-slate-200 bg-slate-50 focus:bg-white rounded-xl text-xs leading-relaxed focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all duration-200"
+                className="w-full h-24 p-3 border border-slate-200 bg-slate-50 focus:bg-white rounded-xl text-xs leading-relaxed focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all duration-200"
               />
+            </div>
+
+            {/* Google Drive Link Sync */}
+            <div className="pt-4 border-t border-slate-100 space-y-2">
+              <label className="block font-extrabold text-slate-700 flex items-center gap-1.5">
+                <svg className="h-3.5 w-3.5 text-emerald-600 fill-emerald-600/10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+                </svg>
+                Đồng bộ tài liệu từ Google Drive
+              </label>
+              <p className="text-[9px] text-slate-400 leading-normal">Dán link Google Doc công khai. AI sẽ tự động chuyển đổi tài liệu thành danh sách FAQs chuẩn hóa để huấn luyện bot.</p>
+              <div className="flex gap-1.5">
+                <input 
+                  type="text" 
+                  placeholder="https://docs.google.com/document/d/..."
+                  value={driveLink}
+                  onChange={(e) => setDriveLink(e.target.value)}
+                  disabled={syncingDrive}
+                  className="flex-1 min-w-0 px-2.5 py-1.5 border border-slate-200 bg-slate-50 focus:bg-white rounded-lg text-[10px] focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all disabled:opacity-50"
+                />
+                <button 
+                  type="button"
+                  onClick={handleSyncDrive}
+                  disabled={syncingDrive}
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-[9px] shrink-0 transition-all flex items-center gap-1.5 active:scale-95 disabled:opacity-60 cursor-pointer"
+                >
+                  {syncingDrive ? (
+                    <>
+                      <svg className="h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                        <circle cx="12" cy="12" r="10" strokeDasharray="32" strokeDashoffset="12" />
+                      </svg>
+                      Đang xử lý...
+                    </>
+                  ) : "Đồng bộ & Tạo FAQ"}
+                </button>
+              </div>
+            </div>
+
+            {/* Training knowledge base input */}
+            <div className="pt-4 border-t border-slate-100 space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="block font-extrabold text-slate-700">Dữ liệu huấn luyện AI</label>
+                {aiConfig.trainingKnowledge && aiConfig.trainingKnowledge.trim().length > 0 && (
+                  <span className="text-[8px] bg-emerald-100 text-emerald-700 font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider">
+                    {aiConfig.trainingKnowledge.includes("Q:") ? "FAQ đã chuẩn hóa" : "Dữ liệu tùy chỉnh"}
+                  </span>
+                )}
+              </div>
+              <textarea 
+                placeholder={"Nhập thông tin sản phẩm, chính sách bán hàng, bảng giá...\nHoặc bấm 'Đồng bộ & Tạo FAQ' ở trên để AI tự động tạo từ Google Doc.\n\nVí dụ:\nQ: Gói dịch vụ cơ bản giá bao nhiêu?\nA: Dạ, gói cơ bản có giá 500.000đ/tháng ạ."}
+                value={aiConfig.trainingKnowledge}
+                onChange={(e) => setAIConfig({ ...aiConfig, trainingKnowledge: e.target.value })}
+                className="w-full h-48 p-3 border border-slate-200 bg-slate-50 focus:bg-white rounded-xl text-xs leading-relaxed focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all duration-200 font-sans"
+              />
+              <p className="text-[9px] text-slate-400 leading-normal">Bot sẽ sử dụng dữ liệu trên để trả lời khách hàng. Bạn có thể chỉnh sửa trực tiếp hoặc đồng bộ lại từ Google Drive.</p>
             </div>
           </div>
 

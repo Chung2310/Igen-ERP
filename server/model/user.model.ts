@@ -43,6 +43,19 @@ const ZaloIntegrationSchema = new Schema(
   { _id: false }
 );
 
+const AiAutoReplyConfigSchema = new Schema(
+  {
+    enabled: { type: Boolean, default: false },
+    autoClassify: { type: Boolean, default: true },
+    autoCloseDeal: { type: Boolean, default: false },
+    autoFeedback: { type: Boolean, default: false },
+    replyDelay: { type: Number, default: 15 },
+    advancedInstructions: { type: String, default: "" },
+    trainingKnowledge: { type: String, default: "" },
+  },
+  { _id: false }
+);
+
 const UserSchema = new Schema<IUser>({
   email: { type: String, required: true, unique: true, index: true, lowercase: true },
   password: { type: String },
@@ -53,6 +66,7 @@ const UserSchema = new Schema<IUser>({
   facebookIntegration: { type: FacebookIntegrationSchema, default: null },
   tiktokIntegration: { type: TikTokIntegrationSchema, default: null },
   zaloIntegration: { type: ZaloIntegrationSchema, default: null },
+  aiAutoReplyConfig: { type: AiAutoReplyConfigSchema, default: () => ({}) },
   jobTitle: { type: String },
   department: { type: String },
   phone: { type: String },

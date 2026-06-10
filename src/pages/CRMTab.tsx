@@ -50,7 +50,7 @@ export default function CRMTab() {
   } | null>(null);
 
   // 2. Omni-Inbox States
-  const { userProfile } = useAuth();
+  const { userProfile, updateAiAutoReplyConfig } = useAuth();
   const isFbConnected = userProfile?.facebookIntegration?.isConnected ?? false;
   const isZaloConnected = userProfile?.zaloIntegration?.isConnected ?? false;
 
@@ -77,12 +77,38 @@ export default function CRMTab() {
 
   // AI assistant configurations
   const [aiConfig, setAIConfig] = useState<AIChatConfig>({
+    enabled: false,
     autoClassify: true,
     autoCloseDeal: false,
     autoFeedback: false,
     replyDelay: 15,
-    advancedInstructions: "Luôn ưu tiên xưng hô lịch thiệp. Hỏi thăm nhu cầu chăm sóc sức khỏe của doanh nghiệp."
+    advancedInstructions: "Luôn ưu tiên xưng hô lịch thiệp. Hỏi thăm nhu cầu chăm sóc sức khỏe của doanh nghiệp.",
+    trainingKnowledge: ""
   });
+
+  // Sync AI config when userProfile is loaded
+  useEffect(() => {
+    if (userProfile?.aiAutoReplyConfig) {
+      setAIConfig({
+        enabled: userProfile.aiAutoReplyConfig.enabled ?? false,
+        autoClassify: userProfile.aiAutoReplyConfig.autoClassify ?? true,
+        autoCloseDeal: userProfile.aiAutoReplyConfig.autoCloseDeal ?? false,
+        autoFeedback: userProfile.aiAutoReplyConfig.autoFeedback ?? false,
+        replyDelay: userProfile.aiAutoReplyConfig.replyDelay ?? 15,
+        advancedInstructions: userProfile.aiAutoReplyConfig.advancedInstructions ?? "",
+        trainingKnowledge: userProfile.aiAutoReplyConfig.trainingKnowledge ?? ""
+      });
+    }
+  }, [userProfile]);
+
+  const handleUpdateAIConfig = async (newConfig: AIChatConfig) => {
+    setAIConfig(newConfig);
+    try {
+      await updateAiAutoReplyConfig(newConfig);
+    } catch (err) {
+      console.error("[CRMTab] Lỗi lưu cấu hình AI:", err);
+    }
+  };
 
   const mapFbMessages = (msgs: any[]): ChatMessage[] => msgs.map((m: any) => ({
     id: m._id || m.messageId,
@@ -700,7 +726,7 @@ export default function CRMTab() {
             setTypeMessage={setTypeMessage}
             aiWaiting={aiWaiting}
             aiConfig={aiConfig}
-            setAIConfig={setAIConfig}
+            setAIConfig={handleUpdateAIConfig}
             handleSelectCustomer={handleSelectCustomer}
             handleSendChatMessage={handleSendChatMessage}
             handleLoadOlderMessages={handleLoadOlderMessages}
