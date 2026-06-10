@@ -10,6 +10,7 @@ export interface ChatMessage {
     type: string;
     url: string;
   }>;
+  conversationId?: string;
 }
 
 export interface ChatPagination {
