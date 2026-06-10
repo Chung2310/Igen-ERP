@@ -62,11 +62,18 @@ export function initSocketServer(httpServer: HTTPServer) {
   io.on("connection", (socket: Socket) => {
     const user = socket.data.user;
     const pageId = user?.facebookIntegration?.pageId;
+    const oaId = user?.zaloIntegration?.oaId;
 
     console.log(`[Socket.IO] Client connected: ${user?.email || "Unknown"} (Socket: ${socket.id})`);
 
     if (pageId && user?.facebookIntegration?.isConnected) {
       const room = `page:${pageId}`;
+      socket.join(room);
+      console.log(`[Socket.IO] User ${user.email} joined room: ${room}`);
+    }
+
+    if (oaId && user?.zaloIntegration?.isConnected) {
+      const room = `page:${oaId}`;
       socket.join(room);
       console.log(`[Socket.IO] User ${user.email} joined room: ${room}`);
     }

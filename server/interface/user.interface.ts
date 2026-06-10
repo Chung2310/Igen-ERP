@@ -22,6 +22,17 @@ export interface ITikTokIntegration {
   isMock?: boolean;
 }
 
+export interface IZaloIntegration {
+  isConnected: boolean;
+  oaId: string;
+  oaName: string;
+  accessToken: string;
+  refreshToken: string;
+  tokenExpiredAt: Date;
+  connectedAt?: Date;
+  isMock?: boolean;
+}
+
 export interface IUser extends Document {
   email: string;
   password?: string; // Hashed password
@@ -31,6 +42,7 @@ export interface IUser extends Document {
   createdAt: Date;
   facebookIntegration?: IFacebookIntegration | null;
   tiktokIntegration?: ITikTokIntegration | null;
+  zaloIntegration?: IZaloIntegration | null;
   
   // Org Chart & SaaS fields
   jobTitle?: string;
