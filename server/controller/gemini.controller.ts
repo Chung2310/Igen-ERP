@@ -1,5 +1,7 @@
 import { Request, Response } from "express";
 import { geminiService } from "../service/gemini.service";
+import { AuthenticatedRequest } from "../middleware/auth";
+import { aiKnowledgeService } from "../service/ai-knowledge.service";
 
 export const geminiController = {
   /**
@@ -130,7 +132,7 @@ export const geminiController = {
   /**
    * POST /api/v1/gemini/sync-drive
    */
-  async syncGoogleDrive(req: Request, res: Response) {
+  async syncGoogleDrive(req: AuthenticatedRequest, res: Response) {
     try {
       const { docLink } = req.body;
       if (!docLink) {
@@ -204,12 +206,24 @@ A: Hoàn toàn MIỄN PHÍ. Đội ngũ kỹ thuật của iGen sẽ hỗ trợ 
       // Convert the extracted text (whether real or mocked) to a structured FAQ using Gemini
       console.log(`[AI AutoReply] Đang tiến hành băm và chuyển đổi tài liệu thành dạng FAQs bằng Gemini...`);
       const faqText = await geminiService.convertDocToFAQ(extractedText);
+      const companyCode = req.user?.companyCode || "SYSTEM";
+      const syncResult = await aiKnowledgeService.upsertKnowledgeFromText({
+        companyCode,
+        sourceType: "google_doc",
+        sourceTitle: docTitle,
+        sourceUrl: docLink,
+        text: faqText,
+        createdBy: req.user?.id,
+        channelScope: ["all"],
+      });
 
       return res.status(200).json({
         status: "success",
         title: docTitle,
         text: faqText,
-        isMocked
+        isMocked,
+        companyCode,
+        chunksCount: syncResult.chunksCount
       });
     } catch (error: any) {
       console.error("[geminiController.syncGoogleDrive] Error:", error);

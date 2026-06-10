@@ -77,5 +77,7 @@ const FBMessageSchema: Schema = new Schema(
   { timestamps: true }
 );
 
+FBMessageSchema.index({ conversationId: 1, timestamp: -1 });
+
 export const FBConversationModel = mongoose.model<IFBConversation>("FBConversation", FBConversationSchema);
 export const FBMessageModel = mongoose.model<IFBMessage>("FBMessage", FBMessageSchema);

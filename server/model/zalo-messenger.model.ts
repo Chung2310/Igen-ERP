@@ -76,5 +76,7 @@ const ZaloMessageSchema: Schema = new Schema(
   { timestamps: true }
 );
 
+ZaloMessageSchema.index({ conversationId: 1, timestamp: -1 });
+
 export const ZaloConversationModel = mongoose.model<IZaloConversation>("ZaloConversation", ZaloConversationSchema);
 export const ZaloMessageModel = mongoose.model<IZaloMessage>("ZaloMessage", ZaloMessageSchema);

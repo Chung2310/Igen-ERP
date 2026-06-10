@@ -2,6 +2,7 @@ import { Router } from "express";
 import Joi from "joi";
 import { geminiController } from "../controller/gemini.controller";
 import { validateRequest } from "../middleware/validation";
+import { requireAuth } from "../middleware/auth";
 
 export const geminiRouter = Router();
 
@@ -78,4 +79,4 @@ geminiRouter.post("/marketing-ideas", validateRequest(ideasSchema), geminiContro
 geminiRouter.post("/marketing-develop", validateRequest(developSchema), geminiController.developMarketingIdea);
 geminiRouter.post("/generate-image", validateRequest(generateImageSchema), geminiController.generateImage);
 geminiRouter.post("/generate-video", validateRequest(generateVideoSchema), geminiController.generateVideo);
-geminiRouter.post("/sync-drive", validateRequest(syncDriveSchema), geminiController.syncGoogleDrive);
+geminiRouter.post("/sync-drive", requireAuth as any, validateRequest(syncDriveSchema), geminiController.syncGoogleDrive as any);
