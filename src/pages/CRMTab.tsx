@@ -83,7 +83,8 @@ export default function CRMTab() {
     sender: m.direction === "inbound" ? "user" : "agent",
     text: m.text || "",
     timestamp: new Date(m.timestamp),
-    attachments: Array.isArray(m.attachments) ? m.attachments : []
+    attachments: Array.isArray(m.attachments) ? m.attachments : [],
+    conversationId: m.conversationId,
   }));
 
   const areMessagesEqual = (left: ChatMessage[], right: ChatMessage[]) => {
@@ -126,7 +127,30 @@ export default function CRMTab() {
           return [...older, ...prev];
         });
       } else {
-        setChatHistory((prev) => (areMessagesEqual(prev, mappedMsgs) ? prev : mappedMsgs));
+        setChatHistory((prev) => {
+          // Kiểm tra xem tin nhắn mới lấy về có thuộc cùng một cuộc hội thoại đang tải không
+          const isSameConversation = prev.length > 0 && mappedMsgs.length > 0 &&
+            (prev[0].conversationId === mappedMsgs[0].conversationId ||
+             prev[0].id.startsWith("user_") ||
+             prev.some(m => mappedMsgs.some(nm => nm.id === m.id)));
+
+          if (isSameConversation) {
+            // Gộp tin nhắn mới/cập nhật mà không làm mất lịch sử cũ đã cuộn để tải lên
+            const merged = [...prev];
+            mappedMsgs.forEach((newMsg) => {
+              const idx = merged.findIndex((m) => m.id === newMsg.id || (m.id.startsWith("user_") && m.text === newMsg.text && m.sender === newMsg.sender));
+              if (idx !== -1) {
+                merged[idx] = newMsg; // Cập nhật tin nhắn sẵn có (trạng thái/id thật)
+              } else {
+                merged.push(newMsg); // Thêm tin nhắn mới
+              }
+            });
+            return merged.sort((x, y) => new Date(x.timestamp).getTime() - new Date(y.timestamp).getTime());
+          } else {
+            // Cuộc hội thoại khác (chuyển user), thay thế toàn bộ bằng tin nhắn mới
+            return mappedMsgs;
+          }
+        });
       }
 
       setChatPagination({
@@ -278,20 +302,36 @@ export default function CRMTab() {
     };
   }, [subTab, isFbConnected, isZaloConnected, activeCustomer?.id]);
 
-  // 1. Polling danh sách hội thoại (FB & Zalo)
+  // 1. Polling danh sách hội thoại (FB & Zalo) - Tối ưu hiệu năng Visibility
   useEffect(() => {
     if (subTab !== "OMNI-INBOX CHAT" || (!isFbConnected && !isZaloConnected)) return;
 
-    fetchOmniConversations();
-    const interval = setInterval(fetchOmniConversations, 60000); // Polling 60s
-    return () => clearInterval(interval);
+    const runFetch = () => {
+      if (!document.hidden) {
+        fetchOmniConversations();
+      }
+    };
+
+    runFetch();
+    const interval = setInterval(runFetch, 60000); // Polling 60s
+
+    const handleVisibility = () => {
+      if (!document.hidden) runFetch();
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
   }, [subTab, isFbConnected, isZaloConnected, activeCustomer?.id]);
 
-  // 2. Polling lịch sử tin nhắn của hội thoại đang chọn
+  // 2. Polling lịch sử tin nhắn của hội thoại đang chọn - Tối ưu hiệu năng Visibility
   useEffect(() => {
     if (subTab !== "OMNI-INBOX CHAT" || !activeCustomer) return;
 
     const fetchMessages = async () => {
+      if (document.hidden) return;
       console.log(`[FE CRMTab] Fallback polling lịch sử tin nhắn cho conversation ID: ${activeCustomer.id}...`);
       try {
         await loadConversationMessages(activeCustomer.id, "replace", activeCustomer.channel);
@@ -302,19 +342,22 @@ export default function CRMTab() {
 
     fetchMessages();
     const interval = setInterval(fetchMessages, 60000); // Polling 60s
-    return () => clearInterval(interval);
+
+    const handleVisibility = () => {
+      if (!document.hidden) fetchMessages();
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
   }, [subTab, activeCustomer?.id]);
 
-  const handleSelectCustomer = async (cust: CustomerInbox) => {
+  const handleSelectCustomer = (cust: CustomerInbox) => {
     console.log("[FE CRMTab] Nhân viên chọn khách hàng từ danh sách:", cust);
     setActiveCustomer(cust);
-    console.log(`[FE CRMTab] Khách hàng "${cust.name}" (${cust.channel}). Tải tin nhắn từ server...`);
-    try {
-      await loadConversationMessages(cust.id, "replace", cust.channel);
-      console.log(`[FE CRMTab] Tải tin nhắn thành công.`);
-    } catch (err) {
-      console.error("[FE CRMTab] Lỗi khi lấy lịch sử tin nhắn:", err);
-    }
+    setChatHistory([]); // Xóa sạch lịch sử chat cũ ngay lập tức để tránh hiển thị nhầm lẫn
   };
 
   const handleLoadOlderMessages = async () => {
