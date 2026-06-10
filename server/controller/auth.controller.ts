@@ -269,7 +269,7 @@ export const authController = {
         req.body.companyCode = callerCompanyCode;
       }
 
-      const newUser = await authService.registerUserForCompany(req.body);
+      const newUser = await authService.registerUserForCompany(req.body, callerCompanyCode, callerRole);
       const userObj = newUser.toObject();
       delete userObj.password;
 

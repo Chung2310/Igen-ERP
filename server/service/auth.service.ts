@@ -2,6 +2,8 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { UserModel } from "../model/user.model";
 import { CompanyModel } from "../model/company.model";
+import { RolePermissionModel } from "../model/role-permission.model";
+import { DEFAULT_ROLE_LEVELS } from "../middleware/auth";
 import { IUser } from "../interface/user.interface";
 import { ICompany } from "../interface/company.interface";
 
@@ -313,7 +315,7 @@ export const authService = {
   /**
    * Đăng ký người dùng mới cho doanh nghiệp
    */
-  async registerUserForCompany(data: any): Promise<IUser> {
+  async registerUserForCompany(data: any, callerCompanyCode?: string, callerRole?: string): Promise<IUser> {
     const {
       displayName,
       email,
@@ -328,10 +330,37 @@ export const authService = {
       phone,
     } = data;
 
+    const finalCompanyCode = companyCode?.toUpperCase().trim() || "SYSTEM";
     const emailLower = email.toLowerCase().trim();
     const existingUser = await UserModel.findOne({ email: emailLower });
     if (existingUser) {
       throw new Error(`Địa chỉ email "${emailLower}" đã được sử dụng cho một tài khoản khác.`);
+    }
+
+    // 1. Xác thực vai trò có tồn tại/hợp lệ
+    let targetRoleLevel = DEFAULT_ROLE_LEVELS[role];
+    if (targetRoleLevel === undefined) {
+      const rolePerm = await RolePermissionModel.findOne({
+        companyCode: finalCompanyCode,
+        role,
+      });
+      if (!rolePerm) {
+        throw new Error(`Vai trò "${role}" không tồn tại hoặc chưa được thiết lập phân quyền cho doanh nghiệp.`);
+      }
+      targetRoleLevel = rolePerm.level;
+    }
+
+    // 2. Kiểm tra phân cấp cấp bậc (Hierarchy Level Check) của người gán
+    if (callerRole && callerRole !== "superadmin") {
+      const callerRolePerm = await RolePermissionModel.findOne({
+        companyCode: callerCompanyCode,
+        role: callerRole,
+      });
+      const callerLevel = callerRolePerm ? callerRolePerm.level : (DEFAULT_ROLE_LEVELS[callerRole] || 4);
+
+      if (targetRoleLevel < callerLevel) {
+        throw new Error(`Bạn không thể gán vai trò có cấp bậc (${targetRoleLevel}) cao hơn cấp bậc của bạn (${callerLevel}).`);
+      }
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -340,10 +369,10 @@ export const authService = {
       password: hashedPassword,
       displayName: displayName.trim(),
       role,
-      companyCode: companyCode?.toUpperCase().trim(),
+      companyCode: finalCompanyCode,
       companyName: companyName?.trim(),
       parentId: parentId || undefined,
-      level: level || (role === "admin" ? 1 : (role === "manager" ? 3 : 4)),
+      level: level || (role === "admin" ? 1 : (role === "manager" ? 3 : targetRoleLevel)),
       department: department || (role === "admin" ? "Ban Giám Đốc" : (role === "manager" ? "Quản lý" : "Nhân sự")),
       division: division || (role === "admin" ? "Ban Giám Đốc" : (role === "manager" ? "Quản lý" : "Nhân sự")),
       jobTitle: role === "admin" ? "Chief Executive Officer (CEO)" : (role === "manager" ? "Quản lý phòng ban" : "Nhân viên"),
@@ -375,8 +404,30 @@ export const authService = {
     }
 
     if (updateData.role && callerRole !== "superadmin") {
-      if (updateData.role === "superadmin" || updateData.role === "admin") {
-        throw new Error("Bạn không có quyền gán vai trò Admin hoặc Superadmin.");
+      const callerRolePerm = await RolePermissionModel.findOne({ companyCode: callerCompanyCode, role: callerRole });
+      const callerLevel = callerRolePerm ? callerRolePerm.level : (DEFAULT_ROLE_LEVELS[callerRole] || 4);
+
+      let targetLevel = DEFAULT_ROLE_LEVELS[updateData.role];
+      if (targetLevel === undefined) {
+        const targetRolePerm = await RolePermissionModel.findOne({ companyCode: user.companyCode, role: updateData.role });
+        if (!targetRolePerm) {
+          throw new Error(`Vai trò "${updateData.role}" không tồn tại hoặc chưa được thiết lập cho doanh nghiệp này.`);
+        }
+        targetLevel = targetRolePerm.level;
+      }
+
+      if (targetLevel < callerLevel) {
+        throw new Error("Bạn không thể gán vai trò có cấp bậc cao hơn cấp bậc của bạn.");
+      }
+
+      let currentTargetLevel = DEFAULT_ROLE_LEVELS[user.role];
+      if (currentTargetLevel === undefined) {
+        const currentTargetPerm = await RolePermissionModel.findOne({ companyCode: user.companyCode, role: user.role });
+        currentTargetLevel = currentTargetPerm ? currentTargetPerm.level : 4;
+      }
+
+      if (currentTargetLevel < callerLevel) {
+        throw new Error("Bạn không có quyền chỉnh sửa tài khoản có vai trò cấp trên.");
       }
     }
 
@@ -398,6 +449,34 @@ export const authService = {
         }
         if (user.role === "superadmin") {
           throw new Error("Không thể chỉnh sửa tài khoản Superadmin.");
+        }
+      }
+
+      if (data.role && callerRole !== "superadmin") {
+        const callerRolePerm = await RolePermissionModel.findOne({ companyCode: callerCompanyCode, role: callerRole });
+        const callerLevel = callerRolePerm ? callerRolePerm.level : (DEFAULT_ROLE_LEVELS[callerRole] || 4);
+
+        let targetLevel = DEFAULT_ROLE_LEVELS[data.role];
+        if (targetLevel === undefined) {
+          const targetRolePerm = await RolePermissionModel.findOne({ companyCode: user.companyCode, role: data.role });
+          if (!targetRolePerm) {
+            throw new Error(`Vai trò "${data.role}" không tồn tại hoặc chưa được thiết lập cho doanh nghiệp này.`);
+          }
+          targetLevel = targetRolePerm.level;
+        }
+
+        if (targetLevel < callerLevel) {
+          throw new Error("Bạn không thể gán vai trò có cấp bậc cao hơn cấp bậc của bạn.");
+        }
+
+        let currentTargetLevel = DEFAULT_ROLE_LEVELS[user.role];
+        if (currentTargetLevel === undefined) {
+          const currentTargetPerm = await RolePermissionModel.findOne({ companyCode: user.companyCode, role: user.role });
+          currentTargetLevel = currentTargetPerm ? currentTargetPerm.level : 4;
+        }
+
+        if (currentTargetLevel < callerLevel) {
+          throw new Error("Bạn không có quyền chỉnh sửa tài khoản có vai trò cấp trên.");
         }
       }
 

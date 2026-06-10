@@ -9,13 +9,18 @@ export const rolePermissionRouter = Router();
 const saveRolePermissionSchema = {
   body: Joi.object({
     companyCode: Joi.string().optional().allow(""),
-    role: Joi.string().valid("admin", "manager", "user").required().messages({
+    role: Joi.string().required().messages({
       "any.required": "Vai trò là bắt buộc.",
-      "any.only": "Vai trò phải thuộc danh sách admin, manager hoặc user.",
     }),
     permissions: Joi.array().items(Joi.string()).required().messages({
       "any.required": "Mảng danh sách mã quyền permissions là bắt buộc.",
     }),
+    level: Joi.number().integer().min(1).required().messages({
+      "any.required": "Cấp bậc vai trò (level) là bắt buộc.",
+      "number.base": "Cấp bậc vai trò phải là một số nguyên.",
+      "number.min": "Cấp bậc vai trò tối thiểu là 1.",
+    }),
+    displayName: Joi.string().optional().allow(""),
   }),
 };
 
@@ -23,16 +28,15 @@ const getRolePermissionsQuerySchema = {
   query: Joi.object({
     page: Joi.number().integer().min(1).optional(),
     limit: Joi.number().integer().min(1).optional(),
-    role: Joi.string().valid("admin", "manager", "user").optional(),
+    role: Joi.string().optional(),
     companyCode: Joi.string().optional().allow(""),
   }),
 };
 
 const rolePermissionParamsSchema = {
   params: Joi.object({
-    role: Joi.string().valid("admin", "manager", "user").required().messages({
+    role: Joi.string().required().messages({
       "any.required": "Vai trò trong params là bắt buộc.",
-      "any.only": "Vai trò phải thuộc danh sách admin, manager hoặc user.",
     }),
   }),
   query: Joi.object({

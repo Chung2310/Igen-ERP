@@ -5,6 +5,8 @@ const RolePermissionSchema = new Schema<IRolePermission>({
   companyCode: { type: String, required: true, index: true },
   role: { type: String, required: true, index: true },
   permissions: { type: [String], default: [] },
+  level: { type: Number, required: true },
+  displayName: { type: String },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
 });

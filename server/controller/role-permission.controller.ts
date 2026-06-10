@@ -1,6 +1,7 @@
 import { Response } from "express";
 import { rolePermissionService } from "../service/role-permission.service";
-import { AuthenticatedRequest } from "../middleware/auth";
+import { AuthenticatedRequest, DEFAULT_ROLE_LEVELS } from "../middleware/auth";
+import { RolePermissionModel } from "../model/role-permission.model";
 
 export const rolePermissionController = {
   /**
@@ -16,9 +17,48 @@ export const rolePermissionController = {
         });
       }
 
-      // Khách hàng không phải superadmin thì không được sửa công ty khác
+      const companyCode = user.role === "superadmin" ? (req.body.companyCode || "SYSTEM") : user.companyCode;
       if (user.role !== "superadmin") {
         req.body.companyCode = user.companyCode;
+      }
+
+      // Kiểm tra phân cấp cấp bậc (Hierarchy Level Check)
+      let callerLevel = 1;
+      if (user.role !== "superadmin") {
+        const callerRolePerm = await RolePermissionModel.findOne({
+          companyCode: user.companyCode,
+          role: user.role,
+        });
+        callerLevel = callerRolePerm ? callerRolePerm.level : (DEFAULT_ROLE_LEVELS[user.role] || 4);
+      }
+
+      const targetLevel = req.body.level;
+      if (user.role !== "superadmin") {
+        if (typeof targetLevel === "number" && targetLevel <= callerLevel && req.body.role !== user.role) {
+          return res.status(403).json({
+            status: "error",
+            message: `Bạn không thể tạo hoặc chỉnh sửa vai trò có cấp bậc (${targetLevel - 1}) tương đương hoặc cao hơn cấp bậc của bạn (${callerLevel - 1}).`,
+          });
+        }
+        if (typeof targetLevel === "number" && targetLevel < callerLevel) {
+          return res.status(403).json({
+            status: "error",
+            message: `Bạn không thể tạo hoặc chỉnh sửa vai trò có cấp bậc (${targetLevel - 1}) cao hơn cấp bậc của bạn (${callerLevel - 1}).`,
+          });
+        }
+      }
+
+      // Kiểm tra xem vai trò cũ nếu có thì có bị vượt cấp không
+      const existingRole = await RolePermissionModel.findOne({
+        companyCode,
+        role: req.body.role,
+      });
+
+      if (user.role !== "superadmin" && existingRole && existingRole.level <= callerLevel && existingRole.role !== user.role) {
+        return res.status(403).json({
+          status: "error",
+          message: `Bạn không có quyền chỉnh sửa vai trò [${req.body.role}] vì vai trò này có cấp bậc tương đương hoặc cao hơn cấp bậc của bạn.`,
+        });
       }
 
       const rolePermission = await rolePermissionService.saveRolePermission(req.body);
@@ -151,6 +191,43 @@ export const rolePermissionController = {
         return res.status(400).json({
           status: "error",
           message: "Tham số companyCode là bắt buộc đối với Superadmin.",
+        });
+      }
+
+      // Ngăn chặn tự xóa vai trò của bản thân
+      if (user.role !== "superadmin" && role === user.role) {
+        return res.status(400).json({
+          status: "error",
+          message: "Bạn không thể tự xóa vai trò hiện tại của chính mình.",
+        });
+      }
+
+      // Kiểm tra phân cấp cấp bậc (Hierarchy Level Check)
+      let callerLevel = 1;
+      if (user.role !== "superadmin") {
+        const callerRolePerm = await RolePermissionModel.findOne({
+          companyCode: user.companyCode,
+          role: user.role,
+        });
+        callerLevel = callerRolePerm ? callerRolePerm.level : (DEFAULT_ROLE_LEVELS[user.role] || 4);
+      }
+
+      const existingRole = await RolePermissionModel.findOne({
+        companyCode,
+        role,
+      });
+
+      if (!existingRole) {
+        return res.status(404).json({
+          status: "error",
+          message: `Không tìm thấy cấu hình vai trò [${role}] để xóa.`,
+        });
+      }
+
+      if (user.role !== "superadmin" && existingRole.level <= callerLevel) {
+        return res.status(403).json({
+          status: "error",
+          message: `Bạn không có quyền xóa vai trò [${role}] vì vai trò này có cấp bậc tương đương hoặc cao hơn cấp bậc của bạn.`,
         });
       }
 

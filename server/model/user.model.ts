@@ -34,7 +34,7 @@ const UserSchema = new Schema<IUser>({
   password: { type: String },
   displayName: { type: String, required: true },
   photoURL: { type: String },
-  role: { type: String, enum: ["user", "manager", "admin", "superadmin"], default: "user" },
+  role: { type: String, default: "user" },
   createdAt: { type: Date, default: Date.now },
   facebookIntegration: { type: FacebookIntegrationSchema, default: null },
   tiktokIntegration: { type: TikTokIntegrationSchema, default: null },

@@ -6,7 +6,7 @@ export const rolePermissionService = {
    * Tạo mới hoặc cập nhật phân quyền của một vai trò tại doanh nghiệp
    */
   async saveRolePermission(data: any): Promise<IRolePermission> {
-    const { companyCode, role, permissions } = data;
+    const { companyCode, role, permissions, level, displayName } = data;
     const normalizedCompany = companyCode.toUpperCase().trim();
 
     let rolePermission = await RolePermissionModel.findOne({
@@ -16,12 +16,16 @@ export const rolePermissionService = {
 
     if (rolePermission) {
       rolePermission.permissions = permissions;
+      rolePermission.level = level;
+      rolePermission.displayName = displayName;
       rolePermission.updatedAt = new Date();
     } else {
       rolePermission = new RolePermissionModel({
         companyCode: normalizedCompany,
         role,
         permissions,
+        level,
+        displayName,
         createdAt: new Date(),
         updatedAt: new Date(),
       });

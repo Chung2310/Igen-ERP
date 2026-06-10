@@ -63,11 +63,10 @@ function AppContent() {
           {activeTab === "KHO & SẢN PHẨM" && <InventoryTab />}
           {activeTab === "MARKETING" && <MarketingTab />}
           {activeTab === "SALES CRM" && <CRMTab />}
-          {activeTab === "QUẢN TRỊ USER" && userProfile.role === "superadmin" && <UserAdminTab />}
+          {activeTab === "QUẢN TRỊ USER" && (userProfile.role === "superadmin" || userProfile.role === "admin") && <UserAdminTab />}
           {activeTab === "CÀI ĐẶT" && <SettingsTab />}
         </main>
       </div>
-      <ToastContainer />
     </div>
   );
 }
@@ -76,6 +75,7 @@ export default function App() {
   return (
     <AuthProvider>
       <AppContent />
+      <ToastContainer />
     </AuthProvider>
   );
 }

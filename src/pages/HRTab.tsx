@@ -1288,6 +1288,22 @@ export default function HRTab() {
       return;
     }
 
+    // Kiểm tra định dạng Email
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(addEmail.trim())) {
+      toast.warning("Địa chỉ email không đúng định dạng!");
+      return;
+    }
+
+    // Kiểm tra định dạng Số điện thoại Việt Nam (nếu nhập)
+    if (addPhone.trim()) {
+      const vnPhoneRegex = /^(0|\+84|84)(3|5|7|8|9)[0-9]{8}$/;
+      if (!vnPhoneRegex.test(addPhone.trim().replace(/\s+/g, ""))) {
+        toast.warning("Số điện thoại Việt Nam không đúng định dạng (ví dụ: 0987654321)!");
+        return;
+      }
+    }
+
     // Kiểm tra email trùng trong công ty
     const emailNormalized = addEmail.trim().toLowerCase();
     const duplicateEmail = usersList.find(u => u.email?.toLowerCase() === emailNormalized);
