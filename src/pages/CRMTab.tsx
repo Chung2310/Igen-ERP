@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Activity, Zap, FileText, DollarSign, MessageSquare } from "lucide-react";
 import { CRMSubTabType, ChatMessage, CustomerInbox, AIChatConfig, ChatPagination } from "../types";
 import { geminiApi } from "../api/gemini";
@@ -57,6 +57,12 @@ export default function CRMTab() {
   const [inboxCustomers, setInboxCustomers] = useState<CustomerInbox[]>([]);
 
   const [activeCustomer, setActiveCustomer] = useState<CustomerInbox | null>(null);
+
+  // Keep activeCustomer in a ref to avoid stale closures in socket handlers
+  const activeCustomerRef = useRef<CustomerInbox | null>(null);
+  useEffect(() => {
+    activeCustomerRef.current = activeCustomer;
+  }, [activeCustomer]);
 
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [chatPagination, setChatPagination] = useState<ChatPagination>({
@@ -264,24 +270,46 @@ export default function CRMTab() {
     const handleNewMessage = async (data: { message: any; conversation: any }) => {
       console.log("[FE CRMTab] socket new_message event received:", data);
       const { message } = data;
+      const activeCust = activeCustomerRef.current;
 
-      // If the incoming message belongs to the currently active customer/conversation
-      if (activeCustomer && (activeCustomer.id === message.conversationId || activeCustomer.recipientId === message.senderId || activeCustomer.recipientId === message.recipientId)) {
-        const mapped = mapFbMessages([message])[0];
-        setChatHistory((prev) => {
-          // Khử trùng lặp và thay thế tin nhắn tạm thời (optimistic update)
-          const optimisticIndex = prev.findIndex(
-            (m) => m.id.startsWith("user_") && m.text === mapped.text && m.sender === mapped.sender
-          );
-          if (optimisticIndex !== -1) {
-            const nextHistory = [...prev];
-            nextHistory[optimisticIndex] = mapped; // Thay thế bằng tin nhắn chính thức từ DB
-            return nextHistory;
-          }
+      if (activeCust) {
+        const activeId = activeCust.id?.toString();
+        const msgConvId = (message.conversationId?._id || message.conversationId)?.toString();
+        const activeRecipientId = activeCust.recipientId?.toString();
+        const msgSenderId = message.senderId?.toString();
+        const msgRecipientId = message.recipientId?.toString();
 
-          if (prev.some((m) => m.id === mapped.id)) return prev;
-          return [...prev, mapped];
+        console.log("[FE CRMTab] Comparing active customer & new message:", {
+          activeCustomer: { id: activeId, recipientId: activeRecipientId, name: activeCust.name },
+          message: { conversationId: msgConvId, senderId: msgSenderId, recipientId: msgRecipientId }
         });
+
+        const isMatch = (activeId && msgConvId && activeId === msgConvId) ||
+                        (activeRecipientId && msgSenderId && activeRecipientId === msgSenderId) ||
+                        (activeRecipientId && msgRecipientId && activeRecipientId === msgRecipientId);
+
+        if (isMatch) {
+          console.log("[FE CRMTab] Match found! Appending message to current chat view.");
+          const mapped = mapFbMessages([message])[0];
+          setChatHistory((prev) => {
+            // Khử trùng lặp và thay thế tin nhắn tạm thời (optimistic update)
+            const optimisticIndex = prev.findIndex(
+              (m) => m.id.startsWith("user_") && m.text === mapped.text && m.sender === mapped.sender
+            );
+            if (optimisticIndex !== -1) {
+              const nextHistory = [...prev];
+              nextHistory[optimisticIndex] = mapped; // Thay thế bằng tin nhắn chính thức từ DB
+              return nextHistory;
+            }
+
+            if (prev.some((m) => m.id === mapped.id)) return prev;
+            return [...prev, mapped];
+          });
+        } else {
+          console.log("[FE CRMTab] Conversation mismatch, message not appended to current view.");
+        }
+      } else {
+        console.log("[FE CRMTab] No active customer selected, skipping message append.");
       }
 
       // Refresh conversations list to update unread count / last message
@@ -300,7 +328,7 @@ export default function CRMTab() {
       unsubscribeNewMsg();
       unsubscribeConvUpdate();
     };
-  }, [subTab, isFbConnected, isZaloConnected, activeCustomer?.id]);
+  }, [subTab, isFbConnected, isZaloConnected]);
 
   // 1. Polling danh sách hội thoại (FB & Zalo) - Tối ưu hiệu năng Visibility
   useEffect(() => {
