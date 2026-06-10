@@ -29,6 +29,20 @@ const TikTokIntegrationSchema = new Schema(
   { _id: false }
 );
 
+const ZaloIntegrationSchema = new Schema(
+  {
+    isConnected: { type: Boolean, default: false },
+    oaId: { type: String, default: "" },
+    oaName: { type: String, default: "" },
+    accessToken: { type: String, default: "" },
+    refreshToken: { type: String, default: "" },
+    tokenExpiredAt: { type: Date },
+    connectedAt: { type: Date },
+    isMock: { type: Boolean, default: false },
+  },
+  { _id: false }
+);
+
 const UserSchema = new Schema<IUser>({
   email: { type: String, required: true, unique: true, index: true, lowercase: true },
   password: { type: String },
@@ -38,6 +52,7 @@ const UserSchema = new Schema<IUser>({
   createdAt: { type: Date, default: Date.now },
   facebookIntegration: { type: FacebookIntegrationSchema, default: null },
   tiktokIntegration: { type: TikTokIntegrationSchema, default: null },
+  zaloIntegration: { type: ZaloIntegrationSchema, default: null },
   jobTitle: { type: String },
   department: { type: String },
   phone: { type: String },

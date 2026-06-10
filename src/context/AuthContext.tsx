@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import type { User } from "firebase/auth";
 import { authService } from "../services/authService";
-import { UserProfile, FacebookIntegration, TikTokIntegration } from "../types";
+import { UserProfile, FacebookIntegration, TikTokIntegration, ZaloIntegration } from "../types";
 import { toast } from "../pages/Toast";
 import { parseFirebaseError } from "../utils/firebaseErrorParser";
 
@@ -20,6 +20,8 @@ interface AuthContextType {
   removeFacebookIntegration: () => Promise<void>;
   saveTikTokIntegration: (integration: TikTokIntegration) => Promise<void>;
   removeTikTokIntegration: () => Promise<void>;
+  saveZaloIntegration: (integration: ZaloIntegration) => Promise<void>;
+  removeZaloIntegration: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -290,6 +292,92 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const saveZaloIntegration = async (integration: ZaloIntegration) => {
+    if (!userProfile) return;
+    const finalIntegration = { ...integration };
+
+    try {
+      if (!integration.isMock) {
+        console.log("[iGen Zalo Connect] Xác thực kết nối qua Express Backend...", {
+          oaId: integration.oaId,
+        });
+        
+        const response = await fetch('/api/v1/zalo/save-integration', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem("accessToken")}`
+          },
+          body: JSON.stringify({
+            oaId: integration.oaId,
+            oaName: integration.oaName,
+            accessToken: integration.accessToken,
+            refreshToken: integration.refreshToken,
+            isMock: false
+          })
+        });
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData.message || "Không thể kết nối và xác thực với Zalo OA.");
+        }
+
+        const result = await response.json();
+        console.log("[iGen Zalo Connect] Xác thực thành công:", result);
+        finalIntegration.oaName = result.data.oaName;
+      } else {
+        await fetch('/api/v1/zalo/save-integration', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem("accessToken")}`
+          },
+          body: JSON.stringify({
+            oaId: integration.oaId,
+            oaName: integration.oaName,
+            accessToken: integration.accessToken,
+            refreshToken: integration.refreshToken,
+            isMock: true
+          })
+        });
+      }
+
+      const updatedProfile = await authService.updateProfile({
+        zaloIntegration: finalIntegration
+      });
+      setUser(updatedProfile as any);
+      setUserProfile(updatedProfile);
+      toast.success("Kết nối Zalo OA thành công!");
+    } catch (error: any) {
+      console.error("[iGen Zalo Connect] Lỗi kết nối:", error);
+      toast.error(error.message || "Không thể kết nối Zalo OA. Vui lòng kiểm tra lại.");
+      throw error;
+    }
+  };
+
+  const removeZaloIntegration = async () => {
+    if (!userProfile) return;
+    try {
+      await fetch('/api/v1/zalo/integration', {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem("accessToken")}`
+        }
+      });
+
+      const updatedProfile = await authService.updateProfile({
+        zaloIntegration: null
+      });
+      setUser(updatedProfile as any);
+      setUserProfile(updatedProfile);
+      toast.success("Đã hủy liên kết Zalo OA.");
+    } catch (error: any) {
+      console.error("Lỗi xóa Zalo integration:", error);
+      toast.error("Lỗi khi hủy liên kết Zalo.");
+      throw error;
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -307,6 +395,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         removeFacebookIntegration,
         saveTikTokIntegration,
         removeTikTokIntegration,
+        saveZaloIntegration,
+        removeZaloIntegration,
       }}
     >
       {children}

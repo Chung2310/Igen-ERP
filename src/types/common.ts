@@ -1,4 +1,4 @@
-import { FacebookIntegration, TikTokIntegration } from "./integrations";
+import { FacebookIntegration, TikTokIntegration, ZaloIntegration } from "./integrations";
 
 export type TabType = 
   | "TỔNG QUAN" 
@@ -19,6 +19,7 @@ export interface UserProfile {
   createdAt: any;
   facebookIntegration?: FacebookIntegration | null;
   tiktokIntegration?: TikTokIntegration | null;
+  zaloIntegration?: ZaloIntegration | null;
   
   // Org Chart & SaaS fields
   jobTitle?: string;

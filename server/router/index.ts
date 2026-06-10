@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import { geminiRouter } from "./gemini.router";
 import { facebookPostRouter } from "./facebook-post.router";
 import { fbMessengerRouter } from "./fb-messenger.router";
+import { zaloMessengerRouter } from "./zalo-messenger.router";
 import { tiktokRouter } from "./tiktok.router";
 import { schedulerRouter } from "./scheduler.router";
 import { mediaRouter } from "./media.router";
@@ -34,6 +35,7 @@ apiRouter.use("/gemini", geminiRouter);
 // Gắn kết router phụ của Facebook Post qua n8n & Facebook Messenger
 apiRouter.use("/facebook", facebookPostRouter);
 apiRouter.use("/facebook", fbMessengerRouter);
+apiRouter.use("/zalo", zaloMessengerRouter);
 
 
 // Gắn kết router phụ của TikTok

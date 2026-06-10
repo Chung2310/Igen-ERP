@@ -26,3 +26,13 @@ export interface TikTokIntegration {
   /** Chế độ giả lập — không cần API thật */
   isMock?: boolean;
 }
+
+export interface ZaloIntegration {
+  isConnected: boolean;
+  oaId: string;
+  oaName: string;
+  accessToken: string;
+  refreshToken: string;
+  connectedAt: any;
+  isMock?: boolean;
+}
