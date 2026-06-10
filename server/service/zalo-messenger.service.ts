@@ -396,6 +396,12 @@ export const zaloMessengerService = {
     const isMock = user?.zaloIntegration?.isMock ?? false;
     const recipientId = conversation.recipientId;
 
+    const previousConversationState = {
+      lastMessageText: conversation.lastMessageText,
+      lastMessageAt: conversation.lastMessageAt,
+      unreadCount: conversation.unreadCount,
+    };
+
     conversation.lastMessageText = text;
     conversation.lastMessageAt = new Date();
     conversation.unreadCount = 0;
@@ -414,13 +420,16 @@ export const zaloMessengerService = {
       status: "sent",
     });
     await newMsg.save();
+    const emitRealtimeUpdate = () => {
+      emitToPage(oaId, "new_message", {
+        message: newMsg,
+        conversation: conversation
+      });
+      emitToPage(oaId, "conversation_updated", conversation);
+    };
 
     // Phát socket realtime
-    emitToPage(oaId, "new_message", {
-      message: newMsg,
-      conversation: conversation
-    });
-    emitToPage(oaId, "conversation_updated", conversation);
+    emitRealtimeUpdate();
 
     // Xử lý gửi tin thật hoặc giả lập
     if (isMock) {

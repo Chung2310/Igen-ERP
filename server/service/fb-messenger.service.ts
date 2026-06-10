@@ -300,6 +300,35 @@ export const fbMessengerService = {
     return process.env.FB_PAGE_ACCESS_TOKEN || null;
   },
 
+  async enrichConversationProfile(pageId: string, senderId: string, conversationId: string) {
+    try {
+      const token = await this.getPageAccessTokenByPageId(pageId);
+      if (!token) {
+        return;
+      }
+
+      const profile = await this.getSenderProfile(senderId, token);
+      if (!profile) {
+        return;
+      }
+
+      const updatedConversation = await FBConversationModel.findOneAndUpdate(
+        { _id: conversationId, pageId },
+        {
+          senderName: `${profile.first_name || ""} ${profile.last_name || ""}`.trim() || "Khach hang Facebook",
+          avatarUrl: profile.profile_pic || "",
+        },
+        { new: true }
+      );
+
+      if (updatedConversation) {
+        emitToPage(pageId, "conversation_updated", updatedConversation);
+      }
+    } catch (error) {
+      console.error("[FB Service enrichConversationProfile] Khong the cap nhat profile Facebook:", error);
+    }
+  },
+
   /**
    * Lưu tin nhắn đến vào DB và tạo cuộc hội thoại nếu chưa có
    */
@@ -316,8 +345,9 @@ export const fbMessengerService = {
       url: att.payload?.url || "",
     }));
 
-    // Lấy token động từ DB dựa theo Page ID của tin nhắn đến
     const token = await this.getPageAccessTokenByPageId(recipientId);
+
+    // Lấy token động từ DB dựa theo Page ID của tin nhắn đến
 
     // 1. Kiểm tra xem đã có cuộc hội thoại với khách hàng này chưa
     let conversation = await FBConversationModel.findOne({ recipientId: senderId, pageId: recipientId });
@@ -328,7 +358,10 @@ export const fbMessengerService = {
 
       if (token) {
         try {
-          const profile = await this.getSenderProfile(senderId, token);
+          const profile = await Promise.race([
+            this.getSenderProfile(senderId, token),
+            new Promise<null>((resolve) => setTimeout(() => resolve(null), 350))
+          ]);
           if (profile) {
             senderName = `${profile.first_name || ""} ${profile.last_name || ""}`.trim() || "Khách hàng Facebook";
             avatarUrl = profile.profile_pic || "";
