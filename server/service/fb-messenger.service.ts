@@ -528,6 +528,12 @@ export const fbMessengerService = {
       };
     }
 
+    // Reset số lượng tin nhắn chưa đọc
+    if (conversation.unreadCount > 0) {
+      conversation.unreadCount = 0;
+      await conversation.save();
+    }
+
     const limit = Math.min(Math.max(Number(options?.limit || 20), 1), 100);
     const beforeDate = options?.before ? new Date(options.before) : null;
     const filter: any = { conversationId: conversation._id };

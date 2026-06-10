@@ -319,6 +319,12 @@ export const zaloMessengerService = {
       };
     }
 
+    // Reset số lượng tin nhắn chưa đọc
+    if (conversation.unreadCount > 0) {
+      conversation.unreadCount = 0;
+      await conversation.save();
+    }
+
     const limit = Math.min(Math.max(Number(options?.limit || 20), 1), 100);
     const beforeDate = options?.before ? new Date(options.before) : null;
     const filter: any = { conversationId: conversation._id };
@@ -479,7 +485,15 @@ export const zaloMessengerService = {
   async handleWebhookEvent(body: any) {
     console.log("[Zalo Service Webhook] Nhận sự kiện từ Zalo OA:", JSON.stringify(body));
 
-    const oaId = body.oa_id || body.recipient?.id;
+    let oaId = body.oa_id || body.recipient?.id;
+    
+    // Zalo's official developer console test webhook sends a hardcoded recipient.id of "579745863508352884"
+    if (oaId === "579745863508352884") {
+      console.log("[Zalo Service Webhook] Phát hiện payload test từ Zalo Webhooks UI. Tự động chuyển đổi sang Zalo OA ID active.");
+      const activeUser = await UserModel.findOne({ "zaloIntegration.isConnected": true });
+      oaId = activeUser?.zaloIntegration?.oaId || process.env.ZALO_OA_ID || "270721158521070717";
+    }
+
     const eventName = body.event_name;
     if (!oaId || !eventName) {
       console.warn("[Zalo Service Webhook] Thiếu oa_id hoặc event_name. Bỏ qua.");
@@ -531,33 +545,32 @@ export const zaloMessengerService = {
 
     // Tìm hoặc tạo cuộc hội thoại
     let conversation = await ZaloConversationModel.findOne({ recipientId: senderId, oaId });
+    let senderName = conversation?.senderName || "Khách hàng Zalo";
+    let avatarUrl = conversation?.avatarUrl || "";
 
-    if (!conversation) {
-      let senderName = "Khách hàng Zalo";
-      let avatarUrl = "";
-
-      // Thử lấy profile từ Zalo API nếu có Access Token hợp lệ và không phải Mock
-      if (!user.zaloIntegration?.isMock) {
-        try {
-          const token = await this.getAccessTokenByOAId(oaId);
-          if (token) {
-            const profileUrl = `https://openapi.zalo.me/v3.0/oa/getprofile?data=${encodeURIComponent(JSON.stringify({ user_id: senderId }))}`;
-            const profileResponse = await (globalThis as any).fetch(profileUrl, {
-              headers: { "access_token": token }
-            });
-            if (profileResponse.ok) {
-              const profileData = await profileResponse.json();
-              if (profileData.data) {
-                senderName = profileData.data.shared_info?.name || profileData.data.display_name || "Khách hàng Zalo";
-                avatarUrl = profileData.data.avatar || "";
-              }
+    // Thử lấy profile từ Zalo API nếu có Access Token hợp lệ, không phải Mock và thông tin hiện tại đang là mặc định
+    if (!user.zaloIntegration?.isMock && (senderName === "Khách hàng Zalo" || !avatarUrl)) {
+      try {
+        const token = await this.getAccessTokenByOAId(oaId);
+        if (token) {
+          const profileUrl = `https://openapi.zalo.me/v3.0/oa/getprofile?data=${encodeURIComponent(JSON.stringify({ user_id: senderId }))}`;
+          const profileResponse = await (globalThis as any).fetch(profileUrl, {
+            headers: { "access_token": token }
+          });
+          if (profileResponse.ok) {
+            const profileData = await profileResponse.json();
+            if (profileData.data) {
+              senderName = profileData.data.shared_info?.name || profileData.data.display_name || senderName;
+              avatarUrl = profileData.data.avatar || avatarUrl;
             }
           }
-        } catch (err) {
-          console.error("[Zalo Service Webhook] Không lấy được thông tin profile từ Zalo API:", err);
         }
+      } catch (err) {
+        console.error("[Zalo Service Webhook] Không lấy được thông tin profile từ Zalo API:", err);
       }
+    }
 
+    if (!conversation) {
       conversation = new ZaloConversationModel({
         recipientId: senderId,
         senderName,
@@ -570,6 +583,8 @@ export const zaloMessengerService = {
       });
       await conversation.save();
     } else {
+      conversation.senderName = senderName;
+      conversation.avatarUrl = avatarUrl;
       conversation.lastMessageText = text;
       conversation.lastMessageAt = timestamp;
       conversation.unreadCount += 1;

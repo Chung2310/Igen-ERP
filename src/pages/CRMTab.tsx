@@ -121,6 +121,13 @@ export default function CRMTab() {
       const result = targetChannel === "zalo"
         ? await zaloMessengerService.getMessages(conversationId, { limit: 20, before })
         : await fbMessengerService.getMessages(conversationId, { limit: 20, before });
+
+      // Ngăn chặn race-condition khi người dùng chuyển đổi khách hàng nhanh
+      if (activeCustomerRef.current?.id !== conversationId) {
+        console.log(`[FE CRMTab] Race-condition detected: Bỏ qua kết quả load tin nhắn của khách hàng cũ (${conversationId}).`);
+        return;
+      }
+
       const mappedMsgs = mapFbMessages(result.data);
 
       if (mode === "prepend") {
@@ -225,7 +232,13 @@ export default function CRMTab() {
         lastMessageAt: new Date(c.lastMessageAt)
       } as any));
 
-      const combined = [...mappedFb, ...mappedZalo].sort(
+      const combined = [...mappedFb, ...mappedZalo].map((c) => {
+        // Nếu là khách hàng đang chat, đảm bảo unreadCount = 0 để không hiện thông báo đỏ
+        if (activeCustomerRef.current && c.id === activeCustomerRef.current.id) {
+          return { ...c, unreadCount: 0 };
+        }
+        return c;
+      }).sort(
         (a: any, b: any) => b.lastMessageAt.getTime() - a.lastMessageAt.getTime()
       );
 
@@ -290,6 +303,14 @@ export default function CRMTab() {
 
         if (isMatch) {
           console.log("[FE CRMTab] Match found! Appending message to current chat view.");
+          
+          // Gửi request ngầm lên server để reset unreadCount về 0 trong DB
+          if (activeCust.channel === "zalo") {
+            zaloMessengerService.getMessages(activeId, { limit: 1 }).catch(() => {});
+          } else {
+            fbMessengerService.getMessages(activeId, { limit: 1 }).catch(() => {});
+          }
+
           const mapped = mapFbMessages([message])[0];
           setChatHistory((prev) => {
             // Khử trùng lặp và thay thế tin nhắn tạm thời (optimistic update)
@@ -386,6 +407,11 @@ export default function CRMTab() {
     console.log("[FE CRMTab] Nhân viên chọn khách hàng từ danh sách:", cust);
     setActiveCustomer(cust);
     setChatHistory([]); // Xóa sạch lịch sử chat cũ ngay lập tức để tránh hiển thị nhầm lẫn
+    
+    // Đặt unreadCount của khách hàng này về 0 ngay lập tức trong local state
+    setInboxCustomers((prev) =>
+      prev.map((c) => (c.id === cust.id ? { ...c, unreadCount: 0 } : c))
+    );
   };
 
   const handleLoadOlderMessages = async () => {
