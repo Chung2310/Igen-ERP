@@ -182,8 +182,8 @@ export const geminiController = {
    */
   async generateMarketingIdeas(req: Request, res: Response) {
     try {
-      const { campaignTopic, selectedPillars } = req.body;
-      const result = await geminiService.generateMarketingIdeas(campaignTopic, selectedPillars);
+      const { campaignTopic, selectedPillars, channels, mediaType } = req.body;
+      const result = await geminiService.generateMarketingIdeas(campaignTopic, selectedPillars, channels, mediaType);
       return res.status(200).json(result);
     } catch (error: any) {
       console.error("[geminiController.generateMarketingIdeas] Error:", error);
@@ -196,8 +196,30 @@ export const geminiController = {
    */
   async developMarketingIdea(req: Request, res: Response) {
     try {
-      const { title, summary, suggestedContent, channels } = req.body;
-      const result = await geminiService.developMarketingIdea(title, summary, suggestedContent, channels);
+      const { 
+        title, 
+        summary, 
+        suggestedContent, 
+        channels,
+        mediaType,
+        imageModel,
+        imageResolution,
+        imageAspectRatio,
+        videoModel,
+        videoQuality,
+        videoDuration,
+        videoAspectRatio
+      } = req.body;
+      const result = await geminiService.developMarketingIdea(title, summary, suggestedContent, channels, {
+        mediaType,
+        imageModel,
+        imageResolution,
+        imageAspectRatio,
+        videoModel,
+        videoQuality,
+        videoDuration,
+        videoAspectRatio
+      });
       return res.status(200).json(result);
     } catch (error: any) {
       console.error("[geminiController.developMarketingIdea] Error:", error);

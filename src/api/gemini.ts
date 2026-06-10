@@ -3,6 +3,9 @@ export interface MarketingDevelopPost {
   contentType: string;
   bodyText: string;
   outline?: string;
+  imageUrl?: string;
+  videoUrl?: string;
+  mediaPrompt?: string;
 }
 
 function getJwtHeaders(withContentType: boolean = true) {
@@ -64,12 +67,17 @@ export const geminiApi = {
   /**
    * Phát sinh các bản nháp ý tưởng chiến dịch marketing từ các pillars được chọn.
    */
-  async generateMarketingIdeas(campaignTopic: string, selectedPillars: string[]): Promise<{ concepts: any[] }> {
+  async generateMarketingIdeas(
+    campaignTopic: string,
+    selectedPillars: string[],
+    channels?: string[],
+    mediaType?: string
+  ): Promise<{ concepts: any[] }> {
     const headers = await getHeaders(true);
     const response = await fetch('/api/v1/gemini/marketing-ideas', {
       method: 'POST',
       headers,
-      body: JSON.stringify({ campaignTopic, selectedPillars }),
+      body: JSON.stringify({ campaignTopic, selectedPillars, channels, mediaType }),
     });
     if (!response.ok) {
       throw new Error('Lỗi phát sinh ý tưởng marketing');
@@ -85,6 +93,14 @@ export const geminiApi = {
     summary: string;
     suggestedContent: string;
     channels: string[];
+    mediaType?: string;
+    imageModel?: string;
+    imageResolution?: string;
+    imageAspectRatio?: string;
+    videoModel?: string;
+    videoQuality?: string;
+    videoDuration?: number;
+    videoAspectRatio?: string;
   }): Promise<{ posts: MarketingDevelopPost[] }> {
     const headers = await getHeaders(true);
     const response = await fetch('/api/v1/gemini/marketing-develop', {

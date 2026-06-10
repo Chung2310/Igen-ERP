@@ -18,7 +18,11 @@ import {
   ArrowLeft,
   Facebook,
   ExternalLink,
-  CheckCircle2
+  CheckCircle2,
+  Instagram,
+  Linkedin,
+  Video,
+  Image as ImageIcon
 } from "lucide-react";
 import { MarketingSubTabType, MarketingConcept, ContentApprovalCard, PublishEvent } from "../types";
 import { marketingService, extractDraftContent } from "../services/marketingService";
@@ -70,6 +74,20 @@ export default function MarketingTab() {
   const [quickSuggestions, setQuickSuggestions] = useState<string[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [developingIdx, setDevelopingIdx] = useState<number | null>(null);
+
+  const [selectedChannels, setSelectedChannels] = useState<string[]>(["Facebook"]);
+  const [mediaType, setMediaType] = useState<string>("image"); // "none" | "image" | "video"
+  
+  // Image Options
+  const [imageModel, setImageModel] = useState("imagen-4.0-generate-001");
+  const [imageResolution, setImageResolution] = useState("1K");
+  const [imageAspectRatio, setImageAspectRatio] = useState("1:1");
+
+  // Video Options
+  const [videoModel, setVideoModel] = useState("veo-3.1-generate-preview");
+  const [videoQuality, setVideoQuality] = useState("720p");
+  const [videoDuration, setVideoDuration] = useState("4");
+  const [videoAspectRatio, setVideoAspectRatio] = useState("16:9");
 
   const [schedulingCard, setSchedulingCard] = useState<ContentApprovalCard | null>(null);
   const [scheduleDate, setScheduleDate] = useState("2026-10-15");
@@ -221,7 +239,7 @@ export default function MarketingTab() {
 
     setLoadingAI(true);
     try {
-      const data = await geminiApi.generateMarketingIdeas(topic, selectedPillars);
+      const data = await geminiApi.generateMarketingIdeas(topic, selectedPillars, selectedChannels, mediaType);
       if (data.concepts) {
         setConcepts(data.concepts);
       }
@@ -324,7 +342,15 @@ export default function MarketingTab() {
         title: concept.title,
         summary: concept.summary,
         suggestedContent: concept.suggestedContent,
-        channels: concept.channels
+        channels: concept.channels,
+        mediaType,
+        imageModel,
+        imageResolution,
+        imageAspectRatio,
+        videoModel,
+        videoQuality,
+        videoDuration: parseInt(videoDuration),
+        videoAspectRatio
       });
       console.log("[handleDevelopConcept] Received result from API:", result);
 
@@ -338,6 +364,9 @@ export default function MarketingTab() {
             status: "pending",
             outline: post.outline || "",
             bodyText: post.bodyText || "",
+            imageUrl: post.imageUrl || null,
+            videoUrl: post.videoUrl || null,
+            mediaPrompt: post.mediaPrompt || "",
             generatedAt: new Date().toISOString(),
             authorUid: userProfile?.uid ?? ''
           };
@@ -366,11 +395,13 @@ export default function MarketingTab() {
     
     // For video generation, use the storyboard outline first, fallback to body text.
     // For image generation, extract the draft content from the body text.
-    let cleanText = "";
-    if (selectedType === 'video') {
-      cleanText = card.outline || card.bodyText || "";
-    } else {
-      cleanText = extractDraftContent(card.bodyText);
+    let cleanText = card.mediaPrompt || "";
+    if (!cleanText) {
+      if (selectedType === 'video') {
+        cleanText = card.outline || card.bodyText || "";
+      } else {
+        cleanText = extractDraftContent(card.bodyText);
+      }
     }
 
     setContentStudioParams({
@@ -610,6 +641,232 @@ export default function MarketingTab() {
                         )}
                       </div>
                     </div>
+
+                    {/* Platform Selector */}
+                    <div className="space-y-2 text-left mt-4">
+                      <span className="text-xs font-bold text-gray-750 block uppercase tracking-wider font-mono">
+                        📢 Chọn nền tảng truyền thông:
+                      </span>
+                      <div className="flex flex-wrap gap-2.5">
+                        {[
+                          { id: "Facebook", icon: <Facebook className="h-3.5 w-3.5" /> },
+                          { id: "TikTok", icon: <span className="font-bold text-[10px] font-mono leading-none">TT</span> },
+                          { id: "LinkedIn", icon: <Linkedin className="h-3.5 w-3.5" /> },
+                          { id: "Instagram", icon: <Instagram className="h-3.5 w-3.5" /> }
+                        ].map((chan) => {
+                          const isSelected = selectedChannels.includes(chan.id);
+                          return (
+                            <button
+                              key={chan.id}
+                              type="button"
+                              onClick={() => {
+                                if (isSelected) {
+                                  if (selectedChannels.length === 1) {
+                                    toast.warning("Bạn phải chọn ít nhất một nền tảng!");
+                                    return;
+                                  }
+                                  setSelectedChannels(selectedChannels.filter(c => c !== chan.id));
+                                } else {
+                                  setSelectedChannels([...selectedChannels, chan.id]);
+                                }
+                              }}
+                              className={`px-3.5 py-2 text-xs font-bold rounded-xl border transition-all flex items-center gap-2 cursor-pointer select-none ${
+                                isSelected
+                                  ? "border-indigo-600 bg-indigo-50 text-indigo-700 shadow-xs ring-2 ring-indigo-500/10"
+                                  : "border-slate-200 bg-white text-gray-500 hover:bg-slate-100"
+                              }`}
+                            >
+                              {chan.icon}
+                              <span>{chan.id}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Media Type Selection */}
+                    <div className="space-y-2 text-left mt-4">
+                      <span className="text-xs font-bold text-gray-750 block uppercase tracking-wider font-mono">
+                        🖼️ Loại phương tiện (Media):
+                      </span>
+                      <div className="grid grid-cols-3 gap-2.5">
+                        {[
+                          { value: "none", label: "Không phương tiện" },
+                          { value: "image", label: "Hình ảnh AI", icon: <ImageIcon className="h-3.5 w-3.5" /> },
+                          { value: "video", label: "Video AI", icon: <Video className="h-3.5 w-3.5" /> }
+                        ].map((opt) => {
+                          const isSelected = mediaType === opt.value;
+                          return (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              onClick={() => setMediaType(opt.value)}
+                              className={`py-2 text-xs font-bold rounded-xl border transition-all flex items-center justify-center gap-2 cursor-pointer select-none ${
+                                isSelected
+                                  ? "border-indigo-600 bg-indigo-50 text-indigo-700 shadow-xs ring-2 ring-indigo-500/10"
+                                  : "border-slate-200 bg-white text-gray-500 hover:bg-slate-100"
+                              }`}
+                            >
+                              {opt.icon}
+                              <span>{opt.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Image Settings */}
+                    {mediaType === "image" && (
+                      <div className="p-4 border border-slate-200 bg-white rounded-2xl space-y-4 text-left mt-4 shadow-2xs">
+                        <span className="text-xs font-extrabold text-slate-800 block border-b pb-2 uppercase tracking-wide font-mono flex items-center gap-1.5">
+                          <ImageIcon className="h-4 w-4 text-indigo-500" />
+                          Cấu hình hình ảnh AI
+                        </span>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-1.5">
+                            <span className="text-xs font-bold text-gray-500 font-mono">Mô hình AI</span>
+                            <select
+                              value={imageModel}
+                              onChange={(e) => setImageModel(e.target.value)}
+                              className="w-full text-xs p-2 border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 font-sans"
+                            >
+                              <option value="imagen-4.0-generate-001">Google Imagen 4.0 Pro</option>
+                              <option value="gemini-2.5-flash">Gemini 2.5 Flash Image Model</option>
+                            </select>
+                          </div>
+                          
+                          <div className="space-y-1.5">
+                            <span className="text-xs font-bold text-gray-500 font-mono">Độ phân giải</span>
+                            <div className="grid grid-cols-2 gap-2">
+                              {["1K", "2K"].map((res) => (
+                                <button
+                                  key={res}
+                                  type="button"
+                                  onClick={() => setImageResolution(res)}
+                                  className={`py-1.5 text-xs font-bold rounded-lg border transition-all ${
+                                    imageResolution === res
+                                      ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                                      : "border-slate-200 bg-white text-gray-500 hover:bg-slate-50"
+                                  }`}
+                                >
+                                  {res === "1K" ? "1K Standard" : "2K Ultra HD"}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <span className="text-xs font-bold text-gray-500 font-mono block">Tỉ lệ khung hình</span>
+                          <div className="grid grid-cols-5 gap-2">
+                            {["1:1", "4:3", "16:9", "9:16", "3:4"].map((ratio) => (
+                              <button
+                                key={ratio}
+                                type="button"
+                                onClick={() => setImageAspectRatio(ratio)}
+                                className={`py-1.5 text-xs font-bold rounded-lg border transition-all ${
+                                  imageAspectRatio === ratio
+                                    ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                                    : "border-slate-200 bg-white text-gray-500 hover:bg-slate-50"
+                                }`}
+                              >
+                                {ratio}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {mediaType === "video" && (
+                      <div className="p-4 border border-slate-200 bg-white rounded-2xl space-y-4 text-left mt-4 shadow-2xs">
+                        <span className="text-xs font-extrabold text-slate-800 block border-b pb-2 uppercase tracking-wide font-mono flex items-center gap-1.5">
+                          <Video className="h-4 w-4 text-indigo-500" />
+                          Cấu hình video AI
+                        </span>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-1.5">
+                            <span className="text-xs font-bold text-gray-500 font-mono">Mô hình AI Video</span>
+                            <select
+                              value={videoModel}
+                              onChange={(e) => setVideoModel(e.target.value)}
+                              className="w-full text-xs p-2 border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 font-sans"
+                            >
+                              <option value="veo-3.1-generate-preview">iGen Veo 3.1 Fast</option>
+                              <option value="veo-3.1-fast-generate-preview">iGen Veo 3.1 Fast (Preview)</option>
+                            </select>
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <span className="text-xs font-bold text-gray-500 font-mono">Chất lượng video</span>
+                            <select
+                              value={videoQuality}
+                              onChange={(e) => {
+                                if (e.target.value === "1080p" && parseInt(videoDuration) <= 4) {
+                                  toast.warning("1080p không hỗ trợ cho video 4 giây. Vui lòng chọn 6 hoặc 8 giây trước.");
+                                  return;
+                                }
+                                setVideoQuality(e.target.value);
+                              }}
+                              className="w-full text-xs p-2 border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 font-sans"
+                            >
+                              <option value="720p">720p (HD)</option>
+                              <option value="1080p">1080p (Full HD)</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-1.5">
+                            <span className="text-xs font-bold text-gray-500 font-mono block">Thời lượng video</span>
+                            <div className="grid grid-cols-3 gap-2">
+                              {["4", "6", "8"].map((dur) => (
+                                <button
+                                  key={dur}
+                                  type="button"
+                                  onClick={() => {
+                                    setVideoDuration(dur);
+                                    if (parseInt(dur) <= 4 && videoQuality === "1080p") {
+                                      setVideoQuality("720p");
+                                      toast.warning("1080p yêu cầu tối thiểu 6 giây. Đã tự động chuyển sang 720p.");
+                                    }
+                                  }}
+                                  className={`py-1.5 text-xs font-bold rounded-lg border transition-all ${
+                                    videoDuration === dur
+                                      ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                                      : "border-slate-200 bg-white text-gray-500 hover:bg-slate-50"
+                                  }`}
+                                >
+                                  {dur}s
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <span className="text-xs font-bold text-gray-500 font-mono block">Tỉ lệ khung hình</span>
+                            <div className="grid grid-cols-2 gap-2">
+                              {["16:9", "9:16"].map((ratio) => (
+                                <button
+                                  key={ratio}
+                                  type="button"
+                                  onClick={() => setVideoAspectRatio(ratio)}
+                                  className={`py-1.5 text-xs font-bold rounded-lg border transition-all ${
+                                    videoAspectRatio === ratio
+                                      ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                                      : "border-slate-200 bg-white text-gray-500 hover:bg-slate-50"
+                                  }`}
+                                >
+                                  {ratio === "16:9" ? "Ngang 16:9" : "Dọc 9:16"}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </form>
                 </div>
 

@@ -347,7 +347,9 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
    */
   async generateMarketingIdeas(
     campaignTopic: string,
-    selectedPillars: string[]
+    selectedPillars: string[],
+    channels?: string[],
+    mediaType?: string
   ): Promise<{ concepts: any[]; isMock: boolean }> {
     const client = getGeminiClient();
 
@@ -366,7 +368,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
               ? `Tập trung sâu vào định hướng truyền thông từ các trụ cột lựa chọn: ${selectedPillars.join(", ")}.`
               : "Tạo lối sống trải nghiệm công nghệ đeo và phong cách sống lành mạnh."
           }`,
-          channels: ["TikTok", "Facebook", "LinkedIn"],
+          channels: channels && channels.length > 0 ? channels : ["TikTok", "Facebook", "LinkedIn"],
           suggestedContent:
             "🎬 Kịch bản Tiktok: Biến đổi phong cách thường ngày thành phong cách năng động thể thao chỉ sau 1 cái chạm màn hình X1.",
           hashtags: ["#iGenX1", "#SmartWearable", "#NangTamCuocSong"],
@@ -377,7 +379,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
           summary: `Quảng bá giá trị cốt lõi bền vững thông qua chuỗi bài viết phỏng vấn các đối tác trung thành thực tế đang nâng tầm công việc cùng Workspace V2. ${
             pillarsStr ? `Điều phối theo: ${selectedPillars.join(", ")}.` : ""
           }`,
-          channels: ["Facebook", "LinkedIn"],
+          channels: channels && channels.length > 0 ? channels : ["Facebook", "LinkedIn"],
           suggestedContent:
             "✍️ Facebook Post: 'Gặp gỡ anh Hùng, Giám đốc Sáng tạo, người đã nâng cấp 200% tốc độ gõ nhờ Bàn phím cơ Workspace V2...'",
           hashtags: ["#WorkspaceV2", "#KeyboardMechanic", "#TangHieuSuat"],
@@ -388,7 +390,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
           summary: `Tạo sự gấp rút bằng tính năng đếm ngược flash sale được quản lý tự động bởi thuật toán đề xuất của iGen ERP. ${
             pillarsStr ? `Kế thừa ý tưởng từ các Content Pillar được cấu hình: ${selectedPillars.join(", ")}.` : ""
           }`,
-          channels: ["Facebook", "Instagram"],
+          channels: channels && channels.length > 0 ? channels : ["Facebook", "Instagram"],
           suggestedContent:
             "🔥 Tin nhắn Zalo: 'Duy nhất hôm nay! Giờ vàng từ 12h-14h, giảm giá 30% toàn bộ tai nghe Không dây Pro Max. Đặt ngay!'",
           hashtags: ["#FlashSale", "#TaiNgheProMax", "#AmThanhDinhCao"],
@@ -404,13 +406,27 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
           )}. Hãy sáng tạo các ý tưởng tập trung xoay quanh các trụ cột này.`
         : "";
 
+    const channelsContext =
+      channels && channels.length > 0
+        ? `\nKênh truyền thông bắt buộc: Bắt buộc các ý tưởng của bạn phải phân phối và đăng bài chính xác trên các kênh: ${channels.join(", ")}.`
+        : "";
+
+    const mediaContext =
+      mediaType === "image"
+        ? "\nYêu cầu về phương tiện: Các ý tưởng phải thiết kế đi kèm hình ảnh làm chủ đạo."
+        : mediaType === "video"
+        ? "\nYêu cầu về phương tiện: Các ý tưởng phải thiết kế đi kèm video làm chủ đạo."
+        : mediaType === "none"
+        ? "\nYêu cầu về phương tiện: Các bài đăng không đi kèm hình ảnh hoặc video (chỉ văn bản/caption)."
+        : "";
+
     const prompt = `Bạn là một chuyên gia marketing xuất sắc.
-Hãy tạo đúng 3 ý tưởng/bản nháp chiến dịch marketing chi tiết cho chủ đề/chiến dịch này: "${campaignTopic}".${pillarsContext}
+Hãy tạo đúng 3 ý tưởng/bản nháp chiến dịch marketing chi tiết cho chủ đề/chiến dịch này: "${campaignTopic}".${pillarsContext}${channelsContext}${mediaContext}
 Yêu cầu kết quả đầu ra:
 1. Đề xuất tiêu đề chiến dịch sáng tạo.
 2. Tỷ lệ phần trăm phù hợp (matchPercent) ước lượng (số nguyên từ 50-100).
 3. Tóm tắt ý tưởng triển khai ngắn gọn.
-4. Các kênh truyền thông phù hợp đề xuất đăng bài (mảng các chuỗi, ví dụ: ["Facebook", "TikTok"]).
+4. Các kênh truyền thông phù hợp đề xuất đăng bài (mảng các chuỗi, ví dụ: ["Facebook", "TikTok"] - Bắt buộc phải trùng khớp với danh sách kênh đã được yêu cầu ở trên).
 5. Ý tưởng nội dung gợi ý ban đầu để triển khai bài đăng trên kênh.
 6. Hashtags liên quan phù hợp.
 
@@ -463,7 +479,17 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
     title: string,
     summary: string,
     suggestedContent: string,
-    channels: string[]
+    channels: string[],
+    mediaOptions?: {
+      mediaType?: string;
+      imageModel?: string;
+      imageResolution?: string;
+      imageAspectRatio?: string;
+      videoModel?: string;
+      videoQuality?: string;
+      videoDuration?: number;
+      videoAspectRatio?: string;
+    }
   ): Promise<{ posts: any[]; isMock: boolean }> {
     const client = getGeminiClient();
     const validChannels = ["Facebook", "TikTok", "LinkedIn", "Instagram"];
@@ -487,11 +513,16 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
       targetChannels = ["Facebook"];
     }
 
+    let posts: any[] = [];
+    let isMock = false;
+
     if (!client) {
-      const mockPosts = targetChannels.map((chan) => {
+      isMock = true;
+      posts = targetChannels.map((chan) => {
         let contentType = "Bài viết truyền thông";
         let outline = "";
         let bodyText = "";
+        let mockMediaPrompt = "";
         if (chan === "Facebook") {
           contentType = "Hình ảnh kèm Caption";
           outline = `📋 DÀN Ý CHI TIẾT (OUTLINE):
@@ -509,6 +540,7 @@ Bạn có biết 90% hiệu suất làm việc phụ thuộc vào sự thoải m
 💡 Ý tưởng cốt lõi: "${suggestedContent}"
 
 📲 Nhắn tin ngay cho iGen để nhận deal hời! #iGenERP #WorkspaceV2 #CongNgheSo #Success`;
+          mockMediaPrompt = `A professional product photoshoot of ${title} on a modern wooden desk, warm cozy lighting, detailed textures, 8k resolution.`;
         } else if (chan === "TikTok") {
           contentType = "Kịch bản Video ngắn 8s";
           outline = `🎬 KỊCH BẢN QUAY (TIMELINE VIDEO SCRIPTS - MAX 8S):
@@ -520,6 +552,7 @@ Bạn có biết 90% hiệu suất làm việc phụ thuộc vào sự thoải m
 - Visual: Show cận cảnh thiết kế sang trọng & âm thanh gõ phím đầm chắc của ${title}.
 - Audio (Voiceover): "Nâng cấp hiệu năng làm việc cực đỉnh cùng ${summary}"`;
           bodyText = `🔥 Cứu tinh deadline của bạn đây rồi! Nâng cấp hiệu năng làm việc cực đỉnh với ${title}. Đăng ký trải nghiệm ngay hôm nay để nhận voucher giảm giá 45% độc quyền! #iGenERP #WorkspaceV2 #WorkSmart #Deadline`;
+          mockMediaPrompt = `An energetic, dynamic lifestyle video showing someone typing fast on ${title}, neon lighting, high-tech vibes, cinematic look.`;
         } else if (chan === "LinkedIn") {
           contentType = "Bài viết chuyên sâu (Article)";
           outline = `📋 DÀN Ý CHI TIẾT (OUTLINE):
@@ -541,6 +574,7 @@ Dựa trên gợi ý đề xuất: "${suggestedContent}", iGen ERP mang tới g�
 💼 Hãy thảo luận cùng chúng tôi để thiết kế giải pháp chuyển đổi số toàn diện cho doanh nghiệp của bạn.
 
 #ChuyenDoiSo #iGenERP #LinkedInArticle #CongNgheTuongLai`;
+          mockMediaPrompt = `A minimalist, clean corporate office setting showing a laptop and ${title}, professional corporate workspace, bright natural light.`;
         } else {
           contentType = "Bài viết truyền thông đa kênh";
           outline = `📋 DÀN Ý CHI TIẾT (OUTLINE):
@@ -551,13 +585,12 @@ Dựa trên gợi ý đề xuất: "${suggestedContent}", iGen ERP mang tới g�
 
 Định hướng ý tưởng: ${summary}.
 Nội dung chi tiết gợi ý: ${suggestedContent}`;
+          mockMediaPrompt = `A creative, appealing social media visual representing ${title}.`;
         }
-        return { channel: chan, contentType, outline, bodyText };
+        return { channel: chan, contentType, outline, bodyText, mediaPrompt: mockMediaPrompt };
       });
-      return { posts: mockPosts, isMock: true };
-    }
-
-    const prompt = `Bạn là một chuyên gia viết kịch bản và AI Copywriter xuất sắc.
+    } else {
+      const prompt = `Bạn là một chuyên gia viết kịch bản và AI Copywriter xuất sắc.
 Hãy lập Dàn ý (Outline) và viết Bản nháp nội dung (Draft Content) cho các kênh sau đây: ${targetChannels.join(", ")}
 
 QUY TẮC PHÂN TÁCH DỮ LIỆU BẮT BUỘC CHO TỪNG KÊNH:
@@ -567,6 +600,7 @@ QUY TẮC PHÂN TÁCH DỮ LIỆU BẮT BUỘC CHO TỪNG KÊNH:
 2. Đối với các kênh khác (Facebook, LinkedIn, Instagram...):
    - Trường "outline": Lập dàn ý chi tiết, cụ thể và tối ưu của bài viết.
    - Trường "bodyText": Lưu bản nháp nội dung bài viết sạch hoàn chỉnh để đăng tải trực tiếp (không chứa dàn ý hay tiêu đề nháp).
+3. Đối với mọi kênh: Sinh thêm trường "mediaPrompt" là một đoạn mô tả chi tiết bằng tiếng Anh (visual prompt) mô phỏng chính xác nội dung trực quan (hình ảnh hoặc video) phù hợp cho bài viết này để gửi tới AI Generator.
 
 Thông tin chiến dịch marketing:
 - Tiêu đề ý tưởng: "${title}"
@@ -575,46 +609,107 @@ Thông tin chiến dịch marketing:
 
 Trả về kết quả ở định dạng JSON phù hợp chính xác với cấu trúc yêu cầu.`;
 
-    const response = await client.models.generateContent({
-      model: GEMINI_TEXT_MODEL,
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            posts: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  channel: { type: Type.STRING, description: "Kênh đăng bài (ví dụ: Facebook, TikTok, LinkedIn, Instagram)" },
-                  contentType: { type: Type.STRING, description: "Loại nội dung" },
-                  outline: { 
-                    type: Type.STRING, 
-                    description: "Dàn ý chi tiết của bài viết. ĐẶC BIỆT với TikTok: Phải lưu KỊCH BẢN QUAY (timeline video script) chi tiết bao gồm Visual, Audio và mốc thời gian dạng [0:00 - 0:03], [0:03 - 0:08]... với tổng thời lượng tối đa không quá 8 giây." 
+      const response = await client.models.generateContent({
+        model: GEMINI_TEXT_MODEL,
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              posts: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    channel: { type: Type.STRING, description: "Kênh đăng bài (ví dụ: Facebook, TikTok, LinkedIn, Instagram)" },
+                    contentType: { type: Type.STRING, description: "Loại nội dung" },
+                    outline: { 
+                      type: Type.STRING, 
+                      description: "Dàn ý chi tiết của bài viết. ĐẶC BIỆT với TikTok: Phải lưu KỊCH BẢN QUAY (timeline video script) chi tiết bao gồm Visual, Audio và mốc thời gian dạng [0:00 - 0:03], [0:03 - 0:08]... với tổng thời lượng tối đa không quá 8 giây." 
+                    },
+                    bodyText: { 
+                      type: Type.STRING, 
+                      description: "Nội dung bài đăng/caption sạch để đăng tải trực tiếp. ĐẶC BIỆT với TikTok: Chỉ là Caption/Description giới thiệu video kèm hashtag và call-to-action (TUYỆT ĐỐI không chứa kịch bản quay, visual, audio hay timeline video ở trường này)." 
+                    },
+                    mediaPrompt: {
+                      type: Type.STRING,
+                      description: "A detailed visual description prompt in English for generating a matching image or video (e.g. scenic views, product display, lifestyle scene, characters, setting details)."
+                    }
                   },
-                  bodyText: { 
-                    type: Type.STRING, 
-                    description: "Nội dung bài đăng/caption sạch để đăng tải trực tiếp. ĐẶC BIỆT với TikTok: Chỉ là Caption/Description giới thiệu video kèm hashtag và call-to-action (TUYỆT ĐỐI không chứa kịch bản quay, visual, audio hay timeline video ở trường này)." 
-                  },
+                  required: ["channel", "contentType", "outline", "bodyText", "mediaPrompt"],
                 },
-                required: ["channel", "contentType", "outline", "bodyText"],
               },
             },
+            required: ["posts"],
           },
-          required: ["posts"],
         },
-      },
-    });
+      });
 
-    const responseText = response.text || "{}";
-    const parsedData = JSON.parse(responseText.trim());
-    const posts = (parsedData.posts || []).map((post: any) => ({
-      ...post,
-      channel: normalizeChannel(post.channel)
-    }));
-    return { posts, isMock: false };
+      const responseText = response.text || "{}";
+      const parsedData = JSON.parse(responseText.trim());
+      posts = (parsedData.posts || []).map((post: any) => ({
+        ...post,
+        channel: normalizeChannel(post.channel)
+      }));
+    }
+
+    // Auto-generate media if mediaType is requested
+    if (mediaOptions && mediaOptions.mediaType && mediaOptions.mediaType !== "none") {
+      console.log(`[developMarketingIdea] Generating media of type: ${mediaOptions.mediaType}`);
+      for (const post of posts) {
+        if (mediaOptions.mediaType === "image") {
+          try {
+            const promptToUse = post.mediaPrompt || `A professional photo matching the campaign topic: ${title}`;
+            const imageResult = await geminiService.generateImage(promptToUse, {
+              modelName: mediaOptions.imageModel,
+              resolution: mediaOptions.imageResolution,
+              aspectRatio: mediaOptions.imageAspectRatio,
+            });
+
+            if (imageResult.isMock) {
+              post.imageUrl = imageResult.url;
+            } else {
+              try {
+                const uploadedUrl = await cloudinaryService.uploadMedia(imageResult.url, "igen_erp");
+                post.imageUrl = uploadedUrl;
+              } catch (clErr) {
+                console.error("[developMarketingIdea] Cloudinary upload image failed, fallback to raw url:", clErr);
+                post.imageUrl = imageResult.url;
+              }
+            }
+          } catch (err) {
+            console.error(`[developMarketingIdea] Error generating image for post on ${post.channel}:`, err);
+          }
+        } else if (mediaOptions.mediaType === "video") {
+          try {
+            const promptToUse = post.mediaPrompt || `A cinematic video clip matching the campaign topic: ${title}`;
+            const durationSec = mediaOptions.videoDuration ? Number(mediaOptions.videoDuration) : 6;
+            const videoResult = await geminiService.generateVideo(promptToUse, durationSec, {
+              modelName: mediaOptions.videoModel,
+              resolution: mediaOptions.videoQuality,
+              aspectRatio: mediaOptions.videoAspectRatio,
+            });
+
+            if (videoResult.isMock) {
+              post.videoUrl = videoResult.url;
+            } else {
+              try {
+                const uploadedUrl = await cloudinaryService.uploadMedia(videoResult.url, "igen_erp");
+                post.videoUrl = uploadedUrl;
+              } catch (clErr) {
+                console.error("[developMarketingIdea] Cloudinary upload video failed, fallback to raw url:", clErr);
+                post.videoUrl = videoResult.url;
+              }
+            }
+          } catch (err) {
+            console.error(`[developMarketingIdea] Error generating video for post on ${post.channel}:`, err);
+          }
+        }
+      }
+    }
+
+    return { posts, isMock };
   },
 
 
