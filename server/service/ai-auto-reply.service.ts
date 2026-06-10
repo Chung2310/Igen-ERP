@@ -142,24 +142,39 @@ export const aiAutoReplyService = {
 
           console.log(`[AI AutoReply] Đã sinh xong câu trả lời. Gửi tin nhắn thật qua ${channel}...`);
 
-          // Send response using existing sendReply helper
-          if (channel === "zalo") {
-            await zaloMessengerService.sendReply(platformId, conversationId, aiResponse.text);
-          } else {
-            await fbMessengerService.sendReply(platformId, conversationId, aiResponse.text);
-          }
+          try {
+            // Send response using existing sendReply helper
+            if (channel === "zalo") {
+              await zaloMessengerService.sendReply(platformId, conversationId, aiResponse.text);
+            } else {
+              await fbMessengerService.sendReply(platformId, conversationId, aiResponse.text);
+            }
 
-          await aiKnowledgeService.createReplyLog({
-            companyCode,
-            channel,
-            conversationId,
-            customerMessage: incomingText,
-            aiResponse: aiResponse.text,
-            contextText: effectiveRagContext.contextText,
-            contextMatches: effectiveRagContext.matches,
-            latencyMs: Date.now() - startedAt,
-            status: "sent",
-          });
+            await aiKnowledgeService.createReplyLog({
+              companyCode,
+              channel,
+              conversationId,
+              customerMessage: incomingText,
+              aiResponse: aiResponse.text,
+              contextText: effectiveRagContext.contextText,
+              contextMatches: effectiveRagContext.matches,
+              latencyMs: Date.now() - startedAt,
+              status: "sent",
+            });
+          } catch (sendErr: any) {
+            await aiKnowledgeService.createReplyLog({
+              companyCode,
+              channel,
+              conversationId,
+              customerMessage: incomingText,
+              aiResponse: `[SEND_FAILED] ${aiResponse.text}\n\nError: ${sendErr?.message || sendErr}`,
+              contextText: effectiveRagContext.contextText,
+              contextMatches: effectiveRagContext.matches,
+              latencyMs: Date.now() - startedAt,
+              status: "failed",
+            });
+            throw sendErr;
+          }
 
           console.log(`[AI AutoReply] Gửi phản hồi tự động thành công cho hội thoại: ${conversationId}`);
         } catch (err) {

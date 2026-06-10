@@ -12,4 +12,5 @@ zaloMessengerRouter.post("/save-integration", requireAuth as any, zaloMessengerC
 zaloMessengerRouter.delete("/integration", requireAuth as any, zaloMessengerController.removeIntegration);
 zaloMessengerRouter.get("/conversations", requireAuth as any, zaloMessengerController.getConversations);
 zaloMessengerRouter.get("/conversations/:recipientId/messages", requireAuth as any, zaloMessengerController.getMessages);
+zaloMessengerRouter.post("/conversations/:recipientId/mark-read", requireAuth as any, zaloMessengerController.markRead);
 zaloMessengerRouter.post("/reply", requireAuth as any, zaloMessengerController.sendReply);

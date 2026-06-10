@@ -63,6 +63,7 @@ export const zaloMessengerController = {
       const userId = req.user?.id;
       const limit = Number(req.query.limit || 20);
       const before = typeof req.query.before === "string" ? req.query.before : undefined;
+      const shouldSync = req.query.sync === "1" || req.query.sync === "true";
 
       if (!userId) {
         return res.status(401).json({ success: false, message: "Người dùng chưa đăng nhập." });
@@ -75,7 +76,7 @@ export const zaloMessengerController = {
         return res.status(403).json({ success: false, message: "Bạn chưa cấu hình tích hợp Zalo OA." });
       }
 
-      const result = await zaloMessengerService.getMessages(oaId, conversationId, { limit, before });
+      const result = await zaloMessengerService.getMessages(oaId, conversationId, { limit, before, sync: shouldSync });
 
       res.status(200).json({
         success: true,
@@ -92,6 +93,38 @@ export const zaloMessengerController = {
    * POST /api/v1/zalo/reply
    * API nhân viên / Bot AI phản hồi tin nhắn Zalo OA
    */
+  async markRead(req: any, res: Response): Promise<any> {
+    try {
+      const { recipientId: conversationId } = req.params;
+      const userId = req.user?.id;
+
+      if (!userId) {
+        return res.status(401).json({ success: false, message: "NgÆ°á»i dÃ¹ng chÆ°a Ä‘Äƒng nháº­p." });
+      }
+
+      const dbUser = await UserModel.findById(userId).lean();
+      const oaId = dbUser?.zaloIntegration?.oaId;
+
+      if (!dbUser?.zaloIntegration?.isConnected || !oaId) {
+        return res.status(403).json({ success: false, message: "Báº¡n chÆ°a cáº¥u hÃ¬nh tÃ­ch há»£p Zalo OA." });
+      }
+
+      const conversation = await zaloMessengerService.markConversationRead(oaId, conversationId);
+
+      res.status(200).json({
+        success: true,
+        message: "ÄÃ£ Ä‘Ã¡nh dáº¥u Ä‘Ã£ Ä‘á»c cuá»™c há»™i thoáº¡i Zalo.",
+        data: conversation
+      });
+    } catch (error: any) {
+      console.error("[Zalo Controller markRead] Lá»—i khi Ä‘Ã¡nh dáº¥u Ä‘Ã£ Ä‘á»c:", error);
+      res.status(500).json({
+        success: false,
+        message: error.message || "KhÃ´ng thá»ƒ Ä‘Ã¡nh dáº¥u Ä‘Ã£ Ä‘á»c cuá»™c há»™i thoáº¡i Zalo."
+      });
+    }
+  },
+
   async sendReply(req: any, res: Response): Promise<any> {
     try {
       const { recipientId: conversationId, text } = req.body;

@@ -399,6 +399,21 @@ export const fbMessengerService = {
     );
   },
 
+  async markConversationRead(pageId: string, conversationId: string) {
+    const conversation = await FBConversationModel.findOne({ _id: conversationId, pageId });
+    if (!conversation) {
+      throw new Error("Khong tim thay hoi thoai Facebook.");
+    }
+
+    if (conversation.unreadCount !== 0) {
+      conversation.unreadCount = 0;
+      await conversation.save();
+      emitToPage(pageId, "conversation_updated", conversation);
+    }
+
+    return { success: true };
+  },
+
   /**
    * Gọi Graph API lấy Profile từ PSID bằng Token động
    */
@@ -503,10 +518,10 @@ export const fbMessengerService = {
   /**
    * Lấy danh sách cuộc hội thoại thuộc Page mà người dùng hiện tại có quyền truy cập
    */
-  async getConversations(pageId?: string) {
+  async getConversations(pageId?: string, options?: { sync?: boolean }) {
     console.log(`[FB Service getConversations] Lọc hội thoại theo Page ID: ${pageId || "Tất cả"}`);
     const filter = pageId ? { pageId } : {};
-    if (pageId && this.shouldSync(`conversations:${pageId}`, CONVERSATION_SYNC_TTL_MS)) {
+    if (pageId && options?.sync && this.shouldSync(`conversations:${pageId}`, CONVERSATION_SYNC_TTL_MS)) {
       try {
         await this.syncConversationsFromFacebook(pageId);
       } catch (error) {
@@ -520,7 +535,7 @@ export const fbMessengerService = {
   /**
    * Lấy lịch sử tin nhắn của cuộc hội thoại
    */
-  async getMessages(pageId: string, conversationId: string, options?: { limit?: number; before?: string }) {
+  async getMessages(pageId: string, conversationId: string, options?: { limit?: number; before?: string; sync?: boolean }) {
     console.log(`[FB Service getMessages] Lấy tin nhắn cho conversation ${conversationId} thuộc Page ID: ${pageId}`);
     const conversation = await FBConversationModel.findOne({ _id: conversationId, pageId });
     if (!conversation) {
@@ -550,7 +565,7 @@ export const fbMessengerService = {
 
     let existingMessages = await FBMessageModel.find(filter).sort({ timestamp: -1 }).limit(limit + 1);
 
-    if (!beforeDate && conversation.recipientId && this.shouldSync(`messages:${pageId}:${conversation._id}`, MESSAGE_SYNC_TTL_MS)) {
+    if (!beforeDate && options?.sync && conversation.recipientId && this.shouldSync(`messages:${pageId}:${conversation._id}`, MESSAGE_SYNC_TTL_MS)) {
       await this.syncMessagesFromFacebook(pageId, conversation.recipientId);
       existingMessages = await FBMessageModel.find(filter).sort({ timestamp: -1 }).limit(limit + 1);
     }
@@ -578,6 +593,44 @@ export const fbMessengerService = {
         hasMore,
         nextBefore: oldestMessage?.timestamp ? new Date(oldestMessage.timestamp).toISOString() : null,
       },
+    };
+  },
+
+  async diagnoseConversation(pageId: string, conversationId: string) {
+    const conversation = await FBConversationModel.findOne({ _id: conversationId, pageId }).lean();
+    const pageOwner = await UserModel.findOne({
+      "facebookIntegration.isConnected": true,
+      "facebookIntegration.pageId": pageId,
+    })
+      .select("email companyCode aiAutoReplyConfig facebookIntegration.pageId facebookIntegration.pageName facebookIntegration.pageAccessToken")
+      .lean();
+    const latestMessage = conversation
+      ? await FBMessageModel.findOne({ conversationId: conversation._id }).sort({ timestamp: -1 }).lean()
+      : null;
+    const token = await this.getPageAccessTokenByPageId(pageId);
+
+    return {
+      pageId,
+      conversationFound: !!conversation,
+      conversationPageId: conversation?.pageId || null,
+      recipientId: conversation?.recipientId || null,
+      pageOwnerEmail: pageOwner?.email || null,
+      companyCode: pageOwner?.companyCode || null,
+      aiEnabled: !!pageOwner?.aiAutoReplyConfig?.enabled,
+      replyDelay: pageOwner?.aiAutoReplyConfig?.replyDelay ?? null,
+      hasPageAccessToken: !!token,
+      pageAccessTokenTail: token ? token.slice(-6) : null,
+      latestMessageDirection: latestMessage?.direction || null,
+      latestMessageId: latestMessage?.messageId || null,
+      latestMessageText: latestMessage?.text || null,
+      latestMessageAt: latestMessage?.timestamp || null,
+      shouldTriggerAutoReply: !!(
+        conversation &&
+        pageOwner?.aiAutoReplyConfig?.enabled &&
+        token &&
+        latestMessage?.direction === "inbound" &&
+        latestMessage?.text
+      ),
     };
   }
 };

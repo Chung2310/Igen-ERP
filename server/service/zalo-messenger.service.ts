@@ -311,7 +311,7 @@ export const zaloMessengerService = {
   /**
    * Lấy tin nhắn chi tiết
    */
-  async getMessages(oaId: string, conversationId: string, options?: { limit?: number; before?: string }) {
+  async getMessages(oaId: string, conversationId: string, options?: { limit?: number; before?: string; sync?: boolean }) {
     const conversation = await ZaloConversationModel.findOne({ _id: conversationId, oaId });
     if (!conversation) {
       return {
@@ -341,7 +341,7 @@ export const zaloMessengerService = {
     const oldestMessage = orderedMessages[0];
     const latestMessage = orderedMessages[orderedMessages.length - 1];
 
-    if (!beforeDate && latestMessage?.direction === "inbound" && latestMessage.text) {
+    if (!beforeDate && options?.sync && latestMessage?.direction === "inbound" && latestMessage.text) {
       aiAutoReplyService.triggerAutoReply(
         "zalo",
         oaId,
@@ -359,6 +359,21 @@ export const zaloMessengerService = {
         nextBefore: oldestMessage?.timestamp ? new Date(oldestMessage.timestamp).toISOString() : null,
       }
     };
+  },
+
+  async markConversationRead(oaId: string, conversationId: string) {
+    const conversation = await ZaloConversationModel.findOne({ _id: conversationId, oaId });
+    if (!conversation) {
+      throw new Error("Khong tim thay hoi thoai Zalo.");
+    }
+
+    if (conversation.unreadCount !== 0) {
+      conversation.unreadCount = 0;
+      await conversation.save();
+      emitToPage(oaId, "conversation_updated", conversation);
+    }
+
+    return { success: true };
   },
 
   /**
