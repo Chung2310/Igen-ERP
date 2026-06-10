@@ -57,7 +57,7 @@ const developSchema = {
     imageAspectRatio: Joi.string().optional().allow(""),
     videoModel: Joi.string().optional().allow(""),
     videoQuality: Joi.string().optional().allow(""),
-    videoDuration: Joi.string().optional().allow(""),
+    videoDuration: Joi.alternatives().try(Joi.number(), Joi.string().allow("")).optional(),
     videoAspectRatio: Joi.string().optional().allow(""),
   }),
 };

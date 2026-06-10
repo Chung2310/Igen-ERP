@@ -661,7 +661,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
         if (mediaOptions.mediaType === "image") {
           try {
             const promptToUse = post.mediaPrompt || `A professional photo matching the campaign topic: ${title}`;
-            const imageResult = await this.generateImage(promptToUse, {
+            const imageResult = await geminiService.generateImage(promptToUse, {
               modelName: mediaOptions.imageModel,
               resolution: mediaOptions.imageResolution,
               aspectRatio: mediaOptions.imageAspectRatio,
@@ -684,7 +684,8 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
         } else if (mediaOptions.mediaType === "video") {
           try {
             const promptToUse = post.mediaPrompt || `A cinematic video clip matching the campaign topic: ${title}`;
-            const videoResult = await this.generateVideo(promptToUse, mediaOptions.videoDuration || 6, {
+            const durationSec = mediaOptions.videoDuration ? Number(mediaOptions.videoDuration) : 6;
+            const videoResult = await geminiService.generateVideo(promptToUse, durationSec, {
               modelName: mediaOptions.videoModel,
               resolution: mediaOptions.videoQuality,
               aspectRatio: mediaOptions.videoAspectRatio,
