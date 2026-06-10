@@ -339,6 +339,17 @@ export const zaloMessengerService = {
     const trimmedMessages = hasMore ? existingMessages.slice(0, limit) : existingMessages;
     const orderedMessages = [...trimmedMessages].reverse();
     const oldestMessage = orderedMessages[0];
+    const latestMessage = orderedMessages[orderedMessages.length - 1];
+
+    if (!beforeDate && latestMessage?.direction === "inbound" && latestMessage.text) {
+      aiAutoReplyService.triggerAutoReply(
+        "zalo",
+        oaId,
+        conversation._id.toString(),
+        latestMessage.text,
+        latestMessage.messageId
+      );
+    }
 
     return {
       messages: orderedMessages,
@@ -621,7 +632,7 @@ export const zaloMessengerService = {
       console.log(`[Zalo Service Webhook] Đã lưu tin nhắn mới thành công từ Zalo User: ${senderId}`);
 
       // Kích hoạt AI Auto-Reply Bot bất đồng bộ
-      aiAutoReplyService.triggerAutoReply("zalo", oaId, conversation._id.toString(), text);
+      aiAutoReplyService.triggerAutoReply("zalo", oaId, conversation._id.toString(), text, messageId);
     }
   }
 };

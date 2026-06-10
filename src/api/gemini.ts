@@ -6,6 +6,18 @@ export interface MarketingDevelopPost {
   bodyText: string;
 }
 
+function getJwtHeaders(withContentType: boolean = true) {
+  const headers: Record<string, string> = {};
+  if (withContentType) {
+    headers["Content-Type"] = "application/json";
+  }
+  const token = localStorage.getItem("accessToken");
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  return headers;
+}
+
 async function getHeaders(withContentType: boolean = true) {
   const headers: Record<string, string> = {};
   if (withContentType) {
@@ -111,6 +123,50 @@ export const geminiApi = {
       throw new Error('Lỗi kết nối Trợ lý AI');
     }
     return response.json();
+  },
+
+  async getKnowledgeHealth(): Promise<any> {
+    const response = await fetch("/api/v1/gemini/knowledge-health", {
+      headers: getJwtHeaders(false),
+    });
+    if (!response.ok) {
+      throw new Error("Không thể kiểm tra trạng thái AI knowledge");
+    }
+    return response.json();
+  },
+
+  async testReply(message: string, aiConfig: any): Promise<any> {
+    const response = await fetch("/api/v1/gemini/test-reply", {
+      method: "POST",
+      headers: getJwtHeaders(true),
+      body: JSON.stringify({ message, aiConfig }),
+    });
+    if (!response.ok) {
+      throw new Error("Không thể tạo câu trả lời thử");
+    }
+    return response.json();
+  },
+
+  async fetchAIReplyLogs(limit: number = 8): Promise<any[]> {
+    const response = await fetch(`/api/v1/gemini/ai-reply-logs?limit=${limit}`, {
+      headers: getJwtHeaders(false),
+    });
+    if (!response.ok) {
+      throw new Error("Không thể tải log phản hồi AI");
+    }
+    const data = await response.json();
+    return data.logs || [];
+  },
+
+  async sendAIReplyFeedback(id: string, feedback: "good" | "bad" | "needs_fix", note: string = ""): Promise<void> {
+    const response = await fetch(`/api/v1/gemini/ai-reply-logs/${id}/feedback`, {
+      method: "PATCH",
+      headers: getJwtHeaders(true),
+      body: JSON.stringify({ feedback, note }),
+    });
+    if (!response.ok) {
+      throw new Error("Không thể lưu feedback AI");
+    }
   },
 
   /**

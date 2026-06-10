@@ -6,8 +6,9 @@ import { zaloMessengerService } from "./zalo-messenger.service";
 import { fbMessengerService } from "./fb-messenger.service";
 import { aiKnowledgeService } from "./ai-knowledge.service";
 
-// In-memory timeouts map to manage debouncing per conversation
-const pendingReplies = new Map<string, NodeJS.Timeout>();
+// In-memory timeouts map to manage debouncing per conversation.
+// messageKey prevents polling/sync from pushing the same inbound message forever.
+const pendingReplies = new Map<string, { timeout: NodeJS.Timeout; messageKey: string }>();
 
 export const aiAutoReplyService = {
   /**
@@ -16,7 +17,7 @@ export const aiAutoReplyService = {
   cancelPendingReply(conversationId: string) {
     const pending = pendingReplies.get(conversationId);
     if (pending) {
-      clearTimeout(pending);
+      clearTimeout(pending.timeout);
       pendingReplies.delete(conversationId);
       console.log(`[AI AutoReply] Đã hủy phản hồi tự động đang lên lịch cho cuộc hội thoại: ${conversationId} do có sự can thiệp từ nhân viên.`);
     }
@@ -25,8 +26,15 @@ export const aiAutoReplyService = {
   /**
    * Triggers the AI auto-reply process. Debounces incoming messages to wait for the customer to finish typing.
    */
-  async triggerAutoReply(channel: "facebook" | "zalo", platformId: string, conversationId: string, incomingText: string) {
+  async triggerAutoReply(channel: "facebook" | "zalo", platformId: string, conversationId: string, incomingText: string, incomingMessageId?: string) {
     try {
+      const messageKey = incomingMessageId || `${conversationId}:${incomingText}:${Date.now()}`;
+      const existingPending = pendingReplies.get(conversationId);
+      if (existingPending?.messageKey === messageKey) {
+        console.log(`[AI AutoReply] Đã có lịch phản hồi cho message ${messageKey}, bỏ qua trigger trùng.`);
+        return;
+      }
+
       // Find the user who owns this integration
       const query = channel === "zalo" 
         ? { "zaloIntegration.isConnected": true, "zaloIntegration.oaId": platformId }
@@ -106,6 +114,7 @@ export const aiAutoReplyService = {
 
           console.log(`[AI AutoReply] Bắt đầu gọi Gemini sinh câu trả lời cho hội thoại: ${conversationId}`);
 
+          const startedAt = Date.now();
           const companyCode = user.companyCode || "SYSTEM";
           const ragContext = await aiKnowledgeService.searchRelevantContext({
             companyCode,
@@ -140,13 +149,25 @@ export const aiAutoReplyService = {
             await fbMessengerService.sendReply(platformId, conversationId, aiResponse.text);
           }
 
+          await aiKnowledgeService.createReplyLog({
+            companyCode,
+            channel,
+            conversationId,
+            customerMessage: incomingText,
+            aiResponse: aiResponse.text,
+            contextText: effectiveRagContext.contextText,
+            contextMatches: effectiveRagContext.matches,
+            latencyMs: Date.now() - startedAt,
+            status: "sent",
+          });
+
           console.log(`[AI AutoReply] Gửi phản hồi tự động thành công cho hội thoại: ${conversationId}`);
         } catch (err) {
           console.error(`[AI AutoReply Timeout Execution] Thất bại khi thực hiện gửi phản hồi tự động:`, err);
         }
       }, delayMs);
 
-      pendingReplies.set(conversationId, timeoutId);
+      pendingReplies.set(conversationId, { timeout: timeoutId, messageKey });
     } catch (error) {
       console.error("[AI AutoReply triggerAutoReply] Lỗi xử lý trigger:", error);
     }

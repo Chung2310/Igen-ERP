@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { AIKnowledgeChunkModel, AIKnowledgeDocumentModel } from "../model/ai-knowledge.model";
+import { AIReplyLogModel } from "../model/ai-reply-log.model";
 
 const EMBEDDING_DIMENSIONS = 96;
 const DEFAULT_TOP_K = 5;
@@ -201,5 +202,96 @@ export const aiKnowledgeService = {
       contextText: selected.map((text, index) => `[Nguon ${index + 1}]\n${text}`).join("\n\n---\n\n"),
       matches: ranked.length,
     };
+  },
+
+  async getKnowledgeHealth(companyCode?: string) {
+    const normalizedCompanyCode = normalizeCompanyCode(companyCode);
+    const [documents, chunksCount, latestLog] = await Promise.all([
+      AIKnowledgeDocumentModel.find({ companyCode: normalizedCompanyCode }).sort({ updatedAt: -1 }).lean(),
+      AIKnowledgeChunkModel.countDocuments({ companyCode: normalizedCompanyCode }),
+      AIReplyLogModel.findOne({ companyCode: normalizedCompanyCode }).sort({ createdAt: -1 }).lean(),
+    ]);
+
+    const allText = await AIKnowledgeChunkModel.find({ companyCode: normalizedCompanyCode })
+      .select("text")
+      .limit(500)
+      .lean();
+    const combined = allText.map((chunk) => chunk.text).join("\n").toLowerCase();
+    const detectedTopics = [
+      { key: "pricing", label: "Giá/bảng giá", pattern: /giá|phí|gói|voucher|khuyến mãi|ưu đãi/ },
+      { key: "shipping", label: "Giao hàng/vận chuyển", pattern: /ship|giao hàng|vận chuyển|freeship/ },
+      { key: "warranty", label: "Bảo hành", pattern: /bảo hành|warranty|đổi trả|hoàn tiền/ },
+      { key: "contact", label: "Liên hệ/hotline", pattern: /hotline|email|liên hệ|địa chỉ|zalo|facebook/ },
+    ].filter((topic) => topic.pattern.test(combined));
+
+    const warnings: string[] = [];
+    if (chunksCount === 0) {
+      warnings.push("Chưa có tài liệu công ty, AI đang ở chế độ trả lời mặc định.");
+    }
+    if (chunksCount > 0 && detectedTopics.length === 0) {
+      warnings.push("Tài liệu đã nhập nhưng chưa phát hiện chính sách quan trọng như giá, ship, bảo hành hoặc liên hệ.");
+    }
+    if (chunksCount > 120) {
+      warnings.push("Knowledge base khá lớn; nên chia tài liệu theo chủ đề để kiểm soát chất lượng tốt hơn.");
+    }
+
+    return {
+      companyCode: normalizedCompanyCode,
+      mode: chunksCount > 0 ? "trained" : "default",
+      documentsCount: documents.length,
+      chunksCount,
+      detectedTopics,
+      warnings,
+      latestSyncAt: documents[0]?.updatedAt || null,
+      latestReplyAt: latestLog?.createdAt || null,
+      documents: documents.slice(0, 5).map((doc) => ({
+        title: doc.sourceTitle,
+        sourceType: doc.sourceType,
+        status: doc.status,
+        version: doc.version,
+        updatedAt: doc.updatedAt,
+      })),
+    };
+  },
+
+  async createReplyLog(params: {
+    companyCode?: string;
+    channel: "facebook" | "zalo" | "test";
+    conversationId?: string;
+    customerMessage: string;
+    aiResponse: string;
+    contextText?: string;
+    contextMatches?: number;
+    latencyMs?: number;
+    status?: "sent" | "failed" | "preview";
+  }) {
+    const contextPreview = normalizeText(params.contextText || "").slice(0, 1200);
+    return AIReplyLogModel.create({
+      companyCode: normalizeCompanyCode(params.companyCode),
+      channel: params.channel,
+      conversationId: params.conversationId || "",
+      customerMessage: params.customerMessage,
+      aiResponse: params.aiResponse,
+      contextPreview,
+      contextMatches: params.contextMatches || 0,
+      mode: contextPreview ? "trained" : "default",
+      latencyMs: params.latencyMs || 0,
+      status: params.status || "sent",
+    });
+  },
+
+  async listReplyLogs(companyCode?: string, limit = 20) {
+    return AIReplyLogModel.find({ companyCode: normalizeCompanyCode(companyCode) })
+      .sort({ createdAt: -1 })
+      .limit(Math.min(Math.max(limit, 1), 100))
+      .lean();
+  },
+
+  async updateReplyFeedback(companyCode: string | undefined, id: string, feedback: "good" | "bad" | "needs_fix", note?: string) {
+    return AIReplyLogModel.findOneAndUpdate(
+      { _id: id, companyCode: normalizeCompanyCode(companyCode) },
+      { feedback, feedbackNote: note || "" },
+      { new: true }
+    );
   },
 };
