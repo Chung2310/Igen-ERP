@@ -84,6 +84,25 @@ const updateProfileSchema = {
       privacyLevel: Joi.string().optional(),
       isMock: Joi.boolean().optional(),
     }).optional().allow(null),
+    zaloIntegration: Joi.object({
+      isConnected: Joi.boolean().required(),
+      oaId: Joi.string().allow(""),
+      oaName: Joi.string().allow(""),
+      accessToken: Joi.string().allow(""),
+      refreshToken: Joi.string().allow(""),
+      tokenExpiredAt: Joi.date().optional(),
+      connectedAt: Joi.date().optional(),
+      isMock: Joi.boolean().optional(),
+    }).optional().allow(null),
+    aiAutoReplyConfig: Joi.object({
+      enabled: Joi.boolean().required(),
+      autoClassify: Joi.boolean().required(),
+      autoCloseDeal: Joi.boolean().required(),
+      autoFeedback: Joi.boolean().required(),
+      replyDelay: Joi.number().required(),
+      advancedInstructions: Joi.string().allow(""),
+      trainingKnowledge: Joi.string().allow(""),
+    }).optional().allow(null),
   }),
 };
 

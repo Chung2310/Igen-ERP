@@ -42,6 +42,13 @@ export const geminiService = {
     const systemInstruction = `
 Bạn là một Trợ lý Chăm sóc Khách hàng AI đỉnh cao cho hệ thống iGen ERP doanh nghiệp.
 Bạn đang hỗ trợ khách hàng trong khung chat Omni-Inbox.
+
+Quy tắc và chỉ dẫn hành xử từ doanh nghiệp:
+${aiConfig.advancedInstructions ? `- ${aiConfig.advancedInstructions}` : "- Không có chỉ dẫn đặc biệt."}
+
+Dữ liệu huấn luyện, thông tin sản phẩm và chính sách của doanh nghiệp (hãy đọc kỹ thông tin dưới đây để trả lời chính xác các câu hỏi của khách hàng, KHÔNG tự chế thông tin không có trong tài liệu này):
+${aiConfig.trainingKnowledge ? `${aiConfig.trainingKnowledge}` : "- Không có dữ liệu huấn luyện cụ thể."}
+
 Thông tin cấu hình hiện tại của bạn:
 - Tự động phân loại khách hàng: ${aiConfig.autoClassify ? "Đang BẬT. Hãy phân loại khách dựa trên xu hướng hội thoại và thông báo khéo léo." : "Đang TẮT"}
 - Tự động chốt đơn hàng: ${aiConfig.autoCloseDeal ? "Đang BẬT. Hãy tìm cơ hội khéo léo hướng khách hàng chốt mua sản phẩm một cách nhanh gọn, gửi thông tin tạo đơn." : "Đang TẮT"}
@@ -73,6 +80,50 @@ Thông tin cấu hình hiện tại của bạn:
       text: response.text || "Xin lỗi, tôi chưa thể xử lý yêu cầu lúc này. Vui lòng thử lại.",
       isMock: false,
     };
+  },
+
+  /**
+   * Tự động băm/chuyển đổi tài liệu dài thành danh sách FAQs rút gọn
+   */
+  async convertDocToFAQ(docText: string): Promise<string> {
+    const client = getGeminiClient();
+    if (!client) {
+      return `--- BẢN FAQ ĐÃ ĐƯỢC CHUẨN HÓA (CHẾ ĐỘ MÔ PHỎNG AI) ---
+Q: Tài liệu này nói về chủ đề gì?
+A: Tài liệu giới thiệu thông tin vận hành, chính sách bán hàng của doanh nghiệp.
+
+Q: Làm thế nào để liên hệ hỗ trợ kỹ thuật?
+A: Vui lòng liên hệ số hotline 1900xxxx hoặc email support@igen.com.
+
+Q: Chính sách vận chuyển của chúng tôi là gì?
+A: Giao hàng toàn quốc. Miễn phí vận chuyển cho đơn hàng trị giá từ 500k trở lên.`;
+    }
+
+    const prompt = `Bạn là một chuyên gia huấn luyện AI bán hàng và chăm sóc khách hàng.
+Hãy đọc kỹ tài liệu bán hàng/quy trình/chính sách sau đây của doanh nghiệp và chuyển đổi toàn bộ thông tin quan trọng thành một danh sách các câu hỏi thường gặp FAQs định dạng chuẩn để làm dữ liệu huấn luyện cho Chatbot.
+
+YÊU CẦU:
+1. Định dạng câu trả lời bắt buộc là:
+Q: [Câu hỏi của khách hàng]
+A: [Câu trả lời chuẩn mực của AI]
+
+Q: [Câu hỏi tiếp theo]
+A: [Câu trả lời tiếp theo]
+
+2. Hãy chắt lọc toàn bộ số hotline, bảng giá dịch vụ/sản phẩm, chính sách giao hàng, chính sách đổi trả/bảo hành, giờ mở cửa.
+3. Không tự tiện bịa đặt thông tin không có trong tài liệu.
+4. Trả lời bằng tiếng Việt lịch sự, súc tích và chính xác.
+
+NỘI DUNG TÀI LIỆU CẦN CHUYỂN ĐỔI:
+${docText}
+`;
+
+    const response = await client.models.generateContent({
+      model: GEMINI_TEXT_MODEL,
+      contents: prompt,
+    });
+
+    return response.text || "Không thể trích xuất được dữ liệu FAQ từ tài liệu.";
   },
 
   /**

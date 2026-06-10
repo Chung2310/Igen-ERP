@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import type { User } from "firebase/auth";
 import { authService } from "../services/authService";
-import { UserProfile, FacebookIntegration, TikTokIntegration, ZaloIntegration } from "../types";
+import { UserProfile, FacebookIntegration, TikTokIntegration, ZaloIntegration, AIChatConfig } from "../types";
 import { toast } from "../pages/Toast";
 import { parseFirebaseError } from "../utils/firebaseErrorParser";
 
@@ -22,6 +22,7 @@ interface AuthContextType {
   removeTikTokIntegration: () => Promise<void>;
   saveZaloIntegration: (integration: ZaloIntegration) => Promise<void>;
   removeZaloIntegration: () => Promise<void>;
+  updateAiAutoReplyConfig: (config: AIChatConfig) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -378,6 +379,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const updateAiAutoReplyConfig = async (config: AIChatConfig) => {
+    if (!userProfile) return;
+    try {
+      const updatedProfile = await authService.updateProfile({ aiAutoReplyConfig: config });
+      setUser(updatedProfile as any);
+      setUserProfile(updatedProfile);
+    } catch (error: any) {
+      console.error("[updateAiAutoReplyConfig] Error:", error);
+      toast.error(error.message || "Lỗi khi lưu cấu hình AI.");
+      throw error;
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -397,6 +411,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         removeTikTokIntegration,
         saveZaloIntegration,
         removeZaloIntegration,
+        updateAiAutoReplyConfig,
       }}
     >
       {children}

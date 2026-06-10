@@ -1,6 +1,7 @@
 import { ZaloConversationModel, ZaloMessageModel } from "../model/zalo-messenger.model";
 import { UserModel } from "../model/user.model";
 import { emitToPage } from "../socket";
+import { aiAutoReplyService } from "./ai-auto-reply.service";
 
 const syncTimestamps = new Map<string, number>();
 
@@ -358,6 +359,9 @@ export const zaloMessengerService = {
       throw new Error("Không tìm thấy cuộc hội thoại Zalo để trả lời.");
     }
 
+    // Hủy các phản hồi AI đang lên lịch do nhân viên đã can thiệp
+    aiAutoReplyService.cancelPendingReply(conversationId);
+
     const user = await UserModel.findOne({
       "zaloIntegration.isConnected": true,
       "zaloIntegration.oaId": oaId
@@ -615,6 +619,9 @@ export const zaloMessengerService = {
       });
       emitToPage(oaId, "conversation_updated", conversation);
       console.log(`[Zalo Service Webhook] Đã lưu tin nhắn mới thành công từ Zalo User: ${senderId}`);
+
+      // Kích hoạt AI Auto-Reply Bot bất đồng bộ
+      aiAutoReplyService.triggerAutoReply("zalo", oaId, conversation._id.toString(), text);
     }
   }
 };

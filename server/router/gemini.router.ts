@@ -18,11 +18,13 @@ const chatSchema = {
       )
       .required(),
     aiConfig: Joi.object({
+      enabled: Joi.boolean().required(),
       autoClassify: Joi.boolean().required(),
       autoCloseDeal: Joi.boolean().required(),
       autoFeedback: Joi.boolean().required(),
       replyDelay: Joi.number().required(),
       advancedInstructions: Joi.string().allow(""),
+      trainingKnowledge: Joi.string().allow(""),
     }).required(),
   }),
 };
@@ -62,6 +64,12 @@ const generateVideoSchema = {
   }),
 };
 
+const syncDriveSchema = {
+  body: Joi.object({
+    docLink: Joi.string().required(),
+  }),
+};
+
 // Đăng ký định tuyến API kèm Joi validation
 geminiRouter.post("/chat", validateRequest(chatSchema), geminiController.chat);
 geminiRouter.get("/marketing-suggestions", geminiController.getMarketingSuggestions);
@@ -70,3 +78,4 @@ geminiRouter.post("/marketing-ideas", validateRequest(ideasSchema), geminiContro
 geminiRouter.post("/marketing-develop", validateRequest(developSchema), geminiController.developMarketingIdea);
 geminiRouter.post("/generate-image", validateRequest(generateImageSchema), geminiController.generateImage);
 geminiRouter.post("/generate-video", validateRequest(generateVideoSchema), geminiController.generateVideo);
+geminiRouter.post("/sync-drive", validateRequest(syncDriveSchema), geminiController.syncGoogleDrive);

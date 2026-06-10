@@ -33,6 +33,16 @@ export interface IZaloIntegration {
   isMock?: boolean;
 }
 
+export interface IAiAutoReplyConfig {
+  enabled: boolean;
+  autoClassify: boolean;
+  autoCloseDeal: boolean;
+  autoFeedback: boolean;
+  replyDelay: number;
+  advancedInstructions: string;
+  trainingKnowledge: string;
+}
+
 export interface IUser extends Document {
   email: string;
   password?: string; // Hashed password
@@ -43,6 +53,7 @@ export interface IUser extends Document {
   facebookIntegration?: IFacebookIntegration | null;
   tiktokIntegration?: ITikTokIntegration | null;
   zaloIntegration?: IZaloIntegration | null;
+  aiAutoReplyConfig?: IAiAutoReplyConfig | null;
   
   // Org Chart & SaaS fields
   jobTitle?: string;

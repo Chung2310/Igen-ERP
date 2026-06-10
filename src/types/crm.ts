@@ -36,11 +36,13 @@ export interface CustomerInbox {
 }
 
 export interface AIChatConfig {
+  enabled: boolean;
   autoClassify: boolean;
   autoCloseDeal: boolean;
   autoFeedback: boolean;
   replyDelay: number; // in seconds
   advancedInstructions: string;
+  trainingKnowledge: string;
 }
 
 export interface LeadCard {
