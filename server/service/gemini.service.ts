@@ -12,7 +12,12 @@ export const geminiService = {
   /**
    * Trợ lý Chat CRM Omni-Inbox
    */
-  async chat(message: string, history: any[], aiConfig: any): Promise<{ text: string; isMock: boolean }> {
+  async chat(
+    message: string,
+    history: any[],
+    aiConfig: any,
+    ragContext?: { contextText?: string; companyCode?: string; matches?: number }
+  ): Promise<{ text: string; isMock: boolean }> {
     const client = getGeminiClient();
 
     if (!client) {
@@ -39,6 +44,9 @@ export const geminiService = {
       });
     }
 
+    const hasCompanyKnowledge = !!ragContext?.contextText;
+    const assistantMode = hasCompanyKnowledge ? "COMPANY_TRAINED_MODE" : "DEFAULT_ASSISTANT_MODE";
+
     const systemInstruction = `
 Bạn là một Trợ lý Chăm sóc Khách hàng AI đỉnh cao cho hệ thống iGen ERP doanh nghiệp.
 Bạn đang hỗ trợ khách hàng trong khung chat Omni-Inbox.
@@ -46,8 +54,19 @@ Bạn đang hỗ trợ khách hàng trong khung chat Omni-Inbox.
 Quy tắc và chỉ dẫn hành xử từ doanh nghiệp:
 ${aiConfig.advancedInstructions ? `- ${aiConfig.advancedInstructions}` : "- Không có chỉ dẫn đặc biệt."}
 
-Dữ liệu huấn luyện, thông tin sản phẩm và chính sách của doanh nghiệp (hãy đọc kỹ thông tin dưới đây để trả lời chính xác các câu hỏi của khách hàng, KHÔNG tự chế thông tin không có trong tài liệu này):
-${aiConfig.trainingKnowledge ? `${aiConfig.trainingKnowledge}` : "- Không có dữ liệu huấn luyện cụ thể."}
+Dữ liệu vận hành hiện tại:
+- Chế độ trả lời: ${assistantMode}
+- COMPANY_TRAINED_MODE: đã có tài liệu/chính sách riêng của công ty, hãy bám sát tài liệu và nói theo chỉ dẫn doanh nghiệp.
+- DEFAULT_ASSISTANT_MODE: chưa có tài liệu riêng, vẫn trả lời khách mặc định một cách lịch sự, hỗ trợ hỏi thêm nhu cầu và chuyển nhân viên khi cần.
+
+Dữ liệu tri thức đã truy xuất riêng cho doanh nghiệp ${ragContext?.companyCode || "hiện tại"}:
+${ragContext?.contextText ? ragContext.contextText : "- Không tìm thấy tri thức phù hợp trong kho dữ liệu."}
+
+Quy tắc an toàn bắt buộc:
+- Khi ở DEFAULT_ASSISTANT_MODE, vẫn được chào hỏi, xác nhận nhu cầu, hỏi thêm thông tin, hướng dẫn khách để lại số điện thoại/nhu cầu và nói sẽ có nhân viên hỗ trợ.
+- Chỉ trả lời các thông tin cụ thể về giá, bảo hành, giao hàng, đổi trả, khuyến mãi nếu có trong dữ liệu tri thức ở trên hoặc trong lịch sử hội thoại.
+- Nếu khách hỏi chính sách/giá/thông tin cụ thể mà không có dữ liệu phù hợp, hãy nói rằng bạn cần chuyển nhân viên kiểm tra lại, tuyệt đối không tự bịa.
+- Không trộn lẫn thông tin giữa các công ty khác nhau.
 
 Thông tin cấu hình hiện tại của bạn:
 - Tự động phân loại khách hàng: ${aiConfig.autoClassify ? "Đang BẬT. Hãy phân loại khách dựa trên xu hướng hội thoại và thông báo khéo léo." : "Đang TẮT"}

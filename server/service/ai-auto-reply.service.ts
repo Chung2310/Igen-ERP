@@ -4,6 +4,7 @@ import { FBConversationModel, FBMessageModel } from "../model/fb-messenger.model
 import { geminiService } from "./gemini.service";
 import { zaloMessengerService } from "./zalo-messenger.service";
 import { fbMessengerService } from "./fb-messenger.service";
+import { aiKnowledgeService } from "./ai-knowledge.service";
 
 // In-memory timeouts map to manage debouncing per conversation
 const pendingReplies = new Map<string, NodeJS.Timeout>();
@@ -105,8 +106,25 @@ export const aiAutoReplyService = {
 
           console.log(`[AI AutoReply] Bắt đầu gọi Gemini sinh câu trả lời cho hội thoại: ${conversationId}`);
 
+          const companyCode = user.companyCode || "SYSTEM";
+          const ragContext = await aiKnowledgeService.searchRelevantContext({
+            companyCode,
+            query: `${history.map((h) => h.text).join("\n")}\n${incomingText}`,
+            channel,
+            topK: 5,
+          });
+
+          let effectiveRagContext = { ...ragContext, companyCode };
+          if (!ragContext.contextText && aiConfig.trainingKnowledge) {
+            effectiveRagContext = {
+              contextText: String(aiConfig.trainingKnowledge).slice(0, 4500),
+              matches: 0,
+              companyCode,
+            };
+          }
+
           // Call Gemini Service
-          const aiResponse = await geminiService.chat(incomingText, history, aiConfig);
+          const aiResponse = await geminiService.chat(incomingText, history, aiConfig, effectiveRagContext);
 
           if (!aiResponse || !aiResponse.text) {
             console.error(`[AI AutoReply] Không nhận được câu trả lời từ Gemini cho hội thoại: ${conversationId}`);

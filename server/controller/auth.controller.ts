@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { authService } from "../service/auth.service";
 import { AuthenticatedRequest } from "../middleware/auth";
+import { aiKnowledgeService } from "../service/ai-knowledge.service";
 
 export const authController = {
   /**
@@ -180,6 +181,22 @@ export const authController = {
           status: "error",
           message: "Không tìm thấy hồ sơ người dùng.",
         });
+      }
+
+      if (req.body.aiAutoReplyConfig && updatedUser.companyCode) {
+        try {
+          await aiKnowledgeService.upsertKnowledgeFromText({
+            companyCode: updatedUser.companyCode,
+            sourceType: "manual",
+            sourceTitle: "Manual Omni Inbox AI Knowledge",
+            text: req.body.aiAutoReplyConfig.trainingKnowledge || "",
+            sourceUrl: "",
+            createdBy: updatedUser._id.toString(),
+            channelScope: ["all"],
+          });
+        } catch (syncErr) {
+          console.warn("[Auth updateProfile] Khong the dong bo AI knowledge chunks:", syncErr);
+        }
       }
 
       console.log(`[Auth updateProfile] Cập nhật thành công cho user ${updatedUser.email}. FBConnected=${updatedUser.facebookIntegration?.isConnected}, FBPageId=${updatedUser.facebookIntegration?.pageId}`);
