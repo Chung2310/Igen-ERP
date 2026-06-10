@@ -23,6 +23,113 @@ export const geminiController = {
   },
 
   /**
+   * GET /api/v1/gemini/knowledge-health
+   */
+  async getKnowledgeHealth(req: AuthenticatedRequest, res: Response) {
+    try {
+      const result = await aiKnowledgeService.getKnowledgeHealth(req.user?.companyCode);
+      return res.status(200).json(result);
+    } catch (error: any) {
+      console.error("[geminiController.getKnowledgeHealth] Error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Không thể kiểm tra trạng thái tri thức AI",
+        details: error.message,
+      });
+    }
+  },
+
+  /**
+   * POST /api/v1/gemini/test-reply
+   */
+  async testReply(req: AuthenticatedRequest, res: Response) {
+    try {
+      const { message, aiConfig } = req.body;
+      const companyCode = req.user?.companyCode || "SYSTEM";
+      const startedAt = Date.now();
+      const ragContext = await aiKnowledgeService.searchRelevantContext({
+        companyCode,
+        query: message,
+        channel: "facebook",
+        topK: 5,
+      });
+
+      let effectiveRagContext = { ...ragContext, companyCode };
+      if (!ragContext.contextText && aiConfig?.trainingKnowledge) {
+        effectiveRagContext = {
+          contextText: String(aiConfig.trainingKnowledge).slice(0, 4500),
+          matches: 0,
+          companyCode,
+        };
+      }
+
+      const result = await geminiService.chat(message, [], aiConfig || {}, effectiveRagContext);
+      const log = await aiKnowledgeService.createReplyLog({
+        companyCode,
+        channel: "test",
+        customerMessage: message,
+        aiResponse: result.text,
+        contextText: effectiveRagContext.contextText,
+        contextMatches: effectiveRagContext.matches,
+        latencyMs: Date.now() - startedAt,
+        status: "preview",
+      });
+
+      return res.status(200).json({
+        ...result,
+        mode: effectiveRagContext.contextText ? "trained" : "default",
+        contextMatches: effectiveRagContext.matches || 0,
+        logId: log._id,
+      });
+    } catch (error: any) {
+      console.error("[geminiController.testReply] Error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Không thể tạo câu trả lời thử",
+        details: error.message,
+      });
+    }
+  },
+
+  /**
+   * GET /api/v1/gemini/ai-reply-logs
+   */
+  async listAIReplyLogs(req: AuthenticatedRequest, res: Response) {
+    try {
+      const logs = await aiKnowledgeService.listReplyLogs(req.user?.companyCode, Number(req.query.limit || 20));
+      return res.status(200).json({ logs });
+    } catch (error: any) {
+      console.error("[geminiController.listAIReplyLogs] Error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Không thể tải log phản hồi AI",
+        details: error.message,
+      });
+    }
+  },
+
+  /**
+   * PATCH /api/v1/gemini/ai-reply-logs/:id/feedback
+   */
+  async updateAIReplyFeedback(req: AuthenticatedRequest, res: Response) {
+    try {
+      const { feedback, note } = req.body;
+      const log = await aiKnowledgeService.updateReplyFeedback(req.user?.companyCode, req.params.id, feedback, note);
+      if (!log) {
+        return res.status(404).json({ status: "error", message: "Không tìm thấy log phản hồi AI." });
+      }
+      return res.status(200).json({ status: "success", log });
+    } catch (error: any) {
+      console.error("[geminiController.updateAIReplyFeedback] Error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Không thể lưu feedback phản hồi AI",
+        details: error.message,
+      });
+    }
+  },
+
+  /**
    * GET /api/v1/gemini/marketing-suggestions
    */
   async getMarketingSuggestions(req: Request, res: Response) {

@@ -71,6 +71,23 @@ const syncDriveSchema = {
   }),
 };
 
+const testReplySchema = {
+  body: Joi.object({
+    message: Joi.string().required(),
+    aiConfig: Joi.object().optional(),
+  }),
+};
+
+const feedbackSchema = {
+  params: Joi.object({
+    id: Joi.string().regex(/^[0-9a-fA-F]{24}$/).required(),
+  }),
+  body: Joi.object({
+    feedback: Joi.string().valid("good", "bad", "needs_fix").required(),
+    note: Joi.string().optional().allow(""),
+  }),
+};
+
 // Đăng ký định tuyến API kèm Joi validation
 geminiRouter.post("/chat", validateRequest(chatSchema), geminiController.chat);
 geminiRouter.get("/marketing-suggestions", geminiController.getMarketingSuggestions);
@@ -79,4 +96,8 @@ geminiRouter.post("/marketing-ideas", validateRequest(ideasSchema), geminiContro
 geminiRouter.post("/marketing-develop", validateRequest(developSchema), geminiController.developMarketingIdea);
 geminiRouter.post("/generate-image", validateRequest(generateImageSchema), geminiController.generateImage);
 geminiRouter.post("/generate-video", validateRequest(generateVideoSchema), geminiController.generateVideo);
+geminiRouter.get("/knowledge-health", requireAuth as any, geminiController.getKnowledgeHealth as any);
+geminiRouter.post("/test-reply", requireAuth as any, validateRequest(testReplySchema), geminiController.testReply as any);
+geminiRouter.get("/ai-reply-logs", requireAuth as any, geminiController.listAIReplyLogs as any);
+geminiRouter.patch("/ai-reply-logs/:id/feedback", requireAuth as any, validateRequest(feedbackSchema), geminiController.updateAIReplyFeedback as any);
 geminiRouter.post("/sync-drive", requireAuth as any, validateRequest(syncDriveSchema), geminiController.syncGoogleDrive as any);

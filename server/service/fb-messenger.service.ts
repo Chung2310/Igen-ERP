@@ -383,7 +383,7 @@ export const fbMessengerService = {
       emitToPage(recipientId, "conversation_updated", conversation);
 
       // Kích hoạt AI Auto-Reply Bot bất đồng bộ
-      aiAutoReplyService.triggerAutoReply("facebook", recipientId, conversation._id.toString(), text);
+      aiAutoReplyService.triggerAutoReply("facebook", recipientId, conversation._id.toString(), text, messageId);
     }
   },
 
@@ -559,6 +559,17 @@ export const fbMessengerService = {
     const trimmedMessages = hasMore ? existingMessages.slice(0, limit) : existingMessages;
     const orderedMessages = [...trimmedMessages].reverse();
     const oldestMessage = orderedMessages[0];
+    const latestMessage = orderedMessages[orderedMessages.length - 1];
+
+    if (!beforeDate && latestMessage?.direction === "inbound" && latestMessage.text) {
+      aiAutoReplyService.triggerAutoReply(
+        "facebook",
+        pageId,
+        conversation._id.toString(),
+        latestMessage.text,
+        latestMessage.messageId
+      );
+    }
 
     return {
       messages: orderedMessages,

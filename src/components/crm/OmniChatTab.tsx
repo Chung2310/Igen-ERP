@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState } from "react";
 import { Search, Send, Sliders, Zap, FileText, DollarSign, MessageSquare, ChevronDown, Facebook, Clock3 } from "lucide-react";
 import { CustomerInbox, ChatMessage, AIChatConfig, ChatPagination } from "../../types";
 import { toast } from "../../pages/Toast";
+import { geminiApi } from "../../api/gemini";
 
 type OmniChatTabProps = {
   inboxCustomers: CustomerInbox[];
@@ -41,6 +42,58 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
   // Google Drive integrations for Omni-Inbox
   const [driveLink, setDriveLink] = useState("");
   const [syncingDrive, setSyncingDrive] = useState(false);
+  const [knowledgeHealth, setKnowledgeHealth] = useState<any | null>(null);
+  const [loadingAIHealth, setLoadingAIHealth] = useState(false);
+  const [testQuestion, setTestQuestion] = useState("Phí ship và chính sách bảo hành bên mình như thế nào?");
+  const [testReply, setTestReply] = useState<any | null>(null);
+  const [testingAI, setTestingAI] = useState(false);
+  const [aiReplyLogs, setAIReplyLogs] = useState<any[]>([]);
+
+  const refreshAIHealth = async () => {
+    setLoadingAIHealth(true);
+    try {
+      const [health, logs] = await Promise.all([
+        geminiApi.getKnowledgeHealth(),
+        geminiApi.fetchAIReplyLogs(6),
+      ]);
+      setKnowledgeHealth(health);
+      setAIReplyLogs(logs);
+    } catch (err) {
+      console.error(err);
+      toast.error("Không thể tải trạng thái kiểm định AI.");
+    } finally {
+      setLoadingAIHealth(false);
+    }
+  };
+
+  const handleTestAIReply = async () => {
+    if (!testQuestion.trim()) {
+      toast.error("Vui lòng nhập câu hỏi mẫu để test AI.");
+      return;
+    }
+    setTestingAI(true);
+    try {
+      const result = await geminiApi.testReply(testQuestion, aiConfig);
+      setTestReply(result);
+      await refreshAIHealth();
+    } catch (err) {
+      console.error(err);
+      toast.error("Không thể tạo câu trả lời thử.");
+    } finally {
+      setTestingAI(false);
+    }
+  };
+
+  const handleFeedback = async (logId: string, feedback: "good" | "bad" | "needs_fix") => {
+    try {
+      await geminiApi.sendAIReplyFeedback(logId, feedback);
+      await refreshAIHealth();
+      toast.success("Đã lưu feedback cho phản hồi AI.");
+    } catch (err) {
+      console.error(err);
+      toast.error("Không thể lưu feedback AI.");
+    }
+  };
 
   const handleSyncDrive = async () => {
     if (!driveLink.trim()) {
@@ -65,6 +118,7 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
           trainingKnowledge: data.text
         });
         toast.success(`Đồng bộ thành công từ ${data.title}!`);
+        refreshAIHealth();
       } else {
         toast.error(data.message || "Lỗi đồng bộ từ Google Drive.");
       }
@@ -151,6 +205,12 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
       chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }, 50);
   }, [aiWaiting]);
+
+  useEffect(() => {
+    if (showConfig) {
+      refreshAIHealth();
+    }
+  }, [showConfig]);
 
   // Bộ đếm hội thoại theo từng kênh
   const counts = {
@@ -709,6 +769,106 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                   ) : "Đồng bộ & Tạo FAQ"}
                 </button>
               </div>
+            </div>
+
+            {/* AI QA and Knowledge Health */}
+            <div className="pt-4 border-t border-slate-100 space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <label className="block font-extrabold text-slate-700">Kiểm định AI trước khi bật bot</label>
+                <button
+                  type="button"
+                  onClick={refreshAIHealth}
+                  disabled={loadingAIHealth}
+                  className="px-2 py-1 rounded-lg border border-slate-200 text-[8px] font-bold text-slate-500 hover:text-blue-600 hover:border-blue-200 disabled:opacity-50"
+                >
+                  {loadingAIHealth ? "Đang quét..." : "Quét lại"}
+                </button>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] text-slate-500 font-bold uppercase">Chế độ hiện tại</span>
+                  <span className={`text-[8px] font-extrabold px-2 py-0.5 rounded-full uppercase ${
+                    knowledgeHealth?.mode === "trained"
+                      ? "bg-emerald-100 text-emerald-700"
+                      : "bg-amber-100 text-amber-700"
+                  }`}>
+                    {knowledgeHealth?.mode === "trained" ? "Đã học tài liệu" : "Trả lời mặc định"}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-[9px]">
+                  <div className="bg-white border border-slate-100 rounded-lg p-2">
+                    <p className="text-slate-400">Tài liệu</p>
+                    <strong className="text-slate-700">{knowledgeHealth?.documentsCount ?? 0}</strong>
+                  </div>
+                  <div className="bg-white border border-slate-100 rounded-lg p-2">
+                    <p className="text-slate-400">Knowledge chunks</p>
+                    <strong className="text-slate-700">{knowledgeHealth?.chunksCount ?? 0}</strong>
+                  </div>
+                </div>
+                {knowledgeHealth?.detectedTopics?.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {knowledgeHealth.detectedTopics.map((topic: any) => (
+                      <span key={topic.key} className="px-1.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-100 rounded-md text-[8px] font-bold">
+                        {topic.label}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {knowledgeHealth?.warnings?.map((warning: string, idx: number) => (
+                  <p key={idx} className="text-[9px] text-amber-700 bg-amber-50 border border-amber-100 rounded-lg p-2 leading-normal">
+                    {warning}
+                  </p>
+                ))}
+              </div>
+
+              <div className="space-y-2">
+                <textarea
+                  value={testQuestion}
+                  onChange={(e) => setTestQuestion(e.target.value)}
+                  className="w-full h-20 p-2.5 border border-slate-200 bg-white rounded-xl text-[10px] leading-relaxed focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none"
+                  placeholder="Nhập câu hỏi mẫu để kiểm tra cách AI trả lời..."
+                />
+                <button
+                  type="button"
+                  onClick={handleTestAIReply}
+                  disabled={testingAI}
+                  className="w-full px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-[10px] disabled:opacity-50"
+                >
+                  {testingAI ? "AI đang trả lời thử..." : "Test câu trả lời AI"}
+                </button>
+              </div>
+
+              {testReply && (
+                <div className="rounded-xl border border-indigo-100 bg-indigo-50/60 p-3 text-[10px] space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="font-extrabold text-indigo-700">Preview trả lời</span>
+                    <span className="text-[8px] font-bold text-indigo-500 uppercase">{testReply.mode} • {testReply.contextMatches} matches</span>
+                  </div>
+                  <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">{testReply.text}</p>
+                </div>
+              )}
+
+              {aiReplyLogs.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-[9px] font-extrabold text-slate-500 uppercase">Log phản hồi gần nhất</p>
+                  {aiReplyLogs.map((log) => (
+                    <div key={log._id} className="rounded-xl border border-slate-150 bg-white p-2.5 text-[9px] space-y-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-bold text-slate-700 truncate">{log.channel} • {log.mode}</span>
+                        <span className="text-slate-400 font-mono">{log.latencyMs}ms</span>
+                      </div>
+                      <p className="text-slate-500 line-clamp-2">{log.customerMessage}</p>
+                      <p className="text-slate-700 line-clamp-2">{log.aiResponse}</p>
+                      <div className="flex gap-1 pt-1">
+                        <button type="button" onClick={() => handleFeedback(log._id, "good")} className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold">Đúng</button>
+                        <button type="button" onClick={() => handleFeedback(log._id, "needs_fix")} className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 font-bold">Cần sửa</button>
+                        <button type="button" onClick={() => handleFeedback(log._id, "bad")} className="px-1.5 py-0.5 rounded bg-rose-50 text-rose-700 font-bold">Sai</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Training knowledge base input */}
