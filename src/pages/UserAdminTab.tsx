@@ -168,7 +168,7 @@ export default function UserAdminTab() {
     fetchCompanies();
     fetchRolePermissions();
     fetchSystemPermissions();
-  }, [userProfile, selectedCompanyCode]);
+  }, [userProfile?.uid, userProfile?.role, userProfile?.companyCode, selectedCompanyCode]);
 
   const getAvailableRoles = () => {
     const defaultRoles = [
