@@ -341,7 +341,7 @@ export default function CRMTab() {
     };
 
     runFetch();
-    const interval = setInterval(runFetch, 60000); // Polling 60s
+    const interval = setInterval(runFetch, 15000); // Polling 15s (Tối ưu hóa tần suất cập nhật danh sách)
 
     const handleVisibility = () => {
       if (!document.hidden) runFetch();
@@ -369,7 +369,7 @@ export default function CRMTab() {
     };
 
     fetchMessages();
-    const interval = setInterval(fetchMessages, 60000); // Polling 60s
+    const interval = setInterval(fetchMessages, 5000); // Polling 5s (Đảm bảo tin nhắn mới đồng bộ gần như realtime)
 
     const handleVisibility = () => {
       if (!document.hidden) fetchMessages();
