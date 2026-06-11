@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ImageIcon, Mic, Video } from 'lucide-react';
 import { ImageGenerationWorkspace } from './ImageGenerationWorkspace';
-import { SimpleVideoWorkspace } from './SimpleVideoWorkspace';
+import { VideoGenerationWorkspace } from './VideoGenerationWorkspace';
 import { VoiceGenerationWorkspace } from './VoiceGenerationWorkspace';
 
 interface ContentStudioWorkspaceProps {
@@ -74,7 +74,7 @@ export function ContentStudioWorkspace({ initialParams, onClearParams, onMediaSa
           />
         )}
         {activeTab === 'video' && (
-          <SimpleVideoWorkspace
+          <VideoGenerationWorkspace
             initialPrompt={initialParams?.prompt}
             cardId={initialParams?.cardId}
             onMediaSaved={onMediaSaved}
