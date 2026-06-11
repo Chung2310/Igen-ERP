@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
+import { ImageIcon, Mic, Video } from 'lucide-react';
 import { ImageGenerationWorkspace } from './ImageGenerationWorkspace';
-import { SimpleVideoWorkspace } from './SimpleVideoWorkspace';
+import { VideoGenerationWorkspace } from './VideoGenerationWorkspace';
 import { VoiceGenerationWorkspace } from './VoiceGenerationWorkspace';
 
 interface ContentStudioWorkspaceProps {
@@ -22,7 +23,6 @@ export function ContentStudioWorkspace({ initialParams, onClearParams, onMediaSa
     }
   }, [initialParams]);
 
-  // Clean up params only when the entire Content Studio Workspace is closed/unmounted
   useEffect(() => {
     return () => {
       onClearParams?.();
@@ -30,54 +30,51 @@ export function ContentStudioWorkspace({ initialParams, onClearParams, onMediaSa
   }, [onClearParams]);
 
   return (
-    <div className="flex flex-col w-full h-full min-h-0 bg-white" id="content_studio_workspace_root">
-      {/* Tab Navigation header */}
-      <div className="border-b border-gray-200 bg-gray-50/50 p-2 text-xs flex justify-between shrink-0" id="content_studio_tab_switch">
-        <div className="flex gap-2 mx-auto max-w-3xl w-full justify-center">
-          <button
-            onClick={() => setActiveTab('image')}
-            className={`px-6 py-2.5 rounded-full border text-xs font-bold uppercase transition-all tracking-wider ${
-              activeTab === 'image'
-                ? "bg-cyan-500 text-white border-cyan-500 shadow-md shadow-cyan-500/20"
-                : "bg-white text-gray-500 border-gray-200 hover:bg-gray-100"
-            }`}
-          >
-            Tạo hình ảnh
-          </button>
-          <button
-            onClick={() => setActiveTab('video')}
-            className={`px-6 py-2.5 rounded-full border text-xs font-bold uppercase transition-all tracking-wider ${
-              activeTab === 'video'
-                ? "bg-cyan-500 text-white border-cyan-500 shadow-md shadow-cyan-500/20"
-                : "bg-white text-gray-500 border-gray-200 hover:bg-gray-100"
-            }`}
-          >
-            Tạo video
-          </button>
-          <button
-            onClick={() => setActiveTab('voice')}
-            className={`px-6 py-2.5 rounded-full border text-xs font-bold uppercase transition-all tracking-wider ${
-              activeTab === 'voice'
-                ? "bg-cyan-500 text-white border-cyan-500 shadow-md shadow-cyan-500/20"
-                : "bg-white text-gray-500 border-gray-200 hover:bg-gray-100"
-            }`}
-          >
-            Tạo giọng nói
-          </button>
+    <div className="flex h-full min-h-0 w-full flex-col bg-[linear-gradient(180deg,#fcfdfd_0%,#f4f8fb_100%)]" id="content_studio_workspace_root">
+      <div className="shrink-0 border-b border-slate-200/80 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/75">
+        <div className="mx-auto flex w-full max-w-[1500px] items-center justify-center py-1.5 px-4 md:px-6">
+          <div className="inline-flex w-fit items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
+            <button
+              onClick={() => setActiveTab('image')}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                activeTab === 'image' ? 'bg-white text-slate-950 shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:bg-white/80'
+              }`}
+            >
+              <ImageIcon className="h-3.5 w-3.5" />
+              Tạo hình ảnh
+            </button>
+            <button
+              onClick={() => setActiveTab('video')}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                activeTab === 'video' ? 'bg-white text-slate-950 shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:bg-white/80'
+              }`}
+            >
+              <Video className="h-3.5 w-3.5" />
+              Tạo video
+            </button>
+            <button
+              onClick={() => setActiveTab('voice')}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                activeTab === 'voice' ? 'bg-white text-slate-950 shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:bg-white/80'
+              }`}
+            >
+              <Mic className="h-3.5 w-3.5" />
+              Tạo giọng nói
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Tab Content Display Area */}
-      <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6" id="content_studio_tab_body">
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 md:px-6 md:py-4" id="content_studio_tab_body">
         {activeTab === 'image' && (
-          <ImageGenerationWorkspace 
+          <ImageGenerationWorkspace
             initialPrompt={initialParams?.prompt}
             cardId={initialParams?.cardId}
             onMediaSaved={onMediaSaved}
           />
         )}
         {activeTab === 'video' && (
-          <SimpleVideoWorkspace 
+          <VideoGenerationWorkspace
             initialPrompt={initialParams?.prompt}
             cardId={initialParams?.cardId}
             onMediaSaved={onMediaSaved}

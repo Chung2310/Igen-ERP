@@ -178,3 +178,10 @@ geminiRouter.post("/optimize-prompt", requireAuth as any, validateRequest(optimi
 geminiRouter.post("/optimize-video-prompt", requireAuth as any, validateRequest(optimizeVideoPromptSchema), geminiController.optimizeVideoPrompt);
 geminiRouter.get("/media-history", requireAuth as any, validateRequest(getHistorySchema), geminiController.getMediaHistory);
 geminiRouter.delete("/media-history/:id", requireAuth as any, validateRequest(deleteHistorySchema), geminiController.deleteMediaHistory);
+
+// ElevenLabs Custom Voice routes
+geminiRouter.get("/elevenlabs-voices", requireAuth as any, geminiController.getElevenLabsVoices);
+geminiRouter.post("/elevenlabs-custom-voice-preview", requireAuth as any, geminiController.generateCustomVoicePreview);
+geminiRouter.post("/elevenlabs-create-voice", requireAuth as any, geminiController.createCustomVoice);
+geminiRouter.post("/elevenlabs-add-voice", requireAuth as any, geminiController.addElevenLabsVoice);
+geminiRouter.delete("/elevenlabs-delete-voice/:voiceId", requireAuth as any, geminiController.deleteElevenLabsVoice);
