@@ -836,7 +836,14 @@ Output ONLY the final detailed prompt in English.`
   async generateVideo(
     prompt: string,
     durationSeconds: number = 6,
-    options?: { aspectRatio?: string; modelName?: string; resolution?: string; referenceVideoUri?: string; referenceImageUris?: string[] }
+    options?: {
+      aspectRatio?: string;
+      modelName?: string;
+      resolution?: string;
+      referenceVideoUri?: string;
+      referenceImageUris?: string[];
+      frameMode?: "standard" | "first_last";
+    }
   ): Promise<{ url: string; isMock: boolean }> {
     const modelToUse = options?.modelName || GEMINI_VIDEO_MODEL;
     if (modelToUse.startsWith("piapi-")) {
@@ -846,11 +853,9 @@ Output ONLY the final detailed prompt in English.`
     const aspect = options?.aspectRatio || "16:9";
 
     if (!client) {
-      console.log("[geminiService.generateVideo] Running in MOCK mode");
-      return {
-        url: "https://www.w3schools.com/html/mov_bbb.mp4",
-        isMock: true
-      };
+      const error: any = new Error("GEMINI_API_KEY chua duoc cau hinh. Khong the tao video Veo that.");
+      error.statusCode = 503;
+      throw error;
     }
 
     const filename = `vid_${Date.now()}_${Math.floor(Math.random() * 1000)}.mp4`;
@@ -876,7 +881,7 @@ Output ONLY the final detailed prompt in English.`
         let resolution = options.resolution;
         // Google Veo API constraint: 1080p is NOT supported for 4-second videos
         // Minimum duration for 1080p is 5 seconds (for Veo2) or 6 seconds (for Veo3)
-        if (resolution === "1080p" && duration <= 4) {
+        if ((resolution === "1080p" || resolution === "4k") && duration < 8) {
           console.warn(
             `[geminiService.generateVideo] 1080p không hỗ trợ cho video ${duration}s. Tự động chuyển sang 720p.`
           );
@@ -898,11 +903,23 @@ Output ONLY the final detailed prompt in English.`
       const instance: any = { prompt };
 
       if (options?.referenceImageUris && options.referenceImageUris.length > 0) {
-        const uri = options.referenceImageUris[0];
-        if (uri.startsWith("data:")) {
-          const match = uri.match(/^data:([^;]+);base64,(.+)$/);
-          if (match) {
-            instance.image = { bytesBase64Encoded: match[2], mimeType: match[1] };
+        const normalizedImages = options.referenceImageUris
+          .slice(0, 3)
+          .map((uri) => {
+            if (!uri.startsWith("data:")) return null;
+            const match = uri.match(/^data:([^;]+);base64,(.+)$/);
+            if (!match) return null;
+            return { bytesBase64Encoded: match[2], mimeType: match[1] };
+          })
+          .filter(Boolean);
+
+        if (normalizedImages.length > 0) {
+          instance.image = normalizedImages[0];
+          if (normalizedImages.length > 1) {
+            config.referenceImages = normalizedImages.slice(1);
+          }
+          if (options.frameMode === "first_last" && normalizedImages.length >= 2) {
+            config.lastFrame = normalizedImages[normalizedImages.length - 1];
           }
         }
       }
