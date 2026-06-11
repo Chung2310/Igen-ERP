@@ -21,7 +21,8 @@ export const crudSwagger = {
                 "projects",
                 "kanban-tasks",
                 "training-courses",
-                "training-enrollments"
+                "training-enrollments",
+                "social-integrations"
               ]
             },
             description: "Tên Model/Resource cần truy vấn"

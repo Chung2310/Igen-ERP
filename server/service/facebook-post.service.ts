@@ -152,5 +152,48 @@ export const facebookPostService = {
       throw new Error(`Xác thực token liên kết qua n8n thất bại: ${error.message}`);
     }
   },
+
+  /**
+   * Kiểm tra trạng thái video/bài viết trên Facebook Graph API
+   */
+  async checkVideoStatus(
+    videoId: string,
+    accessToken: string,
+    isVideo: boolean = false
+  ): Promise<{ status: "ready" | "processing" | "failed"; error?: string }> {
+    try {
+      const fields = isVideo ? "status,is_published" : "is_published";
+      const url = `https://graph.facebook.com/v19.0/${videoId}?fields=${fields}&access_token=${accessToken}`;
+      const response = await (globalThis as any).fetch(url);
+      
+      if (!response.ok) {
+        const errText = await response.text();
+        return { status: "failed", error: `Facebook Graph API error: ${response.status} - ${errText}` };
+      }
+
+      const data = await response.json();
+      console.log(`[Facebook Service] Trạng thái post/video ${videoId}:`, data);
+
+      if (isVideo && data.status) {
+        const videoStatus = data.status.video_status;
+        if (videoStatus === "ready") {
+          return { status: "ready" };
+        } else if (videoStatus === "processing") {
+          return { status: "processing" };
+        } else {
+          return { status: "failed", error: `Video processing failed: ${videoStatus}` };
+        }
+      }
+
+      if (data.is_published !== false) {
+        return { status: "ready" };
+      }
+
+      return { status: "processing" };
+    } catch (err: any) {
+      console.error(`[Facebook Service] Lỗi khi check trạng thái video ${videoId}:`, err);
+      return { status: "failed", error: err.message };
+    }
+  },
 };
 

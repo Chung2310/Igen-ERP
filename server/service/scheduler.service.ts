@@ -1,6 +1,8 @@
 import { facebookPostService } from "./facebook-post.service";
 import { MarketingContentModel } from "../model/marketing-content.model";
 import { UserModel } from "../model/user.model";
+import { tiktokService } from "./tiktok.service";
+import { SocialIntegrationModel } from "../model/social-integration.model";
 
 export const schedulerService = {
   /**
@@ -68,61 +70,177 @@ export const schedulerService = {
             const channel = card.channel || "Facebook";
 
             if (channel === "Facebook") {
-              const facebookIntegration = user.facebookIntegration;
-              if (!facebookIntegration || !facebookIntegration.isConnected) {
-                throw new Error("Tài khoản chưa liên kết Facebook Page.");
+              let pageId: string | undefined = undefined;
+              let accessToken: string | undefined = undefined;
+              let isMock = false;
+
+              if (card.integrationId) {
+                const fbIntegration = await SocialIntegrationModel.findOne({
+                  _id: card.integrationId,
+                  platform: "Facebook",
+                  isConnected: true,
+                }).lean();
+                if (!fbIntegration) {
+                  throw new Error("Không tìm thấy liên kết Facebook chỉ định hoặc liên kết đã bị ngắt.");
+                }
+                pageId = fbIntegration.username; // Lưu Page ID ở trường username
+                accessToken = fbIntegration.accessToken;
+                isMock = !!fbIntegration.isMock;
+              } else {
+                const facebookIntegration = user.facebookIntegration;
+                if (!facebookIntegration || !facebookIntegration.isConnected) {
+                  throw new Error("Tài khoản chưa liên kết Facebook Page.");
+                }
+                pageId = facebookIntegration.pageId;
+                accessToken = facebookIntegration.pageAccessToken;
+                isMock = !!facebookIntegration.isMock;
               }
 
-              const { pageId, pageAccessToken: accessToken } = facebookIntegration;
               if (!pageId || !accessToken) {
-                throw new Error("Thông tin liên kết Facebook Page không đầy đủ (thiếu pageId hoặc pageAccessToken).");
+                throw new Error("Thông tin liên kết Facebook Page không đầy đủ.");
               }
 
-              console.log(`[Scheduler Service] Tự động đăng bài Facebook cho Card: ${cardId} qua n8n...`);
-              
-              // Gọi service gửi qua n8n webhook
-              const publishResult = await facebookPostService.publishToPage(
-                card.bodyText || "",
-                card.imageUrl || "",
-                card.videoUrl || "",
-                pageId,
-                accessToken
-              );
+              // CHECK NẾU BÀI VIẾT ĐÃ CÓ facebookPostId (Đã được lên lịch từ trước trên Facebook qua n8n)
+              if (card.facebookPostId && !isMock && !card.facebookPostId.startsWith("fb_post_") && accessToken !== "mock" && !accessToken.includes("mock")) {
+                console.log(`[Scheduler Service] Bài viết đã được lên lịch trực tiếp trên Facebook (ID: ${card.facebookPostId}). Tiến hành kiểm tra trạng thái...`);
+                
+                const checkResult = await facebookPostService.checkVideoStatus(card.facebookPostId, accessToken, !!card.videoUrl);
+                console.log(`[Scheduler Service] Facebook Post check: status = ${checkResult.status}`);
+                
+                if (checkResult.status === "ready") {
+                  await MarketingContentModel.findByIdAndUpdate(cardId, {
+                    status: "published",
+                    publishedAt: new Date(),
+                    publishError: null,
+                  });
+                  console.log(`[Scheduler Service] Bài đăng Facebook đã active thành công: ${cardId}`);
+                  successCount++;
+                  details.push({ cardId, title: card.title, channel, status: "success" });
+                } else if (checkResult.status === "failed") {
+                  throw new Error(`Bài đăng Facebook thất bại: ${checkResult.error || "Không rõ lý do"}`);
+                } else {
+                  // Đang xử lý hoặc chưa tới giờ đăng thật trên Facebook, bỏ qua lượt này để lần sau quét tiếp
+                  console.log(`[Scheduler Service] Bài đăng Facebook (ID: ${card.facebookPostId}) vẫn đang được Facebook xử lý hoặc chưa được publish.`);
+                  processedCount--; // Không tính là đã xử lý xong/thành công/thất bại để giữ trạng thái scheduled
+                  details.push({ cardId, title: card.title, channel, status: "pending" });
+                }
+              } else {
+                console.log(`[Scheduler Service] Tự động đăng bài Facebook cho Card: ${cardId} qua n8n...`);
+                
+                // Gọi service gửi qua n8n webhook
+                const publishResult = await facebookPostService.publishToPage(
+                  card.bodyText || "",
+                  card.imageUrl || "",
+                  card.videoUrl || "",
+                  pageId,
+                  accessToken
+                );
 
-              // Cập nhật trạng thái thành công trong MongoDB
-              const facebookPostId = publishResult.data?.id || `fb_post_${Date.now()}`;
-              await MarketingContentModel.findByIdAndUpdate(cardId, {
-                status: "published",
-                publishedAt: new Date(),
-                facebookPostId,
-                publishError: null,
-              });
+                // Cập nhật trạng thái thành công trong MongoDB
+                const facebookPostId = publishResult.data?.id || `fb_post_${Date.now()}`;
 
-              console.log(`[Scheduler Service] Đăng bài Facebook thành công cho Card: ${cardId}`);
-              successCount++;
-              details.push({ cardId, title: card.title, channel, status: "success" });
+                // NẾU BÀI VIẾT CÓ VIDEO VÀ KHÔNG PHẢI MOCK -> POLL CHECK TRẠNG THÁI VIDEO TRÊN FACEBOOK
+                if (card.videoUrl && !isMock && !facebookPostId.startsWith("fb_post_") && accessToken !== "mock" && !accessToken.includes("mock")) {
+                  console.log(`[Scheduler Service] Bài viết Facebook chứa video. Bắt đầu check trạng thái video từ Facebook Graph API...`);
+                  let isReady = false;
+                  const MAX_POLLS = 10;
+                  const POLL_INTERVAL_MS = 3000;
+                  let checkError = "";
+
+                  for (let attempt = 1; attempt <= MAX_POLLS; attempt++) {
+                    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+                    try {
+                      const checkResult = await facebookPostService.checkVideoStatus(facebookPostId, accessToken, true);
+                      console.log(`[Scheduler Service] Facebook Video check #${attempt}: status = ${checkResult.status}`);
+                      if (checkResult.status === "ready") {
+                        isReady = true;
+                        break;
+                      } else if (checkResult.status === "failed") {
+                        checkError = checkResult.error || "Video processing failed on Facebook.";
+                        throw new Error(`Facebook video processing failed: ${checkError}`);
+                      }
+                    } catch (pollErr: any) {
+                      console.warn(`[Scheduler Service] Poll Facebook Video #${attempt} gặp lỗi:`, pollErr.message);
+                      if (attempt === MAX_POLLS) {
+                        throw pollErr;
+                      }
+                    }
+                  }
+
+                  if (!isReady) {
+                    throw new Error("Quá thời gian chờ xử lý video trên Facebook.");
+                  }
+                }
+
+                await MarketingContentModel.findByIdAndUpdate(cardId, {
+                  status: "published",
+                  publishedAt: new Date(),
+                  facebookPostId,
+                  publishError: null,
+                });
+
+                console.log(`[Scheduler Service] Đăng bài Facebook thành công cho Card: ${cardId}`);
+                successCount++;
+                details.push({ cardId, title: card.title, channel, status: "success" });
+              }
 
             } else if (channel === "TikTok") {
-              const tiktokIntegration = user.tiktokIntegration;
-              if (!tiktokIntegration || !tiktokIntegration.isConnected) {
-                throw new Error("Tài khoản chưa liên kết TikTok.");
+              console.log(`[Scheduler Service] Tự động đăng bài TikTok cho Card: ${cardId}...`);
+
+              let integrationId: string | undefined = undefined;
+              let accessToken: string | undefined = undefined;
+              let username: string | undefined = undefined;
+
+              if (card.integrationId) {
+                integrationId = card.integrationId.toString();
+              } else {
+                // 1. Tìm tài khoản liên kết cấp công ty trước
+                const companyIntegration = await SocialIntegrationModel.findOne({
+                  companyCode: card.companyCode,
+                  platform: "TikTok",
+                  isConnected: true,
+                }).lean();
+
+                if (companyIntegration) {
+                  integrationId = companyIntegration._id.toString();
+                } else {
+                  // 2. Fallback: Tài khoản liên kết cá nhân của User
+                  const tiktokIntegration = user.tiktokIntegration;
+                  if (!tiktokIntegration || !tiktokIntegration.isConnected) {
+                    throw new Error("Tài khoản chưa liên kết TikTok (cả cấp Công ty lẫn cấp Cá nhân).");
+                  }
+                  accessToken = tiktokIntegration.accessToken;
+                  username = tiktokIntegration.username;
+                }
               }
 
-              console.log(`[Scheduler Service] Tự động mock đăng bài TikTok cho Card: ${cardId}...`);
+              // Gọi service đăng bài thật
+              const publishResult = await tiktokService.publishVideo(
+                cardId,
+                card.bodyText || "",
+                card.videoUrl || "",
+                "SELF_ONLY",
+                accessToken,
+                username,
+                undefined, // Không gửi scheduledTime vì cần đăng ngay khi scheduler trigger
+                undefined,
+                undefined,
+                integrationId,
+                card.companyCode
+              );
 
-              // Mock TikTok publish
-              const mockPostId = `tiktok_mock_scheduled_${Date.now()}`;
-              const mockShareUrl = `https://www.tiktok.com/@demo/video/${mockPostId}`;
+              const tiktokPostId = publishResult.data?.postSubmissionId || publishResult.data?.publishId || `tiktok_post_${Date.now()}`;
+              const tiktokShareUrl = publishResult.data?.shareUrl || "";
 
               await MarketingContentModel.findByIdAndUpdate(cardId, {
                 status: "published",
                 publishedAt: new Date(),
-                tiktokPostId: mockPostId,
-                tiktokShareUrl: mockShareUrl,
+                tiktokPostId,
+                tiktokShareUrl,
                 publishError: null,
               });
 
-              console.log(`[Scheduler Service] Mock đăng bài TikTok thành công cho Card: ${cardId}`);
+              console.log(`[Scheduler Service] Đăng bài TikTok thành công cho Card: ${cardId}`);
               successCount++;
               details.push({ cardId, title: card.title, channel, status: "success" });
 

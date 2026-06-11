@@ -16,6 +16,7 @@ const SUPPORTED_MODELS = [
   "kanban-tasks",
   "training-courses",
   "training-enrollments",
+  "social-integrations",
   "users",
 ];
 

@@ -2,8 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useProgress } from '../../hooks/use-progress';
 import { geminiApi } from '../../api/gemini';
 import { toast } from '../../pages/Toast';
-import { 
-  Loader2, ImageIcon, X, Wand2, UploadCloud, Download, 
+import {
+  Loader2, ImageIcon, X, Wand2, UploadCloud, Download,
   Images, Check, Sparkles, Trash2,
   ChevronLeft, ChevronRight
 } from 'lucide-react';
@@ -76,7 +76,7 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved }
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
-    
+
     setIsUploading(true);
     const readers = (Array.from(files) as File[]).map((file) => {
       return new Promise<string>((resolve) => {
@@ -114,7 +114,7 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved }
     setIsDragging(false);
     const files = e.dataTransfer.files;
     if (!files || files.length === 0) return;
-    
+
     setIsUploading(true);
     const readers = (Array.from(files) as File[]).map((file) => {
       return new Promise<string>((resolve) => {
@@ -147,7 +147,7 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved }
     setIsGeneratingPrompt(true);
     try {
       const result = await geminiApi.optimizeImagePrompt(simplePrompt, inputImageUrls, optimizeModel);
-      
+
       if (result.optimized_english_prompt) {
         setPrompt(result.optimized_english_prompt);
         if (result.negative_prompt) setNegativePrompt(result.negative_prompt);
@@ -177,7 +177,8 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved }
     setGeneratedImageUrl(null);
 
     try {
-      toast.success('Bắt đầu gửi lệnh sinh ảnh lên Google Imagen...');
+      const modelLabel = imageModel.startsWith('piapi-') ? 'PiAPI' : 'Google Imagen';
+      toast.success(`Bắt đầu gửi lệnh sinh ảnh lên ${modelLabel}...`);
       const response = await geminiApi.generateImage(finalPrompt, {
         aspectRatio,
         modelName: imageModel,
@@ -187,7 +188,7 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved }
 
       if (response.url) {
         setGeneratedImageUrl(response.url);
-        
+
         if (activeCardId) {
           toast.success('Tạo ảnh AI thành công! Đang tải lên Cloudinary...');
           try {
@@ -205,7 +206,7 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved }
         } else {
           toast.success('Tạo ảnh AI và đồng bộ hóa thành công!');
         }
-        
+
         loadHistory(); // Reload history
       }
     } catch (e: any) {
@@ -219,14 +220,14 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved }
   const handleDeleteHistory = async (id: string) => {
     if (!confirm("Bạn có chắc chắn muốn xóa hình ảnh này khỏi lịch sử?")) return;
     try {
-       await geminiApi.deleteMediaHistory(id);
-       toast.success('Đã xóa hình ảnh thành công.');
-       setHistory(prev => prev.filter(r => r._id !== id && r.id !== id));
-       if (generatedImageUrl && history.find(h => h._id === id || h.id === id)?.url === generatedImageUrl) {
-         setGeneratedImageUrl(null);
-       }
+      await geminiApi.deleteMediaHistory(id);
+      toast.success('Đã xóa hình ảnh thành công.');
+      setHistory(prev => prev.filter(r => r._id !== id && r.id !== id));
+      if (generatedImageUrl && history.find(h => h._id === id || h.id === id)?.url === generatedImageUrl) {
+        setGeneratedImageUrl(null);
+      }
     } catch (e: any) {
-       toast.error(`Lỗi khi xóa: ${e.message}`);
+      toast.error(`Lỗi khi xóa: ${e.message}`);
     }
   };
 
@@ -247,336 +248,344 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved }
   return (
     <div className="max-w-[1500px] mx-auto w-full pb-8 px-2" id="image_workspace_wrapper">
       <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-6 items-start">
-        
+
         {/* LEFT COLUMN: Configuration Form */}
         <div className="flex flex-col gap-4 bg-white border border-slate-200/80 p-4 md:p-5 rounded-3xl shadow-sm">
-           
-           {/* Section 1: Ảnh đầu vào */}
-           <div className="flex flex-col gap-2">
-              <div className="flex justify-between items-center">
-                 <label className="text-xs font-bold text-slate-800 uppercase tracking-wide">Ảnh đầu vào</label>
-                 <button
-                   type="button"
-                   onClick={() => toast.info('Thư viện ảnh sẽ sớm được tích hợp!')}
-                   className="text-[11px] font-semibold text-cyan-600 hover:text-cyan-700 flex items-center gap-1 bg-cyan-50 px-2.5 py-1 rounded-lg transition-all"
-                 >
-                    <Images className="h-3.5 w-3.5" />
-                    Thư viện ảnh
-                 </button>
-              </div>
 
-              <div 
-                onDragOver={handleDrag}
-                onDragLeave={handleDrag}
-                onDrop={handleDrop}
-                className={`border-2 border-dashed rounded-2xl p-6 flex flex-col items-center justify-center transition-all min-h-[140px] relative bg-slate-50/50 ${
-                  isDragging ? 'border-cyan-500 bg-cyan-50/50' : 'border-slate-250 hover:border-cyan-400'
-                }`}
+          {/* Section 1: Ảnh đầu vào */}
+          <div className="flex flex-col gap-2">
+            <div className="flex justify-between items-center">
+              <label className="text-xs font-bold text-slate-800 uppercase tracking-wide">Ảnh đầu vào</label>
+              <button
+                type="button"
+                onClick={() => toast.info('Thư viện ảnh sẽ sớm được tích hợp!')}
+                className="text-[11px] font-semibold text-cyan-600 hover:text-cyan-700 flex items-center gap-1 bg-cyan-50 px-2.5 py-1 rounded-lg transition-all"
               >
-                 {inputImageUrls.length > 0 ? (
-                    <div className="grid grid-cols-3 gap-2 w-full">
-                       {inputImageUrls.map((url, idx) => (
-                          <div key={idx} className="relative aspect-square border border-slate-200 rounded-xl overflow-hidden bg-white group shadow-xs">
-                             <img src={url} alt="Ref source" className="w-full h-full object-cover" />
-                             <button
-                               type="button"
-                               onClick={(e) => {
-                                 e.stopPropagation();
-                                 setInputImageUrls(prev => prev.filter((_, i) => i !== idx));
-                               }}
-                               className="absolute top-1 right-1 p-1 bg-black/70 hover:bg-black text-white rounded-full transition-all"
-                             >
-                                <X className="h-3 w-3" />
-                             </button>
-                          </div>
-                       ))}
-                       {inputImageUrls.length < 3 && (
-                          <label className="cursor-pointer border border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center aspect-square hover:bg-slate-100 transition-all">
-                             <UploadCloud className="h-5 w-5 text-gray-400" />
-                             <span className="text-[9px] text-gray-500 font-semibold mt-1">Thêm</span>
-                             <input 
-                               type="file" 
-                               multiple 
-                               accept="image/*" 
-                               onChange={handleFileUpload} 
-                               className="hidden" 
-                             />
-                          </label>
-                       )}
+                <Images className="h-3.5 w-3.5" />
+                Thư viện ảnh
+              </button>
+            </div>
+
+            <div
+              onDragOver={handleDrag}
+              onDragLeave={handleDrag}
+              onDrop={handleDrop}
+              className={`border-2 border-dashed rounded-2xl p-6 flex flex-col items-center justify-center transition-all min-h-[140px] relative bg-slate-50/50 ${isDragging ? 'border-cyan-500 bg-cyan-50/50' : 'border-slate-250 hover:border-cyan-400'
+                }`}
+            >
+              {inputImageUrls.length > 0 ? (
+                <div className="grid grid-cols-3 gap-2 w-full">
+                  {inputImageUrls.map((url, idx) => (
+                    <div key={idx} className="relative aspect-square border border-slate-200 rounded-xl overflow-hidden bg-white group shadow-xs">
+                      <img src={url} alt="Ref source" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setInputImageUrls(prev => prev.filter((_, i) => i !== idx));
+                        }}
+                        className="absolute top-1 right-1 p-1 bg-black/70 hover:bg-black text-white rounded-full transition-all"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
                     </div>
-                 ) : (
-                    <label className="cursor-pointer flex flex-col items-center justify-center text-center w-full h-full cursor-pointer">
-                       <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center mb-2">
-                          <ImageIcon className="h-5 w-5 text-slate-500" />
-                       </div>
-                       <span className="text-xs font-semibold text-slate-700">Kéo thả hoặc nhấp để tải ảnh lên</span>
-                       <span className="text-[10px] text-slate-400 mt-1 font-medium">PNG, JPG, WEBP</span>
-                       <input 
-                         type="file" 
-                         multiple 
-                         accept="image/*" 
-                         onChange={handleFileUpload} 
-                         className="hidden" 
-                       />
+                  ))}
+                  {inputImageUrls.length < 3 && (
+                    <label className="cursor-pointer border border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center aspect-square hover:bg-slate-100 transition-all">
+                      <UploadCloud className="h-5 w-5 text-gray-400" />
+                      <span className="text-[9px] text-gray-500 font-semibold mt-1">Thêm</span>
+                      <input
+                        type="file"
+                        multiple
+                        accept="image/*"
+                        onChange={handleFileUpload}
+                        className="hidden"
+                      />
                     </label>
-                 )}
-              </div>
-           </div>
+                  )}
+                </div>
+              ) : (
+                <label className="cursor-pointer flex flex-col items-center justify-center text-center w-full h-full">
+                  <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center mb-2">
+                    <ImageIcon className="h-5 w-5 text-slate-500" />
+                  </div>
+                  <span className="text-xs font-semibold text-slate-700">Kéo thả hoặc nhấp để tải ảnh lên</span>
+                  <span className="text-[10px] text-slate-400 mt-1 font-medium">PNG, JPG, WEBP</span>
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+                </label>
+              )}
+            </div>
+          </div>
 
-           {/* Section 2: Ý tưởng của bạn */}
-           <div className="flex flex-col gap-2 border-t border-slate-100 pt-3">
-              <label className="text-xs font-bold text-slate-800 uppercase tracking-wide">Ý tưởng của bạn</label>
-              <textarea
-                placeholder="Mô tả ngắn gọn hình ảnh bạn muốn, AI sẽ tối ưu nó. Ví dụ: một con rồng lửa trên núi."
-                className="w-full text-xs p-3 border border-slate-200 rounded-xl h-20 focus:ring-1 focus:ring-cyan-500 focus:outline-none leading-relaxed bg-slate-50/30"
-                value={simplePrompt}
-                onChange={(e) => setSimplePrompt(e.target.value)}
-              />
-           </div>
+          {/* Section 2: Ý tưởng của bạn */}
+          <div className="flex flex-col gap-2 border-t border-slate-100 pt-3">
+            <label className="text-xs font-bold text-slate-800 uppercase tracking-wide">Ý tưởng của bạn</label>
+            <textarea
+              placeholder="Mô tả ngắn gọn hình ảnh bạn muốn, AI sẽ tối ưu nó. Ví dụ: một con rồng lửa trên núi."
+              className="w-full text-xs p-3 border border-slate-200 rounded-xl h-20 focus:ring-1 focus:ring-cyan-500 focus:outline-none leading-relaxed bg-slate-50/30"
+              value={simplePrompt}
+              onChange={(e) => setSimplePrompt(e.target.value)}
+            />
+          </div>
 
-           {/* Section 3: Tối ưu prompt và thông số */}
-           <div className="flex flex-col gap-2 border-t border-slate-100 pt-3">
-              <label className="text-xs font-bold text-slate-800 uppercase tracking-wide">Tối ưu prompt và thông số</label>
+          {/* Section 3: Tối ưu prompt */}
+          <div className="flex flex-col gap-2 border-t border-slate-100 pt-3">
+            <button
+              type="button"
+              onClick={handleGenerateOptimalPrompt}
+              disabled={isGeneratingPrompt || isGenerating}
+              className="w-full py-2 bg-cyan-50 hover:bg-cyan-100 text-cyan-700 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer"
+            >
+              {isGeneratingPrompt ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5 text-cyan-600" />}
+              Phân tích và hoàn thiện prompt
+            </button>
+          </div>
+
+          {/* Section 4: Mô tả tối ưu (Tiếng Anh) */}
+          <div className="flex flex-col gap-2 border-t border-slate-100 pt-3">
+            <label className="text-xs font-bold text-slate-800 uppercase tracking-wide">Mô tả tối ưu (Tiếng Anh)</label>
+            <textarea
+              placeholder="Mô tả hình ảnh bạn muốn tạo. Ví dụ: một cô gái cyborg với mái tóc neon..."
+              className="w-full text-xs font-mono p-3 border border-slate-200 rounded-xl h-24 focus:ring-1 focus:ring-cyan-500 focus:outline-none leading-relaxed bg-slate-50/30"
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+            />
+          </div>
+
+          {/* Section 5: Mô hình tạo ảnh */}
+          <div className="flex flex-col gap-2 border-t border-slate-100 pt-3">
+            <label className="text-xs font-bold text-slate-800 uppercase tracking-wide">Mô hình tạo ảnh</label>
+            <select
+              className="w-full text-xs p-2.5 border border-slate-200 bg-white rounded-xl focus:outline-none cursor-pointer font-medium"
+              value={imageModel}
+              onChange={(e) => setImageModel(e.target.value)}
+            >
+              <optgroup label="Google Gemini">
+                <option value="imagen-4.0-generate-001">Google Imagen 4.0 Pro</option>
+                <option value="gemini-2.5-flash">Gemini 2.5 Flash Image Model</option>
+              </optgroup>
+              <optgroup label="PiAPI (Midjourney / Flux)">
+                <option value="piapi-midjourney">PiAPI - Midjourney</option>
+                <option value="piapi-flux">PiAPI - Flux (Text-to-Image)</option>
+              </optgroup>
+            </select>
+          </div>
+
+          {/* Section 6: Tỷ lệ khung hình & Số lượng ảnh */}
+          <div className="grid grid-cols-2 gap-3 border-t border-slate-100 pt-3">
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[11px] font-bold text-slate-600 uppercase">Tỷ lệ khung hình</span>
               <select
-                className="w-full text-xs p-2.5 border border-slate-200 bg-white rounded-xl focus:outline-none cursor-pointer font-medium"
-                value={optimizeModel}
-                 onChange={(e) => setOptimizeModel(e.target.value)}
+                className="w-full text-xs p-2 border border-slate-200 bg-white rounded-lg focus:outline-none"
+                value={aspectRatio}
+                onChange={(e) => setAspectRatio(e.target.value)}
               >
-                 <option value="gemini-3.1-flash-lite">iGen 3.1 Flash Lite</option>
-                 <option value="gemini-3.1-pro">iGen 3.1 Pro</option>
+                <option value="1:1">1:1 (Vuông)</option>
+                <option value="16:9">16:9 (Ngang)</option>
+                <option value="9:16">9:16 (Dọc)</option>
+                <option value="4:3">4:3 (Ngang)</option>
+                <option value="3:4">3:4 (Dọc)</option>
               </select>
+            </div>
 
-              <button
-                type="button"
-                onClick={handleGenerateOptimalPrompt}
-                disabled={isGeneratingPrompt || isGenerating}
-                className="w-full py-2 bg-cyan-50 hover:bg-cyan-100 text-cyan-700 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer"
-              >
-                 {isGeneratingPrompt ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5 text-cyan-600" />}
-                 Phân tích và hoàn thiện prompt
-              </button>
-           </div>
-
-           {/* Section 4: Mô tả tối ưu (Tiếng Anh) */}
-           <div className="flex flex-col gap-2 border-t border-slate-100 pt-3">
-              <label className="text-xs font-bold text-slate-800 uppercase tracking-wide">Mô tả tối ưu (Tiếng Anh)</label>
-              <textarea
-                placeholder="Mô tả hình ảnh bạn muốn tạo. Ví dụ: một cô gái cyborg với mái tóc neon..."
-                className="w-full text-xs font-mono p-3 border border-slate-200 rounded-xl h-24 focus:ring-1 focus:ring-cyan-500 focus:outline-none leading-relaxed bg-slate-50/30"
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-              />
-           </div>
-
-           {/* Section 5: Mô hình tạo ảnh */}
-           <div className="flex flex-col gap-2 border-t border-slate-100 pt-3">
-              <label className="text-xs font-bold text-slate-800 uppercase tracking-wide">Mô hình tạo ảnh</label>
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[11px] font-bold text-slate-600 uppercase">Số lượng ảnh</span>
               <select
-                className="w-full text-xs p-2.5 border border-slate-200 bg-white rounded-xl focus:outline-none cursor-pointer font-medium"
-                value={imageModel}
-                onChange={(e) => setImageModel(e.target.value)}
+                className="w-full text-xs p-2 border border-slate-200 bg-white rounded-lg focus:outline-none"
+                defaultValue="1"
               >
-                 <option value="gemini-2.5-flash-preview-image">iGen 2.5 Flash Image</option>
-                 <option value="gemini-3-pro-image-preview">iGen 3 Pro Image</option>
-                 <option value="gemini-3.1-flash-image-preview">iGen 3.1 Flash Image</option>
+                <option value="1">1 ảnh</option>
+                <option value="2">2 ảnh</option>
+                <option value="3">3 ảnh</option>
+                <option value="4">4 ảnh</option>
               </select>
-           </div>
+            </div>
+          </div>
 
-           {/* Section 6: Tỷ lệ khung hình & Số lượng ảnh */}
-           <div className="grid grid-cols-2 gap-3 border-t border-slate-100 pt-3">
-              <div className="flex flex-col gap-1.5">
-                 <span className="text-[11px] font-bold text-slate-600 uppercase">Tỷ lệ khung hình</span>
-                 <select
-                   className="w-full text-xs p-2 border border-slate-200 bg-white rounded-lg focus:outline-none"
-                   value={aspectRatio}
-                   onChange={(e) => setAspectRatio(e.target.value)}
-                 >
-                    <option value="1:1">1:1 (Vuông)</option>
-                    <option value="16:9">16:9 (Ngang)</option>
-                    <option value="9:16">9:16 (Dọc)</option>
-                    <option value="4:3">4:3 (Ngang)</option>
-                    <option value="3:4">3:4 (Dọc)</option>
-                 </select>
+          {/* Section 7: Độ phân giải */}
+          <div className="flex flex-col gap-2 border-t border-slate-100 pt-3">
+            <span className="text-[11px] font-bold text-slate-600 uppercase">Độ phân giải</span>
+            <div className="grid grid-cols-2 gap-2">
+              {['1K', '2K'].map((res) => (
+                <button
+                  key={res}
+                  type="button"
+                  onClick={() => setResolution(res)}
+                  className={`py-2 text-xs font-bold rounded-xl border transition-all cursor-pointer ${resolution === res
+                      ? 'border-cyan-500 bg-cyan-50 text-cyan-700 font-extrabold ring-1 ring-cyan-500/20'
+                      : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                    }`}
+                >
+                  {res}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Progress Bar */}
+          {isGenerating && (
+            <div className="flex flex-col gap-1.5 p-3.5 bg-slate-50 border rounded-xl animate-pulse">
+              <div className="flex justify-between items-center text-[10px] font-bold text-gray-500 font-mono">
+                <span>DỰNG KHUNG HÌNH AI...</span>
+                <span>{generateProgress}%</span>
               </div>
-
-              <div className="flex flex-col gap-1.5">
-                 <span className="text-[11px] font-bold text-slate-600 uppercase">Số lượng ảnh</span>
-                 <select
-                   className="w-full text-xs p-2 border border-slate-200 bg-white rounded-lg focus:outline-none"
-                   defaultValue="1"
-                 >
-                    <option value="1">1 ảnh</option>
-                    <option value="2">2 ảnh</option>
-                    <option value="3">3 ảnh</option>
-                    <option value="4">4 ảnh</option>
-                 </select>
+              <div className="w-full bg-slate-250 h-2 rounded-full overflow-hidden">
+                <div
+                  className="bg-cyan-500 h-full transition-all duration-300 rounded-full"
+                  style={{ width: `${generateProgress}%` }}
+                />
               </div>
-           </div>
+            </div>
+          )}
 
-           {/* Section 7: Độ phân giải */}
-           <div className="flex flex-col gap-2 border-t border-slate-100 pt-3">
-              <span className="text-[11px] font-bold text-slate-600 uppercase">Độ phân giải</span>
-              <div className="grid grid-cols-2 gap-2">
-                 {['1K', '2K'].map((res) => (
-                    <button
-                      key={res}
-                      type="button"
-                      onClick={() => setResolution(res)}
-                      className={`py-2 text-xs font-bold rounded-xl border transition-all cursor-pointer ${
-                        resolution === res
-                          ? 'border-cyan-500 bg-cyan-50 text-cyan-700 font-extrabold ring-1 ring-cyan-500/20'
-                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-                      }`}
-                    >
-                       {res}
-                    </button>
-                 ))}
-              </div>
-           </div>
-
-           {/* Section 8: Tạo ảnh button */}
-           <div className="border-t border-slate-100 pt-3">
-              <button
-                type="button"
-                onClick={handleGenerateImage}
-                disabled={isGenerating || isGeneratingPrompt}
-                className={`w-full py-3 rounded-2xl text-xs font-bold tracking-wider uppercase transition-all shadow-md flex items-center justify-center gap-2 ${
-                  isGenerating || isGeneratingPrompt
-                    ? "bg-gray-200 text-gray-400 border border-gray-300 shadow-none cursor-not-allowed"
-                    : "bg-cyan-500 hover:bg-cyan-600 text-white active:scale-[0.99] shadow-cyan-500/20 cursor-pointer"
+          {/* Section 8: Tạo ảnh button */}
+          <div className="border-t border-slate-100 pt-3">
+            <button
+              type="button"
+              onClick={handleGenerateImage}
+              disabled={isGenerating || isGeneratingPrompt}
+              className={`w-full py-3 rounded-2xl text-xs font-bold tracking-wider uppercase transition-all shadow-md flex items-center justify-center gap-2 ${isGenerating || isGeneratingPrompt
+                  ? "bg-gray-200 text-gray-400 border border-gray-300 shadow-none cursor-not-allowed"
+                  : "bg-cyan-500 hover:bg-cyan-600 text-white active:scale-[0.99] shadow-cyan-500/20 cursor-pointer"
                 }`}
-              >
-                 {isGenerating ? <Loader2 className="h-4.5 w-4.5 animate-spin" /> : <ImageIcon className="h-4.5 w-4.5" />}
-                 Tạo ảnh
-              </button>
-           </div>
+            >
+              {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
+              Tạo ảnh
+            </button>
+          </div>
         </div>
 
         {/* RIGHT COLUMN: Output Preview & Render History */}
         <div className="flex flex-col gap-6">
-           
-           {/* Section 1: Kết Quả Render */}
-           <div className="bg-white border border-slate-200/80 p-5 rounded-3xl shadow-sm flex flex-col gap-4">
-              <div>
-                 <h3 className="font-bold text-slate-800 text-sm">Kết Quả Render</h3>
-                 <p className="text-xs text-slate-400 mt-0.5">Ảnh render mới nhất của bạn</p>
-              </div>
 
-              <div className="aspect-video max-h-[420px] rounded-2xl overflow-hidden bg-slate-50 border border-slate-200/80 flex items-center justify-center relative shadow-inner">
-                 {isGenerating ? (
-                    <div className="flex flex-col items-center gap-3 text-slate-400">
-                       <Loader2 className="h-10 w-10 text-cyan-500 animate-spin" />
-                       <span className="text-xs font-bold tracking-wider uppercase font-mono animate-pulse">Đang dựng khung hình AI {generateProgress}%...</span>
-                    </div>
-                 ) : generatedImageUrl ? (
-                    <>
-                       <img src={generatedImageUrl} alt="Generated AI illustration" className="max-w-full max-h-full object-contain" />
-                       <div className="absolute top-3 right-3 flex gap-2">
+          {/* Section 1: Kết Quả Render */}
+          <div className="bg-white border border-slate-200/80 p-5 rounded-3xl shadow-sm flex flex-col gap-4">
+            <div>
+              <h3 className="font-bold text-slate-800 text-sm">Kết Quả Render</h3>
+              <p className="text-xs text-slate-400 mt-0.5">Ảnh render mới nhất của bạn</p>
+            </div>
+
+            <div className="aspect-video max-h-[420px] rounded-2xl overflow-hidden bg-slate-50 border border-slate-200/80 flex items-center justify-center relative shadow-inner">
+              {isGenerating ? (
+                <div className="flex flex-col items-center gap-3 text-slate-400">
+                  <Loader2 className="h-10 w-10 text-cyan-500 animate-spin" />
+                  <span className="text-xs font-bold tracking-wider uppercase font-mono animate-pulse">Đang dựng khung hình AI {generateProgress}%...</span>
+                </div>
+              ) : generatedImageUrl ? (
+                <>
+                  <img src={generatedImageUrl} alt="Generated AI illustration" className="max-w-full max-h-full object-contain" />
+                  <div className="absolute top-3 right-3 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const link = document.createElement('a');
+                        link.href = generatedImageUrl;
+                        link.download = `igen-image-${Date.now()}.png`;
+                        link.click();
+                      }}
+                      className="p-2 bg-white/90 hover:bg-white text-slate-700 hover:text-slate-900 rounded-xl shadow-sm transition-all cursor-pointer"
+                      title="Tải ảnh về máy"
+                    >
+                      <Download className="h-4 w-4" />
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="flex flex-col items-center justify-center text-slate-400 p-8 text-center gap-3">
+                  <div className="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center">
+                    <ImageIcon className="h-7 w-7 text-slate-400" />
+                  </div>
+                  <span className="text-xs font-medium text-slate-500">Kết quả render sẽ hiển thị ở đây</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Section 2: Lịch Sử Render */}
+          <div className="bg-white border border-slate-200/80 p-5 rounded-3xl shadow-sm flex flex-col gap-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="font-bold text-slate-800 text-sm">Lịch Sử Render</h3>
+                <p className="text-xs text-slate-400 mt-0.5">Hiển thị tối đa 20 kết quả gần nhất, từ mới đến cũ.</p>
+              </div>
+              <div className="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-full text-[11px] font-bold">
+                {history.slice(0, 20).length}/20
+              </div>
+            </div>
+
+            {isLoadingHistory ? (
+              <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                <Loader2 className="h-8 w-8 text-cyan-500 animate-spin mb-2" />
+                <span className="text-xs font-semibold uppercase tracking-wider font-mono">Đang đồng bộ...</span>
+              </div>
+            ) : history.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-slate-400 border border-dashed rounded-2xl bg-slate-50/50">
+                <ImageIcon className="h-10 w-10 text-slate-300 mb-2" />
+                <span className="text-xs font-semibold">Chưa có ảnh lịch sử nào</span>
+              </div>
+            ) : (
+              <div className="relative group/history">
+                {/* Left/Right scroll controls */}
+                <button
+                  type="button"
+                  onClick={handleScrollLeft}
+                  className="absolute left-2 top-1/2 -translate-y-1/2 z-10 p-2 bg-white/90 hover:bg-white text-slate-700 hover:text-slate-900 border border-slate-150 rounded-full shadow-md transition-all opacity-0 group-hover/history:opacity-100 cursor-pointer"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleScrollRight}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 z-10 p-2 bg-white/90 hover:bg-white text-slate-700 hover:text-slate-900 border border-slate-150 rounded-full shadow-md transition-all opacity-0 group-hover/history:opacity-100 cursor-pointer"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+
+                <div
+                  ref={scrollContainerRef}
+                  className="flex gap-4 overflow-x-auto pb-3 pt-1 scroll-smooth scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent"
+                >
+                  {history.slice(0, 20).map((record, index) => {
+                    const id = record._id || record.id;
+                    return (
+                      <div
+                        key={id}
+                        className="relative flex-shrink-0 w-[160px] aspect-square rounded-2xl overflow-hidden border border-slate-150 shadow-xs hover:shadow-md transition-all bg-slate-100 group/card cursor-pointer"
+                        onClick={() => setGeneratedImageUrl(record.url)}
+                      >
+                        <img src={record.url} alt="Render thumbnail" className="w-full h-full object-cover" />
+
+                        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-2 text-white flex flex-col justify-end">
+                          <span className="text-[10px] font-bold leading-tight line-clamp-1">Render {history.length - index}</span>
+                          <span className="text-[9px] text-slate-300 font-mono mt-0.5">{record.metadata?.resolution || '1K'}</span>
+                        </div>
+
+                        <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover/card:opacity-100 transition-opacity">
                           <button
                             type="button"
-                            onClick={() => {
-                              const link = document.createElement('a');
-                              link.href = generatedImageUrl;
-                              link.download = `igen-image-${Date.now()}.png`;
-                              link.click();
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteHistory(id);
                             }}
-                            className="p-2 bg-white/90 hover:bg-white text-slate-700 hover:text-slate-900 rounded-xl shadow-sm transition-all cursor-pointer"
-                            title="Tải ảnh về máy"
+                            className="p-1 bg-black/60 hover:bg-red-650 text-white rounded-lg transition-colors cursor-pointer"
+                            title="Xóa khỏi thư viện"
                           >
-                             <Download className="h-4 w-4" />
+                            <Trash2 className="h-3 w-3" />
                           </button>
-                       </div>
-                    </>
-                 ) : (
-                    <div className="flex flex-col items-center justify-center text-slate-400 p-8 text-center gap-3">
-                       <div className="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center">
-                          <ImageIcon className="h-7 w-7 text-slate-400" />
-                       </div>
-                       <span className="text-xs font-medium text-slate-500">Kết quả render sẽ hiển thị ở đây</span>
-                    </div>
-                 )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-           </div>
-
-           {/* Section 2: Lịch Sử Render */}
-           <div className="bg-white border border-slate-200/80 p-5 rounded-3xl shadow-sm flex flex-col gap-4">
-              <div className="flex justify-between items-center">
-                 <div>
-                    <h3 className="font-bold text-slate-800 text-sm">Lịch Sử Render</h3>
-                    <p className="text-xs text-slate-400 mt-0.5">Hiển thị tối đa 20 kết quả gần nhất, từ mới đến cũ.</p>
-                 </div>
-                 <div className="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-full text-[11px] font-bold">
-                    {history.slice(0, 20).length}/20
-                 </div>
-              </div>
-
-              {isLoadingHistory ? (
-                 <div className="flex flex-col items-center justify-center py-12 text-slate-400">
-                    <Loader2 className="h-8 w-8 text-cyan-500 animate-spin mb-2" />
-                    <span className="text-xs font-semibold uppercase tracking-wider font-mono">Đang đồng bộ...</span>
-                 </div>
-              ) : history.length === 0 ? (
-                 <div className="flex flex-col items-center justify-center py-12 text-slate-400 border border-dashed rounded-2xl bg-slate-50/50">
-                    <ImageIcon className="h-10 w-10 text-slate-300 mb-2" />
-                    <span className="text-xs font-semibold">Chưa có ảnh lịch sử nào</span>
-                 </div>
-              ) : (
-                 <div className="relative group/history">
-                    {/* Left/Right scroll controls */}
-                    <button 
-                      type="button"
-                      onClick={handleScrollLeft}
-                      className="absolute left-2 top-1/2 -translate-y-1/2 z-10 p-2 bg-white/90 hover:bg-white text-slate-700 hover:text-slate-900 border border-slate-150 rounded-full shadow-md transition-all opacity-0 group-hover/history:opacity-100 cursor-pointer"
-                    >
-                       <ChevronLeft className="h-4 w-4" />
-                    </button>
-                    <button 
-                      type="button"
-                      onClick={handleScrollRight}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 z-10 p-2 bg-white/90 hover:bg-white text-slate-700 hover:text-slate-900 border border-slate-150 rounded-full shadow-md transition-all opacity-0 group-hover/history:opacity-100 cursor-pointer"
-                    >
-                       <ChevronRight className="h-4 w-4" />
-                    </button>
-
-                    <div 
-                      ref={scrollContainerRef}
-                      className="flex gap-4 overflow-x-auto pb-3 pt-1 scroll-smooth scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent"
-                    >
-                       {history.slice(0, 20).map((record, index) => {
-                          const id = record._id || record.id;
-                          return (
-                             <div 
-                               key={id}
-                               className="relative flex-shrink-0 w-[160px] aspect-square rounded-2xl overflow-hidden border border-slate-150 shadow-xs hover:shadow-md transition-all bg-slate-100 group/card cursor-pointer"
-                               onClick={() => setGeneratedImageUrl(record.url)}
-                             >
-                                <img src={record.url} alt="Render thumbnail" className="w-full h-full object-cover" />
-                                
-                                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-2 text-white flex flex-col justify-end">
-                                   <span className="text-[10px] font-bold leading-tight line-clamp-1">Render {history.length - index}</span>
-                                   <span className="text-[9px] text-slate-300 font-mono mt-0.5">{record.metadata?.resolution || '1K'}</span>
-                                </div>
-
-                                <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover/card:opacity-100 transition-opacity">
-                                   <button
-                                     type="button"
-                                     onClick={(e) => {
-                                       e.stopPropagation();
-                                       handleDeleteHistory(id);
-                                     }}
-                                     className="p-1 bg-black/60 hover:bg-red-650 text-white rounded-lg transition-colors cursor-pointer"
-                                     title="Xóa khỏi thư viện"
-                                   >
-                                      <Trash2 className="h-3 w-3" />
-                                   </button>
-                                </div>
-                             </div>
-                          );
-                       })}
-                    </div>
-                 </div>
-              )}
-           </div>
+            )}
+          </div>
 
         </div>
 
