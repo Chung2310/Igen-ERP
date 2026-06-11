@@ -207,7 +207,7 @@ export const geminiController = {
     try {
       const { prompt, aspectRatio, modelName, resolution, existingImageUris } = req.body;
       const userId = (req as any).user?.id;
-      
+
       const result = await geminiService.generateImage(prompt, {
         aspectRatio,
         modelName,
@@ -226,6 +226,7 @@ export const geminiController = {
 
       return res.status(200).json({
         ...result,
+        url: record ? record.url : result.url,
         record,
       });
     } catch (error: any) {
@@ -267,6 +268,7 @@ export const geminiController = {
 
       return res.status(200).json({
         ...result,
+        url: record ? record.url : result.url,
         record,
       });
     } catch (error: any) {
@@ -326,7 +328,7 @@ export const geminiController = {
           if (pathSegments.length > 0) {
             parsedName = pathSegments[pathSegments.length - 1];
           }
-        } catch (e) {}
+        } catch (e) { }
 
         docTitle = `Mô phỏng file [${parsedName}]`;
         extractedText = `--- TÀI LIỆU ĐỒNG BỘ TỪ GOOGLE DRIVE [${parsedName}] ---
@@ -432,8 +434,8 @@ A: Hoàn toàn MIỄN PHÍ. Đội ngũ kỹ thuật của iGen sẽ hỗ trợ 
    */
   async optimizeImagePrompt(req: Request, res: Response) {
     try {
-      const { description, imageUris } = req.body;
-      const result = await geminiService.optimizeImagePrompt(description, imageUris);
+      const { description, imageUris, modelName } = req.body;
+      const result = await geminiService.optimizeImagePrompt(description, imageUris, modelName);
       return res.status(200).json(result);
     } catch (error: any) {
       console.error("[geminiController.optimizeImagePrompt] Error:", error);
@@ -506,4 +508,93 @@ A: Hoàn toàn MIỄN PHÍ. Đội ngũ kỹ thuật của iGen sẽ hỗ trợ 
       });
     }
   },
+
+  /**
+   * GET /api/v1/gemini/elevenlabs-voices
+   */
+  async getElevenLabsVoices(req: Request, res: Response) {
+    try {
+      const result = await geminiService.getElevenLabsVoices();
+      return res.status(200).json(result);
+    } catch (error: any) {
+      console.error("[geminiController.getElevenLabsVoices] Error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Không thể lấy danh sách giọng nói ElevenLabs",
+        details: error.message
+      });
+    }
+  },
+
+  /**
+   * POST /api/v1/gemini/elevenlabs-custom-voice-preview
+   */
+  async generateCustomVoicePreview(req: Request, res: Response) {
+    try {
+      const { gender, accent, age, accentStrength, text } = req.body;
+      const result = await geminiService.generateCustomVoicePreview({ gender, accent, age, accentStrength, text });
+      return res.status(200).json(result);
+    } catch (error: any) {
+      console.error("[geminiController.generateCustomVoicePreview] Error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Không thể thiết kế giọng nói thử nghiệm",
+        details: error.message
+      });
+    }
+  },
+
+  /**
+   * POST /api/v1/gemini/elevenlabs-create-voice
+   */
+  async createCustomVoice(req: Request, res: Response) {
+    try {
+      const { voiceName, voiceDescription, generatedVoiceId } = req.body;
+      const result = await geminiService.createCustomVoice({ voiceName, voiceDescription, generatedVoiceId });
+      return res.status(200).json(result);
+    } catch (error: any) {
+      console.error("[geminiController.createCustomVoice] Error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Không thể lưu giọng nói cá nhân vào ElevenLabs",
+        details: error.message
+      });
+    }
+  },
+
+  /**
+   * POST /api/v1/gemini/elevenlabs-add-voice
+   */
+  async addElevenLabsVoice(req: Request, res: Response) {
+    try {
+      const { name, description, files, userId } = req.body;
+      const result = await geminiService.addElevenLabsVoice(name, description, files, userId);
+      return res.status(200).json(result);
+    } catch (error: any) {
+      console.error("[geminiController.addElevenLabsVoice] Error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Không thể nhân bản giọng nói ElevenLabs",
+        details: error.message
+      });
+    }
+  },
+
+  /**
+   * DELETE /api/v1/gemini/elevenlabs-delete-voice/:voiceId
+   */
+  async deleteElevenLabsVoice(req: Request, res: Response) {
+    try {
+      const { voiceId } = req.params;
+      const result = await geminiService.deleteElevenLabsVoice(voiceId);
+      return res.status(200).json(result);
+    } catch (error: any) {
+      console.error("[geminiController.deleteElevenLabsVoice] Error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Không thể xóa giọng nói ElevenLabs",
+        details: error.message
+      });
+    }
+  }
 };
