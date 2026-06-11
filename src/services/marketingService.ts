@@ -30,7 +30,8 @@ export const marketingService = {
     currentRole?: string
   ): () => void {
     const isUserRole = currentRole === 'user' || currentRole === 'manager';
-    const authorUid = isUserRole ? currentUid : undefined;
+    const authorUid = undefined; // Hiển thị với tất cả nhân viên trong doanh nghiệp, không lọc theo tác giả
+
 
     const fetchCards = async () => {
       try {
@@ -118,7 +119,7 @@ export const marketingService = {
     await this.updateCard(id, payload);
   },
 
-  async scheduleCard(id: string, scheduledDate: string, scheduledTime: string): Promise<void> {
+  async scheduleCard(id: string, scheduledDate: string, scheduledTime: string, integrationId?: string): Promise<void> {
     // 1. Lấy dữ liệu bài đăng đầy đủ trước
     const cardData = await this.getCardById(id);
 
@@ -126,43 +127,76 @@ export const marketingService = {
       throw new Error("Bài đăng không có thông tin tác giả (authorUid).");
     }
 
-    // 2. Đọc cấu hình liên kết mạng xã hội của tác giả qua user API
-    const userRes = await fetch(`/api/v1/crud/users/${cardData.authorUid}`, {
-      headers: {
-        "Authorization": `Bearer ${getAccessToken()}`,
-      },
-    });
-    if (!userRes.ok) {
-      throw new Error("Không tìm thấy thông tin hồ sơ của tác giả.");
-    }
-    const userJson = await userRes.json();
-    const userProfile = userJson.data;
-    
     const channel = cardData.channel || 'Facebook';
     let integrationInfo: any = null;
 
-    if (channel === 'Facebook') {
-      const fbInt = userProfile.facebookIntegration;
-      if (!fbInt || !fbInt.isConnected) {
-        throw new Error("Tác giả chưa kết nối với Facebook Page.");
+    // 2. Đọc cấu hình liên kết mạng xã hội
+    if (integrationId) {
+      // Đọc cấu hình từ SocialIntegration cụ thể được chọn
+      const res = await fetch(`/api/v1/crud/social-integrations/${integrationId}`, {
+        headers: {
+          "Authorization": `Bearer ${getAccessToken()}`,
+        },
+      });
+      if (!res.ok) {
+        throw new Error("Không tìm thấy thông tin tài khoản liên kết được chọn.");
       }
-      integrationInfo = {
-        pageId: fbInt.pageId,
-        pageAccessToken: fbInt.pageAccessToken,
-        isMock: !!fbInt.isMock
-      };
-    } else if (channel === 'TikTok') {
-      const ttInt = userProfile.tiktokIntegration;
-      if (!ttInt || !ttInt.isConnected) {
-        throw new Error("Tác giả chưa kết nối với tài khoản TikTok.");
+      const json = await res.json();
+      const integration = json.data;
+
+      if (channel === 'Facebook') {
+        integrationInfo = {
+          pageId: integration.username, // Page ID lưu ở username
+          pageAccessToken: integration.accessToken,
+          isMock: !!integration.isMock
+        };
+      } else if (channel === 'TikTok') {
+        integrationInfo = {
+          username: integration.username,
+          displayName: integration.displayName,
+          blotatoAccountId: integration.blotatoAccountId,
+          accessToken: integration.accessToken,
+          isMock: !!integration.isMock
+        };
+      } else {
+        throw new Error(`Kênh đăng tải "${channel}" chưa hỗ trợ tự động lên lịch.`);
       }
-      integrationInfo = {
-        username: ttInt.username,
-        displayName: ttInt.displayName,
-        isMock: !!ttInt.isMock
-      };
     } else {
-      throw new Error(`Kênh đăng tải "${channel}" chưa hỗ trợ tự động lên lịch.`);
+      // Fallback: Đọc cấu hình liên kết mạng xã hội cá nhân của tác giả qua user API
+      const userRes = await fetch(`/api/v1/crud/users/${cardData.authorUid}`, {
+        headers: {
+          "Authorization": `Bearer ${getAccessToken()}`,
+        },
+      });
+      if (!userRes.ok) {
+        throw new Error("Không tìm thấy thông tin hồ sơ của tác giả.");
+      }
+      const userJson = await userRes.json();
+      const userProfile = userJson.data;
+
+      if (channel === 'Facebook') {
+        const fbInt = userProfile.facebookIntegration;
+        if (!fbInt || !fbInt.isConnected) {
+          throw new Error("Tác giả chưa liên kết với Facebook Page.");
+        }
+        integrationInfo = {
+          pageId: fbInt.pageId,
+          pageAccessToken: fbInt.pageAccessToken,
+          isMock: !!fbInt.isMock
+        };
+      } else if (channel === 'TikTok') {
+        const ttInt = userProfile.tiktokIntegration;
+        if (!ttInt || !ttInt.isConnected) {
+          throw new Error("Tác giả chưa liên kết với tài khoản TikTok.");
+        }
+        integrationInfo = {
+          username: ttInt.username,
+          displayName: ttInt.displayName,
+          isMock: !!ttInt.isMock
+        };
+      } else {
+        throw new Error(`Kênh đăng tải "${channel}" chưa hỗ trợ tự động lên lịch.`);
+      }
     }
 
     // 3. Gọi API Express Backend gửi yêu cầu schedule sang n8n
@@ -202,6 +236,7 @@ export const marketingService = {
       status: 'scheduled',
       scheduledDate,
       scheduledTime,
+      integrationId,
       ...(fbPostId ? { facebookPostId: fbPostId } : {})
     });
 

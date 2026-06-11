@@ -5,6 +5,7 @@ import path from "path";
 import os from "os";
 import { AIMediaModel } from "../model/ai-media.model";
 import { cloudinaryService } from "./cloudinary.service";
+import { piapiService } from "./piapi.service";
 
 const GEMINI_TEXT_MODEL = process.env.GEMINI_MODEL || "gemini-3.1-flash-lite";
 const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || "imagen-3.0-generate-002";
@@ -718,8 +719,11 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
     prompt: string,
     options?: { aspectRatio?: string; modelName?: string; resolution?: string; existingImageUris?: string[] }
   ): Promise<{ url: string; isMock: boolean }> {
-    const client = getGeminiClient();
     const modelToUse = options?.modelName || GEMINI_IMAGE_MODEL;
+    if (modelToUse.startsWith("piapi-")) {
+      return piapiService.generateImage(prompt, modelToUse, { aspectRatio: options?.aspectRatio });
+    }
+    const client = getGeminiClient();
     const aspect = options?.aspectRatio || "1:1";
 
     if (!client) {
@@ -828,8 +832,11 @@ Output ONLY the final detailed prompt in English.`
     durationSeconds: number = 6,
     options?: { aspectRatio?: string; modelName?: string; resolution?: string; referenceVideoUri?: string; referenceImageUris?: string[] }
   ): Promise<{ url: string; isMock: boolean }> {
-    const client = getGeminiClient();
     const modelToUse = options?.modelName || GEMINI_VIDEO_MODEL;
+    if (modelToUse.startsWith("piapi-")) {
+      return piapiService.generateVideo(prompt, modelToUse, durationSeconds, { aspectRatio: options?.aspectRatio });
+    }
+    const client = getGeminiClient();
     const aspect = options?.aspectRatio || "16:9";
 
     if (!client) {

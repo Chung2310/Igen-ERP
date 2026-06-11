@@ -21,6 +21,7 @@ const MarketingContentSchema = new Schema<IMarketingContent>({
   tiktokPostId: { type: String },
   tiktokShareUrl: { type: String },
   companyCode: { type: String, required: true, index: true },
+  integrationId: { type: Schema.Types.ObjectId, ref: "SocialIntegration", index: true },
 });
 
 export const MarketingContentModel = model<IMarketingContent>("MarketingContent", MarketingContentSchema);
