@@ -9,6 +9,7 @@ export interface IMarketingContent extends Document {
   outline?: string;
   imageUrl?: string;
   videoUrl?: string;
+  mediaPrompt?: string;
   generatedAt: Date;
   feedback?: string;
   scheduledDate?: string;

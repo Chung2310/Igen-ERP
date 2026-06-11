@@ -7,6 +7,7 @@ import { ProjectModel } from "../model/project.model";
 import { KanbanTaskModel } from "../model/kanban-task.model";
 import { TrainingCourseModel } from "../model/training-course.model";
 import { TrainingEnrollmentModel } from "../model/training-enrollment.model";
+import { UserModel } from "../model/user.model";
 import { SupportedModelName, ICRUDQueryOptions } from "../interface/crud.interface";
 import mongoose from "mongoose";
 
@@ -20,6 +21,7 @@ const MODEL_MAPPING: Record<SupportedModelName, mongoose.Model<any>> = {
   "kanban-tasks": KanbanTaskModel,
   "training-courses": TrainingCourseModel,
   "training-enrollments": TrainingEnrollmentModel,
+  "users": UserModel,
 };
 
 export const crudService = {

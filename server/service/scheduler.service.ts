@@ -196,12 +196,18 @@ export const schedulerService = {
       }
 
       let responseData: any = {};
-      const contentType = response.headers.get("content-type") || "";
-      if (contentType.includes("application/json")) {
-        responseData = await response.json();
-      } else {
-        const textData = await response.text();
-        responseData = { message: textData };
+      const textData = await response.text();
+      if (textData.trim()) {
+        const contentType = response.headers.get("content-type") || "";
+        if (contentType.includes("application/json")) {
+          try {
+            responseData = JSON.parse(textData);
+          } catch (err) {
+            responseData = { message: textData };
+          }
+        } else {
+          responseData = { message: textData };
+        }
       }
 
       return {

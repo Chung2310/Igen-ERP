@@ -19,6 +19,7 @@ export interface ContentApprovalCard {
   outline?: string;
   imageUrl?: string;
   videoUrl?: string;
+  mediaPrompt?: string;
   generatedAt: string;
   feedback?: string;
   scheduledDate?: string;

@@ -10,6 +10,7 @@ const MarketingContentSchema = new Schema<IMarketingContent>({
   outline: { type: String },
   imageUrl: { type: String },
   videoUrl: { type: String },
+  mediaPrompt: { type: String },
   generatedAt: { type: Date, default: Date.now, index: true },
   feedback: { type: String },
   scheduledDate: { type: String },
