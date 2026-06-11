@@ -31,6 +31,8 @@ import { toast } from "./Toast";
 import { useAuth } from "../context/AuthContext";
 import { parseFirebaseError } from "../utils/firebaseErrorParser";
 import { ContentStudioWorkspace } from "../components/content-studio/ContentStudioWorkspace";
+import { socialIntegrationService, SocialIntegration } from "../services/socialIntegrationService";
+
 
 const formatCardDate = (dateStr: any): string => {
   if (!dateStr) return "";
@@ -77,6 +79,7 @@ export default function MarketingTab() {
 
   const [selectedChannels, setSelectedChannels] = useState<string[]>(["Facebook"]);
   const [mediaType, setMediaType] = useState<string>("image"); // "none" | "image" | "video"
+  const [isAutoMedia, setIsAutoMedia] = useState(true);
   
   // Image Options
   const [imageModel, setImageModel] = useState("imagen-4.0-generate-001");
@@ -93,6 +96,10 @@ export default function MarketingTab() {
   const [scheduleDate, setScheduleDate] = useState("2026-10-15");
   const [scheduleTime, setScheduleTime] = useState("09:00");
   const [isScheduling, setIsScheduling] = useState(false);
+  const [availableIntegrations, setAvailableIntegrations] = useState<SocialIntegration[]>([]);
+  const [scheduleIntegrationId, setScheduleIntegrationId] = useState("");
+  const [loadingIntegrationsForSchedule, setLoadingIntegrationsForSchedule] = useState(false);
+
 
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
@@ -239,7 +246,8 @@ export default function MarketingTab() {
 
     setLoadingAI(true);
     try {
-      const data = await geminiApi.generateMarketingIdeas(topic, selectedPillars, selectedChannels, mediaType);
+      const actualMediaType = isAutoMedia ? mediaType : "none";
+      const data = await geminiApi.generateMarketingIdeas(topic, selectedPillars, selectedChannels, actualMediaType);
       if (data.concepts) {
         setConcepts(data.concepts);
       }
@@ -273,6 +281,49 @@ export default function MarketingTab() {
 
 
 
+  // Load integrations dynamically when a card is selected for scheduling
+  useEffect(() => {
+    if (!schedulingCard) {
+      setAvailableIntegrations([]);
+      setScheduleIntegrationId("");
+      return;
+    }
+
+    const loadIntegrationsForSchedule = async () => {
+      setLoadingIntegrationsForSchedule(true);
+      try {
+        const platformMap: Record<string, string> = {
+          "Facebook": "Facebook",
+          "TikTok": "TikTok",
+          "Zalo": "Zalo"
+        };
+        const platform = platformMap[schedulingCard.channel];
+        if (platform) {
+          const list = await socialIntegrationService.getIntegrations(platform);
+          const connectedList = list.filter(item => item.isConnected);
+          setAvailableIntegrations(connectedList);
+          if (connectedList.length > 0) {
+            setScheduleIntegrationId(connectedList[0]._id || "");
+          } else {
+            setScheduleIntegrationId("");
+          }
+        } else {
+          setAvailableIntegrations([]);
+          setScheduleIntegrationId("");
+        }
+      } catch (err) {
+        console.error("Lỗi khi tải tài khoản liên kết để lên lịch:", err);
+        toast.error("Không thể tải danh sách tài khoản liên kết.");
+        setAvailableIntegrations([]);
+        setScheduleIntegrationId("");
+      } finally {
+        setLoadingIntegrationsForSchedule(false);
+      }
+    };
+
+    loadIntegrationsForSchedule();
+  }, [schedulingCard]);
+
   const updateCardStatus = async (id: string, newStatus: "draft" | "pending" | "approved" | "scheduled" | "published") => {
     await marketingService.updateCardStatus(id, newStatus);
     setApprovalCards(prev => prev.map(c => c.id === id ? { ...c, status: newStatus } : c));
@@ -281,22 +332,27 @@ export default function MarketingTab() {
   const handleConfirmSchedule = async () => {
     if (!schedulingCard) return;
 
-    if (schedulingCard.channel === "Facebook") {
-      const isFbConnected = userProfile?.facebookIntegration?.isConnected;
-      if (!isFbConnected) {
-        toast.error("Không thể lên lịch: Tài khoản chưa liên kết với Facebook Page. Vui lòng kết nối ở phần Cài đặt.");
-        return;
-      }
-    } else if (schedulingCard.channel === "TikTok") {
-      toast.error("Không thể lên lịch: Tính năng đăng bài tự động lên TikTok hiện đang được phát triển và chưa hoạt động.");
+    if (availableIntegrations.length === 0) {
+      toast.error("Không thể lên lịch: Chưa có tài khoản liên kết nào cho kênh này. Vui lòng kết nối tài khoản ở mục Cài đặt -> MXH Doanh nghiệp.");
       return;
     }
 
     setIsScheduling(true);
     try {
-      await marketingService.scheduleCard(schedulingCard.id, scheduleDate, scheduleTime);
+      await marketingService.scheduleCard(
+        schedulingCard.id,
+        scheduleDate,
+        scheduleTime,
+        scheduleIntegrationId || undefined
+      );
       toast.success(`Đã lên lịch đăng bài "${schedulingCard.title}" thành công!`);
-      setApprovalCards(prev => prev.map(c => c.id === schedulingCard.id ? { ...c, status: "scheduled", scheduledDate: scheduleDate, scheduledTime: scheduleTime } : c));
+      setApprovalCards(prev => prev.map(c => c.id === schedulingCard.id ? { 
+        ...c, 
+        status: "scheduled", 
+        scheduledDate: scheduleDate, 
+        scheduledTime: scheduleTime,
+        integrationId: scheduleIntegrationId 
+      } : c));
       setSchedulingCard(null);
     } catch (e) {
       console.error("Lỗi khi lên lịch bài đăng:", e);
@@ -343,7 +399,7 @@ export default function MarketingTab() {
         summary: concept.summary,
         suggestedContent: concept.suggestedContent,
         channels: concept.channels,
-        mediaType,
+        mediaType: isAutoMedia ? mediaType : "none",
         imageModel,
         imageResolution,
         imageAspectRatio,
@@ -684,39 +740,61 @@ export default function MarketingTab() {
                       </div>
                     </div>
 
-                    {/* Media Type Selection */}
-                    <div className="space-y-2 text-left mt-4">
-                      <span className="text-xs font-bold text-gray-750 block uppercase tracking-wider font-mono">
-                        🖼️ Loại phương tiện (Media):
-                      </span>
-                      <div className="grid grid-cols-3 gap-2.5">
-                        {[
-                          { value: "none", label: "Không phương tiện" },
-                          { value: "image", label: "Hình ảnh AI", icon: <ImageIcon className="h-3.5 w-3.5" /> },
-                          { value: "video", label: "Video AI", icon: <Video className="h-3.5 w-3.5" /> }
-                        ].map((opt) => {
-                          const isSelected = mediaType === opt.value;
-                          return (
-                            <button
-                              key={opt.value}
-                              type="button"
-                              onClick={() => setMediaType(opt.value)}
-                              className={`py-2 text-xs font-bold rounded-xl border transition-all flex items-center justify-center gap-2 cursor-pointer select-none ${
-                                isSelected
-                                  ? "border-indigo-600 bg-indigo-50 text-indigo-700 shadow-xs ring-2 ring-indigo-500/10"
-                                  : "border-slate-200 bg-white text-gray-500 hover:bg-slate-100"
-                              }`}
-                            >
-                              {opt.icon}
-                              <span>{opt.label}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
+                    {/* Auto Media Generation toggle */}
+                    <div className="flex items-center gap-3 mt-5 select-none">
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={isAutoMedia}
+                          onChange={(e) => {
+                            setIsAutoMedia(e.target.checked);
+                            if (e.target.checked && mediaType === "none") {
+                              setMediaType("image");
+                            }
+                          }}
+                          className="sr-only peer"
+                        />
+                        <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-650 peer-checked:bg-indigo-600"></div>
+                        <span className="ml-2.5 text-xs font-bold text-gray-750 uppercase tracking-wider font-mono">
+                          ✨ Tự động tạo phương tiện AI (Auto Media)
+                        </span>
+                      </label>
                     </div>
 
+                    {/* Media Type Selection */}
+                    {isAutoMedia && (
+                      <div className="space-y-2 text-left mt-4 animate-fadeIn">
+                        <span className="text-xs font-bold text-gray-750 block uppercase tracking-wider font-mono">
+                          🖼️ Chọn loại phương tiện (Media):
+                        </span>
+                        <div className="grid grid-cols-2 gap-2.5">
+                          {[
+                            { value: "image", label: "Hình ảnh AI", icon: <ImageIcon className="h-3.5 w-3.5" /> },
+                            { value: "video", label: "Video AI", icon: <Video className="h-3.5 w-3.5" /> }
+                          ].map((opt) => {
+                            const isSelected = mediaType === opt.value;
+                            return (
+                              <button
+                                key={opt.value}
+                                type="button"
+                                onClick={() => setMediaType(opt.value)}
+                                className={`py-2 text-xs font-bold rounded-xl border transition-all flex items-center justify-center gap-2 cursor-pointer select-none ${
+                                  isSelected
+                                    ? "border-indigo-600 bg-indigo-50 text-indigo-700 shadow-xs ring-2 ring-indigo-500/10"
+                                    : "border-slate-200 bg-white text-gray-500 hover:bg-slate-100"
+                                }`}
+                              >
+                                {opt.icon}
+                                <span>{opt.label}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Image Settings */}
-                    {mediaType === "image" && (
+                    {isAutoMedia && mediaType === "image" && (
                       <div className="p-4 border border-slate-200 bg-white rounded-2xl space-y-4 text-left mt-4 shadow-2xs">
                         <span className="text-xs font-extrabold text-slate-800 block border-b pb-2 uppercase tracking-wide font-mono flex items-center gap-1.5">
                           <ImageIcon className="h-4 w-4 text-indigo-500" />
@@ -731,8 +809,14 @@ export default function MarketingTab() {
                               onChange={(e) => setImageModel(e.target.value)}
                               className="w-full text-xs p-2 border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 font-sans"
                             >
-                              <option value="imagen-4.0-generate-001">Google Imagen 4.0 Pro</option>
-                              <option value="gemini-2.5-flash">Gemini 2.5 Flash Image Model</option>
+                              <optgroup label="Google Gemini">
+                                <option value="imagen-4.0-generate-001">Google Imagen 4.0 Pro</option>
+                                <option value="gemini-2.5-flash">Gemini 2.5 Flash Image Model</option>
+                              </optgroup>
+                              <optgroup label="PiAPI (Midjourney / Flux)">
+                                <option value="piapi-midjourney">PiAPI - Midjourney</option>
+                                <option value="piapi-flux">PiAPI - Flux (Text-to-Image)</option>
+                              </optgroup>
                             </select>
                           </div>
                           
@@ -779,7 +863,8 @@ export default function MarketingTab() {
                       </div>
                     )}
 
-                    {mediaType === "video" && (
+                    {/* Video Settings */}
+                    {isAutoMedia && mediaType === "video" && (
                       <div className="p-4 border border-slate-200 bg-white rounded-2xl space-y-4 text-left mt-4 shadow-2xs">
                         <span className="text-xs font-extrabold text-slate-800 block border-b pb-2 uppercase tracking-wide font-mono flex items-center gap-1.5">
                           <Video className="h-4 w-4 text-indigo-500" />
@@ -794,8 +879,14 @@ export default function MarketingTab() {
                               onChange={(e) => setVideoModel(e.target.value)}
                               className="w-full text-xs p-2 border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 font-sans"
                             >
-                              <option value="veo-3.1-generate-preview">iGen Veo 3.1 Fast</option>
-                              <option value="veo-3.1-fast-generate-preview">iGen Veo 3.1 Fast (Preview)</option>
+                              <optgroup label="Google Gemini / Veo">
+                                <option value="veo-3.1-generate-preview">iGen Veo 3.1 Fast</option>
+                                <option value="veo-3.1-fast-generate-preview">iGen Veo 3.1 Fast (Preview)</option>
+                              </optgroup>
+                              <optgroup label="PiAPI (Kling / Luma)">
+                                <option value="piapi-kling">PiAPI - Kling AI Video</option>
+                                <option value="piapi-luma">PiAPI - Luma AI Video</option>
+                              </optgroup>
                             </select>
                           </div>
 
@@ -1139,18 +1230,8 @@ export default function MarketingTab() {
                         key={card.id} 
                         card={card} 
                         onNextStatus={() => {
-                          if (card.channel === "Facebook") {
-                            const isFbConnected = userProfile?.facebookIntegration?.isConnected;
-                            if (!isFbConnected) {
-                              toast.error(
-                                "Không thể lên lịch: Tài khoản chưa liên kết với Facebook Page. Vui lòng kết nối Fanpage trong phần Cài đặt -> Liên kết MXH trước."
-                              );
-                              return;
-                            }
-                          } else if (card.channel === "TikTok") {
-                            toast.error(
-                              "Không thể lên lịch: Kết nối tự động qua TikTok API hiện đang được phát triển và chưa hoạt động."
-                            );
+                          if (card.channel !== "Facebook" && card.channel !== "TikTok") {
+                            toast.error(`Kênh "${card.channel}" chưa hỗ trợ tự động lên lịch.`);
                             return;
                           }
                           setSchedulingCard(card);
@@ -1171,14 +1252,14 @@ export default function MarketingTab() {
               <div className="bg-gray-50 border border-gray-150 rounded-2xl p-3 flex flex-col min-h-[450px]">
                 <div className="flex justify-between items-center mb-3 pb-2 border-b border-gray-200">
                   <span className="text-[11px] font-bold text-emerald-800 tracking-wider flex items-center gap-1">
-                    📅 ĐÃ LÊN LỊCH ({approvalCards.filter(c => c.status === "scheduled").length})
+                    📅 ĐÃ LÊN LỊCH ({approvalCards.filter(c => c.status === "scheduled" || c.status === "failed").length})
                   </span>
                 </div>
                 <div className="space-y-3 flex-1 overflow-y-auto max-h-[500px] pr-1">
-                  {approvalCards.filter(c => c.status === "scheduled").length === 0 ? (
+                  {approvalCards.filter(c => c.status === "scheduled" || c.status === "failed").length === 0 ? (
                     <div className="p-8 text-center text-gray-400 text-xs italic leading-normal">Kéo duyệt để lên lịch!</div>
                   ) : (
-                    approvalCards.filter(c => c.status === "scheduled").map(card => (
+                    approvalCards.filter(c => c.status === "scheduled" || c.status === "failed").map(card => (
                       <ScheduledCard 
                         key={card.id} 
                         card={card} 
@@ -1564,6 +1645,43 @@ export default function MarketingTab() {
                 </span>
               </div>
 
+              {/* Account Selection */}
+              <div>
+                <label className="block text-gray-500 font-bold mb-1.5 uppercase tracking-wide text-[10px]">
+                  Chọn tài khoản đăng *
+                </label>
+                {loadingIntegrationsForSchedule ? (
+                  <div className="w-full p-2.5 border border-gray-200 rounded-lg bg-gray-50 flex items-center justify-center gap-2 text-gray-400">
+                    <RefreshCw className="h-4 w-4 animate-spin text-indigo-650" />
+                    <span>Đang tải danh sách tài khoản...</span>
+                  </div>
+                ) : availableIntegrations.length > 0 ? (
+                  <select
+                    disabled={isScheduling}
+                    className={`w-full p-2.5 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white font-medium text-gray-750 ${
+                      isScheduling ? "bg-gray-50 text-gray-400 cursor-not-allowed" : ""
+                    }`}
+                    value={scheduleIntegrationId}
+                    onChange={(e) => setScheduleIntegrationId(e.target.value)}
+                  >
+                    {availableIntegrations.map((integration) => (
+                      <option key={integration._id} value={integration._id}>
+                        {integration.displayName} ({integration.username || "Chưa có username"})
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="p-3 border border-amber-250 bg-amber-50 text-amber-800 rounded-xl space-y-1.5">
+                    <p className="font-semibold leading-normal">
+                      Chưa có tài khoản liên kết nào cho kênh này.
+                    </p>
+                    <p className="text-[10px] text-amber-700 leading-normal font-sans">
+                      Vui lòng vào mục <strong>Cài đặt -&gt; MXH Doanh nghiệp</strong> để kết nối tài khoản {schedulingCard.channel} trước.
+                    </p>
+                  </div>
+                )}
+              </div>
+
               <div>
                 <label className="block text-gray-500 font-bold mb-1.5 uppercase tracking-wide text-[10px]">Ngày đăng bài *</label>
                 <input 
@@ -1605,10 +1723,12 @@ export default function MarketingTab() {
                 </button>
                 <button 
                   type="button" 
-                  disabled={isScheduling}
+                  disabled={isScheduling || availableIntegrations.length === 0}
                   onClick={handleConfirmSchedule}
-                  className={`px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold transition-colors text-xs shadow-sm flex items-center gap-1.5 ${
-                    isScheduling ? "opacity-75 cursor-not-allowed" : "cursor-pointer"
+                  className={`px-5 py-2 text-white rounded-lg font-bold transition-colors text-xs shadow-sm flex items-center gap-1.5 ${
+                    isScheduling || availableIntegrations.length === 0
+                      ? "bg-gray-300 text-gray-400 cursor-not-allowed shadow-none"
+                      : "bg-indigo-600 hover:bg-indigo-700 cursor-pointer shadow-sm shadow-indigo-200"
                   }`}
                 >
                   {isScheduling ? (
@@ -1847,6 +1967,13 @@ function ScheduledCard({
         </div>
       )}
 
+      {card.status === "failed" && card.publishError && (
+        <div className="flex flex-col gap-1 text-[10px] text-red-700 font-mono bg-red-50 border border-red-200 p-2.5 rounded-lg">
+          <span className="font-extrabold flex items-center gap-1">⚠️ LỖI TỰ ĐỘNG ĐĂNG:</span>
+          <span className="leading-relaxed font-sans font-medium text-red-650">{card.publishError}</span>
+        </div>
+      )}
+
       {/* TikTok Publish Button - chỉ hiện khi channel TikTok và đã kết nối */}
       {card.channel === 'TikTok' && tiktokIntegration?.isConnected && onPublishToTikTok && (
         <button
@@ -1881,9 +2008,15 @@ function ScheduledCard({
             className="p-1 text-red-500 hover:bg-red-50 rounded-md font-bold transition-all flex items-center justify-center cursor-pointer">
             <Trash2 className="h-3 w-3" />
           </button>
-          <span className="px-1.5 py-0.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-sm text-[8px] font-bold font-mono">
-            ✓ LỊCH
-          </span>
+          {card.status === "failed" ? (
+            <span className="px-1.5 py-0.5 bg-red-550 bg-red-500 text-white rounded-sm text-[8px] font-bold font-mono animate-pulse">
+              ⚠️ LỖI ĐĂNG
+            </span>
+          ) : (
+            <span className="px-1.5 py-0.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-sm text-[8px] font-bold font-mono">
+              ✓ LỊCH
+            </span>
+          )}
         </div>
       </div>
     </div>

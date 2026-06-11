@@ -300,7 +300,8 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved }
     setGeneratedImageUrl(null);
 
     try {
-      toast.success('Bắt đầu gửi lệnh sinh ảnh lên Google Imagen...');
+      const modelLabel = imageModel.startsWith('piapi-') ? 'PiAPI' : 'Google Imagen';
+      toast.success(`Bắt đầu gửi lệnh sinh ảnh lên ${modelLabel}...`);
       const response = await geminiApi.generateImage(finalPrompt, {
         aspectRatio,
         modelName: imageModel,
@@ -586,8 +587,14 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved }
                       value={imageModel}
                       onChange={(e) => setImageModel(e.target.value)}
                     >
-                       <option value="imagen-4.0-generate-001">Google Imagen 4.0 Pro</option>
-                       <option value="gemini-2.5-flash">Gemini 2.5 Flash Image Modal</option>
+                       <optgroup label="Google Gemini">
+                          <option value="imagen-4.0-generate-001">Google Imagen 4.0 Pro</option>
+                          <option value="gemini-2.5-flash">Gemini 2.5 Flash Image Model</option>
+                       </optgroup>
+                       <optgroup label="PiAPI (Midjourney / Flux)">
+                          <option value="piapi-midjourney">PiAPI - Midjourney</option>
+                          <option value="piapi-flux">PiAPI - Flux (Text-to-Image)</option>
+                       </optgroup>
                     </select>
                  </div>
 

@@ -11,6 +11,8 @@ import { marketingService } from '../../services/marketingService';
 const MODEL_OPTIONS = [
   { value: 'veo-3.1-generate-preview', label: 'iGen Veo 3.1 Fast', desc: 'Tốc độ nhanh, chất lượng tốt' },
   { value: 'veo-3.1-fast-generate-preview', label: 'iGen Veo 3.1 Fast (Preview)', desc: 'Tối ưu hiệu năng' },
+  { value: 'piapi-kling', label: 'PiAPI - Kling AI Video', desc: 'Sinh video Kling AI' },
+  { value: 'piapi-luma', label: 'PiAPI - Luma AI Video', desc: 'Sinh video Luma AI' },
 ];
 
 const DURATION_OPTIONS = [
@@ -166,7 +168,8 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved }: {
     setGeneratedVideoUrl(null);
 
     try {
-      toast.success('Đang gửi lệnh tạo video lên Google Veo. Quá trình này có thể mất 1-2 phút...');
+      const modelLabel = videoModel.startsWith('piapi-') ? 'PiAPI' : 'Google Veo';
+      toast.success(`Đang gửi lệnh tạo video lên ${modelLabel}. Quá trình này có thể mất vài phút...`);
       
       const referenceImageUris = activeMode === 'standard' 
         ? (standardImage ? [standardImage] : undefined)
@@ -461,9 +464,14 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved }: {
                       value={videoModel}
                       onChange={(e) => setVideoModel(e.target.value)}
                     >
-                       {MODEL_OPTIONS.map(opt => (
-                         <option key={opt.value} value={opt.value}>{opt.label}</option>
-                       ))}
+                       <optgroup label="Google Veo">
+                          <option value="veo-3.1-generate-preview">iGen Veo 3.1 Fast</option>
+                          <option value="veo-3.1-fast-generate-preview">iGen Veo 3.1 Fast (Preview)</option>
+                       </optgroup>
+                       <optgroup label="PiAPI Video (Kling / Luma)">
+                          <option value="piapi-kling">PiAPI - Kling AI Video</option>
+                          <option value="piapi-luma">PiAPI - Luma AI Video</option>
+                       </optgroup>
                     </select>
                  </div>
 

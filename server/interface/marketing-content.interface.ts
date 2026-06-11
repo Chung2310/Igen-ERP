@@ -1,4 +1,4 @@
-import { Document } from "mongoose";
+import { Document, Types } from "mongoose";
 
 export interface IMarketingContent extends Document {
   title: string;
@@ -20,4 +20,6 @@ export interface IMarketingContent extends Document {
   tiktokPostId?: string;
   tiktokShareUrl?: string;
   companyCode: string;
+  integrationId?: Types.ObjectId | string; // ID tài khoản mạng xã hội liên kết dùng để đăng bài
 }
+
