@@ -2,10 +2,8 @@ version: '3.8'
 
 services:
   igen-erp:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: igen-erp
+    image: ghcr.io/chung2310/igen-erp:${IMAGE_TAG:-latest}
+    container_name: ${CONTAINER_NAME:-igen-erp}
     restart: always
     ports:
       - "3000:3000"
@@ -15,6 +13,7 @@ services:
       - .env:/app/.env
     networks:
       - default_network
+
 networks:
   default_network:
     external: true
