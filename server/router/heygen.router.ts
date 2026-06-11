@@ -1,0 +1,36 @@
+import { Router } from "express";
+import Joi from "joi";
+import { heygenController } from "../controller/heygen.controller";
+import { requireAuth } from "../middleware/auth";
+import { validateRequest } from "../middleware/validation";
+
+export const heygenRouter = Router();
+
+const createAvatarVideoSchema = {
+  body: Joi.object({
+    avatarId: Joi.string().required(),
+    voiceId: Joi.string().required(),
+    script: Joi.string().required(),
+    aspectRatio: Joi.string().valid("16:9", "9:16", "1:1").optional(),
+    title: Joi.string().allow("").optional(),
+    description: Joi.string().allow("").optional(),
+  }),
+};
+
+const videoIdParamSchema = {
+  params: Joi.object({
+    videoId: Joi.string().required(),
+  }),
+};
+
+const deleteHistorySchema = {
+  params: Joi.object({
+    id: Joi.string().regex(/^[0-9a-fA-F]{24}$/).required(),
+  }),
+};
+
+heygenRouter.get("/library", requireAuth as any, heygenController.getLibrary);
+heygenRouter.post("/videos", requireAuth as any, validateRequest(createAvatarVideoSchema), heygenController.createAvatarVideo);
+heygenRouter.post("/videos/:videoId/status", requireAuth as any, validateRequest(videoIdParamSchema), heygenController.getVideoStatus);
+heygenRouter.get("/history", requireAuth as any, heygenController.getVideoHistory);
+heygenRouter.delete("/history/:id", requireAuth as any, validateRequest(deleteHistorySchema), heygenController.deleteVideoHistory);

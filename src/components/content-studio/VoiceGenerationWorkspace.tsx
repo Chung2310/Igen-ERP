@@ -1632,27 +1632,29 @@ export function VoiceGenerationWorkspace() {
                         </div>
 
                         {/* Option 2: Nhân bản Giọng nói Tức thì */}
-                        <div 
-                          onClick={() => {
-                             setCreationMode('instant');
-                             setCreateStep('upload');
-                          }}
-                          className="p-4 rounded-xl border border-slate-200 hover:border-cyan-500 hover:bg-cyan-50/5 cursor-pointer transition-all flex justify-between items-center group"
-                        >
-                           <div className="flex items-start gap-4">
-                              <div className="p-2.5 bg-slate-50 rounded-lg text-slate-700 group-hover:text-cyan-600 group-hover:bg-cyan-50 transition-colors">
-                                 <Sparkles className="h-5 w-5" />
-                              </div>
-                              <div>
-                                 <h4 className="font-bold text-xs text-slate-900">Nhân bản Giọng nói Tức thì (Instant)</h4>
-                                 <p className="text-[10px] text-slate-450 mt-0.5">Nhân bản giọng nói của bạn chỉ với 10 giây âm thanh.</p>
-                                 <span className="inline-block px-1.5 py-0.5 bg-slate-100 rounded text-[9px] font-bold text-slate-500 mt-2">~2 phút</span>
-                              </div>
-                           </div>
-                           <ChevronRight className="h-4.5 w-4.5 text-slate-400" />
-                        </div>
+                         <div 
+                           onClick={() => {
+                              toast.info('Tính năng Nhân bản Giọng nói Tức thì đang được phát triển!');
+                           }}
+                           className="p-4 rounded-xl border border-slate-200 opacity-60 cursor-pointer hover:border-cyan-500 hover:bg-cyan-50/5 transition-all flex justify-between items-center group"
+                         >
+                            <div className="flex items-start gap-4">
+                               <div className="p-2.5 bg-slate-50 rounded-lg text-slate-700 group-hover:text-cyan-600 group-hover:bg-cyan-50 transition-colors">
+                                  <Sparkles className="h-5 w-5" />
+                               </div>
+                               <div>
+                                  <div className="flex items-center gap-1.5">
+                                     <h4 className="font-bold text-xs text-slate-900">Nhân bản Giọng nói Tức thì (Instant)</h4>
+                                     <span className="px-1 py-0.5 bg-cyan-50 text-[8px] font-bold text-cyan-600 rounded">Đang phát triển</span>
+                                  </div>
+                                  <p className="text-[10px] text-slate-450 mt-0.5">Nhân bản giọng nói của bạn chỉ với 10 giây âm thanh.</p>
+                                  <span className="inline-block px-1.5 py-0.5 bg-slate-100 rounded text-[9px] font-bold text-slate-500 mt-2">~2 phút</span>
+                               </div>
+                            </div>
+                            <ChevronRight className="h-4.5 w-4.5 text-slate-400" />
+                         </div>
 
-                        {/* Option 3: Nhân bản Giọng nói Chuyên nghiệp */}
+                         {/* Option 3: Nhân bản Giọng nói Chuyên nghiệp */}
                         <div 
                           className="p-4 rounded-xl border border-slate-200 opacity-60 cursor-not-allowed flex justify-between items-center"
                           title="Gói hiện tại không hỗ trợ chức năng này"
