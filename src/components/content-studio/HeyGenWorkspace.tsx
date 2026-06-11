@@ -1,24 +1,42 @@
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import {
   AudioLines,
+  Check,
   ChevronDown,
   ChevronRight,
-  Copy,
+  CircleHelp,
   Download,
-  Ellipsis,
+  Pencil,
   MonitorPlay,
   Play,
   Smartphone,
   Sparkles,
-  ThumbsDown,
-  ThumbsUp,
   UserRound,
+  X,
+  Lightbulb,
+  Trash2,
 } from 'lucide-react';
 import { type HeyGenLibraryItem, heygenApi } from '../../api/heygen';
 
 type HeyGenMode = 'avatar' | 'voice' | 'prompt';
 
-const HEYGEN_SURFACES = ['Presenter', 'Avatar IV', 'Cinematic', 'Design a look'];
+const HEYGEN_MODEL_OPTIONS = [
+  {
+    id: 'Avatar V',
+    description: 'Moves like you. Motion adapts to script.',
+    icon: 'V',
+  },
+  {
+    id: 'Avatar IV',
+    description: 'Generic motion that adapts to script.',
+    icon: 'IV',
+  },
+  {
+    id: 'Avatar III',
+    description: 'Applies lip sync over your footage.',
+    icon: 'III',
+  },
+] as const;
 
 const HEYGEN_MODES: Array<{
   id: HeyGenMode;
@@ -32,6 +50,7 @@ const HEYGEN_MODES: Array<{
 
 const TEMPLATE_OPTIONS = ['Product Launch', 'Social Ad', 'Talking Head', 'Training Clip'];
 const ASPECT_OPTIONS = ['16:9', '9:16', '1:1'];
+const RESOLUTION_OPTIONS = ['720p', '1080p'] as const;
 const TERMINAL_JOB_STATES = new Set(['completed', 'failed', 'error', 'canceled']);
 
 export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
@@ -40,12 +59,17 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
   const [voices, setVoices] = useState<HeyGenLibraryItem[]>([]);
   const [selectedAvatarId, setSelectedAvatarId] = useState('');
   const [selectedVoiceId, setSelectedVoiceId] = useState('');
+  const [selectedAvatarModel, setSelectedAvatarModel] = useState(HEYGEN_MODEL_OPTIONS[0].id);
   const [aspectRatio, setAspectRatio] = useState(ASPECT_OPTIONS[0]);
   const [template, setTemplate] = useState(TEMPLATE_OPTIONS[0]);
+  const [resolution, setResolution] = useState<(typeof RESOLUTION_OPTIONS)[number]>('720p');
   const [script, setScript] = useState(
     initialPrompt ||
       'Xin chao, day la video gioi thieu san pham. Trong 30 giay, hay trinh bay loi ich chinh, diem khac biet va ket thuc bang loi keu goi hanh dong ro rang.'
   );
+  const [motionText, setMotionText] = useState('');
+  const [isMotionOpen, setIsMotionOpen] = useState(false);
+  const [isMotionExpressive, setIsMotionExpressive] = useState(true);
   const [history, setHistory] = useState<any[]>([]);
   const [isLoadingLibrary, setIsLoadingLibrary] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -54,6 +78,9 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
   const [jobVideoUrl, setJobVideoUrl] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [warnings, setWarnings] = useState<string[]>([]);
+  const [isAvatarPickerOpen, setIsAvatarPickerOpen] = useState(false);
+  const [isVoicePickerOpen, setIsVoicePickerOpen] = useState(false);
+  const [isModelPickerOpen, setIsModelPickerOpen] = useState(false);
 
   const selectedAvatar = useMemo(
     () => avatars.find((avatar) => avatar.id === selectedAvatarId) || avatars[0] || null,
@@ -62,6 +89,10 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
   const selectedVoice = useMemo(
     () => voices.find((voice) => voice.id === selectedVoiceId) || voices[0] || null,
     [voices, selectedVoiceId]
+  );
+  const selectedModel = useMemo(
+    () => HEYGEN_MODEL_OPTIONS.find((item) => item.id === selectedAvatarModel) || HEYGEN_MODEL_OPTIONS[0],
+    [selectedAvatarModel]
   );
   const activeModeLabel = HEYGEN_MODES.find((mode) => mode.id === activeMode)?.label || HEYGEN_MODES[0].label;
 
@@ -73,20 +104,29 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
     setIsLoadingLibrary(true);
     setErrorMessage('');
     try {
-      const [libraryRes, historyRes] = await Promise.all([
+      const [libraryResult, historyResult] = await Promise.allSettled([
         heygenApi.getLibrary(),
         heygenApi.getVideoHistory(),
       ]);
 
-      const nextAvatars = libraryRes.avatars || [];
-      const nextVoices = libraryRes.voices || [];
+      if (libraryResult.status === 'fulfilled') {
+        const nextAvatars = libraryResult.value.avatars || [];
+        const nextVoices = libraryResult.value.voices || [];
 
-      setAvatars(nextAvatars);
-      setVoices(nextVoices);
-      setWarnings(libraryRes.warnings || []);
-      setSelectedAvatarId((current) => current || nextAvatars[0]?.id || '');
-      setSelectedVoiceId((current) => current || nextVoices[0]?.id || '');
-      setHistory(historyRes.history || []);
+        setAvatars(nextAvatars);
+        setVoices(nextVoices);
+        setWarnings(libraryResult.value.warnings || []);
+        setSelectedAvatarId((current) => current || nextAvatars[0]?.id || '');
+        setSelectedVoiceId((current) => current || nextVoices[0]?.id || '');
+      } else {
+        setErrorMessage(libraryResult.reason?.message || 'Khong the tai thu vien HeyGen');
+      }
+
+      if (historyResult.status === 'fulfilled') {
+        setHistory(historyResult.value.history || []);
+      } else if (libraryResult.status === 'fulfilled') {
+        setErrorMessage(historyResult.reason?.message || 'Khong the tai lich su HeyGen');
+      }
     } catch (error: any) {
       setErrorMessage(error.message || 'Khong the tai du lieu HeyGen');
     } finally {
@@ -98,6 +138,7 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
     avatarId: string;
     voiceId: string;
     script: string;
+    motionText?: string;
     aspectRatio: string;
     title: string;
     description: string;
@@ -130,6 +171,11 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
       return;
     }
 
+    if (selectedAvatarModel === 'Avatar III') {
+      setErrorMessage('Avatar III can legacy API cua HeyGen; vui long chon Avatar IV hoac Avatar V trong luong v3 hien tai.');
+      return;
+    }
+
     setIsGenerating(true);
     setErrorMessage('');
     setJobStatus('processing');
@@ -140,7 +186,15 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
         avatarId: selectedAvatarId,
         voiceId: selectedVoiceId,
         script,
+        motionText,
         aspectRatio,
+        resolution,
+        engineType:
+          selectedAvatarModel === 'Avatar V'
+            ? ('avatar_v' as const)
+            : selectedAvatarModel === 'Avatar IV'
+              ? ('avatar_iv' as const)
+              : ('avatar_iii' as const),
         title: template,
         description: `${activeModeLabel} via HeyGen`,
       };
@@ -165,95 +219,224 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
     }
   }
 
+  async function handleDeleteHistory(videoId: string) {
+    try {
+      await heygenApi.deleteVideoHistory(videoId);
+      setHistory((current) => current.filter((item) => (item.videoId || item.id || item._id) !== videoId));
+      const historyRes = await heygenApi.getVideoHistory();
+      setHistory(historyRes.history || []);
+    } catch (error: any) {
+      setErrorMessage(error.message || 'Khong the xoa video');
+    }
+  }
+
+  function handleReuseRecent(item: any) {
+    if (item?.prompt) {
+      setScript(item.prompt);
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function getDownloadUrl(item: any) {
+    return item?.url || item?.captionedVideoUrl || item?.videoPageUrl || '';
+  }
+
   return (
     <div className="mx-auto w-full max-w-[1500px] px-2">
       <div className="space-y-5">
-        <div className="rounded-[30px] border border-slate-200 bg-[linear-gradient(180deg,#fdfefe_0%,#f4f8fb_100%)] p-4 shadow-sm md:p-5">
-          <div className="mb-4 flex flex-wrap items-center gap-2">
-            {HEYGEN_SURFACES.map((item) => {
-              const isActive = item === 'Avatar IV';
-              return (
-                <button
-                  key={item}
-                  type="button"
-                  className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                    isActive
-                      ? 'bg-slate-950 text-white shadow-sm'
-                      : 'border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-800'
-                  }`}
-                >
-                  {item}
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="rounded-[26px] border border-slate-200 bg-[linear-gradient(180deg,#f8fbfe_0%,#eef4f9_100%)] p-4 shadow-inner md:p-5">
-            <div className="flex flex-col gap-4 lg:flex-row">
-              <div className="w-full lg:w-[180px]">
-                <div className={`overflow-hidden rounded-[22px] bg-gradient-to-b ${selectedAvatar ? 'from-amber-100 to-orange-200' : 'from-slate-200 to-slate-300'} p-[1px] shadow-sm`}>
-                  <div className="flex aspect-[3/4.2] items-end rounded-[21px] bg-[linear-gradient(180deg,#314158_0%,#172033_100%)] p-3">
-                    <div className="w-full rounded-[18px] bg-white/8 p-3 backdrop-blur-sm">
-                      <div className="mb-6 flex justify-center">
-                        <div className="flex h-16 w-16 items-center justify-center rounded-[20px] bg-white/90 text-slate-800">
-                          <UserRound className="h-8 w-8" />
-                        </div>
+        <div className="rounded-[30px] border border-slate-200 bg-[linear-gradient(180deg,#fdfefe_0%,#f4f8fb_100%)] p-5 shadow-sm md:p-6">
+          <div className="rounded-[26px] border border-slate-200 bg-[linear-gradient(180deg,#f8fbfe_0%,#eef4f9_100%)] p-4 shadow-inner">
+            <div className="flex min-h-[290px] flex-col gap-4 lg:flex-row">
+              <div className="relative flex w-full shrink-0 flex-col gap-3 lg:w-[130px]">
+                <div className="relative overflow-hidden rounded-[18px]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAvatarPickerOpen((current) => !current);
+                      setIsVoicePickerOpen(false);
+                      setIsModelPickerOpen(false);
+                    }}
+                    className="block w-full text-left"
+                  >
+                    {selectedAvatar?.previewImage ? (
+                      <img
+                        src={selectedAvatar.previewImage}
+                        alt={selectedAvatar.name}
+                        className="h-[205px] w-full rounded-[18px] object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-[205px] w-full items-center justify-center rounded-[18px] bg-slate-200 text-slate-600">
+                        <UserRound className="h-10 w-10" />
                       </div>
-                      <p className="text-center text-sm font-semibold text-white">{selectedAvatar?.name || 'Avatar'}</p>
-                      <p className="mt-1 text-center text-[11px] text-slate-300">{selectedAvatar?.accent || selectedAvatar?.language || 'HeyGen Library'}</p>
-                    </div>
-                  </div>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAvatarPickerOpen((current) => !current);
+                      setIsVoicePickerOpen(false);
+                      setIsModelPickerOpen(false);
+                    }}
+                    className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-cyan-400 text-slate-950 shadow-sm"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAvatarPickerOpen((current) => !current);
+                      setIsVoicePickerOpen(false);
+                      setIsModelPickerOpen(false);
+                    }}
+                    className="absolute bottom-3 left-3 rounded-full bg-slate-950/78 px-3 py-1.5 text-sm font-semibold text-white backdrop-blur-sm"
+                  >
+                    Switch look
+                  </button>
                 </div>
+
+                {isAvatarPickerOpen ? (
+                  <PickerPopover
+                    title="Chon avatar"
+                    items={avatars}
+                    selectedId={selectedAvatarId}
+                    onClose={() => setIsAvatarPickerOpen(false)}
+                    onSelect={(item) => {
+                      setSelectedAvatarId(item.id);
+                      setIsAvatarPickerOpen(false);
+                    }}
+                    emptyLabel="Khong co avatar"
+                  />
+                ) : null}
               </div>
 
-              <div className="min-w-0 flex-1">
-                <div className="mb-2 flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500">
+              <div className="flex min-h-[205px] min-w-0 flex-1 flex-col pt-3">
+                <div className="mb-4 flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500">
                   <span>Video Script</span>
-                  <span className="rounded-full border border-slate-200 bg-white px-2 py-1 text-[9px] text-slate-600">
-                    {activeModeLabel}
-                  </span>
                 </div>
 
                 <textarea
                   value={script}
                   onChange={(event) => setScript(event.target.value)}
                   placeholder="Type your script, or upload/record"
-                  className="min-h-[120px] w-full resize-none border-0 bg-transparent text-lg leading-8 text-slate-900 outline-none placeholder:text-slate-400 md:min-h-[140px] md:text-[20px]"
+                  className="min-h-[110px] w-full flex-1 resize-none border-0 bg-transparent px-0 text-[17px] leading-8 text-slate-900 outline-none placeholder:text-slate-400 md:text-[18px]"
                 />
 
-                <div className="mt-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <PillButton onClick={() => setActiveMode('avatar')}>
-                      <div className="flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-fuchsia-300 to-violet-500 text-slate-950">
-                        <Sparkles className="h-3 w-3" />
-                      </div>
-                      Avatar V
-                      <ChevronDown className="h-4 w-4 text-slate-400" />
-                    </PillButton>
+                {isMotionOpen ? (
+                  <div className="mt-4 rounded-[22px] border border-slate-200 bg-white p-4">
+                    <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-900">
+                      <span>Apply Custom Motion</span>
+                      <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-600">
+                        Beta
+                      </span>
+                      <CircleHelp className="h-4 w-4 text-slate-400" />
+                    </div>
 
-                    <PillButton onClick={() => setActiveMode('prompt')}>
+                    <textarea
+                      value={motionText}
+                      onChange={(event) => setMotionText(event.target.value)}
+                      placeholder="e.g., lean in, look at camera, thumbs up at the end..."
+                      className="min-h-[110px] w-full resize-none rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-7 text-slate-900 outline-none placeholder:text-slate-400"
+                    />
+
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                      <div className="inline-flex items-center gap-2 text-sm text-slate-600">
+                        <Lightbulb className="h-4 w-4" />
+                        <span>More expressive</span>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setIsMotionExpressive((current) => !current)}
+                        className={`relative inline-flex h-7 w-12 items-center rounded-full transition ${
+                          isMotionExpressive ? 'bg-cyan-400' : 'bg-slate-300'
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-5 w-5 rounded-full bg-white transition ${
+                            isMotionExpressive ? 'translate-x-6' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="mt-5 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="relative">
+                      <PillButton
+                        onClick={() => {
+                          setIsModelPickerOpen((current) => !current);
+                          setIsAvatarPickerOpen(false);
+                          setIsVoicePickerOpen(false);
+                        }}
+                      >
+                        <Sparkles className="h-4 w-4 text-fuchsia-400" />
+                        {selectedModel.id}
+                        <ChevronDown className={`h-4 w-4 text-slate-400 transition ${isModelPickerOpen ? 'rotate-180' : ''}`} />
+                      </PillButton>
+
+                      {isModelPickerOpen ? (
+                        <ModelSelectionPopover
+                          title="Chon model"
+                          items={HEYGEN_MODEL_OPTIONS as unknown as Array<{ id: string; description: string; icon: string }>}
+                          selectedValue={selectedAvatarModel}
+                          onClose={() => setIsModelPickerOpen(false)}
+                          onSelect={(value) => {
+                            setSelectedAvatarModel(value);
+                            setIsModelPickerOpen(false);
+                          }}
+                        />
+                      ) : null}
+                    </div>
+
+                    <PillButton onClick={() => setIsMotionOpen((current) => !current)}>
                       <MonitorPlay className="h-4 w-4 text-slate-500" />
                       Motion
                     </PillButton>
 
-                    <PillButton>
-                      <AudioLines className="h-4 w-4 text-slate-500" />
-                      <span className="max-w-[120px] truncate">{selectedVoice?.name || 'Voice'}</span>
-                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-200 text-slate-700">
-                        <Play className="h-3 w-3 fill-current" />
-                      </span>
-                    </PillButton>
+                    <div className="relative">
+                      <PillButton
+                        onClick={() => {
+                          setIsVoicePickerOpen((current) => !current);
+                          setIsAvatarPickerOpen(false);
+                          setIsModelPickerOpen(false);
+                        }}
+                      >
+                        <AudioLines className="h-4 w-4 text-slate-500" />
+                        <span className="max-w-[180px] truncate">{selectedVoice?.name || 'Voice'}</span>
+                        <ChevronDown className={`h-4 w-4 text-slate-400 transition ${isVoicePickerOpen ? 'rotate-180' : ''}`} />
+                      </PillButton>
+
+                      {isVoicePickerOpen ? (
+                        <PickerPopover
+                          title="Chon voice"
+                          items={voices}
+                          selectedId={selectedVoiceId}
+                          onClose={() => setIsVoicePickerOpen(false)}
+                          onSelect={(item) => {
+                            setSelectedVoiceId(item.id);
+                            setIsVoicePickerOpen(false);
+                          }}
+                          emptyLabel="Khong co voice"
+                          className="left-0 top-[calc(100%+10px)] w-[320px]"
+                          compact
+                        />
+                      ) : null}
+                    </div>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2 xl:justify-end">
                     <PillButton onClick={() => setAspectRatio(nextValue(ASPECT_OPTIONS, aspectRatio))}>
                       <Smartphone className="h-4 w-4 text-slate-500" />
                       {aspectRatio}
                       <ChevronDown className="h-4 w-4 text-slate-400" />
                     </PillButton>
 
-                    <PillButton onClick={() => setTemplate(nextValue(TEMPLATE_OPTIONS, template))}>
-                      {template === 'Social Ad' ? '1080p' : '720p'}
+                    <PillButton onClick={() => setResolution(nextValue(RESOLUTION_OPTIONS as unknown as string[], resolution) as (typeof RESOLUTION_OPTIONS)[number])}>
+                      {resolution}
                       <ChevronDown className="h-4 w-4 text-slate-400" />
                     </PillButton>
 
@@ -261,50 +444,14 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
                       type="button"
                       onClick={() => void handleGenerate()}
                       disabled={isGenerating || !script.trim() || !selectedAvatarId || !selectedVoiceId}
-                      className="rounded-full bg-cyan-400 px-5 py-2.5 text-sm font-bold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="inline-flex h-10 items-center justify-center rounded-full bg-cyan-400 px-5 text-sm font-bold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {isGenerating ? 'Generating...' : 'Generate'}
                     </button>
                   </div>
                 </div>
 
-                <div className="mt-4 grid gap-3 md:grid-cols-2">
-                  <label className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">HeyGen Avatar</p>
-                    <select
-                      value={selectedAvatarId}
-                      onChange={(event) => setSelectedAvatarId(event.target.value)}
-                      className="mt-2 w-full border-0 bg-transparent text-sm text-slate-900 outline-none"
-                    >
-                      {avatars.length === 0 ? <option value="">Khong co avatar</option> : null}
-                      {avatars.map((avatar) => (
-                        <option key={avatar.id} value={avatar.id}>
-                          {avatar.name} ({avatar.id})
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">HeyGen Voice</p>
-                    <select
-                      value={selectedVoiceId}
-                      onChange={(event) => setSelectedVoiceId(event.target.value)}
-                      className="mt-2 w-full border-0 bg-transparent text-sm text-slate-900 outline-none"
-                    >
-                      {voices.length === 0 ? <option value="">Khong co voice</option> : null}
-                      {voices.map((voice) => (
-                        <option key={voice.id} value={voice.id}>
-                          {voice.name} ({voice.id})
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-
-                <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
-                  <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-slate-600">
-                    Trang thai: {jobStatus || (isLoadingLibrary ? 'loading' : 'idle')}
-                  </span>
+                <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
                   {jobVideoId ? (
                     <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-slate-600">
                       Job: {jobVideoId}
@@ -318,87 +465,127 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
           </div>
         </div>
 
-        <div className="rounded-[30px] border border-slate-200 bg-white p-4 shadow-sm md:p-5">
+        <div className="rounded-[30px] border border-slate-200 bg-[linear-gradient(180deg,#fdfefe_0%,#f4f8fb_100%)] p-4 text-slate-900 shadow-sm md:p-5">
           <div className="mb-4 flex items-center justify-between gap-3">
             <h4 className="text-xl font-bold tracking-tight text-slate-900">Recent Creations</h4>
-            <button type="button" className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-500 transition hover:text-slate-800">
+            <button type="button" className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-500 transition hover:text-slate-900">
               All Projects
               <ChevronRight className="h-4 w-4" />
             </button>
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-[minmax(320px,460px)_minmax(0,1fr)]">
-            <div className="overflow-hidden rounded-[24px] border border-slate-200 bg-[linear-gradient(180deg,#eef4f9_0%,#e8f0f7_100%)] p-3 shadow-sm">
-              <div className="relative aspect-[4/3] overflow-hidden rounded-[18px] bg-[radial-gradient(circle_at_center,#253142_0%,#111827_62%,#09090b_100%)]">
-                {jobVideoUrl ? <video src={jobVideoUrl} controls className="absolute inset-0 z-10 h-full w-full object-cover" /> : null}
-                <div className="absolute inset-y-0 left-0 w-[30%] bg-[linear-gradient(90deg,rgba(15,23,42,0.86)_0%,rgba(15,23,42,0.15)_100%)]" />
-                <div className="absolute inset-y-0 right-0 w-[30%] bg-[linear-gradient(270deg,rgba(15,23,42,0.86)_0%,rgba(15,23,42,0.15)_100%)]" />
-                <div className="absolute inset-y-0 left-1/2 w-[30%] -translate-x-1/2 rounded-[16px] bg-gradient-to-b from-slate-300 via-slate-500 to-slate-800 p-[2px]">
-                  <div className="flex h-full items-end justify-center rounded-[14px] bg-[linear-gradient(180deg,#475569_0%,#0f172a_100%)] p-3">
-                    <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-[22px] bg-white/90 text-slate-800 shadow-lg">
-                      <UserRound className="h-9 w-9" />
+          {history.length > 0 ? (
+            <div className="space-y-4">
+              {history.slice(0, 6).map((item) => (
+                (() => {
+                  const downloadUrl = getDownloadUrl(item);
+                  const canDownload = Boolean(downloadUrl);
+                  return (
+                <div key={item._id} className="grid gap-4 lg:grid-cols-[minmax(320px,560px)_minmax(0,1fr)]">
+                  <div className="overflow-hidden rounded-[24px] border border-slate-200 bg-white p-3 shadow-sm">
+                    <div className="relative aspect-[16/9] overflow-hidden rounded-[20px] bg-[radial-gradient(circle_at_center,#dde7f2_0%,#cddaea_60%,#bfd0e6_100%)]">
+                      {item.thumbnailUrl ? (
+                        <img src={item.thumbnailUrl} alt={item.title || item.prompt || 'HeyGen video'} className="absolute inset-0 z-10 h-full w-full object-cover" />
+                      ) : item.url ? (
+                        <video src={item.url} className="absolute inset-0 z-10 h-full w-full object-cover" />
+                      ) : null}
+                      <div className="absolute inset-y-0 left-0 w-[34%] bg-[linear-gradient(90deg,rgba(241,245,249,0.88)_0%,rgba(241,245,249,0.1)_100%)]" />
+                      <div className="absolute inset-y-0 right-0 w-[34%] bg-[linear-gradient(270deg,rgba(241,245,249,0.88)_0%,rgba(241,245,249,0.1)_100%)]" />
+                      <div className="absolute inset-y-0 left-1/2 w-[34%] -translate-x-1/2 overflow-hidden rounded-[18px]">
+                        {item.thumbnailUrl ? (
+                          <img
+                            src={item.thumbnailUrl}
+                            alt={item.title || item.prompt || 'HeyGen video'}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : selectedAvatar?.previewImage ? (
+                          <img
+                            src={selectedAvatar.previewImage}
+                            alt={selectedAvatar.name}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full items-center justify-center bg-[linear-gradient(180deg,#475569_0%,#0f172a_100%)] text-white">
+                            <UserRound className="h-10 w-10" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="absolute inset-0 z-20 flex items-center justify-center">
+                        <button
+                          type="button"
+                          className="flex h-14 w-14 items-center justify-center rounded-full border border-white/60 bg-slate-950/35 text-white backdrop-blur-sm"
+                        >
+                          <Play className="ml-0.5 h-5 w-5 fill-current" />
+                        </button>
+                      </div>
+                      <div className="absolute bottom-3 right-3 z-20 rounded-lg bg-slate-950/65 px-2.5 py-1 text-xs font-semibold text-white">
+                        {item.duration ? `${Math.max(1, Math.round(item.duration))}s` : 'Video'}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex min-w-0 flex-col justify-between py-2">
+                    <div>
+                      <p className="line-clamp-3 text-2xl leading-tight text-slate-900">{item.prompt}</p>
+                      <p className="mt-5 text-sm text-slate-500">
+                        {item.createdAt ? new Date(item.createdAt).toLocaleString('vi-VN') : 'Chua co video'} · {item.model || 'Avatar V'}
+                      </p>
+                    </div>
+
+                    <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <ActionCircle dark onClick={() => handleReuseRecent(item)}>
+                          <Pencil className="h-4 w-4" />
+                        </ActionCircle>
+                        {canDownload ? (
+                          <a
+                            href={downloadUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            download={item.title || 'heygen-video'}
+                            className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:text-slate-900"
+                            title="Tai video"
+                          >
+                            <Download className="h-4 w-4" />
+                          </a>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled
+                            className="flex h-10 w-10 cursor-not-allowed items-center justify-center rounded-full border border-slate-200 bg-slate-100 text-slate-300"
+                            title="Video chua san sang de tai"
+                          >
+                            <Download className="h-4 w-4" />
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => void handleDeleteHistory(item.videoId || item.id || item._id)}
+                          className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:text-slate-900"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleReuseRecent(item)}
+                        className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:text-slate-900"
+                      >
+                        <ChevronRight className="h-5 w-5" />
+                      </button>
                     </div>
                   </div>
                 </div>
-                {!jobVideoUrl ? (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <button
-                      type="button"
-                      className="flex h-14 w-14 items-center justify-center rounded-full border border-white/20 bg-black/35 text-white backdrop-blur-sm transition hover:scale-105"
-                    >
-                      <Play className="ml-0.5 h-5 w-5 fill-current" />
-                    </button>
-                  </div>
-                ) : null}
-                <div className="absolute bottom-3 right-3 z-20 rounded-lg bg-black/55 px-2.5 py-1 text-xs font-semibold text-white">
-                  {jobStatus || 'Idle'}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex flex-col justify-between rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
-              <div>
-                <p className="line-clamp-3 text-2xl leading-tight text-slate-900">{script || 'Video script preview'}</p>
-                <p className="mt-5 text-sm text-slate-500">
-                  {history[0]?.createdAt ? new Date(history[0].createdAt).toLocaleString('vi-VN') : 'Chua co video'} · Avatar V
-                </p>
-              </div>
-
-              <div className="mt-6 flex flex-wrap items-center gap-2">
-                <ActionCircle><ThumbsUp className="h-4 w-4" /></ActionCircle>
-                <ActionCircle><ThumbsDown className="h-4 w-4" /></ActionCircle>
-                <ActionCircle><Copy className="h-4 w-4" /></ActionCircle>
-                <ActionCircle><Download className="h-4 w-4" /></ActionCircle>
-                <ActionCircle><Ellipsis className="h-4 w-4" /></ActionCircle>
-              </div>
-            </div>
-          </div>
-
-          {history.length > 0 ? (
-            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {history.slice(0, 6).map((item) => (
-                <div key={item._id} className="rounded-[22px] border border-slate-200 bg-slate-50 p-4">
-                  <p className="line-clamp-2 text-sm font-semibold text-slate-900">{item.prompt}</p>
-                  <p className="mt-2 text-xs text-slate-500">{item.metadata?.status || 'processing'} · {item.metadata?.heygenVideoId || 'HeyGen video'}</p>
-                  {item.url ? (
-                    <a
-                      href={item.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-cyan-700"
-                    >
-                      Xem video
-                      <ChevronRight className="h-4 w-4" />
-                    </a>
-                  ) : (
-                    <span className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-slate-500">
-                      Dang xu ly
-                    </span>
-                  )}
-                </div>
+                  );
+                })()
               ))}
             </div>
-          ) : null}
+          ) : (
+            <div className="rounded-[24px] border border-slate-200 bg-white p-6 text-sm text-slate-500">
+              Chua co video HeyGen nao trong lich su.
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -422,20 +609,190 @@ function PillButton({
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+      className="inline-flex h-10 items-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
     >
       {children}
     </button>
   );
 }
 
-function ActionCircle({ children }: { children: ReactNode }) {
+function ModelSelectionPopover({
+  title,
+  items,
+  selectedValue,
+  onClose,
+  onSelect,
+}: {
+  title: string;
+  items: Array<{ id: string; description: string; icon: string }>;
+  selectedValue: string;
+  onClose: () => void;
+  onSelect: (value: string) => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/20 p-4 backdrop-blur-[2px]">
+      <div className="w-full max-w-[360px] rounded-[22px] border border-white/10 bg-[#17191d] p-3 shadow-[0_18px_50px_rgba(15,23,42,0.32)]">
+        <div className="mb-2 flex items-center justify-between gap-2 px-1 py-1">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">{title}</p>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-7 w-7 items-center justify-center rounded-full text-slate-400 transition hover:bg-white/10 hover:text-white"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="space-y-2">
+          {items.map((item) => {
+            const isSelected = item.id === selectedValue;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => onSelect(item.id)}
+                className={`flex w-full items-center gap-3 rounded-[18px] px-3 py-3 text-left transition ${
+                  isSelected ? 'bg-white/10 text-white' : 'bg-white/5 text-slate-200 hover:bg-white/8'
+                }`}
+              >
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-fuchsia-300 to-violet-500 text-xs font-bold text-slate-950">
+                  {item.icon}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-lg font-semibold">{item.id}</p>
+                  <p className="text-sm leading-5 text-slate-400">{item.description}</p>
+                </div>
+                {isSelected ? <Check className="h-5 w-5 text-cyan-400" /> : null}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function formatAvatarName(name: string) {
+  if (name.length <= 14) {
+    return name;
+  }
+  const parts = name.split(' ');
+  if (parts.length >= 2) {
+    return `${parts.slice(0, -1).join(' ')}\n${parts[parts.length - 1]}`;
+  }
+  return name;
+}
+
+function ActionCircle({
+  children,
+  dark = false,
+  onClick,
+}: {
+  children: ReactNode;
+  dark?: boolean;
+  onClick?: () => void;
+}) {
   return (
     <button
       type="button"
-      className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:text-slate-900"
+      onClick={onClick}
+      className={`flex h-10 w-10 items-center justify-center rounded-full transition ${
+        dark
+          ? 'border border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-900'
+          : 'border border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-900'
+      }`}
     >
       {children}
     </button>
+  );
+}
+
+function PickerPopover({
+  title,
+  items,
+  selectedId,
+  onClose,
+  onSelect,
+  emptyLabel,
+  className,
+  compact = false,
+}: {
+  title: string;
+  items: HeyGenLibraryItem[];
+  selectedId: string;
+  onClose: () => void;
+  onSelect: (item: HeyGenLibraryItem) => void;
+  emptyLabel: string;
+  className?: string;
+  compact?: boolean;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/28 p-4 backdrop-blur-[2px]">
+      <div className={`w-full max-w-[min(92vw,760px)] rounded-[28px] border border-slate-200 bg-white p-4 shadow-[0_30px_80px_rgba(15,23,42,0.2)] ${className || ''}`}>
+        <div className="mb-3 flex items-center justify-between gap-3 px-1">
+          <div>
+            <p className="text-sm font-semibold text-slate-900">{title}</p>
+            <p className="text-xs text-slate-500">Chon truc tiep tu thu vien cua ban</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:text-slate-900"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {items.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+            {emptyLabel}
+          </div>
+        ) : (
+          <div className={`grid gap-3 overflow-y-auto pr-1 ${compact ? 'max-h-[70vh] grid-cols-1' : 'max-h-[70vh] grid-cols-1 sm:grid-cols-2'}`}>
+            {items.map((item) => {
+              const isSelected = item.id === selectedId;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => onSelect(item)}
+                  className={`rounded-[18px] border p-3 text-left transition ${
+                    isSelected
+                      ? 'border-cyan-300 bg-cyan-50 shadow-sm'
+                      : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      {item.previewImage ? (
+                        <img
+                          src={item.previewImage}
+                          alt={item.name}
+                          className={`${compact ? 'h-12 w-12 rounded-xl' : 'h-20 w-16 rounded-2xl'} object-cover`}
+                        />
+                      ) : (
+                        <div className={`flex ${compact ? 'h-12 w-12 rounded-xl' : 'h-20 w-16 rounded-2xl'} items-center justify-center bg-[linear-gradient(180deg,#e2e8f0_0%,#cbd5e1_100%)] text-slate-700`}>
+                          {compact ? <AudioLines className="h-4 w-4" /> : <UserRound className="h-5 w-5" />}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-slate-900">{item.name}</p>
+                        <p className="truncate text-xs text-slate-500">{item.accent || item.language || item.id}</p>
+                        {!compact ? <p className="mt-2 line-clamp-1 text-[11px] text-slate-400">{item.id}</p> : null}
+                      </div>
+                    </div>
+                    {isSelected ? (
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-cyan-500 text-white">
+                        <Check className="h-3.5 w-3.5" />
+                      </span>
+                    ) : null}
+                  </div>
+                  {compact ? <p className="mt-3 truncate text-[11px] text-slate-400">{item.id}</p> : null}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

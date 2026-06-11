@@ -49,7 +49,7 @@ async function parseJsonResponse(response: Response, fallbackMessage: string) {
 }
 
 export const heygenApi = {
-  async getLibrary(): Promise<{ status: string; mock?: boolean; avatars: HeyGenLibraryItem[]; voices: HeyGenLibraryItem[]; warnings?: string[] }> {
+  async getLibrary(): Promise<{ status: string; avatars: HeyGenLibraryItem[]; voices: HeyGenLibraryItem[]; warnings?: string[] }> {
     const response = await fetch("/api/v1/heygen/library", {
       headers: getJwtHeaders(false),
     });
@@ -60,7 +60,10 @@ export const heygenApi = {
     avatarId: string;
     voiceId: string;
     script: string;
+    motionText?: string;
     aspectRatio?: "16:9" | "9:16" | "1:1";
+    resolution?: "720p" | "1080p" | "4k";
+    engineType?: "avatar_v" | "avatar_iv" | "avatar_iii";
     title?: string;
     description?: string;
   }): Promise<any> {
@@ -76,6 +79,7 @@ export const heygenApi = {
     avatarId?: string;
     voiceId?: string;
     script?: string;
+    motionText?: string;
     aspectRatio?: string;
     title?: string;
     description?: string;
