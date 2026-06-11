@@ -12,6 +12,8 @@ const AIMediaSchema = new Schema<IAIMedia>({
     aspectRatio: { type: String },
     resolution: { type: String },
     originalVeoUrl: { type: String },
+    title: { type: String },
+    description: { type: String },
   },
   createdAt: { type: Date, default: Date.now, index: true },
 });

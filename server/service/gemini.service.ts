@@ -7,7 +7,7 @@ import { AIMediaModel } from "../model/ai-media.model";
 import { cloudinaryService } from "./cloudinary.service";
 
 const GEMINI_TEXT_MODEL = process.env.GEMINI_MODEL || "gemini-3.1-flash-lite";
-const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || "imagen-4.0-generate-001";
+const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || "imagen-3.0-generate-002";
 const GEMINI_VIDEO_MODEL = process.env.GEMINI_VIDEO_MODEL || "veo-3.1-generate-preview";
 
 export const geminiService = {
@@ -26,9 +26,8 @@ export const geminiService = {
       // Logic giả lập phản hồi của tổng đài viên AI
       return new Promise((resolve) => {
         setTimeout(() => {
-          let replyText = `[Giả lập Trợ lý AI] Cảm ơn bạn đã phản hồi! Với cài đặt Trợ lý AI (Cấu hình: ${
-            aiConfig.autoClassify ? "Tự phân loại" : "Thường"
-          }), tôi đề xuất phương án tối ưu cho bạn.`;
+          let replyText = `[Giả lập Trợ lý AI] Cảm ơn bạn đã phản hồi! Với cài đặt Trợ lý AI (Cấu hình: ${aiConfig.autoClassify ? "Tự phân loại" : "Thường"
+            }), tôi đề xuất phương án tối ưu cho bạn.`;
 
           const msgLower = message.toLowerCase();
           if (msgLower.includes("giá") || msgLower.includes("bao nhiêu")) {
@@ -201,9 +200,8 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
           id: "giao_duc_gia_tri",
           title: "Giáo dục & Giá trị hữu ích",
           ratio: "35% tỉ trọng",
-          description: `Giải đáp trực quan, hướng dẫn tối ưu và chia sẻ kiến thức nền tảng giúp khách hàng hiểu sâu về giá trị dòng sản phẩm liên quan "${
-            campaignTopic || "Sản phẩm công nghệ"
-          }".`,
+          description: `Giải đáp trực quan, hướng dẫn tối ưu và chia sẻ kiến thức nền tảng giúp khách hàng hiểu sâu về giá trị dòng sản phẩm liên quan "${campaignTopic || "Sản phẩm công nghệ"
+            }".`,
         },
         {
           id: "cau_chuyen_social_proof",
@@ -751,7 +749,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
 USER'S REQUEST: "${prompt}"
 Output ONLY the final detailed prompt in English.`
         });
-        
+
         const preRes = await client.models.generateContent({
           model: "gemini-2.5-flash",
           contents: parts,
@@ -836,9 +834,9 @@ Output ONLY the final detailed prompt in English.`
 
     if (!client) {
       console.log("[geminiService.generateVideo] Running in MOCK mode");
-      return { 
-        url: "https://www.w3schools.com/html/mov_bbb.mp4", 
-        isMock: true 
+      return {
+        url: "https://www.w3schools.com/html/mov_bbb.mp4",
+        isMock: true
       };
     }
 
@@ -968,60 +966,85 @@ Output ONLY the final detailed prompt in English.`
    * Tạo giọng nói TTS (Gemini Voice Modality)
    */
   async generateVoice(userId: string, input: any) {
-    const client = getGeminiClient();
-    const { textToSpeak, styleInstructions, mode, temperature, modelName, voiceName, speakerA, speakerB } = input;
-    
-    let promptText = textToSpeak;
-    if (styleInstructions && styleInstructions.trim() !== '') {
-       promptText = `Read aloud following these style instructions:\n${styleInstructions.trim()}\n\nText:\n${textToSpeak}`;
-    }
+    const { textToSpeak, styleInstructions, mode, temperature, modelName, voiceName, speakerA, speakerB, title, description } = input;
 
-    let speechConfig: any;
-    if (mode === 'multi') {
-        speechConfig = {
-           multiSpeakerVoiceConfig: {
-              speakerVoiceConfigs: [
-                 { speaker: 'SpeakerA', voiceConfig: { prebuiltVoiceConfig: { voiceName: speakerA || 'Aoede' } } },
-                 { speaker: 'SpeakerB', voiceConfig: { prebuiltVoiceConfig: { voiceName: speakerB || 'Puck' } } }
-              ]
-           }
-        };
-    } else {
-        speechConfig = {
-           voiceConfig: {
-              prebuiltVoiceConfig: { voiceName: voiceName || 'Aoede' },
-           }
-        };
-    }
+    // ElevenLabs Voice Mapping Table
+    const ELEVENLABS_VOICE_MAP: Record<string, string> = {
+      // Male voices
+      'Sadaltager': 'pNInz6obpgqjGQJe7v5C', // Adam
+      'Charon': 'IKne3meq5aP759yEl2s8',    // Charlie
+      'Orus': 'JBF2zhBk4EKq12v0tw9H',      // George
+      'Puck': 'TxGEqn7nUaNZTRXjOFaQ',      // Josh
+      'Fenrir': 'VR6A4UBqILHN73idDuEx',    // Arnold
+      'Enceladus': 'N2lVS1w4EtoT3sAHBSz1', // Callum
+      'Iapetus': 'ODq5FpeHgnsMrZsnXCw8',   // Patrick
+      'Umbriel': 'SOYhlJg1783U4EcYUPgl',   // Harry
+      'Algenib': 'TX329t22vkzCsaeeH8ui',   // Liam
+      'Rasalgethi': 'CYw3moM5B48wqvQUxxTL',// Dave
+      'Achernar': 'GBv7mTt0atIp3u8bJvhg',  // Thomas
+      'Zephyr': 'D38z5qw23EIviwc77s33',    // Fin
+      'Alnilam': '2EiwXtPIZgojA6xnRghf',   // Clyde
+      'Gacrux': '2EiwXtPIZgojA6xnRghf',    // Clyde fallback
+      'Achird': 'pNInz6obpgqjGQJe7v5C',    // Adam fallback
+      'Zubenelgenubi': 'pNInz6obpgqjGQJe7v5C', // Adam fallback
+      'Sulafat': 'pNInz6obpgqjGQJe7v5C',   // Adam fallback
+
+      // Female voices
+      'Aoede': 'EXAVITQu4vr4xnSDxMaL',     // Bella
+      'Callirrhoe': 'AZnzlk1XvdvUeBnXmlld',// Domi
+      'Kore': '21m00Tcm4TlvDq8ikWAM',      // Rachel
+      'Leda': 'Lcfc5O6IFm67RCg5pQA1',      // Emily
+      'Autonoe': 'MF3mGyEYCl7XYWbV9VbO',   // Ellie
+      'Algieba': 'ThT50A1aJnqfgCzz94ks',   // Dorothy
+      'Despina': 'zrHiDhphv9RcmhlC3AEg',   // Mimi
+      'Erinome': 'EXAVITQu4vr4xnSDxMaL',   // Bella fallback
+      'Laomedeia': 'EXAVITQu4vr4xnSDxMaL', // Bella fallback
+      'Schedar': 'EXAVITQu4vr4xnSDxMaL',   // Bella fallback
+      'Pulcherrima': 'EXAVITQu4vr4xnSDxMaL', // Bella fallback
+      'Vindemiatrix': 'EXAVITQu4vr4xnSDxMaL', // Bella fallback
+      'Sadachbia': 'EXAVITQu4vr4xnSDxMaL'  // Bella fallback
+    };
 
     let audioDataUri = "";
-    if (!client) {
-      console.log("[geminiService.generateVoice] Running in MOCK mode");
+    const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
+
+    if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
+      console.log("[geminiService.generateVoice] ELEVENLABS_API_KEY is not configured. Running in MOCK mode.");
       audioDataUri = "data:audio/wav;base64,UklGRigAAABXQVZFlm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAAAG";
     } else {
       try {
-        const response = await client.models.generateContent({
-          model: modelName || "gemini-2.5-flash-preview-tts",
-          contents: promptText,
-          config: {
-            temperature: temperature ?? 1.0,
-            responseModalities: ["AUDIO"],
-            speechConfig: speechConfig,
-          } as any,
+        const targetVoice = mode === 'multi' ? (speakerA || 'Aoede') : (voiceName || 'Aoede');
+        const mappedVoiceId = ELEVENLABS_VOICE_MAP[targetVoice] || targetVoice || 'pNInz6obpgqjGQJe7v5C';
+
+        console.log(`[geminiService.generateVoice] Generating voice using ElevenLabs with voice: ${mappedVoiceId}`);
+
+        const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${mappedVoiceId}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "xi-api-key": elevenLabsApiKey.trim()
+          },
+          body: JSON.stringify({
+            text: textToSpeak,
+            model_id: "eleven_multilingual_v2",
+            voice_settings: {
+              stability: 0.5,
+              similarity_boost: 0.75
+            }
+          })
         });
 
-        const part = response.candidates?.[0]?.content?.parts?.[0];
-        const inlineData = part?.inlineData;
-        if (!inlineData || !inlineData.data) {
-          throw new Error("Không nhận được dữ liệu âm thanh từ Gemini TTS API");
+        if (!response.ok) {
+          const errText = await response.text();
+          throw new Error(`ElevenLabs API error: ${response.status} - ${errText}`);
         }
 
-        const pcmBuffer = Buffer.from(inlineData.data, 'base64');
-        const wavBuffer = pcmToWav(pcmBuffer, 24000, 1, 16);
-        const wavBase64 = wavBuffer.toString('base64');
-        audioDataUri = 'data:audio/wav;base64,' + wavBase64;
+        const arrayBuffer = await response.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        const base64Audio = buffer.toString('base64');
+        audioDataUri = `data:audio/mpeg;base64,${base64Audio}`;
       } catch (error: any) {
-        console.error("[geminiService.generateVoice] Error:", error);
+        console.error("[geminiService.generateVoice] ElevenLabs API error:", error);
         throw error;
       }
     }
@@ -1038,7 +1061,9 @@ Output ONLY the final detailed prompt in English.`
       metadata: {
         voiceName: mode === 'multi' ? `Multi (${speakerA} & ${speakerB})` : voiceName,
         duration: estimateAudioDuration(textToSpeak),
-        resolution: modelName,
+        resolution: modelName || "eleven_multilingual_v2",
+        title: title || undefined,
+        description: description || undefined,
       }
     });
 
@@ -1073,7 +1098,7 @@ Output ONLY the final detailed prompt in English.`
   /**
    * Tối ưu prompt hình ảnh (cấu trúc JSON)
    */
-  async optimizeImagePrompt(description: string, imageUris?: string[]) {
+  async optimizeImagePrompt(description: string, imageUris?: string[], modelName?: string) {
     const client = getGeminiClient();
     if (!client) {
       return {
@@ -1104,7 +1129,7 @@ Output ONLY the final detailed prompt in English.`
       parts.push({ text: `Optimize this prompt: ${description}` });
 
       const response = await client.models.generateContent({
-        model: GEMINI_TEXT_MODEL,
+        model: modelName || GEMINI_TEXT_MODEL,
         contents: parts,
         config: {
           systemInstruction,
@@ -1228,7 +1253,7 @@ Output ONLY the final detailed prompt in English.`
       if (base64OrUrl.startsWith("data:")) {
         finalUrl = await cloudinaryService.uploadMedia(base64OrUrl, `igen_erp/marketing/${mediaType}`);
       }
-      
+
       const record = await AIMediaModel.create({
         userId,
         mediaType,
@@ -1239,6 +1264,217 @@ Output ONLY the final detailed prompt in English.`
       return record;
     } catch (error: any) {
       console.error("[geminiService.saveGeneratedMediaRecord] Error:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Lấy danh sách giọng nói ElevenLabs
+   */
+  async getElevenLabsVoices() {
+    const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
+    if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
+      console.log("[geminiService.getElevenLabsVoices] ELEVENLABS_API_KEY is not configured. Running in MOCK mode.");
+      return {
+        status: "success",
+        voices: [
+          {
+            voice_id: "Sadaltager",
+            name: "Roger (Mock)",
+            category: "cloned",
+            description: "Laid-Back, Casual, Resonant",
+            labels: { gender: "male", age: "adult", accent: "american" }
+          }
+        ]
+      };
+    }
+
+    try {
+      const response = await fetch("https://api.elevenlabs.io/v1/voices", {
+        headers: {
+          "xi-api-key": elevenLabsApiKey.trim()
+        }
+      });
+      if (!response.ok) {
+        throw new Error(`ElevenLabs error: ${response.status}`);
+      }
+      const data = await response.json();
+      // Filter generated or cloned voices
+      const filtered = (data.voices || []).filter((v: any) => v.category === "cloned" || v.category === "generated" || v.category === "custom");
+      return { status: "success", voices: filtered };
+    } catch (error: any) {
+      console.error("[geminiService.getElevenLabsVoices] Error:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Thiết kế & phát nghe thử giọng nói ElevenLabs
+   */
+  async generateCustomVoicePreview(input: { gender: string; accent: string; age: string; accentStrength: number; text: string }) {
+    const { gender, accent, age, accentStrength, text } = input;
+    const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
+    if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
+      console.log("[geminiService.generateCustomVoicePreview] ELEVENLABS_API_KEY is not configured. Running in MOCK mode.");
+      return {
+        generatedVoiceId: "mock-voice-id-" + Date.now(),
+        url: "data:audio/wav;base64,UklGRigAAABXQVZFlm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAAAG"
+      };
+    }
+
+    try {
+      const response = await fetch("https://api.elevenlabs.io/v1/voice-generation/generate-voice", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "xi-api-key": elevenLabsApiKey.trim()
+        },
+        body: JSON.stringify({
+          gender,
+          accent,
+          age,
+          accent_strength: accentStrength,
+          text
+        })
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`ElevenLabs preview error: ${response.status} - ${errText}`);
+      }
+
+      const generatedVoiceId = response.headers.get("generated_voice_id");
+      if (!generatedVoiceId) {
+        throw new Error("No generated_voice_id found in headers");
+      }
+
+      const arrayBuffer = await response.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      const base64Audio = buffer.toString('base64');
+      const audioDataUri = `data:audio/mpeg;base64,${base64Audio}`;
+
+      const mediaUrl = await cloudinaryService.uploadMedia(audioDataUri, "igen_erp/marketing/voice_previews");
+
+      return {
+        generatedVoiceId,
+        url: mediaUrl
+      };
+    } catch (error: any) {
+      console.error("[geminiService.generateCustomVoicePreview] Error:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Lưu giọng thiết kế thành giọng chính thức
+   */
+  async createCustomVoice(input: { voiceName: string; voiceDescription: string; generatedVoiceId: string }) {
+    const { voiceName, voiceDescription, generatedVoiceId } = input;
+    const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
+    if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
+      console.log("[geminiService.createCustomVoice] ELEVENLABS_API_KEY is not configured. Running in MOCK mode.");
+      return {
+        voice_id: "mock-saved-voice-id-" + Date.now()
+      };
+    }
+
+    try {
+      const response = await fetch("https://api.elevenlabs.io/v1/voice-generation/create-voice", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "xi-api-key": elevenLabsApiKey.trim()
+        },
+        body: JSON.stringify({
+          voice_name: voiceName,
+          voice_description: voiceDescription,
+          generated_voice_id: generatedVoiceId
+        })
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`ElevenLabs create-voice error: ${response.status} - ${errText}`);
+      }
+
+      const result = await response.json();
+      return { voice_id: result.voice_id };
+    } catch (error: any) {
+      console.error("[geminiService.createCustomVoice] Error:", error);
+      throw error;
+    }
+  },
+
+  async addElevenLabsVoice(name: string, description: string, files: string[], userId: string) {
+    const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
+    if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
+      return { voice_id: "mock-saved-voice-id-" + Date.now() };
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append('name', name);
+      formData.append('description', description);
+      
+      if (userId) {
+        formData.append('labels', JSON.stringify({ userId }));
+      }
+
+      for (let i = 0; i < files.length; i++) {
+        const dataUri = files[i];
+        const matches = dataUri.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/);
+        if (!matches) {
+          throw new Error("Invalid file format");
+        }
+        const type = matches[1];
+        const buffer = Buffer.from(matches[2], 'base64');
+        const blob = new Blob([buffer], { type });
+        formData.append('files', blob, `file-${i}.${type.split('/')[1]}`);
+      }
+
+      const response = await fetch('https://api.elevenlabs.io/v1/voices/add', {
+        method: 'POST',
+        headers: {
+          'xi-api-key': elevenLabsApiKey.trim(),
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(`ElevenLabs API error: ${response.status} - ${errorBody}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error: any) {
+      console.error("[geminiService.addElevenLabsVoice] Error:", error);
+      throw error;
+    }
+  },
+
+  async deleteElevenLabsVoice(voiceId: string) {
+    const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
+    if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
+      return { success: true };
+    }
+
+    try {
+      const response = await fetch(`https://api.elevenlabs.io/v1/voices/${voiceId}`, {
+        method: 'DELETE',
+        headers: {
+          'xi-api-key': elevenLabsApiKey.trim(),
+        },
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(`ElevenLabs API error: ${response.status} - ${errorBody}`);
+      }
+
+      return { success: true };
+    } catch (error: any) {
+      console.error("[geminiService.deleteElevenLabsVoice] Error:", error);
       throw error;
     }
   }

@@ -4,7 +4,8 @@ import { geminiApi } from '../../api/gemini';
 import { toast } from '../../pages/Toast';
 import { 
   Loader2, UploadCloud, Video, Download, Play, Sparkles, 
-  Images, Settings, X, Plus, ChevronUp, Wand2, ImageIcon, Trash2 
+  Images, Settings, X, ImageIcon, Trash2, Wand2, Film,
+  ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { marketingService } from '../../services/marketingService';
 
@@ -57,6 +58,7 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved }: {
   const [videoAspectRatio, setVideoAspectRatio] = useState('16:9');
   const [videoDuration, setVideoDuration] = useState('4');
   const [videoQuality, setVideoQuality] = useState('720p'); // 1080p requires duration >= 6s
+  const [isPresetDropdownOpen, setIsPresetDropdownOpen] = useState(false);
 
   // Processing states
   const [isGenerating, setIsGenerating] = useState(false);
@@ -149,42 +151,45 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved }: {
       }
       toast.success('Đã tối ưu hóa prompt video bằng AI thành công!');
     } catch (e: any) {
-      toast.error(`Lỗi tối ưu prompt video: ${e.message}`);
+      toast.error(`Lỗi tối ưu prompt: ${e.message}`);
     } finally {
       setIsGeneratingPrompt(false);
     }
   };
 
   const handleGenerateVideo = async () => {
-    const promptText = prompt.trim();
-    if (!promptText && activeMode === 'standard') {
-      toast.warning('Vui lòng nhập prompt hoặc mô tả kịch bản video.');
+    const finalPrompt = prompt.trim();
+    if (!finalPrompt) {
+      toast.warning('Vui lòng nhập kịch bản hoặc chọn gợi ý phong cách.');
       return;
     }
 
     setIsGenerating(true);
     setGeneratedVideoUrl(null);
 
-    try {
-      toast.success('Đang gửi lệnh tạo video lên Google Veo. Quá trình này có thể mất 1-2 phút...');
-      
-      const referenceImageUris = activeMode === 'standard' 
-        ? (standardImage ? [standardImage] : undefined)
-        : (beforeImage ? [beforeImage] : undefined);
+    // Assemble input image arrays
+    const inputImageUris: string[] = [];
+    if (activeMode === 'standard' && standardImage) {
+      inputImageUris.push(standardImage);
+    } else if (activeMode === 'before-after') {
+      if (beforeImage) inputImageUris.push(beforeImage);
+      if (afterImage) inputImageUris.push(afterImage);
+    }
 
-      const response = await geminiApi.generateVideo(promptText || 'Smooth transition between images', parseInt(videoDuration), {
-        aspectRatio: videoAspectRatio,
+    try {
+      toast.success('Đang gửi lệnh tạo video AI lên Google Veo...');
+      const response = await geminiApi.generateVideo(finalPrompt, parseInt(videoDuration), {
+        referenceImageUris: inputImageUris,
         modelName: videoModel,
+        aspectRatio: videoAspectRatio,
         resolution: videoQuality,
-        referenceImageUris,
-        referenceVideoUri: activeMode === 'before-after' && afterImage ? afterImage : undefined // Pass as special parameter or handle on service
       });
 
       if (response.url) {
         setGeneratedVideoUrl(response.url);
-        
+
         if (activeCardId) {
-          toast.success('Tạo video AI thành công! Đang tải lên Cloudinary...');
+          toast.success('Tạo video thành công! Đang lưu trữ lên Cloudinary...');
           try {
             const filename = `video_${Date.now()}.mp4`;
             const cloudinaryUrl = await marketingService.uploadMediaToStorage(response.url, filename, 'video');
@@ -192,16 +197,16 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved }: {
             if (onMediaSaved) {
               onMediaSaved(activeCardId, cloudinaryUrl, 'video');
             }
-            toast.success('Lưu video lên Cloudinary và gắn link với content thành công!');
+            toast.success('Đã lưu trữ và đồng bộ hóa video thành công!');
           } catch (uploadError: any) {
-            console.error('Lỗi upload Cloudinary:', uploadError);
-            toast.error('Tạo video thành công nhưng không thể lưu lên Cloudinary hoặc gắn link.');
+            console.error('Cloudinary error:', uploadError);
+            toast.error('Tạo video thành công nhưng không thể đồng bộ hóa lưu trữ.');
           }
         } else {
           toast.success('Tạo video AI thành công!');
         }
-        
-        loadHistory(); // Reload history
+
+        loadHistory();
       }
     } catch (e: any) {
       console.error(e);
@@ -225,430 +230,442 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved }: {
     }
   };
 
+  const currentPreset = VIDEO_TEMPLATES.find(t => t.prompt === prompt) || VIDEO_TEMPLATES[0];
+
   return (
-    <div className="space-y-6 max-w-[1400px] mx-auto w-full pb-12" id="video_workspace_wrapper">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div className="max-w-[1600px] mx-auto w-full pb-8 px-2 animate-fade-in animate-in fade-in duration-300" id="video_workspace_wrapper">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
-        {/* LEFT COLUMN: Controls */}
-        <div className="lg:col-span-2 flex flex-col gap-6">
+        {/* LEFT COLUMN: Input & Settings (lg:col-span-5) */}
+        <div className="lg:col-span-5 flex flex-col gap-4 bg-white border border-slate-200/80 p-5 rounded-3xl shadow-xs">
            
-           {/* Mode selection & Prompt */}
-           <div className="border border-gray-200 bg-white rounded-2xl shadow-xs p-5 flex flex-col gap-4">
-              <div className="flex justify-between items-center border-b pb-3">
-                 <h4 className="font-bold text-gray-800 text-sm uppercase flex items-center gap-1.5">
-                   <Video className="h-4.5 w-4.5 text-cyan-600" />
-                   Cấu hình kịch bản Video
-                 </h4>
-                 
-                 <div className="flex gap-1.5 bg-slate-100 p-1 rounded-xl">
-                    <button
-                      className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                        activeMode === 'standard' ? 'bg-white text-gray-800 shadow-xs' : 'text-gray-500'
-                      }`}
-                      onClick={() => setActiveMode('standard')}
-                    >
-                      Tiêu chuẩn
-                    </button>
-                    <button
-                      className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                        activeMode === 'before-after' ? 'bg-white text-gray-800 shadow-xs' : 'text-gray-500'
-                      }`}
-                      onClick={() => setActiveMode('before-after')}
-                    >
-                      Thời gian trôi (Time-lapse)
-                    </button>
-                 </div>
-              </div>
-
-              {activeMode === 'standard' ? (
-                <div className="flex flex-col gap-4">
-                   {/* Option Template Quick Selector */}
-                   <div className="flex flex-col gap-1.5">
-                      <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">💡 Gợi ý phong cách quay nhanh:</span>
-                      <div className="flex flex-wrap gap-2">
-                         {VIDEO_TEMPLATES.filter(t => t.id !== 'none').map((t) => (
-                            <button
-                              key={t.id}
-                              className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-all ${
-                                prompt.includes(t.prompt.substring(0, 10))
-                                  ? 'border-cyan-500 bg-cyan-50 text-cyan-700'
-                                  : 'border-slate-200 bg-white text-gray-650 hover:bg-slate-100'
-                              }`}
-                              onClick={() => setPrompt(t.prompt)}
-                            >
-                               {t.label}
-                            </button>
-                         ))}
-                      </div>
-                   </div>
-
-                   {/* Script content area */}
-                   <div className="flex flex-col gap-1.5">
-                      <label className="text-[12px] font-bold text-gray-750">Mô tả hành động của kịch bản video</label>
-                      <textarea
-                        placeholder="Mô tả chi tiết chuyển động và bối cảnh (Ví dụ: Một cốc cà phê đặt trên bàn gỗ, hơi nước bốc lên cuồn cuộn mượt mà dưới ánh sáng ban mai nhẹ nhàng, máy quay zoom cận cảnh vào bọt sữa..."
-                        className="w-full text-xs p-4 border border-gray-200 rounded-xl h-36 focus:ring-1 focus:ring-cyan-500 focus:outline-none leading-relaxed"
-                        value={prompt}
-                        onChange={(e) => setPrompt(e.target.value)}
-                      />
-                   </div>
-                </div>
-              ) : (
-                <div className="flex flex-col gap-4">
-                   <p className="text-xs text-gray-500 leading-relaxed bg-slate-50 p-3.5 border rounded-xl border-dashed">
-                      💡 Chế độ <strong>Thời gian trôi (Time-lapse)</strong> cho phép bạn cung cấp một ảnh đầu (Trước) và một ảnh cuối (Sau) để AI tự động suy đoán chuyển động biến đổi mượt mà giữa hai hình ảnh.
-                   </p>
-                   
-                   <div className="grid grid-cols-2 gap-4">
-                      {/* Before image upload */}
-                      <div className="flex flex-col gap-2">
-                         <span className="text-xs font-bold text-gray-600">🌅 Ảnh lúc đầu (Trước)</span>
-                         <div className="border border-slate-200 rounded-xl overflow-hidden aspect-video relative bg-slate-50 flex items-center justify-center group">
-                            {beforeImage ? (
-                               <>
-                                 <img src={beforeImage} alt="Before" className="w-full h-full object-cover" />
-                                 <button
-                                   onClick={() => setBeforeImage(null)}
-                                   className="absolute top-2 right-2 p-1 bg-black/70 text-white rounded-full opacity-90"
-                                 >
-                                    <X className="h-3 w-3" />
-                                 </button>
-                               </>
-                            ) : (
-                               <label className="cursor-pointer flex flex-col items-center p-4">
-                                  <UploadCloud className="h-7 w-7 text-gray-400 mb-1" />
-                                  <span className="text-[10px] text-gray-500 font-semibold">Tải ảnh đầu</span>
-                                  <input 
-                                    type="file" 
-                                    accept="image/*" 
-                                    className="hidden" 
-                                    onChange={(e) => handleFileUpload(e, 'before')} 
-                                  />
-                               </label>
-                            )}
-                         </div>
-                      </div>
-
-                      {/* After image upload */}
-                      <div className="flex flex-col gap-2">
-                         <span className="text-xs font-bold text-gray-600">🌄 Ảnh kết quả (Sau)</span>
-                         <div className="border border-slate-200 rounded-xl overflow-hidden aspect-video relative bg-slate-50 flex items-center justify-center group">
-                            {afterImage ? (
-                               <>
-                                 <img src={afterImage} alt="After" className="w-full h-full object-cover" />
-                                 <button
-                                   onClick={() => setAfterImage(null)}
-                                   className="absolute top-2 right-2 p-1 bg-black/70 text-white rounded-full opacity-90"
-                                 >
-                                    <X className="h-3 w-3" />
-                                 </button>
-                               </>
-                            ) : (
-                               <label className="cursor-pointer flex flex-col items-center p-4">
-                                  <UploadCloud className="h-7 w-7 text-gray-400 mb-1" />
-                                  <span className="text-[10px] text-gray-500 font-semibold">Tải ảnh cuối</span>
-                                  <input 
-                                    type="file" 
-                                    accept="image/*" 
-                                    className="hidden" 
-                                    onChange={(e) => handleFileUpload(e, 'after')} 
-                                  />
-                               </label>
-                            )}
-                         </div>
-                      </div>
-                   </div>
-
-                   <div className="flex flex-col gap-1.5">
-                      <label className="text-[12px] font-bold text-gray-700">Mô tả chi tiết hiệu ứng biến đổi (Tùy chọn)</label>
-                      <input
-                        type="text"
-                        placeholder="VD: Hoa từ nụ hé nở thành hoa rực rỡ, hoặc bầu trời chuyển từ chiều tà sang ban đêm..."
-                        className="w-full text-xs p-2.5 border border-gray-200 rounded-lg focus:ring-1 focus:ring-cyan-500 focus:outline-none"
-                        value={prompt}
-                        onChange={(e) => setPrompt(e.target.value)}
-                      />
-                   </div>
-                </div>
-              )}
-           </div>
-
-           {/* Reference Character Image (For standard mode) */}
-           {activeMode === 'standard' && (
-              <div className="border border-gray-200 bg-white rounded-2xl shadow-xs p-5 flex flex-col gap-4">
-                 <label className="text-[12px] font-bold text-gray-700 flex items-center gap-1.5">
-                    <ImageIcon className="h-4.5 w-4.5 text-cyan-600" />
-                    Hình ảnh khởi nguồn cho hành động (Image-to-Video)
-                 </label>
-                 
-                 <div className="border border-dashed rounded-xl p-4 bg-slate-50/50 flex flex-col items-center justify-center relative">
-                    {standardImage ? (
-                       <div className="relative aspect-video max-w-sm w-full border rounded-lg overflow-hidden bg-white">
-                          <img src={standardImage} alt="Ref source" className="w-full h-full object-cover" />
-                          <button
-                            onClick={() => setStandardImage(null)}
-                            className="absolute top-2 right-2 p-1 bg-black/75 hover:bg-black text-white rounded-full transition-all"
-                          >
-                             <X className="h-3 w-3" />
-                          </button>
-                       </div>
-                    ) : (
-                       <label className="cursor-pointer flex flex-col items-center justify-center p-6 text-center w-full">
-                          <UploadCloud className="h-8 w-8 text-gray-400 mb-1.5" />
-                          <span className="text-xs font-semibold text-gray-650">Tải lên ảnh chủ thể</span>
-                          <span className="text-[10px] text-gray-400 mt-0.5">Hành động của video sẽ bắt đầu từ khung hình này</span>
-                          <input 
-                            type="file" 
-                            accept="image/*" 
-                            className="hidden" 
-                            onChange={(e) => handleFileUpload(e, 'standard')} 
-                          />
-                       </label>
-                    )}
-                 </div>
-              </div>
-           )}
-
-           {/* Prompt translation section */}
-           {activeMode === 'standard' && (
-             <div className="border border-gray-200 bg-white rounded-2xl shadow-xs p-5 flex flex-col gap-4">
-                <div className="flex justify-between items-center border-b pb-3">
-                   <label className="text-[12px] font-bold text-gray-700 flex items-center gap-1.5">
-                      <Wand2 className="h-4.5 w-4.5 text-cyan-600" />
-                      Tối ưu hóa prompt tiếng Anh bằng AI (Veo 3)
-                   </label>
-                   <button
-                     onClick={handleOptimizePrompt}
-                     disabled={isGeneratingPrompt || isGenerating}
-                     className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all"
-                   >
-                      {isGeneratingPrompt ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5 text-indigo-500" />}
-                      Phát sinh Prompt bằng AI
-                   </button>
-                </div>
-
-                {isGeneratingPrompt && (
-                  <div className="flex flex-col gap-1 p-3.5 bg-indigo-50 border rounded-xl animate-pulse text-[10px] font-bold text-indigo-800 tracking-wider">
-                     <span>AI ĐANG LẬP TRÌNH CHUYỂN ĐỘNG VÀ BIÊN DỊCH PROMPT CHO GOOGLE VEO...</span>
-                  </div>
-                )}
-
-                <textarea
-                  placeholder="Prompt tiếng Anh sinh tự động tại đây..."
-                  className="w-full text-xs font-mono p-3 border border-gray-200 rounded-xl h-24 focus:ring-1 focus:ring-cyan-500 focus:outline-none"
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                />
-             </div>
-           )}
-        </div>
-
-        {/* RIGHT COLUMN: Settings & Outputs */}
-        <div className="lg:col-span-1 flex flex-col gap-6">
-           
-           {/* Settings panel */}
-           <div className="border border-gray-200 bg-white rounded-2xl shadow-xs p-5 flex flex-col gap-4">
-              <h4 className="font-bold text-gray-800 text-sm tracking-wide uppercase flex items-center gap-1.5 border-b pb-3">
-                 <Settings className="h-4 w-4 text-cyan-600" />
-                 Tùy chọn kỹ thuật
-              </h4>
-
-              <div className="flex flex-col gap-3.5">
-                 <div className="flex flex-col gap-1.5">
-                    <span className="text-xs font-bold text-gray-600">Mô hình AI Video</span>
-                    <select
-                      className="w-full text-xs p-2.5 border rounded-lg bg-white"
-                      value={videoModel}
-                      onChange={(e) => setVideoModel(e.target.value)}
-                    >
-                       {MODEL_OPTIONS.map(opt => (
-                         <option key={opt.value} value={opt.value}>{opt.label}</option>
-                       ))}
-                    </select>
-                 </div>
-
-                 <div className="flex flex-col gap-1.5">
-                    <span className="text-xs font-bold text-gray-600">Tỉ lệ khung hình</span>
-                    <div className="grid grid-cols-2 gap-2">
-                       {['16:9', '9:16'].map((ratio) => (
-                          <button
-                            key={ratio}
-                            onClick={() => setVideoAspectRatio(ratio)}
-                            className={`py-1.5 text-xs font-semibold rounded-lg border transition-all ${
-                              videoAspectRatio === ratio
-                                ? 'border-cyan-500 bg-cyan-50 text-cyan-700'
-                                : 'border-slate-200 bg-white text-gray-500 hover:bg-slate-50'
-                            }`}
-                          >
-                             {ratio === '16:9' ? 'Ngang (16:9)' : 'Dọc (9:16)'}
-                          </button>
-                       ))}
-                    </div>
-                 </div>
-
-                 <div className="flex flex-col gap-1.5">
-                    <span className="text-xs font-bold text-gray-600">Thời lượng video</span>
-                    <div className="grid grid-cols-3 gap-2">
-                       {DURATION_OPTIONS.map((dur) => (
-                          <button
-                            key={dur.value}
-                            onClick={() => handleDurationChange(dur.value)}
-                            className={`py-1.5 text-xs font-semibold rounded-lg border transition-all ${
-                              videoDuration === dur.value
-                                ? 'border-cyan-500 bg-cyan-50 text-cyan-700'
-                                : 'border-slate-200 bg-white text-gray-500 hover:bg-slate-50'
-                            }`}
-                          >
-                             {dur.label}
-                          </button>
-                       ))}
-                    </div>
-                 </div>
-
-                 <div className="flex flex-col gap-1.5">
-                    <span className="text-xs font-bold text-gray-600">Chất lượng video</span>
-                    <select
-                      className="w-full text-xs p-2.5 border rounded-lg bg-white"
-                      value={videoQuality}
-                      onChange={(e) => handleQualityChange(e.target.value)}
-                    >
-                       {QUALITY_OPTIONS.map(opt => (
-                         <option key={opt.value} value={opt.value}>{opt.label}</option>
-                       ))}
-                    </select>
-                 </div>
-              </div>
-
-              {/* Progress Simulated Bar */}
-              {isGenerating && (
-                <div className="flex flex-col gap-1.5 p-3.5 bg-slate-50 border rounded-xl animate-pulse mt-2">
-                   <div className="flex justify-between items-center text-[10px] font-bold text-gray-500 font-mono">
-                      <span>DỰNG VIDEO AI (MẤT 1-2 PHÚT)...</span>
-                      <span>{generateProgress}%</span>
-                   </div>
-                   <div className="w-full bg-slate-250 h-2 rounded-full overflow-hidden">
-                      <div 
-                        className="bg-cyan-500 h-full transition-all duration-300 rounded-full" 
-                        style={{ width: `${generateProgress}%` }}
-                      />
-                   </div>
-                </div>
-              )}
-
+           {/* Toggle modes */}
+           <div className="flex justify-center bg-slate-100/80 p-1 rounded-xl">
               <button
-                onClick={handleGenerateVideo}
-                disabled={isGenerating || isGeneratingPrompt}
-                className={`w-full py-3 rounded-xl text-xs font-bold tracking-wider uppercase transition-all shadow-md flex items-center justify-center gap-2 mt-2 ${
-                  isGenerating || isGeneratingPrompt
-                    ? "bg-gray-200 text-gray-400 border border-gray-300 shadow-none cursor-not-allowed"
-                    : "bg-cyan-500 hover:bg-cyan-600 text-white active:scale-[0.99] shadow-cyan-500/20"
+                type="button"
+                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                  activeMode === 'standard' ? 'bg-white text-slate-800 shadow-xs' : 'text-slate-500 font-medium hover:text-slate-700'
                 }`}
+                onClick={() => setActiveMode('standard')}
               >
-                {isGenerating ? <Loader2 className="h-4.5 w-4.5 animate-spin" /> : <Video className="h-4.5 w-4.5" />}
-                Tạo video AI
+                 Tiêu chuẩn
+              </button>
+              <button
+                type="button"
+                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                  activeMode === 'before-after' ? 'bg-white text-slate-800 shadow-xs' : 'text-slate-500 font-medium hover:text-slate-700'
+                }`}
+                onClick={() => setActiveMode('before-after')}
+              >
+                 Trước / Sau
               </button>
            </div>
 
-           {/* Video Output Preview */}
-           {generatedVideoUrl && (
-              <div className="border border-cyan-200 bg-slate-950 rounded-2xl overflow-hidden shadow-lg flex flex-col">
-                 <div className="bg-slate-900 border-b border-slate-800 p-3.5 flex justify-between items-center text-slate-200">
-                    <span className="text-xs font-bold tracking-wide uppercase flex items-center gap-1">
-                       ✓ Video vừa tạo
-                    </span>
-                    <button
-                      onClick={() => {
-                        const link = document.createElement('a');
-                        link.href = generatedVideoUrl;
-                        link.download = `igen-video-${Date.now()}.mp4`;
-                        link.click();
-                      }}
-                      className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white"
-                      title="Tải video về máy"
-                    >
-                       <Download className="h-4.5 w-4.5" />
-                    </button>
+           {/* Input Image Title & Button */}
+           <div className="flex justify-between items-center mt-1">
+              <span className="text-xs font-bold text-slate-800">Ảnh đầu vào</span>
+              <button
+                type="button"
+                onClick={() => toast.info('Thư viện ảnh đang được đồng bộ')}
+                className="px-2.5 py-1.5 bg-[#e0f7fc] text-[#0891b2] rounded-lg text-[10px] font-bold flex items-center gap-1.5 transition-all cursor-pointer hover:bg-[#cbeff5] active:scale-95"
+              >
+                 <Images className="h-3.5 w-3.5" />
+                 Thư viện ảnh
+              </button>
+           </div>
+
+           {/* Image upload box */}
+           {activeMode === 'standard' ? (
+              <div className="border border-dashed border-slate-200 rounded-2xl p-6 bg-slate-50/30 flex flex-col items-center justify-center relative min-h-[140px] hover:border-[#22d3ee]/80 hover:bg-[#e0f7fc]/5 transition-all duration-300">
+                 {standardImage ? (
+                    <div className="relative aspect-video w-full border border-slate-150 rounded-xl overflow-hidden bg-white">
+                       <img src={standardImage} alt="Ref source" className="w-full h-full object-cover" />
+                       <button
+                         type="button"
+                         onClick={() => setStandardImage(null)}
+                         className="absolute top-2 right-2 p-1.5 bg-black/60 hover:bg-black text-white rounded-full transition-all cursor-pointer"
+                       >
+                          <X className="h-3.5 w-3.5" />
+                       </button>
+                    </div>
+                 ) : (
+                    <label className="cursor-pointer flex flex-col items-center justify-center text-center w-full py-2">
+                       <UploadCloud className="h-8 w-8 text-slate-400 mb-2" />
+                       <span className="text-xs font-bold text-slate-800">Kéo thả hoặc nhấp để tải ảnh lên</span>
+                       <span className="text-[10px] text-slate-450 mt-1">PNG, JPG, WEBP</span>
+                       <input 
+                         type="file" 
+                         accept="image/*" 
+                         className="hidden" 
+                         onChange={(e) => handleFileUpload(e, 'standard')} 
+                       />
+                    </label>
+                 )}
+              </div>
+           ) : (
+              <div className="grid grid-cols-2 gap-3">
+                 {/* Before Box */}
+                 <div className="flex flex-col gap-1.5">
+                    <span className="text-[10px] font-bold text-slate-500">Bắt đầu (Trước)</span>
+                    <div className="border border-dashed border-slate-200 rounded-xl overflow-hidden aspect-square relative bg-slate-50/30 flex items-center justify-center hover:border-cyan-500/80 transition-all">
+                       {beforeImage ? (
+                          <>
+                            <img src={beforeImage} alt="Before" className="w-full h-full object-cover" />
+                            <button
+                              type="button"
+                              onClick={() => setBeforeImage(null)}
+                              className="absolute top-1 right-1 p-1 bg-black/60 text-white rounded-full transition-all cursor-pointer"
+                            >
+                               <X className="h-3 w-3" />
+                            </button>
+                          </>
+                       ) : (
+                          <label className="cursor-pointer flex flex-col items-center p-2 text-center">
+                             <UploadCloud className="h-6 w-6 text-slate-400 mb-1" />
+                             <span className="text-[10px] text-slate-650 font-bold">Ảnh trước</span>
+                             <input 
+                               type="file" 
+                               accept="image/*" 
+                               className="hidden" 
+                               onChange={(e) => handleFileUpload(e, 'before')} 
+                             />
+                          </label>
+                       )}
+                    </div>
                  </div>
-                 <div className="aspect-video relative flex items-center justify-center bg-slate-900 overflow-hidden">
-                    <video src={generatedVideoUrl} controls autoPlay loop className="max-w-full max-h-full" />
+                 
+                 {/* After Box */}
+                 <div className="flex flex-col gap-1.5">
+                    <span className="text-[10px] font-bold text-slate-500">Kết quả (Sau)</span>
+                    <div className="border border-dashed border-slate-200 rounded-xl overflow-hidden aspect-square relative bg-slate-50/30 flex items-center justify-center hover:border-cyan-500/80 transition-all">
+                       {afterImage ? (
+                          <>
+                            <img src={afterImage} alt="After" className="w-full h-full object-cover" />
+                            <button
+                              type="button"
+                              onClick={() => setAfterImage(null)}
+                              className="absolute top-1 right-1 p-1 bg-black/60 text-white rounded-full transition-all cursor-pointer"
+                            >
+                               <X className="h-3 w-3" />
+                            </button>
+                          </>
+                       ) : (
+                          <label className="cursor-pointer flex flex-col items-center p-2 text-center">
+                             <UploadCloud className="h-6 w-6 text-slate-400 mb-1" />
+                             <span className="text-[10px] text-slate-650 font-bold">Ảnh sau</span>
+                             <input 
+                               type="file" 
+                               accept="image/*" 
+                               className="hidden" 
+                               onChange={(e) => handleFileUpload(e, 'after')} 
+                             />
+                          </label>
+                       )}
+                    </div>
                  </div>
               </div>
            )}
 
-           {/* Render History library */}
-           <div className="border border-gray-200 bg-white rounded-2xl shadow-xs p-5 flex flex-col gap-4">
-              <h4 className="font-bold text-gray-800 text-sm tracking-wide uppercase flex items-center gap-1.5 border-b pb-3">
-                 <Images className="h-4.5 w-4.5 text-cyan-600" />
-                 Thư viện video đã tạo
-              </h4>
+           {/* "Ý tưởng của bạn" Section */}
+           <div className="flex justify-between items-center border-t border-slate-100 pt-3.5 relative">
+              <span className="text-xs font-bold text-slate-800">Ý tưởng của bạn</span>
+              <div className="relative">
+                 <button
+                   type="button"
+                   onClick={() => setIsPresetDropdownOpen(!isPresetDropdownOpen)}
+                   className="px-2.5 py-1.5 border border-slate-200 hover:border-slate-350 hover:bg-slate-50 rounded-xl text-[10px] font-bold text-slate-650 flex items-center gap-1 transition-all cursor-pointer bg-white"
+                 >
+                    <span>{currentPreset.label.length > 18 ? currentPreset.label.substring(0, 15) + '...' : currentPreset.label}</span>
+                    <Settings className="h-3 w-3 text-slate-400" />
+                 </button>
+                 {isPresetDropdownOpen && (
+                    <div className="absolute right-0 mt-1 w-56 bg-white border border-slate-200 rounded-xl shadow-lg z-30 py-1.5 animate-in fade-in slide-in-from-top-1 duration-150">
+                       {VIDEO_TEMPLATES.map(t => (
+                          <button
+                            key={t.id}
+                            type="button"
+                            onClick={() => {
+                               setPrompt(t.prompt);
+                               setIsPresetDropdownOpen(false);
+                            }}
+                            className={`w-full text-left px-3 py-1.5 text-[11px] hover:bg-slate-50 transition-colors block ${prompt === t.prompt ? 'text-[#0891b2] font-bold bg-[#e0f7fc]/20' : 'text-slate-700'}`}
+                          >
+                             {t.label}
+                          </button>
+                       ))}
+                    </div>
+                 )}
+              </div>
+           </div>
 
-              {isLoadingHistory ? (
-                 <div className="flex flex-col items-center justify-center py-10 text-slate-400">
-                    <Loader2 className="h-7 w-7 text-cyan-500 animate-spin mb-2" />
-                    <span className="text-[11px] uppercase tracking-wider font-mono">Đang đồng bộ...</span>
+           {/* Prompt Textarea */}
+           <textarea
+             placeholder="Mô tả ngắn gọn nội dung video bạn muốn..."
+             className="w-full text-xs p-3.5 border border-slate-200 rounded-2xl h-22 focus:ring-1 focus:ring-[#22d3ee] focus:outline-none leading-relaxed bg-slate-50/20 resize-none font-medium"
+             value={prompt}
+             onChange={(e) => setPrompt(e.target.value)}
+             disabled={isGenerating}
+           />
+
+           {/* AI Optimize Box */}
+           <div className="flex flex-col gap-2 border-t border-slate-100 pt-3.5">
+              <div className="flex justify-between items-center">
+                 <span className="text-xs font-bold text-slate-800">Tối ưu prompt và thông số</span>
+                 <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded text-[9px] font-mono font-bold">iGen 3 flash</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleOptimizePrompt}
+                disabled={isGeneratingPrompt || isGenerating || !prompt.trim()}
+                className="w-full py-2 bg-[#e0f7fc] border border-[#22d3ee]/20 hover:bg-[#cbeff5] text-[#0891b2] rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                 {isGeneratingPrompt ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
+                 Phân tích và hoàn thiện prompt
+              </button>
+           </div>
+
+           {/* AI Model */}
+           <div className="flex flex-col gap-1 border-t border-slate-100 pt-3.5">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Mô hình tạo video</span>
+              <select
+                value={videoModel}
+                onChange={(e) => setVideoModel(e.target.value)}
+                className="w-full text-xs p-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none cursor-pointer font-medium text-slate-800"
+              >
+                 {MODEL_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                 ))}
+              </select>
+           </div>
+
+           {/* Aspect Ratio and Duration */}
+           <div className="grid grid-cols-2 gap-3 border-t border-slate-100 pt-3.5">
+              <div className="flex flex-col gap-1">
+                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Khung hình</span>
+                 <select
+                   value={videoAspectRatio}
+                   onChange={(e) => setVideoAspectRatio(e.target.value)}
+                   className="w-full text-xs p-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none cursor-pointer font-medium text-slate-800"
+                 >
+                    <option value="16:9">16:9 Ngang</option>
+                    <option value="9:16">9:16 Dọc</option>
+                 </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Thời lượng</span>
+                 <select
+                   value={videoDuration}
+                   onChange={(e) => handleDurationChange(e.target.value)}
+                   className="w-full text-xs p-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none cursor-pointer font-medium text-slate-800"
+                 >
+                    {DURATION_OPTIONS.map(opt => (
+                       <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                 </select>
+              </div>
+           </div>
+
+           {/* Resolution Selection */}
+           <div className="flex flex-col gap-1.5 border-t border-slate-100 pt-3.5">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Độ phân giải</span>
+              <div className="grid grid-cols-2 gap-2">
+                 <button
+                   type="button"
+                   onClick={() => handleQualityChange('1080p')}
+                   className={`py-2 text-xs font-bold rounded-xl border transition-all cursor-pointer ${
+                      videoQuality === '1080p'
+                        ? 'border-[#0891b2] bg-white text-[#0891b2] shadow-xs'
+                        : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
+                   }`}
+                 >
+                    1080p
+                 </button>
+                 <button
+                   type="button"
+                   onClick={() => handleQualityChange('720p')}
+                   className={`py-2 text-xs font-bold rounded-xl border transition-all cursor-pointer ${
+                      videoQuality === '720p'
+                        ? 'border-[#0891b2] bg-white text-[#0891b2] shadow-xs'
+                        : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
+                   }`}
+                 >
+                    720p
+                 </button>
+              </div>
+           </div>
+
+           {/* Submit Button */}
+           <button
+             type="button"
+             onClick={handleGenerateVideo}
+             disabled={isGenerating || isGeneratingPrompt || !prompt.trim()}
+             className={`w-full py-3.5 rounded-xl text-xs font-bold tracking-wider uppercase transition-all flex items-center justify-center gap-2 mt-4 cursor-pointer active:scale-95 shadow-md ${
+                isGenerating || isGeneratingPrompt || !prompt.trim()
+                  ? 'bg-slate-100 text-slate-400 border border-slate-200 shadow-none cursor-not-allowed'
+                  : 'bg-[#0891b2] hover:bg-[#06738c] text-white shadow-[#0891b2]/10'
+             }`}
+           >
+              {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              Tạo Video Ngay
+           </button>
+
+        </div>
+
+        {/* RIGHT COLUMN: Canvas & History (lg:col-span-7) */}
+        <div className="lg:col-span-7 flex flex-col gap-6 relative bg-slate-50/30 border border-slate-200/60 p-6 rounded-3xl min-h-[660px] justify-between">
+           
+           {/* Canvas area (flexible viewport) */}
+           <div className="flex-1 flex flex-col justify-center items-center relative min-h-[360px] mb-4">
+              {isGenerating ? (
+                 <div className="flex flex-col items-center gap-4 text-slate-400 p-8 text-center animate-pulse">
+                    <Loader2 className="h-10 w-10 text-cyan-500 animate-spin" />
+                    <div className="flex flex-col gap-1.5 items-center">
+                       <span className="text-xs font-bold tracking-wider uppercase font-mono text-cyan-400">Đang dựng video AI {generateProgress}%...</span>
+                       <span className="text-[10px] text-slate-550">Mất khoảng 1-2 phút để mô hình hóa và kết xuất các khung hình.</span>
+                    </div>
+                    <div className="w-48 bg-slate-200 h-1.5 rounded-full overflow-hidden mt-1">
+                       <div 
+                         className="bg-[#0891b2] h-full transition-all duration-300 rounded-full" 
+                         style={{ width: `${generateProgress}%` }}
+                       />
+                    </div>
                  </div>
-              ) : history.length === 0 ? (
-                 <div className="flex flex-col items-center justify-center py-10 text-slate-400 border border-dashed rounded-xl">
-                    <Video className="h-8 w-8 text-slate-350 mb-1.5" />
-                    <span className="text-xs font-semibold">Chưa có video lịch sử nào</span>
+              ) : generatedVideoUrl ? (
+                 <div className="w-full h-full flex items-center justify-center relative rounded-3xl overflow-hidden border border-slate-200 bg-black shadow-lg aspect-video max-h-[380px]">
+                    <video 
+                      src={generatedVideoUrl} 
+                      controls 
+                      autoPlay 
+                      loop 
+                      className="w-full h-full object-contain"
+                      id="canvas_video_player"
+                    />
+                    <div className="absolute top-4 right-4 opacity-0 hover:opacity-100 transition-opacity z-10 flex gap-2">
+                       <button
+                         type="button"
+                         onClick={() => {
+                           const link = document.createElement('a');
+                           link.href = generatedVideoUrl;
+                           link.download = `igen-video-${Date.now()}.mp4`;
+                           link.click();
+                         }}
+                         className="p-2 bg-slate-900/80 hover:bg-slate-900 text-white rounded-xl shadow border border-slate-700 transition-all cursor-pointer flex items-center gap-1.5 text-[11px] font-bold"
+                       >
+                          <Download className="h-4 w-4" />
+                          Tải Video
+                       </button>
+                    </div>
                  </div>
               ) : (
-                 <div className="grid grid-cols-1 gap-4 max-h-[300px] overflow-y-auto pr-1">
-                    {history.map((record) => {
-                       const id = record._id || record.id;
-                       return (
-                          <div 
-                            key={id}
-                            className="group relative border rounded-xl overflow-hidden bg-slate-950 flex flex-col border-slate-200 shadow-xs hover:shadow-md transition-all"
-                          >
-                             <div className="aspect-video relative flex items-center justify-center bg-slate-900 overflow-hidden">
-                                <video src={record.url} className="w-full h-full object-cover" muted preload="metadata" />
-                                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-3 text-slate-200">
-                                   <div className="flex justify-end gap-1.5">
-                                      <button
-                                        onClick={() => {
-                                          const link = document.createElement('a');
-                                          link.href = record.url;
-                                          link.download = `igen-video-${id}.mp4`;
-                                          link.click();
-                                        }}
-                                        className="p-1.5 bg-black/40 hover:bg-black text-white rounded-md transition-colors"
-                                        title="Tải về máy"
-                                      >
-                                         <Download className="h-3.5 w-3.5" />
-                                      </button>
-                                      <button
-                                        onClick={() => handleDeleteHistory(id)}
-                                        className="p-1.5 bg-black/40 hover:bg-red-650 text-white rounded-md transition-colors"
-                                        title="Xóa khỏi thư viện"
-                                      >
-                                         <Trash2 className="h-3.5 w-3.5" />
-                                      </button>
-                                   </div>
-
-                                   <p className="text-[10px] text-slate-350 leading-snug line-clamp-3 select-text max-h-[50px] overflow-y-auto font-sans p-1 bg-black/25 rounded">
-                                      {record.prompt}
-                                   </p>
-
-                                   <button
-                                     onClick={() => setGeneratedVideoUrl(record.url)}
-                                     className="py-1 px-3 bg-cyan-500 hover:bg-cyan-600 text-slate-950 rounded text-[10px] font-bold w-full mt-1.5 flex items-center justify-center gap-1"
-                                   >
-                                      Phóng to phát
-                                   </button>
-                                </div>
-                             </div>
-                             
-                             <div className="bg-white p-2.5 text-[9px] text-gray-400 font-mono flex justify-between items-center border-t border-slate-100">
-                                <span>{record.metadata?.durationSeconds ? `${record.metadata.durationSeconds}s` : '4s'} | {record.metadata?.aspectRatio || '16:9'}</span>
-                                <span>{new Date(record.createdAt).toLocaleDateString('vi-VN')}</span>
-                             </div>
-                          </div>
-                       );
-                    })}
+                 <div className="flex flex-col items-center justify-center gap-3 p-10 text-center select-none text-slate-400">
+                    <div className="h-12 w-12 rounded-full bg-slate-100 border border-slate-200/50 flex items-center justify-center text-slate-400 mb-2">
+                       <Video className="h-6 w-6 stroke-[1.5]" />
+                    </div>
+                    <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Sẵn sàng sáng tạo</span>
+                    <span className="text-[11px] text-slate-400 max-w-sm leading-relaxed">
+                       Tải ảnh và nhập ý tưởng để bắt đầu
+                    </span>
                  </div>
               )}
            </div>
+
+           {/* Video Render History Overlay/Card */}
+           <div className="bg-white border border-slate-150 rounded-3xl p-5 shadow-lg flex flex-col gap-3.5 relative animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                 <div className="flex flex-col">
+                    <h4 className="font-bold text-slate-800 text-xs">Lịch sử render video</h4>
+                    <p className="text-[10px] text-slate-400 mt-0.5">Hiển thị tối đa 20 kết quả gần nhất, từ mới đến cũ.</p>
+                 </div>
+                 <span className="px-2.5 py-0.5 bg-[#e0f7fc] text-[#0891b2] rounded-full text-[10px] font-bold font-mono">
+                    {history.length}/20
+                 </span>
+              </div>
+
+              {isLoadingHistory ? (
+                 <div className="flex flex-col items-center justify-center py-6 text-slate-400">
+                    <Loader2 className="h-6 w-6 text-cyan-500 animate-spin mb-2" />
+                    <span className="text-[9px] uppercase tracking-wider font-mono">Đang tải...</span>
+                 </div>
+              ) : history.length === 0 ? (
+                 <div className="flex flex-col items-center justify-center py-8 text-slate-400 border border-dashed rounded-xl bg-slate-50/50">
+                    <Video className="h-6 w-6 text-slate-350 mb-2" />
+                    <span className="text-[10px] font-semibold text-slate-400">Chưa có video render</span>
+                 </div>
+              ) : (
+                 <div className="relative flex items-center gap-2">
+                    {/* Left Navigation Chevron */}
+                    <button 
+                      type="button" 
+                      onClick={() => {
+                         const container = document.getElementById('history_slider');
+                         if (container) container.scrollLeft -= 200;
+                      }}
+                      className="h-7 w-7 rounded-full bg-white hover:bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-500 shadow-xs cursor-pointer shrink-0 active:scale-90 transition-transform"
+                    >
+                       <ChevronLeft className="h-4 w-4" />
+                    </button>
+
+                    {/* Scrollable list */}
+                    <div 
+                      id="history_slider"
+                      className="flex-1 overflow-x-auto flex gap-3 pb-1 scroll-smooth"
+                      style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                    >
+                       {history.map((record, index) => {
+                          const id = record._id || record.id;
+                          const isActive = generatedVideoUrl === record.url;
+                          return (
+                             <div 
+                               key={id}
+                               onClick={() => setGeneratedVideoUrl(record.url)}
+                               className={`w-32 aspect-[16/10] relative rounded-xl overflow-hidden bg-slate-950 shadow-xs cursor-pointer hover:shadow-md shrink-0 border-2 transition-all group/item ${
+                                  isActive ? 'border-[#0891b2]' : 'border-transparent'
+                               }`}
+                             >
+                                <video src={record.url} className="w-full h-full object-cover" muted preload="metadata" />
+                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-70 group-hover/item:opacity-100 transition-opacity">
+                                   <div className="h-6 w-6 rounded-full bg-white/95 hover:bg-white flex items-center justify-center text-slate-900 shadow">
+                                      <Play className="h-2.5 w-2.5 fill-slate-900 ml-0.5" />
+                                   </div>
+                                </div>
+                                
+                                {/* Delete button from history */}
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                     e.stopPropagation();
+                                     handleDeleteHistory(id);
+                                  }}
+                                  className="absolute top-1 right-1 p-1 bg-black/60 hover:bg-red-650 text-white rounded-md opacity-0 group-hover/item:opacity-100 transition-opacity z-10"
+                                  title="Xóa khỏi thư viện"
+                                >
+                                   <Trash2 className="h-3 w-3" />
+                                </button>
+
+                                <div className="absolute bottom-1 left-1.5 right-1.5 flex justify-between items-center text-[8px] font-bold text-white bg-black/40 px-1 py-0.5 rounded backdrop-blur-xs">
+                                   <span className="truncate max-w-[50px]">{`Render ${history.length - index}`}</span>
+                                   <span>{record.metadata?.aspectRatio || '16:9'}</span>
+                                </div>
+                             </div>
+                          );
+                       })}
+                    </div>
+
+                    {/* Right Navigation Chevron */}
+                    <button 
+                      type="button"
+                      onClick={() => {
+                         const container = document.getElementById('history_slider');
+                         if (container) container.scrollLeft += 200;
+                      }}
+                      className="h-7 w-7 rounded-full bg-white hover:bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-500 shadow-xs cursor-pointer shrink-0 active:scale-90 transition-transform"
+                    >
+                       <ChevronRight className="h-4 w-4" />
+                    </button>
+                 </div>
+              )}
+           </div>
+
         </div>
 
       </div>

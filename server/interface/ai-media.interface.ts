@@ -11,6 +11,8 @@ export interface IAIMedia extends Document {
     aspectRatio?: string;
     resolution?: string;
     originalVeoUrl?: string;
+    title?: string;
+    description?: string;
   };
   createdAt: Date;
 }

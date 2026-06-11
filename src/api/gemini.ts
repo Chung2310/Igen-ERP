@@ -223,6 +223,9 @@ export const geminiApi = {
     voiceName?: string;
     speakerA?: string;
     speakerB?: string;
+    title?: string;
+    description?: string;
+    stability?: number;
   }): Promise<{ status: string; record: any }> {
     const headers = await getHeaders(true);
     const response = await fetch('/api/v1/gemini/generate-voice', {
@@ -249,12 +252,12 @@ export const geminiApi = {
     return response.json();
   },
 
-  async optimizeImagePrompt(description: string, imageUris?: string[]): Promise<any> {
+  async optimizeImagePrompt(description: string, imageUris?: string[], modelName?: string): Promise<any> {
     const headers = await getHeaders(true);
     const response = await fetch('/api/v1/gemini/optimize-prompt', {
       method: 'POST',
       headers,
-      body: JSON.stringify({ description, imageUris }),
+      body: JSON.stringify({ description, imageUris, modelName }),
     });
     if (!response.ok) {
       throw new Error('Lỗi khi tối ưu prompt ảnh');
@@ -294,6 +297,83 @@ export const geminiApi = {
     });
     if (!response.ok) {
       throw new Error('Lỗi khi xóa bản ghi lịch sử');
+    }
+    return response.json();
+  },
+
+  async getElevenLabsVoices(): Promise<{ status: string; voices: any[] }> {
+    const headers = await getHeaders(false);
+    const response = await fetch('/api/v1/gemini/elevenlabs-voices', {
+      headers,
+    });
+    if (!response.ok) {
+      throw new Error('Lỗi lấy danh sách giọng nói ElevenLabs');
+    }
+    return response.json();
+  },
+
+  async generateCustomVoicePreview(input: {
+    gender: string;
+    accent: string;
+    age: string;
+    accentStrength: number;
+    text: string;
+  }): Promise<{ generatedVoiceId: string; url: string }> {
+    const headers = await getHeaders(true);
+    const response = await fetch('/api/v1/gemini/elevenlabs-custom-voice-preview', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(input),
+    });
+    if (!response.ok) {
+      throw new Error('Lỗi thiết kế giọng nói thử nghiệm');
+    }
+    return response.json();
+  },
+
+  async createCustomVoice(input: {
+    voiceName: string;
+    voiceDescription: string;
+    generatedVoiceId: string;
+  }): Promise<{ voice_id: string }> {
+    const headers = await getHeaders(true);
+    const response = await fetch('/api/v1/gemini/elevenlabs-create-voice', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(input),
+    });
+    if (!response.ok) {
+      throw new Error('Lỗi lưu giọng nói cá nhân');
+    }
+    return response.json();
+  },
+
+  async addElevenLabsVoice(input: {
+    name: string;
+    description: string;
+    files: string[];
+    userId?: string;
+  }): Promise<{ voice_id: string }> {
+    const headers = await getHeaders(true);
+    const response = await fetch('/api/v1/gemini/elevenlabs-add-voice', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(input),
+    });
+    if (!response.ok) {
+      throw new Error('Lỗi khi nhân bản giọng nói ElevenLabs');
+    }
+    return response.json();
+  },
+
+  async deleteElevenLabsVoice(voiceId: string): Promise<{ success: boolean }> {
+    const headers = await getHeaders(true);
+    const response = await fetch(`/api/v1/gemini/elevenlabs-delete-voice/${voiceId}`, {
+      method: 'DELETE',
+      headers,
+    });
+    if (!response.ok) {
+      throw new Error('Lỗi khi xóa giọng nói ElevenLabs');
     }
     return response.json();
   },
