@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { type ReactNode, useMemo, useState } from 'react';
 import {
   AudioLines,
   ChevronDown,
@@ -246,7 +246,7 @@ function PillButton({
   children,
   onClick,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
   onClick?: () => void;
 }) {
   return (
@@ -260,7 +260,7 @@ function PillButton({
   );
 }
 
-function ActionCircle({ children }: { children: React.ReactNode }) {
+function ActionCircle({ children }: { children: ReactNode }) {
   return (
     <button
       type="button"

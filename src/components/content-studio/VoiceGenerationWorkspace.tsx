@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useProgress } from '../../hooks/use-progress';
 import { geminiApi } from '../../api/gemini';
+import { elevenlabsApi } from '../../api/elevenlabs';
 import { toast } from '../../pages/Toast';
 import { 
   Loader2, Mic, Play, Download, Volume2, Pause, Wand2, 
@@ -39,6 +40,62 @@ const ALL_VOICES = [
   { id: 'Sadaltager', gender: 'male', age: 'adult', label: 'Trung niên', description: 'Trầm ấm, độc đáo (Adam)' }
 ];
 
+const DEFAULT_FALLBACK_VOICE_ID = '';
+
+const MODEL_OPTIONS = [
+  {
+    key: 'igen-audio-v3',
+    modelId: 'eleven_multilingual_v2',
+    title: 'Eleven Multilingual v2',
+    description: 'Model can bang cho voiceover va da ngon ngu.',
+    badges: ['Balanced', '70+ ngon ngu'],
+  },
+  {
+    key: 'igen-audio-flash-v2.5',
+    modelId: 'eleven_flash_v2_5',
+    title: 'Eleven Flash v2.5',
+    description: 'Do tre thap, phu hop preview nhanh va hoi thoai.',
+    badges: ['Low latency', 'Flash'],
+  },
+  {
+    key: 'igen-audio-turbo-v2.5',
+    modelId: 'eleven_turbo_v2_5',
+    title: 'Eleven Turbo v2.5',
+    description: 'Nhanh va toi uu chi phi cho luong tao audio thuong xuyen.',
+    badges: ['Fast', 'Cost-efficient'],
+  },
+] as const;
+
+const getActiveModelId = (voiceModel: 'igen-audio-v3' | 'igen-audio-flash-v2.5' | 'igen-audio-turbo-v2.5') => {
+  if (voiceModel === 'igen-audio-flash-v2.5') return 'eleven_flash_v2_5';
+  if (voiceModel === 'igen-audio-turbo-v2.5') return 'eleven_turbo_v2_5';
+  return 'eleven_multilingual_v2';
+};
+
+function getModelDetails(modelId: string, availableModels: any[]) {
+  const apiModel = availableModels.find((model: any) => model.model_id === modelId);
+  const languages =
+    apiModel?.supported_languages ||
+    apiModel?.languages ||
+    apiModel?.language_support ||
+    [];
+
+  const languageNames = Array.isArray(languages)
+    ? languages
+        .map((item: any) => (typeof item === 'string' ? item : item?.name || item?.language || item?.language_name))
+        .filter(Boolean)
+    : [];
+
+  return {
+    apiModel,
+    languageNames,
+    languageSummary:
+      languageNames.length > 0
+        ? languageNames.slice(0, 8).join(', ')
+        : 'Chua co metadata ngon ngu tu ElevenLabs API',
+  };
+}
+
 const TapeIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
   <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="6.5" cy="12" r="3.5" />
@@ -47,6 +104,59 @@ const TapeIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
     <line x1="6.5" y1="8.5" x2="17.5" y2="8.5" />
   </svg>
 );
+
+function audioBufferToWav(buffer: AudioBuffer): Blob {
+  const numOfChan = buffer.numberOfChannels;
+  const length = buffer.length * numOfChan * 2 + 44;
+  const bufferArr = new ArrayBuffer(length);
+  const view = new DataView(bufferArr);
+  const channels = [];
+  let i;
+  let sample;
+  let offset = 0;
+  let pos = 0;
+
+  function setUint16(data: number) {
+    view.setUint16(pos, data, true);
+    pos += 2;
+  }
+
+  function setUint32(data: number) {
+    view.setUint32(pos, data, true);
+    pos += 4;
+  }
+
+  // Write WAV headers
+  setUint32(0x46464952); // "RIFF"
+  setUint32(length - 8);
+  setUint32(0x45564157); // "WAVE"
+  setUint32(0x20746d66); // "fmt "
+  setUint32(16);         // Format chunk length
+  setUint16(1);          // Uncompressed PCM
+  setUint16(numOfChan);
+  setUint32(buffer.sampleRate);
+  setUint32(buffer.sampleRate * 2 * numOfChan);
+  setUint16(numOfChan * 2);
+  setUint16(16);         // 16-bit
+  setUint32(0x61746164); // "data"
+  setUint32(length - pos - 4);
+
+  for (i = 0; i < numOfChan; i++) {
+    channels.push(buffer.getChannelData(i));
+  }
+
+  while (pos < length) {
+    for (i = 0; i < numOfChan; i++) {
+      sample = Math.max(-1, Math.min(1, channels[i][offset]));
+      sample = (sample < 0 ? sample * 0x8000 : sample * 0x7fff) | 0;
+      view.setInt16(pos, sample, true);
+      pos += 2;
+    }
+    offset++;
+  }
+
+  return new Blob([bufferArr], { type: "audio/wav" });
+}
 
 export function VoiceGenerationWorkspace() {
   const [text, setText] = useState('');
@@ -63,7 +173,7 @@ export function VoiceGenerationWorkspace() {
   const [archiveDescription, setArchiveDescription] = useState('');
 
   // Voice selection states
-  const [voiceId, setVoiceId] = useState('Sadaltager');
+  const [voiceId, setVoiceId] = useState(DEFAULT_FALLBACK_VOICE_ID);
   const [speakerA, setSpeakerA] = useState('Aoede');
   const [speakerB, setSpeakerB] = useState('Puck');
   
@@ -94,8 +204,11 @@ export function VoiceGenerationWorkspace() {
   const [duration, setDuration] = useState(0);
 
   // ElevenLabs custom states
-  const [customVoices, setCustomVoices] = useState<any[]>([]);
+  const [availableVoices, setAvailableVoices] = useState<any[]>([]);
+  const [availableModels, setAvailableModels] = useState<any[]>([]);
   const [stability, setStability] = useState<number>(0.50);
+  const [similarityBoost, setSimilarityBoost] = useState<number>(0.75);
+  const [useSpeakerBoost, setUseSpeakerBoost] = useState<boolean>(true);
   const [useLanguageToggle, setUseLanguageToggle] = useState<boolean>(true);
   const [voiceModel, setVoiceModel] = useState<'igen-audio-v3' | 'igen-audio-flash-v2.5' | 'igen-audio-turbo-v2.5'>('igen-audio-v3');
 
@@ -104,6 +217,7 @@ export function VoiceGenerationWorkspace() {
   const [isVoicePickerView, setIsVoicePickerView] = useState(false);
   const [voiceActiveTab, setVoiceActiveTab] = useState<'my-voices' | 'library'>('my-voices');
   const [searchQuery, setSearchQuery] = useState('');
+  const [isSavingVoiceSettings, setIsSavingVoiceSettings] = useState(false);
 
   // Clone/Create Voice modal states
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -145,6 +259,7 @@ export function VoiceGenerationWorkspace() {
   useEffect(() => {
     loadHistory();
     loadCustomVoices();
+    loadModels();
     // Cleanup speech recognition and audios on unmount
     return () => {
        if (recognitionRef.current && isListening) {
@@ -156,10 +271,15 @@ export function VoiceGenerationWorkspace() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!voiceId) return;
+    loadVoiceSettings(voiceId);
+  }, [voiceId]);
+
   const loadHistory = async () => {
      try {
         setIsLoadingHistory(true);
-        const data = await geminiApi.getMediaHistory('voice');
+        const data = await elevenlabsApi.getVoiceHistory();
         setHistory(data.history || []);
      } catch (e: any) {
         toast.error(`Lỗi đồng bộ lịch sử: ${e.message}`);
@@ -170,27 +290,71 @@ export function VoiceGenerationWorkspace() {
 
   const loadCustomVoices = async () => {
      try {
-        const response = await geminiApi.getElevenLabsVoices();
+        const response = await elevenlabsApi.getVoices();
         if (response && response.voices) {
-           setCustomVoices(response.voices);
+           const mappedVoices = response.voices.map((voice: any) => ({
+             ...voice,
+             id: voice.voice_id,
+             label: voice.name || 'ElevenLabs Voice',
+             gender: voice.labels?.gender || 'female',
+             description: voice.description || voice.category || 'ElevenLabs voice',
+           }));
+           setAvailableVoices(mappedVoices);
+           setVoiceId((currentVoiceId) => {
+             const hasCurrentVoice = mappedVoices.some((voice: any) => voice.voice_id === currentVoiceId);
+             if (hasCurrentVoice) return currentVoiceId;
+             return mappedVoices[0]?.voice_id || currentVoiceId;
+           });
         }
      } catch (e) {
         console.error("Lỗi lấy danh sách giọng nói cá nhân:", e);
      }
   };
 
+  const loadModels = async () => {
+     try {
+        const response = await elevenlabsApi.getModels();
+        if (response && response.models) {
+           setAvailableModels(response.models);
+        }
+     } catch (e) {
+        console.error("Loi lay danh sach model ElevenLabs:", e);
+     }
+  };
+
+  const loadVoiceSettings = async (targetVoiceId: string) => {
+     if (!targetVoiceId) return;
+     try {
+        const settings = await elevenlabsApi.getVoiceSettings(targetVoiceId);
+        if (typeof settings?.stability === 'number') {
+           setStability(settings.stability);
+        }
+        if (typeof settings?.similarity_boost === 'number') {
+           setSimilarityBoost(settings.similarity_boost);
+        }
+        if (typeof settings?.use_speaker_boost === 'boolean') {
+           setUseSpeakerBoost(settings.use_speaker_boost);
+        }
+     } catch (e) {
+        console.error('Loi lay voice settings ElevenLabs:', e);
+        setStability(0.5);
+        setSimilarityBoost(0.75);
+        setUseSpeakerBoost(true);
+     }
+  };
+
   const getVoiceDetails = (id: string) => {
-     const standardVoice = ALL_VOICES.find(v => v.id === id);
+     const standardVoice = availableVoices.find(v => v.voice_id === id);
      if (standardVoice) {
        return {
-         id: standardVoice.id,
-         label: standardVoice.label,
-         gender: standardVoice.gender,
-         description: standardVoice.description,
+         id: standardVoice.voice_id,
+         label: standardVoice.name || 'ElevenLabs Voice',
+         gender: standardVoice.labels?.gender || 'female',
+         description: standardVoice.description || standardVoice.category || 'ElevenLabs voice',
          tags: `${standardVoice.gender === 'male' ? 'Nam' : 'Nữ'} • ${standardVoice.description}`
        };
      }
-     const customVoice = customVoices.find(v => v.voice_id === id);
+     const customVoice = availableVoices.find(v => v.voice_id === id);
      if (customVoice) {
         return {
            id: customVoice.voice_id,
@@ -201,10 +365,10 @@ export function VoiceGenerationWorkspace() {
         };
      }
      return {
-        id: 'Sadaltager',
-        label: 'Roger',
-        gender: 'male',
-        description: 'Laid-Back, Casual, Resonant',
+        id: availableVoices[0]?.voice_id || '',
+        label: availableVoices[0]?.name || 'ElevenLabs Voice',
+        gender: availableVoices[0]?.labels?.gender || 'male',
+        description: availableVoices[0]?.description || 'Default ElevenLabs voice',
         tags: 'Nam • iGen Audio v3'
      };
   };
@@ -238,7 +402,7 @@ export function VoiceGenerationWorkspace() {
           ? `Xin chào, đây là giọng nói của tôi. Rất vui được gặp bạn.`
           : `Xin chào, đây là giọng nói của tôi. Chúc bạn một ngày tốt lành.`;
           
-        const result = await geminiApi.generateVoice({
+        const result = await elevenlabsApi.generateVoice({
           textToSpeak: previewText,
           mode: 'single',
           temperature: 1.0,
@@ -246,11 +410,13 @@ export function VoiceGenerationWorkspace() {
           speakerB: 'Puck',
           modelName: 'eleven_multilingual_v2',
           voiceName: targetId,
+          saveToHistory: false,
         });
 
-        if (result.record?.url) {
-          setPreviewCache(prev => ({ ...prev, [targetId]: result.record.url }));
-          playPreviewAudio(result.record.url);
+        const previewUrl = result.url || result.record?.url;
+        if (previewUrl) {
+          setPreviewCache(prev => ({ ...prev, [targetId]: previewUrl }));
+          playPreviewAudio(previewUrl);
         }
     } catch (e: any) {
         toast.error(`Lỗi phát thử: ${e.message}`);
@@ -342,12 +508,12 @@ export function VoiceGenerationWorkspace() {
       // Map frontend model name to actual ElevenLabs model ID
       let modelId = 'eleven_multilingual_v2';
       if (voiceModel === 'igen-audio-flash-v2.5') {
-         modelId = 'eleven_flash_v1';
+         modelId = 'eleven_flash_v2_5';
       } else if (voiceModel === 'igen-audio-turbo-v2.5') {
-         modelId = 'eleven_turbo_v2';
+         modelId = 'eleven_turbo_v2_5';
       }
 
-      const result = await geminiApi.generateVoice({
+      const result = await elevenlabsApi.generateVoice({
         textToSpeak: text,
         styleInstructions,
         mode,
@@ -359,6 +525,8 @@ export function VoiceGenerationWorkspace() {
         title: archiveTitle.trim() || undefined,
         description: archiveDescription.trim() || undefined,
         stability: stability,
+        similarityBoost: similarityBoost,
+        useSpeakerBoost: useSpeakerBoost,
       });
 
       if (result.record?.url) {
@@ -379,7 +547,7 @@ export function VoiceGenerationWorkspace() {
   const handleDeleteHistory = async (id: string) => {
     if (!confirm("Bạn có chắc chắn muốn xóa bản thu âm này?")) return;
     try {
-        await geminiApi.deleteMediaHistory(id);
+        await elevenlabsApi.deleteVoiceHistory(id);
         toast.success('Đã xóa bản thu âm khỏi lịch sử.');
         setHistory(prev => prev.filter(r => r._id !== id && r.id !== id));
     } catch (e: any) {
@@ -392,14 +560,30 @@ export function VoiceGenerationWorkspace() {
     e.stopPropagation();
     if (!confirm("Bạn có chắc chắn muốn xóa giọng nói nhân bản này?")) return;
     try {
-      await geminiApi.deleteElevenLabsVoice(voiceIdToDelete);
+      await elevenlabsApi.deleteVoice(voiceIdToDelete);
       toast.success('Đã xóa giọng nói thành công.');
       if (voiceId === voiceIdToDelete) {
-         setVoiceId('Sadaltager');
+         setVoiceId(availableVoices.find(v => v.voice_id !== voiceIdToDelete)?.voice_id || '');
       }
       loadCustomVoices();
     } catch (e: any) {
       toast.error(`Lỗi khi xóa giọng nói: ${e.message}`);
+    }
+  };
+
+  const handleSaveVoiceSettings = async () => {
+    try {
+      setIsSavingVoiceSettings(true);
+      await elevenlabsApi.updateVoiceSettings(voiceId, {
+        stability,
+        similarity_boost: similarityBoost,
+        use_speaker_boost: useSpeakerBoost,
+      });
+      toast.success('Da luu voice settings len ElevenLabs.');
+    } catch (e: any) {
+      toast.error(`Khong the luu voice settings: ${e.message}`);
+    } finally {
+      setIsSavingVoiceSettings(false);
     }
   };
 
@@ -449,24 +633,44 @@ export function VoiceGenerationWorkspace() {
        toast.error('Vui lòng tải lên định dạng file âm thanh hoặc video!');
        return;
     }
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      const audioCtx = new AudioContextClass();
+      
+      const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+      const wavBlob = audioBufferToWav(audioBuffer);
+      
+      const dotIndex = file.name.lastIndexOf('.');
+      const nameWithoutExt = dotIndex !== -1 ? file.name.substring(0, dotIndex) : file.name;
+      const wavFile = new File([wavBlob], `${nameWithoutExt}.wav`, { type: 'audio/wav' });
+
+      const reader = new FileReader();
+    reader.readAsDataURL(wavFile);
+    reader.onload = async () => {
        const base64Data = reader.result as string;
        
-       const audioObj = new Audio(base64Data);
-       audioObj.onloadedmetadata = () => {
-         setInstantFiles(prev => [...prev, {
-            file: base64Data,
-            name: file.name,
-            size: file.size,
-            duration: audioObj.duration
-         }]);
-       };
-    };
+       setInstantFiles(prev => [...prev, {
+           file: base64Data,
+           name: wavFile.name,
+           size: wavBlob.size,
+           duration: audioBuffer.duration
+        }]);
+        try {
+           await audioCtx.close();
+        } catch (e) {
+           console.error(e);
+        }
+        /*
+       */
+     };
+    } catch (err: any) {
+      console.error("Lỗi xử lý file âm thanh:", err);
+      toast.error(`Không thể xử lý file âm thanh: ${err.message || err}`);
+    }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
      if (e.target.files && e.target.files.length > 0) {
         Array.from(e.target.files).forEach((file: any) => {
            processCloneFile(file);
@@ -547,7 +751,7 @@ export function VoiceGenerationWorkspace() {
      
      setIsSavingVoice(true);
      try {
-        const response = await geminiApi.addElevenLabsVoice({
+        const response = await elevenlabsApi.addVoice({
            name: newVoiceName,
            description: newVoiceDescription,
            files: instantFiles.map(f => f.file)
@@ -570,7 +774,7 @@ export function VoiceGenerationWorkspace() {
      setIsGeneratingDesignPreview(true);
      setDesignPreviewUrl(null);
      try {
-        const res = await geminiApi.generateCustomVoicePreview({
+        const res = await elevenlabsApi.generateCustomVoicePreview({
            gender: designGender,
            age: designAge,
            accent: designAccent,
@@ -601,7 +805,7 @@ export function VoiceGenerationWorkspace() {
 
      setIsSavingVoice(true);
      try {
-        const res = await geminiApi.createCustomVoice({
+        const res = await elevenlabsApi.createCustomVoice({
            voiceName: newVoiceName,
            voiceDescription: newVoiceDescription || `Giọng tự thiết kế (${designGender}, ${designAge}, ${designAccent})`,
            generatedVoiceId: designPreviewVoiceId
@@ -620,7 +824,12 @@ export function VoiceGenerationWorkspace() {
   };
 
   const selectedVoice = getSelectedVoice();
-  const myVoicesList = customVoices.filter(v => v.category === 'cloned' || v.category === 'generated' || v.category === 'custom');
+  const myVoicesList = availableVoices.filter(v => v.category === 'cloned' || v.category === 'generated' || v.category === 'custom');
+  const libraryVoicesList = availableVoices.filter(v => !['cloned', 'generated', 'custom'].includes(v.category));
+  const activeModelInfo = availableModels.find((model: any) => model.model_id === getActiveModelId(voiceModel));
+  const multilingualModelDetails = getModelDetails('eleven_multilingual_v2', availableModels);
+  const flashModelDetails = getModelDetails('eleven_flash_v2_5', availableModels);
+  const turboModelDetails = getModelDetails('eleven_turbo_v2_5', availableModels);
 
   return (
     <div className="space-y-6 max-w-[1400px] mx-auto w-full pb-12 font-sans text-slate-800" id="voice_workspace_wrapper">
@@ -994,7 +1203,7 @@ export function VoiceGenerationWorkspace() {
                                 voiceActiveTab === 'library' ? 'border-cyan-500 text-cyan-600' : 'border-transparent text-slate-400'
                              }`}
                            >
-                              Thư viện ({ALL_VOICES.length})
+                              Thư viện ({libraryVoicesList.length})
                            </button>
                         </div>
 
@@ -1046,13 +1255,13 @@ export function VoiceGenerationWorkspace() {
                                  })
                               )
                            ) : (
-                              ALL_VOICES.filter(v => v.label.toLowerCase().includes(searchQuery.toLowerCase()) || v.description.toLowerCase().includes(searchQuery.toLowerCase())).map(v => {
-                                 const isSelected = voiceId === v.id;
+                              libraryVoicesList.filter(v => (v.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || (v.description || '').toLowerCase().includes(searchQuery.toLowerCase())).map(v => {
+                                 const isSelected = voiceId === v.voice_id;
                                  return (
                                     <div 
-                                      key={v.id}
+                                      key={v.voice_id}
                                       onClick={() => {
-                                         setVoiceId(v.id);
+                                         setVoiceId(v.voice_id);
                                          setIsVoicePickerView(false);
                                       }}
                                       className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer ${
@@ -1063,7 +1272,7 @@ export function VoiceGenerationWorkspace() {
                                           <button 
                                             onClick={(e) => {
                                                e.stopPropagation();
-                                               handlePreviewVoice(v.id);
+                                               handlePreviewVoice(v.voice_id);
                                             }}
                                             className="h-8 w-8 rounded-full bg-white border flex items-center justify-center text-slate-700 shadow-xs shrink-0"
                                           >
@@ -1112,16 +1321,21 @@ export function VoiceGenerationWorkspace() {
                         {/* Model AI selection cards */}
                         <div className="flex flex-col gap-2">
                            <span className="text-xs font-bold text-slate-700">Model AI</span>
+                           {activeModelInfo?.name && (
+                              <span className="text-[10px] text-slate-400">Dang su dung model ElevenLabs: {activeModelInfo.name}</span>
+                           )}
+                           <span className="text-[10px] text-slate-400">Di chuot vao tung model de xem danh sach ngon ngu ho tro.</span>
                            <div className="flex flex-col gap-2.5">
                               {/* Option 1: iGen Audio v3 */}
                               <div 
                                 onClick={() => setVoiceModel('igen-audio-v3')}
+                                title={`Ngon ngu ho tro: ${multilingualModelDetails.languageSummary}`}
                                 className={`border-2 rounded-xl p-4 cursor-pointer transition-all relative ${
                                    voiceModel === 'igen-audio-v3' ? 'border-cyan-500 bg-cyan-50/10' : 'border-slate-150 hover:bg-slate-50'
                                 }`}
                               >
                                  <div className="flex justify-between items-start">
-                                    <span className="text-xs font-bold text-slate-900">iGen Audio v3</span>
+                                    <span className="text-xs font-bold text-slate-900">Eleven Multilingual v2</span>
                                     {voiceModel === 'igen-audio-v3' && <Check className="h-4 w-4 text-cyan-600" />}
                                  </div>
                                  <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">
@@ -1136,12 +1350,13 @@ export function VoiceGenerationWorkspace() {
                               {/* Option 2: iGen Audio Flash v2.5 */}
                               <div 
                                 onClick={() => setVoiceModel('igen-audio-flash-v2.5')}
+                                title={`Ngon ngu ho tro: ${flashModelDetails.languageSummary}`}
                                 className={`border-2 rounded-xl p-4 cursor-pointer transition-all relative ${
                                    voiceModel === 'igen-audio-flash-v2.5' ? 'border-cyan-500 bg-cyan-50/10' : 'border-slate-150 hover:bg-slate-50'
                                 }`}
                               >
                                  <div className="flex justify-between items-start">
-                                    <span className="text-xs font-bold text-slate-900">iGen Audio Flash v2.5</span>
+                                    <span className="text-xs font-bold text-slate-900">Eleven Flash v2.5</span>
                                     {voiceModel === 'igen-audio-flash-v2.5' && <Check className="h-4 w-4 text-cyan-600" />}
                                  </div>
                                  <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">
@@ -1155,12 +1370,13 @@ export function VoiceGenerationWorkspace() {
                               {/* Option 3: iGen Audio Turbo v2.5 */}
                               <div 
                                 onClick={() => setVoiceModel('igen-audio-turbo-v2.5')}
+                                title={`Ngon ngu ho tro: ${turboModelDetails.languageSummary}`}
                                 className={`border-2 rounded-xl p-4 cursor-pointer transition-all relative ${
                                    voiceModel === 'igen-audio-turbo-v2.5' ? 'border-cyan-500 bg-cyan-50/10' : 'border-slate-150 hover:bg-slate-50'
                                 }`}
                               >
                                  <div className="flex justify-between items-start">
-                                    <span className="text-xs font-bold text-slate-900">iGen Audio Turbo v2.5</span>
+                                    <span className="text-xs font-bold text-slate-900">Eleven Turbo v2.5</span>
                                     {voiceModel === 'igen-audio-turbo-v2.5' && <Check className="h-4 w-4 text-cyan-600" />}
                                  </div>
                                  <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">
@@ -1192,6 +1408,54 @@ export function VoiceGenerationWorkspace() {
                               <span>Creative</span>
                               <span>Robust</span>
                            </div>
+                           <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 text-[10px] text-slate-500 leading-relaxed">
+                              <span className="font-bold text-slate-700">Tom tat ho tro ngon ngu:</span>{' '}
+                              {voiceModel === 'igen-audio-v3' && (multilingualModelDetails.languageNames.length > 0
+                                ? multilingualModelDetails.languageNames.slice(0, 8).join(', ')
+                                : 'Chua co metadata ngon ngu tu ElevenLabs API')}
+                              {voiceModel === 'igen-audio-flash-v2.5' && (flashModelDetails.languageNames.length > 0
+                                ? flashModelDetails.languageNames.slice(0, 8).join(', ')
+                                : 'Chua co metadata ngon ngu tu ElevenLabs API')}
+                              {voiceModel === 'igen-audio-turbo-v2.5' && (turboModelDetails.languageNames.length > 0
+                                ? turboModelDetails.languageNames.slice(0, 8).join(', ')
+                                : 'Chua co metadata ngon ngu tu ElevenLabs API')}
+                           </div>
+                        </div>
+
+                        <div className="flex flex-col gap-2">
+                           <div className="flex justify-between text-xs font-bold text-slate-700">
+                              <span>Similarity Boost</span>
+                              <span className="font-mono text-cyan-600">{similarityBoost.toFixed(2)}</span>
+                           </div>
+                           <input 
+                             type="range"
+                             min="0.0"
+                             max="1.0"
+                             step="0.05"
+                             value={similarityBoost}
+                             onChange={(e) => setSimilarityBoost(parseFloat(e.target.value))}
+                             className="w-full accent-cyan-500 cursor-pointer"
+                           />
+                           <div className="flex justify-between text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                              <span>Creative</span>
+                              <span>Consistent</span>
+                           </div>
+                        </div>
+
+                        <div className="flex items-center justify-between border-t pt-4">
+                           <div>
+                              <span className="text-xs font-bold text-slate-800">Speaker Boost</span>
+                              <p className="text-[10px] text-slate-400 mt-0.5">Su dung voice setting goc cua ElevenLabs de day do ro va do day giong noi.</p>
+                           </div>
+                           <label className="relative inline-flex items-center cursor-pointer">
+                              <input 
+                                type="checkbox" 
+                                checked={useSpeakerBoost}
+                                onChange={(e) => setUseSpeakerBoost(e.target.checked)}
+                                className="sr-only peer" 
+                              />
+                              <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-cyan-500"></div>
+                           </label>
                         </div>
 
                         {/* Switch language detection */}
@@ -1219,8 +1483,10 @@ export function VoiceGenerationWorkspace() {
                <div className="border-t p-4 flex justify-between items-center bg-slate-50 shrink-0">
                   <button 
                     onClick={() => {
-                       setVoiceId('Sadaltager');
-                       setStability(0.50);
+                        setVoiceId(availableVoices[0]?.voice_id || '');
+                        setStability(0.50);
+                        setSimilarityBoost(0.75);
+                        setUseSpeakerBoost(true);
                        setVoiceModel('igen-audio-v3');
                        setUseLanguageToggle(true);
                        toast.success('Đã khôi phục cài đặt mặc định.');
@@ -1228,6 +1494,13 @@ export function VoiceGenerationWorkspace() {
                     className="text-xs font-bold text-slate-500 hover:text-slate-700 transition-colors"
                   >
                      Reset
+                  </button>
+                  <button
+                    onClick={handleSaveVoiceSettings}
+                    disabled={isSavingVoiceSettings}
+                    className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                     {isSavingVoiceSettings ? 'Dang luu...' : 'Luu settings'}
                   </button>
                   <button 
                     onClick={() => {

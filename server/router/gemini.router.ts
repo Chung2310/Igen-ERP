@@ -84,19 +84,6 @@ const generateVideoSchema = {
   }),
 };
 
-const generateVoiceSchema = {
-  body: Joi.object({
-    textToSpeak: Joi.string().required(),
-    styleInstructions: Joi.string().allow("").optional(),
-    mode: Joi.string().valid("single", "multi").optional(),
-    temperature: Joi.number().optional(),
-    modelName: Joi.string().optional(),
-    voiceName: Joi.string().optional(),
-    speakerA: Joi.string().optional(),
-    speakerB: Joi.string().optional(),
-  }),
-};
-
 const optimizeScriptSchema = {
   body: Joi.object({
     text: Joi.string().required(),
@@ -172,16 +159,8 @@ geminiRouter.post("/sync-drive", requireAuth as any, validateRequest(syncDriveSc
 // Xưởng nội dung APIs (requireAuth bảo vệ tài khoản lưu lịch sử)
 geminiRouter.post("/generate-image", requireAuth as any, validateRequest(generateImageSchema), geminiController.generateImage);
 geminiRouter.post("/generate-video", requireAuth as any, validateRequest(generateVideoSchema), geminiController.generateVideo);
-geminiRouter.post("/generate-voice", requireAuth as any, validateRequest(generateVoiceSchema), geminiController.generateVoice);
 geminiRouter.post("/optimize-script", requireAuth as any, validateRequest(optimizeScriptSchema), geminiController.optimizeScript);
 geminiRouter.post("/optimize-prompt", requireAuth as any, validateRequest(optimizePromptSchema), geminiController.optimizeImagePrompt);
 geminiRouter.post("/optimize-video-prompt", requireAuth as any, validateRequest(optimizeVideoPromptSchema), geminiController.optimizeVideoPrompt);
 geminiRouter.get("/media-history", requireAuth as any, validateRequest(getHistorySchema), geminiController.getMediaHistory);
 geminiRouter.delete("/media-history/:id", requireAuth as any, validateRequest(deleteHistorySchema), geminiController.deleteMediaHistory);
-
-// ElevenLabs Custom Voice routes
-geminiRouter.get("/elevenlabs-voices", requireAuth as any, geminiController.getElevenLabsVoices);
-geminiRouter.post("/elevenlabs-custom-voice-preview", requireAuth as any, geminiController.generateCustomVoicePreview);
-geminiRouter.post("/elevenlabs-create-voice", requireAuth as any, geminiController.createCustomVoice);
-geminiRouter.post("/elevenlabs-add-voice", requireAuth as any, geminiController.addElevenLabsVoice);
-geminiRouter.delete("/elevenlabs-delete-voice/:voiceId", requireAuth as any, geminiController.deleteElevenLabsVoice);
