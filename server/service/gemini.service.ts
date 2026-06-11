@@ -152,41 +152,47 @@ ${docText}
    */
   async getMarketingSuggestions(): Promise<string[]> {
     const client = getGeminiClient();
+    const fallbackSuggestions = [
+      "Chiến dịch tri ân khách hàng thân thiết và tặng quà tri ân kỷ niệm thành lập",
+      "Chương trình khuyến mãi mùa hè giảm giá cực sốc kích cầu mua sắm",
+      "Sự kiện ra mắt dòng sản phẩm mới hướng tới phong cách sống xanh bảo vệ môi trường",
+    ];
 
     if (!client) {
-      return [
-        "Chiến dịch tri ân khách hàng thân thiết và tặng quà tri ân kỷ niệm thành lập",
-        "Chương trình khuyến mãi mùa hè giảm giá cực sốc kích cầu mua sắm",
-        "Sự kiện ra mắt dòng sản phẩm mới hướng tới phong cách sống xanh bảo vệ môi trường",
-      ];
+      return fallbackSuggestions;
     }
 
-    const prompt = `Bạn là trợ lý AI Marketing chuyên nghiệp. Hãy đề xuất đúng 3 ý tưởng/chủ đề chiến dịch marketing chung, mang tính phổ quát cao để nhiều loại hình doanh nghiệp hoặc công ty khác nhau đều có thể áp dụng được (ví dụ: chiến dịch khuyến mãi theo mùa, sự kiện tri ân khách hàng, ra mắt dòng sản phẩm mới, chương trình ưu đãi đặc biệt).
+    try {
+      const prompt = `Bạn là trợ lý AI Marketing chuyên nghiệp. Hãy đề xuất đúng 3 ý tưởng/chủ đề chiến dịch marketing chung, mang tính phổ quát cao để nhiều loại hình doanh nghiệp hoặc công ty khác nhau đều có thể áp dụng được (ví dụ: chiến dịch khuyến mãi theo mùa, sự kiện tri ân khách hàng, ra mắt dòng sản phẩm mới, chương trình ưu đãi đặc biệt).
 Mỗi ý tưởng đề xuất phải là một câu ngắn gọn (dưới 25 từ) sẵn sàng làm mục tiêu marketing, ví dụ: 'Chiến dịch tri ân khách hàng thân thiết và tặng quà tri ân'.
 Trả về kết quả ở định dạng JSON phù hợp chính xác với cấu trúc yêu cầu.`;
 
-    const response = await client.models.generateContent({
-      model: GEMINI_TEXT_MODEL,
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            suggestions: {
-              type: Type.ARRAY,
-              items: { type: Type.STRING },
-              description: "Danh sách đúng 3 ý tưởng/chủ đề gợi ý ngắn gọn",
+      const response = await client.models.generateContent({
+        model: GEMINI_TEXT_MODEL,
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              suggestions: {
+                type: Type.ARRAY,
+                items: { type: Type.STRING },
+                description: "Danh sách đúng 3 ý tưởng/chủ đề gợi ý ngắn gọn",
+              },
             },
+            required: ["suggestions"],
           },
-          required: ["suggestions"],
         },
-      },
-    });
+      });
 
-    const responseText = response.text || "{}";
-    const parsedData = JSON.parse(responseText.trim());
-    return parsedData.suggestions || [];
+      const responseText = response.text || "{}";
+      const parsedData = JSON.parse(responseText.trim());
+      return parsedData.suggestions || fallbackSuggestions;
+    } catch (error: any) {
+      console.error("[geminiService.getMarketingSuggestions] Fallback to mock suggestions:", error);
+      return fallbackSuggestions;
+    }
   },
 
   /**

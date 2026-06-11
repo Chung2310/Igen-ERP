@@ -1,6 +1,7 @@
 import { Router } from "express";
 import mongoose from "mongoose";
 import { geminiRouter } from "./gemini.router";
+import { elevenlabsRouter } from "./elevenlabs.router";
 import { facebookPostRouter } from "./facebook-post.router";
 import { fbMessengerRouter } from "./fb-messenger.router";
 import { zaloMessengerRouter } from "./zalo-messenger.router";
@@ -32,6 +33,9 @@ apiRouter.get("/health", (req, res) => {
 
 // Gắn kết router phụ của Gemini
 apiRouter.use("/gemini", geminiRouter);
+
+// Gắn kết router phụ của ElevenLabs
+apiRouter.use("/elevenlabs", elevenlabsRouter);
 
 // Gắn kết router phụ của Facebook Post qua n8n & Facebook Messenger
 apiRouter.use("/facebook", facebookPostRouter);
