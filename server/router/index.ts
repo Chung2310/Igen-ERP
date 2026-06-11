@@ -12,6 +12,7 @@ import { authRouter } from "./auth.router";
 import { permissionRouter } from "./permission.router";
 import { rolePermissionRouter } from "./role-permission.router";
 import { crudRouter } from "./crud.router";
+import { heygenRouter } from "./heygen.router";
 
 export const apiRouter = Router();
 
@@ -36,6 +37,7 @@ apiRouter.use("/gemini", geminiRouter);
 
 // Gắn kết router phụ của ElevenLabs
 apiRouter.use("/elevenlabs", elevenlabsRouter);
+apiRouter.use("/heygen", heygenRouter);
 
 // Gắn kết router phụ của Facebook Post qua n8n & Facebook Messenger
 apiRouter.use("/facebook", facebookPostRouter);
