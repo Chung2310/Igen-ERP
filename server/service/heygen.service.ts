@@ -1,3 +1,5 @@
+import { randomUUID } from "crypto";
+import mongoose from "mongoose";
 import { AIMediaModel } from "../model/ai-media.model";
 
 type HeyGenLibraryItem = {
@@ -8,45 +10,67 @@ type HeyGenLibraryItem = {
   language?: string;
   accent?: string;
   isDefault?: boolean;
+  isCustom?: boolean;
+};
+
+type HeyGenRemoteVideo = {
+  id: string;
+  _id: string;
+  videoId: string;
+  title: string;
+  prompt: string;
+  url: string;
+  thumbnailUrl: string;
+  gifUrl: string;
+  captionedVideoUrl: string;
+  subtitleUrl: string;
+  duration: number;
+  status: string;
+  createdAt: string | null;
+  completedAt: string | null;
+  videoPageUrl: string;
+  outputLanguage: string;
+  failureCode: string;
+  failureMessage: string;
+  model: string;
 };
 
 type CreateAvatarVideoInput = {
   avatarId: string;
   voiceId: string;
   script: string;
+  motionText?: string;
   aspectRatio?: string;
+  resolution?: "720p" | "1080p" | "4k";
+  engineType?: "avatar_v" | "avatar_iv" | "avatar_iii";
   title?: string;
   description?: string;
 };
 
 const HEYGEN_API_BASE = "https://api.heygen.com";
 
-const MOCK_AVATARS: HeyGenLibraryItem[] = [
-  { id: "demo-avatar-01", name: "Linh Host", language: "vi", accent: "VI - Bac", isDefault: true },
-  { id: "demo-avatar-02", name: "Mia Seller", language: "en", accent: "EN - US" },
-  { id: "demo-avatar-03", name: "Ken Coach", language: "vi", accent: "VI - Nam" },
-];
+class HeyGenApiError extends Error {
+  statusCode: number;
+  details: any;
 
-const MOCK_VOICES: HeyGenLibraryItem[] = [
-  { id: "demo-voice-01", name: "Warm Narrator", language: "vi", accent: "VI - Bac", isDefault: true },
-  { id: "demo-voice-02", name: "Energetic Host", language: "en", accent: "EN - US" },
-  { id: "demo-voice-03", name: "Studio Presenter", language: "vi", accent: "VI - Nam" },
-];
+  constructor(message: string, statusCode: number, details?: any) {
+    super(message);
+    this.name = "HeyGenApiError";
+    this.statusCode = statusCode;
+    this.details = details;
+  }
+}
 
 function getApiKey() {
   return process.env.HEYGEN_API_KEY?.trim() || "";
 }
 
-function getDimension(aspectRatio?: string) {
-  switch (aspectRatio) {
-    case "9:16":
-      return { width: 1080, height: 1920 };
-    case "1:1":
-      return { width: 1080, height: 1080 };
-    case "16:9":
-    default:
-      return { width: 1920, height: 1080 };
+function requireApiKey() {
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    throw new Error("HEYGEN_API_KEY chua duoc cau hinh");
   }
+  return apiKey;
 }
 
 async function parseHeyGenResponse(response: Response, fallbackMessage: string) {
@@ -61,18 +85,18 @@ async function parseHeyGenResponse(response: Response, fallbackMessage: string) 
 
   if (!response.ok) {
     const details = parsed?.error?.message || parsed?.message || raw || fallbackMessage;
-    throw new Error(details);
+    throw new HeyGenApiError(details, response.status, parsed || raw);
   }
 
   return parsed ?? {};
 }
 
 async function requestHeyGenJson(path: string, init?: RequestInit) {
-  const apiKey = getApiKey();
+  const apiKey = requireApiKey();
   const response = await fetch(`${HEYGEN_API_BASE}${path}`, {
     ...init,
     headers: {
-      "X-Api-Key": apiKey,
+      "x-api-key": apiKey,
       ...(init?.headers || {}),
     },
   });
@@ -94,7 +118,7 @@ function normalizeLibraryItems(payload: any, type: "avatar" | "voice"): HeyGenLi
     return [];
   }
 
-  return list
+  const normalized = list
     .map((item: any) => {
       const id = item?.avatar_id || item?.voice_id || item?.id || item?.template_id || item?.value;
       const name = item?.avatar_name || item?.name || item?.title || item?.label;
@@ -109,34 +133,35 @@ function normalizeLibraryItems(payload: any, type: "avatar" | "voice"): HeyGenLi
         language: item?.language || item?.locale,
         accent: item?.accent,
         isDefault: Boolean(item?.is_default || item?.default || false),
+        isCustom: Boolean(
+          item?.is_custom_avatar ||
+          item?.is_user_avatar ||
+          item?.is_owner ||
+          item?.owned_by_me ||
+          item?.created_by_user ||
+          item?.avatar_type === "custom" ||
+          item?.source === "user" ||
+          item?.type === "custom"
+        ),
       } satisfies HeyGenLibraryItem;
     })
     .filter(Boolean)
-    .slice(0, type === "avatar" ? 100 : 200) as HeyGenLibraryItem[];
+    .slice(0, type === "avatar" ? 200 : 300) as HeyGenLibraryItem[];
+
+  const seen = new Set<string>();
+  return normalized.filter((item) => {
+    const dedupeKey = item.id;
+    if (seen.has(dedupeKey)) {
+      return false;
+    }
+    seen.add(dedupeKey);
+    return true;
+  });
 }
 
-function getDefaultLibraryItems(type: "avatar" | "voice"): HeyGenLibraryItem[] {
-  if (type === "avatar") {
-    const envAvatarId = process.env.HEYGEN_DEFAULT_AVATAR_ID?.trim();
-    if (envAvatarId) {
-      return [{
-        id: envAvatarId,
-        name: process.env.HEYGEN_DEFAULT_AVATAR_NAME?.trim() || "Default Avatar",
-        isDefault: true,
-      }];
-    }
-    return [];
-  }
-
-  const envVoiceId = process.env.HEYGEN_DEFAULT_VOICE_ID?.trim();
-  if (envVoiceId) {
-    return [{
-      id: envVoiceId,
-      name: process.env.HEYGEN_DEFAULT_VOICE_NAME?.trim() || "Default Voice",
-      isDefault: true,
-    }];
-  }
-  return [];
+function filterCustomAvatars(items: HeyGenLibraryItem[]) {
+  const customOnly = items.filter((item) => item.isCustom);
+  return customOnly.length > 0 ? customOnly : items;
 }
 
 async function fetchLibraryWithCandidates(type: "avatar" | "voice") {
@@ -158,16 +183,13 @@ async function fetchLibraryWithCandidates(type: "avatar" | "voice") {
     }
   }
 
-  return {
-    items: getDefaultLibraryItems(type),
-    source: "env",
-    error: lastError?.message,
-  };
+  throw lastError || new Error(`Khong lay duoc thu vien HeyGen cho ${type}`);
 }
 
 async function upsertVideoRecord(userId: string, payload: {
   videoId: string;
   script: string;
+  motionText?: string;
   avatarId?: string;
   voiceId?: string;
   aspectRatio?: string;
@@ -190,7 +212,7 @@ async function upsertVideoRecord(userId: string, payload: {
     provider: "heygen",
     status: payload.status || "processing",
     title: payload.title,
-    description: payload.description,
+    description: payload.motionText ? [payload.description, `Motion: ${payload.motionText}`].filter(Boolean).join(" | ") : payload.description,
   };
 
   if (existing) {
@@ -215,88 +237,134 @@ async function upsertVideoRecord(userId: string, payload: {
 
 function normalizeStatusPayload(data: any) {
   const root = data?.data || data;
+  const videoUrl = root?.video_url || root?.url || root?.video_url_with_caption || root?.download_url || "";
+  const error = root?.failure_message || root?.error?.message || root?.error || "";
   return {
-    jobStatus: root?.status || root?.video_status || root?.state || "processing",
-    videoUrl: root?.video_url || root?.url || root?.video_url_with_caption || root?.download_url || "",
+    jobStatus: root?.status || root?.video_status || root?.state || (error ? "failed" : videoUrl ? "completed" : "processing"),
+    videoUrl,
     thumbnailUrl: root?.thumbnail_url || root?.cover_url || "",
-    error: root?.error?.message || root?.error || "",
+    error,
     raw: data,
   };
 }
 
+function toIsoStringFromUnix(value: any) {
+  if (typeof value !== "number" || Number.isNaN(value)) {
+    return null;
+  }
+  return new Date(value * 1000).toISOString();
+}
+
+function normalizeHeyGenVideo(video: any, localRecord?: any): HeyGenRemoteVideo {
+  const videoId = String(video?.id || localRecord?.metadata?.heygenVideoId || localRecord?._id || "");
+  const fallbackPrompt = localRecord?.prompt || video?.title || "HeyGen video";
+
+  return {
+    id: videoId,
+    _id: String(localRecord?._id || videoId),
+    videoId,
+    title: String(video?.title || localRecord?.metadata?.title || fallbackPrompt),
+    prompt: String(fallbackPrompt),
+    url: String(video?.video_url || localRecord?.url || ""),
+    thumbnailUrl: String(video?.thumbnail_url || ""),
+    gifUrl: String(video?.gif_url || ""),
+    captionedVideoUrl: String(video?.captioned_video_url || ""),
+    subtitleUrl: String(video?.subtitle_url || ""),
+    duration: Number(video?.duration || localRecord?.metadata?.duration || 0),
+    status: String(video?.status || localRecord?.metadata?.status || (video?.video_url ? "completed" : "processing")),
+    createdAt: toIsoStringFromUnix(video?.created_at) || (localRecord?.createdAt ? new Date(localRecord.createdAt).toISOString() : null),
+    completedAt: toIsoStringFromUnix(video?.completed_at),
+    videoPageUrl: String(video?.video_page_url || ""),
+    outputLanguage: String(video?.output_language || ""),
+    failureCode: String(video?.failure_code || ""),
+    failureMessage: String(video?.failure_message || ""),
+    model: String(localRecord?.metadata?.title || "Avatar V"),
+  };
+}
+
+async function deleteLocalVideoRecord(userId: string, videoId: string) {
+  const filters: any[] = [{ "metadata.heygenVideoId": videoId }];
+
+  if (mongoose.Types.ObjectId.isValid(videoId)) {
+    filters.push({ _id: videoId });
+  }
+
+  const result = await AIMediaModel.deleteMany({
+    userId,
+    mediaType: "video",
+    "metadata.provider": "heygen",
+    $or: filters,
+  });
+
+  return result.deletedCount || 0;
+}
+
 export const heygenService = {
   async getLibrary() {
-    const apiKey = getApiKey();
-
-    if (!apiKey) {
-      return {
-        status: "success",
-        mock: true,
-        avatars: MOCK_AVATARS,
-        voices: MOCK_VOICES,
-      };
-    }
+    requireApiKey();
 
     const [avatarResult, voiceResult] = await Promise.all([
       fetchLibraryWithCandidates("avatar"),
       fetchLibraryWithCandidates("voice"),
     ]);
 
+    const filteredAvatars = filterCustomAvatars(avatarResult.items);
+
     return {
       status: "success",
-      mock: false,
-      avatars: avatarResult.items.length > 0 ? avatarResult.items : MOCK_AVATARS,
-      voices: voiceResult.items.length > 0 ? voiceResult.items : getDefaultLibraryItems("voice"),
+      avatars: filteredAvatars,
+      voices: voiceResult.items,
       sources: {
         avatars: avatarResult.source,
         voices: voiceResult.source,
       },
-      warnings: [avatarResult.error, voiceResult.error].filter(Boolean),
+      warnings: [],
     };
   },
 
   async createAvatarVideo(userId: string, input: CreateAvatarVideoInput) {
-    const apiKey = getApiKey();
-    const { avatarId, voiceId, script, aspectRatio, title, description } = input;
+    const apiKey = requireApiKey();
+    const { avatarId, voiceId, script, motionText, aspectRatio, resolution, engineType, title, description } = input;
 
-    if (!apiKey) {
-      const mockVideoId = `mock-heygen-${Date.now()}`;
-      const record = await upsertVideoRecord(userId, {
-        videoId: mockVideoId,
-        script,
-        avatarId,
-        voiceId,
-        aspectRatio,
-        status: "processing",
-        title,
-        description,
-      });
+    if (engineType === "avatar_iii") {
+      throw new HeyGenApiError("Avatar III can dung legacy API cua HeyGen; luong v3 hien tai chi ho tro Avatar IV/V.", 400);
+    }
 
-      return {
-        status: "success",
-        mock: true,
-        videoId: mockVideoId,
-        provider: "heygen",
-        jobStatus: "processing",
-        requestedAt: new Date().toISOString(),
-        record,
-      };
+    const requestBody: Record<string, any> = {
+      type: "avatar",
+      avatar_id: avatarId,
+      script,
+      aspect_ratio: aspectRatio || "16:9",
+      resolution: resolution || "720p",
+      output_format: "mp4",
+    };
+
+    if (title?.trim()) {
+      requestBody.title = title.trim();
+    }
+
+    if (voiceId?.trim()) {
+      requestBody.voice_id = voiceId.trim();
+    }
+
+    if (motionText?.trim()) {
+      requestBody.motion_prompt = motionText.trim();
+    }
+
+    if (engineType === "avatar_v") {
+      requestBody.engine = { type: "avatar_v" };
+    } else if (engineType === "avatar_iv") {
+      requestBody.engine = { type: "avatar_iv" };
     }
 
     const response = await fetch(`${HEYGEN_API_BASE}/v3/videos`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-Api-Key": apiKey,
+        "Idempotency-Key": randomUUID(),
+        "x-api-key": apiKey,
       },
-      body: JSON.stringify({
-        type: "avatar",
-        avatar_id: avatarId,
-        voice_id: voiceId,
-        script,
-        dimension: getDimension(aspectRatio),
-        engine: { type: "avatar_v" },
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     const data = await parseHeyGenResponse(response, "Khong the tao HeyGen avatar video");
@@ -309,6 +377,7 @@ export const heygenService = {
     const record = await upsertVideoRecord(userId, {
       videoId,
       script,
+      motionText,
       avatarId,
       voiceId,
       aspectRatio,
@@ -319,7 +388,6 @@ export const heygenService = {
 
     return {
       status: "success",
-      mock: false,
       provider: "heygen",
       videoId,
       jobStatus: data?.data?.status || data?.status || "processing",
@@ -329,85 +397,106 @@ export const heygenService = {
   },
 
   async getVideoStatus(userId: string, videoId: string, context?: Partial<CreateAvatarVideoInput>) {
-    const apiKey = getApiKey();
+    const data = await requestHeyGenJson(`/v3/videos/${encodeURIComponent(videoId)}`);
+    const normalized = normalizeStatusPayload(data);
 
-    if (!apiKey) {
-      const mockUrl = `https://example.com/mock-heygen-video/${videoId}.mp4`;
-      const record = await upsertVideoRecord(userId, {
-        videoId,
-        videoUrl: mockUrl,
-        script: context?.script || "Mock HeyGen video",
-        avatarId: context?.avatarId,
-        voiceId: context?.voiceId,
-        aspectRatio: context?.aspectRatio,
-        status: "completed",
-        title: context?.title,
-        description: context?.description,
-      });
-      return {
-        status: "success",
-        mock: true,
-        videoId,
-        jobStatus: "completed",
-        videoUrl: mockUrl,
-        record,
-      };
-    }
+    const record = await upsertVideoRecord(userId, {
+      videoId,
+      videoUrl: normalized.videoUrl || undefined,
+      script: context?.script || "HeyGen avatar video",
+      motionText: context?.motionText,
+      avatarId: context?.avatarId,
+      voiceId: context?.voiceId,
+      aspectRatio: context?.aspectRatio,
+      status: normalized.jobStatus,
+      title: context?.title,
+      description: context?.description,
+    });
 
-    const candidates = [
-      `${HEYGEN_API_BASE}/v3/videos/${encodeURIComponent(videoId)}`,
-      `${HEYGEN_API_BASE}/v1/video_status.get?video_id=${encodeURIComponent(videoId)}`,
-    ];
-
-    let lastError: Error | null = null;
-
-    for (const url of candidates) {
-      try {
-        const response = await fetch(url, {
-          headers: { "X-Api-Key": apiKey },
-        });
-        const data = await parseHeyGenResponse(response, "Khong the lay trang thai video HeyGen");
-        const normalized = normalizeStatusPayload(data);
-
-        const record = await upsertVideoRecord(userId, {
-          videoId,
-          videoUrl: normalized.videoUrl || undefined,
-          script: context?.script || "HeyGen avatar video",
-          avatarId: context?.avatarId,
-          voiceId: context?.voiceId,
-          aspectRatio: context?.aspectRatio,
-          status: normalized.jobStatus,
-          title: context?.title,
-          description: context?.description,
-        });
-
-        return {
-          status: "success",
-          mock: false,
-          videoId,
-          jobStatus: normalized.jobStatus,
-          videoUrl: normalized.videoUrl,
-          thumbnailUrl: normalized.thumbnailUrl,
-          error: normalized.error,
-          record,
-          raw: data,
-        };
-      } catch (error: any) {
-        lastError = error;
-      }
-    }
-
-    throw lastError || new Error("Khong the lay trang thai video HeyGen");
+    return {
+      status: "success",
+      videoId,
+      jobStatus: normalized.jobStatus,
+      videoUrl: normalized.videoUrl,
+      thumbnailUrl: normalized.thumbnailUrl,
+      error: normalized.error,
+      record,
+      raw: data,
+    };
   },
 
   async getVideoHistory(userId: string) {
-    return AIMediaModel.find({
+    requireApiKey();
+
+    const payload = await requestHeyGenJson("/v3/videos?limit=50");
+    const remoteVideos = Array.isArray(payload?.data) ? payload.data : [];
+
+    const localRecords = await AIMediaModel.find({
       userId,
       mediaType: "video",
       "metadata.provider": "heygen",
     })
-      .sort({ createdAt: -1 })
-      .limit(50)
       .lean();
+
+    const localByVideoId = new Map(
+      localRecords
+        .map((record: any) => [String(record?.metadata?.heygenVideoId || ""), record] as const)
+        .filter(([videoId]) => Boolean(videoId))
+    );
+
+    const mappedRemoteVideos = remoteVideos.map((video: any): HeyGenRemoteVideo => (
+      normalizeHeyGenVideo(video, localByVideoId.get(String(video?.id || "")))
+    ));
+
+    const remoteIds = new Set(mappedRemoteVideos.map((video) => video.videoId).filter(Boolean));
+    const localOnlyVideos = localRecords
+      .filter((record: any) => {
+        const localVideoId = String(record?.metadata?.heygenVideoId || record?._id || "");
+        return localVideoId && !remoteIds.has(localVideoId);
+      })
+      .map((record: any): HeyGenRemoteVideo => normalizeHeyGenVideo(null, record));
+
+    return [...mappedRemoteVideos, ...localOnlyVideos].sort((a, b) => {
+      const left = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const right = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return right - left;
+    });
+  },
+
+  async deleteVideoHistory(userId: string, videoId: string) {
+    requireApiKey();
+    const localRecord = await AIMediaModel.findOne({
+      userId,
+      mediaType: "video",
+      "metadata.provider": "heygen",
+      $or: [
+        { "metadata.heygenVideoId": videoId },
+        ...(mongoose.Types.ObjectId.isValid(videoId) ? [{ _id: videoId }] : []),
+      ],
+    }).lean();
+    const remoteVideoId = String(localRecord?.metadata?.heygenVideoId || videoId);
+    let remoteDeleted = false;
+
+    if (remoteVideoId) {
+      try {
+        await requestHeyGenJson(`/v3/videos/${encodeURIComponent(remoteVideoId)}`, {
+          method: "DELETE",
+        });
+        remoteDeleted = true;
+      } catch (error: any) {
+        const message = String(error?.message || "");
+        const isAlreadyGone = error?.statusCode === 404 || /not found/i.test(message);
+        if (!isAlreadyGone) {
+          throw error;
+        }
+      }
+    }
+
+    let deletedLocalCount = await deleteLocalVideoRecord(userId, videoId);
+    if (remoteVideoId !== videoId) {
+      deletedLocalCount += await deleteLocalVideoRecord(userId, remoteVideoId);
+    }
+
+    return { status: "success", remoteDeleted, deletedLocalCount };
   },
 };
