@@ -305,7 +305,12 @@ export const authService = {
     managerLevel?: number,
     department?: string,
     division?: string,
-    phone?: string
+    phone?: string,
+    heygenAccess?: {
+      avatarId?: string;
+      voiceId?: string;
+      apiKey?: string;
+    }
   ): Promise<string> {
     const res = await fetch("/api/v1/auth/register-user", {
       method: "POST",
@@ -325,6 +330,7 @@ export const authService = {
         department,
         division,
         phone,
+        heygenAccess,
       }),
     });
 

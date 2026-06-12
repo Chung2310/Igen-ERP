@@ -16,9 +16,9 @@ const ASPECT_OPTIONS = [
 ];
 
 const DURATION_OPTIONS = [
-  { value: '15', label: '4 giây' },
-  { value: '30', label: '6 giây' },
-  { value: '45', label: '8 giây' },
+  { value: '4', label: '4 giây' },
+  { value: '6', label: '6 giây' },
+  { value: '8', label: '8 giây' },
 
 ];
 

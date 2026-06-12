@@ -11,7 +11,7 @@ import {
   Users,
 } from "lucide-react";
 import { BRAND_LOGO_URL, BRAND_NAME, BRAND_TAGLINE } from "../config/brand";
-import { TabType } from "../types";
+import type { TabType } from "../types";
 import { useAuth } from "../context/AuthContext";
 
 interface SidebarProps {
@@ -69,44 +69,44 @@ const toneClasses: Record<MenuTone, { active: string; icon: string; hoverIcon: s
 
 const baseMenuItems: MenuItem[] = [
   {
-    label: "TỔNG QUAN" as TabType,
-    title: "Tổng quan Doanh nghiệp",
-    desc: "Chỉ số doanh thu & tiến độ",
+    label: "TỔNG QUAN",
+    title: "Tổng quan doanh nghiệp",
+    desc: "Chỉ số doanh thu và tiến độ",
     icon: LayoutDashboard,
     tone: "blue",
   },
   {
-    label: "NHÂN SỰ" as TabType,
-    title: "Quản lý Nhân sự",
-    desc: "Sơ đồ, KPI & đào tạo",
+    label: "NHÂN SỰ",
+    title: "Quản lý nhân sự",
+    desc: "Sơ đồ, KPI và đào tạo",
     icon: Users,
     tone: "green",
   },
   {
-    label: "KHO & SẢN PHẨM" as TabType,
-    title: "Quản lý Kho hàng",
-    desc: "Sản phẩm & dự báo nhu cầu",
+    label: "KHO & SẢN PHẨM",
+    title: "Quản lý kho hàng",
+    desc: "Sản phẩm và dự báo nhu cầu",
     icon: Package,
     tone: "amber",
   },
   {
-    label: "MARKETING" as TabType,
+    label: "MARKETING",
     title: "AI Marketing Hub",
-    desc: "Sáng tạo bài viết & đăng lịch",
+    desc: "Sáng tạo nội dung và đăng lịch",
     icon: Megaphone,
     tone: "purple",
   },
   {
-    label: "SALES CRM" as TabType,
+    label: "SALES CRM",
     title: "Sales CRM Omni-Inbox",
-    desc: "Chăm sóc & phễu khách hàng",
+    desc: "Chăm sóc và phễu khách hàng",
     icon: MessageSquareShare,
     tone: "rose",
   },
   {
-    label: "HIỆU SUẤT AI" as TabType,
+    label: "HIỆU SUẤT AI",
     title: "Hiệu suất AI",
-    desc: "So sánh máy & con người",
+    desc: "So sánh máy và con người",
     icon: LineChart,
     tone: "indigo",
   },
@@ -118,18 +118,18 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
 
   if (userProfile?.role === "superadmin" || userProfile?.role === "admin") {
     menuItems.push({
-      label: "QUẢN TRỊ USER" as TabType,
-      title: "Quản trị User",
-      desc: "Cấp quyền & phân vai trò",
+      label: "QUẢN TRỊ USER",
+      title: "Quản trị user",
+      desc: "Cấp quyền và phân vai trò",
       icon: Shield,
       tone: "indigo",
     });
   }
 
   menuItems.push({
-    label: "CÀI ĐẶT" as TabType,
+    label: "CÀI ĐẶT",
     title: "Cài đặt hệ thống",
-    desc: "Thông tin cá nhân & cấu hình",
+    desc: "Thông tin cá nhân và cấu hình",
     icon: Settings,
     tone: "slate",
   });
@@ -151,15 +151,12 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
             <p className="truncate font-mono text-[10px] uppercase tracking-widest text-gray-500">{BRAND_TAGLINE}</p>
           </div>
         </div>
-
       </div>
 
-      <nav className="flex-1 space-y-2 overflow-y-auto px-4 py-6 select-none" id="sidebar_nav">
-        <p className="mb-3 px-3 font-mono text-[10px] font-bold uppercase tracking-wider text-gray-400">
-          Phân khu ứng dụng
-        </p>
+      <nav className="flex-1 select-none space-y-2 overflow-y-auto px-4 py-6" id="sidebar_nav">
+        <p className="mb-3 px-3 font-mono text-[10px] font-bold uppercase tracking-wider text-gray-400">Phân khu ứng dụng</p>
 
-        {menuItems.filter((item) => item.icon !== LineChart).map((item) => {
+        {menuItems.map((item) => {
           const isActive = activeTab === item.label;
           const Icon = item.icon;
           const tone = toneClasses[item.tone];

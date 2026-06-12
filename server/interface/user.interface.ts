@@ -43,6 +43,12 @@ export interface IAiAutoReplyConfig {
   trainingKnowledge: string;
 }
 
+export interface IHeyGenAccessConfig {
+  avatarId?: string;
+  voiceId?: string;
+  apiKey?: string;
+}
+
 export interface IUser extends Document {
   email: string;
   password?: string; // Hashed password
@@ -54,6 +60,7 @@ export interface IUser extends Document {
   tiktokIntegration?: ITikTokIntegration | null;
   zaloIntegration?: IZaloIntegration | null;
   aiAutoReplyConfig?: IAiAutoReplyConfig | null;
+  heygenAccess?: IHeyGenAccessConfig | null;
   
   // Org Chart & SaaS fields
   jobTitle?: string;

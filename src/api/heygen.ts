@@ -49,7 +49,7 @@ async function parseJsonResponse(response: Response, fallbackMessage: string) {
 }
 
 export const heygenApi = {
-  async getLibrary(): Promise<{ status: string; avatars: HeyGenLibraryItem[]; voices: HeyGenLibraryItem[]; warnings?: string[] }> {
+  async getLibrary(): Promise<{ status: string; avatars: HeyGenLibraryItem[]; voices: HeyGenLibraryItem[]; warnings?: string[]; defaults?: { avatarId?: string; voiceId?: string } }> {
     const response = await fetch("/api/v1/heygen/library", {
       headers: getJwtHeaders(false),
     });
