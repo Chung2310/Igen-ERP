@@ -1000,7 +1000,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
           },
           body: JSON.stringify({
             text: textToSpeak,
-            model_id: "eleven_multilingual_v2",
+            model_id: modelName || "eleven_v3",
             voice_settings: {
               stability: 0.5,
               similarity_boost: 0.75
@@ -1035,7 +1035,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
       metadata: {
         voiceName: mode === 'multi' ? `Multi (${speakerA} & ${speakerB})` : voiceName,
         duration: estimateAudioDuration(textToSpeak),
-        resolution: modelName || "eleven_multilingual_v2",
+        resolution: modelName || "eleven_v3",
         title: title || undefined,
         description: description || undefined,
       }
