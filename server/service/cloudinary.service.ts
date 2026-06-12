@@ -41,4 +41,41 @@ export const cloudinaryService = {
       throw new Error(`Tải lên Cloudinary thất bại: ${error.message || error}`);
     }
   },
+
+  /**
+   * Tải tệp tin dạng Buffer trực tiếp lên Cloudinary bằng stream
+   * @param buffer Dữ liệu file dạng Buffer
+   * @param folder Thư mục lưu trữ trên Cloudinary
+   * @returns URL công khai bảo mật (secure_url)
+   */
+  async uploadMediaBuffer(buffer: Buffer, folder: string): Promise<string> {
+    if (
+      !process.env.CLOUDINARY_CLOUD_NAME ||
+      !process.env.CLOUDINARY_API_KEY ||
+      !process.env.CLOUDINARY_API_SECRET
+    ) {
+      throw new Error("Cấu hình Cloudinary chưa đầy đủ trong biến môi trường (CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET).");
+    }
+
+    ensureConfigured();
+
+    return new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: folder || "igen_erp",
+          resource_type: "auto",
+        },
+        (error, result) => {
+          if (error) {
+            console.error("[cloudinaryService.uploadMediaBuffer] Error:", error);
+            reject(new Error(`Tải lên Cloudinary thất bại: ${error.message || error}`));
+          } else {
+            resolve(result!.secure_url);
+          }
+        }
+      );
+      uploadStream.write(buffer);
+      uploadStream.end();
+    });
+  },
 };
