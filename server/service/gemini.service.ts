@@ -1,14 +1,10 @@
 import { Type } from "@google/genai";
-import { getGeminiClient } from "../config/gemini";
-import fs from "fs";
-import path from "path";
-import os from "os";
 import { AIMediaModel } from "../model/ai-media.model";
 import { cloudinaryService } from "./cloudinary.service";
 import { piapiService } from "./piapi.service";
 
 const GEMINI_TEXT_MODEL = process.env.GEMINI_MODEL || "gemini-3.5-flash";
-const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || "piapi-midjourney";
+const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || "piapi-flux";
 const GEMINI_VIDEO_MODEL = process.env.GEMINI_VIDEO_MODEL || "piapi-kling";
 
 async function generateText(
@@ -21,85 +17,75 @@ async function generateText(
     responseSchema?: any;
   }
 ): Promise<{ text: string }> {
-  const usePiapi = !!process.env.PIAPI_API_KEY;
-  if (usePiapi) {
-    let mappedModel = "gpt-4o-mini";
-    if (model.includes("pro")) {
-      mappedModel = "gpt-4o";
-    }
-
-    const messages: any[] = [];
-    if (config?.systemInstruction) {
-      messages.push({ role: "system", content: config.systemInstruction });
-    }
-
-    if (typeof contents === "string") {
-      messages.push({ role: "user", content: contents });
-    } else if (Array.isArray(contents)) {
-      for (const item of contents) {
-        if (typeof item === "string") {
-          messages.push({ role: "user", content: item });
-        } else if (item.role && item.parts) {
-          const role = item.role === "model" ? "assistant" : item.role;
-          const textParts = item.parts.map((p: any) => p.text || "").join("\n");
-          messages.push({ role, content: textParts });
-        } else if (item.text) {
-          messages.push({ role: "user", content: item.text });
-        }
-      }
-    }
-
-    const body: any = {
-      model: mappedModel,
-      messages,
-      temperature: config?.temperature ?? 0.7,
-    };
-
-    if (config?.responseMimeType === "application/json" || config?.responseSchema) {
-      body.response_format = { type: "json_object" };
-    }
-
-    if (config?.responseSchema) {
-      const schemaStr = JSON.stringify(config.responseSchema);
-      if (messages[0]?.role === "system") {
-        messages[0].content += `\n\nCRITICAL REQUIREMENT: Output MUST be a valid JSON object matching this JSON Schema:\n${schemaStr}`;
-      } else {
-        messages.unshift({
-          role: "system",
-          content: `Output MUST be a valid JSON object matching this JSON Schema:\n${schemaStr}`
-        });
-      }
-    }
-
-    const response = await fetch("https://api.piapi.ai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${process.env.PIAPI_API_KEY}`,
-      },
-      body: JSON.stringify(body),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`PiAPI LLM call failed: ${response.status} - ${errorText}`);
-    }
-
-    const resJson: any = await response.json();
-    const text = resJson.choices?.[0]?.message?.content || "";
-    return { text };
-  } else {
-    const client = getGeminiClient();
-    if (!client) {
-      throw new Error("No Gemini client and no PiAPI key configured.");
-    }
-    const response = await client.models.generateContent({
-      model,
-      contents,
-      config,
-    });
-    return { text: response.text || "" };
+  if (!process.env.PIAPI_API_KEY) {
+    throw new Error("PiAPI API key is not configured.");
   }
+
+  let mappedModel = "gpt-4o-mini";
+  if (model.includes("pro")) {
+    mappedModel = "gpt-4o";
+  }
+
+  const messages: any[] = [];
+  if (config?.systemInstruction) {
+    messages.push({ role: "system", content: config.systemInstruction });
+  }
+
+  if (typeof contents === "string") {
+    messages.push({ role: "user", content: contents });
+  } else if (Array.isArray(contents)) {
+    for (const item of contents) {
+      if (typeof item === "string") {
+        messages.push({ role: "user", content: item });
+      } else if (item.role && item.parts) {
+        const role = item.role === "model" ? "assistant" : item.role;
+        const textParts = item.parts.map((p: any) => p.text || "").join("\n");
+        messages.push({ role, content: textParts });
+      } else if (item.text) {
+        messages.push({ role: "user", content: item.text });
+      }
+    }
+  }
+
+  const body: any = {
+    model: mappedModel,
+    messages,
+    temperature: config?.temperature ?? 0.7,
+  };
+
+  if (config?.responseMimeType === "application/json" || config?.responseSchema) {
+    body.response_format = { type: "json_object" };
+  }
+
+  if (config?.responseSchema) {
+    const schemaStr = JSON.stringify(config.responseSchema);
+    if (messages[0]?.role === "system") {
+      messages[0].content += `\n\nCRITICAL REQUIREMENT: Output MUST be a valid JSON object matching this JSON Schema:\n${schemaStr}`;
+    } else {
+      messages.unshift({
+        role: "system",
+        content: `Output MUST be a valid JSON object matching this JSON Schema:\n${schemaStr}`
+      });
+    }
+  }
+
+  const response = await fetch("https://api.piapi.ai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${process.env.PIAPI_API_KEY}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`PiAPI LLM call failed: ${response.status} - ${errorText}`);
+  }
+
+  const resJson: any = await response.json();
+  const text = resJson.choices?.[0]?.message?.content || "";
+  return { text };
 }
 
 export const geminiService = {
@@ -112,8 +98,6 @@ export const geminiService = {
     aiConfig: any,
     ragContext?: { contextText?: string; companyCode?: string; matches?: number }
   ): Promise<{ text: string; isMock: boolean }> {
-    const client = getGeminiClient();
-
     const getMockResponse = () => {
       return new Promise<{ text: string; isMock: boolean }>((resolve) => {
         setTimeout(() => {
@@ -136,7 +120,7 @@ export const geminiService = {
       });
     };
 
-    if (!client && !process.env.PIAPI_API_KEY) {
+    if (!process.env.PIAPI_API_KEY) {
       return getMockResponse();
     }
 
@@ -206,7 +190,6 @@ Thông tin cấu hình hiện tại của bạn:
    * Tự động băm/chuyển đổi tài liệu dài thành danh sách FAQs rút gọn
    */
   async convertDocToFAQ(docText: string): Promise<string> {
-    const client = getGeminiClient();
     const getMockFAQ = () => {
       return `--- BẢN FAQ ĐÃ ĐƯỢC CHUẨN HÓA (CHẾ ĐỘ MÔ PHỎNG AI) ---
 Q: Tài liệu này nói về chủ đề gì?
@@ -219,7 +202,7 @@ Q: Chính sách vận chuyển của chúng tôi là gì?
 A: Giao hàng toàn quốc. Miễn phí vận chuyển cho đơn hàng trị giá từ 500k trở lên.`;
     };
 
-    if (!client && !process.env.PIAPI_API_KEY) {
+    if (!process.env.PIAPI_API_KEY) {
       return getMockFAQ();
     }
 
@@ -259,14 +242,13 @@ ${docText}
    * Tạo 3 gợi ý chủ đề marketing chung
    */
   async getMarketingSuggestions(): Promise<string[]> {
-    const client = getGeminiClient();
     const fallbackSuggestions = [
       "Chiến dịch tri ân khách hàng thân thiết và tặng quà tri ân kỷ niệm thành lập",
       "Chương trình khuyến mãi mùa hè giảm giá cực sốc kích cầu mua sắm",
       "Sự kiện ra mắt dòng sản phẩm mới hướng tới phong cách sống xanh bảo vệ môi trường",
     ];
 
-    if (!client && !process.env.PIAPI_API_KEY) {
+    if (!process.env.PIAPI_API_KEY) {
       return fallbackSuggestions;
     }
 
@@ -307,8 +289,6 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
    * Đề xuất Content Pillars
    */
   async analyzeMarketingPillars(campaignTopic: string): Promise<{ pillars: any[]; isMock: boolean }> {
-    const client = getGeminiClient();
-
     const getMockPillars = () => {
       let mockPillars = [
         {
@@ -411,7 +391,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
       return mockPillars;
     };
 
-    if (!client && !process.env.PIAPI_API_KEY) {
+    if (!process.env.PIAPI_API_KEY) {
       return { pillars: getMockPillars(), isMock: true };
     }
 
@@ -473,8 +453,6 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
     channels?: string[],
     mediaType?: string
   ): Promise<{ concepts: any[]; isMock: boolean }> {
-    const client = getGeminiClient();
-
     const pillarsStr =
       selectedPillars && selectedPillars.length > 0
         ? `(Định hướng Trụ cột nội dung: ${selectedPillars.join(", ")})`
@@ -521,7 +499,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
       return concepts;
     };
 
-    if (!client && !process.env.PIAPI_API_KEY) {
+    if (!process.env.PIAPI_API_KEY) {
       return { concepts: getMockConcepts(), isMock: true };
     }
 
@@ -622,7 +600,6 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
       videoAspectRatio?: string;
     }
   ): Promise<{ posts: any[]; isMock: boolean }> {
-    const client = getGeminiClient();
     const validChannels = ["Facebook", "TikTok", "LinkedIn", "Instagram"];
     
     // Normalize target channels: filter out invalid channels, map input to valid ones
@@ -721,7 +698,7 @@ Nội dung chi tiết gợi ý: ${suggestedContent}`;
       });
     };
 
-    if (!client && !process.env.PIAPI_API_KEY) {
+    if (!process.env.PIAPI_API_KEY) {
       isMock = true;
       posts = getMockPosts();
     } else {
@@ -863,118 +840,15 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
   ): Promise<{ url: string; isMock: boolean }> {
     let modelToUse = options?.modelName || GEMINI_IMAGE_MODEL;
     // Route all calls to PiAPI
-    if (modelToUse === "nano-banana-pro" || modelToUse.startsWith("imagen-")) {
-      modelToUse = "piapi-midjourney";
-    } else if (modelToUse === "nano-banana-2" || modelToUse.startsWith("gemini-")) {
-      modelToUse = "piapi-flux";
+    if (modelToUse === "nano-banana-pro") {
+      modelToUse = "nano-banana-pro";
+    } else if (modelToUse === "nano-banana-2") {
+      modelToUse = "nano-banana-2";
+    } else {
+      modelToUse = "nano-banana-pro";
     }
     
-    if (modelToUse.startsWith("piapi-")) {
-      return piapiService.generateImage(prompt, modelToUse, { aspectRatio: options?.aspectRatio });
-    }
-    const client = getGeminiClient();
-    const aspect = options?.aspectRatio || "1:1";
-
-    const getMockImage = () => {
-      const seed = Math.floor(Math.random() * 1000000);
-      return { url: `https://picsum.photos/seed/${seed}/800/600`, isMock: true };
-    };
-
-    if (!client) {
-      console.log("[geminiService.generateImage] Running in MOCK mode");
-      return getMockImage();
-    }
-
-    try {
-      let finalTextPrompt = prompt;
-      const hasReferenceImages = options?.existingImageUris && options.existingImageUris.length > 0;
-      if (modelToUse.startsWith("imagen-") && hasReferenceImages) {
-        console.log(`[geminiService.generateImage] Imagen model + reference images -> Preprocessing with Nano Banana`);
-        const parts: any[] = [];
-        for (const uri of options.existingImageUris!) {
-          if (uri.startsWith("data:")) {
-            const match = uri.match(/^data:([^;]+);base64,(.+)$/);
-            if (match) {
-              parts.push({
-                inlineData: { mimeType: match[1], data: match[2] }
-              });
-            }
-          }
-        }
-        parts.push({
-          text: `Analyze the reference image(s) above and combine your understanding with the user's request to create ONE ultra-detailed English prompt that Imagen can use to generate a matching image.
-USER'S REQUEST: "${prompt}"
-Output ONLY the final detailed prompt in English.`
-        });
-
-        const preRes = await client.models.generateContent({
-          model: GEMINI_TEXT_MODEL,
-          contents: parts,
-        });
-        if (preRes.text) {
-          finalTextPrompt = preRes.text.trim();
-        }
-      }
-
-      const isImagen = modelToUse.startsWith("imagen-");
-      let response;
-      if (isImagen) {
-        response = await client.models.generateImages({
-          model: modelToUse,
-          prompt: finalTextPrompt,
-          config: {
-            numberOfImages: 1,
-            aspectRatio: aspect as any,
-          },
-        });
-      } else {
-        const parts: any[] = [{ text: finalTextPrompt }];
-        if (hasReferenceImages) {
-          for (const uri of options.existingImageUris!) {
-            if (uri.startsWith("data:")) {
-              const match = uri.match(/^data:([^;]+);base64,(.+)$/);
-              if (match) {
-                parts.push({
-                  inlineData: { mimeType: match[1], data: match[2] }
-                });
-              }
-            }
-          }
-        }
-
-        const config: any = {
-          responseModalities: ["IMAGE"],
-          imageConfig: { aspectRatio: aspect },
-        };
-        if (options?.resolution) {
-          config.imageConfig.imageSize = options.resolution;
-        }
-
-        response = await client.models.generateContent({
-          model: modelToUse,
-          contents: parts,
-          config,
-        });
-      }
-
-      let base64Bytes = "";
-      if (isImagen) {
-        const generatedImage = (response as any).generatedImages?.[0];
-        base64Bytes = generatedImage?.image?.imageBytes;
-      } else {
-        const part = (response as any).candidates?.[0]?.content?.parts?.[0];
-        base64Bytes = part?.inlineData?.data;
-      }
-
-      if (!base64Bytes) {
-        throw new Error("Không nhận được dữ liệu ảnh từ Gemini API");
-      }
-
-      return { url: `data:image/png;base64,${base64Bytes}`, isMock: false };
-    } catch (error: any) {
-      console.error("[geminiService.generateImage] Error, fallback to mock image:", error);
-      return getMockImage();
-    }
+    return piapiService.generateImage(prompt, modelToUse, { aspectRatio: options?.aspectRatio });
   },
 
   /**
@@ -994,159 +868,20 @@ Output ONLY the final detailed prompt in English.`
   ): Promise<{ url: string; isMock: boolean }> {
     let modelToUse = options?.modelName || GEMINI_VIDEO_MODEL;
     // Route all calls to PiAPI
-    if (modelToUse.includes("veo-3.1-generate-preview") || modelToUse.includes("veo-3.1-fast-generate-preview")) {
-      modelToUse = "piapi-kling";
-    } else if (modelToUse.includes("veo-3.1-lite-generate-preview") || modelToUse.includes("veo-")) {
-      modelToUse = "piapi-luma";
+    if (modelToUse.includes("veo-3.1-generate-preview")) {
+      modelToUse = "veo31-video-audio";
+    } else if (modelToUse.includes("veo-3.1-fast-generate-preview")) {
+      modelToUse = "veo31-video-fast-audio";
+    } else if (modelToUse.includes("veo-3.1-lite-generate-preview")) {
+      modelToUse = "veo31-video-fast-no-audio";
+    } else {
+      modelToUse = "veo31-video-audio";
     }
 
-    if (modelToUse.startsWith("piapi-")) {
-      return piapiService.generateVideo(prompt, modelToUse, durationSeconds, { aspectRatio: options?.aspectRatio });
-    }
-    const client = getGeminiClient();
-    const aspect = options?.aspectRatio || "16:9";
-
-    const getMockVideo = () => {
-      return { url: "https://www.w3schools.com/html/mov_bbb.mp4", isMock: true };
-    };
-
-    if (!client) {
-      console.log("[geminiService.generateVideo] Running in MOCK mode");
-      return getMockVideo();
-    }
-
-    const filename = `vid_${Date.now()}_${Math.floor(Math.random() * 1000)}.mp4`;
-    const tempFilePath = path.join(os.tmpdir(), filename);
-
-    try {
-      const config: any = {
-        numberOfVideos: 1,
-        aspectRatio: aspect,
-      };
-
-      const isVeo2 = modelToUse.includes("veo-2");
-      let duration = durationSeconds;
-      if (isVeo2) {
-        if (![4, 5, 6, 8].includes(duration)) duration = 8;
-      } else {
-        // Veo3 supports 4, 6, 8 seconds
-        if (![4, 6, 8].includes(duration)) duration = 8;
-      }
-      config.durationSeconds = duration;
-
-      if (!isVeo2 && options?.resolution) {
-        let resolution = options.resolution;
-        // Google Veo API constraint: 1080p is NOT supported for 4-second videos
-        // Minimum duration for 1080p is 5 seconds (for Veo2) or 6 seconds (for Veo3)
-        if ((resolution === "1080p" || resolution === "4k") && duration < 8) {
-          console.warn(
-            `[geminiService.generateVideo] 1080p không hỗ trợ cho video ${duration}s. Tự động chuyển sang 720p.`
-          );
-          resolution = "720p";
-        }
-        config.resolution = resolution;
-      } else if (isVeo2 && options?.resolution) {
-        // Veo2 also has resolution constraints
-        let resolution = options.resolution;
-        if (resolution === "1080p" && duration < 5) {
-          console.warn(
-            `[geminiService.generateVideo] Veo2: 1080p không hỗ trợ cho video ${duration}s. Tự động chuyển sang 720p.`
-          );
-          resolution = "720p";
-        }
-        config.resolution = resolution;
-      }
-
-      const instance: any = { prompt };
-
-      if (options?.referenceImageUris && options.referenceImageUris.length > 0) {
-        const normalizedImages = options.referenceImageUris
-          .slice(0, 3)
-          .map((uri) => {
-            if (!uri.startsWith("data:")) return null;
-            const match = uri.match(/^data:([^;]+);base64,(.+)$/);
-            if (!match) return null;
-            return { bytesBase64Encoded: match[2], mimeType: match[1] };
-          })
-          .filter(Boolean);
-
-        if (normalizedImages.length > 0) {
-          instance.image = normalizedImages[0];
-          if (normalizedImages.length > 1) {
-            config.referenceImages = normalizedImages.slice(1);
-          }
-          if (options.frameMode === "first_last" && normalizedImages.length >= 2) {
-            config.lastFrame = normalizedImages[normalizedImages.length - 1];
-          }
-        }
-      }
-
-      if (options?.referenceVideoUri) {
-        let videoUri = options.referenceVideoUri;
-        if (videoUri.includes("?key=")) {
-          videoUri = videoUri.split("?key=")[0];
-        } else if (videoUri.includes("&key=")) {
-          videoUri = videoUri.replace(/[&?]key=[^&]+/, "");
-        }
-        instance.video = { uri: videoUri };
-        delete config.durationSeconds;
-        delete config.aspectRatio;
-        delete config.numberOfVideos;
-      }
-
-      let operation = await client.models.generateVideos({
-        model: modelToUse,
-        prompt: prompt,
-        config,
-      });
-
-      let attempts = 0;
-      const maxAttempts = 60; // Max 10 minutes
-      while (!operation.done && attempts < maxAttempts) {
-        await new Promise((resolve) => setTimeout(resolve, 10000));
-        operation = await client.operations.getVideosOperation({ operation });
-        attempts++;
-      }
-
-      if (!operation.done) {
-        throw new Error("Quá thời gian chờ tạo video từ Veo API");
-      }
-
-      if (operation.error) {
-        throw new Error(`Lỗi từ Veo API: ${JSON.stringify(operation.error)}`);
-      }
-
-      const generatedVideo = operation.response?.generatedVideos?.[0];
-      if (!generatedVideo) {
-        throw new Error("Không tìm thấy video được tạo trong phản hồi");
-      }
-
-      await client.files.download({
-        file: generatedVideo,
-        downloadPath: tempFilePath,
-      });
-
-      const videoBuffer = fs.readFileSync(tempFilePath);
-      const base64Video = videoBuffer.toString("base64");
-
-      try {
-        fs.unlinkSync(tempFilePath);
-      } catch (err) {
-        console.warn(`[geminiService.generateVideo] Không thể xóa tệp tạm: ${tempFilePath}`, err);
-      }
-
-      return { url: `data:video/mp4;base64,${base64Video}`, isMock: false };
-    } catch (error: any) {
-      if (fs.existsSync(tempFilePath)) {
-        try {
-          fs.unlinkSync(tempFilePath);
-        } catch (err) {
-          console.warn(`[geminiService.generateVideo] Không thể dọn dẹp tệp tạm: ${tempFilePath}`, err);
-        }
-      }
-      console.error("[geminiService.generateVideo] Error, fallback to mock video:", error);
-      return getMockVideo();
-    }
+    return piapiService.generateVideo(prompt, modelToUse, durationSeconds, { 
+      aspectRatio: options?.aspectRatio,
+      referenceImageUris: options?.referenceImageUris,
+    });
   },
 
   /**
@@ -1261,8 +996,7 @@ Output ONLY the final detailed prompt in English.`
    * Tối ưu kịch bản giọng nói
    */
   async optimizeScript(text: string, readingStyle: string) {
-    const client = getGeminiClient();
-    if (!client && !process.env.PIAPI_API_KEY) {
+    if (!process.env.PIAPI_API_KEY) {
       return { optimizedText: `[Tối ưu hóa Giả lập] ${text}` };
     }
     try {
@@ -1286,7 +1020,6 @@ Output ONLY the final detailed prompt in English.`
    * Tối ưu prompt hình ảnh (cấu trúc JSON)
    */
   async optimizeImagePrompt(description: string, imageUris?: string[], modelName?: string) {
-    const client = getGeminiClient();
     const getMockImagePrompt = () => {
       return {
         subject: description,
@@ -1299,7 +1032,7 @@ Output ONLY the final detailed prompt in English.`
       };
     };
 
-    if (!client && !process.env.PIAPI_API_KEY) {
+    if (!process.env.PIAPI_API_KEY) {
       return getMockImagePrompt();
     }
     try {
@@ -1353,7 +1086,6 @@ Output ONLY the final detailed prompt in English.`
    * Tối ưu prompt video (cấu trúc JSON)
    */
   async optimizeVideoPrompt(description: string, imageUris?: string[]) {
-    const client = getGeminiClient();
     const getMockVideoPrompt = () => {
       return {
         motion_analysis: "smooth motion",
@@ -1362,7 +1094,7 @@ Output ONLY the final detailed prompt in English.`
       };
     };
 
-    if (!client && !process.env.PIAPI_API_KEY) {
+    if (!process.env.PIAPI_API_KEY) {
       return getMockVideoPrompt();
     }
     try {
