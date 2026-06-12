@@ -1410,7 +1410,10 @@ Do not include markdown blocks or any text other than the JSON object.`
           });
           return;
         } else {
-          const currentProgress = result.progress !== undefined ? result.progress : 0;
+          let currentProgress = typeof result.progress === "number" && result.progress > 0 ? result.progress : 0;
+          if (currentProgress === 0) {
+            currentProgress = Math.min(5 + attempts * 7, 95);
+          }
           await AIMediaModel.findByIdAndUpdate(recordId, {
             "metadata.progress": currentProgress
           });
