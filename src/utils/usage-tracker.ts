@@ -52,6 +52,24 @@ export const PRICING_TABLE: Record<string, {
     label: 'iGen ElevenLabs Flash v1',
     category: 'audio',
   },
+  'eleven_v3': {
+    costPerUnitUSD: 0.35,
+    unit: 'seconds',
+    label: 'iGen ElevenLabs v3',
+    category: 'audio',
+  },
+  'eleven_flash_v2_5': {
+    costPerUnitUSD: 0.15,
+    unit: 'seconds',
+    label: 'iGen ElevenLabs Flash v2.5',
+    category: 'audio',
+  },
+  'eleven_turbo_v2_5': {
+    costPerUnitUSD: 0.20,
+    unit: 'seconds',
+    label: 'iGen ElevenLabs Turbo v2.5',
+    category: 'audio',
+  },
   'eleven_multilingual_v2': {
     costPerUnitUSD: 0.30,
     unit: 'seconds',
