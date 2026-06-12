@@ -82,6 +82,7 @@ const generateVideoSchema = {
     frameMode: Joi.string().valid("standard", "first_last").optional(),
     referenceVideoUri: Joi.string().allow("").optional(),
     referenceImageUris: Joi.array().items(Joi.string()).optional(),
+    activeCardId: Joi.string().allow("").optional(),
   }),
 };
 

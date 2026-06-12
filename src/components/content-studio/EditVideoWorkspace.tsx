@@ -39,7 +39,11 @@ export function EditVideoWorkspace() {
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
   const [prompt, setPrompt] = useState('');
-  const [optimizedPrompt, setOptimizedPrompt] = useState('');
+  const [optimizedData, setOptimizedData] = useState<{
+    optimized_english_prompt: string;
+    motion_analysis?: string;
+    camera_movement?: string;
+  } | null>(null);
   const [selectedModel, setSelectedModel] = useState(MODEL_OPTIONS[0].value);
   const [aspectRatio, setAspectRatio] = useState(ASPECT_OPTIONS[0].value);
   const [duration, setDuration] = useState(DURATION_OPTIONS[0].value);
@@ -53,6 +57,22 @@ export function EditVideoWorkspace() {
   useEffect(() => {
     loadVideoHistory();
   }, []);
+
+  useEffect(() => {
+    const hasPending = history.some(item => item.url && item.url.startsWith('pending://'));
+    if (!hasPending) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const response = await geminiApi.getMediaHistory('video');
+        setHistory(response.history || []);
+      } catch (error) {
+        console.error('[EditVideoWorkspace] Silent history polling failed', error);
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [history]);
 
   const loadVideoHistory = async () => {
     try {
@@ -75,7 +95,7 @@ export function EditVideoWorkspace() {
 
   const handleSelectPreset = (presetPrompt: string) => {
     setPrompt(presetPrompt);
-    setOptimizedPrompt('');
+    setOptimizedData(null);
   };
 
   const handleOptimizePrompt = async () => {
@@ -87,11 +107,7 @@ export function EditVideoWorkspace() {
     setIsOptimizing(true);
     try {
       const result = await geminiApi.optimizeVideoPrompt(description, []);
-      if (result.optimized_english_prompt) {
-        setOptimizedPrompt(result.optimized_english_prompt);
-      } else {
-        setOptimizedPrompt(description);
-      }
+      setOptimizedData(result);
       toast.success('Đã tối ưu prompt video bằng AI.');
     } catch (error: any) {
       console.error(error);
@@ -102,7 +118,9 @@ export function EditVideoWorkspace() {
   };
 
   const handleGenerateVideo = async () => {
-    const finalPrompt = optimizedPrompt || prompt;
+    const finalPrompt = optimizedData 
+      ? JSON.stringify(optimizedData)
+      : prompt.trim();
     if (!finalPrompt.trim()) {
       toast.warning('Vui lòng nhập prompt hoặc chọn preset trước khi tạo video.');
       return;
@@ -211,7 +229,7 @@ export function EditVideoWorkspace() {
               />
             </div>
 
-            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4 flex flex-col gap-3">
               <button
                 type="button"
                 onClick={handleOptimizePrompt}
@@ -230,6 +248,67 @@ export function EditVideoWorkspace() {
                   </>
                 )}
               </button>
+
+              {optimizedData && (
+                <div className="p-4 rounded-2xl border border-cyan-100 bg-cyan-50/50 flex flex-col gap-3 animate-in fade-in slide-in-from-top-2 duration-250">
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-1.5 text-cyan-800 text-sm font-bold">
+                      <Sparkles className="h-4 w-4 text-cyan-500 animate-pulse" />
+                      <span>Kịch bản tối ưu bởi AI</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setOptimizedData(null)}
+                      className="text-xs text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                    >
+                      Xóa tối ưu
+                    </button>
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Prompt Tiếng Anh chi tiết</span>
+                    <textarea
+                      className="w-full text-xs p-3 border border-cyan-200/50 rounded-xl focus:outline-none focus:ring-1 focus:ring-cyan-400 bg-white resize-none font-medium text-slate-700 leading-relaxed min-h-[70px]"
+                      value={optimizedData.optimized_english_prompt}
+                      onChange={(e) => setOptimizedData({
+                        ...optimizedData,
+                        optimized_english_prompt: e.target.value
+                      })}
+                      placeholder="Prompt tiếng Anh chi tiết..."
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Chuyển động (Motion)</span>
+                      <input
+                        type="text"
+                        className="w-full text-xs px-3 py-2 border border-cyan-200/50 rounded-xl focus:outline-none focus:ring-1 focus:ring-cyan-400 bg-white font-medium text-slate-700"
+                        value={optimizedData.motion_analysis || ''}
+                        onChange={(e) => setOptimizedData({
+                          ...optimizedData,
+                          motion_analysis: e.target.value
+                        })}
+                        placeholder="Không có phân tích chuyển động"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Camera (Movement)</span>
+                      <input
+                        type="text"
+                        className="w-full text-xs px-3 py-2 border border-cyan-200/50 rounded-xl focus:outline-none focus:ring-1 focus:ring-cyan-400 bg-white font-medium text-slate-700"
+                        value={optimizedData.camera_movement || ''}
+                        onChange={(e) => setOptimizedData({
+                          ...optimizedData,
+                          camera_movement: e.target.value
+                        })}
+                        placeholder="Không có chuyển động camera"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
@@ -324,7 +403,32 @@ export function EditVideoWorkspace() {
               </div>
               <div className="mt-6 flex h-[380px] items-center justify-center rounded-[28px] border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-slate-500">
                 {outputUrl ? (
-                  <video controls src={outputUrl} className="h-full w-full rounded-[24px] object-contain" />
+                  outputUrl.startsWith('pending://') ? (() => {
+                    const matchedRecord = history.find(h => h.url === outputUrl);
+                    const progressVal = matchedRecord?.metadata?.progress;
+                    return (
+                      <div className="flex flex-col items-center justify-center gap-4 p-8 text-center animate-pulse">
+                        <Loader2 className="h-8 w-8 text-cyan-500 animate-spin" />
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">Video đang được tạo ngầm...</p>
+                          {progressVal !== undefined && (
+                            <div className="flex flex-col items-center gap-1.5 mt-2 w-48 mx-auto">
+                              <span className="text-xs text-cyan-600 font-semibold font-mono">Tiến độ: {progressVal}%</span>
+                              <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                                <div
+                                  className="bg-cyan-600 h-full transition-all duration-300 rounded-full"
+                                  style={{ width: `${progressVal}%` }}
+                                />
+                              </div>
+                            </div>
+                          )}
+                          <p className="mt-2 text-xs text-slate-500">Tiến trình đang xử lý ở chế độ nền. Theo dõi trong Lịch sử render bên dưới.</p>
+                        </div>
+                      </div>
+                    );
+                  })() : (
+                    <video controls src={outputUrl} className="h-full w-full rounded-[24px] object-contain" />
+                  )
                 ) : (
                   <div className="flex max-w-[320px] flex-col items-center gap-4">
                     <Film className="h-12 w-12" />
@@ -351,7 +455,7 @@ export function EditVideoWorkspace() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {history.slice(0, 4).map((item) => (
+                    {history.slice(0, 20).map((item) => (
                       <button
                         key={item._id || item.id || item.url}
                         type="button"
@@ -359,10 +463,19 @@ export function EditVideoWorkspace() {
                         className="w-full flex items-center gap-4 rounded-3xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-cyan-300 hover:bg-cyan-50"
                       >
                         <div className="relative h-20 w-28 overflow-hidden rounded-3xl bg-slate-100">
-                          <video src={item.url} className="h-full w-full object-cover" muted preload="metadata" />
-                          <div className="absolute inset-0 flex items-center justify-center bg-slate-950/25">
-                            <Play className="h-5 w-5 text-white" />
-                          </div>
+                          {item.url && (item.url.startsWith('http') || item.url.startsWith('blob:') || item.url.startsWith('data:')) ? (
+                            <>
+                              <video src={item.url} className="h-full w-full object-cover" muted preload="metadata" />
+                              <div className="absolute inset-0 flex items-center justify-center bg-slate-950/25">
+                                <Play className="h-5 w-5 text-white" />
+                              </div>
+                            </>
+                          ) : (
+                            <div className="h-full w-full bg-slate-950 flex flex-col items-center justify-center text-[8px] font-bold text-cyan-500 uppercase tracking-wider p-1 text-center">
+                              <Loader2 className="h-4 w-4 animate-spin mb-1 text-cyan-500" />
+                              ĐANG DỰNG {item.metadata?.progress !== undefined ? `${item.metadata.progress}%` : ''}
+                            </div>
+                          )}
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="font-semibold text-slate-900 line-clamp-2">{item.prompt || 'Video AI đã tạo'}</p>
@@ -381,12 +494,7 @@ export function EditVideoWorkspace() {
           </div>
         </div>
 
-        {optimizedPrompt && (
-          <div className="mt-6 rounded-[32px] border border-cyan-200 bg-cyan-50 p-5 text-sm text-slate-700">
-            <p className="font-semibold text-slate-900">Prompt AI đã tối ưu</p>
-            <p className="mt-2 whitespace-pre-line break-words">{optimizedPrompt}</p>
-          </div>
-        )}
+        {/* Optimized prompt is rendered contextually inside the edit form */}
 
         {showLibraryModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 px-4 py-6">
@@ -423,8 +531,17 @@ export function EditVideoWorkspace() {
                         className="group rounded-3xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:border-cyan-300 hover:bg-cyan-50"
                       >
                         <div className="relative aspect-video overflow-hidden rounded-2xl bg-slate-900">
-                          <video src={item.url} className="h-full w-full object-cover" muted preload="metadata" />
-                          <div className="absolute inset-0 bg-slate-950/20"></div>
+                          {item.url && (item.url.startsWith('http') || item.url.startsWith('blob:') || item.url.startsWith('data:')) ? (
+                            <>
+                              <video src={item.url} className="h-full w-full object-cover" muted preload="metadata" />
+                              <div className="absolute inset-0 bg-slate-950/20"></div>
+                            </>
+                          ) : (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 text-[10px] font-bold text-cyan-450 uppercase tracking-widest">
+                              <Loader2 className="h-5 w-5 animate-spin mb-1 text-cyan-500" />
+                              Đang xử lý
+                            </div>
+                          )}
                         </div>
                         <div className="mt-3">
                           <p className="font-semibold text-slate-900 line-clamp-2">{item.prompt || 'Video đã tải lên'}</p>

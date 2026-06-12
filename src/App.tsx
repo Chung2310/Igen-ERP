@@ -15,33 +15,33 @@ import AuthPage from "./pages/AuthPage";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import type { TabType } from "./types";
 import { SEOHead } from "./seo/SEOHead";
-import { AUTH_SEO, getSeoForTab, hashToTab, tabToHash } from "./seo/seo-config";
+import { AUTH_SEO, getSeoForTab, pathToTab, tabToPath } from "./seo/seo-config";
 
 function AppContent() {
   const [activeTab, setActiveTab] = useState<TabType>("TỔNG QUAN");
   const { user, userProfile, loading } = useAuth();
 
   useEffect(() => {
-    const initialTab = hashToTab(window.location.hash);
+    const initialTab = pathToTab(window.location.pathname);
     if (initialTab) {
       setActiveTab(initialTab);
     }
 
-    const handleHashChange = () => {
-      const nextTab = hashToTab(window.location.hash);
+    const handlePopState = () => {
+      const nextTab = pathToTab(window.location.pathname);
       if (nextTab) {
         setActiveTab(nextTab);
       }
     };
 
-    window.addEventListener("hashchange", handleHashChange);
-    return () => window.removeEventListener("hashchange", handleHashChange);
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
   }, []);
 
   useEffect(() => {
-    const nextHash = `#${tabToHash(activeTab).replace(/^\//, "")}`;
-    if (window.location.hash !== nextHash) {
-      window.history.replaceState(null, "", nextHash);
+    const nextPath = tabToPath(activeTab);
+    if (window.location.pathname !== nextPath) {
+      window.history.pushState(null, "", nextPath);
     }
   }, [activeTab]);
 

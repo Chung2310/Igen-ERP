@@ -1653,6 +1653,7 @@ export default function HRTab() {
 
   return (
     <div className="flex flex-col h-full bg-white max-h-[85vh] overflow-hidden" id="hr_tab_wrapper">
+      <h1 className="sr-only">Quản lý Nhân sự - {subTab}</h1>
       {/* Sub Tabs switcher navigation bar */}
       <div className="border-b border-gray-200 bg-gray-50/50 p-2 text-xs flex justify-between shrink-0" id="hr_sub_tabs_bar">
         <div className="flex gap-2">
@@ -1703,7 +1704,7 @@ export default function HRTab() {
                 >
                   <option value="SYSTEM">Hệ thống (SYSTEM)</option>
                   {companies.map((c) => (
-                    <option key={c.id} value={c.code}>
+                    <option key={c.id || c._id || c.code} value={c.code}>
                       {c.name} ({c.code})
                     </option>
                   ))}

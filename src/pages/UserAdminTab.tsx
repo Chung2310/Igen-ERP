@@ -455,6 +455,7 @@ export default function UserAdminTab() {
 
   return (
     <div className="flex flex-col h-full bg-white max-h-[85vh] overflow-hidden" id="user_admin_tab_wrapper">
+      <h1 className="sr-only">Quản trị Hệ thống & Phân quyền - {activeTab}</h1>
       
       {/* Header section */}
       <div className="border-b border-gray-200 bg-gray-50/50 p-4 flex flex-col sm:flex-row justify-between sm:items-center gap-4 shrink-0" id="user_admin_header">
@@ -487,7 +488,7 @@ export default function UserAdminTab() {
                 >
                   <option value="all">Tất cả Doanh nghiệp</option>
                   {companies.map((c) => (
-                    <option key={c.id} value={c.code}>
+                    <option key={c.id || c._id || c.code} value={c.code}>
                       {c.name} ({c.code})
                     </option>
                   ))}
@@ -1204,7 +1205,7 @@ export default function UserAdminTab() {
                       >
                         <option value="SYSTEM">Hệ thống (SYSTEM)</option>
                         {companies.map((c) => (
-                          <option key={c.id} value={c.code}>
+                          <option key={c.id || c._id || c.code} value={c.code}>
                             {c.name} ({c.code})
                           </option>
                         ))}

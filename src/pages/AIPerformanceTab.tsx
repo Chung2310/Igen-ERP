@@ -46,7 +46,7 @@ export default function AIPerformanceTab() {
       {/* Title */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4" id="ai_perf_subheader">
         <div>
-          <h2 className="text-2xl font-bold text-gray-800 font-sans tracking-tight">Trung tâm Giám sát Hiệu suất AI</h2>
+          <h1 className="text-2xl font-bold text-gray-800 font-sans tracking-tight">Trung tâm Giám sát Hiệu suất AI</h1>
           <p className="text-sm text-gray-500 mt-1">iGen ERP AI-Core Performance Analyser • Kiểm thử tự động hóa và đo lường điện năng xử lý</p>
         </div>
         <button 
