@@ -3,7 +3,7 @@ FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-# Copy package management files
+# Copy package management files (only yarn.lock to avoid npm conflicts)
 COPY package.json yarn.lock ./
 
 # Install ALL dependencies (including devDependencies needed for build)
@@ -12,10 +12,18 @@ ENV NODE_ENV=development
 RUN --mount=type=cache,target=/root/.yarn-cache \
     yarn install --frozen-lockfile --cache-folder /root/.yarn-cache
 
-# Copy the entire workspace
+# Copy the entire workspace (excluding files in .dockerignore)
 COPY . .
 
+# Remove package-lock.json if it exists (avoid conflicts with yarn.lock)
+RUN rm -f package-lock.json
+
+# Show Node.js and Yarn versions for debugging
+RUN node --version && yarn --version
+
 # Build the Vite frontend SPA and bundle the Express server using esbuild
+# Increase Node.js heap size to avoid OOM errors on large bundles
+ENV NODE_OPTIONS="--max-old-space-size=4096"
 RUN yarn build
 
 # Step 2: Production runner stage (keeps the final image lightweight)
@@ -39,4 +47,3 @@ EXPOSE 3000
 
 # Run the bundled production server
 CMD ["node", "dist/server.cjs"]
-
