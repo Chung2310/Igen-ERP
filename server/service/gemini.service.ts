@@ -503,11 +503,10 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
         {
           title: `Chiến dịch: Chạm Đột Phá - ${campaignTopic || "Mua Sắm Cuối Năm"}`,
           matchPercent: 95,
-          summary: `Đột phá doanh số nhắm vào đối tượng trẻ tuổi. ${
-            pillarsStr
+          summary: `Đột phá doanh số nhắm vào đối tượng trẻ tuổi. ${pillarsStr
               ? `Tập trung sâu vào định hướng truyền thông từ các trụ cột lựa chọn: ${selectedPillars.join(", ")}.`
               : "Tạo lối sống trải nghiệm công nghệ đeo và phong cách sống lành mạnh."
-          }`,
+            }`,
           channels: channels && channels.length > 0 ? channels : ["TikTok", "Facebook", "LinkedIn"],
           suggestedContent:
             "🎬 Kịch bản Tiktok: Biến đổi phong cách thường ngày thành phong cách năng động thể thao chỉ sau 1 cái chạm màn hình X1.",
@@ -516,9 +515,8 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
         {
           title: `Trải nghiệm Đỉnh Cao - Tri Ân Hội Viên`,
           matchPercent: 88,
-          summary: `Quảng bá giá trị cốt lõi bền vững thông qua chuỗi bài viết phỏng vấn các đối tác trung thành thực tế đang nâng tầm công việc cùng Workspace V2. ${
-            pillarsStr ? `Điều phối theo: ${selectedPillars.join(", ")}.` : ""
-          }`,
+          summary: `Quảng bá giá trị cốt lõi bền vững thông qua chuỗi bài viết phỏng vấn các đối tác trung thành thực tế đang nâng tầm công việc cùng Workspace V2. ${pillarsStr ? `Điều phối theo: ${selectedPillars.join(", ")}.` : ""
+            }`,
           channels: channels && channels.length > 0 ? channels : ["Facebook", "LinkedIn"],
           suggestedContent:
             "✍️ Facebook Post: 'Gặp gỡ anh Hùng, Giám đốc Sáng tạo, người đã nâng cấp 200% tốc độ gõ nhờ Bàn phím cơ Workspace V2...'",
@@ -527,9 +525,8 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
         {
           title: `Giờ Vàng Giá Sốc - Săn Độc Quyền AI`,
           matchPercent: 78,
-          summary: `Tạo sự gấp rút bằng tính năng đếm ngược flash sale được quản lý tự động bởi thuật toán đề xuất của iGen ERP. ${
-            pillarsStr ? `Kế thừa ý tưởng từ các Content Pillar được cấu hình: ${selectedPillars.join(", ")}.` : ""
-          }`,
+          summary: `Tạo sự gấp rút bằng tính năng đếm ngược flash sale được quản lý tự động bởi thuật toán đề xuất của iGen ERP. ${pillarsStr ? `Kế thừa ý tưởng từ các Content Pillar được cấu hình: ${selectedPillars.join(", ")}.` : ""
+            }`,
           channels: channels && channels.length > 0 ? channels : ["Facebook", "Instagram"],
           suggestedContent:
             "🔥 Tin nhắn Zalo: 'Duy nhất hôm nay! Giờ vàng từ 12h-14h, giảm giá 30% toàn bộ tai nghe Không dây Pro Max. Đặt ngay!'",
@@ -547,8 +544,8 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
       const pillarsContext =
         selectedPillars && selectedPillars.length > 0
           ? `\nCác Trụ cột nội dung (Content Pillars) bắt buộc phải tích hợp và bám sát: ${selectedPillars.join(
-              ", "
-            )}. Hãy sáng tạo các ý tưởng tập trung xoay quanh các trụ cột này.`
+            ", "
+          )}. Hãy sáng tạo các ý tưởng tập trung xoay quanh các trụ cột này.`
           : "";
 
       const channelsContext =
@@ -560,10 +557,10 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
         mediaType === "image"
           ? "\nYêu cầu về phương tiện: Các ý tưởng phải thiết kế đi kèm hình ảnh làm chủ đạo."
           : mediaType === "video"
-          ? "\nYêu cầu về phương tiện: Các ý tưởng phải thiết kế đi kèm video làm chủ đạo."
-          : mediaType === "none"
-          ? "\nYêu cầu về phương tiện: Các bài đăng không đi kèm hình ảnh hoặc video (chỉ văn bản/caption)."
-          : "";
+            ? "\nYêu cầu về phương tiện: Các ý tưởng phải thiết kế đi kèm video làm chủ đạo."
+            : mediaType === "none"
+              ? "\nYêu cầu về phương tiện: Các bài đăng không đi kèm hình ảnh hoặc video (chỉ văn bản/caption)."
+              : "";
 
       const prompt = `Bạn là một chuyên gia marketing xuất sắc.
 Hãy tạo đúng 3 ý tưởng/bản nháp chiến dịch marketing chi tiết cho chủ đề/chiến dịch này: "${campaignTopic}".${pillarsContext}${channelsContext}${mediaContext}
@@ -641,7 +638,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
     }
   ): Promise<{ posts: any[]; isMock: boolean }> {
     const validChannels = ["Facebook", "TikTok", "LinkedIn", "Instagram"];
-    
+
     // Normalize target channels: filter out invalid channels, map input to valid ones
     const normalizeChannel = (chan: string): string => {
       if (!chan) return "Facebook";
@@ -777,13 +774,13 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
                     properties: {
                       channel: { type: Type.STRING, description: "Kênh đăng bài (ví dụ: Facebook, TikTok, LinkedIn, Instagram)" },
                       contentType: { type: Type.STRING, description: "Loại nội dung" },
-                      outline: { 
-                        type: Type.STRING, 
-                        description: "Dàn ý chi tiết của bài viết. ĐẶC BIỆT với TikTok: Phải lưu KỊCH BẢN QUAY (timeline video script) chi tiết bao gồm Visual, Audio và mốc thời gian dạng [0:00 - 0:03], [0:03 - 0:08]... với tổng thời lượng tối đa không quá 8 giây." 
+                      outline: {
+                        type: Type.STRING,
+                        description: "Dàn ý chi tiết của bài viết. ĐẶC BIỆT với TikTok: Phải lưu KỊCH BẢN QUAY (timeline video script) chi tiết bao gồm Visual, Audio và mốc thời gian dạng [0:00 - 0:03], [0:03 - 0:08]... với tổng thời lượng tối đa không quá 8 giây."
                       },
-                      bodyText: { 
-                        type: Type.STRING, 
-                        description: "Nội dung bài đăng/caption sạch để đăng tải trực tiếp. ĐẶC BIỆT với TikTok: Chỉ là Caption/Description giới thiệu video kèm hashtag và call-to-action (TUYỆT ĐỐI không chứa kịch bản quay, visual, audio hay timeline video ở trường này)." 
+                      bodyText: {
+                        type: Type.STRING,
+                        description: "Nội dung bài đăng/caption sạch để đăng tải trực tiếp. ĐẶC BIỆT với TikTok: Chỉ là Caption/Description giới thiệu video kèm hashtag và call-to-action (TUYỆT ĐỐI không chứa kịch bản quay, visual, audio hay timeline video ở trường này)."
                       },
                       mediaPrompt: {
                         type: Type.STRING,
@@ -887,7 +884,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
     } else {
       modelToUse = "nano-banana-pro";
     }
-    
+
     if (!process.env.PIAPI_API_KEY) {
       const seed = Math.floor(Math.random() * 1000000);
       return { url: `https://picsum.photos/seed/${seed}/800/600`, isMock: true };
@@ -1177,7 +1174,7 @@ Do not include markdown blocks or any text other than the JSON object.`
       let camera = "slow cinematic pan, smooth tracking shot";
       let lighting = "cinematic lighting, soft volumetric rays";
       let style = "photorealistic, 8k resolution, highly detailed, masterpiece";
-      
+
       // Translation mappings
       const dict: { [key: string]: string } = {
         "câu chuyện ngắn về tuna": "a short narrative story about a character named Tuna",
@@ -1214,7 +1211,7 @@ Do not include markdown blocks or any text other than the JSON object.`
       const keys = Object.keys(dict).sort((a, b) => b.length - a.length);
       let remainingText = text;
       const detectedKeywords: string[] = [];
-      
+
       for (const key of keys) {
         if (remainingText.includes(key)) {
           detectedKeywords.push(dict[key]);
@@ -1419,25 +1416,25 @@ Do not include markdown blocks or any text other than the JSON object.`
    */
   async pollPiAPIVideoStatusBackground(recordId: string, taskId: string, userId: string) {
     console.log(`[PiAPI Background Poll] Started polling for record ${recordId}, taskId ${taskId}`);
-    
+
     let attempts = 0;
     const maxAttempts = 60; // 10 minutes (60 * 10 seconds)
-    
+
     const runPoll = async () => {
       try {
         const result = await piapiService.getTaskStatus(taskId);
         console.log(`[PiAPI Background Poll] Record ${recordId} status: ${result.status}`);
-        
+
         if (result.status === "completed" && result.url) {
           console.log(`[PiAPI Background Poll] Completed! Uploading to Cloudinary...`);
           const cloudinaryUrl = await cloudinaryService.uploadMedia(result.url, "igen_erp/marketing/video");
-          
+
           const record = await AIMediaModel.findByIdAndUpdate(
             recordId,
             { url: cloudinaryUrl, "metadata.status": "completed", "metadata.progress": 100 },
             { new: true }
           );
-          
+
           const activeCardId = record?.metadata?.activeCardId;
           if (activeCardId) {
             const { MarketingContentModel } = require("../model/marketing-content.model");
@@ -1462,7 +1459,7 @@ Do not include markdown blocks or any text other than the JSON object.`
             "metadata.progress": currentProgress
           });
         }
-        
+
         attempts++;
         if (attempts < maxAttempts) {
           setTimeout(runPoll, 10000);
@@ -1481,7 +1478,7 @@ Do not include markdown blocks or any text other than the JSON object.`
         }
       }
     };
-    
+
     setTimeout(runPoll, 10000);
   },
 
@@ -1656,7 +1653,7 @@ Do not include markdown blocks or any text other than the JSON object.`
       const formData = new FormData();
       formData.append('name', name);
       formData.append('description', description);
-      
+
       if (userId) {
         formData.append('labels', JSON.stringify({ userId }));
       }

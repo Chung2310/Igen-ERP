@@ -44,24 +44,23 @@ const DEFAULT_FALLBACK_VOICE_ID = '';
 
 const MODEL_OPTIONS = [
    {
-      key: 'gemini-3.1-flash',
+      key: 'eleven_flash_v2_5',
       modelId: 'eleven_flash_v2_5',
-      title: 'Gemini 3.1 flash tts preview',
-      description: 'Do tre thap, phu hop preview nhanh va hoi thoai.',
-      badges: ['Low latency', 'Flash'],
+      title: 'Eleven Flash v2.5',
+      description: 'Mô hình độ trễ cực thấp, tối ưu cho hội thoại nhanh.',
+      badges: ['Low Latency', 'Flash'],
    },
    {
-      key: '2.5-pro',
-      modelId: 'eleven_multilingual_v2',
-      title: '2.5 pro tts preview.',
-      description: 'Model can bang cho voiceover va da ngon ngu.',
-      badges: ['Balanced', '70+ ngon ngu'],
+      key: 'eleven_turbo_v2_5',
+      modelId: 'eleven_turbo_v2_5',
+      title: 'Eleven Turbo v2.5',
+      description: 'Mô hình tốc độ nhanh, tối ưu chi phí phát sinh.',
+      badges: ['Fast', 'Turbo'],
    },
 ] as const;
 
-const getActiveModelId = (voiceModel: 'gemini-3.1-flash' | '2.5-pro') => {
-   if (voiceModel === 'gemini-3.1-flash') return 'eleven_flash_v2_5';
-   return 'eleven_multilingual_v2';
+const getActiveModelId = (voiceModel: 'eleven_flash_v2_5' | 'eleven_turbo_v2_5') => {
+   return voiceModel;
 };
 
 function getModelDetails(modelId: string, availableModels: any[]) {
@@ -447,12 +446,7 @@ export function VoiceGenerationWorkspace() {
          toast.success('Đang bắt đầu tạo giọng nói AI...');
 
          // Map frontend model name to actual ElevenLabs model ID
-         let modelId = 'eleven_multilingual_v2';
-         if (voiceModel === 'igen-audio-flash-v2.5') {
-            modelId = 'eleven_flash_v2_5';
-         } else if (voiceModel === 'igen-audio-turbo-v2.5') {
-            modelId = 'eleven_turbo_v2_5';
-         }
+         const modelId = voiceModel;
 
          const result = await elevenlabsApi.generateVoice({
             textToSpeak: text,
@@ -768,6 +762,7 @@ export function VoiceGenerationWorkspace() {
    const activeModelInfo = availableModels.find((model: any) => model.model_id === getActiveModelId(voiceModel));
    const multilingualModelDetails = getModelDetails('eleven_multilingual_v2', availableModels);
    const flashModelDetails = getModelDetails('eleven_flash_v2_5', availableModels);
+   const turboModelDetails = getModelDetails('eleven_turbo_v2_5', availableModels);
 
    return (
       <div className="space-y-6 max-w-[1400px] mx-auto w-full pb-12 font-sans text-slate-800" id="voice_workspace_wrapper">
@@ -947,8 +942,8 @@ export function VoiceGenerationWorkspace() {
                         onClick={handleGenerate}
                         disabled={isGenerating || isOptimizing || !text.trim()}
                         className={`w-full py-3 rounded-xl text-xs font-bold tracking-wider uppercase transition-all flex items-center justify-center gap-2 ${isGenerating || isOptimizing || !text.trim()
-                              ? "bg-slate-100 text-slate-450 cursor-not-allowed"
-                              : "bg-cyan-500 hover:bg-cyan-600 text-white active:scale-[0.99] shadow-md shadow-cyan-500/10"
+                           ? "bg-slate-100 text-slate-450 cursor-not-allowed"
+                           : "bg-cyan-500 hover:bg-cyan-600 text-white active:scale-[0.99] shadow-md shadow-cyan-500/10"
                            }`}
                      >
                         {isGenerating ? <Loader2 className="h-4.5 w-4.5 animate-spin" /> : <TapeIcon className="h-4.5 w-4.5" />}
@@ -1259,45 +1254,40 @@ export function VoiceGenerationWorkspace() {
                               )}
                               <span className="text-[10px] text-slate-400 font-medium leading-relaxed">Chọn mô hình phù hợp với mục tiêu tạo giọng nói của bạn.</span>
                               <div className="flex flex-col gap-2.5">
-                                 {/* Option 1: Gemini 3.1 flash tts preview */}
-                                 <div
-                                    onClick={() => setVoiceModel('gemini-3.1-flash')}
-                                    title={`Ngon ngu ho tro: ${flashModelDetails.languageSummary}`}
-                                    className={`border-2 rounded-xl p-4 cursor-pointer transition-all relative ${voiceModel === 'gemini-3.1-flash' ? 'border-cyan-500 bg-cyan-50/10' : 'border-slate-150 hover:bg-slate-50'
-                                       }`}
-                                 >
-                                    <div className="flex justify-between items-start">
-                                       <span className="text-xs font-bold text-slate-900">Gemini 3.1 flash tts preview</span>
-                                       {voiceModel === 'gemini-3.1-flash' && <Check className="h-4 w-4 text-cyan-600" />}
-                                    </div>
-                                    <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">
-                                       Model có độ trễ cực thấp hỗ trợ 32 ngôn ngữ. Lý tưởng cho các trường hợp sử dụng đàm thoại.
-                                    </p>
-                                    <div className="flex gap-1.5 mt-2.5">
-                                       <span className="px-2 py-0.5 bg-cyan-50 border border-cyan-100 rounded text-[9px] font-bold text-cyan-700">Low latency</span>
-                                       <span className="px-2 py-0.5 bg-slate-100 rounded text-[9px] font-bold text-slate-600">Flash</span>
-                                    </div>
-                                 </div>
-
-                                 {/* Option 2: 2.5 pro tts preview. */}
-                                 <div
-                                    onClick={() => setVoiceModel('2.5-pro')}
-                                    title={`Ngon ngu ho tro: ${multilingualModelDetails.languageSummary}`}
-                                    className={`border-2 rounded-xl p-4 cursor-pointer transition-all relative ${voiceModel === '2.5-pro' ? 'border-cyan-500 bg-cyan-50/10' : 'border-slate-150 hover:bg-slate-50'
-                                       }`}
-                                 >
-                                    <div className="flex justify-between items-start">
-                                       <span className="text-xs font-bold text-slate-900">2.5 pro tts preview.</span>
-                                       {voiceModel === '2.5-pro' && <Check className="h-4 w-4 text-cyan-600" />}
-                                    </div>
-                                    <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">
-                                       Model tổng hợp giọng nói giàu cảm xúc và biểu cảm nhất của chúng tôi.
-                                    </p>
-                                    <div className="flex gap-1.5 mt-2.5">
-                                       <span className="px-2 py-0.5 bg-emerald-50 border border-emerald-100 rounded text-[9px] font-bold text-emerald-700">Balanced</span>
-                                       <span className="px-2 py-0.5 bg-slate-100 rounded text-[9px] font-bold text-slate-600">70+ Ngôn ngữ</span>
-                                    </div>
-                                 </div>
+                                 {MODEL_OPTIONS.map((opt) => {
+                                    const isSelected = voiceModel === opt.key;
+                                    const modelDetails = opt.key === 'eleven_flash_v2_5' ? flashModelDetails : turboModelDetails;
+                                    return (
+                                       <div
+                                          key={opt.key}
+                                          onClick={() => setVoiceModel(opt.key)}
+                                          title={`Ngôn ngữ hỗ trợ: ${modelDetails.languageSummary}`}
+                                          className={`border-2 rounded-xl p-4 cursor-pointer transition-all relative ${isSelected ? 'border-cyan-500 bg-cyan-50/10' : 'border-slate-150 hover:bg-slate-50'
+                                             }`}
+                                       >
+                                          <div className="flex justify-between items-start">
+                                             <span className="text-xs font-bold text-slate-900">{opt.title}</span>
+                                             {isSelected && <Check className="h-4 w-4 text-cyan-600" />}
+                                          </div>
+                                          <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">
+                                             {opt.description}
+                                          </p>
+                                          <div className="flex gap-1.5 mt-2.5">
+                                             {opt.badges.map((badge, bIdx) => (
+                                                <span key={bIdx} className={`px-2 py-0.5 rounded text-[9px] font-bold ${
+                                                   badge === 'Low Latency' || badge === 'Low latency'
+                                                      ? 'bg-cyan-50 border border-cyan-100 text-cyan-700'
+                                                      : badge === 'Balanced'
+                                                      ? 'bg-emerald-50 border border-emerald-100 text-emerald-700'
+                                                      : 'bg-slate-100 text-slate-600'
+                                                }`}>
+                                                   {badge}
+                                                </span>
+                                             ))}
+                                          </div>
+                                       </div>
+                                    );
+                                 })}
                               </div>
                            </div>
 
@@ -1321,13 +1311,13 @@ export function VoiceGenerationWorkspace() {
                                  <span>Robust</span>
                               </div>
                               <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 text-[10px] text-slate-500 leading-relaxed">
-                                 <span className="font-bold text-slate-700">Tom tat ho tro ngon ngu:</span>{' '}
-                                 {voiceModel === '2.5-pro' && (multilingualModelDetails.languageNames.length > 0
-                                    ? multilingualModelDetails.languageNames.slice(0, 8).join(', ')
-                                    : 'Chua co metadata ngon ngu tu ElevenLabs API')}
-                                 {voiceModel === 'gemini-3.1-flash' && (flashModelDetails.languageNames.length > 0
+                                 <span className="font-bold text-slate-700">Tóm tắt hỗ trợ ngôn ngữ:</span>{' '}
+                                 {voiceModel === 'eleven_turbo_v2_5' && (turboModelDetails.languageNames.length > 0
+                                    ? turboModelDetails.languageNames.slice(0, 8).join(', ')
+                                    : 'Chưa có metadata ngôn ngữ từ ElevenLabs API')}
+                                 {voiceModel === 'eleven_flash_v2_5' && (flashModelDetails.languageNames.length > 0
                                     ? flashModelDetails.languageNames.slice(0, 8).join(', ')
-                                    : 'Chua co metadata ngon ngu tu ElevenLabs API')}
+                                    : 'Chưa có metadata ngôn ngữ từ ElevenLabs API')}
                               </div>
                            </div>
 
@@ -1396,7 +1386,7 @@ export function VoiceGenerationWorkspace() {
                            setStability(0.50);
                            setSimilarityBoost(0.75);
                            setUseSpeakerBoost(true);
-                           setVoiceModel('gemini-3.1-flash');
+                           setVoiceModel('eleven_turbo_v2_5');
                            setUseLanguageToggle(true);
                            toast.success('Đã khôi phục cài đặt mặc định.');
                         }}
@@ -1458,8 +1448,8 @@ export function VoiceGenerationWorkspace() {
                         {/* Step 1 */}
                         <div className="flex flex-col items-center gap-1.5 flex-1">
                            <div className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 ${createStep === 'upload'
-                                 ? 'bg-[#e0f7fc] border border-[#22d3ee] text-[#0891b2] shadow-xs'
-                                 : 'bg-[#e0f7fc] border border-[#22d3ee] text-[#0891b2]'
+                              ? 'bg-[#e0f7fc] border border-[#22d3ee] text-[#0891b2] shadow-xs'
+                              : 'bg-[#e0f7fc] border border-[#22d3ee] text-[#0891b2]'
                               }`}>
                               1
                            </div>
@@ -1475,10 +1465,10 @@ export function VoiceGenerationWorkspace() {
                         {/* Step 2 */}
                         <div className="flex flex-col items-center gap-1.5 flex-1">
                            <div className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 ${createStep === 'info'
-                                 ? 'bg-[#e0f7fc] border border-[#22d3ee] text-[#0891b2] shadow-xs'
-                                 : createStep === 'finish'
-                                    ? 'bg-emerald-50 border border-emerald-400 text-emerald-600'
-                                    : 'bg-slate-100 border border-slate-200 text-slate-400'
+                              ? 'bg-[#e0f7fc] border border-[#22d3ee] text-[#0891b2] shadow-xs'
+                              : createStep === 'finish'
+                                 ? 'bg-emerald-50 border border-emerald-400 text-emerald-600'
+                                 : 'bg-slate-100 border border-slate-200 text-slate-400'
                               }`}>
                               2
                            </div>
@@ -1494,8 +1484,8 @@ export function VoiceGenerationWorkspace() {
                         {/* Step 3 */}
                         <div className="flex flex-col items-center gap-1.5 flex-1">
                            <div className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 ${createStep === 'finish'
-                                 ? 'bg-[#e0f7fc] border border-[#22d3ee] text-[#0891b2] shadow-xs'
-                                 : 'bg-slate-100 border border-slate-200 text-slate-400'
+                              ? 'bg-[#e0f7fc] border border-[#22d3ee] text-[#0891b2] shadow-xs'
+                              : 'bg-slate-100 border border-slate-200 text-slate-400'
                               }`}>
                               3
                            </div>
@@ -1638,8 +1628,8 @@ export function VoiceGenerationWorkspace() {
                               <button
                                  onClick={isRecordingClone ? handleStopRecordingClone : handleStartRecordingClone}
                                  className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all duration-300 border border-slate-200 bg-white ${isRecordingClone
-                                       ? 'border-red-400 text-red-500 hover:bg-red-50/50 animate-pulse'
-                                       : 'text-slate-800 hover:bg-slate-50 hover:border-slate-300'
+                                    ? 'border-red-400 text-red-500 hover:bg-red-50/50 animate-pulse'
+                                    : 'text-slate-800 hover:bg-slate-50 hover:border-slate-300'
                                     }`}
                               >
                                  {isRecordingClone ? <MicOff className="h-3.5 w-3.5 text-red-500" /> : <Mic className="h-3.5 w-3.5 text-slate-500" />}
@@ -1920,8 +1910,8 @@ export function VoiceGenerationWorkspace() {
                                  onClick={() => setCreateStep('info')}
                                  disabled={totalCloneDuration < 10}
                                  className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${totalCloneDuration >= 10
-                                       ? 'bg-[#78d2e6] hover:bg-[#64c0d4] text-white shadow-xs active:scale-95'
-                                       : 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none'
+                                    ? 'bg-[#78d2e6] hover:bg-[#64c0d4] text-white shadow-xs active:scale-95'
+                                    : 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none'
                                     }`}
                               >
                                  Tiếp theo
@@ -1934,8 +1924,8 @@ export function VoiceGenerationWorkspace() {
                                  onClick={handleSaveInstantClone}
                                  disabled={isSavingVoice || !newVoiceName.trim()}
                                  className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${!isSavingVoice && newVoiceName.trim()
-                                       ? 'bg-[#78d2e6] hover:bg-[#64c0d4] text-white shadow-xs active:scale-95'
-                                       : 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none'
+                                    ? 'bg-[#78d2e6] hover:bg-[#64c0d4] text-white shadow-xs active:scale-95'
+                                    : 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none'
                                     }`}
                               >
                                  {isSavingVoice ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Bắt đầu nhân bản'}
@@ -1947,8 +1937,8 @@ export function VoiceGenerationWorkspace() {
                                  onClick={handleSaveDesignedVoice}
                                  disabled={isSavingVoice || !newVoiceName.trim() || !designPreviewVoiceId}
                                  className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${!isSavingVoice && newVoiceName.trim() && designPreviewVoiceId
-                                       ? 'bg-[#78d2e6] hover:bg-[#64c0d4] text-white shadow-xs active:scale-95'
-                                       : 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none'
+                                    ? 'bg-[#78d2e6] hover:bg-[#64c0d4] text-white shadow-xs active:scale-95'
+                                    : 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none'
                                     }`}
                               >
                                  {isSavingVoice ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Lưu giọng nói'}
