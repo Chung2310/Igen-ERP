@@ -1,6 +1,6 @@
 import { useEffect } from "react";
-import { BRAND_NAME } from "../config/brand";
-import { DEFAULT_SEO, SEO_BASE_URL, SEO_DEFAULT_IMAGE, type SeoMeta, resolveSeoUrl } from "./seo-config";
+import { BRAND_NAME, BRAND_TAGLINE } from "../config/brand";
+import { DEFAULT_SEO, SEO_BASE_URL, SEO_DEFAULT_IMAGE, SEO_DEFAULT_LOCALE, type SeoMeta, resolveSeoUrl } from "./seo-config";
 
 function ensureMeta(selector: string, attributes: Record<string, string>) {
   let el = document.head.querySelector(selector) as HTMLMetaElement | null;
@@ -51,10 +51,14 @@ export function SEOHead({ meta }: { meta: SeoMeta }) {
     ensureMeta('meta[name="keywords"]', { name: "keywords" }).setAttribute("content", merged.keywords);
     ensureMeta('meta[name="robots"]', { name: "robots" }).setAttribute("content", merged.robots || "index, follow");
     ensureMeta('meta[name="author"]', { name: "author" }).setAttribute("content", BRAND_NAME);
+    ensureMeta('meta[name="application-name"]', { name: "application-name" }).setAttribute("content", BRAND_NAME);
+    ensureMeta('meta[name="apple-mobile-web-app-title"]', { name: "apple-mobile-web-app-title" }).setAttribute("content", BRAND_NAME);
+    ensureMeta('meta[name="format-detection"]', { name: "format-detection" }).setAttribute("content", "telephone=no");
+    ensureMeta('meta[name="referrer"]', { name: "referrer" }).setAttribute("content", "strict-origin-when-cross-origin");
     ensureMeta('meta[name="theme-color"]', { name: "theme-color" }).setAttribute("content", "#00aeca");
 
     ensureMeta('meta[property="og:type"]', { property: "og:type" }).setAttribute("content", merged.type || "website");
-    ensureMeta('meta[property="og:locale"]', { property: "og:locale" }).setAttribute("content", "vi_VN");
+    ensureMeta('meta[property="og:locale"]', { property: "og:locale" }).setAttribute("content", SEO_DEFAULT_LOCALE);
     ensureMeta('meta[property="og:site_name"]', { property: "og:site_name" }).setAttribute("content", BRAND_NAME);
     ensureMeta('meta[property="og:title"]', { property: "og:title" }).setAttribute("content", merged.title);
     ensureMeta('meta[property="og:description"]', { property: "og:description" }).setAttribute("content", merged.description);
@@ -71,19 +75,13 @@ export function SEOHead({ meta }: { meta: SeoMeta }) {
     ensureMeta('meta[name="twitter:image"]', { name: "twitter:image" }).setAttribute("content", merged.image || SEO_DEFAULT_IMAGE);
 
     ensureLink('link[rel="canonical"]', { rel: "canonical" }).setAttribute("href", canonicalUrl);
+    ensureLink('link[rel="alternate"][hreflang="vi-VN"]', { rel: "alternate", hreflang: "vi-VN" }).setAttribute("href", canonicalUrl);
+    ensureLink('link[rel="alternate"][hreflang="x-default"]', { rel: "alternate", hreflang: "x-default" }).setAttribute("href", canonicalUrl);
 
     const jsonLd = ensureJsonLd("igen-seo-jsonld");
-    jsonLd.textContent = JSON.stringify({
-      "@context": "https://schema.org",
-      "@type": "WebApplication",
-      name: BRAND_NAME,
-      url: canonicalUrl,
-      applicationCategory: "BusinessApplication",
-      operatingSystem: "Web",
-      description: merged.description,
-      image: merged.image || SEO_DEFAULT_IMAGE,
-      inLanguage: "vi-VN",
-      publisher: {
+    jsonLd.textContent = JSON.stringify([
+      {
+        "@context": "https://schema.org",
         "@type": "Organization",
         name: BRAND_NAME,
         url: SEO_BASE_URL,
@@ -92,7 +90,40 @@ export function SEOHead({ meta }: { meta: SeoMeta }) {
           url: SEO_DEFAULT_IMAGE,
         },
       },
-    });
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        name: BRAND_NAME,
+        url: SEO_BASE_URL,
+        inLanguage: "vi-VN",
+        description: BRAND_TAGLINE,
+      },
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        name: BRAND_NAME,
+        url: canonicalUrl,
+        applicationCategory: "BusinessApplication",
+        operatingSystem: "Web",
+        description: merged.description,
+        image: merged.image || SEO_DEFAULT_IMAGE,
+        inLanguage: "vi-VN",
+      },
+      {
+        "@context": "https://schema.org",
+        "@type": "WebPage",
+        name: merged.title,
+        url: canonicalUrl,
+        description: merged.description,
+        inLanguage: "vi-VN",
+        isPartOf: {
+          "@type": "WebSite",
+          name: BRAND_NAME,
+          url: SEO_BASE_URL,
+        },
+        primaryImageOfPage: merged.image || SEO_DEFAULT_IMAGE,
+      },
+    ]);
   }, [meta]);
 
   return null;

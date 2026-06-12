@@ -9,10 +9,13 @@ export type SeoMeta = {
   image?: string;
   robots?: string;
   type?: "website" | "article";
+  priority?: string;
+  changeFrequency?: "daily" | "weekly" | "monthly";
 };
 
 export const SEO_BASE_URL = "https://io.igentechsolutions.com";
 export const SEO_DEFAULT_IMAGE = BRAND_LOGO_URL;
+export const SEO_DEFAULT_LOCALE = "vi_VN";
 
 export const DEFAULT_SEO: SeoMeta = {
   title: `${BRAND_NAME} - Nền tảng quản trị doanh nghiệp tích hợp AI`,
@@ -24,6 +27,8 @@ export const DEFAULT_SEO: SeoMeta = {
   image: SEO_DEFAULT_IMAGE,
   robots: "index, follow",
   type: "website",
+  priority: "1.0",
+  changeFrequency: "weekly",
 };
 
 export const AUTH_SEO: SeoMeta = {
@@ -36,6 +41,8 @@ export const AUTH_SEO: SeoMeta = {
   image: SEO_DEFAULT_IMAGE,
   robots: "noindex, nofollow",
   type: "website",
+  priority: "0.3",
+  changeFrequency: "monthly",
 };
 
 export const TAB_SEO_MAP: Record<TabType, SeoMeta> = {
@@ -46,6 +53,8 @@ export const TAB_SEO_MAP: Record<TabType, SeoMeta> = {
     keywords:
       "dashboard doanh nghiệp, tổng quan ERP, báo cáo điều hành, dashboard AI, iGen ERP",
     path: "/tong-quan",
+    priority: "0.9",
+    changeFrequency: "daily",
   },
   "NHÂN SỰ": {
     title: "Quản lý nhân sự - Hồ sơ, KPI và đào tạo",
@@ -54,6 +63,8 @@ export const TAB_SEO_MAP: Record<TabType, SeoMeta> = {
     keywords:
       "quản lý nhân sự, HRM, KPI nhân viên, đào tạo nội bộ, sơ đồ tổ chức, ERP nhân sự",
     path: "/nhan-su",
+    priority: "0.8",
+    changeFrequency: "weekly",
   },
   "KHO & SẢN PHẨM": {
     title: "Kho và sản phẩm - Tồn kho, SKU và dự báo nhu cầu",
@@ -62,6 +73,8 @@ export const TAB_SEO_MAP: Record<TabType, SeoMeta> = {
     keywords:
       "quản lý kho, quản lý sản phẩm, tồn kho, SKU, dự báo nhu cầu, ERP kho vận",
     path: "/kho-san-pham",
+    priority: "0.8",
+    changeFrequency: "weekly",
   },
   MARKETING: {
     title: "Marketing AI - Nội dung, video, chiến dịch và ý tưởng",
@@ -70,6 +83,8 @@ export const TAB_SEO_MAP: Record<TabType, SeoMeta> = {
     keywords:
       "marketing AI, tạo nội dung AI, tạo video AI, lập kế hoạch marketing, chiến dịch số",
     path: "/marketing",
+    priority: "0.9",
+    changeFrequency: "daily",
   },
   "SALES CRM": {
     title: "Sales CRM - Chăm sóc khách hàng và quản lý hội thoại",
@@ -78,6 +93,8 @@ export const TAB_SEO_MAP: Record<TabType, SeoMeta> = {
     keywords:
       "sales crm, quản lý khách hàng, omni channel crm, chăm sóc khách hàng, crm doanh nghiệp",
     path: "/sales-crm",
+    priority: "0.8",
+    changeFrequency: "weekly",
   },
   "HIỆU SUẤT AI": {
     title: "Hiệu suất AI - Theo dõi tự động hóa và chất lượng vận hành",
@@ -86,6 +103,8 @@ export const TAB_SEO_MAP: Record<TabType, SeoMeta> = {
     keywords:
       "hiệu suất AI, tự động hóa doanh nghiệp, AI analytics, đo lường AI, iGen ERP",
     path: "/hieu-suat-ai",
+    priority: "0.7",
+    changeFrequency: "weekly",
   },
   "QUẢN TRỊ USER": {
     title: "Quản trị người dùng - Phân quyền và cấu hình tài khoản",
@@ -95,6 +114,8 @@ export const TAB_SEO_MAP: Record<TabType, SeoMeta> = {
       "quản trị user, phân quyền người dùng, quản trị tài khoản, admin ERP, heygen user",
     path: "/quan-tri-user",
     robots: "noindex, nofollow",
+    priority: "0.2",
+    changeFrequency: "monthly",
   },
   "CÀI ĐẶT": {
     title: "Cài đặt hệ thống - Hồ sơ, tích hợp và cấu hình nền tảng",
@@ -104,8 +125,20 @@ export const TAB_SEO_MAP: Record<TabType, SeoMeta> = {
       "cài đặt ERP, cấu hình hệ thống, tích hợp AI, cấu hình doanh nghiệp, settings ERP",
     path: "/cai-dat",
     robots: "noindex, nofollow",
+    priority: "0.2",
+    changeFrequency: "monthly",
   },
 };
+
+export const PUBLIC_SEO_PAGES: SeoMeta[] = [
+  DEFAULT_SEO,
+  TAB_SEO_MAP["TỔNG QUAN"],
+  TAB_SEO_MAP["NHÂN SỰ"],
+  TAB_SEO_MAP["KHO & SẢN PHẨM"],
+  TAB_SEO_MAP.MARKETING,
+  TAB_SEO_MAP["SALES CRM"],
+  TAB_SEO_MAP["HIỆU SUẤT AI"],
+];
 
 export function getSeoForTab(tab: TabType): SeoMeta {
   return {

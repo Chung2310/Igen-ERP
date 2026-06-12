@@ -1,0 +1,22 @@
+{
+  "name": "iGen ERP",
+  "short_name": "iGen ERP",
+  "description": "Nền tảng quản trị doanh nghiệp tích hợp AI cho vận hành, nhân sự, kho, marketing và CRM.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f6f8fd",
+  "theme_color": "#00aeca",
+  "lang": "vi",
+  "icons": [
+    {
+      "src": "https://res.cloudinary.com/dgaofuhmv/image/upload/v1775301001/unnamed_tcmlmp.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://res.cloudinary.com/dgaofuhmv/image/upload/v1775301001/unnamed_tcmlmp.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
