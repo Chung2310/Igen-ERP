@@ -7,9 +7,9 @@ import { AIMediaModel } from "../model/ai-media.model";
 import { cloudinaryService } from "./cloudinary.service";
 import { piapiService } from "./piapi.service";
 
-const GEMINI_TEXT_MODEL = process.env.GEMINI_MODEL || "gemini-3.1-flash-lite";
-const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || "imagen-3.0-generate-002";
-const GEMINI_VIDEO_MODEL = process.env.GEMINI_VIDEO_MODEL || "veo-3.1-generate-preview";
+const GEMINI_TEXT_MODEL = process.env.GEMINI_MODEL || "gemini-3.5-flash";
+const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || "piapi-midjourney";
+const GEMINI_VIDEO_MODEL = process.env.GEMINI_VIDEO_MODEL || "piapi-kling";
 
 export const geminiService = {
   /**
@@ -23,9 +23,8 @@ export const geminiService = {
   ): Promise<{ text: string; isMock: boolean }> {
     const client = getGeminiClient();
 
-    if (!client) {
-      // Logic giả lập phản hồi của tổng đài viên AI
-      return new Promise((resolve) => {
+    const getMockResponse = () => {
+      return new Promise<{ text: string; isMock: boolean }>((resolve) => {
         setTimeout(() => {
           let replyText = `[Giả lập Trợ lý AI] Cảm ơn bạn đã phản hồi! Với cài đặt Trợ lý AI (Cấu hình: ${aiConfig.autoClassify ? "Tự phân loại" : "Thường"
             }), tôi đề xuất phương án tối ưu cho bạn.`;
@@ -44,6 +43,10 @@ export const geminiService = {
           resolve({ text: replyText, isMock: true });
         }, 800);
       });
+    };
+
+    if (!client) {
+      return getMockResponse();
     }
 
     const hasCompanyKnowledge = !!ragContext?.contextText;
@@ -88,19 +91,24 @@ Thông tin cấu hình hiện tại của bạn:
       parts: [{ text: message }],
     });
 
-    const response = await client.models.generateContent({
-      model: GEMINI_TEXT_MODEL,
-      contents,
-      config: {
-        systemInstruction,
-        temperature: 0.8,
-      },
-    });
+    try {
+      const response = await client.models.generateContent({
+        model: GEMINI_TEXT_MODEL,
+        contents,
+        config: {
+          systemInstruction,
+          temperature: 0.8,
+        },
+      });
 
-    return {
-      text: response.text || "Xin lỗi, tôi chưa thể xử lý yêu cầu lúc này. Vui lòng thử lại.",
-      isMock: false,
-    };
+      return {
+        text: response.text || "Xin lỗi, tôi chưa thể xử lý yêu cầu lúc này. Vui lòng thử lại.",
+        isMock: false,
+      };
+    } catch (error: any) {
+      console.error("[geminiService.chat] Error, fallback to mock response:", error);
+      return getMockResponse();
+    }
   },
 
   /**
@@ -108,7 +116,7 @@ Thông tin cấu hình hiện tại của bạn:
    */
   async convertDocToFAQ(docText: string): Promise<string> {
     const client = getGeminiClient();
-    if (!client) {
+    const getMockFAQ = () => {
       return `--- BẢN FAQ ĐÃ ĐƯỢC CHUẨN HÓA (CHẾ ĐỘ MÔ PHỎNG AI) ---
 Q: Tài liệu này nói về chủ đề gì?
 A: Tài liệu giới thiệu thông tin vận hành, chính sách bán hàng của doanh nghiệp.
@@ -118,9 +126,14 @@ A: Vui lòng liên hệ số hotline 1900xxxx hoặc email support@igen.com.
 
 Q: Chính sách vận chuyển của chúng tôi là gì?
 A: Giao hàng toàn quốc. Miễn phí vận chuyển cho đơn hàng trị giá từ 500k trở lên.`;
+    };
+
+    if (!client) {
+      return getMockFAQ();
     }
 
-    const prompt = `Bạn là một chuyên gia huấn luyện AI bán hàng và chăm sóc khách hàng.
+    try {
+      const prompt = `Bạn là một chuyên gia huấn luyện AI bán hàng và chăm sóc khách hàng.
 Hãy đọc kỹ tài liệu bán hàng/quy trình/chính sách sau đây của doanh nghiệp và chuyển đổi toàn bộ thông tin quan trọng thành một danh sách các câu hỏi thường gặp FAQs định dạng chuẩn để làm dữ liệu huấn luyện cho Chatbot.
 
 YÊU CẦU:
@@ -139,12 +152,16 @@ NỘI DUNG TÀI LIỆU CẦN CHUYỂN ĐỔI:
 ${docText}
 `;
 
-    const response = await client.models.generateContent({
-      model: GEMINI_TEXT_MODEL,
-      contents: prompt,
-    });
+      const response = await client.models.generateContent({
+        model: GEMINI_TEXT_MODEL,
+        contents: prompt,
+      });
 
-    return response.text || "Không thể trích xuất được dữ liệu FAQ từ tài liệu.";
+      return response.text || "Không thể trích xuất được dữ liệu FAQ từ tài liệu.";
+    } catch (error: any) {
+      console.error("[geminiService.convertDocToFAQ] Error, fallback to mock FAQ:", error);
+      return getMockFAQ();
+    }
   },
 
   /**
@@ -201,7 +218,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
   async analyzeMarketingPillars(campaignTopic: string): Promise<{ pillars: any[]; isMock: boolean }> {
     const client = getGeminiClient();
 
-    if (!client) {
+    const getMockPillars = () => {
       let mockPillars = [
         {
           id: "giao_duc_gia_tri",
@@ -300,10 +317,15 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
         ];
       }
 
-      return { pillars: mockPillars, isMock: true };
+      return mockPillars;
+    };
+
+    if (!client) {
+      return { pillars: getMockPillars(), isMock: true };
     }
 
-    const prompt = `Phân tích mục tiêu/chủ đề chiến dịch marketing sau: "${campaignTopic}"
+    try {
+      const prompt = `Phân tích mục tiêu/chủ đề chiến dịch marketing sau: "${campaignTopic}"
 Hãy đề xuất chính xác 3 trụ cột nội dung cốt lõi (Content Pillars) giúp doanh nghiệp định hình khung nội dung (framework) chuẩn chỉnh ngay từ đầu, đảm bảo tỷ lệ nội dung phân bổ đa dạng, tránh việc chỉ đăng bài bán hàng gây nhàm chán và mất tương tác.
 
 Mỗi trụ cột phải có thông tin:
@@ -314,37 +336,41 @@ Mỗi trụ cột phải có thông tin:
 
 Trả về kết quả ở định dạng JSON phù hợp chính xác với cấu trúc yêu cầu.`;
 
-    const response = await client.models.generateContent({
-      model: GEMINI_TEXT_MODEL,
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            pillars: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  id: { type: Type.STRING, description: "ID ngắn gọn viết liền không dấu" },
-                  title: { type: Type.STRING, description: "Tiêu đề tiếng Việt của trụ cột" },
-                  ratio: { type: Type.STRING, description: "Tỷ lệ phân bổ" },
-                  description: { type: Type.STRING, description: "Mô tả triển khai chi tiết" },
+      const response = await client.models.generateContent({
+        model: GEMINI_TEXT_MODEL,
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              pillars: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    id: { type: Type.STRING, description: "ID ngắn gọn viết liền không dấu" },
+                    title: { type: Type.STRING, description: "Tiêu đề tiếng Việt của trụ cột" },
+                    ratio: { type: Type.STRING, description: "Tỷ lệ phân bổ" },
+                    description: { type: Type.STRING, description: "Mô tả triển khai chi tiết" },
+                  },
+                  required: ["id", "title", "ratio", "description"],
                 },
-                required: ["id", "title", "ratio", "description"],
+                description: "Danh sách đúng 3 trụ cột nội dung",
               },
-              description: "Danh sách đúng 3 trụ cột nội dung",
             },
+            required: ["pillars"],
           },
-          required: ["pillars"],
         },
-      },
-    });
+      });
 
-    const responseText = response.text || "{}";
-    const parsedData = JSON.parse(responseText.trim());
-    return { pillars: parsedData.pillars || [], isMock: false };
+      const responseText = response.text || "{}";
+      const parsedData = JSON.parse(responseText.trim());
+      return { pillars: parsedData.pillars || [], isMock: false };
+    } catch (error: any) {
+      console.error("[geminiService.analyzeMarketingPillars] Error, fallback to mock pillars:", error);
+      return { pillars: getMockPillars(), isMock: true };
+    }
   },
 
   /**
@@ -363,7 +389,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
         ? `(Định hướng Trụ cột nội dung: ${selectedPillars.join(", ")})`
         : "";
 
-    if (!client) {
+    const getMockConcepts = () => {
       const concepts = [
         {
           title: `Chiến dịch: Chạm Đột Phá - ${campaignTopic || "Mua Sắm Cuối Năm"}`,
@@ -401,31 +427,36 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
           hashtags: ["#FlashSale", "#TaiNgheProMax", "#AmThanhDinhCao"],
         },
       ];
-      return { concepts, isMock: true };
+      return concepts;
+    };
+
+    if (!client) {
+      return { concepts: getMockConcepts(), isMock: true };
     }
 
-    const pillarsContext =
-      selectedPillars && selectedPillars.length > 0
-        ? `\nCác Trụ cột nội dung (Content Pillars) bắt buộc phải tích hợp và bám sát: ${selectedPillars.join(
-            ", "
-          )}. Hãy sáng tạo các ý tưởng tập trung xoay quanh các trụ cột này.`
-        : "";
+    try {
+      const pillarsContext =
+        selectedPillars && selectedPillars.length > 0
+          ? `\nCác Trụ cột nội dung (Content Pillars) bắt buộc phải tích hợp và bám sát: ${selectedPillars.join(
+              ", "
+            )}. Hãy sáng tạo các ý tưởng tập trung xoay quanh các trụ cột này.`
+          : "";
 
-    const channelsContext =
-      channels && channels.length > 0
-        ? `\nKênh truyền thông bắt buộc: Bắt buộc các ý tưởng của bạn phải phân phối và đăng bài chính xác trên các kênh: ${channels.join(", ")}.`
-        : "";
+      const channelsContext =
+        channels && channels.length > 0
+          ? `\nKênh truyền thông bắt buộc: Bắt buộc các ý tưởng của bạn phải phân phối và đăng bài chính xác trên các kênh: ${channels.join(", ")}.`
+          : "";
 
-    const mediaContext =
-      mediaType === "image"
-        ? "\nYêu cầu về phương tiện: Các ý tưởng phải thiết kế đi kèm hình ảnh làm chủ đạo."
-        : mediaType === "video"
-        ? "\nYêu cầu về phương tiện: Các ý tưởng phải thiết kế đi kèm video làm chủ đạo."
-        : mediaType === "none"
-        ? "\nYêu cầu về phương tiện: Các bài đăng không đi kèm hình ảnh hoặc video (chỉ văn bản/caption)."
-        : "";
+      const mediaContext =
+        mediaType === "image"
+          ? "\nYêu cầu về phương tiện: Các ý tưởng phải thiết kế đi kèm hình ảnh làm chủ đạo."
+          : mediaType === "video"
+          ? "\nYêu cầu về phương tiện: Các ý tưởng phải thiết kế đi kèm video làm chủ đạo."
+          : mediaType === "none"
+          ? "\nYêu cầu về phương tiện: Các bài đăng không đi kèm hình ảnh hoặc video (chỉ văn bản/caption)."
+          : "";
 
-    const prompt = `Bạn là một chuyên gia marketing xuất sắc.
+      const prompt = `Bạn là một chuyên gia marketing xuất sắc.
 Hãy tạo đúng 3 ý tưởng/bản nháp chiến dịch marketing chi tiết cho chủ đề/chiến dịch này: "${campaignTopic}".${pillarsContext}${channelsContext}${mediaContext}
 Yêu cầu kết quả đầu ra:
 1. Đề xuất tiêu đề chiến dịch sáng tạo.
@@ -437,47 +468,51 @@ Yêu cầu kết quả đầu ra:
 
 Trả về kết quả ở định dạng JSON phù hợp chính xác với cấu trúc yêu cầu.`;
 
-    const response = await client.models.generateContent({
-      model: GEMINI_TEXT_MODEL,
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            concepts: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  title: { type: Type.STRING, description: "Tiêu đề ý tưởng chiến dịch" },
-                  matchPercent: { type: Type.INTEGER, description: "Tỷ lệ phù hợp" },
-                  summary: { type: Type.STRING, description: "Tóm tắt ý tưởng" },
-                  channels: {
-                    type: Type.ARRAY,
-                    items: { type: Type.STRING },
-                    description: "Các kênh đề xuất đăng bài",
+      const response = await client.models.generateContent({
+        model: GEMINI_TEXT_MODEL,
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              concepts: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    title: { type: Type.STRING, description: "Tiêu đề ý tưởng chiến dịch" },
+                    matchPercent: { type: Type.INTEGER, description: "Tỷ lệ phù hợp" },
+                    summary: { type: Type.STRING, description: "Tóm tắt ý tưởng" },
+                    channels: {
+                      type: Type.ARRAY,
+                      items: { type: Type.STRING },
+                      description: "Các kênh đề xuất đăng bài",
+                    },
+                    suggestedContent: { type: Type.STRING, description: "Ý tưởng nội dung gợi ý ban đầu" },
+                    hashtags: {
+                      type: Type.ARRAY,
+                      items: { type: Type.STRING },
+                      description: "Hashtags liên quan",
+                    },
                   },
-                  suggestedContent: { type: Type.STRING, description: "Ý tưởng nội dung gợi ý ban đầu" },
-                  hashtags: {
-                    type: Type.ARRAY,
-                    items: { type: Type.STRING },
-                    description: "Hashtags liên quan",
-                  },
+                  required: ["title", "matchPercent", "summary", "channels", "suggestedContent", "hashtags"],
                 },
-                required: ["title", "matchPercent", "summary", "channels", "suggestedContent", "hashtags"],
+                description: "Danh sách 3 ý tưởng/bản nháp chiến dịch marketing",
               },
-              description: "Danh sách 3 ý tưởng/bản nháp chiến dịch marketing",
             },
+            required: ["concepts"],
           },
-          required: ["concepts"],
         },
-      },
-    });
+      });
 
-    const responseText = response.text || "{}";
-    const parsedData = JSON.parse(responseText.trim());
-    return { concepts: parsedData.concepts || [], isMock: false };
+      const responseText = response.text || "{}";
+      const parsedData = JSON.parse(responseText.trim());
+      return { concepts: parsedData.concepts || [], isMock: false };
+    } catch (error: any) {
+      console.error("[geminiService.generateMarketingIdeas] Error, fallback to mock concepts:", error);
+      return { concepts: getMockConcepts(), isMock: true };
+    }
   },
 
   async developMarketingIdea(
@@ -521,9 +556,8 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
     let posts: any[] = [];
     let isMock = false;
 
-    if (!client) {
-      isMock = true;
-      posts = targetChannels.map((chan) => {
+    const getMockPosts = () => {
+      return targetChannels.map((chan) => {
         let contentType = "Bài viết truyền thông";
         let outline = "";
         let bodyText = "";
@@ -594,8 +628,14 @@ Nội dung chi tiết gợi ý: ${suggestedContent}`;
         }
         return { channel: chan, contentType, outline, bodyText, mediaPrompt: mockMediaPrompt };
       });
+    };
+
+    if (!client) {
+      isMock = true;
+      posts = getMockPosts();
     } else {
-      const prompt = `Bạn là một chuyên gia viết kịch bản và AI Copywriter xuất sắc.
+      try {
+        const prompt = `Bạn là một chuyên gia viết kịch bản và AI Copywriter xuất sắc.
 Hãy lập Dàn ý (Outline) và viết Bản nháp nội dung (Draft Content) cho các kênh sau đây: ${targetChannels.join(", ")}
 
 QUY TẮC PHÂN TÁCH DỮ LIỆU BẮT BUỘC CHO TỪNG KÊNH:
@@ -614,49 +654,54 @@ Thông tin chiến dịch marketing:
 
 Trả về kết quả ở định dạng JSON phù hợp chính xác với cấu trúc yêu cầu.`;
 
-      const response = await client.models.generateContent({
-        model: GEMINI_TEXT_MODEL,
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              posts: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    channel: { type: Type.STRING, description: "Kênh đăng bài (ví dụ: Facebook, TikTok, LinkedIn, Instagram)" },
-                    contentType: { type: Type.STRING, description: "Loại nội dung" },
-                    outline: { 
-                      type: Type.STRING, 
-                      description: "Dàn ý chi tiết của bài viết. ĐẶC BIỆT với TikTok: Phải lưu KỊCH BẢN QUAY (timeline video script) chi tiết bao gồm Visual, Audio và mốc thời gian dạng [0:00 - 0:03], [0:03 - 0:08]... với tổng thời lượng tối đa không quá 8 giây." 
+        const response = await client.models.generateContent({
+          model: GEMINI_TEXT_MODEL,
+          contents: prompt,
+          config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                posts: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      channel: { type: Type.STRING, description: "Kênh đăng bài (ví dụ: Facebook, TikTok, LinkedIn, Instagram)" },
+                      contentType: { type: Type.STRING, description: "Loại nội dung" },
+                      outline: { 
+                        type: Type.STRING, 
+                        description: "Dàn ý chi tiết của bài viết. ĐẶC BIỆT với TikTok: Phải lưu KỊCH BẢN QUAY (timeline video script) chi tiết bao gồm Visual, Audio và mốc thời gian dạng [0:00 - 0:03], [0:03 - 0:08]... với tổng thời lượng tối đa không quá 8 giây." 
+                      },
+                      bodyText: { 
+                        type: Type.STRING, 
+                        description: "Nội dung bài đăng/caption sạch để đăng tải trực tiếp. ĐẶC BIỆT với TikTok: Chỉ là Caption/Description giới thiệu video kèm hashtag và call-to-action (TUYỆT ĐỐI không chứa kịch bản quay, visual, audio hay timeline video ở trường này)." 
+                      },
+                      mediaPrompt: {
+                        type: Type.STRING,
+                        description: "A detailed visual description prompt in English for generating a matching image or video (e.g. scenic views, product display, lifestyle scene, characters, setting details)."
+                      }
                     },
-                    bodyText: { 
-                      type: Type.STRING, 
-                      description: "Nội dung bài đăng/caption sạch để đăng tải trực tiếp. ĐẶC BIỆT với TikTok: Chỉ là Caption/Description giới thiệu video kèm hashtag và call-to-action (TUYỆT ĐỐI không chứa kịch bản quay, visual, audio hay timeline video ở trường này)." 
-                    },
-                    mediaPrompt: {
-                      type: Type.STRING,
-                      description: "A detailed visual description prompt in English for generating a matching image or video (e.g. scenic views, product display, lifestyle scene, characters, setting details)."
-                    }
+                    required: ["channel", "contentType", "outline", "bodyText", "mediaPrompt"],
                   },
-                  required: ["channel", "contentType", "outline", "bodyText", "mediaPrompt"],
                 },
               },
+              required: ["posts"],
             },
-            required: ["posts"],
           },
-        },
-      });
+        });
 
-      const responseText = response.text || "{}";
-      const parsedData = JSON.parse(responseText.trim());
-      posts = (parsedData.posts || []).map((post: any) => ({
-        ...post,
-        channel: normalizeChannel(post.channel)
-      }));
+        const responseText = response.text || "{}";
+        const parsedData = JSON.parse(responseText.trim());
+        posts = (parsedData.posts || []).map((post: any) => ({
+          ...post,
+          channel: normalizeChannel(post.channel)
+        }));
+      } catch (error: any) {
+        console.error("[geminiService.developMarketingIdea] Error, fallback to mock posts:", error);
+        isMock = true;
+        posts = getMockPosts();
+      }
     }
 
     // Auto-generate media if mediaType is requested
@@ -725,17 +770,28 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
     prompt: string,
     options?: { aspectRatio?: string; modelName?: string; resolution?: string; existingImageUris?: string[] }
   ): Promise<{ url: string; isMock: boolean }> {
-    const modelToUse = options?.modelName || GEMINI_IMAGE_MODEL;
+    let modelToUse = options?.modelName || GEMINI_IMAGE_MODEL;
+    // Route all calls to PiAPI
+    if (modelToUse === "nano-banana-pro" || modelToUse.startsWith("imagen-")) {
+      modelToUse = "piapi-midjourney";
+    } else if (modelToUse === "nano-banana-2" || modelToUse.startsWith("gemini-")) {
+      modelToUse = "piapi-flux";
+    }
+    
     if (modelToUse.startsWith("piapi-")) {
       return piapiService.generateImage(prompt, modelToUse, { aspectRatio: options?.aspectRatio });
     }
     const client = getGeminiClient();
     const aspect = options?.aspectRatio || "1:1";
 
-    if (!client) {
-      console.log("[geminiService.generateImage] Running in MOCK mode");
+    const getMockImage = () => {
       const seed = Math.floor(Math.random() * 1000000);
       return { url: `https://picsum.photos/seed/${seed}/800/600`, isMock: true };
+    };
+
+    if (!client) {
+      console.log("[geminiService.generateImage] Running in MOCK mode");
+      return getMockImage();
     }
 
     try {
@@ -761,7 +817,7 @@ Output ONLY the final detailed prompt in English.`
         });
 
         const preRes = await client.models.generateContent({
-          model: "gemini-2.5-flash",
+          model: GEMINI_TEXT_MODEL,
           contents: parts,
         });
         if (preRes.text) {
@@ -825,8 +881,8 @@ Output ONLY the final detailed prompt in English.`
 
       return { url: `data:image/png;base64,${base64Bytes}`, isMock: false };
     } catch (error: any) {
-      console.error("[geminiService.generateImage] Error:", error);
-      throw error;
+      console.error("[geminiService.generateImage] Error, fallback to mock image:", error);
+      return getMockImage();
     }
   },
 
@@ -845,17 +901,27 @@ Output ONLY the final detailed prompt in English.`
       frameMode?: "standard" | "first_last";
     }
   ): Promise<{ url: string; isMock: boolean }> {
-    const modelToUse = options?.modelName || GEMINI_VIDEO_MODEL;
+    let modelToUse = options?.modelName || GEMINI_VIDEO_MODEL;
+    // Route all calls to PiAPI
+    if (modelToUse.includes("veo-3.1-generate-preview") || modelToUse.includes("veo-3.1-fast-generate-preview")) {
+      modelToUse = "piapi-kling";
+    } else if (modelToUse.includes("veo-3.1-lite-generate-preview") || modelToUse.includes("veo-")) {
+      modelToUse = "piapi-luma";
+    }
+
     if (modelToUse.startsWith("piapi-")) {
       return piapiService.generateVideo(prompt, modelToUse, durationSeconds, { aspectRatio: options?.aspectRatio });
     }
     const client = getGeminiClient();
     const aspect = options?.aspectRatio || "16:9";
 
+    const getMockVideo = () => {
+      return { url: "https://www.w3schools.com/html/mov_bbb.mp4", isMock: true };
+    };
+
     if (!client) {
-      const error: any = new Error("GEMINI_API_KEY chua duoc cau hinh. Khong the tao video Veo that.");
-      error.statusCode = 503;
-      throw error;
+      console.log("[geminiService.generateVideo] Running in MOCK mode");
+      return getMockVideo();
     }
 
     const filename = `vid_${Date.now()}_${Math.floor(Math.random() * 1000)}.mp4`;
@@ -987,8 +1053,8 @@ Output ONLY the final detailed prompt in English.`
           console.warn(`[geminiService.generateVideo] Không thể dọn dẹp tệp tạm: ${tempFilePath}`, err);
         }
       }
-      console.error("[geminiService.generateVideo] Error:", error);
-      throw error;
+      console.error("[geminiService.generateVideo] Error, fallback to mock video:", error);
+      return getMockVideo();
     }
   },
 
@@ -1120,8 +1186,8 @@ Output ONLY the final detailed prompt in English.`
       });
       return { optimizedText: response.text || text };
     } catch (error: any) {
-      console.error("[geminiService.optimizeScript] Error:", error);
-      throw error;
+      console.error("[geminiService.optimizeScript] Error, fallback to mock script:", error);
+      return { optimizedText: `[Tối ưu hóa Giả lập] ${text}` };
     }
   },
 
@@ -1130,7 +1196,7 @@ Output ONLY the final detailed prompt in English.`
    */
   async optimizeImagePrompt(description: string, imageUris?: string[], modelName?: string) {
     const client = getGeminiClient();
-    if (!client) {
+    const getMockImagePrompt = () => {
       return {
         subject: description,
         clothing_material: "",
@@ -1140,6 +1206,10 @@ Output ONLY the final detailed prompt in English.`
         optimized_english_prompt: `A professional studio photo representing: ${description}`,
         negative_prompt: "ugly, blurry, low quality",
       };
+    };
+
+    if (!client) {
+      return getMockImagePrompt();
     }
     try {
       const systemInstruction = `You are an expert prompt engineer for Imagen 4. Optimize the user's image description into a high-quality, descriptive English prompt. Output must be in JSON format matching the schema.`;
@@ -1183,8 +1253,8 @@ Output ONLY the final detailed prompt in English.`
       const responseText = response.text || "{}";
       return JSON.parse(responseText.trim());
     } catch (error: any) {
-      console.error("[geminiService.optimizeImagePrompt] Error:", error);
-      throw error;
+      console.error("[geminiService.optimizeImagePrompt] Error, fallback to mock prompt:", error);
+      return getMockImagePrompt();
     }
   },
 
@@ -1193,12 +1263,16 @@ Output ONLY the final detailed prompt in English.`
    */
   async optimizeVideoPrompt(description: string, imageUris?: string[]) {
     const client = getGeminiClient();
-    if (!client) {
+    const getMockVideoPrompt = () => {
       return {
         motion_analysis: "smooth motion",
         camera_movement: "slow pan",
         optimized_english_prompt: `A high quality cinematic video representing: ${description}`,
       };
+    };
+
+    if (!client) {
+      return getMockVideoPrompt();
     }
     try {
       const systemInstruction = `You are an expert prompt engineer for Veo video generator. Optimize the description into a high-quality video prompt. Output must be in JSON format matching the schema.`;
@@ -1238,8 +1312,8 @@ Output ONLY the final detailed prompt in English.`
       const responseText = response.text || "{}";
       return JSON.parse(responseText.trim());
     } catch (error: any) {
-      console.error("[geminiService.optimizeVideoPrompt] Error:", error);
-      throw error;
+      console.error("[geminiService.optimizeVideoPrompt] Error, fallback to mock prompt:", error);
+      return getMockVideoPrompt();
     }
   },
 
