@@ -616,9 +616,6 @@ export const heygenService = {
   },
 
   async getVideoHistory(userId: string) {
-    const accessContext = await getHeyGenAccessContext(userId);
-    requireApiKey(accessContext.apiKey);
-
     const localRecords = await AIMediaModel.find({
       userId,
       mediaType: "video",
@@ -626,61 +623,11 @@ export const heygenService = {
         { "metadata.provider": "heygen" },
         { "metadata.heygenVideoId": { $exists: true, $ne: "" } },
       ],
-    }).lean();
+    })
+      .sort({ createdAt: -1 })
+      .lean();
 
-    const refreshedHistory = await Promise.all(localRecords.map(async (record: any): Promise<HeyGenRemoteVideo | null> => {
-      const localVideoId = String(record?.metadata?.heygenVideoId || record?._id || "");
-      const localStatus = String(record?.metadata?.status || "").toLowerCase();
-
-      if (!localVideoId) {
-        return normalizeHeyGenVideo(null, record);
-      }
-
-      if (!isActiveLocalVideoStatus(localStatus)) {
-        return normalizeHeyGenVideo(null, record);
-      }
-
-      try {
-        const remotePayload = await requestHeyGenJson(`/v3/videos/${encodeURIComponent(localVideoId)}`, undefined, accessContext.apiKey);
-        const remoteVideo = remotePayload?.data || remotePayload;
-        const normalized = normalizeStatusPayload(remotePayload);
-
-        await AIMediaModel.updateOne(
-          { _id: record._id },
-          {
-            $set: {
-              url: normalized.videoUrl || record.url || "",
-              "metadata.status": normalized.jobStatus,
-            },
-          }
-        );
-
-        return normalizeHeyGenVideo(remoteVideo, {
-          ...record,
-          url: normalized.videoUrl || record.url || "",
-          metadata: {
-            ...record.metadata,
-            status: normalized.jobStatus,
-          },
-        });
-      } catch (error: any) {
-        const message = String(error?.message || "");
-        const isAlreadyGone = error?.statusCode === 404 || /not found/i.test(message);
-
-        if (isAlreadyGone && !isActiveLocalVideoStatus(localStatus)) {
-          await AIMediaModel.deleteOne({ _id: record._id });
-          return null;
-        }
-
-        return normalizeHeyGenVideo(null, record);
-      }
-    }));
-
-    return refreshedHistory.filter(Boolean).sort((a: any, b: any) => {
-      const left = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-      const right = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-      return right - left;
-    });
+    return localRecords.map((record) => normalizeHeyGenVideo(null, record));
   },
 
   async processWebhook(payload: HeyGenWebhookPayload) {

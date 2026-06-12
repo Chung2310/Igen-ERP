@@ -108,12 +108,14 @@ function HeyGenVideoItem({
   onPlay,
   onReuse,
   onDelete,
+  onStatusUpdate,
 }: {
   key?: any;
   item: any;
   onPlay: (url: string) => void;
   onReuse: (item: any) => void;
   onDelete: (videoId: string) => void | Promise<void>;
+  onStatusUpdate?: (updatedItem: any) => void;
 }) {
   const status = String(item.status || "").toLowerCase();
   const isCompleted = status === "completed";
@@ -121,6 +123,44 @@ function HeyGenVideoItem({
   const isProcessing = !isCompleted && !isFailed;
 
   const pseudoProgress = usePseudoProgress(item.createdAt, item.status);
+
+  useEffect(() => {
+    if (!isProcessing || !item.videoId) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await heygenApi.getVideoStatus(item.videoId, {
+          avatarId: item.metadata?.heygenAvatarId,
+          audioRecordId: item.metadata?.heygenAudioRecordId,
+          audioUrl: item.metadata?.heygenAudioUrl,
+          script: item.prompt,
+          aspectRatio: item.metadata?.aspectRatio,
+          title: item.metadata?.title,
+          description: item.metadata?.description,
+        });
+
+        const nextStatus = String(res.jobStatus || "processing").toLowerCase();
+        if (nextStatus !== status && onStatusUpdate) {
+          const updatedRecord = {
+            ...item,
+            status: nextStatus,
+            url: res.videoUrl || item.url,
+            thumbnailUrl: res.thumbnailUrl || item.thumbnailUrl,
+            metadata: {
+              ...item.metadata,
+              status: nextStatus,
+            },
+          };
+          onStatusUpdate(updatedRecord);
+        }
+      } catch (err) {
+        console.error("Failed to poll video status:", err);
+      }
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [isProcessing, item.videoId, status, onStatusUpdate]);
+
   const downloadUrl = useMemo(() => {
     if (!isCompleted) return "";
     const url = item.url || item.captionedVideoUrl || item.videoPageUrl || "";
@@ -738,6 +778,11 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
                   onPlay={(url) => setPreviewVideoUrl(url)}
                   onReuse={handleReuseRecent}
                   onDelete={handleDeleteHistory}
+                  onStatusUpdate={(updatedItem) => {
+                    setHistory((current) =>
+                      current.map((h) => (h._id === updatedItem._id ? updatedItem : h))
+                    );
+                  }}
                 />
               ))}
 
