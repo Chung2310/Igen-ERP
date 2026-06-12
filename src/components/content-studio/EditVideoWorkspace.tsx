@@ -4,9 +4,9 @@ import { toast } from '../../pages/Toast';
 import { Film, Loader2, Play, Sparkles, Video, X } from 'lucide-react';
 
 const MODEL_OPTIONS = [
-  { value: 'veo-3.1-generate-preview', label: 'iGen Veo 3.1' },
-  { value: 'veo-3.1-fast-generate-preview', label: 'iGen Veo 3.1 Fast' },
-  { value: 'veo-3.1-lite-generate-preview', label: 'iGen Veo 3.1 Lite' },
+  { value: 'veo-3.1-generate-preview', label: 'veo 3.1' },
+  { value: 'veo-3.1-fast-generate-preview', label: 'veo 3.1 fast' },
+  { value: 'veo-3.1-lite-generate-preview', label: 'veo 3.1 lite' },
 ];
 
 const ASPECT_OPTIONS = [

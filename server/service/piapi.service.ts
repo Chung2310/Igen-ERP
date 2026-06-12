@@ -6,6 +6,8 @@ dotenv.config();
 const PIAPI_API_KEY = process.env.PIAPI_API_KEY || "";
 const PIAPI_BASE_URL = "https://api.piapi.ai/api/v1";
 
+console.log(`[PiAPI Service] Loaded API Key status: ${PIAPI_API_KEY ? `Present (Length: ${PIAPI_API_KEY.length}, Prefix: ${PIAPI_API_KEY.substring(0, 8)}...)` : 'Missing'}`);
+
 export const piapiService = {
   /**
    * Sinh ảnh bằng PiAPI (Midjourney, Flux, v.v.)
@@ -20,24 +22,43 @@ export const piapiService = {
     }
 
     const aspect = options?.aspectRatio || "1:1";
-    const piapiModel = model.replace("piapi-", "");
+    let reqBody: any;
+
+    if (model === "nano-banana-pro" || model === "nano-banana-2") {
+      reqBody = {
+        model: "gemini",
+        task_type: model,
+        input: {
+          prompt,
+          output_format: "png",
+          aspect_ratio: aspect,
+          resolution: "1K",
+        },
+      };
+    } else {
+      let piapiModel = model.replace("piapi-", "");
+      if (piapiModel === "flux") {
+        piapiModel = "Qubico/flux1-dev";
+      }
+      reqBody = {
+        model: piapiModel,
+        task_type: piapiModel === "midjourney" ? "imagine" : "text2img",
+        input: {
+          prompt,
+          aspect_ratio: aspect,
+        },
+      };
+    }
 
     try {
-      console.log(`[PiAPI Image Generation] Requesting task for model ${piapiModel}...`);
+      console.log(`[PiAPI Image Generation] Requesting task for model ${model}. Body:`, JSON.stringify(reqBody, null, 2));
       const response = await fetch(`${PIAPI_BASE_URL}/task`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "x-api-key": PIAPI_API_KEY,
         },
-        body: JSON.stringify({
-          model: piapiModel,
-          task_type: piapiModel === "midjourney" ? "imagine" : "text2img",
-          input: {
-            prompt,
-            aspect_ratio: aspect,
-          },
-        }),
+        body: JSON.stringify(reqBody),
       });
 
       if (!response.ok) {
@@ -46,6 +67,7 @@ export const piapiService = {
       }
 
       const json: any = await response.json();
+      console.log(`[PiAPI Image Generation] Task creation response:`, JSON.stringify(json, null, 2));
       const taskId = json.data?.task_id;
       if (!taskId) {
         throw new Error("Không nhận được task_id từ PiAPI");
@@ -64,10 +86,10 @@ export const piapiService = {
         if (pollResponse.ok) {
           const pollJson: any = await pollResponse.json();
           const task = pollJson.data;
-          console.log(`[PiAPI Image Generation] Task ${taskId} status: ${task?.status}`);
+          console.log(`[PiAPI Image Generation] Task ${taskId} poll result:`, JSON.stringify(pollJson, null, 2));
 
           if (task?.status === "completed") {
-            const url = task.output?.image_url || task.output?.url;
+            const url = (task.output?.image_urls && task.output.image_urls[0]) || task.output?.image_url || task.output?.url;
             if (!url) {
               throw new Error("Tác vụ hoàn thành nhưng không nhận được URL hình ảnh.");
             }
@@ -87,7 +109,7 @@ export const piapiService = {
   },
 
   /**
-   * Sinh video bằng PiAPI (Kling, Luma, v.v.)
+   * Sinh video bằng PiAPI (Kling, Luma, v.v. và Veo 3.1)
    */
   async createVideoTask(
     prompt: string,
@@ -101,28 +123,69 @@ export const piapiService = {
 
     const aspect = options?.aspectRatio || "16:9";
     const piapiModel = model.replace("piapi-", "");
+    let reqBody: any;
 
-    let imageUrl: string | undefined;
-    if (options?.referenceImageUris && options.referenceImageUris.length > 0) {
-      const firstUri = options.referenceImageUris[0];
-      if (firstUri.startsWith("data:")) {
-        try {
-          imageUrl = await cloudinaryService.uploadMedia(firstUri, "piapi_temp_inputs");
-        } catch (uploadError) {
-          console.error("[PiAPI Video Generation] Failed to upload reference image to Cloudinary:", uploadError);
-        }
-      } else {
-        imageUrl = firstUri;
+    if (piapiModel.includes("veo31") || piapiModel.includes("veo-3.1") || piapiModel.startsWith("veo3")) {
+      let taskType = "veo3.1-video-fast";
+      let generateAudio = true;
+
+      if (piapiModel === "veo31-video-audio") {
+        taskType = "veo3.1-video";
+        generateAudio = true;
+      } else if (piapiModel === "veo31-video-fast-audio") {
+        taskType = "veo3.1-video-fast";
+        generateAudio = true;
+      } else if (piapiModel === "veo31-video-fast-no-audio") {
+        taskType = "veo3.1-video-fast";
+        generateAudio = false;
       }
-    }
 
-    const response = await fetch(`${PIAPI_BASE_URL}/task`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": PIAPI_API_KEY,
-      },
-      body: JSON.stringify({
+      let imageUrl: string | undefined = undefined;
+      if (options?.referenceImageUris && options.referenceImageUris.length > 0) {
+        const firstImage = options.referenceImageUris[0];
+        if (firstImage) {
+          if (firstImage.startsWith("data:")) {
+            try {
+              console.log("[PiAPI Video Generation] Uploading reference image to Cloudinary...");
+              imageUrl = await cloudinaryService.uploadMedia(firstImage, "igen_erp/video_refs");
+              console.log(`[PiAPI Video Generation] Reference image uploaded: ${imageUrl}`);
+            } catch (err) {
+              console.error("[PiAPI Video Generation] Failed to upload reference image to Cloudinary:", err);
+              imageUrl = firstImage; 
+            }
+          } else {
+            imageUrl = firstImage;
+          }
+        }
+      }
+
+      reqBody = {
+        model: "veo3.1",
+        task_type: taskType,
+        input: {
+          prompt,
+          aspect_ratio: aspect,
+          duration: `${durationSeconds}s`,
+          generate_audio: generateAudio,
+          ...(imageUrl ? { image_url: imageUrl } : {}),
+        },
+      };
+    } else {
+      let imageUrl: string | undefined;
+      if (options?.referenceImageUris && options.referenceImageUris.length > 0) {
+        const firstUri = options.referenceImageUris[0];
+        if (firstUri.startsWith("data:")) {
+          try {
+            imageUrl = await cloudinaryService.uploadMedia(firstUri, "piapi_temp_inputs");
+          } catch (uploadError) {
+            console.error("[PiAPI Video Generation] Failed to upload reference image to Cloudinary:", uploadError);
+          }
+        } else {
+          imageUrl = firstUri;
+        }
+      }
+
+      reqBody = {
         model: piapiModel,
         task_type: "video_generation",
         input: {
@@ -131,21 +194,37 @@ export const piapiService = {
           duration: durationSeconds,
           ...(imageUrl ? { image_url: imageUrl } : {}),
         },
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`PiAPI task creation failed: ${response.status} - ${errorText}`);
+      };
     }
 
-    const json: any = await response.json();
-    const taskId = json.data?.task_id;
-    if (!taskId) {
-      throw new Error("Không nhận được task_id từ PiAPI");
-    }
+    try {
+      console.log(`[PiAPI Video Generation] Requesting task for model ${model}. Body:`, JSON.stringify(reqBody, null, 2));
+      const response = await fetch(`${PIAPI_BASE_URL}/task`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": PIAPI_API_KEY,
+        },
+        body: JSON.stringify(reqBody),
+      });
 
-    return { taskId };
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`PiAPI task creation failed: ${response.status} - ${errorText}`);
+      }
+
+      const json: any = await response.json();
+      console.log(`[PiAPI Video Generation] Task creation response:`, JSON.stringify(json, null, 2));
+      const taskId = json.data?.task_id;
+      if (!taskId) {
+        throw new Error("Không nhận được task_id từ PiAPI");
+      }
+
+      return { taskId };
+    } catch (error: any) {
+      console.error("[PiAPI Video Generation] Error in createVideoTask:", error);
+      throw error;
+    }
   },
 
   async getTaskStatus(
@@ -169,7 +248,7 @@ export const piapiService = {
 
     return {
       status: task?.status || "processing",
-      url: task?.output?.video_url || task?.output?.url,
+      url: task?.output?.video || task?.output?.video_url || task?.output?.url,
       progress: typeof task?.progress === "number" ? task.progress : (task?.status === "completed" ? 100 : 0),
       error: task?.error || "",
     };

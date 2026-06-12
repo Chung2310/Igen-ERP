@@ -82,12 +82,12 @@ export default function MarketingTab() {
   const [isAutoMedia, setIsAutoMedia] = useState(true);
   
   // Image Options
-  const [imageModel, setImageModel] = useState("piapi-midjourney");
+  const [imageModel, setImageModel] = useState("nano-banana-pro");
   const [imageResolution, setImageResolution] = useState("1K");
   const [imageAspectRatio, setImageAspectRatio] = useState("1:1");
 
   // Video Options
-  const [videoModel, setVideoModel] = useState("piapi-kling");
+  const [videoModel, setVideoModel] = useState("veo-3.1-generate-preview");
   const [videoQuality, setVideoQuality] = useState("720p");
   const [videoDuration, setVideoDuration] = useState("4");
   const [videoAspectRatio, setVideoAspectRatio] = useState("16:9");
@@ -810,14 +810,8 @@ export default function MarketingTab() {
                               onChange={(e) => setImageModel(e.target.value)}
                               className="w-full text-xs p-2 border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 font-sans"
                             >
-                              <optgroup label="Google Gemini">
-                                <option value="nano-banana-pro">nano banana pro</option>
-                                <option value="nano-banana-2">nano banana 2</option>
-                              </optgroup>
-                              <optgroup label="PiAPI (Midjourney / Flux)">
-                                <option value="piapi-midjourney">PiAPI - Midjourney</option>
-                                <option value="piapi-flux">PiAPI - Flux (Text-to-Image)</option>
-                              </optgroup>
+                              <option value="nano-banana-pro">nano banana pro</option>
+                              <option value="nano-banana-2">nano banana 2</option>
                             </select>
                           </div>
                           
@@ -880,15 +874,9 @@ export default function MarketingTab() {
                               onChange={(e) => setVideoModel(e.target.value)}
                               className="w-full text-xs p-2 border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 font-sans"
                             >
-                              <optgroup label="Google Gemini / Veo">
-                                <option value="veo-3.1-generate-preview">iGen Veo 3.1</option>
-                                <option value="veo-3.1-fast-generate-preview">iGen Veo 3.1 Fast</option>
-                                <option value="veo-3.1-lite-generate-preview">iGen Veo 3.1 Lite</option>
-                              </optgroup>
-                              <optgroup label="PiAPI (Kling / Luma)">
-                                <option value="piapi-kling">PiAPI - Kling AI Video</option>
-                                <option value="piapi-luma">PiAPI - Luma AI Video</option>
-                              </optgroup>
+                              <option value="veo-3.1-generate-preview">veo 3.1</option>
+                              <option value="veo-3.1-fast-generate-preview">veo 3.1 fast</option>
+                              <option value="veo-3.1-lite-generate-preview">veo 3.1 lite</option>
                             </select>
                           </div>
 

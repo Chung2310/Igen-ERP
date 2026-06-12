@@ -44,31 +44,23 @@ const DEFAULT_FALLBACK_VOICE_ID = '';
 
 const MODEL_OPTIONS = [
   {
-    key: 'igen-audio-v3',
-    modelId: 'eleven_multilingual_v2',
-    title: 'Eleven Multilingual v2',
-    description: 'Model can bang cho voiceover va da ngon ngu.',
-    badges: ['Balanced', '70+ ngon ngu'],
-  },
-  {
-    key: 'igen-audio-flash-v2.5',
+    key: 'gemini-3.1-flash',
     modelId: 'eleven_flash_v2_5',
-    title: 'Eleven Flash v2.5',
+    title: 'Gemini 3.1 flash tts preview',
     description: 'Do tre thap, phu hop preview nhanh va hoi thoai.',
     badges: ['Low latency', 'Flash'],
   },
   {
-    key: 'igen-audio-turbo-v2.5',
-    modelId: 'eleven_turbo_v2_5',
-    title: 'Eleven Turbo v2.5',
-    description: 'Nhanh va toi uu chi phi cho luong tao audio thuong xuyen.',
-    badges: ['Fast', 'Cost-efficient'],
+    key: '2.5-pro',
+    modelId: 'eleven_multilingual_v2',
+    title: '2.5 pro tts preview.',
+    description: 'Model can bang cho voiceover va da ngon ngu.',
+    badges: ['Balanced', '70+ ngon ngu'],
   },
 ] as const;
 
-const getActiveModelId = (voiceModel: 'igen-audio-v3' | 'igen-audio-flash-v2.5' | 'igen-audio-turbo-v2.5') => {
-  if (voiceModel === 'igen-audio-flash-v2.5') return 'eleven_flash_v2_5';
-  if (voiceModel === 'igen-audio-turbo-v2.5') return 'eleven_turbo_v2_5';
+const getActiveModelId = (voiceModel: 'gemini-3.1-flash' | '2.5-pro') => {
+  if (voiceModel === 'gemini-3.1-flash') return 'eleven_flash_v2_5';
   return 'eleven_multilingual_v2';
 };
 
@@ -210,7 +202,7 @@ export function VoiceGenerationWorkspace() {
   const [similarityBoost, setSimilarityBoost] = useState<number>(0.75);
   const [useSpeakerBoost, setUseSpeakerBoost] = useState<boolean>(true);
   const [useLanguageToggle, setUseLanguageToggle] = useState<boolean>(true);
-  const [voiceModel, setVoiceModel] = useState<'igen-audio-v3' | 'igen-audio-flash-v2.5' | 'igen-audio-turbo-v2.5'>('igen-audio-v3');
+  const [voiceModel, setVoiceModel] = useState<'gemini-3.1-flash' | '2.5-pro'>('gemini-3.1-flash');
 
   // Modals state
   const [isAdvancedModalOpen, setIsAdvancedModalOpen] = useState(false);
@@ -829,7 +821,6 @@ export function VoiceGenerationWorkspace() {
   const activeModelInfo = availableModels.find((model: any) => model.model_id === getActiveModelId(voiceModel));
   const multilingualModelDetails = getModelDetails('eleven_multilingual_v2', availableModels);
   const flashModelDetails = getModelDetails('eleven_flash_v2_5', availableModels);
-  const turboModelDetails = getModelDetails('eleven_turbo_v2_5', availableModels);
 
   return (
     <div className="space-y-6 max-w-[1400px] mx-auto w-full pb-12 font-sans text-slate-800" id="voice_workspace_wrapper">
@@ -1324,66 +1315,47 @@ export function VoiceGenerationWorkspace() {
                            {activeModelInfo?.name && (
                               <span className="text-[10px] text-slate-400">Dang su dung model ElevenLabs: {activeModelInfo.name}</span>
                            )}
-                           <span className="text-[10px] text-slate-400">Di chuot vao tung model de xem danh sach ngon ngu ho tro.</span>
+                           <span className="text-[10px] text-slate-400 font-medium leading-relaxed">Chọn mô hình phù hợp với mục tiêu tạo giọng nói của bạn.</span>
                            <div className="flex flex-col gap-2.5">
-                              {/* Option 1: iGen Audio v3 */}
+                              {/* Option 1: Gemini 3.1 flash tts preview */}
                               <div 
-                                onClick={() => setVoiceModel('igen-audio-v3')}
-                                title={`Ngon ngu ho tro: ${multilingualModelDetails.languageSummary}`}
-                                className={`border-2 rounded-xl p-4 cursor-pointer transition-all relative ${
-                                   voiceModel === 'igen-audio-v3' ? 'border-cyan-500 bg-cyan-50/10' : 'border-slate-150 hover:bg-slate-50'
-                                }`}
-                              >
-                                 <div className="flex justify-between items-start">
-                                    <span className="text-xs font-bold text-slate-900">Eleven Multilingual v2</span>
-                                    {voiceModel === 'igen-audio-v3' && <Check className="h-4 w-4 text-cyan-600" />}
-                                 </div>
-                                 <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">
-                                    Model tổng hợp giọng nói giàu cảm xúc và biểu cảm nhất của chúng tôi.
-                                 </p>
-                                 <div className="flex gap-1.5 mt-2.5">
-                                    <span className="px-2 py-0.5 bg-cyan-50 border border-cyan-100 rounded text-[9px] font-bold text-cyan-700">Cảm xúc cao</span>
-                                    <span className="px-2 py-0.5 bg-slate-100 rounded text-[9px] font-bold text-slate-600">70+ Ngôn ngữ</span>
-                                 </div>
-                              </div>
-
-                              {/* Option 2: iGen Audio Flash v2.5 */}
-                              <div 
-                                onClick={() => setVoiceModel('igen-audio-flash-v2.5')}
+                                onClick={() => setVoiceModel('gemini-3.1-flash')}
                                 title={`Ngon ngu ho tro: ${flashModelDetails.languageSummary}`}
                                 className={`border-2 rounded-xl p-4 cursor-pointer transition-all relative ${
-                                   voiceModel === 'igen-audio-flash-v2.5' ? 'border-cyan-500 bg-cyan-50/10' : 'border-slate-150 hover:bg-slate-50'
+                                   voiceModel === 'gemini-3.1-flash' ? 'border-cyan-500 bg-cyan-50/10' : 'border-slate-150 hover:bg-slate-50'
                                 }`}
                               >
                                  <div className="flex justify-between items-start">
-                                    <span className="text-xs font-bold text-slate-900">Eleven Flash v2.5</span>
-                                    {voiceModel === 'igen-audio-flash-v2.5' && <Check className="h-4 w-4 text-cyan-600" />}
+                                    <span className="text-xs font-bold text-slate-900">Gemini 3.1 flash tts preview</span>
+                                    {voiceModel === 'gemini-3.1-flash' && <Check className="h-4 w-4 text-cyan-600" />}
                                  </div>
                                  <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">
                                     Model có độ trễ cực thấp hỗ trợ 32 ngôn ngữ. Lý tưởng cho các trường hợp sử dụng đàm thoại.
                                  </p>
                                  <div className="flex gap-1.5 mt-2.5">
-                                    <span className="px-2 py-0.5 bg-emerald-50 border border-emerald-100 rounded text-[9px] font-bold text-emerald-700">Rẻ hơn 50%</span>
+                                    <span className="px-2 py-0.5 bg-cyan-50 border border-cyan-100 rounded text-[9px] font-bold text-cyan-700">Low latency</span>
+                                    <span className="px-2 py-0.5 bg-slate-100 rounded text-[9px] font-bold text-slate-600">Flash</span>
                                  </div>
                               </div>
 
-                              {/* Option 3: iGen Audio Turbo v2.5 */}
+                              {/* Option 2: 2.5 pro tts preview. */}
                               <div 
-                                onClick={() => setVoiceModel('igen-audio-turbo-v2.5')}
-                                title={`Ngon ngu ho tro: ${turboModelDetails.languageSummary}`}
+                                onClick={() => setVoiceModel('2.5-pro')}
+                                title={`Ngon ngu ho tro: ${multilingualModelDetails.languageSummary}`}
                                 className={`border-2 rounded-xl p-4 cursor-pointer transition-all relative ${
-                                   voiceModel === 'igen-audio-turbo-v2.5' ? 'border-cyan-500 bg-cyan-50/10' : 'border-slate-150 hover:bg-slate-50'
+                                   voiceModel === '2.5-pro' ? 'border-cyan-500 bg-cyan-50/10' : 'border-slate-150 hover:bg-slate-50'
                                 }`}
                               >
                                  <div className="flex justify-between items-start">
-                                    <span className="text-xs font-bold text-slate-900">Eleven Turbo v2.5</span>
-                                    {voiceModel === 'igen-audio-turbo-v2.5' && <Check className="h-4 w-4 text-cyan-600" />}
+                                    <span className="text-xs font-bold text-slate-900">2.5 pro tts preview.</span>
+                                    {voiceModel === '2.5-pro' && <Check className="h-4 w-4 text-cyan-600" />}
                                  </div>
                                  <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">
-                                    Model chất lượng cao, độ trễ thấp hỗ trợ 32 ngôn ngữ. Tốt nhất cho các trường hợp sử dụng khi tốc độ là yếu tố quan trọng.
+                                    Model tổng hợp giọng nói giàu cảm xúc và biểu cảm nhất của chúng tôi.
                                  </p>
                                  <div className="flex gap-1.5 mt-2.5">
-                                    <span className="px-2 py-0.5 bg-emerald-50 border border-emerald-100 rounded text-[9px] font-bold text-emerald-700">Rẻ hơn 50%</span>
+                                    <span className="px-2 py-0.5 bg-emerald-50 border border-emerald-100 rounded text-[9px] font-bold text-emerald-700">Balanced</span>
+                                    <span className="px-2 py-0.5 bg-slate-100 rounded text-[9px] font-bold text-slate-600">70+ Ngôn ngữ</span>
                                  </div>
                               </div>
                            </div>
@@ -1410,14 +1382,11 @@ export function VoiceGenerationWorkspace() {
                            </div>
                            <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 text-[10px] text-slate-500 leading-relaxed">
                               <span className="font-bold text-slate-700">Tom tat ho tro ngon ngu:</span>{' '}
-                              {voiceModel === 'igen-audio-v3' && (multilingualModelDetails.languageNames.length > 0
+                              {voiceModel === '2.5-pro' && (multilingualModelDetails.languageNames.length > 0
                                 ? multilingualModelDetails.languageNames.slice(0, 8).join(', ')
                                 : 'Chua co metadata ngon ngu tu ElevenLabs API')}
-                              {voiceModel === 'igen-audio-flash-v2.5' && (flashModelDetails.languageNames.length > 0
+                              {voiceModel === 'gemini-3.1-flash' && (flashModelDetails.languageNames.length > 0
                                 ? flashModelDetails.languageNames.slice(0, 8).join(', ')
-                                : 'Chua co metadata ngon ngu tu ElevenLabs API')}
-                              {voiceModel === 'igen-audio-turbo-v2.5' && (turboModelDetails.languageNames.length > 0
-                                ? turboModelDetails.languageNames.slice(0, 8).join(', ')
                                 : 'Chua co metadata ngon ngu tu ElevenLabs API')}
                            </div>
                         </div>
@@ -1487,7 +1456,7 @@ export function VoiceGenerationWorkspace() {
                         setStability(0.50);
                         setSimilarityBoost(0.75);
                         setUseSpeakerBoost(true);
-                       setVoiceModel('igen-audio-v3');
+                       setVoiceModel('gemini-3.1-flash');
                        setUseLanguageToggle(true);
                        toast.success('Đã khôi phục cài đặt mặc định.');
                     }}
