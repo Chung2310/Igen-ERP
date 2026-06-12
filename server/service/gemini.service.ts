@@ -11,6 +11,97 @@ const GEMINI_TEXT_MODEL = process.env.GEMINI_MODEL || "gemini-3.5-flash";
 const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || "piapi-midjourney";
 const GEMINI_VIDEO_MODEL = process.env.GEMINI_VIDEO_MODEL || "piapi-kling";
 
+async function generateText(
+  model: string,
+  contents: any,
+  config?: {
+    systemInstruction?: string;
+    temperature?: number;
+    responseMimeType?: string;
+    responseSchema?: any;
+  }
+): Promise<{ text: string }> {
+  const usePiapi = !!process.env.PIAPI_API_KEY;
+  if (usePiapi) {
+    let mappedModel = "gpt-4o-mini";
+    if (model.includes("pro")) {
+      mappedModel = "gpt-4o";
+    }
+
+    const messages: any[] = [];
+    if (config?.systemInstruction) {
+      messages.push({ role: "system", content: config.systemInstruction });
+    }
+
+    if (typeof contents === "string") {
+      messages.push({ role: "user", content: contents });
+    } else if (Array.isArray(contents)) {
+      for (const item of contents) {
+        if (typeof item === "string") {
+          messages.push({ role: "user", content: item });
+        } else if (item.role && item.parts) {
+          const role = item.role === "model" ? "assistant" : item.role;
+          const textParts = item.parts.map((p: any) => p.text || "").join("\n");
+          messages.push({ role, content: textParts });
+        } else if (item.text) {
+          messages.push({ role: "user", content: item.text });
+        }
+      }
+    }
+
+    const body: any = {
+      model: mappedModel,
+      messages,
+      temperature: config?.temperature ?? 0.7,
+    };
+
+    if (config?.responseMimeType === "application/json" || config?.responseSchema) {
+      body.response_format = { type: "json_object" };
+    }
+
+    if (config?.responseSchema) {
+      const schemaStr = JSON.stringify(config.responseSchema);
+      if (messages[0]?.role === "system") {
+        messages[0].content += `\n\nCRITICAL REQUIREMENT: Output MUST be a valid JSON object matching this JSON Schema:\n${schemaStr}`;
+      } else {
+        messages.unshift({
+          role: "system",
+          content: `Output MUST be a valid JSON object matching this JSON Schema:\n${schemaStr}`
+        });
+      }
+    }
+
+    const response = await fetch("https://api.piapi.ai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${process.env.PIAPI_API_KEY}`,
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`PiAPI LLM call failed: ${response.status} - ${errorText}`);
+    }
+
+    const resJson: any = await response.json();
+    const text = resJson.choices?.[0]?.message?.content || "";
+    return { text };
+  } else {
+    const client = getGeminiClient();
+    if (!client) {
+      throw new Error("No Gemini client and no PiAPI key configured.");
+    }
+    const response = await client.models.generateContent({
+      model,
+      contents,
+      config,
+    });
+    return { text: response.text || "" };
+  }
+}
+
 export const geminiService = {
   /**
    * Trợ lý Chat CRM Omni-Inbox
@@ -45,7 +136,7 @@ export const geminiService = {
       });
     };
 
-    if (!client) {
+    if (!client && !process.env.PIAPI_API_KEY) {
       return getMockResponse();
     }
 
@@ -92,14 +183,14 @@ Thông tin cấu hình hiện tại của bạn:
     });
 
     try {
-      const response = await client.models.generateContent({
-        model: GEMINI_TEXT_MODEL,
+      const response = await generateText(
+        GEMINI_TEXT_MODEL,
         contents,
-        config: {
+        {
           systemInstruction,
           temperature: 0.8,
-        },
-      });
+        }
+      );
 
       return {
         text: response.text || "Xin lỗi, tôi chưa thể xử lý yêu cầu lúc này. Vui lòng thử lại.",
@@ -128,7 +219,7 @@ Q: Chính sách vận chuyển của chúng tôi là gì?
 A: Giao hàng toàn quốc. Miễn phí vận chuyển cho đơn hàng trị giá từ 500k trở lên.`;
     };
 
-    if (!client) {
+    if (!client && !process.env.PIAPI_API_KEY) {
       return getMockFAQ();
     }
 
@@ -152,10 +243,10 @@ NỘI DUNG TÀI LIỆU CẦN CHUYỂN ĐỔI:
 ${docText}
 `;
 
-      const response = await client.models.generateContent({
-        model: GEMINI_TEXT_MODEL,
-        contents: prompt,
-      });
+      const response = await generateText(
+        GEMINI_TEXT_MODEL,
+        prompt
+      );
 
       return response.text || "Không thể trích xuất được dữ liệu FAQ từ tài liệu.";
     } catch (error: any) {
@@ -175,7 +266,7 @@ ${docText}
       "Sự kiện ra mắt dòng sản phẩm mới hướng tới phong cách sống xanh bảo vệ môi trường",
     ];
 
-    if (!client) {
+    if (!client && !process.env.PIAPI_API_KEY) {
       return fallbackSuggestions;
     }
 
@@ -184,10 +275,10 @@ ${docText}
 Mỗi ý tưởng đề xuất phải là một câu ngắn gọn (dưới 25 từ) sẵn sàng làm mục tiêu marketing, ví dụ: 'Chiến dịch tri ân khách hàng thân thiết và tặng quà tri ân'.
 Trả về kết quả ở định dạng JSON phù hợp chính xác với cấu trúc yêu cầu.`;
 
-      const response = await client.models.generateContent({
-        model: GEMINI_TEXT_MODEL,
-        contents: prompt,
-        config: {
+      const response = await generateText(
+        GEMINI_TEXT_MODEL,
+        prompt,
+        {
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.OBJECT,
@@ -200,8 +291,8 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
             },
             required: ["suggestions"],
           },
-        },
-      });
+        }
+      );
 
       const responseText = response.text || "{}";
       const parsedData = JSON.parse(responseText.trim());
@@ -320,7 +411,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
       return mockPillars;
     };
 
-    if (!client) {
+    if (!client && !process.env.PIAPI_API_KEY) {
       return { pillars: getMockPillars(), isMock: true };
     }
 
@@ -336,10 +427,10 @@ Mỗi trụ cột phải có thông tin:
 
 Trả về kết quả ở định dạng JSON phù hợp chính xác với cấu trúc yêu cầu.`;
 
-      const response = await client.models.generateContent({
-        model: GEMINI_TEXT_MODEL,
-        contents: prompt,
-        config: {
+      const response = await generateText(
+        GEMINI_TEXT_MODEL,
+        prompt,
+        {
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.OBJECT,
@@ -361,8 +452,8 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
             },
             required: ["pillars"],
           },
-        },
-      });
+        }
+      );
 
       const responseText = response.text || "{}";
       const parsedData = JSON.parse(responseText.trim());
@@ -430,7 +521,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
       return concepts;
     };
 
-    if (!client) {
+    if (!client && !process.env.PIAPI_API_KEY) {
       return { concepts: getMockConcepts(), isMock: true };
     }
 
@@ -468,10 +559,10 @@ Yêu cầu kết quả đầu ra:
 
 Trả về kết quả ở định dạng JSON phù hợp chính xác với cấu trúc yêu cầu.`;
 
-      const response = await client.models.generateContent({
-        model: GEMINI_TEXT_MODEL,
-        contents: prompt,
-        config: {
+      const response = await generateText(
+        GEMINI_TEXT_MODEL,
+        prompt,
+        {
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.OBJECT,
@@ -503,8 +594,8 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
             },
             required: ["concepts"],
           },
-        },
-      });
+        }
+      );
 
       const responseText = response.text || "{}";
       const parsedData = JSON.parse(responseText.trim());
@@ -630,7 +721,7 @@ Nội dung chi tiết gợi ý: ${suggestedContent}`;
       });
     };
 
-    if (!client) {
+    if (!client && !process.env.PIAPI_API_KEY) {
       isMock = true;
       posts = getMockPosts();
     } else {
@@ -654,10 +745,10 @@ Thông tin chiến dịch marketing:
 
 Trả về kết quả ở định dạng JSON phù hợp chính xác với cấu trúc yêu cầu.`;
 
-        const response = await client.models.generateContent({
-          model: GEMINI_TEXT_MODEL,
-          contents: prompt,
-          config: {
+        const response = await generateText(
+          GEMINI_TEXT_MODEL,
+          prompt,
+          {
             responseMimeType: "application/json",
             responseSchema: {
               type: Type.OBJECT,
@@ -688,8 +779,8 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
               },
               required: ["posts"],
             },
-          },
-        });
+          }
+        );
 
         const responseText = response.text || "{}";
         const parsedData = JSON.parse(responseText.trim());
@@ -1171,19 +1262,19 @@ Output ONLY the final detailed prompt in English.`
    */
   async optimizeScript(text: string, readingStyle: string) {
     const client = getGeminiClient();
-    if (!client) {
+    if (!client && !process.env.PIAPI_API_KEY) {
       return { optimizedText: `[Tối ưu hóa Giả lập] ${text}` };
     }
     try {
       const systemInstruction = "Bạn là chuyên gia biên soạn kịch bản và viết nội dung phát thanh radio. Hãy tối ưu hóa văn bản của người dùng để trở nên tự nhiên, cuốn hút, dễ đọc và phù hợp nhất với phong cách được yêu cầu. Trả về DUY NHẤT văn bản đã tối ưu hóa, không có thêm lời giải thích hay ký tự đặc biệt.";
-      const response = await client.models.generateContent({
-        model: GEMINI_TEXT_MODEL,
-        contents: `Phong cách: ${readingStyle || "hấp dẫn, lôi cuốn"}\nVăn bản gốc:\n${text}`,
-        config: {
+      const response = await generateText(
+        GEMINI_TEXT_MODEL,
+        `Phong cách: ${readingStyle || "hấp dẫn, lôi cuốn"}\nVăn bản gốc:\n${text}`,
+        {
           systemInstruction,
           temperature: 0.7,
         }
-      });
+      );
       return { optimizedText: response.text || text };
     } catch (error: any) {
       console.error("[geminiService.optimizeScript] Error, fallback to mock script:", error);
@@ -1208,7 +1299,7 @@ Output ONLY the final detailed prompt in English.`
       };
     };
 
-    if (!client) {
+    if (!client && !process.env.PIAPI_API_KEY) {
       return getMockImagePrompt();
     }
     try {
@@ -1228,10 +1319,10 @@ Output ONLY the final detailed prompt in English.`
       }
       parts.push({ text: `Optimize this prompt: ${description}` });
 
-      const response = await client.models.generateContent({
-        model: modelName || GEMINI_TEXT_MODEL,
-        contents: parts,
-        config: {
+      const response = await generateText(
+        modelName || GEMINI_TEXT_MODEL,
+        parts,
+        {
           systemInstruction,
           temperature: 0.7,
           responseMimeType: "application/json",
@@ -1249,7 +1340,7 @@ Output ONLY the final detailed prompt in English.`
             required: ["optimized_english_prompt"],
           }
         }
-      });
+      );
       const responseText = response.text || "{}";
       return JSON.parse(responseText.trim());
     } catch (error: any) {
@@ -1271,7 +1362,7 @@ Output ONLY the final detailed prompt in English.`
       };
     };
 
-    if (!client) {
+    if (!client && !process.env.PIAPI_API_KEY) {
       return getMockVideoPrompt();
     }
     try {
@@ -1291,10 +1382,10 @@ Output ONLY the final detailed prompt in English.`
       }
       parts.push({ text: `Optimize this prompt: ${description}` });
 
-      const response = await client.models.generateContent({
-        model: GEMINI_TEXT_MODEL,
-        contents: parts,
-        config: {
+      const response = await generateText(
+        GEMINI_TEXT_MODEL,
+        parts,
+        {
           systemInstruction,
           temperature: 0.7,
           responseMimeType: "application/json",
@@ -1308,7 +1399,7 @@ Output ONLY the final detailed prompt in English.`
             required: ["optimized_english_prompt"],
           }
         }
-      });
+      );
       const responseText = response.text || "{}";
       return JSON.parse(responseText.trim());
     } catch (error: any) {
