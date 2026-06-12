@@ -58,41 +58,40 @@ export const elevenlabsService = {
     const apiKey = process.env.ELEVENLABS_API_KEY;
 
     if (!apiKey || apiKey.trim() === "") {
-      console.log("[elevenlabsService.generateVoice] ELEVENLABS_API_KEY is not configured. Running in MOCK mode.");
-      cloudinaryUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3";
-    } else {
-      try {
-        const targetVoice = mode === "multi" ? speakerA || "Aoede" : voiceName || "Aoede";
-        const mappedVoiceId = resolveElevenLabsVoiceId(targetVoice);
-        const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${mappedVoiceId}`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "xi-api-key": apiKey.trim(),
+      throw new Error("ELEVENLABS_API_KEY is not configured.");
+    }
+
+    try {
+      const targetVoice = mode === "multi" ? speakerA || "Aoede" : voiceName || "Aoede";
+      const mappedVoiceId = resolveElevenLabsVoiceId(targetVoice);
+      const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${mappedVoiceId}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "xi-api-key": apiKey.trim(),
+        },
+        body: JSON.stringify({
+          text: textToSpeak,
+          model_id: modelName || "eleven_v3",
+          voice_settings: {
+            stability: typeof stability === "number" ? stability : 0.5,
+            similarity_boost: typeof similarityBoost === "number" ? similarityBoost : 0.75,
+            use_speaker_boost: typeof useSpeakerBoost === "boolean" ? useSpeakerBoost : true,
           },
-          body: JSON.stringify({
-            text: textToSpeak,
-            model_id: modelName || "eleven_v3",
-            voice_settings: {
-              stability: typeof stability === "number" ? stability : 0.5,
-              similarity_boost: typeof similarityBoost === "number" ? similarityBoost : 0.75,
-              use_speaker_boost: typeof useSpeakerBoost === "boolean" ? useSpeakerBoost : true,
-            },
-          }),
-        });
+        }),
+      });
 
-        if (!response.ok) {
-          const errText = await response.text();
-          throw new Error(`ElevenLabs API error: ${response.status} - ${errText}`);
-        }
-
-        const arrayBuffer = await response.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-        cloudinaryUrl = await cloudinaryService.uploadMediaBuffer(buffer, "igen_erp/marketing/voice");
-      } catch (err: any) {
-        console.warn("[elevenlabsService.generateVoice] Failed to generate voice via ElevenLabs API, falling back to mock.", err);
-        cloudinaryUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3";
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`ElevenLabs API error: ${response.status} - ${errText}`);
       }
+
+      const arrayBuffer = await response.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      cloudinaryUrl = await cloudinaryService.uploadMediaBuffer(buffer, "igen_erp/marketing/voice");
+    } catch (err: any) {
+      console.error("[elevenlabsService.generateVoice] Failed to generate voice via ElevenLabs API", err);
+      throw err;
     }
 
     const shouldSaveToHistory = saveToHistory !== false;
@@ -121,28 +120,9 @@ export const elevenlabsService = {
 
   async getVoices() {
     const apiKey = process.env.ELEVENLABS_API_KEY;
-    const mockVoices = [
-      {
-        voice_id: "Sadaltager",
-        name: "Roger (Mock)",
-        category: "cloned",
-        description: "Laid-Back, Casual, Resonant",
-        labels: { gender: "male", age: "adult", accent: "american" },
-      },
-      {
-        voice_id: "EXAVITQu4vr4xnSDxMaL",
-        name: "Bella (Mock)",
-        category: "premade",
-        description: "Soft and expressive",
-        labels: { gender: "female", age: "young", accent: "american" },
-      }
-    ];
 
     if (!apiKey || apiKey.trim() === "") {
-      return {
-        status: "success",
-        voices: mockVoices,
-      };
+      throw new Error("ELEVENLABS_API_KEY is not configured.");
     }
 
     try {
@@ -157,23 +137,16 @@ export const elevenlabsService = {
       const data = await response.json();
       return { status: "success", voices: data.voices || [] };
     } catch (err: any) {
-      console.warn("[elevenlabsService.getVoices] Failed to fetch ElevenLabs voices, falling back to mock voices.", err);
-      return { status: "success", voices: mockVoices };
+      console.error("[elevenlabsService.getVoices] Failed to fetch ElevenLabs voices", err);
+      throw err;
     }
   },
 
   async getVoice(voiceId: string) {
     const apiKey = process.env.ELEVENLABS_API_KEY;
-    const mockVoice = {
-      voice_id: voiceId,
-      name: "Mock Voice",
-      category: "premade",
-      description: "Mock voice details",
-      labels: { gender: "male", age: "adult", accent: "american" },
-    };
 
     if (!apiKey || apiKey.trim() === "") {
-      return mockVoice;
+      throw new Error("ELEVENLABS_API_KEY is not configured.");
     }
 
     try {
@@ -191,20 +164,16 @@ export const elevenlabsService = {
 
       return response.json();
     } catch (err: any) {
-      console.warn(`[elevenlabsService.getVoice] Failed to fetch voice details for ${voiceId}, falling back to mock.`, err);
-      return mockVoice;
+      console.error(`[elevenlabsService.getVoice] Failed to fetch voice details for ${voiceId}`, err);
+      throw err;
     }
   },
 
   async getVoiceSettings(voiceId: string) {
     const apiKey = process.env.ELEVENLABS_API_KEY;
-    const defaultSettings = {
-      stability: 0.5,
-      similarity_boost: 0.75,
-    };
 
     if (!apiKey || apiKey.trim() === "") {
-      return defaultSettings;
+      throw new Error("ELEVENLABS_API_KEY is not configured.");
     }
 
     try {
@@ -222,8 +191,8 @@ export const elevenlabsService = {
 
       return response.json();
     } catch (err: any) {
-      console.warn(`[elevenlabsService.getVoiceSettings] Failed to fetch settings for ${voiceId}, falling back to defaults.`, err);
-      return defaultSettings;
+      console.error(`[elevenlabsService.getVoiceSettings] Failed to fetch settings for ${voiceId}`, err);
+      throw err;
     }
   },
 
@@ -233,7 +202,7 @@ export const elevenlabsService = {
   ) {
     const apiKey = process.env.ELEVENLABS_API_KEY;
     if (!apiKey || apiKey.trim() === "") {
-      return { success: true };
+      throw new Error("ELEVENLABS_API_KEY is not configured.");
     }
 
     const resolvedVoiceId = resolveElevenLabsVoiceId(voiceId);
@@ -256,18 +225,9 @@ export const elevenlabsService = {
 
   async getModels() {
     const apiKey = process.env.ELEVENLABS_API_KEY;
-    const mockModels = [
-      { model_id: "eleven_v3", name: "Eleven v3", description: "Flagship quality (supports Vietnamese)", can_do_text_to_speech: true },
-      { model_id: "eleven_multilingual_v2", name: "Eleven Multilingual v2", description: "Balanced quality", can_do_text_to_speech: true },
-      { model_id: "eleven_flash_v2_5", name: "Eleven Flash v2.5", description: "Low latency", can_do_text_to_speech: true },
-      { model_id: "eleven_turbo_v2_5", name: "Eleven Turbo v2.5", description: "Fast and cost-efficient", can_do_text_to_speech: true },
-    ];
 
     if (!apiKey || apiKey.trim() === "") {
-      return {
-        status: "success",
-        models: mockModels,
-      };
+      throw new Error("ELEVENLABS_API_KEY is not configured.");
     }
 
     try {
@@ -286,20 +246,16 @@ export const elevenlabsService = {
       const models = (data || []).filter((model: any) => model.can_do_text_to_speech);
       return { status: "success", models };
     } catch (err: any) {
-      console.warn("[elevenlabsService.getModels] Failed to fetch ElevenLabs models, falling back to mock models.", err);
-      return { status: "success", models: mockModels };
+      console.error("[elevenlabsService.getModels] Failed to fetch ElevenLabs models", err);
+      throw err;
     }
   },
 
   async generateCustomVoicePreview(input: { gender: string; accent: string; age: string; accentStrength: number; text: string }) {
     const apiKey = process.env.ELEVENLABS_API_KEY;
-    const mockResult = {
-      generatedVoiceId: `mock-voice-id-${Date.now()}`,
-      url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
-    };
 
     if (!apiKey || apiKey.trim() === "") {
-      return mockResult;
+      throw new Error("ELEVENLABS_API_KEY is not configured.");
     }
 
     try {
@@ -333,16 +289,16 @@ export const elevenlabsService = {
       const mediaUrl = await cloudinaryService.uploadMediaBuffer(buffer, "igen_erp/marketing/voice_previews");
       return { generatedVoiceId, url: mediaUrl };
     } catch (err: any) {
-      console.warn("[elevenlabsService.generateCustomVoicePreview] Failed to generate custom voice preview, falling back to mock.", err);
-      return mockResult;
+      console.error("[elevenlabsService.generateCustomVoicePreview] Failed to generate custom voice preview", err);
+      throw err;
     }
   },
 
   async createCustomVoice(input: { voiceName: string; voiceDescription: string; generatedVoiceId: string }) {
     const apiKey = process.env.ELEVENLABS_API_KEY;
-    const mockSavedVoice = { voice_id: `mock-saved-voice-id-${Date.now()}` };
+
     if (!apiKey || apiKey.trim() === "") {
-      return mockSavedVoice;
+      throw new Error("ELEVENLABS_API_KEY is not configured.");
     }
 
     try {
@@ -367,16 +323,16 @@ export const elevenlabsService = {
       const result = await response.json();
       return { voice_id: result.voice_id };
     } catch (err: any) {
-      console.warn("[elevenlabsService.createCustomVoice] Failed to create custom voice, falling back to mock voice ID.", err);
-      return mockSavedVoice;
+      console.error("[elevenlabsService.createCustomVoice] Failed to create custom voice", err);
+      throw err;
     }
   },
 
   async addVoice(name: string, description: string, files: string[], userId?: string) {
     const apiKey = process.env.ELEVENLABS_API_KEY;
-    const mockSavedVoice = { voice_id: `mock-saved-voice-id-${Date.now()}` };
+
     if (!apiKey || apiKey.trim() === "") {
-      return mockSavedVoice;
+      throw new Error("ELEVENLABS_API_KEY is not configured.");
     }
 
     try {
@@ -413,15 +369,15 @@ export const elevenlabsService = {
 
       return response.json();
     } catch (err: any) {
-      console.warn("[elevenlabsService.addVoice] Failed to clone/add voice, falling back to mock voice ID.", err);
-      return mockSavedVoice;
+      console.error("[elevenlabsService.addVoice] Failed to clone/add voice", err);
+      throw err;
     }
   },
 
   async deleteVoice(voiceId: string) {
     const apiKey = process.env.ELEVENLABS_API_KEY;
     if (!apiKey || apiKey.trim() === "") {
-      return { success: true };
+      throw new Error("ELEVENLABS_API_KEY is not configured.");
     }
 
     try {
@@ -439,8 +395,8 @@ export const elevenlabsService = {
 
       return { success: true };
     } catch (err: any) {
-      console.warn(`[elevenlabsService.deleteVoice] Failed to delete voice ${voiceId}, returning success.`, err);
-      return { success: true };
+      console.error(`[elevenlabsService.deleteVoice] Failed to delete voice ${voiceId}`, err);
+      throw err;
     }
   },
 };
