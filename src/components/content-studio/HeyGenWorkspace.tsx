@@ -6,6 +6,7 @@ import {
   ChevronRight,
   CircleHelp,
   Download,
+  LoaderCircle,
   Pencil,
   MonitorPlay,
   Play,
@@ -23,17 +24,17 @@ type HeyGenMode = 'avatar' | 'voice' | 'prompt';
 const HEYGEN_MODEL_OPTIONS = [
   {
     id: 'Avatar V',
-    description: 'Moves like you. Motion adapts to script.',
+    description: 'Chuyển động tự nhiên theo nội dung.',
     icon: 'V',
   },
   {
     id: 'Avatar IV',
-    description: 'Generic motion that adapts to script.',
+    description: 'Chuyển động tiêu chuẩn, dễ dùng.',
     icon: 'IV',
   },
   {
     id: 'Avatar III',
-    description: 'Applies lip sync over your footage.',
+    description: 'Phiên bản cũ của HeyGen.',
     icon: 'III',
   },
 ] as const;
@@ -43,15 +44,16 @@ const HEYGEN_MODES: Array<{
   label: string;
   icon: typeof UserRound;
 }> = [
-  { id: 'avatar', label: 'Avatar Video', icon: UserRound },
-  { id: 'voice', label: 'Voice Video', icon: AudioLines },
-  { id: 'prompt', label: 'Prompt to Video', icon: Sparkles },
+  { id: 'avatar', label: 'Video avatar', icon: UserRound },
+  { id: 'voice', label: 'Video giọng đọc', icon: AudioLines },
+  { id: 'prompt', label: 'Văn bản thành video', icon: Sparkles },
 ];
 
-const TEMPLATE_OPTIONS = ['Product Launch', 'Social Ad', 'Talking Head', 'Training Clip'];
+const TEMPLATE_OPTIONS = ['Giới thiệu sản phẩm', 'Quảng cáo mạng xã hội', 'Video người nói', 'Video đào tạo'];
 const ASPECT_OPTIONS = ['16:9', '9:16', '1:1'];
 const RESOLUTION_OPTIONS = ['720p', '1080p'] as const;
 const TERMINAL_JOB_STATES = new Set(['completed', 'failed', 'error', 'canceled']);
+const HISTORY_PAGE_SIZE = 6;
 
 export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
   const [activeMode, setActiveMode] = useState<HeyGenMode>('avatar');
@@ -63,10 +65,7 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
   const [aspectRatio, setAspectRatio] = useState(ASPECT_OPTIONS[0]);
   const [template, setTemplate] = useState(TEMPLATE_OPTIONS[0]);
   const [resolution, setResolution] = useState<(typeof RESOLUTION_OPTIONS)[number]>('720p');
-  const [script, setScript] = useState(
-    initialPrompt ||
-      'Xin chao, day la video gioi thieu san pham. Trong 30 giay, hay trinh bay loi ich chinh, diem khac biet va ket thuc bang loi keu goi hanh dong ro rang.'
-  );
+  const [script, setScript] = useState(initialPrompt || '');
   const [motionText, setMotionText] = useState('');
   const [isMotionOpen, setIsMotionOpen] = useState(false);
   const [isMotionExpressive, setIsMotionExpressive] = useState(true);
@@ -81,6 +80,8 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
   const [isAvatarPickerOpen, setIsAvatarPickerOpen] = useState(false);
   const [isVoicePickerOpen, setIsVoicePickerOpen] = useState(false);
   const [isModelPickerOpen, setIsModelPickerOpen] = useState(false);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [previewVideoUrl, setPreviewVideoUrl] = useState('');
 
   const selectedAvatar = useMemo(
     () => avatars.find((avatar) => avatar.id === selectedAvatarId) || avatars[0] || null,
@@ -95,10 +96,22 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
     [selectedAvatarModel]
   );
   const activeModeLabel = HEYGEN_MODES.find((mode) => mode.id === activeMode)?.label || HEYGEN_MODES[0].label;
+  const totalHistoryPages = Math.max(1, Math.ceil(history.length / HISTORY_PAGE_SIZE));
+  const paginatedHistory = history.slice((historyPage - 1) * HISTORY_PAGE_SIZE, historyPage * HISTORY_PAGE_SIZE);
 
   useEffect(() => {
     void loadWorkspaceData();
   }, []);
+
+  useEffect(() => {
+    setHistoryPage(1);
+  }, [history.length]);
+
+  useEffect(() => {
+    if (historyPage > totalHistoryPages) {
+      setHistoryPage(totalHistoryPages);
+    }
+  }, [historyPage, totalHistoryPages]);
 
   async function loadWorkspaceData() {
     setIsLoadingLibrary(true);
@@ -112,23 +125,41 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
       if (libraryResult.status === 'fulfilled') {
         const nextAvatars = libraryResult.value.avatars || [];
         const nextVoices = libraryResult.value.voices || [];
+        const defaultAvatarId = libraryResult.value.defaults?.avatarId || '';
+        const defaultVoiceId = libraryResult.value.defaults?.voiceId || '';
 
         setAvatars(nextAvatars);
         setVoices(nextVoices);
         setWarnings(libraryResult.value.warnings || []);
-        setSelectedAvatarId((current) => current || nextAvatars[0]?.id || '');
-        setSelectedVoiceId((current) => current || nextVoices[0]?.id || '');
+        setSelectedAvatarId((current) => {
+          if (current && nextAvatars.some((avatar) => avatar.id === current)) {
+            return current;
+          }
+          if (defaultAvatarId && nextAvatars.some((avatar) => avatar.id === defaultAvatarId)) {
+            return defaultAvatarId;
+          }
+          return nextAvatars[0]?.id || '';
+        });
+        setSelectedVoiceId((current) => {
+          if (current && nextVoices.some((voice) => voice.id === current)) {
+            return current;
+          }
+          if (defaultVoiceId && nextVoices.some((voice) => voice.id === defaultVoiceId)) {
+            return defaultVoiceId;
+          }
+          return nextVoices[0]?.id || '';
+        });
       } else {
-        setErrorMessage(libraryResult.reason?.message || 'Khong the tai thu vien HeyGen');
+        setErrorMessage(libraryResult.reason?.message || 'Không thể tải thư viện HeyGen');
       }
 
       if (historyResult.status === 'fulfilled') {
         setHistory(historyResult.value.history || []);
       } else if (libraryResult.status === 'fulfilled') {
-        setErrorMessage(historyResult.reason?.message || 'Khong the tai lich su HeyGen');
+        setErrorMessage(historyResult.reason?.message || 'Không thể tải lịch sử HeyGen');
       }
     } catch (error: any) {
-      setErrorMessage(error.message || 'Khong the tai du lieu HeyGen');
+      setErrorMessage(error.message || 'Không thể tải dữ liệu HeyGen');
     } finally {
       setIsLoadingLibrary(false);
     }
@@ -172,7 +203,7 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
     }
 
     if (selectedAvatarModel === 'Avatar III') {
-      setErrorMessage('Avatar III can legacy API cua HeyGen; vui long chon Avatar IV hoac Avatar V trong luong v3 hien tai.');
+      setErrorMessage('Avatar III dùng API cũ của HeyGen. Vui lòng chọn Avatar IV hoặc Avatar V.');
       return;
     }
 
@@ -212,7 +243,7 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
       const historyRes = await heygenApi.getVideoHistory();
       setHistory(historyRes.history || []);
     } catch (error: any) {
-      setErrorMessage(error.message || 'Khong the tao video avatar');
+      setErrorMessage(error.message || 'Không thể tạo video');
       setJobStatus('failed');
     } finally {
       setIsGenerating(false);
@@ -226,7 +257,7 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
       const historyRes = await heygenApi.getVideoHistory();
       setHistory(historyRes.history || []);
     } catch (error: any) {
-      setErrorMessage(error.message || 'Khong the xoa video');
+      setErrorMessage(error.message || 'Không thể xóa video');
     }
   }
 
@@ -292,13 +323,13 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
                     }}
                     className="absolute bottom-3 left-3 rounded-full bg-slate-950/78 px-3 py-1.5 text-sm font-semibold text-white backdrop-blur-sm"
                   >
-                    Switch look
+                    Đổi avatar
                   </button>
                 </div>
 
                 {isAvatarPickerOpen ? (
                   <PickerPopover
-                    title="Chon avatar"
+                    title="Chọn avatar"
                     items={avatars}
                     selectedId={selectedAvatarId}
                     onClose={() => setIsAvatarPickerOpen(false)}
@@ -306,27 +337,27 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
                       setSelectedAvatarId(item.id);
                       setIsAvatarPickerOpen(false);
                     }}
-                    emptyLabel="Khong co avatar"
+                    emptyLabel="Không có avatar"
                   />
                 ) : null}
               </div>
 
               <div className="flex min-h-[205px] min-w-0 flex-1 flex-col pt-3">
                 <div className="mb-4 flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500">
-                  <span>Video Script</span>
+                  <span>Kịch bản video</span>
                 </div>
 
                 <textarea
                   value={script}
                   onChange={(event) => setScript(event.target.value)}
-                  placeholder="Type your script, or upload/record"
+                  placeholder="Ví dụ: Xin chào, hôm nay tôi sẽ giới thiệu nhanh về sản phẩm và lợi ích nổi bật dành cho khách hàng."
                   className="min-h-[110px] w-full flex-1 resize-none border-0 bg-transparent px-0 text-[17px] leading-8 text-slate-900 outline-none placeholder:text-slate-400 md:text-[18px]"
                 />
 
                 {isMotionOpen ? (
                   <div className="mt-4 rounded-[22px] border border-slate-200 bg-white p-4">
                     <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-900">
-                      <span>Apply Custom Motion</span>
+                      <span>Tùy chỉnh chuyển động</span>
                       <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-600">
                         Beta
                       </span>
@@ -343,7 +374,7 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
                     <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
                       <div className="inline-flex items-center gap-2 text-sm text-slate-600">
                         <Lightbulb className="h-4 w-4" />
-                        <span>More expressive</span>
+                        <span>Diễn đạt sinh động hơn</span>
                       </div>
 
                       <button
@@ -380,7 +411,7 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
 
                       {isModelPickerOpen ? (
                         <ModelSelectionPopover
-                          title="Chon model"
+                          title="Chọn mẫu chuyển động"
                           items={HEYGEN_MODEL_OPTIONS as unknown as Array<{ id: string; description: string; icon: string }>}
                           selectedValue={selectedAvatarModel}
                           onClose={() => setIsModelPickerOpen(false)}
@@ -394,7 +425,7 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
 
                     <PillButton onClick={() => setIsMotionOpen((current) => !current)}>
                       <MonitorPlay className="h-4 w-4 text-slate-500" />
-                      Motion
+                      Chuyển động
                     </PillButton>
 
                     <div className="relative">
@@ -406,13 +437,13 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
                         }}
                       >
                         <AudioLines className="h-4 w-4 text-slate-500" />
-                        <span className="max-w-[180px] truncate">{selectedVoice?.name || 'Voice'}</span>
+                        <span className="max-w-[180px] truncate">{selectedVoice?.name || 'Giọng đọc'}</span>
                         <ChevronDown className={`h-4 w-4 text-slate-400 transition ${isVoicePickerOpen ? 'rotate-180' : ''}`} />
                       </PillButton>
 
                       {isVoicePickerOpen ? (
                         <PickerPopover
-                          title="Chon voice"
+                          title="Chọn giọng đọc"
                           items={voices}
                           selectedId={selectedVoiceId}
                           onClose={() => setIsVoicePickerOpen(false)}
@@ -420,7 +451,7 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
                             setSelectedVoiceId(item.id);
                             setIsVoicePickerOpen(false);
                           }}
-                          emptyLabel="Khong co voice"
+                          emptyLabel="Không có giọng đọc"
                           className="left-0 top-[calc(100%+10px)] w-[320px]"
                           compact
                         />
@@ -446,7 +477,7 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
                       disabled={isGenerating || !script.trim() || !selectedAvatarId || !selectedVoiceId}
                       className="inline-flex h-10 items-center justify-center rounded-full bg-cyan-400 px-5 text-sm font-bold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {isGenerating ? 'Generating...' : 'Generate'}
+                      {isGenerating ? 'Đang tạo video...' : 'Tạo video'}
                     </button>
                   </div>
                 </div>
@@ -454,12 +485,72 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
                 <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
                   {jobVideoId ? (
                     <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-slate-600">
-                      Job: {jobVideoId}
+                      Mã video: {jobVideoId}
                     </span>
                   ) : null}
                   {errorMessage ? <span className="text-rose-600">{errorMessage}</span> : null}
                   {!errorMessage && warnings.length > 0 ? <span className="text-amber-600">{warnings[0]}</span> : null}
                 </div>
+
+                {(isGenerating || jobStatus || jobVideoUrl) ? (
+                  <div className="mt-5 overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm">
+                    <div className="border-b border-slate-100 bg-slate-50/80 px-4 py-3">
+                      <p className="text-sm font-semibold text-slate-900">Trạng thái tạo video</p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {jobVideoUrl
+                          ? 'Video đã sẵn sàng. Bạn có thể xem ngay bên dưới.'
+                          : isGenerating || jobStatus === 'processing'
+                            ? 'HeyGen đang xử lý video. Vui lòng chờ trong giây lát.'
+                            : 'Hệ thống đang cập nhật trạng thái video.'}
+                      </p>
+                    </div>
+
+                    {jobVideoUrl ? (
+                      <div className="space-y-3 p-4">
+                        <video
+                          src={jobVideoUrl}
+                          controls
+                          playsInline
+                          className="aspect-video w-full rounded-[18px] bg-slate-950 object-contain"
+                        />
+                        <div className="flex flex-wrap items-center gap-2">
+                          <a
+                            href={jobVideoUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center justify-center rounded-full bg-cyan-500 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-400"
+                          >
+                            Xem toàn màn hình
+                          </a>
+                          <a
+                            href={jobVideoUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            download="heygen-video"
+                            className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
+                          >
+                            Tải video
+                          </a>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-4">
+                        <div className="flex aspect-video w-full flex-col items-center justify-center rounded-[18px] bg-[radial-gradient(circle_at_top,#e0f2fe_0%,#f8fafc_52%,#e2e8f0_100%)] text-center">
+                          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/90 shadow-sm">
+                            <LoaderCircle className="h-8 w-8 animate-spin text-cyan-500" />
+                          </div>
+                          <p className="mt-4 text-base font-semibold text-slate-900">Đang tạo video</p>
+                          <p className="mt-1 max-w-md text-sm text-slate-500">
+                            Video sẽ tự xuất hiện tại đây ngay khi HeyGen xử lý xong.
+                          </p>
+                          <div className="mt-5 h-2 w-full max-w-sm overflow-hidden rounded-full bg-white/80">
+                            <div className="h-full w-1/3 animate-pulse rounded-full bg-cyan-500" />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>
@@ -467,16 +558,16 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
 
         <div className="rounded-[30px] border border-slate-200 bg-[linear-gradient(180deg,#fdfefe_0%,#f4f8fb_100%)] p-4 text-slate-900 shadow-sm md:p-5">
           <div className="mb-4 flex items-center justify-between gap-3">
-            <h4 className="text-xl font-bold tracking-tight text-slate-900">Recent Creations</h4>
+            <h4 className="text-xl font-bold tracking-tight text-slate-900">Video gần đây</h4>
             <button type="button" className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-500 transition hover:text-slate-900">
-              All Projects
+              Xem tất cả
               <ChevronRight className="h-4 w-4" />
             </button>
           </div>
 
           {history.length > 0 ? (
             <div className="space-y-4">
-              {history.slice(0, 6).map((item) => (
+              {paginatedHistory.map((item) => (
                 (() => {
                   const downloadUrl = getDownloadUrl(item);
                   const canDownload = Boolean(downloadUrl);
@@ -513,6 +604,12 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
                       <div className="absolute inset-0 z-20 flex items-center justify-center">
                         <button
                           type="button"
+                          onClick={() => {
+                            const url = getDownloadUrl(item);
+                            if (url) {
+                              setPreviewVideoUrl(url);
+                            }
+                          }}
                           className="flex h-14 w-14 items-center justify-center rounded-full border border-white/60 bg-slate-950/35 text-white backdrop-blur-sm"
                         >
                           <Play className="ml-0.5 h-5 w-5 fill-current" />
@@ -528,7 +625,7 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
                     <div>
                       <p className="line-clamp-3 text-2xl leading-tight text-slate-900">{item.prompt}</p>
                       <p className="mt-5 text-sm text-slate-500">
-                        {item.createdAt ? new Date(item.createdAt).toLocaleString('vi-VN') : 'Chua co video'} · {item.model || 'Avatar V'}
+                        {item.createdAt ? new Date(item.createdAt).toLocaleString('vi-VN') : 'Chưa có video'} · {item.model || 'Avatar V'}
                       </p>
                     </div>
 
@@ -544,7 +641,7 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
                             rel="noreferrer"
                             download={item.title || 'heygen-video'}
                             className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:text-slate-900"
-                            title="Tai video"
+                            title="Tải video"
                           >
                             <Download className="h-4 w-4" />
                           </a>
@@ -553,7 +650,7 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
                             type="button"
                             disabled
                             className="flex h-10 w-10 cursor-not-allowed items-center justify-center rounded-full border border-slate-200 bg-slate-100 text-slate-300"
-                            title="Video chua san sang de tai"
+                            title="Video chưa sẵn sàng để tải"
                           >
                             <Download className="h-4 w-4" />
                           </button>
@@ -580,14 +677,61 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
                   );
                 })()
               ))}
+
+              {totalHistoryPages > 1 ? (
+                <div className="flex flex-col gap-3 rounded-[24px] border border-slate-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm text-slate-500">
+                    Trang {historyPage}/{totalHistoryPages} · {history.length} video
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setHistoryPage((current) => Math.max(1, current - 1))}
+                      disabled={historyPage === 1}
+                      className="inline-flex h-10 items-center justify-center rounded-full border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Trước
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setHistoryPage((current) => Math.min(totalHistoryPages, current + 1))}
+                      disabled={historyPage === totalHistoryPages}
+                      className="inline-flex h-10 items-center justify-center rounded-full border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Sau
+                    </button>
+                  </div>
+                </div>
+              ) : null}
             </div>
           ) : (
             <div className="rounded-[24px] border border-slate-200 bg-white p-6 text-sm text-slate-500">
-              Chua co video HeyGen nao trong lich su.
+              Chưa có video HeyGen nào trong lịch sử.
             </div>
           )}
         </div>
       </div>
+
+      {previewVideoUrl ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-sm">
+          <div className="relative w-full max-w-5xl rounded-[28px] bg-slate-950 p-3 shadow-2xl">
+            <button
+              type="button"
+              onClick={() => setPreviewVideoUrl('')}
+              className="absolute right-5 top-5 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <video
+              src={previewVideoUrl}
+              controls
+              autoPlay
+              playsInline
+              className="aspect-video w-full rounded-[22px] bg-black object-contain"
+            />
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -731,7 +875,7 @@ function PickerPopover({
         <div className="mb-3 flex items-center justify-between gap-3 px-1">
           <div>
             <p className="text-sm font-semibold text-slate-900">{title}</p>
-            <p className="text-xs text-slate-500">Chon truc tiep tu thu vien cua ban</p>
+            <p className="text-xs text-slate-500">Chọn trực tiếp từ thư viện đã cấp</p>
           </div>
           <button
             type="button"

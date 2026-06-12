@@ -1,12 +1,12 @@
 import { FacebookIntegration, TikTokIntegration, ZaloIntegration } from "./integrations";
 import { AIChatConfig } from "./crm";
 
-export type TabType = 
-  | "TỔNG QUAN" 
-  | "NHÂN SỰ" 
-  | "KHO & SẢN PHẨM" 
-  | "MARKETING" 
-  | "SALES CRM" 
+export type TabType =
+  | "TỔNG QUAN"
+  | "NHÂN SỰ"
+  | "KHO & SẢN PHẨM"
+  | "MARKETING"
+  | "SALES CRM"
   | "HIỆU SUẤT AI"
   | "QUẢN TRỊ USER"
   | "CÀI ĐẶT";
@@ -22,8 +22,11 @@ export interface UserProfile {
   tiktokIntegration?: TikTokIntegration | null;
   zaloIntegration?: ZaloIntegration | null;
   aiAutoReplyConfig?: AIChatConfig | null;
-  
-  // Org Chart & SaaS fields
+  heygenAccess?: {
+    avatarId?: string;
+    voiceId?: string;
+    apiKey?: string;
+  } | null;
   jobTitle?: string;
   department?: string;
   phone?: string;

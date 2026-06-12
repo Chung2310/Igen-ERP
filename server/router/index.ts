@@ -13,9 +13,7 @@ import { permissionRouter } from "./permission.router";
 import { rolePermissionRouter } from "./role-permission.router";
 import { crudRouter } from "./crud.router";
 import { heygenRouter } from "./heygen.router";
-
 export const apiRouter = Router();
-
 /**
  * GET /api/v1/health
  * Health Check API để giám sát trạng thái của hệ thống

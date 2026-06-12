@@ -267,7 +267,7 @@ export const geminiController = {
    */
   async generateVideo(req: Request, res: Response) {
     try {
-      const { prompt, durationSeconds, aspectRatio, modelName, resolution, referenceVideoUri, referenceImageUris } = req.body;
+      const { prompt, durationSeconds, aspectRatio, modelName, resolution, referenceVideoUri, referenceImageUris, frameMode } = req.body;
       const userId = (req as any).user?.id;
 
       const result = await geminiService.generateVideo(prompt, durationSeconds, {
@@ -276,6 +276,7 @@ export const geminiController = {
         resolution,
         referenceVideoUri,
         referenceImageUris,
+        frameMode,
       });
 
       let record = null;

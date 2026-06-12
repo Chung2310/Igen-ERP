@@ -12,7 +12,11 @@ function getErrorStatus(error: any) {
 export const heygenController = {
   async getLibrary(req: Request, res: Response) {
     try {
-      return res.status(200).json(await heygenService.getLibrary());
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Yeu cau dang nhap" });
+      }
+      return res.status(200).json(await heygenService.getLibrary(userId));
     } catch (error: any) {
       console.error("[heygenController.getLibrary] Error:", error);
       return res.status(getErrorStatus(error)).json({ status: "error", message: "Khong the lay thu vien HeyGen", details: error.message });

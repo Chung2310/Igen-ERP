@@ -4,7 +4,7 @@ import { IAIMedia } from "../interface/ai-media.interface";
 const AIMediaSchema = new Schema<IAIMedia>({
   userId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
   mediaType: { type: String, enum: ["image", "video", "voice"], required: true, index: true },
-  url: { type: String, required: true },
+  url: { type: String, default: "" },
   prompt: { type: String, required: true },
   metadata: {
     voiceName: { type: String },

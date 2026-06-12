@@ -192,6 +192,11 @@ const registerUserSchema = {
     level: Joi.number().integer().optional(),
     department: Joi.string().optional().allow(""),
     division: Joi.string().optional().allow(""),
+    heygenAccess: Joi.object({
+      avatarId: Joi.string().optional().allow(""),
+      voiceId: Joi.string().optional().allow(""),
+      apiKey: Joi.string().optional().allow(""),
+    }).optional(),
     phone: Joi.string().pattern(vnPhoneRegex).optional().allow("").messages({
       "string.pattern.base": "Số điện thoại Việt Nam không đúng định dạng (ví dụ: 0987654321).",
     }),
@@ -249,6 +254,11 @@ const updateUserSchema = {
     division: Joi.string().optional().allow(""),
     jobTitle: Joi.string().optional().allow(""),
     displayName: Joi.string().optional().allow(""),
+    heygenAccess: Joi.object({
+      avatarId: Joi.string().optional().allow(""),
+      voiceId: Joi.string().optional().allow(""),
+      apiKey: Joi.string().optional().allow(""),
+    }).optional(),
     phone: Joi.string().pattern(vnPhoneRegex).optional().allow("").messages({
       "string.pattern.base": "Số điện thoại Việt Nam không đúng định dạng (ví dụ: 0987654321).",
     }),
