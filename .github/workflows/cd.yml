@@ -2,7 +2,7 @@ name: CD (Continuous Deployment)
 
 on:
   push:
-    branches: [ develop, main ]
+    branches: [ develop, production ]
 
 jobs:
 
@@ -90,7 +90,7 @@ jobs:
             IMAGE_TAG="$IMAGE_TAG" CONTAINER_NAME="$CONTAINER_NAME" docker compose up -d --remove-orphans
 
       - name: Copy docker-compose.yml to Production VPS
-        if: github.ref_name == 'main'
+        if: github.ref_name == 'production'
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SSH_HOST_PROD }}
@@ -101,7 +101,7 @@ jobs:
           target: "/opt/igen-erp/production"
 
       - name: Deploy via SSH to Production VPS
-        if: github.ref_name == 'main'
+        if: github.ref_name == 'production'
         uses: appleboy/ssh-action@v1.0.3
         env:
           ENV_FILE_CONTENT: ${{ secrets.ENV_FILE_PROD }}
@@ -113,7 +113,7 @@ jobs:
           envs: ENV_FILE_CONTENT
           script: |
             TARGET_DIR="/opt/igen-erp/production"
-            IMAGE_TAG="main"
+            IMAGE_TAG="production"
             CONTAINER_NAME="igen-erp-production"
 
             # Tạo thư mục đích nếu chưa tồn tại và chuyển vào
