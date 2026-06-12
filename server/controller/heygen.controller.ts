@@ -74,4 +74,25 @@ export const heygenController = {
       return res.status(getErrorStatus(error)).json({ status: "error", message: "Loi xoa lich su video HeyGen", details: error.message });
     }
   },
+
+  async receiveWebhook(req: Request, res: Response) {
+    try {
+      const token = String(
+        req.headers["x-heygen-webhook-secret"] ||
+        req.headers["x-webhook-token"] ||
+        req.query.token ||
+        ""
+      );
+
+      if (!heygenService.verifyWebhookToken(token)) {
+        return res.status(401).json({ status: "error", message: "Webhook token khong hop le" });
+      }
+
+      const result = await heygenService.processWebhook(req.body);
+      return res.status(200).json(result);
+    } catch (error: any) {
+      console.error("[heygenController.receiveWebhook] Error:", error);
+      return res.status(getErrorStatus(error)).json({ status: "error", message: "Loi xu ly webhook HeyGen", details: error.message });
+    }
+  },
 };

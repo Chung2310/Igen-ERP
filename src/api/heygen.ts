@@ -58,8 +58,10 @@ export const heygenApi = {
 
   async createAvatarVideo(input: {
     avatarId: string;
-    voiceId: string;
-    script: string;
+    voiceId?: string;
+    script?: string;
+    audioUrl?: string;
+    audioRecordId?: string;
     motionText?: string;
     aspectRatio?: "16:9" | "9:16" | "1:1";
     resolution?: "720p" | "1080p" | "4k";
@@ -79,6 +81,8 @@ export const heygenApi = {
     avatarId?: string;
     voiceId?: string;
     script?: string;
+    audioUrl?: string;
+    audioRecordId?: string;
     motionText?: string;
     aspectRatio?: string;
     title?: string;

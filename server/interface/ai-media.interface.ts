@@ -14,6 +14,10 @@ export interface IAIMedia extends Document {
     heygenVideoId?: string;
     heygenAvatarId?: string;
     heygenVoiceId?: string;
+    heygenAudioUrl?: string;
+    heygenAudioRecordId?: string;
+    heygenLastWebhookEvent?: string;
+    heygenWebhookUpdatedAt?: string;
     provider?: string;
     status?: string;
     title?: string;
