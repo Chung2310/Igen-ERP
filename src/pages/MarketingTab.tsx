@@ -87,7 +87,7 @@ export default function MarketingTab() {
   const [imageAspectRatio, setImageAspectRatio] = useState("1:1");
 
   // Video Options
-  const [videoModel, setVideoModel] = useState("veo-3.1-generate-preview");
+  const [videoModel, setVideoModel] = useState("piapi-veo31-video-audio");
   const [videoQuality, setVideoQuality] = useState("720p");
   const [videoDuration, setVideoDuration] = useState("4");
   const [videoAspectRatio, setVideoAspectRatio] = useState("16:9");
@@ -810,8 +810,8 @@ export default function MarketingTab() {
                               onChange={(e) => setImageModel(e.target.value)}
                               className="w-full text-xs p-2 border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 font-sans"
                             >
-                              <option value="nano-banana-pro">nano banana pro</option>
-                              <option value="nano-banana-2">nano banana 2</option>
+                              <option value="nano-banana-pro">iGen Image Pro</option>
+                              <option value="nano-banana-2">iGen Image Flash</option>
                             </select>
                           </div>
                           
@@ -874,9 +874,10 @@ export default function MarketingTab() {
                               onChange={(e) => setVideoModel(e.target.value)}
                               className="w-full text-xs p-2 border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 font-sans"
                             >
-                              <option value="veo-3.1-generate-preview">veo 3.1</option>
-                              <option value="veo-3.1-fast-generate-preview">veo 3.1 fast</option>
-                              <option value="veo-3.1-lite-generate-preview">veo 3.1 lite</option>
+                              <option value="piapi-veo31-video-audio">PiAPI Veo 3.1</option>
+                              <option value="piapi-veo31-video-fast-audio">PiAPI Veo 3.1 Fast</option>
+                              <option value="piapi-veo31-video-fast-no-audio">PiAPI Veo 3.1 Fast Silent</option>
+                              <option value="piapi-kling">PiAPI Kling</option>
                             </select>
                           </div>
 

@@ -75,6 +75,14 @@ function getApiKey(overrideApiKey?: string) {
   return overrideApiKey?.trim() || process.env.HEYGEN_API_KEY?.trim() || "";
 }
 
+function getDefaultAvatarId() {
+  return String(process.env.HEYGEN_DEFAULT_AVATAR_ID || "").trim();
+}
+
+function getDefaultVoiceId() {
+  return String(process.env.HEYGEN_DEFAULT_VOICE_ID || "").trim();
+}
+
 function requireApiKey(overrideApiKey?: string) {
   const apiKey = getApiKey(overrideApiKey);
   if (!apiKey) {
@@ -183,8 +191,8 @@ async function getHeyGenAccessContext(userId: string): Promise<HeyGenAccessConte
     throw new Error("Khong tim thay nguoi dung");
   }
 
-  const avatarId = String(user.heygenAccess?.avatarId || "").trim();
-  const voiceId = String(user.heygenAccess?.voiceId || "").trim();
+  const avatarId = String(user.heygenAccess?.avatarId || getDefaultAvatarId()).trim();
+  const voiceId = String(user.heygenAccess?.voiceId || getDefaultVoiceId()).trim();
   const apiKey = String(user.heygenAccess?.apiKey || "").trim();
   const warnings: string[] = [];
 
@@ -362,8 +370,12 @@ export const heygenService = {
       fetchLibraryWithCandidates("voice", accessContext.apiKey),
     ]);
 
+    const avatarPool = accessContext.allowFullLibrary
+      ? filterCustomAvatars(avatarResult.items)
+      : avatarResult.items;
+
     const filteredAvatars = filterLibraryByAccess(
-      filterCustomAvatars(avatarResult.items),
+      avatarPool,
       accessContext.avatarId,
       accessContext.allowFullLibrary
     );

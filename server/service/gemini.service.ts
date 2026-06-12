@@ -7,6 +7,46 @@ const GEMINI_TEXT_MODEL = process.env.GEMINI_MODEL || "gemini-3.5-flash";
 const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || "piapi-flux";
 const GEMINI_VIDEO_MODEL = process.env.GEMINI_VIDEO_MODEL || "piapi-kling";
 
+function normalizePiapiVideoModel(modelName?: string): string {
+  const rawModel = (modelName || GEMINI_VIDEO_MODEL || "").trim();
+  const normalizedModel = rawModel.toLowerCase();
+
+  if (
+    normalizedModel === "veo-3.1-generate-preview" ||
+    normalizedModel === "veo31-video-audio" ||
+    normalizedModel === "piapi-veo31-video-audio" ||
+    normalizedModel === "veo"
+  ) {
+    return "veo31-video-audio";
+  }
+
+  if (
+    normalizedModel === "veo-3.1-fast-generate-preview" ||
+    normalizedModel === "veo31-video-fast-audio" ||
+    normalizedModel === "piapi-veo31-video-fast-audio"
+  ) {
+    return "veo31-video-fast-audio";
+  }
+
+  if (
+    normalizedModel === "veo-3.1-lite-generate-preview" ||
+    normalizedModel === "veo31-video-fast-no-audio" ||
+    normalizedModel === "piapi-veo31-video-fast-no-audio"
+  ) {
+    return "veo31-video-fast-no-audio";
+  }
+
+  if (normalizedModel.includes("veo-3.1") || normalizedModel.includes("veo31") || normalizedModel.startsWith("veo3")) {
+    return "veo31-video-audio";
+  }
+
+  if (normalizedModel.startsWith("piapi-")) {
+    return rawModel;
+  }
+
+  return "piapi-kling";
+}
+
 async function generateText(
   model: string,
   contents: any,
@@ -840,9 +880,9 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
   ): Promise<{ url: string; isMock: boolean }> {
     let modelToUse = options?.modelName || GEMINI_IMAGE_MODEL;
     // Route all calls to PiAPI
-    if (modelToUse === "nano-banana-pro") {
+    if (modelToUse === "igen-image-pro" || modelToUse === "nano-banana-pro") {
       modelToUse = "nano-banana-pro";
-    } else if (modelToUse === "nano-banana-2") {
+    } else if (modelToUse === "igen-image-flash" || modelToUse === "nano-banana-2") {
       modelToUse = "nano-banana-2";
     } else {
       modelToUse = "nano-banana-pro";
@@ -883,19 +923,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
       // not JSON, use as is
     }
 
-    let modelToUse = options?.modelName || GEMINI_VIDEO_MODEL;
-
-    if (modelToUse.includes("veo-3.1-generate-preview")) {
-      modelToUse = "veo31-video-audio";
-    } else if (modelToUse.includes("veo-3.1-fast-generate-preview")) {
-      modelToUse = "veo31-video-fast-audio";
-    } else if (modelToUse.includes("veo-3.1-lite-generate-preview")) {
-      modelToUse = "veo31-video-fast-no-audio";
-    } else if (modelToUse.includes("veo")) {
-      modelToUse = "veo31-video-audio";
-    } else if (!modelToUse.startsWith("piapi-")) {
-      modelToUse = "piapi-kling";
-    }
+    const modelToUse = normalizePiapiVideoModel(options?.modelName);
 
     if (!process.env.PIAPI_API_KEY) {
       throw new Error("Chưa cấu hình PIAPI_API_KEY. Không thể sinh video.");
@@ -1044,17 +1072,23 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
    * Tối ưu prompt hình ảnh (cấu trúc JSON)
    */
   async optimizeImagePrompt(description: string, imageUris?: string[], modelName?: string) {
+    const normalizedDescription = String(description || "").trim();
+
     const getMockImagePrompt = () => {
       return {
-        subject: description,
+        subject: normalizedDescription || "image concept",
         clothing_material: "",
         action_pose: "",
         setting_lighting: "",
         camera_parameters: "",
-        optimized_english_prompt: `A professional studio photo representing: ${description}`,
+        optimized_english_prompt: `A professional studio photo representing: ${normalizedDescription || "the provided concept"}`,
         negative_prompt: "ugly, blurry, low quality",
       };
     };
+
+    if (!normalizedDescription) {
+      return getMockImagePrompt();
+    }
 
     if (!process.env.PIAPI_API_KEY) {
       return getMockImagePrompt();
@@ -1080,7 +1114,7 @@ Do not include markdown blocks or any text other than the JSON object.`
       ];
 
       const userContent: any[] = [
-        { type: "text", text: `Optimize this prompt: ${description}` }
+        { type: "text", text: `Optimize this prompt: ${normalizedDescription}` }
       ];
 
       if (imageUris && imageUris.length > 0) {
@@ -1115,8 +1149,8 @@ Do not include markdown blocks or any text other than the JSON object.`
       const content = response.choices?.[0]?.message?.content || "{}";
       return JSON.parse(content.trim());
     } catch (error: any) {
-      console.error("[geminiService.optimizeImagePrompt] PiAPI Error:", error);
-      throw error;
+      console.error("[geminiService.optimizeImagePrompt] PiAPI Error, fallback to local optimizer:", error);
+      return getMockImagePrompt();
     }
   },
 
@@ -1124,14 +1158,16 @@ Do not include markdown blocks or any text other than the JSON object.`
    * Tối ưu prompt video (cấu trúc JSON)
    */
   async optimizeVideoPrompt(description: string, imageUris?: string[]) {
+    const normalizedDescription = String(description || "").trim();
+
     const getMockVideoPrompt = () => {
-      const text = description.toLowerCase().trim();
-      const isEnglish = !/[àáảãạăắằẳẵặâấầẩẫậèéẻẽẹêếềểễệđìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵ]/i.test(description);
+      const text = normalizedDescription.toLowerCase().trim();
+      const isEnglish = !/[àáảãạăắằẳẵặâấầẩẫậèéẻẽẹêếềểễệđìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵ]/i.test(normalizedDescription);
       if (isEnglish) {
         return {
           motion_analysis: "smooth cinematic motion of the subject",
           camera_movement: "slow pan, dynamic focus tracking",
-          optimized_english_prompt: `A high quality cinematic video representing: ${description}`,
+          optimized_english_prompt: `A high quality cinematic video representing: ${normalizedDescription || "the provided concept"}`,
         };
       }
 
@@ -1189,7 +1225,7 @@ Do not include markdown blocks or any text other than the JSON object.`
       if (detectedKeywords.length > 0) {
         englishSubject = detectedKeywords.join(", ");
       } else {
-        const cleanText = description
+        const cleanText = normalizedDescription
           .replace(/tiến hành/gi, "")
           .replace(/tạo 1/gi, "")
           .replace(/tạo một/gi, "")
@@ -1235,6 +1271,14 @@ Do not include markdown blocks or any text other than the JSON object.`
       };
     };
 
+    if (!normalizedDescription) {
+      return {
+        motion_analysis: "smooth cinematic motion of the subject",
+        camera_movement: "slow pan, dynamic focus tracking",
+        optimized_english_prompt: "A high quality cinematic video with clear subject focus and natural movement.",
+      };
+    }
+
     if (!process.env.PIAPI_API_KEY) {
       return getMockVideoPrompt();
     }
@@ -1255,7 +1299,7 @@ Do not include markdown blocks or any text other than the JSON object.`
       ];
 
       const userContent: any[] = [
-        { type: "text", text: `Optimize this prompt: ${description}` }
+        { type: "text", text: `Optimize this prompt: ${normalizedDescription}` }
       ];
 
       if (imageUris && imageUris.length > 0) {
@@ -1290,8 +1334,8 @@ Do not include markdown blocks or any text other than the JSON object.`
       const content = response.choices?.[0]?.message?.content || "{}";
       return JSON.parse(content.trim());
     } catch (error: any) {
-      console.error("[geminiService.optimizeVideoPrompt] PiAPI Error:", error);
-      throw error;
+      console.error("[geminiService.optimizeVideoPrompt] PiAPI Error, fallback to local optimizer:", error);
+      return getMockVideoPrompt();
     }
   },
 

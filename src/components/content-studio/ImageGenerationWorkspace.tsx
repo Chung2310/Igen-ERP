@@ -177,7 +177,7 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved }
     setGeneratedImageUrl(null);
 
     try {
-      const modelLabel = imageModel.startsWith('piapi-') ? 'PiAPI' : 'Google Imagen';
+      const modelLabel = imageModel.startsWith('igen-') ? 'iGen Image' : 'PiAPI';
       toast.success(`Bắt đầu gửi lệnh sinh ảnh lên ${modelLabel}...`);
       const response = await geminiApi.generateImage(finalPrompt, {
         aspectRatio,
@@ -366,40 +366,25 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved }
               value={imageModel}
               onChange={(e) => setImageModel(e.target.value)}
             >
-              <option value="nano-banana-pro">nano banana pro</option>
-              <option value="nano-banana-2">nano banana 2</option>
+              <option value="nano-banana-pro">iGen Image Pro</option>
+              <option value="nano-banana-2">iGen Image Flash</option>
             </select>
           </div>
 
-          {/* Section 6: Tỷ lệ khung hình & Số lượng ảnh */}
-          <div className="grid grid-cols-2 gap-3 border-t border-slate-100 pt-3">
-            <div className="flex flex-col gap-1.5">
-              <span className="text-[11px] font-bold text-slate-600 uppercase">Tỷ lệ khung hình</span>
-              <select
-                className="w-full text-xs p-2 border border-slate-200 bg-white rounded-lg focus:outline-none"
-                value={aspectRatio}
-                onChange={(e) => setAspectRatio(e.target.value)}
-              >
-                <option value="1:1">1:1 (Vuông)</option>
-                <option value="16:9">16:9 (Ngang)</option>
-                <option value="9:16">9:16 (Dọc)</option>
-                <option value="4:3">4:3 (Ngang)</option>
-                <option value="3:4">3:4 (Dọc)</option>
-              </select>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <span className="text-[11px] font-bold text-slate-600 uppercase">Số lượng ảnh</span>
-              <select
-                className="w-full text-xs p-2 border border-slate-200 bg-white rounded-lg focus:outline-none"
-                defaultValue="1"
-              >
-                <option value="1">1 ảnh</option>
-                <option value="2">2 ảnh</option>
-                <option value="3">3 ảnh</option>
-                <option value="4">4 ảnh</option>
-              </select>
-            </div>
+          {/* Section 6: T??? l??? khung h??nh */}
+          <div className="flex flex-col gap-1.5 border-t border-slate-100 pt-3">
+            <span className="text-[11px] font-bold text-slate-600 uppercase">Tỉ lệ khung hình</span>
+            <select
+              className="w-full text-xs p-2 border border-slate-200 bg-white rounded-lg focus:outline-none"
+              value={aspectRatio}
+              onChange={(e) => setAspectRatio(e.target.value)}
+            >
+              <option value="1:1">1:1 (Vuông)</option>
+              <option value="16:9">16:9 (Ngang)</option>
+              <option value="9:16">9:16 (Dọc)</option>
+              <option value="4:3">4:3 (Ngang)</option>
+              <option value="3:4">3:4 (Dọc)</option>
+            </select>
           </div>
 
           {/* Section 7: Độ phân giải */}
