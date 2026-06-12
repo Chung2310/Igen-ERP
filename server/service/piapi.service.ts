@@ -321,6 +321,7 @@ export const piapiService = {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "Authorization": `Bearer ${PIAPI_API_KEY}`,
         "x-api-key": PIAPI_API_KEY,
       },
       body: JSON.stringify(body),

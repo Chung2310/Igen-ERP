@@ -199,6 +199,7 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
 
   async function handleGenerate() {
     if (!selectedAvatarId || !selectedVoiceId || !script.trim()) {
+      setErrorMessage('Vui long chon avatar, giong doc va nhap kich ban truoc khi tao video.');
       return;
     }
 

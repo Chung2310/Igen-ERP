@@ -4,27 +4,11 @@ import { geminiApi } from '../../api/gemini';
 import { toast } from '../../pages/Toast';
 import {
   Loader2, UploadCloud, Video, Download, Play, Sparkles,
-  Images, Settings, X, ImageIcon, Trash2, Wand2, Film,
+  Images, Settings, X, Trash2, Wand2,
   ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { marketingService } from '../../services/marketingService';
-
-const MODEL_OPTIONS = [
-  { value: 'veo-3.1-generate-preview', label: 'veo 3.1', desc: 'Tốc độ nhanh, chất lượng tốt' },
-  { value: 'veo-3.1-fast-generate-preview', label: 'veo 3.1 fast', desc: 'Tối ưu hiệu năng' },
-  { value: 'veo-3.1-lite-generate-preview', label: 'veo 3.1 lite', desc: 'Siêu nhanh, tiết kiệm chi phí' },
-];
-
-const DURATION_OPTIONS = [
-  { value: '4', label: '4 giây' },
-  { value: '6', label: '6 giây' },
-  { value: '8', label: '8 giây' },
-];
-
-const QUALITY_OPTIONS = [
-  { value: '1080p', label: '1080p (Full HD)' },
-  { value: '720p', label: '720p (HD)' },
-];
+import { VeoSettingsPanel } from './VeoSettingsPanel';
 
 const VIDEO_TEMPLATES = [
   { id: 'none', label: 'Tùy chỉnh (Tự nhập)', prompt: '' },
@@ -60,7 +44,7 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved }: {
   const [afterImage, setAfterImage] = useState<string | null>(null);
 
   // Video Settings
-  const [videoModel, setVideoModel] = useState('veo-3.1-generate-preview');
+  const [videoModel, setVideoModel] = useState('piapi-veo31-video-audio');
   const [videoAspectRatio, setVideoAspectRatio] = useState('16:9');
   const [videoDuration, setVideoDuration] = useState('4');
   const [videoQuality, setVideoQuality] = useState('720p'); // 1080p requires duration >= 6s
@@ -124,8 +108,33 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved }: {
     return () => clearInterval(interval);
   }, [history]);
 
-  const loadHistory = async () => {
-    setIsLoadingHistory(true);
+  useEffect(() => {
+    if (!generatedVideoUrl || !generatedVideoUrl.startsWith('pending://piapi/')) {
+      return;
+    }
+
+    const pendingTaskId = generatedVideoUrl.replace('pending://piapi/', '');
+    const matchedRecord = history.find((item) => item?.metadata?.piapiTaskId === pendingTaskId);
+
+    if (!matchedRecord) {
+      return;
+    }
+
+    if (matchedRecord.url && !matchedRecord.url.startsWith('pending://')) {
+      setGeneratedVideoUrl(matchedRecord.url);
+      return;
+    }
+
+    if (matchedRecord.metadata?.status === 'failed' || matchedRecord.metadata?.status === 'timeout') {
+      setGeneratedVideoUrl(null);
+      toast.error('Video render khong thanh cong. Vui long thu lai voi prompt khac.');
+    }
+  }, [generatedVideoUrl, history]);
+
+  const loadHistory = async (showLoading: boolean = true) => {
+    if (showLoading) {
+      setIsLoadingHistory(true);
+    }
     try {
       const response = await geminiApi.getMediaHistory("video");
       setHistory(response.history || []);
@@ -133,7 +142,9 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved }: {
       console.error(e);
       toast.error("Không thể tải lịch sử video");
     } finally {
-      setIsLoadingHistory(false);
+      if (showLoading) {
+        setIsLoadingHistory(false);
+      }
     }
   };
 
@@ -190,7 +201,7 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved }: {
     setGeneratedVideoUrl(null);
 
     try {
-      const modelLabel = videoModel.startsWith('piapi-') ? 'PiAPI' : 'Google Veo';
+      const modelLabel = videoModel.startsWith('piapi-') ? 'PiAPI' : 'Video AI';
       toast.success(`Đang gửi lệnh tạo video lên ${modelLabel}. Quá trình này có thể mất vài phút...`);
 
       const inputImageUris = activeMode === 'standard'
@@ -207,6 +218,7 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved }: {
 
       if (response.url) {
         setGeneratedVideoUrl(response.url);
+        setIsGenerating(false);
 
         if (response.url.startsWith('pending://')) {
           toast.success('Yêu cầu tạo video đã gửi! Đang xử lý ở chế độ nền.');
@@ -228,7 +240,7 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved }: {
           toast.success('Tạo video AI thành công!');
         }
 
-        loadHistory();
+        loadHistory(false);
       }
     } catch (e: any) {
       console.error(e);
@@ -508,73 +520,16 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved }: {
             )}
           </div>
 
-          {/* AI Model */}
-          <div className="flex flex-col gap-1 border-t border-slate-100 pt-3.5">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Mô hình tạo video</span>
-            <select
-              value={videoModel}
-              onChange={(e) => setVideoModel(e.target.value)}
-              className="w-full text-xs p-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none cursor-pointer font-medium text-slate-800"
-            >
-              <option value="veo-3.1-generate-preview">veo 3.1</option>
-              <option value="veo-3.1-fast-generate-preview">veo 3.1 fast</option>
-              <option value="veo-3.1-lite-generate-preview">veo 3.1 lite</option>
-            </select>
-          </div>
-
-          {/* Aspect Ratio and Duration */}
-          <div className="grid grid-cols-2 gap-3 border-t border-slate-100 pt-3.5">
-            <div className="flex flex-col gap-1">
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Khung hình</span>
-              <select
-                value={videoAspectRatio}
-                onChange={(e) => setVideoAspectRatio(e.target.value)}
-                className="w-full text-xs p-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none cursor-pointer font-medium text-slate-800"
-              >
-                <option value="16:9">16:9 Ngang</option>
-                <option value="9:16">9:16 Dọc</option>
-              </select>
-            </div>
-            <div className="flex flex-col gap-1">
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Thời lượng</span>
-              <select
-                value={videoDuration}
-                onChange={(e) => handleDurationChange(e.target.value)}
-                className="w-full text-xs p-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none cursor-pointer font-medium text-slate-800"
-              >
-                {DURATION_OPTIONS.map(opt => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Resolution Selection */}
-          <div className="flex flex-col gap-1.5 border-t border-slate-100 pt-3.5">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Độ phân giải</span>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => handleQualityChange('1080p')}
-                className={`py-2 text-xs font-bold rounded-xl border transition-all cursor-pointer ${videoQuality === '1080p'
-                    ? 'border-[#0891b2] bg-white text-[#0891b2] shadow-xs'
-                    : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
-                  }`}
-              >
-                1080p
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQualityChange('720p')}
-                className={`py-2 text-xs font-bold rounded-xl border transition-all cursor-pointer ${videoQuality === '720p'
-                    ? 'border-[#0891b2] bg-white text-[#0891b2] shadow-xs'
-                    : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
-                  }`}
-              >
-                720p
-              </button>
-            </div>
-          </div>
+          <VeoSettingsPanel
+            videoModel={videoModel}
+            videoAspectRatio={videoAspectRatio}
+            videoDuration={videoDuration}
+            videoQuality={videoQuality}
+            onVideoModelChange={setVideoModel}
+            onAspectRatioChange={setVideoAspectRatio}
+            onDurationChange={handleDurationChange}
+            onQualityChange={handleQualityChange}
+          />
 
           {/* Submit Button */}
           <button

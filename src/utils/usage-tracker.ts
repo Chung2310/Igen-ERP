@@ -10,22 +10,28 @@ export const PRICING_TABLE: Record<string, {
   category: 'video' | 'audio' | 'image' | 'text';
   note?: string;
 }> = {
-  'veo-3.1-generate-preview': {
+  'piapi-veo31-video-audio': {
     costPerUnitUSD: 81.0,
     unit: 'seconds',
-    label: 'iGen Veo 3.1',
+    label: 'PiAPI Veo 3.1',
     category: 'video',
   },
-  'veo-3.1-fast-generate-preview': {
+  'piapi-veo31-video-fast-audio': {
     costPerUnitUSD: 40.5,
     unit: 'seconds',
-    label: 'iGen Veo 3.1 Fast',
+    label: 'PiAPI Veo 3.1 Fast',
     category: 'video',
   },
-  'veo-3.1-lite-generate-preview': {
+  'piapi-veo31-video-fast-no-audio': {
     costPerUnitUSD: 20.25,
     unit: 'seconds',
-    label: 'iGen Veo 3.1 Lite',
+    label: 'PiAPI Veo 3.1 Fast Silent',
+    category: 'video',
+  },
+  'piapi-kling': {
+    costPerUnitUSD: 18.0,
+    unit: 'seconds',
+    label: 'PiAPI Kling',
     category: 'video',
   },
   'gemini-2.5-flash-preview-tts': {
@@ -91,13 +97,13 @@ export const PRICING_TABLE: Record<string, {
   'nano-banana-pro': {
     costPerUnitUSD: 27.5,
     unit: 'count',
-    label: 'nano banana pro',
+    label: 'iGen Image Pro',
     category: 'image',
   },
   'nano-banana-2': {
     costPerUnitUSD: 13.75,
     unit: 'count',
-    label: 'nano banana 2',
+    label: 'iGen Image Flash',
     category: 'image',
   },
 };
