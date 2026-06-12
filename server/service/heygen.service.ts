@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import mongoose from "mongoose";
 import { AIMediaModel } from "../model/ai-media.model";
+import { UserModel } from "../model/user.model";
 
 type HeyGenLibraryItem = {
   id: string;
@@ -11,6 +12,14 @@ type HeyGenLibraryItem = {
   accent?: string;
   isDefault?: boolean;
   isCustom?: boolean;
+};
+
+type HeyGenAccessContext = {
+  avatarId: string;
+  voiceId: string;
+  apiKey: string;
+  allowFullLibrary: boolean;
+  warnings: string[];
 };
 
 type HeyGenRemoteVideo = {
@@ -48,6 +57,7 @@ type CreateAvatarVideoInput = {
 };
 
 const HEYGEN_API_BASE = "https://api.heygen.com";
+const ACTIVE_VIDEO_STATUSES = new Set(["processing", "pending", "queued", "waiting", "in_progress", "rendering"]);
 
 class HeyGenApiError extends Error {
   statusCode: number;
@@ -61,14 +71,14 @@ class HeyGenApiError extends Error {
   }
 }
 
-function getApiKey() {
-  return process.env.HEYGEN_API_KEY?.trim() || "";
+function getApiKey(overrideApiKey?: string) {
+  return overrideApiKey?.trim() || process.env.HEYGEN_API_KEY?.trim() || "";
 }
 
-function requireApiKey() {
-  const apiKey = getApiKey();
+function requireApiKey(overrideApiKey?: string) {
+  const apiKey = getApiKey(overrideApiKey);
   if (!apiKey) {
-    throw new Error("HEYGEN_API_KEY chua duoc cau hinh");
+    throw new Error("Chưa cấu hình khóa API HeyGen");
   }
   return apiKey;
 }
@@ -91,8 +101,8 @@ async function parseHeyGenResponse(response: Response, fallbackMessage: string) 
   return parsed ?? {};
 }
 
-async function requestHeyGenJson(path: string, init?: RequestInit) {
-  const apiKey = requireApiKey();
+async function requestHeyGenJson(path: string, init?: RequestInit, overrideApiKey?: string) {
+  const apiKey = requireApiKey(overrideApiKey);
   const response = await fetch(`${HEYGEN_API_BASE}${path}`, {
     ...init,
     headers: {
@@ -164,7 +174,47 @@ function filterCustomAvatars(items: HeyGenLibraryItem[]) {
   return customOnly.length > 0 ? customOnly : items;
 }
 
-async function fetchLibraryWithCandidates(type: "avatar" | "voice") {
+async function getHeyGenAccessContext(userId: string): Promise<HeyGenAccessContext> {
+  const user = await UserModel.findById(userId)
+    .select("role heygenAccess")
+    .lean();
+
+  if (!user) {
+    throw new Error("Khong tim thay nguoi dung");
+  }
+
+  const avatarId = String(user.heygenAccess?.avatarId || "").trim();
+  const voiceId = String(user.heygenAccess?.voiceId || "").trim();
+  const apiKey = String(user.heygenAccess?.apiKey || "").trim();
+  const warnings: string[] = [];
+
+  const allowFullLibrary = false;
+  if (!avatarId || !voiceId) {
+    warnings.push("Tài khoản này chưa được gán đủ avatar và giọng đọc HeyGen.");
+  }
+
+  return {
+    avatarId,
+    voiceId,
+    apiKey,
+    allowFullLibrary,
+    warnings,
+  };
+}
+
+function filterLibraryByAccess(items: HeyGenLibraryItem[], selectedId: string, allowFullLibrary: boolean) {
+  if (allowFullLibrary) {
+    return items;
+  }
+
+  if (!selectedId) {
+    return [];
+  }
+
+  return items.filter((item) => String(item.id) === selectedId);
+}
+
+async function fetchLibraryWithCandidates(type: "avatar" | "voice", overrideApiKey?: string) {
   const candidates = type === "avatar"
     ? ["/v2/avatars", "/v1/avatars", "/v2/avatar.list", "/v1/avatar.list"]
     : ["/v2/voices", "/v1/voices", "/v2/voice.list", "/v1/voice.list"];
@@ -173,7 +223,7 @@ async function fetchLibraryWithCandidates(type: "avatar" | "voice") {
 
   for (const path of candidates) {
     try {
-      const payload = await requestHeyGenJson(path);
+      const payload = await requestHeyGenJson(path, undefined, overrideApiKey);
       const normalized = normalizeLibraryItems(payload, type);
       if (normalized.length > 0) {
         return { items: normalized, source: path };
@@ -214,9 +264,10 @@ async function upsertVideoRecord(userId: string, payload: {
     title: payload.title,
     description: payload.motionText ? [payload.description, `Motion: ${payload.motionText}`].filter(Boolean).join(" | ") : payload.description,
   };
+  const fallbackUrl = payload.videoUrl || `pending://heygen/${payload.videoId}`;
 
   if (existing) {
-    existing.url = payload.videoUrl || existing.url;
+    existing.url = payload.videoUrl || existing.url || fallbackUrl;
     existing.prompt = payload.script || existing.prompt;
     existing.metadata = {
       ...existing.metadata,
@@ -229,7 +280,7 @@ async function upsertVideoRecord(userId: string, payload: {
   return AIMediaModel.create({
     userId,
     mediaType: "video",
-    url: payload.videoUrl || "",
+    url: fallbackUrl,
     prompt: payload.script,
     metadata,
   });
@@ -282,6 +333,10 @@ function normalizeHeyGenVideo(video: any, localRecord?: any): HeyGenRemoteVideo 
   };
 }
 
+function isActiveLocalVideoStatus(status: any) {
+  return ACTIVE_VIDEO_STATUSES.has(String(status || "").toLowerCase());
+}
+
 async function deleteLocalVideoRecord(userId: string, videoId: string) {
   const filters: any[] = [{ "metadata.heygenVideoId": videoId }];
 
@@ -292,7 +347,6 @@ async function deleteLocalVideoRecord(userId: string, videoId: string) {
   const result = await AIMediaModel.deleteMany({
     userId,
     mediaType: "video",
-    "metadata.provider": "heygen",
     $or: filters,
   });
 
@@ -300,34 +354,61 @@ async function deleteLocalVideoRecord(userId: string, videoId: string) {
 }
 
 export const heygenService = {
-  async getLibrary() {
-    requireApiKey();
-
+  async getLibrary(userId: string) {
+    const accessContext = await getHeyGenAccessContext(userId);
+    requireApiKey(accessContext.apiKey);
     const [avatarResult, voiceResult] = await Promise.all([
-      fetchLibraryWithCandidates("avatar"),
-      fetchLibraryWithCandidates("voice"),
+      fetchLibraryWithCandidates("avatar", accessContext.apiKey),
+      fetchLibraryWithCandidates("voice", accessContext.apiKey),
     ]);
 
-    const filteredAvatars = filterCustomAvatars(avatarResult.items);
+    const filteredAvatars = filterLibraryByAccess(
+      filterCustomAvatars(avatarResult.items),
+      accessContext.avatarId,
+      accessContext.allowFullLibrary
+    );
+    const filteredVoices = filterLibraryByAccess(
+      voiceResult.items,
+      accessContext.voiceId,
+      accessContext.allowFullLibrary
+    );
 
     return {
       status: "success",
       avatars: filteredAvatars,
-      voices: voiceResult.items,
+      voices: filteredVoices,
       sources: {
         avatars: avatarResult.source,
         voices: voiceResult.source,
       },
-      warnings: [],
+      warnings: accessContext.warnings,
+      defaults: {
+        avatarId: accessContext.avatarId,
+        voiceId: accessContext.voiceId,
+      },
     };
   },
 
   async createAvatarVideo(userId: string, input: CreateAvatarVideoInput) {
-    const apiKey = requireApiKey();
+    const accessContext = await getHeyGenAccessContext(userId);
+    const apiKey = requireApiKey(accessContext.apiKey);
     const { avatarId, voiceId, script, motionText, aspectRatio, resolution, engineType, title, description } = input;
 
     if (engineType === "avatar_iii") {
       throw new HeyGenApiError("Avatar III can dung legacy API cua HeyGen; luong v3 hien tai chi ho tro Avatar IV/V.", 400);
+    }
+
+    if (!accessContext.allowFullLibrary) {
+      const isAllowedAvatar = accessContext.avatarId === avatarId;
+      const isAllowedVoice = accessContext.voiceId === voiceId;
+
+      if (!isAllowedAvatar) {
+        throw new HeyGenApiError("Avatar này không được cấp cho tài khoản hiện tại.", 403);
+      }
+
+      if (!isAllowedVoice) {
+        throw new HeyGenApiError("Giọng đọc này không được cấp cho tài khoản hiện tại.", 403);
+      }
     }
 
     const requestBody: Record<string, any> = {
@@ -367,11 +448,11 @@ export const heygenService = {
       body: JSON.stringify(requestBody),
     });
 
-    const data = await parseHeyGenResponse(response, "Khong the tao HeyGen avatar video");
+    const data = await parseHeyGenResponse(response, "Không thể tạo video HeyGen");
     const videoId = data?.data?.video_id || data?.video_id || data?.id;
 
     if (!videoId) {
-      throw new Error("HeyGen khong tra ve video_id");
+      throw new Error("HeyGen không trả về video_id");
     }
 
     const record = await upsertVideoRecord(userId, {
@@ -397,13 +478,14 @@ export const heygenService = {
   },
 
   async getVideoStatus(userId: string, videoId: string, context?: Partial<CreateAvatarVideoInput>) {
-    const data = await requestHeyGenJson(`/v3/videos/${encodeURIComponent(videoId)}`);
+    const accessContext = await getHeyGenAccessContext(userId);
+    const data = await requestHeyGenJson(`/v3/videos/${encodeURIComponent(videoId)}`, undefined, accessContext.apiKey);
     const normalized = normalizeStatusPayload(data);
 
     const record = await upsertVideoRecord(userId, {
       videoId,
       videoUrl: normalized.videoUrl || undefined,
-      script: context?.script || "HeyGen avatar video",
+      script: context?.script || "Video HeyGen",
       motionText: context?.motionText,
       avatarId: context?.avatarId,
       voiceId: context?.voiceId,
@@ -426,37 +508,62 @@ export const heygenService = {
   },
 
   async getVideoHistory(userId: string) {
-    requireApiKey();
-
-    const payload = await requestHeyGenJson("/v3/videos?limit=50");
-    const remoteVideos = Array.isArray(payload?.data) ? payload.data : [];
-
+    const accessContext = await getHeyGenAccessContext(userId);
+    requireApiKey(accessContext.apiKey);
     const localRecords = await AIMediaModel.find({
       userId,
       mediaType: "video",
-      "metadata.provider": "heygen",
+      $or: [
+        { "metadata.provider": "heygen" },
+        { "metadata.heygenVideoId": { $exists: true, $ne: "" } },
+      ],
     })
       .lean();
+    const refreshedHistory = await Promise.all(localRecords.map(async (record: any): Promise<HeyGenRemoteVideo | null> => {
+      const localVideoId = String(record?.metadata?.heygenVideoId || record?._id || "");
+      const localStatus = String(record?.metadata?.status || "").toLowerCase();
 
-    const localByVideoId = new Map(
-      localRecords
-        .map((record: any) => [String(record?.metadata?.heygenVideoId || ""), record] as const)
-        .filter(([videoId]) => Boolean(videoId))
-    );
+      if (!localVideoId) {
+        return normalizeHeyGenVideo(null, record);
+      }
 
-    const mappedRemoteVideos = remoteVideos.map((video: any): HeyGenRemoteVideo => (
-      normalizeHeyGenVideo(video, localByVideoId.get(String(video?.id || "")))
-    ));
+      try {
+        const remotePayload = await requestHeyGenJson(`/v3/videos/${encodeURIComponent(localVideoId)}`, undefined, accessContext.apiKey);
+        const remoteVideo = remotePayload?.data || remotePayload;
+        const normalized = normalizeStatusPayload(remotePayload);
 
-    const remoteIds = new Set(mappedRemoteVideos.map((video) => video.videoId).filter(Boolean));
-    const localOnlyVideos = localRecords
-      .filter((record: any) => {
-        const localVideoId = String(record?.metadata?.heygenVideoId || record?._id || "");
-        return localVideoId && !remoteIds.has(localVideoId);
-      })
-      .map((record: any): HeyGenRemoteVideo => normalizeHeyGenVideo(null, record));
+        await AIMediaModel.updateOne(
+          { _id: record._id },
+          {
+            $set: {
+              url: normalized.videoUrl || record.url || "",
+              "metadata.status": normalized.jobStatus,
+            },
+          }
+        );
 
-    return [...mappedRemoteVideos, ...localOnlyVideos].sort((a, b) => {
+        return normalizeHeyGenVideo(remoteVideo, {
+          ...record,
+          url: normalized.videoUrl || record.url || "",
+          metadata: {
+            ...record.metadata,
+            status: normalized.jobStatus,
+          },
+        });
+      } catch (error: any) {
+        const message = String(error?.message || "");
+        const isAlreadyGone = error?.statusCode === 404 || /not found/i.test(message);
+
+        if (isAlreadyGone && !isActiveLocalVideoStatus(localStatus)) {
+          await AIMediaModel.deleteOne({ _id: record._id });
+          return null;
+        }
+
+        return normalizeHeyGenVideo(null, record);
+      }
+    }));
+
+    return refreshedHistory.filter(Boolean).sort((a: any, b: any) => {
       const left = a.createdAt ? new Date(a.createdAt).getTime() : 0;
       const right = b.createdAt ? new Date(b.createdAt).getTime() : 0;
       return right - left;
@@ -464,11 +571,11 @@ export const heygenService = {
   },
 
   async deleteVideoHistory(userId: string, videoId: string) {
-    requireApiKey();
+    const accessContext = await getHeyGenAccessContext(userId);
+    requireApiKey(accessContext.apiKey);
     const localRecord = await AIMediaModel.findOne({
       userId,
       mediaType: "video",
-      "metadata.provider": "heygen",
       $or: [
         { "metadata.heygenVideoId": videoId },
         ...(mongoose.Types.ObjectId.isValid(videoId) ? [{ _id: videoId }] : []),
@@ -481,7 +588,7 @@ export const heygenService = {
       try {
         await requestHeyGenJson(`/v3/videos/${encodeURIComponent(remoteVideoId)}`, {
           method: "DELETE",
-        });
+        }, accessContext.apiKey);
         remoteDeleted = true;
       } catch (error: any) {
         const message = String(error?.message || "");

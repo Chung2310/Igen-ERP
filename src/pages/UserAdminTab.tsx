@@ -3,7 +3,7 @@ import { useAuth } from "../context/AuthContext";
 import { authService } from "../services/authService";
 import { UserProfile } from "../types";
 import { toast } from "./Toast";
-import { Users, Shield, RefreshCw, Plus, Building2, Mail, Lock, User, X } from "lucide-react";
+import { Users, Shield, RefreshCw, Plus, Building2, Mail, Lock, User, X, SlidersHorizontal } from "lucide-react";
 import { parseFirebaseError } from "../utils/firebaseErrorParser";
 import { rolePermissionService, RolePermission, Permission } from "../services/rolePermissionService";
 
@@ -39,7 +39,16 @@ export default function UserAdminTab() {
   const [userCompanyCode, setUserCompanyCode] = useState<string>("");
   const [userParentId, setUserParentId] = useState<string>("");
   const [userDepartment, setUserDepartment] = useState("");
+  const [userHeyGenAvatarId, setUserHeyGenAvatarId] = useState("");
+  const [userHeyGenVoiceId, setUserHeyGenVoiceId] = useState("");
+  const [userHeyGenApiKey, setUserHeyGenApiKey] = useState("");
   const [submittingUser, setSubmittingUser] = useState(false);
+  const [isHeyGenModalOpen, setIsHeyGenModalOpen] = useState(false);
+  const [editingHeyGenUser, setEditingHeyGenUser] = useState<UserProfile | null>(null);
+  const [editingHeyGenAvatarId, setEditingHeyGenAvatarId] = useState("");
+  const [editingHeyGenVoiceId, setEditingHeyGenVoiceId] = useState("");
+  const [editingHeyGenApiKey, setEditingHeyGenApiKey] = useState("");
+  const [savingHeyGenAccess, setSavingHeyGenAccess] = useState(false);
 
   // Sub-tabs State
   const [activeTab, setActiveTab] = useState<"users" | "roles">("users");
@@ -362,7 +371,13 @@ export default function UserAdminTab() {
         userParentId || undefined,
         managerProfile?.level,
         userDepartment.trim() || undefined,
-        userDepartment.trim() || undefined
+        userDepartment.trim() || undefined,
+        undefined,
+        {
+          avatarId: userHeyGenAvatarId.trim() || undefined,
+          voiceId: userHeyGenVoiceId.trim() || undefined,
+          apiKey: userHeyGenApiKey.trim() || undefined,
+        }
       );
 
       toast.success(`Đăng ký tài khoản cho "${userDisplayName}" thành công!`);
@@ -374,6 +389,9 @@ export default function UserAdminTab() {
       setUserRole("user");
       setUserParentId("");
       setUserDepartment("");
+      setUserHeyGenAvatarId("");
+      setUserHeyGenVoiceId("");
+      setUserHeyGenApiKey("");
       // Refresh lists
       await fetchUsers();
     } catch (error: any) {
@@ -382,6 +400,56 @@ export default function UserAdminTab() {
       toast.error(errMsg);
     } finally {
       setSubmittingUser(false);
+    }
+  };
+
+  const openHeyGenEditor = (user: UserProfile) => {
+    setEditingHeyGenUser(user);
+    setEditingHeyGenAvatarId(user.heygenAccess?.avatarId || "");
+    setEditingHeyGenVoiceId(user.heygenAccess?.voiceId || "");
+    setEditingHeyGenApiKey(user.heygenAccess?.apiKey || "");
+    setIsHeyGenModalOpen(true);
+  };
+
+  const handleSaveHeyGenAccess = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingHeyGenUser) {
+      return;
+    }
+
+    setSavingHeyGenAccess(true);
+    try {
+      await authService.updateUser(editingHeyGenUser.uid, {
+        heygenAccess: {
+          avatarId: editingHeyGenAvatarId.trim(),
+          voiceId: editingHeyGenVoiceId.trim(),
+          apiKey: editingHeyGenApiKey.trim(),
+        },
+      });
+
+      setUsersList((prev) =>
+        prev.map((user) =>
+          user.uid === editingHeyGenUser.uid
+            ? {
+                ...user,
+                heygenAccess: {
+                  avatarId: editingHeyGenAvatarId.trim(),
+                  voiceId: editingHeyGenVoiceId.trim(),
+                  apiKey: editingHeyGenApiKey.trim(),
+                },
+              }
+            : user
+        )
+      );
+
+      toast.success(`Đã cập nhật cấu hình HeyGen cho "${editingHeyGenUser.displayName}".`);
+      setIsHeyGenModalOpen(false);
+      setEditingHeyGenUser(null);
+    } catch (error: any) {
+      console.error("Lỗi cập nhật HeyGen access:", error);
+      toast.error(error.message || "Không thể cập nhật cấu hình HeyGen cho người dùng này.");
+    } finally {
+      setSavingHeyGenAccess(false);
     }
   };
 
@@ -571,6 +639,7 @@ export default function UserAdminTab() {
                       {userProfile?.role === "superadmin" && <th className="p-4">Doanh nghiệp</th>}
                       <th className="p-4">Ngày đăng ký</th>
                       <th className="p-4">Quyền hạn (Role)</th>
+                      <th className="p-4">HeyGen</th>
                       <th className="p-4 pr-6 text-center">Hành động cấp quyền</th>
                     </tr>
                   </thead>
@@ -650,9 +719,33 @@ export default function UserAdminTab() {
                             </span>
                           </td>
 
+                          <td className="p-4">
+                            <div className="space-y-1">
+                              <p className="text-[10px] text-slate-600">
+                                Avatar: <span className="font-mono">{usr.heygenAccess?.avatarId || "-"}</span>
+                              </p>
+                              <p className="text-[10px] text-slate-600">
+                                Giọng đọc: <span className="font-mono">{usr.heygenAccess?.voiceId || "-"}</span>
+                              </p>
+                              <p className="text-[10px] text-slate-400">
+                                {usr.heygenAccess?.apiKey ? "Có khóa API riêng" : "Dùng khóa API hệ thống"}
+                              </p>
+                            </div>
+                          </td>
+
                           {/* Role Modify Selector */}
                           <td className="p-4 pr-6">
-                            <div className="flex justify-center">
+                            <div className="flex justify-center gap-2">
+                              {userProfile?.role === "superadmin" && (
+                                <button
+                                  type="button"
+                                  onClick={() => openHeyGenEditor(usr)}
+                                  className="inline-flex items-center gap-1 rounded-lg border border-cyan-200 bg-cyan-50 px-2.5 py-1.5 text-[11px] font-bold text-cyan-800 transition hover:bg-cyan-100"
+                                >
+                                  <SlidersHorizontal className="h-3.5 w-3.5" />
+                                  Cấu hình
+                                </button>
+                              )}
                               <select
                                 disabled={
                                   isSelf ||
@@ -678,8 +771,8 @@ export default function UserAdminTab() {
                                       level: 99
                                     });
                                   }
-                                  return rolesForSelect.map(r => (
-                                    <option key={r.role} value={r.role}>
+                                  return rolesForSelect.map((r, index) => (
+                                    <option key={`${usr.uid}-${r.role}-${index}`} value={r.role}>
                                       {r.displayName}
                                     </option>
                                   ));
@@ -1009,9 +1102,9 @@ export default function UserAdminTab() {
       {/* Modal Đăng ký Người dùng mới */}
       {isUserModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden transform transition-all scale-100">
+          <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl max-w-2xl w-full overflow-hidden transform transition-all scale-100 flex flex-col max-h-[90vh]">
             {/* Modal Header */}
-            <div className="bg-slate-900 text-white p-6 flex justify-between items-center relative">
+            <div className="bg-slate-900 text-white p-6 flex justify-between items-center relative shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="p-2 bg-indigo-600 rounded-xl shadow-lg shadow-indigo-500/20">
                   <User className="h-5 w-5 text-white" />
@@ -1031,170 +1124,218 @@ export default function UserAdminTab() {
             </div>
 
             {/* Modal Content / Form */}
-            <form onSubmit={handleRegisterUser} className="p-6 space-y-4">
-              {/* Tên hiển thị */}
-              <div className="space-y-1.5 text-left">
-                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Họ và Tên *</label>
-                <div className="relative">
-                  <User className="absolute left-3.5 top-2.5 h-4 w-4 text-gray-400" />
-                  <input
-                    type="text"
-                    required
-                    placeholder="Ví dụ: Nguyễn Văn A"
-                    value={userDisplayName}
-                    onChange={(e) => setUserDisplayName(e.target.value)}
-                    className="w-full pl-10 pr-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                  />
-                </div>
-              </div>
+            <form onSubmit={handleRegisterUser} className="flex flex-col min-h-0">
+              <div className="p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
+                {/* Tên hiển thị */}
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5 text-left sm:col-span-2">
+                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Họ và Tên *</label>
+                    <div className="relative">
+                      <User className="absolute left-3.5 top-2.5 h-4 w-4 text-gray-400" />
+                      <input
+                        type="text"
+                        required
+                        placeholder="Ví dụ: Nguyễn Văn A"
+                        value={userDisplayName}
+                        onChange={(e) => setUserDisplayName(e.target.value)}
+                        className="w-full pl-10 pr-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                      />
+                    </div>
+                  </div>
 
-              {/* Email */}
-              <div className="space-y-1.5 text-left">
-                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Địa chỉ Email *</label>
-                <div className="relative">
-                  <Mail className="absolute left-3.5 top-2.5 h-4 w-4 text-gray-400" />
-                  <input
-                    type="email"
-                    required
-                    placeholder="name@company.com"
-                    value={userEmail}
-                    onChange={(e) => setUserEmail(e.target.value)}
-                    className="w-full pl-10 pr-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none font-mono font-medium"
-                  />
-                </div>
-              </div>
+                  {/* Email */}
+                  <div className="space-y-1.5 text-left">
+                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Địa chỉ Email *</label>
+                    <div className="relative">
+                      <Mail className="absolute left-3.5 top-2.5 h-4 w-4 text-gray-400" />
+                      <input
+                        type="email"
+                        required
+                        placeholder="name@company.com"
+                        value={userEmail}
+                        onChange={(e) => setUserEmail(e.target.value)}
+                        className="w-full pl-10 pr-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none font-mono font-medium"
+                      />
+                    </div>
+                  </div>
 
-              {/* Mật khẩu */}
-              <div className="space-y-1.5 text-left">
-                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Mật khẩu *</label>
-                <div className="relative">
-                  <Lock className="absolute left-3.5 top-2.5 h-4 w-4 text-gray-400" />
-                  <input
-                    type="password"
-                    required
-                    placeholder="Tối thiểu 6 ký tự"
-                    value={userPassword}
-                    onChange={(e) => setUserPassword(e.target.value)}
-                    className="w-full pl-10 pr-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                {/* Vai trò */}
-                <div className="space-y-1.5 text-left">
-                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Quyền hạn (Role) *</label>
-                  <select
-                    value={userRole}
-                    onChange={(e) => setUserRole(e.target.value as any)}
-                    className="w-full p-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer outline-none"
-                  >
-                    {getAvailableRoles().map(r => (
-                      <option key={r.role} value={r.role}>
-                        {r.displayName}
-                      </option>
-                    ))}
-                  </select>
+                  {/* Mật khẩu */}
+                  <div className="space-y-1.5 text-left">
+                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Mật khẩu *</label>
+                    <div className="relative">
+                      <Lock className="absolute left-3.5 top-2.5 h-4 w-4 text-gray-400" />
+                      <input
+                        type="password"
+                        required
+                        placeholder="Tối thiểu 6 ký tự"
+                        value={userPassword}
+                        onChange={(e) => setUserPassword(e.target.value)}
+                        className="w-full pl-10 pr-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                      />
+                    </div>
+                  </div>
                 </div>
 
-                {/* Doanh nghiệp */}
-                <div className="space-y-1.5 text-left">
-                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Doanh nghiệp *</label>
-                  {userProfile?.role === "superadmin" ? (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  {/* Vai trò */}
+                  <div className="space-y-1.5 text-left">
+                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Quyền hạn (Role) *</label>
                     <select
-                      value={userCompanyCode}
-                      onChange={(e) => setUserCompanyCode(e.target.value)}
+                      value={userRole}
+                      onChange={(e) => setUserRole(e.target.value as any)}
                       className="w-full p-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer outline-none"
                     >
-                      <option value="SYSTEM">Hệ thống (SYSTEM)</option>
-                      {companies.map((c) => (
-                        <option key={c.id} value={c.code}>
-                          {c.name} ({c.code})
+                      {getAvailableRoles().map((r, index) => (
+                        <option key={`${r.role}-${index}`} value={r.role}>
+                          {r.displayName}
                         </option>
                       ))}
                     </select>
-                  ) : (
+                  </div>
+
+                  {/* Doanh nghiệp */}
+                  <div className="space-y-1.5 text-left">
+                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Doanh nghiệp *</label>
+                    {userProfile?.role === "superadmin" ? (
+                      <select
+                        value={userCompanyCode}
+                        onChange={(e) => setUserCompanyCode(e.target.value)}
+                        className="w-full p-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer outline-none"
+                      >
+                        <option value="SYSTEM">Hệ thống (SYSTEM)</option>
+                        {companies.map((c) => (
+                          <option key={c.id} value={c.code}>
+                            {c.name} ({c.code})
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        disabled
+                        value={userProfile?.companyName || userProfile?.companyCode || ""}
+                        className="w-full px-3.5 py-2 border border-gray-150 bg-gray-50 text-gray-500 rounded-xl text-xs outline-none"
+                      />
+                    )}
+                  </div>
+                </div>
+
+
+                {/* Người quản lý trực tiếp */}
+                {userCompanyCode && userCompanyCode !== "SYSTEM" && userRole === "user" && (
+                  <div className="space-y-1.5 text-left">
+                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
+                      Người quản lý trực tiếp
+                      <span className="ml-1.5 font-normal normal-case text-gray-400">(tuỳ chọn — xác định cấp bậc trong sơ đồ nhân sự)</span>
+                    </label>
+                    {(() => {
+                      const eligibleManagers = usersList.filter(
+                        (u) => u.companyCode === userCompanyCode && u.role === "manager"
+                      );
+                      return eligibleManagers.length === 0 ? (
+                        <div className="w-full px-3.5 py-2 border border-dashed border-gray-200 rounded-xl text-xs text-gray-400 italic bg-gray-50/60">
+                          Chưa có quản lý nào trong công ty này
+                        </div>
+                      ) : (
+                        <div>
+                          <select
+                            value={userParentId}
+                            onChange={(e) => setUserParentId(e.target.value)}
+                            className="w-full p-2 pl-3.5 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer outline-none"
+                          >
+                            <option value="">— Không có / Chọn sau —</option>
+                            {eligibleManagers.map((mgr) => (
+                              <option key={mgr.uid} value={mgr.uid}>
+                                {`${mgr.displayName} (Manager${mgr.jobTitle ? " · " + mgr.jobTitle : ""}${mgr.department ? " · " + mgr.department : ""})`}
+                              </option>
+                            ))}
+                          </select>
+                          {userParentId && (
+                            <div className="mt-1.5 flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 border border-indigo-100 rounded-lg w-max">
+                              <span className="text-[9px] font-bold text-indigo-500 uppercase tracking-wider">Cấp bậc nhân viên mới:</span>
+                              <span className="text-[10px] font-bold text-indigo-700 font-mono">
+                                Level {(() => {
+                                  const rawL = (usersList.find((u) => u.uid === userParentId)?.level ?? 0) + 1;
+                                  return userProfile?.role === "superadmin" ? rawL : rawL - 1;
+                                })()}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+
+                {/* Phòng ban */}
+                {(userRole === "user" || userRole === "manager") && (
+                  <div className="space-y-1.5 text-left">
+                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
+                      {userRole === "manager" ? "Phòng ban quản lý *" : "Phòng ban *"}
+                    </label>
                     <input
                       type="text"
-                      disabled
-                      value={userProfile?.companyName || userProfile?.companyCode || ""}
-                      className="w-full px-3.5 py-2 border border-gray-150 bg-gray-50 text-gray-500 rounded-xl text-xs outline-none"
+                      required
+                      disabled={userRole === "user" && !!userParentId}
+                      placeholder="Ví dụ: Phòng Kỹ Thuật"
+                      value={userDepartment}
+                      onChange={(e) => setUserDepartment(e.target.value)}
+                      className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none disabled:bg-gray-50 disabled:text-gray-450"
                     />
-                  )}
+                    {userRole === "user" && !!userParentId && (
+                      <p className="text-[10px] text-indigo-650 font-mono mt-0.5">
+                        Tự động điền theo phòng ban của quản lý trực tiếp.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                <div className="rounded-2xl border border-cyan-100 bg-cyan-50/50 p-4 space-y-3 text-left">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-cyan-700">Cấu hình HeyGen</p>
+                    <p className="mt-1 text-[11px] text-cyan-900/80">
+                      Chỉ cần điền 1 mã avatar, 1 mã giọng đọc và nếu cần thì thêm khóa API riêng.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Mã Avatar</label>
+                      <input
+                        type="text"
+                        placeholder="Nhập 1 mã avatar"
+                        value={userHeyGenAvatarId}
+                        onChange={(e) => setUserHeyGenAvatarId(e.target.value)}
+                        className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Mã Giọng Đọc</label>
+                      <input
+                        type="text"
+                        placeholder="Nhập 1 mã giọng đọc"
+                        value={userHeyGenVoiceId}
+                        onChange={(e) => setUserHeyGenVoiceId(e.target.value)}
+                        className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Khóa API HeyGen</label>
+                    <input
+                      type="text"
+                      placeholder="Để trống nếu dùng khóa hệ thống"
+                      value={userHeyGenApiKey}
+                      onChange={(e) => setUserHeyGenApiKey(e.target.value)}
+                      className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none"
+                    />
+                  </div>
                 </div>
               </div>
 
-
-              {/* Người quản lý trực tiếp */}
-              {userCompanyCode && userCompanyCode !== "SYSTEM" && userRole === "user" && (
-                <div className="space-y-1.5 text-left">
-                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
-                    Người quản lý trực tiếp
-                    <span className="ml-1.5 font-normal normal-case text-gray-400">(tuỳ chọn — xác định cấp bậc trong sơ đồ nhân sự)</span>
-                  </label>
-                  {(() => {
-                    const eligibleManagers = usersList.filter(
-                      (u) => u.companyCode === userCompanyCode && u.role === "manager"
-                    );
-                    return eligibleManagers.length === 0 ? (
-                      <div className="w-full px-3.5 py-2 border border-dashed border-gray-200 rounded-xl text-xs text-gray-400 italic bg-gray-50/60">
-                        Chưa có quản lý nào trong công ty này
-                      </div>
-                    ) : (
-                      <div>
-                        <select
-                          value={userParentId}
-                          onChange={(e) => setUserParentId(e.target.value)}
-                          className="w-full p-2 pl-3.5 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer outline-none"
-                        >
-                          <option value="">— Không có / Chọn sau —</option>
-                          {eligibleManagers.map((mgr) => (
-                            <option key={mgr.uid} value={mgr.uid}>
-                              {`${mgr.displayName} (Manager${mgr.jobTitle ? " · " + mgr.jobTitle : ""}${mgr.department ? " · " + mgr.department : ""})`}
-                            </option>
-                          ))}
-                        </select>
-                        {userParentId && (
-                          <div className="mt-1.5 flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 border border-indigo-100 rounded-lg w-max">
-                            <span className="text-[9px] font-bold text-indigo-500 uppercase tracking-wider">Cấp bậc nhân viên mới:</span>
-                            <span className="text-[10px] font-bold text-indigo-700 font-mono">
-                              Level {(() => {
-                                const rawL = (usersList.find((u) => u.uid === userParentId)?.level ?? 0) + 1;
-                                return userProfile?.role === "superadmin" ? rawL : rawL - 1;
-                              })()}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
-                </div>
-              )}
-
-              {/* Phòng ban */}
-              {(userRole === "user" || userRole === "manager") && (
-                <div className="space-y-1.5 text-left">
-                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
-                    {userRole === "manager" ? "Phòng ban quản lý *" : "Phòng ban *"}
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    disabled={userRole === "user" && !!userParentId}
-                    placeholder="Ví dụ: Phòng Kỹ Thuật"
-                    value={userDepartment}
-                    onChange={(e) => setUserDepartment(e.target.value)}
-                    className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none disabled:bg-gray-50 disabled:text-gray-450"
-                  />
-                  {userRole === "user" && !!userParentId && (
-                    <p className="text-[10px] text-indigo-650 font-mono mt-0.5">
-                      Tự động điền theo phòng ban của quản lý trực tiếp.
-                    </p>
-                  )}
-                </div>
-              )}
               {/* Form Actions */}
-              <div className="flex gap-3 justify-end pt-4 border-t border-gray-100">
+              <div className="flex gap-3 justify-end p-6 border-t border-gray-100 bg-white shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsUserModalOpen(false)}
@@ -1427,6 +1568,107 @@ export default function UserAdminTab() {
                     </>
                   ) : (
                     "Lưu cấu hình"
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {isHeyGenModalOpen && editingHeyGenUser && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl max-w-2xl w-full overflow-hidden transform transition-all scale-100 flex flex-col max-h-[90vh]">
+            <div className="bg-cyan-600 text-white p-6 flex justify-between items-center shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-white/15 rounded-xl">
+                  <SlidersHorizontal className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm uppercase tracking-wider font-sans">
+                    Cấu hình HeyGen cho người dùng
+                  </h3>
+                  <p className="text-[10px] text-cyan-100 font-mono mt-0.5">
+                    {editingHeyGenUser.displayName} · {editingHeyGenUser.email}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsHeyGenModalOpen(false);
+                  setEditingHeyGenUser(null);
+                }}
+                className="p-1.5 hover:bg-cyan-500 rounded-lg text-cyan-100 hover:text-white transition-all cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveHeyGenAccess} className="flex flex-col flex-1 overflow-hidden">
+              <div className="p-6 space-y-4 overflow-y-auto flex-1 text-left">
+                <div className="rounded-2xl border border-cyan-100 bg-cyan-50/60 p-4 text-xs text-cyan-900">
+                  Chỉ cần gán 1 avatar, 1 giọng đọc và nếu cần thì điền khóa API HeyGen riêng cho người dùng này.
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Mã Avatar</label>
+                    <input
+                      type="text"
+                      value={editingHeyGenAvatarId}
+                      onChange={(e) => setEditingHeyGenAvatarId(e.target.value)}
+                      placeholder="Nhập 1 mã avatar"
+                      className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Mã Giọng Đọc</label>
+                    <input
+                      type="text"
+                      value={editingHeyGenVoiceId}
+                      onChange={(e) => setEditingHeyGenVoiceId(e.target.value)}
+                      placeholder="Nhập 1 mã giọng đọc"
+                      className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Khóa API HeyGen</label>
+                  <input
+                    type="text"
+                    value={editingHeyGenApiKey}
+                    onChange={(e) => setEditingHeyGenApiKey(e.target.value)}
+                    placeholder="Để trống nếu dùng khóa hệ thống"
+                    className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3 justify-end p-6 border-t border-gray-100 shrink-0 bg-gray-50/50">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsHeyGenModalOpen(false);
+                    setEditingHeyGenUser(null);
+                  }}
+                  className="px-4 py-2 border border-gray-200 bg-white rounded-xl text-xs font-bold text-gray-500 hover:bg-gray-50 transition-all cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingHeyGenAccess}
+                  className="px-5 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-cyan-600/10 flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                >
+                  {savingHeyGenAccess ? (
+                    <>
+                      <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                      Đang lưu...
+                    </>
+                  ) : (
+                    "Lưu cấu hình HeyGen"
                   )}
                 </button>
               </div>

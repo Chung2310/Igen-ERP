@@ -328,6 +328,7 @@ export const authService = {
       department,
       division,
       phone,
+      heygenAccess,
     } = data;
 
     const finalCompanyCode = companyCode?.toUpperCase().trim() || "SYSTEM";
@@ -377,6 +378,11 @@ export const authService = {
       division: division || (role === "admin" ? "Ban Giám Đốc" : (role === "manager" ? "Quản lý" : "Nhân sự")),
       jobTitle: role === "admin" ? "Chief Executive Officer (CEO)" : (role === "manager" ? "Quản lý phòng ban" : "Nhân viên"),
       phone: phone || "Chưa cập nhật",
+      heygenAccess: {
+        avatarId: heygenAccess?.avatarId || "",
+        voiceId: heygenAccess?.voiceId || "",
+        apiKey: heygenAccess?.apiKey || "",
+      },
       createdAt: new Date(),
       status: "offline",
       photoURL: `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName.trim())}&background=random&color=fff`

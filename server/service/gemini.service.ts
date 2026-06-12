@@ -966,7 +966,7 @@ Output ONLY the final detailed prompt in English.`
         config.resolution = resolution;
       }
 
-      const instance: any = { prompt };
+      const input: any = { prompt };
 
       if (options?.referenceImageUris && options.referenceImageUris.length > 0) {
         const normalizedImages = options.referenceImageUris
@@ -980,7 +980,7 @@ Output ONLY the final detailed prompt in English.`
           .filter(Boolean);
 
         if (normalizedImages.length > 0) {
-          instance.image = normalizedImages[0];
+          input.image = normalizedImages[0];
           if (normalizedImages.length > 1) {
             config.referenceImages = normalizedImages.slice(1);
           }
@@ -997,7 +997,7 @@ Output ONLY the final detailed prompt in English.`
         } else if (videoUri.includes("&key=")) {
           videoUri = videoUri.replace(/[&?]key=[^&]+/, "");
         }
-        instance.video = { uri: videoUri };
+        input.video = { uri: videoUri };
         delete config.durationSeconds;
         delete config.aspectRatio;
         delete config.numberOfVideos;
@@ -1005,8 +1005,9 @@ Output ONLY the final detailed prompt in English.`
 
       let operation = await client.models.generateVideos({
         model: modelToUse,
-        prompt: prompt,
+        prompt,
         config,
+        ...(input.image || input.video ? { input } : {}),
       });
 
       let attempts = 0;

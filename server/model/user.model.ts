@@ -56,6 +56,15 @@ const AiAutoReplyConfigSchema = new Schema(
   { _id: false }
 );
 
+const HeyGenAccessSchema = new Schema(
+  {
+    avatarId: { type: String, default: "" },
+    voiceId: { type: String, default: "" },
+    apiKey: { type: String, default: "" },
+  },
+  { _id: false }
+);
+
 const UserSchema = new Schema<IUser>({
   email: { type: String, required: true, unique: true, index: true, lowercase: true },
   password: { type: String },
@@ -67,6 +76,7 @@ const UserSchema = new Schema<IUser>({
   tiktokIntegration: { type: TikTokIntegrationSchema, default: null },
   zaloIntegration: { type: ZaloIntegrationSchema, default: null },
   aiAutoReplyConfig: { type: AiAutoReplyConfigSchema, default: () => ({}) },
+  heygenAccess: { type: HeyGenAccessSchema, default: () => ({}) },
   jobTitle: { type: String },
   department: { type: String },
   phone: { type: String },
