@@ -577,9 +577,14 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
                     <div className="relative aspect-[16/9] overflow-hidden rounded-[20px] bg-[radial-gradient(circle_at_center,#dde7f2_0%,#cddaea_60%,#bfd0e6_100%)]">
                       {item.thumbnailUrl ? (
                         <img src={item.thumbnailUrl} alt={item.title || item.prompt || 'HeyGen video'} className="absolute inset-0 z-10 h-full w-full object-cover" />
-                      ) : item.url ? (
+                      ) : item.url && (item.url.startsWith('http') || item.url.startsWith('blob:') || item.url.startsWith('data:')) ? (
                         <video src={item.url} className="absolute inset-0 z-10 h-full w-full object-cover" />
-                      ) : null}
+                      ) : (
+                        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-900 text-[10px] font-bold text-cyan-400 uppercase tracking-widest p-2 text-center">
+                          <LoaderCircle className="h-5 w-5 animate-spin mb-1" />
+                          Đang xử lý
+                        </div>
+                      )}
                       <div className="absolute inset-y-0 left-0 w-[34%] bg-[linear-gradient(90deg,rgba(241,245,249,0.88)_0%,rgba(241,245,249,0.1)_100%)]" />
                       <div className="absolute inset-y-0 right-0 w-[34%] bg-[linear-gradient(270deg,rgba(241,245,249,0.88)_0%,rgba(241,245,249,0.1)_100%)]" />
                       <div className="absolute inset-y-0 left-1/2 w-[34%] -translate-x-1/2 overflow-hidden rounded-[18px]">

@@ -267,7 +267,7 @@ export const geminiController = {
    */
   async generateVideo(req: Request, res: Response) {
     try {
-      const { prompt, durationSeconds, aspectRatio, modelName, resolution, referenceVideoUri, referenceImageUris, frameMode } = req.body;
+      const { prompt, durationSeconds, aspectRatio, modelName, resolution, referenceVideoUri, referenceImageUris, frameMode, activeCardId } = req.body;
       const userId = (req as any).user?.id;
 
       const result = await geminiService.generateVideo(prompt, durationSeconds, {
@@ -281,13 +281,20 @@ export const geminiController = {
 
       let record = null;
       if (userId && result.url) {
+        const isPending = result.url.startsWith("pending://");
         record = await geminiService.saveGeneratedMediaRecord(userId, "video", result.url, prompt, {
           aspectRatio,
           resolution,
           modelName,
           durationSeconds,
           originalVeoUrl: referenceVideoUri,
+          activeCardId,
+          piapiTaskId: (result as any).taskId,
+          status: isPending ? "processing" : "completed",
         });
+        if (isPending && (result as any).taskId) {
+          geminiService.pollPiAPIVideoStatusBackground(record._id.toString(), (result as any).taskId, userId);
+        }
       }
 
       return res.status(200).json({

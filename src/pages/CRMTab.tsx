@@ -713,6 +713,7 @@ export default function CRMTab() {
 
   return (
     <div className="flex flex-col h-full bg-white overflow-hidden rounded-3xl border border-slate-100 shadow-xl shadow-slate-100/50" id="crm_tab_wrapper">
+      <h1 className="sr-only">Hệ thống Sales CRM - {subTab}</h1>
       
       {/* Sub tabs selector bar */}
       <div className="border-b border-slate-100 bg-[#f8fafc] p-2.5 text-xs flex justify-between shrink-0" id="crm_sub_tabs_switch">

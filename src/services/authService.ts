@@ -212,7 +212,10 @@ export const authService = {
     }
 
     const result = await res.json();
-    return result.data || [];
+    return (result.data || []).map((item: any) => ({
+      ...item,
+      id: item._id || item.id,
+    }));
   },
 
   // Cập nhật chi tiết thông tin một nhân sự

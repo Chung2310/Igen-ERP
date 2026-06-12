@@ -831,6 +831,7 @@ export default function InventoryTab() {
 
   return (
     <div className="flex h-full max-h-[85vh] flex-col overflow-hidden bg-white" id="inventory_tab_wrapper">
+      <h1 className="sr-only">Quản lý Kho & Sản phẩm - {subTab}</h1>
       <div className="flex shrink-0 justify-between border-b border-gray-200 bg-gray-50/50 p-2 text-xs" id="inventory_tabs_switch">
         <div className="flex flex-wrap gap-2">
           {inventoryTabs.map((tab) => (

@@ -7,7 +7,15 @@ import { AIMediaModel } from "../model/ai-media.model";
 import { cloudinaryService } from "./cloudinary.service";
 import { piapiService } from "./piapi.service";
 
-const GEMINI_TEXT_MODEL = process.env.GEMINI_MODEL || "gemini-3.5-flash";
+const getTargetModel = (model: string): string => {
+  if (!model) return "gemini-2.5-flash";
+  if (model.includes("gemini-3.5-flash")) {
+    return "gemini-2.5-flash";
+  }
+  return model;
+};
+
+const GEMINI_TEXT_MODEL = getTargetModel(process.env.GEMINI_MODEL || "gemini-2.5-flash");
 const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || "piapi-midjourney";
 const GEMINI_VIDEO_MODEL = process.env.GEMINI_VIDEO_MODEL || "piapi-kling";
 
@@ -46,7 +54,7 @@ export const geminiService = {
     };
 
     if (!client) {
-      return getMockResponse();
+      throw new Error("Chưa cấu hình GEMINI_API_KEY. Không thể trò chuyện.");
     }
 
     const hasCompanyKnowledge = !!ragContext?.contextText;
@@ -106,8 +114,8 @@ Thông tin cấu hình hiện tại của bạn:
         isMock: false,
       };
     } catch (error: any) {
-      console.error("[geminiService.chat] Error, fallback to mock response:", error);
-      return getMockResponse();
+      console.error("[geminiService.chat] Error:", error);
+      throw error;
     }
   },
 
@@ -790,8 +798,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
     };
 
     if (!client) {
-      console.log("[geminiService.generateImage] Running in MOCK mode");
-      return getMockImage();
+      throw new Error("Chưa cấu hình GEMINI_API_KEY. Không thể sinh ảnh.");
     }
 
     try {
@@ -881,8 +888,8 @@ Output ONLY the final detailed prompt in English.`
 
       return { url: `data:image/png;base64,${base64Bytes}`, isMock: false };
     } catch (error: any) {
-      console.error("[geminiService.generateImage] Error, fallback to mock image:", error);
-      return getMockImage();
+      console.error("[geminiService.generateImage] Error:", error);
+      throw error;
     }
   },
 
@@ -901,16 +908,37 @@ Output ONLY the final detailed prompt in English.`
       frameMode?: "standard" | "first_last";
     }
   ): Promise<{ url: string; isMock: boolean }> {
+    let actualPrompt = prompt;
+    try {
+      const parsed = JSON.parse(prompt);
+      if (parsed.optimized_english_prompt) {
+        actualPrompt = parsed.optimized_english_prompt;
+        if (parsed.motion_analysis) actualPrompt += `. Motion: ${parsed.motion_analysis}`;
+        if (parsed.camera_movement) actualPrompt += `. Camera: ${parsed.camera_movement}`;
+      }
+    } catch (e) {
+      // not JSON, use as is
+    }
+
     let modelToUse = options?.modelName || GEMINI_VIDEO_MODEL;
     // Route all calls to PiAPI
-    if (modelToUse.includes("veo-3.1-generate-preview") || modelToUse.includes("veo-3.1-fast-generate-preview")) {
-      modelToUse = "piapi-kling";
-    } else if (modelToUse.includes("veo-3.1-lite-generate-preview") || modelToUse.includes("veo-")) {
-      modelToUse = "piapi-luma";
+    if (!modelToUse.startsWith("piapi-")) {
+      if (modelToUse.includes("veo")) {
+        modelToUse = "piapi-veo";
+      } else {
+        modelToUse = "piapi-kling";
+      }
     }
 
     if (modelToUse.startsWith("piapi-")) {
-      return piapiService.generateVideo(prompt, modelToUse, durationSeconds, { aspectRatio: options?.aspectRatio });
+      if (!process.env.PIAPI_API_KEY) {
+        throw new Error("Chưa cấu hình PIAPI_API_KEY. Không thể sinh video.");
+      }
+      const { taskId } = await piapiService.createVideoTask(actualPrompt, modelToUse, durationSeconds, {
+        aspectRatio: options?.aspectRatio,
+        referenceImageUris: options?.referenceImageUris,
+      });
+      return { url: `pending://piapi/${taskId}`, isMock: false, taskId } as any;
     }
     const client = getGeminiClient();
     const aspect = options?.aspectRatio || "16:9";
@@ -920,8 +948,7 @@ Output ONLY the final detailed prompt in English.`
     };
 
     if (!client) {
-      console.log("[geminiService.generateVideo] Running in MOCK mode");
-      return getMockVideo();
+      throw new Error("Chưa cấu hình GEMINI_API_KEY. Không thể sinh video.");
     }
 
     const filename = `vid_${Date.now()}_${Math.floor(Math.random() * 1000)}.mp4`;
@@ -966,23 +993,38 @@ Output ONLY the final detailed prompt in English.`
         config.resolution = resolution;
       }
 
-      const input: any = { prompt };
+      const input: any = { prompt: actualPrompt };
 
       if (options?.referenceImageUris && options.referenceImageUris.length > 0) {
-        const normalizedImages = options.referenceImageUris
-          .slice(0, 3)
-          .map((uri) => {
-            if (!uri.startsWith("data:")) return null;
+        const normalizedImages: any[] = [];
+        for (const uri of options.referenceImageUris.slice(0, 3)) {
+          if (uri.startsWith("data:")) {
             const match = uri.match(/^data:([^;]+);base64,(.+)$/);
-            if (!match) return null;
-            return { bytesBase64Encoded: match[2], mimeType: match[1] };
-          })
-          .filter(Boolean);
+            if (match) {
+              normalizedImages.push({ imageBytes: match[2], mimeType: match[1] });
+            }
+          } else if (uri.startsWith("http://") || uri.startsWith("https://")) {
+            try {
+              const res = await fetch(uri);
+              if (res.ok) {
+                const buffer = await res.arrayBuffer();
+                const base64 = Buffer.from(buffer).toString("base64");
+                const contentType = res.headers.get("content-type") || "image/jpeg";
+                normalizedImages.push({ imageBytes: base64, mimeType: contentType });
+              }
+            } catch (fetchErr) {
+              console.error("[geminiService.generateVideo] Failed to fetch remote reference image:", fetchErr);
+            }
+          }
+        }
 
         if (normalizedImages.length > 0) {
           input.image = normalizedImages[0];
           if (normalizedImages.length > 1) {
-            config.referenceImages = normalizedImages.slice(1);
+            config.referenceImages = normalizedImages.slice(1).map((img) => ({
+              image: img,
+              referenceType: "ASSET",
+            }));
           }
           if (options.frameMode === "first_last" && normalizedImages.length >= 2) {
             config.lastFrame = normalizedImages[normalizedImages.length - 1];
@@ -1005,7 +1047,7 @@ Output ONLY the final detailed prompt in English.`
 
       let operation = await client.models.generateVideos({
         model: modelToUse,
-        prompt,
+        prompt: actualPrompt,
         config,
         ...(input.image || input.video ? { input } : {}),
       });
@@ -1054,8 +1096,8 @@ Output ONLY the final detailed prompt in English.`
           console.warn(`[geminiService.generateVideo] Không thể dọn dẹp tệp tạm: ${tempFilePath}`, err);
         }
       }
-      console.error("[geminiService.generateVideo] Error, fallback to mock video:", error);
-      return getMockVideo();
+      console.error("[geminiService.generateVideo] Error:", error);
+      throw error;
     }
   },
 
@@ -1209,14 +1251,76 @@ Output ONLY the final detailed prompt in English.`
       };
     };
 
+    if (process.env.PIAPI_API_KEY) {
+      try {
+        const messages: any[] = [
+          {
+            role: "system",
+            content: `You are an expert prompt engineer for image generators. Optimize the user's image description into a high-quality, descriptive English prompt.
+Output MUST be a valid JSON object matching this schema:
+{
+  "subject": "string",
+  "clothing_material": "string",
+  "action_pose": "string",
+  "setting_lighting": "string",
+  "camera_parameters": "string",
+  "optimized_english_prompt": "string of the final detailed prompt in English",
+  "negative_prompt": "string of negative prompts"
+}
+Do not include markdown blocks or any text other than the JSON object.`
+          }
+        ];
+
+        const userContent: any[] = [
+          { type: "text", text: `Optimize this prompt: ${description}` }
+        ];
+
+        if (imageUris && imageUris.length > 0) {
+          for (const uri of imageUris) {
+            if (!uri || typeof uri !== 'string') continue;
+            let imageUrl = uri;
+            if (uri.startsWith("data:")) {
+              try {
+                imageUrl = await cloudinaryService.uploadMedia(uri, "piapi_temp_inputs");
+              } catch (uploadError) {
+                console.error("[geminiService.optimizeImagePrompt] Failed to upload reference image to Cloudinary:", uploadError);
+              }
+            }
+            userContent.push({
+              type: "image_url",
+              image_url: { url: imageUrl }
+            });
+          }
+        }
+
+        messages.push({
+          role: "user",
+          content: userContent
+        });
+
+        const callPromise = piapiService.chatCompletions(messages, "gpt-4o-mini", { type: "json_object" });
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("PiAPI chat completions timeout")), 15000)
+        );
+
+        const response = await Promise.race([callPromise, timeoutPromise]);
+        const content = response.choices?.[0]?.message?.content || "{}";
+        return JSON.parse(content.trim());
+      } catch (error: any) {
+        console.error("[geminiService.optimizeImagePrompt] PiAPI Error:", error);
+        throw error;
+      }
+    }
+
     if (!client) {
-      return getMockImagePrompt();
+      throw new Error("Chưa cấu hình GEMINI_API_KEY hoặc PIAPI_API_KEY. Không thể tối ưu prompt.");
     }
     try {
       const systemInstruction = `You are an expert prompt engineer for Imagen 4. Optimize the user's image description into a high-quality, descriptive English prompt. Output must be in JSON format matching the schema.`;
       const parts: any[] = [];
       if (imageUris && imageUris.length > 0) {
         for (const uri of imageUris) {
+          if (!uri || typeof uri !== 'string') continue;
           if (uri.startsWith('data:')) {
             const match = uri.match(/^data:([^;]+);base64,(.+)$/);
             if (match) {
@@ -1229,8 +1333,8 @@ Output ONLY the final detailed prompt in English.`
       }
       parts.push({ text: `Optimize this prompt: ${description}` });
 
-      const response = await client.models.generateContent({
-        model: modelName || GEMINI_TEXT_MODEL,
+      const generatePromise = client.models.generateContent({
+        model: getTargetModel(modelName || GEMINI_TEXT_MODEL),
         contents: parts,
         config: {
           systemInstruction,
@@ -1251,11 +1355,16 @@ Output ONLY the final detailed prompt in English.`
           }
         }
       });
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Gemini optimization timeout")), 15000)
+      );
+
+      const response = await Promise.race([generatePromise, timeoutPromise]);
       const responseText = response.text || "{}";
       return JSON.parse(responseText.trim());
     } catch (error: any) {
-      console.error("[geminiService.optimizeImagePrompt] Error, fallback to mock prompt:", error);
-      return getMockImagePrompt();
+      console.error("[geminiService.optimizeImagePrompt] Error:", error);
+      throw error;
     }
   },
 
@@ -1265,21 +1374,182 @@ Output ONLY the final detailed prompt in English.`
   async optimizeVideoPrompt(description: string, imageUris?: string[]) {
     const client = getGeminiClient();
     const getMockVideoPrompt = () => {
+      const text = description.toLowerCase().trim();
+      const isEnglish = !/[àáảãạăắằẳẵặâấầẩẫậèéẻẽẹêếềểễệđìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵ]/i.test(description);
+      if (isEnglish) {
+        return {
+          motion_analysis: "smooth cinematic motion of the subject",
+          camera_movement: "slow pan, dynamic focus tracking",
+          optimized_english_prompt: `A high quality cinematic video representing: ${description}`,
+        };
+      }
+
+      // Default values
+      let englishSubject = "a cinematic scene";
+      let motion = "subtle and realistic movements of the subject";
+      let camera = "slow cinematic pan, smooth tracking shot";
+      let lighting = "cinematic lighting, soft volumetric rays";
+      let style = "photorealistic, 8k resolution, highly detailed, masterpiece";
+      
+      // Translation mappings
+      const dict: { [key: string]: string } = {
+        "câu chuyện ngắn về tuna": "a short narrative story about a character named Tuna",
+        "câu chuyện về tuna": "a narrative story featuring Tuna",
+        "tập truyện về tuna": "a short story about Tuna",
+        "tuna": "a character named Tuna",
+        "núi tuyết": "majestic snow-capped mountains under a clear sky",
+        "núi": "picturesque mountain ranges",
+        "hoàng hôn": "sunset during golden hour with warm amber tones",
+        "bình minh": "sunrise during blue hour, soft morning mist",
+        "sản phẩm": "a premium commercial product showcase",
+        "quảng cáo": "high-end promotional commercial video",
+        "người mẫu": "an elegant fashion model",
+        "sàn diễn": "a glamorous fashion show catwalk runway",
+        "runway": "fashion catwalk runway with bright studio lights",
+        "flycam": "aerial drone perspective sweeping across the landscape",
+        "bay": "soaring aerial shot",
+        "xoay": "360-degree rotating showcase",
+        "cận cảnh": "extreme close-up macro details",
+        "toàn cảnh": "wide-angle scenic overview",
+        "xe": "a sleek modern luxury sports car",
+        "ô tô": "a luxury car driving along a scenic route",
+        "biển": "crystal clear ocean waves gently crashing on a sandy beach",
+        "đại dương": "vast deep blue ocean landscape",
+        "thành phố": "modern cityscape with towering skyscrapers",
+        "công nghệ": "futuristic technology environment with holographic displays",
+        "phim": "cinematic movie style footage",
+        "điện ảnh": "cinematic film style",
+        "chậm": "dramatic slow-motion video",
+        "nhanh": "dynamic fast-paced cuts and motion",
+      };
+
+      // Sort keys by length descending to match longest phrases first
+      const keys = Object.keys(dict).sort((a, b) => b.length - a.length);
+      let remainingText = text;
+      const detectedKeywords: string[] = [];
+      
+      for (const key of keys) {
+        if (remainingText.includes(key)) {
+          detectedKeywords.push(dict[key]);
+          remainingText = remainingText.replace(new RegExp(key, 'g'), '');
+        }
+      }
+
+      if (detectedKeywords.length > 0) {
+        englishSubject = detectedKeywords.join(", ");
+      } else {
+        const cleanText = description
+          .replace(/tiến hành/gi, "")
+          .replace(/tạo 1/gi, "")
+          .replace(/tạo một/gi, "")
+          .replace(/tạo/gi, "")
+          .replace(/làm/gi, "")
+          .trim();
+        if (cleanText) {
+          englishSubject = `a cinematic representation of: "${cleanText}"`;
+        }
+      }
+
+      // Adjust motion and camera based on keyword detection
+      if (text.includes("chậm") || text.includes("slow")) {
+        motion = "dramatic slow-motion action with elegant fluid dynamics";
+        camera = "ultra-smooth slow tracking camera";
+      } else if (text.includes("nhanh") || text.includes("fast")) {
+        motion = "high-energy fast-paced dynamic actions";
+        camera = "rapid cuts, active handheld tracking, whip pans";
+      }
+
+      if (text.includes("flycam") || text.includes("bay") || text.includes("trên cao")) {
+        camera = "high-altitude aerial drone sweep, panning down smoothly";
+      } else if (text.includes("xoay") || text.includes("360")) {
+        camera = "orbiting 360-degree rotation around the subject";
+      } else if (text.includes("cận cảnh") || text.includes("cận")) {
+        camera = "macro close-up focus with shallow depth of field";
+      }
+
+      if (text.includes("sản phẩm") || text.includes("product")) {
+        lighting = "professional studio key lighting, soft box diffusion, edge highlight";
+        style = "commercial grade, high-end product commercial, 8k, photorealistic";
+      } else if (text.includes("người mẫu") || text.includes("fashion") || text.includes("runway")) {
+        lighting = "bright runway stage lights, high-contrast spotlighting, camera flashes";
+        style = "high-fashion editorial look, cinematic 4k, vibrant colors";
+      }
+
+      const optimized_english_prompt = `Cinematic, photorealistic video of ${englishSubject}. ${motion}. Camera movement: ${camera}. Lighting: ${lighting}. Visual style: ${style}. Rendered in crisp 4k, volumetric atmosphere, hyper-detailed textures.`;
+
       return {
-        motion_analysis: "smooth motion",
-        camera_movement: "slow pan",
-        optimized_english_prompt: `A high quality cinematic video representing: ${description}`,
+        motion_analysis: motion,
+        camera_movement: camera,
+        optimized_english_prompt,
       };
     };
 
+    if (process.env.PIAPI_API_KEY) {
+      try {
+        const messages: any[] = [
+          {
+            role: "system",
+            content: `You are an expert prompt engineer for video generators. Optimize the description into a high-quality video prompt.
+Output MUST be a valid JSON object matching this schema:
+{
+  "motion_analysis": "string describing the camera motion and subject physics",
+  "camera_movement": "string describing camera path and focus",
+  "optimized_english_prompt": "string of the final detailed prompt in English"
+}
+Do not include markdown blocks or any text other than the JSON object.`
+          }
+        ];
+
+        const userContent: any[] = [
+          { type: "text", text: `Optimize this prompt: ${description}` }
+        ];
+
+        if (imageUris && imageUris.length > 0) {
+          for (const uri of imageUris) {
+            if (!uri || typeof uri !== 'string') continue;
+            let imageUrl = uri;
+            if (uri.startsWith("data:")) {
+              try {
+                imageUrl = await cloudinaryService.uploadMedia(uri, "piapi_temp_inputs");
+              } catch (uploadError) {
+                console.error("[geminiService.optimizeVideoPrompt] Failed to upload reference image to Cloudinary:", uploadError);
+              }
+            }
+            userContent.push({
+              type: "image_url",
+              image_url: { url: imageUrl }
+            });
+          }
+        }
+
+        messages.push({
+          role: "user",
+          content: userContent
+        });
+
+        const callPromise = piapiService.chatCompletions(messages, "gpt-4o-mini", { type: "json_object" });
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("PiAPI chat completions timeout")), 15000)
+        );
+
+        const response = await Promise.race([callPromise, timeoutPromise]);
+        const content = response.choices?.[0]?.message?.content || "{}";
+        return JSON.parse(content.trim());
+      } catch (error: any) {
+        console.error("[geminiService.optimizeVideoPrompt] PiAPI Error:", error);
+        throw error;
+      }
+    }
+
     if (!client) {
-      return getMockVideoPrompt();
+      throw new Error("Chưa cấu hình GEMINI_API_KEY hoặc PIAPI_API_KEY. Không thể tối ưu prompt.");
     }
     try {
       const systemInstruction = `You are an expert prompt engineer for Veo video generator. Optimize the description into a high-quality video prompt. Output must be in JSON format matching the schema.`;
       const parts: any[] = [];
       if (imageUris && imageUris.length > 0) {
         for (const uri of imageUris) {
+          if (!uri || typeof uri !== 'string') continue;
           if (uri.startsWith('data:')) {
             const match = uri.match(/^data:([^;]+);base64,(.+)$/);
             if (match) {
@@ -1287,12 +1557,26 @@ Output ONLY the final detailed prompt in English.`
                 inlineData: { mimeType: match[1], data: match[2] }
               });
             }
+          } else if (uri.startsWith('http://') || uri.startsWith('https://')) {
+            try {
+              const res = await fetch(uri);
+              if (res.ok) {
+                const buffer = await res.arrayBuffer();
+                const base64 = Buffer.from(buffer).toString('base64');
+                const contentType = res.headers.get('content-type') || 'image/jpeg';
+                parts.push({
+                  inlineData: { mimeType: contentType, data: base64 }
+                });
+              }
+            } catch (fetchErr) {
+              console.error("[geminiService.optimizeVideoPrompt] Failed to fetch remote reference image:", fetchErr);
+            }
           }
         }
       }
       parts.push({ text: `Optimize this prompt: ${description}` });
 
-      const response = await client.models.generateContent({
+      const generatePromise = client.models.generateContent({
         model: GEMINI_TEXT_MODEL,
         contents: parts,
         config: {
@@ -1310,11 +1594,16 @@ Output ONLY the final detailed prompt in English.`
           }
         }
       });
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Gemini optimization timeout")), 15000)
+      );
+
+      const response = await Promise.race([generatePromise, timeoutPromise]);
       const responseText = response.text || "{}";
       return JSON.parse(responseText.trim());
     } catch (error: any) {
-      console.error("[geminiService.optimizeVideoPrompt] Error, fallback to mock prompt:", error);
-      return getMockVideoPrompt();
+      console.error("[geminiService.optimizeVideoPrompt] Error:", error);
+      throw error;
     }
   },
 
@@ -1323,10 +1612,54 @@ Output ONLY the final detailed prompt in English.`
    */
   async getMediaHistory(userId: string, mediaType: "image" | "video" | "voice") {
     try {
-      return await AIMediaModel.find({ userId, mediaType })
+      const records = await AIMediaModel.find({ userId, mediaType })
         .sort({ createdAt: -1 })
         .limit(50)
         .lean();
+
+      if (mediaType === "video") {
+        await Promise.all(
+          records.map(async (record: any) => {
+            if (record.url && record.url.startsWith("pending://piapi/")) {
+              const taskId = record.url.replace("pending://piapi/", "");
+              try {
+                const result = await piapiService.getTaskStatus(taskId);
+                if (result.status === "completed" && result.url) {
+                  const cloudinaryUrl = await cloudinaryService.uploadMedia(result.url, "igen_erp/marketing/video");
+                  await AIMediaModel.updateOne(
+                    { _id: record._id },
+                    { url: cloudinaryUrl, "metadata.status": "completed", "metadata.progress": 100 }
+                  );
+                  record.url = cloudinaryUrl;
+                  record.metadata = { ...record.metadata, status: "completed", progress: 100 };
+
+                  const activeCardId = record.metadata?.activeCardId;
+                  if (activeCardId) {
+                    const { MarketingContentModel } = require("../model/marketing-content.model");
+                    await MarketingContentModel.findByIdAndUpdate(activeCardId, { videoUrl: cloudinaryUrl });
+                  }
+                } else if (result.status === "failed") {
+                  await AIMediaModel.updateOne(
+                    { _id: record._id },
+                    { "metadata.status": "failed", "metadata.error": result.error || "Failed", "metadata.progress": 0 }
+                  );
+                  record.metadata = { ...record.metadata, status: "failed", error: result.error, progress: 0 };
+                } else {
+                  const currentProgress = result.progress !== undefined ? result.progress : 0;
+                  await AIMediaModel.updateOne(
+                    { _id: record._id },
+                    { "metadata.progress": currentProgress }
+                  );
+                  record.metadata = { ...record.metadata, progress: currentProgress };
+                }
+              } catch (err) {
+                console.error(`[getMediaHistory] Error refreshing pending task ${taskId}:`, err);
+              }
+            }
+          })
+        );
+      }
+      return records;
     } catch (error: any) {
       console.error("[geminiService.getMediaHistory] Error:", error);
       throw error;
@@ -1347,6 +1680,74 @@ Output ONLY the final detailed prompt in English.`
       console.error("[geminiService.deleteMediaHistory] Error:", error);
       throw error;
     }
+  },
+
+  /**
+   * Polling trạng thái video từ PiAPI chạy ngầm không chặn luồng HTTP
+   */
+  async pollPiAPIVideoStatusBackground(recordId: string, taskId: string, userId: string) {
+    console.log(`[PiAPI Background Poll] Started polling for record ${recordId}, taskId ${taskId}`);
+    
+    let attempts = 0;
+    const maxAttempts = 60; // 10 minutes (60 * 10 seconds)
+    
+    const runPoll = async () => {
+      try {
+        const result = await piapiService.getTaskStatus(taskId);
+        console.log(`[PiAPI Background Poll] Record ${recordId} status: ${result.status}`);
+        
+        if (result.status === "completed" && result.url) {
+          console.log(`[PiAPI Background Poll] Completed! Uploading to Cloudinary...`);
+          const cloudinaryUrl = await cloudinaryService.uploadMedia(result.url, "igen_erp/marketing/video");
+          
+          const record = await AIMediaModel.findByIdAndUpdate(
+            recordId,
+            { url: cloudinaryUrl, "metadata.status": "completed", "metadata.progress": 100 },
+            { new: true }
+          );
+          
+          const activeCardId = record?.metadata?.activeCardId;
+          if (activeCardId) {
+            const { MarketingContentModel } = require("../model/marketing-content.model");
+            await MarketingContentModel.findByIdAndUpdate(activeCardId, { videoUrl: cloudinaryUrl });
+            console.log(`[PiAPI Background Poll] Updated target card ${activeCardId} with videoUrl: ${cloudinaryUrl}`);
+          }
+          return;
+        } else if (result.status === "failed") {
+          console.error(`[PiAPI Background Poll] Failed for task ${taskId}: ${result.error}`);
+          await AIMediaModel.findByIdAndUpdate(recordId, {
+            "metadata.status": "failed",
+            "metadata.error": result.error || "Lỗi tạo video từ PiAPI",
+            "metadata.progress": 0,
+          });
+          return;
+        } else {
+          const currentProgress = result.progress !== undefined ? result.progress : 0;
+          await AIMediaModel.findByIdAndUpdate(recordId, {
+            "metadata.progress": currentProgress
+          });
+        }
+        
+        attempts++;
+        if (attempts < maxAttempts) {
+          setTimeout(runPoll, 10000);
+        } else {
+          console.error(`[PiAPI Background Poll] Timeout for task ${taskId}`);
+          await AIMediaModel.findByIdAndUpdate(recordId, {
+            "metadata.status": "timeout",
+            "metadata.error": "Quá thời gian chờ tạo video từ PiAPI (10 phút)",
+          });
+        }
+      } catch (error: any) {
+        console.error(`[PiAPI Background Poll] Error polling task ${taskId}:`, error);
+        attempts++;
+        if (attempts < maxAttempts) {
+          setTimeout(runPoll, 10000);
+        }
+      }
+    };
+    
+    setTimeout(runPoll, 10000);
   },
 
   /**

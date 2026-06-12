@@ -79,51 +79,58 @@ export function SEOHead({ meta }: { meta: SeoMeta }) {
     ensureLink('link[rel="alternate"][hreflang="x-default"]', { rel: "alternate", hreflang: "x-default" }).setAttribute("href", canonicalUrl);
 
     const jsonLd = ensureJsonLd("igen-seo-jsonld");
-    jsonLd.textContent = JSON.stringify([
-      {
-        "@context": "https://schema.org",
-        "@type": "Organization",
-        name: BRAND_NAME,
-        url: SEO_BASE_URL,
-        logo: {
-          "@type": "ImageObject",
-          url: SEO_DEFAULT_IMAGE,
-        },
-      },
-      {
-        "@context": "https://schema.org",
-        "@type": "WebSite",
-        name: BRAND_NAME,
-        url: SEO_BASE_URL,
-        inLanguage: "vi-VN",
-        description: BRAND_TAGLINE,
-      },
-      {
-        "@context": "https://schema.org",
-        "@type": "WebApplication",
-        name: BRAND_NAME,
-        url: canonicalUrl,
-        applicationCategory: "BusinessApplication",
-        operatingSystem: "Web",
-        description: merged.description,
-        image: merged.image || SEO_DEFAULT_IMAGE,
-        inLanguage: "vi-VN",
-      },
-      {
-        "@context": "https://schema.org",
-        "@type": "WebPage",
-        name: merged.title,
-        url: canonicalUrl,
-        description: merged.description,
-        inLanguage: "vi-VN",
-        isPartOf: {
-          "@type": "WebSite",
+    jsonLd.textContent = JSON.stringify({
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": `${SEO_BASE_URL}/#organization`,
           name: BRAND_NAME,
           url: SEO_BASE_URL,
+          logo: {
+            "@type": "ImageObject",
+            url: SEO_DEFAULT_IMAGE,
+          },
         },
-        primaryImageOfPage: merged.image || SEO_DEFAULT_IMAGE,
-      },
-    ]);
+        {
+          "@type": "WebSite",
+          "@id": `${SEO_BASE_URL}/#website`,
+          name: BRAND_NAME,
+          url: SEO_BASE_URL,
+          inLanguage: "vi-VN",
+          description: BRAND_TAGLINE,
+          publisher: {
+            "@id": `${SEO_BASE_URL}/#organization`
+          }
+        },
+        {
+          "@type": "WebApplication",
+          "@id": `${canonicalUrl}/#webapplication`,
+          name: BRAND_NAME,
+          url: canonicalUrl,
+          applicationCategory: "BusinessApplication",
+          operatingSystem: "Web",
+          description: merged.description,
+          image: merged.image || SEO_DEFAULT_IMAGE,
+          inLanguage: "vi-VN",
+        },
+        {
+          "@type": "WebPage",
+          "@id": `${canonicalUrl}/#webpage`,
+          name: merged.title,
+          url: canonicalUrl,
+          description: merged.description,
+          inLanguage: "vi-VN",
+          isPartOf: {
+            "@id": `${SEO_BASE_URL}/#website`
+          },
+          primaryImageOfPage: {
+            "@type": "ImageObject",
+            url: merged.image || SEO_DEFAULT_IMAGE,
+          },
+        },
+      ],
+    });
   }, [meta]);
 
   return null;

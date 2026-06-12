@@ -50,6 +50,11 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved }: {
 
   const [activeMode, setActiveMode] = useState<'standard' | 'before-after'>('standard');
   const [prompt, setPrompt] = useState(initialPrompt || '');
+  const [optimizedData, setOptimizedData] = useState<{
+    optimized_english_prompt: string;
+    motion_analysis?: string;
+    camera_movement?: string;
+  } | null>(null);
 
   // Image references
   const [standardImage, setStandardImage] = useState<string | null>(null);
@@ -105,6 +110,22 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved }: {
     loadHistory();
   }, []);
 
+  useEffect(() => {
+    const hasPending = history.some(item => item.url && item.url.startsWith('pending://'));
+    if (!hasPending) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const response = await geminiApi.getMediaHistory('video');
+        setHistory(response.history || []);
+      } catch (error) {
+        console.error('[SimpleVideoWorkspace] Silent history polling failed', error);
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [history]);
+
   const loadHistory = async () => {
     setIsLoadingHistory(true);
     try {
@@ -144,14 +165,12 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved }: {
 
     setIsGeneratingPrompt(true);
     try {
-      const imageUris = standardImage ? [standardImage] : [];
+      const imageUris = activeMode === 'standard'
+        ? (standardImage ? [standardImage] : [])
+        : [beforeImage, afterImage].filter(Boolean) as string[];
       const result = await geminiApi.optimizeVideoPrompt(description, imageUris);
 
-      if (result.optimized_english_prompt) {
-        setPrompt(result.optimized_english_prompt);
-      } else {
-        setPrompt(JSON.stringify(result, null, 2));
-      }
+      setOptimizedData(result);
       toast.success('Đã tối ưu hóa prompt video bằng AI thành công!');
     } catch (e: any) {
       toast.error(`Lỗi tối ưu prompt: ${e.message}`);
@@ -161,7 +180,9 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved }: {
   };
 
   const handleGenerateVideo = async () => {
-    const finalPrompt = prompt.trim();
+    const finalPrompt = optimizedData 
+      ? JSON.stringify(optimizedData)
+      : prompt.trim();
     if (!finalPrompt) {
       toast.warning('Vui lòng nhập kịch bản hoặc chọn gợi ý phong cách.');
       return;
@@ -183,12 +204,15 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved }: {
         modelName: videoModel,
         aspectRatio: videoAspectRatio,
         resolution: videoQuality,
+        activeCardId: activeCardId || undefined,
       });
 
       if (response.url) {
         setGeneratedVideoUrl(response.url);
 
-        if (activeCardId) {
+        if (response.url.startsWith('pending://')) {
+          toast.success('Yêu cầu tạo video đã gửi! Đang xử lý ở chế độ nền.');
+        } else if (activeCardId) {
           toast.success('Tạo video thành công! Đang lưu trữ lên Cloudinary...');
           try {
             const filename = `video_${Date.now()}.mp4`;
@@ -386,6 +410,7 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved }: {
                       type="button"
                       onClick={() => {
                         setPrompt(t.prompt);
+                        setOptimizedData(null);
                         setIsPresetDropdownOpen(false);
                       }}
                       className={`w-full text-left px-3 py-1.5 text-[11px] hover:bg-slate-50 transition-colors block ${prompt === t.prompt ? 'text-[#0891b2] font-bold bg-[#e0f7fc]/20' : 'text-slate-700'}`}
@@ -417,11 +442,72 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved }: {
               type="button"
               onClick={handleOptimizePrompt}
               disabled={isGeneratingPrompt || isGenerating || !prompt.trim()}
-              className="w-full py-2 bg-[#e0f7fc] border border-[#22d3ee]/20 hover:bg-[#cbeff5] text-[#0891b2] rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-2.5 bg-[#e0f7fc] border border-[#22d3ee]/20 hover:bg-[#cbeff5] text-[#0891b2] rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isGeneratingPrompt ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
               Phân tích và hoàn thiện prompt
             </button>
+
+            {optimizedData && (
+              <div className="mt-2.5 p-3 rounded-2xl border border-cyan-100 bg-cyan-50/30 flex flex-col gap-2.5 animate-in fade-in slide-in-from-top-2 duration-250">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-1.5 text-cyan-800 text-[11px] font-bold">
+                    <Sparkles className="h-3.5 w-3.5 text-cyan-500 animate-pulse" />
+                    <span>Kịch bản tối ưu bởi AI</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setOptimizedData(null)}
+                    className="text-[10px] text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                  >
+                    Xóa tối ưu
+                  </button>
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Prompt Tiếng Anh chi tiết</span>
+                  <textarea
+                    className="w-full text-[11px] p-2.5 border border-cyan-200/50 rounded-xl focus:outline-none focus:ring-1 focus:ring-cyan-400 bg-white resize-none font-medium text-slate-700 leading-relaxed min-h-[70px]"
+                    value={optimizedData.optimized_english_prompt}
+                    onChange={(e) => setOptimizedData({
+                      ...optimizedData,
+                      optimized_english_prompt: e.target.value
+                    })}
+                    placeholder="Prompt tiếng Anh chi tiết..."
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Chuyển động (Motion)</span>
+                    <input
+                      type="text"
+                      className="w-full text-[11px] px-2.5 py-1.5 border border-cyan-200/50 rounded-xl focus:outline-none focus:ring-1 focus:ring-cyan-400 bg-white font-medium text-slate-700"
+                      value={optimizedData.motion_analysis || ''}
+                      onChange={(e) => setOptimizedData({
+                        ...optimizedData,
+                        motion_analysis: e.target.value
+                      })}
+                      placeholder="Không có phân tích chuyển động"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Camera (Movement)</span>
+                    <input
+                      type="text"
+                      className="w-full text-[11px] px-2.5 py-1.5 border border-cyan-200/50 rounded-xl focus:outline-none focus:ring-1 focus:ring-cyan-400 bg-white font-medium text-slate-700"
+                      value={optimizedData.camera_movement || ''}
+                      onChange={(e) => setOptimizedData({
+                        ...optimizedData,
+                        camera_movement: e.target.value
+                      })}
+                      placeholder="Không có chuyển động camera"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* AI Model */}
@@ -534,29 +620,54 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved }: {
               </div>
             ) : generatedVideoUrl ? (
               <div className="w-full h-full flex items-center justify-center relative rounded-3xl overflow-hidden border border-slate-200 bg-black shadow-lg aspect-video max-h-[380px]">
-                <video
-                  src={generatedVideoUrl}
-                  controls
-                  autoPlay
-                  loop
-                  className="w-full h-full object-contain"
-                  id="canvas_video_player"
-                />
-                <div className="absolute top-4 right-4 opacity-0 hover:opacity-100 transition-opacity z-10 flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const link = document.createElement('a');
-                      link.href = generatedVideoUrl;
-                      link.download = `igen-video-${Date.now()}.mp4`;
-                      link.click();
-                    }}
-                    className="p-2 bg-slate-900/80 hover:bg-slate-900 text-white rounded-xl shadow border border-slate-700 transition-all cursor-pointer flex items-center gap-1.5 text-[11px] font-bold"
-                  >
-                    <Download className="h-4 w-4" />
-                    Tải Video
-                  </button>
-                </div>
+                {generatedVideoUrl.startsWith('pending://') ? (() => {
+                  const matchedRecord = history.find(h => h.url === generatedVideoUrl);
+                  const progressVal = matchedRecord?.metadata?.progress;
+                  return (
+                    <div className="w-full h-full bg-slate-900 flex flex-col items-center justify-center text-xs font-bold text-cyan-400 uppercase tracking-widest p-4 text-center">
+                      <Loader2 className="h-8 w-8 animate-spin mb-2 text-cyan-500" />
+                      Video đang được dựng...
+                      {progressVal !== undefined && (
+                        <div className="flex flex-col items-center gap-1.5 mt-2 w-48 mx-auto">
+                          <span className="text-[10px] text-cyan-400 font-mono">Tiến độ: {progressVal}%</span>
+                          <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                            <div
+                              className="bg-cyan-500 h-full transition-all duration-300 rounded-full"
+                              style={{ width: `${progressVal}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                      <span className="text-[10px] text-slate-400 normal-case font-normal mt-2">Hệ thống đang xử lý ở chế độ nền. Không cần tải lại trang.</span>
+                    </div>
+                  );
+                })() : (
+                  <>
+                    <video
+                      src={generatedVideoUrl}
+                      controls
+                      autoPlay
+                      loop
+                      className="w-full h-full object-contain"
+                      id="canvas_video_player"
+                    />
+                    <div className="absolute top-4 right-4 opacity-0 hover:opacity-100 transition-opacity z-10 flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const link = document.createElement('a');
+                          link.href = generatedVideoUrl;
+                          link.download = `igen-video-${Date.now()}.mp4`;
+                          link.click();
+                        }}
+                        className="p-2 bg-slate-900/80 hover:bg-slate-900 text-white rounded-xl shadow border border-slate-700 transition-all cursor-pointer flex items-center gap-1.5 text-[11px] font-bold"
+                      >
+                        <Download className="h-4 w-4" />
+                        Tải Video
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center gap-3 p-10 text-center select-none text-slate-400">
@@ -623,7 +734,22 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved }: {
                         className={`w-32 aspect-[16/10] relative rounded-xl overflow-hidden bg-slate-950 shadow-xs cursor-pointer hover:shadow-md shrink-0 border-2 transition-all group/item ${isActive ? 'border-[#0891b2]' : 'border-transparent'
                           }`}
                       >
-                        <video src={record.url} className="w-full h-full object-cover" muted preload="metadata" />
+                        {record.url && (record.url.startsWith('http') || record.url.startsWith('blob:') || record.url.startsWith('data:')) ? (
+                          <video src={record.url} className="w-full h-full object-cover" muted preload="metadata" />
+                        ) : (
+                          <div className="w-full h-full bg-slate-900 flex flex-col items-center justify-center text-[8px] font-bold text-cyan-400 uppercase tracking-widest p-1 text-center">
+                            <Loader2 className="h-4 w-4 animate-spin mb-1 text-cyan-500" />
+                            ĐANG DỰNG {record.metadata?.progress !== undefined ? `${record.metadata.progress}%` : ''}
+                            {record.metadata?.progress !== undefined && (
+                              <div className="w-16 bg-slate-855 h-1 rounded-full overflow-hidden mt-1 mx-auto">
+                                <div
+                                  className="bg-cyan-500 h-full transition-all duration-300 rounded-full"
+                                  style={{ width: `${record.metadata.progress}%` }}
+                                />
+                              </div>
+                            )}
+                          </div>
+                        )}
                         <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-70 group-hover/item:opacity-100 transition-opacity">
                           <div className="h-6 w-6 rounded-full bg-white/95 hover:bg-white flex items-center justify-center text-slate-900 shadow">
                             <Play className="h-2.5 w-2.5 fill-slate-900 ml-0.5" />

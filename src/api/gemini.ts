@@ -200,7 +200,7 @@ export const geminiApi = {
   async generateVideo(
     prompt: string,
     durationSeconds?: number,
-    options?: { aspectRatio?: string; modelName?: string; resolution?: string; referenceVideoUri?: string; referenceImageUris?: string[] }
+    options?: { aspectRatio?: string; modelName?: string; resolution?: string; referenceVideoUri?: string; referenceImageUris?: string[]; activeCardId?: string }
   ): Promise<{ url: string; isMock: boolean; record?: any }> {
     const headers = await getHeaders(true);
     const response = await fetch('/api/v1/gemini/generate-video', {

@@ -261,9 +261,9 @@ export default function DashboardTab() {
       <div className="mb-8 flex flex-col gap-5">
         <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
-            <h2 className="font-sans text-3xl font-bold tracking-tight text-gray-800">
+            <h1 className="font-sans text-3xl font-bold tracking-tight text-gray-800">
               {activeView === "ai" ? "Hiệu suất AI" : activeView === "revenue" ? "Phân tích doanh thu" : "Tổng quan Doanh nghiệp"}
-            </h2>
+            </h1>
             <p className="mt-2 text-sm text-gray-600">Hôm nay, {todayLabel}</p>
           </div>
           <div className="flex w-fit items-center gap-2 rounded-full border border-green-200 bg-green-50 px-3 py-1.5 text-xs font-medium text-green-700">

@@ -147,7 +147,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
             className="h-11 w-11 shrink-0 rounded-2xl border border-blue-100 object-cover shadow-lg shadow-blue-500/15"
           />
           <div className="min-w-0">
-            <h1 className="truncate font-sans text-lg font-bold tracking-tight text-blue-700">{BRAND_NAME}</h1>
+            <h2 className="truncate font-sans text-lg font-bold tracking-tight text-blue-700">{BRAND_NAME}</h2>
             <p className="truncate font-mono text-[10px] uppercase tracking-widest text-gray-500">{BRAND_TAGLINE}</p>
           </div>
         </div>

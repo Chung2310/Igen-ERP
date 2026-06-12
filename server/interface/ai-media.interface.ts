@@ -18,6 +18,10 @@ export interface IAIMedia extends Document {
     status?: string;
     title?: string;
     description?: string;
+    piapiTaskId?: string;
+    activeCardId?: string;
+    progress?: number;
+    error?: string;
   };
   createdAt: Date;
 }

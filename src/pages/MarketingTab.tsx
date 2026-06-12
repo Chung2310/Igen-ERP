@@ -601,6 +601,7 @@ export default function MarketingTab() {
 
   return (
     <div className="flex flex-col h-full bg-white max-h-[85vh] overflow-hidden" id="marketing_tab_wrapper">
+      <h1 className="sr-only">Chiến dịch Marketing - {subTab}</h1>
       
       {/* Sub Tabs control header switcher */}
       <div className="border-b border-gray-200 bg-gray-50/50 p-2 text-xs flex justify-between shrink-0" id="marketing_sub_tabs_switch">
