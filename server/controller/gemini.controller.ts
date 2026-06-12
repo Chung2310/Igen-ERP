@@ -291,6 +291,7 @@ export const geminiController = {
           activeCardId,
           piapiTaskId: (result as any).taskId,
           status: isPending ? "processing" : "completed",
+          progress: isPending ? 1 : 100,
         });
         if (isPending && (result as any).taskId) {
           geminiService.pollPiAPIVideoStatusBackground(record._id.toString(), (result as any).taskId, userId);

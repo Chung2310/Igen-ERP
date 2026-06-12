@@ -120,13 +120,8 @@ export const geminiService = {
       });
     };
 
-<<<<<<< HEAD
-    if (!client) {
-      throw new Error("Chưa cấu hình GEMINI_API_KEY. Không thể trò chuyện.");
-=======
     if (!process.env.PIAPI_API_KEY) {
       return getMockResponse();
->>>>>>> origin/develop
     }
 
     const hasCompanyKnowledge = !!ragContext?.contextText;
@@ -853,115 +848,12 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
       modelToUse = "nano-banana-pro";
     }
     
-<<<<<<< HEAD
-    if (modelToUse.startsWith("piapi-")) {
-      return piapiService.generateImage(prompt, modelToUse, { aspectRatio: options?.aspectRatio });
-    }
-    const client = getGeminiClient();
-    const aspect = options?.aspectRatio || "1:1";
-
-    const getMockImage = () => {
+    if (!process.env.PIAPI_API_KEY) {
       const seed = Math.floor(Math.random() * 1000000);
       return { url: `https://picsum.photos/seed/${seed}/800/600`, isMock: true };
-    };
-
-    if (!client) {
-      throw new Error("Chưa cấu hình GEMINI_API_KEY. Không thể sinh ảnh.");
     }
 
-    try {
-      let finalTextPrompt = prompt;
-      const hasReferenceImages = options?.existingImageUris && options.existingImageUris.length > 0;
-      if (modelToUse.startsWith("imagen-") && hasReferenceImages) {
-        console.log(`[geminiService.generateImage] Imagen model + reference images -> Preprocessing with Nano Banana`);
-        const parts: any[] = [];
-        for (const uri of options.existingImageUris!) {
-          if (uri.startsWith("data:")) {
-            const match = uri.match(/^data:([^;]+);base64,(.+)$/);
-            if (match) {
-              parts.push({
-                inlineData: { mimeType: match[1], data: match[2] }
-              });
-            }
-          }
-        }
-        parts.push({
-          text: `Analyze the reference image(s) above and combine your understanding with the user's request to create ONE ultra-detailed English prompt that Imagen can use to generate a matching image.
-USER'S REQUEST: "${prompt}"
-Output ONLY the final detailed prompt in English.`
-        });
-
-        const preRes = await client.models.generateContent({
-          model: GEMINI_TEXT_MODEL,
-          contents: parts,
-        });
-        if (preRes.text) {
-          finalTextPrompt = preRes.text.trim();
-        }
-      }
-
-      const isImagen = modelToUse.startsWith("imagen-");
-      let response;
-      if (isImagen) {
-        response = await client.models.generateImages({
-          model: modelToUse,
-          prompt: finalTextPrompt,
-          config: {
-            numberOfImages: 1,
-            aspectRatio: aspect as any,
-          },
-        });
-      } else {
-        const parts: any[] = [{ text: finalTextPrompt }];
-        if (hasReferenceImages) {
-          for (const uri of options.existingImageUris!) {
-            if (uri.startsWith("data:")) {
-              const match = uri.match(/^data:([^;]+);base64,(.+)$/);
-              if (match) {
-                parts.push({
-                  inlineData: { mimeType: match[1], data: match[2] }
-                });
-              }
-            }
-          }
-        }
-
-        const config: any = {
-          responseModalities: ["IMAGE"],
-          imageConfig: { aspectRatio: aspect },
-        };
-        if (options?.resolution) {
-          config.imageConfig.imageSize = options.resolution;
-        }
-
-        response = await client.models.generateContent({
-          model: modelToUse,
-          contents: parts,
-          config,
-        });
-      }
-
-      let base64Bytes = "";
-      if (isImagen) {
-        const generatedImage = (response as any).generatedImages?.[0];
-        base64Bytes = generatedImage?.image?.imageBytes;
-      } else {
-        const part = (response as any).candidates?.[0]?.content?.parts?.[0];
-        base64Bytes = part?.inlineData?.data;
-      }
-
-      if (!base64Bytes) {
-        throw new Error("Không nhận được dữ liệu ảnh từ Gemini API");
-      }
-
-      return { url: `data:image/png;base64,${base64Bytes}`, isMock: false };
-    } catch (error: any) {
-      console.error("[geminiService.generateImage] Error:", error);
-      throw error;
-    }
-=======
     return piapiService.generateImage(prompt, modelToUse, { aspectRatio: options?.aspectRatio });
->>>>>>> origin/develop
   },
 
   /**
@@ -990,6 +882,8 @@ Output ONLY the final detailed prompt in English.`
     } catch (e) {
       // not JSON, use as is
     }
+
+    let modelToUse = options?.modelName || GEMINI_VIDEO_MODEL;
 
     if (modelToUse.includes("veo-3.1-generate-preview")) {
       modelToUse = "veo31-video-audio";
@@ -1516,7 +1410,10 @@ Do not include markdown blocks or any text other than the JSON object.`
           });
           return;
         } else {
-          const currentProgress = result.progress !== undefined ? result.progress : 0;
+          let currentProgress = typeof result.progress === "number" && result.progress > 0 ? result.progress : 0;
+          if (currentProgress === 0) {
+            currentProgress = Math.min(5 + attempts * 7, 95);
+          }
           await AIMediaModel.findByIdAndUpdate(recordId, {
             "metadata.progress": currentProgress
           });
