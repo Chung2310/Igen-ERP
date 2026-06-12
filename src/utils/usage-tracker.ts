@@ -10,6 +10,12 @@ export const PRICING_TABLE: Record<string, {
   category: 'video' | 'audio' | 'image' | 'text';
   note?: string;
 }> = {
+  'veo-3.1-generate-preview': {
+    costPerUnitUSD: 81.0,
+    unit: 'seconds',
+    label: 'iGen Veo 3.1',
+    category: 'video',
+  },
   'veo-3.1-fast-generate-preview': {
     costPerUnitUSD: 40.5,
     unit: 'seconds',
@@ -80,6 +86,18 @@ export const PRICING_TABLE: Record<string, {
     costPerUnitUSD: 13.75,
     unit: 'count',
     label: 'Google Imagen 3.0 Flash',
+    category: 'image',
+  },
+  'nano-banana-pro': {
+    costPerUnitUSD: 27.5,
+    unit: 'count',
+    label: 'nano banana pro',
+    category: 'image',
+  },
+  'nano-banana-2': {
+    costPerUnitUSD: 13.75,
+    unit: 'count',
+    label: 'nano banana 2',
     category: 'image',
   },
 };

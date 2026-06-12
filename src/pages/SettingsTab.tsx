@@ -179,7 +179,9 @@ export default function SettingsTab() {
   // ERP mock config states
   const [darkMode, setDarkMode] = useState(false);
   const [emailNotifications, setEmailNotifications] = useState(true);
-  const [aiModel, setAiModel] = useState("gemini-2.5-flash");
+  const [aiModel, setAiModel] = useState(() => {
+    return localStorage.getItem("selected_ai_model") || "gemini-3.5-flash";
+  });
   const [autoBackup, setAutoBackup] = useState(true);
 
   // Facebook integration form states
@@ -716,14 +718,15 @@ export default function SettingsTab() {
                     <select
                       value={aiModel}
                       onChange={(e) => {
-                        setAiModel(e.target.value);
-                        toast.success(`Đã đổi mô hình AI sang: ${e.target.value}`);
+                        const model = e.target.value;
+                        setAiModel(model);
+                        localStorage.setItem("selected_ai_model", model);
+                        toast.success(`Đã đổi mô hình AI sang: ${model}`);
                       }}
                       className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none cursor-pointer"
                     >
-                      <option value="gemini-2.5-flash">Gemini 2.5 Flash (Tốc độ tối ưu)</option>
-                      <option value="gemini-2.5-pro">Gemini 2.5 Pro (Đọc hiểu nâng cao)</option>
-                      <option value="gemini-2.0-flash-exp">Gemini 2.0 Flash (Thử nghiệm)</option>
+                      <option value="gemini-3.5-flash">Gemini 3.5 Flash (Tối ưu tốc độ)</option>
+                      <option value="gemini-3.1-pro">Gemini 3.1 Pro (Đọc hiểu nâng cao)</option>
                     </select>
                   </div>
 

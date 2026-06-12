@@ -10,8 +10,9 @@ import {
 import { marketingService } from '../../services/marketingService';
 
 const MODEL_OPTIONS = [
-  { value: 'veo-3.1-generate-preview', label: 'iGen Veo 3.1 Fast', desc: 'Tốc độ nhanh, chất lượng tốt' },
-  { value: 'veo-3.1-fast-generate-preview', label: 'iGen Veo 3.1 Fast (Preview)', desc: 'Tối ưu hiệu năng' },
+  { value: 'veo-3.1-generate-preview', label: 'iGen Veo 3.1', desc: 'Tốc độ nhanh, chất lượng tốt' },
+  { value: 'veo-3.1-fast-generate-preview', label: 'iGen Veo 3.1 Fast', desc: 'Tối ưu hiệu năng' },
+  { value: 'veo-3.1-lite-generate-preview', label: 'iGen Veo 3.1 Lite', desc: 'Siêu nhanh, tiết kiệm chi phí' },
   { value: 'piapi-kling', label: 'PiAPI - Kling AI Video', desc: 'Sinh video Kling AI' },
   { value: 'piapi-luma', label: 'PiAPI - Luma AI Video', desc: 'Sinh video Luma AI' },
 ];
@@ -56,7 +57,7 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved }: {
   const [afterImage, setAfterImage] = useState<string | null>(null);
 
   // Video Settings
-  const [videoModel, setVideoModel] = useState('veo-3.1-generate-preview');
+  const [videoModel, setVideoModel] = useState('piapi-kling');
   const [videoAspectRatio, setVideoAspectRatio] = useState('16:9');
   const [videoDuration, setVideoDuration] = useState('4');
   const [videoQuality, setVideoQuality] = useState('720p'); // 1080p requires duration >= 6s
@@ -432,8 +433,9 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved }: {
               className="w-full text-xs p-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none cursor-pointer font-medium text-slate-800"
             >
               <optgroup label="Google Veo">
-                <option value="veo-3.1-generate-preview">iGen Veo 3.1 Fast</option>
-                <option value="veo-3.1-fast-generate-preview">iGen Veo 3.1 Fast (Preview)</option>
+                <option value="veo-3.1-generate-preview">iGen Veo 3.1</option>
+                <option value="veo-3.1-fast-generate-preview">iGen Veo 3.1 Fast</option>
+                <option value="veo-3.1-lite-generate-preview">iGen Veo 3.1 Lite</option>
               </optgroup>
               <optgroup label="PiAPI Video (Kling / Luma)">
                 <option value="piapi-kling">PiAPI - Kling AI Video</option>

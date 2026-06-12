@@ -27,9 +27,9 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved }
   const [prompt, setPrompt] = useState(initialPrompt || '');
   const [negativePrompt, setNegativePrompt] = useState('');
   const [aspectRatio, setAspectRatio] = useState('1:1');
-  const [imageModel, setImageModel] = useState('gemini-3.1-flash-image-preview');
+  const [imageModel, setImageModel] = useState('piapi-midjourney');
   const [resolution, setResolution] = useState('1K');
-  const [optimizeModel, setOptimizeModel] = useState('gemini-3.1-flash-lite');
+  const [optimizeModel, setOptimizeModel] = useState('gemini-3.5-flash');
 
   // Input reference image list (base64 data URIs)
   const [inputImageUrls, setInputImageUrls] = useState<string[]>([]);
@@ -367,8 +367,8 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved }
               onChange={(e) => setImageModel(e.target.value)}
             >
               <optgroup label="Google Gemini">
-                <option value="imagen-4.0-generate-001">Google Imagen 4.0 Pro</option>
-                <option value="gemini-2.5-flash">Gemini 2.5 Flash Image Model</option>
+                <option value="nano-banana-pro">nano banana pro</option>
+                <option value="nano-banana-2">nano banana 2</option>
               </optgroup>
               <optgroup label="PiAPI (Midjourney / Flux)">
                 <option value="piapi-midjourney">PiAPI - Midjourney</option>
