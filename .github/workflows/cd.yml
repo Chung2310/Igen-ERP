@@ -44,14 +44,28 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Deploy via SSH to VPS
+      - name: Copy docker-compose.yml to VPS
         if: github.ref_name == 'develop'
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           port: ${{ secrets.SSH_PORT || '22' }}
+          source: "docker-compose.yml"
+          target: "/opt/igen-erp/staging"
+
+      - name: Deploy via SSH to VPS
+        if: github.ref_name == 'develop'
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          ENV_FILE_CONTENT: ${{ secrets.ENV_FILE }}
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT || '22' }}
+          envs: ENV_FILE_CONTENT
           script: |
             TARGET_DIR="/opt/igen-erp/staging"
             IMAGE_TAG="develop"
@@ -61,36 +75,12 @@ jobs:
             mkdir -p "$TARGET_DIR"
             cd "$TARGET_DIR"
 
-            # Tạo file .env trống nếu chưa có để tránh lỗi docker compose
-            if [ ! -f /root/Igen-ERP/.env ]; then
-              mkdir -p /root/Igen-ERP
-              touch /root/Igen-ERP/.env
-            fi
-
-            # Ghi đè file docker-compose.yml bằng echo để đảm bảo định dạng YAML trong cd.yml không bị lỗi
-            echo "version: '3.8'" > docker-compose.yml
-            echo "" >> docker-compose.yml
-            echo "services:" >> docker-compose.yml
-            echo "  igen-erp:" >> docker-compose.yml
-            echo "    image: ghcr.io/chung2310/igen-erp:${IMAGE_TAG}" >> docker-compose.yml
-            echo "    container_name: ${CONTAINER_NAME}" >> docker-compose.yml
-            echo "    restart: always" >> docker-compose.yml
-            echo "    ports:" >> docker-compose.yml
-            echo "      - \"3000:3000\"" >> docker-compose.yml
-            echo "    env_file:" >> docker-compose.yml
-            echo "      - /root/Igen-ERP/.env" >> docker-compose.yml
-            echo "    volumes:" >> docker-compose.yml
-            echo "      - /root/Igen-ERP/.env:/app/.env" >> docker-compose.yml
-            echo "    networks:" >> docker-compose.yml
-            echo "      - default_network" >> docker-compose.yml
-            echo "" >> docker-compose.yml
-            echo "networks:" >> docker-compose.yml
-            echo "  default_network:" >> docker-compose.yml
-            echo "    external: true" >> docker-compose.yml
+            # Tạo/ghi nội dung cấu hình từ GitHub Secrets vào file .env cục bộ
+            echo "$ENV_FILE_CONTENT" > .env
 
             # Đăng nhập vào GHCR trên VPS
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-            # Pull image mới và khởi động lại container tương ứng
-            docker compose pull
-            docker compose up -d --remove-orphans
+            # Kéo (pull) image mới và khởi động lại container tương ứng với env variables
+            IMAGE_TAG="$IMAGE_TAG" CONTAINER_NAME="$CONTAINER_NAME" docker compose pull
+            IMAGE_TAG="$IMAGE_TAG" CONTAINER_NAME="$CONTAINER_NAME" docker compose up -d --remove-orphans
