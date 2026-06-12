@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Clapperboard, Sparkles, Wand2 } from 'lucide-react';
 import { HeyGenWorkspace } from './HeyGenWorkspace';
 import { SimpleVideoWorkspace } from './SimpleVideoWorkspace';
+import { EditVideoWorkspace } from './EditVideoWorkspace';
 
 interface VideoGenerationWorkspaceProps {
   initialPrompt?: string;
@@ -60,13 +61,7 @@ export function VideoGenerationWorkspace({
 
       {activeVideoTab === 'heygen' && <HeyGenWorkspace initialPrompt={initialPrompt} />}
 
-      {activeVideoTab === 'edit-video' && (
-        <VideoToolPlaceholder
-          title="Edit Video Workspace"
-          description="Tab nay da san sang cho cac tinh nang cat ghep, them subtitle, thay nen hoac hau ky video."
-          badge="Ready for integration"
-        />
-      )}
+      {activeVideoTab === 'edit-video' && <EditVideoWorkspace />}
     </div>
   );
 }
