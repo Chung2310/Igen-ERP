@@ -6,6 +6,8 @@ dotenv.config();
 const PIAPI_API_KEY = process.env.PIAPI_API_KEY || "";
 const PIAPI_BASE_URL = "https://api.piapi.ai/api/v1";
 
+console.log(`[PiAPI Service] Loaded API Key status: ${PIAPI_API_KEY ? `Present (Length: ${PIAPI_API_KEY.length}, Prefix: ${PIAPI_API_KEY.substring(0, 8)}...)` : 'Missing'}`);
+
 export const piapiService = {
   /**
    * Sinh ảnh bằng PiAPI (Midjourney, Flux, v.v.)
@@ -51,7 +53,7 @@ export const piapiService = {
     }
 
     try {
-      console.log(`[PiAPI Image Generation] Requesting task for model ${model}...`);
+      console.log(`[PiAPI Image Generation] Requesting task for model ${model}. Body:`, JSON.stringify(reqBody, null, 2));
       const response = await fetch(`${PIAPI_BASE_URL}/task`, {
         method: "POST",
         headers: {
@@ -67,6 +69,7 @@ export const piapiService = {
       }
 
       const json: any = await response.json();
+      console.log(`[PiAPI Image Generation] Task creation response:`, JSON.stringify(json, null, 2));
       const taskId = json.data?.task_id;
       if (!taskId) {
         throw new Error("Không nhận được task_id từ PiAPI");
@@ -85,7 +88,7 @@ export const piapiService = {
         if (pollResponse.ok) {
           const pollJson: any = await pollResponse.json();
           const task = pollJson.data;
-          console.log(`[PiAPI Image Generation] Task ${taskId} status: ${task?.status}`);
+          console.log(`[PiAPI Image Generation] Task ${taskId} poll result:`, JSON.stringify(pollJson, null, 2));
 
           if (task?.status === "completed") {
             const url = (task.output?.image_urls && task.output.image_urls[0]) || task.output?.image_url || task.output?.url;
@@ -185,7 +188,7 @@ export const piapiService = {
     }
 
     try {
-      console.log(`[PiAPI Video Generation] Requesting task for model ${model}...`);
+      console.log(`[PiAPI Video Generation] Requesting task for model ${model}. Body:`, JSON.stringify(reqBody, null, 2));
       const response = await fetch(`${PIAPI_BASE_URL}/task`, {
         method: "POST",
         headers: {
@@ -201,6 +204,7 @@ export const piapiService = {
       }
 
       const json: any = await response.json();
+      console.log(`[PiAPI Video Generation] Task creation response:`, JSON.stringify(json, null, 2));
       const taskId = json.data?.task_id;
       if (!taskId) {
         throw new Error("Không nhận được task_id từ PiAPI");
@@ -219,7 +223,7 @@ export const piapiService = {
         if (pollResponse.ok) {
           const pollJson: any = await pollResponse.json();
           const task = pollJson.data;
-          console.log(`[PiAPI Video Generation] Task ${taskId} status: ${task?.status}`);
+          console.log(`[PiAPI Video Generation] Task ${taskId} poll result:`, JSON.stringify(pollJson, null, 2));
 
           if (task?.status === "completed") {
             const url = task.output?.video || task.output?.video_url || task.output?.url;
