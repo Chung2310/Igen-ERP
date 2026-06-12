@@ -21,6 +21,7 @@ const generateVoiceSchema = {
     stability: Joi.number().optional(),
     similarityBoost: Joi.number().optional(),
     useSpeakerBoost: Joi.boolean().optional(),
+    saveToHistory: Joi.boolean().optional(),
   }),
 };
 
