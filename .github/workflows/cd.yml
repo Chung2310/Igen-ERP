@@ -81,6 +81,9 @@ jobs:
             # Đăng nhập vào GHCR trên VPS
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
+            # Giải phóng container cũ có cùng tên (tránh xung đột khi chuyển project name)
+            docker rm -f "$CONTAINER_NAME" || true
+
             # Kéo (pull) image mới và khởi động lại container tương ứng với env variables
             export COMPOSE_PROJECT_NAME="$CONTAINER_NAME"
             IMAGE_TAG="$IMAGE_TAG" CONTAINER_NAME="$CONTAINER_NAME" docker compose pull
