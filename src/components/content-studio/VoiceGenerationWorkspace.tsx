@@ -1,4 +1,4 @@
-﻿import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useProgress } from '../../hooks/use-progress';
 import { geminiApi } from '../../api/gemini';
 import { elevenlabsApi } from '../../api/elevenlabs';
@@ -13,32 +13,63 @@ import {
 import { estimateAudioDuration } from '../../utils/usage-tracker';
 
 const VOICE_STYLE_TEMPLATES = [
-   { id: 'none', label: 'TÃ¹y chá»‰nh (Tá»± nháº­p)', prompt: '' },
-   { id: 'news', label: 'ðŸŽ™ï¸ BTV thá»i sá»±', prompt: 'Äá»c dÃµng dáº¡c, nghiÃªm tÃºc, rÃµ rÃ ng vÃ  máº¡ch láº¡c nhÆ° má»™t biÃªn táº­p viÃªn truyá»n hÃ¬nh.' },
-   { id: 'story', label: 'ðŸŒ™ Ká»ƒ chuyá»‡n', prompt: 'Äá»c cháº­m rÃ£i, áº¥m Ã¡p, truyá»n cáº£m nhÆ° Ä‘ang ká»ƒ chuyá»‡n cho tráº» em nghe.' },
-   { id: 'excited', label: 'ðŸŽ‰ HÃ o há»©ng', prompt: 'Äá»c tháº­t hÃ o há»©ng, bÃ¹ng ná»•, vui tÆ°Æ¡i vÃ  trÃ n diá»‡n nhiá»‡t huyáº¿t.' },
-   { id: 'prof', label: 'ðŸ“Š ChuyÃªn gia', prompt: 'Äá»c Ä‘iá»m Ä‘áº¡m, tá»‘c Ä‘á»™ vá»«a pháº£i, chuyÃªn nghiá»‡p vÃ  Ä‘áº§y tÃ­nh thuyáº¿t phá»¥c.' },
-   { id: 'sad', label: 'ðŸ¥€ SÃ¢u láº¯ng', prompt: 'Äá»c vá»›i giá»ng tráº§m buá»“n, ngháº¹n ngÃ o, tá»‘c Ä‘á»™ cháº­m rÃ£i thá»ƒ hiá»‡n sá»± Ä‘á»“ng cáº£m.' },
-   { id: 'urgent', label: 'ðŸš¨ Kháº©n cáº¥p', prompt: 'Äá»c dá»©t khoÃ¡t, nhanh, Ã¢m lÆ°á»£ng lá»›n vÃ  táº­p trung vÃ o sá»± quan trá»ng cá»§a thÃ´ng tin.' },
+   { id: 'none', label: 'Tùy chỉnh (Tự nhập)', prompt: '' },
+   { id: 'news', label: '🎙️ BTV thời sự', prompt: 'Đọc dõng dạc, nghiêm túc, rõ ràng và mạch lạc như một biên tập viên truyền hình.' },
+   { id: 'story', label: '🌙 Kể chuyện', prompt: 'Đọc chậm rãi, ấm áp, truyền cảm như đang kể chuyện cho trẻ em nghe.' },
+   { id: 'excited', label: '🎉 Hào hứng', prompt: 'Đọc thật hào hứng, bùng nổ, vui tươi và tràn diện nhiệt huyết.' },
+   { id: 'prof', label: '📊 Chuyên gia', prompt: 'Đọc điềm đạm, tốc độ vừa phải, chuyên nghiệp và đầy tính thuyết phục.' },
+   { id: 'sad', label: '🥀 Sâu lắng', prompt: 'Đọc với giọng trầm buồn, nghẹn ngào, tốc độ chậm rãi thể hiện sự đồng cảm.' },
+   { id: 'urgent', label: '🚨 Khẩn cấp', prompt: 'Đọc dứt khoát, nhanh, âm lượng lớn và tập trung vào sự quan trọng của thông tin.' },
 ];
 
 const ALL_VOICES = [
-   { id: 'Aoede', gender: 'female', age: 'young', label: 'CÃ´ gÃ¡i (~25t)', description: 'Nháº¹ nhÃ ng, truyá»n cáº£m (Bella)' },
-   { id: 'Kore', gender: 'female', age: 'child', label: 'BÃ© gÃ¡i (~12t)', description: 'Trong tráº»o, dá»… thÆ°Æ¡ng (Rachel)' },
-   { id: 'Puck', gender: 'male', age: 'child', label: 'BÃ© trai (~12t)', description: 'NÄƒng Ä‘á»™ng, hoáº¡t bÃ¡t (Josh)' },
-   { id: 'Charon', gender: 'male', age: 'adult', label: 'ÄÃ n Ã´ng (~45t)', description: 'Tráº§m áº¥m, máº¡nh máº½ (Charlie)' },
-   { id: 'Fenrir', gender: 'male', age: 'young', label: 'ChÃ ng trai (~25t)', description: 'Sáº¯c sáº£o, rÃµ rÃ ng (Arnold)' },
-   { id: 'Leda', gender: 'female', age: 'young', label: 'Thanh niÃªn', description: 'Trong tráº»o, tá»± nhiÃªn (Emily)' },
-   { id: 'Orus', gender: 'male', age: 'adult', label: 'Trung niÃªn', description: 'Tráº§m áº¥m, vang (George)' },
-   { id: 'Callirrhoe', gender: 'female', age: 'adult', label: 'Trung niÃªn', description: 'Má»m máº¡i, áº¥m Ã¡p (Domi)' },
-   { id: 'Autonoe', gender: 'female', age: 'young', label: 'Thanh niÃªn', description: 'Thanh thoÃ¡t, rÃµ lá»i (Ellie)' },
-   { id: 'Enceladus', gender: 'male', age: 'young', label: 'Thanh niÃªn', description: 'Máº¡nh máº½, dá»©t khoÃ¡t (Callum)' },
-   { id: 'Iapetus', gender: 'male', age: 'adult', label: 'Trung niÃªn', description: 'SÃ¢u tráº§m, chá»¯ng cháº¡c (Patrick)' },
-   { id: 'Umbriel', gender: 'male', age: 'young', label: 'Thanh niÃªn', description: 'Nháº¹ nhÃ ng, tá»« tá»‘n (Harry)' },
-   { id: 'Algieba', gender: 'female', age: 'adult', label: 'Trung niÃªn', description: 'DÃ y, sang trá»ng (Dorothy)' },
-   { id: 'Despina', gender: 'female', age: 'young', label: 'Thanh niÃªn', description: 'Cao, nhÃ­ nháº£nh (Mimi)' },
-   { id: 'Sadaltager', gender: 'male', age: 'adult', label: 'Trung niÃªn', description: 'Tráº§m áº¥m, Ä‘á»™c Ä‘Ã¡o (Adam)' }
+   { id: 'Aoede', gender: 'female', age: 'young', label: 'Cô gái (~25t)', description: 'Nhẹ nhàng, truyền cảm (Bella)' },
+   { id: 'Kore', gender: 'female', age: 'child', label: 'Bé gái (~12t)', description: 'Trong trẻo, dễ thương (Rachel)' },
+   { id: 'Puck', gender: 'male', age: 'child', label: 'Bé trai (~12t)', description: 'Năng động, hoạt bát (Josh)' },
+   { id: 'Charon', gender: 'male', age: 'adult', label: 'Đàn ông (~45t)', description: 'Trầm ấm, mạnh mẽ (Charlie)' },
+   { id: 'Fenrir', gender: 'male', age: 'young', label: 'Chàng trai (~25t)', description: 'Sắc sảo, rõ ràng (Arnold)' },
+   { id: 'Leda', gender: 'female', age: 'young', label: 'Thanh niên', description: 'Trong trẻo, tự nhiên (Emily)' },
+   { id: 'Orus', gender: 'male', age: 'adult', label: 'Trung niên', description: 'Trầm ấm, vang (George)' },
+   { id: 'Callirrhoe', gender: 'female', age: 'adult', label: 'Trung niên', description: 'Mềm mại, ấm áp (Domi)' },
+   { id: 'Autonoe', gender: 'female', age: 'young', label: 'Thanh niên', description: 'Thanh thoát, rõ lời (Ellie)' },
+   { id: 'Enceladus', gender: 'male', age: 'young', label: 'Thanh niên', description: 'Mạnh mẽ, dứt khoát (Callum)' },
+   { id: 'Iapetus', gender: 'male', age: 'adult', label: 'Trung niên', description: 'Sâu trầm, chững chạc (Patrick)' },
+   { id: 'Umbriel', gender: 'male', age: 'young', label: 'Thanh niên', description: 'Nhẹ nhàng, từ tốn (Harry)' },
+   { id: 'Algieba', gender: 'female', age: 'adult', label: 'Trung niên', description: 'Dày, sang trọng (Dorothy)' },
+   { id: 'Despina', gender: 'female', age: 'young', label: 'Thanh niên', description: 'Cao, nhí nhảnh (Mimi)' },
+   { id: 'Sadaltager', gender: 'male', age: 'adult', label: 'Trung niên', description: 'Trầm ấm, độc đáo (Adam)' }
 ];
+
+const ELEVENLABS_VOICE_MAP_LOCAL: Record<string, string> = {
+   Sadaltager: "pNInz6obpgqjGQJe7v5C",
+   Puck: "onwK4e9ZLuTAKqWW03F9",
+   Fenrir: "VR6A4UBqILHN73idDuEx",
+   Enceladus: "N2lVS1w4EtoT3sAHBSz1",
+   Iapetus: "ODq5FpeHgnsMrZsnXCw8",
+   Umbriel: "SOYhlJg1783U4EcYUPgl",
+   Algenib: "TX329t22vkzCsaeeH8ui",
+   Rasalgethi: "CYw3moM5B48wqvQUxxTL",
+   Achernar: "GBv7mTt0atIp3u8bJvhg",
+   Zephyr: "D38z5qw23EIviwc77s33",
+   Alnilam: "2EiwXtPIZgojA6xnRghf",
+   Gacrux: "2EiwXtPIZgojA6xnRghf",
+   Achird: "pNInz6obpgqjGQJe7v5C",
+   Zubenelgenubi: "pNInz6obpgqjGQJe7v5C",
+   Sulafat: "pNInz6obpgqjGQJe7v5C",
+   Aoede: "EXAVITQu4vr4xnSDxMaL",
+   Callirrhoe: "AZnzlk1XvdvUeBnXmlld",
+   Kore: "21m00Tcm4TlvDq8ikWAM",
+   Leda: "Lcfc5O6IFm67RCg5pQA1",
+   Autonoe: "MF3mGyEYCl7XYWbV9VbO",
+   Algieba: "ThT50A1aJnqfgCzz94ks",
+   Despina: "zrHiDhphv9RcmhlC3AEg",
+   Erinome: "EXAVITQu4vr4xnSDxMaL",
+   Laomedeia: "EXAVITQu4vr4xnSDxMaL",
+   Schedar: "EXAVITQu4vr4xnSDxMaL",
+   Pulcherrima: "EXAVITQu4vr4xnSDxMaL",
+   Vindemiatrix: "EXAVITQu4vr4xnSDxMaL",
+   Sadachbia: "EXAVITQu4vr4xnSDxMaL",
+};
 
 const DEFAULT_FALLBACK_VOICE_ID = '';
 
@@ -47,14 +78,14 @@ const MODEL_OPTIONS = [
       key: 'eleven_flash_v2_5',
       modelId: 'eleven_flash_v2_5',
       title: 'Eleven Flash v2.5',
-      description: 'MÃ´ hÃ¬nh Ä‘á»™ trá»… cá»±c tháº¥p, tá»‘i Æ°u cho há»™i thoáº¡i nhanh.',
+      description: 'Mô hình độ trễ cực thấp, tối ưu cho hội thoại nhanh.',
       badges: ['Low Latency', 'Flash'],
    },
    {
       key: 'eleven_turbo_v2_5',
       modelId: 'eleven_turbo_v2_5',
       title: 'Eleven Turbo v2.5',
-      description: 'MÃ´ hÃ¬nh tá»‘c Ä‘á»™ nhanh, tá»‘i Æ°u chi phÃ­ phÃ¡t sinh.',
+      description: 'Mô hình tốc độ nhanh, tối ưu chi phí phát sinh.',
       badges: ['Fast', 'Turbo'],
    },
 ] as const;
@@ -175,12 +206,12 @@ export function VoiceGenerationWorkspace() {
    const cloneAudioElementRef = useRef<HTMLAudioElement | null>(null);
    const [playingFileIndex, setPlayingFileIndex] = useState<number | null>(null);
 
-   // Voice design states (Thiáº¿t káº¿ giá»ng nÃ³i)
+   // Voice design states (Thiết kế giọng nói)
    const [designGender, setDesignGender] = useState<'male' | 'female'>('female');
    const [designAge, setDesignAge] = useState<'young' | 'middle_aged' | 'old'>('young');
    const [designAccent, setDesignAccent] = useState<string>('american');
    const [designAccentStrength, setDesignAccentStrength] = useState<number>(1.0);
-   const [designText, setDesignText] = useState<string>('Xin chÃ o! ÄÃ¢y lÃ  báº£n nghe thá»­ giá»ng nÃ³i má»›i thiáº¿t káº¿ cá»§a báº¡n.');
+   const [designText, setDesignText] = useState<string>('Xin chào! Đây là bản nghe thử giọng nói mới thiết kế của bạn.');
    const [isGeneratingDesignPreview, setIsGeneratingDesignPreview] = useState(false);
    const [designPreviewVoiceId, setDesignPreviewVoiceId] = useState<string | null>(null);
    const [designPreviewUrl, setDesignPreviewUrl] = useState<string | null>(null);
@@ -223,7 +254,7 @@ export function VoiceGenerationWorkspace() {
          const data = await elevenlabsApi.getVoiceHistory();
          setHistory(data.history || []);
       } catch (e: any) {
-         toast.error(`Lá»—i Ä‘á»“ng bá»™ lá»‹ch sá»­: ${e.message}`);
+         toast.error(`Lỗi đồng bộ lịch sử: ${e.message}`);
       } finally {
          setIsLoadingHistory(false);
       }
@@ -248,7 +279,7 @@ export function VoiceGenerationWorkspace() {
             });
          }
       } catch (e) {
-         console.error("Lá»—i láº¥y danh sÃ¡ch giá»ng nÃ³i cÃ¡ nhÃ¢n:", e);
+         console.error("Lỗi lấy danh sách giọng nói cá nhân:", e);
       }
    };
 
@@ -292,7 +323,7 @@ export function VoiceGenerationWorkspace() {
             label: standardVoice.name || 'ElevenLabs Voice',
             gender: standardVoice.labels?.gender || 'female',
             description: standardVoice.description || standardVoice.category || 'ElevenLabs voice',
-            tags: `${standardVoice.gender === 'male' ? 'Nam' : 'Ná»¯'} â€¢ ${standardVoice.description}`
+            tags: `${standardVoice.gender === 'male' ? 'Nam' : 'Nữ'} • ${standardVoice.description}`
          };
       }
       const customVoice = availableVoices.find(v => v.voice_id === id);
@@ -301,8 +332,8 @@ export function VoiceGenerationWorkspace() {
             id: customVoice.voice_id,
             label: customVoice.name,
             gender: customVoice.labels?.gender || 'female',
-            description: customVoice.description || 'Giá»ng Ä‘Ã£ nhÃ¢n báº£n',
-            tags: `${customVoice.labels?.gender === 'male' ? 'Nam' : 'Ná»¯'} â€¢ Giá»ng cÃ¡ nhÃ¢n`
+            description: customVoice.description || 'Giọng đã nhân bản',
+            tags: `${customVoice.labels?.gender === 'male' ? 'Nam' : 'Nữ'} • Giọng cá nhân`
          };
       }
       return {
@@ -310,11 +341,42 @@ export function VoiceGenerationWorkspace() {
          label: availableVoices[0]?.name || 'ElevenLabs Voice',
          gender: availableVoices[0]?.labels?.gender || 'male',
          description: availableVoices[0]?.description || 'Default ElevenLabs voice',
-         tags: 'Nam â€¢ iGen Audio v3'
+         tags: 'Nam • iGen Audio v3'
       };
    };
 
-   const getSelectedVoice = () => {
+      const getVoiceDisplayName = (voiceIdOrName: string) => {
+      if (!voiceIdOrName) return 'Roger - Laid-Back, Casual, Resonant';
+
+      // 1. Try to find in preset voices (ALL_VOICES) using the preset ID (e.g. 'Aoede')
+      const preset = ALL_VOICES.find(v => v.id === voiceIdOrName);
+      if (preset) {
+         return `${preset.label} (${voiceIdOrName})`;
+      }
+
+      // 2. Try to find in availableVoices (which has ElevenLabs voices, e.g. "Bella" with ID "EXAVITQu4vr4xnSDxMaL")
+      const avVoice = availableVoices.find(v => v.voice_id === voiceIdOrName || v.id === voiceIdOrName);
+      if (avVoice) {
+         const voiceName = avVoice.name || avVoice.label || 'ElevenLabs Voice';
+         return `${voiceName} (${voiceIdOrName})`;
+      }
+
+      // 3. Let's check if the ID corresponds to any preset's mapped ID in ELEVENLABS_VOICE_MAP_LOCAL
+      const presetVoiceKey = Object.keys(ELEVENLABS_VOICE_MAP_LOCAL).find(
+         key => ELEVENLABS_VOICE_MAP_LOCAL[key] === voiceIdOrName
+      );
+      if (presetVoiceKey) {
+         const presetByMappedId = ALL_VOICES.find(v => v.id === presetVoiceKey);
+         if (presetByMappedId) {
+            return `${presetByMappedId.label} (${voiceIdOrName})`;
+         }
+      }
+
+      // 4. Fallback: just return the voiceIdOrName itself
+      return voiceIdOrName;
+   };
+
+const getSelectedVoice = () => {
       return getVoiceDetails(voiceId);
    };
 
@@ -340,8 +402,8 @@ export function VoiceGenerationWorkspace() {
       setIsPreviewing(true);
       try {
          const previewText = currentVoice.gender === 'female'
-            ? `Xin chÃ o, Ä‘Ã¢y lÃ  giá»ng nÃ³i cá»§a tÃ´i. Ráº¥t vui Ä‘Æ°á»£c gáº·p báº¡n.`
-            : `Xin chÃ o, Ä‘Ã¢y lÃ  giá»ng nÃ³i cá»§a tÃ´i. ChÃºc báº¡n má»™t ngÃ y tá»‘t lÃ nh.`;
+            ? `Xin chào, đây là giọng nói của tôi. Rất vui được gặp bạn.`
+            : `Xin chào, đây là giọng nói của tôi. Chúc bạn một ngày tốt lành.`;
 
          const result = await elevenlabsApi.generateVoice({
             textToSpeak: previewText,
@@ -360,7 +422,7 @@ export function VoiceGenerationWorkspace() {
             playPreviewAudio(previewUrl);
          }
       } catch (e: any) {
-         toast.error(`Lá»—i phÃ¡t thá»­: ${e.message}`);
+         toast.error(`Lỗi phát thử: ${e.message}`);
       } finally {
          setIsPreviewing(false);
       }
@@ -378,7 +440,7 @@ export function VoiceGenerationWorkspace() {
 
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       if (!SpeechRecognition) {
-         toast.warning('TrÃ¬nh duyá»‡t cá»§a báº¡n khÃ´ng há»— trá»£ nháº­n diá»‡n giá»ng nÃ³i (Speech Recognition).');
+         toast.warning('Trình duyệt của bạn không hỗ trợ nhận diện giọng nói (Speech Recognition).');
          return;
       }
 
@@ -392,7 +454,7 @@ export function VoiceGenerationWorkspace() {
 
       recognition.onstart = () => {
          setIsListening(true);
-         toast.success('Äang láº¯ng nghe... HÃ£y nÃ³i vÃ o Microphone.');
+         toast.success('Đang lắng nghe... Hãy nói vào Microphone.');
       };
 
       recognition.onresult = (event: any) => {
@@ -415,19 +477,19 @@ export function VoiceGenerationWorkspace() {
 
    const handleOptimizeScript = async () => {
       if (!text.trim()) {
-         toast.warning('Vui lÃ²ng nháº­p ká»‹ch báº£n cáº§n tá»‘i Æ°u.');
+         toast.warning('Vui lòng nhập kịch bản cần tối ưu.');
          return;
       }
       setIsOptimizing(true);
       try {
-         toast.success('AI Ä‘ang tá»‘i Æ°u hÃ³a ká»‹ch báº£n...');
-         const result = await geminiApi.optimizeScript(text, styleInstructions || 'háº¥p dáº«n, lÃ´i cuá»‘n');
+         toast.success('AI đang tối ưu hóa kịch bản...');
+         const result = await geminiApi.optimizeScript(text, styleInstructions || 'hấp dẫn, lôi cuốn');
          if (result.optimizedText) {
             setText(result.optimizedText);
-            toast.success('Tá»‘i Æ°u hÃ³a ká»‹ch báº£n thÃ nh cÃ´ng!');
+            toast.success('Tối ưu hóa kịch bản thành công!');
          }
       } catch (error: any) {
-         toast.error(`Lá»—i: ${error.message}`);
+         toast.error(`Lỗi: ${error.message}`);
       } finally {
          setIsOptimizing(false);
       }
@@ -435,7 +497,7 @@ export function VoiceGenerationWorkspace() {
 
    const handleGenerate = async () => {
       if (!text.trim()) {
-         toast.warning('Vui lÃ²ng nháº­p vÄƒn báº£n cáº§n Ä‘á»c.');
+         toast.warning('Vui lòng nhập văn bản cần đọc.');
          return;
       }
 
@@ -444,7 +506,7 @@ export function VoiceGenerationWorkspace() {
       setIsPlaying(false);
 
       try {
-         toast.success('Äang báº¯t Ä‘áº§u táº¡o giá»ng nÃ³i AI...');
+         toast.success('Đang bắt đầu tạo giọng nói AI...');
 
          // Map frontend model name to actual ElevenLabs model ID
          const modelId = voiceModel;
@@ -467,43 +529,43 @@ export function VoiceGenerationWorkspace() {
 
          if (result.record?.url) {
             setAudioUri(result.record.url);
-            toast.success('Táº¡o giá»ng nÃ³i thÃ nh cÃ´ng!');
+            toast.success('Tạo giọng nói thành công!');
             setArchiveTitle('');
             setArchiveDescription('');
             loadHistory(); // Reload history
          }
       } catch (error: any) {
          console.error(error);
-         toast.error(`Lá»—i sinh giá»ng nÃ³i: ${error.message}`);
+         toast.error(`Lỗi sinh giọng nói: ${error.message}`);
       } finally {
          setIsGenerating(false);
       }
    };
 
    const handleDeleteHistory = async (id: string) => {
-      if (!confirm("Báº¡n cÃ³ cháº¯c cháº¯n muá»‘n xÃ³a báº£n thu Ã¢m nÃ y?")) return;
+      if (!confirm("Bạn có chắc chắn muốn xóa bản thu âm này?")) return;
       try {
          await elevenlabsApi.deleteVoiceHistory(id);
-         toast.success('ÄÃ£ xÃ³a báº£n thu Ã¢m khá»i lá»‹ch sá»­.');
+         toast.success('Đã xóa bản thu âm khỏi lịch sử.');
          setHistory(prev => prev.filter(r => r._id !== id && r.id !== id));
       } catch (e: any) {
-         toast.error(`Lá»—i khi xÃ³a: ${e.message}`);
+         toast.error(`Lỗi khi xóa: ${e.message}`);
          loadHistory();
       }
    };
 
    const handleDeleteCustomVoice = async (e: React.MouseEvent, voiceIdToDelete: string) => {
       e.stopPropagation();
-      if (!confirm("Báº¡n cÃ³ cháº¯c cháº¯n muá»‘n xÃ³a giá»ng nÃ³i nhÃ¢n báº£n nÃ y?")) return;
+      if (!confirm("Bạn có chắc chắn muốn xóa giọng nói nhân bản này?")) return;
       try {
          await elevenlabsApi.deleteVoice(voiceIdToDelete);
-         toast.success('ÄÃ£ xÃ³a giá»ng nÃ³i thÃ nh cÃ´ng.');
+         toast.success('Đã xóa giọng nói thành công.');
          if (voiceId === voiceIdToDelete) {
             setVoiceId(availableVoices.find(v => v.voice_id !== voiceIdToDelete)?.voice_id || '');
          }
          loadCustomVoices();
       } catch (e: any) {
-         toast.error(`Lá»—i khi xÃ³a giá»ng nÃ³i: ${e.message}`);
+         toast.error(`Lỗi khi xóa giọng nói: ${e.message}`);
       }
    };
 
@@ -636,7 +698,7 @@ export function VoiceGenerationWorkspace() {
             setRecordingDuration(prev => prev + 1);
          }, 1000);
       } catch (e: any) {
-         toast.error('KhÃ´ng thá»ƒ káº¿t ná»‘i Microphone: ' + e.message);
+         toast.error('Không thể kết nối Microphone: ' + e.message);
       }
    };
 
@@ -675,11 +737,11 @@ export function VoiceGenerationWorkspace() {
    // Submit Instant Cloning
    const handleSaveInstantClone = async () => {
       if (!newVoiceName.trim()) {
-         toast.warning('Vui lÃ²ng nháº­p tÃªn giá»ng nÃ³i');
+         toast.warning('Vui lòng nhập tên giọng nói');
          return;
       }
       if (instantFiles.length === 0) {
-         toast.warning('Vui lÃ²ng cung cáº¥p Ã­t nháº¥t 1 file audio máº«u');
+         toast.warning('Vui lòng cung cấp ít nhất 1 file audio mẫu');
          return;
       }
 
@@ -691,19 +753,19 @@ export function VoiceGenerationWorkspace() {
             files: instantFiles.map(f => f.file)
          });
          if (response && response.voice_id) {
-            toast.success('NhÃ¢n báº£n giá»ng nÃ³i thÃ nh cÃ´ng!');
+            toast.success('Nhân bản giọng nói thành công!');
             setVoiceId(response.voice_id);
             loadCustomVoices();
             setCreateStep('finish');
          }
       } catch (e: any) {
-         toast.error('Lá»—i khi nhÃ¢n báº£n giá»ng nÃ³i: ' + e.message);
+         toast.error('Lỗi khi nhân bản giọng nói: ' + e.message);
       } finally {
          setIsSavingVoice(false);
       }
    };
 
-   // Custom voice design flow (Thiáº¿t káº¿ giá»ng nÃ³i)
+   // Custom voice design flow (Thiết kế giọng nói)
    const handleGenerateDesignPreview = async () => {
       setIsGeneratingDesignPreview(true);
       setDesignPreviewUrl(null);
@@ -718,10 +780,10 @@ export function VoiceGenerationWorkspace() {
          if (res && res.url) {
             setDesignPreviewVoiceId(res.generatedVoiceId);
             setDesignPreviewUrl(res.url);
-            toast.success('Táº¡o báº£n nghe thá»­ thÃ nh cÃ´ng! Nháº¥n phÃ¡t Ä‘á»ƒ nghe.');
+            toast.success('Tạo bản nghe thử thành công! Nhấn phát để nghe.');
          }
       } catch (e: any) {
-         toast.error('Lá»—i thiáº¿t káº¿ nghe thá»­: ' + e.message);
+         toast.error('Lỗi thiết kế nghe thử: ' + e.message);
       } finally {
          setIsGeneratingDesignPreview(false);
       }
@@ -729,11 +791,11 @@ export function VoiceGenerationWorkspace() {
 
    const handleSaveDesignedVoice = async () => {
       if (!newVoiceName.trim()) {
-         toast.warning('Vui lÃ²ng nháº­p tÃªn giá»ng nÃ³i Ä‘á»ƒ lÆ°u.');
+         toast.warning('Vui lòng nhập tên giọng nói để lưu.');
          return;
       }
       if (!designPreviewVoiceId) {
-         toast.warning('Vui lÃ²ng báº¥m nghe thá»­ giá»ng nÃ³i trÆ°á»›c khi lÆ°u.');
+         toast.warning('Vui lòng bấm nghe thử giọng nói trước khi lưu.');
          return;
       }
 
@@ -741,17 +803,17 @@ export function VoiceGenerationWorkspace() {
       try {
          const res = await elevenlabsApi.createCustomVoice({
             voiceName: newVoiceName,
-            voiceDescription: newVoiceDescription || `Giá»ng tá»± thiáº¿t káº¿ (${designGender}, ${designAge}, ${designAccent})`,
+            voiceDescription: newVoiceDescription || `Giọng tự thiết kế (${designGender}, ${designAge}, ${designAccent})`,
             generatedVoiceId: designPreviewVoiceId
          });
          if (res && res.voice_id) {
-            toast.success('LÆ°u giá»ng thiáº¿t káº¿ thÃ nh cÃ´ng!');
+            toast.success('Lưu giọng thiết kế thành công!');
             setVoiceId(res.voice_id);
             loadCustomVoices();
             setCreateStep('finish');
          }
       } catch (e: any) {
-         toast.error('Lá»—i lÆ°u giá»ng nÃ³i: ' + e.message);
+         toast.error('Lỗi lưu giọng nói: ' + e.message);
       } finally {
          setIsSavingVoice(false);
       }
@@ -776,8 +838,8 @@ export function VoiceGenerationWorkspace() {
                   <TapeIcon className="h-5 w-5 text-cyan-500" />
                </div>
                <div>
-                  <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">NhÃ¢n báº£n giá»ng nÃ³i</h3>
-                  <p className="text-xs text-slate-400 mt-1">Táº¡o audio tá»« vÄƒn báº£n, quáº£n lÃ½ giá»ng Ä‘Ã£ clone vÃ  lÆ°u lá»‹ch sá»­ giá»ng nÃ³i trong má»™t mÃ n hÃ¬nh.</p>
+                  <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">Nhân bản giọng nói</h3>
+                  <p className="text-xs text-slate-400 mt-1">Tạo audio từ văn bản, quản lý giọng đã clone và lưu lịch sử giọng nói trong một màn hình.</p>
                </div>
             </div>
             <button
@@ -794,7 +856,7 @@ export function VoiceGenerationWorkspace() {
                className="px-4 py-2 bg-white hover:bg-slate-50 text-cyan-600 border border-cyan-150 rounded-xl text-xs font-bold transition-all flex items-center gap-2"
             >
                <Plus className="h-4 w-4" />
-               NhÃ¢n báº£n giá»ng má»›i
+               Nhân bản giọng mới
             </button>
          </div>
 
@@ -807,7 +869,7 @@ export function VoiceGenerationWorkspace() {
                   {/* Chosen Voice Panel */}
                   <div className="flex flex-col gap-2">
                      <div className="flex items-center justify-between">
-                        <label className="text-xs font-bold text-slate-700">Giá»ng nÃ³i Ä‘Ã£ chá»n</label>
+                        <label className="text-xs font-bold text-slate-700">Giọng nói đã chọn</label>
                         <button
                            onClick={() => {
                               setIsVoicePickerView(false);
@@ -816,7 +878,7 @@ export function VoiceGenerationWorkspace() {
                            className="px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-lg text-[11px] font-bold border flex items-center gap-1.5 transition-all"
                         >
                            <Settings2 className="h-3.5 w-3.5 text-slate-500" />
-                           CÃ i Ä‘áº·t
+                           Cài đặt
                         </button>
                      </div>
 
@@ -825,7 +887,7 @@ export function VoiceGenerationWorkspace() {
                            {selectedVoice.label}{selectedVoice.description ? ` - ${selectedVoice.description}` : ''}
                         </span>
                         <span className="text-[10px] text-slate-400 font-medium truncate">
-                           {selectedVoice.id === 'Sadaltager' ? 'iGen Audio v3' : (selectedVoice.tags || 'Giá»ng Ä‘Ã£ nhÃ¢n báº£n')}
+                           {selectedVoice.id === 'Sadaltager' ? 'iGen Audio v3' : (selectedVoice.tags || 'Giọng đã nhân bản')}
                         </span>
                      </div>
 
@@ -844,7 +906,7 @@ export function VoiceGenerationWorkspace() {
                            className="col-span-4 py-2 border-2 border-dashed border-cyan-200 hover:border-cyan-400 text-cyan-600 hover:bg-cyan-50/50 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5"
                         >
                            <Plus className="h-4 w-4" />
-                           ThÃªm giá»ng nÃ³i má»›i
+                           Thêm giọng nói mới
                         </button>
                         <button
                            onClick={() => {
@@ -853,7 +915,7 @@ export function VoiceGenerationWorkspace() {
                               setIsAdvancedModalOpen(true);
                            }}
                            className="col-span-1 py-2 border border-slate-200 hover:border-slate-300 text-slate-600 hover:bg-slate-50 rounded-xl flex items-center justify-center transition-all"
-                           title="ThÆ° viá»‡n giá»ng nÃ³i"
+                           title="Thư viện giọng nói"
                         >
                            <BookOpen className="h-4 w-4" />
                         </button>
@@ -863,7 +925,7 @@ export function VoiceGenerationWorkspace() {
                   {/* Style instructions & Templates */}
                   <div className="flex flex-col gap-2">
                      <div className="flex justify-between items-center">
-                        <label className="text-xs font-bold text-slate-700">Ká»‹ch báº£n Ä‘á»c máº«u</label>
+                        <label className="text-xs font-bold text-slate-700">Kịch bản đọc mẫu</label>
                         <select
                            value={VOICE_STYLE_TEMPLATES.find(t => t.prompt === selectedStylePrompt)?.id || 'none'}
                            onChange={(e) => {
@@ -882,15 +944,15 @@ export function VoiceGenerationWorkspace() {
                   {/* TEXT AREA INPUT */}
                   <div className="flex flex-col gap-2">
                      <div className="flex justify-between items-center">
-                        <h4 className="font-bold text-slate-700 text-xs">VÄƒn báº£n cáº§n Ä‘á»c</h4>
+                        <h4 className="font-bold text-slate-700 text-xs">Văn bản cần đọc</h4>
                         <div className="text-[10px] text-slate-400 font-mono">
-                           {text.length} kÃ½ tá»±
+                           {text.length} ký tự
                         </div>
                      </div>
 
                      <div className="relative">
                         <textarea
-                           placeholder="Nháº­p vÄƒn báº£n báº¡n muá»‘n chuyá»ƒn thÃ nh giá»ng nÃ³i... VÃ­ dá»¥: Xin chÃ o, tÃ´i lÃ  trá»£ lÃ½ áº£o AI cá»§a báº¡n!"
+                           placeholder="Nhập văn bản bạn muốn chuyển thành giọng nói... Ví dụ: Xin chào, tôi là trợ lý ảo AI của bạn!"
                            className="w-full text-xs p-4 border border-slate-200 rounded-xl h-44 focus:ring-1 focus:ring-cyan-500 focus:outline-none leading-relaxed font-sans resize-none"
                            value={text}
                            onChange={(e) => setText(e.target.value)}
@@ -902,20 +964,20 @@ export function VoiceGenerationWorkspace() {
                   {/* Archive Title & Description Inputs */}
                   <div className="grid grid-cols-2 gap-4">
                      <div className="flex flex-col gap-1">
-                        <label className="text-xs font-bold text-slate-700">TiÃªu Ä‘á» lÆ°u trá»¯ <span className="text-slate-400 font-normal">(TÃ¹y chá»n)</span></label>
+                        <label className="text-xs font-bold text-slate-700">Tiêu đề lưu trữ <span className="text-slate-400 font-normal">(Tùy chọn)</span></label>
                         <input
                            type="text"
-                           placeholder="VÃ­ dá»¥: Äoáº¡n má»Ÿ Ä‘áº§u Video"
+                           placeholder="Ví dụ: Đoạn mở đầu Video"
                            value={archiveTitle}
                            onChange={(e) => setArchiveTitle(e.target.value)}
                            className="w-full text-xs p-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-cyan-500"
                         />
                      </div>
                      <div className="flex flex-col gap-1">
-                        <label className="text-xs font-bold text-slate-700">MÃ´ táº£ / Ghi chÃº <span className="text-slate-400 font-normal">(TÃ¹y chá»n)</span></label>
+                        <label className="text-xs font-bold text-slate-700">Mô tả / Ghi chú <span className="text-slate-400 font-normal">(Tùy chọn)</span></label>
                         <input
                            type="text"
-                           placeholder="VÃ­ dá»¥: Äá»c nháº¥n nhÃ¡ Ä‘oáº¡n káº¿t"
+                           placeholder="Ví dụ: Đọc nhấn nhá đoạn kết"
                            value={archiveDescription}
                            onChange={(e) => setArchiveDescription(e.target.value)}
                            className="w-full text-xs p-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-cyan-500"
@@ -928,7 +990,7 @@ export function VoiceGenerationWorkspace() {
                      {(isGenerating || isOptimizing) && (
                         <div className="flex flex-col gap-1.5 p-3.5 bg-slate-50 border border-slate-100 rounded-xl animate-pulse">
                            <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 font-mono">
-                              <span>{isOptimizing ? 'AI ÄANG BIÃŠN SOáº N Láº I VÄ‚N Báº¢N...' : 'AI ÄANG MÃƒ HÃ“A GIá»ŒNG Äá»ŒC...'}</span>
+                              <span>{isOptimizing ? 'AI ĐANG BIÊN SOẠN LẠI VĂN BẢN...' : 'AI ĐANG MÃ HÓA GIỌNG ĐỌC...'}</span>
                               <span>{isOptimizing ? optimizeProgress : generateProgress}%</span>
                            </div>
                            <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
@@ -949,7 +1011,7 @@ export function VoiceGenerationWorkspace() {
                            }`}
                      >
                         {isGenerating ? <Loader2 className="h-4.5 w-4.5 animate-spin" /> : <TapeIcon className="h-4.5 w-4.5" />}
-                        Táº¡o Giá»ng NÃ³i
+                        Tạo Giọng Nói
                      </button>
                   </div>
 
@@ -966,8 +1028,8 @@ export function VoiceGenerationWorkspace() {
                         <div className="p-4 bg-cyan-50/50 text-cyan-500 rounded-full mb-3 shadow-xs">
                            <TapeIcon className="h-8 w-8 text-cyan-500/70" />
                         </div>
-                        <span className="text-xs font-bold text-slate-700">Audio sáº½ xuáº¥t hiá»‡n á»Ÿ Ä‘Ã¢y</span>
-                        <span className="text-[10px] text-slate-450 mt-1">Chá»n giá»ng nÃ³i, nháº­p vÄƒn báº£n vÃ  nháº¥n &quot;Táº¡o Giá»ng NÃ³i&quot;</span>
+                        <span className="text-xs font-bold text-slate-700">Audio sẽ xuất hiện ở đây</span>
+                        <span className="text-[10px] text-slate-450 mt-1">Chọn giọng nói, nhập văn bản và nhấn &quot;Tạo Giọng Nói&quot;</span>
                      </div>
                   ) : (
                      <div className="bg-white border border-slate-100 p-4 rounded-xl flex flex-col gap-3 shadow-xs">
@@ -988,7 +1050,7 @@ export function VoiceGenerationWorkspace() {
                            </button>
 
                            <div className="flex-1 flex flex-col gap-1">
-                              <span className="text-[10px] font-bold tracking-wide uppercase text-cyan-600 font-mono">Báº£n thu phÃ¡t Ã¢m má»›i nháº¥t</span>
+                              <span className="text-[10px] font-bold tracking-wide uppercase text-cyan-600 font-mono">Bản thu phát âm mới nhất</span>
                               <div className="flex items-center gap-2">
                                  <span className="text-[10px] font-mono text-slate-400">{formatTime(currentTime)}</span>
                                  <div className="flex-1 relative group cursor-pointer h-1.5 bg-slate-100 rounded-full">
@@ -1004,7 +1066,7 @@ export function VoiceGenerationWorkspace() {
                            <button
                               onClick={() => handleDownload()}
                               className="p-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-slate-600 hover:text-slate-800 transition-colors"
-                              title="Táº£i Ã¢m thanh WAV vá» mÃ¡y"
+                              title="Tải âm thanh WAV về máy"
                            >
                               <Download className="h-4.5 w-4.5" />
                            </button>
@@ -1017,19 +1079,19 @@ export function VoiceGenerationWorkspace() {
                <div className="border border-slate-200 bg-white rounded-2xl shadow-xs p-5 flex flex-col gap-4">
                   <h4 className="font-bold text-slate-800 text-xs tracking-wider uppercase flex items-center gap-1.5 border-b pb-3">
                      <Clock className="h-4.5 w-4.5 text-cyan-650" />
-                     Lá»‹ch sá»­ táº¡o giá»ng nÃ³i <span className="ml-1.5 px-2 py-0.5 bg-slate-100 rounded-full text-[10px] text-slate-500 font-mono font-bold">{history.length}</span>
+                     Lịch sử tạo giọng nói <span className="ml-1.5 px-2 py-0.5 bg-slate-100 rounded-full text-[10px] text-slate-500 font-mono font-bold">{history.length}</span>
                   </h4>
 
                   {isLoadingHistory ? (
                      <div className="flex flex-col items-center justify-center py-12 text-slate-400">
                         <Loader2 className="h-8 w-8 text-cyan-500 animate-spin mb-2" />
-                        <span className="text-xs font-semibold uppercase tracking-wider font-mono">Äang Ä‘á»“ng bá»™ dá»¯ liá»‡u...</span>
+                        <span className="text-xs font-semibold uppercase tracking-wider font-mono">Đang đồng bộ dữ liệu...</span>
                      </div>
                   ) : history.length === 0 ? (
                      <div className="flex flex-col items-center justify-center py-12 text-slate-400 border border-dashed rounded-xl">
                         <TapeIcon className="h-10 w-10 text-slate-350 mb-2" />
-                        <span className="text-xs font-semibold">ChÆ°a cÃ³ lá»‹ch sá»­ táº¡o giá»ng nÃ³i nÃ o</span>
-                        <span className="text-[10px] text-slate-400 mt-0.5">Nháº­p ká»‹ch báº£n á»Ÿ trÃªn Ä‘á»ƒ lÆ°u báº£n thu cá»§a báº¡n</span>
+                        <span className="text-xs font-semibold">Chưa có lịch sử tạo giọng nói nào</span>
+                        <span className="text-[10px] text-slate-400 mt-0.5">Nhập kịch bản ở trên để lưu bản thu của bạn</span>
                      </div>
                   ) : (
                      <div className="flex flex-col gap-3 max-h-[380px] overflow-y-auto pr-1">
@@ -1048,9 +1110,16 @@ export function VoiceGenerationWorkspace() {
                                        <Play className="h-4 w-4 ml-0.5 text-slate-400 fill-slate-400" />
                                     </button>
                                     <div className="min-w-0 flex-1">
-                                       <p className="text-xs font-bold text-slate-900 truncate">{record.prompt}</p>
+                                       <p className="text-xs font-bold text-slate-900 truncate">
+                                          {record.metadata?.title || record.prompt}
+                                       </p>
+                                       {record.metadata?.title && (
+                                          <p className="text-[10px] text-slate-500 truncate mt-0.5">
+                                             {record.prompt}
+                                          </p>
+                                       )}
                                        <p className="text-[10px] text-slate-400 truncate mt-0.5">
-                                          {record.metadata?.voiceName || 'Roger - Laid-Back, Casual, Resonant'}
+                                          {getVoiceDisplayName(record.metadata?.voiceName)}
                                        </p>
                                     </div>
                                  </div>
@@ -1059,14 +1128,14 @@ export function VoiceGenerationWorkspace() {
                                     <button
                                        onClick={() => handleDownload(record.url, `igen-voice-${id}.wav`)}
                                        className="p-2 text-slate-500 hover:bg-slate-50 rounded-md transition-colors"
-                                       title="Táº£i vá» file WAV"
+                                       title="Tải về file WAV"
                                     >
                                        <Download className="h-3.5 w-3.5" />
                                     </button>
                                     <button
                                        onClick={() => handleDeleteHistory(id)}
                                        className="p-2 text-red-500 hover:bg-red-50 rounded-md transition-colors"
-                                       title="XÃ³a báº£n thu"
+                                       title="Xóa bản thu"
                                     >
                                        <Trash2 className="h-3.5 w-3.5" />
                                     </button>
@@ -1090,8 +1159,8 @@ export function VoiceGenerationWorkspace() {
                   {/* Modal Header */}
                   <div className="flex justify-between items-center border-b p-5 shrink-0">
                      <div>
-                        <h3 className="font-bold text-slate-900 text-sm">CÃ i Ä‘áº·t giá»ng nÃ³i nÃ¢ng cao</h3>
-                        <p className="text-[11px] text-slate-400 mt-1">Tinh chá»‰nh model, giá»ng vÃ  cÃ¡c thÃ´ng sá»‘ khÃ¡c Ä‘á»ƒ cÃ³ káº¿t quáº£ tá»‘t nháº¥t.</p>
+                        <h3 className="font-bold text-slate-900 text-sm">Cài đặt giọng nói nâng cao</h3>
+                        <p className="text-[11px] text-slate-400 mt-1">Tinh chỉnh model, giọng và các thông số khác để có kết quả tốt nhất.</p>
                      </div>
                      <button
                         onClick={() => {
@@ -1114,7 +1183,7 @@ export function VoiceGenerationWorkspace() {
                               <Search className="h-4 w-4 text-slate-400 shrink-0" />
                               <input
                                  type="text"
-                                 placeholder="TÃ¬m kiáº¿m giá»ng nÃ³i..."
+                                 placeholder="Tìm kiếm giọng nói..."
                                  value={searchQuery}
                                  onChange={(e) => setSearchQuery(e.target.value)}
                                  className="text-xs bg-transparent border-none focus:outline-none w-full"
@@ -1128,14 +1197,14 @@ export function VoiceGenerationWorkspace() {
                                  className={`flex-1 pb-2 text-xs font-bold border-b-2 text-center transition-all ${voiceActiveTab === 'my-voices' ? 'border-cyan-500 text-cyan-600' : 'border-transparent text-slate-400'
                                     }`}
                               >
-                                 Giá»ng cá»§a tÃ´i ({myVoicesList.length})
+                                 Giọng của tôi ({myVoicesList.length})
                               </button>
                               <button
                                  onClick={() => setVoiceActiveTab('library')}
                                  className={`flex-1 pb-2 text-xs font-bold border-b-2 text-center transition-all ${voiceActiveTab === 'library' ? 'border-cyan-500 text-cyan-600' : 'border-transparent text-slate-400'
                                     }`}
                               >
-                                 ThÆ° viá»‡n ({libraryVoicesList.length})
+                                 Thư viện ({libraryVoicesList.length})
                               </button>
                            </div>
 
@@ -1144,7 +1213,7 @@ export function VoiceGenerationWorkspace() {
                               {voiceActiveTab === 'my-voices' ? (
                                  myVoicesList.length === 0 ? (
                                     <div className="text-center py-8 text-slate-400 text-xs">
-                                       ChÆ°a cÃ³ giá»ng nÃ³i nhÃ¢n báº£n nÃ o. Báº¥m &quot;ThÃªm giá»ng nÃ³i má»›i&quot; á»Ÿ trang chÃ­nh Ä‘á»ƒ nhÃ¢n báº£n.
+                                       Chưa có giọng nói nhân bản nào. Bấm &quot;Thêm giọng nói mới&quot; ở trang chính để nhân bản.
                                     </div>
                                  ) : (
                                     myVoicesList.filter(v => v.name.toLowerCase().includes(searchQuery.toLowerCase())).map(v => {
@@ -1171,13 +1240,13 @@ export function VoiceGenerationWorkspace() {
                                                 </button>
                                                 <div>
                                                    <p className="text-xs font-bold text-slate-900">{v.name}</p>
-                                                   <p className="text-[10px] text-slate-450 mt-0.5">Giá»ng Ä‘Ã£ nhÃ¢n báº£n</p>
+                                                   <p className="text-[10px] text-slate-450 mt-0.5">Giọng đã nhân bản</p>
                                                 </div>
                                              </div>
                                              <button
                                                 onClick={(e) => handleDeleteCustomVoice(e, v.voice_id)}
                                                 className="p-1.5 hover:bg-red-50 text-red-500 rounded-md transition-colors"
-                                                title="XÃ³a giá»ng nhÃ¢n báº£n"
+                                                title="Xóa giọng nhân bản"
                                              >
                                                 <Trash2 className="h-4 w-4" />
                                              </button>
@@ -1209,7 +1278,7 @@ export function VoiceGenerationWorkspace() {
                                                 <Play className="h-4 w-4 ml-0.5" />
                                              </button>
                                              <div>
-                                                <p className="text-xs font-bold text-slate-900">{v.label} ({v.gender === 'male' ? 'Nam' : 'Ná»¯'})</p>
+                                                <p className="text-xs font-bold text-slate-900">{v.label} ({v.gender === 'male' ? 'Nam' : 'Nữ'})</p>
                                                 <p className="text-[10px] text-slate-450 mt-0.5">{v.description}</p>
                                              </div>
                                           </div>
@@ -1226,7 +1295,7 @@ export function VoiceGenerationWorkspace() {
                               onClick={() => setIsVoicePickerView(false)}
                               className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all"
                            >
-                              Quay láº¡i
+                              Quay lại
                            </button>
                         </div>
                      ) : (
@@ -1235,7 +1304,7 @@ export function VoiceGenerationWorkspace() {
 
                            {/* Selector field */}
                            <div className="flex flex-col gap-1.5">
-                              <span className="text-xs font-bold text-slate-700">Giá»ng nÃ³i (Voice)</span>
+                              <span className="text-xs font-bold text-slate-700">Giọng nói (Voice)</span>
                               <div className="flex items-center gap-2">
                                  <div
                                     onClick={() => setIsVoicePickerView(true)}
@@ -1329,7 +1398,7 @@ export function VoiceGenerationWorkspace() {
                               {activeModelInfo?.name && (
                                  <span className="text-[10px] text-slate-400">Dang su dung model ElevenLabs: {activeModelInfo.name}</span>
                               )}
-                              <span className="text-[10px] text-slate-400 font-medium leading-relaxed">Chá»n mÃ´ hÃ¬nh phÃ¹ há»£p vá»›i má»¥c tiÃªu táº¡o giá»ng nÃ³i cá»§a báº¡n.</span>
+                              <span className="text-[10px] text-slate-400 font-medium leading-relaxed">Chọn mô hình phù hợp với mục tiêu tạo giọng nói của bạn.</span>
                               <div className="flex flex-col gap-2.5">
                                  {MODEL_OPTIONS.map((opt) => {
                                     const isSelected = voiceModel === opt.key;
@@ -1338,7 +1407,7 @@ export function VoiceGenerationWorkspace() {
                                        <div
                                           key={opt.key}
                                           onClick={() => setVoiceModel(opt.key)}
-                                          title={`NgÃ´n ngá»¯ há»— trá»£: ${modelDetails.languageSummary}`}
+                                          title={`Ngôn ngữ hỗ trợ: ${modelDetails.languageSummary}`}
                                           className={`border-2 rounded-xl p-4 cursor-pointer transition-all relative ${isSelected ? 'border-cyan-500 bg-cyan-50/10' : 'border-slate-150 hover:bg-slate-50'
                                              }`}
                                        >
@@ -1388,13 +1457,13 @@ export function VoiceGenerationWorkspace() {
                                  <span>Robust</span>
                               </div>
                               <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 text-[10px] text-slate-500 leading-relaxed">
-                                 <span className="font-bold text-slate-700">TÃ³m táº¯t há»— trá»£ ngÃ´n ngá»¯:</span>{' '}
+                                 <span className="font-bold text-slate-700">Tóm tắt hỗ trợ ngôn ngữ:</span>{' '}
                                  {voiceModel === 'eleven_turbo_v2_5' && (turboModelDetails.languageNames.length > 0
                                     ? turboModelDetails.languageNames.slice(0, 8).join(', ')
-                                    : 'ChÆ°a cÃ³ metadata ngÃ´n ngá»¯ tá»« ElevenLabs API')}
+                                    : 'Chưa có metadata ngôn ngữ từ ElevenLabs API')}
                                  {voiceModel === 'eleven_flash_v2_5' && (flashModelDetails.languageNames.length > 0
                                     ? flashModelDetails.languageNames.slice(0, 8).join(', ')
-                                    : 'ChÆ°a cÃ³ metadata ngÃ´n ngá»¯ tá»« ElevenLabs API')}
+                                    : 'Chưa có metadata ngôn ngữ từ ElevenLabs API')}
                               </div>
                            </div>
 
@@ -1437,8 +1506,8 @@ export function VoiceGenerationWorkspace() {
                            {/* Switch language detection */}
                            <div className="flex items-center justify-between border-t pt-4">
                               <div>
-                                 <span className="text-xs font-bold text-slate-800">Chá»n ngÃ´n ngá»¯ Ä‘á»c</span>
-                                 <p className="text-[10px] text-slate-400 mt-0.5">Báº­t khi tá»± nháº­n diá»‡n sai tiáº¿ng hoáº·c vÄƒn báº£n cÃ³ dáº¥u tiáº¿ng Viá»‡t.</p>
+                                 <span className="text-xs font-bold text-slate-800">Chọn ngôn ngữ đọc</span>
+                                 <p className="text-[10px] text-slate-400 mt-0.5">Bật khi tự nhận diện sai tiếng hoặc văn bản có dấu tiếng Việt.</p>
                               </div>
                               <label className="relative inline-flex items-center cursor-pointer">
                                  <input
@@ -1465,7 +1534,7 @@ export function VoiceGenerationWorkspace() {
                            setUseSpeakerBoost(true);
                            setVoiceModel('eleven_turbo_v2_5');
                            setUseLanguageToggle(true);
-                           toast.success('ÄÃ£ khÃ´i phá»¥c cÃ i Ä‘áº·t máº·c Ä‘á»‹nh.');
+                           toast.success('Đã khôi phục cài đặt mặc định.');
                         }}
                         className="text-xs font-bold text-slate-500 hover:text-slate-700 transition-colors"
                      >
@@ -1485,7 +1554,7 @@ export function VoiceGenerationWorkspace() {
                         }}
                         className="px-5 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-cyan-500/10"
                      >
-                        ÄÃ³ng
+                        Đóng
                      </button>
                   </div>
 
@@ -1505,10 +1574,10 @@ export function VoiceGenerationWorkspace() {
                            <Sparkles className="h-5 w-5 fill-[#0891b2]/10" />
                         </div>
                         <span className="font-semibold text-slate-800 text-base">
-                           {createStep === 'selection' && 'Táº¡o giá»ng nÃ³i má»›i'}
-                           {creationMode === 'instant' && 'NhÃ¢n báº£n Giá»ng nÃ³i Tá»©c thÃ¬'}
-                           {creationMode === 'design' && 'Thiáº¿t káº¿ Giá»ng nÃ³i'}
-                           {createStep === 'finish' && 'NhÃ¢n báº£n Giá»ng nÃ³i Tá»©c thÃ¬'}
+                           {createStep === 'selection' && 'Tạo giọng nói mới'}
+                           {creationMode === 'instant' && 'Nhân bản Giọng nói Tức thì'}
+                           {creationMode === 'design' && 'Thiết kế Giọng nói'}
+                           {createStep === 'finish' && 'Nhân bản Giọng nói Tức thì'}
                         </span>
                      </div>
                      <button
@@ -1532,7 +1601,7 @@ export function VoiceGenerationWorkspace() {
                            </div>
                            <span className={`text-[11px] font-bold transition-all duration-300 ${createStep === 'upload' ? 'text-[#0891b2]' : 'text-slate-400'
                               }`}>
-                              Táº£i lÃªn Audio
+                              Tải lên Audio
                            </span>
                         </div>
 
@@ -1551,7 +1620,7 @@ export function VoiceGenerationWorkspace() {
                            </div>
                            <span className={`text-[11px] font-bold transition-all duration-300 ${createStep === 'info' ? 'text-[#0891b2]' : 'text-slate-400'
                               }`}>
-                              ThÃ´ng tin giá»ng nÃ³i
+                              Thông tin giọng nói
                            </span>
                         </div>
 
@@ -1568,7 +1637,7 @@ export function VoiceGenerationWorkspace() {
                            </div>
                            <span className={`text-[11px] font-bold transition-all duration-300 ${createStep === 'finish' ? 'text-[#0891b2]' : 'text-slate-400'
                               }`}>
-                              HoÃ n táº¥t
+                              Hoàn tất
                            </span>
                         </div>
                      </div>
@@ -1580,7 +1649,7 @@ export function VoiceGenerationWorkspace() {
                      {/* STEP: SELECTION */}
                      {createStep === 'selection' && (
                         <div className="flex flex-col gap-3">
-                           {/* Option 1: Thiáº¿t káº¿ Giá»ng nÃ³i */}
+                           {/* Option 1: Thiết kế Giọng nói */}
                            <div
                               onClick={() => {
                                  setCreationMode('design');
@@ -1593,18 +1662,18 @@ export function VoiceGenerationWorkspace() {
                                     <Wand2 className="h-5 w-5" />
                                  </div>
                                  <div>
-                                    <h4 className="font-bold text-xs text-slate-900">Thiáº¿t káº¿ Giá»ng nÃ³i</h4>
-                                    <p className="text-[10px] text-slate-450 mt-0.5">Thiáº¿t káº¿ má»™t giá»ng nÃ³i hoÃ n toÃ n má»›i tá»« vÄƒn báº£n.</p>
-                                    <span className="inline-block px-1.5 py-0.5 bg-slate-100 rounded text-[9px] font-bold text-slate-500 mt-2">DÆ°á»›i 1 phÃºt</span>
+                                    <h4 className="font-bold text-xs text-slate-900">Thiết kế Giọng nói</h4>
+                                    <p className="text-[10px] text-slate-450 mt-0.5">Thiết kế một giọng nói hoàn toàn mới từ văn bản.</p>
+                                    <span className="inline-block px-1.5 py-0.5 bg-slate-100 rounded text-[9px] font-bold text-slate-500 mt-2">Dưới 1 phút</span>
                                  </div>
                               </div>
                               <ChevronRight className="h-4.5 w-4.5 text-slate-400" />
                            </div>
 
-                           {/* Option 2: NhÃ¢n báº£n Giá»ng nÃ³i Tá»©c thÃ¬ */}
+                           {/* Option 2: Nhân bản Giọng nói Tức thì */}
                            <div
                               onClick={() => {
-                                 toast.info('TÃ­nh nÄƒng NhÃ¢n báº£n Giá»ng nÃ³i Tá»©c thÃ¬ Ä‘ang Ä‘Æ°á»£c phÃ¡t triá»ƒn!');
+                                 toast.info('Tính năng Nhân bản Giọng nói Tức thì đang được phát triển!');
                               }}
                               className="p-4 rounded-xl border border-slate-200 opacity-60 cursor-pointer hover:border-cyan-500 hover:bg-cyan-50/5 transition-all flex justify-between items-center group"
                            >
@@ -1614,47 +1683,47 @@ export function VoiceGenerationWorkspace() {
                                  </div>
                                  <div>
                                     <div className="flex items-center gap-1.5">
-                                       <h4 className="font-bold text-xs text-slate-900">NhÃ¢n báº£n Giá»ng nÃ³i Tá»©c thÃ¬ (Instant)</h4>
-                                       <span className="px-1 py-0.5 bg-cyan-50 text-[8px] font-bold text-cyan-600 rounded">Äang phÃ¡t triá»ƒn</span>
+                                       <h4 className="font-bold text-xs text-slate-900">Nhân bản Giọng nói Tức thì (Instant)</h4>
+                                       <span className="px-1 py-0.5 bg-cyan-50 text-[8px] font-bold text-cyan-600 rounded">Đang phát triển</span>
                                     </div>
-                                    <p className="text-[10px] text-slate-450 mt-0.5">NhÃ¢n báº£n giá»ng nÃ³i cá»§a báº¡n chá»‰ vá»›i 10 giÃ¢y Ã¢m thanh.</p>
-                                    <span className="inline-block px-1.5 py-0.5 bg-slate-100 rounded text-[9px] font-bold text-slate-500 mt-2">~2 phÃºt</span>
+                                    <p className="text-[10px] text-slate-450 mt-0.5">Nhân bản giọng nói của bạn chỉ với 10 giây âm thanh.</p>
+                                    <span className="inline-block px-1.5 py-0.5 bg-slate-100 rounded text-[9px] font-bold text-slate-500 mt-2">~2 phút</span>
                                  </div>
                               </div>
                               <ChevronRight className="h-4.5 w-4.5 text-slate-400" />
                            </div>
 
-                           {/* Option 3: NhÃ¢n báº£n Giá»ng nÃ³i ChuyÃªn nghiá»‡p */}
+                           {/* Option 3: Nhân bản Giọng nói Chuyên nghiệp */}
                            <div
                               className="p-4 rounded-xl border border-slate-200 opacity-60 cursor-not-allowed flex justify-between items-center"
-                              title="GÃ³i hiá»‡n táº¡i khÃ´ng há»— trá»£ chá»©c nÄƒng nÃ y"
+                              title="Gói hiện tại không hỗ trợ chức năng này"
                            >
                               <div className="flex items-start gap-4">
                                  <div className="p-2.5 bg-slate-50 rounded-lg text-slate-400">
                                     <Diamond className="h-5 w-5" />
                                  </div>
                                  <div>
-                                    <h4 className="font-bold text-xs text-slate-900">NhÃ¢n báº£n Giá»ng nÃ³i ChuyÃªn nghiá»‡p</h4>
-                                    <p className="text-[10px] text-slate-450 mt-0.5">Táº¡o báº£n sao ká»¹ thuáº­t sá»‘ chÃ¢n thá»±c nháº¥t. YÃªu cáº§u 30 phÃºt Ã¢m thanh sáº¡ch.</p>
-                                    <span className="inline-block px-1.5 py-0.5 bg-slate-100 rounded text-[9px] font-bold text-slate-400 mt-2">~4 giá»</span>
+                                    <h4 className="font-bold text-xs text-slate-900">Nhân bản Giọng nói Chuyên nghiệp</h4>
+                                    <p className="text-[10px] text-slate-450 mt-0.5">Tạo bản sao kỹ thuật số chân thực nhất. Yêu cầu 30 phút âm thanh sạch.</p>
+                                    <span className="inline-block px-1.5 py-0.5 bg-slate-100 rounded text-[9px] font-bold text-slate-400 mt-2">~4 giờ</span>
                                  </div>
                               </div>
                               <X className="h-4 w-4 text-slate-350" />
                            </div>
 
-                           {/* Option 4: Phá»‘i láº¡i Giá»ng nÃ³i */}
+                           {/* Option 4: Phối lại Giọng nói */}
                            <div
                               className="p-4 rounded-xl border border-slate-200 opacity-60 cursor-not-allowed flex justify-between items-center"
-                              title="GÃ³i hiá»‡n táº¡i khÃ´ng há»— trá»£ chá»©c nÄƒng nÃ y"
+                              title="Gói hiện tại không hỗ trợ chức năng này"
                            >
                               <div className="flex items-start gap-4">
                                  <div className="p-2.5 bg-slate-50 rounded-lg text-slate-400">
                                     <Shuffle className="h-5 w-5" />
                                  </div>
                                  <div>
-                                    <h4 className="font-bold text-xs text-slate-900">Phá»‘i láº¡i Giá»ng nÃ³i</h4>
-                                    <p className="text-[10px] text-slate-450 mt-0.5">Biáº¿n Ä‘á»•i cÃ¡c giá»ng nÃ³i hiá»‡n cÃ³ báº±ng vÄƒn báº£n Ä‘á»ƒ táº¡o ra giá»ng nÃ³i má»›i.</p>
-                                    <span className="inline-block px-1.5 py-0.5 bg-slate-100 rounded text-[9px] font-bold text-slate-400 mt-2">DÆ°á»›i 1 phÃºt</span>
+                                    <h4 className="font-bold text-xs text-slate-900">Phối lại Giọng nói</h4>
+                                    <p className="text-[10px] text-slate-450 mt-0.5">Biến đổi các giọng nói hiện có bằng văn bản để tạo ra giọng nói mới.</p>
+                                    <span className="inline-block px-1.5 py-0.5 bg-slate-100 rounded text-[9px] font-bold text-slate-400 mt-2">Dưới 1 phút</span>
                                  </div>
                               </div>
                               <X className="h-4 w-4 text-slate-350" />
@@ -1668,18 +1737,18 @@ export function VoiceGenerationWorkspace() {
                            <div className="grid grid-cols-3 gap-3">
                               <div className="flex flex-col items-center text-center p-3.5 bg-slate-50 border border-slate-100 rounded-2xl">
                                  <VolumeX className="h-5 w-5 text-slate-500 mb-2" />
-                                 <span className="text-[11px] font-bold text-slate-800">TrÃ¡nh tiáº¿ng á»“n</span>
-                                 <span className="text-[10px] text-slate-400 mt-1 leading-relaxed">Ã‚m thanh ná»n áº£nh hÆ°á»Ÿng cháº¥t lÆ°á»£ng</span>
+                                 <span className="text-[11px] font-bold text-slate-800">Tránh tiếng ồn</span>
+                                 <span className="text-[10px] text-slate-400 mt-1 leading-relaxed">Âm thanh nền ảnh hưởng chất lượng</span>
                               </div>
                               <div className="flex flex-col items-center text-center p-3.5 bg-slate-50 border border-slate-100 rounded-2xl">
                                  <Headphones className="h-5 w-5 text-slate-500 mb-2" />
-                                 <span className="text-[11px] font-bold text-slate-800">Cháº¥t lÆ°á»£ng micro</span>
-                                 <span className="text-[10px] text-slate-400 mt-1 leading-relaxed">DÃ¹ng mic ngoÃ i Ä‘á»ƒ thu tá»‘t hÆ¡n</span>
+                                 <span className="text-[11px] font-bold text-slate-800">Chất lượng micro</span>
+                                 <span className="text-[10px] text-slate-400 mt-1 leading-relaxed">Dùng mic ngoài để thu tốt hơn</span>
                               </div>
                               <div className="flex flex-col items-center text-center p-3.5 bg-slate-50 border border-slate-100 rounded-2xl">
                                  <Laptop className="h-5 w-5 text-slate-500 mb-2" />
-                                 <span className="text-[11px] font-bold text-slate-800">Thiáº¿t bá»‹ nháº¥t quÃ¡n</span>
-                                 <span className="text-[10px] text-slate-400 mt-1 leading-relaxed">KhÃ´ng Ä‘á»•i micro giá»¯a cÃ¡c máº«u</span>
+                                 <span className="text-[11px] font-bold text-slate-800">Thiết bị nhất quán</span>
+                                 <span className="text-[10px] text-slate-400 mt-1 leading-relaxed">Không đổi micro giữa các mẫu</span>
                               </div>
                            </div>
 
@@ -1687,7 +1756,7 @@ export function VoiceGenerationWorkspace() {
                            <div className="border-2 border-dashed border-slate-200 hover:border-[#22d3ee]/80 hover:bg-[#e0f7fc]/5 rounded-2xl p-7 flex flex-col items-center justify-center text-center relative transition-all duration-300">
                               <Upload className="h-9 w-9 text-slate-400 mb-2.5" />
                               <label className="text-xs font-bold text-slate-800 cursor-pointer hover:text-cyan-600 transition-colors">
-                                 Nháº¥n Ä‘á»ƒ táº£i lÃªn hoáº·c kÃ©o tháº£
+                                 Nhấn để tải lên hoặc kéo thả
                                  <input
                                     type="file"
                                     accept="audio/*,video/*"
@@ -1696,10 +1765,10 @@ export function VoiceGenerationWorkspace() {
                                     className="hidden"
                                  />
                               </label>
-                              <p className="text-[10px] text-slate-400 mt-1">File audio hoáº·c video, tá»‘i Ä‘a 10MB má»—i file</p>
+                              <p className="text-[10px] text-slate-400 mt-1">File audio hoặc video, tối đa 10MB mỗi file</p>
 
                               <div className="flex items-center gap-2 my-3">
-                                 <span className="text-[10px] text-slate-400">hoáº·c</span>
+                                 <span className="text-[10px] text-slate-400">hoặc</span>
                               </div>
 
                               <button
@@ -1710,14 +1779,14 @@ export function VoiceGenerationWorkspace() {
                                     }`}
                               >
                                  {isRecordingClone ? <MicOff className="h-3.5 w-3.5 text-red-500" /> : <Mic className="h-3.5 w-3.5 text-slate-500" />}
-                                 <span>{isRecordingClone ? `Ghi Ã¢m trá»±c tiáº¿p... (${recordingDuration}s)` : 'Ghi Ã¢m trá»±c tiáº¿p'}</span>
+                                 <span>{isRecordingClone ? `Ghi âm trực tiếp... (${recordingDuration}s)` : 'Ghi âm trực tiếp'}</span>
                               </button>
                            </div>
 
                            {/* List of uploaded/recorded samples */}
                            {instantFiles.length > 0 && (
                               <div className="space-y-2">
-                                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">File Ä‘Ã£ táº£i lÃªn ({instantFiles.length})</span>
+                                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">File đã tải lên ({instantFiles.length})</span>
                                  <div className="space-y-1.5 max-h-[140px] overflow-y-auto pr-1">
                                     {instantFiles.map((file, i) => (
                                        <div key={i} className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-100">
@@ -1731,7 +1800,7 @@ export function VoiceGenerationWorkspace() {
                                              <div className="min-w-0 flex-1">
                                                 <p className="text-[11px] font-bold text-slate-800 truncate">{file.name}</p>
                                                 <p className="text-[9px] text-slate-400">
-                                                   {(file.size / 1024).toFixed(1)} KB {file.duration ? `â€¢ ${file.duration.toFixed(1)}s` : ''}
+                                                   {(file.size / 1024).toFixed(1)} KB {file.duration ? `• ${file.duration.toFixed(1)}s` : ''}
                                                 </p>
                                              </div>
                                           </div>
@@ -1756,7 +1825,7 @@ export function VoiceGenerationWorkspace() {
                                  />
                               </div>
                               <span className={`text-[10px] font-mono font-bold shrink-0 ${totalCloneDuration >= 10 ? 'text-emerald-600' : 'text-slate-450'}`}>
-                                 {totalCloneDuration.toFixed(1)}s / 10s tá»‘i thiá»ƒu
+                                 {totalCloneDuration.toFixed(1)}s / 10s tối thiểu
                               </span>
                            </div>
 
@@ -1764,7 +1833,7 @@ export function VoiceGenerationWorkspace() {
                               <div className="flex items-start gap-1.5 p-3.5 bg-amber-50 rounded-xl border border-amber-200">
                                  <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
                                  <span className="text-[10px] text-amber-700 leading-relaxed">
-                                    Tá»•ng thá»i gian cá»§a cÃ¡c máº«u audio pháº£i Ä‘áº¡t Ã­t nháº¥t 10 giÃ¢y. Vui lÃ²ng ghi Ã¢m thÃªm hoáº·c táº£i lÃªn thÃªm file máº«u.
+                                    Tổng thời gian của các mẫu audio phải đạt ít nhất 10 giây. Vui lòng ghi âm thêm hoặc tải lên thêm file mẫu.
                                  </span>
                               </div>
                            )}
@@ -1776,21 +1845,21 @@ export function VoiceGenerationWorkspace() {
                      {createStep === 'info' && (
                         <div className="space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
                            <div className="flex flex-col gap-1.5">
-                              <label className="text-xs font-bold text-slate-700">TÃªn giá»ng nÃ³i <span className="text-red-500">*</span></label>
+                              <label className="text-xs font-bold text-slate-700">Tên giọng nói <span className="text-red-500">*</span></label>
                               <input
                                  type="text"
-                                 placeholder="VÃ­ dá»¥: Giá»ng thÆ°Æ¡ng hiá»‡u cá»§a tÃ´i"
+                                 placeholder="Ví dụ: Giọng thương hiệu của tôi"
                                  value={newVoiceName}
                                  onChange={(e) => setNewVoiceName(e.target.value)}
                                  className="w-full text-xs p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-cyan-500"
                               />
-                              <p className="text-[10px] text-slate-400">TÃªn nÃ y giÃºp báº¡n nháº­n diá»‡n giá»ng nÃ³i trong thÆ° viá»‡n sau khi clone.</p>
+                              <p className="text-[10px] text-slate-400">Tên này giúp bạn nhận diện giọng nói trong thư viện sau khi clone.</p>
                            </div>
 
                            <div className="flex flex-col gap-1.5">
-                              <label className="text-xs font-bold text-slate-700">MÃ´ táº£ giá»ng Ä‘á»c <span className="text-slate-400 font-normal">(tÃ¹y chá»n)</span></label>
+                              <label className="text-xs font-bold text-slate-700">Mô tả giọng đọc <span className="text-slate-400 font-normal">(tùy chọn)</span></label>
                               <textarea
-                                 placeholder="MÃ´ táº£ cho giá»ng nÃ³i, vÃ­ dá»¥: Giá»ng nam, áº¥m Ã¡p, chuyÃªn nghiá»‡p..."
+                                 placeholder="Mô tả cho giọng nói, ví dụ: Giọng nam, ấm áp, chuyên nghiệp..."
                                  value={newVoiceDescription}
                                  onChange={(e) => setNewVoiceDescription(e.target.value)}
                                  className="w-full text-xs p-3 border border-slate-200 rounded-xl h-20 focus:outline-none focus:ring-1 focus:ring-cyan-500 resize-none"
@@ -1799,15 +1868,15 @@ export function VoiceGenerationWorkspace() {
 
                            {/* Confirmation summary */}
                            <div className="border border-slate-150 rounded-xl p-4 bg-slate-50/50 space-y-2">
-                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Chi tiáº¿t máº«u nhÃ¢n báº£n</span>
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Chi tiết mẫu nhân bản</span>
                               <div className="grid grid-cols-2 gap-3 text-xs">
                                  <div>
-                                    <span className="text-slate-400 block text-[10px]">Sá»‘ file máº«u:</span>
+                                    <span className="text-slate-400 block text-[10px]">Số file mẫu:</span>
                                     <span className="font-bold text-slate-800">{instantFiles.length} file</span>
                                  </div>
                                  <div>
-                                    <span className="text-slate-400 block text-[10px]">Tá»•ng thá»i lÆ°á»£ng máº«u:</span>
-                                    <span className="font-bold text-slate-800">{totalCloneDuration.toFixed(1)} giÃ¢y</span>
+                                    <span className="text-slate-400 block text-[10px]">Tổng thời lượng mẫu:</span>
+                                    <span className="font-bold text-slate-800">{totalCloneDuration.toFixed(1)} giây</span>
                                  </div>
                               </div>
                            </div>
@@ -1815,56 +1884,56 @@ export function VoiceGenerationWorkspace() {
                            <div className="flex items-start gap-1.5 p-3.5 bg-blue-50 rounded-xl border border-blue-200">
                               <AlertCircle className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
                               <span className="text-[10px] text-blue-700 leading-relaxed">
-                                 Nháº¥n &quot;Báº¯t Ä‘áº§u nhÃ¢n báº£n&quot; bÃªn dÆ°á»›i Ä‘á»ƒ táº£i lÃªn dá»¯ liá»‡u. QuÃ¡ trÃ¬nh nÃ y sáº½ máº¥t tá»« 10 Ä‘áº¿n 30 giÃ¢y Ä‘á»ƒ ElevenLabs phÃ¢n tÃ­ch.
+                                 Nhấn &quot;Bắt đầu nhân bản&quot; bên dưới để tải lên dữ liệu. Quá trình này sẽ mất từ 10 đến 30 giây để ElevenLabs phân tích.
                               </span>
                            </div>
                         </div>
                      )}
 
-                     {/* STEP: DESIGN VOICE (THIáº¾T Káº¾ GIá»ŒNG NÃ“I) */}
+                     {/* STEP: DESIGN VOICE (THIẾT KẾ GIỌNG NÓI) */}
                      {createStep === 'design' && (
                         <div className="space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
                            <div className="grid grid-cols-3 gap-3">
                               {/* Gender */}
                               <div className="flex flex-col gap-1.5">
-                                 <span className="text-xs font-bold text-slate-700">Giá»›i tÃ­nh</span>
+                                 <span className="text-xs font-bold text-slate-700">Giới tính</span>
                                  <select
                                     value={designGender}
                                     onChange={(e) => setDesignGender(e.target.value as any)}
                                     className="w-full text-xs p-2.5 border border-slate-200 rounded-lg bg-white"
                                  >
-                                    <option value="female">Ná»¯ (Female)</option>
+                                    <option value="female">Nữ (Female)</option>
                                     <option value="male">Nam (Male)</option>
                                  </select>
                               </div>
 
                               {/* Age */}
                               <div className="flex flex-col gap-1.5">
-                                 <span className="text-xs font-bold text-slate-700">Tuá»•i tÃ¡c</span>
+                                 <span className="text-xs font-bold text-slate-700">Tuổi tác</span>
                                  <select
                                     value={designAge}
                                     onChange={(e) => setDesignAge(e.target.value as any)}
                                     className="w-full text-xs p-2.5 border border-slate-200 rounded-lg bg-white"
                                  >
-                                    <option value="young">Tráº» (Young)</option>
-                                    <option value="middle_aged">Trung niÃªn (Middle)</option>
-                                    <option value="old">Cao tuá»•i (Old)</option>
+                                    <option value="young">Trẻ (Young)</option>
+                                    <option value="middle_aged">Trung niên (Middle)</option>
+                                    <option value="old">Cao tuổi (Old)</option>
                                  </select>
                               </div>
 
                               {/* Accent */}
                               <div className="flex flex-col gap-1.5">
-                                 <span className="text-xs font-bold text-slate-700">Quá»‘c gia / Accent</span>
+                                 <span className="text-xs font-bold text-slate-700">Quốc gia / Accent</span>
                                  <select
                                     value={designAccent}
                                     onChange={(e) => setDesignAccent(e.target.value)}
                                     className="w-full text-xs p-2.5 border border-slate-200 rounded-lg bg-white"
                                  >
-                                    <option value="american">Má»¹ (American)</option>
+                                    <option value="american">Mỹ (American)</option>
                                     <option value="british">Anh (British)</option>
                                     <option value="african">Phi (African)</option>
-                                    <option value="australian">Ãšc (Australian)</option>
-                                    <option value="indian">áº¤n Äá»™ (Indian)</option>
+                                    <option value="australian">Úc (Australian)</option>
+                                    <option value="indian">Ấn Độ (Indian)</option>
                                  </select>
                               </div>
                            </div>
@@ -1872,7 +1941,7 @@ export function VoiceGenerationWorkspace() {
                            {/* Accent Strength Slider */}
                            <div className="flex flex-col gap-1.5">
                               <div className="flex justify-between text-xs font-bold text-slate-700">
-                                 <span>Tá»· trá»ng giá»ng Ä‘á»‹a phÆ°Æ¡ng (Accent Strength)</span>
+                                 <span>Tỷ trọng giọng địa phương (Accent Strength)</span>
                                  <span className="font-mono text-cyan-600">{designAccentStrength.toFixed(2)}</span>
                               </div>
                               <input
@@ -1888,7 +1957,7 @@ export function VoiceGenerationWorkspace() {
 
                            {/* Preview script */}
                            <div className="flex flex-col gap-1.5">
-                              <label className="text-xs font-bold text-slate-700">VÄƒn báº£n nghe thá»­</label>
+                              <label className="text-xs font-bold text-slate-700">Văn bản nghe thử</label>
                               <textarea
                                  value={designText}
                                  onChange={(e) => setDesignText(e.target.value)}
@@ -1903,7 +1972,7 @@ export function VoiceGenerationWorkspace() {
                                  disabled={isGeneratingDesignPreview || !designText.trim()}
                                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
                               >
-                                 {isGeneratingDesignPreview ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Táº¡o báº£n nghe thá»­'}
+                                 {isGeneratingDesignPreview ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Tạo bản nghe thử'}
                               </button>
 
                               {designPreviewUrl && (
@@ -1912,7 +1981,7 @@ export function VoiceGenerationWorkspace() {
                                     className="px-4 py-2 bg-cyan-50 hover:bg-cyan-100 text-cyan-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
                                  >
                                     <Play className="h-3.5 w-3.5" />
-                                    PhÃ¡t nghe thá»­
+                                    Phát nghe thử
                                  </button>
                               )}
                            </div>
@@ -1921,20 +1990,20 @@ export function VoiceGenerationWorkspace() {
                            {designPreviewVoiceId && (
                               <div className="border-t pt-4 space-y-3">
                                  <div className="flex flex-col gap-1.5">
-                                    <label className="text-xs font-bold text-slate-700">Äáº·t tÃªn giá»ng nÃ³i Ä‘á»ƒ lÆ°u</label>
+                                    <label className="text-xs font-bold text-slate-700">Đặt tên giọng nói để lưu</label>
                                     <input
                                        type="text"
-                                       placeholder="VÃ­ dá»¥: Giá»ng thiáº¿t káº¿ tráº» trung Má»¹"
+                                       placeholder="Ví dụ: Giọng thiết kế trẻ trung Mỹ"
                                        value={newVoiceName}
                                        onChange={(e) => setNewVoiceName(e.target.value)}
                                        className="w-full text-xs p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-cyan-500"
                                     />
                                  </div>
                                  <div className="flex flex-col gap-1.5">
-                                    <label className="text-xs font-bold text-slate-700">MÃ´ táº£ giá»ng nÃ³i</label>
+                                    <label className="text-xs font-bold text-slate-700">Mô tả giọng nói</label>
                                     <input
                                        type="text"
-                                       placeholder="VÃ­ dá»¥: Giá»ng Ä‘á»c tráº» trung, nÄƒng Ä‘á»™ng"
+                                       placeholder="Ví dụ: Giọng đọc trẻ trung, năng động"
                                        value={newVoiceDescription}
                                        onChange={(e) => setNewVoiceDescription(e.target.value)}
                                        className="w-full text-xs p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-cyan-500"
@@ -1952,9 +2021,9 @@ export function VoiceGenerationWorkspace() {
                            <div className="h-12 w-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-xl shadow-sm">
                               <Check className="h-6 w-6" />
                            </div>
-                           <h4 className="font-bold text-slate-900 text-sm">Giá»ng nÃ³i Ä‘Ã£ Ä‘Æ°á»£c táº¡o thÃ nh cÃ´ng!</h4>
+                           <h4 className="font-bold text-slate-900 text-sm">Giọng nói đã được tạo thành công!</h4>
                            <p className="text-xs text-slate-400 max-w-xs leading-relaxed">
-                              Giá»ng &quot;{newVoiceName}&quot; Ä‘Ã£ sáºµn sÃ ng hoáº¡t Ä‘á»™ng. BÃ¢y giá» báº¡n cÃ³ thá»ƒ Ä‘Ã³ng há»™p thoáº¡i nÃ y vÃ  sá»­ dá»¥ng nÃ³ Ä‘á»ƒ chuyá»ƒn vÄƒn báº£n thÃ nh giá»ng nÃ³i.
+                              Giọng &quot;{newVoiceName}&quot; đã sẵn sàng hoạt động. Bây giờ bạn có thể đóng hộp thoại này và sử dụng nó để chuyển văn bản thành giọng nói.
                            </p>
                         </div>
                      )}
@@ -1978,7 +2047,7 @@ export function VoiceGenerationWorkspace() {
                               className="px-2 py-2 text-slate-700 hover:text-slate-900 text-xs font-bold transition-all flex items-center gap-1 active:scale-95 cursor-pointer"
                            >
                               <ChevronLeft className="h-3.5 w-3.5" />
-                              Quay láº¡i
+                              Quay lại
                            </button>
 
                            {/* Action Submit/Next */}
@@ -1991,7 +2060,7 @@ export function VoiceGenerationWorkspace() {
                                     : 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none'
                                     }`}
                               >
-                                 Tiáº¿p theo
+                                 Tiếp theo
                                  <ChevronRight className="h-3.5 w-3.5" />
                               </button>
                            )}
@@ -2005,7 +2074,7 @@ export function VoiceGenerationWorkspace() {
                                     : 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none'
                                     }`}
                               >
-                                 {isSavingVoice ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Báº¯t Ä‘áº§u nhÃ¢n báº£n'}
+                                 {isSavingVoice ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Bắt đầu nhân bản'}
                               </button>
                            )}
 
@@ -2018,7 +2087,7 @@ export function VoiceGenerationWorkspace() {
                                     : 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none'
                                     }`}
                               >
-                                 {isSavingVoice ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'LÆ°u giá»ng nÃ³i'}
+                                 {isSavingVoice ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Lưu giọng nói'}
                               </button>
                            )}
                         </>
@@ -2027,7 +2096,7 @@ export function VoiceGenerationWorkspace() {
                            onClick={() => setIsCreateModalOpen(false)}
                            className="w-full py-2.5 bg-[#78d2e6] hover:bg-[#64c0d4] text-white rounded-xl text-xs font-bold transition-all shadow-xs active:scale-95 cursor-pointer"
                         >
-                           ÄÃ³ng vÃ  sá»­ dá»¥ng
+                           Đóng và sử dụng
                         </button>
                      )}
                   </div>
