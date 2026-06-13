@@ -58,6 +58,7 @@ const AiAutoReplyConfigSchema = new Schema(
 
 const HeyGenAccessSchema = new Schema(
   {
+    avatarIds: { type: [String], default: [] },
     avatarId: { type: String, default: "" },
     voiceId: { type: String, default: "" },
     apiKey: { type: String, default: "" },

@@ -310,6 +310,7 @@ export const authService = {
     division?: string,
     phone?: string,
     heygenAccess?: {
+      avatarIds?: string[];
       avatarId?: string;
       voiceId?: string;
       apiKey?: string;

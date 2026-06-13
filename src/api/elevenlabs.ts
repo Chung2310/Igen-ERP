@@ -10,6 +10,14 @@ function getJwtHeaders(withContentType: boolean = true) {
   return headers;
 }
 
+const ELEVENLABS_VOICE_HISTORY_CACHE_TTL = 2 * 60 * 1000;
+let elevenlabsVoiceHistoryCache:
+  | {
+      expiresAt: number;
+      data: { status: string; history: any[] };
+    }
+  | null = null;
+
 async function parseJsonResponse(response: Response, fallbackMessage: string) {
   const contentType = response.headers.get("content-type") || "";
   const rawText = await response.text();
@@ -63,11 +71,19 @@ export const elevenlabsApi = {
     return parseJsonResponse(response, "Loi khi sinh giong noi ElevenLabs");
   },
 
-  async getVoiceHistory(): Promise<{ status: string; history: any[] }> {
+  async getVoiceHistory(options?: { force?: boolean }): Promise<{ status: string; history: any[] }> {
+    if (!options?.force && elevenlabsVoiceHistoryCache && elevenlabsVoiceHistoryCache.expiresAt > Date.now()) {
+      return elevenlabsVoiceHistoryCache.data;
+    }
     const response = await fetch("/api/v1/elevenlabs/history", {
       headers: getJwtHeaders(false),
     });
-    return parseJsonResponse(response, "Loi lay lich su voice ElevenLabs");
+    const data = await parseJsonResponse(response, "Loi lay lich su voice ElevenLabs");
+    elevenlabsVoiceHistoryCache = {
+      expiresAt: Date.now() + ELEVENLABS_VOICE_HISTORY_CACHE_TTL,
+      data,
+    };
+    return data;
   },
 
   async deleteVoiceHistory(id: string): Promise<{ status: string }> {
@@ -76,6 +92,10 @@ export const elevenlabsApi = {
       headers: getJwtHeaders(false),
     });
     return parseJsonResponse(response, "Loi xoa lich su voice ElevenLabs");
+  },
+
+  clearVoiceHistoryCache() {
+    elevenlabsVoiceHistoryCache = null;
   },
 
   async getVoices(): Promise<{ status: string; voices: any[] }> {

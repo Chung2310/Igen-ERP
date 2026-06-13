@@ -11,6 +11,23 @@ const ACCESS_TOKEN_SECRET = process.env.JWT_ACCESS_SECRET || "your_jwt_access_se
 const REFRESH_TOKEN_SECRET = process.env.JWT_REFRESH_SECRET || "your_jwt_refresh_secret_key";
 
 export const authService = {
+  normalizeHeyGenAccess(heygenAccess?: any) {
+    const avatarIds = Array.isArray(heygenAccess?.avatarIds)
+      ? heygenAccess.avatarIds.map((item: any) => String(item || "").trim()).filter(Boolean)
+      : [];
+    const fallbackAvatarId = String(heygenAccess?.avatarId || "").trim();
+    const mergedAvatarIds = avatarIds.length > 0
+      ? avatarIds
+      : (fallbackAvatarId ? [fallbackAvatarId] : []);
+
+    return {
+      avatarIds: mergedAvatarIds,
+      avatarId: fallbackAvatarId || mergedAvatarIds[0] || "",
+      voiceId: String(heygenAccess?.voiceId || "").trim(),
+      apiKey: String(heygenAccess?.apiKey || "").trim(),
+    };
+  },
+
   /**
    * Tạo bộ đôi Access Token và Refresh Token
    */
@@ -378,11 +395,7 @@ export const authService = {
       division: division || (role === "admin" ? "Ban Giám Đốc" : (role === "manager" ? "Quản lý" : "Nhân sự")),
       jobTitle: role === "admin" ? "Chief Executive Officer (CEO)" : (role === "manager" ? "Quản lý phòng ban" : "Nhân viên"),
       phone: phone || "Chưa cập nhật",
-      heygenAccess: {
-        avatarId: heygenAccess?.avatarId || "",
-        voiceId: heygenAccess?.voiceId || "",
-        apiKey: heygenAccess?.apiKey || "",
-      },
+      heygenAccess: this.normalizeHeyGenAccess(heygenAccess),
       createdAt: new Date(),
       status: "offline",
       photoURL: `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName.trim())}&background=random&color=fff`
@@ -435,6 +448,10 @@ export const authService = {
       if (currentTargetLevel < callerLevel) {
         throw new Error("Bạn không có quyền chỉnh sửa tài khoản có vai trò cấp trên.");
       }
+    }
+
+    if (updateData.heygenAccess) {
+      updateData.heygenAccess = this.normalizeHeyGenAccess(updateData.heygenAccess);
     }
 
     return await UserModel.findByIdAndUpdate(userId, { $set: updateData }, { new: true }).select("-password");

@@ -10,29 +10,23 @@ const createAvatarVideoSchema = {
   body: Joi.object({
     avatarId: Joi.string().required(),
     voiceId: Joi.string().allow("").optional(),
-    script: Joi.string().allow("").optional(),
     audioUrl: Joi.string().uri().allow("").optional(),
     audioRecordId: Joi.string().allow("").optional(),
     motionText: Joi.string().allow("").optional(),
     aspectRatio: Joi.string().valid("16:9", "9:16", "1:1").optional(),
     resolution: Joi.string().valid("720p", "1080p", "4k").optional(),
-    engineType: Joi.string().valid("avatar_v", "avatar_iv", "avatar_iii").optional(),
+    engineType: Joi.string().valid("avatar_v", "avatar_iv").optional(),
     title: Joi.string().allow("").optional(),
     description: Joi.string().allow("").optional(),
+    enableCaption: Joi.boolean().optional(),
   }).custom((value, helpers) => {
-    const hasScript = Boolean(String(value.script || "").trim());
     const hasAudio = Boolean(String(value.audioUrl || "").trim()) || Boolean(String(value.audioRecordId || "").trim());
-
-    if (!hasScript && !hasAudio) {
-      return helpers.error("any.invalid");
-    }
-
-    if (hasScript && hasAudio) {
+    if (!hasAudio) {
       return helpers.error("any.invalid");
     }
 
     return value;
-  }, "script/audio validation"),
+  }, "audio validation"),
 };
 
 const videoIdParamSchema = {

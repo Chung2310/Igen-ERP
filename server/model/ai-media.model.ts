@@ -23,6 +23,8 @@ const AIMediaSchema = new Schema<IAIMedia>({
     status: { type: String },
     title: { type: String },
     description: { type: String },
+    captionedVideoUrl: { type: String },
+    subtitleUrl: { type: String },
   },
   createdAt: { type: Date, default: Date.now, index: true },
 });

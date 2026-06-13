@@ -23,6 +23,7 @@ export interface UserProfile {
   zaloIntegration?: ZaloIntegration | null;
   aiAutoReplyConfig?: AIChatConfig | null;
   heygenAccess?: {
+    avatarIds?: string[];
     avatarId?: string;
     voiceId?: string;
     apiKey?: string;

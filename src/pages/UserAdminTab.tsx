@@ -39,16 +39,26 @@ export default function UserAdminTab() {
   const [userCompanyCode, setUserCompanyCode] = useState<string>("");
   const [userParentId, setUserParentId] = useState<string>("");
   const [userDepartment, setUserDepartment] = useState("");
-  const [userHeyGenAvatarId, setUserHeyGenAvatarId] = useState("");
+  const [userHeyGenAvatarIds, setUserHeyGenAvatarIds] = useState("");
   const [userHeyGenVoiceId, setUserHeyGenVoiceId] = useState("");
   const [userHeyGenApiKey, setUserHeyGenApiKey] = useState("");
   const [submittingUser, setSubmittingUser] = useState(false);
   const [isHeyGenModalOpen, setIsHeyGenModalOpen] = useState(false);
   const [editingHeyGenUser, setEditingHeyGenUser] = useState<UserProfile | null>(null);
-  const [editingHeyGenAvatarId, setEditingHeyGenAvatarId] = useState("");
+  const [editingHeyGenAvatarIds, setEditingHeyGenAvatarIds] = useState("");
   const [editingHeyGenVoiceId, setEditingHeyGenVoiceId] = useState("");
   const [editingHeyGenApiKey, setEditingHeyGenApiKey] = useState("");
   const [savingHeyGenAccess, setSavingHeyGenAccess] = useState(false);
+
+  const parseAvatarIdsInput = (value: string) =>
+    value
+      .split(/[\n,]+/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  const formatAvatarIds = (user?: UserProfile | null) =>
+    Array.isArray(user?.heygenAccess?.avatarIds) && user?.heygenAccess?.avatarIds.length > 0
+      ? user.heygenAccess.avatarIds.join(", ")
+      : (user?.heygenAccess?.avatarId || "-");
 
   // Sub-tabs State
   const [activeTab, setActiveTab] = useState<"users" | "roles">("users");
@@ -374,7 +384,8 @@ export default function UserAdminTab() {
         userDepartment.trim() || undefined,
         undefined,
         {
-          avatarId: userHeyGenAvatarId.trim() || undefined,
+          avatarIds: parseAvatarIdsInput(userHeyGenAvatarIds),
+          avatarId: parseAvatarIdsInput(userHeyGenAvatarIds)[0] || undefined,
           voiceId: userHeyGenVoiceId.trim() || undefined,
           apiKey: userHeyGenApiKey.trim() || undefined,
         }
@@ -389,7 +400,7 @@ export default function UserAdminTab() {
       setUserRole("user");
       setUserParentId("");
       setUserDepartment("");
-      setUserHeyGenAvatarId("");
+      setUserHeyGenAvatarIds("");
       setUserHeyGenVoiceId("");
       setUserHeyGenApiKey("");
       // Refresh lists
@@ -405,7 +416,11 @@ export default function UserAdminTab() {
 
   const openHeyGenEditor = (user: UserProfile) => {
     setEditingHeyGenUser(user);
-    setEditingHeyGenAvatarId(user.heygenAccess?.avatarId || "");
+    setEditingHeyGenAvatarIds(
+      Array.isArray(user.heygenAccess?.avatarIds) && user.heygenAccess?.avatarIds.length > 0
+        ? user.heygenAccess.avatarIds.join(", ")
+        : (user.heygenAccess?.avatarId || "")
+    );
     setEditingHeyGenVoiceId(user.heygenAccess?.voiceId || "");
     setEditingHeyGenApiKey(user.heygenAccess?.apiKey || "");
     setIsHeyGenModalOpen(true);
@@ -419,9 +434,11 @@ export default function UserAdminTab() {
 
     setSavingHeyGenAccess(true);
     try {
+      const avatarIds = parseAvatarIdsInput(editingHeyGenAvatarIds);
       await authService.updateUser(editingHeyGenUser.uid, {
         heygenAccess: {
-          avatarId: editingHeyGenAvatarId.trim(),
+          avatarIds,
+          avatarId: avatarIds[0] || "",
           voiceId: editingHeyGenVoiceId.trim(),
           apiKey: editingHeyGenApiKey.trim(),
         },
@@ -433,7 +450,8 @@ export default function UserAdminTab() {
             ? {
                 ...user,
                 heygenAccess: {
-                  avatarId: editingHeyGenAvatarId.trim(),
+                  avatarIds,
+                  avatarId: avatarIds[0] || "",
                   voiceId: editingHeyGenVoiceId.trim(),
                   apiKey: editingHeyGenApiKey.trim(),
                 },
@@ -723,7 +741,7 @@ export default function UserAdminTab() {
                           <td className="p-4">
                             <div className="space-y-1">
                               <p className="text-[10px] text-slate-600">
-                                Avatar: <span className="font-mono">{usr.heygenAccess?.avatarId || "-"}</span>
+                                Avatar(s): <span className="font-mono">{formatAvatarIds(usr)}</span>
                               </p>
                               <p className="text-[10px] text-slate-600">
                                 Giọng đọc: <span className="font-mono">{usr.heygenAccess?.voiceId || "-"}</span>
@@ -1302,13 +1320,18 @@ export default function UserAdminTab() {
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Mã Avatar</label>
-                      <input
-                        type="text"
-                        placeholder="Nhập 1 mã avatar"
-                        value={userHeyGenAvatarId}
-                        onChange={(e) => setUserHeyGenAvatarId(e.target.value)}
-                        className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none"
+                      <textarea
+                        placeholder="Nhập nhiều mã avatar, cách nhau bằng dấu phẩy hoặc xuống dòng"
+                        value={userHeyGenAvatarIds}
+                        onChange={(e) => setUserHeyGenAvatarIds(e.target.value)}
+                        rows={3}
+                        className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none resize-none"
                       />
+                      <div className="rounded-xl border border-cyan-100 bg-cyan-50/70 px-3 py-2 text-[11px] leading-5 text-cyan-900">
+                        Nhap 1 hoac nhieu <span className="font-mono font-semibold">Avatar ID</span>. Moi ID co the cach nhau bang dau phay hoac xuong dong.
+                        Vi du: <span className="font-mono">avatar_001, avatar_002</span> hoac moi dong 1 ID.
+                        Avatar dau tien se duoc dung lam mac dinh trong studio.
+                      </div>
                     </div>
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Mã Giọng Đọc</label>
@@ -1609,19 +1632,25 @@ export default function UserAdminTab() {
             <form onSubmit={handleSaveHeyGenAccess} className="flex flex-col flex-1 overflow-hidden">
               <div className="p-6 space-y-4 overflow-y-auto flex-1 text-left">
                 <div className="rounded-2xl border border-cyan-100 bg-cyan-50/60 p-4 text-xs text-cyan-900">
-                  Chỉ cần gán 1 avatar, 1 giọng đọc và nếu cần thì điền khóa API HeyGen riêng cho người dùng này.
+                  Có thể gán nhiều avatar cho người dùng này. Avatar đầu tiên sẽ được dùng làm mặc định trong studio.
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Mã Avatar</label>
-                    <input
-                      type="text"
-                      value={editingHeyGenAvatarId}
-                      onChange={(e) => setEditingHeyGenAvatarId(e.target.value)}
-                      placeholder="Nhập 1 mã avatar"
-                      className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none"
+                    <textarea
+                      value={editingHeyGenAvatarIds}
+                      onChange={(e) => setEditingHeyGenAvatarIds(e.target.value)}
+                      placeholder="Nhập nhiều mã avatar, cách nhau bằng dấu phẩy hoặc xuống dòng"
+                      rows={4}
+                      className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none resize-none"
                     />
+                    <div className="rounded-xl border border-cyan-100 bg-cyan-50/70 px-3 py-2 text-[11px] leading-5 text-cyan-900">
+                      Có thể thêm nhiều <span className="font-mono font-semibold">Avatar ID</span> cho user này.
+                      mỗi ID nhập trên 1 dòng hoặc cách nhau bằng dấu phẩy.
+                      Ví dụ: <span className="font-mono">avatar_001, avatar_002, avatar_003</span>.
+                      Avatar đầu tiên trong danh sách sẽ là avatar mặc định khi mở studio.
+                    </div>
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Mã Giọng Đọc</label>
