@@ -13,6 +13,9 @@
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
+    "@remotion/bundler": "4.0.476",
+    "@remotion/player": "^4.0.476",
+    "@remotion/renderer": "^4.0.476",
     "bcryptjs": "^3.0.3",
     "cloudinary": "^2.10.0",
     "cookie-parser": "^1.4.7",
@@ -26,6 +29,7 @@
     "motion": "^12.23.24",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
+    "remotion": "^4.0.476",
     "socket.io": "^4.8.3",
     "socket.io-client": "^4.8.3",
     "swagger-ui-express": "^5.0.1",
