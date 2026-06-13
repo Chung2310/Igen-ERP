@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { ChevronDown, ChevronRight, Grip, LoaderCircle, Plus, SlidersHorizontal, Trash2, Tv, Volume2, X } from "lucide-react";
 import { type HeyGenTab } from "./HeyGenVerticalToolbar";
 import { HEYGEN_CAPTION_FONTS, HEYGEN_CAPTION_STYLES, HEYGEN_THEME } from "./heygenTheme";
@@ -247,11 +248,11 @@ export function HeyGenOptionsDrawer(props: HeyGenOptionsDrawerProps) {
   );
 }
 
-function OptionCard({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
+function OptionCard({ children, onClick }: { children: ReactNode; onClick: () => void }) {
   return <button type="button" onClick={onClick} className={`flex w-full items-center justify-between rounded-[20px] border ${HEYGEN_THEME.border} ${HEYGEN_THEME.surfaceMuted} p-3 text-left transition-all duration-200 hover:border-cyan-400 hover:bg-cyan-50/40 hover:shadow-sm`}>{children}</button>;
 }
 
-function ToggleCard({ active, onClick, label, icon }: { active: boolean; onClick: () => void; label: string; icon: React.ReactNode }) {
+function ToggleCard({ active, onClick, label, icon }: { active: boolean; onClick: () => void; label: string; icon: ReactNode }) {
   return (
     <button type="button" onClick={onClick} className={`rounded-2xl border px-2 py-3 text-[11px] font-semibold transition-all duration-200 ${active ? "border-cyan-400 bg-cyan-50 text-cyan-700 shadow-sm" : `${HEYGEN_THEME.border} ${HEYGEN_THEME.surfaceMuted} text-slate-600 hover:bg-white`}`}>
       <div className="mb-1 flex justify-center">{icon}</div>
@@ -264,7 +265,7 @@ function SegmentButton({ active, onClick, label }: { active: boolean; onClick: (
   return <button type="button" onClick={onClick} className={`rounded-xl py-2 text-xs font-bold transition ${active ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"}`}>{label}</button>;
 }
 
-function Panel({ title, children }: { title: string; children: React.ReactNode }) {
+function Panel({ title, children }: { title: string; children: ReactNode }) {
   return <div className={`space-y-3 rounded-[20px] border ${HEYGEN_THEME.border} ${HEYGEN_THEME.surfaceMuted} p-4`}><p className="text-sm font-bold text-slate-900">{title}</p>{children}</div>;
 }
 

@@ -1,4 +1,5 @@
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { X } from "lucide-react";
 import { elevenlabsApi } from "../../api/elevenlabs";
 import { type HeyGenLibraryItem, heygenApi } from "../../api/heygen";
@@ -196,7 +197,7 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
     await ensureAudioHistoryLoaded({ force: true });
   }
 
-  async function pollVideoStatus(videoId: string, payload: { avatarId: string; audioRecordId?: string; audioUrl?: string; aspectRatio: string; title: string; description: string; enableCaption?: boolean }) {
+  async function pollVideoStatus(videoId: string, payload: { avatarId: string; audioRecordId?: string; audioUrl?: string; aspectRatio: "16:9" | "9:16" | "1:1"; title: string; description: string; enableCaption?: boolean }) {
     for (const delay of HEYGEN_FALLBACK_POLL_DELAYS) {
       await new Promise((resolve) => window.setTimeout(resolve, delay));
       const status = await heygenApi.getVideoStatus(videoId, payload);
@@ -229,7 +230,17 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
     setJobVideoUrl("");
 
     try {
-      const payload = {
+      const payload: {
+        avatarId: string;
+        audioRecordId?: string;
+        audioUrl?: string;
+        enableCaption?: boolean;
+        aspectRatio: "16:9" | "9:16" | "1:1";
+        resolution: "720p";
+        engineType: "avatar_v" | "avatar_iv" | "avatar_iii";
+        title: string;
+        description: string;
+      } = {
         avatarId: selectedAvatarId,
         audioRecordId: selectedAudioRecordId || undefined,
         audioUrl: selectedAudio?.url || undefined,
@@ -394,14 +405,15 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
           <div className="space-y-6">
             <div className="grid gap-6">
               {paginatedHistory.map((item) => (
-                <HeyGenVideoItem
-                  key={item._id}
-                  item={item}
-                  onPlay={(url) => setPreviewVideoUrl(url)}
-                  onReuse={handleReuseRecent}
-                  onDelete={handleDeleteHistory}
-                  onStatusUpdate={(updatedItem) => setHistory((current) => current.map((historyItem) => historyItem._id === updatedItem._id ? updatedItem : historyItem))}
-                />
+                <div key={item._id}>
+                  <HeyGenVideoItem
+                    item={item}
+                    onPlay={(url) => setPreviewVideoUrl(url)}
+                    onReuse={handleReuseRecent}
+                    onDelete={handleDeleteHistory}
+                    onStatusUpdate={(updatedItem) => setHistory((current) => current.map((historyItem) => historyItem._id === updatedItem._id ? updatedItem : historyItem))}
+                  />
+                </div>
               ))}
             </div>
 
@@ -452,7 +464,7 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
   );
 }
 
-function PagerButton({ children, disabled, onClick }: { children: React.ReactNode; disabled: boolean; onClick: () => void }) {
+function PagerButton({ children, disabled, onClick }: { children: ReactNode; disabled: boolean; onClick: () => void }) {
   return <button type="button" onClick={onClick} disabled={disabled} className={`inline-flex h-9 items-center justify-center rounded-full border ${HEYGEN_THEME.border} bg-white px-4 text-xs font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50`}>{children}</button>;
 }
 
