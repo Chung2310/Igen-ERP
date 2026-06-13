@@ -1547,17 +1547,30 @@ Do not output any markdown blocks or extra text. Output ONLY the JSON object.`;
         await updateLogs(45, `[Render Engine Fallback] Kết quả FFMPEG: ${hasFfmpeg ? "Đã cài đặt" : "Chưa cài đặt"}`);
 
         if (hasFfmpeg) {
-          await updateLogs(50, "[Render Engine Fallback] Đang tải video gốc xuống server tạm...");
-          
           const tempInput = path.join(os.tmpdir(), `input_${recordId}.mp4`);
           const tempOutput = path.join(os.tmpdir(), `output_${recordId}.mp4`);
           
-          const response = await fetch(videoUrl);
-          if (!response.ok) {
-            throw new Error(`Tải video gốc thất bại: HTTP ${response.status}`);
+          const cacheDir = path.join(process.cwd(), "server/cache/videos");
+          if (!fs.existsSync(cacheDir)) {
+            fs.mkdirSync(cacheDir, { recursive: true });
           }
-          const buffer = Buffer.from(await response.arrayBuffer());
-          fs.writeFileSync(tempInput, buffer);
+
+          const urlParts = videoUrl.split("/");
+          const filename = urlParts[urlParts.length - 1];
+          const localCachePath = path.join(cacheDir, filename);
+
+          if (filename && filename.match(/^[a-zA-Z0-9_-]+\.[a-zA-Z0-9]+$/) && fs.existsSync(localCachePath)) {
+            await updateLogs(50, `[Render Engine Cache] Phát hiện video nguồn trong cache cục bộ (${filename}). Sao chép trực tiếp...`);
+            fs.copyFileSync(localCachePath, tempInput);
+          } else {
+            await updateLogs(50, "[Render Engine Fallback] Đang tải video gốc xuống server tạm...");
+            const response = await fetch(videoUrl);
+            if (!response.ok) {
+              throw new Error(`Tải video gốc thất bại: HTTP ${response.status}`);
+            }
+            const buffer = Buffer.from(await response.arrayBuffer());
+            fs.writeFileSync(tempInput, buffer);
+          }
           
           await updateLogs(55, "[Render Engine Fallback] Đang phát hiện luồng âm thanh...");
           const hasAudio = await new Promise<boolean>((resolve) => {
@@ -1782,6 +1795,20 @@ Do not output any markdown blocks or extra text. Output ONLY the JSON object.`;
           const outputBuffer = fs.readFileSync(tempOutput);
           finalVideoUrl = await cloudinaryService.uploadMediaBuffer(outputBuffer, "igen_erp/marketing/video");
           
+          // Save output to local cache folder
+          try {
+            const cacheDir = path.join(process.cwd(), "server/cache/videos");
+            const outUrlParts = finalVideoUrl.split("/");
+            const outFilename = outUrlParts[outUrlParts.length - 1];
+            if (outFilename && outFilename.match(/^[a-zA-Z0-9_-]+\.[a-zA-Z0-9]+$/)) {
+              const outCachePath = path.join(cacheDir, outFilename);
+              fs.copyFileSync(tempOutput, outCachePath);
+              console.log(`[Render Engine Cache] Saved rendered video to local cache: ${outCachePath}`);
+            }
+          } catch (cacheErr) {
+            console.error("[Render Engine Cache Warning] Failed to save rendered video to cache:", cacheErr);
+          }
+
           // Cleanup all temp files
           try {
             fs.unlinkSync(tempInput);
