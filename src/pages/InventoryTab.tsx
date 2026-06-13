@@ -1,9 +1,9 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { CheckCircle, Cpu, Download, FolderTree, Pencil, Plus, Search, Tags, Trash2, Upload } from "lucide-react";
 import { InventoryForecastSummary, InventorySubTabType, ProductCategory, ProductItem, StockLog } from "../types";
+import { useSubTabRouter } from "../hooks/useSubTabRouter";
 import { toast } from "./Toast";
-import { AiForecastPanel } from "../components/inventory/AiForecastPanel";
 import { CategoryModal } from "../components/inventory/CategoryModal";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { inventoryTabs } from "../components/inventory/data";
@@ -13,18 +13,23 @@ import { ProductModal } from "../components/inventory/ProductModal";
 import { CategoryManagementSection } from "../components/inventory/CategoryManagementSection";
 import { InventoryTabHeader } from "../components/inventory/InventoryTabHeader";
 import { ProductCatalogSection } from "../components/inventory/ProductCatalogSection";
-import { StockLogPanel } from "../components/inventory/StockLogPanel";
 import { SummaryCard } from "../components/inventory/SummaryCard";
 import { useAuth } from "../context/AuthContext";
 import { inventoryCategoryService } from "../services/inventoryCategoryService";
 import { inventoryProductService } from "../services/inventoryProductService";
 import { inventoryStockLogService } from "../services/inventoryStockLogService";
-import {
-  exportProductsToExcel,
-  exportStockLogsToExcel,
-  importProductsFromExcel,
-  importStockLogsFromExcel,
-} from "../utils/inventoryExcel";
+
+// Lazy-loaded subcomponents
+const AiForecastPanel = lazy(() =>
+  import("../components/inventory/AiForecastPanel").then((module) => ({
+    default: module.AiForecastPanel,
+  }))
+);
+const StockLogPanel = lazy(() =>
+  import("../components/inventory/StockLogPanel").then((module) => ({
+    default: module.StockLogPanel,
+  }))
+);
 import { buildInventoryForecast } from "../utils/inventoryForecast";
 import { parseFirebaseError } from "../utils/firebaseErrorParser";
 
@@ -58,7 +63,13 @@ function getStockLogItems(log: StockLog) {
 
 export default function InventoryTab() {
   const { user } = useAuth();
-  const [subTab, setSubTab] = useState<InventorySubTabType>("DANH MỤC");
+  const INVENTORY_SUB_TAB_ROUTES = [
+    { slug: "danh-muc", value: "DANH MỤC" as InventorySubTabType },
+    { slug: "phan-loai", value: "PHÂN LOẠI SẢN PHẨM" as InventorySubTabType },
+    { slug: "nhap-xuat", value: "NHẬP / XUẤT KHO" as InventorySubTabType },
+    { slug: "du-bao-ai", value: "DỰ BÁO AI" as InventorySubTabType },
+  ] as const;
+  const [subTab, setSubTab] = useSubTabRouter<InventorySubTabType>(INVENTORY_SUB_TAB_ROUTES as any, "DANH MỤC");
   const [products, setProducts] = useState<ProductItem[]>([]);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [stockLogs, setStockLogs] = useState<StockLog[]>([]);
@@ -420,7 +431,8 @@ export default function InventoryTab() {
     toast.success("Đã xóa phân loại sản phẩm.");
   };
 
-  const handleExportProductsExcel = () => {
+  const handleExportProductsExcel = async () => {
+    const { exportProductsToExcel } = await import("../utils/inventoryExcel");
     exportProductsToExcel(filteredProducts);
     toast.success("Da xuat danh muc san pham ra Excel.");
   };
@@ -438,6 +450,7 @@ export default function InventoryTab() {
     setProductExcelImporting(true);
 
     try {
+      const { importProductsFromExcel } = await import("../utils/inventoryExcel");
       const importedRows = await importProductsFromExcel(file);
 
       if (importedRows.length === 0) {
@@ -505,7 +518,8 @@ export default function InventoryTab() {
     }
   };
 
-  const handleExportStockLogsExcel = () => {
+  const handleExportStockLogsExcel = async () => {
+    const { exportStockLogsToExcel } = await import("../utils/inventoryExcel");
     exportStockLogsToExcel(stockLogs);
     toast.success("Da xuat phieu nhap xuat kho ra Excel.");
   };
@@ -523,6 +537,7 @@ export default function InventoryTab() {
     setStockLogExcelImporting(true);
 
     try {
+      const { importStockLogsFromExcel } = await import("../utils/inventoryExcel");
       const importedLogs = await importStockLogsFromExcel(file);
 
       if (importedLogs.length === 0) {
@@ -1064,33 +1079,35 @@ export default function InventoryTab() {
           </div>
         )}
 
-        {subTab === "NHẬP / XUẤT KHO" && (
-          <>
-            <input
-              ref={stockLogImportInputRef}
-              type="file"
-              accept=".xlsx,.xls"
-              className="hidden"
-              onChange={handleImportStockLogsExcel}
-            />
-            <StockLogPanel
-              products={products}
-              searchLog={searchLog}
-              setSearchLog={setSearchLog}
-              stockLogs={stockLogs}
-              isLoading={stockLogLoading}
-              onExportExcel={handleExportStockLogsExcel}
-              onImportExcel={handleOpenStockLogImport}
-              isImporting={stockLogExcelImporting}
-              onNavigateToCreateProduct={handleNavigateToCreateProduct}
-              onCreateTransaction={handleCreateTransaction}
-              onUpdateTransaction={handleUpdateTransaction}
-              onUpdateStatus={handleQuickUpdateTransactionStatus}
-              onDeleteTransaction={handleDeleteTransaction}
-            />
-          </>
-        )}
-        {subTab === "DỰ BÁO AI" && <AiForecastPanel forecast={forecastSummary} />}
+        <Suspense fallback={<TabLoader label="Đang tải dữ liệu kho..." />}>
+          {subTab === "NHẬP / XUẤT KHO" && (
+            <>
+              <input
+                ref={stockLogImportInputRef}
+                type="file"
+                accept=".xlsx,.xls"
+                className="hidden"
+                onChange={handleImportStockLogsExcel}
+              />
+              <StockLogPanel
+                products={products}
+                searchLog={searchLog}
+                setSearchLog={setSearchLog}
+                stockLogs={stockLogs}
+                isLoading={stockLogLoading}
+                onExportExcel={handleExportStockLogsExcel}
+                onImportExcel={handleOpenStockLogImport}
+                isImporting={stockLogExcelImporting}
+                onNavigateToCreateProduct={handleNavigateToCreateProduct}
+                onCreateTransaction={handleCreateTransaction}
+                onUpdateTransaction={handleUpdateTransaction}
+                onUpdateStatus={handleQuickUpdateTransactionStatus}
+                onDeleteTransaction={handleDeleteTransaction}
+              />
+            </>
+          )}
+          {subTab === "DỰ BÁO AI" && <AiForecastPanel forecast={forecastSummary} />}
+        </Suspense>
       </div>
       <ConfirmDialog
         isOpen={Boolean(deleteTarget)}
@@ -1105,6 +1122,15 @@ export default function InventoryTab() {
         }}
         onConfirm={handleConfirmDelete}
       />
+    </div>
+  );
+}
+
+function TabLoader({ label }: { label: string }) {
+  return (
+    <div className="flex h-full min-h-[250px] flex-col items-center justify-center gap-3 rounded-2xl bg-white border border-gray-150 p-6 text-center">
+      <div className="w-8 h-8 border-3 border-indigo-650 border-t-transparent rounded-full animate-spin" />
+      <span className="text-xs text-gray-500 font-semibold">{label}</span>
     </div>
   );
 }

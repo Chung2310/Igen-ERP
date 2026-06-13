@@ -8,10 +8,157 @@ import { connectDB } from "./server/config/database";
 import { apiRouter } from "./server/router";
 import { swaggerRouter } from "./server/swagger";
 import { initSocketServer } from "./server/socket";
+import { getSeoForPath, resolveSeoUrl } from "./src/seo/seo-config";
+import { BRAND_NAME, BRAND_TAGLINE, BRAND_LOGO_URL } from "./src/config/brand";
 
 dotenv.config();
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+
+function injectSeoMeta(html: string, requestPath: string): string {
+  try {
+    const seo = getSeoForPath(requestPath);
+    const canonicalUrl = resolveSeoUrl(seo.path);
+    const imageUrl = seo.image || BRAND_LOGO_URL;
+
+    let output = html;
+
+    // Robots
+    if (seo.robots) {
+      output = output.replace(
+        /<meta\s+name="robots"\s+content="[\s\S]*?"\s*\/?>/i,
+        `<meta name="robots" content="${seo.robots}" />`
+      );
+    }
+
+    // Title
+    output = output.replace(/<title>[\s\S]*?<\/title>/i, `<title>${seo.title} | ${BRAND_NAME}</title>`);
+
+    // Description
+    output = output.replace(
+      /<meta\s+name="description"\s+content="[\s\S]*?"\s*\/?>/i,
+      `<meta name="description" content="${seo.description}" />`
+    );
+
+    // Keywords
+    output = output.replace(
+      /<meta\s+name="keywords"\s+content="[\s\S]*?"\s*\/?>/i,
+      `<meta name="keywords" content="${seo.keywords}" />`
+    );
+
+    // Canonical link
+    output = output.replace(
+      /<link\s+rel="canonical"\s+href="[\s\S]*?"\s*\/?>/i,
+      `<link rel="canonical" href="${canonicalUrl}" />`
+    );
+
+    // OpenGraph Tags
+    output = output.replace(
+      /<meta\s+property="og:title"\s+content="[\s\S]*?"\s*\/?>/i,
+      `<meta property="og:title" content="${seo.title}" />`
+    );
+    output = output.replace(
+      /<meta\s+property="og:description"\s+content="[\s\S]*?"\s*\/?>/i,
+      `<meta property="og:description" content="${seo.description}" />`
+    );
+    output = output.replace(
+      /<meta\s+property="og:url"\s+content="[\s\S]*?"\s*\/?>/i,
+      `<meta property="og:url" content="${canonicalUrl}" />`
+    );
+    output = output.replace(
+      /<meta\s+property="og:image"\s+content="[\s\S]*?"\s*\/?>/i,
+      `<meta property="og:image" content="${imageUrl}" />`
+    );
+    output = output.replace(
+      /<meta\s+property="og:image:secure_url"\s+content="[\s\S]*?"\s*\/?>/i,
+      `<meta property="og:image:secure_url" content="${imageUrl}" />`
+    );
+    output = output.replace(
+      /<meta\s+property="og:image:alt"\s+content="[\s\S]*?"\s*\/?>/i,
+      `<meta property="og:image:alt" content="${seo.title}" />`
+    );
+
+    // Twitter Tags
+    output = output.replace(
+      /<meta\s+name="twitter:title"\s+content="[\s\S]*?"\s*\/?>/i,
+      `<meta name="twitter:title" content="${seo.title}" />`
+    );
+    output = output.replace(
+      /<meta\s+name="twitter:description"\s+content="[\s\S]*?"\s*\/?>/i,
+      `<meta name="twitter:description" content="${seo.description}" />`
+    );
+    output = output.replace(
+      /<meta\s+name="twitter:image"\s+content="[\s\S]*?"\s*\/?>/i,
+      `<meta name="twitter:image" content="${imageUrl}" />`
+    );
+
+    // Schema.org JSON-LD structured data
+    const jsonLdData = {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": "https://io.igentechsolutions.com/#organization",
+          "name": BRAND_NAME,
+          "url": "https://io.igentechsolutions.com",
+          "logo": {
+            "@type": "ImageObject",
+            "url": BRAND_LOGO_URL
+          }
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://io.igentechsolutions.com/#website",
+          "name": BRAND_NAME,
+          "url": "https://io.igentechsolutions.com",
+          "inLanguage": "vi-VN",
+          "description": BRAND_TAGLINE,
+          "publisher": {
+            "@id": "https://io.igentechsolutions.com/#organization"
+          }
+        },
+        {
+          "@type": "WebApplication",
+          "@id": `${canonicalUrl}/#webapplication`,
+          "name": BRAND_NAME,
+          "url": canonicalUrl,
+          "applicationCategory": "BusinessApplication",
+          "operatingSystem": "Web",
+          "description": seo.description,
+          "image": imageUrl,
+          "inLanguage": "vi-VN"
+        },
+        {
+          "@type": "WebPage",
+          "@id": `${canonicalUrl}/#webpage`,
+          "name": seo.title,
+          "url": canonicalUrl,
+          "description": seo.description,
+          "inLanguage": "vi-VN",
+          "isPartOf": {
+            "@id": "https://io.igentechsolutions.com/#website"
+          },
+          "primaryImageOfPage": {
+            "@type": "ImageObject",
+            "url": imageUrl
+          }
+        }
+      ]
+    };
+
+    const jsonLdScript = `
+    <script type="application/ld+json" id="igen-seo-jsonld">
+      ${JSON.stringify(jsonLdData)}
+    </script>
+  </head>`;
+
+    output = output.replace(/<\/head>/i, jsonLdScript);
+    return output;
+  } catch (err) {
+    console.error("Lỗi injectSeoMeta:", err);
+    return html;
+  }
+}
 
 async function startServer() {
   // Kết nối cơ sở dữ liệu MongoDB
@@ -74,9 +221,35 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
+    app.use(express.static(distPath, {
+      index: false,
+      setHeaders: (res, filePath) => {
+        // Cache hashed assets from the assets directory forever (immutable)
+        if (/[\\/]assets[\\/]/.test(filePath)) {
+          res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+        } else {
+          // Other static assets (e.g. site.webmanifest, favicons) cache for 1 hour
+          res.setHeader("Cache-Control", "public, max-age=3600");
+        }
+      }
+    }));
+    
+    let indexHtmlCached: string | null = null;
+
     app.get("*", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
+      try {
+        const indexHtmlPath = path.join(distPath, "index.html");
+        if (!indexHtmlCached) {
+          indexHtmlCached = fs.readFileSync(indexHtmlPath, "utf-8");
+        }
+
+        const personalizedHtml = injectSeoMeta(indexHtmlCached, req.path);
+        res.setHeader("Content-Type", "text/html");
+        res.send(personalizedHtml);
+      } catch (err) {
+        console.error("Lỗi khi xử lý server SEO fallback:", err);
+        res.sendFile(path.join(distPath, "index.html"));
+      }
     });
   }
 

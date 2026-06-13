@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { Activity, Zap, FileText, DollarSign, MessageSquare } from "lucide-react";
 import { CRMSubTabType, ChatMessage, CustomerInbox, AIChatConfig, ChatPagination } from "../types";
 import { geminiApi } from "../api/gemini";
@@ -9,11 +9,26 @@ import { fbMessengerService } from "../services/fbMessengerService";
 import { zaloMessengerService } from "../services/zaloMessengerService";
 import { getAccessToken } from "../services/authService";
 import { socketService } from "../services/socketService";
-import { PipelineTab } from "../components/crm/PipelineTab";
-import { OmniChatTab } from "../components/crm/OmniChatTab";
+import { useSubTabRouter } from "../hooks/useSubTabRouter";
+
+// Lazy-loaded subcomponents
+const PipelineTab = lazy(() =>
+  import("../components/crm/PipelineTab").then((module) => ({
+    default: module.PipelineTab,
+  }))
+);
+const OmniChatTab = lazy(() =>
+  import("../components/crm/OmniChatTab").then((module) => ({
+    default: module.OmniChatTab,
+  }))
+);
 
 export default function CRMTab() {
-  const [subTab, setSubTab] = useState<CRMSubTabType>("PHỄU KHÁCH HÀNG");
+  const CRM_SUB_TAB_ROUTES = [
+    { slug: "pipeline", value: "PHỄU KHÁCH HÀNG" as CRMSubTabType },
+    { slug: "omni-chat", value: "OMNI-INBOX CHAT" as CRMSubTabType },
+  ] as const;
+  const [subTab, setSubTab] = useSubTabRouter<CRMSubTabType>(CRM_SUB_TAB_ROUTES as any, "PHỄU KHÁCH HÀNG");
 
   // 1. Leads Kanban Pipeline States loaded from Firebase
   const [leads, setLeads] = useState<ExtendedLeadCard[]>([]);
@@ -739,35 +754,37 @@ export default function CRMTab() {
       </div>
 
       <div className="flex-1 overflow-hidden" id="crm_tab_main_content">
-        {subTab === "PHỄU KHÁCH HÀNG" && (
-          <PipelineTab
-            leads={leads}
-            searchPipeline={searchPipeline}
-            setSearchPipeline={setSearchPipeline}
-            triggerUpsellCampaignOptimized={triggerUpsellCampaignOptimized}
-            setShowCreateLeadModal={setShowCreateLeadModal}
-            moveLeadPipeline={moveLeadPipeline}
-            deleteLead={deleteLead}
-            handleGoToChat={handleGoToChat}
-          />
-        )}
+        <Suspense fallback={<TabLoader label="Đang tải dữ liệu CRM..." />}>
+          {subTab === "PHỄU KHÁCH HÀNG" && (
+            <PipelineTab
+              leads={leads}
+              searchPipeline={searchPipeline}
+              setSearchPipeline={setSearchPipeline}
+              triggerUpsellCampaignOptimized={triggerUpsellCampaignOptimized}
+              setShowCreateLeadModal={setShowCreateLeadModal}
+              moveLeadPipeline={moveLeadPipeline}
+              deleteLead={deleteLead}
+              handleGoToChat={handleGoToChat}
+            />
+          )}
 
-        {subTab === "OMNI-INBOX CHAT" && (
-          <OmniChatTab
-            inboxCustomers={inboxCustomers}
-            activeCustomer={activeCustomer}
-            chatHistory={chatHistory}
-            chatPagination={chatPagination}
-            typeMessage={typeMessage}
-            setTypeMessage={setTypeMessage}
-            aiWaiting={aiWaiting}
-            aiConfig={aiConfig}
-            setAIConfig={handleUpdateAIConfig}
-            handleSelectCustomer={handleSelectCustomer}
-            handleSendChatMessage={handleSendChatMessage}
-            handleLoadOlderMessages={handleLoadOlderMessages}
-          />
-        )}
+          {subTab === "OMNI-INBOX CHAT" && (
+            <OmniChatTab
+              inboxCustomers={inboxCustomers}
+              activeCustomer={activeCustomer}
+              chatHistory={chatHistory}
+              chatPagination={chatPagination}
+              typeMessage={typeMessage}
+              setTypeMessage={setTypeMessage}
+              aiWaiting={aiWaiting}
+              aiConfig={aiConfig}
+              setAIConfig={handleUpdateAIConfig}
+              handleSelectCustomer={handleSelectCustomer}
+              handleSendChatMessage={handleSendChatMessage}
+              handleLoadOlderMessages={handleLoadOlderMessages}
+            />
+          )}
+        </Suspense>
       </div>
 
       {/* Create Lead Modal Form */}
@@ -934,6 +951,15 @@ export default function CRMTab() {
         </div>
       )}
 
+    </div>
+  );
+}
+
+function TabLoader({ label }: { label: string }) {
+  return (
+    <div className="flex h-full min-h-[250px] flex-col items-center justify-center gap-3 rounded-2xl bg-white border border-gray-150 p-6 text-center">
+      <div className="w-8 h-8 border-3 border-indigo-650 border-t-transparent rounded-full animate-spin" />
+      <span className="text-xs text-gray-500 font-semibold">{label}</span>
     </div>
   );
 }
