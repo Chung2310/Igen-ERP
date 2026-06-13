@@ -196,7 +196,7 @@ export default function AIPerformanceTab() {
           </div>
 
           <p className="text-[10px] text-slate-500 leading-normal text-center pt-4 border-t border-slate-850 font-mono select-none">
-            Mô hình: gemini-3.5-flash-latest • iGen AI active
+            Mô hình: gpt-4o-mini-latest • iGen AI active
           </p>
         </div>
 

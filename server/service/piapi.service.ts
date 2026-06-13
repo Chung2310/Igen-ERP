@@ -10,7 +10,7 @@ console.log(`[PiAPI Service] Loaded API Key status: ${PIAPI_API_KEY ? `Present (
 
 export const piapiService = {
   /**
-   * Sinh ảnh bằng PiAPI (Midjourney, Flux, v.v.)
+   * Sinh ảnh bằng PiAPI (Sử dụng các mô hình nano-banana)
    */
   async generateImage(
     prompt: string,
@@ -22,33 +22,21 @@ export const piapiService = {
     }
 
     const aspect = options?.aspectRatio || "1:1";
-    let reqBody: any;
-
-    if (model === "nano-banana-pro" || model === "nano-banana-2") {
-      reqBody = {
-        model: "gemini",
-        task_type: model,
-        input: {
-          prompt,
-          output_format: "png",
-          aspect_ratio: aspect,
-          resolution: "1K",
-        },
-      };
-    } else {
-      let piapiModel = model.replace("piapi-", "");
-      if (piapiModel === "flux") {
-        piapiModel = "Qubico/flux1-dev";
-      }
-      reqBody = {
-        model: piapiModel,
-        task_type: piapiModel === "midjourney" ? "imagine" : "text2img",
-        input: {
-          prompt,
-          aspect_ratio: aspect,
-        },
-      };
+    let modelToUse = model || "nano-banana-pro";
+    if (modelToUse !== "nano-banana-pro" && modelToUse !== "nano-banana-2") {
+      modelToUse = "nano-banana-pro";
     }
+
+    const reqBody = {
+      model: "gemini",
+      task_type: modelToUse,
+      input: {
+        prompt,
+        output_format: "png",
+        aspect_ratio: aspect,
+        resolution: "1K",
+      },
+    };
 
     try {
       console.log(`[PiAPI Image Generation] Requesting task for model ${model}. Body:`, JSON.stringify(reqBody, null, 2));
@@ -109,7 +97,7 @@ export const piapiService = {
   },
 
   /**
-   * Sinh video bằng PiAPI (Kling, Luma, v.v. và Veo 3.1)
+   * Sinh video bằng PiAPI (Luma, v.v. và Veo 3.1)
    */
   async createVideoTask(
     prompt: string,
@@ -255,7 +243,7 @@ export const piapiService = {
   },
 
   /**
-   * Sinh video bằng PiAPI (Kling, Luma, v.v.)
+   * Sinh video bằng PiAPI (Luma, v.v.)
    */
   async generateVideo(
     prompt: string,

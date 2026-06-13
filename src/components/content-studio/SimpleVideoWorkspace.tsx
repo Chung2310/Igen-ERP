@@ -44,7 +44,7 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved }: {
   const [afterImage, setAfterImage] = useState<string | null>(null);
 
   // Video Settings
-  const [videoModel, setVideoModel] = useState('piapi-veo31-video-audio');
+  const [videoModel, setVideoModel] = useState('piapi-veo31-video-fast-audio');
   const [videoAspectRatio, setVideoAspectRatio] = useState('16:9');
   const [videoDuration, setVideoDuration] = useState('4');
   const [videoQuality, setVideoQuality] = useState('720p'); // 1080p requires duration >= 6s
@@ -446,7 +446,7 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved }: {
           <div className="flex flex-col gap-2 border-t border-slate-100 pt-3.5">
             <div className="flex justify-between items-center">
               <span className="text-xs font-bold text-slate-800">Tối ưu prompt và thông số</span>
-              <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded text-[9px] font-mono font-bold">iGen 3 flash</span>
+              <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded text-[9px] font-mono font-bold">iGen 4.0 flash</span>
             </div>
             <button
               type="button"

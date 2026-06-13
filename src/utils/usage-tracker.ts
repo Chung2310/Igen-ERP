@@ -28,24 +28,7 @@ export const PRICING_TABLE: Record<string, {
     label: 'PiAPI Veo 3.1 Fast Silent',
     category: 'video',
   },
-  'piapi-kling': {
-    costPerUnitUSD: 18.0,
-    unit: 'seconds',
-    label: 'PiAPI Kling',
-    category: 'video',
-  },
-  'gemini-2.5-flash-preview-tts': {
-    costPerUnitUSD: 0.1275,
-    unit: 'seconds',
-    label: 'iGen 2.5 Flash TTS',
-    category: 'audio',
-  },
-  'gemini-2.5-pro-preview-tts': {
-    costPerUnitUSD: 0.255,
-    unit: 'seconds',
-    label: 'iGen 2.5 Pro TTS',
-    category: 'audio',
-  },
+
   'eleven_flash_v1': {
     costPerUnitUSD: 0.15,
     unit: 'seconds',
@@ -82,24 +65,7 @@ export const PRICING_TABLE: Record<string, {
     label: 'iGen ElevenLabs Turbo v2.5',
     category: 'audio',
   },
-  'gemini-3.1-flash-image-preview': {
-    costPerUnitUSD: 27.5,
-    unit: 'count',
-    label: 'iGen 3.1 Flash Image',
-    category: 'image',
-  },
-  'gemini-3-pro-image-preview': {
-    costPerUnitUSD: 57,
-    unit: 'count',
-    label: 'iGen 3 Pro Image',
-    category: 'image',
-  },
-  'gemini-2.5-flash-preview-image': {
-    costPerUnitUSD: 13.75,
-    unit: 'count',
-    label: 'iGen 2.5 Flash Image',
-    category: 'image',
-  },
+
   'imagen-3.0-generate-002': {
     costPerUnitUSD: 27.5,
     unit: 'count',

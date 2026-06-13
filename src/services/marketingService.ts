@@ -54,7 +54,7 @@ export const marketingService = {
               channel: 'LinkedIn',
               contentType: 'Bài viết chuyên sâu (Pulse/Article)',
               status: 'pending',
-              bodyText: '📊 Thống kê cho thấy hơn 72% doanh nghiệp vừa và nhỏ tại Đông Nam Á vẫn đau đầu vì thông tin đứt quãng giữa CRM và Kho bãi... Hôm nay, hãng iGen ra mắt giải pháp Tích hợp Tự động AI hóa, kết hợp mô hình Gemini 3.5 dự báo thiếu hàng cực kỳ chính xác.',
+              bodyText: '📊 Thống kê cho thấy hơn 72% doanh nghiệp vừa và nhỏ tại Đông Nam Á vẫn đau đầu vì thông tin đứt quãng giữa CRM và Kho bãi... Hôm nay, hãng iGen ra mắt giải pháp Tích hợp Tự động AI hóa, kết hợp mô hình GPT-4o dự báo thiếu hàng cực kỳ chính xác.',
               generatedAt: new Date().toISOString(),
               authorUid: '',
             },

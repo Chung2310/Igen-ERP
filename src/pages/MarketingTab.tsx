@@ -286,7 +286,7 @@ export default function MarketingTab() {
         </div>
         <div className="hidden md:flex items-center gap-1.5 px-3 py-1 bg-purple-50 rounded-full border border-purple-200 text-purple-800 font-mono text-[10px]">
           <Zap className="h-3.5 w-3.5 text-purple-600 animate-bounce" />
-          <span>Tích hợp AI Copywriter (Gemini Pro)</span>
+          <span>Tích hợp AI Copywriter (GPT-4o)</span>
         </div>
       </div>
 

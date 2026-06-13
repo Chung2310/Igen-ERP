@@ -1,11 +1,10 @@
-import { Type } from "@google/genai";
 import { AIMediaModel } from "../model/ai-media.model";
 import { cloudinaryService } from "./cloudinary.service";
 import { piapiService } from "./piapi.service";
 
-const GEMINI_TEXT_MODEL = process.env.GEMINI_MODEL || "gemini-3.5-flash";
-const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || "piapi-flux";
-const GEMINI_VIDEO_MODEL = process.env.GEMINI_VIDEO_MODEL || "piapi-kling";
+const GEMINI_TEXT_MODEL = process.env.TEXT_MODEL || process.env.GEMINI_MODEL || "gpt-4o-mini";
+const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || "nano-banana-pro";
+const GEMINI_VIDEO_MODEL = process.env.GEMINI_VIDEO_MODEL || "piapi-veo31-video-fast-audio";
 
 function normalizePiapiVideoModel(modelName?: string): string {
   const rawModel = (modelName || GEMINI_VIDEO_MODEL || "").trim();
@@ -44,7 +43,7 @@ function normalizePiapiVideoModel(modelName?: string): string {
     return rawModel;
   }
 
-  return "piapi-kling";
+  return "veo31-video-fast-audio";
 }
 
 async function generateText(
@@ -303,11 +302,11 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
         {
           responseMimeType: "application/json",
           responseSchema: {
-            type: Type.OBJECT,
+            type: "object",
             properties: {
               suggestions: {
-                type: Type.ARRAY,
-                items: { type: Type.STRING },
+                type: "array",
+                items: { type: "string" },
                 description: "Danh sách đúng 3 ý tưởng/chủ đề gợi ý ngắn gọn",
               },
             },
@@ -453,17 +452,17 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
         {
           responseMimeType: "application/json",
           responseSchema: {
-            type: Type.OBJECT,
+            type: "object",
             properties: {
               pillars: {
-                type: Type.ARRAY,
+                type: "array",
                 items: {
-                  type: Type.OBJECT,
+                  type: "object",
                   properties: {
-                    id: { type: Type.STRING, description: "ID ngắn gọn viết liền không dấu" },
-                    title: { type: Type.STRING, description: "Tiêu đề tiếng Việt của trụ cột" },
-                    ratio: { type: Type.STRING, description: "Tỷ lệ phân bổ" },
-                    description: { type: Type.STRING, description: "Mô tả triển khai chi tiết" },
+                    id: { type: "string", description: "ID ngắn gọn viết liền không dấu" },
+                    title: { type: "string", description: "Tiêu đề tiếng Việt của trụ cột" },
+                    ratio: { type: "string", description: "Tỷ lệ phân bổ" },
+                    description: { type: "string", description: "Mô tả triển khai chi tiết" },
                   },
                   required: ["id", "title", "ratio", "description"],
                 },
@@ -580,25 +579,25 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
         {
           responseMimeType: "application/json",
           responseSchema: {
-            type: Type.OBJECT,
+            type: "object",
             properties: {
               concepts: {
-                type: Type.ARRAY,
+                type: "array",
                 items: {
-                  type: Type.OBJECT,
+                  type: "object",
                   properties: {
-                    title: { type: Type.STRING, description: "Tiêu đề ý tưởng chiến dịch" },
-                    matchPercent: { type: Type.INTEGER, description: "Tỷ lệ phù hợp" },
-                    summary: { type: Type.STRING, description: "Tóm tắt ý tưởng" },
+                    title: { type: "string", description: "Tiêu đề ý tưởng chiến dịch" },
+                    matchPercent: { type: "integer", description: "Tỷ lệ phù hợp" },
+                    summary: { type: "string", description: "Tóm tắt ý tưởng" },
                     channels: {
-                      type: Type.ARRAY,
-                      items: { type: Type.STRING },
+                      type: "array",
+                      items: { type: "string" },
                       description: "Các kênh đề xuất đăng bài",
                     },
-                    suggestedContent: { type: Type.STRING, description: "Ý tưởng nội dung gợi ý ban đầu" },
+                    suggestedContent: { type: "string", description: "Ý tưởng nội dung gợi ý ban đầu" },
                     hashtags: {
-                      type: Type.ARRAY,
-                      items: { type: Type.STRING },
+                      type: "array",
+                      items: { type: "string" },
                       description: "Hashtags liên quan",
                     },
                   },
@@ -765,25 +764,25 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
           {
             responseMimeType: "application/json",
             responseSchema: {
-              type: Type.OBJECT,
+              type: "object",
               properties: {
                 posts: {
-                  type: Type.ARRAY,
+                  type: "array",
                   items: {
-                    type: Type.OBJECT,
+                    type: "object",
                     properties: {
-                      channel: { type: Type.STRING, description: "Kênh đăng bài (ví dụ: Facebook, TikTok, LinkedIn, Instagram)" },
-                      contentType: { type: Type.STRING, description: "Loại nội dung" },
+                      channel: { type: "string", description: "Kênh đăng bài (ví dụ: Facebook, TikTok, LinkedIn, Instagram)" },
+                      contentType: { type: "string", description: "Loại nội dung" },
                       outline: {
-                        type: Type.STRING,
+                        type: "string",
                         description: "Dàn ý chi tiết của bài viết. ĐẶC BIỆT với TikTok: Phải lưu KỊCH BẢN QUAY (timeline video script) chi tiết bao gồm Visual, Audio và mốc thời gian dạng [0:00 - 0:03], [0:03 - 0:08]... với tổng thời lượng tối đa không quá 8 giây."
                       },
                       bodyText: {
-                        type: Type.STRING,
+                        type: "string",
                         description: "Nội dung bài đăng/caption sạch để đăng tải trực tiếp. ĐẶC BIỆT với TikTok: Chỉ là Caption/Description giới thiệu video kèm hashtag và call-to-action (TUYỆT ĐỐI không chứa kịch bản quay, visual, audio hay timeline video ở trường này)."
                       },
                       mediaPrompt: {
-                        type: Type.STRING,
+                        type: "string",
                         description: "A detailed visual description prompt in English for generating a matching image or video (e.g. scenic views, product display, lifestyle scene, characters, setting details)."
                       }
                     },
@@ -890,7 +889,13 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
       return { url: `https://picsum.photos/seed/${seed}/800/600`, isMock: true };
     }
 
-    return piapiService.generateImage(prompt, modelToUse, { aspectRatio: options?.aspectRatio });
+    try {
+      return await piapiService.generateImage(prompt, modelToUse, { aspectRatio: options?.aspectRatio });
+    } catch (error: any) {
+      console.warn("[geminiService.generateImage] PiAPI generation failed. Falling back to placeholder image:", error.message || error);
+      const seed = Math.floor(Math.random() * 1000000);
+      return { url: `https://picsum.photos/seed/${seed}/800/600`, isMock: true };
+    }
   },
 
   /**
@@ -926,11 +931,12 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
       throw new Error("Chưa cấu hình PIAPI_API_KEY. Không thể sinh video.");
     }
 
-    const { taskId } = await piapiService.createVideoTask(actualPrompt, modelToUse, durationSeconds, {
-      aspectRatio: options?.aspectRatio,
-      referenceImageUris: options?.referenceImageUris,
-    });
-    return { url: `pending://piapi/${taskId}`, isMock: false, taskId } as any;
+    
+      const { taskId } = await piapiService.createVideoTask(actualPrompt, modelToUse, durationSeconds, {
+        aspectRatio: options?.aspectRatio,
+        referenceImageUris: options?.referenceImageUris,
+      });
+      return { url: `pending://piapi/${taskId}`, isMock: false, taskId } as any;
   },
 
   /**

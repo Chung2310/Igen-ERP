@@ -12,13 +12,13 @@ function handleGeminiError(res: Response, error: any, defaultMessage: string) {
   const status = error.status || error.statusCode;
 
   if (status === 503 || errStr.includes("503") || errStr.includes("UNAVAILABLE")) {
-    errMsg = "Dịch vụ AI của Gemini hiện đang quá tải hoặc tạm thời không khả dụng. Vui lòng thử lại sau ít phút.";
+    errMsg = "Dịch vụ AI hiện đang quá tải hoặc tạm thời không khả dụng. Vui lòng thử lại sau ít phút.";
     statusCode = 503;
   } else if (status === 429 || errStr.includes("429") || errStr.includes("RESOURCE_EXHAUSTED")) {
     errMsg = "Yêu cầu vượt quá giới hạn tần suất (Rate Limit) cho phép của API Key. Vui lòng đợi và thử lại sau.";
     statusCode = 429;
   } else if (status === 400 || errStr.includes("400") || errStr.includes("INVALID_ARGUMENT")) {
-    errMsg = "Tham số yêu cầu không hợp lệ hoặc bị từ chối bởi quy tắc an toàn nội dung của Google AI.";
+    errMsg = "Tham số yêu cầu không hợp lệ hoặc bị từ chối bởi quy tắc an toàn nội dung.";
     statusCode = 400;
   } else if (status === 403 || errStr.includes("403") || errStr.includes("PERMISSION_DENIED")) {
     errMsg = "API Key không hợp lệ hoặc không có quyền truy cập vào mô hình AI.";
@@ -244,11 +244,15 @@ export const geminiController = {
 
       let record = null;
       if (userId && result.url) {
-        record = await geminiService.saveGeneratedMediaRecord(userId, "image", result.url, prompt, {
-          aspectRatio,
-          resolution,
-          modelName,
-        });
+        try {
+          record = await geminiService.saveGeneratedMediaRecord(userId, "image", result.url, prompt, {
+            aspectRatio,
+            resolution,
+            modelName,
+          });
+        } catch (dbError) {
+          console.error("[geminiController.generateImage] Database logging failed, continuing with result:", dbError);
+        }
       }
 
       return res.status(200).json({
@@ -281,20 +285,22 @@ export const geminiController = {
 
       let record = null;
       if (userId && result.url) {
-        const isPending = result.url.startsWith("pending://");
-        record = await geminiService.saveGeneratedMediaRecord(userId, "video", result.url, prompt, {
-          aspectRatio,
-          resolution,
-          modelName,
-          durationSeconds,
-          originalVeoUrl: referenceVideoUri,
-          activeCardId,
-          piapiTaskId: (result as any).taskId,
-          status: isPending ? "processing" : "completed",
-          progress: isPending ? 1 : 100,
-        });
+        try {
+          const isPending = result.url.startsWith("pending://");
+          record = await geminiService.saveGeneratedMediaRecord(userId, "video", result.url, prompt, {
+            aspectRatio,
+            resolution,
+            modelName,
+            durationSeconds,
+            originalVeoUrl: referenceVideoUri,
+            activeCardId,
+            piapiTaskId: (result as any).taskId,
+            status: isPending ? "processing" : "completed",
+            progress: isPending ? 1 : 100,
+          });
         if (isPending && (result as any).taskId) {
-          geminiService.pollPiAPIVideoStatusBackground(record._id.toString(), (result as any).taskId, userId);
+            geminiService.pollPiAPIVideoStatusBackground(record._id.toString(), (result as any).taskId, userId);
+          }
         }
       }
 
@@ -383,8 +389,8 @@ A: Hoàn toàn MIỄN PHÍ. Đội ngũ kỹ thuật của iGen sẽ hỗ trợ 
 --------------------------------------------------`;
       }
 
-      // Convert the extracted text (whether real or mocked) to a structured FAQ using Gemini
-      console.log(`[AI AutoReply] Đang tiến hành băm và chuyển đổi tài liệu thành dạng FAQs bằng Gemini...`);
+      // Convert the extracted text (whether real or mocked) to a structured FAQ using AI
+      console.log(`[AI AutoReply] Đang tiến hành băm và chuyển đổi tài liệu thành dạng FAQs bằng AI...`);
       const faqText = await geminiService.convertDocToFAQ(extractedText);
       const companyCode = req.user?.companyCode || "SYSTEM";
       const syncResult = await aiKnowledgeService.upsertKnowledgeFromText({

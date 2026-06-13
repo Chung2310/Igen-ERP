@@ -6,7 +6,7 @@ export default function ErpConfigTab() {
   const [darkMode, setDarkMode] = useState(false);
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [aiModel, setAiModel] = useState(() => {
-    return localStorage.getItem("selected_ai_model") || "gemini-3.5-flash";
+    return localStorage.getItem("selected_ai_model") || "gpt-4o-mini";
   });
   const [autoBackup, setAutoBackup] = useState(true);
 
@@ -81,7 +81,7 @@ export default function ErpConfigTab() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1.5 text-left">
-            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Phiên bản Gemini API</label>
+            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Phiên bản API Trợ lý AI</label>
             <select
               value={aiModel}
               onChange={(e) => {
@@ -92,8 +92,8 @@ export default function ErpConfigTab() {
               }}
               className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none cursor-pointer"
             >
-              <option value="gemini-3.5-flash">Gemini 3.5 Flash (Tối ưu tốc độ)</option>
-              <option value="gemini-3.1-pro">Gemini 3.1 Pro (Đọc hiểu nâng cao)</option>
+              <option value="gpt-4o-mini">GPT-4o Mini (Tối ưu tốc độ)</option>
+              <option value="gpt-4o">GPT-4o (Đọc hiểu nâng cao)</option>
             </select>
           </div>
 

@@ -40,7 +40,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
   const [imageAspectRatio, setImageAspectRatio] = useState("1:1");
 
   // Video Options
-  const [videoModel, setVideoModel] = useState("piapi-veo31-video-audio");
+  const [videoModel, setVideoModel] = useState("piapi-veo31-video-fast-audio");
   const [videoQuality, setVideoQuality] = useState("720p");
   const [videoDuration, setVideoDuration] = useState("4");
   const [videoAspectRatio, setVideoAspectRatio] = useState("16:9");
@@ -267,7 +267,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
               <Sparkles className="h-4.5 w-4.5 text-indigo-500 animate-pulse" />
               Khởi tạo ý tưởng chiến dịch marketing
             </h4>
-            <p className="text-xs text-slate-500 mt-1 lines-clamp-2">Nhập mục tiêu chiến dịch của bạn. Gemini AI sẽ phân tích và trả về các ý tưởng bản nháp content hoàn chỉnh.</p>
+            <p className="text-xs text-slate-500 mt-1 lines-clamp-2">Nhập mục tiêu chiến dịch của bạn. Trợ lý AI sẽ phân tích và trả về các ý tưởng bản nháp content hoàn chỉnh.</p>
 
             <form onSubmit={handleGenerateIdeas} className="mt-5 space-y-4">
               <textarea 
@@ -501,10 +501,9 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                         onChange={(e) => setVideoModel(e.target.value)}
                         className="w-full text-xs p-2 border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 font-sans"
                       >
-                        <option value="piapi-veo31-video-audio">PiAPI Veo 3.1</option>
                         <option value="piapi-veo31-video-fast-audio">PiAPI Veo 3.1 Fast</option>
+                        <option value="piapi-veo31-video-audio">PiAPI Veo 3.1</option>
                         <option value="piapi-veo31-video-fast-no-audio">PiAPI Veo 3.1 Fast Silent</option>
-                        <option value="piapi-kling">PiAPI Kling</option>
                       </select>
                     </div>
 

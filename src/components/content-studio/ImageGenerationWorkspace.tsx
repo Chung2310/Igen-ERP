@@ -29,7 +29,7 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved }
   const [aspectRatio, setAspectRatio] = useState('1:1');
   const [imageModel, setImageModel] = useState('nano-banana-pro');
   const [resolution, setResolution] = useState('1K');
-  const [optimizeModel, setOptimizeModel] = useState('gemini-3.5-flash');
+  const [optimizeModel, setOptimizeModel] = useState('gpt-4o-mini');
 
   // Input reference image list (base64 data URIs)
   const [inputImageUrls, setInputImageUrls] = useState<string[]>([]);
