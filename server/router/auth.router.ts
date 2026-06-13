@@ -193,6 +193,7 @@ const registerUserSchema = {
     department: Joi.string().optional().allow(""),
     division: Joi.string().optional().allow(""),
     heygenAccess: Joi.object({
+      avatarIds: Joi.array().items(Joi.string().allow("")).optional(),
       avatarId: Joi.string().optional().allow(""),
       voiceId: Joi.string().optional().allow(""),
       apiKey: Joi.string().optional().allow(""),
@@ -255,6 +256,7 @@ const updateUserSchema = {
     jobTitle: Joi.string().optional().allow(""),
     displayName: Joi.string().optional().allow(""),
     heygenAccess: Joi.object({
+      avatarIds: Joi.array().items(Joi.string().allow("")).optional(),
       avatarId: Joi.string().optional().allow(""),
       voiceId: Joi.string().optional().allow(""),
       apiKey: Joi.string().optional().allow(""),

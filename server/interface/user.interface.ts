@@ -44,6 +44,7 @@ export interface IAiAutoReplyConfig {
 }
 
 export interface IHeyGenAccessConfig {
+  avatarIds?: string[];
   avatarId?: string;
   voiceId?: string;
   apiKey?: string;

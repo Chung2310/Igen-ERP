@@ -1,0 +1,130 @@
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { ChevronRight, Download, LoaderCircle, Pencil, Play, Trash2 } from "lucide-react";
+import { heygenApi } from "../../api/heygen";
+import { HEYGEN_THEME } from "./heygenTheme";
+
+function usePseudoProgress(createdAt?: string, status?: string) {
+  const [progress, setProgress] = useState(0);
+  useEffect(() => {
+    const normalizedStatus = String(status || "").toLowerCase();
+    if (normalizedStatus === "completed") {
+      setProgress(100);
+      return;
+    }
+    if (["failed", "error", "canceled"].includes(normalizedStatus)) {
+      setProgress(0);
+      return;
+    }
+    const calculate = () => {
+      if (!createdAt) return 0;
+      const elapsedSec = (Date.now() - new Date(createdAt).getTime()) / 1000;
+      if (elapsedSec <= 10) return 10;
+      if (elapsedSec <= 30) return Math.min(95, Math.round(10 + (elapsedSec - 10) * 1.5));
+      if (elapsedSec <= 60) return Math.min(95, Math.round(40 + (elapsedSec - 30)));
+      if (elapsedSec <= 120) return Math.min(95, Math.round(70 + (elapsedSec - 60) * 0.3));
+      return Math.min(95, Math.round(88 + (elapsedSec - 120) * 0.1));
+    };
+    setProgress(calculate());
+    const interval = window.setInterval(() => setProgress(calculate()), 1000);
+    return () => window.clearInterval(interval);
+  }, [createdAt, status]);
+  return progress;
+}
+
+export function HeyGenVideoItem({
+  item,
+  onPlay,
+  onReuse,
+  onDelete,
+  onStatusUpdate,
+}: {
+  item: any;
+  onPlay: (url: string) => void;
+  onReuse: (item: any) => void;
+  onDelete: (videoId: string) => void | Promise<void>;
+  onStatusUpdate?: (updatedItem: any) => void;
+}) {
+  const status = String(item.status || "").toLowerCase();
+  const isCompleted = status === "completed";
+  const isFailed = ["failed", "error", "canceled"].includes(status);
+  const isProcessing = !isCompleted && !isFailed;
+  const pseudoProgress = usePseudoProgress(item.createdAt, item.status);
+
+  useEffect(() => {
+    if (!isProcessing || !item.videoId) return;
+    const interval = window.setInterval(async () => {
+      try {
+        const res = await heygenApi.getVideoStatus(item.videoId, {
+          avatarId: item.metadata?.heygenAvatarId,
+          audioRecordId: item.metadata?.heygenAudioRecordId,
+          audioUrl: item.metadata?.heygenAudioUrl,
+          aspectRatio: item.metadata?.aspectRatio,
+          title: item.metadata?.title,
+          description: item.metadata?.description,
+        });
+        const nextStatus = String(res.jobStatus || "processing").toLowerCase();
+        if (nextStatus !== status && onStatusUpdate) {
+          onStatusUpdate({
+            ...item,
+            status: nextStatus,
+            url: res.videoUrl || item.url,
+            thumbnailUrl: res.thumbnailUrl || item.thumbnailUrl,
+            metadata: { ...item.metadata, status: nextStatus },
+          });
+        }
+      } catch (error) {
+        console.error("Failed to poll video status:", error);
+      }
+    }, 10000);
+    return () => window.clearInterval(interval);
+  }, [isProcessing, item, onStatusUpdate, status]);
+
+  const downloadUrl = useMemo(() => {
+    if (!isCompleted) return "";
+    const url = item.url || item.captionedVideoUrl || item.videoPageUrl || "";
+    return url.startsWith("http") && !url.startsWith("pending://") ? url : "";
+  }, [item, isCompleted]);
+
+  const badgeClass = isCompleted ? "bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200" : isFailed ? "bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-200" : "bg-cyan-50 text-cyan-700 ring-1 ring-inset ring-cyan-200";
+  const badgeLabel = status === "processing" ? "Dang xu ly" : status === "completed" ? "Hoan thanh" : status === "failed" ? "That bai" : status;
+
+  return (
+    <div className={`grid gap-4 rounded-[24px] border ${HEYGEN_THEME.border} ${HEYGEN_THEME.surface} p-4 lg:grid-cols-[minmax(320px,560px)_minmax(0,1fr)]`}>
+      <div className={`overflow-hidden rounded-[24px] border ${HEYGEN_THEME.border} ${HEYGEN_THEME.surfaceMuted} p-3 shadow-sm`}>
+        <div className="relative aspect-[16/9] overflow-hidden rounded-[20px] bg-[radial-gradient(circle_at_center,#1e2936_0%,#16202b_60%,#0f141b_100%)]">
+          {item.thumbnailUrl ? <img src={item.thumbnailUrl} alt={item.title || item.prompt || "HeyGen video"} loading="lazy" decoding="async" className="absolute inset-0 z-10 h-full w-full object-contain bg-white" style={{ objectPosition: "center top" }} /> : downloadUrl ? <video src={downloadUrl} preload="none" className="absolute inset-0 z-10 h-full w-full object-contain bg-white" style={{ objectPosition: "center top" }} /> : <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-100 p-4 text-center text-cyan-700">{isFailed ? <div className="text-xs font-semibold text-rose-600">That bai</div> : <div className="flex flex-col items-center gap-2"><LoaderCircle className="h-6 w-6 animate-spin text-cyan-600" /><span className="text-[11px] font-bold uppercase tracking-widest">Dang xu ly</span><span className="text-xs font-mono text-cyan-700/80">{pseudoProgress}%</span><div className="h-1 w-24 overflow-hidden rounded-full bg-slate-200"><div className="h-full bg-cyan-500 transition-all duration-1000" style={{ width: `${pseudoProgress}%` }} /></div></div>}</div>}
+
+          {isCompleted && downloadUrl ? <div className="absolute inset-0 z-20 flex items-center justify-center"><button type="button" onClick={() => onPlay(downloadUrl)} className="flex h-14 w-14 items-center justify-center rounded-full border border-white/60 bg-slate-950/35 text-white backdrop-blur-sm transition hover:scale-105 hover:bg-slate-950/50"><Play className="ml-0.5 h-5 w-5 fill-current" /></button></div> : null}
+          {isProcessing && !item.thumbnailUrl ? <div className="absolute inset-x-0 bottom-3 z-20 flex justify-center"><span className="rounded-full bg-slate-950/70 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-cyan-300">Dang render ({pseudoProgress}%)</span></div> : null}
+          {isCompleted ? <div className="absolute bottom-3 right-3 z-20 rounded-lg bg-slate-950/65 px-2.5 py-1 text-xs font-semibold text-white">{item.duration ? `${Math.max(1, Math.round(item.duration))}s` : "Video"}</div> : null}
+        </div>
+      </div>
+
+      <div className="flex min-w-0 flex-col justify-between py-2">
+        <div>
+          <p className="line-clamp-3 text-2xl leading-tight text-slate-900">{item.prompt}</p>
+          <p className="mt-5 flex items-center gap-2 text-sm text-slate-500">
+            <span>{item.createdAt ? new Date(item.createdAt).toLocaleString("vi-VN") : "Chua co video"}</span>
+            <span>·</span>
+            <span>{item.model || "Avatar V"}</span>
+            <span>·</span>
+            <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${badgeClass}`}>{badgeLabel}</span>
+          </p>
+        </div>
+
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <ActionCircle onClick={() => onReuse(item)}><Pencil className="h-4 w-4" /></ActionCircle>
+            {downloadUrl ? <a href={downloadUrl} target="_blank" rel="noreferrer" download={item.title || "heygen-video"} className={`flex h-10 w-10 items-center justify-center rounded-full border ${HEYGEN_THEME.border} bg-white text-slate-600 transition hover:text-slate-900`} title="Tai video"><Download className="h-4 w-4" /></a> : <button type="button" disabled className="flex h-10 w-10 cursor-not-allowed items-center justify-center rounded-full border border-slate-200 bg-slate-100 text-slate-300" title="Video chua san sang de tai"><Download className="h-4 w-4" /></button>}
+            <ActionCircle onClick={() => onDelete(item.videoId || item.id || item._id)}><Trash2 className="h-4 w-4" /></ActionCircle>
+          </div>
+          <ActionCircle onClick={() => onReuse(item)}><ChevronRight className="h-5 w-5" /></ActionCircle>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ActionCircle({ children, onClick }: { children: ReactNode; onClick?: () => void }) {
+  return <button type="button" onClick={onClick} className={`flex h-10 w-10 items-center justify-center rounded-full border ${HEYGEN_THEME.border} bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900`}>{children}</button>;
+}

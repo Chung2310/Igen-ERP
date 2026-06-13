@@ -8,6 +8,14 @@ export type HeyGenLibraryItem = {
   isDefault?: boolean;
 };
 
+const HEYGEN_LIBRARY_CACHE_TTL = 2 * 60 * 1000;
+let heygenLibraryCache:
+  | {
+      expiresAt: number;
+      data: { status: string; avatars: HeyGenLibraryItem[]; voices: HeyGenLibraryItem[]; warnings?: string[]; defaults?: { avatarId?: string; voiceId?: string } };
+    }
+  | null = null;
+
 function getJwtHeaders(withContentType: boolean = true) {
   const headers: Record<string, string> = {};
   if (withContentType) {
@@ -49,17 +57,24 @@ async function parseJsonResponse(response: Response, fallbackMessage: string) {
 }
 
 export const heygenApi = {
-  async getLibrary(): Promise<{ status: string; avatars: HeyGenLibraryItem[]; voices: HeyGenLibraryItem[]; warnings?: string[]; defaults?: { avatarId?: string; voiceId?: string } }> {
+  async getLibrary(options?: { force?: boolean }): Promise<{ status: string; avatars: HeyGenLibraryItem[]; voices: HeyGenLibraryItem[]; warnings?: string[]; defaults?: { avatarId?: string; voiceId?: string } }> {
+    if (!options?.force && heygenLibraryCache && heygenLibraryCache.expiresAt > Date.now()) {
+      return heygenLibraryCache.data;
+    }
     const response = await fetch("/api/v1/heygen/library", {
       headers: getJwtHeaders(false),
     });
-    return parseJsonResponse(response, "Loi lay thu vien HeyGen");
+    const data = await parseJsonResponse(response, "Loi lay thu vien HeyGen");
+    heygenLibraryCache = {
+      expiresAt: Date.now() + HEYGEN_LIBRARY_CACHE_TTL,
+      data,
+    };
+    return data;
   },
 
   async createAvatarVideo(input: {
     avatarId: string;
     voiceId?: string;
-    script?: string;
     audioUrl?: string;
     audioRecordId?: string;
     motionText?: string;
@@ -80,7 +95,6 @@ export const heygenApi = {
   async getVideoStatus(videoId: string, input: {
     avatarId?: string;
     voiceId?: string;
-    script?: string;
     audioUrl?: string;
     audioRecordId?: string;
     motionText?: string;
@@ -109,5 +123,9 @@ export const heygenApi = {
       headers: getJwtHeaders(false),
     });
     return parseJsonResponse(response, "Loi xoa lich su video HeyGen");
+  },
+
+  clearLibraryCache() {
+    heygenLibraryCache = null;
   },
 };

@@ -15,6 +15,7 @@ type HeyGenLibraryItem = {
 };
 
 type HeyGenAccessContext = {
+  avatarIds: string[];
   avatarId: string;
   voiceId: string;
   apiKey: string;
@@ -47,7 +48,6 @@ type HeyGenRemoteVideo = {
 type CreateAvatarVideoInput = {
   avatarId: string;
   voiceId?: string;
-  script?: string;
   audioUrl?: string;
   audioRecordId?: string;
   motionText?: string;
@@ -56,6 +56,7 @@ type CreateAvatarVideoInput = {
   engineType?: "avatar_v" | "avatar_iv" | "avatar_iii";
   title?: string;
   description?: string;
+  enableCaption?: boolean;
 };
 
 type HeyGenWebhookPayload = {
@@ -196,7 +197,14 @@ async function getHeyGenAccessContext(userId: string): Promise<HeyGenAccessConte
     throw new Error("Khong tim thay nguoi dung");
   }
 
-  const avatarId = String(user.heygenAccess?.avatarId || getDefaultAvatarId()).trim();
+  const rawAvatarIds = Array.isArray(user.heygenAccess?.avatarIds)
+    ? user.heygenAccess?.avatarIds.map((item: any) => String(item || "").trim()).filter(Boolean)
+    : [];
+  const legacyAvatarId = String(user.heygenAccess?.avatarId || "").trim();
+  const avatarIds = rawAvatarIds.length > 0
+    ? rawAvatarIds
+    : (legacyAvatarId ? [legacyAvatarId] : []);
+  const avatarId = String(legacyAvatarId || avatarIds[0] || getDefaultAvatarId()).trim();
   const voiceId = String(user.heygenAccess?.voiceId || getDefaultVoiceId()).trim();
   const apiKey = String(user.heygenAccess?.apiKey || "").trim();
   const warnings: string[] = [];
@@ -211,6 +219,7 @@ async function getHeyGenAccessContext(userId: string): Promise<HeyGenAccessConte
   }
 
   return {
+    avatarIds,
     avatarId,
     voiceId,
     apiKey,
@@ -219,16 +228,17 @@ async function getHeyGenAccessContext(userId: string): Promise<HeyGenAccessConte
   };
 }
 
-function filterLibraryByAccess(items: HeyGenLibraryItem[], selectedId: string, allowFullLibrary: boolean) {
+function filterLibraryByAccess(items: HeyGenLibraryItem[], selectedIds: string[], allowFullLibrary: boolean) {
   if (allowFullLibrary) {
     return items;
   }
 
-  if (!selectedId) {
+  if (!selectedIds.length) {
     return [];
   }
 
-  return items.filter((item) => String(item.id) === selectedId);
+  const allowedIds = new Set(selectedIds.map((item) => String(item)));
+  return items.filter((item) => allowedIds.has(String(item.id)));
 }
 
 async function fetchLibraryWithCandidates(type: "avatar" | "voice", overrideApiKey?: string) {
@@ -266,6 +276,8 @@ async function upsertVideoRecord(userId: string, payload: {
   title?: string;
   description?: string;
   videoUrl?: string;
+  captionedVideoUrl?: string;
+  subtitleUrl?: string;
 }) {
   const existing = await AIMediaModel.findOne({
     userId,
@@ -280,6 +292,8 @@ async function upsertVideoRecord(userId: string, payload: {
     heygenVoiceId: payload.voiceId,
     heygenAudioUrl: payload.audioUrl,
     heygenAudioRecordId: payload.audioRecordId,
+    captionedVideoUrl: payload.captionedVideoUrl,
+    subtitleUrl: payload.subtitleUrl,
     provider: "heygen",
     status: payload.status || "processing",
     title: payload.title,
@@ -311,11 +325,15 @@ async function upsertVideoRecord(userId: string, payload: {
 
 function normalizeStatusPayload(data: any) {
   const root = data?.data || data;
-  const videoUrl = root?.video_url || root?.url || root?.video_url_with_caption || root?.download_url || "";
+  const captionedVideoUrl = root?.captioned_video_url || root?.video_url_with_caption || "";
+  const subtitleUrl = root?.subtitle_url || "";
+  const videoUrl = root?.video_url || root?.url || captionedVideoUrl || root?.download_url || "";
   const error = root?.failure_message || root?.error?.message || root?.error || "";
   return {
     jobStatus: root?.status || root?.video_status || root?.state || (error ? "failed" : videoUrl ? "completed" : "processing"),
     videoUrl,
+    captionedVideoUrl,
+    subtitleUrl,
     thumbnailUrl: root?.thumbnail_url || root?.cover_url || "",
     error,
     raw: data,
@@ -339,6 +357,8 @@ function normalizeWebhookPayload(payload: HeyGenWebhookPayload) {
     videoId,
     jobStatus: normalized.jobStatus,
     videoUrl: normalized.videoUrl,
+    captionedVideoUrl: normalized.captionedVideoUrl,
+    subtitleUrl: normalized.subtitleUrl,
     thumbnailUrl: normalized.thumbnailUrl,
     error: normalized.error,
     title: String(root?.title || payload?.title || "").trim() || undefined,
@@ -461,8 +481,16 @@ export const heygenService = {
 
     return {
       status: "success",
-      avatars: filterLibraryByAccess(avatarPool, accessContext.avatarId, accessContext.allowFullLibrary),
-      voices: filterLibraryByAccess(voiceResult.items, accessContext.voiceId, accessContext.allowFullLibrary),
+      avatars: filterLibraryByAccess(
+        avatarPool,
+        accessContext.avatarIds.length > 0 ? accessContext.avatarIds : (accessContext.avatarId ? [accessContext.avatarId] : []),
+        accessContext.allowFullLibrary
+      ),
+      voices: filterLibraryByAccess(
+        voiceResult.items,
+        accessContext.voiceId ? [accessContext.voiceId] : [],
+        accessContext.allowFullLibrary
+      ),
       sources: {
         avatars: avatarResult.source,
         voices: voiceResult.source,
@@ -478,34 +506,28 @@ export const heygenService = {
   async createAvatarVideo(userId: string, input: CreateAvatarVideoInput) {
     const accessContext = await getHeyGenAccessContext(userId);
     const apiKey = requireApiKey(accessContext.apiKey);
-    const { avatarId, voiceId, script, motionText, aspectRatio, resolution, engineType, title, description } = input;
+    const { avatarId, voiceId, motionText, aspectRatio, resolution, engineType, title, description } = input;
     const { audioUrl, audioRecordId } = await resolveAudioSource(userId, input);
-    const normalizedScript = String(script || "").trim();
     const normalizedVoiceId = String(voiceId || "").trim();
     const hasAudioSource = Boolean(audioUrl);
-    const hasScript = Boolean(normalizedScript);
-
-    if (engineType === "avatar_iii") {
-      throw new HeyGenApiError("Avatar III can dung legacy API cua HeyGen; luong v3 hien tai chi ho tro Avatar IV/V.", 400);
-    }
 
     if (!avatarId?.trim()) {
       throw new HeyGenApiError("Vui long chon avatar HeyGen truoc khi tao video.", 400);
     }
 
-    if (!hasAudioSource && !hasScript) {
-      throw new HeyGenApiError("Can cung cap kich ban hoac audio ElevenLabs de tao video.", 400);
+    if (!hasAudioSource) {
+      throw new HeyGenApiError("Can cung cap audio ElevenLabs de tao video.", 400);
     }
 
-    if (hasAudioSource && hasScript) {
-      throw new HeyGenApiError("HeyGen chi cho phep dung mot trong hai: script hoac audio_url.", 400);
-    }
+    const allowedAvatarIds = accessContext.avatarIds.length > 0
+      ? accessContext.avatarIds
+      : (accessContext.avatarId ? [accessContext.avatarId] : []);
 
-    if (!accessContext.allowFullLibrary && accessContext.avatarId !== avatarId) {
+    if (!accessContext.allowFullLibrary && !allowedAvatarIds.includes(avatarId)) {
       throw new HeyGenApiError("Avatar nay khong duoc cap cho tai khoan hien tai.", 403);
     }
 
-    if (!hasAudioSource && normalizedVoiceId && !accessContext.allowFullLibrary && accessContext.voiceId !== normalizedVoiceId) {
+    if (normalizedVoiceId && !accessContext.allowFullLibrary && accessContext.voiceId !== normalizedVoiceId) {
       throw new HeyGenApiError("Giong doc nay khong duoc cap cho tai khoan hien tai.", 403);
     }
 
@@ -517,13 +539,16 @@ export const heygenService = {
       output_format: "mp4",
     };
 
-    if (hasAudioSource) {
-      requestBody.audio_url = audioUrl;
-    } else {
-      requestBody.script = normalizedScript;
-      if (normalizedVoiceId) {
-        requestBody.voice_id = normalizedVoiceId;
-      }
+    if (input.enableCaption) {
+      requestBody.caption = {
+        file_format: "srt",
+        style: "default",
+      };
+    }
+
+    requestBody.audio_url = audioUrl;
+    if (normalizedVoiceId) {
+      requestBody.voice_id = normalizedVoiceId;
     }
 
     if (title?.trim()) {
@@ -559,7 +584,7 @@ export const heygenService = {
 
     const record = await upsertVideoRecord(userId, {
       videoId,
-      script: normalizedScript || title || "HeyGen audio video",
+      script: title || "HeyGen audio video",
       motionText,
       avatarId,
       voiceId: normalizedVoiceId || undefined,
@@ -591,7 +616,9 @@ export const heygenService = {
     const record = await upsertVideoRecord(userId, {
       videoId,
       videoUrl: normalized.videoUrl || undefined,
-      script: String(context?.script || "").trim() || "Video HeyGen",
+      captionedVideoUrl: normalized.captionedVideoUrl || undefined,
+      subtitleUrl: normalized.subtitleUrl || undefined,
+      script: context?.title || "Video HeyGen",
       motionText: context?.motionText,
       avatarId: context?.avatarId,
       voiceId: context?.voiceId,
@@ -656,6 +683,8 @@ export const heygenService = {
       record.metadata = {
         ...record.metadata,
         status: normalized.jobStatus,
+        captionedVideoUrl: normalized.captionedVideoUrl || record.metadata?.captionedVideoUrl,
+        subtitleUrl: normalized.subtitleUrl || record.metadata?.subtitleUrl,
         title: normalized.title || record.metadata?.title,
         duration: normalized.duration || record.metadata?.duration,
         heygenLastWebhookEvent: normalized.eventType,

@@ -1,54 +1,24 @@
-import React, { useEffect, useState } from "react";
+import React, { Suspense, lazy } from "react";
 import { RefreshCw } from "lucide-react";
 import Sidebar from "./pages/Sidebar";
 import Header from "./pages/Header";
-import DashboardTab from "./pages/DashboardTab";
-import HRTab from "./pages/HRTab";
-import InventoryTab from "./pages/InventoryTab";
-import MarketingTab from "./pages/MarketingTab";
-import CRMTab from "./pages/CRMTab";
-import UserAdminTab from "./pages/UserAdminTab";
-import SettingsTab from "./pages/SettingsTab";
-import AIPerformanceTab from "./pages/AIPerformanceTab";
 import { ToastContainer } from "./pages/Toast";
-import AuthPage from "./pages/AuthPage";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import type { TabType } from "./types";
 import { SEOHead } from "./seo/SEOHead";
-import { AUTH_SEO, getSeoForTab, pathToTab, tabToPath } from "./seo/seo-config";
+import { AUTH_SEO, getSeoForTab } from "./seo/seo-config";
+import { AppRouterView, useTabRouter } from "./router";
+
+const AuthPage = lazy(() => import("./pages/AuthPage"));
 
 function AppContent() {
-  const [activeTab, setActiveTab] = useState<TabType>("TỔNG QUAN");
+  const { activeTab, setActiveTab } = useTabRouter();
   const { user, userProfile, loading } = useAuth();
-
-  useEffect(() => {
-    const initialTab = pathToTab(window.location.pathname);
-    if (initialTab) {
-      setActiveTab(initialTab);
-    }
-
-    const handlePopState = () => {
-      const nextTab = pathToTab(window.location.pathname);
-      if (nextTab) {
-        setActiveTab(nextTab);
-      }
-    };
-
-    window.addEventListener("popstate", handlePopState);
-    return () => window.removeEventListener("popstate", handlePopState);
-  }, []);
-
-  useEffect(() => {
-    const nextPath = tabToPath(activeTab);
-    if (window.location.pathname !== nextPath) {
-      window.history.pushState(null, "", nextPath);
-    }
-  }, [activeTab]);
 
   if (loading) {
     return (
       <>
-        <SEOHead meta={{ ...AUTH_SEO, title: "Đang tải hệ thống iGen ERP", path: "/khoi-tao-he-thong" }} />
+        <SEOHead meta={{ ...AUTH_SEO, title: "Äang táº£i há»‡ thá»‘ng iGen ERP", path: "/khoi-tao-he-thong" }} />
         <div className="relative flex h-screen w-screen flex-col items-center justify-center overflow-hidden bg-gradient-to-br from-[#f6f8fd] via-[#eef2f7] to-[#e3ecf5] text-center font-sans">
           <div className="pointer-events-none absolute left-[-10%] top-[-10%] h-[600px] w-[600px] rounded-full bg-blue-400/5 blur-[120px]" />
           <div className="pointer-events-none absolute bottom-[-10%] right-[-10%] h-[600px] w-[600px] rounded-full bg-indigo-400/5 blur-[120px]" />
@@ -56,7 +26,7 @@ function AppContent() {
           <div className="z-10 flex flex-col items-center">
             <RefreshCw className="mb-4 h-10 w-10 animate-spin text-blue-600" />
             <span className="animate-pulse text-xs font-bold uppercase tracking-widest text-slate-500">
-              Đang khởi tạo hệ thống ERP...
+              Äang khá»Ÿi táº¡o há»‡ thá»‘ng ERP...
             </span>
           </div>
         </div>
@@ -68,7 +38,9 @@ function AppContent() {
     return (
       <>
         <SEOHead meta={AUTH_SEO} />
-        <AuthPage />
+        <Suspense fallback={<AuthLoader />}>
+          <AuthPage />
+        </Suspense>
       </>
     );
   }
@@ -87,16 +59,7 @@ function AppContent() {
         <Header currentTab={activeTab} onSearchSelect={handleSearchNavigation} />
 
         <main className="flex-1 overflow-hidden bg-surface p-6" id="primary_page_container">
-          {activeTab === "TỔNG QUAN" && <DashboardTab />}
-          {activeTab === "NHÂN SỰ" && <HRTab />}
-          {activeTab === "KHO & SẢN PHẨM" && <InventoryTab />}
-          {activeTab === "MARKETING" && <MarketingTab />}
-          {activeTab === "SALES CRM" && <CRMTab />}
-          {activeTab === "HIỆU SUẤT AI" && <AIPerformanceTab />}
-          {activeTab === "QUẢN TRỊ USER" && (userProfile.role === "superadmin" || userProfile.role === "admin") && (
-            <UserAdminTab />
-          )}
-          {activeTab === "CÀI ĐẶT" && <SettingsTab />}
+          <AppRouterView activeTab={activeTab} userProfile={userProfile} />
         </main>
       </div>
     </div>
@@ -109,5 +72,13 @@ export default function App() {
       <AppContent />
       <ToastContainer />
     </AuthProvider>
+  );
+}
+
+function AuthLoader() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#f6f8fd] via-[#eef2f7] to-[#e3ecf5] text-sm font-semibold text-slate-500">
+      Dang tai trang dang nhap...
+    </div>
   );
 }

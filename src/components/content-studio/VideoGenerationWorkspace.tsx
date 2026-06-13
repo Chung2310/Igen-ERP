@@ -1,8 +1,11 @@
-import { useState } from 'react';
+import { Suspense, lazy, useState } from 'react';
 import { Clapperboard, Sparkles, Wand2 } from 'lucide-react';
-import { HeyGenWorkspace } from './HeyGenWorkspace';
 import { SimpleVideoWorkspace } from './SimpleVideoWorkspace';
 import { EditVideoWorkspace } from './EditVideoWorkspace';
+
+const HeyGenWorkspace = lazy(() =>
+  import('./HeyGenWorkspace').then((module) => ({ default: module.HeyGenWorkspace }))
+);
 
 interface VideoGenerationWorkspaceProps {
   initialPrompt?: string;
@@ -59,7 +62,19 @@ export function VideoGenerationWorkspace({
         />
       )}
 
-      {activeVideoTab === 'heygen' && <HeyGenWorkspace initialPrompt={initialPrompt} />}
+      {activeVideoTab === 'heygen' && (
+        <Suspense
+          fallback={
+            <div className="mx-auto w-full max-w-[1500px] px-2">
+              <div className="flex min-h-[420px] items-center justify-center rounded-[28px] border border-slate-200 bg-white/80 text-sm font-medium text-slate-500 shadow-sm">
+                Dang tai HeyGen workspace...
+              </div>
+            </div>
+          }
+        >
+          <HeyGenWorkspace initialPrompt={initialPrompt} />
+        </Suspense>
+      )}
 
       {activeVideoTab === 'edit-video' && <EditVideoWorkspace />}
     </div>
