@@ -57,7 +57,8 @@ export interface HRTask {
 export interface Lesson {
   title: string;
   url: string;
-  type: "youtube" | "document" | "other";
+  type: "youtube" | "document" | "other" | "text" | "video";
+  content?: string;
 }
 
 export interface QuizQuestion {

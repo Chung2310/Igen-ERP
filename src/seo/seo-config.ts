@@ -149,6 +149,15 @@ export function getSeoForTab(tab: TabType): SeoMeta {
   };
 }
 
+export function getSeoForPath(requestPath: string): SeoMeta {
+  const normalized = requestPath.startsWith("/") ? requestPath : `/${requestPath}`;
+  if (normalized.toLowerCase() === AUTH_SEO.path.toLowerCase()) {
+    return AUTH_SEO;
+  }
+  const tab = pathToTab(normalized);
+  return tab ? getSeoForTab(tab) : DEFAULT_SEO;
+}
+
 export function resolveSeoUrl(path: string) {
   return new URL(path, SEO_BASE_URL).toString();
 }
