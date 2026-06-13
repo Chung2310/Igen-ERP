@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties, DragEvent, PointerEvent } from "react";
 import { Pause, Play, Plus, Volume2 } from "lucide-react";
 import { HEYGEN_THEME } from "./heygenTheme";
 
@@ -128,7 +129,7 @@ export function HeyGenVideoPreview({
   }
 
   function renderCaption(captionText: string) {
-    const baseStyle: React.CSSProperties = { fontFamily: captionFontFamily, fontSize: `${captionFontSize}px`, lineHeight: 1.15 };
+    const baseStyle: CSSProperties = { fontFamily: captionFontFamily, fontSize: `${captionFontSize}px`, lineHeight: 1.15 };
     if (captionPreset === "clean") {
       return <span style={{ ...baseStyle, color: "#3f3f46", backgroundColor: "rgba(255,255,255,0.92)", padding: "10px 16px", borderRadius: "10px", fontWeight: 500 }}>{captionText}</span>;
     }
@@ -149,7 +150,7 @@ export function HeyGenVideoPreview({
     );
   }
 
-  function handleCaptionPointerDown(event: React.PointerEvent<HTMLDivElement>) {
+  function handleCaptionPointerDown(event: PointerEvent<HTMLDivElement>) {
     if (!stageRef.current) return;
     dragStateRef.current = {
       pointerId: event.pointerId,
@@ -161,7 +162,7 @@ export function HeyGenVideoPreview({
     event.currentTarget.setPointerCapture(event.pointerId);
   }
 
-  function handleCaptionPointerMove(event: React.PointerEvent<HTMLDivElement>) {
+  function handleCaptionPointerMove(event: PointerEvent<HTMLDivElement>) {
     if (!stageRef.current || !dragStateRef.current || dragStateRef.current.pointerId !== event.pointerId) return;
     const rect = stageRef.current.getBoundingClientRect();
     const deltaXPercent = ((event.clientX - dragStateRef.current.startX) / rect.width) * 100;
@@ -172,21 +173,21 @@ export function HeyGenVideoPreview({
     });
   }
 
-  function handleCaptionPointerUp(event: React.PointerEvent<HTMLDivElement>) {
+  function handleCaptionPointerUp(event: PointerEvent<HTMLDivElement>) {
     if (dragStateRef.current?.pointerId === event.pointerId) {
       dragStateRef.current = null;
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
   }
 
-  function handlePreviewDragOver(event: React.DragEvent<HTMLDivElement>) {
+  function handlePreviewDragOver(event: DragEvent<HTMLDivElement>) {
     if (event.dataTransfer.types.includes("application/x-heygen-caption")) {
       event.preventDefault();
       event.dataTransfer.dropEffect = "move";
     }
   }
 
-  function handlePreviewDrop(event: React.DragEvent<HTMLDivElement>) {
+  function handlePreviewDrop(event: DragEvent<HTMLDivElement>) {
     if (!stageRef.current || !event.dataTransfer.types.includes("application/x-heygen-caption")) return;
     event.preventDefault();
     const rect = stageRef.current.getBoundingClientRect();
