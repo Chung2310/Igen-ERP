@@ -18,7 +18,7 @@ function AppContent() {
   if (loading) {
     return (
       <>
-        <SEOHead meta={{ ...AUTH_SEO, title: "Äang táº£i há»‡ thá»‘ng iGen ERP", path: "/khoi-tao-he-thong" }} />
+        <SEOHead meta={{ ...AUTH_SEO, title: "Đang tải hệ thống iGen ERP", path: "/khoi-tao-he-thong" }} />
         <div className="relative flex h-screen w-screen flex-col items-center justify-center overflow-hidden bg-gradient-to-br from-[#f6f8fd] via-[#eef2f7] to-[#e3ecf5] text-center font-sans">
           <div className="pointer-events-none absolute left-[-10%] top-[-10%] h-[600px] w-[600px] rounded-full bg-blue-400/5 blur-[120px]" />
           <div className="pointer-events-none absolute bottom-[-10%] right-[-10%] h-[600px] w-[600px] rounded-full bg-indigo-400/5 blur-[120px]" />
@@ -26,7 +26,7 @@ function AppContent() {
           <div className="z-10 flex flex-col items-center">
             <RefreshCw className="mb-4 h-10 w-10 animate-spin text-blue-600" />
             <span className="animate-pulse text-xs font-bold uppercase tracking-widest text-slate-500">
-              Äang khá»Ÿi táº¡o há»‡ thá»‘ng ERP...
+              Đang khởi tạo hệ thống ERP...
             </span>
           </div>
         </div>

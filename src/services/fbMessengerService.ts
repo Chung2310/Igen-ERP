@@ -65,7 +65,7 @@ export const fbMessengerService = {
    * Gửi phản hồi tin nhắn cho khách hàng qua Facebook Send API
    */
   async markRead(recipientId: string): Promise<any> {
-    console.log(`[FE FB Service] Báº¯t Ä‘áº§u gá»i API markRead cho PSID: ${recipientId}...`);
+    console.log(`[FE FB Service] Bắt đầu gọi API markRead cho PSID: ${recipientId}...`);
     const res = await fetch(`/api/v1/facebook/messenger/conversations/${recipientId}/mark-read`, {
       method: "POST",
       headers: {
@@ -75,8 +75,8 @@ export const fbMessengerService = {
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      console.error(`[FE FB Service] API markRead cho PSID ${recipientId} tháº¥t báº¡i:`, res.status, data);
-      throw new Error(data.message || "KhÃ´ng thá»ƒ Ä‘Ã¡nh dáº¥u Ä‘Ã£ Ä‘á»c cuá»™c há»™i thoáº¡i.");
+      console.error(`[FE FB Service] API markRead cho PSID ${recipientId} thất bại:`, res.status, data);
+      throw new Error(data.message || "Không thể đánh dấu đã đọc cuộc hội thoại.");
     }
 
     const result = await res.json();

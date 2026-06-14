@@ -60,7 +60,7 @@ export const zaloMessengerService = {
    * Gửi phản hồi tin nhắn cho khách hàng qua Zalo OA
    */
   async markRead(recipientId: string): Promise<any> {
-    console.log(`[FE Zalo Service] Báº¯t Ä‘áº§u gá»i API markRead cho ID ${recipientId}...`);
+    console.log(`[FE Zalo Service] Bắt đầu gọi API markRead cho ID ${recipientId}...`);
     const res = await fetch(`/api/v1/zalo/conversations/${recipientId}/mark-read`, {
       method: "POST",
       headers: {
@@ -70,8 +70,8 @@ export const zaloMessengerService = {
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      console.error(`[FE Zalo Service] API markRead cho ID ${recipientId} tháº¥t báº¡i:`, res.status, data);
-      throw new Error(data.message || "KhÃ´ng thá»ƒ Ä‘Ã¡nh dáº¥u Ä‘Ã£ Ä‘á»c cuá»™c há»™i thoáº¡i Zalo.");
+      console.error(`[FE Zalo Service] API markRead cho ID ${recipientId} thất bại:`, res.status, data);
+      throw new Error(data.message || "Không thể đánh dấu đã đọc cuộc hội thoại Zalo.");
     }
 
     const result = await res.json();
