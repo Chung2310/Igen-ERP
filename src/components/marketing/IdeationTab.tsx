@@ -516,29 +516,8 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                 </div>
               </div>
 
-              {/* Auto Media Generation toggle */}
-              <div className="flex items-center gap-3 mt-5 select-none">
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={isAutoMedia}
-                    onChange={(e) => {
-                      setIsAutoMedia(e.target.checked);
-                      if (e.target.checked && mediaType === "none") {
-                        setMediaType("image");
-                      }
-                    }}
-                    className="sr-only peer"
-                  />
-                  <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-650 peer-checked:bg-indigo-600 font-sans"></div>
-                  <span className="ml-2.5 text-xs font-bold text-gray-750 uppercase tracking-wider font-mono">
-                    ✨ Tự động tạo phương tiện AI (Auto Media)
-                  </span>
-                </label>
-              </div>
-
               {/* Auto-pilot completely automated flow */}
-              <div className="flex items-center gap-3 mt-3 select-none">
+              <div className="flex items-center gap-3 mt-5 select-none">
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
                     type="checkbox"
