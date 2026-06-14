@@ -1396,8 +1396,16 @@ You MUST follow these strict rules to map user editing requests to the timeline:
    - "tăng sáng" (brighten) -> set filters.brightness > 1.0 (e.g. 1.3).
    - "làm tối" (darken) -> set filters.brightness < 1.0 (e.g. 0.7).
    - "đen trắng" (grayscale) -> set filters.grayscale = 1.0.
+   - "làm mờ / hiệu ứng mờ" (blur) -> set filters.blur to value in pixels (e.g. 5).
+   - "màu cổ điển / màu hoài cổ / màu ngả vàng" (sepia) -> set filters.sepia to value from 0 to 1 (e.g. 0.8).
+   - "đảo ngược màu / đảo màu" (invert) -> set filters.invert to value from 0 to 1 (e.g. 1.0).
+   - "tăng độ tương phản" -> set filters.contrast > 1.0 (e.g. 1.4).
+   - "giảm độ tương phản" -> set filters.contrast < 1.0 (e.g. 0.7).
+   - "tăng độ bão hòa màu / làm màu rực rỡ" -> set filters.saturate > 1.0 (e.g. 1.5).
+   - "giảm độ bão hòa màu / làm màu nhạt đi" -> set filters.saturate < 1.0 (e.g. 0.5).
+   - "đổi sắc độ / xoay tông màu" (hue rotation) -> set filters.hueRotate to value in degrees (e.g. 90).
    - "chèn logo / sticker / ảnh" (insert image/logo) -> type: "image".
-   - "chèn chữ / viết chữ / phụ đề" (insert text/overlay) -> type: "text".
+   - "chèn chữ / viết chữ / phụ đề / lyrics" (insert text/overlay) -> type: "text".
    - "lồng nhạc / chèn âm thanh" (insert audio/music) -> type: "audio".
 
 2. TIMELINE STRUCTURE & MATH GUIDELINES:
@@ -1409,6 +1417,7 @@ You MUST follow these strict rules to map user editing requests to the timeline:
        Total final video duration: 8 seconds.
    - TIMELINES FOR OVERLAYS (text, image, audio): The 'start' and 'end' values for overlays must match the final timeline timestamps (after speed/playbackRate calculations of the video clips).
      In the example above, if the user wants text at the very end of the video for 2 seconds, it should be start: 6, end: 8.
+   - MULTIPLE TEXT / SUBTITLES / CAPTIONS: To add multiple lines of text, subtitles, or captions, output multiple "text" elements in the timeline, each with its own start, end, content, and style parameters matching the flow.
 
 3. VALID JSON SCHEMA:
 Output MUST be a valid JSON object matching this schema (with no other text or markdown blocks):
@@ -1422,7 +1431,13 @@ Output MUST be a valid JSON object matching this schema (with no other text or m
       "playbackRate": number (MUST be explicitly defined for every clip, default 1.0),
       "filters": {
         "brightness": number (optional, e.g. 1.2 or 0.8),
-        "grayscale": number (optional, 0 to 1)
+        "grayscale": number (optional, 0 to 1),
+        "blur": number (optional, blur in pixels, e.g. 5),
+        "sepia": number (optional, 0 to 1),
+        "invert": number (optional, 0 to 1),
+        "contrast": number (optional, contrast multiplier, e.g. 1.3),
+        "saturate": number (optional, saturation multiplier, e.g. 1.5),
+        "hueRotate": number (optional, rotation in degrees, e.g. 90)
       }
     },
     {

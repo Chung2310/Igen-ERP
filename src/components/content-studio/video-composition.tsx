@@ -63,7 +63,24 @@ export const VideoComposition: React.FC<VideoCompositionProps> = ({ blueprint })
         
         const brightness = clip.filters?.brightness ?? 1;
         const grayscale = clip.filters?.grayscale ?? 0;
-        
+        const blur = clip.filters?.blur ?? 0;
+        const sepia = clip.filters?.sepia ?? 0;
+        const invert = clip.filters?.invert ?? 0;
+        const contrast = clip.filters?.contrast ?? 1;
+        const saturate = clip.filters?.saturate ?? 1;
+        const hueRotate = clip.filters?.hueRotate ?? 0;
+
+        const filterString = [
+          `brightness(${brightness})`,
+          `grayscale(${grayscale})`,
+          blur ? `blur(${blur}px)` : '',
+          sepia ? `sepia(${sepia})` : '',
+          invert ? `invert(${invert})` : '',
+          `contrast(${contrast})`,
+          `saturate(${saturate})`,
+          hueRotate ? `hue-rotate(${hueRotate}deg)` : ''
+        ].filter(Boolean).join(' ');
+
         return (
           <Sequence
             key={`video-seq-${idx}`}
@@ -79,7 +96,7 @@ export const VideoComposition: React.FC<VideoCompositionProps> = ({ blueprint })
                 width: '100%',
                 height: '100%',
                 objectFit: 'contain',
-                filter: `brightness(${brightness}) grayscale(${grayscale})`
+                filter: filterString
               }}
             />
           </Sequence>
