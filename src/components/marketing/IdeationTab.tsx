@@ -330,6 +330,58 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
         });
 
         const savedCards = await marketingService.saveCards(newCards);
+
+        // Check if there are any cards with pending video tasks
+        const pendingCards = savedCards.filter(c => c.videoUrl && c.videoUrl.startsWith("pending://piapi/"));
+        if (pendingCards.length > 0) {
+          setAutoPilotStatus("Đang kết xuất video AI hoàn chỉnh (Mất khoảng 1-3 phút)...");
+          
+          let attempts = 0;
+          const maxAttempts = 24; // 4 minutes timeout (24 * 10 seconds)
+          const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+          
+          let resolvedCards = [...savedCards];
+          
+          while (attempts < maxAttempts) {
+            const stillPending = resolvedCards.filter(c => c.videoUrl && c.videoUrl.startsWith("pending://piapi/"));
+            if (stillPending.length === 0) {
+              console.log("[Auto-pilot] All video tasks completed successfully!");
+              break;
+            }
+            
+            setAutoPilotStatus(`Đang kết xuất video AI hoàn chỉnh (Thời gian chờ còn lại: ${Math.max(0, 240 - attempts * 10)}s)...`);
+            await delay(10000);
+            
+            try {
+              const updatedList = await Promise.all(
+                resolvedCards.map(async (card) => {
+                  if (card.videoUrl && card.videoUrl.startsWith("pending://piapi/")) {
+                    try {
+                      const freshCard = await marketingService.getCardById(card.id);
+                      return freshCard;
+                    } catch (e) {
+                      console.error("[Auto-pilot polling] error fetching card status:", e);
+                      return card;
+                    }
+                  }
+                  return card;
+                })
+              );
+              resolvedCards = updatedList;
+            } catch (err) {
+              console.error("[Auto-pilot polling] error polling loop:", err);
+            }
+            attempts++;
+          }
+          
+          // Use the updated cards (with resolved video URLs) for the rest of the flow
+          savedCards.forEach((card, idx) => {
+            const rc = resolvedCards.find(item => item.id === card.id);
+            if (rc) {
+              savedCards[idx] = rc;
+            }
+          });
+        }
         
         setAutoPilotStatus("Đang tự động thiết lập thời gian và kết nối mạng xã hội...");
         
