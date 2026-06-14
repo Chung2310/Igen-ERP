@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, AlertTriangle, Info, XCircle, X } from 'lucide-react';
+import { CheckCircle, AlertTriangle, Info, XCircle, X, Wallet } from 'lucide-react';
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info';
 
@@ -86,10 +86,17 @@ export function ToastContainer() {
             icon = <CheckCircle className="h-5 w-5 text-emerald-600 shrink-0" />;
             break;
           case 'error':
-            bgColor = 'bg-rose-50/95';
-            borderColor = 'border-rose-200';
-            textColor = 'text-rose-900';
-            icon = <XCircle className="h-5 w-5 text-rose-600 shrink-0" />;
+            if (t.message.includes("Số dư ví không đủ")) {
+              bgColor = 'bg-amber-50/98';
+              borderColor = 'border-amber-300';
+              textColor = 'text-amber-950';
+              icon = <AlertTriangle className="h-5.5 w-5.5 text-amber-600 shrink-0 animate-bounce" />;
+            } else {
+              bgColor = 'bg-rose-50/95';
+              borderColor = 'border-rose-200';
+              textColor = 'text-rose-900';
+              icon = <XCircle className="h-5 w-5 text-rose-600 shrink-0" />;
+            }
             break;
           case 'warning':
             bgColor = 'bg-amber-50/95';
@@ -104,7 +111,7 @@ export function ToastContainer() {
             icon = <Info className="h-5 w-5 text-sky-600 shrink-0" />;
             break;
         }
-
+ 
         return (
           <div
             key={t.id}
@@ -115,19 +122,19 @@ export function ToastContainer() {
             <div className="flex-1 text-xs font-semibold leading-relaxed font-sans select-none">
               {t.message}
               {t.message.includes("Số dư ví không đủ") && (
-                <span 
+                <button 
                   onClick={() => {
                     document.getElementById("sidebar_menu_VÍ_&_NẠP_TIỀN")?.click();
                   }}
-                  className="block mt-1 text-[10px] text-amber-700 hover:text-amber-900 underline cursor-pointer font-bold"
+                  className="mt-2 flex items-center justify-center gap-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 text-[10px] font-bold shadow-md cursor-pointer transition-all active:scale-95 pointer-events-auto font-sans"
                 >
-                  Nạp tiền ngay tại đây &raquo;
-                </span>
+                  <Wallet className="h-3 w-3" /> Nạp tiền ngay
+                </button>
               )}
             </div>
             <button
               onClick={() => removeToast(t.id)}
-              className="text-slate-400 hover:text-slate-600 transition-colors cursor-pointer shrink-0"
+              className="text-slate-400 hover:text-slate-650 transition-colors cursor-pointer shrink-0"
             >
               <X className="h-4 w-4" />
             </button>
