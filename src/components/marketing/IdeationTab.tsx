@@ -46,7 +46,6 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
 
   const [selectedChannels, setSelectedChannels] = useState<string[]>(["Facebook"]);
   const [mediaType, setMediaType] = useState<string>("image"); // "none" | "image" | "video"
-  const [isAutoMedia, setIsAutoMedia] = useState(true);
   
   // Image Options
   const [imageModel, setImageModel] = useState("nano-banana-pro");
@@ -235,7 +234,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
     setLoadingAI(true);
     setAutoPilotStatus("Đang phân tích và lên ý tưởng chiến dịch...");
     try {
-      const actualMediaType = isAutoMedia ? mediaType : "none";
+      const actualMediaType = isAutoPilot ? mediaType : "none";
       const data = await geminiApi.generateMarketingIdeas(topic, selectedPillars, selectedChannels, actualMediaType);
       
       const generatedConcepts = data.concepts || [];
@@ -372,7 +371,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
         summary: concept.summary,
         suggestedContent: concept.suggestedContent,
         channels: concept.channels,
-        mediaType: isAutoMedia ? mediaType : "none",
+        mediaType: isAutoPilot ? mediaType : "none",
         imageModel,
         imageResolution,
         imageAspectRatio,
@@ -639,7 +638,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
               </div>
 
               {/* Media Type Selection */}
-              {isAutoMedia && (
+              {isAutoPilot && (
                 <div className="space-y-2 text-left mt-4 animate-fadeIn">
                   <span className="text-xs font-bold text-gray-750 block uppercase tracking-wider font-mono">
                     🖼️ Chọn loại phương tiện (Media):
@@ -671,7 +670,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
               )}
 
               {/* Image Settings */}
-              {isAutoMedia && mediaType === "image" && (
+              {isAutoPilot && mediaType === "image" && (
                 <div className="p-4 border border-slate-200 bg-white rounded-2xl space-y-4 text-left mt-4 shadow-2xs">
                   <span className="text-xs font-extrabold text-slate-800 block border-b pb-2 uppercase tracking-wide font-mono flex items-center gap-1.5">
                     <ImageIcon className="h-4 w-4 text-indigo-500" />
@@ -735,7 +734,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
               )}
 
               {/* Video Settings */}
-              {isAutoMedia && mediaType === "video" && (
+              {isAutoPilot && mediaType === "video" && (
                 <div className="p-4 border border-slate-200 bg-white rounded-2xl space-y-4 text-left mt-4 shadow-2xs">
                   <span className="text-xs font-extrabold text-slate-800 block border-b pb-2 uppercase tracking-wide font-mono flex items-center gap-1.5">
                     <Video className="h-4 w-4 text-indigo-500" />
