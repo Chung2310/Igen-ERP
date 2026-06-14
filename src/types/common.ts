@@ -9,6 +9,7 @@ export type TabType =
   | "SALES CRM"
   | "HIỆU SUẤT AI"
   | "QUẢN TRỊ USER"
+  | "VÍ & NẠP TIỀN"
   | "CÀI ĐẶT";
 
 export interface UserProfile {
