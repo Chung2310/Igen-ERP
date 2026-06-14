@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { heygenService } from "../service/heygen.service";
+import { walletService, API_COSTS } from "../service/wallet.service";
 
 function getErrorStatus(error: any) {
   const statusCode = Number(error?.statusCode);
@@ -29,10 +30,16 @@ export const heygenController = {
       if (!userId) {
         return res.status(401).json({ status: "error", message: "Yeu cau dang nhap" });
       }
-      return res.status(200).json(await heygenService.createAvatarVideo(userId, req.body));
+
+      await walletService.checkBalance(userId, API_COSTS.HEYGEN_VIDEO);
+      const result = await heygenService.createAvatarVideo(userId, req.body);
+      await walletService.deductBalance(userId, API_COSTS.HEYGEN_VIDEO, "Chi phí tạo video Avatar AI HeyGen");
+
+      return res.status(200).json(result);
     } catch (error: any) {
       console.error("[heygenController.createAvatarVideo] Error:", error);
-      return res.status(getErrorStatus(error)).json({ status: "error", message: "Loi tao video avatar HeyGen", details: error.message });
+      const statusCode = error.statusCode || getErrorStatus(error);
+      return res.status(statusCode).json({ status: "error", message: error.message || "Loi tao video avatar HeyGen", details: error.message });
     }
   },
 

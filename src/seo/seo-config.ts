@@ -128,6 +128,17 @@ export const TAB_SEO_MAP: Record<TabType, SeoMeta> = {
     priority: "0.2",
     changeFrequency: "monthly",
   },
+  "VÍ & NẠP TIỀN": {
+    title: "Ví & Nạp tiền - Nạp tiền tài khoản qua PayOS | iGen ERP",
+    description:
+      "Quản lý ví tài khoản cá nhân, xem số dư và nạp tiền nhanh chóng bằng QR Code qua cổng thanh toán PayOS.",
+    keywords:
+      "ví tài khoản, nạp tiền erp, payos nạp tiền, vietqr, nạp tiền ngân hàng, số dư ví erp",
+    path: "/vi-nap-tien",
+    robots: "noindex, nofollow",
+    priority: "0.5",
+    changeFrequency: "weekly",
+  },
 };
 
 export const PUBLIC_SEO_PAGES: SeoMeta[] = [

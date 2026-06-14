@@ -114,6 +114,16 @@ export function ToastContainer() {
             {icon}
             <div className="flex-1 text-xs font-semibold leading-relaxed font-sans select-none">
               {t.message}
+              {t.message.includes("Số dư ví không đủ") && (
+                <span 
+                  onClick={() => {
+                    document.getElementById("sidebar_menu_VÍ_&_NẠP_TIỀN")?.click();
+                  }}
+                  className="block mt-1 text-[10px] text-amber-700 hover:text-amber-900 underline cursor-pointer font-bold"
+                >
+                  Nạp tiền ngay tại đây &raquo;
+                </span>
+              )}
             </div>
             <button
               onClick={() => removeToast(t.id)}

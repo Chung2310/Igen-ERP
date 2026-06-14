@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { geminiService } from "../service/gemini.service";
 import { elevenlabsService } from "../service/elevenlabs.service";
+import { walletService, API_COSTS } from "../service/wallet.service";
 
 export const elevenlabsController = {
   async generateVoice(req: Request, res: Response) {
@@ -9,14 +10,23 @@ export const elevenlabsController = {
       if (!userId) {
         return res.status(401).json({ status: "error", message: "Yeu cau dang nhap" });
       }
+
+      const textToSpeak = req.body.textToSpeak || "";
+      const charCount = textToSpeak.length;
+      const cost = Math.max(API_COSTS.ELEVENLABS_MIN, charCount * API_COSTS.ELEVENLABS_TTS_CHAR);
+
+      await walletService.checkBalance(userId, cost);
       const result = await elevenlabsService.generateVoice(userId, req.body);
+      await walletService.deductBalance(userId, cost, `Chi phí tạo giọng nói AI ElevenLabs (${charCount} ký tự)`);
+
       if ((result as any)?.preview) {
         return res.status(200).json({ status: "success", url: (result as any).url, preview: true });
       }
       return res.status(200).json({ status: "success", record: result });
     } catch (error: any) {
       console.error("[elevenlabsController.generateVoice] Error:", error);
-      return res.status(500).json({ status: "error", message: "Loi tao giong noi ElevenLabs", details: error.message });
+      const statusCode = error.statusCode || 500;
+      return res.status(statusCode).json({ status: "error", message: error.message || "Loi tao giong noi ElevenLabs", details: error.message });
     }
   },
 
