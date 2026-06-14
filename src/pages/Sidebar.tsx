@@ -9,6 +9,7 @@ import {
   Settings,
   Shield,
   Users,
+  Wallet,
 } from "lucide-react";
 import { BRAND_LOGO_URL, BRAND_NAME, BRAND_TAGLINE } from "../config/brand";
 import type { TabType } from "../types";
@@ -125,6 +126,14 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
       tone: "indigo",
     });
   }
+
+  menuItems.push({
+    label: "VÍ & NẠP TIỀN",
+    title: "Ví & Nạp tiền",
+    desc: "Số dư ví và cổng PayOS",
+    icon: Wallet,
+    tone: "blue",
+  });
 
   menuItems.push({
     label: "CÀI ĐẶT",

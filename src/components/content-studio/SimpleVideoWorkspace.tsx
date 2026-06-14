@@ -17,10 +17,11 @@ const VIDEO_TEMPLATES = [
   { id: 'fashion', label: '👗 Fashion Walk', prompt: 'Người mẫu đi bộ trên sàn runway, ánh sáng đèn flash lung linh, bối cảnh studio cao cấp, chuyển động slow-motion.' },
 ];
 
-export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved }: {
+export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved, onEditVideo }: {
   initialPrompt?: string;
   cardId?: string;
   onMediaSaved?: (cardId: string, mediaUrl: string, type: 'image' | 'video') => void;
+  onEditVideo?: (url: string) => void;
 }) {
   const [activeCardId, setActiveCardId] = useState<string | undefined>(cardId);
 
@@ -174,14 +175,17 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved }: {
 
     setIsGeneratingPrompt(true);
     try {
+      console.log("[SimpleVideoWorkspace] Sending optimize request with prompt:", description);
       const imageUris = activeMode === 'standard'
         ? (standardImage ? [standardImage] : [])
         : [beforeImage, afterImage].filter(Boolean) as string[];
       const result = await geminiApi.optimizeVideoPrompt(description, imageUris);
+      console.log("[SimpleVideoWorkspace] Optimization result received:", result);
 
       setOptimizedData(result);
       toast.success('Đã tối ưu hóa prompt video bằng AI thành công!');
     } catch (e: any) {
+      console.error("[SimpleVideoWorkspace] Optimization failed:", e);
       toast.error(`Lỗi tối ưu prompt: ${e.message}`);
     } finally {
       setIsGeneratingPrompt(false);
@@ -566,54 +570,66 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved }: {
                 </div>
               </div>
             ) : generatedVideoUrl ? (
-              <div className="w-full h-full flex items-center justify-center relative rounded-3xl overflow-hidden border border-slate-200 bg-black shadow-lg aspect-video max-h-[380px]">
-                {generatedVideoUrl.startsWith('pending://') ? (() => {
-                  const matchedRecord = history.find(h => h.url === generatedVideoUrl);
-                  const progressVal = matchedRecord?.metadata?.progress;
-                  return (
-                    <div className="w-full h-full bg-slate-900 flex flex-col items-center justify-center text-xs font-bold text-cyan-400 uppercase tracking-widest p-4 text-center">
-                      <Loader2 className="h-8 w-8 animate-spin mb-2 text-cyan-500" />
-                      Video đang được dựng...
-                      {progressVal !== undefined && (
-                        <div className="flex flex-col items-center gap-1.5 mt-2 w-48 mx-auto">
-                          <span className="text-[10px] text-cyan-400 font-mono">Tiến độ: {progressVal}%</span>
-                          <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                            <div
-                              className="bg-cyan-500 h-full transition-all duration-300 rounded-full"
-                              style={{ width: `${progressVal}%` }}
-                            />
+              <div className="w-full flex flex-col gap-3">
+                <div className="w-full h-full flex items-center justify-center relative rounded-3xl overflow-hidden border border-slate-200 bg-black shadow-lg aspect-video max-h-[380px]">
+                  {generatedVideoUrl.startsWith('pending://') ? (() => {
+                    const matchedRecord = history.find(h => h.url === generatedVideoUrl);
+                    const progressVal = matchedRecord?.metadata?.progress;
+                    return (
+                      <div className="w-full h-full bg-slate-900 flex flex-col items-center justify-center text-xs font-bold text-cyan-400 uppercase tracking-widest p-4 text-center">
+                        <Loader2 className="h-8 w-8 animate-spin mb-2 text-cyan-500" />
+                        Video đang được dựng...
+                        {progressVal !== undefined && (
+                          <div className="flex flex-col items-center gap-1.5 mt-2 w-48 mx-auto">
+                            <span className="text-[10px] text-cyan-400 font-mono">Tiến độ: {progressVal}%</span>
+                            <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                              <div
+                                className="bg-cyan-500 h-full transition-all duration-300 rounded-full"
+                                style={{ width: `${progressVal}%` }}
+                              />
+                            </div>
                           </div>
-                        </div>
-                      )}
-                      <span className="text-[10px] text-slate-400 normal-case font-normal mt-2">Hệ thống đang xử lý ở chế độ nền. Không cần tải lại trang.</span>
-                    </div>
-                  );
-                })() : (
-                  <>
-                    <video
-                      src={generatedVideoUrl}
-                      controls
-                      autoPlay
-                      loop
-                      className="w-full h-full object-contain"
-                      id="canvas_video_player"
-                    />
-                    <div className="absolute top-4 right-4 opacity-0 hover:opacity-100 transition-opacity z-10 flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const link = document.createElement('a');
-                          link.href = generatedVideoUrl;
-                          link.download = `igen-video-${Date.now()}.mp4`;
-                          link.click();
-                        }}
-                        className="p-2 bg-slate-900/80 hover:bg-slate-900 text-white rounded-xl shadow border border-slate-700 transition-all cursor-pointer flex items-center gap-1.5 text-[11px] font-bold"
-                      >
-                        <Download className="h-4 w-4" />
-                        Tải Video
-                      </button>
-                    </div>
-                  </>
+                        )}
+                        <span className="text-[10px] text-slate-400 normal-case font-normal mt-2">Hệ thống đang xử lý ở chế độ nền. Không cần tải lại trang.</span>
+                      </div>
+                    );
+                  })() : (
+                    <>
+                      <video
+                        src={generatedVideoUrl}
+                        controls
+                        autoPlay
+                        loop
+                        className="w-full h-full object-contain"
+                        id="canvas_video_player"
+                      />
+                      <div className="absolute top-4 right-4 opacity-0 hover:opacity-100 transition-opacity z-10 flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const link = document.createElement('a');
+                            link.href = generatedVideoUrl;
+                            link.download = `igen-video-${Date.now()}.mp4`;
+                            link.click();
+                          }}
+                          className="p-2 bg-slate-900/80 hover:bg-slate-900 text-white rounded-xl shadow border border-slate-700 transition-all cursor-pointer flex items-center gap-1.5 text-[11px] font-bold"
+                        >
+                          <Download className="h-4 w-4" />
+                          Tải Video
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+                {!generatedVideoUrl.startsWith('pending://') && onEditVideo && (
+                  <button
+                    type="button"
+                    onClick={() => onEditVideo(generatedVideoUrl)}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-cyan-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-cyan-700 cursor-pointer shadow-sm shadow-cyan-155"
+                  >
+                    <Wand2 className="h-4 w-4" />
+                    Chỉnh sửa tiếp
+                  </button>
                 )}
               </div>
             ) : (

@@ -32,6 +32,11 @@ async function getHeaders(withContentType: boolean = true) {
   return headers;
 }
 
+async function handleErrorResponse(response: Response, defaultError: string): Promise<never> {
+  const data = await response.json().catch(() => ({}));
+  throw new Error(data.message || defaultError);
+}
+
 export const geminiApi = {
   /**
    * Lấy 3 gợi ý chủ đề marketing ban đầu từ server.
@@ -42,7 +47,7 @@ export const geminiApi = {
       headers
     });
     if (!response.ok) {
-      throw new Error('Không thể tải gợi ý chiến dịch marketing');
+      await handleErrorResponse(response, 'Không thể tải gợi ý chiến dịch marketing');
     }
     const data = await response.json();
     return data.suggestions || [];
@@ -59,7 +64,7 @@ export const geminiApi = {
       body: JSON.stringify({ campaignTopic }),
     });
     if (!response.ok) {
-      throw new Error('Lỗi phân tích Content Pillars');
+      await handleErrorResponse(response, 'Lỗi phân tích Content Pillars');
     }
     return response.json();
   },
@@ -80,7 +85,7 @@ export const geminiApi = {
       body: JSON.stringify({ campaignTopic, selectedPillars, channels, mediaType }),
     });
     if (!response.ok) {
-      throw new Error('Lỗi phát sinh ý tưởng marketing');
+      await handleErrorResponse(response, 'Lỗi phát sinh ý tưởng marketing');
     }
     return response.json();
   },
@@ -109,7 +114,7 @@ export const geminiApi = {
       body: JSON.stringify(concept),
     });
     if (!response.ok) {
-      throw new Error('Lỗi lập dàn ý và viết bài chi tiết');
+      await handleErrorResponse(response, 'Lỗi lập dàn ý và viết bài chi tiết');
     }
     return response.json();
   },
@@ -129,7 +134,7 @@ export const geminiApi = {
       body: JSON.stringify({ message, history, aiConfig }),
     });
     if (!response.ok) {
-      throw new Error('Lỗi kết nối Trợ lý AI');
+      await handleErrorResponse(response, 'Lỗi kết nối Trợ lý AI');
     }
     return response.json();
   },
@@ -192,7 +197,7 @@ export const geminiApi = {
       body: JSON.stringify({ prompt, ...options }),
     });
     if (!response.ok) {
-      throw new Error('Lỗi khi sinh ảnh minh họa AI');
+      await handleErrorResponse(response, 'Lỗi khi sinh ảnh minh họa AI');
     }
     return response.json();
   },
@@ -209,7 +214,24 @@ export const geminiApi = {
       body: JSON.stringify({ prompt, durationSeconds, ...options }),
     });
     if (!response.ok) {
-      throw new Error('Lỗi khi sinh video AI');
+      await handleErrorResponse(response, 'Lỗi khi sinh video AI');
+    }
+    return response.json();
+  },
+
+  async editVideo(
+    videoUrl: string,
+    prompt: string,
+    options?: { modelName?: string; aspectRatio?: string; resolution?: string; duration?: number }
+  ): Promise<{ status: string; record: any; blueprint: any }> {
+    const headers = await getHeaders(true);
+    const response = await fetch('/api/v1/gemini/edit-video', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ videoUrl, prompt, ...options }),
+    });
+    if (!response.ok) {
+      throw new Error('Lỗi khi biên tập video bằng AI');
     }
     return response.json();
   },
@@ -234,7 +256,7 @@ export const geminiApi = {
       body: JSON.stringify(input),
     });
     if (!response.ok) {
-      throw new Error('Lỗi khi sinh giọng nói AI');
+      await handleErrorResponse(response, 'Lỗi khi sinh giọng nói AI');
     }
     return response.json();
   },
@@ -247,7 +269,7 @@ export const geminiApi = {
       body: JSON.stringify({ text, readingStyle }),
     });
     if (!response.ok) {
-      throw new Error('Lỗi khi tối ưu kịch bản');
+      await handleErrorResponse(response, 'Lỗi khi tối ưu kịch bản');
     }
     return response.json();
   },
@@ -260,7 +282,7 @@ export const geminiApi = {
       body: JSON.stringify({ description, imageUris, modelName }),
     });
     if (!response.ok) {
-      throw new Error('Lỗi khi tối ưu prompt ảnh');
+      await handleErrorResponse(response, 'Lỗi khi tối ưu prompt ảnh');
     }
     return response.json();
   },
@@ -273,7 +295,7 @@ export const geminiApi = {
       body: JSON.stringify({ description, imageUris }),
     });
     if (!response.ok) {
-      throw new Error('Lỗi khi tối ưu prompt video');
+      await handleErrorResponse(response, 'Lỗi khi tối ưu prompt video');
     }
     return response.json();
   },

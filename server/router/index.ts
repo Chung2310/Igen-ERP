@@ -13,6 +13,7 @@ import { permissionRouter } from "./permission.router";
 import { rolePermissionRouter } from "./role-permission.router";
 import { crudRouter } from "./crud.router";
 import { heygenRouter } from "./heygen.router";
+import { walletRouter } from "./wallet.router";
 export const apiRouter = Router();
 /**
  * GET /api/v1/health
@@ -60,6 +61,9 @@ apiRouter.use("/permissions", permissionRouter);
 
 // Gắn kết router phụ của Cấu hình gán quyền cho Role theo doanh nghiệp
 apiRouter.use("/role-permissions", rolePermissionRouter);
+
+// Gắn kết router ví của người dùng & nạp tiền PayOS
+apiRouter.use("/wallet", walletRouter);
 
 // Gắn kết router CRUD đa năng (MongoDB)
 apiRouter.use("/crud", crudRouter);

@@ -58,9 +58,9 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
       ]);
       setKnowledgeHealth(health);
       setAIReplyLogs(logs);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      toast.error("Không thể tải trạng thái kiểm định AI.");
+      toast.error(err.message || "Không thể tải trạng thái kiểm định AI.");
     } finally {
       setLoadingAIHealth(false);
     }
@@ -76,9 +76,9 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
       const result = await geminiApi.testReply(testQuestion, aiConfig);
       setTestReply(result);
       await refreshAIHealth();
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      toast.error("Không thể tạo câu trả lời thử.");
+      toast.error(err.message || "Không thể tạo câu trả lời thử.");
     } finally {
       setTestingAI(false);
     }
@@ -89,9 +89,9 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
       await geminiApi.sendAIReplyFeedback(logId, feedback);
       await refreshAIHealth();
       toast.success("Đã lưu feedback cho phản hồi AI.");
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      toast.error("Không thể lưu feedback AI.");
+      toast.error(err.message || "Không thể lưu feedback AI.");
     }
   };
 
