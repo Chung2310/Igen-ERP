@@ -12,6 +12,41 @@ import { SocialIntegrationModel } from "../model/social-integration.model";
 import { SupportedModelName, ICRUDQueryOptions } from "../interface/crud.interface";
 import mongoose from "mongoose";
 
+async function handlePendingVideoUrl(item: any, modelName: string) {
+  if (modelName === "marketing-contents" && item && item.videoUrl && item.videoUrl.startsWith("pending://piapi/")) {
+    const taskId = item.videoUrl.replace("pending://piapi/", "");
+    try {
+      const { AIMediaModel } = require("../model/ai-media.model");
+      const { geminiService } = require("./gemini.service");
+      
+      const existingRecord = await AIMediaModel.findOne({ url: item.videoUrl });
+      if (!existingRecord) {
+        const record = await AIMediaModel.create({
+          userId: item.authorUid,
+          mediaType: "video",
+          url: item.videoUrl,
+          prompt: item.mediaPrompt || item.title,
+          metadata: {
+            status: "processing",
+            progress: 10,
+            provider: "piapi",
+            title: `Video Auto-pilot: ${item.title}`,
+            description: `Đang kết xuất video tự động bằng PiAPI.`,
+            aspectRatio: "16:9",
+            activeCardId: item._id.toString()
+          }
+        });
+
+        // Trigger background polling immediately
+        geminiService.pollPiAPIVideoStatusBackground(record._id.toString(), taskId, item.authorUid);
+        console.log(`[crudService] Triggered background polling for pending video task ${taskId} on card ${item._id}`);
+      }
+    } catch (err) {
+      console.error("[crudService] Failed to register pending video poll:", err);
+    }
+  }
+}
+
 const MODEL_MAPPING: Record<SupportedModelName, mongoose.Model<any>> = {
   "products": ProductModel,
   "categories": CategoryModel,
@@ -127,6 +162,11 @@ export const crudService = {
 
     const newItem = new model(payload);
     await newItem.save();
+
+    handlePendingVideoUrl(newItem, modelName).catch((err) => {
+      console.error("[crudService.create] error in handlePendingVideoUrl:", err);
+    });
+
     return newItem;
   },
 
@@ -157,6 +197,11 @@ export const crudService = {
     if (!updatedItem) {
       throw new Error("Không tìm thấy tài nguyên hoặc bạn không có quyền chỉnh sửa.");
     }
+
+    handlePendingVideoUrl(updatedItem, modelName).catch((err) => {
+      console.error("[crudService.update] error in handlePendingVideoUrl:", err);
+    });
+
     return updatedItem;
   },
 
