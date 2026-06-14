@@ -573,22 +573,16 @@ A: Hoàn toàn MIỄN PHÍ. Đội ngũ kỹ thuật của iGen sẽ hỗ trợ 
     }
   },
 
-  /**
-   * POST /api/v1/gemini/optimize-video-prompt
-   */
   async optimizeVideoPrompt(req: Request, res: Response) {
     try {
       const { description, imageUris } = req.body;
-<<<<<<< HEAD
-      console.log(`[geminiController.optimizeVideoPrompt] Incoming description to optimize: "${description}"`);
-=======
       const userId = (req as any).user?.id;
       if (!userId) {
         return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
       }
 
+      console.log(`[geminiController.optimizeVideoPrompt] Incoming description to optimize: "${description}"`);
       await walletService.checkBalance(userId, API_COSTS.GEMINI_OPTIMIZE);
->>>>>>> 6879358010148f43fb5a2839b94627d274a216e3
       const result = await geminiService.optimizeVideoPrompt(description, imageUris);
       await walletService.deductBalance(userId, API_COSTS.GEMINI_OPTIMIZE, "Phí tối ưu prompt sinh video AI");
       return res.status(200).json(result);
