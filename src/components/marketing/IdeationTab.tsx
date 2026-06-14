@@ -232,10 +232,52 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
     if (!topic) return;
 
     setLoadingAI(true);
-    setAutoPilotStatus("Đang phân tích và lên ý tưởng chiến dịch...");
     try {
+      let pillarsToUse = selectedPillars;
+      if (isAutoPilot) {
+        setAutoPilotStatus("Đang phân tích định hướng Content Pillars...");
+        try {
+          const pillarsData = await geminiApi.analyzeMarketingPillars(topic);
+          if (pillarsData.pillars && Array.isArray(pillarsData.pillars) && pillarsData.pillars.length > 0) {
+            const styles = [
+              {
+                colorClass: "border-red-200 bg-red-50/50 text-red-700",
+                selectedColorClass: "border-red-500 bg-red-50 text-red-850 ring-2 ring-red-500/20 shadow-xs",
+                bulletColor: "bg-red-500"
+              },
+              {
+                colorClass: "border-blue-200 bg-blue-50/50 text-blue-700",
+                selectedColorClass: "border-blue-500 bg-blue-50 text-blue-800 ring-2 ring-blue-500/20 shadow-xs",
+                bulletColor: "bg-blue-500"
+              },
+              {
+                colorClass: "border-indigo-200 bg-indigo-50/50 text-indigo-700",
+                selectedColorClass: "border-indigo-500 bg-indigo-50 text-indigo-900 ring-2 ring-indigo-500/20 shadow-xs",
+                bulletColor: "bg-indigo-500"
+              }
+            ];
+            const mappedPillars = pillarsData.pillars.map((p: any, idx: number) => ({
+              id: p.id,
+              title: p.title,
+              ratio: p.ratio || "33% tỉ trọng",
+              description: p.description,
+              ...styles[idx % styles.length]
+            }));
+            setPillars(mappedPillars);
+            const activePillars = mappedPillars.map((p: any) => p.id);
+            setSelectedPillars(activePillars);
+            setAnalyzedTopic(topic);
+            pillarsToUse = activePillars;
+          }
+        } catch (pillarErr: any) {
+          console.error("Lỗi phân tích pillars tự động:", pillarErr);
+          toast.warning("Lỗi phân tích Content Pillars tự động, đang thử lên ý tưởng trực tiếp...");
+        }
+      }
+
+      setAutoPilotStatus("Đang lên ý tưởng chiến dịch...");
       const actualMediaType = isAutoPilot ? mediaType : "none";
-      const data = await geminiApi.generateMarketingIdeas(topic, selectedPillars, selectedChannels, actualMediaType);
+      const data = await geminiApi.generateMarketingIdeas(topic, pillarsToUse, selectedChannels, actualMediaType);
       
       const generatedConcepts = data.concepts || [];
       if (generatedConcepts.length === 0) {
@@ -246,7 +288,8 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
 
       if (isAutoPilot) {
         // Run auto-pilot flow
-        const bestConcept = generatedConcepts[0];
+        const sortedConcepts = [...generatedConcepts].sort((a: any, b: any) => (b.matchPercent || 0) - (a.matchPercent || 0));
+        const bestConcept = sortedConcepts[0];
         
         setAutoPilotStatus(`Đang tự động viết nội dung chi tiết cho ý tưởng: "${bestConcept.title}"...`);
         const result = await marketingService.developIdea({
@@ -830,9 +873,9 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
           <div className="mt-6 pt-4 border-t border-gray-200 flex justify-end">
             <button 
               onClick={handleGenerateIdeas}
-              disabled={loadingAI || !campaignInput.trim() || campaignInput.trim() !== analyzedTopic.trim()}
+              disabled={loadingAI || !campaignInput.trim() || (!isAutoPilot && campaignInput.trim() !== analyzedTopic.trim())}
               className={`px-5 py-2.5 rounded-xl text-xs font-bold font-sans flex items-center gap-2 select-none shadow-sm transition-all ${
-                loadingAI || !campaignInput.trim() || campaignInput.trim() !== analyzedTopic.trim()
+                loadingAI || !campaignInput.trim() || (!isAutoPilot && campaignInput.trim() !== analyzedTopic.trim())
                   ? "bg-gray-200 text-gray-400 cursor-not-allowed"
                   : "bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer active:scale-95"
               }`}
