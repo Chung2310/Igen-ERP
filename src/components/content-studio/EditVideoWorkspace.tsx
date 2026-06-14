@@ -1,7 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { geminiApi } from '../../api/gemini';
 import { toast } from '../../pages/Toast';
-import { Film, Loader2, Play, Sparkles, Video, X } from 'lucide-react';
+import { Film, Loader2, Play, Sparkles, Video, X, Wand2 } from 'lucide-react';
+import { Player } from '@remotion/player';
+import { VideoComposition } from './video-composition';
 
 const MODEL_OPTIONS = [
   { value: 'piapi-veo31-video-audio', label: 'PiAPI Veo 3.1' },
@@ -35,10 +37,17 @@ const STYLE_PRESETS = [
   { label: 'Before / After', prompt: 'So sánh trước sau, giữ rõ nội dung chính và nhấn mạnh diệu màu, hiệu ứng zoom.' },
 ];
 
-export function EditVideoWorkspace() {
+export function EditVideoWorkspace({
+  initialVideoUrl,
+  onClearInitialVideoUrl
+}: {
+  initialVideoUrl?: string | null;
+  onClearInitialVideoUrl?: () => void;
+} = {}) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
+  const [videoDuration, setVideoDuration] = useState<number | null>(null);
   const [prompt, setPrompt] = useState('');
   const [optimizedData, setOptimizedData] = useState<{
     optimized_english_prompt: string;
@@ -54,13 +63,62 @@ export function EditVideoWorkspace() {
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [outputUrl, setOutputUrl] = useState<string | null>(null);
+  const [blueprint, setBlueprint] = useState<any | null>(null);
+  const [currentRecordId, setCurrentRecordId] = useState<string | null>(null);
+  const [isUploadingVideo, setIsUploadingVideo] = useState(false);
+
+  useEffect(() => {
+    if (initialVideoUrl) {
+      setVideoPreviewUrl(initialVideoUrl);
+      setVideoFile(null);
+      setPrompt('');
+      setOptimizedData(null);
+      setBlueprint(null);
+      setOutputUrl(null);
+      if (onClearInitialVideoUrl) {
+        onClearInitialVideoUrl();
+      }
+    }
+  }, [initialVideoUrl, onClearInitialVideoUrl]);
+
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = error => reject(error);
+    });
+  };
+
+  const uploadVideoFile = async (file: File): Promise<string> => {
+    const base64 = await fileToBase64(file);
+    const response = await fetch('/api/v1/media/upload', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem("accessToken")}`
+      },
+      body: JSON.stringify({
+        file: base64,
+        folder: 'igen_erp/marketing'
+      })
+    });
+    
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Upload video failed: ${response.status} - ${errText}`);
+    }
+    
+    const json = await response.json();
+    return json.url;
+  };
 
   useEffect(() => {
     loadVideoHistory();
   }, []);
 
   useEffect(() => {
-    const hasPending = history.some(item => item.url && item.url.startsWith('pending://'));
+    const hasPending = (outputUrl && outputUrl.startsWith('pending://')) || history.some(item => item.url && item.url.startsWith('pending://'));
     if (!hasPending) return;
 
     const interval = setInterval(async () => {
@@ -73,7 +131,17 @@ export function EditVideoWorkspace() {
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [history]);
+  }, [history, outputUrl]);
+
+  useEffect(() => {
+    if (!outputUrl || !outputUrl.startsWith('pending://')) return;
+    
+    const matched = history.find(h => h._id === currentRecordId || h.id === currentRecordId);
+    if (matched && matched.url && !matched.url.startsWith('pending://')) {
+      setOutputUrl(matched.url);
+      console.log("[EditVideoWorkspace] Dynamic sync: outputUrl updated to completed URL:", matched.url);
+    }
+  }, [history, outputUrl, currentRecordId]);
 
   const loadVideoHistory = async () => {
     try {
@@ -88,6 +156,15 @@ export function EditVideoWorkspace() {
     const files = event.target.files;
     if (!files || files.length === 0) return;
     const file = files[0];
+
+    // Kiểm tra dung lượng video (tối đa 200MB)
+    const maxSize = 200 * 1024 * 1024; // 200MB
+    if (file.size > maxSize) {
+      toast.warning("Kích thước video vượt quá giới hạn tối đa cho phép (200MB). Vui lòng chọn video khác nhỏ hơn.");
+      event.target.value = '';
+      return;
+    }
+
     setVideoFile(file);
     const preview = URL.createObjectURL(file);
     setVideoPreviewUrl(preview);
@@ -105,13 +182,16 @@ export function EditVideoWorkspace() {
       toast.warning('Vui lòng nhập nội dung prompt trước khi tối ưu hóa.');
       return;
     }
+    setOptimizedData(null);
     setIsOptimizing(true);
     try {
+      console.log("[EditVideoWorkspace] Sending optimize request with prompt:", description);
       const result = await geminiApi.optimizeVideoPrompt(description, []);
+      console.log("[EditVideoWorkspace] Optimization result received:", result);
       setOptimizedData(result);
       toast.success('Đã tối ưu prompt video bằng AI.');
     } catch (error: any) {
-      console.error(error);
+      console.error("[EditVideoWorkspace] Optimization failed:", error);
       toast.error(`Lỗi khi tối ưu prompt: ${error?.message || 'Không xác định'}`);
     } finally {
       setIsOptimizing(false);
@@ -119,29 +199,66 @@ export function EditVideoWorkspace() {
   };
 
   const handleGenerateVideo = async () => {
-    const finalPrompt = optimizedData 
-      ? JSON.stringify(optimizedData)
-      : prompt.trim();
-    if (!finalPrompt.trim()) {
-      toast.warning('Vui lòng nhập prompt hoặc chọn preset trước khi tạo video.');
+    if (!prompt.trim()) {
+      toast.warning('Vui lòng nhập prompt ý tưởng biên tập video.');
       return;
     }
+    if (!videoPreviewUrl) {
+      toast.warning('Vui lòng chọn hoặc tải lên video nguồn để chỉnh sửa.');
+      return;
+    }
+
     setIsGenerating(true);
+    setBlueprint(null);
+    setCurrentRecordId(null);
     setOutputUrl(null);
+
     try {
-      const response = await geminiApi.generateVideo(finalPrompt, parseInt(duration, 10), {
-        aspectRatio,
+      let inputVideoUrl = videoPreviewUrl;
+
+      // If there is a raw local file, upload it first
+      if (videoFile) {
+        setIsUploadingVideo(true);
+        toast.info('Đang tải video gốc lên Cloudinary...');
+        try {
+          inputVideoUrl = await uploadVideoFile(videoFile);
+          // Update preview url to the Cloudinary url so we don't upload again next time
+          setVideoPreviewUrl(inputVideoUrl);
+          setVideoFile(null);
+          toast.success('Tải video gốc thành công.');
+        } catch (uploadErr: any) {
+          console.error('[Upload source video error]', uploadErr);
+          toast.error(`Không thể tải video nguồn lên Cloudinary: ${uploadErr.message}`);
+          setIsGenerating(false);
+          setIsUploadingVideo(false);
+          return;
+        } finally {
+          setIsUploadingVideo(false);
+        }
+      }
+
+      toast.info('Đang gửi yêu cầu biên tập video đến AI...');
+      const finalPrompt = optimizedData?.optimized_english_prompt
+        ? optimizedData.optimized_english_prompt
+        : prompt.trim();
+
+      const response = await geminiApi.editVideo(inputVideoUrl, finalPrompt, {
         modelName: selectedModel,
+        aspectRatio,
         resolution,
+        duration: videoDuration || undefined,
       });
-      if (response.url) {
-        setOutputUrl(response.url);
-        toast.success('Yêu cầu tạo video đã được gửi. Vui lòng đợi kết quả.');
+
+      if (response.record) {
+        setBlueprint(response.blueprint);
+        setCurrentRecordId(response.record._id || response.record.id);
+        setOutputUrl(response.record.url);
+        toast.success('Đã tạo kịch bản biên tập AI. Bắt đầu kết xuất video...');
         await loadVideoHistory();
       }
     } catch (error: any) {
       console.error(error);
-      toast.error(`Lỗi khi tạo video: ${error?.message || 'Không xác định'}`);
+      toast.error(`Lỗi khi biên tập video: ${error?.message || 'Không xác định'}`);
     } finally {
       setIsGenerating(false);
     }
@@ -196,6 +313,13 @@ export function EditVideoWorkspace() {
                     src={videoPreviewUrl}
                     controls
                     className="mx-auto h-[220px] w-full rounded-3xl object-contain"
+                    onLoadedMetadata={(e) => {
+                      const dur = e.currentTarget.duration;
+                      if (dur && !isNaN(dur)) {
+                        setVideoDuration(dur);
+                        console.log("[EditVideoWorkspace] Detected source video duration:", dur);
+                      }
+                    }}
                   />
                 ) : (
                   <div className="flex min-h-[220px] flex-col items-center justify-center gap-3 text-slate-500">
@@ -215,7 +339,10 @@ export function EditVideoWorkspace() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => setPrompt('')}
+                  onClick={() => {
+                    setPrompt('');
+                    setOptimizedData(null);
+                  }}
                   className="rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-100"
                 >
                   Xóa
@@ -223,7 +350,10 @@ export function EditVideoWorkspace() {
               </div>
               <textarea
                 value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
+                onChange={(e) => {
+                  setPrompt(e.target.value);
+                  setOptimizedData(null);
+                }}
                 rows={6}
                 placeholder="Nhập ý tưởng video: ví dụ 'Chỉnh video review sản phẩm thành reel 15s, cut nhanh theo nhạc EDM, text pop-up, tone sáng.'"
                 className="min-h-[160px] w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-900 outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100"
@@ -402,10 +532,131 @@ export function EditVideoWorkspace() {
                 </div>
                 <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">Preview</div>
               </div>
-              <div className="mt-6 flex h-[380px] items-center justify-center rounded-[28px] border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-slate-500">
+              <div className={`mt-6 rounded-[28px] border bg-slate-50 p-6 text-center text-slate-500 ${
+                outputUrl && (outputUrl.startsWith('pending://local-render/') || (history.find(h => h.url === outputUrl)?.metadata?.provider === 'local-render'))
+                  ? 'border-solid border-slate-250' 
+                  : 'border-dashed border-slate-300 flex h-[380px] items-center justify-center'
+              }`}>
                 {outputUrl ? (
                   outputUrl.startsWith('pending://') ? (() => {
-                    const matchedRecord = history.find(h => h.url === outputUrl);
+                    const matchedRecord = history.find(h => h.url === outputUrl || h._id === currentRecordId || h.id === currentRecordId);
+                    const isLocalRender = (matchedRecord?.metadata?.provider === 'local-render') || (outputUrl ? outputUrl.includes('local-render') : false);
+                    
+                    if (isLocalRender) {
+                      const progressVal = matchedRecord?.metadata?.progress ?? 0;
+                      const statusVal = matchedRecord?.metadata?.status ?? 'processing';
+                      const errorVal = matchedRecord?.metadata?.error;
+                      
+                      let currentBlueprint: any = null;
+                      try {
+                        if (blueprint) {
+                          currentBlueprint = blueprint;
+                        } else if (matchedRecord?.metadata?.blueprint) {
+                          currentBlueprint = typeof matchedRecord.metadata.blueprint === 'string'
+                            ? JSON.parse(matchedRecord.metadata.blueprint)
+                            : matchedRecord.metadata.blueprint;
+                        }
+                      } catch (e) {
+                        console.error('Lỗi parse blueprint:', e);
+                      }
+                      
+                      return (
+                        <div className="w-full flex flex-col gap-4 text-left">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tiến trình Biên tập AI</span>
+                            <span className="text-[10px] font-bold font-mono px-2 py-0.5 rounded bg-cyan-100 text-cyan-800">
+                              {statusVal === 'completed' ? 'HOÀN THÀNH' : statusVal === 'failed' ? 'THẤT BẠI' : `ĐANG XỬ LÝ (${progressVal}%)`}
+                            </span>
+                          </div>
+
+                          {currentBlueprint && (
+                            <div className="w-full flex flex-col gap-2 p-4 rounded-3xl border border-slate-200 bg-slate-50/50 shadow-inner">
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-1.5 text-xs font-bold text-cyan-700">
+                                  <span className="h-2 w-2 rounded-full bg-cyan-500 animate-ping" />
+                                  <span>Bản Xem Trước Thời Gian Thực (Client Preview)</span>
+                                </div>
+                                <span className="text-[10px] text-slate-400">Remotion Player</span>
+                              </div>
+                              <div className="w-full overflow-hidden rounded-2xl bg-black border border-slate-200 flex items-center justify-center">
+                                <Player
+                                  component={VideoComposition}
+                                  inputProps={{ blueprint: currentBlueprint }}
+                                  durationInFrames={(() => {
+                                    const timeline = currentBlueprint.timeline || [];
+                                    const videoClips = timeline.filter((item: any) => item.type === "video");
+                                    let durationSeconds = 0;
+                                    if (videoClips.length > 0) {
+                                      durationSeconds = videoClips.reduce((sum: number, item: any) => {
+                                        const clipDuration = (item.end ?? 5) - (item.start ?? 0);
+                                        const rate = item.playbackRate ?? 1;
+                                        return sum + (clipDuration / rate);
+                                      }, 0);
+                                    } else {
+                                      durationSeconds = 10;
+                                    }
+                                    return Math.max(30, Math.round(durationSeconds * 30));
+                                  })()}
+                                  fps={30}
+                                  compositionWidth={aspectRatio === '9:16' ? 720 : aspectRatio === '1:1' ? 720 : 1280}
+                                  compositionHeight={aspectRatio === '9:16' ? 1280 : aspectRatio === '1:1' ? 720 : 720}
+                                  style={{
+                                    width: '100%',
+                                    aspectRatio: aspectRatio === '9:16' ? '9/16' : aspectRatio === '1:1' ? '1/1' : '16/9',
+                                  }}
+                                  controls
+                                  loop
+                                />
+                              </div>
+                              <p className="text-[10px] text-slate-500 italic text-center">
+                                Bạn có thể phát thử, tua thanh thời gian để xem trước vị trí chữ chạy trên trình duyệt ngay lập tức.
+                              </p>
+                            </div>
+                          )}
+                          <div className="space-y-1.5">
+                            <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">
+                              <span>Tiến độ kết xuất MP4</span>
+                              <span className="text-cyan-600 font-mono text-xs">{progressVal}%</span>
+                            </div>
+                            <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full transition-all duration-300 rounded-full ${statusVal === 'failed' ? 'bg-rose-500' : 'bg-cyan-600'}`}
+                                style={{ width: `${progressVal}%` }}
+                              />
+                            </div>
+                          </div>
+
+                          {errorVal && (
+                            <p className="text-xs text-rose-500 font-semibold bg-rose-50 border border-rose-100 px-3 py-2 rounded-xl">
+                              Lỗi render: {errorVal}
+                            </p>
+                          )}
+
+                          {statusVal === 'completed' && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const targetUrl = (matchedRecord && matchedRecord.url && !matchedRecord.url.startsWith('pending://'))
+                                  ? matchedRecord.url
+                                  : (outputUrl && !outputUrl.startsWith('pending://') ? outputUrl : videoPreviewUrl);
+                                setVideoPreviewUrl(targetUrl ?? '');
+                                setVideoFile(null);
+                                setPrompt('');
+                                setOptimizedData(null);
+                                setBlueprint(null);
+                                setOutputUrl(null);
+                                toast.success('Đã đặt video kết quả thành video đầu vào. Hãy nhập ý tưởng mới để tiếp tục chỉnh sửa!');
+                              }}
+                              className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-cyan-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-cyan-700 cursor-pointer shadow-sm shadow-cyan-155 mt-2"
+                            >
+                              <Wand2 className="h-4 w-4" />
+                              Chỉnh sửa tiếp
+                            </button>
+                          )}
+                        </div>
+                      );
+                    }
+
                     const progressVal = matchedRecord?.metadata?.progress;
                     return (
                       <div className="flex flex-col items-center justify-center gap-4 p-8 text-center animate-pulse">
@@ -428,7 +679,25 @@ export function EditVideoWorkspace() {
                       </div>
                     );
                   })() : (
-                    <video controls src={outputUrl} className="h-full w-full rounded-[24px] object-contain" />
+                    <div className="w-full h-full flex flex-col gap-4">
+                      <video controls src={outputUrl} className="w-full rounded-[24px] object-contain max-h-[300px] shadow-sm border border-slate-100" />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setVideoPreviewUrl(outputUrl);
+                          setVideoFile(null);
+                          setPrompt('');
+                          setOptimizedData(null);
+                          setBlueprint(null);
+                          setOutputUrl(null);
+                          toast.success('Đã đặt video kết quả thành video đầu vào. Hãy nhập ý tưởng mới để tiếp tục chỉnh sửa!');
+                        }}
+                        className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-cyan-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-cyan-700 cursor-pointer shadow-sm shadow-cyan-155"
+                      >
+                        <Wand2 className="h-4 w-4" />
+                        Chỉnh sửa tiếp
+                      </button>
+                    </div>
                   )
                 ) : (
                   <div className="flex max-w-[320px] flex-col items-center gap-4">
@@ -460,7 +729,23 @@ export function EditVideoWorkspace() {
                       <button
                         key={item._id || item.id || item.url}
                         type="button"
-                        onClick={() => setOutputUrl(item.url)}
+                        onClick={() => {
+                          setOutputUrl(item.url);
+                          setCurrentRecordId(item._id || item.id);
+                          if (item.metadata?.blueprint) {
+                            try {
+                              const parsed = typeof item.metadata.blueprint === 'string'
+                                ? JSON.parse(item.metadata.blueprint)
+                                : item.metadata.blueprint;
+                              setBlueprint(parsed);
+                            } catch (e) {
+                              console.error('Lỗi parse blueprint lịch sử:', e);
+                              setBlueprint(null);
+                            }
+                          } else {
+                            setBlueprint(null);
+                          }
+                        }}
                         className="w-full flex items-center gap-4 rounded-3xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-cyan-300 hover:bg-cyan-50"
                       >
                         <div className="relative h-20 w-28 overflow-hidden rounded-3xl bg-slate-100">

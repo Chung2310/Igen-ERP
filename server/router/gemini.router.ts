@@ -86,6 +86,17 @@ const generateVideoSchema = {
   }),
 };
 
+const editVideoSchema = {
+  body: Joi.object({
+    videoUrl: Joi.string().required(),
+    prompt: Joi.string().required(),
+    modelName: Joi.string().optional().allow(""),
+    aspectRatio: Joi.string().optional().allow(""),
+    resolution: Joi.string().optional().allow(""),
+    duration: Joi.number().optional(),
+  }),
+};
+
 const optimizeScriptSchema = {
   body: Joi.object({
     text: Joi.string().required(),
@@ -161,6 +172,7 @@ geminiRouter.post("/sync-drive", requireAuth as any, validateRequest(syncDriveSc
 // Xưởng nội dung APIs (requireAuth bảo vệ tài khoản lưu lịch sử)
 geminiRouter.post("/generate-image", requireAuth as any, validateRequest(generateImageSchema), geminiController.generateImage);
 geminiRouter.post("/generate-video", requireAuth as any, validateRequest(generateVideoSchema), geminiController.generateVideo);
+geminiRouter.post("/edit-video", requireAuth as any, validateRequest(editVideoSchema), geminiController.editVideo);
 geminiRouter.post("/optimize-script", requireAuth as any, validateRequest(optimizeScriptSchema), geminiController.optimizeScript);
 geminiRouter.post("/optimize-prompt", requireAuth as any, validateRequest(optimizePromptSchema), geminiController.optimizeImagePrompt);
 geminiRouter.post("/optimize-video-prompt", requireAuth as any, validateRequest(optimizeVideoPromptSchema), geminiController.optimizeVideoPrompt);

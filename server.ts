@@ -166,8 +166,8 @@ async function startServer() {
 
   const app = express();
   app.use(cookieParser());
-  app.use(express.json({ limit: "50mb" }));
-  app.use(express.urlencoded({ limit: "50mb", extended: true }));
+  app.use(express.json({ limit: "300mb" }));
+  app.use(express.urlencoded({ limit: "300mb", extended: true }));
 
   // 1. Cấu hình CORS bảo mật sử dụng allowedOrigins từ biến môi trường LINK_COR
   const allowedOrigins = process.env.LINK_COR
@@ -209,6 +209,17 @@ async function startServer() {
 
   // 3. Đăng ký Versioned API Router với tiền tố /api/v1/
   app.use("/api/v1", apiRouter);
+
+  // Bộ xử lý lỗi dung lượng yêu cầu quá lớn (Payload Too Large)
+  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if (err.type === "entity.too.large" || err.status === 413 || err.name === "PayloadTooLargeError") {
+      return res.status(413).json({
+        status: "error",
+        message: "Dung lượng dữ liệu yêu cầu vượt quá giới hạn cho phép của hệ thống (tối đa 300MB)."
+      });
+    }
+    next(err);
+  });
 
   // 4. Cấu hình phục vụ tệp tĩnh (Vite Dev Server hoặc Static production files)
   if (process.env.NODE_ENV !== "production") {

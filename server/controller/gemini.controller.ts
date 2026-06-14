@@ -370,6 +370,32 @@ export const geminiController = {
   },
 
   /**
+   * POST /api/v1/gemini/edit-video
+   */
+  async editVideo(req: Request, res: Response) {
+    try {
+      const { videoUrl, prompt, modelName, aspectRatio, resolution, duration } = req.body;
+      const userId = (req as any).user?.id;
+
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
+      }
+
+      const result = await geminiService.editVideo(userId, videoUrl, prompt, {
+        modelName,
+        aspectRatio,
+        resolution,
+        duration,
+      });
+
+      return res.status(200).json(result);
+    } catch (error: any) {
+      console.error("[geminiController.editVideo] Error:", error);
+      return handleGeminiError(res, error, "Lỗi biên tập video bằng AI");
+    }
+  },
+
+  /**
    * POST /api/v1/gemini/sync-drive
    */
   async syncGoogleDrive(req: AuthenticatedRequest, res: Response) {
@@ -547,9 +573,6 @@ A: Hoàn toàn MIỄN PHÍ. Đội ngũ kỹ thuật của iGen sẽ hỗ trợ 
     }
   },
 
-  /**
-   * POST /api/v1/gemini/optimize-video-prompt
-   */
   async optimizeVideoPrompt(req: Request, res: Response) {
     try {
       const { description, imageUris } = req.body;
@@ -558,6 +581,7 @@ A: Hoàn toàn MIỄN PHÍ. Đội ngũ kỹ thuật của iGen sẽ hỗ trợ 
         return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
       }
 
+      console.log(`[geminiController.optimizeVideoPrompt] Incoming description to optimize: "${description}"`);
       await walletService.checkBalance(userId, API_COSTS.GEMINI_OPTIMIZE);
       const result = await geminiService.optimizeVideoPrompt(description, imageUris);
       await walletService.deductBalance(userId, API_COSTS.GEMINI_OPTIMIZE, "Phí tối ưu prompt sinh video AI");

@@ -31,6 +31,7 @@ export function VideoGenerationWorkspace({
   onMediaSaved,
 }: VideoGenerationWorkspaceProps) {
   const [activeVideoTab, setActiveVideoTab] = useState<VideoToolTab>('veo');
+  const [editVideoSourceUrl, setEditVideoSourceUrl] = useState<string | null>(null);
 
   return (
     <div className="flex flex-col gap-4">
@@ -59,6 +60,10 @@ export function VideoGenerationWorkspace({
           initialPrompt={initialPrompt}
           cardId={cardId}
           onMediaSaved={onMediaSaved}
+          onEditVideo={(url) => {
+            setEditVideoSourceUrl(url);
+            setActiveVideoTab('edit-video');
+          }}
         />
       )}
 
@@ -76,7 +81,12 @@ export function VideoGenerationWorkspace({
         </Suspense>
       )}
 
-      {activeVideoTab === 'edit-video' && <EditVideoWorkspace />}
+      {activeVideoTab === 'edit-video' && (
+        <EditVideoWorkspace
+          initialVideoUrl={editVideoSourceUrl}
+          onClearInitialVideoUrl={() => setEditVideoSourceUrl(null)}
+        />
+      )}
     </div>
   );
 }

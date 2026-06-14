@@ -28,6 +28,8 @@ export interface IAIMedia extends Document {
     activeCardId?: string;
     progress?: number;
     error?: string;
+    renderLogs?: string[];
+    blueprint?: string;
   };
   createdAt: Date;
 }

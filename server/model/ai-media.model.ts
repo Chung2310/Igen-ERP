@@ -25,6 +25,12 @@ const AIMediaSchema = new Schema<IAIMedia>({
     description: { type: String },
     captionedVideoUrl: { type: String },
     subtitleUrl: { type: String },
+    piapiTaskId: { type: String },
+    activeCardId: { type: String },
+    progress: { type: Number },
+    error: { type: String },
+    renderLogs: { type: [String] },
+    blueprint: { type: String },
   },
   createdAt: { type: Date, default: Date.now, index: true },
 });

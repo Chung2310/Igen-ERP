@@ -219,6 +219,23 @@ export const geminiApi = {
     return response.json();
   },
 
+  async editVideo(
+    videoUrl: string,
+    prompt: string,
+    options?: { modelName?: string; aspectRatio?: string; resolution?: string; duration?: number }
+  ): Promise<{ status: string; record: any; blueprint: any }> {
+    const headers = await getHeaders(true);
+    const response = await fetch('/api/v1/gemini/edit-video', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ videoUrl, prompt, ...options }),
+    });
+    if (!response.ok) {
+      throw new Error('Lỗi khi biên tập video bằng AI');
+    }
+    return response.json();
+  },
+
   async generateVoice(input: {
     textToSpeak: string;
     styleInstructions?: string;
