@@ -585,7 +585,11 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                           type="button"
                           onClick={() => {
                             setCampaignInput(s);
-                            handleAnalyzePillars(s);
+                            if (!isAutoPilot) {
+                              handleAnalyzePillars(s);
+                            } else {
+                              setAnalyzedTopic(s);
+                            }
                           }}
                           className={`px-2.5 py-1 text-[10px] rounded-md font-medium transition-all cursor-pointer select-none border ${
                             isMatch
