@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { MarketingConcept, ContentApprovalCard } from "../../types";
 import { marketingService } from "../../services/marketingService";
+import { socialIntegrationService } from "../../services/socialIntegrationService";
 import { geminiApi } from "../../api/gemini";
 import { toast } from "../../pages/Toast";
 
@@ -31,6 +32,9 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
   const [quickSuggestions, setQuickSuggestions] = useState<string[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [developingIdx, setDevelopingIdx] = useState<number | null>(null);
+
+  const [isAutoPilot, setIsAutoPilot] = useState(false);
+  const [autoPilotStatus, setAutoPilotStatus] = useState<string>("");
 
   const [selectedChannels, setSelectedChannels] = useState<string[]>(["Facebook"]);
   const [mediaType, setMediaType] = useState<string>("image"); // "none" | "image" | "video"
@@ -192,17 +196,136 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
     if (!topic) return;
 
     setLoadingAI(true);
+    setAutoPilotStatus("Đang phân tích và lên ý tưởng chiến dịch...");
     try {
       const actualMediaType = isAutoMedia ? mediaType : "none";
       const data = await geminiApi.generateMarketingIdeas(topic, selectedPillars, selectedChannels, actualMediaType);
-      if (data.concepts) {
-        setConcepts(data.concepts);
+      
+      const generatedConcepts = data.concepts || [];
+      if (generatedConcepts.length === 0) {
+        throw new Error("AI không thể tạo ý tưởng chiến dịch phù hợp.");
+      }
+      
+      setConcepts(generatedConcepts);
+
+      if (isAutoPilot) {
+        // Run auto-pilot flow
+        const bestConcept = generatedConcepts[0];
+        
+        setAutoPilotStatus(`Đang tự động viết nội dung chi tiết cho ý tưởng: "${bestConcept.title}"...`);
+        const result = await marketingService.developIdea({
+          title: bestConcept.title,
+          summary: bestConcept.summary,
+          suggestedContent: bestConcept.suggestedContent,
+          channels: bestConcept.channels,
+          mediaType: actualMediaType,
+          imageModel,
+          imageResolution,
+          imageAspectRatio,
+          videoModel,
+          videoQuality,
+          videoDuration: parseInt(videoDuration),
+          videoAspectRatio
+        });
+
+        if (!result || !result.posts || result.posts.length === 0) {
+          throw new Error("AI không thể phát triển chi tiết bài viết.");
+        }
+
+        setAutoPilotStatus("Đang lưu bài viết và chuẩn bị lên lịch đăng...");
+        const newCards: ContentApprovalCard[] = result.posts.map((post: any, index: number) => {
+          return {
+            id: `mod_dev_${Date.now()}_${index}_${Math.floor(Math.random() * 1000)}`,
+            title: bestConcept.title,
+            channel: post.channel as any,
+            contentType: post.contentType,
+            status: "pending",
+            outline: post.outline || "",
+            bodyText: post.bodyText || "",
+            imageUrl: post.imageUrl || null,
+            videoUrl: post.videoUrl || null,
+            mediaPrompt: post.mediaPrompt || "",
+            generatedAt: new Date().toISOString(),
+            authorUid: userProfile?.uid ?? ''
+          };
+        });
+
+        const savedCards = await marketingService.saveCards(newCards);
+        
+        setAutoPilotStatus("Đang tự động thiết lập thời gian và kết nối mạng xã hội...");
+        
+        // Schedule each card
+        const scheduledCards = await Promise.all(
+          savedCards.map(async (card, idx) => {
+            try {
+              const platform = card.channel;
+              let integrationId = undefined;
+              try {
+                const integrations = await socialIntegrationService.getIntegrations(platform);
+                const connected = integrations.filter(item => item.isConnected);
+                if (connected.length > 0) {
+                  integrationId = connected[0]._id;
+                }
+              } catch (e) {
+                console.warn("Lấy tài khoản liên kết tự động thất bại:", e);
+              }
+
+              // Tomorrow at 9:00 AM, offset by index * 1 hour for multiple posts
+              const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
+              const scheduledDate = tomorrow.toISOString().slice(0, 10);
+              const hour = 9 + idx;
+              const scheduledTime = `${hour.toString().padStart(2, '0')}:00`;
+
+              if (platform === "Facebook" || platform === "TikTok") {
+                await marketingService.scheduleCard(card.id, scheduledDate, scheduledTime, integrationId);
+              } else {
+                await marketingService.updateCard(card.id, {
+                  status: 'scheduled',
+                  scheduledDate,
+                  scheduledTime,
+                  integrationId
+                });
+              }
+              
+              return {
+                ...card,
+                status: "scheduled" as const,
+                scheduledDate,
+                scheduledTime,
+                integrationId
+              };
+            } catch (schErr) {
+              console.error(`Tự động lên lịch cho card ${card.id} thất bại:`, schErr);
+              const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
+              const scheduledDate = tomorrow.toISOString().slice(0, 10);
+              const scheduledTime = "09:00";
+              
+              await marketingService.updateCard(card.id, {
+                status: 'scheduled',
+                scheduledDate,
+                scheduledTime
+              });
+              
+              return {
+                ...card,
+                status: "scheduled" as const,
+                scheduledDate,
+                scheduledTime
+              };
+            }
+          })
+        );
+
+        setApprovalCards(prev => [...prev, ...scheduledCards]);
+        toast.success("Đã kích hoạt chế độ Tự động hoàn toàn (Auto-pilot) thành công!");
+        setSubTab("LỊCH ĐĂNG CONTENT"); // Switch to Calendar tab directly
       }
     } catch (err: any) {
       console.error(err);
-      toast.error(err.message || "Kết nối tới AI Marketing Tool thất bại. Hệ thống sẽ tự phục hồi.");
+      toast.error(err.message || "Tự động hóa thất bại. Vui lòng kiểm tra lại cấu hình hoặc số dư ví.");
     } finally {
       setLoadingAI(false);
+      setAutoPilotStatus("");
     }
   };
 
@@ -267,7 +390,26 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6" id="ideation_grid">
         
         {/* Creator Form */}
-        <div className="lg:col-span-2 bg-slate-50 border border-gray-200 p-6 rounded-2xl flex flex-col justify-between" id="ideation_campaign_form">
+        <div className="lg:col-span-2 bg-slate-50 border border-gray-200 p-6 rounded-2xl flex flex-col justify-between relative" id="ideation_campaign_form">
+          {loadingAI && isAutoPilot && (
+            <div className="absolute inset-0 bg-white/85 backdrop-blur-md flex flex-col items-center justify-center text-center p-6 z-20 rounded-2xl animate-fadeIn">
+              <div className="w-12 h-12 rounded-full bg-purple-50 flex items-center justify-center mb-4 border border-purple-100 animate-bounce">
+                <Sparkles className="h-6 w-6 text-purple-600" />
+              </div>
+              <h4 className="font-extrabold text-purple-800 text-sm tracking-wide uppercase font-mono">
+                🤖 Chế độ Auto-pilot đang vận hành...
+              </h4>
+              <div className="w-48 h-1.5 bg-gray-200 rounded-full mt-3 overflow-hidden">
+                <div className="h-full bg-purple-600 rounded-full animate-pulse" style={{ width: '65%' }}></div>
+              </div>
+              <p className="text-xs text-slate-600 font-medium mt-3.5 leading-relaxed font-sans max-w-sm">
+                {autoPilotStatus}
+              </p>
+              <p className="text-[10px] text-slate-400 mt-1 font-mono italic">
+                Hệ thống đang tự động kết nối API Gemini & n8n Scheduler
+              </p>
+            </div>
+          )}
           <div>
             <h4 className="font-bold text-gray-850 text-sm tracking-wide font-sans flex items-center gap-1.5 uppercase">
               <Sparkles className="h-4.5 w-4.5 text-indigo-500 animate-pulse" />
@@ -391,6 +533,22 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                   <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-650 peer-checked:bg-indigo-600 font-sans"></div>
                   <span className="ml-2.5 text-xs font-bold text-gray-750 uppercase tracking-wider font-mono">
                     ✨ Tự động tạo phương tiện AI (Auto Media)
+                  </span>
+                </label>
+              </div>
+
+              {/* Auto-pilot completely automated flow */}
+              <div className="flex items-center gap-3 mt-3 select-none">
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isAutoPilot}
+                    onChange={(e) => setIsAutoPilot(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-650 peer-checked:bg-purple-600 font-sans"></div>
+                  <span className="ml-2.5 text-xs font-bold text-gray-750 uppercase tracking-wider font-mono text-purple-700 flex items-center gap-1">
+                    🤖 Chế độ Tự động hoàn toàn (Auto-pilot: Ý tưởng → Viết bài → Đặt lịch đăng)
                   </span>
                 </label>
               </div>
