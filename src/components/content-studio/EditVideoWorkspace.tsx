@@ -156,6 +156,15 @@ export function EditVideoWorkspace({
     const files = event.target.files;
     if (!files || files.length === 0) return;
     const file = files[0];
+
+    // Kiểm tra dung lượng video (tối đa 200MB)
+    const maxSize = 200 * 1024 * 1024; // 200MB
+    if (file.size > maxSize) {
+      toast.warning("Kích thước video vượt quá giới hạn tối đa cho phép (200MB). Vui lòng chọn video khác nhỏ hơn.");
+      event.target.value = '';
+      return;
+    }
+
     setVideoFile(file);
     const preview = URL.createObjectURL(file);
     setVideoPreviewUrl(preview);
