@@ -1407,6 +1407,15 @@ You MUST follow these strict rules to map user editing requests to the timeline:
    - "chèn logo / sticker / ảnh" (insert image/logo) -> type: "image".
    - "chèn chữ / viết chữ / phụ đề / lyrics" (insert text/overlay) -> type: "text".
    - "lồng nhạc / chèn âm thanh" (insert audio/music) -> type: "audio".
+   - "zoom vào / phóng to" (zoom in) -> set effects.zoom to "in".
+   - "zoom ra / thu nhỏ" (zoom out) -> set effects.zoom to "out".
+   - "xoay / đổi góc / quay nghiêng" (rotate angle) -> set effects.rotate to angle in degrees (e.g. 90, 180, 270, -45).
+   - "chuyển cảnh fade / mờ dần / chuyển cảnh mượt" -> set effects.transition to "fade".
+   - "tiếng ting / âm thanh thành công" (ting sound effect) -> type: "audio" with src "https://assets.mixkit.co/active_storage/sfx/2019/2019-84.wav".
+   - "tiếng whoosh / âm thanh lướt" (whoosh sound effect) -> type: "audio" with src "https://assets.mixkit.co/active_storage/sfx/2013/2013-84.wav".
+   - "tiếng cười / tiếng cười lớn" (laughter sound effect) -> type: "audio" with src "https://assets.mixkit.co/active_storage/sfx/2568/2568-84.wav".
+   - "tiếng nổ / vụ nổ" (explosion sound effect) -> type: "audio" with src "https://assets.mixkit.co/active_storage/sfx/2798/2798-84.wav".
+   - "tiếng tít / tiếng censor / beep" (beep sound effect) -> type: "audio" with src "https://assets.mixkit.co/active_storage/sfx/1076/1076-84.wav".
 
 2. TIMELINE STRUCTURE & MATH GUIDELINES:
    - The timeline consists of sequential video segments. Unless a user explicitly requests to cut or remove a section, you MUST preserve the entire original video from start to finish.
@@ -1418,6 +1427,7 @@ You MUST follow these strict rules to map user editing requests to the timeline:
    - TIMELINES FOR OVERLAYS (text, image, audio): The 'start' and 'end' values for overlays must match the final timeline timestamps (after speed/playbackRate calculations of the video clips).
      In the example above, if the user wants text at the very end of the video for 2 seconds, it should be start: 6, end: 8.
    - MULTIPLE TEXT / SUBTITLES / CAPTIONS: To add multiple lines of text, subtitles, or captions, output multiple "text" elements in the timeline, each with its own start, end, content, and style parameters matching the flow.
+   - SOUND EFFECTS: When the user requests a sound effect (e.g., ting, whoosh, laughter, explosion, censor/beep), insert a short "audio" clip at the requested timestamp. Use the exact URLs provided in Rule 1. Typically, these last between 1 to 3 seconds.
 
 3. VALID JSON SCHEMA:
 Output MUST be a valid JSON object matching this schema (with no other text or markdown blocks):
@@ -1438,6 +1448,11 @@ Output MUST be a valid JSON object matching this schema (with no other text or m
         "contrast": number (optional, contrast multiplier, e.g. 1.3),
         "saturate": number (optional, saturation multiplier, e.g. 1.5),
         "hueRotate": number (optional, rotation in degrees, e.g. 90)
+      },
+      "effects": {
+        "zoom": "in" | "out" | "none" (optional, default "none"),
+        "rotate": number (optional, rotation in degrees, default 0),
+        "transition": "fade" | "none" (optional, default "none")
       }
     },
     {
@@ -1464,7 +1479,7 @@ Output MUST be a valid JSON object matching this schema (with no other text or m
     },
     {
       "type": "audio",
-      "src": "string (URL of the audio/music track)",
+      "src": "string (URL of the audio/music track or preloaded sound effect)",
       "start": number (start time in seconds in final compiled video),
       "end": number (end time in seconds in final compiled video),
       "volume": number (0 to 1)
@@ -1521,6 +1536,41 @@ JSON:
         "color": "#FFFFFF",
         "fontSize": "36px"
       }
+    }
+  ]
+}
+
+Example C (Effects & Sound Effects):
+User prompt: "Phóng to (zoom in) và xoay 90 độ ở 3 giây cuối cùng, đồng thời chèn tiếng ting thành công ở giây thứ 3."
+Original duration: 6 seconds.
+JSON:
+{
+  "timeline": [
+    {
+      "type": "video",
+      "src": "${videoUrl}",
+      "start": 0,
+      "end": 3,
+      "playbackRate": 1.0
+    },
+    {
+      "type": "video",
+      "src": "${videoUrl}",
+      "start": 3,
+      "end": 6,
+      "playbackRate": 1.0,
+      "effects": {
+        "zoom": "in",
+        "rotate": 90,
+        "transition": "fade"
+      }
+    },
+    {
+      "type": "audio",
+      "src": "https://assets.mixkit.co/active_storage/sfx/2019/2019-84.wav",
+      "start": 3,
+      "end": 4.5,
+      "volume": 0.8
     }
   ]
 }
@@ -1751,6 +1801,14 @@ Do not output any markdown blocks or extra text. Output ONLY the JSON object.`;
             }
             if (clip.filters?.brightness !== undefined && clip.filters.brightness !== 1) {
               vFilter += `,eq=brightness=${clip.filters.brightness - 1}`;
+            }
+            if (clip.effects?.rotate !== undefined && clip.effects.rotate !== 0) {
+              const rad = (clip.effects.rotate * Math.PI) / 180;
+              vFilter += `,rotate=${rad}`;
+            }
+            if (clip.effects?.transition === "fade") {
+              const fadeDur = Math.min(0.5, clipDuration / 2);
+              vFilter += `,fade=in:st=0:d=${fadeDur},fade=out:st=${clipDuration - fadeDur}:d=${fadeDur}`;
             }
             if (rate !== 1) {
               vFilter += `,setpts=${1 / rate}*(PTS-STARTPTS)`;

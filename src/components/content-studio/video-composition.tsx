@@ -20,6 +20,17 @@ export interface VideoCompositionProps {
       filters?: {
         brightness?: number;
         grayscale?: number;
+        blur?: number;
+        sepia?: number;
+        invert?: number;
+        contrast?: number;
+        saturate?: number;
+        hueRotate?: number;
+      };
+      effects?: {
+        zoom?: "in" | "out" | "none";
+        rotate?: number;
+        transition?: "fade" | "none";
       };
       volume?: number;
     }>;
@@ -81,6 +92,33 @@ export const VideoComposition: React.FC<VideoCompositionProps> = ({ blueprint })
           hueRotate ? `hue-rotate(${hueRotate}deg)` : ''
         ].filter(Boolean).join(' ');
 
+        const zoom = clip.effects?.zoom ?? "none";
+        const rotate = clip.effects?.rotate ?? 0;
+        const transition = clip.effects?.transition ?? "none";
+
+        // Calculate dynamic zoom scale interpolation
+        let scale = 1.0;
+        const localFrame = frame - startFrame;
+        if (localFrame >= 0 && localFrame < durationFrames && durationFrames > 0) {
+          const t = localFrame / durationFrames;
+          if (zoom === "in") {
+            scale = 1.0 + t * 0.25;
+          } else if (zoom === "out") {
+            scale = 1.25 - t * 0.25;
+          }
+        }
+
+        // Calculate transition fade opacity
+        let opacity = 1.0;
+        if (transition === "fade" && localFrame >= 0 && localFrame < durationFrames && durationFrames > 0) {
+          const fadeDuration = Math.min(15, durationFrames / 2);
+          if (localFrame < fadeDuration) {
+            opacity = localFrame / fadeDuration;
+          } else if (localFrame > durationFrames - fadeDuration) {
+            opacity = (durationFrames - localFrame) / fadeDuration;
+          }
+        }
+
         return (
           <Sequence
             key={`video-seq-${idx}`}
@@ -96,7 +134,9 @@ export const VideoComposition: React.FC<VideoCompositionProps> = ({ blueprint })
                 width: '100%',
                 height: '100%',
                 objectFit: 'contain',
-                filter: filterString
+                filter: filterString,
+                transform: `scale(${scale}) rotate(${rotate}deg)`,
+                opacity: opacity
               }}
             />
           </Sequence>
