@@ -36,6 +36,14 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
   const [isAutoPilot, setIsAutoPilot] = useState(false);
   const [autoPilotStatus, setAutoPilotStatus] = useState<string>("");
 
+  // Auto-pilot scheduling & integrations configuration
+  const tomorrowStr = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const [autoScheduleDate, setAutoScheduleDate] = useState(tomorrowStr);
+  const [autoScheduleTime, setAutoScheduleTime] = useState("09:00");
+  const [integrationsList, setIntegrationsList] = useState<any[]>([]);
+  const [loadingIntegrations, setLoadingIntegrations] = useState(false);
+  const [selectedIntegrations, setSelectedIntegrations] = useState<Record<string, string>>({});
+
   const [selectedChannels, setSelectedChannels] = useState<string[]>(["Facebook"]);
   const [mediaType, setMediaType] = useState<string>("image"); // "none" | "image" | "video"
   const [isAutoMedia, setIsAutoMedia] = useState(true);
@@ -126,6 +134,35 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
     };
     loadSuggestions();
   }, []);
+
+    // Load connected integrations on mount
+    useEffect(() => {
+      const loadAllIntegrations = async () => {
+        setLoadingIntegrations(true);
+        try {
+          const list = await socialIntegrationService.getIntegrations();
+          setIntegrationsList(list.filter(item => item.isConnected));
+        } catch (err) {
+          console.error("Lỗi khi tải liên kết mạng xã hội:", err);
+        } finally {
+          setLoadingIntegrations(false);
+        }
+      };
+      loadAllIntegrations();
+    }, []);
+
+    // Set default selected integrations when integrationsList is loaded
+    useEffect(() => {
+      const initialMapping: Record<string, string> = {};
+      const platforms = ["Facebook", "TikTok", "Zalo"];
+      platforms.forEach(p => {
+        const match = integrationsList.find(item => item.platform === p);
+        if (match) {
+          initialMapping[p] = match._id || "";
+        }
+      });
+      setSelectedIntegrations(prev => ({ ...initialMapping, ...prev }));
+    }, [integrationsList]);
 
   const handleAnalyzePillars = async (rawTopic?: string) => {
     const topic = (typeof rawTopic === "string" ? rawTopic : campaignInput).trim();
@@ -254,27 +291,23 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
         
         setAutoPilotStatus("Đang tự động thiết lập thời gian và kết nối mạng xã hội...");
         
-        // Schedule each card
+        // Schedule each card using selected integrations and scheduled date/time
         const scheduledCards = await Promise.all(
           savedCards.map(async (card, idx) => {
             try {
               const platform = card.channel;
-              let integrationId = undefined;
-              try {
-                const integrations = await socialIntegrationService.getIntegrations(platform);
-                const connected = integrations.filter(item => item.isConnected);
-                if (connected.length > 0) {
-                  integrationId = connected[0]._id;
-                }
-              } catch (e) {
-                console.warn("Lấy tài khoản liên kết tự động thất bại:", e);
-              }
+              const integrationId = selectedIntegrations[platform] || undefined;
 
-              // Tomorrow at 9:00 AM, offset by index * 1 hour for multiple posts
-              const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
-              const scheduledDate = tomorrow.toISOString().slice(0, 10);
-              const hour = 9 + idx;
-              const scheduledTime = `${hour.toString().padStart(2, '0')}:00`;
+              const scheduledDate = autoScheduleDate;
+              let scheduledTime = autoScheduleTime;
+              try {
+                const [hStr, mStr] = autoScheduleTime.split(":");
+                const startHour = parseInt(hStr);
+                const hour = (startHour + idx) % 24;
+                scheduledTime = `${hour.toString().padStart(2, '0')}:${mStr}`;
+              } catch (e) {
+                console.warn("Lỗi tính toán giờ đăng tự động:", e);
+              }
 
               if (platform === "Facebook" || platform === "TikTok") {
                 await marketingService.scheduleCard(card.id, scheduledDate, scheduledTime, integrationId);
@@ -517,7 +550,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
               </div>
 
               {/* Auto-pilot completely automated flow */}
-              <div className="flex items-center gap-3 mt-5 select-none">
+              <div className="flex flex-col gap-3 mt-5 select-none bg-purple-50/40 p-4 border border-purple-150 rounded-2xl">
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
                     type="checkbox"
@@ -530,6 +563,79 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                     🤖 Chế độ Tự động hoàn toàn (Auto-pilot: Ý tưởng → Viết bài → Đặt lịch đăng)
                   </span>
                 </label>
+
+                {isAutoPilot && (
+                  <div className="mt-2.5 border-t border-purple-200/50 pt-3.5 space-y-3.5 text-left animate-fadeIn">
+                    <span className="text-[10px] font-extrabold text-purple-800 uppercase tracking-wider block font-mono">
+                      📅 Thiết lập đặt lịch & Tài khoản đăng bài:
+                    </span>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Scheduled Date */}
+                      <div className="space-y-1.5">
+                        <label className="block text-gray-500 font-bold text-[10px] uppercase font-mono">Ngày đăng bài *</label>
+                        <input 
+                          type="date" 
+                          required
+                          className="w-full p-2.5 border border-slate-200 bg-white rounded-lg text-xs font-mono focus:ring-1 focus:ring-purple-500 outline-none"
+                          value={autoScheduleDate}
+                          onChange={(e) => setAutoScheduleDate(e.target.value)}
+                        />
+                      </div>
+
+                      {/* Scheduled Time */}
+                      <div className="space-y-1.5">
+                        <label className="block text-gray-500 font-bold text-[10px] uppercase font-mono">Giờ đăng bài *</label>
+                        <input 
+                          type="time" 
+                          required
+                          className="w-full p-2.5 border border-slate-200 bg-white rounded-lg text-xs font-mono focus:ring-1 focus:ring-purple-500 outline-none"
+                          value={autoScheduleTime}
+                          onChange={(e) => setAutoScheduleTime(e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Integrations Selectors */}
+                    <div className="space-y-3">
+                      {selectedChannels.map(channel => {
+                        if (channel !== "Facebook" && channel !== "TikTok") return null;
+                        const platform = channel;
+                        const available = integrationsList.filter(item => item.platform === platform);
+                        const selectedVal = selectedIntegrations[platform] || "";
+
+                        return (
+                          <div key={platform} className="space-y-1.5">
+                            <label className="block text-gray-655 font-bold text-[10px] uppercase font-mono">
+                              Chọn tài khoản {platform} đăng bài *
+                            </label>
+                            {loadingIntegrations ? (
+                              <div className="p-2 border border-slate-200 rounded-lg text-xs text-gray-400 bg-white">
+                                Đang tải danh sách tài khoản...
+                              </div>
+                            ) : available.length > 0 ? (
+                              <select
+                                className="w-full p-2.5 border border-slate-200 rounded-lg bg-white text-xs focus:ring-1 focus:ring-purple-500 outline-none font-medium text-gray-750"
+                                value={selectedVal}
+                                onChange={(e) => setSelectedIntegrations(prev => ({ ...prev, [platform]: e.target.value }))}
+                              >
+                                {available.map(item => (
+                                  <option key={item._id} value={item._id}>
+                                    {item.displayName} ({item.username || "no-username"})
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <div className="p-2.5 border border-amber-250 bg-amber-50 text-amber-800 rounded-lg text-[10px] leading-normal font-sans">
+                                ⚠️ Chưa có tài khoản {platform} nào được liên kết. Vui lòng vào Cài đặt &rarr; Liên kết mạng xã hội để kết nối trước khi đặt lịch.
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Media Type Selection */}
