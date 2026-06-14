@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { MarketingConcept, ContentApprovalCard } from "../../types";
 import { marketingService } from "../../services/marketingService";
+import { socialIntegrationService } from "../../services/socialIntegrationService";
 import { geminiApi } from "../../api/gemini";
 import { toast } from "../../pages/Toast";
 
@@ -32,9 +33,19 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [developingIdx, setDevelopingIdx] = useState<number | null>(null);
 
+  const [isAutoPilot, setIsAutoPilot] = useState(false);
+  const [autoPilotStatus, setAutoPilotStatus] = useState<string>("");
+
+  // Auto-pilot scheduling & integrations configuration
+  const tomorrowStr = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const [autoScheduleDate, setAutoScheduleDate] = useState(tomorrowStr);
+  const [autoScheduleTime, setAutoScheduleTime] = useState("09:00");
+  const [integrationsList, setIntegrationsList] = useState<any[]>([]);
+  const [loadingIntegrations, setLoadingIntegrations] = useState(false);
+  const [selectedIntegrations, setSelectedIntegrations] = useState<Record<string, string>>({});
+
   const [selectedChannels, setSelectedChannels] = useState<string[]>(["Facebook"]);
   const [mediaType, setMediaType] = useState<string>("image"); // "none" | "image" | "video"
-  const [isAutoMedia, setIsAutoMedia] = useState(true);
   
   // Image Options
   const [imageModel, setImageModel] = useState("nano-banana-pro");
@@ -123,6 +134,35 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
     loadSuggestions();
   }, []);
 
+    // Load connected integrations on mount
+    useEffect(() => {
+      const loadAllIntegrations = async () => {
+        setLoadingIntegrations(true);
+        try {
+          const list = await socialIntegrationService.getIntegrations();
+          setIntegrationsList(list.filter(item => item.isConnected));
+        } catch (err) {
+          console.error("Lỗi khi tải liên kết mạng xã hội:", err);
+        } finally {
+          setLoadingIntegrations(false);
+        }
+      };
+      loadAllIntegrations();
+    }, []);
+
+    // Set default selected integrations when integrationsList is loaded
+    useEffect(() => {
+      const initialMapping: Record<string, string> = {};
+      const platforms = ["Facebook", "TikTok", "Zalo"];
+      platforms.forEach(p => {
+        const match = integrationsList.find(item => item.platform === p);
+        if (match) {
+          initialMapping[p] = match._id || "";
+        }
+      });
+      setSelectedIntegrations(prev => ({ ...initialMapping, ...prev }));
+    }, [integrationsList]);
+
   const handleAnalyzePillars = async (rawTopic?: string) => {
     const topic = (typeof rawTopic === "string" ? rawTopic : campaignInput).trim();
     if (!topic) {
@@ -193,16 +233,226 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
 
     setLoadingAI(true);
     try {
-      const actualMediaType = isAutoMedia ? mediaType : "none";
-      const data = await geminiApi.generateMarketingIdeas(topic, selectedPillars, selectedChannels, actualMediaType);
-      if (data.concepts) {
-        setConcepts(data.concepts);
+      let pillarsToUse = selectedPillars;
+      if (isAutoPilot) {
+        setAutoPilotStatus("Đang phân tích định hướng Content Pillars...");
+        try {
+          const pillarsData = await geminiApi.analyzeMarketingPillars(topic);
+          if (pillarsData.pillars && Array.isArray(pillarsData.pillars) && pillarsData.pillars.length > 0) {
+            const styles = [
+              {
+                colorClass: "border-red-200 bg-red-50/50 text-red-700",
+                selectedColorClass: "border-red-500 bg-red-50 text-red-850 ring-2 ring-red-500/20 shadow-xs",
+                bulletColor: "bg-red-500"
+              },
+              {
+                colorClass: "border-blue-200 bg-blue-50/50 text-blue-700",
+                selectedColorClass: "border-blue-500 bg-blue-50 text-blue-800 ring-2 ring-blue-500/20 shadow-xs",
+                bulletColor: "bg-blue-500"
+              },
+              {
+                colorClass: "border-indigo-200 bg-indigo-50/50 text-indigo-700",
+                selectedColorClass: "border-indigo-500 bg-indigo-50 text-indigo-900 ring-2 ring-indigo-500/20 shadow-xs",
+                bulletColor: "bg-indigo-500"
+              }
+            ];
+            const mappedPillars = pillarsData.pillars.map((p: any, idx: number) => ({
+              id: p.id,
+              title: p.title,
+              ratio: p.ratio || "33% tỉ trọng",
+              description: p.description,
+              ...styles[idx % styles.length]
+            }));
+            setPillars(mappedPillars);
+            const activePillars = mappedPillars.map((p: any) => p.id);
+            setSelectedPillars(activePillars);
+            setAnalyzedTopic(topic);
+            pillarsToUse = activePillars;
+          }
+        } catch (pillarErr: any) {
+          console.error("Lỗi phân tích pillars tự động:", pillarErr);
+          toast.warning("Lỗi phân tích Content Pillars tự động, đang thử lên ý tưởng trực tiếp...");
+        }
+      }
+
+      setAutoPilotStatus("Đang lên ý tưởng chiến dịch...");
+      const actualMediaType = isAutoPilot ? mediaType : "none";
+      const data = await geminiApi.generateMarketingIdeas(topic, pillarsToUse, selectedChannels, actualMediaType);
+      
+      const generatedConcepts = data.concepts || [];
+      if (generatedConcepts.length === 0) {
+        throw new Error("AI không thể tạo ý tưởng chiến dịch phù hợp.");
+      }
+      
+      setConcepts(generatedConcepts);
+
+      if (isAutoPilot) {
+        // Run auto-pilot flow
+        const sortedConcepts = [...generatedConcepts].sort((a: any, b: any) => (b.matchPercent || 0) - (a.matchPercent || 0));
+        const bestConcept = sortedConcepts[0];
+        
+        setAutoPilotStatus(`Đang tự động viết nội dung chi tiết cho ý tưởng: "${bestConcept.title}"...`);
+        const result = await marketingService.developIdea({
+          title: bestConcept.title,
+          summary: bestConcept.summary,
+          suggestedContent: bestConcept.suggestedContent,
+          channels: bestConcept.channels,
+          mediaType: actualMediaType,
+          imageModel,
+          imageResolution,
+          imageAspectRatio,
+          videoModel,
+          videoQuality,
+          videoDuration: parseInt(videoDuration),
+          videoAspectRatio
+        });
+
+        if (!result || !result.posts || result.posts.length === 0) {
+          throw new Error("AI không thể phát triển chi tiết bài viết.");
+        }
+
+        setAutoPilotStatus("Đang lưu bài viết và chuẩn bị lên lịch đăng...");
+        const newCards: ContentApprovalCard[] = result.posts.map((post: any, index: number) => {
+          return {
+            id: `mod_dev_${Date.now()}_${index}_${Math.floor(Math.random() * 1000)}`,
+            title: bestConcept.title,
+            channel: post.channel as any,
+            contentType: post.contentType,
+            status: "pending",
+            outline: post.outline || "",
+            bodyText: post.bodyText || "",
+            imageUrl: post.imageUrl || null,
+            videoUrl: post.videoUrl || null,
+            mediaPrompt: post.mediaPrompt || "",
+            generatedAt: new Date().toISOString(),
+            authorUid: userProfile?.uid ?? ''
+          };
+        });
+
+        const savedCards = await marketingService.saveCards(newCards);
+
+        // Check if there are any cards with pending video tasks
+        const pendingCards = savedCards.filter(c => c.videoUrl && c.videoUrl.startsWith("pending://piapi/"));
+        if (pendingCards.length > 0) {
+          setAutoPilotStatus("Đang kết xuất video AI hoàn chỉnh (Mất khoảng 1-3 phút)...");
+          
+          let attempts = 0;
+          const maxAttempts = 24; // 4 minutes timeout (24 * 10 seconds)
+          const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+          
+          let resolvedCards = [...savedCards];
+          
+          while (attempts < maxAttempts) {
+            const stillPending = resolvedCards.filter(c => c.videoUrl && c.videoUrl.startsWith("pending://piapi/"));
+            if (stillPending.length === 0) {
+              console.log("[Auto-pilot] All video tasks completed successfully!");
+              break;
+            }
+            
+            setAutoPilotStatus(`Đang kết xuất video AI hoàn chỉnh (Thời gian chờ còn lại: ${Math.max(0, 240 - attempts * 10)}s)...`);
+            await delay(10000);
+            
+            try {
+              const updatedList = await Promise.all(
+                resolvedCards.map(async (card) => {
+                  if (card.videoUrl && card.videoUrl.startsWith("pending://piapi/")) {
+                    try {
+                      const freshCard = await marketingService.getCardById(card.id);
+                      return freshCard;
+                    } catch (e) {
+                      console.error("[Auto-pilot polling] error fetching card status:", e);
+                      return card;
+                    }
+                  }
+                  return card;
+                })
+              );
+              resolvedCards = updatedList;
+            } catch (err) {
+              console.error("[Auto-pilot polling] error polling loop:", err);
+            }
+            attempts++;
+          }
+          
+          // Use the updated cards (with resolved video URLs) for the rest of the flow
+          savedCards.forEach((card, idx) => {
+            const rc = resolvedCards.find(item => item.id === card.id);
+            if (rc) {
+              savedCards[idx] = rc;
+            }
+          });
+        }
+        
+        setAutoPilotStatus("Đang tự động thiết lập thời gian và kết nối mạng xã hội...");
+        
+        // Schedule each card using selected integrations and scheduled date/time
+        const scheduledCards = await Promise.all(
+          savedCards.map(async (card, idx) => {
+            try {
+              const platform = card.channel;
+              const integrationId = selectedIntegrations[platform] || undefined;
+
+              const scheduledDate = autoScheduleDate;
+              let scheduledTime = autoScheduleTime;
+              try {
+                const [hStr, mStr] = autoScheduleTime.split(":");
+                const startHour = parseInt(hStr);
+                const hour = (startHour + idx) % 24;
+                scheduledTime = `${hour.toString().padStart(2, '0')}:${mStr}`;
+              } catch (e) {
+                console.warn("Lỗi tính toán giờ đăng tự động:", e);
+              }
+
+              if (platform === "Facebook" || platform === "TikTok") {
+                await marketingService.scheduleCard(card.id, scheduledDate, scheduledTime, integrationId);
+              } else {
+                await marketingService.updateCard(card.id, {
+                  status: 'scheduled',
+                  scheduledDate,
+                  scheduledTime,
+                  integrationId
+                });
+              }
+              
+              return {
+                ...card,
+                status: "scheduled" as const,
+                scheduledDate,
+                scheduledTime,
+                integrationId
+              };
+            } catch (schErr) {
+              console.error(`Tự động lên lịch cho card ${card.id} thất bại:`, schErr);
+              const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
+              const scheduledDate = tomorrow.toISOString().slice(0, 10);
+              const scheduledTime = "09:00";
+              
+              await marketingService.updateCard(card.id, {
+                status: 'scheduled',
+                scheduledDate,
+                scheduledTime
+              });
+              
+              return {
+                ...card,
+                status: "scheduled" as const,
+                scheduledDate,
+                scheduledTime
+              };
+            }
+          })
+        );
+
+        setApprovalCards(prev => [...prev, ...scheduledCards]);
+        toast.success("Đã kích hoạt chế độ Tự động hoàn toàn (Auto-pilot) thành công!");
+        setSubTab("LỊCH ĐĂNG CONTENT"); // Switch to Calendar tab directly
       }
     } catch (err: any) {
       console.error(err);
-      toast.error(err.message || "Kết nối tới AI Marketing Tool thất bại. Hệ thống sẽ tự phục hồi.");
+      toast.error(err.message || "Tự động hóa thất bại. Vui lòng kiểm tra lại cấu hình hoặc số dư ví.");
     } finally {
       setLoadingAI(false);
+      setAutoPilotStatus("");
     }
   };
 
@@ -216,7 +466,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
         summary: concept.summary,
         suggestedContent: concept.suggestedContent,
         channels: concept.channels,
-        mediaType: isAutoMedia ? mediaType : "none",
+        mediaType: isAutoPilot ? mediaType : "none",
         imageModel,
         imageResolution,
         imageAspectRatio,
@@ -267,7 +517,26 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6" id="ideation_grid">
         
         {/* Creator Form */}
-        <div className="lg:col-span-2 bg-slate-50 border border-gray-200 p-6 rounded-2xl flex flex-col justify-between" id="ideation_campaign_form">
+        <div className="lg:col-span-2 bg-slate-50 border border-gray-200 p-6 rounded-2xl flex flex-col justify-between relative" id="ideation_campaign_form">
+          {loadingAI && isAutoPilot && (
+            <div className="absolute inset-0 bg-white/85 backdrop-blur-md flex flex-col items-center justify-center text-center p-6 z-20 rounded-2xl animate-fadeIn">
+              <div className="w-12 h-12 rounded-full bg-purple-50 flex items-center justify-center mb-4 border border-purple-100 animate-bounce">
+                <Sparkles className="h-6 w-6 text-purple-600" />
+              </div>
+              <h4 className="font-extrabold text-purple-800 text-sm tracking-wide uppercase font-mono">
+                🤖 Chế độ Auto-pilot đang vận hành...
+              </h4>
+              <div className="w-48 h-1.5 bg-gray-200 rounded-full mt-3 overflow-hidden">
+                <div className="h-full bg-purple-600 rounded-full animate-pulse" style={{ width: '65%' }}></div>
+              </div>
+              <p className="text-xs text-slate-600 font-medium mt-3.5 leading-relaxed font-sans max-w-sm">
+                {autoPilotStatus}
+              </p>
+              <p className="text-[10px] text-slate-400 mt-1 font-mono italic">
+                Hệ thống đang tự động kết nối API Gemini & n8n Scheduler
+              </p>
+            </div>
+          )}
           <div>
             <h4 className="font-bold text-gray-850 text-sm tracking-wide font-sans flex items-center gap-1.5 uppercase">
               <Sparkles className="h-4.5 w-4.5 text-indigo-500 animate-pulse" />
@@ -316,7 +585,11 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                           type="button"
                           onClick={() => {
                             setCampaignInput(s);
-                            handleAnalyzePillars(s);
+                            if (!isAutoPilot) {
+                              handleAnalyzePillars(s);
+                            } else {
+                              setAnalyzedTopic(s);
+                            }
                           }}
                           className={`px-2.5 py-1 text-[10px] rounded-md font-medium transition-all cursor-pointer select-none border ${
                             isMatch
@@ -374,29 +647,97 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                 </div>
               </div>
 
-              {/* Auto Media Generation toggle */}
-              <div className="flex items-center gap-3 mt-5 select-none">
+              {/* Auto-pilot completely automated flow */}
+              <div className="flex flex-col gap-3 mt-5 select-none bg-purple-50/40 p-4 border border-purple-150 rounded-2xl">
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={isAutoMedia}
-                    onChange={(e) => {
-                      setIsAutoMedia(e.target.checked);
-                      if (e.target.checked && mediaType === "none") {
-                        setMediaType("image");
-                      }
-                    }}
+                    checked={isAutoPilot}
+                    onChange={(e) => setIsAutoPilot(e.target.checked)}
                     className="sr-only peer"
                   />
-                  <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-650 peer-checked:bg-indigo-600 font-sans"></div>
-                  <span className="ml-2.5 text-xs font-bold text-gray-750 uppercase tracking-wider font-mono">
-                    ✨ Tự động tạo phương tiện AI (Auto Media)
+                  <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-650 peer-checked:bg-purple-600 font-sans"></div>
+                  <span className="ml-2.5 text-xs font-bold text-gray-750 uppercase tracking-wider font-mono text-purple-700 flex items-center gap-1">
+                    🤖 Chế độ Tự động hoàn toàn (Auto-pilot: Ý tưởng → Viết bài → Đặt lịch đăng)
                   </span>
                 </label>
+
+                {isAutoPilot && (
+                  <div className="mt-2.5 border-t border-purple-200/50 pt-3.5 space-y-3.5 text-left animate-fadeIn">
+                    <span className="text-[10px] font-extrabold text-purple-800 uppercase tracking-wider block font-mono">
+                      📅 Thiết lập đặt lịch & Tài khoản đăng bài:
+                    </span>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Scheduled Date */}
+                      <div className="space-y-1.5">
+                        <label className="block text-gray-500 font-bold text-[10px] uppercase font-mono">Ngày đăng bài *</label>
+                        <input 
+                          type="date" 
+                          required
+                          className="w-full p-2.5 border border-slate-200 bg-white rounded-lg text-xs font-mono focus:ring-1 focus:ring-purple-500 outline-none"
+                          value={autoScheduleDate}
+                          onChange={(e) => setAutoScheduleDate(e.target.value)}
+                        />
+                      </div>
+
+                      {/* Scheduled Time */}
+                      <div className="space-y-1.5">
+                        <label className="block text-gray-500 font-bold text-[10px] uppercase font-mono">Giờ đăng bài *</label>
+                        <input 
+                          type="time" 
+                          required
+                          className="w-full p-2.5 border border-slate-200 bg-white rounded-lg text-xs font-mono focus:ring-1 focus:ring-purple-500 outline-none"
+                          value={autoScheduleTime}
+                          onChange={(e) => setAutoScheduleTime(e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Integrations Selectors */}
+                    <div className="space-y-3">
+                      {selectedChannels.map(channel => {
+                        if (channel !== "Facebook" && channel !== "TikTok") return null;
+                        const platform = channel;
+                        const available = integrationsList.filter(item => item.platform === platform);
+                        const selectedVal = selectedIntegrations[platform] || "";
+
+                        return (
+                          <div key={platform} className="space-y-1.5">
+                            <label className="block text-gray-655 font-bold text-[10px] uppercase font-mono">
+                              Chọn tài khoản {platform} đăng bài *
+                            </label>
+                            {loadingIntegrations ? (
+                              <div className="p-2 border border-slate-200 rounded-lg text-xs text-gray-400 bg-white">
+                                Đang tải danh sách tài khoản...
+                              </div>
+                            ) : available.length > 0 ? (
+                              <select
+                                className="w-full p-2.5 border border-slate-200 rounded-lg bg-white text-xs focus:ring-1 focus:ring-purple-500 outline-none font-medium text-gray-750"
+                                value={selectedVal}
+                                onChange={(e) => setSelectedIntegrations(prev => ({ ...prev, [platform]: e.target.value }))}
+                              >
+                                {available.map(item => (
+                                  <option key={item._id} value={item._id}>
+                                    {item.displayName} ({item.username || "no-username"})
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <div className="p-2.5 border border-amber-250 bg-amber-50 text-amber-800 rounded-lg text-[10px] leading-normal font-sans">
+                                ⚠️ Chưa có tài khoản {platform} nào được liên kết. Vui lòng vào Cài đặt &rarr; Liên kết mạng xã hội để kết nối trước khi đặt lịch.
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Media Type Selection */}
-              {isAutoMedia && (
+              {isAutoPilot && (
                 <div className="space-y-2 text-left mt-4 animate-fadeIn">
                   <span className="text-xs font-bold text-gray-750 block uppercase tracking-wider font-mono">
                     🖼️ Chọn loại phương tiện (Media):
@@ -428,7 +769,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
               )}
 
               {/* Image Settings */}
-              {isAutoMedia && mediaType === "image" && (
+              {isAutoPilot && mediaType === "image" && (
                 <div className="p-4 border border-slate-200 bg-white rounded-2xl space-y-4 text-left mt-4 shadow-2xs">
                   <span className="text-xs font-extrabold text-slate-800 block border-b pb-2 uppercase tracking-wide font-mono flex items-center gap-1.5">
                     <ImageIcon className="h-4 w-4 text-indigo-500" />
@@ -492,7 +833,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
               )}
 
               {/* Video Settings */}
-              {isAutoMedia && mediaType === "video" && (
+              {isAutoPilot && mediaType === "video" && (
                 <div className="p-4 border border-slate-200 bg-white rounded-2xl space-y-4 text-left mt-4 shadow-2xs">
                   <span className="text-xs font-extrabold text-slate-800 block border-b pb-2 uppercase tracking-wide font-mono flex items-center gap-1.5">
                     <Video className="h-4 w-4 text-indigo-500" />
@@ -588,9 +929,9 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
           <div className="mt-6 pt-4 border-t border-gray-200 flex justify-end">
             <button 
               onClick={handleGenerateIdeas}
-              disabled={loadingAI || !campaignInput.trim() || campaignInput.trim() !== analyzedTopic.trim()}
+              disabled={loadingAI || !campaignInput.trim() || (!isAutoPilot && campaignInput.trim() !== analyzedTopic.trim())}
               className={`px-5 py-2.5 rounded-xl text-xs font-bold font-sans flex items-center gap-2 select-none shadow-sm transition-all ${
-                loadingAI || !campaignInput.trim() || campaignInput.trim() !== analyzedTopic.trim()
+                loadingAI || !campaignInput.trim() || (!isAutoPilot && campaignInput.trim() !== analyzedTopic.trim())
                   ? "bg-gray-200 text-gray-400 cursor-not-allowed"
                   : "bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer active:scale-95"
               }`}

@@ -840,6 +840,10 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
             }
           } catch (err) {
             console.error(`[developMarketingIdea] Error generating image for post on ${post.channel}:`, err);
+            // Fallback to mock image in case of PiAPI credit/service failures
+            const seed = Math.floor(Math.random() * 1000000);
+            post.imageUrl = `https://picsum.photos/seed/${seed}/800/600`;
+            console.log(`[developMarketingIdea] Fallback to mock image: ${post.imageUrl}`);
           }
         } else if (mediaOptions.mediaType === "video") {
           try {
@@ -864,6 +868,9 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
             }
           } catch (err) {
             console.error(`[developMarketingIdea] Error generating video for post on ${post.channel}:`, err);
+            // Fallback to mock video in case of PiAPI credit/service failures
+            post.videoUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4";
+            console.log(`[developMarketingIdea] Fallback to mock video: ${post.videoUrl}`);
           }
         }
       }

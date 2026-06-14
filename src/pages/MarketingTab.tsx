@@ -231,10 +231,10 @@ export default function MarketingTab() {
         card.id,
         caption,
         card.videoUrl,
-        tiktok.isMock ?? true,
+        tiktok.isMock ?? false,
         tiktok.privacyLevel ?? 'SELF_ONLY'
       );
-      toast.success(`Đã đăng video lên TikTok thành công! ${tiktok.isMock ? '(Demo)' : ''} ID: ${postId.slice(-8)}`);
+      toast.success(`Đã đăng video lên TikTok thành công! ${(tiktok.isMock ?? false) ? '(Demo)' : ''} ID: ${postId.slice(-8)}`);
     } catch (e: any) {
       console.error("Lỗi đăng TikTok:", e);
       toast.error(parseFirebaseError(e, "Không thể đăng bài lên TikTok. Vui lòng thử lại."));
