@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { 
   Sparkles, 
   Send, 
@@ -22,6 +22,8 @@ interface IdeationTabProps {
 }
 
 export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }: IdeationTabProps) {
+  const hasFetchedRef = useRef(false);
+
   // 1. AI Campaign Ideation States
   const [campaignInput, setCampaignInput] = useState("");
   const [analyzedTopic, setAnalyzedTopic] = useState("");
@@ -103,14 +105,17 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
 
   // Load suggestions from AI on mount
   useEffect(() => {
+    if (hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
+
     const loadSuggestions = async () => {
       setLoadingSuggestions(true);
       try {
         const suggestions = await marketingService.fetchSuggestions();
         setQuickSuggestions(suggestions);
-      } catch (err) {
+      } catch (err: any) {
         console.error("Lỗi tải gợi ý chiến dịch:", err);
-        toast.error("Không thể tải gợi ý chiến dịch marketing từ AI.");
+        toast.error(err.message || "Không thể tải gợi ý chiến dịch marketing từ AI.");
       } finally {
         setLoadingSuggestions(false);
       }
@@ -161,8 +166,9 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
         setSelectedPillars(mappedPillars.map((p: any) => p.id));
         setAnalyzedTopic(topic);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Lỗi phân tích Content Pillars:", err);
+      toast.error(err.message || "Lỗi phân tích Content Pillars.");
     } finally {
       setLoadingPillars(false);
     }
@@ -192,9 +198,9 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
       if (data.concepts) {
         setConcepts(data.concepts);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      toast.error("Kết nối tới AI Marketing Tool thất bại. Hệ thống sẽ tự phục hồi.");
+      toast.error(err.message || "Kết nối tới AI Marketing Tool thất bại. Hệ thống sẽ tự phục hồi.");
     } finally {
       setLoadingAI(false);
     }
@@ -247,9 +253,9 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
       } else {
         console.warn("[handleDevelopConcept] Result has no posts:", result);
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error("Lỗi phát triển ý tưởng đa kênh:", e);
-      toast.error("Lỗi kết nối Trợ lý AI khi lập dàn ý chi tiết.");
+      toast.error(e.message || "Lỗi kết nối Trợ lý AI khi lập dàn ý chi tiết.");
     } finally {
       console.log("[handleDevelopConcept] Resetting developing index.");
       setDevelopingIdx(null);

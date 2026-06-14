@@ -2,14 +2,22 @@ import { Request, Response } from "express";
 import { geminiService } from "../service/gemini.service";
 import { AuthenticatedRequest } from "../middleware/auth";
 import { aiKnowledgeService } from "../service/ai-knowledge.service";
+import { walletService, API_COSTS } from "../service/wallet.service";
 
 function handleGeminiError(res: Response, error: any, defaultMessage: string) {
-  let errMsg = defaultMessage;
   const details = error.message || String(error);
-  let statusCode = 500;
-
-  const errStr = String(error.message || "").toUpperCase();
   const status = error.status || error.statusCode;
+
+  if (status === 402) {
+    return res.status(402).json({
+      status: "error",
+      message: error.message || "Số dư ví không đủ. Vui lòng nạp thêm tiền.",
+    });
+  }
+
+  let errMsg = defaultMessage;
+  let statusCode = 500;
+  const errStr = String(error.message || "").toUpperCase();
 
   if (status === 503 || errStr.includes("503") || errStr.includes("UNAVAILABLE")) {
     errMsg = "Dịch vụ AI của Gemini hiện đang quá tải hoặc tạm thời không khả dụng. Vui lòng thử lại sau ít phút.";
@@ -39,7 +47,14 @@ export const geminiController = {
   async chat(req: Request, res: Response) {
     try {
       const { message, history, aiConfig } = req.body;
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
+      }
+
+      await walletService.checkBalance(userId, API_COSTS.GEMINI_CHAT);
       const result = await geminiService.chat(message, history, aiConfig);
+      await walletService.deductBalance(userId, API_COSTS.GEMINI_CHAT, "Chi phí sử dụng Trợ lý AI Chatbot");
       return res.status(200).json(result);
     } catch (error: any) {
       console.error("[geminiController.chat] Error:", error);
@@ -71,6 +86,12 @@ export const geminiController = {
     try {
       const { message, aiConfig } = req.body;
       const companyCode = req.user?.companyCode || "SYSTEM";
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
+      }
+
+      await walletService.checkBalance(userId, API_COSTS.GEMINI_CHAT);
       const startedAt = Date.now();
       const ragContext = await aiKnowledgeService.searchRelevantContext({
         companyCode,
@@ -100,6 +121,7 @@ export const geminiController = {
         status: "preview",
       });
 
+      await walletService.deductBalance(userId, API_COSTS.GEMINI_CHAT, "Chi phí test câu trả lời tự động AI");
       return res.status(200).json({
         ...result,
         mode: effectiveRagContext.contextText ? "trained" : "default",
@@ -155,7 +177,14 @@ export const geminiController = {
    */
   async getMarketingSuggestions(req: Request, res: Response) {
     try {
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
+      }
+
+      await walletService.checkBalance(userId, API_COSTS.GEMINI_MARKETING);
       const suggestions = await geminiService.getMarketingSuggestions();
+      await walletService.deductBalance(userId, API_COSTS.GEMINI_MARKETING, "Chi phí tạo gợi ý chủ đề Marketing AI");
       return res.status(200).json({ suggestions });
     } catch (error: any) {
       console.error("[geminiController.getMarketingSuggestions] Error:", error);
@@ -169,7 +198,14 @@ export const geminiController = {
   async analyzeMarketingPillars(req: Request, res: Response) {
     try {
       const { campaignTopic } = req.body;
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
+      }
+
+      await walletService.checkBalance(userId, API_COSTS.GEMINI_MARKETING);
       const result = await geminiService.analyzeMarketingPillars(campaignTopic);
+      await walletService.deductBalance(userId, API_COSTS.GEMINI_MARKETING, "Chi phí phân tích Content Pillars bằng AI");
       return res.status(200).json(result);
     } catch (error: any) {
       console.error("[geminiController.analyzeMarketingPillars] Error:", error);
@@ -183,7 +219,14 @@ export const geminiController = {
   async generateMarketingIdeas(req: Request, res: Response) {
     try {
       const { campaignTopic, selectedPillars, channels, mediaType } = req.body;
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
+      }
+
+      await walletService.checkBalance(userId, API_COSTS.GEMINI_MARKETING);
       const result = await geminiService.generateMarketingIdeas(campaignTopic, selectedPillars, channels, mediaType);
+      await walletService.deductBalance(userId, API_COSTS.GEMINI_MARKETING, "Chi phí phát sinh ý tưởng chiến dịch AI");
       return res.status(200).json(result);
     } catch (error: any) {
       console.error("[geminiController.generateMarketingIdeas] Error:", error);
@@ -210,6 +253,12 @@ export const geminiController = {
         videoDuration,
         videoAspectRatio
       } = req.body;
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
+      }
+
+      await walletService.checkBalance(userId, API_COSTS.GEMINI_MARKETING);
       const result = await geminiService.developMarketingIdea(title, summary, suggestedContent, channels, {
         mediaType,
         imageModel,
@@ -220,6 +269,7 @@ export const geminiController = {
         videoDuration,
         videoAspectRatio
       });
+      await walletService.deductBalance(userId, API_COSTS.GEMINI_MARKETING, "Chi phí viết bài và lập dàn ý Marketing AI");
       return res.status(200).json(result);
     } catch (error: any) {
       console.error("[geminiController.developMarketingIdea] Error:", error);
@@ -234,7 +284,11 @@ export const geminiController = {
     try {
       const { prompt, aspectRatio, modelName, resolution, existingImageUris } = req.body;
       const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
+      }
 
+      await walletService.checkBalance(userId, API_COSTS.GEMINI_IMAGE);
       const result = await geminiService.generateImage(prompt, {
         aspectRatio,
         modelName,
@@ -251,6 +305,7 @@ export const geminiController = {
         });
       }
 
+      await walletService.deductBalance(userId, API_COSTS.GEMINI_IMAGE, "Chi phí sinh ảnh minh họa AI");
       return res.status(200).json({
         ...result,
         url: record ? record.url : result.url,
@@ -269,7 +324,11 @@ export const geminiController = {
     try {
       const { prompt, durationSeconds, aspectRatio, modelName, resolution, referenceVideoUri, referenceImageUris, frameMode, activeCardId } = req.body;
       const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
+      }
 
+      await walletService.checkBalance(userId, API_COSTS.GEMINI_VIDEO);
       const result = await geminiService.generateVideo(prompt, durationSeconds, {
         aspectRatio,
         modelName,
@@ -298,6 +357,7 @@ export const geminiController = {
         }
       }
 
+      await walletService.deductBalance(userId, API_COSTS.GEMINI_VIDEO, "Chi phí sinh video AI");
       return res.status(200).json({
         ...result,
         url: record ? record.url : result.url,
@@ -348,6 +408,12 @@ export const geminiController = {
         });
       }
 
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
+      }
+
+      await walletService.checkBalance(userId, API_COSTS.GEMINI_FAQ);
       console.log(`[AI AutoReply] Bắt đầu đồng bộ tài liệu từ Google Drive/Doc link: ${docLink}`);
 
       // Extract Google Doc ID if possible
@@ -423,6 +489,7 @@ A: Hoàn toàn MIỄN PHÍ. Đội ngũ kỹ thuật của iGen sẽ hỗ trợ 
         channelScope: ["all"],
       });
 
+      await walletService.deductBalance(userId, API_COSTS.GEMINI_FAQ, `Chi phí đồng bộ Drive & FAQ AI (${docTitle})`);
       return res.status(200).json({
         status: "success",
         title: docTitle,
@@ -446,7 +513,14 @@ A: Hoàn toàn MIỄN PHÍ. Đội ngũ kỹ thuật của iGen sẽ hỗ trợ 
       if (!userId) {
         return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
       }
+
+      const textToSpeak = req.body.textToSpeak || "";
+      const charCount = textToSpeak.length;
+      const cost = Math.max(API_COSTS.ELEVENLABS_MIN, charCount * API_COSTS.ELEVENLABS_TTS_CHAR);
+
+      await walletService.checkBalance(userId, cost);
       const record = await geminiService.generateVoice(userId, req.body);
+      await walletService.deductBalance(userId, cost, `Chi phí tạo giọng nói AI ElevenLabs (${charCount} ký tự)`);
       return res.status(200).json({
         status: "success",
         record,
@@ -463,7 +537,14 @@ A: Hoàn toàn MIỄN PHÍ. Đội ngũ kỹ thuật của iGen sẽ hỗ trợ 
   async optimizeScript(req: Request, res: Response) {
     try {
       const { text, readingStyle } = req.body;
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
+      }
+
+      await walletService.checkBalance(userId, API_COSTS.GEMINI_OPTIMIZE);
       const result = await geminiService.optimizeScript(text, readingStyle);
+      await walletService.deductBalance(userId, API_COSTS.GEMINI_OPTIMIZE, "Chi phí tối ưu kịch bản bằng AI");
       return res.status(200).json(result);
     } catch (error: any) {
       console.error("[geminiController.optimizeScript] Error:", error);
@@ -477,7 +558,14 @@ A: Hoàn toàn MIỄN PHÍ. Đội ngũ kỹ thuật của iGen sẽ hỗ trợ 
   async optimizeImagePrompt(req: Request, res: Response) {
     try {
       const { description, imageUris, modelName } = req.body;
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
+      }
+
+      await walletService.checkBalance(userId, API_COSTS.GEMINI_OPTIMIZE);
       const result = await geminiService.optimizeImagePrompt(description, imageUris, modelName);
+      await walletService.deductBalance(userId, API_COSTS.GEMINI_OPTIMIZE, "Phí tối ưu prompt sinh ảnh AI");
       return res.status(200).json(result);
     } catch (error: any) {
       console.error("[geminiController.optimizeImagePrompt] Error:", error);
@@ -491,8 +579,18 @@ A: Hoàn toàn MIỄN PHÍ. Đội ngũ kỹ thuật của iGen sẽ hỗ trợ 
   async optimizeVideoPrompt(req: Request, res: Response) {
     try {
       const { description, imageUris } = req.body;
+<<<<<<< HEAD
       console.log(`[geminiController.optimizeVideoPrompt] Incoming description to optimize: "${description}"`);
+=======
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
+      }
+
+      await walletService.checkBalance(userId, API_COSTS.GEMINI_OPTIMIZE);
+>>>>>>> 6879358010148f43fb5a2839b94627d274a216e3
       const result = await geminiService.optimizeVideoPrompt(description, imageUris);
+      await walletService.deductBalance(userId, API_COSTS.GEMINI_OPTIMIZE, "Phí tối ưu prompt sinh video AI");
       return res.status(200).json(result);
     } catch (error: any) {
       console.error("[geminiController.optimizeVideoPrompt] Error:", error);

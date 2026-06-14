@@ -13,9 +13,13 @@
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
+<<<<<<< HEAD
     "@remotion/bundler": "4.0.476",
     "@remotion/player": "^4.0.476",
     "@remotion/renderer": "^4.0.476",
+=======
+    "@payos/node": "^2.0.5",
+>>>>>>> 6879358010148f43fb5a2839b94627d274a216e3
     "bcryptjs": "^3.0.3",
     "cloudinary": "^2.10.0",
     "cookie-parser": "^1.4.7",

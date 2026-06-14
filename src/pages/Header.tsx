@@ -1,7 +1,8 @@
-import React, { useState } from "react";
-import { Bell, LogOut, Search, Settings } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Bell, LogOut, Search, Settings, Wallet } from "lucide-react";
 import { TabType } from "../types";
 import { useAuth } from "../context/AuthContext";
+import { walletService } from "../services/walletService";
 
 interface HeaderProps {
   currentTab: TabType;
@@ -21,6 +22,7 @@ const searchIndex = [
   { label: "Lịch đăng Content", tab: "MARKETING" as TabType, subTab: "LỊCH ĐĂNG CONTENT", keywords: "lich dang content calendar publish" },
   { label: "Phễu Khách hàng", tab: "SALES CRM" as TabType, subTab: "PHỄU KHÁCH HÀNG", keywords: "crm phieu khach hang lead cold warm hot" },
   { label: "Omni-Inbox Chat", tab: "SALES CRM" as TabType, subTab: "OMNI-INBOX CHAT", keywords: "chat vip mailbox tro ly ai" },
+  { label: "Ví & Nạp tiền", tab: "VÍ & NẠP TIỀN" as TabType, keywords: "vi nap tien so du payos vietqr nap bank" },
 ];
 
 const notifications = [
@@ -35,6 +37,24 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
   const [showResults, setShowResults] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [balance, setBalance] = useState<number>(0);
+
+  useEffect(() => {
+    const fetchBalance = async () => {
+      try {
+        const bal = await walletService.getWalletBalance();
+        setBalance(bal);
+      } catch (err) {
+        console.error("Lỗi khi lấy số dư ví ở Header:", err);
+      }
+    };
+
+    fetchBalance();
+    
+    // Polling số dư định kỳ mỗi 10 giây để đồng bộ tức thời
+    const interval = setInterval(fetchBalance, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   const normalizedQuery = searchQuery.trim().toLowerCase();
   const filteredResults =
@@ -99,6 +119,18 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
       </div>
 
       <div className="ml-6 flex items-center gap-3" id="header_controls">
+
+        {/* Wallet Balance Pill */}
+        <button
+          onClick={() => onSearchSelect("VÍ & NẠP TIỀN" as TabType)}
+          className="flex items-center gap-2 rounded-full bg-blue-50 border border-blue-100 px-4 py-2 font-sans transition-all hover:bg-blue-100/50 hover:border-blue-200 active:scale-95 shadow-xs shadow-blue-500/5 cursor-pointer"
+          id="header_wallet_pill"
+        >
+          <Wallet className="h-4 w-4 text-blue-600 shrink-0" />
+          <span className="text-xs font-bold text-blue-700 font-mono select-none">
+            {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(balance)}
+          </span>
+        </button>
 
         <div className="relative" id="notification_dropdown_button">
           <button
