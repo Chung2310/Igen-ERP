@@ -613,12 +613,17 @@ export function EditVideoWorkspace({
                               </p>
                             </div>
                           )}
-
-                          <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
-                            <div
-                              className={`h-full transition-all duration-300 rounded-full ${statusVal === 'failed' ? 'bg-rose-500' : 'bg-cyan-600'}`}
-                              style={{ width: `${progressVal}%` }}
-                            />
+                          <div className="space-y-1.5">
+                            <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">
+                              <span>Tiến độ kết xuất MP4</span>
+                              <span className="text-cyan-600 font-mono text-xs">{progressVal}%</span>
+                            </div>
+                            <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full transition-all duration-300 rounded-full ${statusVal === 'failed' ? 'bg-rose-500' : 'bg-cyan-600'}`}
+                                style={{ width: `${progressVal}%` }}
+                              />
+                            </div>
                           </div>
 
                           {errorVal && (
