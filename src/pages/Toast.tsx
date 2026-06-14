@@ -41,21 +41,27 @@ export function ToastContainer() {
       const customEvent = e as CustomEvent<{ message: string; type: ToastType; duration?: number }>;
       const { message, type, duration = 4000 } = customEvent.detail;
       
-      const newToast: ToastItem = {
-        id: `toast-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
-        message,
-        type,
-        duration,
-      };
+      const newId = `toast-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
-      setToasts((prev) => [...prev, newToast]);
+      setToasts((prev) => {
+        // Prevent identical messages from appearing multiple times concurrently
+        const isDuplicate = prev.some((t) => t.message === message);
+        if (isDuplicate) return prev;
 
-      // Tự động đóng sau khoảng thời gian duration
-      const timer = setTimeout(() => {
-        removeToast(newToast.id);
-      }, duration);
+        const newToast: ToastItem = {
+          id: newId,
+          message,
+          type,
+          duration,
+        };
 
-      return () => clearTimeout(timer);
+        // Tự động đóng sau khoảng thời gian duration
+        setTimeout(() => {
+          removeToast(newId);
+        }, duration);
+
+        return [...prev, newToast];
+      });
     };
 
     window.addEventListener(TOAST_EVENT, handleToastEvent);
