@@ -5,7 +5,7 @@ import { piapiService } from "./piapi.service";
 
 const GEMINI_TEXT_MODEL = process.env.GEMINI_MODEL || "gemini-3.5-flash";
 const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || "piapi-flux";
-const GEMINI_VIDEO_MODEL = process.env.GEMINI_VIDEO_MODEL || "piapi-kling";
+const GEMINI_VIDEO_MODEL = process.env.GEMINI_VIDEO_MODEL || "veo31-video-fast-audio";
 
 function normalizePiapiVideoModel(modelName?: string): string {
   const rawModel = (modelName || GEMINI_VIDEO_MODEL || "").trim();
@@ -44,7 +44,7 @@ function normalizePiapiVideoModel(modelName?: string): string {
     return rawModel;
   }
 
-  return "piapi-kling";
+  return "veo31-video-fast-audio";
 }
 
 async function generateText(
@@ -504,8 +504,8 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
           title: `Chiến dịch: Chạm Đột Phá - ${campaignTopic || "Mua Sắm Cuối Năm"}`,
           matchPercent: 95,
           summary: `Đột phá doanh số nhắm vào đối tượng trẻ tuổi. ${pillarsStr
-              ? `Tập trung sâu vào định hướng truyền thông từ các trụ cột lựa chọn: ${selectedPillars.join(", ")}.`
-              : "Tạo lối sống trải nghiệm công nghệ đeo và phong cách sống lành mạnh."
+            ? `Tập trung sâu vào định hướng truyền thông từ các trụ cột lựa chọn: ${selectedPillars.join(", ")}.`
+            : "Tạo lối sống trải nghiệm công nghệ đeo và phong cách sống lành mạnh."
             }`,
           channels: channels && channels.length > 0 ? channels : ["TikTok", "Facebook", "LinkedIn"],
           suggestedContent:

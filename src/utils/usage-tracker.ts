@@ -28,12 +28,6 @@ export const PRICING_TABLE: Record<string, {
     label: 'PiAPI Veo 3.1 Fast Silent',
     category: 'video',
   },
-  'piapi-kling': {
-    costPerUnitUSD: 18.0,
-    unit: 'seconds',
-    label: 'PiAPI Kling',
-    category: 'video',
-  },
   'gemini-2.5-flash-preview-tts': {
     costPerUnitUSD: 0.1275,
     unit: 'seconds',

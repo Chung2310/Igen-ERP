@@ -4,10 +4,9 @@ import { toast } from '../../pages/Toast';
 import { Film, Loader2, Play, Sparkles, Video, X } from 'lucide-react';
 
 const MODEL_OPTIONS = [
-  { value: 'piapi-veo31-video-audio', label: 'PiAPI Veo 3.1' },
   { value: 'piapi-veo31-video-fast-audio', label: 'PiAPI Veo 3.1 Fast' },
+  { value: 'piapi-veo31-video-audio', label: 'PiAPI Veo 3.1' },
   { value: 'piapi-veo31-video-fast-no-audio', label: 'PiAPI Veo 3.1 Fast Silent' },
-  { value: 'piapi-kling', label: 'PiAPI Kling' },
 ];
 
 const ASPECT_OPTIONS = [
