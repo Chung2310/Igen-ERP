@@ -3,7 +3,7 @@ import { IMarketingContent } from "../interface/marketing-content.interface";
 
 const MarketingContentSchema = new Schema<IMarketingContent>({
   title: { type: String, required: true, index: true },
-  channel: { type: String, enum: ["Facebook", "TikTok", "LinkedIn", "Instagram"], required: true, index: true },
+  channel: { type: String, enum: ["Facebook", "TikTok", "LinkedIn", "Instagram", "Zalo"], required: true, index: true },
   contentType: { type: String, required: true },
   status: { type: String, enum: ["draft", "pending", "approved", "scheduled", "published"], default: "draft", index: true },
   bodyText: { type: String, required: true },

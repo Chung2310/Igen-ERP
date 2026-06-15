@@ -5,8 +5,7 @@ import {
   RefreshCw, 
   Zap, 
   Facebook, 
-  Instagram, 
-  Linkedin, 
+  Lock,
   Video, 
   Image as ImageIcon,
   Paperclip,
@@ -216,7 +215,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
       title: "Chiến dịch: Chạm Đột Phá - Sành điệu công nghệ X1",
       matchPercent: 92,
       summary: "Tạo các video ngắn trên TikTok hướng đến lối sống tích cực, nhấn mạnh khả năng kết nối không dây siêu mượt và tính năng đo nhịp tim tự động của thiết bị X1.",
-      channels: ["TikTok", "Instagram"],
+      channels: ["TikTok", "Zalo"],
       suggestedContent: "🎬 Kịch bản Reels: Một ngày bận rộn bắt đầu... Chạm nhẹ thiết bị đeo X1 để bật nhạc chạy bộ buổi sáng kết thúc ngày hiệu năng đỉnh cao.",
       hashtags: ["#iGenX1", "#SmartWearable", "#NangTamCuocSong"]
     },
@@ -224,7 +223,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
       title: "Giải pháp chuyển đổi số - Tri ân doanh nghiệp",
       matchPercent: 88,
       summary: "Chiến dịch bài viết uy tín sâu trên LinkedIn & Facebook tri ân các đối tác đã số hóa quản lý Kho hàng nhờ iGen ERP.",
-      channels: ["LinkedIn", "Facebook"],
+      channels: ["Zalo", "Facebook"],
       suggestedContent: "✍️ Câu chuyện: Gặp gỡ thương hiệu thời trang G-Trend, từ bế tắc thất thoát tồn kho đến quản lý an nhàn tự động 100% nhờ iGen-Forecast.",
       hashtags: ["#iGenERP", "#ChuyenDoiSo", "#DigitalTransformation"]
     }
@@ -856,7 +855,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                           className={`px-2.5 py-1 text-[10px] rounded-md font-medium transition-all cursor-pointer select-none border ${
                             isMatch
                               ? "bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-600 shadow-xs transform scale-102 font-semibold"
-                              : "bg-white hover:bg-slate-100 text-gray-650 text-gray-600 border-gray-200"
+                              : "bg-white hover:bg-slate-100 text-gray-600 border-gray-200"
                           }`}
                         >
                           {s}
@@ -876,8 +875,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                   {[
                     { id: "Facebook", icon: <Facebook className="h-3.5 w-3.5" /> },
                     { id: "TikTok", icon: <span className="font-bold text-[10px] font-mono leading-none">TT</span> },
-                    { id: "LinkedIn", icon: <Linkedin className="h-3.5 w-3.5" /> },
-                    { id: "Instagram", icon: <Instagram className="h-3.5 w-3.5" /> }
+                    { id: "Zalo", icon: <span className="font-extrabold text-[10px] font-mono leading-none">ZA</span> }
                   ].map((chan) => {
                     const isSelected = selectedChannels.includes(chan.id);
                     return (

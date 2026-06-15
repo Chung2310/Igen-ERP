@@ -532,7 +532,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
             ? `Tập trung sâu vào định hướng truyền thông từ các trụ cột lựa chọn: ${selectedPillars.join(", ")}.`
             : "Tạo lối sống trải nghiệm công nghệ đeo và phong cách sống lành mạnh."
             }`,
-          channels: channels && channels.length > 0 ? channels : ["TikTok", "Facebook", "LinkedIn"],
+          channels: channels && channels.length > 0 ? channels : ["TikTok", "Facebook", "Zalo"],
           suggestedContent:
             "🎬 Kịch bản Tiktok: Biến đổi phong cách thường ngày thành phong cách năng động thể thao chỉ sau 1 cái chạm màn hình X1.",
           hashtags: ["#iGenX1", "#SmartWearable", "#NangTamCuocSong"],
@@ -542,7 +542,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
           matchPercent: 88,
           summary: `Quảng bá giá trị cốt lõi bền vững thông qua chuỗi bài viết phỏng vấn các đối tác trung thành thực tế đang nâng tầm công việc cùng Workspace V2. ${pillarsStr ? `Điều phối theo: ${selectedPillars.join(", ")}.` : ""
             }`,
-          channels: channels && channels.length > 0 ? channels : ["Facebook", "LinkedIn"],
+          channels: channels && channels.length > 0 ? channels : ["Facebook", "Zalo"],
           suggestedContent:
             "✍️ Facebook Post: 'Gặp gỡ anh Hùng, Giám đốc Sáng tạo, người đã nâng cấp 200% tốc độ gõ nhờ Bàn phím cơ Workspace V2...'",
           hashtags: ["#WorkspaceV2", "#KeyboardMechanic", "#TangHieuSuat"],
@@ -552,7 +552,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
           matchPercent: 78,
           summary: `Tạo sự gấp rút bằng tính năng đếm ngược flash sale được quản lý tự động bởi thuật toán đề xuất của iGen ERP. ${pillarsStr ? `Kế thừa ý tưởng từ các Content Pillar được cấu hình: ${selectedPillars.join(", ")}.` : ""
             }`,
-          channels: channels && channels.length > 0 ? channels : ["Facebook", "Instagram"],
+          channels: channels && channels.length > 0 ? channels : ["Facebook", "Zalo"],
           suggestedContent:
             "🔥 Tin nhắn Zalo: 'Duy nhất hôm nay! Giờ vàng từ 12h-14h, giảm giá 30% toàn bộ tai nghe Không dây Pro Max. Đặt ngay!'",
           hashtags: ["#FlashSale", "#TaiNgheProMax", "#AmThanhDinhCao"],
@@ -663,7 +663,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
       videoAspectRatio?: string;
     }
   ): Promise<{ posts: any[]; isMock: boolean }> {
-    const validChannels = ["Facebook", "TikTok", "LinkedIn", "Instagram"];
+    const validChannels = ["Facebook", "TikTok", "LinkedIn", "Instagram", "Zalo"];
 
     // Normalize target channels: filter out invalid channels, map input to valid ones
     const normalizeChannel = (chan: string): string => {
@@ -673,6 +673,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
       if (c.includes("tiktok") || c.includes("tik tok") || c.includes("reels") || c.includes("video ngắn")) return "TikTok";
       if (c.includes("linkedin") || c.includes("linked in") || c.includes("link")) return "LinkedIn";
       if (c.includes("instagram") || c.includes("insta") || c.includes("ig")) return "Instagram";
+      if (c.includes("zalo")) return "Zalo";
       return "Facebook";
     };
 
@@ -798,7 +799,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
                   items: {
                     type: Type.OBJECT,
                     properties: {
-                      channel: { type: Type.STRING, description: "Kênh đăng bài (ví dụ: Facebook, TikTok, LinkedIn, Instagram)" },
+                      channel: { type: Type.STRING, description: "Kênh đăng bài (ví dụ: Facebook, TikTok, LinkedIn, Instagram, Zalo)" },
                       contentType: { type: Type.STRING, description: "Loại nội dung" },
                       outline: {
                         type: Type.STRING,
