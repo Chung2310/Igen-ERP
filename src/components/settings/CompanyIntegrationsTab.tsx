@@ -25,6 +25,38 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
   const [compBlotatoAccountId, setCompBlotatoAccountId] = useState("");
   const [compAccessToken, setCompAccessToken] = useState("");
   const [showCompToken, setShowCompToken] = useState(false);
+  const [compAppSecret, setCompAppSecret] = useState("");
+  const [compVerifyToken, setCompVerifyToken] = useState("");
+  const platformMeta = {
+    TikTok: {
+      displayPlaceholder: "Vi du: TikTok Cong ty",
+      usernameLabel: "Ten tai khoan (Username)",
+      usernamePlaceholder: "igen_business",
+      tokenLabel: "Blotato API Key *",
+      tokenPlaceholder: "Nhap Blotato API Key",
+      tokenHelp: "Khoa API dung de dang bai qua trung gian Blotato.",
+      activeClass: "border-black bg-black text-white shadow-sm",
+    },
+    Facebook: {
+      displayPlaceholder: "Vi du: Fanpage Chinh thuc",
+      usernameLabel: "Page ID / Username",
+      usernamePlaceholder: "Vi du: 123456789012345 hoac igen.erp.fanpage",
+      tokenLabel: "Page Access Token *",
+      tokenPlaceholder: "Nhap Page Access Token",
+      tokenHelp: "Nen luu Page ID that cua fanpage de dung on dinh cho cac luong Facebook.",
+      activeClass: "border-[#1877F2] bg-[#1877F2] text-white shadow-sm",
+    },
+    Zalo: {
+      displayPlaceholder: "Vi du: Zalo OA Shop",
+      usernameLabel: "OA ID hoac Username",
+      usernamePlaceholder: "OA ID hoac Username",
+      tokenLabel: "Zalo Access Token *",
+      tokenPlaceholder: "Nhap Zalo Access Token",
+      tokenHelp: "Access Token cua Official Account.",
+      activeClass: "border-[#0068ff] bg-[#0068ff] text-white shadow-sm",
+    },
+  } as const;
+  const currentPlatformMeta = platformMeta[compPlatform];
 
   // Fetch company integrations
   const fetchCompanyIntegrations = async () => {
@@ -67,6 +99,8 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
         username: compUsername.trim() || undefined,
         blotatoAccountId: compPlatform === "TikTok" ? compBlotatoAccountId.trim() : undefined,
         accessToken: compAccessToken.trim(),
+        appSecret: compPlatform === "Facebook" ? compAppSecret.trim() : undefined,
+        verifyToken: compPlatform === "Facebook" ? compVerifyToken.trim() : undefined,
         isConnected: true,
         createdBy: userProfile?.email || "system",
       };
@@ -99,6 +133,8 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
     setCompBlotatoAccountId(integration.blotatoAccountId || "");
     setCompAccessToken(integration.accessToken || "");
     setShowCompToken(false);
+    setCompAppSecret(integration.appSecret || "");
+    setCompVerifyToken(integration.verifyToken || "");
   };
 
   const handleDeleteCompanyIntegration = async (id: string) => {
@@ -129,6 +165,8 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
     setCompBlotatoAccountId("");
     setCompAccessToken("");
     setShowCompToken(false);
+    setCompAppSecret("");
+    setCompVerifyToken("");
   };
 
   return (
@@ -167,9 +205,9 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Nền tảng *</label>
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { value: "TikTok", label: "TikTok", color: "peer-checked:bg-black peer-checked:text-white" },
-                    { value: "Facebook", label: "Facebook", color: "peer-checked:bg-blue-650 peer-checked:text-white" },
-                    { value: "Zalo", label: "Zalo", color: "peer-checked:bg-[#0068ff] peer-checked:text-white" }
+                    { value: "TikTok", label: "TikTok" },
+                    { value: "Facebook", label: "Facebook" },
+                    { value: "Zalo", label: "Zalo" }
                   ].map((p) => (
                     <label key={p.value} className="cursor-pointer">
                       <input
@@ -185,7 +223,11 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
                         disabled={!!editingIntegrationId}
                         className="sr-only peer"
                       />
-                      <div className={`py-2 text-center rounded-xl border border-gray-250 text-xs font-semibold text-gray-500 bg-white transition-all peer-checked:border-transparent ${p.color} ${editingIntegrationId ? "opacity-60 cursor-not-allowed" : "hover:border-gray-300"}`}>
+                      <div className={`py-2 text-center rounded-xl border text-xs font-semibold transition-all ${
+                        compPlatform === p.value
+                          ? platformMeta[p.value as keyof typeof platformMeta].activeClass
+                          : "border-gray-250 bg-white text-gray-500"
+                      } ${editingIntegrationId ? "opacity-60 cursor-not-allowed" : "hover:border-gray-300"}`}>
                         {p.label}
                       </div>
                     </label>
@@ -201,24 +243,29 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
                   required
                   value={compDisplayName}
                   onChange={(e) => setCompDisplayName(e.target.value)}
-                  placeholder={compPlatform === "TikTok" ? "Ví dụ: TikTok Công ty" : compPlatform === "Facebook" ? "Ví dụ: Fanpage Chính thức" : "Ví dụ: Zalo OA Shop"}
+                  placeholder={currentPlatformMeta.displayPlaceholder}
                   className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all"
                 />
               </div>
 
               {/* Username */}
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Tên tài khoản (Username / Page ID)</label>
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">{currentPlatformMeta.usernameLabel}</label>
                 <div className="relative">
                   {compPlatform === "TikTok" && <span className="absolute left-3.5 top-2.5 text-xs text-gray-400 font-bold select-none">@</span>}
                   <input
                     type="text"
                     value={compUsername}
                     onChange={(e) => setCompUsername(e.target.value)}
-                    placeholder={compPlatform === "TikTok" ? "igen_business" : compPlatform === "Facebook" ? "igen.erp.fanpage" : "OA ID hoặc Username"}
+                    placeholder={currentPlatformMeta.usernamePlaceholder}
                     className={`w-full ${compPlatform === "TikTok" ? "pl-8" : "px-3.5"} py-2.5 bg-white border border-gray-200 rounded-xl text-xs text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all`}
                   />
                 </div>
+                {compPlatform === "Facebook" && (
+                  <p className="text-[9px] text-gray-400 leading-normal">
+                    Ưu tiên nhập Page ID thật của fanpage. Đây là trường backend đang dùng để gọi lại các luồng Facebook.
+                  </p>
+                )}
               </div>
 
               {/* Blotato Account ID (Only for TikTok) */}
@@ -241,16 +288,14 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
 
               {/* Access Token / API Key */}
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
-                  {compPlatform === "TikTok" ? "Blotato API Key *" : compPlatform === "Facebook" ? "Page Access Token *" : "Zalo Access Token *"}
-                </label>
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">{currentPlatformMeta.tokenLabel}</label>
                 <div className="relative flex items-center">
                   <input
                     type={showCompToken ? "text" : "password"}
                     required
                     value={compAccessToken}
                     onChange={(e) => setCompAccessToken(e.target.value)}
-                    placeholder={compPlatform === "TikTok" ? "Nhập Blotato API Key" : compPlatform === "Facebook" ? "Nhập Page Access Token" : "Nhập Zalo Access Token"}
+                    placeholder={currentPlatformMeta.tokenPlaceholder}
                     className="w-full pl-3.5 pr-10 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-mono text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all"
                   />
                   <button
@@ -261,14 +306,41 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
                     {showCompToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
-                <p className="text-[9px] text-gray-400 leading-normal">
-                  {compPlatform === "TikTok" 
-                    ? "Khóa API dùng để đăng bài qua trung gian Blotato."
-                    : compPlatform === "Facebook" 
-                    ? "Token dài hạn lấy từ Facebook Developers Console."
-                    : "Access Token của Official Account."}
-                </p>
+                <p className="text-[9px] text-gray-400 leading-normal">{currentPlatformMeta.tokenHelp}</p>
               </div>
+
+              {/* Facebook Message configurations: App Secret and Verify Token */}
+              {compPlatform === "Facebook" && (
+                <>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">App Secret</label>
+                    <input
+                      type="text"
+                      value={compAppSecret}
+                      onChange={(e) => setCompAppSecret(e.target.value)}
+                      placeholder="Nhập Facebook App Secret (nếu dùng cho Message)"
+                      className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-mono text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all"
+                    />
+                    <p className="text-[9px] text-gray-400 leading-normal">
+                      App Secret của ứng dụng Facebook dùng để xác thực chữ ký tin nhắn.
+                    </p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Verify Token</label>
+                    <input
+                      type="text"
+                      value={compVerifyToken}
+                      onChange={(e) => setCompVerifyToken(e.target.value)}
+                      placeholder="Nhập Webhook Verify Token (nếu dùng cho Message)"
+                      className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-mono text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all"
+                    />
+                    <p className="text-[9px] text-gray-400 leading-normal">
+                      Mã xác minh cấu hình trên Facebook Webhook dashboard.
+                    </p>
+                  </div>
+                </>
+              )}
 
               {/* Action Buttons */}
               <div className="pt-2 flex gap-2">
@@ -378,6 +450,18 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
                           </button>
                         </div>
                       </div>
+                      {item.platform === "Facebook" && item.appSecret && (
+                        <div className="flex justify-between gap-2">
+                          <span className="text-gray-400">App Secret:</span>
+                          <span className="font-semibold truncate max-w-[130px]">{item.appSecret}</span>
+                        </div>
+                      )}
+                      {item.platform === "Facebook" && item.verifyToken && (
+                        <div className="flex justify-between gap-2">
+                          <span className="text-gray-400">Verify Token:</span>
+                          <span className="font-semibold truncate max-w-[130px]">{item.verifyToken}</span>
+                        </div>
+                      )}
                       <div className="flex justify-between gap-2 pt-1.5 border-t border-gray-150">
                         <span className="text-gray-400">Tạo bởi:</span>
                         <span className="truncate max-w-[140px]" title={item.createdBy}>{item.createdBy}</span>

@@ -13,5 +13,7 @@ export interface ISocialIntegration extends Document {
   accessToken?: string;
   refreshToken?: string;
   tokenExpiredAt?: Date;
+  appSecret?: string;
+  verifyToken?: string;
   isMock: boolean;
 }

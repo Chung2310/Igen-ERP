@@ -35,18 +35,45 @@ export const aiAutoReplyService = {
         return;
       }
 
-      // Find the user who owns this integration
-      const query = channel === "zalo" 
-        ? { "zaloIntegration.isConnected": true, "zaloIntegration.oaId": platformId }
-        : { "facebookIntegration.isConnected": true, "facebookIntegration.pageId": platformId };
-      
-      const user = await UserModel.findOne(query);
+      // Find the user who owns this integration or the company-level integration
+      let user = null;
+      let aiConfig = null;
+
+      if (channel === "facebook" || channel === "zalo") {
+        const { SocialIntegrationModel } = require("../model/social-integration.model");
+        const companyIntegration = await SocialIntegrationModel.findOne({
+          platform: channel === "zalo" ? "Zalo" : "Facebook",
+          username: platformId, // pageId or oaId is stored in username
+          isConnected: true
+        }).lean();
+
+        if (companyIntegration) {
+          const companyCode = companyIntegration.companyCode;
+          // Find a user from this company to read their AI Auto-Reply configuration
+          user = await UserModel.findOne({ companyCode });
+          if (user) {
+            aiConfig = user.aiAutoReplyConfig;
+          }
+        }
+      }
+
+      // Fallback/Legacy query if user or config not found
+      if (!user) {
+        const query = channel === "zalo" 
+          ? { "zaloIntegration.isConnected": true, "zaloIntegration.oaId": platformId }
+          : { "facebookIntegration.isConnected": true, "facebookIntegration.pageId": platformId };
+        
+        user = await UserModel.findOne(query);
+        if (user) {
+          aiConfig = user.aiAutoReplyConfig;
+        }
+      }
+
       if (!user) {
         console.warn(`[AI AutoReply] Không tìm thấy tích hợp ${channel} cho ID: ${platformId}`);
         return;
       }
 
-      const aiConfig = user.aiAutoReplyConfig;
       if (!aiConfig || !aiConfig.enabled) {
         // AI auto-reply is disabled
         return;
@@ -70,10 +97,10 @@ export const aiAutoReplyService = {
             const conv = await ZaloConversationModel.findById(conversationId);
             if (!conv) return;
 
-            // Fetch last 10 messages for history context
+            // Fetch last 15 messages for history context
             const dbMsgs = await ZaloMessageModel.find({ conversationId })
               .sort({ timestamp: -1 })
-              .limit(10);
+              .limit(15);
             
             dbMsgs.reverse();
             
@@ -89,9 +116,10 @@ export const aiAutoReplyService = {
             const conv = await FBConversationModel.findById(conversationId);
             if (!conv) return;
 
+            // Fetch last 15 messages for history context
             const dbMsgs = await FBMessageModel.find({ conversationId })
               .sort({ timestamp: -1 })
-              .limit(10);
+              .limit(15);
             
             dbMsgs.reverse();
 

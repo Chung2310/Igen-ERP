@@ -2,6 +2,31 @@ import { Request, Response } from "express";
 import { zaloMessengerService } from "../service/zalo-messenger.service";
 import { UserModel } from "../model/user.model";
 
+async function getZaloOaConfig(userId: string): Promise<{ isConnected: boolean; oaId?: string }> {
+  const dbUser = await UserModel.findById(userId).lean();
+  if (!dbUser) {
+    return { isConnected: false };
+  }
+
+  if (dbUser.zaloIntegration?.isConnected && dbUser.zaloIntegration.oaId) {
+    return { isConnected: true, oaId: dbUser.zaloIntegration.oaId };
+  }
+
+  // Try company integration lookup
+  const { SocialIntegrationModel } = require("../model/social-integration.model");
+  const companyIntegration = await SocialIntegrationModel.findOne({
+    companyCode: dbUser.companyCode,
+    platform: "Zalo",
+    isConnected: true
+  }).lean();
+
+  if (companyIntegration && companyIntegration.username) {
+    return { isConnected: true, oaId: companyIntegration.username };
+  }
+
+  return { isConnected: false };
+}
+
 export const zaloMessengerController = {
   /**
    * POST /api/v1/zalo/webhook
@@ -35,13 +60,8 @@ export const zaloMessengerController = {
         return res.status(401).json({ success: false, message: "Người dùng chưa đăng nhập." });
       }
 
-      const dbUser = await UserModel.findById(userId).lean();
-      if (!dbUser) {
-        return res.status(404).json({ success: false, message: "Không tìm thấy thông tin tài khoản." });
-      }
-
-      const oaId = dbUser?.zaloIntegration?.oaId;
-      if (!dbUser?.zaloIntegration?.isConnected || !oaId) {
+      const { isConnected, oaId } = await getZaloOaConfig(userId);
+      if (!isConnected || !oaId) {
         return res.status(200).json({ success: true, data: [] });
       }
 
@@ -59,7 +79,8 @@ export const zaloMessengerController = {
    */
   async getMessages(req: any, res: Response): Promise<any> {
     try {
-      const { recipientId: conversationId } = req.params;
+      const { recipientId } = req.params;
+      const conversationId = req.params.conversationId || recipientId;
       const userId = req.user?.id;
       const limit = Number(req.query.limit || 20);
       const before = typeof req.query.before === "string" ? req.query.before : undefined;
@@ -69,10 +90,9 @@ export const zaloMessengerController = {
         return res.status(401).json({ success: false, message: "Người dùng chưa đăng nhập." });
       }
 
-      const dbUser = await UserModel.findById(userId).lean();
-      const oaId = dbUser?.zaloIntegration?.oaId;
+      const { isConnected, oaId } = await getZaloOaConfig(userId);
 
-      if (!dbUser?.zaloIntegration?.isConnected || !oaId) {
+      if (!isConnected || !oaId) {
         return res.status(403).json({ success: false, message: "Bạn chưa cấu hình tích hợp Zalo OA." });
       }
 
@@ -95,17 +115,17 @@ export const zaloMessengerController = {
    */
   async markRead(req: any, res: Response): Promise<any> {
     try {
-      const { recipientId: conversationId } = req.params;
+      const { recipientId } = req.params;
+      const conversationId = req.params.conversationId || recipientId;
       const userId = req.user?.id;
 
       if (!userId) {
         return res.status(401).json({ success: false, message: "Người dùng chưa đăng nhập." });
       }
 
-      const dbUser = await UserModel.findById(userId).lean();
-      const oaId = dbUser?.zaloIntegration?.oaId;
+      const { isConnected, oaId } = await getZaloOaConfig(userId);
 
-      if (!dbUser?.zaloIntegration?.isConnected || !oaId) {
+      if (!isConnected || !oaId) {
         return res.status(403).json({ success: false, message: "Bạn chưa cấu hình tích hợp Zalo OA." });
       }
 
@@ -127,22 +147,22 @@ export const zaloMessengerController = {
 
   async sendReply(req: any, res: Response): Promise<any> {
     try {
-      const { recipientId: conversationId, text } = req.body;
+      const { text } = req.body;
+      const conversationId = req.body.conversationId || req.body.recipientId;
       const userId = req.user?.id;
 
       if (!userId) {
         return res.status(401).json({ success: false, message: "Người dùng chưa đăng nhập." });
       }
 
-      const dbUser = await UserModel.findById(userId).lean();
-      const oaId = dbUser?.zaloIntegration?.oaId;
+      const { isConnected, oaId } = await getZaloOaConfig(userId);
 
-      if (!dbUser?.zaloIntegration?.isConnected || !oaId) {
+      if (!isConnected || !oaId) {
         return res.status(403).json({ success: false, message: "Bạn chưa cấu hình tích hợp Zalo OA." });
       }
 
       if (!conversationId || !text) {
-        return res.status(400).json({ success: false, message: "Thiếu recipientId hoặc nội dung text." });
+        return res.status(400).json({ success: false, message: "Thiếu conversationId hoặc nội dung text." });
       }
 
       const result = await zaloMessengerService.sendReply(oaId, conversationId, text);

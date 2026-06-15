@@ -1,59 +1,76 @@
-import { WalletModel } from "../model/wallet.model";
 import { TransactionModel } from "../model/transaction.model";
+import { UserModel } from "../model/user.model";
+import { WalletModel } from "../model/wallet.model";
 
-// Bảng giá dịch vụ API (đơn vị: USD)
+// Bang gia dich vu API (don vi: Credit)
 export const API_COSTS = {
-  GEMINI_CHAT: 0.01,           // $0.01 cho mỗi câu hỏi chat
-  GEMINI_MARKETING: 0.01,      // $0.01 cho mỗi lần tạo gợi ý/content pillars/ideas/develop
-  GEMINI_IMAGE: 0.10,          // $0.10 cho mỗi ảnh sinh ra
-  GEMINI_VIDEO: 0.50,          // $0.50 cho mỗi video sinh ra
-  GEMINI_OPTIMIZE: 0.01,       // $0.01 cho mỗi lần tối ưu kịch bản/prompt
-  GEMINI_FAQ: 0.02,            // $0.02 cho mỗi lần đồng bộ Drive/FAQ
-  ELEVENLABS_TTS_CHAR: 0.00005, // $0.00005 cho mỗi ký tự sinh giọng nói
-  ELEVENLABS_MIN: 0.01,        // $0.01 phí tối thiểu ElevenLabs
-  HEYGEN_VIDEO: 1.00,          // $1.00 cho mỗi video avatar HeyGen
+  GEMINI_CHAT: 2.5,
+  GEMINI_MARKETING: 2.5,
+  GEMINI_IMAGE: 27.5,
+  GEMINI_VIDEO: 324,
+  GEMINI_OPTIMIZE: 2.5,
+  GEMINI_FAQ: 2.5,
+  ELEVENLABS_TTS_CHAR: 0.005,
+  ELEVENLABS_MIN: 1.0,
+  HEYGEN_VIDEO: 100,
+};
+
+type AdminBalanceFilters = {
+  companyCode?: string;
+};
+
+type AdminSetBalanceInput = {
+  targetUserId: string;
+  balance: number;
+  actorUserId: string;
+  actorEmail?: string;
+  note?: string;
+};
+
+type AdminTransactionFilters = {
+  targetUserId: string;
+  limit?: number;
 };
 
 export const walletService = {
+  async getOrCreateWallet(userId: string) {
+    let wallet = await WalletModel.findOne({ userId });
+    if (!wallet) {
+      wallet = new WalletModel({ userId, balance: 0 });
+      await wallet.save();
+    }
+    return wallet;
+  },
+
   /**
-   * Kiểm tra xem người dùng có đủ số dư ví để thực hiện yêu cầu không
-   * @param userId ID người dùng
-   * @param amount Số tiền USD cần kiểm tra
+   * Kiem tra xem nguoi dung co du so du vi de thuc hien yeu cau khong
    */
   async checkBalance(userId: string, amount: number): Promise<void> {
     if (amount <= 0) return;
 
-    let wallet = await WalletModel.findOne({ userId });
-    if (!wallet) {
-      // Tự động khởi tạo ví mới nếu chưa tồn tại
-      wallet = new WalletModel({ userId, balance: 0 });
-      await wallet.save();
-    }
+    const wallet = await this.getOrCreateWallet(userId);
 
     if (wallet.balance < amount) {
-      const error: any = new Error("Số dư ví không đủ. Vui lòng nạp thêm tiền vào ví để tiếp tục sử dụng dịch vụ.");
-      error.statusCode = 402; // Payment Required
+      const error: any = new Error(
+        "Số dư ví không đủ. Vui lòng nạp thêm tiền vào ví để tiếp tục sử dụng dịch vụ."
+      );
+      error.statusCode = 402;
       throw error;
     }
   },
 
   /**
-   * Khấu trừ số dư ví người dùng sau khi API thực hiện thành công
-   * @param userId ID người dùng
-   * @param amount Số tiền USD khấu trừ
-   * @param description Mô tả chi tiết giao dịch
+   * Khau tru so du vi nguoi dung sau khi API thuc hien thanh cong
    */
   async deductBalance(userId: string, amount: number, description: string): Promise<any> {
     if (amount <= 0) return null;
 
-    // 1. Khấu trừ số dư ví người dùng sử dụng findOneAndUpdate nguyên tử
     const wallet = await WalletModel.findOneAndUpdate(
       { userId },
       { $inc: { balance: -amount }, $set: { updatedAt: new Date() } },
       { upsert: true, returnDocument: "after" }
     );
 
-    // 2. Sinh mã đơn hàng ngẫu nhiên duy nhất dạng số nguyên
     let orderCode: number;
     let existing: any;
     do {
@@ -61,7 +78,6 @@ export const walletService = {
       existing = await TransactionModel.findOne({ orderCode });
     } while (existing);
 
-    // 3. Ghi nhận giao dịch trừ tiền thành công
     const transaction = new TransactionModel({
       userId,
       orderCode,
@@ -74,7 +90,114 @@ export const walletService = {
     });
     await transaction.save();
 
-    console.log(`[Wallet Service] Khấu trừ thành công $${amount} USD từ User ID: ${userId} (${description}). Số dư mới: $${wallet.balance} USD.`);
+    console.log(
+      `[Wallet Service] Khau tru thanh cong ${amount} Credit tu User ID: ${userId} (${description}). So du moi: ${wallet.balance} Credit.`
+    );
     return { wallet, transaction };
-  }
+  },
+
+  async getAdminBalanceList(filters: AdminBalanceFilters = {}) {
+    const userQuery: Record<string, any> = {};
+    if (filters.companyCode && filters.companyCode !== "all") {
+      userQuery.companyCode = filters.companyCode;
+    }
+
+    const users = await UserModel.find(userQuery)
+      .select("displayName email role companyCode companyName createdAt")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const userIds = users.map((user) => String(user._id));
+    const wallets = userIds.length > 0 ? await WalletModel.find({ userId: { $in: userIds } }).lean() : [];
+    const walletMap = new Map(wallets.map((wallet) => [wallet.userId, wallet]));
+
+    return users.map((user) => {
+      const userId = String(user._id);
+      const wallet = walletMap.get(userId);
+      return {
+        userId,
+        displayName: user.displayName,
+        email: user.email,
+        role: user.role,
+        companyCode: user.companyCode || "",
+        companyName: user.companyName || "",
+        balance: wallet?.balance ?? 0,
+        currency: wallet?.currency || "USD",
+        updatedAt: wallet?.updatedAt || user.createdAt,
+      };
+    });
+  },
+
+  async getAdminTransactionHistory(filters: AdminTransactionFilters) {
+    const limit = Math.max(1, Math.min(filters.limit || 20, 100));
+    return await TransactionModel.find({ userId: filters.targetUserId })
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean();
+  },
+
+  async adminSetBalance(input: AdminSetBalanceInput) {
+    const { targetUserId, balance, actorUserId, actorEmail, note } = input;
+
+    if (!Number.isFinite(balance) || balance < 0) {
+      const error: any = new Error("So du moi khong hop le.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const targetUser = await UserModel.findById(targetUserId).select("displayName email");
+    if (!targetUser) {
+      const error: any = new Error("Khong tim thay nguoi dung can cap nhat so du.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const wallet = await this.getOrCreateWallet(targetUserId);
+    const previousBalance = wallet.balance ?? 0;
+    const normalizedBalance = Number(balance.toFixed(2));
+    const delta = Number((normalizedBalance - previousBalance).toFixed(2));
+
+    wallet.balance = normalizedBalance;
+    wallet.updatedAt = new Date();
+    await wallet.save();
+
+    if (delta !== 0) {
+      let orderCode: number;
+      let existing: any;
+      do {
+        orderCode = Math.floor(10000000 + Math.random() * 90000000);
+        existing = await TransactionModel.findOne({ orderCode });
+      } while (existing);
+
+      const actorLabel = actorEmail || actorUserId;
+      const descriptionParts = [
+        `Superadmin ${actorLabel} da chinh sua so du vi`,
+        `tu ${previousBalance.toFixed(2)} Credit thanh ${normalizedBalance.toFixed(2)} Credit`,
+      ];
+      if (note?.trim()) {
+        descriptionParts.push(`Ghi chu: ${note.trim()}`);
+      }
+
+      const transaction = new TransactionModel({
+        userId: targetUserId,
+        orderCode,
+        amount: Math.abs(delta),
+        type: delta > 0 ? "deposit" : "withdraw",
+        status: "success",
+        description: descriptionParts.join(". "),
+        createdAt: new Date(),
+        completedAt: new Date(),
+      });
+      await transaction.save();
+    }
+
+    return {
+      userId: targetUserId,
+      displayName: targetUser.displayName,
+      email: targetUser.email,
+      balance: wallet.balance,
+      currency: wallet.currency,
+      updatedAt: wallet.updatedAt,
+    };
+  },
 };

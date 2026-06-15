@@ -2,10 +2,10 @@ import { getAccessToken } from "./authService";
 
 export const fbMessengerService = {
   /**
-   * Lấy danh sách cuộc hội thoại của Page Facebook đã liên kết
+   * Lay danh sach cuoc hoi thoai cua Page Facebook da lien ket
    */
   async getConversations(options?: { sync?: boolean }): Promise<any[]> {
-    console.log("[FE FB Service] Bắt đầu gọi API getConversations...");
+    console.log("[FE FB Service] Bat dau goi API getConversations...");
     const params = new URLSearchParams();
     if (options?.sync) {
       params.set("sync", "1");
@@ -13,25 +13,25 @@ export const fbMessengerService = {
     const query = params.toString() ? `?${params.toString()}` : "";
     const res = await fetch(`/api/v1/facebook/messenger/conversations${query}`, {
       headers: {
-        "Authorization": `Bearer ${getAccessToken()}`,
+        Authorization: `Bearer ${getAccessToken()}`,
       },
     });
-    
+
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      console.error("[FE FB Service] API getConversations thất bại:", res.status, data);
-      throw new Error(data.message || "Không thể tải danh sách cuộc hội thoại.");
+      console.error("[FE FB Service] API getConversations that bai:", res.status, data);
+      throw new Error(data.message || "Khong the tai danh sach cuoc hoi thoai.");
     }
-    
+
     const result = await res.json();
-    console.log(`[FE FB Service] API getConversations thành công. Số lượng hội thoại: ${result.data?.length || 0}`);
+    console.log(`[FE FB Service] API getConversations thanh cong. So luong hoi thoai: ${result.data?.length || 0}`);
     return result.data || [];
   },
 
   /**
-   * Lấy lịch sử tin nhắn của một cuộc hội thoại cụ thể
+   * Lay lich su tin nhan cua mot cuoc hoi thoai cu the
    */
-  async getMessages(recipientId: string, options?: { limit?: number; before?: string; sync?: boolean }): Promise<{ data: any[]; pagination: { limit: number; hasMore: boolean; nextBefore: string | null } }> {
+  async getMessages(conversationId: string, options?: { limit?: number; before?: string; sync?: boolean }): Promise<{ data: any[]; pagination: { limit: number; hasMore: boolean; nextBefore: string | null } }> {
     const params = new URLSearchParams();
     params.set("limit", String(options?.limit || 20));
     if (options?.before) {
@@ -40,68 +40,68 @@ export const fbMessengerService = {
     if (options?.sync) {
       params.set("sync", "1");
     }
-    console.log(`[FE FB Service] Bắt đầu gọi API getMessages cho khách hàng PSID: ${recipientId}...`);
-    const res = await fetch(`/api/v1/facebook/messenger/conversations/${recipientId}/messages?${params.toString()}`, {
+    console.log(`[FE FB Service] Bat dau goi API getMessages cho conversation: ${conversationId}...`);
+    const res = await fetch(`/api/v1/facebook/messenger/conversations/${conversationId}/messages?${params.toString()}`, {
       headers: {
-        "Authorization": `Bearer ${getAccessToken()}`,
+        Authorization: `Bearer ${getAccessToken()}`,
       },
     });
-    
+
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      console.error(`[FE FB Service] API getMessages cho PSID ${recipientId} thất bại:`, res.status, data);
-      throw new Error(data.message || "Không thể tải lịch sử tin nhắn.");
+      console.error(`[FE FB Service] API getMessages cho conversation ${conversationId} that bai:`, res.status, data);
+      throw new Error(data.message || "Khong the tai lich su tin nhan.");
     }
-    
+
     const result = await res.json();
-    console.log(`[FE FB Service] API getMessages cho PSID ${recipientId} thành công. Số lượng tin nhắn: ${result.data?.length || 0}`);
+    console.log(`[FE FB Service] API getMessages cho conversation ${conversationId} thanh cong. So luong tin nhan: ${result.data?.length || 0}`);
     return {
       data: result.data || [],
-      pagination: result.pagination || { limit: options?.limit || 20, hasMore: false, nextBefore: null }
+      pagination: result.pagination || { limit: options?.limit || 20, hasMore: false, nextBefore: null },
     };
   },
 
   /**
-   * Gửi phản hồi tin nhắn cho khách hàng qua Facebook Send API
+   * Danh dau da doc cuoc hoi thoai qua Facebook
    */
-  async markRead(recipientId: string): Promise<any> {
-    console.log(`[FE FB Service] Bắt đầu gọi API markRead cho PSID: ${recipientId}...`);
-    const res = await fetch(`/api/v1/facebook/messenger/conversations/${recipientId}/mark-read`, {
+  async markRead(conversationId: string): Promise<any> {
+    console.log(`[FE FB Service] Bat dau goi API markRead cho conversation: ${conversationId}...`);
+    const res = await fetch(`/api/v1/facebook/messenger/conversations/${conversationId}/mark-read`, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${getAccessToken()}`,
+        Authorization: `Bearer ${getAccessToken()}`,
       },
     });
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      console.error(`[FE FB Service] API markRead cho PSID ${recipientId} thất bại:`, res.status, data);
-      throw new Error(data.message || "Không thể đánh dấu đã đọc cuộc hội thoại.");
+      console.error(`[FE FB Service] API markRead cho conversation ${conversationId} that bai:`, res.status, data);
+      throw new Error(data.message || "Khong the danh dau da doc cuoc hoi thoai.");
     }
 
     const result = await res.json();
     return result.data;
   },
 
-  async sendReply(recipientId: string, text: string): Promise<any> {
-    console.log(`[FE FB Service] Bắt đầu gọi API sendReply tới PSID ${recipientId}. Nội dung: "${text}"`);
+  async sendReply(conversationId: string, text: string): Promise<any> {
+    console.log(`[FE FB Service] Bat dau goi API sendReply toi conversation ${conversationId}. Noi dung: "${text}"`);
     const res = await fetch("/api/v1/facebook/messenger/reply", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${getAccessToken()}`,
+        Authorization: `Bearer ${getAccessToken()}`,
       },
-      body: JSON.stringify({ recipientId, text }),
+      body: JSON.stringify({ conversationId, recipientId: conversationId, text }),
     });
-    
+
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      console.error(`[FE FB Service] API sendReply tới PSID ${recipientId} thất bại:`, res.status, data);
-      throw new Error(data.message || "Gửi tin nhắn thất bại.");
+      console.error(`[FE FB Service] API sendReply toi conversation ${conversationId} that bai:`, res.status, data);
+      throw new Error(data.message || "Gui tin nhan that bai.");
     }
-    
+
     const result = await res.json();
-    console.log(`[FE FB Service] API sendReply tới PSID ${recipientId} thành công. Kết quả:`, result);
+    console.log(`[FE FB Service] API sendReply toi conversation ${conversationId} thanh cong. Ket qua:`, result);
     return result.data;
-  }
+  },
 };

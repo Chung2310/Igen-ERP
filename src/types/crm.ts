@@ -21,8 +21,8 @@ export interface ChatPagination {
 }
 
 export interface CustomerInbox {
-  id: string;
-  recipientId?: string;
+  id: string; // Mongo conversation _id used by inbox APIs
+  recipientId?: string; // Real customer identifier from the provider (PSID/UID/OA-scoped ID)
   name: string;
   avatar: string;
   avatarUrl?: string;

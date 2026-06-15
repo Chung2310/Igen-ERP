@@ -60,6 +60,7 @@ AIKnowledgeDocumentSchema.index({ companyCode: 1, sourceType: 1, sourceUrl: 1 })
 AIKnowledgeDocumentSchema.index({ companyCode: 1, contentHash: 1 });
 AIKnowledgeChunkSchema.index({ companyCode: 1, documentId: 1, chunkIndex: 1 }, { unique: true });
 AIKnowledgeChunkSchema.index({ companyCode: 1, updatedAt: -1 });
+AIKnowledgeChunkSchema.index({ companyCode: 1, channelScope: 1, updatedAt: -1 });
 
 export const AIKnowledgeDocumentModel = mongoose.model<IAIKnowledgeDocument>(
   "AIKnowledgeDocument",

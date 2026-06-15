@@ -2,31 +2,31 @@ import { getAccessToken } from "./authService";
 
 export const zaloMessengerService = {
   /**
-   * Lấy danh sách cuộc hội thoại của Zalo OA đã liên kết
+   * Lay danh sach cuoc hoi thoai cua Zalo OA da lien ket
    */
   async getConversations(): Promise<any[]> {
-    console.log("[FE Zalo Service] Bắt đầu gọi API getConversations...");
+    console.log("[FE Zalo Service] Bat dau goi API getConversations...");
     const res = await fetch("/api/v1/zalo/conversations", {
       headers: {
-        "Authorization": `Bearer ${getAccessToken()}`,
+        Authorization: `Bearer ${getAccessToken()}`,
       },
     });
-    
+
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      console.error("[FE Zalo Service] API getConversations thất bại:", res.status, data);
-      throw new Error(data.message || "Không thể tải danh sách cuộc hội thoại Zalo.");
+      console.error("[FE Zalo Service] API getConversations that bai:", res.status, data);
+      throw new Error(data.message || "Khong the tai danh sach cuoc hoi thoai Zalo.");
     }
-    
+
     const result = await res.json();
-    console.log(`[FE Zalo Service] API getConversations thành công. Số lượng: ${result.data?.length || 0}`);
+    console.log(`[FE Zalo Service] API getConversations thanh cong. So luong: ${result.data?.length || 0}`);
     return result.data || [];
   },
 
   /**
-   * Lấy lịch sử tin nhắn của một cuộc hội thoại cụ thể
+   * Lay lich su tin nhan cua mot cuoc hoi thoai cu the
    */
-  async getMessages(recipientId: string, options?: { limit?: number; before?: string; sync?: boolean }): Promise<{ data: any[]; pagination: { limit: number; hasMore: boolean; nextBefore: string | null } }> {
+  async getMessages(conversationId: string, options?: { limit?: number; before?: string; sync?: boolean }): Promise<{ data: any[]; pagination: { limit: number; hasMore: boolean; nextBefore: string | null } }> {
     const params = new URLSearchParams();
     params.set("limit", String(options?.limit || 20));
     if (options?.before) {
@@ -35,88 +35,88 @@ export const zaloMessengerService = {
     if (options?.sync) {
       params.set("sync", "1");
     }
-    console.log(`[FE Zalo Service] Bắt đầu gọi API getMessages cho khách hàng ID: ${recipientId}...`);
-    const res = await fetch(`/api/v1/zalo/conversations/${recipientId}/messages?${params.toString()}`, {
+    console.log(`[FE Zalo Service] Bat dau goi API getMessages cho conversation: ${conversationId}...`);
+    const res = await fetch(`/api/v1/zalo/conversations/${conversationId}/messages?${params.toString()}`, {
       headers: {
-        "Authorization": `Bearer ${getAccessToken()}`,
+        Authorization: `Bearer ${getAccessToken()}`,
       },
     });
-    
+
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      console.error(`[FE Zalo Service] API getMessages cho ID ${recipientId} thất bại:`, res.status, data);
-      throw new Error(data.message || "Không thể tải lịch sử tin nhắn Zalo.");
+      console.error(`[FE Zalo Service] API getMessages cho conversation ${conversationId} that bai:`, res.status, data);
+      throw new Error(data.message || "Khong the tai lich su tin nhan Zalo.");
     }
-    
+
     const result = await res.json();
-    console.log(`[FE Zalo Service] API getMessages cho ID ${recipientId} thành công. Số lượng: ${result.data?.length || 0}`);
+    console.log(`[FE Zalo Service] API getMessages cho conversation ${conversationId} thanh cong. So luong: ${result.data?.length || 0}`);
     return {
       data: result.data || [],
-      pagination: result.pagination || { limit: options?.limit || 20, hasMore: false, nextBefore: null }
+      pagination: result.pagination || { limit: options?.limit || 20, hasMore: false, nextBefore: null },
     };
   },
 
   /**
-   * Gửi phản hồi tin nhắn cho khách hàng qua Zalo OA
+   * Danh dau da doc cuoc hoi thoai qua Zalo OA
    */
-  async markRead(recipientId: string): Promise<any> {
-    console.log(`[FE Zalo Service] Bắt đầu gọi API markRead cho ID ${recipientId}...`);
-    const res = await fetch(`/api/v1/zalo/conversations/${recipientId}/mark-read`, {
+  async markRead(conversationId: string): Promise<any> {
+    console.log(`[FE Zalo Service] Bat dau goi API markRead cho conversation ${conversationId}...`);
+    const res = await fetch(`/api/v1/zalo/conversations/${conversationId}/mark-read`, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${getAccessToken()}`,
+        Authorization: `Bearer ${getAccessToken()}`,
       },
     });
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      console.error(`[FE Zalo Service] API markRead cho ID ${recipientId} thất bại:`, res.status, data);
-      throw new Error(data.message || "Không thể đánh dấu đã đọc cuộc hội thoại Zalo.");
+      console.error(`[FE Zalo Service] API markRead cho conversation ${conversationId} that bai:`, res.status, data);
+      throw new Error(data.message || "Khong the danh dau da doc cuoc hoi thoai Zalo.");
     }
 
     const result = await res.json();
     return result.data;
   },
 
-  async sendReply(recipientId: string, text: string): Promise<any> {
-    console.log(`[FE Zalo Service] Bắt đầu gọi API sendReply tới ID ${recipientId}. Nội dung: "${text}"`);
+  async sendReply(conversationId: string, text: string): Promise<any> {
+    console.log(`[FE Zalo Service] Bat dau goi API sendReply toi conversation ${conversationId}. Noi dung: "${text}"`);
     const res = await fetch("/api/v1/zalo/reply", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${getAccessToken()}`,
+        Authorization: `Bearer ${getAccessToken()}`,
       },
-      body: JSON.stringify({ recipientId, text }),
+      body: JSON.stringify({ conversationId, recipientId: conversationId, text }),
     });
-    
+
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      console.error(`[FE Zalo Service] API sendReply tới ID ${recipientId} thất bại:`, res.status, data);
-      throw new Error(data.message || "Gửi tin nhắn Zalo thất bại.");
+      console.error(`[FE Zalo Service] API sendReply toi conversation ${conversationId} that bai:`, res.status, data);
+      throw new Error(data.message || "Gui tin nhan Zalo that bai.");
     }
-    
+
     const result = await res.json();
-    console.log(`[FE Zalo Service] API sendReply tới ID ${recipientId} thành công.`, result);
+    console.log(`[FE Zalo Service] API sendReply toi conversation ${conversationId} thanh cong.`, result);
     return result.data;
   },
 
   /**
-   * Lưu thông tin cấu hình Zalo OA (Thủ công hoặc Demo)
+   * Luu thong tin cau hinh Zalo OA (thu cong hoac Demo)
    */
   async saveIntegration(integrationData: { oaId: string; oaName: string; accessToken: string; refreshToken?: string; isMock?: boolean }): Promise<any> {
-    console.log("[FE Zalo Service] Gọi API lưu cấu hình Zalo...");
+    console.log("[FE Zalo Service] Goi API luu cau hinh Zalo...");
     const res = await fetch("/api/v1/zalo/save-integration", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${getAccessToken()}`,
+        Authorization: `Bearer ${getAccessToken()}`,
       },
       body: JSON.stringify(integrationData),
     });
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      throw new Error(data.message || "Không thể lưu thông tin cấu hình Zalo OA.");
+      throw new Error(data.message || "Khong the luu thong tin cau hinh Zalo OA.");
     }
 
     const result = await res.json();
@@ -124,20 +124,20 @@ export const zaloMessengerService = {
   },
 
   /**
-   * Gửi yêu cầu gỡ bỏ cấu hình Zalo OA
+   * Goi yeu cau go bo cau hinh Zalo OA
    */
   async removeIntegration(): Promise<void> {
-    console.log("[FE Zalo Service] Gọi API gỡ cấu hình Zalo...");
+    console.log("[FE Zalo Service] Goi API go cau hinh Zalo...");
     const res = await fetch("/api/v1/zalo/integration", {
       method: "DELETE",
       headers: {
-        "Authorization": `Bearer ${getAccessToken()}`,
+        Authorization: `Bearer ${getAccessToken()}`,
       },
     });
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      throw new Error(data.message || "Không thể gỡ bỏ cấu hình Zalo OA.");
+      throw new Error(data.message || "Khong the go bo cau hinh Zalo OA.");
     }
-  }
+  },
 };

@@ -55,6 +55,7 @@ const FBConversationSchema: Schema = new Schema(
 // PSID is only unique within a specific Facebook page, not globally.
 FBConversationSchema.index({ pageId: 1, recipientId: 1 }, { unique: true });
 FBConversationSchema.index({ pageId: 1, facebookConversationId: 1 }, { unique: true, sparse: true });
+FBConversationSchema.index({ pageId: 1, lastMessageAt: -1 });
 
 // Schema Tin nhắn
 const FBMessageSchema: Schema = new Schema(

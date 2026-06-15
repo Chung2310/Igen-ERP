@@ -78,7 +78,7 @@ export default function App() {
 function AuthLoader() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#f6f8fd] via-[#eef2f7] to-[#e3ecf5] text-sm font-semibold text-slate-500">
-      Dang tai trang dang nhap...
+      Đang tải trang đăng nhập...
     </div>
   );
 }

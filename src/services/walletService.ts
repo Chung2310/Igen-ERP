@@ -14,42 +14,125 @@ export interface TransactionInfo {
   completedAt?: string;
 }
 
+export interface AdminUserBalance {
+  userId: string;
+  displayName: string;
+  email: string;
+  role: string;
+  companyCode: string;
+  companyName: string;
+  balance: number;
+  currency: string;
+  updatedAt?: string;
+}
+
+export interface AdminTransactionInfo extends TransactionInfo {}
+
+async function parseApiResponse<T>(res: Response, fallbackMessage: string): Promise<T> {
+  const contentType = res.headers.get("content-type") || "";
+  const rawBody = await res.text();
+  const isJson = contentType.includes("application/json");
+
+  if (!rawBody) {
+    if (!res.ok) {
+      throw new Error(fallbackMessage);
+    }
+    return {} as T;
+  }
+
+  if (!isJson) {
+    const shortBody = rawBody.slice(0, 120).trim();
+    throw new Error(
+      `${fallbackMessage}. API tra ve du lieu khong phai JSON (${res.status} ${res.statusText}). Preview: ${shortBody}`
+    );
+  }
+
+  let data: any;
+  try {
+    data = JSON.parse(rawBody);
+  } catch {
+    throw new Error(`${fallbackMessage}. Khong parse duoc JSON tu server.`);
+  }
+
+  if (!res.ok) {
+    throw new Error(data.message || fallbackMessage);
+  }
+
+  return data as T;
+}
+
 export const walletService = {
-  // Lấy số dư ví của người dùng đang đăng nhập
   async getWalletBalance(): Promise<number> {
     const res = await fetch("/api/v1/wallet/balance", {
       headers: {
-        "Authorization": `Bearer ${getAccessToken()}`,
+        Authorization: `Bearer ${getAccessToken()}`,
       },
     });
 
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      throw new Error(data.message || "Không thể lấy số dư ví");
-    }
-
-    const result = await res.json();
-    return result.balance;
+    const result = await parseApiResponse<{ balance: number }>(res, "Khong the lay so du vi");
+    return result.balance ?? 0;
   },
 
-  // Lấy lịch sử giao dịch
   async getTransactionHistory(): Promise<TransactionInfo[]> {
     const res = await fetch("/api/v1/wallet/transactions", {
       headers: {
-        "Authorization": `Bearer ${getAccessToken()}`,
+        Authorization: `Bearer ${getAccessToken()}`,
       },
     });
 
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      throw new Error(data.message || "Không thể lấy lịch sử giao dịch");
-    }
-
-    const result = await res.json();
+    const result = await parseApiResponse<{ data?: TransactionInfo[] }>(
+      res,
+      "Khong the lay lich su giao dich"
+    );
     return result.data || [];
   },
 
-  // Tạo liên kết thanh toán nạp tiền
+  async getAdminBalances(companyCode?: string): Promise<AdminUserBalance[]> {
+    const query = companyCode ? `?companyCode=${encodeURIComponent(companyCode)}` : "";
+    const res = await fetch(`/api/v1/wallet/admin/balances${query}`, {
+      headers: {
+        Authorization: `Bearer ${getAccessToken()}`,
+      },
+    });
+
+    const result = await parseApiResponse<{ data?: AdminUserBalance[] }>(
+      res,
+      "Khong the tai danh sach so du nguoi dung"
+    );
+    return result.data || [];
+  },
+
+  async updateUserBalance(userId: string, balance: number, note?: string): Promise<AdminUserBalance> {
+    const res = await fetch("/api/v1/wallet/admin/balance", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${getAccessToken()}`,
+      },
+      body: JSON.stringify({ userId, balance, note }),
+    });
+
+    const result = await parseApiResponse<{ data: AdminUserBalance }>(
+      res,
+      "Khong the cap nhat so du nguoi dung"
+    );
+    return result.data;
+  },
+
+  async getAdminUserTransactions(userId: string, limit = 20): Promise<AdminTransactionInfo[]> {
+    const res = await fetch(`/api/v1/wallet/admin/transactions/${userId}?limit=${limit}`, {
+      headers: {
+        Authorization: `Bearer ${getAccessToken()}`,
+      },
+    });
+
+    const result = await parseApiResponse<{ data?: AdminTransactionInfo[] }>(
+      res,
+      "Khong the tai lich su giao dich nguoi dung"
+    );
+    return result.data || [];
+  },
+
   async createDepositLink(amount: number, description?: string): Promise<{
     checkoutUrl: string;
     orderCode: number;
@@ -60,56 +143,48 @@ export const walletService = {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${getAccessToken()}`,
+        Authorization: `Bearer ${getAccessToken()}`,
       },
       body: JSON.stringify({ amount, description }),
     });
 
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      throw new Error(data.message || "Không thể tạo liên kết nạp tiền");
-    }
-
-    const result = await res.json();
+    const result = await parseApiResponse<{
+      data: {
+        checkoutUrl: string;
+        orderCode: number;
+        paymentLinkId: string;
+        isMock: boolean;
+      };
+    }>(res, "Khong the tao lien ket nap tien");
     return result.data;
   },
 
-  // Giả lập thanh toán thành công (cho Mock Mode)
   async confirmMockPayment(orderCode: number): Promise<any> {
     const res = await fetch("/api/v1/wallet/webhook-mock", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${getAccessToken()}`,
+        Authorization: `Bearer ${getAccessToken()}`,
       },
       body: JSON.stringify({ orderCode }),
     });
 
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      throw new Error(data.message || "Lỗi khi xác nhận thanh toán giả lập");
-    }
-
-    return await res.json();
+    return await parseApiResponse<any>(res, "Loi khi xac nhan thanh toan gia lap");
   },
 
-  // Kiểm tra trạng thái giao dịch
   async checkTransactionStatus(orderCode: number): Promise<{
     transactionStatus: "pending" | "success" | "failed";
     amount?: number;
   }> {
     const res = await fetch(`/api/v1/wallet/check/${orderCode}`, {
       headers: {
-        "Authorization": `Bearer ${getAccessToken()}`,
+        Authorization: `Bearer ${getAccessToken()}`,
       },
     });
 
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      throw new Error(data.message || "Không thể kiểm tra trạng thái giao dịch");
-    }
-
-    const result = await res.json();
-    return result;
+    return await parseApiResponse<{
+      transactionStatus: "pending" | "success" | "failed";
+      amount?: number;
+    }>(res, "Khong the kiem tra trang thai giao dich");
   },
 };

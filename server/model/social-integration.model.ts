@@ -14,8 +14,13 @@ const SocialIntegrationSchema = new Schema<ISocialIntegration>({
   accessToken: { type: String },
   refreshToken: { type: String },
   tokenExpiredAt: { type: Date },
+  appSecret: { type: String },
+  verifyToken: { type: String },
   isMock: { type: Boolean, default: false },
 });
+
+SocialIntegrationSchema.index({ platform: 1, username: 1, isConnected: 1 });
+SocialIntegrationSchema.index({ companyCode: 1, platform: 1, isConnected: 1 });
 
 export const SocialIntegrationModel = model<ISocialIntegration>(
   "SocialIntegration",

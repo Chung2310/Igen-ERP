@@ -54,6 +54,7 @@ const ZaloConversationSchema: Schema = new Schema(
 
 // Ràng buộc unique theo Zalo OA và ID khách hàng
 ZaloConversationSchema.index({ oaId: 1, recipientId: 1 }, { unique: true });
+ZaloConversationSchema.index({ oaId: 1, lastMessageAt: -1 });
 
 // Schema Tin nhắn
 const ZaloMessageSchema: Schema = new Schema(

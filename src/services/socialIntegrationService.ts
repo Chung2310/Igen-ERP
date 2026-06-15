@@ -14,6 +14,8 @@ export interface SocialIntegration {
   accessToken?: string;
   refreshToken?: string;
   tokenExpiredAt?: string;
+  appSecret?: string;
+  verifyToken?: string;
   isMock?: boolean;
 }
 

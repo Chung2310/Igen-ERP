@@ -238,6 +238,19 @@ export const fbMessengerService = {
         console.log(`[FB Service verifyWebhook] Trùng khớp với Verify Token được cấu hình bởi user: ${user.email}`);
         return challenge;
       }
+
+      // Check if any company-level integration has configured this verifyToken
+      const { SocialIntegrationModel } = require("../model/social-integration.model");
+      const integration = await SocialIntegrationModel.findOne({
+        platform: "Facebook",
+        isConnected: true,
+        verifyToken: token
+      });
+
+      if (integration) {
+        console.log(`[FB Service verifyWebhook] Trùng khớp với Verify Token được cấu hình trong Company Integration: ${integration.displayName}`);
+        return challenge;
+      }
     }
 
     console.error(`[FB Service verifyWebhook] Không tìm thấy Verify Token khớp với "${token}". Xác thực thất bại.`);
@@ -295,6 +308,19 @@ export const fbMessengerService = {
       console.log(`[FB Service Token] Đã tìm thấy Page Access Token động từ tài khoản User: ${user.email}`);
       return user.facebookIntegration.pageAccessToken;
     }
+
+    // Try company-level integration
+    const { SocialIntegrationModel } = require("../model/social-integration.model");
+    const companyIntegration = await SocialIntegrationModel.findOne({
+      platform: "Facebook",
+      isConnected: true,
+      username: pageId, // pageId is stored in username
+    });
+
+    if (companyIntegration && companyIntegration.accessToken) {
+      console.log(`[FB Service Token] Đã tìm thấy Page Access Token từ Company Integration: ${companyIntegration.displayName}`);
+      return companyIntegration.accessToken;
+    }
     
     console.log(`[FB Service Token] Không tìm thấy config của user nào cho Page ID: ${pageId}. Fallback về biến môi trường FB_PAGE_ACCESS_TOKEN.`);
     return process.env.FB_PAGE_ACCESS_TOKEN || null;
@@ -346,6 +372,11 @@ export const fbMessengerService = {
     }));
 
     const token = await this.getPageAccessTokenByPageId(recipientId);
+    const duplicateMsg = await FBMessageModel.findOne({ messageId });
+    if (duplicateMsg) {
+      console.info(`[FB Service processIncomingMessage] Bo qua webhook trung cho messageId=${messageId}.`);
+      return;
+    }
 
     // Lấy token động từ DB dựa theo Page ID của tin nhắn đến
 
@@ -609,16 +640,6 @@ export const fbMessengerService = {
     const oldestMessage = orderedMessages[0];
     const latestMessage = orderedMessages[orderedMessages.length - 1];
 
-    if (!beforeDate && latestMessage?.direction === "inbound" && latestMessage.text) {
-      aiAutoReplyService.triggerAutoReply(
-        "facebook",
-        pageId,
-        conversation._id.toString(),
-        latestMessage.text,
-        latestMessage.messageId
-      );
-    }
-
     return {
       messages: orderedMessages,
       pagination: {
@@ -637,6 +658,29 @@ export const fbMessengerService = {
     })
       .select("email companyCode aiAutoReplyConfig facebookIntegration.pageId facebookIntegration.pageName facebookIntegration.pageAccessToken")
       .lean();
+    let companyCode = pageOwner?.companyCode || null;
+    let aiEnabled = !!pageOwner?.aiAutoReplyConfig?.enabled;
+    let replyDelay = pageOwner?.aiAutoReplyConfig?.replyDelay ?? null;
+    let pageOwnerEmail = pageOwner?.email || null;
+
+    if (!pageOwner) {
+      const { SocialIntegrationModel } = require("../model/social-integration.model");
+      const companyIntegration = await SocialIntegrationModel.findOne({
+        platform: "Facebook",
+        username: pageId,
+        isConnected: true
+      }).lean();
+      if (companyIntegration) {
+        companyCode = companyIntegration.companyCode;
+        const companyUser = await UserModel.findOne({ companyCode }).select("email aiAutoReplyConfig").lean();
+        if (companyUser) {
+          pageOwnerEmail = companyUser.email;
+          aiEnabled = !!companyUser.aiAutoReplyConfig?.enabled;
+          replyDelay = companyUser.aiAutoReplyConfig?.replyDelay ?? null;
+        }
+      }
+    }
+
     const latestMessage = conversation
       ? await FBMessageModel.findOne({ conversationId: conversation._id }).sort({ timestamp: -1 }).lean()
       : null;
@@ -647,10 +691,10 @@ export const fbMessengerService = {
       conversationFound: !!conversation,
       conversationPageId: conversation?.pageId || null,
       recipientId: conversation?.recipientId || null,
-      pageOwnerEmail: pageOwner?.email || null,
-      companyCode: pageOwner?.companyCode || null,
-      aiEnabled: !!pageOwner?.aiAutoReplyConfig?.enabled,
-      replyDelay: pageOwner?.aiAutoReplyConfig?.replyDelay ?? null,
+      pageOwnerEmail,
+      companyCode,
+      aiEnabled,
+      replyDelay,
       hasPageAccessToken: !!token,
       pageAccessTokenTail: token ? token.slice(-6) : null,
       latestMessageDirection: latestMessage?.direction || null,
@@ -659,7 +703,7 @@ export const fbMessengerService = {
       latestMessageAt: latestMessage?.timestamp || null,
       shouldTriggerAutoReply: !!(
         conversation &&
-        pageOwner?.aiAutoReplyConfig?.enabled &&
+        aiEnabled &&
         token &&
         latestMessage?.direction === "inbound" &&
         latestMessage?.text
