@@ -599,6 +599,33 @@ const getSelectedVoice = () => {
       setIsPlaying(!isPlaying);
    };
 
+   const handleDownload = async (uri?: string, customName?: string) => {
+      const targetUri = uri || audioUri;
+      if (!targetUri) return;
+      toast.info("Đang tải xuống tệp âm thanh...");
+      try {
+         const response = await fetch(targetUri);
+         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+         const blob = await response.blob();
+         const blobUrl = window.URL.createObjectURL(blob);
+         const link = document.createElement('a');
+         link.href = blobUrl;
+         link.download = customName || `igen-voice-${Date.now()}.wav`;
+         document.body.appendChild(link);
+         link.click();
+         document.body.removeChild(link);
+         window.URL.revokeObjectURL(blobUrl);
+         toast.success("Tải xuống thành công!");
+      } catch (error) {
+         console.error("Direct audio download failed, falling back:", error);
+         const link = document.createElement('a');
+         link.href = targetUri;
+         link.target = '_blank';
+         link.click();
+         toast.warning("Mở tệp âm thanh trong tab mới để tải về.");
+      }
+   };
+
    const handleTimeUpdate = () => {
       if (audioRef.current) setCurrentTime(audioRef.current.currentTime);
    };
@@ -614,16 +641,7 @@ const getSelectedVoice = () => {
       return `${minutes}:${seconds.toString().padStart(2, '0')}`;
    };
 
-   const handleDownload = (uri?: string, customName?: string) => {
-      const targetUri = uri || audioUri;
-      if (!targetUri) return;
-      const link = document.createElement('a');
-      link.href = targetUri;
-      link.download = customName || `igen-voice-${Date.now()}.wav`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-   };
+
 
    // Instant cloning wizard helper
    const processCloneFile = async (file: File) => {
