@@ -224,7 +224,7 @@ export function HeyGenVideoPreview({
                   <img src={avatarImage} alt={avatarName} loading="eager" decoding="async" className={`h-full w-full ${mediaFitClass} bg-white`} style={{ objectPosition: "center top" }} />
                 </div>
               ) : (
-                <div className="text-xs font-semibold text-slate-400">Chon Avatar de bat dau xem truoc</div>
+                <div className="text-xs font-semibold text-slate-400">Chọn Avatar để bắt đầu xem trước</div>
               )}
             </div>
           )}
@@ -276,19 +276,19 @@ export function HeyGenVideoPreview({
       </div>
 
       <div className={`space-y-2 border-t ${HEYGEN_THEME.border} ${HEYGEN_THEME.surfaceMuted} p-3`}>
-        <h4 className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Timeline / Cac phan canh</h4>
+        <h4 className="text-[10px] font-bold uppercase tracking-widest text-slate-400"> Các phân cảnh</h4>
         <div className="flex items-center gap-3 overflow-x-auto py-1">
           <div className={`relative flex h-20 w-36 shrink-0 flex-col overflow-hidden rounded-xl border-2 border-cyan-400 ${HEYGEN_THEME.surface} shadow-sm`}>
             {avatarImage ? <img src={avatarImage} alt="Scene thumbnail" loading="lazy" decoding="async" className="h-13 w-full object-contain bg-white" style={{ objectPosition: "center top" }} /> : <div className="flex h-13 w-full items-center justify-center bg-slate-100 text-[10px] text-slate-400">No avatar</div>}
             <div className={`flex flex-1 items-center justify-between px-2.5 text-[9px] font-bold text-slate-500 ${HEYGEN_THEME.surfaceMuted}`}>
-              <span>Canh 1</span>
+              <span>Cảnh 1</span>
               <span>{MOCK_DURATION}s</span>
             </div>
           </div>
 
           <button type="button" className={`flex h-20 w-20 shrink-0 flex-col items-center justify-center gap-1 rounded-xl border border-dashed ${HEYGEN_THEME.border} ${HEYGEN_THEME.surfaceMuted} text-slate-400 transition-all duration-200 hover:border-cyan-400 hover:text-cyan-700 hover:bg-white`}>
             <Plus className="h-4 w-4" />
-            <span className="text-[9px] font-bold">Them canh</span>
+            <span className="text-[9px] font-bold">Thêm cảnh</span>
           </button>
         </div>
       </div>

@@ -649,7 +649,7 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved, onEd
           <div className="bg-white border border-slate-150 rounded-3xl p-5 shadow-lg flex flex-col gap-3.5 relative animate-in fade-in slide-in-from-bottom-2 duration-300">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex flex-col">
-                <h4 className="font-bold text-slate-800 text-xs">Lịch sử render video</h4>
+                <h4 className="font-bold text-slate-800 text-xs">Lịch sử tạo video</h4>
                 <p className="text-[10px] text-slate-400 mt-0.5">Hiển thị tối đa 20 kết quả gần nhất, từ mới đến cũ.</p>
               </div>
               <span className="px-2.5 py-0.5 bg-[#e0f7fc] text-[#0891b2] rounded-full text-[10px] font-bold font-mono">

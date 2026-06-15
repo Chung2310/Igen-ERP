@@ -11,8 +11,9 @@ export const HEYGEN_THEME = {
 } as const;
 
 export const HEYGEN_MODEL_OPTIONS = [
-  { id: "Avatar V", description: "Chuyen dong tu nhien theo noi dung.", icon: "V", engineType: "avatar_v" as const },
-  { id: "Avatar IV", description: "Chuyen dong tieu chuan, de dung.", icon: "IV", engineType: "avatar_iv" as const },
+  { id: "Avatar V", description: "Chuyển động tự nhiên theo nội dung.", icon: "V", engineType: "avatar_v" as const },
+  { id: "Avatar IV", description: "Chuyển động tiêu chuẩn, dễ dùng.", icon: "IV", engineType: "avatar_iv" as const },
+  { id: "Avatar III", description: "Đồng bộ khuôn mặt theo audio gốc.", icon: "III", engineType: "avatar_iii" as const },
 ] as const;
 
 export const HEYGEN_CAPTION_STYLES = [

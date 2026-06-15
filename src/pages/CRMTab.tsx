@@ -10,6 +10,7 @@ import { zaloMessengerService } from "../services/zaloMessengerService";
 import { getAccessToken } from "../services/authService";
 import { socketService } from "../services/socketService";
 import { useSubTabRouter } from "../hooks/useSubTabRouter";
+import { socialIntegrationService, SocialIntegration } from "../services/socialIntegrationService";
 
 // Lazy-loaded subcomponents
 const PipelineTab = lazy(() =>
@@ -66,8 +67,35 @@ export default function CRMTab() {
 
   // 2. Omni-Inbox States
   const { userProfile, updateAiAutoReplyConfig } = useAuth();
-  const isFbConnected = userProfile?.facebookIntegration?.isConnected ?? false;
-  const isZaloConnected = userProfile?.zaloIntegration?.isConnected ?? false;
+  const [companySocialIntegrations, setCompanySocialIntegrations] = useState<SocialIntegration[]>([]);
+  const isFbConnected =
+    (userProfile?.facebookIntegration?.isConnected ?? false) ||
+    companySocialIntegrations.some((item) => item.platform === "Facebook" && item.isConnected);
+  const isZaloConnected =
+    (userProfile?.zaloIntegration?.isConnected ?? false) ||
+    companySocialIntegrations.some((item) => item.platform === "Zalo" && item.isConnected);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadCompanyIntegrations = async () => {
+      try {
+        const data = await socialIntegrationService.getIntegrations();
+        if (!cancelled) {
+          setCompanySocialIntegrations(data || []);
+          console.log("[FE CRMTab] Loaded company social integrations:", data);
+        }
+      } catch (error) {
+        console.error("[FE CRMTab] Khong the tai company social integrations:", error);
+      }
+    };
+
+    void loadCompanyIntegrations();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const [inboxCustomers, setInboxCustomers] = useState<CustomerInbox[]>([]);
 
@@ -427,12 +455,12 @@ export default function CRMTab() {
 
     const runFetch = () => {
       if (!document.hidden) {
-        fetchOmniConversations(false, { syncFacebook: !socketConnected });
+        fetchOmniConversations(false, { syncFacebook: true });
       }
     };
 
     runFetch();
-    const interval = setInterval(runFetch, socketConnected ? 60000 : 15000);
+    const interval = setInterval(runFetch, 15000);
 
     const handleVisibility = () => {
       if (!document.hidden) fetchOmniConversations(false, { syncFacebook: true });
@@ -709,6 +737,9 @@ export default function CRMTab() {
       console.error(err);
       toast.error(err.message || "Không thể gửi tin nhắn phản hồi.");
       setChatHistory((prev) => prev.filter((h) => h.id !== userMsg.id));
+      loadConversationMessages(activeCustomer.id, "replace", activeCustomer.channel, { syncChannel: true }).catch((reloadErr) => {
+        console.error("[FE CRMTab] Lỗi đồng bộ lại lịch sử sau khi gửi thất bại:", reloadErr);
+      });
     }
   };
 

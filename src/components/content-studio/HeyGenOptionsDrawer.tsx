@@ -8,6 +8,7 @@ interface HeyGenOptionsDrawerProps {
   onClose: () => void;
   selectedAvatar?: any;
   selectedAudio?: any;
+  isLoadingLibrary?: boolean;
   onOpenAvatarPicker: () => void;
   onOpenVoicePicker: () => void;
   onOpenModelPicker: () => void;
@@ -43,6 +44,7 @@ export function HeyGenOptionsDrawer(props: HeyGenOptionsDrawerProps) {
     onClose,
     selectedAvatar,
     selectedAudio,
+    isLoadingLibrary = false,
     onOpenAvatarPicker,
     onOpenVoicePicker,
     onOpenModelPicker,
@@ -76,8 +78,8 @@ export function HeyGenOptionsDrawer(props: HeyGenOptionsDrawerProps) {
     <div className={`flex h-full w-[340px] shrink-0 flex-col border-l ${HEYGEN_THEME.border} ${HEYGEN_THEME.surface} text-slate-900 xl:w-[360px] transition-all duration-300`}>
       <div className={`flex items-center justify-between border-b ${HEYGEN_THEME.border} px-4 py-3`}>
         <h3 className="text-sm font-bold text-slate-900">
-          {activeTab === "avatar" && "Edit Avatar"}
-          {activeTab === "captions" && "Captions"}
+          {activeTab === "avatar" && "Chỉnh sửa avatar"}
+          {activeTab === "captions" && "Phụ đề và văn bản"}
         </h3>
         <button type="button" onClick={onClose} className="rounded-full p-1.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900">
           <X className="h-4 w-4" />
@@ -87,12 +89,16 @@ export function HeyGenOptionsDrawer(props: HeyGenOptionsDrawerProps) {
       <div className="flex-1 space-y-4 overflow-y-auto px-4 py-3">
         {activeTab === "avatar" && (
           <>
-            <OptionCard onClick={onOpenAvatarPicker}>
+            <OptionCard onClick={onOpenAvatarPicker} disabled={isLoadingLibrary}>
               <div className="flex items-center gap-3">
-                {selectedAvatar?.previewImage ? <img src={selectedAvatar.previewImage} alt={selectedAvatar.name || "Avatar"} loading="lazy" decoding="async" className="h-12 w-12 rounded-2xl object-cover" /> : <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-sm font-bold text-slate-600">A</div>}
+                {isLoadingLibrary ? (
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
+                    <LoaderCircle className="h-5 w-5 animate-spin" />
+                  </div>
+                ) : selectedAvatar?.previewImage ? <img src={selectedAvatar.previewImage} alt={selectedAvatar.name || "Avatar"} loading="lazy" decoding="async" className="h-12 w-12 rounded-2xl object-cover" /> : <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-sm font-bold text-slate-600">A</div>}
                 <div>
-                  <p className="text-sm font-bold text-slate-900">{selectedAvatar?.name || "Replace avatar"}</p>
-                  <p className="text-xs text-slate-500">{selectedAvatar?.language || selectedAvatar?.gender || "HeyGen library"}</p>
+                  <p className="text-sm font-bold text-slate-900">{isLoadingLibrary ? "Dang tai avatar" : selectedAvatar?.name || "Thay avatar"}</p>
+                  <p className="text-xs text-slate-500">{isLoadingLibrary ? "Dang dong bo thu vien HeyGen..." : selectedAvatar?.language || selectedAvatar?.gender || "Thu vien HeyGen"}</p>
                 </div>
               </div>
               <ChevronRight className="h-4 w-4 text-slate-400" />
@@ -104,23 +110,23 @@ export function HeyGenOptionsDrawer(props: HeyGenOptionsDrawerProps) {
                   <Volume2 className="h-5 w-5" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-slate-900">{selectedAudio?.metadata?.title || selectedAudio?.metadata?.voiceName || "Switch voice"}</p>
-                  <p className="text-xs text-slate-500">ElevenLabs audio source</p>
+                  <p className="text-sm font-bold text-slate-900">{selectedAudio?.metadata?.title || selectedAudio?.metadata?.voiceName || "Đổi giọng nói"}</p>
+                  <p className="text-xs text-slate-500">Nguồn audio ElevenLabs</p>
                 </div>
               </div>
               <ChevronRight className="h-4 w-4 text-slate-400" />
             </OptionCard>
 
             <div className="space-y-2">
-              <p className="text-sm font-bold text-slate-900">Motion Engine</p>
-              <button type="button" onClick={onOpenModelPicker} className={`flex w-full items-center justify-between rounded-[20px] border ${HEYGEN_THEME.accentBorder} ${HEYGEN_THEME.surfaceMuted} px-4 py-3 text-left shadow-[0_0_0_1px_rgba(34,211,238,0.1)] transition-all duration-200 hover:bg-cyan-50/60`}>
+              <p className="text-sm font-bold text-slate-900">Bộ máy chuyển động</p>
+              <button type="button" onClick={onOpenModelPicker} disabled={isLoadingLibrary} className={`flex w-full items-center justify-between rounded-[20px] border ${HEYGEN_THEME.accentBorder} ${HEYGEN_THEME.surfaceMuted} px-4 py-3 text-left shadow-[0_0_0_1px_rgba(34,211,238,0.1)] transition-all duration-200 hover:bg-cyan-50/60 disabled:cursor-wait disabled:opacity-70`}>
                 <div className="flex items-center gap-3">
                   <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-fuchsia-300 via-violet-200 to-slate-300 text-[11px] font-bold text-slate-900">
-                    {selectedAvatarModel.replace("Avatar ", "")}
+                    {isLoadingLibrary ? <LoaderCircle className="h-4 w-4 animate-spin" /> : selectedAvatarModel.replace("Avatar ", "")}
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-slate-900">{selectedAvatarModel}</p>
-                    <p className="text-xs text-slate-500">{selectedAvatarModelDescription || "Motion adapts to script."}</p>
+                    <p className="text-sm font-bold text-slate-900">{isLoadingLibrary ? "Dang tai tuy chon motion" : selectedAvatarModel}</p>
+                    <p className="text-xs text-slate-500">{selectedAvatarModelDescription || "Chuyển động sẽ tự động phù hợp với nội dung."}</p>
                   </div>
                 </div>
                 <ChevronDown className="h-4 w-4 text-slate-400" />
@@ -128,11 +134,11 @@ export function HeyGenOptionsDrawer(props: HeyGenOptionsDrawerProps) {
             </div>
 
             <div className="space-y-2">
-              <p className="text-sm font-bold text-slate-900">Avatar Background</p>
+              <p className="text-sm font-bold text-slate-900">Nền avatar</p>
               <div className="grid grid-cols-3 gap-2">
-                <ToggleCard active={avatarBackground === "customize"} onClick={() => setAvatarBackground("customize")} label="Customize" icon={<Plus className="h-4 w-4" />} />
-                <ToggleCard active={avatarBackground === "remove"} onClick={() => setAvatarBackground("remove")} label="Remove" icon={<Tv className="h-4 w-4" />} />
-                <ToggleCard active={avatarBackground === "color"} onClick={() => setAvatarBackground("color")} label="Color" icon={<div className="h-4 w-4 rounded-full border border-white/20" style={{ backgroundColor }} />} />
+                <ToggleCard active={avatarBackground === "customize"} onClick={() => setAvatarBackground("customize")} label="Tùy chỉnh" icon={<Plus className="h-4 w-4" />} />
+                <ToggleCard active={avatarBackground === "remove"} onClick={() => setAvatarBackground("remove")} label="Xóa nền" icon={<Tv className="h-4 w-4" />} />
+                <ToggleCard active={avatarBackground === "color"} onClick={() => setAvatarBackground("color")} label="Màu nền" icon={<div className="h-4 w-4 rounded-full border border-white/20" style={{ backgroundColor }} />} />
               </div>
               {avatarBackground === "color" && (
                 <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white p-2">
@@ -143,10 +149,10 @@ export function HeyGenOptionsDrawer(props: HeyGenOptionsDrawerProps) {
             </div>
 
             <div className="space-y-2">
-              <p className="text-sm font-bold text-slate-900">Layout</p>
+              <p className="text-sm font-bold text-slate-900">Bố cục</p>
               <div className={`grid grid-cols-2 gap-2 rounded-2xl border ${HEYGEN_THEME.border} bg-white/[0.02] p-1`}>
-                <SegmentButton active={avatarLayout === "original"} onClick={() => setAvatarLayout("original")} label="Original" />
-                <SegmentButton active={avatarLayout === "circle"} onClick={() => setAvatarLayout("circle")} label="Circle" />
+                <SegmentButton active={avatarLayout === "original"} onClick={() => setAvatarLayout("original")} label="Mặc định" />
+                <SegmentButton active={avatarLayout === "circle"} onClick={() => setAvatarLayout("circle")} label="Hình tròn" />
               </div>
             </div>
           </>
@@ -157,8 +163,8 @@ export function HeyGenOptionsDrawer(props: HeyGenOptionsDrawerProps) {
             <div className={`rounded-[22px] border ${HEYGEN_THEME.border} ${HEYGEN_THEME.surfaceMuted} p-4`}>
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-sm font-bold text-slate-900">Auto captions</p>
-                  <p className="text-xs text-slate-500">Mac dinh dang tat. Keo block caption ben duoi vao preview de them nhanh, hoac tat/xoa ngay tren preview.</p>
+                  <p className="text-sm font-bold text-slate-900">Phụ đề tự động</p>
+                  <p className="text-xs text-slate-500">Mặc định đang tắt. Kéo khối caption bên dưới vào preview để thêm nhanh, hoặc tắt/xóa ngay trên preview.</p>
                 </div>
                 <label className="relative inline-flex cursor-pointer items-center">
                   <input type="checkbox" checked={enableCaption} onChange={(e) => setEnableCaption(e.target.checked)} className="peer sr-only" />
@@ -183,7 +189,7 @@ export function HeyGenOptionsDrawer(props: HeyGenOptionsDrawerProps) {
                   className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-white px-2.5 py-1 text-[10px] font-bold text-rose-600 transition hover:bg-rose-50"
                 >
                   <Trash2 className="h-3 w-3" />
-                  Xoa caption
+                  Xóa caption
                 </button>
               </div>
               <div className="mt-3 flex min-h-[76px] items-center justify-center rounded-[16px] border border-cyan-200 bg-white text-center shadow-sm">
@@ -192,13 +198,13 @@ export function HeyGenOptionsDrawer(props: HeyGenOptionsDrawerProps) {
                     <Grip className="h-3 w-3" />
                     Caption
                   </span>
-                  <p className="text-sm font-semibold text-slate-900">Keo block nay vao video preview</p>
+                  <p className="text-sm font-semibold text-slate-900">Kéo khối này vào video preview</p>
                 </div>
               </div>
             </div>
 
             <div className="space-y-3">
-              <p className="text-sm font-bold text-slate-900">Caption Styles</p>
+              <p className="text-sm font-bold text-slate-900">Kiểu phụ đề</p>
               <div className="grid grid-cols-1 gap-3">
                 {HEYGEN_CAPTION_STYLES.map((style) => {
                   const isActive = captionPreset === style.id;
@@ -219,7 +225,7 @@ export function HeyGenOptionsDrawer(props: HeyGenOptionsDrawerProps) {
               </div>
             </div>
 
-            <Panel title="Text">
+            <Panel title="Văn bản">
               <select value={captionFontFamily} onChange={(e) => setCaptionFontFamily(e.target.value)} className={`w-full rounded-xl border ${HEYGEN_THEME.border} bg-white px-3 py-2 text-sm text-slate-700 outline-none`}>
                 {HEYGEN_CAPTION_FONTS.map((font) => <option key={font} value={font} className="text-slate-900">{font.replaceAll("\"", "")}</option>)}
               </select>
@@ -229,10 +235,10 @@ export function HeyGenOptionsDrawer(props: HeyGenOptionsDrawerProps) {
               </div>
             </Panel>
 
-            <Panel title="Style">
+            <Panel title="Màu sắc">
               <div className="flex items-center gap-3">
-                <ColorField label="Primary" value={captionPrimaryColor} onChange={setCaptionPrimaryColor} />
-                <ColorField label="Secondary" value={captionSecondaryColor} onChange={setCaptionSecondaryColor} />
+                <ColorField label="Màu chính" value={captionPrimaryColor} onChange={setCaptionPrimaryColor} />
+                <ColorField label="Màu phụ" value={captionSecondaryColor} onChange={setCaptionSecondaryColor} />
               </div>
             </Panel>
           </div>
@@ -241,15 +247,15 @@ export function HeyGenOptionsDrawer(props: HeyGenOptionsDrawerProps) {
 
       <div className={`border-t ${HEYGEN_THEME.border} bg-white/95 p-4 backdrop-blur supports-[backdrop-filter]:bg-white/90`}>
         <button type="button" onClick={onRender} disabled={isGenerating} className={`flex w-full items-center justify-center gap-2 rounded-[18px] ${HEYGEN_THEME.accentSolid} px-4 py-3 text-sm font-bold text-white transition-all duration-200 ${HEYGEN_THEME.accentSolidHover} hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0`}>
-          {isGenerating ? <><LoaderCircle className="h-4 w-4 animate-spin" />Rendering...</> : <><SlidersHorizontal className="h-4 w-4" />Render Scene</>}
+          {isGenerating ? <><LoaderCircle className="h-4 w-4 animate-spin" />Đang render...</> : <><SlidersHorizontal className="h-4 w-4" />Render video</>}
         </button>
       </div>
     </div>
   );
 }
 
-function OptionCard({ children, onClick }: { children: ReactNode; onClick: () => void }) {
-  return <button type="button" onClick={onClick} className={`flex w-full items-center justify-between rounded-[20px] border ${HEYGEN_THEME.border} ${HEYGEN_THEME.surfaceMuted} p-3 text-left transition-all duration-200 hover:border-cyan-400 hover:bg-cyan-50/40 hover:shadow-sm`}>{children}</button>;
+function OptionCard({ children, onClick, disabled = false }: { children: ReactNode; onClick: () => void; disabled?: boolean }) {
+  return <button type="button" onClick={onClick} disabled={disabled} className={`flex w-full items-center justify-between rounded-[20px] border ${HEYGEN_THEME.border} ${HEYGEN_THEME.surfaceMuted} p-3 text-left transition-all duration-200 hover:border-cyan-400 hover:bg-cyan-50/40 hover:shadow-sm disabled:cursor-wait disabled:opacity-70`}>{children}</button>;
 }
 
 function ToggleCard({ active, onClick, label, icon }: { active: boolean; onClick: () => void; label: string; icon: ReactNode }) {

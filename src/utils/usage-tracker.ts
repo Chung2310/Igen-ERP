@@ -13,19 +13,19 @@ export const PRICING_TABLE: Record<string, {
   'piapi-veo31-video-audio': {
     costPerUnitCredit: 81.0,
     unit: 'seconds',
-    label: 'PiAPI Veo 3.1',
+    label: 'iGen video 3.1',
     category: 'video',
   },
   'piapi-veo31-video-fast-audio': {
     costPerUnitCredit: 40.5,
     unit: 'seconds',
-    label: 'PiAPI Veo 3.1 Fast',
+    label: 'iGen video 3.1 Fast',
     category: 'video',
   },
   'piapi-veo31-video-fast-no-audio': {
     costPerUnitCredit: 20.25,
     unit: 'seconds',
-    label: 'PiAPI Veo 3.1 Fast Silent',
+    label: 'iGen video 3.1 Fast Silent',
     category: 'video',
   },
   'gemini-2.5-flash-preview-tts': {
@@ -97,13 +97,13 @@ export const PRICING_TABLE: Record<string, {
   'imagen-3.0-generate-002': {
     costPerUnitCredit: 27.5,
     unit: 'count',
-    label: 'Google Imagen 3.0 Pro',
+    label: 'iGen Imagen 3.0 Pro',
     category: 'image',
   },
   'imagen-3.0-fast-generate-002': {
     costPerUnitCredit: 13.75,
     unit: 'count',
-    label: 'Google Imagen 3.0 Flash',
+    label: 'iGen Imagen 3.0 Flash',
     category: 'image',
   },
   'nano-banana-pro': {

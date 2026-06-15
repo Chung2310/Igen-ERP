@@ -1110,9 +1110,9 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                         onChange={(e) => setVideoModel(e.target.value)}
                         className="w-full text-xs p-2 border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 font-sans"
                       >
-                        <option value="piapi-veo31-video-fast-audio">PiAPI Veo 3.1 Fast</option>
-                        <option value="piapi-veo31-video-audio">PiAPI Veo 3.1</option>
-                        <option value="piapi-veo31-video-fast-no-audio">PiAPI Veo 3.1 Fast Silent</option>
+                        <option value="piapi-veo31-video-fast-audio">iGen video 3.1 Fast</option>
+                        <option value="piapi-veo31-video-audio">iGen video 3.1</option>
+                        <option value="piapi-veo31-video-fast-no-audio">iGen video 3.1 Fast Silent</option>
                       </select>
                     </div>
 

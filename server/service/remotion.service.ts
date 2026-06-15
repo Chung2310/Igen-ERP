@@ -19,7 +19,7 @@ async function loadRemotionDependencies(): Promise<{
     return { bundler, renderer };
   } catch (error: any) {
     const wrappedError: any = new Error(
-      "Tinh nang render video Remotion chua san sang tren may nay. Hay cai dat day du cac goi Remotion truoc khi su dung."
+      "Tính năng tạo video Remotion chưa sẵn sàng trên máy này. Hay cài đặt đầy đủ các gói Remotion trước khi sử dụng."
     );
     wrappedError.statusCode = 503;
     wrappedError.cause = error;

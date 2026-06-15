@@ -273,13 +273,13 @@ export const fbMessengerService = {
 
     for (const entry of entries) {
       const messagingEvents = entry.messaging || [];
-      console.log(`[FB Service handleWebhookEvent] Entry ID: ${entry.id} chứa ${messagingEvents.length} messaging events.`);
+      console.log(`[FB Service handleWebhookEvent] Entry ID: ${entry.id} chua ${messagingEvents.length} messaging events.`);
 
       for (const event of messagingEvents) {
-        console.log(`[FB Service handleWebhookEvent] Đang xử lý event: sender=${event.sender?.id}, recipient=${event.recipient?.id}`);
+        console.log(`[FB Service handleWebhookEvent] Dang xu ly event: sender=${event.sender?.id}, recipient=${event.recipient?.id}, mid=${event.message?.mid || "n/a"}, is_echo=${event.message?.is_echo ? "true" : "false"}`);
         
         if (event.message && !event.message.is_echo) {
-          console.log(`[FB Service handleWebhookEvent] Phát hiện tin nhắn mới (Inbound Message). Nội dung: "${event.message.text}"`);
+          console.log(`[FB Service handleWebhookEvent] Phat hien tin nhan moi (Inbound Message). Noi dung: "${event.message.text || ""}"`);
           await this.processIncomingMessage(event);
         } else if (event.message && event.message.is_echo) {
           console.log(`[FB Service handleWebhookEvent] Bỏ qua tin nhắn dạng echo (phản hồi gửi đi từ fanpage/webhook khác).`);
@@ -298,18 +298,8 @@ export const fbMessengerService = {
    */
   async getPageAccessTokenByPageId(pageId: string): Promise<string | null> {
     console.log(`[FB Service Token] Đang tìm Access Token cho Page ID: ${pageId}`);
-    
-    const user = await UserModel.findOne({
-      "facebookIntegration.isConnected": true,
-      "facebookIntegration.pageId": pageId,
-    });
-    
-    if (user && user.facebookIntegration?.pageAccessToken) {
-      console.log(`[FB Service Token] Đã tìm thấy Page Access Token động từ tài khoản User: ${user.email}`);
-      return user.facebookIntegration.pageAccessToken;
-    }
 
-    // Try company-level integration
+    // Prefer company-level integration first to match the page configured for the company.
     const { SocialIntegrationModel } = require("../model/social-integration.model");
     const companyIntegration = await SocialIntegrationModel.findOne({
       platform: "Facebook",
@@ -321,7 +311,22 @@ export const fbMessengerService = {
       console.log(`[FB Service Token] Đã tìm thấy Page Access Token từ Company Integration: ${companyIntegration.displayName}`);
       return companyIntegration.accessToken;
     }
+
+    const user = await UserModel.findOne({
+      "facebookIntegration.isConnected": true,
+      "facebookIntegration.pageId": pageId,
+    });
     
+    if (user && user.facebookIntegration?.pageAccessToken) {
+      console.log(`[FB Service Token] Fallback Page Access Token tu tai khoan User: ${user.email}`);
+      return user.facebookIntegration.pageAccessToken;
+    }
+    
+    const samePlatformIntegrations = await SocialIntegrationModel.find({
+      platform: "Facebook",
+      isConnected: true,
+    }).select("companyCode displayName username").lean();
+    console.warn(`[FB Service Token] Khong tim thay config khop chinh xac cho Page ID=${pageId}. Cac company integration Facebook dang co: ${samePlatformIntegrations.map((item: any) => `${item.companyCode}:${item.displayName}:${item.username}`).join(" | ") || "none"}`);
     console.log(`[FB Service Token] Không tìm thấy config của user nào cho Page ID: ${pageId}. Fallback về biến môi trường FB_PAGE_ACCESS_TOKEN.`);
     return process.env.FB_PAGE_ACCESS_TOKEN || null;
   },
@@ -371,7 +376,10 @@ export const fbMessengerService = {
       url: att.payload?.url || "",
     }));
 
+    console.log(`[FB Service processIncomingMessage] senderId=${senderId}, recipientId(pageId)=${recipientId}, messageId=${messageId}, textLength=${text.length}, attachments=${attachments.length}`);
+
     const token = await this.getPageAccessTokenByPageId(recipientId);
+    console.log(`[FB Service processIncomingMessage] Token lookup cho pageId=${recipientId}: ${token ? `FOUND(...${token.slice(-6)})` : "NOT_FOUND"}`);
     const duplicateMsg = await FBMessageModel.findOne({ messageId });
     if (duplicateMsg) {
       console.info(`[FB Service processIncomingMessage] Bo qua webhook trung cho messageId=${messageId}.`);
@@ -382,6 +390,7 @@ export const fbMessengerService = {
 
     // 1. Kiểm tra xem đã có cuộc hội thoại với khách hàng này chưa
     let conversation = await FBConversationModel.findOne({ recipientId: senderId, pageId: recipientId });
+    console.log(`[FB Service processIncomingMessage] Conversation existing for pageId=${recipientId}, senderId=${senderId}: ${conversation ? conversation._id.toString() : "none"}`);
 
     if (!conversation) {
       let senderName = "Khách hàng Facebook";
@@ -415,12 +424,14 @@ export const fbMessengerService = {
         status: "open",
       });
       await conversation.save();
+      console.log(`[FB Service processIncomingMessage] Tao conversation moi _id=${conversation._id.toString()} cho pageId=${recipientId}`);
     } else {
       conversation.lastMessageText = text || "[Đính kèm]";
       conversation.lastMessageAt = timestamp;
       conversation.unreadCount += 1;
       conversation.status = "open";
       await conversation.save();
+      console.log(`[FB Service processIncomingMessage] Cap nhat conversation _id=${conversation._id.toString()}, unreadCount=${conversation.unreadCount}`);
     }
 
     // 2. Lưu tin nhắn chi tiết vào DB
@@ -438,6 +449,7 @@ export const fbMessengerService = {
         status: "delivered",
       });
       await newMsg.save();
+      console.log(`[FB Service processIncomingMessage] Luu inbound message thanh cong conversationId=${conversation._id.toString()}, messageId=${messageId}`);
 
       // Realtime update via Socket.IO
       emitToPage(recipientId, "new_message", {
@@ -708,6 +720,65 @@ export const fbMessengerService = {
         latestMessage?.direction === "inbound" &&
         latestMessage?.text
       ),
+    };
+  },
+
+  async diagnosePageConfig(userId: string, resolvedPageId?: string) {
+    const user = await UserModel.findById(userId)
+      .select("email companyCode facebookIntegration")
+      .lean();
+    const { SocialIntegrationModel } = require("../model/social-integration.model");
+
+    const companyIntegrations = await SocialIntegrationModel.find({
+      companyCode: user?.companyCode,
+      platform: "Facebook",
+    })
+      .select("displayName username isConnected verifyToken accessToken")
+      .lean();
+
+    const conversationsForResolvedPage = resolvedPageId
+      ? await FBConversationModel.countDocuments({ pageId: resolvedPageId })
+      : 0;
+
+    const recentConversations = await FBConversationModel.find({})
+      .sort({ lastMessageAt: -1 })
+      .limit(5)
+      .select("pageId recipientId senderName lastMessageAt")
+      .lean();
+
+    const token = resolvedPageId ? await this.getPageAccessTokenByPageId(resolvedPageId) : null;
+
+    console.log(`[FB Diagnose Page] user=${user?.email}, company=${user?.companyCode}, resolvedPageId=${resolvedPageId || "none"}, personalPageId=${user?.facebookIntegration?.pageId || "none"}, companyPages=${companyIntegrations.map((item: any) => item.username).join(",") || "none"}, token=${token ? `FOUND(...${token.slice(-6)})` : "NOT_FOUND"}, conversationsForResolvedPage=${conversationsForResolvedPage}`);
+
+    return {
+      userEmail: user?.email || null,
+      companyCode: user?.companyCode || null,
+      personalIntegration: user?.facebookIntegration
+        ? {
+            isConnected: !!user.facebookIntegration.isConnected,
+            pageId: user.facebookIntegration.pageId || null,
+            pageName: user.facebookIntegration.pageName || null,
+            hasToken: !!user.facebookIntegration.pageAccessToken,
+            verifyToken: user.facebookIntegration.verifyToken || null,
+          }
+        : null,
+      companyIntegrations: companyIntegrations.map((item: any) => ({
+        displayName: item.displayName,
+        pageId: item.username || null,
+        isConnected: !!item.isConnected,
+        hasToken: !!item.accessToken,
+        verifyToken: item.verifyToken || null,
+      })),
+      resolvedPageId: resolvedPageId || null,
+      hasResolvedToken: !!token,
+      resolvedTokenTail: token ? token.slice(-6) : null,
+      conversationsForResolvedPage,
+      recentConversationPageIds: recentConversations.map((item: any) => ({
+        pageId: item.pageId,
+        recipientId: item.recipientId,
+        senderName: item.senderName,
+        lastMessageAt: item.lastMessageAt,
+      })),
     };
   }
 };
