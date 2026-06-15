@@ -53,21 +53,77 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
   // ─── helpers ────────────────────────────────────────────────
   const unreadCount = notifs.filter(n => !n.read).length;
 
-  const markRead = (id: string) =>
-    setNotifs(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+  const getReadSignatures = (): string[] => {
+    try {
+      const saved = localStorage.getItem("igen_read_notifications_v1");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  };
 
-  const markAllRead = () =>
-    setNotifs(prev => prev.map(n => ({ ...n, read: true })));
+  const saveReadSignatures = (sigs: string[]) => {
+    try {
+      localStorage.setItem("igen_read_notifications_v1", JSON.stringify(sigs));
+    } catch (err) {
+      console.error("Lỗi khi lưu trạng thái thông báo:", err);
+    }
+  };
+
+  const getNotifSignature = (n: AppNotification) => `${n.id}:${n.title}:${n.body}`;
+
+  const markRead = (id: string) => {
+    setNotifs(prev => {
+      const target = prev.find(n => n.id === id);
+      if (target) {
+        const signature = getNotifSignature(target);
+        const signatures = getReadSignatures();
+        if (!signatures.includes(signature)) {
+          saveReadSignatures([...signatures, signature]);
+        }
+      }
+      return prev.map(n => n.id === id ? { ...n, read: true } : n);
+    });
+  };
+
+  const markAllRead = () => {
+    setNotifs(prev => {
+      const newSigs = prev.map(n => getNotifSignature(n));
+      const signatures = getReadSignatures();
+      const unique = Array.from(new Set([...signatures, ...newSigs]));
+      saveReadSignatures(unique);
+      return prev.map(n => ({ ...n, read: true }));
+    });
+  };
 
   const upsertNotif = (notif: AppNotification) =>
     setNotifs(prev => {
       const idx = prev.findIndex(n => n.id === notif.id);
-      if (idx === -1) return [notif, ...prev];
-      // preserve read state unless it was previously unread
+      
+      const signatures = getReadSignatures();
+      const newSignature = getNotifSignature(notif);
+      const isReadInStorage = signatures.includes(newSignature);
+      
+      let finalRead = isReadInStorage;
+
+      if (idx === -1) {
+        return [{ ...notif, read: finalRead }, ...prev];
+      }
+
       const old = prev[idx];
+      const oldSignature = getNotifSignature(old);
+
+      if (oldSignature !== newSignature) {
+        // Content changed, so it becomes unread unless it's in storage
+        finalRead = isReadInStorage;
+      } else {
+        // Content didn't change, preserve state
+        finalRead = isReadInStorage || old.read;
+      }
+
       return [
         ...prev.slice(0, idx),
-        { ...notif, read: old.read },
+        { ...notif, read: finalRead },
         ...prev.slice(idx + 1),
       ];
     });
