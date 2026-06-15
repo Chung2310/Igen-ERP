@@ -33,6 +33,7 @@ const chatSchema = {
 const pillarsSchema = {
   body: Joi.object({
     campaignTopic: Joi.string().required(),
+    images: Joi.array().items(Joi.string()).optional(),
   }),
 };
 
@@ -42,6 +43,7 @@ const ideasSchema = {
     selectedPillars: Joi.array().items(Joi.string()).required(),
     channels: Joi.array().items(Joi.string()).optional(),
     mediaType: Joi.string().valid("image", "video", "none").optional(),
+    images: Joi.array().items(Joi.string()).optional(),
   }),
 };
 

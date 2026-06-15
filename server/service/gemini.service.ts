@@ -60,6 +60,7 @@ async function generateText(
     temperature?: number;
     responseMimeType?: string;
     responseSchema?: any;
+    images?: string[];
   }
 ): Promise<{ text: string }> {
   if (!process.env.PIAPI_API_KEY) {
@@ -77,7 +78,18 @@ async function generateText(
   }
 
   if (typeof contents === "string") {
-    messages.push({ role: "user", content: contents });
+    if (config?.images && config.images.length > 0) {
+      const contentParts: any[] = [{ type: "text", text: contents }];
+      for (const img of config.images) {
+        contentParts.push({
+          type: "image_url",
+          image_url: { url: img }
+        });
+      }
+      messages.push({ role: "user", content: contentParts });
+    } else {
+      messages.push({ role: "user", content: contents });
+    }
   } else if (Array.isArray(contents)) {
     for (const item of contents) {
       if (typeof item === "string") {
@@ -339,7 +351,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
   /**
    * Đề xuất Content Pillars
    */
-  async analyzeMarketingPillars(campaignTopic: string): Promise<{ pillars: any[]; isMock: boolean }> {
+  async analyzeMarketingPillars(campaignTopic: string, images?: string[]): Promise<{ pillars: any[]; isMock: boolean }> {
     const getMockPillars = () => {
       let mockPillars = [
         {
@@ -483,6 +495,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
             },
             required: ["pillars"],
           },
+          images
         }
       );
 
@@ -502,7 +515,8 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
     campaignTopic: string,
     selectedPillars: string[],
     channels?: string[],
-    mediaType?: string
+    mediaType?: string,
+    images?: string[]
   ): Promise<{ concepts: any[]; isMock: boolean }> {
     const pillarsStr =
       selectedPillars && selectedPillars.length > 0
@@ -620,6 +634,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
             },
             required: ["concepts"],
           },
+          images
         }
       );
 
