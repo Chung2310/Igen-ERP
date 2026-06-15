@@ -43,6 +43,7 @@ export interface AIChatConfig {
   replyDelay: number; // in seconds
   advancedInstructions: string;
   trainingKnowledge: string;
+  model?: string;
 }
 
 export interface LeadCard {

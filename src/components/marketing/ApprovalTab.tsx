@@ -4,6 +4,7 @@ import { ContentApprovalCard } from "../../types";
 import { marketingService } from "../../services/marketingService";
 import { toast } from "../../pages/Toast";
 import { ModerationPipCard, ScheduledCard, PublishedCard } from "./CardWidgets";
+import CardDetailDrawer from "./CardDetailDrawer";
 
 interface ApprovalTabProps {
   userProfile: any;
@@ -37,6 +38,9 @@ export default function ApprovalTab({
   setScheduleTime
 }: ApprovalTabProps) {
   const [promptMore, setPromptMore] = useState("");
+  const [selectedDetailCard, setSelectedDetailCard] = useState<ContentApprovalCard | null>(null);
+
+  const activeDrawerCard = selectedDetailCard ? (approvalCards.find(c => c.id === selectedDetailCard.id) || null) : null;
 
   const newProductiveDraft = (topic: string): ContentApprovalCard => {
     return {
@@ -65,6 +69,17 @@ export default function ApprovalTab({
       console.error(e);
       toast.error("Không thể tạo bài đăng nháp từ AI.");
     }
+  };
+
+  const handleDeleteCard = async (id: string) => {
+    await deleteCard(id);
+    if (selectedDetailCard?.id === id) {
+      setSelectedDetailCard(null);
+    }
+  };
+
+  const handleUpdateCardLocal = (id: string, updatedFields: Partial<ContentApprovalCard>) => {
+    setApprovalCards(prev => prev.map(c => c.id === id ? { ...c, ...updatedFields } : c));
   };
 
   return (
@@ -102,11 +117,11 @@ export default function ApprovalTab({
         </button>
       </div>
 
-      {/* Content pipeline grid columns: 5 distinct stages */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4" id="moderation_columns">
+      {/* Content pipeline columns: Horizontal scrollable with flexbox */}
+      <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin" id="moderation_columns">
         
         {/* STATUS 1: DRAFT (BẢN NHÁP) */}
-        <div className="bg-gray-50 border border-gray-150 rounded-2xl p-3 flex flex-col min-h-[450px]">
+        <div className="bg-gray-50 border border-gray-150 rounded-2xl p-3 flex flex-col min-h-[450px] flex-1 min-w-[280px] md:min-w-[320px]">
           <div className="flex justify-between items-center mb-3 pb-2 border-b border-gray-200">
             <span className="text-[11px] font-bold text-slate-700 tracking-wider flex items-center gap-1">
               📝 NHÁP ({approvalCards.filter(c => c.status === "draft").length})
@@ -122,9 +137,10 @@ export default function ApprovalTab({
                   card={card} 
                   onNextStatus={() => updateCardStatus(card.id, "pending")}
                   onPrevStatus={null}
-                  onDelete={() => deleteCard(card.id)} 
+                  onDelete={() => handleDeleteCard(card.id)} 
                   onPreviewMedia={(type, url) => handleOpenLightbox(card, type, url)}
                   onGenerateMedia={(c, type) => handleInitAIGeneration(c, type)}
+                  onOpenDetail={() => setSelectedDetailCard(card)}
                 />
               ))
             )}
@@ -132,7 +148,7 @@ export default function ApprovalTab({
         </div>
 
         {/* STATUS 2: PENDING (CHỜ DUYỆT) */}
-        <div className="bg-gray-50 border border-gray-150 rounded-2xl p-3 flex flex-col min-h-[450px]">
+        <div className="bg-gray-50 border border-gray-150 rounded-2xl p-3 flex flex-col min-h-[450px] flex-1 min-w-[280px] md:min-w-[320px]">
           <div className="flex justify-between items-center mb-3 pb-2 border-b border-gray-200">
             <span className="text-[11px] font-bold text-amber-800 tracking-wider flex items-center gap-1">
               ⏳ CHỜ DUYỆT ({approvalCards.filter(c => c.status === "pending").length})
@@ -148,9 +164,10 @@ export default function ApprovalTab({
                   card={card} 
                   onNextStatus={isUserRole ? null : () => updateCardStatus(card.id, "approved")}
                   onPrevStatus={() => updateCardStatus(card.id, "draft")}
-                  onDelete={() => deleteCard(card.id)} 
+                  onDelete={() => handleDeleteCard(card.id)} 
                   onPreviewMedia={(type, url) => handleOpenLightbox(card, type, url)}
                   onGenerateMedia={(c, type) => handleInitAIGeneration(c, type)}
+                  onOpenDetail={() => setSelectedDetailCard(card)}
                 />
               ))
             )}
@@ -158,7 +175,7 @@ export default function ApprovalTab({
         </div>
 
         {/* STATUS 3: APPROVED (ĐÃ DUYỆT) */}
-        <div className="bg-gray-50 border border-gray-150 rounded-2xl p-3 flex flex-col min-h-[450px]">
+        <div className="bg-gray-50 border border-gray-150 rounded-2xl p-3 flex flex-col min-h-[450px] flex-1 min-w-[280px] md:min-w-[320px]">
           <div className="flex justify-between items-center mb-3 pb-2 border-b border-gray-200">
             <span className="text-[11px] font-bold text-blue-800 tracking-wider flex items-center gap-1">
               ✓ ĐÃ DUYỆT ({approvalCards.filter(c => c.status === "approved").length})
@@ -182,9 +199,10 @@ export default function ApprovalTab({
                     setScheduleTime("09:00");
                   }}
                   onPrevStatus={isUserRole ? null : () => updateCardStatus(card.id, "pending")}
-                  onDelete={() => deleteCard(card.id)} 
+                  onDelete={() => handleDeleteCard(card.id)} 
                   onPreviewMedia={(type, url) => handleOpenLightbox(card, type, url)}
                   onGenerateMedia={(c, type) => handleInitAIGeneration(c, type)}
+                  onOpenDetail={() => setSelectedDetailCard(card)}
                 />
               ))
             )}
@@ -192,7 +210,7 @@ export default function ApprovalTab({
         </div>
 
         {/* STATUS 4: SCHEDULED (ĐÃ LÊN LỊCH) */}
-        <div className="bg-gray-50 border border-gray-150 rounded-2xl p-3 flex flex-col min-h-[450px]">
+        <div className="bg-gray-50 border border-gray-150 rounded-2xl p-3 flex flex-col min-h-[450px] flex-1 min-w-[280px] md:min-w-[320px]">
           <div className="flex justify-between items-center mb-3 pb-2 border-b border-gray-200">
             <span className="text-[11px] font-bold text-emerald-800 tracking-wider flex items-center gap-1">
               📅 ĐÃ LÊN LỊCH ({approvalCards.filter(c => c.status === "scheduled" || c.status === "failed").length})
@@ -208,13 +226,14 @@ export default function ApprovalTab({
                   card={card} 
                   isUserRole={isUserRole}
                   onPrevStatus={() => updateCardStatus(card.id, "approved")}
-                  onDelete={() => deleteCard(card.id)}
+                  onDelete={() => handleDeleteCard(card.id)}
                   fbIntegration={userProfile?.facebookIntegration}
                   tiktokIntegration={userProfile?.tiktokIntegration}
                   onPreviewMedia={(type, url) => handleOpenLightbox(card, type, url)}
                   onGenerateMedia={(c, type) => handleInitAIGeneration(c, type)}
                   onPublishToTikTok={() => handlePublishToTikTok(card)}
                   isPublishingTikTok={publishingTikTokId === card.id}
+                  onOpenDetail={() => setSelectedDetailCard(card)}
                 />
               ))
             )}
@@ -222,7 +241,7 @@ export default function ApprovalTab({
         </div>
 
         {/* STATUS 5: PUBLISHED (ĐÃ ĐĂNG TẢI) */}
-        <div className="bg-green-50/70 border border-green-200 rounded-2xl p-3 flex flex-col min-h-[450px]">
+        <div className="bg-green-50/70 border border-green-200 rounded-2xl p-3 flex flex-col min-h-[450px] flex-1 min-w-[280px] md:min-w-[320px]">
           <div className="flex justify-between items-center mb-3 pb-2 border-b border-green-200">
             <span className="text-[11px] font-bold text-green-800 tracking-wider flex items-center gap-1">
               ✅ ĐÃ ĐĂNG TẢI ({approvalCards.filter(c => c.status === "published").length})
@@ -236,9 +255,10 @@ export default function ApprovalTab({
                 <PublishedCard 
                   key={card.id} 
                   card={card} 
-                  onDelete={() => deleteCard(card.id)} 
+                  onDelete={() => handleDeleteCard(card.id)} 
                   isUserRole={isUserRole} 
                   onPreviewMedia={(type, url) => handleOpenLightbox(card, type, url)}
+                  onOpenDetail={() => setSelectedDetailCard(card)}
                 />
               ))
             )}
@@ -246,6 +266,27 @@ export default function ApprovalTab({
         </div>
 
       </div>
+
+      {/* Slide-over Detail Drawer */}
+      <CardDetailDrawer
+        card={activeDrawerCard}
+        isOpen={!!activeDrawerCard}
+        onClose={() => setSelectedDetailCard(null)}
+        isUserRole={isUserRole}
+        onNextStatus={updateCardStatus as any}
+        onPrevStatus={updateCardStatus as any}
+        onDelete={handleDeleteCard}
+        onPreviewMedia={(type, url) => handleOpenLightbox(activeDrawerCard!, type, url)}
+        onGenerateMedia={handleInitAIGeneration}
+        fbIntegration={userProfile?.facebookIntegration}
+        tiktokIntegration={userProfile?.tiktokIntegration}
+        onPublishToTikTok={handlePublishToTikTok}
+        isPublishingTikTok={publishingTikTokId === activeDrawerCard?.id}
+        setSchedulingCard={setSchedulingCard}
+        setScheduleDate={setScheduleDate}
+        setScheduleTime={setScheduleTime}
+        onUpdateCard={handleUpdateCardLocal}
+      />
     </div>
   );
 }

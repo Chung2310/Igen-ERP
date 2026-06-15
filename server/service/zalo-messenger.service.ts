@@ -519,6 +519,14 @@ export const zaloMessengerService = {
     // Xử lý gửi tin thật hoặc giả lập
     if (isMock) {
       console.log(`[Zalo Service Mock] Giả lập gửi tin tới Zalo User: ${recipientId}`);
+      conversation.lastMessageText = text;
+      conversation.lastMessageAt = sentAt;
+      conversation.unreadCount = 0;
+      await conversation.save();
+      newMsg.status = "delivered";
+      await newMsg.save();
+      emitRealtimeUpdate();
+
       // Lên lịch phản hồi tự động từ Bot/Khách hàng giả lập sau 2.5 giây để tăng tính tương tác
       setTimeout(async () => {
         try {

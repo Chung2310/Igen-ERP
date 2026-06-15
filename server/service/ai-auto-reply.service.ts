@@ -1,6 +1,7 @@
 import { UserModel } from "../model/user.model";
 import { ZaloConversationModel, ZaloMessageModel } from "../model/zalo-messenger.model";
 import { FBConversationModel, FBMessageModel } from "../model/fb-messenger.model";
+import { SocialIntegrationModel } from "../model/social-integration.model";
 import { geminiService } from "./gemini.service";
 import { zaloMessengerService } from "./zalo-messenger.service";
 import { fbMessengerService } from "./fb-messenger.service";
@@ -9,6 +10,7 @@ import { aiKnowledgeService } from "./ai-knowledge.service";
 // In-memory timeouts map to manage debouncing per conversation.
 // messageKey prevents polling/sync from pushing the same inbound message forever.
 const pendingReplies = new Map<string, { timeout: NodeJS.Timeout; messageKey: string }>();
+const generatingReplies = new Set<string>();
 
 export const aiAutoReplyService = {
   /**
@@ -28,7 +30,9 @@ export const aiAutoReplyService = {
    */
   async triggerAutoReply(channel: "facebook" | "zalo", platformId: string, conversationId: string, incomingText: string, incomingMessageId?: string) {
     try {
-      console.log(`[AI AutoReply] Trigger received channel=${channel}, platformId=${platformId}, conversationId=${conversationId}, messageId=${incomingMessageId || "n/a"}`);
+      const resolvedPlatformId = String(platformId).trim();
+      console.log(`[AI AutoReply] Bắt đầu triggerAutoReply: channel=${channel}, platformId=${platformId} (ép kiểu string: "${resolvedPlatformId}"), conversationId=${conversationId}, messageId=${incomingMessageId || "n/a"}`);
+
       const messageKey = incomingMessageId || `${conversationId}:${incomingText}:${Date.now()}`;
       const existingPending = pendingReplies.get(conversationId);
       if (existingPending?.messageKey === messageKey) {
@@ -40,51 +44,77 @@ export const aiAutoReplyService = {
       let user = null;
       let aiConfig = null;
 
-      if (channel === "facebook" || channel === "zalo") {
-        const { SocialIntegrationModel } = require("../model/social-integration.model");
-        const companyIntegration = await SocialIntegrationModel.findOne({
-          platform: channel === "zalo" ? "Zalo" : "Facebook",
-          username: platformId, // pageId or oaId is stored in username
-          isConnected: true
-        }).lean();
+      const candidateUsers: any[] = [];
 
-        if (companyIntegration) {
-          const companyCode = companyIntegration.companyCode;
-          console.log(`[AI AutoReply] Found company integration for ${channel}. companyCode=${companyCode}, displayName=${companyIntegration.displayName || "n/a"}`);
-          user = await UserModel.findOne({
-            companyCode,
-            "aiAutoReplyConfig.enabled": true,
-          });
-          if (!user) {
-            user = await UserModel.findOne({ companyCode });
+      // A. Tìm theo cấu hình tích hợp cá nhân (UserModel)
+      const userLevelQuery = channel === "zalo"
+        ? { "zaloIntegration.isConnected": true, "zaloIntegration.oaId": resolvedPlatformId }
+        : { "facebookIntegration.isConnected": true, "facebookIntegration.pageId": resolvedPlatformId };
+
+      console.log(`[AI AutoReply] Đang tìm tích hợp cá nhân cho ${channel} bằng query:`, JSON.stringify(userLevelQuery));
+      const userLevelOwners = await UserModel.find(userLevelQuery);
+      if (userLevelOwners && userLevelOwners.length > 0) {
+        console.log(`[AI AutoReply] Tìm thấy ${userLevelOwners.length} users liên kết cá nhân:`, userLevelOwners.map(u => u.email));
+        candidateUsers.push(...userLevelOwners);
+      }
+
+      // B. Tìm theo cấu hình tích hợp doanh nghiệp (SocialIntegrationModel)
+      const companyIntegrations = await SocialIntegrationModel.find({
+        platform: channel === "zalo" ? "Zalo" : "Facebook",
+        username: resolvedPlatformId,
+        isConnected: true
+      }).lean();
+
+      if (companyIntegrations && companyIntegrations.length > 0) {
+        console.log(`[AI AutoReply] Tìm thấy ${companyIntegrations.length} tích hợp doanh nghiệp.`);
+        for (const integration of companyIntegrations) {
+          console.log(`  - Tích hợp: companyCode=${integration.companyCode}, createdBy=${integration.createdBy}`);
+          
+          if (integration.createdBy) {
+            const creator = await UserModel.findById(integration.createdBy);
+            if (creator) {
+              console.log(`    - Thêm người tạo tích hợp doanh nghiệp làm ứng viên: ${creator.email}`);
+              candidateUsers.push(creator);
+            }
           }
-          if (user) {
-            aiConfig = user.aiAutoReplyConfig;
-            console.log(`[AI AutoReply] Loaded AI config from company user=${user.email}, enabled=${!!aiConfig?.enabled}, delay=${aiConfig?.replyDelay ?? "n/a"}s`);
+
+          const companyUsers = await UserModel.find({ companyCode: integration.companyCode });
+          if (companyUsers && companyUsers.length > 0) {
+            console.log(`    - Thêm các thành viên trong công ty làm ứng viên:`, companyUsers.map(u => u.email));
+            candidateUsers.push(...companyUsers);
           }
         }
       }
 
-      // Fallback/Legacy query if user or config not found
-      if (!user) {
-        const query = channel === "zalo" 
-          ? { "zaloIntegration.isConnected": true, "zaloIntegration.oaId": platformId }
-          : { "facebookIntegration.isConnected": true, "facebookIntegration.pageId": platformId };
-        
-        user = await UserModel.findOne(query);
-        if (user) {
-          aiConfig = user.aiAutoReplyConfig;
-          console.log(`[AI AutoReply] Loaded legacy ${channel} config from user=${user.email}, enabled=${!!aiConfig?.enabled}, delay=${aiConfig?.replyDelay ?? "n/a"}s`);
+      // C. Lọc trùng lặp danh sách ứng viên
+      const uniqueCandidatesMap = new Map<string, any>();
+      for (const u of candidateUsers) {
+        uniqueCandidatesMap.set(u._id.toString(), u);
+      }
+      const uniqueCandidates = Array.from(uniqueCandidatesMap.values());
+      console.log(`[AI AutoReply] Danh sách tất cả ứng viên duy nhất:`, uniqueCandidates.map(u => `${u.email} (AIEnabled: ${!!u.aiAutoReplyConfig?.enabled})`));
+
+      // D. Chọn user phù hợp nhất (ưu tiên người dùng đã BẬT AI tự động trả lời)
+      let selectedUser = uniqueCandidates.find(u => u.aiAutoReplyConfig?.enabled === true);
+      if (selectedUser) {
+        console.log(`[AI AutoReply] Chọn được user đang BẬT AI: ${selectedUser.email}`);
+      } else {
+        selectedUser = uniqueCandidates[0];
+        if (selectedUser) {
+          console.log(`[AI AutoReply] Không có user nào bật AI. Chọn user dự phòng đầu tiên: ${selectedUser.email}`);
         }
       }
 
-      if (!user) {
-        console.warn(`[AI AutoReply] Không tìm thấy tích hợp ${channel} cho ID: ${platformId}`);
+      if (!selectedUser) {
+        console.warn(`[AI AutoReply] Không tìm thấy bất kỳ cấu hình tích hợp nào cho ${channel} ID: ${resolvedPlatformId}. Bỏ qua auto reply.`);
         return;
       }
 
+      user = selectedUser;
+      aiConfig = selectedUser.aiAutoReplyConfig;
+
       if (!aiConfig || !aiConfig.enabled) {
-        console.log(`[AI AutoReply] AI auto-reply is disabled for user=${user.email}, conversationId=${conversationId}`);
+        console.log(`[AI AutoReply] Tự động trả lời AI đang bị TẮT cho user=${user.email}, conversationId=${conversationId}`);
         return;
       }
 
@@ -98,13 +128,21 @@ export const aiAutoReplyService = {
         try {
           pendingReplies.delete(conversationId); // Remove from pending list since we are processing it now
 
+          if (generatingReplies.has(conversationId)) {
+            console.log(`[AI AutoReply] Bỏ qua tự động phản hồi hội thoại ${conversationId} vì đang có tiến trình sinh câu trả lời đang chạy.`);
+            return;
+          }
+
           // Fetch the conversation to ensure it still exists and check if the last message is still inbound
           let lastMessageDirection = "inbound";
           let history: any[] = [];
 
           if (channel === "zalo") {
             const conv = await ZaloConversationModel.findById(conversationId);
-            if (!conv) return;
+            if (!conv) {
+              console.log(`[AI AutoReply] Không tìm thấy cuộc hội thoại Zalo ${conversationId} trong DB.`);
+              return;
+            }
 
             // Fetch last 15 messages for history context
             const dbMsgs = await ZaloMessageModel.find({ conversationId })
@@ -123,7 +161,10 @@ export const aiAutoReplyService = {
             }));
           } else {
             const conv = await FBConversationModel.findById(conversationId);
-            if (!conv) return;
+            if (!conv) {
+              console.log(`[AI AutoReply] Không tìm thấy cuộc hội thoại FB ${conversationId} trong DB.`);
+              return;
+            }
 
             // Fetch last 15 messages for history context
             const dbMsgs = await FBMessageModel.find({ conversationId })
@@ -150,75 +191,80 @@ export const aiAutoReplyService = {
           }
 
           console.log(`[AI AutoReply] Bắt đầu gọi Gemini sinh câu trả lời cho hội thoại: ${conversationId}`);
-
-          const startedAt = Date.now();
-          const companyCode = user.companyCode || "SYSTEM";
-          const ragContext = await aiKnowledgeService.searchRelevantContext({
-            companyCode,
-            query: `${history.map((h) => h.text).join("\n")}\n${incomingText}`,
-            channel,
-            topK: 5,
-          });
-
-          let effectiveRagContext = { ...ragContext, companyCode };
-          if (!ragContext.contextText && aiConfig.trainingKnowledge) {
-            effectiveRagContext = {
-              contextText: String(aiConfig.trainingKnowledge).slice(0, 4500),
-              matches: 0,
-              companyCode,
-            };
-          }
-
-          console.log(
-            `[AI AutoReply] Context ready for conversation=${conversationId}, matches=${effectiveRagContext.matches}, ` +
-            `contextLength=${effectiveRagContext.contextText?.length || 0}`
-          );
-
-          // Call Gemini Service
-          const aiResponse = await geminiService.chat(incomingText, history, aiConfig, effectiveRagContext);
-
-          if (!aiResponse || !aiResponse.text) {
-            console.error(`[AI AutoReply] Không nhận được câu trả lời từ Gemini cho hội thoại: ${conversationId}`);
-            return;
-          }
-
-          console.log(`[AI AutoReply] Đã sinh xong câu trả lời. Gửi tin nhắn thật qua ${channel}...`);
+          generatingReplies.add(conversationId);
 
           try {
-            // Send response using existing sendReply helper
-            if (channel === "zalo") {
-              await zaloMessengerService.sendReply(platformId, conversationId, aiResponse.text);
-            } else {
-              await fbMessengerService.sendReply(platformId, conversationId, aiResponse.text);
+            const startedAt = Date.now();
+            const companyCode = user.companyCode || "SYSTEM";
+            const ragContext = await aiKnowledgeService.searchRelevantContext({
+              companyCode,
+              query: `${history.map((h) => h.text).join("\n")}\n${incomingText}`,
+              channel,
+              topK: 5,
+            });
+
+            let effectiveRagContext = { ...ragContext, companyCode };
+            if (!ragContext.contextText && aiConfig.trainingKnowledge) {
+              effectiveRagContext = {
+                contextText: String(aiConfig.trainingKnowledge).slice(0, 4500),
+                matches: 0,
+                companyCode,
+              };
             }
 
-            await aiKnowledgeService.createReplyLog({
-              companyCode,
-              channel,
-              conversationId,
-              customerMessage: incomingText,
-              aiResponse: aiResponse.text,
-              contextText: effectiveRagContext.contextText,
-              contextMatches: effectiveRagContext.matches,
-              latencyMs: Date.now() - startedAt,
-              status: "sent",
-            });
-          } catch (sendErr: any) {
-            await aiKnowledgeService.createReplyLog({
-              companyCode,
-              channel,
-              conversationId,
-              customerMessage: incomingText,
-              aiResponse: `[SEND_FAILED] ${aiResponse.text}\n\nError: ${sendErr?.message || sendErr}`,
-              contextText: effectiveRagContext.contextText,
-              contextMatches: effectiveRagContext.matches,
-              latencyMs: Date.now() - startedAt,
-              status: "failed",
-            });
-            throw sendErr;
-          }
+            console.log(
+              `[AI AutoReply] Context ready for conversation=${conversationId}, matches=${effectiveRagContext.matches}, ` +
+              `contextLength=${effectiveRagContext.contextText?.length || 0}`
+            );
 
-          console.log(`[AI AutoReply] Gửi phản hồi tự động thành công cho hội thoại: ${conversationId}`);
+            // Call Gemini Service
+            const aiResponse = await geminiService.chat(incomingText, history, aiConfig, effectiveRagContext);
+
+            if (!aiResponse || !aiResponse.text) {
+              console.error(`[AI AutoReply] Không nhận được câu trả lời từ Gemini cho hội thoại: ${conversationId}`);
+              return;
+            }
+
+            console.log(`[AI AutoReply] Đã sinh xong câu trả lời. Gửi tin nhắn thật qua ${channel}...`);
+
+            try {
+              // Send response using existing sendReply helper
+              if (channel === "zalo") {
+                await zaloMessengerService.sendReply(resolvedPlatformId, conversationId, aiResponse.text);
+              } else {
+                await fbMessengerService.sendReply(resolvedPlatformId, conversationId, aiResponse.text);
+              }
+
+              await aiKnowledgeService.createReplyLog({
+                companyCode,
+                channel,
+                conversationId,
+                customerMessage: incomingText,
+                aiResponse: aiResponse.text,
+                contextText: effectiveRagContext.contextText,
+                contextMatches: effectiveRagContext.matches,
+                latencyMs: Date.now() - startedAt,
+                status: "sent",
+              });
+            } catch (sendErr: any) {
+              await aiKnowledgeService.createReplyLog({
+                companyCode,
+                channel,
+                conversationId,
+                customerMessage: incomingText,
+                aiResponse: `[SEND_FAILED] ${aiResponse.text}\n\nError: ${sendErr?.message || sendErr}`,
+                contextText: effectiveRagContext.contextText,
+                contextMatches: effectiveRagContext.matches,
+                latencyMs: Date.now() - startedAt,
+                status: "failed",
+              });
+              throw sendErr;
+            }
+
+            console.log(`[AI AutoReply] Gửi phản hồi tự động thành công cho hội thoại: ${conversationId}`);
+          } finally {
+            generatingReplies.delete(conversationId);
+          }
         } catch (err) {
           console.error(`[AI AutoReply Timeout Execution] Thất bại khi thực hiện gửi phản hồi tự động:`, err);
         }

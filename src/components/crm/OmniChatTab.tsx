@@ -1,8 +1,9 @@
 import React, { useRef, useEffect, useState } from "react";
-import { Search, Send, Sliders, Zap, FileText, DollarSign, MessageSquare, ChevronDown, Facebook, Clock3 } from "lucide-react";
+import { Search, Send, Sliders, Zap, FileText, DollarSign, MessageSquare, ChevronDown, Facebook, Clock3, Plus } from "lucide-react";
 import { CustomerInbox, ChatMessage, AIChatConfig, ChatPagination } from "../../types";
 import { toast } from "../../pages/Toast";
 import { geminiApi } from "../../api/gemini";
+import { ExtendedLeadCard } from "../../services/crmService";
 
 type OmniChatTabProps = {
   inboxCustomers: CustomerInbox[];
@@ -17,6 +18,9 @@ type OmniChatTabProps = {
   handleSelectCustomer: (cust: CustomerInbox) => void;
   handleSendChatMessage: (e: React.FormEvent) => void;
   handleLoadOlderMessages: () => void;
+  leads: ExtendedLeadCard[];
+  onCreateLeadFromChat: (customer: CustomerInbox, status: "cold" | "warm" | "hot") => void;
+  onUpdateLeadStatus: (id: string, newStatus: "cold" | "warm" | "hot") => void;
 };
 
 export const OmniChatTab: React.FC<OmniChatTabProps> = ({
@@ -32,6 +36,9 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
   handleSelectCustomer,
   handleSendChatMessage,
   handleLoadOlderMessages,
+  leads,
+  onCreateLeadFromChat,
+  onUpdateLeadStatus,
 }) => {
   const [filterInbox, setFilterInbox] = useState("");
   const [activeChannel, setActiveChannel] = useState<"all" | "facebook" | "zalo">("all");
@@ -410,24 +417,91 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
           <>
             {/* Active Customer Info Top Header */}
             <div className="p-4 border-b border-slate-200/80 bg-white/90 backdrop-blur flex items-center justify-between shrink-0 shadow-sm" id="chat_header">
-              <div className="flex items-center gap-3 text-left">
-                <span className="p-1.5 bg-gradient-to-br from-white to-slate-100 border border-slate-200 rounded-full select-none shadow-sm">
-                  {renderCustomerAvatar(activeCustomer, "h-11 w-11")}
-                </span>
-                <div>
-                  <h4 className="font-extrabold text-slate-800 text-sm flex items-center gap-1.5 font-sans">
-                    {activeCustomer.name}
-                    {activeCustomer.isVip && (
-                      <span className="px-1.5 py-0.5 bg-amber-500 text-white text-[8px] font-extrabold rounded-md shadow-sm">VIP</span>
-                    )}
-                  </h4>
-                  <p className="text-[10px] text-slate-500 font-mono mt-1 flex items-center gap-1.5">
-                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${activeCustomer.channel === "zalo" ? "bg-cyan-400 animate-pulse" : "bg-blue-500"}`} />
-                    {activeCustomer.channel === "zalo" ? "Khách Zalo • UID: " : "Khách Facebook • PSID: "}
-                    {activeCustomer.recipientId || activeCustomer.id}
-                  </p>
-                </div>
-              </div>
+              {(() => {
+                const linkedLead = leads.find(l => l.customerName.toLowerCase() === activeCustomer.name.toLowerCase());
+                return (
+                  <div className="flex items-center gap-3 text-left">
+                    <span className="p-1.5 bg-gradient-to-br from-white to-slate-100 border border-slate-200 rounded-full select-none shadow-sm">
+                      {renderCustomerAvatar(activeCustomer, "h-11 w-11")}
+                    </span>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className="font-extrabold text-slate-800 text-sm font-sans">
+                          {activeCustomer.name}
+                        </h4>
+                        {activeCustomer.isVip && (
+                          <span className="px-1.5 py-0.5 bg-amber-500 text-white text-[8px] font-extrabold rounded-md shadow-sm">VIP</span>
+                        )}
+                        
+                        {/* CRM Pipeline Status Indicator and Actions */}
+                        {linkedLead ? (
+                          <div className="flex items-center gap-1.5">
+                            <span className={`px-2 py-0.5 rounded-md text-[9px] font-extrabold uppercase border ${
+                              linkedLead.status === 'cold' ? 'bg-slate-100 text-slate-655 border-slate-200' :
+                              linkedLead.status === 'warm' ? 'bg-orange-50 text-orange-655 border-orange-200' :
+                              linkedLead.status === 'hot' ? 'bg-rose-50 text-rose-655 border-rose-200 animate-pulse' :
+                              'bg-emerald-50 text-emerald-655 border-emerald-200'
+                            }`}>
+                              CRM: {linkedLead.status === 'cold' ? 'Khách Lạnh' : linkedLead.status === 'warm' ? 'Khách Ấm' : linkedLead.status === 'hot' ? 'Khách Nóng' : 'Thành công'}
+                            </span>
+                            
+                            {linkedLead.status === "cold" && (
+                              <button
+                                type="button"
+                                onClick={() => onUpdateLeadStatus(linkedLead.id, "warm")}
+                                className="px-2 py-0.5 bg-orange-50 hover:bg-orange-100 text-orange-600 border border-orange-200 rounded-md text-[9px] font-bold transition-all cursor-pointer active:scale-95"
+                              >
+                                Lên Ấm →
+                              </button>
+                            )}
+                            {linkedLead.status === "warm" && (
+                              <div className="flex gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => onUpdateLeadStatus(linkedLead.id, "cold")}
+                                  className="px-1.5 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-250 rounded-md text-[9px] font-bold transition-all cursor-pointer active:scale-95"
+                                >
+                                  ← Lạnh
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => onUpdateLeadStatus(linkedLead.id, "hot")}
+                                  className="px-1.5 py-0.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-250 rounded-md text-[9px] font-bold transition-all cursor-pointer active:scale-95"
+                                >
+                                  Nóng →
+                                </button>
+                              </div>
+                            )}
+                            {linkedLead.status === "hot" && (
+                              <button
+                                type="button"
+                                onClick={() => onUpdateLeadStatus(linkedLead.id, "warm")}
+                                className="px-2 py-0.5 bg-orange-50 hover:bg-orange-100 text-orange-600 border border-orange-200 rounded-md text-[9px] font-bold transition-all cursor-pointer active:scale-95"
+                              >
+                                ← Về Ấm
+                              </button>
+                            )}
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => onCreateLeadFromChat(activeCustomer, "cold")}
+                            className="px-2 py-0.5 bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 rounded-md text-[9px] font-bold transition-all cursor-pointer flex items-center gap-0.5 active:scale-95"
+                          >
+                            <Plus className="w-2.5 h-2.5" />
+                            Đưa vào CRM
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-slate-500 font-mono mt-1 flex items-center gap-1.5">
+                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${activeCustomer.channel === "zalo" ? "bg-cyan-400 animate-pulse" : "bg-blue-500"}`} />
+                        {activeCustomer.channel === "zalo" ? "Khách Zalo • UID: " : "Khách Facebook • PSID: "}
+                        {activeCustomer.recipientId || activeCustomer.id}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })()}
               
               {/* Header Actions: Collapsible config and channel badge */}
               <div className="flex items-center gap-2">
@@ -511,7 +585,7 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                     >
                       <div className={`flex items-end gap-2 max-w-[78%] relative ${isMe ? "flex-row-reverse" : ""}`}>
                         {!isMe && (
-                          <div className="shrink-0 mr-1 shadow-sm select-none">
+                          <div className="shrink-0 mr-1 rounded-full shadow-sm select-none">
                             {isAI ? (
                               <span className="text-lg w-8 h-8 bg-white border border-slate-200 rounded-full flex items-center justify-center">
                                 🤖
@@ -743,11 +817,11 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                 </svg>
                 Đồng bộ tài liệu từ Google Drive
               </label>
-              <p className="text-[9px] text-slate-400 leading-normal">Dán link Google Doc công khai. AI sẽ tự động chuyển đổi tài liệu thành danh sách FAQs chuẩn hóa để huấn luyện bot.</p>
+              <p className="text-[9px] text-slate-400 leading-normal">Dán link Google Doc công khai (hỗ trợ dán nhiều link cách nhau bởi dấu phẩy hoặc xuống dòng). AI sẽ tự động đọc và chuẩn hóa thành FAQ.</p>
               <div className="flex gap-1.5">
                 <input 
                   type="text" 
-                  placeholder="https://docs.google.com/document/d/..."
+                  placeholder="Dán link hoặc danh sách link Google Doc..."
                   value={driveLink}
                   onChange={(e) => setDriveLink(e.target.value)}
                   disabled={syncingDrive}

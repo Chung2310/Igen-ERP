@@ -8,7 +8,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 
-const GEMINI_TEXT_MODEL = process.env.GEMINI_MODEL || "gemini-3.5-flash";
+const GEMINI_TEXT_MODEL = process.env.TEXT_MODEL || process.env.GEMINI_MODEL || "gemini-3.5-flash";
 const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || "piapi-flux";
 const GEMINI_VIDEO_MODEL = process.env.GEMINI_VIDEO_MODEL || "veo31-video-fast-audio";
 
@@ -67,9 +67,9 @@ async function generateText(
     throw new Error("PiAPI API key is not configured.");
   }
 
-  let mappedModel = "gpt-4o-mini";
-  if (model.includes("pro")) {
-    mappedModel = "gpt-4o";
+  let mappedModel = model;
+  if (model.includes("gemini") || model.includes("flash") || model.includes("3.5")) {
+    mappedModel = model.includes("pro") ? "gpt-4o" : "gpt-4o-mini";
   }
 
   const messages: any[] = [];
@@ -230,8 +230,9 @@ Thông tin cấu hình hiện tại của bạn:
     });
 
     try {
+      const selectedModel = aiConfig?.model || GEMINI_TEXT_MODEL;
       const response = await generateText(
-        GEMINI_TEXT_MODEL,
+        selectedModel,
         contents,
         {
           systemInstruction,

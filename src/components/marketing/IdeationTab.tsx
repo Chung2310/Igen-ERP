@@ -9,7 +9,6 @@ import {
   Video, 
   Image as ImageIcon,
   Paperclip,
-  Upload,
   X,
   FileText,
   Trash2
@@ -711,11 +710,12 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                   <span className="text-[10px] font-bold text-gray-400 font-mono uppercase tracking-wider">
                     Mô tả mục tiêu chiến dịch của bạn:
                   </span>
-                  {campaignInput && (
+                  {(campaignInput || uploadedDocName) && (
                     <button
                       type="button"
                       onClick={() => {
                         setCampaignInput("");
+                        handleRemoveDocument();
                         toast.success("Đã xóa sạch nội dung prompt!");
                       }}
                       className="text-[10px] font-bold font-mono text-red-600 hover:text-red-750 transition-colors flex items-center gap-1 cursor-pointer bg-red-50 hover:bg-red-100/80 px-2.5 py-0.5 rounded border border-red-200/30"
@@ -725,92 +725,115 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                     </button>
                   )}
                 </div>
-                <textarea 
-                  placeholder="Mô tả mục tiêu của bạn (Ex: Khởi động giới thiệu dòng Bàn phím cơ Workspace V2 phân khúc lập trình viên, chiết khấu 10%)..." 
-                  className="w-full text-left h-28 p-4 border border-gray-200 bg-white rounded-xl text-xs font-sans focus:ring-2 focus:ring-blue-500"
-                  value={campaignInput}
-                  onChange={(e) => setCampaignInput(e.target.value)}
-                />
-              </div>
 
-              {/* Document upload widget */}
-              <div 
-                className={`flex flex-col gap-2 bg-white p-3.5 border border-dashed rounded-xl text-left shadow-2xs transition-all ${
-                  isDragging ? "border-indigo-500 bg-indigo-50/20" : "border-gray-200"
-                }`}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-gray-500 font-mono uppercase tracking-wider flex items-center gap-1.5 select-none">
-                    <Paperclip className="h-3.5 w-3.5 text-indigo-550 text-indigo-600 animate-pulse" />
-                    Đính kèm tài liệu hoặc hình ảnh
-                  </span>
+                {/* Unified AI-style prompt box */}
+                <div
+                  className={`relative flex flex-col bg-white border rounded-2xl transition-all overflow-hidden ${
+                    isDragging
+                      ? "border-indigo-400 ring-2 ring-indigo-400/20 shadow-md"
+                      : "border-gray-200 focus-within:border-indigo-400 focus-within:ring-2 focus-within:ring-indigo-400/15 hover:border-gray-300"
+                  }`}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                >
+                  <textarea 
+                    placeholder="Mô tả mục tiêu của bạn (Ex: Khởi động giới thiệu dòng Bàn phím cơ Workspace V2 phân khúc lập trình viên, chiết khấu 10%)..." 
+                    className="w-full text-left min-h-[100px] max-h-[200px] p-4 pb-2 bg-transparent text-xs font-sans outline-none resize-none"
+                    value={campaignInput}
+                    onChange={(e) => setCampaignInput(e.target.value)}
+                  />
+
+                  {/* Attached file chip - shows between textarea and toolbar */}
                   {uploadedDocName && (
+                    <div className="px-3 pb-1.5">
+                      <div className="inline-flex items-center gap-2 pl-1.5 pr-1 py-1 bg-slate-50 border border-slate-200 rounded-lg max-w-xs group">
+                        <div className="h-7 w-7 rounded-md bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0 overflow-hidden">
+                          {uploadedImageBase64 ? (
+                            <img src={uploadedImageBase64} alt="Preview" className="h-full w-full object-cover rounded-sm" />
+                          ) : (
+                            <FileText className="h-3.5 w-3.5 text-indigo-600" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[11px] font-semibold text-gray-700 truncate leading-tight">{uploadedDocName}</p>
+                          <p className="text-[9px] text-gray-400 font-mono leading-tight">
+                            {loadingDoc 
+                              ? "Đang xử lý..." 
+                              : uploadedImageBase64 
+                                ? "Hình ảnh" 
+                                : "Tài liệu"
+                            }
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleRemoveDocument}
+                          className="p-0.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer opacity-0 group-hover:opacity-100"
+                          title="Gỡ tệp đính kèm"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Loading indicator */}
+                  {loadingDoc && (
+                    <div className="flex items-center gap-1.5 px-3.5 pb-1.5 text-indigo-600 text-[10px] font-bold font-mono select-none">
+                      <RefreshCw className="h-3 w-3 animate-spin" />
+                      <span>Đang xử lý dữ liệu...</span>
+                    </div>
+                  )}
+
+                  {/* Bottom toolbar with attachment icons */}
+                  <div className="flex items-center gap-0.5 px-2.5 py-1.5 border-t border-gray-100 bg-gray-50/40">
+                    {/* Attach document */}
+                    <label
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all cursor-pointer group relative"
+                      title="Đính kèm tài liệu (PDF, DOCX, TXT, MD)"
+                    >
+                      <Paperclip className="h-4 w-4" />
+                      <input
+                        type="file"
+                        accept=".txt,.md,.pdf,.docx"
+                        onChange={handleDocumentUpload}
+                        className="hidden"
+                        disabled={loadingDoc}
+                      />
+                    </label>
+
+                    {/* Attach image */}
+                    <label
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all cursor-pointer group relative"
+                      title="Đính kèm hình ảnh"
+                    >
+                      <ImageIcon className="h-4 w-4" />
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleDocumentUpload}
+                        className="hidden"
+                        disabled={loadingDoc}
+                      />
+                    </label>
+
+                    <div className="flex-1" />
                     <button
                       type="button"
-                      onClick={handleRemoveDocument}
-                      className="text-gray-400 hover:text-red-500 transition-colors p-1 cursor-pointer"
-                      title="Gỡ tài liệu"
+                      onClick={() => handleAnalyzePillars()}
+                      disabled={loadingPillars || !campaignInput.trim()}
+                      className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[10px] font-bold transition-all ${
+                        loadingPillars || !campaignInput.trim()
+                          ? "bg-gray-50 text-gray-400 border-gray-250 cursor-not-allowed"
+                          : "bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-150 cursor-pointer active:scale-98"
+                      }`}
                     >
-                      <X className="h-4 w-4" />
+                      <Sparkles className={`h-3.5 w-3.5 text-indigo-500 ${loadingPillars ? "animate-spin" : ""}`} />
+                      {loadingPillars ? "Đang phân tích..." : "Phân tích Mục tiêu AI"}
                     </button>
-                  )}
+                  </div>
                 </div>
-
-                {!uploadedDocName ? (
-                  <label 
-                    className={`flex flex-col items-center justify-center border border-dashed rounded-lg p-4 cursor-pointer transition-all ${
-                      isDragging 
-                        ? "border-indigo-400 bg-indigo-50/30 text-indigo-700" 
-                        : "border-slate-200 bg-slate-50/50 hover:border-indigo-400 hover:bg-indigo-50/10 text-slate-500"
-                    }`}
-                  >
-                    <Upload className="h-5 w-5 text-indigo-500 mb-1.5" />
-                    <span className="text-xs font-semibold text-indigo-600">
-                      Kéo thả hoặc Click để tải tệp lên
-                    </span>
-                    <span className="text-[10px] text-gray-450 mt-1 text-center">
-                      Hỗ trợ PDF, DOCX, TXT, MD hoặc Hình ảnh tối đa 10MB
-                    </span>
-                    <input
-                      type="file"
-                      accept=".txt,.md,.pdf,.docx,image/*"
-                      onChange={handleDocumentUpload}
-                      className="hidden"
-                      disabled={loadingDoc}
-                    />
-                  </label>
-                ) : (
-                  <div className="flex items-center gap-2.5 p-2 bg-slate-50 border border-slate-100 rounded-lg">
-                    <div className="h-9 w-9 rounded-md bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0 overflow-hidden">
-                      {uploadedImageBase64 ? (
-                        <img src={uploadedImageBase64} alt="Preview" className="h-full w-full object-cover" />
-                      ) : (
-                        <FileText className="h-5 w-5 text-indigo-650 text-indigo-600" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold text-gray-750 truncate">{uploadedDocName}</p>
-                      <p className="text-[10px] text-gray-400 font-mono">
-                        {loadingDoc 
-                          ? "Đang xử lý nội dung..." 
-                          : uploadedImageBase64 
-                            ? "Đã tải hình ảnh thành công" 
-                            : "Đã trích xuất văn bản thành công"
-                        }
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {loadingDoc && (
-                  <div className="flex items-center gap-2 text-indigo-600 text-[10px] font-bold font-mono mt-1 select-none">
-                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                    <span>Đang xử lý dữ liệu...</span>
-                  </div>
-                )}
               </div>
               {campaignInput.trim() && campaignInput.trim() !== analyzedTopic.trim() && (
                 <p className="text-[10px] text-amber-600 font-bold font-mono tracking-wide animate-pulse mt-1 select-none text-left">
@@ -873,9 +896,9 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                 </span>
                 <div className="flex flex-wrap gap-2.5">
                   {[
-                    { id: "Facebook", icon: <Facebook className="h-3.5 w-3.5" /> },
-                    { id: "TikTok", icon: <span className="font-bold text-[10px] font-mono leading-none">TT</span> },
-                    { id: "Zalo", icon: <span className="font-extrabold text-[10px] font-mono leading-none">ZA</span> }
+                    { id: "Facebook", icon: <Facebook className="h-3.5 w-3.5" />, disabled: false },
+                    { id: "Zalo", icon: <span className="font-bold text-[10px] font-mono leading-none">ZL</span>, disabled: true },
+                    { id: "TikTok", icon: <span className="font-bold text-[10px] font-mono leading-none">TT</span>, disabled: true }
                   ].map((chan) => {
                     const isSelected = selectedChannels.includes(chan.id);
                     return (
@@ -883,6 +906,10 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                         key={chan.id}
                         type="button"
                         onClick={() => {
+                          if (chan.disabled) {
+                            toast.info(`Nền tảng ${chan.id} đang được phát triển, chưa sẵn sàng tích hợp.`);
+                            return;
+                          }
                           if (isSelected) {
                             if (selectedChannels.length === 1) {
                               toast.warning("Bạn phải chọn ít nhất một nền tảng!");
@@ -893,14 +920,21 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                             setSelectedChannels([...selectedChannels, chan.id]);
                           }
                         }}
-                        className={`px-3.5 py-2 text-xs font-bold rounded-xl border transition-all flex items-center gap-2 cursor-pointer select-none ${
-                          isSelected
-                            ? "border-indigo-600 bg-indigo-50 text-indigo-700 shadow-xs ring-2 ring-indigo-500/10"
-                            : "border-slate-200 bg-white text-gray-500 hover:bg-slate-100"
+                        className={`px-3.5 py-2 text-xs font-bold rounded-xl border transition-all flex items-center gap-2 select-none ${
+                          chan.disabled
+                            ? "border-gray-200 bg-gray-50/70 text-gray-400 cursor-not-allowed opacity-55"
+                            : isSelected
+                            ? "border-indigo-650 bg-indigo-50 text-indigo-750 shadow-sm ring-2 ring-indigo-550/15 cursor-pointer hover:bg-indigo-100"
+                            : "border-slate-200 bg-white text-gray-500 hover:bg-slate-100 cursor-pointer"
                         }`}
                       >
                         {chan.icon}
                         <span>{chan.id}</span>
+                        {chan.disabled && (
+                          <span className="text-[9px] font-normal px-1 py-0.5 bg-gray-200/80 text-gray-500 rounded-md scale-90 origin-right">
+                            🔒 Khóa
+                          </span>
+                        )}
                       </button>
                     );
                   })}
@@ -1208,22 +1242,6 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
               📚 Content Pillars Đề xuất
             </h4>
             <p className="text-xs text-slate-500 mt-1 mb-4">Phân tích mục tiêu để đề xuất ra các trụ cột nội dung cốt lõi của chiến dịch, đảm bảo phân bổ đa dạng:</p>
-
-            <div className="mb-4">
-              <button
-                type="button"
-                onClick={() => handleAnalyzePillars()}
-                disabled={loadingPillars || !campaignInput.trim()}
-                className={`w-full py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 border ${
-                  loadingPillars || !campaignInput.trim()
-                    ? "bg-gray-50 text-gray-400 border-gray-250 cursor-not-allowed"
-                    : "bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-150 cursor-pointer active:scale-98"
-                }`}
-              >
-                <Sparkles className={`h-4 w-4 text-indigo-500 ${loadingPillars ? "animate-spin" : ""}`} />
-                {loadingPillars ? "Đang phân tích khung nội dung..." : "Phân tích Mục tiêu & Đề xuất Trụ cột AI"}
-              </button>
-            </div>
 
             <div className="space-y-3 text-xs text-left relative">
               {loadingPillars && (

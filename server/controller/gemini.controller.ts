@@ -449,29 +449,40 @@ export const geminiController = {
       await walletService.checkBalance(userId, API_COSTS.GEMINI_FAQ);
       console.log(`[AI AutoReply] Bắt đầu đồng bộ tài liệu từ Google Drive/Doc link: ${docLink}`);
 
-      // Extract Google Doc ID if possible
-      const docMatch = docLink.match(/\/document\/d\/([a-zA-Z0-9-_]+)/);
+      // Extract all Google Doc IDs if multiple are pasted
+      const matches = [...docLink.matchAll(/\/document\/d\/([a-zA-Z0-9-_]+)/g)];
+      const docIds = matches.map(m => m[1]).filter(Boolean);
       let extractedText = "";
       let isMocked = true;
       let docTitle = "Tài liệu Google Drive";
 
-      if (docMatch && docMatch[1]) {
-        const fileId = docMatch[1];
-        const exportUrl = `https://docs.google.com/document/d/${fileId}/export?format=txt`;
-        try {
-          const fetchRes = await fetch(exportUrl);
-          if (fetchRes.ok) {
-            extractedText = await fetchRes.text();
-            isMocked = false;
-            docTitle = `Google Doc (ID: ${fileId})`;
-            console.log(`[AI AutoReply] Đồng bộ Google Doc thành công từ link thật! Độ dài ký tự: ${extractedText.length}`);
-          }
-        } catch (fetchErr) {
-          console.warn("[AI AutoReply] Không thể tải doc link trực tiếp (có thể doc đang ở chế độ riêng tư). Chuyển sang mô phỏng.", fetchErr);
+      if (docIds.length > 0) {
+        console.log(`[AI AutoReply] Phát hiện ${docIds.length} tài liệu Google Doc để đồng bộ.`);
+        const texts = await Promise.all(
+          docIds.map(async (fileId) => {
+            const exportUrl = `https://docs.google.com/document/d/${fileId}/export?format=txt`;
+            try {
+              const fetchRes = await fetch(exportUrl);
+              if (fetchRes.ok) {
+                const txt = await fetchRes.text();
+                return `--- BẮT ĐẦU TÀI LIỆU (${fileId}) ---\n${txt}\n--- KẾT THÚC TÀI LIỆU (${fileId}) ---\n`;
+              }
+            } catch (err) {
+              console.warn(`[AI AutoReply] Không thể tải doc ${fileId} trực tiếp:`, err);
+            }
+            return "";
+          })
+        );
+        
+        extractedText = texts.filter(Boolean).join("\n");
+        if (extractedText.trim().length > 0) {
+          isMocked = false;
+          docTitle = docIds.length === 1 ? `Google Doc (ID: ${docIds[0]})` : `Bộ tài liệu Google Docs (${docIds.length} files)`;
+          console.log(`[AI AutoReply] Đồng bộ thành công từ các links thật! Độ dài ký tự: ${extractedText.length}`);
         }
       }
 
-      // Fallback/Simulated sync if fetch failed or not a direct public doc
+      // Fallback/Simulated sync if fetch failed or no valid doc IDs matched
       if (isMocked) {
         // Generate a nice title from the URL
         let parsedName = "Huong_dan_ban_hang_va_FAQ_Doanh_nghiep";
