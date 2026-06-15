@@ -101,7 +101,7 @@ export function ProductCatalogSection({
             </div>
             <input
               type="text"
-              placeholder="TÃ¬m theo tÃªn sáº£n pháº©m, mÃ£ SKU..."
+              placeholder="Tìm theo tên sản phẩm, mã SKU..."
               className="w-full rounded-lg border border-gray-200 bg-slate-50/50 py-2 pl-9 pr-4 text-xs"
               value={searchProduct}
               onChange={(event) => setSearchProduct(event.target.value)}
@@ -113,7 +113,7 @@ export function ProductCatalogSection({
             value={selectedCategoryFilter}
             onChange={(event) => setSelectedCategoryFilter(event.target.value)}
           >
-            <option value="Táº¥t cáº£">Táº¥t cáº£ phÃ¢n loáº¡i</option>
+            <option value="Tất cả">Tất cả phân loại</option>
             {categories.map((category) => (
               <option key={category.id} value={category.name}>
                 {category.name}
@@ -129,7 +129,7 @@ export function ProductCatalogSection({
             className="flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-white px-4 py-2 text-xs font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <Upload className="h-4 w-4" />
-            {productExcelImporting ? "Äang nháº­p Excel..." : "Nháº­p Excel"}
+            {productExcelImporting ? "Đang nhập Excel..." : "Nhập Excel"}
           </button>
           <button
             type="button"
@@ -137,7 +137,7 @@ export function ProductCatalogSection({
             className="flex items-center justify-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-700 shadow-sm transition-all hover:bg-emerald-100"
           >
             <Download className="h-4 w-4" />
-            Xuáº¥t Excel
+            Xuất Excel
           </button>
           <button
             onClick={onOpenCreateProductModal}
@@ -145,20 +145,20 @@ export function ProductCatalogSection({
             id="open_add_product_modal"
           >
             <Plus className="h-4 w-4" />
-            Khai bÃ¡o sáº£n pháº©m má»›i
+            Khai báo sản phẩm mới
           </button>
         </div>
       </div>
 
       {productLoading ? (
         <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-10 text-center">
-          <p className="font-bold text-gray-700">Äang táº£i danh má»¥c sáº£n pháº©m...</p>
-          <p className="mt-1 text-xs text-gray-500">Dá»¯ liá»‡u Ä‘ang Ä‘Æ°á»£c Ä‘á»“ng bá»™ tá»« Firebase.</p>
+          <p className="font-bold text-gray-700">Đang tải danh mục sản phẩm...</p>
+          <p className="mt-1 text-xs text-gray-500">Dữ liệu đang được đồng bộ từ Firebase.</p>
         </div>
       ) : filteredProducts.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-10 text-center">
-          <p className="font-bold text-gray-700">ChÆ°a cÃ³ sáº£n pháº©m phÃ¹ há»£p</p>
-          <p className="mt-1 text-xs text-gray-500">Thá»­ Ä‘á»•i bá»™ lá»c hoáº·c táº¡o sáº£n pháº©m má»›i Ä‘á»ƒ báº¯t Ä‘áº§u quáº£n lÃ½ kho.</p>
+          <p className="font-bold text-gray-700">Chưa có sản phẩm phù hợp</p>
+          <p className="mt-1 text-xs text-gray-500">Thử đổi bộ lọc hoặc tạo sản phẩm mới để bắt đầu quản lý kho.</p>
         </div>
       ) : (
         <div className="space-y-4">

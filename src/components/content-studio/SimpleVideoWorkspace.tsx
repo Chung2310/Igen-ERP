@@ -45,7 +45,7 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved, onEd
   const [afterImage, setAfterImage] = useState<string | null>(null);
 
   // Video Settings
-  const [videoModel, setVideoModel] = useState('piapi-veo31-video-audio');
+  const [videoModel, setVideoModel] = useState('piapi-veo31-video-fast-audio');
   const [videoAspectRatio, setVideoAspectRatio] = useState('16:9');
   const [videoDuration, setVideoDuration] = useState('4');
   const [videoQuality, setVideoQuality] = useState('720p'); // 1080p requires duration >= 6s

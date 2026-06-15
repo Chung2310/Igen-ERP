@@ -153,7 +153,7 @@ export const fbMessengerController = {
       if (!userId) {
         return res.status(401).json({
           success: false,
-          message: "NgÆ°á»i dÃ¹ng chÆ°a Ä‘Äƒng nháº­p."
+          message: "Người dùng chưa đăng nhập."
         });
       }
 
@@ -163,7 +163,7 @@ export const fbMessengerController = {
       if (!dbUser?.facebookIntegration?.isConnected || !pageId) {
         return res.status(403).json({
           success: false,
-          message: "Quyá»n truy cáº­p bá»‹ tá»« chá»‘i. Báº¡n chÆ°a cáº¥u hÃ¬nh tÃ­ch há»£p Facebook."
+          message: "Quyền truy cập bị từ chối. Bạn chưa cấu hình tích hợp Facebook."
         });
       }
 
@@ -171,14 +171,14 @@ export const fbMessengerController = {
 
       res.status(200).json({
         success: true,
-        message: "ÄÃ£ Ä‘Ã¡nh dáº¥u Ä‘Ã£ Ä‘á»c cuá»™c há»™i thoáº¡i Facebook.",
+        message: "Đã đánh dấu đã đọc cuộc hội thoại Facebook.",
         data: conversation
       });
     } catch (error: any) {
-      console.error("[FB Controller markRead] Lá»—i khi Ä‘Ã¡nh dáº¥u Ä‘Ã£ Ä‘á»c:", error);
+      console.error("[FB Controller markRead] Lỗi khi đánh dấu đã đọc:", error);
       res.status(500).json({
         success: false,
-        message: error.message || "KhÃ´ng thá»ƒ Ä‘Ã¡nh dáº¥u Ä‘Ã£ Ä‘á»c cuá»™c há»™i thoáº¡i."
+        message: error.message || "Không thể đánh dấu đã đọc cuộc hội thoại."
       });
     }
   },

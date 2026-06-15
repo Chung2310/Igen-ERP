@@ -109,7 +109,7 @@ export const piapiService = {
   },
 
   /**
-   * Sinh video bằng PiAPI (Kling, Luma, v.v. và Veo 3.1)
+   * Sinh video bằng PiAPI (Luma, v.v. và Veo 3.1)
    */
   async createVideoTask(
     prompt: string,
@@ -255,7 +255,7 @@ export const piapiService = {
   },
 
   /**
-   * Sinh video bằng PiAPI (Kling, Luma, v.v.)
+   * Sinh video bằng PiAPI (Luma, v.v.)
    */
   async generateVideo(
     prompt: string,
