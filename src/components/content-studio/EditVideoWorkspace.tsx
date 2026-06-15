@@ -6,9 +6,9 @@ import { Player } from '@remotion/player';
 import { VideoComposition } from './video-composition';
 
 const MODEL_OPTIONS = [
-  { value: 'piapi-veo31-video-fast-audio', label: 'PiAPI Veo 3.1 Fast' },
-  { value: 'piapi-veo31-video-audio', label: 'PiAPI Veo 3.1' },
-  { value: 'piapi-veo31-video-fast-no-audio', label: 'PiAPI Veo 3.1 Fast Silent' },
+  { value: 'piapi-veo31-video-fast-audio', label: 'iGen video 3.1 Fast' },
+  { value: 'piapi-veo31-video-audio', label: 'iGen video 3.1' },
+  { value: 'piapi-veo31-video-fast-no-audio', label: 'iGen video 3.1 Fast Silent' },
 ];
 
 const ASPECT_OPTIONS = [
@@ -269,7 +269,7 @@ export function EditVideoWorkspace({
         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-700">Video Studio</p>
-            <h1 className="mt-3 text-3xl font-bold text-slate-900">Edit Video </h1>
+            <h1 className="mt-3 text-3xl font-bold text-slate-900">Chỉnh sửa Video </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
               Chỉnh sửa video gốc bằng prompt AI, thêm style, tự động cắt ghép, và xem preview nhanh.
             </p>
@@ -711,7 +711,7 @@ export function EditVideoWorkspace({
             <div className="rounded-[32px] border border-slate-200 bg-white p-6 shadow-sm">
               <div className="mb-4 flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-sm font-semibold text-slate-900">Lịch sử render video</p>
+                  <p className="text-sm font-semibold text-slate-900">Lịch sử tạo video</p>
                   <p className="mt-1 text-sm text-slate-500">Hiển thị tối đa 20 kết quả gần nhất, từ mới đến cũ.</p>
                 </div>
                 <span className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-700">{history.length}/20</span>

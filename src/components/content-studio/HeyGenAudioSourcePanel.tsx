@@ -56,11 +56,11 @@ export function HeyGenAudioSourcePanel({
       {isLoading ? (
         <div className="flex min-h-[160px] items-center justify-center rounded-[20px] border border-dashed border-slate-200 bg-slate-50 text-slate-500">
           <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
-          Dang tai lich su audio...
+          Đang tải lịch sử audio...
         </div>
       ) : records.length === 0 ? (
         <div className="rounded-[20px] border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
-          Chua co audio ElevenLabs trong lich su.
+          Chưa có audio ElevenLabs trong lịch sử.
         </div>
       ) : (
         <div className="grid gap-3 lg:grid-cols-2">

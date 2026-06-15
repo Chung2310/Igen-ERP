@@ -82,7 +82,7 @@ export const walletService = {
 
     const result = await parseApiResponse<{ data?: TransactionInfo[] }>(
       res,
-      "Khong the lay lich su giao dich"
+      "Không thể tải lịch sử giao dịch"
     );
     return result.data || [];
   },
@@ -128,7 +128,7 @@ export const walletService = {
 
     const result = await parseApiResponse<{ data?: AdminTransactionInfo[] }>(
       res,
-      "Khong the tai lich su giao dich nguoi dung"
+      "Không thể tải lịch sử giao dịch người dùng"
     );
     return result.data || [];
   },

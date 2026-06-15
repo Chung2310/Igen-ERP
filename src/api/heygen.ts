@@ -64,7 +64,7 @@ export const heygenApi = {
     const response = await fetch("/api/v1/heygen/library", {
       headers: getJwtHeaders(false),
     });
-    const data = await parseJsonResponse(response, "Loi lay thu vien HeyGen");
+    const data = await parseJsonResponse(response, "Lỗi lấy thư viện HeyGen");
     heygenLibraryCache = {
       expiresAt: Date.now() + HEYGEN_LIBRARY_CACHE_TTL,
       data,
@@ -114,7 +114,7 @@ export const heygenApi = {
     const response = await fetch("/api/v1/heygen/history", {
       headers: getJwtHeaders(false),
     });
-    return parseJsonResponse(response, "Loi lay lich su video HeyGen");
+    return parseJsonResponse(response, "Lỗi lấy lịch sử video HeyGen");
   },
 
   async deleteVideoHistory(id: string): Promise<{ status: string }> {
@@ -122,7 +122,7 @@ export const heygenApi = {
       method: "DELETE",
       headers: getJwtHeaders(false),
     });
-    return parseJsonResponse(response, "Loi xoa lich su video HeyGen");
+    return parseJsonResponse(response, "Lỗi xóa lịch sử video HeyGen");
   },
 
   clearLibraryCache() {

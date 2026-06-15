@@ -28,6 +28,7 @@ export const aiAutoReplyService = {
    */
   async triggerAutoReply(channel: "facebook" | "zalo", platformId: string, conversationId: string, incomingText: string, incomingMessageId?: string) {
     try {
+      console.log(`[AI AutoReply] Trigger received channel=${channel}, platformId=${platformId}, conversationId=${conversationId}, messageId=${incomingMessageId || "n/a"}`);
       const messageKey = incomingMessageId || `${conversationId}:${incomingText}:${Date.now()}`;
       const existingPending = pendingReplies.get(conversationId);
       if (existingPending?.messageKey === messageKey) {
@@ -49,10 +50,17 @@ export const aiAutoReplyService = {
 
         if (companyIntegration) {
           const companyCode = companyIntegration.companyCode;
-          // Find a user from this company to read their AI Auto-Reply configuration
-          user = await UserModel.findOne({ companyCode });
+          console.log(`[AI AutoReply] Found company integration for ${channel}. companyCode=${companyCode}, displayName=${companyIntegration.displayName || "n/a"}`);
+          user = await UserModel.findOne({
+            companyCode,
+            "aiAutoReplyConfig.enabled": true,
+          });
+          if (!user) {
+            user = await UserModel.findOne({ companyCode });
+          }
           if (user) {
             aiConfig = user.aiAutoReplyConfig;
+            console.log(`[AI AutoReply] Loaded AI config from company user=${user.email}, enabled=${!!aiConfig?.enabled}, delay=${aiConfig?.replyDelay ?? "n/a"}s`);
           }
         }
       }
@@ -66,6 +74,7 @@ export const aiAutoReplyService = {
         user = await UserModel.findOne(query);
         if (user) {
           aiConfig = user.aiAutoReplyConfig;
+          console.log(`[AI AutoReply] Loaded legacy ${channel} config from user=${user.email}, enabled=${!!aiConfig?.enabled}, delay=${aiConfig?.replyDelay ?? "n/a"}s`);
         }
       }
 
@@ -75,7 +84,7 @@ export const aiAutoReplyService = {
       }
 
       if (!aiConfig || !aiConfig.enabled) {
-        // AI auto-reply is disabled
+        console.log(`[AI AutoReply] AI auto-reply is disabled for user=${user.email}, conversationId=${conversationId}`);
         return;
       }
 
@@ -159,6 +168,11 @@ export const aiAutoReplyService = {
               companyCode,
             };
           }
+
+          console.log(
+            `[AI AutoReply] Context ready for conversation=${conversationId}, matches=${effectiveRagContext.matches}, ` +
+            `contextLength=${effectiveRagContext.contextText?.length || 0}`
+          );
 
           // Call Gemini Service
           const aiResponse = await geminiService.chat(incomingText, history, aiConfig, effectiveRagContext);

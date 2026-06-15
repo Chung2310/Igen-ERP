@@ -78,7 +78,7 @@ export const elevenlabsApi = {
     const response = await fetch("/api/v1/elevenlabs/history", {
       headers: getJwtHeaders(false),
     });
-    const data = await parseJsonResponse(response, "Loi lay lich su voice ElevenLabs");
+    const data = await parseJsonResponse(response, "Lỗi lấy lịch sử voice ElevenLabs");
     elevenlabsVoiceHistoryCache = {
       expiresAt: Date.now() + ELEVENLABS_VOICE_HISTORY_CACHE_TTL,
       data,
@@ -91,7 +91,7 @@ export const elevenlabsApi = {
       method: "DELETE",
       headers: getJwtHeaders(false),
     });
-    return parseJsonResponse(response, "Loi xoa lich su voice ElevenLabs");
+    return parseJsonResponse(response, "Lỗi xóa lịch sử voice ElevenLabs");
   },
 
   clearVoiceHistoryCache() {
@@ -102,28 +102,28 @@ export const elevenlabsApi = {
     const response = await fetch("/api/v1/elevenlabs/voices?scope=all", {
       headers: getJwtHeaders(false),
     });
-    return parseJsonResponse(response, "Loi lay danh sach giong noi ElevenLabs");
+    return parseJsonResponse(response, "Lỗi lấy danh sách giọng nói ElevenLabs");
   },
 
   async getModels(): Promise<{ status: string; models: any[] }> {
     const response = await fetch("/api/v1/elevenlabs/models", {
       headers: getJwtHeaders(false),
     });
-    return parseJsonResponse(response, "Loi lay danh sach model ElevenLabs");
+    return parseJsonResponse(response, "Lỗi lấy danh sách model ElevenLabs");
   },
 
   async getVoice(voiceId: string): Promise<any> {
     const response = await fetch(`/api/v1/elevenlabs/voices/${voiceId}`, {
       headers: getJwtHeaders(false),
     });
-    return parseJsonResponse(response, "Loi lay chi tiet voice ElevenLabs");
+    return parseJsonResponse(response, "Lỗi lấy chi tiết voice ElevenLabs");
   },
 
   async getVoiceSettings(voiceId: string): Promise<any> {
     const response = await fetch(`/api/v1/elevenlabs/voices/${voiceId}/settings`, {
       headers: getJwtHeaders(false),
     });
-    return parseJsonResponse(response, "Loi lay voice settings ElevenLabs");
+    return parseJsonResponse(response, "Lỗi lấy voice settings ElevenLabs");
   },
 
   async updateVoiceSettings(
@@ -135,7 +135,7 @@ export const elevenlabsApi = {
       headers: getJwtHeaders(true),
       body: JSON.stringify(input),
     });
-    return parseJsonResponse(response, "Loi cap nhat voice settings ElevenLabs");
+    return parseJsonResponse(response, "Lỗi cập nhật voice settings ElevenLabs");
   },
 
   async generateCustomVoicePreview(input: {
@@ -150,7 +150,7 @@ export const elevenlabsApi = {
       headers: getJwtHeaders(true),
       body: JSON.stringify(input),
     });
-    return parseJsonResponse(response, "Loi thiet ke giong noi thu nghiem");
+    return parseJsonResponse(response, "Lỗi thiết kế giọng nói thử nghiệm");
   },
 
   async createCustomVoice(input: {
@@ -163,7 +163,7 @@ export const elevenlabsApi = {
       headers: getJwtHeaders(true),
       body: JSON.stringify(input),
     });
-    return parseJsonResponse(response, "Loi luu giong noi ca nhan");
+    return parseJsonResponse(response, "Lỗi lưu giọng nói cá nhân");
   },
 
   async addVoice(input: {

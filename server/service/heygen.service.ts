@@ -260,7 +260,7 @@ async function fetchLibraryWithCandidates(type: "avatar" | "voice", overrideApiK
     }
   }
 
-  throw lastError || new Error(`Khong lay duoc thu vien HeyGen cho ${type}`);
+  throw lastError || new Error(`Không lấy được thư viện HeyGen cho ${type}`);
 }
 
 async function upsertVideoRecord(userId: string, payload: {
@@ -563,6 +563,8 @@ export const heygenService = {
       requestBody.engine = { type: "avatar_v" };
     } else if (engineType === "avatar_iv") {
       requestBody.engine = { type: "avatar_iv" };
+    } else if (engineType === "avatar_iii") {
+      requestBody.engine = { type: "avatar_iii" };
     }
 
     const response = await fetch(`${HEYGEN_API_BASE}/v3/videos`, {
