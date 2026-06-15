@@ -55,6 +55,7 @@ export default function CRMTab() {
 
   // Modals state
   const [showCreateLeadModal, setShowCreateLeadModal] = useState(false);
+  const [selectedInboxCustId, setSelectedInboxCustId] = useState("");
 
   // Automation warning modal state
   const [automationModal, setAutomationModal] = useState<{
@@ -509,6 +510,10 @@ export default function CRMTab() {
   }, [subTab, activeCustomer?.id, socketConnected]);
 
   const handleSelectCustomer = (cust: CustomerInbox) => {
+    if (activeCustomerRef.current?.id === cust.id) {
+      console.log("[FE CRMTab] Khách hàng đã được chọn sẵn, bỏ qua.");
+      return;
+    }
     console.log("[FE CRMTab] Nhân viên chọn khách hàng từ danh sách:", cust);
     setActiveCustomer(cust);
     setChatHistory([]); // Xóa sạch lịch sử chat cũ ngay lập tức để tránh hiển thị nhầm lẫn
@@ -601,13 +606,17 @@ export default function CRMTab() {
     if (!newLeadName.trim()) return;
     
     const val = parseFloat(newLeadValue) || 0;
+    const selectedCust = inboxCustomers.find(c => c.id === selectedInboxCustId);
+    const avatarIcon = selectedCust 
+      ? (selectedCust.name.split(" ").filter(Boolean).slice(0, 1).map(part => part[0]?.toUpperCase() || "").join("") || "👤")
+      : ["👤", "👨‍💼", "👩‍💼", "👨‍💻", "👩‍💻", "🧘"][Math.floor(Math.random() * 6)];
     
     const newLead: Omit<ExtendedLeadCard, "id"> = {
       customerName: newLeadName.trim(),
       company: newLeadCompany.trim() || "Liên hệ cá nhân mới",
       value: val,
       phone: "Chưa bổ sung",
-      avatar: ["👤", "👨‍💼", "👩‍💼", "👨‍💻", "👩‍💻", "🧘"][Math.floor(Math.random() * 6)],
+      avatar: avatarIcon,
       email: "chua.co@igen.vn",
       productOfChoice: "",
       status: newLeadStatus,
@@ -618,6 +627,7 @@ export default function CRMTab() {
     setNewLeadName("");
     setNewLeadValue("");
     setNewLeadCompany("");
+    setSelectedInboxCustId("");
     setShowCreateLeadModal(false);
 
     try {
@@ -755,6 +765,27 @@ export default function CRMTab() {
     }
   };
 
+  const handleCreateLeadFromChat = async (customer: CustomerInbox, status: "cold" | "warm" | "hot") => {
+    const newLead: Omit<ExtendedLeadCard, "id"> = {
+      customerName: customer.name,
+      company: customer.channel === "zalo" ? "Khách hàng từ Zalo" : "Khách hàng từ Facebook",
+      value: 0,
+      phone: "Chưa bổ sung",
+      avatar: customer.name.split(" ").filter(Boolean).slice(0, 1).map(part => part[0]?.toUpperCase() || "").join("") || "👤",
+      email: "chua.co@igen.vn",
+      productOfChoice: "",
+      status: status,
+      lastInteraction: "Mới tiếp cận",
+      lastInteractionTime: "Vừa xong"
+    };
+    try {
+      await crmService.createLead(newLead);
+      toast.success(`Đã tự động thêm ${customer.name} vào phễu khách hàng!`);
+    } catch (err) {
+      toast.error("Không thể tạo khách hàng trên hệ thống.");
+    }
+  };
+
   // Sync active Customer status tags when leads change
   useEffect(() => {
     if (!activeCustomer) return;
@@ -820,6 +851,9 @@ export default function CRMTab() {
               handleSelectCustomer={handleSelectCustomer}
               handleSendChatMessage={handleSendChatMessage}
               handleLoadOlderMessages={handleLoadOlderMessages}
+              leads={leads}
+              onCreateLeadFromChat={handleCreateLeadFromChat}
+              onUpdateLeadStatus={moveLeadPipeline}
             />
           )}
         </Suspense>
@@ -833,7 +867,12 @@ export default function CRMTab() {
             <div className="flex justify-between items-center pb-2 border-b border-slate-100 shrink-0">
               <h4 className="font-extrabold text-slate-800 text-sm uppercase tracking-wide">Thêm Cơ Hội Bán Hàng Mới</h4>
               <button 
-                onClick={() => setShowCreateLeadModal(false)}
+                onClick={() => {
+                  setShowCreateLeadModal(false);
+                  setSelectedInboxCustId("");
+                  setNewLeadName("");
+                  setNewLeadCompany("");
+                }}
                 className="text-slate-400 hover:text-slate-700 font-extrabold text-lg focus:outline-none cursor-pointer"
               >
                 ×
@@ -842,6 +881,33 @@ export default function CRMTab() {
 
             <form onSubmit={handleCreateLead} className="space-y-4">
               
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Liên kết với khách hàng từ Inbox (Tùy chọn)</label>
+                <select
+                  className="w-full px-3.5 py-2.5 border border-slate-200 bg-slate-50/50 rounded-xl text-xs outline-none focus:bg-white focus:ring-4 focus:ring-blue-500/10 cursor-pointer transition-all duration-200"
+                  value={selectedInboxCustId}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setSelectedInboxCustId(val);
+                    const found = inboxCustomers.find(c => c.id === val);
+                    if (found) {
+                      setNewLeadName(found.name);
+                      setNewLeadCompany(found.channel === "zalo" ? "Khách hàng từ Zalo" : "Khách hàng từ Facebook");
+                    } else {
+                      setNewLeadName("");
+                      setNewLeadCompany("");
+                    }
+                  }}
+                >
+                  <option value="">-- Chọn khách hàng từ hội thoại chat --</option>
+                  {inboxCustomers.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.channel === "zalo" ? "Zalo" : "Facebook"})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Tên khách hàng tiềm năng *</label>
                 <input 
