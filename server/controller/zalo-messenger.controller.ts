@@ -5,10 +5,12 @@ import { UserModel } from "../model/user.model";
 async function getZaloOaConfig(userId: string): Promise<{ isConnected: boolean; oaId?: string }> {
   const dbUser = await UserModel.findById(userId).lean();
   if (!dbUser) {
+    console.warn(`[Zalo Config] Khong tim thay user voi userId=${userId}`);
     return { isConnected: false };
   }
 
   if (dbUser.zaloIntegration?.isConnected && dbUser.zaloIntegration.oaId) {
+    console.log(`[Zalo Config] Dung Zalo integration ca nhan cua user=${dbUser.email}, oaId=${dbUser.zaloIntegration.oaId}`);
     return { isConnected: true, oaId: dbUser.zaloIntegration.oaId };
   }
 
@@ -21,9 +23,11 @@ async function getZaloOaConfig(userId: string): Promise<{ isConnected: boolean; 
   }).lean();
 
   if (companyIntegration && companyIntegration.username) {
+    console.log(`[Zalo Config] Dung Zalo company integration cua company=${dbUser.companyCode}, oaId=${companyIntegration.username}, displayName=${companyIntegration.displayName}`);
     return { isConnected: true, oaId: companyIntegration.username };
   }
 
+  console.warn(`[Zalo Config] Khong tim thay Zalo integration hoat dong cho user=${dbUser.email}, company=${dbUser.companyCode}`);
   return { isConnected: false };
 }
 
@@ -230,6 +234,32 @@ export const zaloMessengerController = {
     } catch (error: any) {
       console.error("[Zalo Controller removeIntegration] Thất bại:", error);
       res.status(500).json({ success: false, message: error.message || "Hủy liên kết thất bại." });
+    }
+  },
+
+  async diagnoseOaConfig(req: any, res: Response): Promise<any> {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ success: false, message: "Người dùng chưa đăng nhập." });
+      }
+
+      const { isConnected, oaId } = await getZaloOaConfig(userId);
+      const diagnostic = await zaloMessengerService.diagnoseOaConfig(userId, oaId);
+      return res.status(200).json({
+        success: true,
+        data: {
+          isConnected,
+          oaId: oaId || null,
+          ...diagnostic,
+        }
+      });
+    } catch (error: any) {
+      console.error("[Zalo Controller diagnoseOaConfig] Loi:", error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || "Khong the chan doan cau hinh Zalo OA.",
+      });
     }
   }
 };
