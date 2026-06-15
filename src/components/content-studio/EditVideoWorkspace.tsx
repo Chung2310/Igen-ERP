@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { geminiApi } from '../../api/gemini';
 import { toast } from '../../pages/Toast';
-import { Film, Loader2, Play, Sparkles, Video, X, Wand2 } from 'lucide-react';
+import { Film, Loader2, Play, Sparkles, Video, X, Wand2, UploadCloud } from 'lucide-react';
 import { Player } from '@remotion/player';
 import { VideoComposition } from './video-composition';
 
@@ -65,6 +65,34 @@ export function EditVideoWorkspace({
   const [blueprint, setBlueprint] = useState<any | null>(null);
   const [currentRecordId, setCurrentRecordId] = useState<string | null>(null);
   const [isUploadingVideo, setIsUploadingVideo] = useState(false);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (e.type === "dragover") setIsDragging(true);
+    else setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const files = e.dataTransfer.files;
+    if (!files || files.length === 0) return;
+    const file = files[0];
+
+    // Kiểm tra dung lượng video (tối đa 200MB)
+    const maxSize = 200 * 1024 * 1024; // 200MB
+    if (file.size > maxSize) {
+      toast.warning("Kích thước video vượt quá giới hạn tối đa cho phép (200MB). Vui lòng chọn video khác nhỏ hơn.");
+      return;
+    }
+
+    setVideoFile(file);
+    const preview = URL.createObjectURL(file);
+    setVideoPreviewUrl(preview);
+  };
 
   useEffect(() => {
     if (initialVideoUrl) {
@@ -282,50 +310,87 @@ export function EditVideoWorkspace({
         <div className="grid gap-6 xl:grid-cols-[1.02fr_0.98fr]">
           <div className="space-y-6 rounded-[32px] border border-slate-200 bg-white p-6 shadow-sm">
             <div className="space-y-3">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold text-slate-900">Video đầu vào</p>
-                  <p className="mt-1 text-sm text-slate-500">Upload video gốc hoặc dùng video đã tạo trước đó.</p>
-                </div>
+              <div className="flex justify-between items-center">
+                <label className="text-xs font-bold text-slate-800 uppercase tracking-wide">Video đầu vào</label>
                 <button
                   type="button"
                   onClick={() => setShowLibraryModal(true)}
-                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+                  className="text-[11px] font-semibold text-cyan-600 hover:text-cyan-700 flex items-center gap-1 bg-cyan-50 px-2.5 py-1 rounded-lg transition-all"
                 >
-                  <Video className="h-4 w-4" />
+                  <Video className="h-3.5 w-3.5" />
                  Thư viện video
                 </button>
               </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="video/*"
-                className="hidden"
-                onChange={handleFileChange}
-              />
               <div
-                className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center cursor-pointer"
-                onClick={() => fileInputRef.current?.click()}
+                onDragOver={handleDrag}
+                onDragLeave={handleDrag}
+                onDrop={handleDrop}
+                className={`border-2 border-dashed rounded-2xl p-4 flex flex-col transition-all bg-slate-50/50 ${
+                  isDragging ? 'border-cyan-500 bg-cyan-50/50' : 'border-slate-250 hover:border-cyan-400'
+                }`}
               >
                 {videoPreviewUrl ? (
-                  <video
-                    src={videoPreviewUrl}
-                    controls
-                    className="mx-auto h-[220px] w-full rounded-3xl object-contain"
-                    onLoadedMetadata={(e) => {
-                      const dur = e.currentTarget.duration;
-                      if (dur && !isNaN(dur)) {
-                        setVideoDuration(dur);
-                        console.log("[EditVideoWorkspace] Detected source video duration:", dur);
-                      }
-                    }}
-                  />
-                ) : (
-                  <div className="flex min-h-[220px] flex-col items-center justify-center gap-3 text-slate-500">
-                    <Video className="h-10 w-10" />
-                    <p className="text-sm font-semibold">Kéo thả hoặc nhấp vào khu vực để tải video lên</p>
-                    <p className="text-xs text-slate-400">MP4, MOV, WEBM. Dung lượng tối đa 200MB.</p>
+                  <div className="flex flex-wrap gap-2 w-full">
+                    <div 
+                      onClick={() => setShowPreviewModal(true)}
+                      className="relative w-28 h-28 border border-slate-200 rounded-xl overflow-hidden bg-white shadow-xs group cursor-pointer hover:border-cyan-400 hover:ring-1 hover:ring-cyan-400/50 transition-all"
+                    >
+                      <video
+                        src={videoPreviewUrl}
+                        className="w-full h-full object-cover"
+                        muted
+                        onLoadedMetadata={(e) => {
+                          const dur = e.currentTarget.duration;
+                          if (dur && !isNaN(dur)) {
+                            setVideoDuration(dur);
+                            console.log("[EditVideoWorkspace] Detected source video duration:", dur);
+                          }
+                        }}
+                      />
+                      <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                        <Play className="h-6 w-6 text-white fill-white" />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setVideoPreviewUrl(null);
+                          setVideoFile(null);
+                          if (onClearInitialVideoUrl) {
+                            onClearInitialVideoUrl();
+                          }
+                        }}
+                        className="absolute top-1.5 right-1.5 p-1 bg-black/70 hover:bg-black text-white rounded-full transition-all z-10"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+
+                    <label className="cursor-pointer border border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center w-28 h-28 hover:bg-slate-100 transition-all bg-white">
+                      <UploadCloud className="h-5 w-5 text-gray-400" />
+                      <span className="text-[9px] text-gray-500 font-semibold mt-1">Thêm</span>
+                      <input
+                        type="file"
+                        accept="video/*"
+                        onChange={handleFileChange}
+                        className="hidden"
+                      />
+                    </label>
                   </div>
+                ) : (
+                  <label className="cursor-pointer flex flex-col items-center justify-center text-center w-full min-h-[140px]">
+                    <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center mb-2">
+                      <Video className="h-5 w-5 text-slate-500" />
+                    </div>
+                    <span className="text-xs font-semibold text-slate-700">Kéo thả hoặc nhấp để tải video lên</span>
+                    <span className="text-[10px] text-slate-400 mt-1 font-medium">MP4, MOV, WEBM. Tối đa 200MB.</span>
+                    <input
+                      type="file"
+                      accept="video/*"
+                      onChange={handleFileChange}
+                      className="hidden"
+                    />
+                  </label>
                 )}
               </div>
             </div>
@@ -836,6 +901,39 @@ export function EditVideoWorkspace({
                     ))}
                   </div>
                 )}
+              </div>
+            </div>
+          </div>
+        )}
+        {showPreviewModal && videoPreviewUrl && (
+          <div 
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm px-4 py-6"
+            onClick={() => setShowPreviewModal(false)}
+          >
+            <div 
+              className="w-full max-w-3xl overflow-hidden rounded-[28px] border border-slate-800 bg-slate-900 shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
+                <div>
+                  <p className="text-lg font-semibold text-white">Video đầu vào</p>
+                  <p className="mt-1 text-xs text-slate-400">Xem trước video gốc của bạn.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowPreviewModal(false)}
+                  className="rounded-full border border-slate-800 bg-slate-800 p-2 text-slate-400 hover:text-white hover:bg-slate-700 transition-all cursor-pointer"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="p-6 bg-black flex items-center justify-center">
+                <video 
+                  src={videoPreviewUrl} 
+                  controls 
+                  autoPlay
+                  className="max-h-[500px] w-full rounded-2xl object-contain"
+                />
               </div>
             </div>
           </div>
