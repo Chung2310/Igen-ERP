@@ -91,7 +91,10 @@ export const zaloMessengerService = {
       isMock
     };
 
+    console.log(`[Zalo SaveIntegrationManual] userId=${userId}, oaId=${integrationData.oaId}, oaName=${integrationData.oaName}, accessTokenTail=${integrationData.accessToken?.slice(-8) || "none"}, hasRefreshToken=${integrationData.refreshToken ? "true" : "false"}`);
     await UserModel.findByIdAndUpdate(userId, { zaloIntegration });
+    const savedUser = await UserModel.findById(userId).select("email zaloIntegration").lean();
+    console.log(`[Zalo SaveIntegrationManual] Saved user integration for ${savedUser?.email || userId}: oaId=${savedUser?.zaloIntegration?.oaId || "none"}, accessTokenTail=${savedUser?.zaloIntegration?.accessToken?.slice(-8) || "none"}, hasRefreshToken=${savedUser?.zaloIntegration?.refreshToken ? "true" : "false"}`);
 
     // Nếu ở chế độ mock, tự động tạo một vài cuộc hội thoại mẫu để hiển thị ngay
     if (isMock) {
@@ -112,44 +115,6 @@ export const zaloMessengerService = {
    * Lấy Access Token hợp lệ, tự động refresh nếu sắp hết hạn
    */
   async getAccessTokenByOAId(oaId: string): Promise<string | null> {
-    // 1. Search in UserModel first (user-level)
-    const user = await UserModel.findOne({
-      "zaloIntegration.isConnected": true,
-      "zaloIntegration.oaId": oaId
-    });
-
-    if (user && user.zaloIntegration) {
-      const integration = user.zaloIntegration;
-
-      if (integration.isMock) {
-        return "mock_zalo_access_token_123456789";
-      }
-
-      const now = Date.now();
-      const expiryTime = new Date(integration.tokenExpiredAt).getTime();
-      
-      // Nếu còn ít hơn 10 phút thì tiến hành refresh token
-      if (expiryTime - now < 10 * 60 * 1000) {
-        console.log(`[Zalo Service Token] Token của OA ID ${oaId} sắp hết hạn. Đang tiến hành làm mới tự động...`);
-        try {
-          const refreshedToken = await this.refreshToken(user._id.toString(), integration);
-          return refreshedToken;
-        } catch (err) {
-          console.error(`[Zalo Service Token] Tự động làm mới token thất bại:`, err);
-          await UserModel.findByIdAndUpdate(user._id, {
-            "zaloIntegration.isConnected": false,
-            "zaloIntegration.accessToken": "",
-            "zaloIntegration.refreshToken": "",
-            "zaloIntegration.tokenExpiredAt": null,
-          });
-          return null;
-        }
-      }
-
-      return integration.accessToken;
-    }
-
-    // 2. Search in SocialIntegrationModel (company-level)
     const { SocialIntegrationModel } = require("../model/social-integration.model");
     const companyIntegration = await SocialIntegrationModel.findOne({
       platform: "Zalo",
@@ -157,7 +122,9 @@ export const zaloMessengerService = {
       isConnected: true
     });
 
+    // 1. Search in SocialIntegrationModel first (company-level)
     if (companyIntegration) {
+      console.log(`[Zalo Service Token] Found company-level integration for oaId=${oaId}, accessTokenTail=${companyIntegration.accessToken?.slice(-8) || "none"}, hasRefreshToken=${companyIntegration.refreshToken ? "true" : "false"}, tokenExpiredAt=${companyIntegration.tokenExpiredAt || "none"}`);
       if (companyIntegration.isMock) {
         return "mock_zalo_access_token_123456789";
       }
@@ -185,6 +152,45 @@ export const zaloMessengerService = {
 
       return companyIntegration.accessToken || null;
     }
+
+    // 2. Fallback to UserModel (user-level)
+    const user = await UserModel.findOne({
+      "zaloIntegration.isConnected": true,
+      "zaloIntegration.oaId": oaId
+    });
+
+    if (user && user.zaloIntegration) {
+      const integration = user.zaloIntegration;
+      console.log(`[Zalo Service Token] Fallback to user-level integration for oaId=${oaId}, user=${user.email}, accessTokenTail=${integration.accessToken?.slice(-8) || "none"}, hasRefreshToken=${integration.refreshToken ? "true" : "false"}, tokenExpiredAt=${integration.tokenExpiredAt || "none"}`);
+
+      if (integration.isMock) {
+        return "mock_zalo_access_token_123456789";
+      }
+
+      const now = Date.now();
+      const expiryTime = new Date(integration.tokenExpiredAt).getTime();
+      
+      if (expiryTime - now < 10 * 60 * 1000) {
+        console.log(`[Zalo Service Token] Token của OA ID ${oaId} sắp hết hạn. Đang tiến hành làm mới tự động...`);
+        try {
+          const refreshedToken = await this.refreshToken(user._id.toString(), integration);
+          return refreshedToken;
+        } catch (err) {
+          console.error(`[Zalo Service Token] Tự động làm mới token thất bại:`, err);
+          await UserModel.findByIdAndUpdate(user._id, {
+            "zaloIntegration.isConnected": false,
+            "zaloIntegration.accessToken": "",
+            "zaloIntegration.refreshToken": "",
+            "zaloIntegration.tokenExpiredAt": null,
+          });
+          return null;
+        }
+      }
+
+      return integration.accessToken;
+    }
+
+    console.warn(`[Zalo Service Token] Khong tim thay token cho oaId=${oaId} o ca company-level lan user-level.`);
 
     return null;
   },
@@ -485,6 +491,7 @@ export const zaloMessengerService = {
 
     const isMock = user?.zaloIntegration?.isMock ?? false;
     const recipientId = conversation.recipientId;
+    console.log(`[Zalo SendReply] oaId=${oaId}, conversationId=${conversationId}, recipientId=${recipientId}, textLength=${text.length}, hasUserLevel=${user ? "true" : "false"}`);
 
     const previousConversationState = {
       lastMessageText: conversation.lastMessageText,
@@ -562,6 +569,7 @@ export const zaloMessengerService = {
     } else {
       // Gửi thật qua Zalo OpenAPI
       const token = await this.getAccessTokenByOAId(oaId);
+      console.log(`[Zalo SendReply] Resolved token for oaId=${oaId}: ${token ? `FOUND(...${token.slice(-8)})` : "NOT_FOUND"}`);
       if (!token) {
         throw new Error("Zalo token đã hết hạn hoặc không còn hợp lệ. Vui lòng kết nối lại Zalo OA để gửi tin.");
       }
@@ -605,6 +613,56 @@ export const zaloMessengerService = {
     return {
       status: "success",
       messageId: newMsg.messageId,
+    };
+  },
+
+  async diagnoseOaConfig(userId: string, resolvedOaId?: string) {
+    const user = await UserModel.findById(userId)
+      .select("email companyCode zaloIntegration")
+      .lean();
+    const { SocialIntegrationModel } = require("../model/social-integration.model");
+    const companyIntegrations = await SocialIntegrationModel.find({
+      companyCode: user?.companyCode,
+      platform: "Zalo",
+    })
+      .select("displayName username isConnected accessToken refreshToken tokenExpiredAt")
+      .lean();
+
+    const matchingCompany = resolvedOaId
+      ? companyIntegrations.find((item: any) => item.username === resolvedOaId)
+      : null;
+    const matchingUser = user?.zaloIntegration?.oaId === resolvedOaId ? user.zaloIntegration : null;
+    const token = resolvedOaId ? await this.getAccessTokenByOAId(resolvedOaId) : null;
+
+    console.log(`[Zalo Diagnose OA] user=${user?.email}, company=${user?.companyCode}, resolvedOaId=${resolvedOaId || "none"}, userOaId=${user?.zaloIntegration?.oaId || "none"}, companyOaIds=${companyIntegrations.map((item: any) => item.username).join(",") || "none"}, token=${token ? `FOUND(...${token.slice(-8)})` : "NOT_FOUND"}`);
+
+    return {
+      userEmail: user?.email || null,
+      companyCode: user?.companyCode || null,
+      personalIntegration: user?.zaloIntegration
+        ? {
+            isConnected: !!user.zaloIntegration.isConnected,
+            oaId: user.zaloIntegration.oaId || null,
+            oaName: user.zaloIntegration.oaName || null,
+            hasToken: !!user.zaloIntegration.accessToken,
+            accessTokenTail: user.zaloIntegration.accessToken ? user.zaloIntegration.accessToken.slice(-8) : null,
+            hasRefreshToken: !!user.zaloIntegration.refreshToken,
+            tokenExpiredAt: user.zaloIntegration.tokenExpiredAt || null,
+          }
+        : null,
+      companyIntegrations: companyIntegrations.map((item: any) => ({
+        displayName: item.displayName,
+        oaId: item.username || null,
+        isConnected: !!item.isConnected,
+        hasToken: !!item.accessToken,
+        accessTokenTail: item.accessToken ? item.accessToken.slice(-8) : null,
+        hasRefreshToken: !!item.refreshToken,
+        tokenExpiredAt: item.tokenExpiredAt || null,
+      })),
+      resolvedOaId: resolvedOaId || null,
+      resolvedSource: matchingCompany ? "company" : matchingUser ? "user" : null,
+      hasResolvedToken: !!token,
+      resolvedTokenTail: token ? token.slice(-8) : null,
     };
   },
 

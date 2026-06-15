@@ -20,6 +20,8 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
   const [editingIntegrationId, setEditingIntegrationId] = useState<string | null>(null);
   const [loadingFacebookDiagnostics, setLoadingFacebookDiagnostics] = useState(false);
   const [facebookDiagnostics, setFacebookDiagnostics] = useState<any | null>(null);
+  const [loadingZaloDiagnostics, setLoadingZaloDiagnostics] = useState(false);
+  const [zaloDiagnostics, setZaloDiagnostics] = useState<any | null>(null);
 
   // Form states for company integration
   const [compPlatform, setCompPlatform] = useState<"TikTok" | "Facebook" | "Zalo">("TikTok");
@@ -209,6 +211,30 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
       toast.error(err.message || "Loi khi chan doan Facebook.");
     } finally {
       setLoadingFacebookDiagnostics(false);
+    }
+  };
+
+  const handleRunZaloDiagnostics = async () => {
+    setLoadingZaloDiagnostics(true);
+    try {
+      const res = await fetch("/api/v1/zalo/diagnostics/oa", {
+        headers: {
+          Authorization: `Bearer ${getAccessToken()}`,
+        },
+      });
+
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(result.message || "Khong the lay chan doan Zalo.");
+      }
+
+      setZaloDiagnostics(result.data || null);
+      toast.success("Da tai chan doan Zalo.");
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Loi khi chan doan Zalo.");
+    } finally {
+      setLoadingZaloDiagnostics(false);
     }
   };
 
@@ -433,6 +459,59 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
 
           {/* Right: List of Connected Accounts */}
           <div className="xl:col-span-3 space-y-4">
+            <div className="rounded-2xl border border-sky-200 bg-sky-50/60 p-4 text-left">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-sky-900">Zalo Debug</h4>
+                  <p className="mt-1 text-[11px] leading-relaxed text-sky-800/80">
+                    Kiem tra OA ID dang resolve, token dang lay tu user hay company, va refresh token co san hay khong.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleRunZaloDiagnostics}
+                  disabled={loadingZaloDiagnostics}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-sky-300 bg-white px-3 py-2 text-[11px] font-bold text-sky-700 transition-all hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Terminal className="h-3.5 w-3.5" />
+                  <span>{loadingZaloDiagnostics ? "Dang chan doan..." : "Chay chan doan Zalo"}</span>
+                </button>
+              </div>
+
+              {zaloDiagnostics && (
+                <div className="mt-3 space-y-3">
+                  <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
+                    <div className="rounded-xl border border-sky-200 bg-white px-3 py-2">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-sky-400">Resolved OA ID</p>
+                      <p className="mt-1 break-all font-mono text-[11px] text-slate-700">{zaloDiagnostics.resolvedOaId || "none"}</p>
+                    </div>
+                    <div className="rounded-xl border border-sky-200 bg-white px-3 py-2">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-sky-400">Source</p>
+                      <p className="mt-1 font-mono text-[11px] text-slate-700">{zaloDiagnostics.resolvedSource || "none"}</p>
+                    </div>
+                    <div className="rounded-xl border border-sky-200 bg-white px-3 py-2">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-sky-400">Token</p>
+                      <p className="mt-1 font-mono text-[11px] text-slate-700">
+                        {zaloDiagnostics.hasResolvedToken ? `FOUND (...${zaloDiagnostics.resolvedTokenTail || ""})` : "NOT_FOUND"}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-sky-200 bg-white px-3 py-2">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-sky-400">Refresh</p>
+                      <p className="mt-1 font-mono text-[11px] text-slate-700">
+                        {zaloDiagnostics.companyIntegrations?.some((item: any) => item.hasRefreshToken) || zaloDiagnostics.personalIntegration?.hasRefreshToken ? "YES" : "NO"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-sky-200 bg-slate-950 p-3">
+                    <pre className="max-h-[260px] overflow-auto whitespace-pre-wrap break-words text-[10px] leading-relaxed text-green-200">
+                      {JSON.stringify(zaloDiagnostics, null, 2)}
+                    </pre>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="rounded-2xl border border-blue-200 bg-blue-50/60 p-4 text-left">
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div>
