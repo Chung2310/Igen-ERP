@@ -187,6 +187,10 @@ export const zaloMessengerService = {
     const appId = process.env.ZALO_APP_ID || "";
     const appSecret = process.env.ZALO_APP_SECRET || "";
 
+    if (!appId || !appSecret) {
+      throw new Error("Không thể làm mới token: Thiếu cấu hình ZALO_APP_ID hoặc ZALO_APP_SECRET trong file .env");
+    }
+
     bodyParams.set("app_id", appId);
 
     const response = await (globalThis as any).fetch(url, {
@@ -236,6 +240,10 @@ export const zaloMessengerService = {
     // Lấy App ID/Secret từ cấu hình hoặc biến môi trường
     const appId = process.env.ZALO_APP_ID || "";
     const appSecret = process.env.ZALO_APP_SECRET || "";
+
+    if (!appId || !appSecret) {
+      throw new Error("Không thể làm mới token: Thiếu cấu hình ZALO_APP_ID hoặc ZALO_APP_SECRET trong file .env");
+    }
 
     bodyParams.set("app_id", appId);
 

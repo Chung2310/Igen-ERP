@@ -248,10 +248,10 @@ export const geminiController = {
    */
   async developMarketingIdea(req: Request, res: Response) {
     try {
-      const { 
-        title, 
-        summary, 
-        suggestedContent, 
+      const {
+        title,
+        summary,
+        suggestedContent,
         channels,
         mediaType,
         imageModel,
@@ -344,7 +344,7 @@ export const geminiController = {
       const isLite = String(modelName).toLowerCase().includes("lite");
       const is1080p = String(resolution).toLowerCase().includes("1080");
       const duration = Number(durationSeconds) || 8;
-      
+
       let cost = 324; // default iGen Veo 3.1 Fast 720p 8s
       if (isLite) {
         if (is1080p) {
@@ -446,186 +446,45 @@ export const geminiController = {
         return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
       }
 
+      await walletService.checkBalance(userId, API_COSTS.GEMINI_FAQ);
       console.log(`[AI AutoReply] Bắt đầu đồng bộ tài liệu từ Google Drive/Doc link: ${docLink}`);
 
-      // Differentiate between Folder link and Document link
-      const isFolder = docLink.includes("/folders/") || docLink.includes("drive/folders/");
+      // Extract Google Doc ID if possible
       const docMatch = docLink.match(/\/document\/d\/([a-zA-Z0-9-_]+)/);
-      const folderMatch = docLink.match(/\/folders\/([a-zA-Z0-9-_]+)/);
+      let extractedText = "";
+      let isMocked = true;
+      let docTitle = "Tài liệu Google Drive";
 
-      if (isFolder || (folderMatch && folderMatch[1])) {
-        const folderId = folderMatch ? folderMatch[1] : "folders";
-        let filesToSync: Array<{ title: string; text: string; isMocked: boolean }> = [];
-        
-        // Attempt to fetch file list using Google Drive API key if configured
-        const googleApiKey = process.env.GOOGLE_API_KEY;
-        let isMockedFolder = true;
-        
-        if (googleApiKey) {
-          try {
-            console.log(`[AI AutoReply] Phát hiện khóa API Google. Đang tìm các tài liệu trong Folder: ${folderId}`);
-            // Query files in parents folder that are Google Docs
-            const listUrl = `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents+and+mimeType='application/vnd.google-apps.document'&key=${googleApiKey}`;
-            const listRes = await fetch(listUrl);
-            if (listRes.ok) {
-              const listData: any = await listRes.json();
-              const files = listData.files || [];
-              console.log(`[AI AutoReply] Tìm thấy ${files.length} Google Docs trong thư mục.`);
-              
-              if (files.length > 0) {
-                // Fetch up to 5 files to prevent timeouts/excessive credit use
-                const limitFiles = files.slice(0, 5);
-                for (const file of limitFiles) {
-                  const exportUrl = `https://docs.google.com/document/d/${file.id}/export?format=txt`;
-                  const exportRes = await fetch(exportUrl);
-                  if (exportRes.ok) {
-                    const text = await exportRes.text();
-                    filesToSync.push({
-                      title: file.name || `Tài liệu (${file.id})`,
-                      text,
-                      isMocked: false
-                    });
-                  }
-                }
-                if (filesToSync.length > 0) {
-                  isMockedFolder = false;
-                }
-              }
-            } else {
-              console.warn(`[AI AutoReply] Lỗi gọi Google API list files: ${listRes.status}. Chuyển sang mô phỏng.`);
-            }
-          } catch (apiErr) {
-            console.warn("[AI AutoReply] Lỗi kết nối Google Drive API. Chuyển sang mô phỏng.", apiErr);
+      if (docMatch && docMatch[1]) {
+        const fileId = docMatch[1];
+        const exportUrl = `https://docs.google.com/document/d/${fileId}/export?format=txt`;
+        try {
+          const fetchRes = await fetch(exportUrl);
+          if (fetchRes.ok) {
+            extractedText = await fetchRes.text();
+            isMocked = false;
+            docTitle = `Google Doc (ID: ${fileId})`;
+            console.log(`[AI AutoReply] Đồng bộ Google Doc thành công từ link thật! Độ dài ký tự: ${extractedText.length}`);
           }
+        } catch (fetchErr) {
+          console.warn("[AI AutoReply] Không thể tải doc link trực tiếp (có thể doc đang ở chế độ riêng tư). Chuyển sang mô phỏng.", fetchErr);
         }
-        
-        // Fallback simulated folder if no real docs were retrieved
-        if (isMockedFolder) {
-          console.log(`[AI AutoReply] Chạy ở chế độ mô phỏng thư mục Google Drive (Folder ID: ${folderId})`);
-          filesToSync = [
-            {
-              title: "Chính sách Bán hàng & Dịch vụ.docx",
-              text: `--- CHÍNH SÁCH BÁN HÀNG & DỊCH VỤ DOANH NGHIỆP ---
-Hệ thống iGen ERP cung cấp giải pháp bán hàng đa kênh.
-1. Chính sách giá và chiết khấu:
-- Chiết khấu 5% cho hóa đơn đầu tiên.
-- Khách hàng VIP được giảm 10% cho mọi đơn hàng linh kiện phụ kiện.
-- Miễn phí vận chuyển cho hóa đơn từ 500.000đ trở lên. Dưới 500.000đ phí ship đồng giá 30.000đ toàn quốc.
-2. Chính sách bảo hành:
-- Thiết bị công nghệ bảo hành 12 tháng 1 đổi 1 trong 30 ngày đầu nếu có lỗi phần cứng từ nhà sản xuất.
-- Thời gian tiếp nhận bảo hành: 9:00 - 17:00 từ Thứ 2 đến Thứ 6.`,
-              isMocked: true
-            },
-            {
-              title: "Quy trình Vận hành Omni-Channel.docx",
-              text: `--- QUY TRÌNH VẬN HÀNH BÁN HÀNG ĐA KÊNH ---
-Quy trình tiếp nhận và xử lý tin nhắn tự động từ Facebook, Zalo, Tiktok qua iGen ERP:
-1. Tiếp nhận tin nhắn: Webhook đồng bộ tin nhắn về màn hình Omni-Inbox trong vòng 1-2 giây.
-2. AI tự động phản hồi:
-- AI phân tích ngữ cảnh dựa trên 15 tin nhắn gần nhất để đưa ra câu trả lời chuẩn xác.
-- Nếu khách hàng để lại thông tin đặt hàng (Họ tên, SĐT, Địa chỉ), AI tự động tạo đơn hàng nháp trên hệ thống.
-3. Nhân viên kiểm tra và xác nhận:
-- Nhân viên chốt đơn và bấm gửi hóa đơn cho khách.
-- Hệ thống đẩy vận đơn sang đơn vị vận chuyển đối tác.`,
-              isMocked: true
-            },
-            {
-              title: "Cẩm nang Chăm sóc Khách hàng AI.docx",
-              text: `--- CẨM NANG HƯỚNG DẪN XƯNG HÔ VÀ HÀNH XỬ CỦA AI ---
-Bộ quy chuẩn hành vi ứng xử cho Trợ lý Chăm sóc Khách hàng AI doanh nghiệp:
-1. Quy tắc xưng hô:
-- Luôn mở đầu bằng chào hỏi lễ phép, tôn trọng.
-- Sử dụng đại từ: Gọi khách là "Quý khách" hoặc "Anh/Chị" và xưng "Dạ bên em" hoặc "Dạ em".
-- Sử dụng kính ngữ "Dạ" ở đầu câu và "ạ" ở cuối câu.
-2. Nguyên tắc an toàn:
-- Không tự bịa đặt thông tin nếu không có trong cơ sở tri thức (RAG).
-- Trường hợp thông tin chưa rõ ràng hoặc ngoài phạm vi, phản hồi khéo léo và chuyển nhân viên hỗ trợ ngay lập tức.`,
-              isMocked: true
-            }
-          ];
-        }
-        
-        // Deduct balance check
-        const totalCost = API_COSTS.GEMINI_FAQ * filesToSync.length;
-        await walletService.checkBalance(userId, totalCost);
-        
-        const syncResults: any[] = [];
-        let combinedFaqText = "";
-        
-        for (const file of filesToSync) {
-          console.log(`[AI AutoReply] Đang chuyển đổi tài liệu "${file.title}" thành FAQs bằng Gemini...`);
-          const faqText = await geminiService.convertDocToFAQ(file.text);
-          const companyCode = req.user?.companyCode || "SYSTEM";
-          
-          const syncResult = await aiKnowledgeService.upsertKnowledgeFromText({
-            companyCode,
-            sourceType: "google_doc",
-            sourceTitle: file.title,
-            sourceUrl: docLink,
-            text: faqText,
-            createdBy: req.user?.id,
-            channelScope: ["all"],
-          });
-          
-          syncResults.push({
-            title: file.title,
-            chunksCount: syncResult.chunksCount,
-            isMocked: file.isMocked
-          });
-          
-          combinedFaqText += `\n\n=== TÀI LIỆU: ${file.title} ===\n${faqText}`;
-        }
-        
-        // Deduct total balance
-        await walletService.deductBalance(userId, totalCost, `Chi phí đồng bộ thư mục Drive (${filesToSync.length} tài liệu)`);
-        
-        return res.status(200).json({
-          status: "success",
-          title: `Google Drive Folder (${filesToSync.length} tài liệu)`,
-          text: combinedFaqText.trim(),
-          isMocked: isMockedFolder,
-          companyCode: req.user?.companyCode || "SYSTEM",
-          files: syncResults,
-          totalChunks: syncResults.reduce((sum, f) => sum + f.chunksCount, 0)
-        });
-      } else {
-        // Handle single Document link
-        await walletService.checkBalance(userId, API_COSTS.GEMINI_FAQ);
-        
-        let extractedText = "";
-        let isMocked = true;
-        let docTitle = "Tài liệu Google Drive";
+      }
 
-        if (docMatch && docMatch[1]) {
-          const fileId = docMatch[1];
-          const exportUrl = `https://docs.google.com/document/d/${fileId}/export?format=txt`;
-          try {
-            const fetchRes = await fetch(exportUrl);
-            if (fetchRes.ok) {
-              extractedText = await fetchRes.text();
-              isMocked = false;
-              docTitle = `Google Doc (ID: ${fileId})`;
-              console.log(`[AI AutoReply] Đồng bộ Google Doc thành công từ link thật! Độ dài ký tự: ${extractedText.length}`);
-            }
-          } catch (fetchErr) {
-            console.warn("[AI AutoReply] Không thể tải doc link trực tiếp (có thể doc đang ở chế độ riêng tư). Chuyển sang mô phỏng.", fetchErr);
+      // Fallback/Simulated sync if fetch failed or not a direct public doc
+      if (isMocked) {
+        // Generate a nice title from the URL
+        let parsedName = "Huong_dan_ban_hang_va_FAQ_Doanh_nghiep";
+        try {
+          const urlObj = new URL(docLink);
+          const pathSegments = urlObj.pathname.split("/").filter(Boolean);
+          if (pathSegments.length > 0) {
+            parsedName = pathSegments[pathSegments.length - 1];
           }
-        }
+        } catch (e) { }
 
-        // Fallback/Simulated sync if fetch failed or not a direct public doc
-        if (isMocked) {
-          // Generate a nice title from the URL
-          let parsedName = "Huong_dan_ban_hang_va_FAQ_Doanh_nghiep";
-          try {
-            const urlObj = new URL(docLink);
-            const pathSegments = urlObj.pathname.split("/").filter(Boolean);
-            if (pathSegments.length > 0) {
-              parsedName = pathSegments[pathSegments.length - 1];
-            }
-          } catch (e) { }
-
-          docTitle = `Mô phỏng file [${parsedName}]`;
-          extractedText = `--- TÀI LIỆU ĐỒNG BỘ TỪ GOOGLE DRIVE [${parsedName}] ---
+        docTitle = `Mô phỏng file [${parsedName}]`;
+        extractedText = `--- TÀI LIỆU ĐỒNG BỘ TỪ GOOGLE DRIVE [${parsedName}] ---
 Ngày đồng bộ: ${new Date().toLocaleString("vi-VN")}
 Trạng thái: Thành công (Chế độ demo thông minh)
 
@@ -647,32 +506,31 @@ A: Có, iGen ERP tích hợp AI trợ lý thông minh giúp tự động phản 
 Q: Phí lắp đặt và cài đặt ban đầu là bao nhiêu?
 A: Hoàn toàn MIỄN PHÍ. Đội ngũ kỹ thuật của iGen sẽ hỗ trợ cài đặt cấu hình và training sử dụng online 1-1.
 --------------------------------------------------`;
-        }
-
-        // Convert the extracted text (whether real or mocked) to a structured FAQ using Gemini
-        console.log(`[AI AutoReply] Đang tiến hành băm và chuyển đổi tài liệu thành dạng FAQs bằng Gemini...`);
-        const faqText = await geminiService.convertDocToFAQ(extractedText);
-        const companyCode = req.user?.companyCode || "SYSTEM";
-        const syncResult = await aiKnowledgeService.upsertKnowledgeFromText({
-          companyCode,
-          sourceType: "google_doc",
-          sourceTitle: docTitle,
-          sourceUrl: docLink,
-          text: faqText,
-          createdBy: req.user?.id,
-          channelScope: ["all"],
-        });
-
-        await walletService.deductBalance(userId, API_COSTS.GEMINI_FAQ, `Chi phí đồng bộ Drive & FAQ AI (${docTitle})`);
-        return res.status(200).json({
-          status: "success",
-          title: docTitle,
-          text: faqText,
-          isMocked,
-          companyCode,
-          chunksCount: syncResult.chunksCount
-        });
       }
+
+      // Convert the extracted text (whether real or mocked) to a structured FAQ using Gemini
+      console.log(`[AI AutoReply] Đang tiến hành băm và chuyển đổi tài liệu thành dạng FAQs bằng Gemini...`);
+      const faqText = await geminiService.convertDocToFAQ(extractedText);
+      const companyCode = req.user?.companyCode || "SYSTEM";
+      const syncResult = await aiKnowledgeService.upsertKnowledgeFromText({
+        companyCode,
+        sourceType: "google_doc",
+        sourceTitle: docTitle,
+        sourceUrl: docLink,
+        text: faqText,
+        createdBy: req.user?.id,
+        channelScope: ["all"],
+      });
+
+      await walletService.deductBalance(userId, API_COSTS.GEMINI_FAQ, `Chi phí đồng bộ Drive & FAQ AI (${docTitle})`);
+      return res.status(200).json({
+        status: "success",
+        title: docTitle,
+        text: faqText,
+        isMocked,
+        companyCode,
+        chunksCount: syncResult.chunksCount
+      });
     } catch (error: any) {
       console.error("[geminiController.syncGoogleDrive] Error:", error);
       return handleGeminiError(res, error, "Lỗi đồng bộ dữ liệu từ Google Drive");
@@ -692,7 +550,7 @@ A: Hoàn toàn MIỄN PHÍ. Đội ngũ kỹ thuật của iGen sẽ hỗ trợ 
       const textToSpeak = req.body.textToSpeak || "";
       const charCount = textToSpeak.length;
       const model = String(req.body.model || "").toLowerCase();
-      
+
       let cost = 0;
       if (model.includes("flash") || model.includes("pro")) {
         const seconds = Math.max(1, Math.ceil(charCount / 13));

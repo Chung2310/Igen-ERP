@@ -435,9 +435,20 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
       </div>
 
       {previewVideoUrl ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
-          <div className="relative w-full max-w-5xl rounded-[28px] bg-white p-3 shadow-2xl">
-            <button type="button" onClick={() => setPreviewVideoUrl("")} className="absolute right-5 top-5 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm cursor-pointer"
+          onClick={() => setPreviewVideoUrl("")}
+        >
+          <div 
+            className="relative w-full max-w-5xl rounded-[28px] bg-white p-3 shadow-2xl cursor-default"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button 
+              type="button" 
+              onClick={() => setPreviewVideoUrl("")} 
+              className="absolute right-5 top-5 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-slate-900/80 text-white shadow-md transition hover:scale-105 hover:bg-slate-950"
+              title="Đóng xem trước"
+            >
               <X className="h-5 w-5" />
             </button>
             <video src={previewVideoUrl} controls autoPlay playsInline className="aspect-video w-full rounded-[22px] bg-white object-contain" style={{ objectPosition: "center top" }} />

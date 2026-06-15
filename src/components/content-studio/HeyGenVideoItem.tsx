@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { ChevronRight, Download, LoaderCircle, Pencil, Play, Trash2 } from "lucide-react";
 import { heygenApi } from "../../api/heygen";
 import { HEYGEN_THEME } from "./heygenTheme";
+import { toast } from "../../pages/Toast";
 
 function usePseudoProgress(createdAt?: string, status?: string) {
   const [progress, setProgress] = useState(0);
@@ -50,6 +51,34 @@ export function HeyGenVideoItem({
   const isProcessing = !isCompleted && !isFailed;
   const pseudoProgress = usePseudoProgress(item.createdAt, item.status);
 
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleDownload = async () => {
+    if (!downloadUrl) return;
+    setIsDownloading(true);
+    toast.info("Đang tải xuống video...");
+    try {
+      const response = await fetch(downloadUrl);
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = `${item.prompt || "heygen-video"}.mp4`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(blobUrl);
+      toast.success("Tải xuống video thành công!");
+    } catch (error) {
+      console.error("Direct download failed, opening in new tab:", error);
+      window.open(downloadUrl, "_blank");
+      toast.warning("Mở video trong tab mới để tải về.");
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   useEffect(() => {
     if (!isProcessing || !item.videoId) return;
     const interval = window.setInterval(async () => {
@@ -92,7 +121,7 @@ export function HeyGenVideoItem({
     <div className={`grid gap-4 rounded-[24px] border ${HEYGEN_THEME.border} ${HEYGEN_THEME.surface} p-4 lg:grid-cols-[minmax(320px,560px)_minmax(0,1fr)]`}>
       <div className={`overflow-hidden rounded-[24px] border ${HEYGEN_THEME.border} ${HEYGEN_THEME.surfaceMuted} p-3 shadow-sm`}>
         <div className="relative aspect-[16/9] overflow-hidden rounded-[20px] bg-[radial-gradient(circle_at_center,#1e2936_0%,#16202b_60%,#0f141b_100%)]">
-          {item.thumbnailUrl ? <img src={item.thumbnailUrl} alt={item.title || item.prompt || "HeyGen video"} loading="lazy" decoding="async" className="absolute inset-0 z-10 h-full w-full object-contain bg-white" style={{ objectPosition: "center top" }} /> : downloadUrl ? <video src={downloadUrl} preload="none" className="absolute inset-0 z-10 h-full w-full object-contain bg-white" style={{ objectPosition: "center top" }} /> : <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-100 p-4 text-center text-cyan-700">{isFailed ? <div className="text-xs font-semibold text-rose-600">That bai</div> : <div className="flex flex-col items-center gap-2"><LoaderCircle className="h-6 w-6 animate-spin text-cyan-600" /><span className="text-[11px] font-bold uppercase tracking-widest">Dang xu ly</span><span className="text-xs font-mono text-cyan-700/80">{pseudoProgress}%</span><div className="h-1 w-24 overflow-hidden rounded-full bg-slate-200"><div className="h-full bg-cyan-500 transition-all duration-1000" style={{ width: `${pseudoProgress}%` }} /></div></div>}</div>}
+          {item.thumbnailUrl ? <img src={item.thumbnailUrl} alt={item.title || item.prompt || "HeyGen video"} loading="lazy" decoding="async" className="absolute inset-0 z-10 h-full w-full object-contain bg-transparent" style={{ objectPosition: "center top" }} /> : downloadUrl ? <video src={downloadUrl} preload="metadata" className="absolute inset-0 z-10 h-full w-full object-contain bg-transparent" style={{ objectPosition: "center top" }} /> : <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-100 p-4 text-center text-cyan-700">{isFailed ? <div className="text-xs font-semibold text-rose-600">That bai</div> : <div className="flex flex-col items-center gap-2"><LoaderCircle className="h-6 w-6 animate-spin text-cyan-600" /><span className="text-[11px] font-bold uppercase tracking-widest">Dang xu ly</span><span className="text-xs font-mono text-cyan-700/80">{pseudoProgress}%</span><div className="h-1 w-24 overflow-hidden rounded-full bg-slate-200"><div className="h-full bg-cyan-500 transition-all duration-1000" style={{ width: `${pseudoProgress}%` }} /></div></div>}</div>}
 
           {isCompleted && downloadUrl ? <div className="absolute inset-0 z-20 flex items-center justify-center"><button type="button" onClick={() => onPlay(downloadUrl)} className="flex h-14 w-14 items-center justify-center rounded-full border border-white/60 bg-slate-950/35 text-white backdrop-blur-sm transition hover:scale-105 hover:bg-slate-950/50"><Play className="ml-0.5 h-5 w-5 fill-current" /></button></div> : null}
           {isProcessing && !item.thumbnailUrl ? <div className="absolute inset-x-0 bottom-3 z-20 flex justify-center"><span className="rounded-full bg-slate-950/70 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-cyan-300">Dang render ({pseudoProgress}%)</span></div> : null}
@@ -115,7 +144,21 @@ export function HeyGenVideoItem({
         <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
           <div className="flex flex-wrap items-center gap-2">
             <ActionCircle onClick={() => onReuse(item)}><Pencil className="h-4 w-4" /></ActionCircle>
-            {downloadUrl ? <a href={downloadUrl} target="_blank" rel="noreferrer" download={item.title || "heygen-video"} className={`flex h-10 w-10 items-center justify-center rounded-full border ${HEYGEN_THEME.border} bg-white text-slate-600 transition hover:text-slate-900`} title="Tai video"><Download className="h-4 w-4" /></a> : <button type="button" disabled className="flex h-10 w-10 cursor-not-allowed items-center justify-center rounded-full border border-slate-200 bg-slate-100 text-slate-300" title="Video chua san sang de tai"><Download className="h-4 w-4" /></button>}
+            {downloadUrl ? (
+              <button 
+                type="button" 
+                onClick={handleDownload} 
+                disabled={isDownloading}
+                className={`flex h-10 w-10 items-center justify-center rounded-full border ${HEYGEN_THEME.border} bg-white text-slate-600 transition hover:text-slate-900 disabled:opacity-50`} 
+                title="Tải video"
+              >
+                {isDownloading ? <LoaderCircle className="h-4 w-4 animate-spin text-slate-500" /> : <Download className="h-4 w-4" />}
+              </button>
+            ) : (
+              <button type="button" disabled className="flex h-10 w-10 cursor-not-allowed items-center justify-center rounded-full border border-slate-200 bg-slate-100 text-slate-300" title="Video chưa sẵn sàng để tải">
+                <Download className="h-4 w-4" />
+              </button>
+            )}
             <ActionCircle onClick={() => onDelete(item.videoId || item.id || item._id)}><Trash2 className="h-4 w-4" /></ActionCircle>
           </div>
           <ActionCircle onClick={() => onReuse(item)}><ChevronRight className="h-5 w-5" /></ActionCircle>
