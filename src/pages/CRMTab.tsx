@@ -129,7 +129,8 @@ export default function CRMTab() {
     autoFeedback: false,
     replyDelay: 15,
     advancedInstructions: "Luôn ưu tiên xưng hô lịch thiệp. Hỏi thăm nhu cầu chăm sóc sức khỏe của doanh nghiệp.",
-    trainingKnowledge: ""
+    trainingKnowledge: "",
+    model: localStorage.getItem("selected_ai_model") || "gemini-3.5-flash"
   });
 
   // Sync AI config when userProfile is loaded
@@ -142,7 +143,8 @@ export default function CRMTab() {
         autoFeedback: userProfile.aiAutoReplyConfig.autoFeedback ?? false,
         replyDelay: userProfile.aiAutoReplyConfig.replyDelay ?? 15,
         advancedInstructions: userProfile.aiAutoReplyConfig.advancedInstructions ?? "",
-        trainingKnowledge: userProfile.aiAutoReplyConfig.trainingKnowledge ?? ""
+        trainingKnowledge: userProfile.aiAutoReplyConfig.trainingKnowledge ?? "",
+        model: userProfile.aiAutoReplyConfig.model || localStorage.getItem("selected_ai_model") || "gemini-3.5-flash"
       });
     }
   }, [userProfile]);

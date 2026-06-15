@@ -52,6 +52,7 @@ const AiAutoReplyConfigSchema = new Schema(
     replyDelay: { type: Number, default: 15 },
     advancedInstructions: { type: String, default: "" },
     trainingKnowledge: { type: String, default: "" },
+    model: { type: String, default: "gemini-3.5-flash" },
   },
   { _id: false }
 );
