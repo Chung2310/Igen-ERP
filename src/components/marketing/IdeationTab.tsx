@@ -649,15 +649,15 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
 
               {/* Auto-pilot completely automated flow */}
               <div className="flex flex-col gap-3 mt-5 select-none bg-purple-50/40 p-4 border border-purple-150 rounded-2xl">
-                <label className="relative inline-flex items-center cursor-pointer">
+                <label className="relative flex items-start cursor-pointer">
                   <input
                     type="checkbox"
                     checked={isAutoPilot}
                     onChange={(e) => setIsAutoPilot(e.target.checked)}
                     className="sr-only peer"
                   />
-                  <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-650 peer-checked:bg-purple-600 font-sans"></div>
-                  <span className="ml-2.5 text-xs font-bold text-gray-750 uppercase tracking-wider font-mono text-purple-700 flex items-center gap-1">
+                  <div className="relative shrink-0 w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-650 peer-checked:bg-purple-600 font-sans mt-[1px]"></div>
+                  <span className="ml-2.5 text-xs font-bold text-gray-750 uppercase tracking-wider font-mono text-purple-700 select-none leading-relaxed">
                     🤖 Chế độ Tự động hoàn toàn (Auto-pilot: Ý tưởng → Viết bài → Đặt lịch đăng)
                   </span>
                 </label>
