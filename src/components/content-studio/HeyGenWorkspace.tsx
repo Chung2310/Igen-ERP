@@ -26,8 +26,15 @@ const TERMINAL_JOB_STATES = new Set(["completed", "failed", "error", "canceled"]
 const HISTORY_PAGE_SIZE = 6;
 const HEYGEN_FALLBACK_POLL_DELAYS = [8000, 20000] as const;
 
-export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
+export function HeyGenWorkspace({
+  initialPrompt,
+  onEditVideo,
+}: {
+  initialPrompt?: string;
+  onEditVideo?: (url: string) => void;
+}) {
   const [avatars, setAvatars] = useState<HeyGenLibraryItem[]>([]);
+  const [isLoadingLibrary, setIsLoadingLibrary] = useState(false);
   const [audioRecords, setAudioRecords] = useState<ElevenLabsAudioRecord[]>([]);
   const [selectedAvatarId, setSelectedAvatarId] = useState("");
   const [selectedAudioRecordId, setSelectedAudioRecordId] = useState("");
@@ -115,6 +122,7 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
   }, [history]);
 
   async function loadWorkspaceData() {
+    setIsLoadingLibrary(true);
     setErrorMessage("");
     try {
       const [libraryResult] = await Promise.allSettled([heygenApi.getLibrary()]);
@@ -126,11 +134,12 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
         setSelectedAvatarId((current) => current && nextAvatars.some((avatar) => avatar.id === current) ? current : defaultAvatarId && nextAvatars.some((avatar) => avatar.id === defaultAvatarId) ? defaultAvatarId : nextAvatars[0]?.id || "");
         preloadAvatarImages(nextAvatars);
       } else {
-        setErrorMessage(libraryResult.reason?.message || "Khong the tai thu vien HeyGen");
+        setErrorMessage(libraryResult.reason?.message || "Không thể tải thư viện HeyGen");
       }
     } catch (error: any) {
-      setErrorMessage(error.message || "Khong the tai du lieu HeyGen");
+      setErrorMessage(error.message || "Không thể tải dữ liệu HeyGen");
     }
+    setIsLoadingLibrary(false);
   }
 
   function preloadAvatarImages(items: HeyGenLibraryItem[]) {
@@ -151,7 +160,7 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
       setHistory(historyResult.history || []);
       setHasLoadedHistory(true);
     } catch (error: any) {
-      setErrorMessage((current) => current || error.message || "Khong the tai lich su HeyGen");
+      setErrorMessage((current) => current || error.message || "Không thể tải lịch sử HeyGen");
     } finally {
       setIsLoadingHistory(false);
     }
@@ -164,7 +173,7 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
       setHistory(historyResult.history || []);
       setHasLoadedHistory(true);
     } catch (error: any) {
-      setErrorMessage((current) => current || error.message || "Khong the tai lich su HeyGen");
+      setErrorMessage((current) => current || error.message || "Không thể tải lịch sử HeyGen");
     } finally {
       setIsLoadingHistory(false);
     }
@@ -180,7 +189,7 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
       setSelectedAudioRecordId((current) => current && records.some((item) => item._id === current) ? current : records[0]?._id || "");
       setHasLoadedAudioHistory(true);
     } catch (error: any) {
-      setErrorMessage(error.message || "Khong the tai lich su audio ElevenLabs");
+      setErrorMessage(error.message || "Không thể tải lịch sử audio ElevenLabs");
     } finally {
       setIsLoadingAudioHistory(false);
     }
@@ -215,12 +224,12 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
 
   async function handleGenerate() {
     if (!selectedAvatarId) {
-      setErrorMessage("Vui long chon avatar truoc khi tao video.");
+      setErrorMessage("Vui lòng chọn avatar trước khi tạo video.");
       return;
     }
     const hasAudio = Boolean(selectedAudioRecordId);
     if (!hasAudio) {
-      setErrorMessage("Vui long chon audio ElevenLabs de tao video.");
+      setErrorMessage("Vui lòng chọn audio ElevenLabs để tạo video.");
       return;
     }
 
@@ -256,7 +265,7 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
       setJobStatus(String(created.jobStatus || "processing").toLowerCase());
       const finalStatus = await pollVideoStatus(created.videoId, payload);
       if (!finalStatus?.videoUrl) {
-        setWarnings((current) => current.includes("Video dang cho webhook/lich su cap nhat. Ban xem truc tiep trong lich su ben duoi.") ? current : ["Video dang cho webhook/lich su cap nhat. Ban xem truc tiep trong lich su ben duoi.", ...current]);
+        setWarnings((current) => current.includes("Video đang cho webhook/lịch sử cập nhật. Bạn xem trực tiếp trong lịch sử bên dưới.") ? current : ["Video đang cho webhook/lịch sử cập nhật. ạn xem trực tiếp trong lịch sử bên dưới.", ...current]);
       }
       const historyRes = await heygenApi.getVideoHistory();
       setHistory(historyRes.history || []);
@@ -266,7 +275,7 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
         if (matched?.url) setJobVideoUrl(matched.url);
       }
     } catch (error: any) {
-      setErrorMessage(error.message || "Khong the tao video");
+      setErrorMessage(error.message || "Không thể tạo video");
       setJobStatus("failed");
     } finally {
       setIsGenerating(false);
@@ -278,36 +287,23 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
       await heygenApi.deleteVideoHistory(videoId);
       await reloadHistoryData();
     } catch (error: any) {
-      setErrorMessage(error.message || "Khong the xoa video");
+      setErrorMessage(error.message || "Không thể xóa video");
     }
   }
 
-  function handleReuseRecent(item: any) {
-    const nextAvatarId = String(item?.metadata?.heygenAvatarId || "").trim();
-    const nextAudioRecordId = String(item?.metadata?.heygenAudioRecordId || "").trim();
-    const nextAudioUrl = String(item?.metadata?.heygenAudioUrl || "").trim();
-    const nextModel = String(item?.model || item?.metadata?.title || "").trim();
-
-    if (nextAvatarId && avatars.some((avatar) => avatar.id === nextAvatarId)) {
-      setSelectedAvatarId(nextAvatarId);
+  function handleEditRecent(item: any) {
+    const editUrl = String(item?.url || item?.captionedVideoUrl || item?.videoPageUrl || "").trim();
+    if (!editUrl || !editUrl.startsWith("http")) {
+      setErrorMessage("Video này chưa sẵn sàng để đưa sang chỉnh sửa Video.");
+      return;
     }
 
-    if (nextAudioRecordId && audioRecords.some((record) => record._id === nextAudioRecordId)) {
-      setSelectedAudioRecordId(nextAudioRecordId);
-    } else if (nextAudioUrl) {
-      const matchedAudio = audioRecords.find((record) => record.url === nextAudioUrl);
-      if (matchedAudio) {
-        setSelectedAudioRecordId(matchedAudio._id);
-      }
+    if (onEditVideo) {
+      onEditVideo(editUrl);
+      return;
     }
 
-    if (nextModel && HEYGEN_MODEL_OPTIONS.some((option) => option.id === nextModel)) {
-      setSelectedAvatarModel(nextModel);
-    }
-
-    setActiveTab("avatar");
-    setIsDrawerOpen(true);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    setPreviewVideoUrl(editUrl);
   }
 
   return (
@@ -339,6 +335,7 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
               onClose={() => setIsDrawerOpen(false)}
               selectedAvatar={selectedAvatar}
               selectedAudio={selectedAudio}
+              isLoadingLibrary={isLoadingLibrary}
               onOpenAvatarPicker={() => setIsAvatarPickerOpen(true)}
               onOpenVoicePicker={() => void handleOpenVoicePicker()}
               onOpenModelPicker={() => setIsModelPickerOpen(true)}
@@ -376,6 +373,13 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
         <HeyGenVerticalToolbar activeTab={activeTab} onChangeTab={(tab) => { setActiveTab(tab); setIsDrawerOpen(true); }} />
       </div>
 
+      {isLoadingLibrary ? (
+        <div className="rounded-2xl border border-cyan-200 bg-cyan-50 p-4 text-xs font-semibold text-cyan-700">
+          <p className="font-bold">Dang tai thu vien HeyGen...</p>
+          <p className="mt-1 text-cyan-600">He thong dang dong bo avatar va tuy chon motion tu phia may chu.</p>
+        </div>
+      ) : null}
+
       {(errorMessage || warnings.length > 0 || jobStatus) ? (
         <div className={`rounded-2xl border p-4 text-xs font-semibold ${errorMessage ? "border-rose-200 bg-rose-50 text-rose-700" : "border-cyan-200 bg-cyan-50 text-cyan-700"}`}>
           {errorMessage ? <p className="font-bold">{errorMessage}</p> : null}
@@ -387,19 +391,19 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
       <div ref={historySectionRef} className={`rounded-[24px] border ${HEYGEN_THEME.border} ${HEYGEN_THEME.surface} p-5 text-slate-900 shadow-sm md:p-6`}>
         <div className="mb-5 flex items-center justify-between gap-3">
           <div>
-            <h4 className="text-2xl font-bold tracking-tight text-slate-900">Lich su tao video</h4>
-            <p className="text-sm text-slate-500">Xem va tai xuong cac video avatar da hoan thanh cua ban</p>
+            <h4 className="text-2xl font-bold tracking-tight text-slate-900">Lịch sử tạo video</h4>
+            <p className="text-sm text-slate-500">Xem và tải xuống các video avatar đã hoàn thành của bạn</p>
           </div>
           <span className={`rounded-full border ${HEYGEN_THEME.border} ${HEYGEN_THEME.surfaceMuted} px-3 py-1 text-xs font-semibold text-slate-600`}>{history.length} video</span>
         </div>
 
         {!hasLoadedHistory ? (
           <div className="flex flex-col items-center justify-center py-10 text-slate-400">
-            <p className="text-sm">Lich su se duoc tai khi ban cuon xuong day.</p>
+            <p className="text-sm">Lịch sử sẽ được tải khi bạn cuộn xuống dưới cùng.</p>
           </div>
         ) : isLoadingHistory && history.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-10 text-slate-400">
-            <p className="text-sm">Dang tai lich su video...</p>
+            <p className="text-sm">Đang tải lịch sử video...</p>
           </div>
         ) : history.length > 0 ? (
           <div className="space-y-6">
@@ -409,7 +413,7 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
                   <HeyGenVideoItem
                     item={item}
                     onPlay={(url) => setPreviewVideoUrl(url)}
-                    onReuse={handleReuseRecent}
+                    onReuse={handleEditRecent}
                     onDelete={handleDeleteHistory}
                     onStatusUpdate={(updatedItem) => setHistory((current) => current.map((historyItem) => historyItem._id === updatedItem._id ? updatedItem : historyItem))}
                   />
@@ -429,7 +433,7 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-12 text-slate-400">
-            <p className="text-sm">Chua co video HeyGen nao duoc tao.</p>
+            <p className="text-sm">Chưa có video HeyGen nào được tạo.</p>
           </div>
         )}
       </div>
@@ -457,18 +461,18 @@ export function HeyGenWorkspace({ initialPrompt }: { initialPrompt?: string }) {
       ) : null}
 
       {isAvatarPickerOpen ? (
-        <Suspense fallback={<ModalFallback label="Dang tai avatar picker..." />}>
-          <PickerPopover title="Replace avatar" items={avatars} selectedId={selectedAvatarId} onClose={() => setIsAvatarPickerOpen(false)} onSelect={(item) => { setSelectedAvatarId(item.id); setIsAvatarPickerOpen(false); }} emptyLabel="Chua co avatar nao duoc cap cho user nay." />
+        <Suspense fallback={<ModalFallback label="Đang tải danh sách avatar..." />}>
+          <PickerPopover title="Thay avatar" items={avatars} selectedId={selectedAvatarId} onClose={() => setIsAvatarPickerOpen(false)} onSelect={(item) => { setSelectedAvatarId(item.id); setIsAvatarPickerOpen(false); }} emptyLabel="Chưa có avatar nào được cấp cho tài khoản này." />
         </Suspense>
       ) : null}
       {isAudioPickerOpen ? (
-        <Suspense fallback={<ModalFallback label="Dang tai voice picker..." />}>
-          <AudioHistoryPopover title="Edit Voice" items={audioRecords} selectedId={selectedAudioRecordId} isLoading={isLoadingAudioHistory} onRefresh={() => void refreshAudioHistory()} onClose={() => setIsAudioPickerOpen(false)} onSelect={(item) => { setSelectedAudioRecordId(item._id); setIsAudioPickerOpen(false); }} />
+        <Suspense fallback={<ModalFallback label="Đang tải danh sách giọng nói..." />}>
+          <AudioHistoryPopover title="Đổi giọng nói" items={audioRecords} selectedId={selectedAudioRecordId} isLoading={isLoadingAudioHistory} onRefresh={() => void refreshAudioHistory()} onClose={() => setIsAudioPickerOpen(false)} onSelect={(item) => { setSelectedAudioRecordId(item._id); setIsAudioPickerOpen(false); }} />
         </Suspense>
       ) : null}
       {isModelPickerOpen ? (
-        <Suspense fallback={<ModalFallback label="Dang tai motion engine..." />}>
-          <ModelSelectionPopover title="Motion Engine" items={HEYGEN_MODEL_OPTIONS.map((item) => ({ id: item.id, description: item.description, icon: item.icon }))} selectedValue={selectedAvatarModel} onClose={() => setIsModelPickerOpen(false)} onSelect={(value) => { setSelectedAvatarModel(value); setIsModelPickerOpen(false); }} />
+        <Suspense fallback={<ModalFallback label="Đang tải bộ máy chuyển động..." />}>
+          <ModelSelectionPopover title="Bộ máy chuyển động" items={HEYGEN_MODEL_OPTIONS.map((item) => ({ id: item.id, description: item.description, icon: item.icon }))} selectedValue={selectedAvatarModel} onClose={() => setIsModelPickerOpen(false)} onSelect={(value) => { setSelectedAvatarModel(value); setIsModelPickerOpen(false); }} />
         </Suspense>
       ) : null}
     </div>

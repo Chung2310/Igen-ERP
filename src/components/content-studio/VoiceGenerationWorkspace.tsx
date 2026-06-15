@@ -114,7 +114,7 @@ function getModelDetails(modelId: string, availableModels: any[]) {
       languageSummary:
          languageNames.length > 0
             ? languageNames.slice(0, 8).join(', ')
-            : 'Chua co metadata ngon ngu tu ElevenLabs API',
+            : 'Chưa có metadata ngôn ngữ từ ElevenLabs API',
    };
 }
 
@@ -1343,7 +1343,7 @@ const getSelectedVoice = () => {
                                     <button
                                        type="button"
                                        className="flex h-[50px] w-[50px] items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition-all hover:bg-slate-50 hover:text-slate-900"
-                                       title="Hover de xem thu vien giong noi"
+                                       title="Hover de xem thư viện giọng nói"
                                     >
                                        <BookOpen className="h-4.5 w-4.5" />
                                     </button>
@@ -1352,8 +1352,8 @@ const getSelectedVoice = () => {
                                        <div className="absolute right-0 top-[calc(100%+10px)] z-30 w-[320px] rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl">
                                           <div className="mb-2 flex items-center justify-between gap-3 px-1">
                                              <div>
-                                                <p className="text-xs font-bold text-slate-900">Thu vien giong noi</p>
-                                                <p className="text-[10px] text-slate-400">Hover nhanh de chon voice ElevenLabs</p>
+                                                <p className="text-xs font-bold text-slate-900">Thư viện giọng nói</p>
+                                                <p className="text-[10px] text-slate-400">Giữ nhanh để chọn giọng nói ElevenLabs</p>
                                              </div>
                                              <button
                                                 type="button"
@@ -1364,7 +1364,7 @@ const getSelectedVoice = () => {
                                                 }}
                                                 className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-bold text-slate-600 transition hover:bg-slate-100"
                                              >
-                                                Xem tat ca
+                                                Xem tất cả
                                              </button>
                                           </div>
 
@@ -1414,7 +1414,7 @@ const getSelectedVoice = () => {
                            <div className="flex flex-col gap-2">
                               <span className="text-xs font-bold text-slate-700">Model AI</span>
                               {activeModelInfo?.name && (
-                                 <span className="text-[10px] text-slate-400">Dang su dung model ElevenLabs: {activeModelInfo.name}</span>
+                                 <span className="text-[10px] text-slate-400">Đang sử dụng model ElevenLabs: {activeModelInfo.name}</span>
                               )}
                               <span className="text-[10px] text-slate-400 font-medium leading-relaxed">Chọn mô hình phù hợp với mục tiêu tạo giọng nói của bạn.</span>
                               <div className="flex flex-col gap-2.5">
@@ -1458,7 +1458,7 @@ const getSelectedVoice = () => {
                            {/* Stability slider */}
                            <div className="flex flex-col gap-2">
                               <div className="flex justify-between text-xs font-bold text-slate-700">
-                                 <span>Stability</span>
+                                 <span>Sự ổn định</span>
                                  <span className="font-mono text-cyan-600">{stability.toFixed(2)}</span>
                               </div>
                               <input
@@ -1508,7 +1508,7 @@ const getSelectedVoice = () => {
                            <div className="flex items-center justify-between border-t pt-4">
                               <div>
                                  <span className="text-xs font-bold text-slate-800">Speaker Boost</span>
-                                 <p className="text-[10px] text-slate-400 mt-0.5">Su dung voice setting goc cua ElevenLabs de day do ro va do day giong noi.</p>
+                                 <p className="text-[10px] text-slate-400 mt-0.5">Sử dụng voice setting gốc của giọng nói.</p>
                               </div>
                               <label className="relative inline-flex items-center cursor-pointer">
                                  <input
@@ -1563,7 +1563,7 @@ const getSelectedVoice = () => {
                         disabled={isSavingVoiceSettings}
                         className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                      >
-                        {isSavingVoiceSettings ? 'Dang luu...' : 'Luu settings'}
+                        {isSavingVoiceSettings ? 'Đang lưu...' : 'Lưu settings'}
                      </button>
                      <button
                         onClick={() => {

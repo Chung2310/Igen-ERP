@@ -40,7 +40,7 @@ export const elevenlabsController = {
       return res.status(200).json({ status: "success", history });
     } catch (error: any) {
       console.error("[elevenlabsController.getVoiceHistory] Error:", error);
-      return res.status(500).json({ status: "error", message: "Loi lay lich su voice", details: error.message });
+      return res.status(500).json({ status: "error", message: "Lỗi lấy lịch sử voice", details: error.message });
     }
   },
 
@@ -48,13 +48,13 @@ export const elevenlabsController = {
     try {
       const userId = (req as any).user?.id;
       if (!userId) {
-        return res.status(401).json({ status: "error", message: "Yeu cau dang nhap" });
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
       }
       const result = await geminiService.deleteMediaHistory(userId, req.params.id);
       return res.status(200).json(result);
     } catch (error: any) {
       console.error("[elevenlabsController.deleteVoiceHistory] Error:", error);
-      return res.status(500).json({ status: "error", message: "Loi xoa lich su voice", details: error.message });
+      return res.status(500).json({ status: "error", message: "Lỗi xóa lịch sử voice", details: error.message });
     }
   },
 
@@ -63,7 +63,7 @@ export const elevenlabsController = {
       return res.status(200).json(await elevenlabsService.getVoices());
     } catch (error: any) {
       console.error("[elevenlabsController.getVoices] Error:", error);
-      return res.status(500).json({ status: "error", message: "Khong the lay danh sach giong noi ElevenLabs", details: error.message });
+      return res.status(500).json({ status: "error", message: "Không thể lấy danh sách giọng nói ElevenLabs", details: error.message });
     }
   },
 
@@ -72,7 +72,7 @@ export const elevenlabsController = {
       return res.status(200).json(await elevenlabsService.getVoice(req.params.voiceId));
     } catch (error: any) {
       console.error("[elevenlabsController.getVoice] Error:", error);
-      return res.status(500).json({ status: "error", message: "Khong the lay chi tiet voice ElevenLabs", details: error.message });
+      return res.status(500).json({ status: "error", message: "Không thể lấy chi tiết voice ElevenLabs", details: error.message });
     }
   },
 
@@ -81,7 +81,7 @@ export const elevenlabsController = {
       return res.status(200).json(await elevenlabsService.getModels());
     } catch (error: any) {
       console.error("[elevenlabsController.getModels] Error:", error);
-      return res.status(500).json({ status: "error", message: "Khong the lay danh sach model ElevenLabs", details: error.message });
+      return res.status(500).json({ status: "error", message: "Không thể lấy danh sách model ElevenLabs", details: error.message });
     }
   },
 
@@ -90,7 +90,7 @@ export const elevenlabsController = {
       return res.status(200).json(await elevenlabsService.getVoiceSettings(req.params.voiceId));
     } catch (error: any) {
       console.error("[elevenlabsController.getVoiceSettings] Error:", error);
-      return res.status(500).json({ status: "error", message: "Khong the lay voice settings ElevenLabs", details: error.message });
+      return res.status(500).json({ status: "error", message: "Không thể lấy voice settings ElevenLabs", details: error.message });
     }
   },
 
@@ -99,7 +99,7 @@ export const elevenlabsController = {
       return res.status(200).json(await elevenlabsService.updateVoiceSettings(req.params.voiceId, req.body));
     } catch (error: any) {
       console.error("[elevenlabsController.updateVoiceSettings] Error:", error);
-      return res.status(500).json({ status: "error", message: "Khong the cap nhat voice settings ElevenLabs", details: error.message });
+      return res.status(500).json({ status: "error", message: "Không thể cập nhật voice settings ElevenLabs", details: error.message });
     }
   },
 
@@ -108,7 +108,7 @@ export const elevenlabsController = {
       return res.status(200).json(await elevenlabsService.generateCustomVoicePreview(req.body));
     } catch (error: any) {
       console.error("[elevenlabsController.generateCustomVoicePreview] Error:", error);
-      return res.status(500).json({ status: "error", message: "Khong the thiet ke giong noi thu nghiem", details: error.message });
+      return res.status(500).json({ status: "error", message: "Không thể thiết kế giọng nói thử nghiệm", details: error.message });
     }
   },
 
@@ -117,7 +117,7 @@ export const elevenlabsController = {
       return res.status(200).json(await elevenlabsService.createCustomVoice(req.body));
     } catch (error: any) {
       console.error("[elevenlabsController.createCustomVoice] Error:", error);
-      return res.status(500).json({ status: "error", message: "Khong the luu giong noi ca nhan vao ElevenLabs", details: error.message });
+      return res.status(500).json({ status: "error", message: "Không thể lưu giọng nói cá nhân vào ElevenLabs", details: error.message });
     }
   },
 
@@ -127,7 +127,7 @@ export const elevenlabsController = {
       return res.status(200).json(await elevenlabsService.addVoice(name, description, files, userId));
     } catch (error: any) {
       console.error("[elevenlabsController.addVoice] Error:", error);
-      return res.status(500).json({ status: "error", message: "Khong the nhan ban giong noi ElevenLabs", details: error.message });
+      return res.status(500).json({ status: "error", message: "Không thể thêm giọng nói ElevenLabs", details: error.message });
     }
   },
 
@@ -136,7 +136,7 @@ export const elevenlabsController = {
       return res.status(200).json(await elevenlabsService.deleteVoice(req.params.voiceId));
     } catch (error: any) {
       console.error("[elevenlabsController.deleteVoice] Error:", error);
-      return res.status(500).json({ status: "error", message: "Khong the xoa giong noi ElevenLabs", details: error.message });
+      return res.status(500).json({ status: "error", message: "Không thể xóa giọng nói ElevenLabs", details: error.message });
     }
   },
 };

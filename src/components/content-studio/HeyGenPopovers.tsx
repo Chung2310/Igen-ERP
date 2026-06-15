@@ -86,7 +86,7 @@ export function PickerPopover({
         <div className="mb-3 flex items-center justify-between gap-3 px-1">
           <div>
             <p className="text-sm font-semibold text-slate-900">{title}</p>
-            <p className={`text-xs ${HEYGEN_THEME.textMuted}`}>Chon truc tiep tu thu vien da cap</p>
+            <p className={`text-xs ${HEYGEN_THEME.textMuted}`}>Chọn trực tiếp từ thư viện được cấp</p>
           </div>
           <button type="button" onClick={onClose} className={`flex h-8 w-8 items-center justify-center rounded-full border ${HEYGEN_THEME.border} ${HEYGEN_THEME.surfaceMuted} text-slate-500 transition hover:text-slate-900`}>
             <X className="h-4 w-4" />
@@ -112,7 +112,7 @@ export function PickerPopover({
                       {item.previewImage ? (
                         <img src={item.previewImage} alt={item.name} loading="lazy" decoding="async" className="h-20 w-16 rounded-2xl object-cover" />
                       ) : (
-                          <div className="flex h-20 w-16 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
+                        <div className="flex h-20 w-16 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
                           <UserRound className="h-5 w-5" />
                         </div>
                       )}
@@ -157,7 +157,7 @@ export function AudioHistoryPopover({
         <div className="mb-3 flex items-center justify-between gap-3 px-1">
           <div>
             <p className="text-sm font-semibold text-slate-900">{title}</p>
-            <p className={`text-xs ${HEYGEN_THEME.textMuted}`}>Nguồn này lấy từ lịch sử tạo giọng nói của ElevenLabs</p>
+            <p className={`text-xs ${HEYGEN_THEME.textMuted}`}>Nguồn này được lấy từ lịch sử tạo giọng nói của ElevenLabs</p>
           </div>
           <div className="flex items-center gap-2">
             <button type="button" onClick={onRefresh} className={`inline-flex h-8 items-center rounded-full border ${HEYGEN_THEME.border} ${HEYGEN_THEME.surfaceMuted} px-3 text-xs font-semibold text-slate-600 transition hover:text-slate-900`}>Làm mới</button>
@@ -192,7 +192,7 @@ export function AudioHistoryPopover({
                         <AudioLines className="h-4 w-4" />
                       </div>
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-slate-900">{item.metadata?.title || item.metadata?.voiceName || "ElevenLabs audio"}</p>
+                        <p className="truncate text-sm font-semibold text-slate-900">{item.metadata?.title || item.metadata?.voiceName || "Audio ElevenLabs"}</p>
                         <p className={`line-clamp-2 text-xs ${HEYGEN_THEME.textMuted}`}>{item.prompt || "Khong co mo ta"}</p>
                         <p className="mt-2 text-[11px] text-slate-400">{item.createdAt ? new Date(item.createdAt).toLocaleString("vi-VN") : "Moi tao"}</p>
                       </div>

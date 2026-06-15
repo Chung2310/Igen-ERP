@@ -227,8 +227,8 @@ export default function UserAdminTab() {
       const data = await walletService.getAdminUserTransactions(targetUserId, 20);
       setBalanceTransactions(data);
     } catch (error) {
-      console.error("Loi khi tai lich su giao dich:", error);
-      toast.error("Khong the tai lich su giao dich cua nguoi dung.");
+      console.error("Lỗi khi tải lịch sử giao dịch:", error);
+      toast.error("Không thể tải lịch sử giao dịch của người dùng.");
     } finally {
       setTransactionsLoading(false);
     }
@@ -1075,7 +1075,7 @@ export default function UserAdminTab() {
             </div>
           ) : balanceUsers.length === 0 ? (
             <div className="p-12 text-center bg-gray-50 text-gray-400 italic rounded-2xl border border-dashed">
-              Chua co nguoi dung nao de dieu chinh so du.
+              Chưa có người dùng nào để điều chỉnh số dư.
             </div>
           ) : (
             <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.65fr)_minmax(320px,0.95fr)] gap-6">
@@ -1084,12 +1084,12 @@ export default function UserAdminTab() {
                 <table className="w-full min-w-[1280px] text-left border-collapse text-xs font-sans">
                   <thead>
                     <tr className="bg-gray-50 border-b border-gray-150 text-[10px] font-bold text-gray-400 font-mono uppercase tracking-wider">
-                      <th className="p-4 pl-6">Nguoi dung</th>
-                      <th className="p-4">Doanh nghiep</th>
-                      <th className="p-4">Vai tro</th>
-                      <th className="p-4">Balance</th>
-                      <th className="p-4">Cap nhat</th>
-                      <th className="p-4 pr-6 text-center">Tac vu</th>
+                      <th className="p-4 pl-6">Người dùng</th>
+                      <th className="p-4">Doanh nghiệp</th>
+                      <th className="p-4">Vai trò</th>
+                      <th className="p-4">Số dư</th>
+                      <th className="p-4">Cập nhật</th>
+                      <th className="p-4 pr-6 text-center">Hành động</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 text-slate-700">
@@ -1133,14 +1133,14 @@ export default function UserAdminTab() {
                                 }}
                                 className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-bold text-slate-700 transition hover:bg-slate-50"
                               >
-                                Xem chi tiet
+                                Xem chi tiết
                               </button>
                               <button
                                 type="button"
                                 onClick={() => openBalanceEditor(item, "add")}
                                 className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[11px] font-bold text-emerald-800 transition hover:bg-emerald-100"
                               >
-                                Dieu chinh
+                                Điều chỉnh
                               </button>
                             </div>
                           </td>
@@ -1152,7 +1152,7 @@ export default function UserAdminTab() {
                 </div>
                 <div className="flex flex-col gap-3 border-t border-gray-100 bg-gray-50/70 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="text-[11px] font-mono text-slate-500">
-                    Trang {safeUserPage} / {totalUserPages} · Hien thi {paginatedVisibleUsers.length} / {visibleUsers.length} tai khoan
+                    Trang {safeUserPage} / {totalUserPages} · Hiển thị {paginatedVisibleUsers.length} / {visibleUsers.length} tài khoản
                   </div>
                   <div className="flex items-center gap-2">
                     <button
@@ -1161,7 +1161,7 @@ export default function UserAdminTab() {
                       disabled={safeUserPage === 1}
                       className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-[11px] font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
                     >
-                      Trang truoc
+                      Trang trước 
                     </button>
                     {Array.from({ length: totalUserPages }, (_, index) => index + 1)
                       .slice(Math.max(0, safeUserPage - 3), Math.min(totalUserPages, safeUserPage + 2))
@@ -1194,7 +1194,7 @@ export default function UserAdminTab() {
               <div className="bg-white border border-gray-150 rounded-2xl shadow-xs p-5 space-y-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <h6 className="font-bold text-slate-800 text-sm">Lich su giao dich</h6>
+                    <h6 className="font-bold text-slate-800 text-sm">Lịch sử giao dịch</h6>
                     <p className="text-xs text-gray-500 mt-1">
                       {balanceUsers.find((item) => item.userId === selectedBalanceUserId)?.displayName || "Chon nguoi dung"}
                     </p>
@@ -1206,7 +1206,7 @@ export default function UserAdminTab() {
                     className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-[11px] font-bold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
                   >
                     <RefreshCw className={`h-3.5 w-3.5 ${transactionsLoading ? "animate-spin" : ""}`} />
-                    Tai lai
+                    Tải lại
                   </button>
                 </div>
 
@@ -1216,7 +1216,7 @@ export default function UserAdminTab() {
                   </div>
                 ) : balanceTransactions.length === 0 ? (
                   <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-6 text-center text-xs text-gray-500">
-                    Chua co giao dich nao cho tai khoan nay.
+                    Chưa có giao dịch nào cho tài khoản này.
                   </div>
                 ) : (
                   <div className="space-y-3 max-h-[540px] overflow-y-auto pr-1">
@@ -1238,7 +1238,7 @@ export default function UserAdminTab() {
                           {new Date(transaction.createdAt).toLocaleString("vi-VN")}
                         </div>
                         <div className="mt-2 text-xs text-slate-600 leading-5">
-                          {transaction.description || "Khong co mo ta giao dich."}
+                          {transaction.description || "Không có mô tả giao dịch."}
                         </div>
                         <div className="mt-2 text-[10px] text-gray-400 font-mono">
                           Order: {transaction.orderCode} · Status: {transaction.status}

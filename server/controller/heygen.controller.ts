@@ -65,7 +65,7 @@ export const heygenController = {
       return res.status(200).json({ status: "success", history: await heygenService.getVideoHistory(userId) });
     } catch (error: any) {
       console.error("[heygenController.getVideoHistory] Error:", error);
-      return res.status(getErrorStatus(error)).json({ status: "error", message: "Loi lay lich su video HeyGen", details: error.message });
+      return res.status(getErrorStatus(error)).json({ status: "error", message: "Lỗi lấy lịch sử video HeyGen", details: error.message });
     }
   },
 
@@ -78,7 +78,7 @@ export const heygenController = {
       return res.status(200).json(await heygenService.deleteVideoHistory(userId, req.params.id));
     } catch (error: any) {
       console.error("[heygenController.deleteVideoHistory] Error:", error);
-      return res.status(getErrorStatus(error)).json({ status: "error", message: "Loi xoa lich su video HeyGen", details: error.message });
+      return res.status(getErrorStatus(error)).json({ status: "error", message: "Lỗi xóa lịch sử video HeyGen", details: error.message });
     }
   },
 

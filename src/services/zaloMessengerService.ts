@@ -45,7 +45,7 @@ export const zaloMessengerService = {
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       console.error(`[FE Zalo Service] API getMessages cho conversation ${conversationId} that bai:`, res.status, data);
-      throw new Error(data.message || "Khong the tai lich su tin nhan Zalo.");
+      throw new Error(data.message || "Không thể tải lịch sử tin nhắn Zalo.");
     }
 
     const result = await res.json();

@@ -738,7 +738,7 @@ export default function CRMTab() {
       toast.error(err.message || "Không thể gửi tin nhắn phản hồi.");
       setChatHistory((prev) => prev.filter((h) => h.id !== userMsg.id));
       loadConversationMessages(activeCustomer.id, "replace", activeCustomer.channel, { syncChannel: true }).catch((reloadErr) => {
-        console.error("[FE CRMTab] Loi dong bo lai lich su sau khi gui that bai:", reloadErr);
+        console.error("[FE CRMTab] Lỗi đồng bộ lại lịch sử sau khi gửi thất bại:", reloadErr);
       });
     }
   };

@@ -15,7 +15,7 @@ const createAvatarVideoSchema = {
     motionText: Joi.string().allow("").optional(),
     aspectRatio: Joi.string().valid("16:9", "9:16", "1:1").optional(),
     resolution: Joi.string().valid("720p", "1080p", "4k").optional(),
-    engineType: Joi.string().valid("avatar_v", "avatar_iv").optional(),
+    engineType: Joi.string().valid("avatar_v", "avatar_iv", "avatar_iii").optional(),
     title: Joi.string().allow("").optional(),
     description: Joi.string().allow("").optional(),
     enableCaption: Joi.boolean().optional(),

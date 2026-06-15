@@ -20,9 +20,9 @@ const VIDEO_TOOL_TABS: Array<{
   label: string;
   icon: typeof Sparkles;
 }> = [
-  { id: 'veo', label: 'Veo', icon: Sparkles },
-  { id: 'heygen', label: 'HeyGen', icon: Clapperboard },
-  { id: 'edit-video', label: 'Edit Video', icon: Wand2 },
+  { id: 'veo', label: 'Tạo video AI', icon: Sparkles },
+  { id: 'heygen', label: 'Tạo video người thật', icon: Clapperboard },
+  { id: 'edit-video', label: 'Chỉnh sửa video', icon: Wand2 },
 ];
 
 export function VideoGenerationWorkspace({
@@ -72,12 +72,18 @@ export function VideoGenerationWorkspace({
           fallback={
             <div className="mx-auto w-full max-w-[1500px] px-2">
               <div className="flex min-h-[420px] items-center justify-center rounded-[28px] border border-slate-200 bg-white/80 text-sm font-medium text-slate-500 shadow-sm">
-                Dang tai HeyGen workspace...
+                Đang tải HeyGen workspace...
               </div>
             </div>
           }
         >
-          <HeyGenWorkspace initialPrompt={initialPrompt} />
+          <HeyGenWorkspace
+            initialPrompt={initialPrompt}
+            onEditVideo={(url) => {
+              setEditVideoSourceUrl(url);
+              setActiveVideoTab('edit-video');
+            }}
+          />
         </Suspense>
       )}
 
@@ -115,19 +121,19 @@ function VideoToolPlaceholder({
 
         <div className="grid gap-4 md:grid-cols-3">
           <div className="rounded-3xl border border-slate-200 bg-white p-5">
-            <p className="text-sm font-semibold text-slate-900">Trang thai</p>
+            <p className="text-sm font-semibold text-slate-900">Trạng thái</p>
             <p className="mt-2 text-sm leading-6 text-slate-600">{description}</p>
           </div>
           <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-5">
-            <p className="text-sm font-semibold text-slate-900">Goi y use case</p>
+            <p className="text-sm font-semibold text-slate-900">Gợi ý use case</p>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              Tach cong cu chuyen biet khoi luong Veo hien tai de giao dien ro rang hon cho nguoi van hanh.
+              Tách công cụ chuyển biệt khỏi lượng Video hiện tại để giao diện rõ ràng hơn cho người vận hành.
             </p>
           </div>
           <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-5">
-            <p className="text-sm font-semibold text-slate-900">San sang mo rong</p>
+            <p className="text-sm font-semibold text-slate-900"> sẵn sàng mở rộng</p>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              Khi can, minh co the noi tiep API va khu preview rieng cho tung tab ma khong phai sua lai cau truc tong.
+              Khi cần, mình có thể nối tiếp API và khu preview riêng cho từng tab mà không phải sửa lại cấu trúc tổng.
             </p>
           </div>
         </div>

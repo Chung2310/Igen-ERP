@@ -646,7 +646,7 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
                         <div className="flex justify-between gap-2">
                           <span className="text-gray-400">Refresh:</span>
                           <span className="font-semibold truncate max-w-[130px]">
-                            {item.refreshToken ? "Da luu" : "Chua co"}
+                            {item.refreshToken ? "Đã lưu" : "Chưa có"}
                           </span>
                         </div>
                       )}

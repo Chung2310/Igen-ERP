@@ -50,7 +50,7 @@ export const fbMessengerService = {
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       console.error(`[FE FB Service] API getMessages cho conversation ${conversationId} that bai:`, res.status, data);
-      throw new Error(data.message || "Khong the tai lich su tin nhan.");
+      throw new Error(data.message || "Không thể tải lịch sử tin nhắn.");
     }
 
     const result = await res.json();
