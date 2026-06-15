@@ -98,6 +98,12 @@ export const zaloMessengerService = {
 
     // Nếu ở chế độ mock, tự động tạo một vài cuộc hội thoại mẫu để hiển thị ngay
     if (isMock) {
+      conversation.lastMessageText = text;
+      conversation.lastMessageAt = sentAt;
+      conversation.unreadCount = 0;
+      await conversation.save();
+      await newMsg.save();
+      emitRealtimeUpdate();
       await this.seedMockData(integrationData.oaId);
     }
 
@@ -493,18 +499,8 @@ export const zaloMessengerService = {
     const recipientId = conversation.recipientId;
     console.log(`[Zalo SendReply] oaId=${oaId}, conversationId=${conversationId}, recipientId=${recipientId}, textLength=${text.length}, hasUserLevel=${user ? "true" : "false"}`);
 
-    const previousConversationState = {
-      lastMessageText: conversation.lastMessageText,
-      lastMessageAt: conversation.lastMessageAt,
-      unreadCount: conversation.unreadCount,
-    };
-
-    conversation.lastMessageText = text;
-    conversation.lastMessageAt = new Date();
-    conversation.unreadCount = 0;
-    await conversation.save();
-
     const messageId = `zalo_out_${Date.now()}`;
+    const sentAt = new Date();
     const newMsg = new ZaloMessageModel({
       conversationId: conversation._id,
       senderId: oaId,
@@ -513,10 +509,9 @@ export const zaloMessengerService = {
       text,
       attachments: [],
       messageId,
-      timestamp: new Date(),
+      timestamp: sentAt,
       status: "sent",
     });
-    await newMsg.save();
     const emitRealtimeUpdate = () => {
       emitToPage(oaId, "new_message", {
         message: newMsg,
@@ -526,7 +521,6 @@ export const zaloMessengerService = {
     };
 
     // Phát socket realtime
-    emitRealtimeUpdate();
 
     // Xử lý gửi tin thật hoặc giả lập
     if (isMock) {
@@ -605,9 +599,14 @@ export const zaloMessengerService = {
       }
       
       console.log(`[Zalo Service OpenAPI] Đã gửi tin nhắn thật thành công:`, resData);
+      conversation.lastMessageText = text;
+      conversation.lastMessageAt = sentAt;
+      conversation.unreadCount = 0;
+      await conversation.save();
       newMsg.messageId = resData.data?.message_id || messageId;
       newMsg.status = "delivered";
       await newMsg.save();
+      emitRealtimeUpdate();
     }
 
     return {

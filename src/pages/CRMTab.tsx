@@ -455,12 +455,12 @@ export default function CRMTab() {
 
     const runFetch = () => {
       if (!document.hidden) {
-        fetchOmniConversations(false, { syncFacebook: !socketConnected });
+        fetchOmniConversations(false, { syncFacebook: true });
       }
     };
 
     runFetch();
-    const interval = setInterval(runFetch, socketConnected ? 60000 : 15000);
+    const interval = setInterval(runFetch, 15000);
 
     const handleVisibility = () => {
       if (!document.hidden) fetchOmniConversations(false, { syncFacebook: true });
@@ -737,6 +737,9 @@ export default function CRMTab() {
       console.error(err);
       toast.error(err.message || "Không thể gửi tin nhắn phản hồi.");
       setChatHistory((prev) => prev.filter((h) => h.id !== userMsg.id));
+      loadConversationMessages(activeCustomer.id, "replace", activeCustomer.channel, { syncChannel: true }).catch((reloadErr) => {
+        console.error("[FE CRMTab] Loi dong bo lai lich su sau khi gui that bai:", reloadErr);
+      });
     }
   };
 
