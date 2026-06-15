@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { toast } from "../../pages/Toast";
 import { socialIntegrationService, SocialIntegration } from "../../services/socialIntegrationService";
+import { getAccessToken } from "../../services/authService";
 
 interface CompanyIntegrationsTabProps {
   userProfile: any;
@@ -17,6 +18,8 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
   const [submittingIntegration, setSubmittingIntegration] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [editingIntegrationId, setEditingIntegrationId] = useState<string | null>(null);
+  const [loadingFacebookDiagnostics, setLoadingFacebookDiagnostics] = useState(false);
+  const [facebookDiagnostics, setFacebookDiagnostics] = useState<any | null>(null);
 
   // Form states for company integration
   const [compPlatform, setCompPlatform] = useState<"TikTok" | "Facebook" | "Zalo">("TikTok");
@@ -25,6 +28,7 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
   const [compBlotatoAccountId, setCompBlotatoAccountId] = useState("");
   const [compAccessToken, setCompAccessToken] = useState("");
   const [compRefreshToken, setCompRefreshToken] = useState("");
+  const [compTokenExpiredAt, setCompTokenExpiredAt] = useState("");
   const [showCompToken, setShowCompToken] = useState(false);
   const [compAppSecret, setCompAppSecret] = useState("");
   const [compVerifyToken, setCompVerifyToken] = useState("");
@@ -87,6 +91,10 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
       toast.error("Vui lòng nhập Access Token hoặc API Key!");
       return;
     }
+    if (compPlatform === "Facebook" && compUsername.trim() && !/^\d+$/.test(compUsername.trim())) {
+      toast.error("Facebook cần nhập Page ID dạng số thật, không dùng username/vanity URL.");
+      return;
+    }
     if (compPlatform === "TikTok" && !compBlotatoAccountId.trim()) {
       toast.error("TikTok yêu cầu Blotato Account ID!");
       return;
@@ -101,6 +109,7 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
         blotatoAccountId: compPlatform === "TikTok" ? compBlotatoAccountId.trim() : undefined,
         accessToken: compAccessToken.trim(),
         refreshToken: compPlatform === "Zalo" ? compRefreshToken.trim() || undefined : undefined,
+        tokenExpiredAt: compPlatform === "Zalo" && compTokenExpiredAt ? new Date(compTokenExpiredAt).toISOString() : undefined,
         appSecret: compPlatform === "Facebook" ? compAppSecret.trim() : undefined,
         verifyToken: compPlatform === "Facebook" ? compVerifyToken.trim() : undefined,
         isConnected: true,
@@ -135,6 +144,11 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
     setCompBlotatoAccountId(integration.blotatoAccountId || "");
     setCompAccessToken(integration.accessToken || "");
     setCompRefreshToken(integration.refreshToken || "");
+    setCompTokenExpiredAt(
+      integration.tokenExpiredAt
+        ? new Date(integration.tokenExpiredAt).toISOString().slice(0, 16)
+        : ""
+    );
     setShowCompToken(false);
     setCompAppSecret(integration.appSecret || "");
     setCompVerifyToken(integration.verifyToken || "");
@@ -168,9 +182,34 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
     setCompBlotatoAccountId("");
     setCompAccessToken("");
     setCompRefreshToken("");
+    setCompTokenExpiredAt("");
     setShowCompToken(false);
     setCompAppSecret("");
     setCompVerifyToken("");
+  };
+
+  const handleRunFacebookDiagnostics = async () => {
+    setLoadingFacebookDiagnostics(true);
+    try {
+      const res = await fetch("/api/v1/facebook/messenger/diagnostics/page", {
+        headers: {
+          Authorization: `Bearer ${getAccessToken()}`,
+        },
+      });
+
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(result.message || "Khong the lay chan doan Facebook.");
+      }
+
+      setFacebookDiagnostics(result.data || null);
+      toast.success("Da tai chan doan Facebook.");
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Loi khi chan doan Facebook.");
+    } finally {
+      setLoadingFacebookDiagnostics(false);
+    }
   };
 
   return (
@@ -322,6 +361,16 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
                       className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-[11px] text-gray-800 shadow-sm focus:border-[#0068ff] focus:outline-none focus:ring-1 focus:ring-[#0068ff]"
                     />
                     <p className="text-[9px] text-gray-400 leading-normal">Nếu Zalo OA của bạn có Refresh Token, hãy nhập để hệ thống tự làm mới token khi sắp hết hạn.</p>
+                    <div className="pt-2 space-y-1">
+                      <label className="text-[11px] font-semibold text-gray-700">Token hết hạn lúc (tùy chọn)</label>
+                      <input
+                        type="datetime-local"
+                        value={compTokenExpiredAt}
+                        onChange={(e) => setCompTokenExpiredAt(e.target.value)}
+                        className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-[11px] text-gray-800 shadow-sm focus:border-[#0068ff] focus:outline-none focus:ring-1 focus:ring-[#0068ff]"
+                      />
+                      <p className="text-[9px] text-gray-400 leading-normal">Nếu bạn biết thời điểm hết hạn của access token hiện tại, hãy lưu để backend chủ động refresh sớm hơn.</p>
+                    </div>
                   </div>
                 )}
               </div>
@@ -384,6 +433,53 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
 
           {/* Right: List of Connected Accounts */}
           <div className="xl:col-span-3 space-y-4">
+            <div className="rounded-2xl border border-blue-200 bg-blue-50/60 p-4 text-left">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-blue-900">Facebook Debug</h4>
+                  <p className="mt-1 text-[11px] leading-relaxed text-blue-800/80">
+                    Dung muc nay de kiem tra pageId dang resolve, token co tim thay khong, va cac conversation pageId gan day.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleRunFacebookDiagnostics}
+                  disabled={loadingFacebookDiagnostics}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-blue-300 bg-white px-3 py-2 text-[11px] font-bold text-blue-700 transition-all hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Terminal className="h-3.5 w-3.5" />
+                  <span>{loadingFacebookDiagnostics ? "Dang chan doan..." : "Chay chan doan Facebook"}</span>
+                </button>
+              </div>
+
+              {facebookDiagnostics && (
+                <div className="mt-3 space-y-3">
+                  <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+                    <div className="rounded-xl border border-blue-200 bg-white px-3 py-2">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-blue-400">Resolved Page ID</p>
+                      <p className="mt-1 break-all font-mono text-[11px] text-slate-700">{facebookDiagnostics.resolvedPageId || "none"}</p>
+                    </div>
+                    <div className="rounded-xl border border-blue-200 bg-white px-3 py-2">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-blue-400">Token</p>
+                      <p className="mt-1 font-mono text-[11px] text-slate-700">
+                        {facebookDiagnostics.hasResolvedToken ? `FOUND (...${facebookDiagnostics.resolvedTokenTail || ""})` : "NOT_FOUND"}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-blue-200 bg-white px-3 py-2">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-blue-400">Conversations</p>
+                      <p className="mt-1 font-mono text-[11px] text-slate-700">{facebookDiagnostics.conversationsForResolvedPage ?? 0}</p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-blue-200 bg-slate-950 p-3">
+                    <pre className="max-h-[260px] overflow-auto whitespace-pre-wrap break-words text-[10px] leading-relaxed text-green-200">
+                      {JSON.stringify(facebookDiagnostics, null, 2)}
+                    </pre>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="flex items-center justify-between">
               <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider">
                 Danh sách tài khoản ({companyIntegrations.length})
@@ -467,6 +563,22 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
                           </button>
                         </div>
                       </div>
+                      {item.platform === "Zalo" && (
+                        <div className="flex justify-between gap-2">
+                          <span className="text-gray-400">Refresh:</span>
+                          <span className="font-semibold truncate max-w-[130px]">
+                            {item.refreshToken ? "Da luu" : "Chua co"}
+                          </span>
+                        </div>
+                      )}
+                      {item.platform === "Zalo" && item.tokenExpiredAt && (
+                        <div className="flex justify-between gap-2">
+                          <span className="text-gray-400">Het han:</span>
+                          <span className="font-semibold truncate max-w-[130px]">
+                            {new Date(item.tokenExpiredAt).toLocaleString("vi-VN")}
+                          </span>
+                        </div>
+                      )}
                       {item.platform === "Facebook" && item.appSecret && (
                         <div className="flex justify-between gap-2">
                           <span className="text-gray-400">App Secret:</span>

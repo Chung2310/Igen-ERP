@@ -2,6 +2,7 @@ import { Server as SocketIOServer, Socket } from "socket.io";
 import { Server as HTTPServer } from "http";
 import jwt from "jsonwebtoken";
 import { UserModel } from "./model/user.model";
+import { SocialIntegrationModel } from "./model/social-integration.model";
 
 let io: SocketIOServer | null = null;
 
@@ -61,27 +62,54 @@ export function initSocketServer(httpServer: HTTPServer) {
 
   io.on("connection", (socket: Socket) => {
     const user = socket.data.user;
-    
-    // Đọc Page ID từ thông tin liên kết của user hoặc fallback về cấu hình mặc định trong file .env
-    const pageId = (user?.facebookIntegration?.isConnected && user.facebookIntegration.pageId) 
-      || process.env.FB_PAGE_ID;
-      
-    const oaId = (user?.zaloIntegration?.isConnected && user.zaloIntegration.oaId)
-      || process.env.ZALO_OA_ID;
 
     console.log(`[Socket.IO] Client connected: ${user?.email || "Unknown"} (Socket: ${socket.id})`);
 
-    if (pageId) {
-      const room = `page:${pageId}`;
-      socket.join(room);
-      console.log(`[Socket.IO] User ${user?.email} joined room: ${room}`);
-    }
+    void (async () => {
+      const roomIds = new Set<string>();
 
-    if (oaId) {
-      const room = `page:${oaId}`;
-      socket.join(room);
-      console.log(`[Socket.IO] User ${user?.email} joined room: ${room}`);
-    }
+      const personalPageId = user?.facebookIntegration?.isConnected && user.facebookIntegration.pageId
+        ? user.facebookIntegration.pageId
+        : "";
+      const personalOaId = user?.zaloIntegration?.isConnected && user.zaloIntegration.oaId
+        ? user.zaloIntegration.oaId
+        : "";
+
+      if (personalPageId) roomIds.add(personalPageId);
+      if (personalOaId) roomIds.add(personalOaId);
+
+      if (user?.companyCode) {
+        try {
+          const companyIntegrations = await SocialIntegrationModel.find({
+            companyCode: user.companyCode,
+            isConnected: true,
+            platform: { $in: ["Facebook", "Zalo"] },
+          }).select("platform username");
+
+          companyIntegrations.forEach((integration: any) => {
+            if (integration?.username) {
+              roomIds.add(integration.username);
+            }
+          });
+        } catch (error) {
+          console.error("[Socket.IO] Khong the nap company integrations de join room:", error);
+        }
+      }
+
+      if (process.env.FB_PAGE_ID) {
+        roomIds.add(process.env.FB_PAGE_ID);
+      }
+
+      if (process.env.ZALO_OA_ID) {
+        roomIds.add(process.env.ZALO_OA_ID);
+      }
+
+      roomIds.forEach((id) => {
+        const room = `page:${id}`;
+        socket.join(room);
+        console.log(`[Socket.IO] User ${user?.email} joined room: ${room}`);
+      });
+    })();
 
     socket.on("disconnect", () => {
       console.log(`[Socket.IO] Client disconnected: ${socket.id}`);

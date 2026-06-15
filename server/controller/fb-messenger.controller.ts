@@ -5,10 +5,12 @@ import { UserModel } from "../model/user.model";
 async function getFacebookPageConfig(userId: string): Promise<{ isConnected: boolean; pageId?: string }> {
   const dbUser = await UserModel.findById(userId).lean();
   if (!dbUser) {
+    console.warn(`[FB Config] Khong tim thay user voi userId=${userId}`);
     return { isConnected: false };
   }
 
   if (dbUser.facebookIntegration?.isConnected && dbUser.facebookIntegration.pageId) {
+    console.log(`[FB Config] Dung Facebook integration ca nhan cua user=${dbUser.email}, pageId=${dbUser.facebookIntegration.pageId}`);
     return { isConnected: true, pageId: dbUser.facebookIntegration.pageId };
   }
 
@@ -21,9 +23,11 @@ async function getFacebookPageConfig(userId: string): Promise<{ isConnected: boo
   }).lean();
 
   if (companyIntegration && companyIntegration.username) {
+    console.log(`[FB Config] Dung Facebook company integration cua company=${dbUser.companyCode}, pageId=${companyIntegration.username}, displayName=${companyIntegration.displayName}`);
     return { isConnected: true, pageId: companyIntegration.username };
   }
 
+  console.warn(`[FB Config] Khong tim thay Facebook integration hoat dong cho user=${dbUser.email}, company=${dbUser.companyCode}`);
   return { isConnected: false };
 }
 
@@ -58,6 +62,8 @@ export const fbMessengerController = {
   async receiveWebhookEvent(req: Request, res: Response): Promise<any> {
     try {
       const body = req.body;
+      const entryCount = Array.isArray(body?.entry) ? body.entry.length : 0;
+      console.log(`[Facebook Webhook Event] Nhan webhook object=${body?.object || "unknown"}, entries=${entryCount}`);
       
       // Phản hồi nhanh chóng cho Meta để tránh timeout
       res.status(200).send("EVENT_RECEIVED");
@@ -267,6 +273,38 @@ export const fbMessengerController = {
       return res.status(500).json({
         success: false,
         message: error.message || "Không thể chẩn đoán hội thoại Facebook.",
+      });
+    }
+  }
+
+  ,
+
+  /**
+   * GET /api/v1/facebook/messenger/diagnostics/page
+   * Kiem tra nhanh cau hinh page/token/webhook mapping cua user hien tai.
+   */
+  async diagnosePageConfig(req: any, res: Response): Promise<any> {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ success: false, message: "Người dùng chưa đăng nhập." });
+      }
+
+      const { isConnected, pageId } = await getFacebookPageConfig(userId);
+      const diagnostic = await fbMessengerService.diagnosePageConfig(userId, pageId);
+      return res.status(200).json({
+        success: true,
+        data: {
+          isConnected,
+          pageId: pageId || null,
+          ...diagnostic,
+        }
+      });
+    } catch (error: any) {
+      console.error("[FB Controller diagnosePageConfig] Loi:", error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || "Khong the chan doan cau hinh Facebook page.",
       });
     }
   }

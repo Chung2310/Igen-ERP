@@ -12,5 +12,6 @@ fbMessengerRouter.post("/webhook", fbMessengerController.receiveWebhookEvent);
 fbMessengerRouter.get("/messenger/conversations", requireAuth as any, fbMessengerController.getConversations);
 fbMessengerRouter.get("/messenger/conversations/:recipientId/messages", requireAuth as any, fbMessengerController.getMessages);
 fbMessengerRouter.post("/messenger/conversations/:recipientId/mark-read", requireAuth as any, fbMessengerController.markRead);
+fbMessengerRouter.get("/messenger/diagnostics/page", requireAuth as any, fbMessengerController.diagnosePageConfig);
 fbMessengerRouter.get("/messenger/diagnostics/:conversationId", requireAuth as any, fbMessengerController.diagnoseConversation);
 fbMessengerRouter.post("/messenger/reply", requireAuth as any, fbMessengerController.sendReply);
