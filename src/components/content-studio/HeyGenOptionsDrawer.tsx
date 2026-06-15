@@ -97,8 +97,8 @@ export function HeyGenOptionsDrawer(props: HeyGenOptionsDrawerProps) {
                   </div>
                 ) : selectedAvatar?.previewImage ? <img src={selectedAvatar.previewImage} alt={selectedAvatar.name || "Avatar"} loading="lazy" decoding="async" className="h-12 w-12 rounded-2xl object-cover" /> : <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-sm font-bold text-slate-600">A</div>}
                 <div>
-                  <p className="text-sm font-bold text-slate-900">{isLoadingLibrary ? "Dang tai avatar" : selectedAvatar?.name || "Thay avatar"}</p>
-                  <p className="text-xs text-slate-500">{isLoadingLibrary ? "Dang dong bo thu vien HeyGen..." : selectedAvatar?.language || selectedAvatar?.gender || "Thu vien HeyGen"}</p>
+                  <p className="text-sm font-bold text-slate-900">{isLoadingLibrary ? "Đang tải avatar" : selectedAvatar?.name || "Thay avatar"}</p>
+                  <p className="text-xs text-slate-500">{isLoadingLibrary ? "Đang đồng bộ thư viện..." : selectedAvatar?.language || selectedAvatar?.gender || "Thư viện AI "}</p>
                 </div>
               </div>
               <ChevronRight className="h-4 w-4 text-slate-400" />
@@ -125,7 +125,7 @@ export function HeyGenOptionsDrawer(props: HeyGenOptionsDrawerProps) {
                     {isLoadingLibrary ? <LoaderCircle className="h-4 w-4 animate-spin" /> : selectedAvatarModel.replace("Avatar ", "")}
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-slate-900">{isLoadingLibrary ? "Dang tai tuy chon motion" : selectedAvatarModel}</p>
+                    <p className="text-sm font-bold text-slate-900">{isLoadingLibrary ? "Đang tải tùy chọn motion" : selectedAvatarModel}</p>
                     <p className="text-xs text-slate-500">{selectedAvatarModelDescription || "Chuyển động sẽ tự động phù hợp với nội dung."}</p>
                   </div>
                 </div>

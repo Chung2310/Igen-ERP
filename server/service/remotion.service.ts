@@ -69,7 +69,7 @@ export const remotionService = {
       });
 
       if (onProgress) {
-        onProgress(65, "[Remotion Engine] Bat dau ket xuat tung khung hinh...");
+        onProgress(65, "[Remotion Engine]   Bắt đầu kết xuất...");
       }
 
       await renderMedia({

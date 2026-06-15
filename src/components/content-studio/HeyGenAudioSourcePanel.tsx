@@ -40,8 +40,8 @@ export function HeyGenAudioSourcePanel({
     <div className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold text-slate-900">Audio tu ElevenLabs</p>
-          <p className="text-xs text-slate-500">Chon mot audio da tao de dua thang vao HeyGen qua `audio_url`.</p>
+          <p className="text-sm font-semibold text-slate-900">Audio từ ElevenLabs</p>
+          <p className="text-xs text-slate-500">Chọn một audio đã tạo để đưa thẳng vào HeyGen qua `audio_url`.</p>
         </div>
         <button
           type="button"
@@ -49,7 +49,7 @@ export function HeyGenAudioSourcePanel({
           className="inline-flex h-10 items-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
         >
           <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
-          Tai lai
+          Tải lại
         </button>
       </div>
 
@@ -85,10 +85,10 @@ export function HeyGenAudioSourcePanel({
                     <p className="truncate text-sm font-semibold text-slate-900">
                       {record.metadata?.title || record.metadata?.voiceName || "ElevenLabs audio"}
                     </p>
-                    <p className="mt-1 line-clamp-2 text-sm text-slate-500">{record.prompt || "Khong co mo ta"}</p>
+                    <p className="mt-1 line-clamp-2 text-sm text-slate-500">{record.prompt || "Không có mô tả"}</p>
                     <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-400">
                       <span>{formatDuration(record.metadata?.duration)}</span>
-                      <span>{record.createdAt ? new Date(record.createdAt).toLocaleString("vi-VN") : "Moi tao"}</span>
+                      <span>{record.createdAt ? new Date(record.createdAt).toLocaleString("vi-VN") : "Mới tạo"}</span>
                     </div>
                   </div>
                   {isSelected ? (
@@ -117,7 +117,7 @@ export function HeyGenAudioSourcePanel({
                     className="inline-flex h-9 items-center gap-2 rounded-full border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
                   >
                     <ExternalLink className="h-3.5 w-3.5" />
-                    Mo file
+                    Mở file
                   </a>
                 </div>
               </button>

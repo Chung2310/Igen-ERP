@@ -257,15 +257,15 @@ export function HeyGenWorkspace({
         aspectRatio: "16:9",
         resolution: "720p" as const,
         engineType: selectedModel.engineType,
-        title: "Video nguoi noi",
-        description: "Video avatar voi HeyGen Studio",
+        title: "Video người nói",
+        description: "Video avatar với HeyGen Studio",
       };
 
       const created = await heygenApi.createAvatarVideo(payload);
       setJobStatus(String(created.jobStatus || "processing").toLowerCase());
       const finalStatus = await pollVideoStatus(created.videoId, payload);
       if (!finalStatus?.videoUrl) {
-        setWarnings((current) => current.includes("Video đang cho webhook/lịch sử cập nhật. Bạn xem trực tiếp trong lịch sử bên dưới.") ? current : ["Video đang cho webhook/lịch sử cập nhật. ạn xem trực tiếp trong lịch sử bên dưới.", ...current]);
+        setWarnings((current) => current.includes("Video đang chờ webhook/lịch sử cập nhật. Bạn xem trực tiếp trong lịch sử bên dưới.") ? current : ["Video đang chờ webhook/lịch sử cập nhật. Bạn xem trực tiếp trong lịch sử bên dưới.", ...current]);
       }
       const historyRes = await heygenApi.getVideoHistory();
       setHistory(historyRes.history || []);
@@ -375,8 +375,8 @@ export function HeyGenWorkspace({
 
       {isLoadingLibrary ? (
         <div className="rounded-2xl border border-cyan-200 bg-cyan-50 p-4 text-xs font-semibold text-cyan-700">
-          <p className="font-bold">Dang tai thu vien HeyGen...</p>
-          <p className="mt-1 text-cyan-600">He thong dang dong bo avatar va tuy chon motion tu phia may chu.</p>
+          <p className="font-bold">Đang tải thư viện AI...</p>
+          <p className="mt-1 text-cyan-600">Hệ thống đang đồng bộ avatar và tùy chọn motion từ phía máy chủ.</p>
         </div>
       ) : null}
 
@@ -425,7 +425,7 @@ export function HeyGenWorkspace({
               <div className={`flex flex-col gap-3 rounded-[18px] border ${HEYGEN_THEME.border} ${HEYGEN_THEME.surfaceMuted} px-4 py-3 sm:flex-row sm:items-center sm:justify-between`}>
                 <p className="text-sm text-slate-500">Trang {historyPage}/{totalHistoryPages}</p>
                 <div className="flex items-center gap-2">
-                  <PagerButton disabled={historyPage === 1} onClick={() => setHistoryPage((current) => Math.max(1, current - 1))}>Truoc</PagerButton>
+                  <PagerButton disabled={historyPage === 1} onClick={() => setHistoryPage((current) => Math.max(1, current - 1))}>Trước</PagerButton>
                   <PagerButton disabled={historyPage === totalHistoryPages} onClick={() => setHistoryPage((current) => Math.min(totalHistoryPages, current + 1))}>Sau</PagerButton>
                 </div>
               </div>
@@ -433,7 +433,7 @@ export function HeyGenWorkspace({
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-12 text-slate-400">
-            <p className="text-sm">Chưa có video HeyGen nào được tạo.</p>
+            <p className="text-sm">Chưa có video người thật nào được tạo.</p>
           </div>
         )}
       </div>

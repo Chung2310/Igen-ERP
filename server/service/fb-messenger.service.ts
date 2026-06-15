@@ -478,7 +478,7 @@ export const fbMessengerService = {
   async markConversationRead(pageId: string, conversationId: string) {
     const conversation = await FBConversationModel.findOne({ _id: conversationId, pageId });
     if (!conversation) {
-      throw new Error("Khong tim thay hoi thoai Facebook.");
+      throw new Error("Không tìm thấy hội thoại Facebook.");
     }
 
     if (conversation.unreadCount !== 0) {

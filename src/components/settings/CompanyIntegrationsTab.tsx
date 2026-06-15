@@ -201,14 +201,14 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
 
       const result = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(result.message || "Khong the lay chan doan Facebook.");
+        throw new Error(result.message || "Không thể lấy chẩn đoán Facebook.");
       }
 
       setFacebookDiagnostics(result.data || null);
-      toast.success("Da tai chan doan Facebook.");
+      toast.success("Đã tải chẩn đoán Facebook.");
     } catch (err: any) {
       console.error(err);
-      toast.error(err.message || "Loi khi chan doan Facebook.");
+      toast.error(err.message || "Lỗi khi chẩn đoán Facebook.");
     } finally {
       setLoadingFacebookDiagnostics(false);
     }
@@ -225,14 +225,14 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
 
       const result = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(result.message || "Khong the lay chan doan Zalo.");
+        throw new Error(result.message || "Không thể lấy chẩn đoán Zalo.");
       }
 
       setZaloDiagnostics(result.data || null);
-      toast.success("Da tai chan doan Zalo.");
+      toast.success("Đã tải chẩn đoán Zalo.");
     } catch (err: any) {
       console.error(err);
-      toast.error(err.message || "Loi khi chan doan Zalo.");
+      toast.error(err.message || "Lỗi khi chẩn đoán Zalo.");
     } finally {
       setLoadingZaloDiagnostics(false);
     }
@@ -464,7 +464,7 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
                 <div>
                   <h4 className="text-xs font-bold uppercase tracking-wider text-sky-900">Zalo Debug</h4>
                   <p className="mt-1 text-[11px] leading-relaxed text-sky-800/80">
-                    Kiem tra OA ID dang resolve, token dang lay tu user hay company, va refresh token co san hay khong.
+                    Kiểm tra OA ID đang resolve, token đang lấy từ user hay company, và refresh token có sẵn hay không.
                   </p>
                 </div>
                 <button
@@ -474,7 +474,7 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
                   className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-sky-300 bg-white px-3 py-2 text-[11px] font-bold text-sky-700 transition-all hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <Terminal className="h-3.5 w-3.5" />
-                  <span>{loadingZaloDiagnostics ? "Dang chan doan..." : "Chay chan doan Zalo"}</span>
+                  <span>{loadingZaloDiagnostics ? "Đang chẩn đoán..." : "Chạy chẩn đoán Zalo"}</span>
                 </button>
               </div>
 
@@ -517,7 +517,7 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
                 <div>
                   <h4 className="text-xs font-bold uppercase tracking-wider text-blue-900">Facebook Debug</h4>
                   <p className="mt-1 text-[11px] leading-relaxed text-blue-800/80">
-                    Dung muc nay de kiem tra pageId dang resolve, token co tim thay khong, va cac conversation pageId gan day.
+                    Dùng mục này để kiểm tra pageId đang resolve, token có tìm thấy không, và các conversation pageId gần đây.
                   </p>
                 </div>
                 <button
@@ -527,7 +527,7 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
                   className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-blue-300 bg-white px-3 py-2 text-[11px] font-bold text-blue-700 transition-all hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <Terminal className="h-3.5 w-3.5" />
-                  <span>{loadingFacebookDiagnostics ? "Dang chan doan..." : "Chay chan doan Facebook"}</span>
+                  <span>{loadingFacebookDiagnostics ? "Đang chẩn đoán..." : "Chạy chẩn đoán Facebook"}</span>
                 </button>
               </div>
 
@@ -652,7 +652,7 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
                       )}
                       {item.platform === "Zalo" && item.tokenExpiredAt && (
                         <div className="flex justify-between gap-2">
-                          <span className="text-gray-400">Het han:</span>
+                          <span className="text-gray-400">Hết hạn:</span>
                           <span className="font-semibold truncate max-w-[130px]">
                             {new Date(item.tokenExpiredAt).toLocaleString("vi-VN")}
                           </span>

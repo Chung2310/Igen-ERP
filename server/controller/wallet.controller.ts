@@ -13,7 +13,7 @@ export const walletController = {
     try {
       const userId = req.user?.id;
       if (!userId) {
-        return res.status(401).json({ status: "error", message: "Nguoi dung chua xac thuc." });
+        return res.status(401).json({ status: "error", message: "Người dùng chưa xác thực." });
       }
 
       const wallet = await walletService.getOrCreateWallet(userId);
@@ -36,7 +36,7 @@ export const walletController = {
     try {
       const userId = req.user?.id;
       if (!userId) {
-        return res.status(401).json({ status: "error", message: "Nguoi dung chua xac thuc." });
+        return res.status(401).json({ status: "error", message: "Người dùng chưa xác thực." });
       }
 
       const transactions = await TransactionModel.find({ userId }).sort({ createdAt: -1 });
@@ -82,7 +82,7 @@ export const walletController = {
       const limit = Number(req.query.limit || 20);
 
       if (!userId) {
-        return res.status(400).json({ status: "error", message: "Thieu userId can truy van." });
+        return res.status(400).json({ status: "error", message: "Thiếu userId cần truy vấn." });
       }
 
       const data = await walletService.getAdminTransactionHistory({
@@ -108,19 +108,19 @@ export const walletController = {
     try {
       const actorUserId = req.user?.id;
       if (!actorUserId) {
-        return res.status(401).json({ status: "error", message: "Nguoi dung chua xac thuc." });
+        return res.status(401).json({ status: "error", message: "Người dùng chưa xác thực." });
       }
 
       const { userId, balance, note } = req.body || {};
       if (!userId) {
-        return res.status(400).json({ status: "error", message: "Thieu userId can cap nhat." });
+        return res.status(400).json({ status: "error", message: "Thiếu userId cần cập nhật." });
       }
 
       const normalizedBalance = Number(balance);
       if (!Number.isFinite(normalizedBalance) || normalizedBalance < 0) {
         return res.status(400).json({
           status: "error",
-          message: "So du moi phai la so hop le va khong am.",
+          message: "Số dư mới phải là số hợp lệ và không âm.",
         });
       }
 
@@ -134,7 +134,7 @@ export const walletController = {
 
       return res.status(200).json({
         status: "success",
-        message: "Cap nhat so du thanh cong.",
+        message: "Cập nhật số dư thành công.",
         data,
       });
     } catch (error: any) {
@@ -151,7 +151,7 @@ export const walletController = {
     try {
       const userId = req.user?.id;
       if (!userId) {
-        return res.status(401).json({ status: "error", message: "Nguoi dung chua xac thuc." });
+        return res.status(401).json({ status: "error", message: "Người dùng chưa xác thực." });
       }
 
       const amountVND = Math.round(parseFloat(req.body.amount));
@@ -196,7 +196,7 @@ export const walletController = {
           console.error("[PayOS SDK Error] Khong the tao link thanh toan:", payosErr);
           return res.status(500).json({
             status: "error",
-            message: "Loi ket noi voi cong thanh toan PayOS. Vui long thu lai sau.",
+            message: "Lỗi kết nối với cổng thanh toán PayOS. Vui lòng thử lại sau.",
             details: payosErr.message,
           });
         }
@@ -232,7 +232,7 @@ export const walletController = {
       console.error("[walletController.createDepositLink] Error:", error);
       return res.status(500).json({
         status: "error",
-        message: "Khong the tao yeu cau nap tien",
+        message: "Không thể tạo yêu cầu nạp tiền",
         details: error.message,
       });
     }
@@ -244,7 +244,7 @@ export const walletController = {
       console.log("[PayOS Webhook] Nhan request:", JSON.stringify(webhookData));
 
       if (!isPayOSConfigured || !payOS) {
-        return res.status(400).json({ status: "error", message: "PayOS chua duoc cau hinh." });
+        return res.status(400).json({ status: "error", message: "PayOS chưa được cấu hình." });
       }
 
       let verifiedData: any;
@@ -252,19 +252,19 @@ export const walletController = {
         verifiedData = await payOS.webhooks.verify(webhookData);
       } catch (verifyErr: any) {
         console.error("[PayOS Webhook] Xac thuc chu ky that bai:", verifyErr);
-        return res.status(400).json({ status: "error", message: "Chu ky webhook khong hop le." });
+        return res.status(400).json({ status: "error", message: "Chữ ký webhook không hợp lệ." });
       }
 
       const { orderCode, amount } = verifiedData;
       const transaction = await TransactionModel.findOne({ orderCode });
       if (!transaction) {
         console.warn(`[PayOS Webhook] Khong tim thay giao dich voi ma orderCode: ${orderCode}`);
-        return res.status(404).json({ status: "error", message: "Giao dich khong ton tai." });
+        return res.status(404).json({ status: "error", message: "Giao dịch không tồn tại." });
       }
 
       if (transaction.status === "success") {
         console.log(`[PayOS Webhook] Giao dich ${orderCode} da duoc cap nhat thanh cong truoc do.`);
-        return res.status(200).json({ status: "success", message: "Giao dich da hoan tat." });
+        return res.status(200).json({ status: "success", message: "Giao dịch đã hoàn tất." });
       }
 
       transaction.status = "success";
@@ -283,13 +283,13 @@ export const walletController = {
 
       return res.status(200).json({
         status: "success",
-        message: "Cong tien vi thanh cong",
+        message: "Cộng tiền ví thành công",
       });
     } catch (error: any) {
       console.error("[walletController.handlePayOSWebhook] Error:", error);
       return res.status(500).json({
         status: "error",
-        message: "Loi xu ly webhook nap tien",
+        message: "Lỗi xử lý webhook nạp tiền",
         details: error.message,
       });
     }
@@ -299,16 +299,16 @@ export const walletController = {
     try {
       const { orderCode } = req.body;
       if (!orderCode) {
-        return res.status(400).json({ status: "error", message: "Thieu orderCode." });
+        return res.status(400).json({ status: "error", message: "Thiếu orderCode." });
       }
 
       const transaction = await TransactionModel.findOne({ orderCode });
       if (!transaction) {
-        return res.status(404).json({ status: "error", message: "Khong tim thay giao dich." });
+        return res.status(404).json({ status: "error", message: "Không tìm thấy giao dịch." });
       }
 
       if (transaction.status === "success") {
-        return res.status(200).json({ status: "success", message: "Giao dich da duoc thanh toan truoc do." });
+        return res.status(200).json({ status: "success", message: "Giao dịch đã được thanh toán trước đó." });
       }
 
       transaction.status = "success";
@@ -325,13 +325,13 @@ export const walletController = {
 
       return res.status(200).json({
         status: "success",
-        message: "Xac nhan thanh toan gia lap thanh cong",
+        message: "Xác nhận thanh toán giả lập thành công",
       });
     } catch (error: any) {
       console.error("[walletController.handleMockWebhook] Error:", error);
       return res.status(500).json({
         status: "error",
-        message: "Loi xu ly gia lap thanh toan",
+        message: "Lỗi xử lý giả lập thanh toán",
         details: error.message,
       });
     }
@@ -343,12 +343,12 @@ export const walletController = {
       const orderCode = parseInt(req.params.orderCode, 10);
 
       if (!userId) {
-        return res.status(401).json({ status: "error", message: "Nguoi dung chua xac thuc." });
+        return res.status(401).json({ status: "error", message: "Người dùng chưa xác thực." });
       }
 
       const transaction = await TransactionModel.findOne({ orderCode, userId });
       if (!transaction) {
-        return res.status(404).json({ status: "error", message: "Giao dich khong ton tai." });
+        return res.status(404).json({ status: "error", message: "Giao dịch không tồn tại." });
       }
 
       if (transaction.status === "success") {
@@ -401,7 +401,7 @@ export const walletController = {
       console.error("[walletController.checkTransactionStatus] Error:", error);
       return res.status(500).json({
         status: "error",
-        message: "Loi khi kiem tra trang thai giao dich",
+        message: "Lỗi khi kiểm tra trạng thái giao dịch",
         details: error.message,
       });
     }

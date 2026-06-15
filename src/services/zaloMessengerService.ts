@@ -15,7 +15,7 @@ export const zaloMessengerService = {
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       console.error("[FE Zalo Service] API getConversations that bai:", res.status, data);
-      throw new Error(data.message || "Khong the tai danh sach cuoc hoi thoai Zalo.");
+      throw new Error(data.message || "Không thể tải danh sách cuộc hội thoại Zalo.");
     }
 
     const result = await res.json();
@@ -71,7 +71,7 @@ export const zaloMessengerService = {
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       console.error(`[FE Zalo Service] API markRead cho conversation ${conversationId} that bai:`, res.status, data);
-      throw new Error(data.message || "Khong the danh dau da doc cuoc hoi thoai Zalo.");
+      throw new Error(data.message || "Không thể đánh dấu đã đọc cuộc hội thoại Zalo.");
     }
 
     const result = await res.json();
@@ -92,13 +92,13 @@ export const zaloMessengerService = {
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       console.error(`[FE Zalo Service] API sendReply toi conversation ${conversationId} that bai:`, res.status, data);
-      const rawMessage = data.message || "Gui tin nhan Zalo that bai.";
+      const rawMessage = data.message || "Gửi tin nhắn Zalo thất bại.";
       const friendlyMessage = rawMessage.includes("Code: -209") || rawMessage.includes("chua duoc phe duyet")
-        ? "Zalo OA/App chua duoc phe duyet quyen gui tin nhan. Ban nhan duoc tin nhan nhung chua the tra loi tu app nay."
+        ? "Zalo OA/App chưa được phê duyệt quyền gửi tin nhắn. Bạn nhận được tin nhắn nhưng chưa thể trả lời từ app này."
         : rawMessage.includes("Code: -224") || rawMessage.includes("upgrade OA Tier Package")
-          ? "Zalo OA hien chua du goi dich vu de gui tin nhan qua API. Vui long nang cap goi OA tren Zalo Cloud."
+          ? "Zalo OA hiện chưa đủ gói dịch vụ để gửi tin nhắn qua API. Vui lòng nâng cấp gói OA trên Zalo Cloud."
         : rawMessage.includes("Code: -216") || rawMessage.includes("expired")
-          ? "Access token Zalo OA da het han. Vui long cap nhat token moi."
+          ? "Access token Zalo OA đã hết hạn. Vui lòng cập nhật token mới."
           : rawMessage;
       throw new Error(friendlyMessage);
     }
@@ -124,7 +124,7 @@ export const zaloMessengerService = {
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      throw new Error(data.message || "Khong the luu thong tin cau hinh Zalo OA.");
+      throw new Error(data.message || "Không thể lưu thông tin cấu hình Zalo OA.");
     }
 
     const result = await res.json();
@@ -145,7 +145,7 @@ export const zaloMessengerService = {
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      throw new Error(data.message || "Khong the go bo cau hinh Zalo OA.");
+      throw new Error(data.message || "Không thể gỡ bỏ cấu hình Zalo OA.");
     }
   },
 };

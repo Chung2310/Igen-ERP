@@ -15,12 +15,12 @@ export const heygenController = {
     try {
       const userId = (req as any).user?.id;
       if (!userId) {
-        return res.status(401).json({ status: "error", message: "Yeu cau dang nhap" });
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
       }
       return res.status(200).json(await heygenService.getLibrary(userId));
     } catch (error: any) {
       console.error("[heygenController.getLibrary] Error:", error);
-      return res.status(getErrorStatus(error)).json({ status: "error", message: "Khong the lay thu vien HeyGen", details: error.message });
+      return res.status(getErrorStatus(error)).json({ status: "error", message: "Không thể lấy thư viện ", details: error.message });
     }
   },
 
@@ -28,7 +28,7 @@ export const heygenController = {
     try {
       const userId = (req as any).user?.id;
       if (!userId) {
-        return res.status(401).json({ status: "error", message: "Yeu cau dang nhap" });
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
       }
 
       await walletService.checkBalance(userId, API_COSTS.HEYGEN_VIDEO);
@@ -39,7 +39,7 @@ export const heygenController = {
     } catch (error: any) {
       console.error("[heygenController.createAvatarVideo] Error:", error);
       const statusCode = error.statusCode || getErrorStatus(error);
-      return res.status(statusCode).json({ status: "error", message: error.message || "Loi tao video avatar HeyGen", details: error.message });
+      return res.status(statusCode).json({ status: "error", message: error.message || "Lỗi tạo video avatar HeyGen", details: error.message });
     }
   },
 
@@ -47,12 +47,12 @@ export const heygenController = {
     try {
       const userId = (req as any).user?.id;
       if (!userId) {
-        return res.status(401).json({ status: "error", message: "Yeu cau dang nhap" });
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
       }
       return res.status(200).json(await heygenService.getVideoStatus(userId, req.params.videoId, req.body));
     } catch (error: any) {
       console.error("[heygenController.getVideoStatus] Error:", error);
-      return res.status(getErrorStatus(error)).json({ status: "error", message: "Loi lay trang thai video HeyGen", details: error.message });
+      return res.status(getErrorStatus(error)).json({ status: "error", message: "Lỗi lấy trạng thái video", details: error.message });
     }
   },
 
@@ -60,12 +60,12 @@ export const heygenController = {
     try {
       const userId = (req as any).user?.id;
       if (!userId) {
-        return res.status(401).json({ status: "error", message: "Yeu cau dang nhap" });
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
       }
       return res.status(200).json({ status: "success", history: await heygenService.getVideoHistory(userId) });
     } catch (error: any) {
       console.error("[heygenController.getVideoHistory] Error:", error);
-      return res.status(getErrorStatus(error)).json({ status: "error", message: "Lỗi lấy lịch sử video HeyGen", details: error.message });
+      return res.status(getErrorStatus(error)).json({ status: "error", message: "Lỗi lấy lịch sử video ", details: error.message });
     }
   },
 
@@ -73,12 +73,12 @@ export const heygenController = {
     try {
       const userId = (req as any).user?.id;
       if (!userId) {
-        return res.status(401).json({ status: "error", message: "Yeu cau dang nhap" });
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
       }
       return res.status(200).json(await heygenService.deleteVideoHistory(userId, req.params.id));
     } catch (error: any) {
       console.error("[heygenController.deleteVideoHistory] Error:", error);
-      return res.status(getErrorStatus(error)).json({ status: "error", message: "Lỗi xóa lịch sử video HeyGen", details: error.message });
+      return res.status(getErrorStatus(error)).json({ status: "error", message: "Lỗi xóa lịch sử video ", details: error.message });
     }
   },
 
@@ -92,14 +92,14 @@ export const heygenController = {
       );
 
       if (!heygenService.verifyWebhookToken(token)) {
-        return res.status(401).json({ status: "error", message: "Webhook token khong hop le" });
+        return res.status(401).json({ status: "error", message: "Webhook token không hợp lệ" });
       }
 
       const result = await heygenService.processWebhook(req.body);
       return res.status(200).json(result);
     } catch (error: any) {
       console.error("[heygenController.receiveWebhook] Error:", error);
-      return res.status(getErrorStatus(error)).json({ status: "error", message: "Loi xu ly webhook HeyGen", details: error.message });
+      return res.status(getErrorStatus(error)).json({ status: "error", message: "Lỗi xử lý webhook HeyGen", details: error.message });
     }
   },
 };

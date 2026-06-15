@@ -237,10 +237,10 @@ export function HeyGenVideoPreview({
               onPointerMove={handleCaptionPointerMove}
               onPointerUp={handleCaptionPointerUp}
               onPointerCancel={handleCaptionPointerUp}
-            className="absolute z-20 w-[82%] -translate-x-1/2 -translate-y-1/2 cursor-grab touch-none text-center active:cursor-grabbing"
-            style={{ left: `${captionOffset.x}%`, top: `${captionOffset.y}%` }}
-            title="Keo tha caption"
-          >
+              className="absolute z-20 w-[82%] -translate-x-1/2 -translate-y-1/2 cursor-grab touch-none text-center active:cursor-grabbing"
+              style={{ left: `${captionOffset.x}%`, top: `${captionOffset.y}%` }}
+              title="Kéo thả caption"
+            >
               <div className="rounded-xl border border-cyan-300/70 bg-cyan-50/30 px-3 py-2 shadow-sm backdrop-blur-[1px]">
                 {renderCaption(currentCaption)}
               </div>
@@ -260,7 +260,7 @@ export function HeyGenVideoPreview({
 
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1.5">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Toc do</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Tốc độ</span>
             <select value={playbackSpeed} onChange={(e) => setPlaybackSpeed(parseFloat(e.target.value))} className={`rounded-lg border ${HEYGEN_THEME.border} bg-white px-2 py-1 text-xs font-semibold text-slate-700 focus:outline-none`}>
               <option value="1">1x</option>
               <option value="1.25">1.25x</option>
@@ -276,7 +276,7 @@ export function HeyGenVideoPreview({
       </div>
 
       <div className={`space-y-2 border-t ${HEYGEN_THEME.border} ${HEYGEN_THEME.surfaceMuted} p-3`}>
-        <h4 className="text-[10px] font-bold uppercase tracking-widest text-slate-400"> Các phân cảnh</h4>
+        <h4 className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Các phân cảnh</h4>
         <div className="flex items-center gap-3 overflow-x-auto py-1">
           <div className={`relative flex h-20 w-36 shrink-0 flex-col overflow-hidden rounded-xl border-2 border-cyan-400 ${HEYGEN_THEME.surface} shadow-sm`}>
             {avatarImage ? <img src={avatarImage} alt="Scene thumbnail" loading="lazy" decoding="async" className="h-13 w-full object-contain bg-white" style={{ objectPosition: "center top" }} /> : <div className="flex h-13 w-full items-center justify-center bg-slate-100 text-[10px] text-slate-400">No avatar</div>}

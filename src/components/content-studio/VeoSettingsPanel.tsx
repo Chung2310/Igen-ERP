@@ -27,7 +27,7 @@ export function VeoSettingsPanel(props: VeoSettingsPanelProps) {
   return (
     <>
       <div className="flex flex-col gap-1 border-t border-slate-100 pt-3.5">
-        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Mo hinh tao video</span>
+        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Mô hình tạo video</span>
         <select
           value={videoModel}
           onChange={(e) => onVideoModelChange(e.target.value)}
@@ -43,7 +43,7 @@ export function VeoSettingsPanel(props: VeoSettingsPanelProps) {
 
       <div className="grid grid-cols-2 gap-3 border-t border-slate-100 pt-3.5">
         <div className="flex flex-col gap-1">
-          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Khung hinh</span>
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Khung hình</span>
           <select
             value={videoAspectRatio}
             onChange={(e) => onAspectRatioChange(e.target.value)}
@@ -54,7 +54,7 @@ export function VeoSettingsPanel(props: VeoSettingsPanelProps) {
           </select>
         </div>
         <div className="flex flex-col gap-1">
-          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Thoi luong</span>
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Thời lượng</span>
           <select
             value={videoDuration}
             onChange={(e) => onDurationChange(e.target.value)}
@@ -70,7 +70,7 @@ export function VeoSettingsPanel(props: VeoSettingsPanelProps) {
       </div>
 
       <div className="flex flex-col gap-1.5 border-t border-slate-100 pt-3.5">
-        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Do phan giai</span>
+        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Độ phân giải</span>
         <div className="grid grid-cols-2 gap-2">
           {VIDEO_QUALITY_OPTIONS.map((option) => (
             <button

@@ -209,8 +209,8 @@ export default function UserAdminTab() {
         return data.some((item) => item.userId === prev) ? prev : data[0].userId;
       });
     } catch (error) {
-      console.error("Loi khi tai danh sach so du:", error);
-      toast.error("Khong the tai danh sach so du nguoi dung.");
+      console.error("Lỗi khi tải danh sách số dư:", error);
+      toast.error("Không thể tải danh sách số dư người dùng.");
     } finally {
       setBalanceLoading(false);
     }
@@ -514,7 +514,7 @@ export default function UserAdminTab() {
         : currentBalance - parsedAmount;
 
     if (nextBalance < 0) {
-      toast.warning("Khong the tru vuot qua so du hien tai.");
+      toast.warning("Không thể trừ vượt quá số dư hiện tại.");
       return;
     }
 
@@ -524,7 +524,7 @@ export default function UserAdminTab() {
         editingBalanceUser.userId,
         Number(nextBalance.toFixed(2)),
         balanceNote.trim() ||
-          `${balanceAction === "add" ? "Cong" : "Tru"} ${parsedAmount.toFixed(2)} Credit tu man hinh quan ly user`
+          `${balanceAction === "add" ? "Cộng" : "Trừ"} ${parsedAmount.toFixed(2)} Credit từ màn hình quản lý user`
       );
 
       setBalanceUsers((prev) =>
@@ -539,15 +539,15 @@ export default function UserAdminTab() {
       }
 
       toast.success(
-        `${balanceAction === "add" ? "Da cong" : "Da tru"} ${parsedAmount.toFixed(2)} Credit cho "${updated.displayName}".`
+        `${balanceAction === "add" ? "Đã cộng" : "Đã trừ"} ${parsedAmount.toFixed(2)} Credit cho "${updated.displayName}".`
       );
       setIsBalanceModalOpen(false);
       setEditingBalanceUser(null);
       setBalanceNote("");
       setNewBalanceValue("");
     } catch (error: any) {
-      console.error("Loi cap nhat so du:", error);
-      toast.error(error.message || "Khong the cap nhat so du nguoi dung.");
+      console.error("Lỗi cập nhật số dư:", error);
+      toast.error(error.message || "Không thể cập nhật số dư người dùng.");
     } finally {
       setSubmittingBalance(false);
     }
@@ -1009,7 +1009,7 @@ export default function UserAdminTab() {
                 </div>
                 <div className="flex flex-col gap-3 border-t border-gray-100 bg-gray-50/70 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="text-[11px] font-mono text-slate-500">
-                    Trang {safeUserPage} / {totalUserPages} · Hien thi {paginatedVisibleUsers.length} / {visibleUsers.length} tai khoan
+                    Trang {safeUserPage} / {totalUserPages} · Hiển thị {paginatedVisibleUsers.length} / {visibleUsers.length} tài khoản
                   </div>
                   <div className="flex items-center gap-2">
                     <button
@@ -1054,8 +1054,8 @@ export default function UserAdminTab() {
         <div className="flex-1 p-6 overflow-y-auto space-y-6" id="user_balance_tab_content">
           <div className="flex flex-col sm:flex-row justify-between sm:items-center bg-gray-50 p-4 rounded-2xl border border-gray-150 gap-4">
             <div>
-              <h5 className="font-bold text-slate-800 text-sm">Quan ly so du vi nguoi dung</h5>
-              <p className="text-xs text-gray-500 mt-0.5">Chi superadmin moi duoc chinh sua balance cua nguoi dung.</p>
+              <h5 className="font-bold text-slate-800 text-sm">Quản lý số dư ví người dùng</h5>
+              <p className="text-xs text-gray-500 mt-0.5">Chỉ superadmin mới được chỉnh sửa balance của người dùng.</p>
             </div>
             <button
               type="button"
@@ -1064,14 +1064,14 @@ export default function UserAdminTab() {
               className="p-2 px-3.5 bg-white hover:bg-slate-100 border border-gray-205 rounded-xl text-xs font-bold font-sans flex items-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-95 disabled:opacity-50"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${balanceLoading ? "animate-spin" : ""}`} />
-              Tai lai so du
+              Tải lại số dư
             </button>
           </div>
 
           {balanceLoading ? (
             <div className="h-48 flex flex-col items-center justify-center text-center">
               <RefreshCw className="h-8 w-8 text-indigo-650 animate-spin mb-3" />
-              <span className="text-xs font-bold font-mono text-indigo-800 uppercase tracking-widest">Dang tai du lieu so du...</span>
+              <span className="text-xs font-bold font-mono text-indigo-800 uppercase tracking-widest">Đang tải dữ liệu số dư...</span>
             </div>
           ) : balanceUsers.length === 0 ? (
             <div className="p-12 text-center bg-gray-50 text-gray-400 italic rounded-2xl border border-dashed">
@@ -1107,7 +1107,7 @@ export default function UserAdminTab() {
                             </div>
                           </td>
                           <td className="p-4 cursor-pointer" onClick={() => setSelectedBalanceUserId(item.userId)}>
-                            <div className="font-semibold text-slate-700">{item.companyName || "He thong"}</div>
+                            <div className="font-semibold text-slate-700">{item.companyName || "Hệ thống"}</div>
                             <div className="text-[10px] text-gray-400 font-mono">{item.companyCode || "SYSTEM"}</div>
                           </td>
                           <td className="p-4">
@@ -1196,7 +1196,7 @@ export default function UserAdminTab() {
                   <div>
                     <h6 className="font-bold text-slate-800 text-sm">Lịch sử giao dịch</h6>
                     <p className="text-xs text-gray-500 mt-1">
-                      {balanceUsers.find((item) => item.userId === selectedBalanceUserId)?.displayName || "Chon nguoi dung"}
+                      {balanceUsers.find((item) => item.userId === selectedBalanceUserId)?.displayName || "Chọn người dùng"}
                     </p>
                   </div>
                   <button
@@ -1841,7 +1841,7 @@ export default function UserAdminTab() {
                 </div>
                 <div>
                   <h3 className="font-bold text-sm uppercase tracking-wider font-sans">
-                    {balanceAction === "add" ? "Cong so du nguoi dung" : "Tru so du nguoi dung"}
+                    {balanceAction === "add" ? "Cộng số dư người dùng" : "Trừ số dư người dùng"}
                   </h3>
                   <p className="mt-0.5 text-[11px] text-emerald-100">
                     {editingBalanceUser.displayName}
@@ -1868,8 +1868,8 @@ export default function UserAdminTab() {
                         : "border-gray-200 bg-white text-slate-600 hover:bg-slate-50"
                     }`}
                   >
-                    <div className="text-[10px] font-bold uppercase tracking-wider">Tac vu</div>
-                    <div className="mt-0.5 text-sm font-bold">+ Cong</div>
+                    <div className="text-[10px] font-bold uppercase tracking-wider">Tác vụ</div>
+                    <div className="mt-0.5 text-sm font-bold">+ Cộng</div>
                   </button>
                   <button
                     type="button"
@@ -1880,19 +1880,19 @@ export default function UserAdminTab() {
                         : "border-gray-200 bg-white text-slate-600 hover:bg-slate-50"
                     }`}
                   >
-                    <div className="text-[10px] font-bold uppercase tracking-wider">Tac vu</div>
-                    <div className="mt-0.5 text-sm font-bold">- Tru</div>
+                    <div className="text-[10px] font-bold uppercase tracking-wider">Tác vụ</div>
+                    <div className="mt-0.5 text-sm font-bold">- Trừ</div>
                   </button>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">So du hien tai</div>
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Số dư hiện tại</div>
                     <div className="mt-1 text-lg font-bold text-slate-800">
                       {new Intl.NumberFormat("vi-VN", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(editingBalanceUser.balance || 0)} Credit
                     </div>
                   </div>
                   <div className="rounded-xl border border-dashed border-gray-200 bg-white px-3 py-3">
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Sau dieu chinh</div>
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Sau điều chỉnh</div>
                     <div className="mt-1 text-lg font-bold text-slate-800">
                       {new Intl.NumberFormat("vi-VN", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(
                         Math.max(

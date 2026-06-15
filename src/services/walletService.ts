@@ -43,7 +43,7 @@ async function parseApiResponse<T>(res: Response, fallbackMessage: string): Prom
   if (!isJson) {
     const shortBody = rawBody.slice(0, 120).trim();
     throw new Error(
-      `${fallbackMessage}. API tra ve du lieu khong phai JSON (${res.status} ${res.statusText}). Preview: ${shortBody}`
+      `${fallbackMessage}. API trả về dữ liệu không phải JSON (${res.status} ${res.statusText}). Preview: ${shortBody}`
     );
   }
 
@@ -51,7 +51,7 @@ async function parseApiResponse<T>(res: Response, fallbackMessage: string): Prom
   try {
     data = JSON.parse(rawBody);
   } catch {
-    throw new Error(`${fallbackMessage}. Khong parse duoc JSON tu server.`);
+    throw new Error(`${fallbackMessage}. Không parse được JSON từ server.`);
   }
 
   if (!res.ok) {
@@ -69,7 +69,7 @@ export const walletService = {
       },
     });
 
-    const result = await parseApiResponse<{ balance: number }>(res, "Khong the lay so du vi");
+    const result = await parseApiResponse<{ balance: number }>(res, "Không thể lấy số dư ví");
     return result.balance ?? 0;
   },
 
@@ -97,7 +97,7 @@ export const walletService = {
 
     const result = await parseApiResponse<{ data?: AdminUserBalance[] }>(
       res,
-      "Khong the tai danh sach so du nguoi dung"
+      "Không thể tải danh sách số dư người dùng"
     );
     return result.data || [];
   },
@@ -114,7 +114,7 @@ export const walletService = {
 
     const result = await parseApiResponse<{ data: AdminUserBalance }>(
       res,
-      "Khong the cap nhat so du nguoi dung"
+      "Không thể cập nhật số dư người dùng"
     );
     return result.data;
   },
@@ -155,7 +155,7 @@ export const walletService = {
         paymentLinkId: string;
         isMock: boolean;
       };
-    }>(res, "Khong the tao lien ket nap tien");
+    }>(res, "Không thể tạo liên kết nạp tiền");
     return result.data;
   },
 
@@ -169,7 +169,7 @@ export const walletService = {
       body: JSON.stringify({ orderCode }),
     });
 
-    return await parseApiResponse<any>(res, "Loi khi xac nhan thanh toan gia lap");
+    return await parseApiResponse<any>(res, "Lỗi khi xác nhận thanh toán giả lập");
   },
 
   async checkTransactionStatus(orderCode: number): Promise<{
@@ -185,6 +185,6 @@ export const walletService = {
     return await parseApiResponse<{
       transactionStatus: "pending" | "success" | "failed";
       amount?: number;
-    }>(res, "Khong the kiem tra trang thai giao dich");
+    }>(res, "Không thể kiểm tra trạng thái giao dịch");
   },
 };

@@ -258,7 +258,7 @@ export const zaloMessengerController = {
       console.error("[Zalo Controller diagnoseOaConfig] Loi:", error);
       return res.status(500).json({
         success: false,
-        message: error.message || "Khong the chan doan cau hinh Zalo OA.",
+        message: error.message || "Không thể chẩn đoán cấu hình Zalo OA.",
       });
     }
   }
