@@ -92,7 +92,15 @@ export const zaloMessengerService = {
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       console.error(`[FE Zalo Service] API sendReply toi conversation ${conversationId} that bai:`, res.status, data);
-      throw new Error(data.message || "Gui tin nhan Zalo that bai.");
+      const rawMessage = data.message || "Gui tin nhan Zalo that bai.";
+      const friendlyMessage = rawMessage.includes("Code: -209") || rawMessage.includes("chua duoc phe duyet")
+        ? "Zalo OA/App chua duoc phe duyet quyen gui tin nhan. Ban nhan duoc tin nhan nhung chua the tra loi tu app nay."
+        : rawMessage.includes("Code: -224") || rawMessage.includes("upgrade OA Tier Package")
+          ? "Zalo OA hien chua du goi dich vu de gui tin nhan qua API. Vui long nang cap goi OA tren Zalo Cloud."
+        : rawMessage.includes("Code: -216") || rawMessage.includes("expired")
+          ? "Access token Zalo OA da het han. Vui long cap nhat token moi."
+          : rawMessage;
+      throw new Error(friendlyMessage);
     }
 
     const result = await res.json();

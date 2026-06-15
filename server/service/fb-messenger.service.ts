@@ -298,18 +298,8 @@ export const fbMessengerService = {
    */
   async getPageAccessTokenByPageId(pageId: string): Promise<string | null> {
     console.log(`[FB Service Token] Đang tìm Access Token cho Page ID: ${pageId}`);
-    
-    const user = await UserModel.findOne({
-      "facebookIntegration.isConnected": true,
-      "facebookIntegration.pageId": pageId,
-    });
-    
-    if (user && user.facebookIntegration?.pageAccessToken) {
-      console.log(`[FB Service Token] Đã tìm thấy Page Access Token động từ tài khoản User: ${user.email}`);
-      return user.facebookIntegration.pageAccessToken;
-    }
 
-    // Try company-level integration
+    // Prefer company-level integration first to match the page configured for the company.
     const { SocialIntegrationModel } = require("../model/social-integration.model");
     const companyIntegration = await SocialIntegrationModel.findOne({
       platform: "Facebook",
@@ -320,6 +310,16 @@ export const fbMessengerService = {
     if (companyIntegration && companyIntegration.accessToken) {
       console.log(`[FB Service Token] Đã tìm thấy Page Access Token từ Company Integration: ${companyIntegration.displayName}`);
       return companyIntegration.accessToken;
+    }
+
+    const user = await UserModel.findOne({
+      "facebookIntegration.isConnected": true,
+      "facebookIntegration.pageId": pageId,
+    });
+    
+    if (user && user.facebookIntegration?.pageAccessToken) {
+      console.log(`[FB Service Token] Fallback Page Access Token tu tai khoan User: ${user.email}`);
+      return user.facebookIntegration.pageAccessToken;
     }
     
     const samePlatformIntegrations = await SocialIntegrationModel.find({
