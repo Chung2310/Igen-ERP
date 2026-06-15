@@ -98,12 +98,6 @@ export const zaloMessengerService = {
 
     // Nếu ở chế độ mock, tự động tạo một vài cuộc hội thoại mẫu để hiển thị ngay
     if (isMock) {
-      conversation.lastMessageText = text;
-      conversation.lastMessageAt = sentAt;
-      conversation.unreadCount = 0;
-      await conversation.save();
-      await newMsg.save();
-      emitRealtimeUpdate();
       await this.seedMockData(integrationData.oaId);
     }
 
