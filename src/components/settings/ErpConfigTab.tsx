@@ -1,14 +1,22 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Sliders, Moon, Sun, Bell, Sparkles, Laptop } from "lucide-react";
 import { toast } from "../../pages/Toast";
+import { useAuth } from "../../context/AuthContext";
 
 export default function ErpConfigTab() {
+  const { userProfile, updateAiAutoReplyConfig } = useAuth();
   const [darkMode, setDarkMode] = useState(false);
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [aiModel, setAiModel] = useState(() => {
-    return localStorage.getItem("selected_ai_model") || "gemini-3.5-flash";
+    return userProfile?.aiAutoReplyConfig?.model || localStorage.getItem("selected_ai_model") || "gemini-3.5-flash";
   });
   const [autoBackup, setAutoBackup] = useState(true);
+
+  useEffect(() => {
+    if (userProfile?.aiAutoReplyConfig?.model) {
+      setAiModel(userProfile.aiAutoReplyConfig.model);
+    }
+  }, [userProfile]);
 
   return (
     <div className="bg-white/80 backdrop-blur-md border border-gray-200/80 rounded-2xl p-6 shadow-xs space-y-6">
@@ -84,11 +92,23 @@ export default function ErpConfigTab() {
             <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Phiên bản Gemini API</label>
             <select
               value={aiModel}
-              onChange={(e) => {
+              onChange={async (e) => {
                 const model = e.target.value;
                 setAiModel(model);
                 localStorage.setItem("selected_ai_model", model);
-                toast.success(`Đã đổi mô hình AI sang: ${model}`);
+                if (userProfile?.aiAutoReplyConfig) {
+                  try {
+                    await updateAiAutoReplyConfig({
+                      ...userProfile.aiAutoReplyConfig,
+                      model
+                    });
+                    toast.success(`Đã đồng bộ và đổi mô hình AI sang: ${model}`);
+                  } catch (err) {
+                    console.error(err);
+                  }
+                } else {
+                  toast.success(`Đã đổi mô hình AI sang: ${model}`);
+                }
               }}
               className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none cursor-pointer"
             >

@@ -230,8 +230,9 @@ Thông tin cấu hình hiện tại của bạn:
     });
 
     try {
+      const selectedModel = aiConfig?.model || GEMINI_TEXT_MODEL;
       const response = await generateText(
-        GEMINI_TEXT_MODEL,
+        selectedModel,
         contents,
         {
           systemInstruction,

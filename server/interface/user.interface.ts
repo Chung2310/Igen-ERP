@@ -41,6 +41,7 @@ export interface IAiAutoReplyConfig {
   replyDelay: number;
   advancedInstructions: string;
   trainingKnowledge: string;
+  model?: string;
 }
 
 export interface IHeyGenAccessConfig {

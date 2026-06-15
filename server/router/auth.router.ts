@@ -102,6 +102,7 @@ const updateProfileSchema = {
       replyDelay: Joi.number().required(),
       advancedInstructions: Joi.string().allow(""),
       trainingKnowledge: Joi.string().allow(""),
+      model: Joi.string().allow("").optional(),
     }).optional().allow(null),
   }),
 };
