@@ -136,8 +136,13 @@ export const zaloMessengerService = {
           return refreshedToken;
         } catch (err) {
           console.error(`[Zalo Service Token] Tự động làm mới token thất bại:`, err);
-          // Trả về token cũ làm fallback
-          return integration.accessToken;
+          await UserModel.findByIdAndUpdate(user._id, {
+            "zaloIntegration.isConnected": false,
+            "zaloIntegration.accessToken": "",
+            "zaloIntegration.refreshToken": "",
+            "zaloIntegration.tokenExpiredAt": null,
+          });
+          return null;
         }
       }
 
@@ -168,7 +173,13 @@ export const zaloMessengerService = {
           return newAccessToken;
         } catch (err) {
           console.error(`[Zalo Service Token] Tự động làm mới Company Zalo token thất bại:`, err);
-          return companyIntegration.accessToken || null;
+          await SocialIntegrationModel.findByIdAndUpdate(companyIntegration._id, {
+            isConnected: false,
+            accessToken: "",
+            refreshToken: "",
+            tokenExpiredAt: null,
+          });
+          return null;
         }
       }
 
@@ -550,21 +561,9 @@ export const zaloMessengerService = {
 
     } else {
       // Gửi thật qua Zalo OpenAPI
-      let token = await this.getAccessTokenByOAId(oaId);
+      const token = await this.getAccessTokenByOAId(oaId);
       if (!token) {
-        throw new Error("Không lấy được Zalo Access Token hợp lệ.");
-      }
-
-      // Nếu token thật sự hết hạn, thử refresh một lần nữa trước khi gọi OpenAPI.
-      const user = await UserModel.findOne({
-        "zaloIntegration.isConnected": true,
-        "zaloIntegration.oaId": oaId,
-      });
-      if (user?.zaloIntegration && !user.zaloIntegration.isMock) {
-        const expiryTime = user.zaloIntegration.tokenExpiredAt ? new Date(user.zaloIntegration.tokenExpiredAt).getTime() : 0;
-        if (expiryTime <= Date.now()) {
-          token = await this.refreshToken(user._id.toString(), user.zaloIntegration);
-        }
+        throw new Error("Zalo token đã hết hạn hoặc không còn hợp lệ. Vui lòng kết nối lại Zalo OA để gửi tin.");
       }
 
       const url = "https://openapi.zalo.me/v3.0/oa/message/cs";
