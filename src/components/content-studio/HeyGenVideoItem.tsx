@@ -134,11 +134,11 @@ export function HeyGenVideoItem({
       : "bg-cyan-50 text-cyan-700 ring-1 ring-inset ring-cyan-200";
   const badgeLabel =
     status === "processing"
-      ? "Dang xu ly"
+      ? "Đang xử lý"
       : status === "completed"
-        ? "Hoan thanh"
+        ? "Hoàn thành"
         : status === "failed"
-          ? "That bai"
+          ? "Thất bại"
           : status;
 
   return (
@@ -195,7 +195,7 @@ export function HeyGenVideoItem({
           {isProcessing && !item.thumbnailUrl ? (
             <div className="absolute inset-x-0 bottom-3 z-20 flex justify-center">
               <span className="rounded-full bg-slate-950/70 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-cyan-300">
-                Dang render ({pseudoProgress}%)
+                Đang render ({pseudoProgress}%)
               </span>
             </div>
           ) : null}
@@ -256,7 +256,7 @@ export function HeyGenVideoItem({
                 type="button"
                 disabled
                 className="flex h-10 w-10 cursor-not-allowed items-center justify-center rounded-full border border-slate-200 bg-slate-100 text-slate-300"
-                title="Video chua san sang de tai"
+                title="Video chưa sẵn sàng để tải"
               >
                 <Download className="h-4 w-4" />
               </button>

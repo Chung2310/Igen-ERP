@@ -12,13 +12,13 @@ export function AppRouterView({
   const route = getRouteByTab(activeTab);
 
   if (route?.canAccess && !route.canAccess(userProfile)) {
-    return <PageLoader label="Ban khong co quyen truy cap khu vuc nay." />;
+    return <PageLoader label="Bạn không có quyền truy cập khu vực này." />;
   }
 
   const PageComponent = route.component;
 
   return (
-    <Suspense fallback={<PageLoader label="Dang tai trang..." />}>
+    <Suspense fallback={<PageLoader label="Đang tải trang..." />}>
       <PageComponent />
     </Suspense>
   );

@@ -305,7 +305,7 @@ export const fbMessengerController = {
       console.error("[FB Controller diagnosePageConfig] Loi:", error);
       return res.status(500).json({
         success: false,
-        message: error.message || "Khong the chan doan cau hinh Facebook page.",
+        message: error.message || "Không thể chẩn đoán cấu hình Facebook page.",
       });
     }
   }

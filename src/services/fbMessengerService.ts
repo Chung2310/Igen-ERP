@@ -20,7 +20,7 @@ export const fbMessengerService = {
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       console.error("[FE FB Service] API getConversations that bai:", res.status, data);
-      throw new Error(data.message || "Khong the tai danh sach cuoc hoi thoai.");
+      throw new Error(data.message || "Không thể tải danh sách cuộc hội thoại.");
     }
 
     const result = await res.json();
@@ -76,7 +76,7 @@ export const fbMessengerService = {
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       console.error(`[FE FB Service] API markRead cho conversation ${conversationId} that bai:`, res.status, data);
-      throw new Error(data.message || "Khong the danh dau da doc cuoc hoi thoai.");
+      throw new Error(data.message || "Không thể đánh dấu đã đọc cuộc hội thoại.");
     }
 
     const result = await res.json();
@@ -97,7 +97,7 @@ export const fbMessengerService = {
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       console.error(`[FE FB Service] API sendReply toi conversation ${conversationId} that bai:`, res.status, data);
-      throw new Error(data.message || "Gui tin nhan that bai.");
+      throw new Error(data.message || "Gửi tin nhắn thất bại.");
     }
 
     const result = await res.json();

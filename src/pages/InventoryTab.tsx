@@ -434,7 +434,7 @@ export default function InventoryTab() {
   const handleExportProductsExcel = async () => {
     const { exportProductsToExcel } = await import("../utils/inventoryExcel");
     exportProductsToExcel(filteredProducts);
-    toast.success("Da xuat danh muc san pham ra Excel.");
+    toast.success("Đã xuất danh mục sản phẩm ra Excel.");
   };
 
   const handleOpenProductImport = () => {
@@ -454,7 +454,7 @@ export default function InventoryTab() {
       const importedRows = await importProductsFromExcel(file);
 
       if (importedRows.length === 0) {
-        toast.error("File Excel khong co dong san pham hop le.");
+        toast.error("File Excel không có dòng sản phẩm hợp lệ.");
         return;
       }
 
@@ -502,17 +502,17 @@ export default function InventoryTab() {
       }
 
       if (createdCount === 0) {
-        toast.error("Khong co san pham moi nao duoc import. Kiem tra SKU bi trung.");
+        toast.error("Không có sản phẩm mới nào được import. Kiểm tra SKU bị trùng.");
         return;
       }
 
       if (skippedCount > 0) {
-        toast.success(`Da import ${createdCount} san pham, bo qua ${skippedCount} dong SKU trung.`);
+        toast.success(`Đã import ${createdCount} sản phẩm, bỏ qua ${skippedCount} dòng SKU trùng.`);
       } else {
-        toast.success(`Da import ${createdCount} san pham tu Excel.`);
+        toast.success(`Đã import ${createdCount} sản phẩm từ Excel.`);
       }
     } catch (error) {
-      toast.error(getInventoryErrorMessage(error, "Khong the import san pham tu Excel."));
+      toast.error(getInventoryErrorMessage(error, "Không thể import sản phẩm từ Excel."));
     } finally {
       setProductExcelImporting(false);
     }
@@ -521,7 +521,7 @@ export default function InventoryTab() {
   const handleExportStockLogsExcel = async () => {
     const { exportStockLogsToExcel } = await import("../utils/inventoryExcel");
     exportStockLogsToExcel(stockLogs);
-    toast.success("Da xuat phieu nhap xuat kho ra Excel.");
+    toast.success("Đã xuất phiếu nhập xuất kho ra Excel.");
   };
 
   const handleOpenStockLogImport = () => {
@@ -541,7 +541,7 @@ export default function InventoryTab() {
       const importedLogs = await importStockLogsFromExcel(file);
 
       if (importedLogs.length === 0) {
-        toast.error("File Excel khong co phieu nhap xuat hop le.");
+        toast.error("File Excel không có phiếu nhập xuất hợp lệ.");
         return;
       }
 
@@ -550,7 +550,7 @@ export default function InventoryTab() {
       let addedCount = 0;
 
       if (nextLogs.length === 0) {
-        toast.error("Khong co phieu hop le nao duoc import.");
+        toast.error("Không có phiếu hợp lệ nào được import.");
         return;
       }
 
@@ -561,7 +561,7 @@ export default function InventoryTab() {
         const resolvedItems = logItems.map((item) => {
           const product = products.find((entry) => entry.sku === item.sku);
           if (!product) {
-            throw new Error(JSON.stringify({ error: `Khong tim thay san pham SKU ${item.sku} trong danh muc kho.` }));
+            throw new Error(JSON.stringify({ error: `Không tìm thấy sản phẩm SKU ${item.sku} trong danh mục kho.` }));
           }
           return { product, quantity: item.quantity };
         });
@@ -578,7 +578,7 @@ export default function InventoryTab() {
             const currentStock = runningStocks.get(item.product.id) ?? item.product.stock;
             if (log.type === "xuất" && currentStock < item.quantity) {
               throw new Error(
-                JSON.stringify({ error: `So luong ton kho cua ${item.product.name} khong du de import phieu xuat hoan thanh.` })
+                JSON.stringify({ error: `Số lượng tồn kho của ${item.product.name} không đủ để import phiếu xuất hoàn thành.` })
               );
             }
           }
@@ -614,9 +614,9 @@ export default function InventoryTab() {
         addedCount += 1;
       }
 
-      toast.success(`Da import ${addedCount} phieu nhap/xuat kho tu Excel.`);
+      toast.success(`Đã import ${addedCount} phiếu nhập/xuất kho từ Excel.`);
     } catch (error) {
-      toast.error("Khong the import phieu nhap/xuat kho tu Excel.");
+      toast.error("Không thể import phiếu nhập/xuất kho từ Excel.");
     } finally {
       setStockLogExcelImporting(false);
     }

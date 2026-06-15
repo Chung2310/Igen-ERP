@@ -12,7 +12,7 @@ export interface MarketingConcept {
 export interface ContentApprovalCard {
   id: string;
   title: string;
-  channel: "Facebook" | "TikTok" | "LinkedIn" | "Instagram";
+  channel: "Facebook" | "TikTok" | "LinkedIn" | "Instagram" | "Zalo";
   contentType: string;
   status: "draft" | "pending" | "approved" | "scheduled" | "published" | "failed";
   bodyText: string;

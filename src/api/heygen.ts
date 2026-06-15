@@ -11,9 +11,9 @@ export type HeyGenLibraryItem = {
 const HEYGEN_LIBRARY_CACHE_TTL = 2 * 60 * 1000;
 let heygenLibraryCache:
   | {
-      expiresAt: number;
-      data: { status: string; avatars: HeyGenLibraryItem[]; voices: HeyGenLibraryItem[]; warnings?: string[]; defaults?: { avatarId?: string; voiceId?: string } };
-    }
+    expiresAt: number;
+    data: { status: string; avatars: HeyGenLibraryItem[]; voices: HeyGenLibraryItem[]; warnings?: string[]; defaults?: { avatarId?: string; voiceId?: string } };
+  }
   | null = null;
 
 function getJwtHeaders(withContentType: boolean = true) {
@@ -89,7 +89,7 @@ export const heygenApi = {
       headers: getJwtHeaders(true),
       body: JSON.stringify(input),
     });
-    return parseJsonResponse(response, "Loi tao video avatar HeyGen");
+    return parseJsonResponse(response, "Lỗi tạo video avatar HeyGen");
   },
 
   async getVideoStatus(videoId: string, input: {
@@ -107,14 +107,14 @@ export const heygenApi = {
       headers: getJwtHeaders(true),
       body: JSON.stringify(input),
     });
-    return parseJsonResponse(response, "Loi lay trang thai video HeyGen");
+    return parseJsonResponse(response, "Lỗi lấy trạng thái video ");
   },
 
   async getVideoHistory(): Promise<{ status: string; history: any[] }> {
     const response = await fetch("/api/v1/heygen/history", {
       headers: getJwtHeaders(false),
     });
-    return parseJsonResponse(response, "Lỗi lấy lịch sử video HeyGen");
+    return parseJsonResponse(response, "Lỗi lấy lịch sử video ");
   },
 
   async deleteVideoHistory(id: string): Promise<{ status: string }> {
@@ -122,7 +122,7 @@ export const heygenApi = {
       method: "DELETE",
       headers: getJwtHeaders(false),
     });
-    return parseJsonResponse(response, "Lỗi xóa lịch sử video HeyGen");
+    return parseJsonResponse(response, "Lỗi xóa lịch sử video ");
   },
 
   clearLibraryCache() {

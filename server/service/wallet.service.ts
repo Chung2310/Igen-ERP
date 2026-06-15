@@ -140,14 +140,14 @@ export const walletService = {
     const { targetUserId, balance, actorUserId, actorEmail, note } = input;
 
     if (!Number.isFinite(balance) || balance < 0) {
-      const error: any = new Error("So du moi khong hop le.");
+      const error: any = new Error("Số dư mới không hợp lệ.");
       error.statusCode = 400;
       throw error;
     }
 
     const targetUser = await UserModel.findById(targetUserId).select("displayName email");
     if (!targetUser) {
-      const error: any = new Error("Khong tim thay nguoi dung can cap nhat so du.");
+      const error: any = new Error("Không tìm thấy người dùng cần cập nhật số dư.");
       error.statusCode = 404;
       throw error;
     }
@@ -171,11 +171,11 @@ export const walletService = {
 
       const actorLabel = actorEmail || actorUserId;
       const descriptionParts = [
-        `Superadmin ${actorLabel} da chinh sua so du vi`,
-        `tu ${previousBalance.toFixed(2)} Credit thanh ${normalizedBalance.toFixed(2)} Credit`,
+        `Superadmin ${actorLabel} đã chỉnh sửa số dư ví`,
+        `từ ${previousBalance.toFixed(2)} Credit thành ${normalizedBalance.toFixed(2)} Credit`,
       ];
       if (note?.trim()) {
-        descriptionParts.push(`Ghi chu: ${note.trim()}`);
+        descriptionParts.push(`Ghi chú: ${note.trim()}`);
       }
 
       const transaction = new TransactionModel({

@@ -169,10 +169,10 @@ export function AudioHistoryPopover({
         {isLoading ? (
           <div className={`flex min-h-[220px] items-center justify-center rounded-2xl border border-dashed ${HEYGEN_THEME.border} ${HEYGEN_THEME.surfaceMuted} text-sm ${HEYGEN_THEME.textMuted}`}>
             <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
-            Dang tai audio...
+            Đang tải audio...
           </div>
         ) : items.length === 0 ? (
-          <div className={`rounded-2xl border border-dashed ${HEYGEN_THEME.border} ${HEYGEN_THEME.surfaceMuted} px-4 py-6 text-center text-sm ${HEYGEN_THEME.textMuted}`}>Chua co audio ElevenLabs trong lich su.</div>
+          <div className={`rounded-2xl border border-dashed ${HEYGEN_THEME.border} ${HEYGEN_THEME.surfaceMuted} px-4 py-6 text-center text-sm ${HEYGEN_THEME.textMuted}`}>Chưa có audio ElevenLabs trong lịch sử.</div>
         ) : (
           <div className="grid max-h-[70vh] grid-cols-1 gap-3 overflow-y-auto pr-1">
             {items.map((item) => {
@@ -193,8 +193,8 @@ export function AudioHistoryPopover({
                       </div>
                       <div className="min-w-0">
                         <p className="truncate text-sm font-semibold text-slate-900">{item.metadata?.title || item.metadata?.voiceName || "Audio ElevenLabs"}</p>
-                        <p className={`line-clamp-2 text-xs ${HEYGEN_THEME.textMuted}`}>{item.prompt || "Khong co mo ta"}</p>
-                        <p className="mt-2 text-[11px] text-slate-400">{item.createdAt ? new Date(item.createdAt).toLocaleString("vi-VN") : "Moi tao"}</p>
+                        <p className={`line-clamp-2 text-xs ${HEYGEN_THEME.textMuted}`}>{item.prompt || "Không có mô tả"}</p>
+                        <p className="mt-2 text-[11px] text-slate-400">{item.createdAt ? new Date(item.createdAt).toLocaleString("vi-VN") : "Mới tạo"}</p>
                       </div>
                     </div>
                     {isSelected ? <span className="flex h-6 w-6 items-center justify-center rounded-full bg-cyan-600 text-white"><Check className="h-3.5 w-3.5" /></span> : null}
@@ -206,7 +206,7 @@ export function AudioHistoryPopover({
                     </a>
                     <a href={item.url} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()} className={`inline-flex h-8 items-center gap-1.5 rounded-full border ${HEYGEN_THEME.border} bg-white px-3 text-xs font-semibold text-slate-600 transition hover:text-slate-900`}>
                       <ExternalLink className="h-3.5 w-3.5" />
-                      Mo file
+                      Mở file
                     </a>
                   </div>
                 </button>

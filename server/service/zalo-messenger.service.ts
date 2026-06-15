@@ -460,7 +460,7 @@ export const zaloMessengerService = {
   async markConversationRead(oaId: string, conversationId: string) {
     const conversation = await ZaloConversationModel.findOne({ _id: conversationId, oaId });
     if (!conversation) {
-      throw new Error("Khong tim thay hoi thoai Zalo.");
+      throw new Error("Không tìm thấy hội thoại Zalo.");
     }
 
     if (conversation.unreadCount !== 0) {

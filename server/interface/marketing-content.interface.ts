@@ -2,7 +2,7 @@ import { Document, Types } from "mongoose";
 
 export interface IMarketingContent extends Document {
   title: string;
-  channel: "Facebook" | "TikTok" | "LinkedIn" | "Instagram";
+  channel: "Facebook" | "TikTok" | "LinkedIn" | "Instagram" | "Zalo";
   contentType: string;
   status: "draft" | "pending" | "approved" | "scheduled" | "published";
   bodyText: string;
