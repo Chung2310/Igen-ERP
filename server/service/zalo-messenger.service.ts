@@ -112,35 +112,116 @@ export const zaloMessengerService = {
    * Lấy Access Token hợp lệ, tự động refresh nếu sắp hết hạn
    */
   async getAccessTokenByOAId(oaId: string): Promise<string | null> {
+    // 1. Search in UserModel first (user-level)
     const user = await UserModel.findOne({
       "zaloIntegration.isConnected": true,
       "zaloIntegration.oaId": oaId
     });
 
-    if (!user || !user.zaloIntegration) return null;
-    const integration = user.zaloIntegration;
+    if (user && user.zaloIntegration) {
+      const integration = user.zaloIntegration;
 
-    if (integration.isMock) {
-      return "mock_zalo_access_token_123456789";
-    }
-
-    const now = Date.now();
-    const expiryTime = new Date(integration.tokenExpiredAt).getTime();
-    
-    // Nếu còn ít hơn 10 phút thì tiến hành refresh token
-    if (expiryTime - now < 10 * 60 * 1000) {
-      console.log(`[Zalo Service Token] Token của OA ID ${oaId} sắp hết hạn. Đang tiến hành làm mới tự động...`);
-      try {
-        const refreshedToken = await this.refreshToken(user._id.toString(), integration);
-        return refreshedToken;
-      } catch (err) {
-        console.error(`[Zalo Service Token] Tự động làm mới token thất bại:`, err);
-        // Trả về token cũ làm fallback
-        return integration.accessToken;
+      if (integration.isMock) {
+        return "mock_zalo_access_token_123456789";
       }
+
+      const now = Date.now();
+      const expiryTime = new Date(integration.tokenExpiredAt).getTime();
+      
+      // Nếu còn ít hơn 10 phút thì tiến hành refresh token
+      if (expiryTime - now < 10 * 60 * 1000) {
+        console.log(`[Zalo Service Token] Token của OA ID ${oaId} sắp hết hạn. Đang tiến hành làm mới tự động...`);
+        try {
+          const refreshedToken = await this.refreshToken(user._id.toString(), integration);
+          return refreshedToken;
+        } catch (err) {
+          console.error(`[Zalo Service Token] Tự động làm mới token thất bại:`, err);
+          // Trả về token cũ làm fallback
+          return integration.accessToken;
+        }
+      }
+
+      return integration.accessToken;
     }
 
-    return integration.accessToken;
+    // 2. Search in SocialIntegrationModel (company-level)
+    const { SocialIntegrationModel } = require("../model/social-integration.model");
+    const companyIntegration = await SocialIntegrationModel.findOne({
+      platform: "Zalo",
+      username: oaId, // OA ID is stored in username
+      isConnected: true
+    });
+
+    if (companyIntegration) {
+      if (companyIntegration.isMock) {
+        return "mock_zalo_access_token_123456789";
+      }
+
+      const now = Date.now();
+      const expiryTime = companyIntegration.tokenExpiredAt ? new Date(companyIntegration.tokenExpiredAt).getTime() : 0;
+
+      // Nếu còn ít hơn 10 phút thì tiến hành refresh token
+      if (companyIntegration.refreshToken && (expiryTime - now < 10 * 60 * 1000)) {
+        console.log(`[Zalo Service Token] Company Zalo Token của OA ID ${oaId} sắp hết hạn. Đang tiến hành làm mới tự động...`);
+        try {
+          const newAccessToken = await this.refreshCompanyZaloToken(companyIntegration._id.toString(), companyIntegration);
+          return newAccessToken;
+        } catch (err) {
+          console.error(`[Zalo Service Token] Tự động làm mới Company Zalo token thất bại:`, err);
+          return companyIntegration.accessToken || null;
+        }
+      }
+
+      return companyIntegration.accessToken || null;
+    }
+
+    return null;
+  },
+
+  async refreshCompanyZaloToken(integrationId: string, integration: any): Promise<string> {
+    const url = "https://oauth.zaloapp.com/v4/oa/access_token";
+    const bodyParams = new URLSearchParams();
+    bodyParams.set("refresh_token", integration.refreshToken);
+    bodyParams.set("grant_type", "refresh_token");
+
+    const appId = process.env.ZALO_APP_ID || "";
+    const appSecret = process.env.ZALO_APP_SECRET || "";
+
+    bodyParams.set("app_id", appId);
+
+    const response = await (globalThis as any).fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "secret_key": appSecret,
+      },
+      body: bodyParams.toString(),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Refresh Company Zalo Token thất bại: ${response.status} - ${errText}`);
+    }
+
+    const data = await response.json();
+    if (data.error) {
+      throw new Error(`Refresh Company Zalo Token lỗi: ${data.error_name || data.error}`);
+    }
+
+    const newAccessToken = data.access_token;
+    const newRefreshToken = data.refresh_token;
+    const expiresInSeconds = Number(data.expires_in) || 90000;
+    const tokenExpiredAt = new Date(Date.now() + expiresInSeconds * 1000);
+
+    const { SocialIntegrationModel } = require("../model/social-integration.model");
+    await SocialIntegrationModel.findByIdAndUpdate(integrationId, {
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
+      tokenExpiredAt,
+    });
+
+    console.log(`[Zalo Service Token] Đã làm mới company-level token thành công cho ID: ${integrationId}`);
+    return newAccessToken;
   },
 
   /**
@@ -341,16 +422,6 @@ export const zaloMessengerService = {
     const oldestMessage = orderedMessages[0];
     const latestMessage = orderedMessages[orderedMessages.length - 1];
 
-    if (!beforeDate && options?.sync && latestMessage?.direction === "inbound" && latestMessage.text) {
-      aiAutoReplyService.triggerAutoReply(
-        "zalo",
-        oaId,
-        conversation._id.toString(),
-        latestMessage.text,
-        latestMessage.messageId
-      );
-    }
-
     return {
       messages: orderedMessages,
       pagination: {
@@ -530,7 +601,18 @@ export const zaloMessengerService = {
     if (oaId === "579745863508352884") {
       console.log("[Zalo Service Webhook] Phát hiện payload test từ Zalo Webhooks UI. Tự động chuyển đổi sang Zalo OA ID active.");
       const activeUser = await UserModel.findOne({ "zaloIntegration.isConnected": true });
-      oaId = activeUser?.zaloIntegration?.oaId || process.env.ZALO_OA_ID || "270721158521070717";
+      let foundOaId = activeUser?.zaloIntegration?.oaId;
+      if (!foundOaId) {
+        const { SocialIntegrationModel } = require("../model/social-integration.model");
+        const companyIntegration = await SocialIntegrationModel.findOne({
+          platform: "Zalo",
+          isConnected: true
+        });
+        if (companyIntegration) {
+          foundOaId = companyIntegration.username;
+        }
+      }
+      oaId = foundOaId || process.env.ZALO_OA_ID || "270721158521070717";
     }
 
     const eventName = body.event_name;
@@ -549,6 +631,11 @@ export const zaloMessengerService = {
     const senderId = body.sender?.id; // User ID OA-Scoped của khách hàng
     const messageId = body.message?.msg_id || `zalo_in_${Date.now()}`;
     const timestamp = body.timestamp ? new Date(Number(body.timestamp)) : new Date();
+    const duplicateMsg = await ZaloMessageModel.findOne({ messageId });
+    if (duplicateMsg) {
+      console.info(`[Zalo Service Webhook] Bo qua webhook trung cho messageId=${messageId}.`);
+      return;
+    }
 
     let text = body.message?.text || "";
     const attachments: any[] = [];
@@ -571,14 +658,30 @@ export const zaloMessengerService = {
       if (!text) text = `[Link] ${body.message?.url || ""}`;
     }
 
-    // Lấy thông tin tài khoản OA của user để kiểm tra kết nối
+    // Lấy thông tin kết nối từ User hoặc Company Integration
     const user = await UserModel.findOne({
       "zaloIntegration.isConnected": true,
       "zaloIntegration.oaId": oaId
     });
 
+    let isConnected = !!user;
+    let isMock = user?.zaloIntegration?.isMock ?? false;
+
     if (!user) {
-      console.warn(`[Zalo Service Webhook] Không tìm thấy user ERP nào đang liên kết với OA ID: ${oaId}`);
+      const { SocialIntegrationModel } = require("../model/social-integration.model");
+      const companyIntegration = await SocialIntegrationModel.findOne({
+        platform: "Zalo",
+        username: oaId,
+        isConnected: true
+      });
+      if (companyIntegration) {
+        isConnected = true;
+        isMock = !!companyIntegration.isMock;
+      }
+    }
+
+    if (!isConnected) {
+      console.warn(`[Zalo Service Webhook] Không tìm thấy liên kết Zalo OA hoạt động nào cho OA ID: ${oaId}`);
       return;
     }
 
@@ -588,7 +691,7 @@ export const zaloMessengerService = {
     let avatarUrl = conversation?.avatarUrl || "";
 
     // Thử lấy profile từ Zalo API nếu có Access Token hợp lệ, không phải Mock và thông tin hiện tại đang là mặc định
-    if (!user.zaloIntegration?.isMock && (senderName === "Khách hàng Zalo" || !avatarUrl)) {
+    if (!isMock && (senderName === "Khách hàng Zalo" || !avatarUrl)) {
       try {
         const token = await this.getAccessTokenByOAId(oaId);
         if (token) {

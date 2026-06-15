@@ -171,6 +171,7 @@ export default function CRMTab() {
         : await fbMessengerService.getMessages(conversationId, { limit: 20, before, sync: !!options?.syncChannel });
 
       // Ngăn chặn race-condition khi người dùng chuyển đổi khách hàng nhanh
+      // conversationId o day la Mongo _id cua conversation trong DB, khong phai PSID/UID cua khach.
       if (activeCustomerRef.current?.id !== conversationId) {
         console.log(`[FE CRMTab] Race-condition detected: Bỏ qua kết quả load tin nhắn của khách hàng cũ (${conversationId}).`);
         return;
@@ -488,6 +489,12 @@ export default function CRMTab() {
     setInboxCustomers((prev) =>
       prev.map((c) => (c.id === cust.id ? { ...c, unreadCount: 0 } : c))
     );
+    const markReadPromise = cust.channel === "zalo"
+      ? zaloMessengerService.markRead(cust.id)
+      : fbMessengerService.markRead(cust.id);
+    markReadPromise.catch((err) => {
+      console.error("[FE CRMTab] Khong the mark-read khi mo conversation:", err);
+    });
   };
 
   const handleLoadOlderMessages = async () => {

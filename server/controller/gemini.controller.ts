@@ -40,6 +40,13 @@ function handleGeminiError(res: Response, error: any, defaultMessage: string) {
   });
 }
 
+function getTextModelCost(aiConfig: any): number {
+  const model = String(aiConfig?.model || "").toLowerCase();
+  if (model.includes("pro")) return 10;
+  if (model.includes("lite")) return 1.5;
+  return 2.5; // Default flash
+}
+
 export const geminiController = {
   /**
    * POST /api/v1/gemini/chat
@@ -52,9 +59,10 @@ export const geminiController = {
         return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
       }
 
-      await walletService.checkBalance(userId, API_COSTS.GEMINI_CHAT);
+      const cost = getTextModelCost(aiConfig);
+      await walletService.checkBalance(userId, cost);
       const result = await geminiService.chat(message, history, aiConfig);
-      await walletService.deductBalance(userId, API_COSTS.GEMINI_CHAT, "Chi phí sử dụng Trợ lý AI Chatbot");
+      await walletService.deductBalance(userId, cost, "Chi phí sử dụng Trợ lý AI Chatbot");
       return res.status(200).json(result);
     } catch (error: any) {
       console.error("[geminiController.chat] Error:", error);
@@ -91,7 +99,8 @@ export const geminiController = {
         return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
       }
 
-      await walletService.checkBalance(userId, API_COSTS.GEMINI_CHAT);
+      const cost = getTextModelCost(aiConfig);
+      await walletService.checkBalance(userId, cost);
       const startedAt = Date.now();
       const ragContext = await aiKnowledgeService.searchRelevantContext({
         companyCode,
@@ -121,7 +130,7 @@ export const geminiController = {
         status: "preview",
       });
 
-      await walletService.deductBalance(userId, API_COSTS.GEMINI_CHAT, "Chi phí test câu trả lời tự động AI");
+      await walletService.deductBalance(userId, cost, "Chi phí test câu trả lời tự động AI");
       return res.status(200).json({
         ...result,
         mode: effectiveRagContext.contextText ? "trained" : "default",
@@ -288,7 +297,10 @@ export const geminiController = {
         return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
       }
 
-      await walletService.checkBalance(userId, API_COSTS.GEMINI_IMAGE);
+      const model = String(modelName || "gemini-3.1-flash-image-preview").toLowerCase();
+      const cost = model.includes("pro") ? 57 : 27.5;
+
+      await walletService.checkBalance(userId, cost);
       const result = await geminiService.generateImage(prompt, {
         aspectRatio,
         modelName,
@@ -305,7 +317,7 @@ export const geminiController = {
         });
       }
 
-      await walletService.deductBalance(userId, API_COSTS.GEMINI_IMAGE, "Chi phí sinh ảnh minh họa AI");
+      await walletService.deductBalance(userId, cost, "Chi phí sinh ảnh minh họa AI");
       return res.status(200).json({
         ...result,
         url: record ? record.url : result.url,
@@ -328,7 +340,28 @@ export const geminiController = {
         return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
       }
 
-      await walletService.checkBalance(userId, API_COSTS.GEMINI_VIDEO);
+      // Calculate video cost based on model, resolution, duration
+      const isLite = String(modelName).toLowerCase().includes("lite");
+      const is1080p = String(resolution).toLowerCase().includes("1080");
+      const duration = Number(durationSeconds) || 8;
+      
+      let cost = 324; // default iGen Veo 3.1 Fast 720p 8s
+      if (isLite) {
+        if (is1080p) {
+          cost = duration <= 4 ? 129.6 : duration <= 6 ? 194.4 : 259.2;
+        } else {
+          cost = duration <= 4 ? 81.0 : duration <= 6 ? 121.5 : 162.0;
+        }
+      } else {
+        // Fast
+        if (is1080p) {
+          cost = duration <= 4 ? 194.4 : duration <= 6 ? 291.6 : 388.8;
+        } else {
+          cost = duration <= 4 ? 162.0 : duration <= 6 ? 243.0 : 324.0;
+        }
+      }
+
+      await walletService.checkBalance(userId, cost);
       const result = await geminiService.generateVideo(prompt, durationSeconds, {
         aspectRatio,
         modelName,
@@ -357,7 +390,7 @@ export const geminiController = {
         }
       }
 
-      await walletService.deductBalance(userId, API_COSTS.GEMINI_VIDEO, "Chi phí sinh video AI");
+      await walletService.deductBalance(userId, cost, "Chi phí sinh video AI");
       return res.status(200).json({
         ...result,
         url: record ? record.url : result.url,
@@ -516,7 +549,16 @@ A: Hoàn toàn MIỄN PHÍ. Đội ngũ kỹ thuật của iGen sẽ hỗ trợ 
 
       const textToSpeak = req.body.textToSpeak || "";
       const charCount = textToSpeak.length;
-      const cost = Math.max(API_COSTS.ELEVENLABS_MIN, charCount * API_COSTS.ELEVENLABS_TTS_CHAR);
+      const model = String(req.body.model || "").toLowerCase();
+      
+      let cost = 0;
+      if (model.includes("flash") || model.includes("pro")) {
+        const seconds = Math.max(1, Math.ceil(charCount / 13));
+        const rate = model.includes("pro") ? 0.255 : 0.128;
+        cost = Number((seconds * rate).toFixed(3));
+      } else {
+        cost = Math.max(API_COSTS.ELEVENLABS_MIN, charCount * API_COSTS.ELEVENLABS_TTS_CHAR);
+      }
 
       await walletService.checkBalance(userId, cost);
       const record = await geminiService.generateVoice(userId, req.body);

@@ -3,9 +3,10 @@ import { useAuth } from "../context/AuthContext";
 import { authService } from "../services/authService";
 import { UserProfile } from "../types";
 import { toast } from "./Toast";
-import { Users, Shield, RefreshCw, Plus, Building2, Mail, Lock, User, X, SlidersHorizontal } from "lucide-react";
+import { Users, Shield, RefreshCw, Plus, Building2, Mail, Lock, User, X, SlidersHorizontal, Wallet } from "lucide-react";
 import { parseFirebaseError } from "../utils/firebaseErrorParser";
 import { rolePermissionService, RolePermission, Permission } from "../services/rolePermissionService";
+import { AdminTransactionInfo, AdminUserBalance, walletService } from "../services/walletService";
 
 export default function UserAdminTab() {
   const { userProfile } = useAuth();
@@ -20,6 +21,8 @@ export default function UserAdminTab() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStartDate, setFilterStartDate] = useState("");
   const [filterEndDate, setFilterEndDate] = useState("");
+  const [userPage, setUserPage] = useState(1);
+  const USERS_PER_PAGE = 8;
   
   // Register Company Modal States
   const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
@@ -61,7 +64,18 @@ export default function UserAdminTab() {
       : (user?.heygenAccess?.avatarId || "-");
 
   // Sub-tabs State
-  const [activeTab, setActiveTab] = useState<"users" | "roles">("users");
+  const [activeTab, setActiveTab] = useState<"users" | "roles" | "balance">("users");
+  const [balanceUsers, setBalanceUsers] = useState<AdminUserBalance[]>([]);
+  const [balanceLoading, setBalanceLoading] = useState(false);
+  const [isBalanceModalOpen, setIsBalanceModalOpen] = useState(false);
+  const [editingBalanceUser, setEditingBalanceUser] = useState<AdminUserBalance | null>(null);
+  const [balanceAction, setBalanceAction] = useState<"add" | "subtract">("add");
+  const [newBalanceValue, setNewBalanceValue] = useState("");
+  const [balanceNote, setBalanceNote] = useState("");
+  const [submittingBalance, setSubmittingBalance] = useState(false);
+  const [selectedBalanceUserId, setSelectedBalanceUserId] = useState<string>("");
+  const [balanceTransactions, setBalanceTransactions] = useState<AdminTransactionInfo[]>([]);
+  const [transactionsLoading, setTransactionsLoading] = useState(false);
 
   // Role Permission States
   const [rolePermissionsList, setRolePermissionsList] = useState<RolePermission[]>([]);
@@ -182,12 +196,61 @@ export default function UserAdminTab() {
     }
   };
 
+  const fetchAdminBalances = async () => {
+    if (userProfile?.role !== "superadmin") return;
+
+    setBalanceLoading(true);
+    try {
+      const companyFilter = selectedCompanyCode === "all" ? undefined : selectedCompanyCode;
+      const data = await walletService.getAdminBalances(companyFilter);
+      setBalanceUsers(data);
+      setSelectedBalanceUserId((prev) => {
+        if (!data.length) return "";
+        return data.some((item) => item.userId === prev) ? prev : data[0].userId;
+      });
+    } catch (error) {
+      console.error("Loi khi tai danh sach so du:", error);
+      toast.error("Khong the tai danh sach so du nguoi dung.");
+    } finally {
+      setBalanceLoading(false);
+    }
+  };
+
+  const fetchAdminTransactions = async (targetUserId: string) => {
+    if (!targetUserId) {
+      setBalanceTransactions([]);
+      return;
+    }
+
+    setTransactionsLoading(true);
+    try {
+      const data = await walletService.getAdminUserTransactions(targetUserId, 20);
+      setBalanceTransactions(data);
+    } catch (error) {
+      console.error("Loi khi tai lich su giao dich:", error);
+      toast.error("Khong the tai lich su giao dich cua nguoi dung.");
+    } finally {
+      setTransactionsLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchUsers();
     fetchCompanies();
     fetchRolePermissions();
     fetchSystemPermissions();
+    fetchAdminBalances();
   }, [userProfile?.uid, userProfile?.role, userProfile?.companyCode, selectedCompanyCode]);
+
+  useEffect(() => {
+    if (activeTab === "balance" && selectedBalanceUserId) {
+      fetchAdminTransactions(selectedBalanceUserId);
+    }
+  }, [activeTab, selectedBalanceUserId]);
+
+  useEffect(() => {
+    setUserPage(1);
+  }, [searchQuery, filterStartDate, filterEndDate, selectedCompanyCode, userProfile?.role]);
 
   const getAvailableRoles = () => {
     const defaultRoles = [
@@ -266,6 +329,18 @@ export default function UserAdminTab() {
 
     return true;
   });
+
+  const balanceByUserId = balanceUsers.reduce<Record<string, AdminUserBalance>>((acc, item) => {
+    acc[item.userId] = item;
+    return acc;
+  }, {});
+
+  const totalUserPages = Math.max(1, Math.ceil(visibleUsers.length / USERS_PER_PAGE));
+  const safeUserPage = Math.min(userPage, totalUserPages);
+  const paginatedVisibleUsers = visibleUsers.slice(
+    (safeUserPage - 1) * USERS_PER_PAGE,
+    safeUserPage * USERS_PER_PAGE
+  );
 
   const handleRoleChange = async (targetUid: string, targetName: string, newRole: "user" | "manager" | "admin" | "superadmin") => {
     if (targetUid === userProfile?.uid) {
@@ -412,6 +487,78 @@ export default function UserAdminTab() {
     } finally {
       setSubmittingUser(false);
     }
+  };
+
+  const openBalanceEditor = (targetUser: AdminUserBalance, action: "add" | "subtract" = "add") => {
+    setEditingBalanceUser(targetUser);
+    setBalanceAction(action);
+    setNewBalanceValue("");
+    setBalanceNote("");
+    setIsBalanceModalOpen(true);
+  };
+
+  const handleSaveBalance = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingBalanceUser) return;
+
+    const parsedAmount = Number(newBalanceValue);
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      toast.warning("So tien dieu chinh phai lon hon 0.");
+      return;
+    }
+
+    const currentBalance = Number(editingBalanceUser.balance ?? 0);
+    const nextBalance =
+      balanceAction === "add"
+        ? currentBalance + parsedAmount
+        : currentBalance - parsedAmount;
+
+    if (nextBalance < 0) {
+      toast.warning("Khong the tru vuot qua so du hien tai.");
+      return;
+    }
+
+    setSubmittingBalance(true);
+    try {
+      const updated = await walletService.updateUserBalance(
+        editingBalanceUser.userId,
+        Number(nextBalance.toFixed(2)),
+        balanceNote.trim() ||
+          `${balanceAction === "add" ? "Cong" : "Tru"} ${parsedAmount.toFixed(2)} Credit tu man hinh quan ly user`
+      );
+
+      setBalanceUsers((prev) =>
+        prev.map((item) =>
+          item.userId === updated.userId
+            ? { ...item, ...updated }
+            : item
+        )
+      );
+      if (selectedBalanceUserId === updated.userId) {
+        await fetchAdminTransactions(updated.userId);
+      }
+
+      toast.success(
+        `${balanceAction === "add" ? "Da cong" : "Da tru"} ${parsedAmount.toFixed(2)} Credit cho "${updated.displayName}".`
+      );
+      setIsBalanceModalOpen(false);
+      setEditingBalanceUser(null);
+      setBalanceNote("");
+      setNewBalanceValue("");
+    } catch (error: any) {
+      console.error("Loi cap nhat so du:", error);
+      toast.error(error.message || "Khong the cap nhat so du nguoi dung.");
+    } finally {
+      setSubmittingBalance(false);
+    }
+  };
+
+  const closeBalanceModal = () => {
+    setIsBalanceModalOpen(false);
+    setEditingBalanceUser(null);
+    setBalanceAction("add");
+    setNewBalanceValue("");
+    setBalanceNote("");
   };
 
   const openHeyGenEditor = (user: UserProfile) => {
@@ -568,6 +715,19 @@ export default function UserAdminTab() {
         >
           🛡️ Vai trò & Phân quyền
         </button>
+        {userProfile?.role === "superadmin" && (
+          <button
+            onClick={() => setActiveTab("balance")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+              activeTab === "balance"
+                ? "bg-slate-900 text-white shadow-xs"
+                : "text-slate-600 hover:bg-slate-250"
+            }`}
+          >
+            <Wallet className="h-3.5 w-3.5" />
+            Số dư người dùng
+          </button>
+        )}
       </div>
 
       {activeTab === "users" ? (
@@ -649,8 +809,9 @@ export default function UserAdminTab() {
                 Không tìm thấy tài khoản nào trong hệ thống!
               </div>
             ) : (
-              <div className="bg-white border border-gray-150 rounded-2xl overflow-hidden shadow-xs">
-                <table className="w-full text-left border-collapse text-xs font-sans">
+              <div className="bg-white border border-gray-150 rounded-2xl overflow-hidden shadow-xs max-w-full">
+                <div className="max-w-full overflow-x-auto overscroll-x-contain">
+                <table className="w-full min-w-[1180px] text-left border-collapse text-xs font-sans">
                   <thead>
                     <tr className="bg-gray-50 border-b border-gray-150 text-[10px] font-bold text-gray-400 font-mono uppercase tracking-wider">
                       <th className="p-4 pl-6">Thành viên</th>
@@ -658,13 +819,15 @@ export default function UserAdminTab() {
                       {userProfile?.role === "superadmin" && <th className="p-4">Doanh nghiệp</th>}
                       <th className="p-4">Ngày đăng ký</th>
                       <th className="p-4">Quyền hạn (Role)</th>
+                      {userProfile?.role === "superadmin" && <th className="p-4">Số dư</th>}
                       <th className="p-4">HeyGen</th>
                       <th className="p-4 pr-6 text-center">Hành động cấp quyền</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 text-slate-700">
-                    {visibleUsers.map((usr) => {
+                    {paginatedVisibleUsers.map((usr) => {
                       const isSelf = usr.uid === userProfile?.uid;
+                      const userBalance = balanceByUserId[usr.uid];
                       return (
                         <tr key={usr.uid} className="hover:bg-slate-50/40 transition-colors">
                           {/* Name / Avatar */}
@@ -732,11 +895,50 @@ export default function UserAdminTab() {
                                   ? "admin"
                                   : usr.role === "manager"
                                     ? "manager"
-                                    : usr.role === "user"
+                                : usr.role === "user"
                                       ? "user"
                                       : (rolePermissionsList.find(rp => rp.role === usr.role)?.displayName || usr.role)}
                             </span>
                           </td>
+
+                          {userProfile?.role === "superadmin" && (
+                            <td className="p-4 min-w-[170px]">
+                              <div className="flex items-center gap-2 whitespace-nowrap">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedBalanceUserId(usr.uid);
+                                    setActiveTab("balance");
+                                  }}
+                                  className="inline-flex items-center gap-2 rounded-full border border-sky-100 bg-sky-50 px-3 py-1.5 text-sky-900 transition hover:bg-sky-100"
+                                >
+                                  <Wallet className="h-3.5 w-3.5 text-sky-600" />
+                                  <span className="text-xs font-bold">{new Intl.NumberFormat("vi-VN", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(userBalance?.balance || 0)} Credit</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    openBalanceEditor(
+                                      userBalance || {
+                                        userId: usr.uid,
+                                        displayName: usr.displayName,
+                                        email: usr.email,
+                                        role: usr.role,
+                                        companyCode: usr.companyCode || "",
+                                        companyName: usr.companyName || "",
+                                        balance: 0,
+                                        currency: "Credit",
+                                      },
+                                      "add"
+                                    )
+                                  }
+                                  className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[10px] font-bold text-slate-700 transition hover:bg-slate-50"
+                                >
+                                  Sửa
+                                </button>
+                              </div>
+                            </td>
+                          )}
 
                           <td className="p-4">
                             <div className="space-y-1">
@@ -804,10 +1006,251 @@ export default function UserAdminTab() {
                     })}
                   </tbody>
                 </table>
+                </div>
+                <div className="flex flex-col gap-3 border-t border-gray-100 bg-gray-50/70 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="text-[11px] font-mono text-slate-500">
+                    Trang {safeUserPage} / {totalUserPages} · Hien thi {paginatedVisibleUsers.length} / {visibleUsers.length} tai khoan
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setUserPage((prev) => Math.max(1, prev - 1))}
+                      disabled={safeUserPage === 1}
+                      className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-[11px] font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Trang trước
+                    </button>
+                    {Array.from({ length: totalUserPages }, (_, index) => index + 1)
+                      .slice(Math.max(0, safeUserPage - 3), Math.min(totalUserPages, safeUserPage + 2))
+                      .map((page) => (
+                        <button
+                          key={page}
+                          type="button"
+                          onClick={() => setUserPage(page)}
+                          className={`h-9 min-w-9 rounded-xl px-3 text-[11px] font-bold transition ${
+                            page === safeUserPage
+                              ? "bg-slate-900 text-white"
+                              : "border border-gray-200 bg-white text-slate-700 hover:bg-slate-50"
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      ))}
+                    <button
+                      type="button"
+                      onClick={() => setUserPage((prev) => Math.min(totalUserPages, prev + 1))}
+                      disabled={safeUserPage === totalUserPages}
+                      className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-[11px] font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Trang sau
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
           </div>
         </>
+      ) : activeTab === "balance" ? (
+        <div className="flex-1 p-6 overflow-y-auto space-y-6" id="user_balance_tab_content">
+          <div className="flex flex-col sm:flex-row justify-between sm:items-center bg-gray-50 p-4 rounded-2xl border border-gray-150 gap-4">
+            <div>
+              <h5 className="font-bold text-slate-800 text-sm">Quan ly so du vi nguoi dung</h5>
+              <p className="text-xs text-gray-500 mt-0.5">Chi superadmin moi duoc chinh sua balance cua nguoi dung.</p>
+            </div>
+            <button
+              type="button"
+              onClick={fetchAdminBalances}
+              disabled={balanceLoading}
+              className="p-2 px-3.5 bg-white hover:bg-slate-100 border border-gray-205 rounded-xl text-xs font-bold font-sans flex items-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-95 disabled:opacity-50"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${balanceLoading ? "animate-spin" : ""}`} />
+              Tai lai so du
+            </button>
+          </div>
+
+          {balanceLoading ? (
+            <div className="h-48 flex flex-col items-center justify-center text-center">
+              <RefreshCw className="h-8 w-8 text-indigo-650 animate-spin mb-3" />
+              <span className="text-xs font-bold font-mono text-indigo-800 uppercase tracking-widest">Dang tai du lieu so du...</span>
+            </div>
+          ) : balanceUsers.length === 0 ? (
+            <div className="p-12 text-center bg-gray-50 text-gray-400 italic rounded-2xl border border-dashed">
+              Chua co nguoi dung nao de dieu chinh so du.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.65fr)_minmax(320px,0.95fr)] gap-6">
+              <div className="bg-white border border-gray-150 rounded-2xl overflow-hidden shadow-xs max-w-full">
+                <div className="max-w-full overflow-x-auto overscroll-x-contain">
+                <table className="w-full min-w-[1280px] text-left border-collapse text-xs font-sans">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-150 text-[10px] font-bold text-gray-400 font-mono uppercase tracking-wider">
+                      <th className="p-4 pl-6">Nguoi dung</th>
+                      <th className="p-4">Doanh nghiep</th>
+                      <th className="p-4">Vai tro</th>
+                      <th className="p-4">Balance</th>
+                      <th className="p-4">Cap nhat</th>
+                      <th className="p-4 pr-6 text-center">Tac vu</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 text-slate-700">
+                    {balanceUsers.map((item) => {
+                      const isSelected = item.userId === selectedBalanceUserId;
+                      return (
+                        <tr
+                          key={item.userId}
+                          className={`transition-colors ${isSelected ? "bg-emerald-50/60" : "hover:bg-slate-50/40"}`}
+                        >
+                          <td className="p-4 pl-6 cursor-pointer" onClick={() => setSelectedBalanceUserId(item.userId)}>
+                            <div>
+                              <div className="font-semibold text-slate-800">{item.displayName}</div>
+                              <div className="text-[11px] text-gray-500 font-mono">{item.email}</div>
+                            </div>
+                          </td>
+                          <td className="p-4 cursor-pointer" onClick={() => setSelectedBalanceUserId(item.userId)}>
+                            <div className="font-semibold text-slate-700">{item.companyName || "He thong"}</div>
+                            <div className="text-[10px] text-gray-400 font-mono">{item.companyCode || "SYSTEM"}</div>
+                          </td>
+                          <td className="p-4">
+                            <span className="px-2.5 py-0.75 rounded-full font-bold font-mono text-[9px] uppercase tracking-wider inline-flex items-center gap-1.5 bg-slate-50 border border-slate-200 text-slate-700">
+                              <Shield className="h-3 w-3" />
+                              {item.role}
+                            </span>
+                          </td>
+                          <td className="p-4 min-w-[170px]">
+                            <div className="font-bold text-emerald-700">{new Intl.NumberFormat("vi-VN", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(item.balance || 0)} Credit</div>
+                            <div className="mt-1 text-[10px] text-gray-400 font-mono">{item.currency}</div>
+                          </td>
+                          <td className="p-4 text-gray-500 font-mono">
+                            {item.updatedAt ? new Date(item.updatedAt).toLocaleString("vi-VN") : "-"}
+                          </td>
+                          <td className="p-4 pr-6">
+                            <div className="flex items-center justify-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedBalanceUserId(item.userId);
+                                  setActiveTab("balance");
+                                }}
+                                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-bold text-slate-700 transition hover:bg-slate-50"
+                              >
+                                Xem chi tiet
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => openBalanceEditor(item, "add")}
+                                className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[11px] font-bold text-emerald-800 transition hover:bg-emerald-100"
+                              >
+                                Dieu chinh
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                </div>
+                <div className="flex flex-col gap-3 border-t border-gray-100 bg-gray-50/70 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="text-[11px] font-mono text-slate-500">
+                    Trang {safeUserPage} / {totalUserPages} · Hien thi {paginatedVisibleUsers.length} / {visibleUsers.length} tai khoan
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setUserPage((prev) => Math.max(1, prev - 1))}
+                      disabled={safeUserPage === 1}
+                      className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-[11px] font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Trang truoc
+                    </button>
+                    {Array.from({ length: totalUserPages }, (_, index) => index + 1)
+                      .slice(Math.max(0, safeUserPage - 3), Math.min(totalUserPages, safeUserPage + 2))
+                      .map((page) => (
+                        <button
+                          key={page}
+                          type="button"
+                          onClick={() => setUserPage(page)}
+                          className={`h-9 min-w-9 rounded-xl px-3 text-[11px] font-bold transition ${
+                            page === safeUserPage
+                              ? "bg-slate-900 text-white"
+                              : "border border-gray-200 bg-white text-slate-700 hover:bg-slate-50"
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      ))}
+                    <button
+                      type="button"
+                      onClick={() => setUserPage((prev) => Math.min(totalUserPages, prev + 1))}
+                      disabled={safeUserPage === totalUserPages}
+                      className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-[11px] font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Trang sau
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white border border-gray-150 rounded-2xl shadow-xs p-5 space-y-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h6 className="font-bold text-slate-800 text-sm">Lich su giao dich</h6>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {balanceUsers.find((item) => item.userId === selectedBalanceUserId)?.displayName || "Chon nguoi dung"}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => fetchAdminTransactions(selectedBalanceUserId)}
+                    disabled={!selectedBalanceUserId || transactionsLoading}
+                    className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-[11px] font-bold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 ${transactionsLoading ? "animate-spin" : ""}`} />
+                    Tai lai
+                  </button>
+                </div>
+
+                {transactionsLoading ? (
+                  <div className="h-48 flex items-center justify-center text-center">
+                    <RefreshCw className="h-6 w-6 text-emerald-600 animate-spin" />
+                  </div>
+                ) : balanceTransactions.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-6 text-center text-xs text-gray-500">
+                    Chua co giao dich nao cho tai khoan nay.
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-[540px] overflow-y-auto pr-1">
+                    {balanceTransactions.map((transaction) => (
+                      <div key={transaction._id} className="rounded-2xl border border-gray-150 p-3.5 bg-gray-50/60">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold font-mono uppercase ${
+                            transaction.type === "deposit"
+                              ? "bg-emerald-100 text-emerald-800"
+                              : transaction.type === "withdraw"
+                                ? "bg-amber-100 text-amber-800"
+                                : "bg-slate-200 text-slate-700"
+                          }`}>
+                            {transaction.type}
+                          </span>
+                          <span className="font-bold text-slate-800">{new Intl.NumberFormat("vi-VN", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(transaction.amount || 0)} Credit</span>
+                        </div>
+                        <div className="mt-2 text-[11px] text-gray-500 font-mono">
+                          {new Date(transaction.createdAt).toLocaleString("vi-VN")}
+                        </div>
+                        <div className="mt-2 text-xs text-slate-600 leading-5">
+                          {transaction.description || "Khong co mo ta giao dich."}
+                        </div>
+                        <div className="mt-2 text-[10px] text-gray-400 font-mono">
+                          Order: {transaction.orderCode} · Status: {transaction.status}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       ) : (
         <div className="flex-1 p-6 overflow-y-auto space-y-6" id="roles_permissions_tab_content">
           <div className="flex flex-col sm:flex-row justify-between sm:items-center bg-gray-50 p-4 rounded-2xl border border-gray-150 gap-4">
@@ -1388,6 +1831,135 @@ export default function UserAdminTab() {
       )}
 
       {/* Modal Cấu hình Phân quyền Vai trò */}
+      {isBalanceModalOpen && editingBalanceUser && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl max-w-[440px] w-full overflow-hidden transform transition-all scale-100 flex flex-col">
+            <div className="bg-emerald-600 text-white px-5 py-4 flex justify-between items-center shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-white/15 rounded-lg">
+                  <Wallet className="h-4 w-4 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm uppercase tracking-wider font-sans">
+                    {balanceAction === "add" ? "Cong so du nguoi dung" : "Tru so du nguoi dung"}
+                  </h3>
+                  <p className="mt-0.5 text-[11px] text-emerald-100">
+                    {editingBalanceUser.displayName}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={closeBalanceModal}
+                className="p-1.5 hover:bg-emerald-500 rounded-md text-emerald-100 hover:text-white transition-all cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <form onSubmit={handleSaveBalance} className="flex flex-col">
+              <div className="p-5 space-y-3.5 text-left">
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setBalanceAction("add")}
+                    className={`rounded-xl border px-3 py-2.5 text-left transition ${
+                      balanceAction === "add"
+                        ? "border-emerald-300 bg-emerald-50 text-emerald-800"
+                        : "border-gray-200 bg-white text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    <div className="text-[10px] font-bold uppercase tracking-wider">Tac vu</div>
+                    <div className="mt-0.5 text-sm font-bold">+ Cong</div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBalanceAction("subtract")}
+                    className={`rounded-xl border px-3 py-2.5 text-left transition ${
+                      balanceAction === "subtract"
+                        ? "border-amber-300 bg-amber-50 text-amber-800"
+                        : "border-gray-200 bg-white text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    <div className="text-[10px] font-bold uppercase tracking-wider">Tac vu</div>
+                    <div className="mt-0.5 text-sm font-bold">- Tru</div>
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">So du hien tai</div>
+                    <div className="mt-1 text-lg font-bold text-slate-800">
+                      {new Intl.NumberFormat("vi-VN", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(editingBalanceUser.balance || 0)} Credit
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-dashed border-gray-200 bg-white px-3 py-3">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Sau dieu chinh</div>
+                    <div className="mt-1 text-lg font-bold text-slate-800">
+                      {new Intl.NumberFormat("vi-VN", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(
+                        Math.max(
+                          0,
+                          Number(
+                            (
+                              Number(editingBalanceUser.balance || 0) +
+                              (balanceAction === "add" ? 1 : -1) * (Number(newBalanceValue || 0) || 0)
+                            ).toFixed(2)
+                          )
+                        )
+                      )} Credit
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
+                    So tien {balanceAction === "add" ? "cong them" : "tru di"} (Credit)
+                  </label>
+                  <input
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    value={newBalanceValue}
+                    onChange={(e) => setNewBalanceValue(e.target.value)}
+                    className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Ghi chu noi bo</label>
+                  <textarea
+                    value={balanceNote}
+                    onChange={(e) => setBalanceNote(e.target.value)}
+                    rows={2}
+                    placeholder="Vi du: cap bu cong no, tang thuong, dieu chinh sau doi soat..."
+                    className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none resize-none"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2 justify-end px-5 py-4 border-t border-gray-100 bg-gray-50/70">
+                <button
+                  type="button"
+                  onClick={closeBalanceModal}
+                  className="min-w-[94px] px-4 py-2 border border-gray-200 bg-white rounded-xl text-xs font-bold text-gray-500 hover:bg-gray-50 transition-all cursor-pointer"
+                >
+                  Huy bo
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingBalance}
+                  className="min-w-[150px] px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-600/10 flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                >
+                  {submittingBalance ? (
+                    <>
+                      <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                      Dang luu...
+                    </>
+                  ) : (
+                    balanceAction === "add" ? "Xac nhan cong tien" : "Xac nhan tru tien"
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {isRoleModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl max-w-2xl w-full overflow-hidden transform transition-all scale-100 flex flex-col max-h-[90vh]">

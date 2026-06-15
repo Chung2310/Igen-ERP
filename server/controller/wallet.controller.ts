@@ -1,30 +1,22 @@
 import { Response } from "express";
-import { AuthenticatedRequest } from "../middleware/auth";
-import { WalletModel } from "../model/wallet.model";
-import { TransactionModel } from "../model/transaction.model";
 import { payOS, isPayOSConfigured } from "../config/payos";
+import { AuthenticatedRequest } from "../middleware/auth";
+import { TransactionModel } from "../model/transaction.model";
+import { WalletModel } from "../model/wallet.model";
+import { walletService } from "../service/wallet.service";
 
-// Tỷ giá quy đổi cố định: 1 USD = 25,400 VND
+// Ty gia quy doi co dinh: 1 USD = 25,400 VND
 const EXCHANGE_RATE = 25400;
 
 export const walletController = {
-  /**
-   * GET /api/v1/wallet/balance
-   * Lấy số dư ví hiện tại của người dùng
-   */
   async getBalance(req: AuthenticatedRequest, res: Response) {
     try {
       const userId = req.user?.id;
       if (!userId) {
-        return res.status(401).json({ status: "error", message: "Người dùng chưa xác thực." });
+        return res.status(401).json({ status: "error", message: "Nguoi dung chua xac thuc." });
       }
 
-      let wallet = await WalletModel.findOne({ userId });
-      if (!wallet) {
-        // Khởi tạo ví mới nếu chưa tồn tại
-        wallet = new WalletModel({ userId, balance: 0 });
-        await wallet.save();
-      }
+      const wallet = await walletService.getOrCreateWallet(userId);
 
       return res.status(200).json({
         status: "success",
@@ -40,15 +32,11 @@ export const walletController = {
     }
   },
 
-  /**
-   * GET /api/v1/wallet/transactions
-   * Lấy danh sách lịch sử giao dịch của người dùng
-   */
   async getTransactionHistory(req: AuthenticatedRequest, res: Response) {
     try {
       const userId = req.user?.id;
       if (!userId) {
-        return res.status(401).json({ status: "error", message: "Người dùng chưa xác thực." });
+        return res.status(401).json({ status: "error", message: "Nguoi dung chua xac thuc." });
       }
 
       const transactions = await TransactionModel.find({ userId }).sort({ createdAt: -1 });
@@ -67,36 +55,115 @@ export const walletController = {
     }
   },
 
-  /**
-   * POST /api/v1/wallet/deposit
-   * Tạo link thanh toán nạp tiền vào ví
-   */
+  async getAdminBalances(req: AuthenticatedRequest, res: Response) {
+    try {
+      const companyCode =
+        typeof req.query.companyCode === "string" ? req.query.companyCode : undefined;
+      const data = await walletService.getAdminBalanceList({ companyCode });
+
+      return res.status(200).json({
+        status: "success",
+        data,
+      });
+    } catch (error: any) {
+      console.error("[walletController.getAdminBalances] Error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Không thể tải danh sách số dư người dùng",
+        details: error.message,
+      });
+    }
+  },
+
+  async getAdminUserTransactions(req: AuthenticatedRequest, res: Response) {
+    try {
+      const userId =
+        typeof req.params.userId === "string" ? req.params.userId : "";
+      const limit = Number(req.query.limit || 20);
+
+      if (!userId) {
+        return res.status(400).json({ status: "error", message: "Thieu userId can truy van." });
+      }
+
+      const data = await walletService.getAdminTransactionHistory({
+        targetUserId: userId,
+        limit,
+      });
+
+      return res.status(200).json({
+        status: "success",
+        data,
+      });
+    } catch (error: any) {
+      console.error("[walletController.getAdminUserTransactions] Error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Không thể tải lịch sử giao dịch người dùng",
+        details: error.message,
+      });
+    }
+  },
+
+  async adminSetBalance(req: AuthenticatedRequest, res: Response) {
+    try {
+      const actorUserId = req.user?.id;
+      if (!actorUserId) {
+        return res.status(401).json({ status: "error", message: "Nguoi dung chua xac thuc." });
+      }
+
+      const { userId, balance, note } = req.body || {};
+      if (!userId) {
+        return res.status(400).json({ status: "error", message: "Thieu userId can cap nhat." });
+      }
+
+      const normalizedBalance = Number(balance);
+      if (!Number.isFinite(normalizedBalance) || normalizedBalance < 0) {
+        return res.status(400).json({
+          status: "error",
+          message: "So du moi phai la so hop le va khong am.",
+        });
+      }
+
+      const data = await walletService.adminSetBalance({
+        targetUserId: userId,
+        balance: normalizedBalance,
+        actorUserId,
+        actorEmail: req.user?.email,
+        note,
+      });
+
+      return res.status(200).json({
+        status: "success",
+        message: "Cap nhat so du thanh cong.",
+        data,
+      });
+    } catch (error: any) {
+      console.error("[walletController.adminSetBalance] Error:", error);
+      const statusCode = error.statusCode || 500;
+      return res.status(statusCode).json({
+        status: "error",
+        message: error.message || "Không thể cập nhật số dư người dùng  ",
+      });
+    }
+  },
+
   async createDepositLink(req: AuthenticatedRequest, res: Response) {
     try {
       const userId = req.user?.id;
       if (!userId) {
-        return res.status(401).json({ status: "error", message: "Người dùng chưa xác thực." });
+        return res.status(401).json({ status: "error", message: "Nguoi dung chua xac thuc." });
       }
 
-      // Số tiền nạp ở đây được coi là USD
-      const amount = parseFloat(req.body.amount);
-      if (isNaN(amount) || amount < 0.1) {
+      const amountVND = Math.round(parseFloat(req.body.amount));
+      if (isNaN(amountVND) || amountVND < 2000) {
         return res.status(400).json({
           status: "error",
-          message: "Số tiền nạp tối thiểu là 0.1 USD.",
+          message: "Số tiền nạp tối thiểu là 2,000 VND.",
         });
       }
 
-      // Quy đổi số tiền USD sang VND để thanh toán qua PayOS (yêu cầu tối thiểu 2,000 VND)
-      const amountVND = Math.round(amount * EXCHANGE_RATE);
-      if (amountVND < 2000) {
-        return res.status(400).json({
-          status: "error",
-          message: "Số tiền nạp sau quy đổi phải đạt tối thiểu 2,000 VND.",
-        });
-      }
+      const amountCredits = amountVND / 100; // 100 VND = 1 Credit
 
-      // Tạo mã đơn hàng độc nhất dạng số nguyên 32-bit (khoảng 8 chữ số)
       let orderCode: number;
       let existing: any;
       do {
@@ -105,10 +172,7 @@ export const walletController = {
       } while (existing);
 
       const description = req.body.description || `Nap tien iGen: ${orderCode}`;
-
-      // Lấy origin của client để cấu hình redirect URL
       const origin = req.headers.origin || req.headers.referer || "http://localhost:3000";
-      // Chuẩn hóa origin tránh có dấu gạch chéo cuối cùng
       const clientOrigin = origin.endsWith("/") ? origin.slice(0, -1) : origin;
 
       const cancelUrl = `${clientOrigin}/vi-nap-tien?status=cancelled&orderCode=${orderCode}`;
@@ -118,36 +182,33 @@ export const walletController = {
       let paymentLinkId = "";
 
       if (isPayOSConfigured && payOS) {
-        // 1. Tạo link thanh toán thực qua cổng PayOS (sử dụng số tiền VND quy đổi)
         try {
           const paymentResult = await payOS.paymentRequests.create({
             orderCode,
             amount: amountVND,
-            description: `Nap ${orderCode}`, // PayOS giới hạn ký tự latin không dấu và không chứa ký tự đặc biệt
+            description: `Nap ${orderCode}`,
             cancelUrl,
             returnUrl,
           });
           checkoutUrl = paymentResult.checkoutUrl;
           paymentLinkId = paymentResult.paymentLinkId;
         } catch (payosErr: any) {
-          console.error("[PayOS SDK Error] Không thể tạo link thanh toán:", payosErr);
+          console.error("[PayOS SDK Error] Khong the tao link thanh toan:", payosErr);
           return res.status(500).json({
             status: "error",
-            message: "Lỗi kết nối với cổng thanh toán PayOS. Vui lòng thử lại sau.",
+            message: "Loi ket noi voi cong thanh toan PayOS. Vui long thu lai sau.",
             details: payosErr.message,
           });
         }
       } else {
-        // 2. Chế độ Mock Mode (chuyền cả giá trị USD và VND quy đổi sang frontend)
-        checkoutUrl = `${clientOrigin}/vi-nap-tien?mock=1&orderCode=${orderCode}&amount=${amount}&amountVND=${amountVND}`;
+        checkoutUrl = `${clientOrigin}/vi-nap-tien?mock=1&orderCode=${orderCode}&amount=${amountCredits}&amountVND=${amountVND}`;
         paymentLinkId = `mock_link_${orderCode}`;
       }
 
-      // Lưu giao dịch vào DB ở trạng thái pending
       const transaction = new TransactionModel({
         userId,
         orderCode,
-        amount,
+        amount: amountCredits,
         type: "deposit",
         status: "pending",
         paymentLinkId,
@@ -161,7 +222,7 @@ export const walletController = {
         status: "success",
         data: {
           orderCode,
-          amount,
+          amount: amountCredits,
           checkoutUrl,
           paymentLinkId,
           isMock: !isPayOSConfigured,
@@ -171,143 +232,125 @@ export const walletController = {
       console.error("[walletController.createDepositLink] Error:", error);
       return res.status(500).json({
         status: "error",
-        message: "Không thể tạo yêu cầu nạp tiền",
+        message: "Khong the tao yeu cau nap tien",
         details: error.message,
       });
     }
   },
 
-  /**
-   * POST /api/v1/wallet/webhook
-   * Webhook nhận tín hiệu thanh toán từ PayOS
-   */
   async handlePayOSWebhook(req: AuthenticatedRequest, res: Response) {
     try {
       const webhookData = req.body;
-      console.log("[PayOS Webhook] Nhận request:", JSON.stringify(webhookData));
+      console.log("[PayOS Webhook] Nhan request:", JSON.stringify(webhookData));
 
       if (!isPayOSConfigured || !payOS) {
-        return res.status(400).json({ status: "error", message: "PayOS chưa được cấu hình." });
+        return res.status(400).json({ status: "error", message: "PayOS chua duoc cau hinh." });
       }
 
-      // Xác minh chữ ký dữ liệu từ PayOS
       let verifiedData: any;
       try {
         verifiedData = await payOS.webhooks.verify(webhookData);
       } catch (verifyErr: any) {
-        console.error("[PayOS Webhook] Xác thực chữ ký thất bại:", verifyErr);
-        return res.status(400).json({ status: "error", message: "Chữ ký webhook không hợp lệ." });
+        console.error("[PayOS Webhook] Xac thuc chu ky that bai:", verifyErr);
+        return res.status(400).json({ status: "error", message: "Chu ky webhook khong hop le." });
       }
 
       const { orderCode, amount } = verifiedData;
-
-      // Tìm giao dịch khớp với orderCode và còn ở trạng thái pending
       const transaction = await TransactionModel.findOne({ orderCode });
       if (!transaction) {
-        console.warn(`[PayOS Webhook] Không tìm thấy giao dịch với mã orderCode: ${orderCode}`);
-        return res.status(404).json({ status: "error", message: "Giao dịch không tồn tại." });
+        console.warn(`[PayOS Webhook] Khong tim thay giao dich voi ma orderCode: ${orderCode}`);
+        return res.status(404).json({ status: "error", message: "Giao dich khong ton tai." });
       }
 
       if (transaction.status === "success") {
-        console.log(`[PayOS Webhook] Giao dịch ${orderCode} đã được cập nhật thành công trước đó.`);
-        return res.status(200).json({ status: "success", message: "Giao dịch đã hoàn tất." });
+        console.log(`[PayOS Webhook] Giao dich ${orderCode} da duoc cap nhat thanh cong truoc do.`);
+        return res.status(200).json({ status: "success", message: "Giao dich da hoan tat." });
       }
 
-      // Cập nhật giao dịch thành công
       transaction.status = "success";
       transaction.completedAt = new Date();
       await transaction.save();
 
-      // Cộng tiền vào ví của người dùng theo giá trị gốc USD của giao dịch
       await WalletModel.findOneAndUpdate(
         { userId: transaction.userId },
         { $inc: { balance: transaction.amount }, $set: { updatedAt: new Date() } },
         { upsert: true, returnDocument: "after" }
       );
 
-      console.log(`[PayOS Webhook] Nạp tiền thành công cho User ID: ${transaction.userId}, Số tiền: +$${transaction.amount} USD (${amount} VND)`);
+      console.log(
+        `[PayOS Webhook] Nap tien thanh cong cho User ID: ${transaction.userId}, So tien: +${transaction.amount} Credit (${amount} VND)`
+      );
 
       return res.status(200).json({
         status: "success",
-        message: "Cộng tiền ví thành công",
+        message: "Cong tien vi thanh cong",
       });
     } catch (error: any) {
       console.error("[walletController.handlePayOSWebhook] Error:", error);
       return res.status(500).json({
         status: "error",
-        message: "Lỗi xử lý webhook nạp tiền",
+        message: "Loi xu ly webhook nap tien",
         details: error.message,
       });
     }
   },
 
-  /**
-   * POST /api/v1/wallet/webhook-mock
-   * API Giả lập thanh toán thành công (Dành riêng cho Mock Mode khi không cấu hình API Keys)
-   */
   async handleMockWebhook(req: AuthenticatedRequest, res: Response) {
     try {
       const { orderCode } = req.body;
       if (!orderCode) {
-        return res.status(400).json({ status: "error", message: "Thiếu orderCode." });
+        return res.status(400).json({ status: "error", message: "Thieu orderCode." });
       }
 
       const transaction = await TransactionModel.findOne({ orderCode });
       if (!transaction) {
-        return res.status(404).json({ status: "error", message: "Không tìm thấy giao dịch." });
+        return res.status(404).json({ status: "error", message: "Khong tim thay giao dich." });
       }
 
       if (transaction.status === "success") {
-        return res.status(200).json({ status: "success", message: "Giao dịch đã được thanh toán trước đó." });
+        return res.status(200).json({ status: "success", message: "Giao dich da duoc thanh toan truoc do." });
       }
 
-      // Cập nhật giao dịch thành công
       transaction.status = "success";
       transaction.completedAt = new Date();
       await transaction.save();
 
-      // Cộng tiền vào ví của người dùng
       await WalletModel.findOneAndUpdate(
         { userId: transaction.userId },
         { $inc: { balance: transaction.amount }, $set: { updatedAt: new Date() } },
         { upsert: true, returnDocument: "after" }
       );
 
-      console.log(`[Mock Webhook] Cộng tiền giả lập thành công: +${transaction.amount} VND cho User ${transaction.userId}`);
+      console.log(`[Mock Webhook] Cong tien gia lap thanh cong: +${transaction.amount} Credit cho User ${transaction.userId}`);
 
       return res.status(200).json({
         status: "success",
-        message: "Xác nhận thanh toán giả lập thành công",
+        message: "Xac nhan thanh toan gia lap thanh cong",
       });
     } catch (error: any) {
       console.error("[walletController.handleMockWebhook] Error:", error);
       return res.status(500).json({
         status: "error",
-        message: "Lỗi xử lý giả lập thanh toán",
+        message: "Loi xu ly gia lap thanh toan",
         details: error.message,
       });
     }
   },
 
-  /**
-   * GET /api/v1/wallet/check/:orderCode
-   * Kiểm tra thủ công trạng thái giao dịch
-   */
   async checkTransactionStatus(req: AuthenticatedRequest, res: Response) {
     try {
       const userId = req.user?.id;
       const orderCode = parseInt(req.params.orderCode, 10);
 
       if (!userId) {
-        return res.status(401).json({ status: "error", message: "Người dùng chưa xác thực." });
+        return res.status(401).json({ status: "error", message: "Nguoi dung chua xac thuc." });
       }
 
       const transaction = await TransactionModel.findOne({ orderCode, userId });
       if (!transaction) {
-        return res.status(404).json({ status: "error", message: "Giao dịch không tồn tại." });
+        return res.status(404).json({ status: "error", message: "Giao dich khong ton tai." });
       }
 
-      // Nếu trạng thái của DB là success, trả về luôn
       if (transaction.status === "success") {
         return res.status(200).json({
           status: "success",
@@ -316,7 +359,6 @@ export const walletController = {
         });
       }
 
-      // Nếu PayOS được cấu hình, có thể kiểm tra trực tiếp từ cổng PayOS đề phòng webhook bị rớt
       if (isPayOSConfigured && payOS) {
         try {
           const payosStatus: any = await payOS.paymentRequests.get(transaction.orderCode);
@@ -325,7 +367,6 @@ export const walletController = {
             transaction.completedAt = new Date();
             await transaction.save();
 
-            // Cộng tiền
             await WalletModel.findOneAndUpdate(
               { userId: transaction.userId },
               { $inc: { balance: transaction.amount }, $set: { updatedAt: new Date() } },
@@ -337,7 +378,9 @@ export const walletController = {
               transactionStatus: "success",
               amount: transaction.amount,
             });
-          } else if (payosStatus.status === "CANCELLED") {
+          }
+
+          if (payosStatus.status === "CANCELLED") {
             transaction.status = "failed";
             await transaction.save();
             return res.status(200).json({
@@ -358,7 +401,7 @@ export const walletController = {
       console.error("[walletController.checkTransactionStatus] Error:", error);
       return res.status(500).json({
         status: "error",
-        message: "Lỗi khi kiểm tra trạng thái giao dịch",
+        message: "Loi khi kiem tra trang thai giao dich",
         details: error.message,
       });
     }

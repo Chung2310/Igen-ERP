@@ -19,6 +19,12 @@ import {
 import { walletService, TransactionInfo } from "../services/walletService";
 import { toast } from "./Toast";
 
+const formatNumberWithDots = (val: string) => {
+  const clean = val.replace(/\D/g, "");
+  if (!clean) return "";
+  return parseInt(clean, 10).toLocaleString("vi-VN");
+};
+
 export default function WalletTab() {
   const [balance, setBalance] = useState<number>(0);
   const [transactions, setTransactions] = useState<TransactionInfo[]>([]);
@@ -98,16 +104,16 @@ export default function WalletTab() {
   // Tạo liên kết nạp tiền
   const handleDeposit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const amount = parseFloat(depositAmount.replace(/,/g, ""));
+    const amountVND = parseFloat(depositAmount.replace(/\D/g, ""));
 
-    if (isNaN(amount) || amount < 0.1) {
-      toast.error("Vui lòng nhập số tiền hợp lệ (tối thiểu 0.1 USD).");
+    if (isNaN(amountVND) || amountVND < 2000) {
+      toast.error("Vui lòng nhập số tiền hợp lệ (tối thiểu 2,000 VND).");
       return;
     }
 
     setSubmitting(true);
     try {
-      const result = await walletService.createDepositLink(amount);
+      const result = await walletService.createDepositLink(amountVND);
       toast.success("Đang chuyển hướng tới trang thanh toán...");
       
       // Chuyển hướng tới link thanh toán của PayOS (hoặc trang mock)
@@ -135,8 +141,8 @@ export default function WalletTab() {
     }
   };
 
-  const formatUSD = (value: number) => {
-    return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
+  const formatCredit = (value: number) => {
+    return new Intl.NumberFormat("vi-VN", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(value) + " Credit";
   };
 
   const formatVND = (value: number) => {
@@ -186,7 +192,7 @@ export default function WalletTab() {
           <div className="p-6 space-y-6">
             <div className="rounded-2xl bg-slate-50 border border-slate-100 p-5 text-center">
               <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">Số tiền thanh toán</span>
-              <span className="text-3xl font-black text-slate-800">{formatUSD(parseFloat(amountParam || "0"))}</span>
+              <span className="text-3xl font-black text-slate-800">{formatCredit(parseFloat(amountParam || "0"))}</span>
               <span className="text-xs text-gray-500 font-bold block mt-1">~ {formatVND(parseInt(amountVNDParam || "0", 10))}</span>
             </div>
 
@@ -272,7 +278,7 @@ export default function WalletTab() {
           <div className="lg:col-span-1 space-y-6">
             
             {/* Balance Warning Banner if low balance */}
-            {balance < 0.10 && (
+            {balance < 10 && (
               <div className="rounded-2xl border border-amber-100 bg-amber-50/80 p-4 text-xs text-amber-800 leading-normal flex items-start gap-2.5 shadow-xs">
                 <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
                 <div>
@@ -298,7 +304,7 @@ export default function WalletTab() {
                 
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-blue-200">Số dư hiện tại</p>
-                  <p className="text-3xl font-black mt-1.5 tracking-tight">{formatUSD(balance)}</p>
+                  <p className="text-3xl font-black mt-1.5 tracking-tight">{formatCredit(balance)}</p>
                 </div>
                 
                 <div className="flex justify-between items-center text-[10px] text-white/75 font-mono">
@@ -319,38 +325,40 @@ export default function WalletTab() {
 
               <form onSubmit={handleDeposit} className="space-y-4">
                 <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-gray-400 text-sm">$ USD</span>
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-gray-400 text-sm">VND</span>
                   <input
                     type="text"
                     required
-                    placeholder="Nhập số tiền nạp..."
+                    placeholder="Nhập số tiền nạp (VND)..."
                     value={depositAmount}
                     onChange={(e) => {
-                      // Cho phép nhập số và dấu chấm thập phân
-                      const value = e.target.value.replace(/[^0-9.]/g, "");
-                      // Đảm bảo chỉ có tối đa 1 dấu chấm thập phân
-                      const parts = value.split(".");
-                      if (parts.length > 2) return;
-                      setDepositAmount(value);
+                      const formatted = formatNumberWithDots(e.target.value);
+                      setDepositAmount(formatted);
                     }}
-                    className="block h-12 w-full rounded-2xl border border-gray-200 bg-white pl-18 pr-4 text-sm font-bold text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                    className="block h-12 w-full rounded-2xl border border-gray-200 bg-white pl-16 pr-4 text-sm font-bold text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
                   />
                 </div>
 
+                {depositAmount.replace(/\D/g, "") && (
+                  <div className="text-[11px] text-emerald-600 font-bold mt-1.5 ml-1">
+                    Quy đổi: ~ {Math.floor(parseFloat(depositAmount.replace(/\D/g, "")) / 100).toLocaleString("vi-VN")} Credit
+                  </div>
+                )}
+
                 {/* Quick select presets */}
                 <div className="grid grid-cols-3 gap-2">
-                  {["5", "10", "20", "50", "100", "200"].map((preset) => (
+                  {["20000", "50000", "100000", "200000", "500000", "1000000"].map((preset) => (
                     <button
                       key={preset}
                       type="button"
-                      onClick={() => setDepositAmount(preset)}
+                      onClick={() => setDepositAmount(formatNumberWithDots(preset))}
                       className={`rounded-xl border py-2 text-center text-[10px] font-bold transition-all active:scale-95 ${
-                        depositAmount === preset
+                        depositAmount.replace(/\D/g, "") === preset
                           ? "border-blue-500 bg-blue-50 text-blue-700"
                           : "border-gray-100 text-gray-500 hover:bg-gray-50"
                       }`}
                     >
-                      +${preset}
+                      +{parseInt(preset).toLocaleString("vi-VN")}đ
                     </button>
                   ))}
                 </div>
@@ -444,7 +452,7 @@ export default function WalletTab() {
                           </td>
                           <td className={`py-3.5 text-right font-bold text-sm ${tx.type === "deposit" ? "text-emerald-600" : "text-slate-850"}`}>
                             {tx.type === "deposit" ? "+" : "-"}
-                            {formatUSD(tx.amount)}
+                            {formatCredit(tx.amount)}
                           </td>
                           <td className="py-3.5">{getStatusBadge(tx.status)}</td>
                           <td className="py-3.5 text-center">

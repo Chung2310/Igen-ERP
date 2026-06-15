@@ -2,6 +2,32 @@ import { Request, Response } from "express";
 import { fbMessengerService } from "../service/fb-messenger.service";
 import { UserModel } from "../model/user.model";
 
+async function getFacebookPageConfig(userId: string): Promise<{ isConnected: boolean; pageId?: string }> {
+  const dbUser = await UserModel.findById(userId).lean();
+  if (!dbUser) {
+    return { isConnected: false };
+  }
+
+  if (dbUser.facebookIntegration?.isConnected && dbUser.facebookIntegration.pageId) {
+    return { isConnected: true, pageId: dbUser.facebookIntegration.pageId };
+  }
+
+  // Try company integration lookup
+  const { SocialIntegrationModel } = require("../model/social-integration.model");
+  const companyIntegration = await SocialIntegrationModel.findOne({
+    companyCode: dbUser.companyCode,
+    platform: "Facebook",
+    isConnected: true
+  }).lean();
+
+  if (companyIntegration && companyIntegration.username) {
+    return { isConnected: true, pageId: companyIntegration.username };
+  }
+
+  return { isConnected: false };
+}
+
+
 export const fbMessengerController = {
   /**
    * GET /api/v1/facebook/webhook
@@ -61,18 +87,10 @@ export const fbMessengerController = {
         });
       }
 
-      const dbUser = await UserModel.findById(userId).lean();
-      if (!dbUser) {
-        return res.status(404).json({
-          success: false,
-          message: "Không tìm thấy thông tin tài khoản."
-        });
-      }
-
-      const pageId = dbUser?.facebookIntegration?.pageId;
+      const { isConnected, pageId } = await getFacebookPageConfig(userId);
 
       // Nếu người dùng hiện tại chưa kết nối Facebook Page, trả về mảng rỗng ngay lập tức
-      if (!dbUser?.facebookIntegration?.isConnected || !pageId) {
+      if (!isConnected || !pageId) {
         return res.status(200).json({
           success: true,
           data: []
@@ -114,11 +132,10 @@ export const fbMessengerController = {
         });
       }
 
-      const dbUser = await UserModel.findById(userId).lean();
-      const pageId = dbUser?.facebookIntegration?.pageId;
+      const { isConnected, pageId } = await getFacebookPageConfig(userId);
 
       // Bảo vệ: Đảm bảo khách hàng này thuộc về Page ID của người dùng hiện tại
-      if (!dbUser?.facebookIntegration?.isConnected || !pageId) {
+      if (!isConnected || !pageId) {
         return res.status(403).json({
           success: false,
           message: "Quyền truy cập bị từ chối. Bạn chưa cấu hình tích hợp Facebook."
@@ -157,10 +174,9 @@ export const fbMessengerController = {
         });
       }
 
-      const dbUser = await UserModel.findById(userId).lean();
-      const pageId = dbUser?.facebookIntegration?.pageId;
+      const { isConnected, pageId } = await getFacebookPageConfig(userId);
 
-      if (!dbUser?.facebookIntegration?.isConnected || !pageId) {
+      if (!isConnected || !pageId) {
         return res.status(403).json({
           success: false,
           message: "Quyền truy cập bị từ chối. Bạn chưa cấu hình tích hợp Facebook."
@@ -195,10 +211,9 @@ export const fbMessengerController = {
         });
       }
 
-      const dbUser = await UserModel.findById(userId).lean();
-      const pageId = dbUser?.facebookIntegration?.pageId;
+      const { isConnected, pageId } = await getFacebookPageConfig(userId);
 
-      if (!dbUser?.facebookIntegration?.isConnected || !pageId) {
+      if (!isConnected || !pageId) {
         return res.status(403).json({
           success: false,
           message: "Quyền truy cập bị từ chối. Bạn chưa cấu hình tích hợp Facebook."
@@ -240,9 +255,8 @@ export const fbMessengerController = {
         return res.status(401).json({ success: false, message: "Người dùng chưa đăng nhập." });
       }
 
-      const dbUser = await UserModel.findById(userId).lean();
-      const pageId = dbUser?.facebookIntegration?.pageId;
-      if (!dbUser?.facebookIntegration?.isConnected || !pageId) {
+      const { isConnected, pageId } = await getFacebookPageConfig(userId);
+      if (!isConnected || !pageId) {
         return res.status(403).json({ success: false, message: "Bạn chưa cấu hình tích hợp Facebook." });
       }
 
