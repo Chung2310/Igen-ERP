@@ -153,7 +153,9 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
           <img
             src={BRAND_LOGO_URL}
             alt={BRAND_NAME}
-            className="h-11 w-11 shrink-0 rounded-2xl border border-blue-100 object-cover shadow-lg shadow-blue-500/15"
+            onClick={() => setActiveTab("TỔNG QUAN")}
+            title="Về trang Tổng quan"
+            className="h-11 w-11 shrink-0 rounded-2xl border border-blue-100 object-cover shadow-lg shadow-blue-500/15 cursor-pointer transition-transform hover:scale-110 active:scale-95"
           />
           <div className="min-w-0">
             <h2 className="truncate font-sans text-lg font-bold tracking-tight text-blue-700">{BRAND_NAME}</h2>
@@ -174,16 +176,14 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
             <button
               key={item.label}
               onClick={() => setActiveTab(item.label)}
-              className={`group flex w-full items-center justify-between rounded-2xl border px-3.5 py-3.5 text-left font-sans transition-all active:scale-[0.98] ${
-                isActive ? `${tone.active} shadow-xs` : "border-transparent text-gray-600 hover:border-gray-100 hover:bg-gray-50 hover:text-gray-900"
-              }`}
+              className={`group flex w-full items-center justify-between rounded-2xl border px-3.5 py-3.5 text-left font-sans transition-all active:scale-[0.98] ${isActive ? `${tone.active} shadow-xs` : "border-transparent text-gray-600 hover:border-gray-100 hover:bg-gray-50 hover:text-gray-900"
+                }`}
               id={`sidebar_menu_${item.label.replace(/\s+/g, "_")}`}
             >
               <div className="flex min-w-0 items-center gap-3.5">
                 <div
-                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors ${
-                    isActive ? tone.icon : `bg-gray-50 text-gray-500 ${tone.hoverIcon}`
-                  }`}
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors ${isActive ? tone.icon : `bg-gray-50 text-gray-500 ${tone.hoverIcon}`
+                    }`}
                 >
                   <Icon className="h-5 w-5" />
                 </div>
@@ -195,9 +195,8 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
                 </div>
               </div>
               <ChevronRight
-                className={`h-4 w-4 shrink-0 transition-transform ${
-                  isActive ? "translate-x-0.5 text-gray-500" : "text-gray-300 group-hover:text-gray-500"
-                }`}
+                className={`h-4 w-4 shrink-0 transition-transform ${isActive ? "translate-x-0.5 text-gray-500" : "text-gray-300 group-hover:text-gray-500"
+                  }`}
               />
             </button>
           );
