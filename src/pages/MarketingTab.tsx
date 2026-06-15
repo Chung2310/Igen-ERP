@@ -293,13 +293,13 @@ export default function MarketingTab() {
       <div className="flex-1 p-6 overflow-y-auto" id="marketing_tab_content">
         <Suspense fallback={<TabLoader label="Đang tải dữ liệu marketing..." />}>
           {/* SUB TAB 1: LÊN Ý TƯỞNG AI */}
-          {subTab === "LÊN Ý TƯỞNG AI" && (
+          <div style={{ display: subTab === "LÊN Ý TƯỞNG AI" ? "block" : "none" }}>
             <IdeationTab 
               userProfile={userProfile}
               setApprovalCards={setApprovalCards}
               setSubTab={setSubTab}
             />
-          )}
+          </div>
 
           {/* SUB TAB 2: DUYỆT NỘI DUNG */}
           {subTab === "DUYỆT NỘI DUNG" && (

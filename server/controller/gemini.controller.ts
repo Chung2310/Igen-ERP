@@ -206,14 +206,14 @@ export const geminiController = {
    */
   async analyzeMarketingPillars(req: Request, res: Response) {
     try {
-      const { campaignTopic } = req.body;
+      const { campaignTopic, images } = req.body;
       const userId = (req as any).user?.id;
       if (!userId) {
         return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
       }
 
       await walletService.checkBalance(userId, API_COSTS.GEMINI_MARKETING);
-      const result = await geminiService.analyzeMarketingPillars(campaignTopic);
+      const result = await geminiService.analyzeMarketingPillars(campaignTopic, images);
       await walletService.deductBalance(userId, API_COSTS.GEMINI_MARKETING, "Chi phí phân tích Content Pillars bằng AI");
       return res.status(200).json(result);
     } catch (error: any) {
@@ -227,14 +227,14 @@ export const geminiController = {
    */
   async generateMarketingIdeas(req: Request, res: Response) {
     try {
-      const { campaignTopic, selectedPillars, channels, mediaType } = req.body;
+      const { campaignTopic, selectedPillars, channels, mediaType, images } = req.body;
       const userId = (req as any).user?.id;
       if (!userId) {
         return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
       }
 
       await walletService.checkBalance(userId, API_COSTS.GEMINI_MARKETING);
-      const result = await geminiService.generateMarketingIdeas(campaignTopic, selectedPillars, channels, mediaType);
+      const result = await geminiService.generateMarketingIdeas(campaignTopic, selectedPillars, channels, mediaType, images);
       await walletService.deductBalance(userId, API_COSTS.GEMINI_MARKETING, "Chi phí phát sinh ý tưởng chiến dịch AI");
       return res.status(200).json(result);
     } catch (error: any) {

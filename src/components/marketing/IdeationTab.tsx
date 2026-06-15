@@ -8,7 +8,12 @@ import {
   Instagram, 
   Linkedin, 
   Video, 
-  Image as ImageIcon
+  Image as ImageIcon,
+  Paperclip,
+  Upload,
+  X,
+  FileText,
+  Trash2
 } from "lucide-react";
 import { MarketingConcept, ContentApprovalCard } from "../../types";
 import { marketingService } from "../../services/marketingService";
@@ -27,6 +32,154 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
 
   // 1. AI Campaign Ideation States
   const [campaignInput, setCampaignInput] = useState("");
+  const [uploadedDocName, setUploadedDocName] = useState("");
+  const [uploadedDocText, setUploadedDocText] = useState("");
+  const [uploadedImageBase64, setUploadedImageBase64] = useState("");
+  const [loadingDoc, setLoadingDoc] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const loadScript = (src: string, globalVar: string): Promise<any> => {
+    return new Promise((resolve, reject) => {
+      if ((window as any)[globalVar]) {
+        resolve((window as any)[globalVar]);
+        return;
+      }
+      const existingScript = document.querySelector(`script[src="${src}"]`);
+      if (existingScript) {
+        const handleLoad = () => resolve((window as any)[globalVar]);
+        const handleError = (err: any) => reject(err);
+        existingScript.addEventListener("load", handleLoad);
+        existingScript.addEventListener("error", handleError);
+        return;
+      }
+      const script = document.createElement("script");
+      script.src = src;
+      script.onload = () => resolve((window as any)[globalVar]);
+      script.onerror = (err) => reject(err);
+      document.head.appendChild(script);
+    });
+  };
+
+  const processFile = async (file: File) => {
+    if (file.size > 10 * 1024 * 1024) {
+      toast.warning("Dung lượng tệp tin không được vượt quá 10MB!");
+      return;
+    }
+
+    setUploadedDocName(file.name);
+    setLoadingDoc(true);
+    setUploadedDocText("");
+    setUploadedImageBase64("");
+
+    const fileExt = file.name.split(".").pop()?.toLowerCase();
+    const isImage = file.type.startsWith("image/");
+
+    if (isImage) {
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        const base64Data = evt.target?.result as string;
+        setUploadedImageBase64(base64Data);
+        setLoadingDoc(false);
+        toast.success("Đã tải hình ảnh lên thành công!");
+      };
+      reader.onerror = () => {
+        setLoadingDoc(false);
+        toast.error("Lỗi khi đọc tệp tin hình ảnh.");
+      };
+      reader.readAsDataURL(file);
+    } else if (fileExt === "txt" || fileExt === "md") {
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        const text = evt.target?.result as string;
+        setUploadedDocText(text);
+        setLoadingDoc(false);
+        toast.success("Đã trích xuất nội dung văn bản thành công!");
+      };
+      reader.onerror = () => {
+        setLoadingDoc(false);
+        toast.error("Lỗi khi đọc file văn bản.");
+      };
+      reader.readAsText(file);
+    } else if (fileExt === "pdf") {
+      try {
+        const pdfjs = await loadScript("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js", "pdfjsLib");
+        pdfjs.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js";
+        
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
+        let extractedText = "";
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const textContent = await page.getTextContent();
+          const pageText = textContent.items.map((item: any) => item.str).join(" ");
+          extractedText += pageText + "\n";
+        }
+        if (!extractedText.trim()) {
+          throw new Error("Không thể trích xuất văn bản từ PDF (tài liệu rỗng hoặc dạng scan ảnh).");
+        }
+        setUploadedDocText(extractedText);
+        setLoadingDoc(false);
+        toast.success(`Đã trích xuất tài liệu PDF (${pdf.numPages} trang) thành công!`);
+      } catch (err: any) {
+        setLoadingDoc(false);
+        console.error(err);
+        toast.error(err.message || "Lỗi xử lý file PDF.");
+      }
+    } else if (fileExt === "docx") {
+      try {
+        const mammoth = await loadScript("https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js", "mammoth");
+        const arrayBuffer = await file.arrayBuffer();
+        const result = await mammoth.extractRawText({ arrayBuffer });
+        const extractedText = result.value;
+        if (!extractedText.trim()) {
+          throw new Error("Tài liệu Word trống hoặc không có văn bản.");
+        }
+        setUploadedDocText(extractedText);
+        setLoadingDoc(false);
+        toast.success("Đã trích xuất tài liệu Word thành công!");
+      } catch (err: any) {
+        setLoadingDoc(false);
+        console.error(err);
+        toast.error(err.message || "Lỗi xử lý file Word.");
+      }
+    } else {
+      setLoadingDoc(false);
+      toast.error("Định dạng file không được hỗ trợ. Vui lòng tải hình ảnh, .txt, .md, .pdf hoặc .docx");
+    }
+  };
+
+  const handleDocumentUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      processFile(file);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      processFile(file);
+    }
+  };
+
+  const handleRemoveDocument = () => {
+    setUploadedDocName("");
+    setUploadedDocText("");
+    setUploadedImageBase64("");
+    toast.success("Đã gỡ tệp tin đính kèm.");
+  };
+
   const [analyzedTopic, setAnalyzedTopic] = useState("");
   const [loadingAI, setLoadingAI] = useState(false);
   const [quickSuggestions, setQuickSuggestions] = useState<string[]>([]);
@@ -174,7 +327,11 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
 
     setLoadingPillars(true);
     try {
-      const data = await geminiApi.analyzeMarketingPillars(topic);
+      let apiTopic = topic;
+      if (uploadedDocText) {
+        apiTopic = `${topic}\n\nTÀI LIỆU ĐÍNH KÈM:\nTên tài liệu: ${uploadedDocName}\nNội dung tài liệu:\n${uploadedDocText}`;
+      }
+      const data = await geminiApi.analyzeMarketingPillars(apiTopic, uploadedImageBase64 ? [uploadedImageBase64] : undefined);
       if (data.pillars && Array.isArray(data.pillars) && data.pillars.length > 0) {
         const styles = [
           {
@@ -233,11 +390,16 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
 
     setLoadingAI(true);
     try {
+      let apiTopic = topic;
+      if (uploadedDocText) {
+        apiTopic = `${topic}\n\nTÀI LIỆU ĐÍNH KÈM:\nTên tài liệu: ${uploadedDocName}\nNội dung tài liệu:\n${uploadedDocText}`;
+      }
+
       let pillarsToUse = selectedPillars;
       if (isAutoPilot) {
         setAutoPilotStatus("Đang phân tích định hướng Content Pillars...");
         try {
-          const pillarsData = await geminiApi.analyzeMarketingPillars(topic);
+          const pillarsData = await geminiApi.analyzeMarketingPillars(apiTopic, uploadedImageBase64 ? [uploadedImageBase64] : undefined);
           if (pillarsData.pillars && Array.isArray(pillarsData.pillars) && pillarsData.pillars.length > 0) {
             const styles = [
               {
@@ -277,7 +439,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
 
       setAutoPilotStatus("Đang lên ý tưởng chiến dịch...");
       const actualMediaType = isAutoPilot ? mediaType : "none";
-      const data = await geminiApi.generateMarketingIdeas(topic, pillarsToUse, selectedChannels, actualMediaType);
+      const data = await geminiApi.generateMarketingIdeas(apiTopic, pillarsToUse, selectedChannels, actualMediaType, uploadedImageBase64 ? [uploadedImageBase64] : undefined);
       
       const generatedConcepts = data.concepts || [];
       if (generatedConcepts.length === 0) {
@@ -545,12 +707,112 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
             <p className="text-xs text-slate-500 mt-1 lines-clamp-2">Nhập mục tiêu chiến dịch của bạn. Gemini AI sẽ phân tích và trả về các ý tưởng bản nháp content hoàn chỉnh.</p>
 
             <form onSubmit={handleGenerateIdeas} className="mt-5 space-y-4">
-              <textarea 
-                placeholder="Mô tả mục tiêu của bạn (Ex: Khởi động giới thiệu dòng Bàn phím cơ Workspace V2 phân khúc lập trình viên, chiết khấu 10%)..." 
-                className="w-full text-left h-28 p-4 border border-gray-200 bg-white rounded-xl text-xs font-sans focus:ring-2 focus:ring-blue-500"
-                value={campaignInput}
-                onChange={(e) => setCampaignInput(e.target.value)}
-              />
+              <div className="flex flex-col gap-1.5">
+                <div className="flex justify-between items-center select-none">
+                  <span className="text-[10px] font-bold text-gray-400 font-mono uppercase tracking-wider">
+                    Mô tả mục tiêu chiến dịch của bạn:
+                  </span>
+                  {campaignInput && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCampaignInput("");
+                        toast.success("Đã xóa sạch nội dung prompt!");
+                      }}
+                      className="text-[10px] font-bold font-mono text-red-600 hover:text-red-750 transition-colors flex items-center gap-1 cursor-pointer bg-red-50 hover:bg-red-100/80 px-2.5 py-0.5 rounded border border-red-200/30"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                      Xóa tất cả
+                    </button>
+                  )}
+                </div>
+                <textarea 
+                  placeholder="Mô tả mục tiêu của bạn (Ex: Khởi động giới thiệu dòng Bàn phím cơ Workspace V2 phân khúc lập trình viên, chiết khấu 10%)..." 
+                  className="w-full text-left h-28 p-4 border border-gray-200 bg-white rounded-xl text-xs font-sans focus:ring-2 focus:ring-blue-500"
+                  value={campaignInput}
+                  onChange={(e) => setCampaignInput(e.target.value)}
+                />
+              </div>
+
+              {/* Document upload widget */}
+              <div 
+                className={`flex flex-col gap-2 bg-white p-3.5 border border-dashed rounded-xl text-left shadow-2xs transition-all ${
+                  isDragging ? "border-indigo-500 bg-indigo-50/20" : "border-gray-200"
+                }`}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-gray-500 font-mono uppercase tracking-wider flex items-center gap-1.5 select-none">
+                    <Paperclip className="h-3.5 w-3.5 text-indigo-550 text-indigo-600 animate-pulse" />
+                    Đính kèm tài liệu hoặc hình ảnh
+                  </span>
+                  {uploadedDocName && (
+                    <button
+                      type="button"
+                      onClick={handleRemoveDocument}
+                      className="text-gray-400 hover:text-red-500 transition-colors p-1 cursor-pointer"
+                      title="Gỡ tài liệu"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+
+                {!uploadedDocName ? (
+                  <label 
+                    className={`flex flex-col items-center justify-center border border-dashed rounded-lg p-4 cursor-pointer transition-all ${
+                      isDragging 
+                        ? "border-indigo-400 bg-indigo-50/30 text-indigo-700" 
+                        : "border-slate-200 bg-slate-50/50 hover:border-indigo-400 hover:bg-indigo-50/10 text-slate-500"
+                    }`}
+                  >
+                    <Upload className="h-5 w-5 text-indigo-500 mb-1.5" />
+                    <span className="text-xs font-semibold text-indigo-600">
+                      Kéo thả hoặc Click để tải tệp lên
+                    </span>
+                    <span className="text-[10px] text-gray-450 mt-1 text-center">
+                      Hỗ trợ PDF, DOCX, TXT, MD hoặc Hình ảnh tối đa 10MB
+                    </span>
+                    <input
+                      type="file"
+                      accept=".txt,.md,.pdf,.docx,image/*"
+                      onChange={handleDocumentUpload}
+                      className="hidden"
+                      disabled={loadingDoc}
+                    />
+                  </label>
+                ) : (
+                  <div className="flex items-center gap-2.5 p-2 bg-slate-50 border border-slate-100 rounded-lg">
+                    <div className="h-9 w-9 rounded-md bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0 overflow-hidden">
+                      {uploadedImageBase64 ? (
+                        <img src={uploadedImageBase64} alt="Preview" className="h-full w-full object-cover" />
+                      ) : (
+                        <FileText className="h-5 w-5 text-indigo-650 text-indigo-600" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-gray-750 truncate">{uploadedDocName}</p>
+                      <p className="text-[10px] text-gray-400 font-mono">
+                        {loadingDoc 
+                          ? "Đang xử lý nội dung..." 
+                          : uploadedImageBase64 
+                            ? "Đã tải hình ảnh thành công" 
+                            : "Đã trích xuất văn bản thành công"
+                        }
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {loadingDoc && (
+                  <div className="flex items-center gap-2 text-indigo-600 text-[10px] font-bold font-mono mt-1 select-none">
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    <span>Đang xử lý dữ liệu...</span>
+                  </div>
+                )}
+              </div>
               {campaignInput.trim() && campaignInput.trim() !== analyzedTopic.trim() && (
                 <p className="text-[10px] text-amber-600 font-bold font-mono tracking-wide animate-pulse mt-1 select-none text-left">
                   ⚠️ Bạn đã thay đổi nội dung mục tiêu. Vui lòng bấm "Phân tích Mục tiêu & Đề xuất Trụ cột AI" ở cột bên phải trước để cập nhật định hướng trước khi phát sinh ý tưởng!
@@ -649,15 +911,15 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
 
               {/* Auto-pilot completely automated flow */}
               <div className="flex flex-col gap-3 mt-5 select-none bg-purple-50/40 p-4 border border-purple-150 rounded-2xl">
-                <label className="relative inline-flex items-center cursor-pointer">
+                <label className="relative flex items-start cursor-pointer">
                   <input
                     type="checkbox"
                     checked={isAutoPilot}
                     onChange={(e) => setIsAutoPilot(e.target.checked)}
                     className="sr-only peer"
                   />
-                  <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-650 peer-checked:bg-purple-600 font-sans"></div>
-                  <span className="ml-2.5 text-xs font-bold text-gray-750 uppercase tracking-wider font-mono text-purple-700 flex items-center gap-1">
+                  <div className="relative shrink-0 w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-650 peer-checked:bg-purple-600 font-sans mt-[1px]"></div>
+                  <span className="ml-2.5 text-xs font-bold text-gray-750 uppercase tracking-wider font-mono text-purple-700 select-none leading-relaxed">
                     🤖 Chế độ Tự động hoàn toàn (Auto-pilot: Ý tưởng → Viết bài → Đặt lịch đăng)
                   </span>
                 </label>

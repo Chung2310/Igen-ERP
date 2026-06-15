@@ -56,12 +56,12 @@ export const geminiApi = {
   /**
    * Phân tích mục tiêu chiến dịch để lấy các content pillars đề xuất.
    */
-  async analyzeMarketingPillars(campaignTopic: string): Promise<{ pillars: any[] }> {
+  async analyzeMarketingPillars(campaignTopic: string, images?: string[]): Promise<{ pillars: any[] }> {
     const headers = await getHeaders(true);
     const response = await fetch('/api/v1/gemini/marketing-pillars', {
       method: 'POST',
       headers,
-      body: JSON.stringify({ campaignTopic }),
+      body: JSON.stringify({ campaignTopic, images }),
     });
     if (!response.ok) {
       await handleErrorResponse(response, 'Lỗi phân tích Content Pillars');
@@ -76,13 +76,14 @@ export const geminiApi = {
     campaignTopic: string,
     selectedPillars: string[],
     channels?: string[],
-    mediaType?: string
+    mediaType?: string,
+    images?: string[]
   ): Promise<{ concepts: any[] }> {
     const headers = await getHeaders(true);
     const response = await fetch('/api/v1/gemini/marketing-ideas', {
       method: 'POST',
       headers,
-      body: JSON.stringify({ campaignTopic, selectedPillars, channels, mediaType }),
+      body: JSON.stringify({ campaignTopic, selectedPillars, channels, mediaType, images }),
     });
     if (!response.ok) {
       await handleErrorResponse(response, 'Lỗi phát sinh ý tưởng marketing');

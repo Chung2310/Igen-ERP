@@ -96,6 +96,7 @@ export default function DashboardTab() {
   const [pendingReviewPage, setPendingReviewPage] = useState<number>(1);
   const [lowStockCount, setLowStockCount] = useState<string>("...");
   const [lowStockItems, setLowStockItems] = useState<any[]>([]);
+  const [marketingCards, setMarketingCards] = useState<ContentApprovalCard[]>([]);
 
   const isPendingApprovalDisabled = userProfile?.role === "user" || userProfile?.role === "manager";
 
@@ -210,12 +211,18 @@ export default function DashboardTab() {
               return b.generatedAt.localeCompare(a.generatedAt);
             });
           const total = cards.length;
-          const approved = cards.filter((card) => card.status === "approved").length;
+          const approved = cards.filter((card) => 
+            card.status === "approved" || 
+            card.status === "scheduled" || 
+            card.status === "published" || 
+            card.status === "failed"
+          ).length;
           const approvalRate = total > 0 ? Math.round((approved / total) * 100) : 0;
 
           setMarketingPendingCount(String(pendingCards.length));
           setMarketingApprovalRate(`${approvalRate}`);
           setMarketingPendingItems(pendingCards);
+          setMarketingCards(cards);
         },
         (error) => {
           console.error("Lỗi lấy dữ liệu marketing Dashboard:", error);
@@ -279,9 +286,8 @@ export default function DashboardTab() {
               <button
                 key={tab.id}
                 onClick={() => setActiveView(tab.id)}
-                className={`border-b-2 px-0 pb-2 text-sm font-semibold transition-colors ${
-                  isActive ? "border-blue-600 text-blue-700" : "border-transparent text-gray-600 hover:text-gray-900"
-                }`}
+                className={`border-b-2 px-0 pb-2 text-sm font-semibold transition-colors ${isActive ? "border-blue-600 text-blue-700" : "border-transparent text-gray-600 hover:text-gray-900"
+                  }`}
               >
                 {tab.label}
               </button>
@@ -309,9 +315,10 @@ export default function DashboardTab() {
           onPageChange={setPendingReviewPage}
           lowStockCount={lowStockCount}
           lowStockItems={lowStockItems}
+          marketingCards={marketingCards}
         />
       )}
-      {activeView === "revenue" && <RevenuePanel />}
+      {activeView === "revenue" && <RevenuePanel marketingCards={marketingCards} />}
     </div>
   );
 }
@@ -334,6 +341,7 @@ function OverviewPanel({
   onPageChange,
   lowStockCount,
   lowStockItems,
+  marketingCards,
 }: {
   employeeCount: string;
   employeeLabel: string;
@@ -352,9 +360,29 @@ function OverviewPanel({
   onPageChange: (page: number) => void;
   lowStockCount: string;
   lowStockItems: any[];
+  marketingCards: ContentApprovalCard[];
 }) {
   const [showLowStockModal, setShowLowStockModal] = useState<boolean>(false);
   const [showPendingReviewModal, setShowPendingReviewModal] = useState<boolean>(false);
+
+  const goToTab = (tab: string) => {
+    const pathMap: Record<string, string> = {
+      "TỔNG QUAN": "/tong-quan",
+      "NHÂN SỰ": "/nhan-su",
+      "KHO & SẢN PHẨM": "/kho-san-pham",
+      "MARKETING": "/marketing",
+      "SALES CRM": "/sales-crm",
+      "HIỆU SUẤT AI": "/hieu-suat-ai",
+      "QUẢN TRỊ USER": "/quan-tri-user",
+      "CÀI ĐẶT": "/cai-dat",
+      "VÍ & NẠP TIỀN": "/vi-nap-tien",
+    };
+    const path = pathMap[tab];
+    if (path) {
+      window.history.pushState(null, "", path);
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    }
+  };
 
   const previewPendingItems = marketingPendingItems.slice(0, 3);
   const itemsPerPage = 5;
@@ -369,22 +397,22 @@ function OverviewPanel({
     <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_280px]">
       <div className="space-y-6">
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-          <ModuleCard icon={Users} tone="amber" title="Nhân sự" value={employeeCount} label={employeeLabel} footer="Độ hài lòng" footerValue="92%" progress={92} />
-          <ModuleCard icon={PackageCheck} tone="blue" title="Kho & Sản phẩm" value={totalProducts} label="Tổng sản phẩm" footer="Đơn chờ xuất" footerValue={`${pendingShipments} Đơn`} progress={78} alert lowCount={lowStockCount} />
-          <ModuleCard icon={Megaphone} tone="slate" title="Marketing" value={marketingPendingCount} label="Bài chờ duyệt" footer="Tỉ lệ duyệt" footerValue={`${marketingApprovalRate}%`} progress={Number(marketingApprovalRate) || 0} />
+          <ModuleCard icon={Users} tone="amber" title="Nhân sự" value={employeeCount} label={employeeLabel} footer="Độ hài lòng" footerValue="92%" progress={92} onClick={() => goToTab("NHÂN SỰ")} />
+          <ModuleCard icon={PackageCheck} tone="blue" title="Kho & Sản phẩm" value={totalProducts} label="Tổng sản phẩm" footer="Đơn chờ xuất" footerValue={`${pendingShipments} Đơn`} progress={78} alert lowCount={lowStockCount} onClick={() => goToTab("KHO & SẢN PHẨM")} />
+          <ModuleCard icon={Megaphone} tone="slate" title="Marketing" value={marketingPendingCount} label="Bài chờ duyệt" footer="Tỉ lệ duyệt" footerValue={`${marketingApprovalRate}%`} progress={Number(marketingApprovalRate) || 0} onClick={() => goToTab("MARKETING")} />
           <SalesCard />
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <LineChartCard />
-          <DonutCard />
+          <DonutCard cards={marketingCards} />
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-xs">
             <div className="mb-5 flex items-center justify-between">
               <h3 className="text-sm font-bold uppercase tracking-wide text-gray-800">Canh báo tồn kho</h3>
-              <button onClick={() => setShowLowStockModal(true)} className="text-xs font-semibold text-blue-700">Xem tất cả</button>
+              <button onClick={() => goToTab("KHO & SẢN PHẨM")} className="text-xs font-semibold text-blue-700">Xem tất cả</button>
             </div>
             <div className="flex items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gray-50 text-2xl">📦</div>
@@ -475,7 +503,14 @@ function OverviewPanel({
                 : "AI chưa phát hiện rủi ro tồn kho đáng báo động trong 3 ngày tới.",
               action: lowStockItems.length > 0 ? "Tạo đơn nhập kho ngay" : "Xem báo cáo kho",
               color: "red",
-              onAction: () => (lowStockItems.length > 0 ? onCreateReorder(lowStockItems[0]?.name) : onCreateReorder()),
+              onAction: () => {
+                if (lowStockItems.length > 0) {
+                  onCreateReorder(lowStockItems[0]?.name);
+                } else {
+                  onCreateReorder();
+                }
+                goToTab("KHO & SẢN PHẨM");
+              },
             },
             {
               icon: Megaphone,
@@ -595,7 +630,7 @@ function PendingReviewModal({
   );
 }
 
-function RevenuePanel() {
+function RevenuePanel({ marketingCards }: { marketingCards: ContentApprovalCard[] }) {
   return (
     <div className="space-y-8">
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
@@ -622,7 +657,7 @@ function RevenuePanel() {
             <h3 className="text-2xl font-bold text-gray-800">Co cau nguon</h3>
             <MoreVertical className="h-5 w-5 text-gray-500" />
           </div>
-          <DonutCard compact />
+          <DonutCard compact cards={marketingCards} />
         </div>
       </div>
     </div>
@@ -675,11 +710,14 @@ function AiPanel() {
   );
 }
 
-function ModuleCard({ icon: Icon, tone, title, value, label, footer, footerValue, progress, alert, lowCount }: any) {
+function ModuleCard({ icon: Icon, tone, title, value, label, footer, footerValue, progress, alert, lowCount, onClick }: any) {
   const color = toneClass[(tone as Tone) || "blue"];
   const showCount = alert && lowCount && lowCount !== "0" && lowCount !== "...";
   return (
-    <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-xs">
+    <div 
+      onClick={onClick}
+      className={`rounded-3xl border border-gray-100 bg-white p-6 shadow-xs ${onClick ? "cursor-pointer transition-all hover:scale-[1.01] hover:shadow-xs active:scale-[0.99]" : ""}`}
+    >
       <div className="mb-6 flex items-start justify-between">
         <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${color.soft} ${color.text}`}>
           <Icon className="h-5 w-5" />
@@ -742,7 +780,7 @@ function MetricCard({ icon: Icon, label, value, delta, tone = "blue", negative =
 function LineChartCard() {
   return (
     <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-xs">
-      <h3 className="mb-8 text-sm font-semibold uppercase tracking-widest text-gray-800">Doanh thu & Hieu suat AI</h3>
+      <h3 className="mb-8 text-sm font-semibold uppercase tracking-widest text-gray-800">Doanh thu</h3>
       <svg viewBox="0 0 420 260" className="h-72 w-full">
         <defs>
           <linearGradient id="lineFill" x1="0" x2="0" y1="0" y2="1">
@@ -759,14 +797,43 @@ function LineChartCard() {
   );
 }
 
-function DonutCard({ compact = false }: { compact?: boolean }) {
+function DonutCard({ compact = false, cards = [] }: { compact?: boolean; cards?: ContentApprovalCard[] }) {
   const radius = 66;
   const circumference = 2 * Math.PI * radius;
+
+  // Chỉ tính toán phân bổ phần trăm cho những bài viết ĐÃ ĐƯỢC DUYỆT (hoặc đã lên lịch/đăng)
+  const approvedCards = cards.filter(c => 
+    c.status === "approved" || 
+    c.status === "scheduled" || 
+    c.status === "published" || 
+    c.status === "failed"
+  );
+  const total = approvedCards.length;
+  let facebookPct = 50;
+  let tiktokPct = 25;
+  let linkedinPct = 25;
+  let instagramPct = 0;
+
+  if (total > 0) {
+    const facebookCount = approvedCards.filter(c => c.channel === "Facebook").length;
+    const tiktokCount = approvedCards.filter(c => c.channel === "TikTok").length;
+    const linkedinCount = approvedCards.filter(c => c.channel === "LinkedIn").length;
+    const instagramCount = approvedCards.filter(c => c.channel === "Instagram").length;
+
+    const validTotal = facebookCount + tiktokCount + linkedinCount + instagramCount;
+    if (validTotal > 0) {
+      facebookPct = Math.round((facebookCount / validTotal) * 100);
+      tiktokPct = Math.round((tiktokCount / validTotal) * 100);
+      linkedinPct = Math.round((linkedinCount / validTotal) * 100);
+      instagramPct = Math.max(0, 100 - facebookPct - tiktokPct - linkedinPct);
+    }
+  }
+
   const segments = [
-    { label: "Direct Sales", value: 45, color: "#06b6c7", className: "bg-blue-500" },
-    { label: "Referral", value: 25, color: "#e99a2c", className: "bg-amber-400" },
-    { label: "Social Media", value: 15, color: "#9a5a00", className: "bg-amber-700" },
-    { label: "Paid Ads", value: 15, color: "#dbeafe", className: "bg-blue-100" },
+    { label: "Facebook", value: facebookPct, color: "#06b6c7", className: "bg-blue-500" },
+    { label: "TikTok", value: tiktokPct, color: "#e99a2c", className: "bg-amber-400" },
+    { label: "LinkedIn", value: linkedinPct, color: "#9a5a00", className: "bg-amber-700" },
+    { label: "Instagram", value: instagramPct, color: "#dbeafe", className: "bg-blue-100" },
   ];
   let offset = 0;
 
