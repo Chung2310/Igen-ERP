@@ -24,6 +24,7 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
   const [compUsername, setCompUsername] = useState("");
   const [compBlotatoAccountId, setCompBlotatoAccountId] = useState("");
   const [compAccessToken, setCompAccessToken] = useState("");
+  const [compRefreshToken, setCompRefreshToken] = useState("");
   const [showCompToken, setShowCompToken] = useState(false);
   const [compAppSecret, setCompAppSecret] = useState("");
   const [compVerifyToken, setCompVerifyToken] = useState("");
@@ -99,6 +100,7 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
         username: compUsername.trim() || undefined,
         blotatoAccountId: compPlatform === "TikTok" ? compBlotatoAccountId.trim() : undefined,
         accessToken: compAccessToken.trim(),
+        refreshToken: compPlatform === "Zalo" ? compRefreshToken.trim() || undefined : undefined,
         appSecret: compPlatform === "Facebook" ? compAppSecret.trim() : undefined,
         verifyToken: compPlatform === "Facebook" ? compVerifyToken.trim() : undefined,
         isConnected: true,
@@ -132,6 +134,7 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
     setCompUsername(integration.username || "");
     setCompBlotatoAccountId(integration.blotatoAccountId || "");
     setCompAccessToken(integration.accessToken || "");
+    setCompRefreshToken(integration.refreshToken || "");
     setShowCompToken(false);
     setCompAppSecret(integration.appSecret || "");
     setCompVerifyToken(integration.verifyToken || "");
@@ -164,6 +167,7 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
     setCompUsername("");
     setCompBlotatoAccountId("");
     setCompAccessToken("");
+    setCompRefreshToken("");
     setShowCompToken(false);
     setCompAppSecret("");
     setCompVerifyToken("");
@@ -307,6 +311,19 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
                   </button>
                 </div>
                 <p className="text-[9px] text-gray-400 leading-normal">{currentPlatformMeta.tokenHelp}</p>
+                {compPlatform === "Zalo" && (
+                  <div className="mt-3 space-y-1">
+                    <label className="text-[11px] font-semibold text-gray-700">Refresh Token (tùy chọn)</label>
+                    <input
+                      type={showCompToken ? "text" : "password"}
+                      value={compRefreshToken}
+                      onChange={(e) => setCompRefreshToken(e.target.value)}
+                      placeholder="Dán Refresh Token nếu có"
+                      className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-[11px] text-gray-800 shadow-sm focus:border-[#0068ff] focus:outline-none focus:ring-1 focus:ring-[#0068ff]"
+                    />
+                    <p className="text-[9px] text-gray-400 leading-normal">Nếu Zalo OA của bạn có Refresh Token, hãy nhập để hệ thống tự làm mới token khi sắp hết hạn.</p>
+                  </div>
+                )}
               </div>
 
               {/* Facebook Message configurations: App Secret and Verify Token */}

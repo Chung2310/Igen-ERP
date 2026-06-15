@@ -160,8 +160,8 @@ export const zaloMessengerService = {
       const now = Date.now();
       const expiryTime = companyIntegration.tokenExpiredAt ? new Date(companyIntegration.tokenExpiredAt).getTime() : 0;
 
-      // Nếu còn ít hơn 10 phút thì tiến hành refresh token
-      if (companyIntegration.refreshToken && (expiryTime - now < 10 * 60 * 1000)) {
+      // Nếu token đã hết hạn hoặc còn ít hơn 10 phút thì tiến hành refresh token
+      if (companyIntegration.refreshToken && (expiryTime <= now || expiryTime - now < 10 * 60 * 1000)) {
         console.log(`[Zalo Service Token] Company Zalo Token của OA ID ${oaId} sắp hết hạn. Đang tiến hành làm mới tự động...`);
         try {
           const newAccessToken = await this.refreshCompanyZaloToken(companyIntegration._id.toString(), companyIntegration);
@@ -550,9 +550,21 @@ export const zaloMessengerService = {
 
     } else {
       // Gửi thật qua Zalo OpenAPI
-      const token = await this.getAccessTokenByOAId(oaId);
+      let token = await this.getAccessTokenByOAId(oaId);
       if (!token) {
         throw new Error("Không lấy được Zalo Access Token hợp lệ.");
+      }
+
+      // Nếu token thật sự hết hạn, thử refresh một lần nữa trước khi gọi OpenAPI.
+      const user = await UserModel.findOne({
+        "zaloIntegration.isConnected": true,
+        "zaloIntegration.oaId": oaId,
+      });
+      if (user?.zaloIntegration && !user.zaloIntegration.isMock) {
+        const expiryTime = user.zaloIntegration.tokenExpiredAt ? new Date(user.zaloIntegration.tokenExpiredAt).getTime() : 0;
+        if (expiryTime <= Date.now()) {
+          token = await this.refreshToken(user._id.toString(), user.zaloIntegration);
+        }
       }
 
       const url = "https://openapi.zalo.me/v3.0/oa/message/cs";
