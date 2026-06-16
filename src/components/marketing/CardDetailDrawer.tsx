@@ -9,7 +9,8 @@ import {
   Facebook, 
   ExternalLink, 
   RefreshCw,
-  X
+  X,
+  Loader2
 } from "lucide-react";
 import { ContentApprovalCard } from "../../types";
 import { formatCardDate } from "./CardWidgets";
@@ -174,6 +175,15 @@ export default function CardDetailDrawer({
           {/* Media Section */}
           <div>
             <label className="block text-[10px] font-bold text-gray-450 font-mono uppercase mb-2">Phương tiện (Media)</label>
+            {card.status === 'processing' && (
+              <div className="relative overflow-hidden rounded-xl aspect-video w-full border border-purple-200 bg-purple-50/30 flex flex-col items-center justify-center gap-3">
+                <Loader2 className="h-7 w-7 text-purple-600 animate-spin" />
+                <div className="flex flex-col items-center gap-1">
+                  <span className="text-xs font-bold text-purple-800 tracking-wide animate-pulse">Đang tạo phương tiện bằng AI...</span>
+                  <span className="text-[10px] text-purple-400">Vui lòng đợi vài phút để hệ thống hoàn tất.</span>
+                </div>
+              </div>
+            )}
             {card.imageUrl && (
               <div 
                 onClick={() => onPreviewMedia('image', card.imageUrl!)}
@@ -197,13 +207,17 @@ export default function CardDetailDrawer({
               </div>
             )}
 
-            {!card.imageUrl && !card.videoUrl && card.status !== 'published' && (
+            {!card.imageUrl && !card.videoUrl && card.status !== 'published' && card.status !== 'processing' && (
               <button
                 onClick={() => onGenerateMedia(card)}
                 className="w-full flex items-center justify-center gap-2 py-4 px-3 bg-purple-50 hover:bg-purple-100 text-purple-750 border border-purple-200 border-dashed rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-[0.99]"
               >
                 <Sparkles className="h-4 w-4 text-purple-500 animate-pulse" />
-                <span>Tạo Ảnh / Video AI mới</span>
+                <span>
+                  {card.mediaType === "human-video" ? "Tạo Voice → Video người thật mới" :
+                   card.mediaType === "video" ? "Tạo Video AI mới" :
+                   card.mediaType === "image" ? "Tạo Ảnh AI mới" : "Tạo Ảnh / Video AI mới"}
+                </span>
               </button>
             )}
           </div>

@@ -284,22 +284,57 @@ export default function MarketingTab() {
     toast.error(`Kênh "${card.channel}" chưa hỗ trợ đăng tải trực tiếp.`);
   };;
 
-  const handleInitAIGeneration = (card: ContentApprovalCard, type?: 'image' | 'video') => {
-    const selectedType = type ?? (card.channel === 'TikTok' ? 'video' : 'image');
+  const handleInitAIGeneration = (card: ContentApprovalCard, type?: 'image' | 'video' | 'voice') => {
+    const selectedType = type ?? (
+      card.mediaType === 'human-video' ? 'voice' :
+      card.mediaType === 'video' ? 'video' :
+      card.mediaType === 'image' ? 'image' :
+      (card.channel === 'TikTok' ? 'video' : 'image')
+    );
+
+    // Headless background generation for human-video card when clicking the main generate button
+    if (card.mediaType === 'human-video' && !type) {
+      toast.info(`Bắt đầu tạo video người thật tự động cho "${card.title}"...`);
+      
+      // Update card status to processing in state
+      setApprovalCards(prev => prev.map(c => c.id === card.id ? { ...c, status: "processing" } : c));
+      
+      marketingService.generateHumanVideoForCard(card.id, {
+        onProgressUpdate: (progressStatus) => {
+          console.log(`[Human Video Pipeline] ${card.title}: ${progressStatus}`);
+        }
+      }).then((updatedCard) => {
+        setApprovalCards(prev => prev.map(c => c.id === card.id ? updatedCard : c));
+        toast.success(`Đã tạo video người thật thành công cho bài viết "${card.title}"!`);
+      }).catch((err) => {
+        console.error("Lỗi tạo video người thật ở chế độ nền:", err);
+        // Mark failed
+        setApprovalCards(prev => prev.map(c => c.id === card.id ? { ...c, status: "failed" } : c));
+        toast.error(`Lỗi tạo video người thật cho "${card.title}": ${err.message}`);
+      });
+      return;
+    }
     
-    let cleanText = card.mediaPrompt || "";
-    if (!cleanText) {
-      if (selectedType === 'video') {
-        cleanText = card.outline || card.bodyText || "";
-      } else {
-        cleanText = extractDraftContent(card.bodyText);
+    let cleanText = "";
+    if (selectedType === 'voice') {
+      cleanText = card.voiceScript || card.outline || extractDraftContent(card.bodyText) || "";
+    } else {
+      cleanText = card.mediaPrompt || "";
+      if (!cleanText) {
+        if (selectedType === 'video') {
+          cleanText = card.outline || card.bodyText || "";
+        } else {
+          cleanText = extractDraftContent(card.bodyText);
+        }
       }
     }
 
     setContentStudioParams({
       tab: selectedType,
       prompt: cleanText,
-      cardId: card.id
+      cardId: card.id,
+      image: card.referenceImage,
+      autoTrigger: true
     });
     setSubTab("XƯỞNG NỘI DUNG");
   };

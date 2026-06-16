@@ -16,7 +16,7 @@ export interface ContentApprovalCard {
   title: string;
   channel: "Facebook" | "TikTok" | "LinkedIn" | "Instagram" | "Zalo";
   contentType: string;
-  status: "draft" | "pending" | "approved" | "scheduled" | "published" | "failed";
+  status: "draft" | "pending" | "approved" | "scheduled" | "published" | "failed" | "processing";
   bodyText: string;
   outline?: string;
   imageUrl?: string;
@@ -38,6 +38,8 @@ export interface ContentApprovalCard {
   tiktokShareUrl?: string;
   integrationId?: string;
   publishError?: string;
+  mediaType?: "image" | "video" | "human-video";
+  referenceImage?: string;
 }
 
 export interface PublishEvent {

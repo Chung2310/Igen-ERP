@@ -4,7 +4,7 @@ export interface IMarketingContent extends Document {
   title: string;
   channel: "Facebook" | "TikTok" | "LinkedIn" | "Instagram" | "Zalo";
   contentType: string;
-  status: "draft" | "pending" | "approved" | "scheduled" | "published";
+  status: "draft" | "pending" | "approved" | "scheduled" | "published" | "processing" | "failed";
   bodyText: string;
   outline?: string;
   imageUrl?: string;
@@ -26,5 +26,6 @@ export interface IMarketingContent extends Document {
   tiktokShareUrl?: string;
   companyCode: string;
   integrationId?: Types.ObjectId | string; // ID tài khoản mạng xã hội liên kết dùng để đăng bài
+  referenceImage?: string;
+  mediaType?: "image" | "video" | "human-video";
 }
-

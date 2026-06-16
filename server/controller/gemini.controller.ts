@@ -247,8 +247,12 @@ export const geminiController = {
         return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
       }
 
+      const startTime = Date.now();
+      console.log(`[geminiController.analyzeMarketingPillars] START | userId=${userId} | topic="${String(campaignTopic).slice(0, 80)}" | images=${images?.length || 0}`);
       await walletService.checkBalance(userId, API_COSTS.GEMINI_MARKETING);
       const result = await geminiService.analyzeMarketingPillars(campaignTopic, images);
+      const elapsed = Date.now() - startTime;
+      console.log(`[geminiController.analyzeMarketingPillars] DONE | ${elapsed}ms (${(elapsed / 1000).toFixed(1)}s) | pillars=${result?.pillars?.length || 0} | isMock=${result?.isMock}`);
       await walletService.deductBalance(userId, API_COSTS.GEMINI_MARKETING, "Chi phí phân tích Content Pillars bằng AI");
       return res.status(200).json(result);
     } catch (error: any) {
@@ -268,12 +272,18 @@ export const geminiController = {
         return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
       }
 
+      const startTime = Date.now();
+      const promptLen = String(campaignTopic || "").length;
+      console.log(`[geminiController.generateMarketingIdeas] START | userId=${userId} | promptLen=${promptLen} | pillars=${selectedPillars?.length || 0} | channels=${channels?.join(",") || "auto"} | mediaType=${mediaType || "none"} | images=${images?.length || 0}`);
       await walletService.checkBalance(userId, API_COSTS.GEMINI_MARKETING);
       const result = await geminiService.generateMarketingIdeas(campaignTopic, selectedPillars, channels, mediaType, images);
+      const elapsed = Date.now() - startTime;
+      console.log(`[geminiController.generateMarketingIdeas] DONE | ${elapsed}ms (${(elapsed / 1000).toFixed(1)}s) | concepts=${result?.concepts?.length || 0} | isMock=${result?.isMock}`);
       await walletService.deductBalance(userId, API_COSTS.GEMINI_MARKETING, "Chi phí phát sinh ý tưởng chiến dịch AI");
       return res.status(200).json(result);
     } catch (error: any) {
-      console.error("[geminiController.generateMarketingIdeas] Error:", error);
+      const elapsed = Date.now() - (req as any)._startTime || 0;
+      console.error(`[geminiController.generateMarketingIdeas] FAILED after ~${elapsed}ms |`, error);
       return handleGeminiError(res, error, "Lỗi phát sinh ý tưởng chiến dịch AI");
     }
   },
@@ -306,6 +316,8 @@ export const geminiController = {
         return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
       }
 
+      const startTime = Date.now();
+      console.log(`[geminiController.developMarketingIdea] START | userId=${userId} | title="${String(title).slice(0, 60)}" | channels=${channels?.join(",") || "auto"} | mediaType=${mediaType || "none"}`);
       await walletService.checkBalance(userId, API_COSTS.GEMINI_MARKETING);
       const result = await geminiService.developMarketingIdea(title, summary, suggestedContent, channels, {
         mediaType,
@@ -321,6 +333,8 @@ export const geminiController = {
         humanVoiceModel,
         humanDurationSeconds: humanDurationSeconds ? Number(humanDurationSeconds) : undefined,
       });
+      const elapsed = Date.now() - startTime;
+      console.log(`[geminiController.developMarketingIdea] DONE | ${elapsed}ms (${(elapsed / 1000).toFixed(1)}s) | posts=${result?.posts?.length || 0} | isMock=${result?.isMock}`);
       await walletService.deductBalance(userId, API_COSTS.GEMINI_MARKETING, "Chi phí viết bài và lập dàn ý Marketing AI");
       return res.status(200).json(result);
     } catch (error: any) {

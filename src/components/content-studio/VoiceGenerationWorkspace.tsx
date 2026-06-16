@@ -11,6 +11,8 @@ import {
    FileAudio, Laptop, RefreshCw, BookOpen, Volume1
 } from 'lucide-react';
 import { estimateAudioDuration } from '../../utils/usage-tracker';
+import { getAccessToken } from '../../services/authService';
+import { marketingService } from '../../services/marketingService';
 
 const VOICE_STYLE_TEMPLATES = [
    { id: 'none', label: 'Tùy chỉnh (Tự nhập)', prompt: '' },
@@ -129,8 +131,28 @@ const TapeIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
 
 // Removed heavy client-side WAV encoder function audioBufferToWav to optimize memory and CPU usage.
 
-export function VoiceGenerationWorkspace() {
-   const [text, setText] = useState('');
+interface VoiceGenerationWorkspaceProps {
+   initialText?: string;
+   onNavigateToHumanVideo?: () => void;
+   cardId?: string;
+   autoTrigger?: boolean;
+   onMediaSaved?: (cardId: string, mediaUrl: string, type: 'image' | 'video' | 'audio') => void;
+}
+
+export function VoiceGenerationWorkspace({
+   initialText = '',
+   onNavigateToHumanVideo,
+   cardId,
+   autoTrigger,
+   onMediaSaved,
+}: VoiceGenerationWorkspaceProps) {
+   const [text, setText] = useState(initialText);
+
+   useEffect(() => {
+      if (initialText) {
+         setText(initialText);
+      }
+   }, [initialText]);
 
    // Custom states
    const [customStyleInstructions, setCustomStyleInstructions] = useState('');
@@ -538,6 +560,26 @@ const getSelectedVoice = () => {
             setArchiveTitle('');
             setArchiveDescription('');
             loadHistory(); // Reload history
+
+            if (cardId) {
+               toast.info('Đang đồng bộ audio lên Cloudinary...');
+               try {
+                  const filename = `voice_${Date.now()}.mp3`;
+                  const cloudinaryUrl = await marketingService.uploadMediaToStorage(result.record.url, filename, 'video');
+                  await marketingService.updateCard(cardId, {
+                     audioUrl: cloudinaryUrl,
+                     voiceScript: text,
+                     audioRecordId: result.record?._id || result.record?.id
+                  });
+                  if (onMediaSaved) {
+                     onMediaSaved(cardId, cloudinaryUrl, 'audio');
+                  }
+                  toast.success('Đã lưu trữ và đồng bộ hóa audio thành công!');
+               } catch (uploadError: any) {
+                  console.error('Cloudinary audio error:', uploadError);
+                  toast.error('Tạo audio thành công nhưng không thể đồng bộ hóa lưu trữ.');
+               }
+            }
          }
       } catch (error: any) {
          console.error(error);
@@ -546,6 +588,12 @@ const getSelectedVoice = () => {
          setIsGenerating(false);
       }
    };
+
+   useEffect(() => {
+      if (autoTrigger && text.trim() && !isGenerating && !audioUri) {
+         void handleGenerate();
+      }
+   }, [autoTrigger, text]);
 
    const handleDeleteHistory = async (id: string) => {
       if (!confirm("Bạn có chắc chắn muốn xóa bản thu âm này?")) return;
@@ -619,13 +667,21 @@ const getSelectedVoice = () => {
       if (!targetUri) return;
       toast.info("Đang tải xuống tệp âm thanh...");
       try {
-         const response = await fetch(targetUri);
+         const fileName = customName || `igen-voice-${Date.now()}.wav`;
+         const proxyUrl = `/api/v1/media/download?url=${encodeURIComponent(targetUri)}&filename=${encodeURIComponent(fileName)}`;
+         
+         const response = await fetch(proxyUrl, {
+            headers: {
+               "Authorization": `Bearer ${getAccessToken()}`,
+            },
+         });
+
          if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
          const blob = await response.blob();
          const blobUrl = window.URL.createObjectURL(blob);
          const link = document.createElement('a');
          link.href = blobUrl;
-         link.download = customName || `igen-voice-${Date.now()}.wav`;
+         link.download = fileName;
          document.body.appendChild(link);
          link.click();
          document.body.removeChild(link);
@@ -1069,6 +1125,19 @@ const getSelectedVoice = () => {
                               <Download className="h-4.5 w-4.5" />
                            </button>
                         </div>
+                        {onNavigateToHumanVideo && (
+                           <div className="mt-2 pt-3 border-t border-slate-100 flex justify-end">
+                              <button
+                                 type="button"
+                                 onClick={onNavigateToHumanVideo}
+                                 className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold shadow-md hover:shadow-lg active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
+                              >
+                                 <Sparkles className="h-3.5 w-3.5 text-purple-250 animate-pulse" />
+                                 <span>Chuyển sang tạo Video người thật</span>
+                                 <ChevronRight className="h-4 w-4" />
+                              </button>
+                           </div>
+                        )}
                      </div>
                   )}
                </div>
