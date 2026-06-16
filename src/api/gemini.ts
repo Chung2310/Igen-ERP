@@ -91,7 +91,7 @@ export const geminiApi = {
         headers,
         body: JSON.stringify({ campaignTopic, images }),
       },
-      90000,
+      150000,
       'Hết thời gian phân tích Content Pillars. Vui lòng thử lại.'
     );
     if (!response.ok) {
@@ -118,7 +118,7 @@ export const geminiApi = {
         headers,
         body: JSON.stringify({ campaignTopic, selectedPillars, channels, mediaType, images }),
       },
-      mediaType === "human-video" ? 180000 : 120000,
+      mediaType === "human-video" ? 300000 : 180000,
       mediaType === "human-video"
         ? 'Tạo ý tưởng cho video người thật mất quá lâu. Vui lòng thử lại sau ít phút.'
         : 'Tạo ý tưởng marketing bị quá thời gian chờ. Vui lòng thử lại.'
@@ -158,7 +158,7 @@ export const geminiApi = {
         headers,
         body: JSON.stringify(concept),
       },
-      concept.mediaType === "human-video" ? 240000 : 150000,
+      concept.mediaType === "human-video" ? 360000 : 240000,
       concept.mediaType === "human-video"
         ? 'Phát triển nội dung cho video người thật mất quá lâu. Vui lòng thử lại sau.'
         : 'Phát triển nội dung AI bị quá thời gian chờ. Vui lòng thử lại.'

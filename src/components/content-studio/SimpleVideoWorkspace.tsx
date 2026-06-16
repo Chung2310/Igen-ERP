@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { marketingService } from '../../services/marketingService';
 import { VeoSettingsPanel } from './VeoSettingsPanel';
+import { getAccessToken } from '../../services/authService';
 
 const VIDEO_TEMPLATES = [
   { id: 'none', label: 'Tùy chỉnh (Tự nhập)', prompt: '' },
@@ -17,11 +18,13 @@ const VIDEO_TEMPLATES = [
   { id: 'fashion', label: '👗 Fashion Walk', prompt: 'Người mẫu đi bộ trên sàn runway, ánh sáng đèn flash lung linh, bối cảnh studio cao cấp, chuyển động slow-motion.' },
 ];
 
-export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved, onEditVideo }: {
+export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved, onEditVideo, initialImage, autoTrigger }: {
   initialPrompt?: string;
   cardId?: string;
-  onMediaSaved?: (cardId: string, mediaUrl: string, type: 'image' | 'video') => void;
+  onMediaSaved?: (cardId: string, mediaUrl: string, type: 'image' | 'video' | 'audio') => void;
   onEditVideo?: (url: string) => void;
+  initialImage?: string;
+  autoTrigger?: boolean;
 }) {
   const [activeCardId, setActiveCardId] = useState<string | undefined>(cardId);
 
@@ -40,9 +43,15 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved, onEd
   } | null>(null);
 
   // Image references
-  const [standardImage, setStandardImage] = useState<string | null>(null);
+  const [standardImage, setStandardImage] = useState<string | null>(initialImage || null);
   const [beforeImage, setBeforeImage] = useState<string | null>(null);
   const [afterImage, setAfterImage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (initialImage) {
+      setStandardImage(initialImage);
+    }
+  }, [initialImage]);
 
   // Video Settings
   const [videoModel, setVideoModel] = useState('piapi-veo31-video-fast-audio');
@@ -59,6 +68,48 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved, onEd
   // History state
   const [history, setHistory] = useState<any[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+
+  const handleDownloadVideo = async (uri?: string) => {
+    const targetUri = uri || generatedVideoUrl;
+    if (!targetUri) return;
+
+    toast.info("Đang tải video về máy...");
+    try {
+      const fileName = `igen-video-${Date.now()}.mp4`;
+      const proxyUrl = `/api/v1/media/download?url=${encodeURIComponent(targetUri)}&filename=${encodeURIComponent(fileName)}`;
+      
+      const response = await fetch(proxyUrl, {
+        headers: {
+          "Authorization": `Bearer ${getAccessToken()}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+      toast.success("Tải video thành công!");
+    } catch (error) {
+      console.error("Direct video download failed, falling back:", error);
+      const link = document.createElement('a');
+      link.href = targetUri;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.warning("Không thể tải trực tiếp. Video đã được mở trong tab mới để bạn tải xuống.");
+    }
+  };
 
   // Progress simulation helpers
   const optimizeProgress = useProgress(isGeneratingPrompt, 4);
@@ -253,6 +304,12 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved, onEd
       setIsGenerating(false);
     }
   };
+
+  useEffect(() => {
+    if (autoTrigger && prompt.trim() && !isGenerating && !generatedVideoUrl) {
+      void handleGenerateVideo();
+    }
+  }, [autoTrigger]);
 
   const handleDeleteHistory = async (id: string) => {
     if (!confirm("Bạn có chắc chắn muốn xóa video này khỏi lịch sử?")) return;
@@ -606,12 +663,7 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved, onEd
                       <div className="absolute top-4 right-4 opacity-0 hover:opacity-100 transition-opacity z-10 flex gap-2">
                         <button
                           type="button"
-                          onClick={() => {
-                            const link = document.createElement('a');
-                            link.href = generatedVideoUrl;
-                            link.download = `igen-video-${Date.now()}.mp4`;
-                            link.click();
-                          }}
+                          onClick={() => handleDownloadVideo()}
                           className="p-2 bg-slate-900/80 hover:bg-slate-900 text-white rounded-xl shadow border border-slate-700 transition-all cursor-pointer flex items-center gap-1.5 text-[11px] font-bold"
                         >
                           <Download className="h-4 w-4" />

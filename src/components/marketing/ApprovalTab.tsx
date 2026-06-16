@@ -101,30 +101,7 @@ export default function ApprovalTab({
         </div>
       )}
 
-      <div className="p-4 bg-slate-50 border border-gray-200 rounded-2xl flex gap-3 items-end" id="prompt_more_bar">
-        <div className="flex-1">
-          <label className="block text-[10px] font-bold text-gray-400 font-mono uppercase mb-1.5 text-left">Prompt AI viet them bai dang chu de moi:</label>
-          <input
-            type="text"
-            placeholder="Vi du: Viết 1 bài đăng thông báo khai trương kho mới quận Thanh Xuân..."
-            className="w-full text-left px-3.5 py-2 border border-gray-200 bg-white rounded-lg text-xs"
-            value={promptMore}
-            onChange={(e) => setPromptMore(e.target.value)}
-          />
-        </div>
-        <button
-          onClick={handleAIGenerateMore}
-          disabled={!promptMore.trim()}
-          className={`px-4 py-2 text-white text-xs font-bold rounded-lg flex items-center gap-1 shrink-0 transition-all ${
-            !promptMore.trim()
-              ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-              : "bg-indigo-600 hover:bg-indigo-700 cursor-pointer active:scale-95"
-          }`}
-        >
-          <Sparkles className="h-4 w-4" />
-          AI viết bài đăng mới
-        </button>
-      </div>
+
 
       <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin" id="moderation_columns">
         <div className="bg-gray-50 border border-gray-150 rounded-2xl p-3 flex flex-col min-h-[450px] flex-1 min-w-[280px] md:min-w-[320px]">
@@ -203,10 +180,10 @@ export default function ApprovalTab({
                 <ScheduledCard
                   key={card.id}
                   card={card}
-                    isUserRole={isUserRole}
-                    onPrevStatus={() => updateCardStatus(card.id, "approved")}
-                    onDelete={() => handleDeleteCard(card.id)}
-                    fbIntegration={userProfile?.facebookIntegration}
+                  isUserRole={isUserRole}
+                  onPrevStatus={() => updateCardStatus(card.id, "approved")}
+                  onDelete={() => handleDeleteCard(card.id)}
+                  fbIntegration={userProfile?.facebookIntegration}
                   tiktokIntegration={userProfile?.tiktokIntegration}
                   onPreviewMedia={(type, url) => handleOpenLightbox(card, type, url)}
                   onGenerateMedia={(c, type) => handleInitAIGeneration(c, type)}

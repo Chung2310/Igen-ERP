@@ -1,4 +1,4 @@
-import { Suspense, lazy, useState } from 'react';
+import { Suspense, lazy, useState, useEffect } from 'react';
 import { Clapperboard, Sparkles, Wand2 } from 'lucide-react';
 import { SimpleVideoWorkspace } from './SimpleVideoWorkspace';
 import { EditVideoWorkspace } from './EditVideoWorkspace';
@@ -10,7 +10,10 @@ const HeyGenWorkspace = lazy(() =>
 interface VideoGenerationWorkspaceProps {
   initialPrompt?: string;
   cardId?: string;
-  onMediaSaved?: (cardId: string, mediaUrl: string, type: 'image' | 'video') => void;
+  onMediaSaved?: (cardId: string, mediaUrl: string, type: 'image' | 'video' | 'audio') => void;
+  initialVideoTab?: VideoToolTab;
+  initialImage?: string;
+  autoTrigger?: boolean;
 }
 
 type VideoToolTab = 'veo' | 'heygen' | 'edit-video';
@@ -29,9 +32,18 @@ export function VideoGenerationWorkspace({
   initialPrompt,
   cardId,
   onMediaSaved,
+  initialVideoTab = 'veo',
+  initialImage,
+  autoTrigger,
 }: VideoGenerationWorkspaceProps) {
-  const [activeVideoTab, setActiveVideoTab] = useState<VideoToolTab>('veo');
+  const [activeVideoTab, setActiveVideoTab] = useState<VideoToolTab>(initialVideoTab);
   const [editVideoSourceUrl, setEditVideoSourceUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (initialVideoTab) {
+      setActiveVideoTab(initialVideoTab);
+    }
+  }, [initialVideoTab]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -64,6 +76,8 @@ export function VideoGenerationWorkspace({
             setEditVideoSourceUrl(url);
             setActiveVideoTab('edit-video');
           }}
+          initialImage={initialImage}
+          autoTrigger={autoTrigger}
         />
       )}
 
