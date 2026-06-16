@@ -896,9 +896,9 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                 </span>
                 <div className="flex flex-wrap gap-2.5">
                   {[
-                    { id: "Facebook", icon: <Facebook className="h-3.5 w-3.5" />, disabled: false },
-                    { id: "Zalo", icon: <span className="font-bold text-[10px] font-mono leading-none">ZL</span>, disabled: true },
-                    { id: "TikTok", icon: <span className="font-bold text-[10px] font-mono leading-none">TT</span>, disabled: true }
+                    { id: "Facebook", icon: <Facebook className="h-3.5 w-3.5" /> },
+                    { id: "Zalo", icon: <span className="font-bold text-[10px] font-mono leading-none">ZL</span> },
+                    { id: "TikTok", icon: <span className="font-bold text-[10px] font-mono leading-none">TT</span> }
                   ].map((chan) => {
                     const isSelected = selectedChannels.includes(chan.id);
                     return (
@@ -906,10 +906,6 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                         key={chan.id}
                         type="button"
                         onClick={() => {
-                          if (chan.disabled) {
-                            toast.info(`Nền tảng ${chan.id} đang được phát triển, chưa sẵn sàng tích hợp.`);
-                            return;
-                          }
                           if (isSelected) {
                             if (selectedChannels.length === 1) {
                               toast.warning("Bạn phải chọn ít nhất một nền tảng!");
@@ -920,21 +916,14 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                             setSelectedChannels([...selectedChannels, chan.id]);
                           }
                         }}
-                        className={`px-3.5 py-2 text-xs font-bold rounded-xl border transition-all flex items-center gap-2 select-none ${
-                          chan.disabled
-                            ? "border-gray-200 bg-gray-50/70 text-gray-400 cursor-not-allowed opacity-55"
-                            : isSelected
+                        className={`px-3.5 py-2 text-xs font-bold rounded-xl border transition-all flex items-center gap-2 cursor-pointer select-none ${
+                          isSelected
                             ? "border-indigo-650 bg-indigo-50 text-indigo-750 shadow-sm ring-2 ring-indigo-550/15 cursor-pointer hover:bg-indigo-100"
                             : "border-slate-200 bg-white text-gray-500 hover:bg-slate-100 cursor-pointer"
                         }`}
                       >
                         {chan.icon}
                         <span>{chan.id}</span>
-                        {chan.disabled && (
-                          <span className="text-[9px] font-normal px-1 py-0.5 bg-gray-200/80 text-gray-500 rounded-md scale-90 origin-right">
-                            🔒 Khóa
-                          </span>
-                        )}
                       </button>
                     );
                   })}
