@@ -233,20 +233,6 @@ export default function CardDetailDrawer({
             />
           </div>
 
-          {/* Outline */}
-          {(card.outline || card.status !== 'published') && (
-            <div className="space-y-1.5">
-              <label className="block text-[10px] font-bold text-gray-450 font-mono uppercase">🔍 Dàn ý (Outline)</label>
-              <textarea
-                disabled={card.status === 'published'}
-                className="w-full text-xs text-gray-650 leading-relaxed font-sans bg-white p-3.5 rounded-xl border border-gray-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none whitespace-pre-wrap min-h-[100px] resize-y disabled:bg-slate-50 disabled:cursor-not-allowed"
-                value={editedOutline}
-                onChange={(e) => setEditedOutline(e.target.value)}
-                placeholder="Nhập dàn ý hoặc kịch bản video..."
-              />
-            </div>
-          )}
-
           {/* Timing details */}
           <div className="grid grid-cols-2 gap-4 pt-2">
             <div>

@@ -574,6 +574,8 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
           ? "\nYêu cầu về phương tiện: Các ý tưởng phải thiết kế đi kèm hình ảnh làm chủ đạo."
           : mediaType === "video"
             ? "\nYêu cầu về phương tiện: Các ý tưởng phải thiết kế đi kèm video làm chủ đạo."
+            : mediaType === "human-video"
+              ? "\nYÃªu cáº§u vá» phÆ°Æ¡ng tiá»‡n: CÃ¡c Ã½ tÆ°á»Ÿng pháº£i phÃ¹ há»£p cho video ngÆ°á»i tháº­t/avatar nÃ³i trÆ°á»›c camera, Æ°u tiÃªn hook máº¡nh, lá»i thoáº¡i tá»± nhiÃªn, cáº£nh quay Ä‘Æ¡n giáº£n vÃ  cÃ³ thá»ƒ chuyá»ƒn thÃ nh voice script trá»±c tiáº¿p."
             : mediaType === "none"
               ? "\nYêu cầu về phương tiện: Các bài đăng không đi kèm hình ảnh hoặc video (chỉ văn bản/caption)."
               : "";
@@ -636,7 +638,25 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
 
       const responseText = response.text || "{}";
       const parsedData = JSON.parse(responseText.trim());
-      return { concepts: parsedData.concepts || [], isMock: false };
+      const groundedConcepts = (parsedData.concepts || []).map((concept: any) => {
+        const groundedConcept = [
+          `Use only visuals that are directly relevant to this campaign topic: ${campaignTopic}.`,
+          concept?.summary ? `Campaign summary: ${concept.summary}` : "",
+          concept?.suggestedContent ? `Content direction: ${concept.suggestedContent}` : "",
+          Array.isArray(channels) && channels.length > 0 ? `Target channels: ${channels.join(", ")}.` : "",
+          Array.isArray(selectedPillars) && selectedPillars.length > 0 ? `Required content pillars: ${selectedPillars.join(", ")}.` : "",
+          "Avoid generic beauty shots, unrelated product photos, abstract office scenes, and filler lifestyle imagery.",
+          "The visual must clearly reflect the real business context, audience, pain point, use-case, and message from the brief.",
+        ].filter(Boolean).join(" ");
+
+        return {
+          ...concept,
+          mediaPrompt: concept?.mediaPrompt
+            ? `${groundedConcept} ${concept.mediaPrompt}`.trim()
+            : groundedConcept,
+        };
+      });
+      return { concepts: groundedConcepts, isMock: false };
     } catch (error: any) {
       console.error("[geminiService.generateMarketingIdeas] Error, fallback to mock concepts:", error);
       return { concepts: getMockConcepts(), isMock: true };
@@ -658,6 +678,9 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
       videoDuration?: number;
       videoAspectRatio?: string;
       mediaPrompt?: string;
+      humanVoiceId?: string;
+      humanVoiceModel?: string;
+      humanDurationSeconds?: number;
     }
   ): Promise<{ posts: any[]; isMock: boolean }> {
     const validChannels = ["Facebook", "TikTok", "LinkedIn", "Instagram", "Zalo"];
@@ -755,7 +778,9 @@ Dựa trên gợi ý đề xuất: "${suggestedContent}", iGen ERP mang tới g�
 Nội dung chi tiết gợi ý: ${suggestedContent}`;
           mockMediaPrompt = `A creative, appealing social media visual representing ${title}.`;
         }
-        return { channel: chan, contentType, outline, bodyText, mediaPrompt: mockMediaPrompt };
+        const voiceScript = `Xin chao, day la noi dung gioi thieu ngan gon cho chien dich ${title}. ${summary}. Hay lien he ngay de nhan tu van chi tiet va uu dai phu hop.`;
+        const motionText = `Confident presenter, natural hand gestures, clear eye contact, upbeat delivery, topic-focused marketing explainer.`;
+        return { channel: chan, contentType, outline, bodyText, mediaPrompt: mockMediaPrompt, voiceScript, motionText };
       });
     };
 
@@ -764,6 +789,22 @@ Nội dung chi tiết gợi ý: ${suggestedContent}`;
       posts = getMockPosts();
     } else {
       try {
+        const isHumanVideo = mediaOptions?.mediaType === "human-video";
+        const humanDurationSeconds = Number(mediaOptions?.humanDurationSeconds || 15);
+        const humanVoiceRules = isHumanVideo
+          ? `
+
+YÊU CẦU RIÊNG CHO VIDEO NGƯỜI THẬT:
+1. Mỗi bài phải có thêm trường "voiceScript" bằng tiếng Việt tự nhiên, nói mượt, không bị dịch máy.
+2. "voiceScript" phải là đoạn lời thoại hoàn chỉnh để đưa thẳng sang TTS, không chứa markdown, không chứa bullet, không chứa nhãn như MC/Voiceover.
+3. Thời lượng đọc mục tiêu của "voiceScript" là khoảng ${humanDurationSeconds} giây, sai số tối đa khoảng 10%.
+4. "bodyText" vẫn là caption/ngữ cảnh đăng bài ngắn gọn, còn "voiceScript" mới là phần được đọc thành tiếng.
+5. "outline" phải mô tả các cảnh quay, biểu cảm, nhịp cắt và CTA để khớp với "voiceScript".
+6. "motionText" là mô tả chuyển động ngắn gọn cho avatar/video, bằng tiếng Anh, bám sát đúng chủ đề và lời thoại.
+7. Tuyệt đối không viết voiceScript chung chung. Nội dung phải bám đúng tiêu đề, tóm tắt chiến dịch, insight và thông điệp bán hàng được cung cấp.
+`
+          : "";
+
         const prompt = `Bạn là một chuyên gia viết kịch bản và AI Copywriter xuất sắc.
 Hãy lập Dàn ý (Outline) và viết Bản nháp nội dung (Draft Content) cho các kênh sau đây: ${targetChannels.join(", ")}
 
@@ -775,6 +816,7 @@ QUY TẮC PHÂN TÁCH DỮ LIỆU BẮT BUỘC CHO TỪNG KÊNH:
    - Trường "outline": Lập dàn ý chi tiết, cụ thể và tối ưu của bài viết.
    - Trường "bodyText": Lưu bản nháp nội dung bài viết sạch hoàn chỉnh để đăng tải trực tiếp (không chứa dàn ý hay tiêu đề nháp).
 3. Đối với mọi kênh: Sinh thêm trường "mediaPrompt" là một đoạn mô tả chi tiết bằng tiếng Anh (visual prompt) mô phỏng chính xác nội dung trực quan (hình ảnh hoặc video) phù hợp cho bài viết này để gửi tới AI Generator.
+${humanVoiceRules}
 
 Thông tin chiến dịch marketing:
 - Tiêu đề ý tưởng: "${title}"
@@ -809,6 +851,14 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
                       mediaPrompt: {
                         type: Type.STRING,
                         description: "A detailed visual description prompt in English for generating a matching image or video (e.g. scenic views, product display, lifestyle scene, characters, setting details)."
+                      },
+                      voiceScript: {
+                        type: Type.STRING,
+                        description: "Natural Vietnamese narration script for human-video voice generation. Keep empty string when not needed."
+                      },
+                      motionText: {
+                        type: Type.STRING,
+                        description: "Short English motion direction for avatar or human-video scene. Keep empty string when not needed."
                       }
                     },
                     required: ["channel", "contentType", "outline", "bodyText", "mediaPrompt"],
@@ -822,10 +872,28 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
 
         const responseText = response.text || "{}";
         const parsedData = JSON.parse(responseText.trim());
-        posts = (parsedData.posts || []).map((post: any) => ({
-          ...post,
-          channel: normalizeChannel(post.channel)
-        }));
+        posts = (parsedData.posts || []).map((post: any) => {
+          const groundedPrompt = [
+            `Create visuals that are strictly relevant to this campaign idea: ${title}.`,
+            `Campaign summary: ${summary}.`,
+            `Suggested content: ${suggestedContent}.`,
+            post?.bodyText ? `Post content: ${post.bodyText}` : "",
+            post?.outline ? `Visual/script outline: ${post.outline}` : "",
+            `Target channel: ${normalizeChannel(post.channel)}.`,
+            "Avoid generic beauty shots, unrelated product photos, abstract office scenes, and random lifestyle filler.",
+            "Show the true business context, audience, use-case, pain point, and key message from this post.",
+          ].filter(Boolean).join(" ");
+
+          return {
+            ...post,
+            channel: normalizeChannel(post.channel),
+            voiceScript: typeof post?.voiceScript === "string" ? post.voiceScript.trim() : "",
+            motionText: typeof post?.motionText === "string" ? post.motionText.trim() : "",
+            mediaPrompt: post?.mediaPrompt
+              ? `${groundedPrompt} ${post.mediaPrompt}`.trim()
+              : groundedPrompt,
+          };
+        });
       } catch (error: any) {
         console.error("[geminiService.developMarketingIdea] Error, fallback to mock posts:", error);
         isMock = true;
@@ -1110,7 +1178,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
         action_pose: "",
         setting_lighting: "",
         camera_parameters: "",
-        optimized_english_prompt: `A professional studio photo representing: ${normalizedDescription || "the provided concept"}`,
+        optimized_english_prompt: `A precise visual that faithfully represents this exact marketing or business concept: ${normalizedDescription || "the provided concept"}`,
         negative_prompt: "ugly, blurry, low quality",
       };
     };
@@ -1128,6 +1196,9 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
         {
           role: "system",
           content: `You are an expert prompt engineer for image generators. Optimize the user's image description into a high-quality, descriptive English prompt.
+Preserve the exact business topic, audience, use-case, and key message from the user's input.
+Do not convert a concrete brief into a generic product shot, generic lifestyle image, abstract office scene, or unrelated beauty visual.
+If the prompt is about software, ecommerce, omnichannel, logistics, operations, training, consulting, customer growth, or workflow, explicitly visualize that real context.
 Output MUST be a valid JSON object matching this schema:
 {
   "subject": "string",
@@ -1143,7 +1214,7 @@ Do not include markdown blocks or any text other than the JSON object.`
       ];
 
       const systemMessage = optimizeMessages[0].content;
-      const userText = `Optimize this prompt: ${normalizedDescription}`;
+      const userText = `Optimize this prompt while preserving the exact topic, context, audience, and business meaning: ${normalizedDescription}`;
       const result = await generateText(GEMINI_TEXT_MODEL, userText, {
         systemInstruction: systemMessage,
         responseMimeType: "application/json",

@@ -418,6 +418,150 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
     ].join("\n");
   };
 
+  const getHumanVideoScript = (post: any, fallbackTitle: string, fallbackSummary: string) => {
+    const directScript = String(post?.voiceScript || "").trim();
+    if (directScript) return directScript;
+
+    const outlineText = String(post?.outline || "").trim();
+    const bodyText = String(post?.bodyText || "").trim();
+    const fallbackParts = [
+      `Xin chao, day la video gioi thieu cho chien dich ${fallbackTitle}.`,
+      fallbackSummary,
+      bodyText,
+      "Lien he ngay de nhan tu van va nhan uu dai phu hop."
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    return (outlineText || fallbackParts).slice(0, 1200);
+  };
+
+  const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  const resolveHeyGenVideoUrl = async (videoId: string, context: {
+    avatarId: string;
+    audioUrl?: string;
+    audioRecordId?: string;
+    motionText?: string;
+    aspectRatio?: "16:9" | "9:16" | "1:1";
+    title?: string;
+    description?: string;
+  }) => {
+    const maxAttempts = 36;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      await wait(10000);
+
+      const status = await heygenApi.getVideoStatus(videoId, context);
+      const jobStatus = String(status?.jobStatus || "").toLowerCase();
+      const finalUrl = status?.videoUrl || status?.record?.url || "";
+
+      if (finalUrl && !finalUrl.startsWith("pending://heygen/")) {
+        return {
+          videoUrl: finalUrl,
+          provider: "heygen",
+        };
+      }
+
+      if (jobStatus === "completed" && finalUrl) {
+        return {
+          videoUrl: finalUrl,
+          provider: "heygen",
+        };
+      }
+
+      if (jobStatus === "failed" || jobStatus === "error") {
+        throw new Error(status?.error || "HeyGen khong the tao video tu audio da sinh.");
+      }
+    }
+
+    throw new Error("HeyGen tao video qua lau. Vui long kiem tra lai lich su render sau.");
+  };
+
+  const autoCreateHumanVideos = async (
+    savedCards: ContentApprovalCard[],
+    posts: any[],
+    concept: MarketingConcept
+  ): Promise<ContentApprovalCard[]> => {
+    const nextCards = [...savedCards];
+    const aspectRatio = (videoAspectRatio === "9:16" ? "9:16" : "16:9") as "16:9" | "9:16";
+
+    for (let index = 0; index < nextCards.length; index += 1) {
+      const card = nextCards[index];
+      const post = posts[index] || {};
+      const voiceScript = getHumanVideoScript(post, concept.title, concept.summary);
+      const motionText = String(post?.motionText || "").trim();
+
+      setAutoPilotStatus(`Dang tao voice tieng Viet cho video nguoi that: "${card.title}"...`);
+      const voiceResult = await elevenlabsApi.generateVoice({
+        textToSpeak: voiceScript,
+        mode: "single",
+        modelName: selectedHumanVoiceModel,
+        voiceName: selectedHumanVoice,
+        title: card.title,
+        description: `Voice auto cho ${card.channel}`,
+        saveToHistory: true
+      });
+
+      const audioRecordId = voiceResult.record?._id || voiceResult.record?.id;
+      const audioUrl = voiceResult.record?.url || voiceResult.url;
+      if (!audioUrl) {
+        throw new Error("Khong nhan duoc audio tu ElevenLabs de tao video nguoi that.");
+      }
+
+      setAutoPilotStatus(`Dang gui audio sang HeyGen de tao video nguoi that cho kenh ${card.channel}...`);
+      const heygenCreated = await heygenApi.createAvatarVideo({
+        avatarId: selectedHumanAvatar,
+        audioRecordId,
+        audioUrl,
+        motionText,
+        aspectRatio,
+        resolution: videoQuality === "1080p" ? "1080p" : "720p",
+        title: card.title,
+        description: concept.summary
+      });
+
+      const videoId = String(heygenCreated?.videoId || heygenCreated?.record?.metadata?.heygenVideoId || "").trim();
+      if (!videoId) {
+        throw new Error("HeyGen khong tra ve videoId hop le.");
+      }
+
+      setAutoPilotStatus(`Dang cho HeyGen hoan tat video nguoi that cho kenh ${card.channel}...`);
+      const resolvedVideo = await resolveHeyGenVideoUrl(videoId, {
+        avatarId: selectedHumanAvatar,
+        audioRecordId,
+        audioUrl,
+        motionText,
+        aspectRatio,
+        title: card.title,
+        description: concept.summary
+      });
+
+      await marketingService.updateCard(card.id, {
+        videoUrl: resolvedVideo.videoUrl,
+        voiceScript,
+        motionText,
+        audioUrl,
+        audioRecordId,
+        videoProvider: resolvedVideo.provider,
+      });
+
+      nextCards[index] = {
+        ...card,
+        videoUrl: resolvedVideo.videoUrl,
+        voiceScript,
+        motionText,
+        audioUrl,
+        audioRecordId,
+        videoProvider: resolvedVideo.provider,
+      };
+    }
+
+    return nextCards;
+  };
+
   // Load suggestions from AI on mount
   useEffect(() => {
     if (hasFetchedRef.current) return;
@@ -596,7 +740,11 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
       setAutoPilotStatus("Đang lên ý tưởng chiến dịch...");
       const actualMediaType = mediaType;
       const data = await geminiApi.generateMarketingIdeas(apiTopic, pillarsToUse, selectedChannels, actualMediaType, uploadedImageBase64 ? [uploadedImageBase64] : undefined);
-      
+      if (data.isMock) {
+        console.warn("[IdeationTab] Marketing ideas fallbacked to mock data.");
+        toast.warning("AI đang trả về dữ liệu mẫu. Có thể backend vừa fallback sang mock.");
+      }
+
       const generatedConcepts = (data.concepts || []).map((concept: MarketingConcept) => ({
         ...concept,
         mediaType: actualMediaType
@@ -629,7 +777,10 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
           videoQuality,
           videoDuration: parseInt(videoDuration),
           videoAspectRatio,
-          mediaPrompt: bestConcept.mediaPrompt
+          mediaPrompt: bestConcept.mediaPrompt,
+          humanVoiceId: selectedHumanVoice,
+          humanVoiceModel: selectedHumanVoiceModel,
+          humanDurationSeconds: parseInt(estimatedHumanVoiceDuration, 10) || 15,
         });
 
         if (!result || !result.posts || result.posts.length === 0) {
@@ -649,12 +800,18 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
             imageUrl: post.imageUrl || null,
             videoUrl: post.videoUrl || null,
             mediaPrompt: post.mediaPrompt || "",
+            voiceScript: post.voiceScript || "",
+            motionText: post.motionText || "",
             generatedAt: new Date().toISOString(),
             authorUid: userProfile?.uid ?? ''
           };
         });
 
-        const savedCards = await marketingService.saveCards(newCards);
+        let savedCards = await marketingService.saveCards(newCards);
+
+        if (actualMediaType === "human-video") {
+          savedCards = await autoCreateHumanVideos(savedCards, result.posts, bestConcept);
+        }
 
         // Check if there are any cards with pending video tasks
         const pendingCards = savedCards.filter(c => c.videoUrl && c.videoUrl.startsWith("pending://piapi/"));
@@ -787,12 +944,13 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
     setDevelopingIdx(idx);
     try {
       console.log("[handleDevelopConcept] Calling marketingService.developIdea...");
+      const developMediaType = isAutoPilot ? mediaType : "none";
       const result = await marketingService.developIdea({
         title: concept.title,
         summary: concept.summary,
         suggestedContent: concept.suggestedContent,
         channels: concept.channels,
-        mediaType,
+        mediaType: developMediaType,
         imageModel,
         imageResolution,
         imageAspectRatio,
@@ -800,7 +958,10 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
         videoQuality,
         videoDuration: parseInt(videoDuration),
         videoAspectRatio,
-        mediaPrompt: concept.mediaPrompt
+        mediaPrompt: concept.mediaPrompt,
+        humanVoiceId: selectedHumanVoice,
+        humanVoiceModel: selectedHumanVoiceModel,
+        humanDurationSeconds: parseInt(estimatedHumanVoiceDuration, 10) || 15,
       });
       console.log("[handleDevelopConcept] Received result from API:", result);
 
@@ -817,6 +978,8 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
             imageUrl: post.imageUrl || null,
             videoUrl: post.videoUrl || null,
             mediaPrompt: post.mediaPrompt || "",
+            voiceScript: post.voiceScript || "",
+            motionText: post.motionText || "",
             generatedAt: new Date().toISOString(),
             authorUid: userProfile?.uid ?? ''
           };
@@ -882,7 +1045,6 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
               <Sparkles className="h-4.5 w-4.5 text-indigo-500 animate-pulse" />
               Khởi tạo ý tưởng chiến dịch marketing
             </h4>
-            <p className="text-xs text-slate-500 mt-1 lines-clamp-2">Nhập mục tiêu chiến dịch của bạn. Gemini AI sẽ phân tích và trả về các ý tưởng bản nháp content hoàn chỉnh.</p>
 
             <form onSubmit={handleGenerateIdeas} className="mt-5 space-y-4">
               <div className="flex flex-col gap-1.5">

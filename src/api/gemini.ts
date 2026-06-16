@@ -6,6 +6,8 @@ export interface MarketingDevelopPost {
   imageUrl?: string;
   videoUrl?: string;
   mediaPrompt?: string;
+  voiceScript?: string;
+  motionText?: string;
 }
 
 function getJwtHeaders(withContentType: boolean = true) {
@@ -37,6 +39,30 @@ async function handleErrorResponse(response: Response, defaultError: string): Pr
   throw new Error(data.message || defaultError);
 }
 
+async function fetchWithTimeout(
+  input: RequestInfo | URL,
+  init: RequestInit,
+  timeoutMs: number,
+  timeoutMessage: string
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(input, {
+      ...init,
+      signal: controller.signal,
+    });
+  } catch (error: any) {
+    if (error?.name === "AbortError") {
+      throw new Error(timeoutMessage);
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+}
+
 export const geminiApi = {
   /**
    * Lấy 3 gợi ý chủ đề marketing ban đầu từ server.
@@ -58,11 +84,16 @@ export const geminiApi = {
    */
   async analyzeMarketingPillars(campaignTopic: string, images?: string[]): Promise<{ pillars: any[] }> {
     const headers = await getHeaders(true);
-    const response = await fetch('/api/v1/gemini/marketing-pillars', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ campaignTopic, images }),
-    });
+    const response = await fetchWithTimeout(
+      '/api/v1/gemini/marketing-pillars',
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ campaignTopic, images }),
+      },
+      90000,
+      'Hết thời gian phân tích Content Pillars. Vui lòng thử lại.'
+    );
     if (!response.ok) {
       await handleErrorResponse(response, 'Lỗi phân tích Content Pillars');
     }
@@ -78,13 +109,20 @@ export const geminiApi = {
     channels?: string[],
     mediaType?: string,
     images?: string[]
-  ): Promise<{ concepts: any[] }> {
+  ): Promise<{ concepts: any[]; isMock?: boolean }> {
     const headers = await getHeaders(true);
-    const response = await fetch('/api/v1/gemini/marketing-ideas', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ campaignTopic, selectedPillars, channels, mediaType, images }),
-    });
+    const response = await fetchWithTimeout(
+      '/api/v1/gemini/marketing-ideas',
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ campaignTopic, selectedPillars, channels, mediaType, images }),
+      },
+      mediaType === "human-video" ? 180000 : 120000,
+      mediaType === "human-video"
+        ? 'Tạo ý tưởng cho video người thật mất quá lâu. Vui lòng thử lại sau ít phút.'
+        : 'Tạo ý tưởng marketing bị quá thời gian chờ. Vui lòng thử lại.'
+    );
     if (!response.ok) {
       await handleErrorResponse(response, 'Lỗi phát sinh ý tưởng marketing');
     }
@@ -108,13 +146,23 @@ export const geminiApi = {
     videoDuration?: number;
     videoAspectRatio?: string;
     mediaPrompt?: string;
+    humanVoiceId?: string;
+    humanVoiceModel?: string;
+    humanDurationSeconds?: number;
   }): Promise<{ posts: MarketingDevelopPost[] }> {
     const headers = await getHeaders(true);
-    const response = await fetch('/api/v1/gemini/marketing-develop', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(concept),
-    });
+    const response = await fetchWithTimeout(
+      '/api/v1/gemini/marketing-develop',
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(concept),
+      },
+      concept.mediaType === "human-video" ? 240000 : 150000,
+      concept.mediaType === "human-video"
+        ? 'Phát triển nội dung cho video người thật mất quá lâu. Vui lòng thử lại sau.'
+        : 'Phát triển nội dung AI bị quá thời gian chờ. Vui lòng thử lại.'
+    );
     if (!response.ok) {
       await handleErrorResponse(response, 'Lỗi lập dàn ý và viết bài chi tiết');
     }

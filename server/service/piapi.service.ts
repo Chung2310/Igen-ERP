@@ -8,6 +8,48 @@ const PIAPI_BASE_URL = "https://api.piapi.ai/api/v1";
 
 console.log(`[PiAPI Service] Loaded API Key status: ${PIAPI_API_KEY ? `Present (Length: ${PIAPI_API_KEY.length}, Prefix: ${PIAPI_API_KEY.substring(0, 8)}...)` : 'Missing'}`);
 
+function createPiApiError(context: string, statusCode: number, rawText: string): Error {
+  const normalized = String(rawText || "").trim();
+  const upper = normalized.toUpperCase();
+  let message = `${context}: ${statusCode}`;
+
+  if (
+    statusCode === 402 ||
+    upper.includes("INSUFFICIENT_CREDITS") ||
+    upper.includes("NO CREDIT") ||
+    upper.includes("OUT OF CREDITS") ||
+    upper.includes("BALANCE") ||
+    upper.includes("PAYMENT REQUIRED")
+  ) {
+    message = `PiAPI hết credit hoặc số dư không đủ để thực hiện tác vụ. Chi tiết: ${normalized || `HTTP ${statusCode}`}`;
+  } else if (
+    statusCode === 429 ||
+    upper.includes("RESOURCE_EXHAUSTED") ||
+    upper.includes("RATE LIMIT") ||
+    upper.includes("TOO MANY REQUESTS") ||
+    upper.includes("QUOTA")
+  ) {
+    message = `PiAPI đã vượt quota hoặc rate limit. Chi tiết: ${normalized || `HTTP ${statusCode}`}`;
+  } else if (
+    statusCode === 401 ||
+    statusCode === 403 ||
+    upper.includes("UNAUTHORIZED") ||
+    upper.includes("FORBIDDEN") ||
+    upper.includes("INVALID API KEY") ||
+    upper.includes("API KEY")
+  ) {
+    message = `PiAPI từ chối truy cập hoặc API key không hợp lệ. Chi tiết: ${normalized || `HTTP ${statusCode}`}`;
+  } else if (normalized) {
+    message = `${context}: ${statusCode} - ${normalized}`;
+  }
+
+  const error = new Error(message) as Error & { statusCode?: number; provider?: string; rawDetails?: string };
+  error.statusCode = statusCode;
+  error.provider = "piapi";
+  error.rawDetails = normalized;
+  return error;
+}
+
 export const piapiService = {
   /**
    * Sinh ảnh bằng PiAPI (Midjourney, Flux, v.v.)
@@ -63,7 +105,7 @@ export const piapiService = {
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`PiAPI task creation failed: ${response.status} - ${errorText}`);
+        throw createPiApiError("PiAPI task creation failed", response.status, errorText);
       }
 
       const json: any = await response.json();
@@ -95,7 +137,7 @@ export const piapiService = {
             }
             return { url, isMock: false };
           } else if (task?.status === "failed") {
-            throw new Error(`PiAPI task failed: ${task.error || "Lỗi không xác định"}`);
+            throw createPiApiError("PiAPI task failed", 400, task.error || "Lỗi không xác định");
           }
         }
         attempts++;
@@ -210,7 +252,7 @@ export const piapiService = {
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`PiAPI task creation failed: ${response.status} - ${errorText}`);
+        throw createPiApiError("PiAPI task creation failed", response.status, errorText);
       }
 
       const json: any = await response.json();
@@ -240,7 +282,7 @@ export const piapiService = {
 
     if (!pollResponse.ok) {
       const errorText = await pollResponse.text();
-      throw new Error(`PiAPI task polling failed: ${pollResponse.status} - ${errorText}`);
+      throw createPiApiError("PiAPI task polling failed", pollResponse.status, errorText);
     }
 
     const pollJson: any = await pollResponse.json();
@@ -284,7 +326,7 @@ export const piapiService = {
           }
           return { url: result.url, isMock: false };
         } else if (result.status === "failed") {
-          throw new Error(`PiAPI task failed: ${result.error || "Lỗi không xác định"}`);
+          throw createPiApiError("PiAPI task failed", 400, result.error || "Lỗi không xác định");
         }
         attempts++;
       }
