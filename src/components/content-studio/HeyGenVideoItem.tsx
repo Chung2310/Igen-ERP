@@ -226,12 +226,7 @@ export function HeyGenVideoItem({
                 {item.createdAt ? new Date(item.createdAt).toLocaleString("vi-VN") : "Chưa có video"}
               </p>
             </div>
-            <div className={`rounded-2xl border ${HEYGEN_THEME.border} ${HEYGEN_THEME.surfaceMuted} px-4 py-3`}>
-              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Mô hình</p>
-              <p className="mt-1 break-words text-base font-semibold leading-snug text-slate-700">
-                {item.model || "Avatar V"}
-              </p>
-            </div>
+      
           </div>
         </div>
 
