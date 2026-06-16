@@ -12,6 +12,10 @@ const GEMINI_TEXT_MODEL = "gemini-3.5-flash";
 const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || "piapi-flux";
 const GEMINI_VIDEO_MODEL = process.env.GEMINI_VIDEO_MODEL || "veo31-video-fast-audio";
 
+function getGeminiClient() {
+  return new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+}
+
 async function getVideoDuration(url: string): Promise<number> {
   try {
     const matchedRecord = await AIMediaModel.findOne({ url }).lean();
@@ -1724,6 +1728,8 @@ Return ONLY valid JSON. No markdown backticks, no comments, no conversational te
 🏆 WORKED EXAMPLES FOR COMPLEX PROMPTS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ▸ Example A: "Nối Video 1 (10s) và Video 2 (15s). Chèn nhạc lofi thư giãn xuyên suốt."
+- IMPORTANT: "start" and "end" inside each video clip are the timestamp range WITHIN THAT SOURCE VIDEO, always starting from 0 for each new source.
+- The total output duration = 10 + 15 = 25s. Audio spans 0 to 25s of the final output.
 {
   "timeline": [
     { "type": "video", "src": "URL_VIDEO_1", "start": 0, "end": 10, "playbackRate": 1.0 },
@@ -1732,7 +1738,17 @@ Return ONLY valid JSON. No markdown backticks, no comments, no conversational te
   ]
 }
 
-▸ Example B: "Cắt bỏ 3 giây đầu của video. Đoạn 5s tiếp theo zoom vào và làm đen trắng. Phần còn lại bình thường." (Duration: 15s)
+▸ Example B: "Nối 3 video (V1=5s, V2=7s, V3=10s). Không có hiệu ứng gì."
+- Total output = 5 + 7 + 10 = 22s. Each source video is fully used from 0 to its duration.
+{
+  "timeline": [
+    { "type": "video", "src": "URL_VIDEO_1", "start": 0, "end": 5, "playbackRate": 1.0 },
+    { "type": "video", "src": "URL_VIDEO_2", "start": 0, "end": 7, "playbackRate": 1.0 },
+    { "type": "video", "src": "URL_VIDEO_3", "start": 0, "end": 10, "playbackRate": 1.0 }
+  ]
+}
+
+▸ Example C: "Cắt bỏ 3 giây đầu của video. Đoạn 5s tiếp theo zoom vào và làm đen trắng. Phần còn lại bình thường." (Duration: 15s)
 {
   "timeline": [
     { "type": "video", "src": "URL_VIDEO", "start": 3, "end": 8, "playbackRate": 1.0, "filters": { "grayscale": 1.0 }, "effects": { "zoom": "in" } },
@@ -1740,7 +1756,7 @@ Return ONLY valid JSON. No markdown backticks, no comments, no conversational te
   ]
 }
 
-▸ Example C: "Tua nhanh 4s đầu gấp 2 lần, zoom vào giây thứ 2. Thêm phụ đề 'Bắt đầu' từ 0 đến 2s." (Duration: 8s)
+▸ Example D: "Tua nhanh 4s đầu gấp 2 lần, zoom vào giây thứ 2. Thêm phụ đề 'Bắt đầu' từ 0 đến 2s." (Duration: 8s)
 - Original 0-4s at 2x becomes 2s final. Zoom-in starts at original 2s (which is final 1s).
 {
   "timeline": [
@@ -1751,8 +1767,10 @@ Return ONLY valid JSON. No markdown backticks, no comments, no conversational te
   ]
 }
 
-▸ Example D: "Nối 2 video (V1=6s, V2=8s). Làm đen trắng V1. Zoom vào lúc giây thứ 3 của V1. Chèn tiếng cười sfx lúc bắt đầu V2."
-- V1 is 6s. V2 starts at final 6s.
+▸ Example E: "Nối 2 video (V1=6s, V2=8s). Làm đen trắng V1. Zoom vào lúc giây thứ 3 của V1. Chèn tiếng cười sfx lúc bắt đầu V2."
+- V1 is 6s (split into 0-3s and 3-6s to apply zoom at second 3). V2 is 8s starting fresh from 0.
+- IMPORTANT: For each source video, start/end are timestamps within THAT video, not the final output timeline.
+- SFX "start" 6 = lúc V2 bắt đầu trong final timeline (sau V1=6s). SFX "end" 8 = 6s(V1) + 2s(SFX duration).
 {
   "timeline": [
     { "type": "video", "src": "URL_VIDEO_1", "start": 0, "end": 3, "playbackRate": 1.0, "filters": { "grayscale": 1.0 } },
@@ -1993,6 +2011,45 @@ audioElements.forEach((aud: any, idx: number) => {
   }
 });
 
+// PRE-SPLIT: Each video input may be referenced by multiple clips (e.g. applying different
+// effects to different time ranges of the same source video). FFMPEG does NOT allow reading
+// the same input stream [N:v] or [N:a] multiple times in a filter_complex. We must pre-split
+// each unique video input into as many copies as needed using the `split` filter.
+const inputClipCounts: { [inputIdx: number]: number } = {};
+const inputSplitCounters: { [inputIdx: number]: number } = {};
+videoClips.forEach((clip: any) => {
+  const inputIdx = urlToInputIdx[clip.src] ?? 0;
+  inputClipCounts[inputIdx] = (inputClipCounts[inputIdx] || 0) + 1;
+});
+
+// Build split filters for video streams that are referenced more than once
+Object.keys(inputClipCounts).forEach((idxStr) => {
+  const inputIdx = parseInt(idxStr);
+  const count = inputClipCounts[inputIdx];
+  inputSplitCounters[inputIdx] = 0;
+  if (count > 1) {
+    const splitOutputs = Array.from({ length: count }, (_, i) => `[vsplit_${inputIdx}_${i}]`).join("");
+    filterComplex += `[${inputIdx}:v]split=${count}${splitOutputs};`;
+  }
+});
+
+// Build split filters for audio streams that are referenced more than once
+const inputAudioSplitCounters: { [inputIdx: number]: number } = {};
+Object.keys(inputClipCounts).forEach((idxStr) => {
+  const inputIdx = parseInt(idxStr);
+  const count = inputClipCounts[inputIdx];
+  inputAudioSplitCounters[inputIdx] = 0;
+  const hasAudioForInput = hasAudioMap[inputIdx] ?? false;
+  if (count > 1 && hasAudioForInput) {
+    const splitOutputs = Array.from({ length: count }, (_, i) => `[asplit_${inputIdx}_${i}]`).join("");
+    filterComplex += `[${inputIdx}:a]asplit=${count}${splitOutputs};`;
+  }
+});
+
+// Track silence inputs that will be added as extra ffmpeg inputs
+const silenceInputIdxMap: { [clipIdx: number]: number } = {};
+let silenceCount = 0;
+
 let concatInputs = "";
 videoClips.forEach((clip: any, idx: number) => {
   const start = clip.start ?? 0;
@@ -2001,9 +2058,20 @@ videoClips.forEach((clip: any, idx: number) => {
   const clipDuration = (end - start) / rate;
   const inputIdx = urlToInputIdx[clip.src] ?? 0;
   const hasAudio = hasAudioMap[inputIdx] ?? false;
+  const usesSplit = inputClipCounts[inputIdx] > 1;
+
+  // Determine the video source label (split or direct)
+  let vSrcLabel: string;
+  if (usesSplit) {
+    const splitI = inputSplitCounters[inputIdx];
+    vSrcLabel = `[vsplit_${inputIdx}_${splitI}]`;
+    inputSplitCounters[inputIdx] = splitI + 1;
+  } else {
+    vSrcLabel = `[${inputIdx}:v]`;
+  }
 
   // Video stream processing
-  let vFilter = `[${inputIdx}:v]trim=start=${start}:end=${end},setpts=PTS-STARTPTS`;
+  let vFilter = `${vSrcLabel}trim=start=${start}:end=${end},setpts=PTS-STARTPTS`;
   if (clip.filters?.grayscale !== undefined && clip.filters.grayscale > 0) {
     vFilter += `,hue=s=${1 - clip.filters.grayscale}`;
   }
@@ -2021,14 +2089,23 @@ videoClips.forEach((clip: any, idx: number) => {
   if (rate !== 1) {
     vFilter += `,setpts=${1 / rate}*(PTS-STARTPTS)`;
   }
-  vFilter += `,fps=fps=30`; // Force constant 30fps to prevent transition stutters
+  vFilter += `,fps=fps=30`;
   vFilter += `[v_proc_${idx}];`;
   filterComplex += vFilter;
   concatInputs += `[v_proc_${idx}]`;
 
   // Audio stream processing
   if (hasAudio) {
-    let aFilter = `[${inputIdx}:a]atrim=start=${start}:end=${end},asetpts=PTS-STARTPTS`;
+    const usesSplitA = inputClipCounts[inputIdx] > 1;
+    let aSrcLabel: string;
+    if (usesSplitA) {
+      const splitAi = inputAudioSplitCounters[inputIdx];
+      aSrcLabel = `[asplit_${inputIdx}_${splitAi}]`;
+      inputAudioSplitCounters[inputIdx] = splitAi + 1;
+    } else {
+      aSrcLabel = `[${inputIdx}:a]`;
+    }
+    let aFilter = `${aSrcLabel}atrim=start=${start}:end=${end},asetpts=PTS-STARTPTS`;
     if (rate !== 1) {
       const clampedRate = Math.max(0.5, Math.min(2.0, rate));
       aFilter += `,atempo=${clampedRate}`;
@@ -2037,10 +2114,58 @@ videoClips.forEach((clip: any, idx: number) => {
     filterComplex += aFilter;
     concatInputs += `[a_proc_${idx}]`;
   } else {
-    filterComplex += `anullsrc=sample_rate=44100:channel_layout=stereo,atrim=duration=${clipDuration}[a_proc_${idx}];`;
-    concatInputs += `[a_proc_${idx}]`;
+    // For videos without audio: we use a silence input added via -f lavfi -i anullsrc
+    // Track which extra input index this silence clip will be
+    silenceInputIdxMap[idx] = currentInputIdx + silenceCount;
+    silenceCount++;
+    concatInputs += `[a_proc_${idx}]`; // will be resolved after building silence inputs
   }
 });
+
+// Add silence inputs for clips without audio (as -f lavfi -i anullsrc before filter_complex)
+// We'll inject them at the correct positions using inputArgs prefix
+const silenceInputArgs: string[] = [];
+videoClips.forEach((clip: any, idx: number) => {
+  const inputIdx = urlToInputIdx[clip.src] ?? 0;
+  const hasAudio = hasAudioMap[inputIdx] ?? false;
+  if (!hasAudio) {
+    const start = clip.start ?? 0;
+    const end = clip.end ?? 5;
+    const rate = clip.playbackRate ?? 1;
+    const clipDuration = (end - start) / rate;
+    const silenceInputIdx = silenceInputIdxMap[idx];
+    silenceInputArgs.push(`-f lavfi -i anullsrc=sample_rate=44100:channel_layout=stereo`);
+    // Add filter to trim silence to exact clip duration
+    filterComplex = filterComplex + `[${silenceInputIdx}:a]atrim=duration=${clipDuration}[a_proc_${idx}];`;
+  }
+});
+
+// Insert silence inputs before the overlay inputs in the correct order
+if (silenceInputArgs.length > 0) {
+  inputArgs = [...silenceInputArgs, ...inputArgs];
+  // Remap overlay input indices (they shifted by silenceCount)
+  const remappedImageMappings: { [k: number]: number } = {};
+  const remappedAudioMappings: { [k: number]: number } = {};
+  Object.keys(imageInputMappings).forEach(k => {
+    remappedImageMappings[parseInt(k)] = imageInputMappings[parseInt(k)] + silenceCount;
+  });
+  Object.keys(audioInputMappings).forEach(k => {
+    remappedAudioMappings[parseInt(k)] = audioInputMappings[parseInt(k)] + silenceCount;
+  });
+  // Remap references in filterComplex for image/audio overlays
+  Object.keys(imageInputMappings).forEach(k => {
+    const oldIdx = imageInputMappings[parseInt(k)];
+    const newIdx = remappedImageMappings[parseInt(k)];
+    filterComplex = filterComplex.replaceAll(`[${oldIdx}:v]`, `[${newIdx}:v]`);
+  });
+  Object.keys(audioInputMappings).forEach(k => {
+    const oldIdx = audioInputMappings[parseInt(k)];
+    const newIdx = remappedAudioMappings[parseInt(k)];
+    filterComplex = filterComplex.replaceAll(`[${oldIdx}:a]`, `[${newIdx}:a]`);
+  });
+  Object.assign(imageInputMappings, remappedImageMappings);
+  Object.assign(audioInputMappings, remappedAudioMappings);
+}
 
 const numClips = videoClips.length;
 filterComplex += `${concatInputs}concat=n=${numClips}:v=1:a=1[concatv][concata];`;
