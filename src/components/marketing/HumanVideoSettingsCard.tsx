@@ -270,14 +270,22 @@ export default function HumanVideoSettingsCard({
                     const isSelected = voiceKey === selectedVoice;
 
                     return (
-                      <button
+                      <div
                         key={voiceKey}
-                        type="button"
+                        role="button"
+                        tabIndex={0}
                         onClick={() => {
                           onVoiceChange(voiceKey);
                           setIsVoiceLibraryOpen(false);
                         }}
-                        className={`flex w-full items-center justify-between rounded-2xl border p-4 text-left transition ${
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            onVoiceChange(voiceKey);
+                            setIsVoiceLibraryOpen(false);
+                          }
+                        }}
+                        className={`flex w-full cursor-pointer items-center justify-between rounded-2xl border p-4 text-left transition ${
                           isSelected ? "border-cyan-300 bg-cyan-50/60" : "border-slate-200 hover:bg-slate-50"
                         }`}
                       >
@@ -288,6 +296,7 @@ export default function HumanVideoSettingsCard({
                               event.stopPropagation();
                               onPreviewVoice(voiceKey);
                             }}
+                            disabled={isPreviewingVoice}
                             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-xs"
                           >
                             <Play className="ml-0.5 h-4 w-4" />
@@ -302,7 +311,7 @@ export default function HumanVideoSettingsCard({
                           </div>
                         </div>
                         {isSelected ? <Check className="h-4 w-4 shrink-0 text-cyan-600" /> : null}
-                      </button>
+                      </div>
                     );
                   })
                 )}

@@ -22,6 +22,11 @@ export interface ContentApprovalCard {
   imageUrl?: string;
   videoUrl?: string;
   mediaPrompt?: string;
+  voiceScript?: string;
+  motionText?: string;
+  audioUrl?: string;
+  audioRecordId?: string;
+  videoProvider?: string;
   generatedAt: string;
   feedback?: string;
   scheduledDate?: string;

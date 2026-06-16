@@ -43,7 +43,7 @@ const ideasSchema = {
     campaignTopic: Joi.string().required(),
     selectedPillars: Joi.array().items(Joi.string()).required(),
     channels: Joi.array().items(Joi.string()).optional(),
-    mediaType: Joi.string().valid("image", "video", "none").optional(),
+    mediaType: Joi.string().valid("image", "video", "human-video", "none").optional(),
     images: Joi.array().items(Joi.string()).optional(),
   }),
 };
@@ -54,7 +54,7 @@ const developSchema = {
     summary: Joi.string().required(),
     suggestedContent: Joi.string().required(),
     channels: Joi.array().items(Joi.string()).required(),
-    mediaType: Joi.string().valid("image", "video", "none").optional(),
+    mediaType: Joi.string().valid("image", "video", "human-video", "none").optional(),
     imageModel: Joi.string().optional().allow(""),
     imageResolution: Joi.string().optional().allow(""),
     imageAspectRatio: Joi.string().optional().allow(""),
@@ -62,6 +62,10 @@ const developSchema = {
     videoQuality: Joi.string().optional().allow(""),
     videoDuration: Joi.alternatives().try(Joi.number(), Joi.string().allow("")).optional(),
     videoAspectRatio: Joi.string().optional().allow(""),
+    mediaPrompt: Joi.string().optional().allow(""),
+    humanVoiceId: Joi.string().optional().allow(""),
+    humanVoiceModel: Joi.string().optional().allow(""),
+    humanDurationSeconds: Joi.alternatives().try(Joi.number(), Joi.string().allow("")).optional(),
   }),
 };
 
