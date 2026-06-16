@@ -7,6 +7,8 @@ export interface MarketingConcept {
   channels: string[];
   suggestedContent: string;
   hashtags: string[];
+  mediaType?: "image" | "video" | "human-video";
+  mediaPrompt?: string;
 }
 
 export interface ContentApprovalCard {

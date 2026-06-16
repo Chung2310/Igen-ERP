@@ -104,6 +104,7 @@ const optimizeScriptSchema = {
   body: Joi.object({
     text: Joi.string().required(),
     readingStyle: Joi.string().allow("").optional(),
+    model: Joi.string().allow("").optional(),
   }),
 };
 

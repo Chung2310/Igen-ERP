@@ -260,7 +260,8 @@ export const geminiController = {
         videoModel,
         videoQuality,
         videoDuration,
-        videoAspectRatio
+        videoAspectRatio,
+        mediaPrompt
       } = req.body;
       const userId = (req as any).user?.id;
       if (!userId) {
@@ -276,7 +277,8 @@ export const geminiController = {
         videoModel,
         videoQuality,
         videoDuration,
-        videoAspectRatio
+        videoAspectRatio,
+        mediaPrompt
       });
       await walletService.deductBalance(userId, API_COSTS.GEMINI_MARKETING, "Chi phí viết bài và lập dàn ý Marketing AI");
       return res.status(200).json(result);
@@ -587,16 +589,16 @@ A: Hoàn toàn MIỄN PHÍ. Đội ngũ kỹ thuật của iGen sẽ hỗ trợ 
   /**
    * POST /api/v1/gemini/optimize-script
    */
-  async optimizeScript(req: Request, res: Response) {
+   async optimizeScript(req: Request, res: Response) {
     try {
-      const { text, readingStyle } = req.body;
+      const { text, readingStyle, model } = req.body;
       const userId = (req as any).user?.id;
       if (!userId) {
         return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
       }
 
       await walletService.checkBalance(userId, API_COSTS.GEMINI_OPTIMIZE);
-      const result = await geminiService.optimizeScript(text, readingStyle);
+      const result = await geminiService.optimizeScript(text, readingStyle, model);
       await walletService.deductBalance(userId, API_COSTS.GEMINI_OPTIMIZE, "Chi phí tối ưu kịch bản bằng AI");
       return res.status(200).json(result);
     } catch (error: any) {

@@ -34,6 +34,8 @@ interface CardDetailDrawerProps {
   setScheduleDate: (date: string) => void;
   setScheduleTime: (time: string) => void;
   onUpdateCard: (id: string, updatedFields: Partial<ContentApprovalCard>) => void;
+  onPublishToPlatform?: (card: ContentApprovalCard) => Promise<void>;
+  isPublishing?: boolean;
 }
 
 export default function CardDetailDrawer({
@@ -54,6 +56,8 @@ export default function CardDetailDrawer({
   setScheduleDate,
   setScheduleTime,
   onUpdateCard,
+  onPublishToPlatform,
+  isPublishing = false,
 }: CardDetailDrawerProps) {
   const [editedTitle, setEditedTitle] = useState("");
   const [editedBodyText, setEditedBodyText] = useState("");
@@ -393,6 +397,29 @@ export default function CardDetailDrawer({
               >
                 <Trash2 className="h-4 w-4" />
               </button>
+
+              {/* Đăng ngay button */}
+              {(card.status === 'approved' || card.status === 'scheduled' || card.status === 'failed') && onPublishToPlatform && (
+                <button 
+                  onClick={() => onPublishToPlatform(card)}
+                  disabled={isPublishing || (card.channel === 'TikTok' && !card.videoUrl)}
+                  className={`flex items-center gap-1.5 px-4.5 py-2.5 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm ${
+                    card.channel === 'TikTok' && !card.videoUrl
+                      ? 'bg-gray-300 text-gray-400 cursor-not-allowed shadow-none'
+                      : 'bg-green-600 hover:bg-green-700 shadow-green-150 active:scale-95'
+                  }`}
+                  title={card.channel === 'TikTok' && !card.videoUrl ? "Bài đăng TikTok cần có video" : "Đăng lên nền tảng ngay lập tức"}
+                >
+                  {isPublishing ? (
+                    <>
+                      <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                      <span>Đang đăng...</span>
+                    </>
+                  ) : (
+                    <span>Đăng ngay</span>
+                  )}
+                </button>
+              )}
 
               {/* Next status/approve/schedule button */}
               {card.status !== 'published' && card.status !== 'scheduled' && card.status !== 'failed' && (

@@ -36,6 +36,7 @@ export default function MarketingTab() {
 
   // AI Media Generation States
   const [publishingTikTokId, setPublishingTikTokId] = useState<string | null>(null);
+  const [isPublishing, setIsPublishing] = useState(false);
   const [contentStudioParams, setContentStudioParams] = useState<{
     tab: 'image' | 'video' | 'voice';
     prompt: string;
@@ -241,7 +242,47 @@ export default function MarketingTab() {
     } finally {
       setPublishingTikTokId(null);
     }
-  };
+  }
+
+  const handlePublishCard = async (card: ContentApprovalCard) => {
+    if (card.channel === 'TikTok') {
+      await handlePublishToTikTok(card);
+      return;
+    }
+
+    if (card.channel === 'Facebook') {
+      const fb = userProfile?.facebookIntegration;
+      if (!fb?.isConnected) {
+        toast.error("Chưa kết nối Facebook Page. Vui lòng vào Cài đặt → Liên kết MXH để kết nối.");
+        return;
+      }
+      if (!fb.pageId || !fb.pageAccessToken) {
+        toast.error("Thông tin kết nối Facebook Page không đầy đủ.");
+        return;
+      }
+      setIsPublishing(true);
+      try {
+        const postId = await marketingService.publishToFacebook(
+          card.id,
+          fb.pageAccessToken,
+          fb.pageId,
+          card.bodyText,
+          fb.isMock ?? false,
+          card.imageUrl || undefined,
+          card.videoUrl || undefined
+        );
+        toast.success(`Đã đăng bài lên Facebook thành công! ${fb.isMock ? '(Demo)' : ''} ID: ${postId.slice(-8)}`);
+      } catch (e: any) {
+        console.error("Lỗi đăng Facebook:", e);
+        toast.error("Không thể đăng bài lên Facebook. Vui lòng thử lại.");
+      } finally {
+        setIsPublishing(false);
+      }
+      return;
+    }
+
+    toast.error(`Kênh "${card.channel}" chưa hỗ trợ đăng tải trực tiếp.`);
+  };;
 
   const handleInitAIGeneration = (card: ContentApprovalCard, type?: 'image' | 'video') => {
     const selectedType = type ?? (card.channel === 'TikTok' ? 'video' : 'image');
@@ -317,6 +358,8 @@ export default function MarketingTab() {
               setSchedulingCard={setSchedulingCard}
               setScheduleDate={setScheduleDate}
               setScheduleTime={setScheduleTime}
+              onPublishToPlatform={handlePublishCard}
+              isPublishing={isPublishing}
             />
           )}
 
