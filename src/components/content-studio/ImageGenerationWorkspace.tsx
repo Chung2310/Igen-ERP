@@ -146,7 +146,18 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved }
 
     setIsGeneratingPrompt(true);
     try {
-      const result = await geminiApi.optimizeImagePrompt(simplePrompt, inputImageUrls, optimizeModel);
+      const optimizationBrief = [
+        "SOURCE BRIEF - PRESERVE MEANING STRICTLY:",
+        `Original user description in Vietnamese: ${simplePrompt.trim()}`,
+        inputImageUrls.length > 0
+          ? `Reference images attached: ${inputImageUrls.length}. Preserve the same subject, context, and meaning from the text and references.`
+          : "No reference image attached.",
+        "Translate faithfully into English for image generation.",
+        "Do not add unrelated objects, people, locations, outfits, industries, or generic lifestyle/product-shot details unless they are explicitly present in the source brief.",
+        "Keep the final prompt as close as possible to the user's original idea while still being renderable."
+      ].join("\n");
+
+      const result = await geminiApi.optimizeImagePrompt(optimizationBrief, inputImageUrls, optimizeModel);
 
       if (result.optimized_english_prompt) {
         setPrompt(result.optimized_english_prompt);
@@ -327,7 +338,7 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved }
           <div className="flex flex-col gap-2 border-t border-slate-100 pt-3">
             <label className="text-xs font-bold text-slate-800 uppercase tracking-wide">Ý tưởng của bạn</label>
             <textarea
-              placeholder="Mô tả ngắn gọn hình ảnh bạn muốn, AI sẽ tối ưu nó. Ví dụ: một con rồng lửa trên núi."
+              placeholder="Mô tả đúng ý tưởng gốc bạn muốn render. AI sẽ dịch và tối ưu sang tiếng Anh nhưng vẫn phải giữ sát nghĩa với brief này."
               className="w-full text-xs p-3 border border-slate-200 rounded-xl h-20 focus:ring-1 focus:ring-cyan-500 focus:outline-none leading-relaxed bg-slate-50/30"
               value={simplePrompt}
               onChange={(e) => setSimplePrompt(e.target.value)}
@@ -345,6 +356,9 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved }
               {isGeneratingPrompt ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5 text-cyan-600" />}
               Phân tích và hoàn thiện prompt
             </button>
+            <p className="text-[10px] leading-relaxed text-slate-400">
+              Hệ thống sẽ ưu tiên giữ đúng nghĩa từ mô tả gốc và ảnh tham chiếu, thay vì tự mở rộng sang concept chung chung.
+            </p>
           </div>
 
           {/* Section 4: Mô tả tối ưu (Tiếng Anh) */}
