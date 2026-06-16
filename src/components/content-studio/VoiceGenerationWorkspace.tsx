@@ -574,7 +574,16 @@ const getSelectedVoice = () => {
                   if (onMediaSaved) {
                      onMediaSaved(cardId, cloudinaryUrl, 'audio');
                   }
-                  toast.success('Đã lưu trữ và đồng bộ hóa audio thành công!');
+                                    toast.success('Đã lưu trữ và đồng bộ hóa audio thành công!');
+                  try {
+                     const card = await marketingService.getCardById(cardId);
+                     if (card && card.mediaType === 'human-video' && onNavigateToHumanVideo) {
+                        toast.info('Đang tự động chuyển sang Xưởng Video để tạo video người thật...');
+                        onNavigateToHumanVideo();
+                     }
+                  } catch (cardErr) {
+                     console.error('Lỗi khi nạp thông tin card để chuyển tab:', cardErr);
+                  }
                } catch (uploadError: any) {
                   console.error('Cloudinary audio error:', uploadError);
                   toast.error('Tạo audio thành công nhưng không thể đồng bộ hóa lưu trữ.');

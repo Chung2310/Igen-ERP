@@ -93,6 +93,7 @@ export function VideoGenerationWorkspace({
         >
           <HeyGenWorkspace
             initialPrompt={initialPrompt}
+            cardId={cardId}
             onEditVideo={(url) => {
               setEditVideoSourceUrl(url);
               setActiveVideoTab('edit-video');
