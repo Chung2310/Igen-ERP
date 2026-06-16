@@ -20,6 +20,8 @@ interface ApprovalTabProps {
   setSchedulingCard: (card: ContentApprovalCard | null) => void;
   setScheduleDate: (date: string) => void;
   setScheduleTime: (time: string) => void;
+  onPublishToPlatform?: (card: ContentApprovalCard) => Promise<void>;
+  isPublishing?: boolean;
 }
 
 export default function ApprovalTab({
@@ -35,7 +37,9 @@ export default function ApprovalTab({
   publishingTikTokId,
   setSchedulingCard,
   setScheduleDate,
-  setScheduleTime
+  setScheduleTime,
+  onPublishToPlatform,
+  isPublishing = false
 }: ApprovalTabProps) {
   const [promptMore, setPromptMore] = useState("");
   const [selectedDetailCard, setSelectedDetailCard] = useState<ContentApprovalCard | null>(null);
@@ -203,6 +207,8 @@ export default function ApprovalTab({
                   onPreviewMedia={(type, url) => handleOpenLightbox(card, type, url)}
                   onGenerateMedia={(c, type) => handleInitAIGeneration(c, type)}
                   onOpenDetail={() => setSelectedDetailCard(card)}
+                  onPublishToPlatform={onPublishToPlatform}
+                  isPublishing={isPublishing}
                 />
               ))
             )}
@@ -233,6 +239,8 @@ export default function ApprovalTab({
                   onGenerateMedia={(c, type) => handleInitAIGeneration(c, type)}
                   onPublishToTikTok={() => handlePublishToTikTok(card)}
                   isPublishingTikTok={publishingTikTokId === card.id}
+                  onPublishToFacebook={() => onPublishToPlatform && onPublishToPlatform(card)}
+                  isPublishingFacebook={isPublishing}
                   onOpenDetail={() => setSelectedDetailCard(card)}
                 />
               ))

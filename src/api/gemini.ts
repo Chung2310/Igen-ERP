@@ -107,6 +107,7 @@ export const geminiApi = {
     videoQuality?: string;
     videoDuration?: number;
     videoAspectRatio?: string;
+    mediaPrompt?: string;
   }): Promise<{ posts: MarketingDevelopPost[] }> {
     const headers = await getHeaders(true);
     const response = await fetch('/api/v1/gemini/marketing-develop', {
@@ -262,12 +263,12 @@ export const geminiApi = {
     return response.json();
   },
 
-  async optimizeScript(text: string, readingStyle?: string): Promise<{ optimizedText: string }> {
+  async optimizeScript(text: string, readingStyle?: string, model?: string): Promise<{ optimizedText: string }> {
     const headers = await getHeaders(true);
     const response = await fetch('/api/v1/gemini/optimize-script', {
       method: 'POST',
       headers,
-      body: JSON.stringify({ text, readingStyle }),
+      body: JSON.stringify({ text, readingStyle, model }),
     });
     if (!response.ok) {
       await handleErrorResponse(response, 'Lỗi khi tối ưu kịch bản');

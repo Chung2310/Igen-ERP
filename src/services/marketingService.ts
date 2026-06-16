@@ -398,6 +398,7 @@ export const marketingService = {
     videoQuality?: string;
     videoDuration?: number;
     videoAspectRatio?: string;
+    mediaPrompt?: string;
   }) {
     return geminiApi.developMarketingIdea(concept);
   },

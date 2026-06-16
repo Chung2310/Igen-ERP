@@ -43,37 +43,37 @@ export const PRICING_TABLE: Record<string, {
   'eleven_flash_v1': {
     costPerUnitCredit: 0.15,
     unit: 'seconds',
-    label: 'iGen ElevenLabs Flash v1',
+    label: 'iGen audio Flash v1',
     category: 'audio',
   },
   'eleven_v3': {
     costPerUnitCredit: 0.35,
     unit: 'seconds',
-    label: 'iGen ElevenLabs v3',
+    label: 'iGen audio v3',
     category: 'audio',
   },
   'eleven_flash_v2_5': {
     costPerUnitCredit: 0.15,
     unit: 'seconds',
-    label: 'iGen ElevenLabs Flash v2.5',
+    label: 'iGen audio Flash v2.5',
     category: 'audio',
   },
   'eleven_turbo_v2_5': {
     costPerUnitCredit: 0.20,
     unit: 'seconds',
-    label: 'iGen ElevenLabs Turbo v2.5',
+    label: 'iGen audio Turbo v2.5',
     category: 'audio',
   },
   'eleven_multilingual_v2': {
     costPerUnitCredit: 0.30,
     unit: 'seconds',
-    label: 'iGen ElevenLabs Multilingual v2',
+    label: 'iGen audio Multilingual v2',
     category: 'audio',
   },
   'eleven_turbo_v2.5': {
     costPerUnitCredit: 0.20,
     unit: 'seconds',
-    label: 'iGen ElevenLabs Turbo v2.5',
+    label: 'iGen audio Turbo v2.5',
     category: 'audio',
   },
   'gemini-3.1-flash-image-preview': {

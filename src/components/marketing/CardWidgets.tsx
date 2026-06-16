@@ -37,6 +37,8 @@ interface ModerationPipCardProps {
   onPreviewMedia: (type: 'image' | 'video', url: string) => void;
   onGenerateMedia: (card: ContentApprovalCard, type?: 'image' | 'video') => void;
   onOpenDetail?: () => void;
+  onPublishToPlatform?: (card: ContentApprovalCard) => Promise<void>;
+  isPublishing?: boolean;
 }
 
 export function ModerationPipCard({ 
@@ -46,7 +48,9 @@ export function ModerationPipCard({
   onDelete,
   onPreviewMedia,
   onGenerateMedia,
-  onOpenDetail
+  onOpenDetail,
+  onPublishToPlatform,
+  isPublishing = false,
 }: ModerationPipCardProps) {
   return (
     <div className="bg-white border text-left border-gray-150/70 p-3 rounded-xl shadow-xs hover:shadow-md transition-all flex flex-col gap-2 relative group" id={`approval_card_${card.id}`}>
@@ -149,6 +153,28 @@ export function ModerationPipCard({
             </button>
           )}
 
+          {card.status === "approved" && onPublishToPlatform && (
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                onPublishToPlatform(card);
+              }}
+              disabled={isPublishing || (card.channel === 'TikTok' && !card.videoUrl)}
+              className={`p-1 px-1.5 text-white rounded-md font-semibold transition-all flex items-center gap-0.5 text-[9px] cursor-pointer ${
+                card.channel === 'TikTok' && !card.videoUrl
+                  ? 'bg-gray-300 text-gray-400 cursor-not-allowed'
+                  : 'bg-green-600 hover:bg-green-700'
+              }`}
+              title={card.channel === 'TikTok' && !card.videoUrl ? "Bài đăng TikTok cần có video" : "Đăng lên nền tảng ngay lập tức"}
+            >
+              {isPublishing ? (
+                <RefreshCw className="h-2.5 w-2.5 animate-spin" />
+              ) : (
+                <span>Đăng ngay</span>
+              )}
+            </button>
+          )}
+
           {onNextStatus && (
             <button 
               onClick={(e) => {
@@ -186,6 +212,8 @@ interface ScheduledCardProps {
   onGenerateMedia: (card: ContentApprovalCard, type?: 'image' | 'video') => void;
   onPublishToTikTok?: (...args: any[]) => any;
   isPublishingTikTok?: boolean;
+  onPublishToFacebook?: (...args: any[]) => any;
+  isPublishingFacebook?: boolean;
   onOpenDetail?: () => void;
 }
 
@@ -200,6 +228,8 @@ export function ScheduledCard({
   onGenerateMedia,
   onPublishToTikTok,
   isPublishingTikTok = false,
+  onPublishToFacebook,
+  isPublishingFacebook = false,
   onOpenDetail
 }: ScheduledCardProps) {
   return (
