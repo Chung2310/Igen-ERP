@@ -61,6 +61,91 @@ function normalizePiapiVideoModel(modelName?: string): string {
   return "veo31-video-fast-audio";
 }
 
+function extractSourceBrief(rawText: string): {
+  userRequest: string;
+  attachedDocumentName: string;
+  attachedDocumentExcerpt: string;
+  normalizedBrief: string;
+} {
+  const text = String(rawText || "").trim();
+  if (!text) {
+    return {
+      userRequest: "",
+      attachedDocumentName: "",
+      attachedDocumentExcerpt: "",
+      normalizedBrief: "",
+    };
+  }
+
+  const docMarker = "TÀI LIỆU ĐÍNH KÈM:";
+  const docMarkerIndex = text.indexOf(docMarker);
+  const userRequest = (docMarkerIndex >= 0 ? text.slice(0, docMarkerIndex) : text).trim();
+  const attachedBlock = docMarkerIndex >= 0 ? text.slice(docMarkerIndex + docMarker.length).trim() : "";
+
+  let attachedDocumentName = "";
+  let attachedDocumentExcerpt = "";
+
+  if (attachedBlock) {
+    const nameMatch = attachedBlock.match(/Tên tài liệu:\s*(.+)/i);
+    attachedDocumentName = String(nameMatch?.[1] || "").trim();
+
+    const contentMatch = attachedBlock.match(/Nội dung tài liệu:\s*([\s\S]+)/i);
+    attachedDocumentExcerpt = String(contentMatch?.[1] || attachedBlock)
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 2200);
+  }
+
+  const normalizedBrief = [
+    userRequest ? `User request: ${userRequest}` : "",
+    attachedDocumentName ? `Attached document: ${attachedDocumentName}` : "",
+    attachedDocumentExcerpt ? `Attached document facts: ${attachedDocumentExcerpt}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  return {
+    userRequest,
+    attachedDocumentName,
+    attachedDocumentExcerpt,
+    normalizedBrief,
+  };
+}
+
+function buildFaithfulVisualGuardrail(input: {
+  sourceBrief?: string;
+  title?: string;
+  summary?: string;
+  suggestedContent?: string;
+  outline?: string;
+  bodyText?: string;
+  channels?: string[];
+  selectedPillars?: string[];
+}) {
+  const source = extractSourceBrief(input.sourceBrief || "");
+
+  return [
+    "STRICT SOURCE-OF-TRUTH REQUIREMENT:",
+    source.userRequest ? `Original user brief in Vietnamese: ${source.userRequest}` : "",
+    source.attachedDocumentName ? `Attached source file: ${source.attachedDocumentName}` : "",
+    source.attachedDocumentExcerpt ? `Facts extracted from the attached file: ${source.attachedDocumentExcerpt}` : "",
+    input.title ? `Campaign title: ${input.title}` : "",
+    input.summary ? `Campaign summary: ${input.summary}` : "",
+    input.suggestedContent ? `Suggested content direction: ${input.suggestedContent}` : "",
+    input.outline ? `Post outline: ${input.outline}` : "",
+    input.bodyText ? `Post body/caption: ${input.bodyText}` : "",
+    Array.isArray(input.channels) && input.channels.length > 0 ? `Target channels: ${input.channels.join(", ")}.` : "",
+    Array.isArray(input.selectedPillars) && input.selectedPillars.length > 0 ? `Required pillars: ${input.selectedPillars.join(", ")}.` : "",
+    "The English media prompt must preserve the exact meaning of the Vietnamese brief and attached file.",
+    "Do not add products, people, locations, industries, outfits, props, or use-cases that are not grounded in the source brief.",
+    "Do not generalize into generic office, lifestyle, beauty, fashion, product showcase, or abstract marketing scenes unless the source explicitly asks for that.",
+    "If the source is about software, ecommerce, logistics, education, training, omnichannel, operations, CRM, warehouse, or business workflow, the visual must clearly show that exact context.",
+    "Translate faithfully into English for image/video generation, but keep the original business meaning, subject, context, and constraints unchanged.",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
 async function generateText(
   model: string,
   contents: any,
@@ -557,6 +642,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
     }
 
     try {
+      const sourceBrief = extractSourceBrief(campaignTopic);
       const pillarsContext =
         selectedPillars && selectedPillars.length > 0
           ? `\nCác Trụ cột nội dung (Content Pillars) bắt buộc phải tích hợp và bám sát: ${selectedPillars.join(
@@ -590,6 +676,10 @@ Yêu cầu kết quả đầu ra:
 5. Ý tưởng nội dung gợi ý ban đầu để triển khai bài đăng trên kênh.
 6. Hashtags liên quan phù hợp.
 7. mediaPrompt: Một đoạn mô tả chi tiết bằng tiếng Anh (visual prompt) mô tả chính xác hình ảnh hoặc video phù hợp nhất cho ý tưởng này, dùng để gửi tới AI Image/Video Generator. Prompt phải bao gồm: chủ thể chính, bối cảnh, ánh sáng, phong cách nghệ thuật, mood/tone, và chi tiết kỹ thuật.
+8. mediaPrompt phải dịch đúng nghĩa và bám sát nhất với input người dùng và nội dung phân tích từ file đính kèm. Không được thêm bớt chủ đề hay làm generic hóa bối cảnh.
+
+NGUỒN SỰ THẬT BẮT BUỘC:
+${sourceBrief.normalizedBrief || campaignTopic}
 
 Trả về kết quả ở định dạng JSON phù hợp chính xác với cấu trúc yêu cầu.`;
 
@@ -639,15 +729,14 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
       const responseText = response.text || "{}";
       const parsedData = JSON.parse(responseText.trim());
       const groundedConcepts = (parsedData.concepts || []).map((concept: any) => {
-        const groundedConcept = [
-          `Use only visuals that are directly relevant to this campaign topic: ${campaignTopic}.`,
-          concept?.summary ? `Campaign summary: ${concept.summary}` : "",
-          concept?.suggestedContent ? `Content direction: ${concept.suggestedContent}` : "",
-          Array.isArray(channels) && channels.length > 0 ? `Target channels: ${channels.join(", ")}.` : "",
-          Array.isArray(selectedPillars) && selectedPillars.length > 0 ? `Required content pillars: ${selectedPillars.join(", ")}.` : "",
-          "Avoid generic beauty shots, unrelated product photos, abstract office scenes, and filler lifestyle imagery.",
-          "The visual must clearly reflect the real business context, audience, pain point, use-case, and message from the brief.",
-        ].filter(Boolean).join(" ");
+        const groundedConcept = buildFaithfulVisualGuardrail({
+          sourceBrief: campaignTopic,
+          title: concept?.title,
+          summary: concept?.summary,
+          suggestedContent: concept?.suggestedContent,
+          channels,
+          selectedPillars,
+        });
 
         return {
           ...concept,
@@ -684,6 +773,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
     }
   ): Promise<{ posts: any[]; isMock: boolean }> {
     const validChannels = ["Facebook", "TikTok", "LinkedIn", "Instagram", "Zalo"];
+    const sourceBriefText = String(mediaOptions?.mediaPrompt || suggestedContent || `${title}. ${summary}`).trim();
 
     // Normalize target channels: filter out invalid channels, map input to valid ones
     const normalizeChannel = (chan: string): string => {
@@ -816,12 +906,16 @@ QUY TẮC PHÂN TÁCH DỮ LIỆU BẮT BUỘC CHO TỪNG KÊNH:
    - Trường "outline": Lập dàn ý chi tiết, cụ thể và tối ưu của bài viết.
    - Trường "bodyText": Lưu bản nháp nội dung bài viết sạch hoàn chỉnh để đăng tải trực tiếp (không chứa dàn ý hay tiêu đề nháp).
 3. Đối với mọi kênh: Sinh thêm trường "mediaPrompt" là một đoạn mô tả chi tiết bằng tiếng Anh (visual prompt) mô phỏng chính xác nội dung trực quan (hình ảnh hoặc video) phù hợp cho bài viết này để gửi tới AI Generator.
+4. mediaPrompt phải là bản dịch trung thành sang tiếng Anh từ dữ liệu gốc, không được đổi nghĩa, không được tự ý thêm chi tiết không có trong input hoặc tài liệu đính kèm, không được biến thành bối cảnh generic.
 ${humanVoiceRules}
 
 Thông tin chiến dịch marketing:
 - Tiêu đề ý tưởng: "${title}"
 - Tóm tắt ý tưởng: "${summary}"
 - Nội dung gợi ý ban đầu: "${suggestedContent}"
+
+NGUỒN SỰ THẬT BẮT BUỘC:
+${extractSourceBrief(sourceBriefText).normalizedBrief || sourceBriefText}
 
 Trả về kết quả ở định dạng JSON phù hợp chính xác với cấu trúc yêu cầu.`;
 
@@ -873,16 +967,15 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
         const responseText = response.text || "{}";
         const parsedData = JSON.parse(responseText.trim());
         posts = (parsedData.posts || []).map((post: any) => {
-          const groundedPrompt = [
-            `Create visuals that are strictly relevant to this campaign idea: ${title}.`,
-            `Campaign summary: ${summary}.`,
-            `Suggested content: ${suggestedContent}.`,
-            post?.bodyText ? `Post content: ${post.bodyText}` : "",
-            post?.outline ? `Visual/script outline: ${post.outline}` : "",
-            `Target channel: ${normalizeChannel(post.channel)}.`,
-            "Avoid generic beauty shots, unrelated product photos, abstract office scenes, and random lifestyle filler.",
-            "Show the true business context, audience, use-case, pain point, and key message from this post.",
-          ].filter(Boolean).join(" ");
+          const groundedPrompt = buildFaithfulVisualGuardrail({
+            sourceBrief: sourceBriefText,
+            title,
+            summary,
+            suggestedContent,
+            outline: post?.outline,
+            bodyText: post?.bodyText,
+            channels: [normalizeChannel(post.channel)],
+          });
 
           return {
             ...post,
@@ -1199,6 +1292,9 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
 Preserve the exact business topic, audience, use-case, and key message from the user's input.
 Do not convert a concrete brief into a generic product shot, generic lifestyle image, abstract office scene, or unrelated beauty visual.
 If the prompt is about software, ecommerce, omnichannel, logistics, operations, training, consulting, customer growth, or workflow, explicitly visualize that real context.
+Translate faithfully from Vietnamese to English when needed. Semantic fidelity is more important than creative embellishment.
+Do not introduce new objects, characters, industries, locations, demographics, props, outfits, or claims unless they are explicitly grounded in the source input or attached references.
+When source files or images are provided, use them as constraints and preserve the same meaning as closely as possible.
 Output MUST be a valid JSON object matching this schema:
 {
   "subject": "string",
@@ -1214,7 +1310,7 @@ Do not include markdown blocks or any text other than the JSON object.`
       ];
 
       const systemMessage = optimizeMessages[0].content;
-      const userText = `Optimize this prompt while preserving the exact topic, context, audience, and business meaning: ${normalizedDescription}`;
+      const userText = `Translate and optimize this media brief into English while preserving the exact topic, context, audience, business meaning, and factual constraints from the original input: ${normalizedDescription}`;
       const result = await generateText(GEMINI_TEXT_MODEL, userText, {
         systemInstruction: systemMessage,
         responseMimeType: "application/json",
@@ -1361,6 +1457,9 @@ Do not include markdown blocks or any text other than the JSON object.`
         {
           role: "system",
           content: `You are an expert prompt engineer for video generators. Optimize the description into a high-quality video prompt.
+Preserve the exact meaning of the original input. Translate faithfully from Vietnamese to English when needed.
+Do not add unrelated cinematic elements, fashion cues, generic lifestyle filler, or abstract visuals that are not grounded in the source brief.
+If source images are provided, treat them as grounding constraints and keep the prompt semantically aligned with them.
 Output MUST be a valid JSON object matching this schema:
 {
   "motion_analysis": "string describing the camera motion and subject physics",
@@ -1372,7 +1471,7 @@ Do not include markdown blocks or any text other than the JSON object.`
       ];
 
       const videoSystemMessage = messages[0].content;
-      const videoUserText = `Optimize this prompt: ${normalizedDescription}`;
+      const videoUserText = `Translate and optimize this video brief into English while preserving the exact topic, context, audience, and factual meaning from the original input: ${normalizedDescription}`;
       const videoResult = await generateText(GEMINI_TEXT_MODEL, videoUserText, {
         systemInstruction: videoSystemMessage,
         responseMimeType: "application/json",
