@@ -12,6 +12,32 @@ const GEMINI_TEXT_MODEL = process.env.TEXT_MODEL || process.env.GEMINI_MODEL || 
 const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || "piapi-flux";
 const GEMINI_VIDEO_MODEL = process.env.GEMINI_VIDEO_MODEL || "veo31-video-fast-audio";
 
+async function getVideoDuration(url: string): Promise<number> {
+  try {
+    const matchedRecord = await AIMediaModel.findOne({ url }).lean();
+    if (matchedRecord?.metadata?.duration) {
+      const dur = Number(matchedRecord.metadata.duration);
+      if (dur > 0) return dur;
+    }
+  } catch (dbErr) {
+    console.warn("[geminiService.getVideoDuration] DB query failed:", dbErr);
+  }
+
+  return new Promise<number>((resolve) => {
+    const cmd = `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${url}"`;
+    exec(cmd, (error, stdout) => {
+      if (!error && stdout) {
+        const dur = parseFloat(stdout.trim());
+        if (!isNaN(dur) && dur > 0) {
+          resolve(dur);
+          return;
+        }
+      }
+      resolve(5); // default fallback
+    });
+  });
+}
+
 function normalizePiapiVideoModel(modelName?: string): string {
   const rawModel = (modelName || GEMINI_VIDEO_MODEL || "").trim();
   const normalizedModel = rawModel.toLowerCase();
@@ -1397,15 +1423,7 @@ Do not include markdown blocks or any text other than the JSON object.`
     const urlDurations: { [url: string]: number } = {};
     let totalComputedDuration = 0;
     for (const url of urls) {
-      let dur = 5; // default fallback
-      try {
-        const matchedRecord = await AIMediaModel.findOne({ url }).lean();
-        if (matchedRecord?.metadata?.duration) {
-          dur = Number(matchedRecord.metadata.duration);
-        }
-      } catch (dbErr) {
-        console.warn("[geminiService.editVideo] Failed to query video duration for", url, dbErr);
-      }
+      const dur = await getVideoDuration(url);
       urlDurations[url] = dur;
       totalComputedDuration += dur;
     }
@@ -1452,6 +1470,8 @@ Do not include markdown blocks or any text other than the JSON object.`
 - Unless the user explicitly requests to cut, crop, skip, trim, or remove segments of the video (using words like "cắt", "bỏ", "skip", "remove", "trim"), you MUST keep the ENTIRE duration of the video.
 - NEVER default to shortening the video.
 - If you split a video to apply an effect (such as a zoom, speed, or filter) to a specific part, the sum of the split segments MUST equal the EXACT duration of the original source video.
+- HANDLING GAPS: If the user describes edits for specific segments (e.g. 0-5s and 20-30s) but doesn't mention the middle segment (5-20s), you MUST still include the middle segment (5-20s) as a normal video clip (playbackRate: 1.0, no effects/filters) to keep the timeline continuous and preserve the entire video.
+- EXACT END TIME MATCHING: The final clip in the timeline must end exactly at the video's originalDuration (or the end of the last source video). If the last split segment ends at X and the video duration is D (where X < D), you MUST add a final clip from X to D.
 - For example, if a video is exactly 30 seconds long:
   - If the user asks to "zoom 5 seconds at the beginning", you MUST output:
     1. Clip 1 (0s to 5s) with zoom
@@ -1477,6 +1497,8 @@ ${urls.map((url, idx) => `▸ Video ${idx + 1}: URL: "${url}", Duration: ${urlDu
 You MUST map each video clip segment to its correct source URL by setting the "src" property of the video clip to the exact URL of that video from the list above. 
 CRITICAL MULTI-VIDEO RULES:
 - Join them in the logical order requested (e.g. Video 1, then Video 2).
+- The total target duration of the compiled video MUST be the EXACT sum of all source video durations: (Duration of Video 1 + Duration of Video 2 + ... + Duration of Video N) unless there is a specific instruction to trim or cut a video.
+- For each source video, you MUST generate segments that cover its ENTIRE original duration. For example, if Video 1 is 10s and Video 2 is 15s, you must create video clips for Video 1 covering [0s to 10s] and video clips for Video 2 covering [0s to 15s]. The final video length must be exactly 25s.
 - The "start" and "end" timestamps inside each video segment must be relative to that source video's original timeline (from 0 to its specific duration).
 - Keep the timeline continuous. Calculate the cumulative duration of all preceding clips (taking playbackRate into account) to know the start/end offsets for text overlays, audio tracks, and logos.` 
   : `The original video URL is "${urls[0]}".
@@ -1651,6 +1673,8 @@ Return ONLY valid JSON. No markdown backticks, no comments, no conversational te
         const response = await piapiService.chatCompletions(messages, "gpt-4o-mini", { type: "json_object" });
         const content = response.choices?.[0]?.message?.content || "{}";
         blueprint = JSON.parse(content.trim());
+        console.log("[geminiService.editVideo] urlDurations:", urlDurations);
+        console.log("[geminiService.editVideo] Generated blueprint:", JSON.stringify(blueprint, null, 2));
       }
     } catch (error) {
       console.error("[geminiService.editVideo] Failed to get LLM blueprint, falling back:", error);
