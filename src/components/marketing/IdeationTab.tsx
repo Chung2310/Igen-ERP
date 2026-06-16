@@ -438,8 +438,15 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
       setAutoPilotStatus("Đang lên ý tưởng chiến dịch...");
       const actualMediaType = isAutoPilot ? mediaType : "none";
       const data = await geminiApi.generateMarketingIdeas(apiTopic, pillarsToUse, selectedChannels, actualMediaType, uploadedImageBase64 ? [uploadedImageBase64] : undefined);
-      
-      const generatedConcepts = data.concepts || [];
+      if (data.isMock) {
+        console.warn("[IdeationTab] Marketing ideas fallbacked to mock data.");
+        toast.warning("AI đang trả về dữ liệu mẫu. Có thể backend vừa fallback sang mock.");
+      }
+
+      const generatedConcepts = (data.concepts || []).map((concept: MarketingConcept) => ({
+        ...concept,
+        mediaType: actualMediaType
+      }));
       if (generatedConcepts.length === 0) {
         throw new Error("AI không thể tạo ý tưởng chiến dịch phù hợp.");
       }
@@ -464,7 +471,11 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
           videoModel,
           videoQuality,
           videoDuration: parseInt(videoDuration),
-          videoAspectRatio
+          videoAspectRatio,
+          mediaPrompt: bestConcept.mediaPrompt,
+          humanVoiceId: selectedHumanVoice,
+          humanVoiceModel: selectedHumanVoiceModel,
+          humanDurationSeconds: parseInt(estimatedHumanVoiceDuration, 10) || 15,
         });
 
         if (!result || !result.posts || result.posts.length === 0) {
@@ -484,12 +495,18 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
             imageUrl: post.imageUrl || null,
             videoUrl: post.videoUrl || null,
             mediaPrompt: post.mediaPrompt || "",
+            voiceScript: post.voiceScript || "",
+            motionText: post.motionText || "",
             generatedAt: new Date().toISOString(),
             authorUid: userProfile?.uid ?? ''
           };
         });
 
-        const savedCards = await marketingService.saveCards(newCards);
+        let savedCards = await marketingService.saveCards(newCards);
+
+        if (actualMediaType === "human-video") {
+          savedCards = await autoCreateHumanVideos(savedCards, result.posts, bestConcept);
+        }
 
         // Check if there are any cards with pending video tasks
         const pendingCards = savedCards.filter(c => c.videoUrl && c.videoUrl.startsWith("pending://piapi/"));
@@ -621,12 +638,13 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
     setDevelopingIdx(idx);
     try {
       console.log("[handleDevelopConcept] Calling marketingService.developIdea...");
+      const developMediaType = isAutoPilot ? mediaType : "none";
       const result = await marketingService.developIdea({
         title: concept.title,
         summary: concept.summary,
         suggestedContent: concept.suggestedContent,
         channels: concept.channels,
-        mediaType: isAutoPilot ? mediaType : "none",
+        mediaType: developMediaType,
         imageModel,
         imageResolution,
         imageAspectRatio,
@@ -650,6 +668,8 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
             imageUrl: post.imageUrl || null,
             videoUrl: post.videoUrl || null,
             mediaPrompt: post.mediaPrompt || "",
+            voiceScript: post.voiceScript || "",
+            motionText: post.motionText || "",
             generatedAt: new Date().toISOString(),
             authorUid: userProfile?.uid ?? ''
           };
@@ -702,7 +722,6 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
               <Sparkles className="h-4.5 w-4.5 text-indigo-500 animate-pulse" />
               Khởi tạo ý tưởng chiến dịch marketing
             </h4>
-            <p className="text-xs text-slate-500 mt-1 lines-clamp-2">Nhập mục tiêu chiến dịch của bạn. Gemini AI sẽ phân tích và trả về các ý tưởng bản nháp content hoàn chỉnh.</p>
 
             <form onSubmit={handleGenerateIdeas} className="mt-5 space-y-4">
               <div className="flex flex-col gap-1.5">
