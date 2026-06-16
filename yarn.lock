@@ -842,20 +842,20 @@
   resolved "https://registry.npmjs.org/@remotion/compositor-win32-x64-msvc/-/compositor-win32-x64-msvc-4.0.476.tgz"
   integrity sha512-tnLwVldG41uKUg7QJXBKb0GCCHcpPoljsHB4Ku0m1ay/gW48kkJUP93gHAc+raHbG9oxWKnUzQvoRtlGnrQG/w==
 
-"@remotion/compositor-win32-x64-msvc@4.0.477":
-  version "4.0.477"
-  resolved "https://registry.npmjs.org/@remotion/compositor-win32-x64-msvc/-/compositor-win32-x64-msvc-4.0.477.tgz"
-  integrity sha512-7oldAftiUrFDI1U5z0zN87xfhpuJuIrLrNP16GFgj0JZN4AzRQT/iGYoH5+H2/clT910mlq4YtrfAv1RsHe4Cg==
+"@remotion/compositor-win32-x64-msvc@4.0.478":
+  version "4.0.478"
+  resolved "https://registry.npmjs.org/@remotion/compositor-win32-x64-msvc/-/compositor-win32-x64-msvc-4.0.478.tgz"
+  integrity sha512-AiVnP+I1xcltyh0LSsoZixyCYhciG4lcEmmWKqDD/BCKCNCWdO3owEP05qLGAkiMSU/3vJRvWtS3mKZjrEp67w==
 
 "@remotion/licensing@4.0.476":
   version "4.0.476"
   resolved "https://registry.npmjs.org/@remotion/licensing/-/licensing-4.0.476.tgz"
   integrity sha512-bDx+4hYizZ9J5F6pR4cruhro0BXyv6WaNH9oPhR1/4QDN12VYHvng9RUW7PWZ62aVRAf8U2aPXjnT2tqmLS0jg==
 
-"@remotion/licensing@4.0.477":
-  version "4.0.477"
-  resolved "https://registry.npmjs.org/@remotion/licensing/-/licensing-4.0.477.tgz"
-  integrity sha512-Ayor3/+CyXkyYUvzxEFcTVWe46+ld1i9jyrmZY9OqO77gCQ3khOAivjNsI/4foFgnfb7aRNvcCBYr1D9iZLn/w==
+"@remotion/licensing@4.0.478":
+  version "4.0.478"
+  resolved "https://registry.npmjs.org/@remotion/licensing/-/licensing-4.0.478.tgz"
+  integrity sha512-vFfOFbyZUHPCmSftKcNEGfgPgJimlQHNDmO7aYP4gx3jE7+YP4R8K9wp1j+tremOqIfabnVIpckA2SPnff/iRQ==
 
 "@remotion/media-parser@4.0.476":
   version "4.0.476"
@@ -871,11 +871,11 @@
     remotion "4.0.476"
 
 "@remotion/player@^4.0.476":
-  version "4.0.477"
-  resolved "https://registry.npmjs.org/@remotion/player/-/player-4.0.477.tgz"
-  integrity sha512-x0aWSsbXQIlW2V5R6hVksHsyw4CBWN0ctbc0b8Aq5kbAg901vZmDXMekNXyMicqPyzwPRfTeDfpPyGq5RwvOSA==
+  version "4.0.478"
+  resolved "https://registry.npmjs.org/@remotion/player/-/player-4.0.478.tgz"
+  integrity sha512-ERfAI+rAMHcM/eFkHeJUVJU8LnFGWvpnEbPpig2t1doDUmKuR9tGKjF4gqBUBbYTHoN8HfXBluisoJgDtLUBew==
   dependencies:
-    remotion "4.0.477"
+    remotion "4.0.478"
 
 "@remotion/player@4.0.476":
   version "4.0.476"
@@ -885,24 +885,24 @@
     remotion "4.0.476"
 
 "@remotion/renderer@^4.0.476":
-  version "4.0.477"
-  resolved "https://registry.npmjs.org/@remotion/renderer/-/renderer-4.0.477.tgz"
-  integrity sha512-OKHhmjLZwvXAOKvby7WCpyHGFUGUFMofKjJMGobx/yeyG0k/So/FSFBJQBBpP8XSdHY1RmFqKpMiKIO5SACB5A==
+  version "4.0.478"
+  resolved "https://registry.npmjs.org/@remotion/renderer/-/renderer-4.0.478.tgz"
+  integrity sha512-fDj8q0yNPJHgHqgzOKeCvy6QJtG1VY54dUkOZ9gYtjjYI8lY5WN5B0FjOrFaF6DmdsMhk4nRAqbTG4NuC+GdJw==
   dependencies:
-    "@remotion/licensing" "4.0.477"
-    "@remotion/streaming" "4.0.477"
+    "@remotion/licensing" "4.0.478"
+    "@remotion/streaming" "4.0.478"
     execa "5.1.1"
-    remotion "4.0.477"
+    remotion "4.0.478"
     source-map "0.8.0-beta.0"
     ws "8.20.1"
   optionalDependencies:
-    "@remotion/compositor-darwin-arm64" "4.0.477"
-    "@remotion/compositor-darwin-x64" "4.0.477"
-    "@remotion/compositor-linux-arm64-gnu" "4.0.477"
-    "@remotion/compositor-linux-arm64-musl" "4.0.477"
-    "@remotion/compositor-linux-x64-gnu" "4.0.477"
-    "@remotion/compositor-linux-x64-musl" "4.0.477"
-    "@remotion/compositor-win32-x64-msvc" "4.0.477"
+    "@remotion/compositor-darwin-arm64" "4.0.478"
+    "@remotion/compositor-darwin-x64" "4.0.478"
+    "@remotion/compositor-linux-arm64-gnu" "4.0.478"
+    "@remotion/compositor-linux-arm64-musl" "4.0.478"
+    "@remotion/compositor-linux-x64-gnu" "4.0.478"
+    "@remotion/compositor-linux-x64-musl" "4.0.478"
+    "@remotion/compositor-win32-x64-msvc" "4.0.478"
 
 "@remotion/renderer@4.0.476":
   version "4.0.476"
@@ -929,10 +929,10 @@
   resolved "https://registry.npmjs.org/@remotion/streaming/-/streaming-4.0.476.tgz"
   integrity sha512-1cfRT0yRgbV/uy+1p+1Rk9M378UfLjh16JJrPTXz18J9j/zONaM+8G2JafgbvM72JvX/iV/lTkMGVy1AC8Tj/w==
 
-"@remotion/streaming@4.0.477":
-  version "4.0.477"
-  resolved "https://registry.npmjs.org/@remotion/streaming/-/streaming-4.0.477.tgz"
-  integrity sha512-GXSR5BaC2UaaPHwAEBbuwXXDedrUfa3KQ1GpwDBKfr/F2rm0QxOPgPoVzB14lt7CvaQsuig22NZD6h6BTDAH5A==
+"@remotion/streaming@4.0.478":
+  version "4.0.478"
+  resolved "https://registry.npmjs.org/@remotion/streaming/-/streaming-4.0.478.tgz"
+  integrity sha512-HEr/kiabf7aCLrlWQVduxGKVAbIYSfQK7Hg/9uqb4Ih2QcwIKYvGZa9W1Mm092YCGWS9ib87JQP4xPL2r4HC1A==
 
 "@remotion/studio-shared@4.0.476":
   version "4.0.476"
@@ -3018,10 +3018,10 @@ react-refresh@^0.18.0, "react-refresh@>=0.10.0 <1.0.0", react-refresh@0.18.0:
   resolved "https://registry.npmjs.org/react/-/react-19.2.7.tgz"
   integrity sha512-HNe9WslTbXmFK8o8cmwgAeJFSBvt1bPdHCVKtaaV+WlAN36mpT4hcRpwbf3fY56ar2oIXzsBpOAiIRHAdY0OlQ==
 
-remotion@^4.0.476, remotion@4.0.477:
-  version "4.0.477"
-  resolved "https://registry.npmjs.org/remotion/-/remotion-4.0.477.tgz"
-  integrity sha512-mxQ8MHmx9YUpxyTSm8hLZW/LGvOzk9b19i02DT9MKKFv+H6ZXkd/1Cn+a908fZWCqM4RRCIy3poXB8KsHiPdow==
+remotion@^4.0.476, remotion@4.0.478:
+  version "4.0.478"
+  resolved "https://registry.npmjs.org/remotion/-/remotion-4.0.478.tgz"
+  integrity sha512-oQlh+p3TNnqBzghoP/uCUbKdKhglK4pTnbDZxs9ATmJhnushWuzZ58lbBldb1OnnmuTEA/eClRKaidxuPsD7jA==
 
 remotion@4.0.476:
   version "4.0.476"

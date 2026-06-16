@@ -72,6 +72,11 @@ export const VideoComposition: React.FC<VideoCompositionProps> = ({ blueprint })
         const startFrame = Math.round(clip.startInTimeline * fps);
         const durationFrames = Math.round(clip.duration * fps);
         
+        // Cấu hình số khung hình chuyển cảnh (khoảng 8 frames ~ 0.27s ở 30fps) để tạo độ mượt
+        const actualTransitionFrames = Math.min(8, Math.floor(durationFrames / 3));
+        const hasNextClip = idx < videoClips.length - 1;
+        const renderDurationFrames = durationFrames + (hasNextClip ? actualTransitionFrames : 0);
+
         const brightness = clip.filters?.brightness ?? 1;
         const grayscale = clip.filters?.grayscale ?? 0;
         const blur = clip.filters?.blur ?? 0;
@@ -81,24 +86,37 @@ export const VideoComposition: React.FC<VideoCompositionProps> = ({ blueprint })
         const saturate = clip.filters?.saturate ?? 1;
         const hueRotate = clip.filters?.hueRotate ?? 0;
 
-        const filterString = [
-          `brightness(${brightness})`,
-          `grayscale(${grayscale})`,
-          blur ? `blur(${blur}px)` : '',
-          sepia ? `sepia(${sepia})` : '',
-          invert ? `invert(${invert})` : '',
-          `contrast(${contrast})`,
-          `saturate(${saturate})`,
-          hueRotate ? `hue-rotate(${hueRotate}deg)` : ''
-        ].filter(Boolean).join(' ');
-
         const zoom = clip.effects?.zoom ?? "none";
         const rotate = clip.effects?.rotate ?? 0;
         const transition = clip.effects?.transition ?? "none";
 
-        // Calculate dynamic zoom scale interpolation
-        let scale = 1.0;
+        // Tính toán các giá trị chuyển cảnh (Transition) động tại khung hình hiện tại
+        let transitionOpacity = 1.0;
+        let transitionBlur = 0;
+        let transitionScaleMultiplier = 1.0;
+
         const localFrame = frame - startFrame;
+
+        if (durationFrames > 0 && actualTransitionFrames > 0) {
+          // 1. Hiệu ứng vào (Entry transition): fade-in, thu nhỏ dần về bình thường & giảm mờ
+          if (idx > 0 && localFrame < actualTransitionFrames) {
+            const progress = localFrame / actualTransitionFrames;
+            transitionOpacity = progress;
+            transitionBlur = (1 - progress) * 12; // Mờ giảm dần
+            transitionScaleMultiplier = 1.15 - progress * 0.15; // Thu nhỏ dần về bình thường
+          }
+          // 2. Hiệu ứng ra (Exit transition): fade-out, phóng to thêm một chút & tăng mờ
+          else if (hasNextClip && localFrame >= durationFrames - actualTransitionFrames) {
+            const exitStartFrame = durationFrames - actualTransitionFrames;
+            const progress = Math.min(1, Math.max(0, (localFrame - exitStartFrame) / actualTransitionFrames));
+            transitionOpacity = 1 - progress;
+            transitionBlur = progress * 12; // Mờ tăng dần
+            transitionScaleMultiplier = 1.0 + progress * 0.15; // Phóng to dần
+          }
+        }
+
+        // Tính toán độ thu phóng (Zoom Scale) của clip gốc
+        let scale = 1.0;
         if (localFrame >= 0 && localFrame < durationFrames && durationFrames > 0) {
           const t = localFrame / durationFrames;
           if (zoom === "in") {
@@ -106,37 +124,46 @@ export const VideoComposition: React.FC<VideoCompositionProps> = ({ blueprint })
           } else if (zoom === "out") {
             scale = 1.25 - t * 0.25;
           }
-        }
-
-        // Calculate transition fade opacity
-        let opacity = 1.0;
-        if (transition === "fade" && localFrame >= 0 && localFrame < durationFrames && durationFrames > 0) {
-          const fadeDuration = Math.min(15, durationFrames / 2);
-          if (localFrame < fadeDuration) {
-            opacity = localFrame / fadeDuration;
-          } else if (localFrame > durationFrames - fadeDuration) {
-            opacity = (durationFrames - localFrame) / fadeDuration;
+        } else if (localFrame >= durationFrames) {
+          if (zoom === "in") {
+            scale = 1.25;
+          } else if (zoom === "out") {
+            scale = 1.0;
           }
         }
+
+        // Cộng gộp hiệu ứng mờ chuyển cảnh vào các bộ lọc CSS hiện tại
+        const totalBlur = blur + transitionBlur;
+        const filterString = [
+          `brightness(${brightness})`,
+          `grayscale(${grayscale})`,
+          totalBlur ? `blur(${totalBlur}px)` : '',
+          sepia ? `sepia(${sepia})` : '',
+          invert ? `invert(${invert})` : '',
+          `contrast(${contrast})`,
+          `saturate(${saturate})`,
+          hueRotate ? `hue-rotate(${hueRotate}deg)` : ''
+        ].filter(Boolean).join(' ');
 
         return (
           <Sequence
             key={`video-seq-${idx}`}
             from={startFrame}
-            durationInFrames={durationFrames}
+            durationInFrames={renderDurationFrames}
           >
             <Video
               src={clip.src!}
               startFrom={Math.round((clip.start ?? 0) * fps)}
               playbackRate={clip.playbackRate ?? 1}
               preload="auto"
+              volume={transitionOpacity}
               style={{
                 width: '100%',
                 height: '100%',
                 objectFit: 'contain',
                 filter: filterString,
-                transform: `scale(${scale}) rotate(${rotate}deg)`,
-                opacity: opacity
+                transform: `scale(${scale * transitionScaleMultiplier}) rotate(${rotate}deg)`,
+                opacity: transitionOpacity
               }}
             />
           </Sequence>

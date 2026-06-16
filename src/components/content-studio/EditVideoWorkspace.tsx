@@ -44,9 +44,8 @@ export function EditVideoWorkspace({
   onClearInitialVideoUrl?: () => void;
 } = {}) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [videoFile, setVideoFile] = useState<File | null>(null);
-  const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
-  const [videoDuration, setVideoDuration] = useState<number | null>(null);
+  const [videoInputs, setVideoInputs] = useState<Array<{ url: string; duration: number; file?: File }>>([]);
+  const [selectedPreviewUrl, setSelectedPreviewUrl] = useState<string | null>(null);
   const [prompt, setPrompt] = useState('');
   const [optimizedData, setOptimizedData] = useState<{
     optimized_english_prompt: string;
@@ -80,24 +79,43 @@ export function EditVideoWorkspace({
     setIsDragging(false);
     const files = e.dataTransfer.files;
     if (!files || files.length === 0) return;
-    const file = files[0];
 
-    // Kiểm tra dung lượng video (tối đa 200MB)
+    const newInputs = [...videoInputs];
     const maxSize = 200 * 1024 * 1024; // 200MB
-    if (file.size > maxSize) {
-      toast.warning("Kích thước video vượt quá giới hạn tối đa cho phép (200MB). Vui lòng chọn video khác nhỏ hơn.");
-      return;
-    }
 
-    setVideoFile(file);
-    const preview = URL.createObjectURL(file);
-    setVideoPreviewUrl(preview);
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (file.size > maxSize) {
+        toast.warning(`Video "${file.name}" vượt quá giới hạn 200MB và bị bỏ qua.`);
+        continue;
+      }
+      
+      const previewUrl = URL.createObjectURL(file);
+      
+      const tempVideo = document.createElement('video');
+      tempVideo.src = previewUrl;
+      tempVideo.onloadedmetadata = () => {
+        const duration = tempVideo.duration || 0;
+        setVideoInputs(prev => prev.map(item => item.url === previewUrl ? { ...item, duration } : item));
+      };
+
+      newInputs.push({
+        url: previewUrl,
+        duration: 0,
+        file
+      });
+    }
+    setVideoInputs(newInputs);
   };
 
   useEffect(() => {
     if (initialVideoUrl) {
-      setVideoPreviewUrl(initialVideoUrl);
-      setVideoFile(null);
+      setVideoInputs(prev => {
+        if (prev.some(item => item.url === initialVideoUrl)) {
+          return prev;
+        }
+        return [...prev, { url: initialVideoUrl, duration: 0 }];
+      });
       setPrompt('');
       setOptimizedData(null);
       setBlueprint(null);
@@ -179,23 +197,41 @@ export function EditVideoWorkspace({
     }
   };
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleMultipleFilesChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files || files.length === 0) return;
-    const file = files[0];
 
-    // Kiểm tra dung lượng video (tối đa 200MB)
+    const newInputs = [...videoInputs];
     const maxSize = 200 * 1024 * 1024; // 200MB
-    if (file.size > maxSize) {
-      toast.warning("Kích thước video vượt quá giới hạn tối đa cho phép (200MB). Vui lòng chọn video khác nhỏ hơn.");
-      event.target.value = '';
-      return;
-    }
 
-    setVideoFile(file);
-    const preview = URL.createObjectURL(file);
-    setVideoPreviewUrl(preview);
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (file.size > maxSize) {
+        toast.warning(`Video "${file.name}" vượt quá giới hạn 200MB và bị bỏ qua.`);
+        continue;
+      }
+      
+      const previewUrl = URL.createObjectURL(file);
+      
+      const tempVideo = document.createElement('video');
+      tempVideo.src = previewUrl;
+      tempVideo.onloadedmetadata = () => {
+        const duration = tempVideo.duration || 0;
+        setVideoInputs(prev => prev.map(item => item.url === previewUrl ? { ...item, duration } : item));
+      };
+
+      newInputs.push({
+        url: previewUrl,
+        duration: 0,
+        file
+      });
+    }
+    setVideoInputs(newInputs);
     event.target.value = '';
+  };
+
+  const handleRemoveVideo = (indexToRemove: number) => {
+    setVideoInputs(prev => prev.filter((_, idx) => idx !== indexToRemove));
   };
 
   const handleSelectPreset = (presetPrompt: string) => {
@@ -230,8 +266,8 @@ export function EditVideoWorkspace({
       toast.warning('Vui lòng nhập prompt ý tưởng biên tập video.');
       return;
     }
-    if (!videoPreviewUrl) {
-      toast.warning('Vui lòng chọn hoặc tải lên video nguồn để chỉnh sửa.');
+    if (videoInputs.length === 0) {
+      toast.warning('Vui lòng chọn hoặc tải lên ít nhất một video nguồn để chỉnh sửa.');
       return;
     }
 
@@ -241,39 +277,62 @@ export function EditVideoWorkspace({
     setOutputUrl(null);
 
     try {
-      let inputVideoUrl = videoPreviewUrl;
+      const uploadedUrls: string[] = [];
+      const updatedInputs = [...videoInputs];
+      let hasUploads = false;
 
-      // If there is a raw local file, upload it first
-      if (videoFile) {
-        setIsUploadingVideo(true);
-        toast.info('Đang tải video gốc lên Cloudinary...');
-        try {
-          inputVideoUrl = await uploadVideoFile(videoFile);
-          // Update preview url to the Cloudinary url so we don't upload again next time
-          setVideoPreviewUrl(inputVideoUrl);
-          setVideoFile(null);
-          toast.success('Tải video gốc thành công.');
-        } catch (uploadErr: any) {
-          console.error('[Upload source video error]', uploadErr);
-          toast.error(`Không thể tải video nguồn lên Cloudinary: ${uploadErr.message}`);
-          setIsGenerating(false);
-          setIsUploadingVideo(false);
-          return;
-        } finally {
-          setIsUploadingVideo(false);
+      // Check if there are local files to upload
+      for (const input of videoInputs) {
+        if (input.file) {
+          hasUploads = true;
+          break;
         }
       }
+
+      if (hasUploads) {
+        setIsUploadingVideo(true);
+        toast.info('Đang tải các video nguồn lên Cloudinary...');
+      }
+
+      for (let i = 0; i < videoInputs.length; i++) {
+        const input = videoInputs[i];
+        if (input.file) {
+          try {
+            toast.info(`Đang tải video ${i + 1}/${videoInputs.length} lên Cloudinary...`);
+            const url = await uploadVideoFile(input.file);
+            uploadedUrls.push(url);
+            updatedInputs[i] = { ...input, url, file: undefined };
+          } catch (uploadErr: any) {
+            console.error('[Upload source video error]', uploadErr);
+            toast.error(`Không thể tải video nguồn ${i + 1} lên Cloudinary: ${uploadErr.message}`);
+            setIsGenerating(false);
+            setIsUploadingVideo(false);
+            return;
+          }
+        } else {
+          uploadedUrls.push(input.url);
+        }
+      }
+
+      if (hasUploads) {
+        setVideoInputs(updatedInputs);
+        setIsUploadingVideo(false);
+        toast.success('Tải các video gốc thành công.');
+      }
+
+      const jointVideoUrl = uploadedUrls.join(',');
+      const totalDuration = videoInputs.reduce((sum, v) => sum + (v.duration || 0), 0);
 
       toast.info('Đang gửi yêu cầu biên tập video đến AI...');
       const finalPrompt = optimizedData?.optimized_english_prompt
         ? optimizedData.optimized_english_prompt
         : prompt.trim();
 
-      const response = await geminiApi.editVideo(inputVideoUrl, finalPrompt, {
+      const response = await geminiApi.editVideo(jointVideoUrl, finalPrompt, {
         modelName: selectedModel,
         aspectRatio,
         resolution,
-        duration: videoDuration || undefined,
+        duration: totalDuration || undefined,
       });
 
       if (response.record) {
@@ -329,42 +388,40 @@ export function EditVideoWorkspace({
                   isDragging ? 'border-cyan-500 bg-cyan-50/50' : 'border-slate-250 hover:border-cyan-400'
                 }`}
               >
-                {videoPreviewUrl ? (
+                {videoInputs.length > 0 ? (
                   <div className="flex flex-wrap gap-2 w-full">
-                    <div 
-                      onClick={() => setShowPreviewModal(true)}
-                      className="relative w-28 h-28 border border-slate-200 rounded-xl overflow-hidden bg-white shadow-xs group cursor-pointer hover:border-cyan-400 hover:ring-1 hover:ring-cyan-400/50 transition-all"
-                    >
-                      <video
-                        src={videoPreviewUrl}
-                        className="w-full h-full object-cover"
-                        muted
-                        onLoadedMetadata={(e) => {
-                          const dur = e.currentTarget.duration;
-                          if (dur && !isNaN(dur)) {
-                            setVideoDuration(dur);
-                            console.log("[EditVideoWorkspace] Detected source video duration:", dur);
-                          }
+                    {videoInputs.map((video, idx) => (
+                      <div 
+                        key={idx}
+                        onClick={() => {
+                          setSelectedPreviewUrl(video.url);
+                          setShowPreviewModal(true);
                         }}
-                      />
-                      <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                        <Play className="h-6 w-6 text-white fill-white" />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setVideoPreviewUrl(null);
-                          setVideoFile(null);
-                          if (onClearInitialVideoUrl) {
-                            onClearInitialVideoUrl();
-                          }
-                        }}
-                        className="absolute top-1.5 right-1.5 p-1 bg-black/70 hover:bg-black text-white rounded-full transition-all z-10"
+                        className="relative w-28 h-28 border border-slate-200 rounded-xl overflow-hidden bg-white shadow-xs group cursor-pointer hover:border-cyan-400 hover:ring-1 hover:ring-cyan-400/50 transition-all"
                       >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
+                        <video
+                          src={video.url}
+                          className="w-full h-full object-cover"
+                          muted
+                        />
+                        <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                          <Play className="h-6 w-6 text-white fill-white" />
+                        </div>
+                        <span className="absolute bottom-1.5 left-1.5 text-[9px] font-bold text-white bg-black/50 px-1 rounded">
+                          Video {idx + 1} ({video.duration ? `${Math.round(video.duration)}s` : '0s'})
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveVideo(idx);
+                          }}
+                          className="absolute top-1.5 right-1.5 p-1 bg-black/70 hover:bg-black text-white rounded-full transition-all z-10"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
 
                     <label className="cursor-pointer border border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center w-28 h-28 hover:bg-slate-100 transition-all bg-white">
                       <UploadCloud className="h-5 w-5 text-gray-400" />
@@ -372,7 +429,8 @@ export function EditVideoWorkspace({
                       <input
                         type="file"
                         accept="video/*"
-                        onChange={handleFileChange}
+                        multiple
+                        onChange={handleMultipleFilesChange}
                         className="hidden"
                       />
                     </label>
@@ -383,11 +441,12 @@ export function EditVideoWorkspace({
                       <Video className="h-5 w-5 text-slate-500" />
                     </div>
                     <span className="text-xs font-semibold text-slate-700">Kéo thả hoặc nhấp để tải video lên</span>
-                    <span className="text-[10px] text-slate-400 mt-1 font-medium">MP4, MOV, WEBM. Tối đa 200MB.</span>
+                    <span className="text-[10px] text-slate-400 mt-1 font-medium">MP4, MOV, WEBM. Tối đa 200MB. Hỗ trợ chọn nhiều video.</span>
                     <input
                       type="file"
                       accept="video/*"
-                      onChange={handleFileChange}
+                      multiple
+                      onChange={handleMultipleFilesChange}
                       className="hidden"
                     />
                   </label>
@@ -506,62 +565,7 @@ export function EditVideoWorkspace({
               )}
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label className="block text-sm font-semibold text-slate-900">Mô hình tạo video</label>
-                <select
-                  value={selectedModel}
-                  onChange={(e) => setSelectedModel(e.target.value)}
-                  className="mt-2 w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100"
-                >
-                  {MODEL_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-slate-900">Khung hình</label>
-                <select
-                  value={aspectRatio}
-                  onChange={(e) => setAspectRatio(e.target.value)}
-                  className="mt-2 w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100"
-                >
-                  {ASPECT_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div>
-                <label className="block text-sm font-semibold text-slate-900">Thời lượng</label>
-                <select
-                  value={duration}
-                  onChange={(e) => setDuration(e.target.value)}
-                  className="mt-2 w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100"
-                >
-                  {DURATION_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="sm:col-span-2">
-                <p className="block text-sm font-semibold text-slate-900">Độ phân giải</p>
-                <div className="mt-2 flex flex-wrap gap-3">
-                  {QUALITY_OPTIONS.map((option) => (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => setResolution(option.value)}
-                      className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${resolution === option.value ? 'border-cyan-600 bg-cyan-600 text-white' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-100'}`}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
+        
 
         
 
@@ -702,9 +706,15 @@ export function EditVideoWorkspace({
                               onClick={() => {
                                 const targetUrl = (matchedRecord && matchedRecord.url && !matchedRecord.url.startsWith('pending://'))
                                   ? matchedRecord.url
-                                  : (outputUrl && !outputUrl.startsWith('pending://') ? outputUrl : videoPreviewUrl);
-                                setVideoPreviewUrl(targetUrl ?? '');
-                                setVideoFile(null);
+                                  : (outputUrl && !outputUrl.startsWith('pending://') ? outputUrl : undefined);
+                                if (targetUrl) {
+                                  setVideoInputs(prev => {
+                                    if (prev.some(item => item.url === targetUrl)) {
+                                      return prev;
+                                    }
+                                    return [...prev, { url: targetUrl, duration: 0 }];
+                                  });
+                                }
                                 setPrompt('');
                                 setOptimizedData(null);
                                 setBlueprint(null);
@@ -748,13 +758,19 @@ export function EditVideoWorkspace({
                       <button
                         type="button"
                         onClick={() => {
-                          setVideoPreviewUrl(outputUrl);
-                          setVideoFile(null);
+                          if (outputUrl) {
+                            setVideoInputs(prev => {
+                              if (prev.some(item => item.url === outputUrl)) {
+                                return prev;
+                              }
+                              return [...prev, { url: outputUrl, duration: 0 }];
+                            });
+                          }
                           setPrompt('');
                           setOptimizedData(null);
                           setBlueprint(null);
                           setOutputUrl(null);
-                          toast.success('Đã đặt video kết quả thành video đầu vào. Hãy nhập ý tưởng mới để tiếp tục chỉnh sửa!');
+                          toast.success('Đã thêm video kết quả vào danh sách video đầu vào. Hãy nhập ý tưởng mới để tiếp tục chỉnh sửa!');
                         }}
                         className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-cyan-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-cyan-700 cursor-pointer shadow-sm shadow-cyan-155"
                       >
@@ -874,8 +890,8 @@ export function EditVideoWorkspace({
                         key={item._id || item.id || item.url}
                         type="button"
                         onClick={() => {
-                          setVideoPreviewUrl(item.url);
-                          setVideoFile(null);
+                          const duration = item.metadata?.duration ? Number(item.metadata.duration) : 0;
+                          setVideoInputs(prev => [...prev, { url: item.url, duration }]);
                           setShowLibraryModal(false);
                         }}
                         className="group rounded-3xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:border-cyan-300 hover:bg-cyan-50"
@@ -905,7 +921,7 @@ export function EditVideoWorkspace({
             </div>
           </div>
         )}
-        {showPreviewModal && videoPreviewUrl && (
+        {showPreviewModal && selectedPreviewUrl && (
           <div 
             className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm px-4 py-6"
             onClick={() => setShowPreviewModal(false)}
@@ -929,7 +945,7 @@ export function EditVideoWorkspace({
               </div>
               <div className="p-6 bg-black flex items-center justify-center">
                 <video 
-                  src={videoPreviewUrl} 
+                  src={selectedPreviewUrl} 
                   controls 
                   autoPlay
                   className="max-h-[500px] w-full rounded-2xl object-contain"

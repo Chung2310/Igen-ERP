@@ -12,13 +12,34 @@ const GEMINI_TEXT_MODEL = "gemini-3.5-flash";
 const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || "piapi-flux";
 const GEMINI_VIDEO_MODEL = process.env.GEMINI_VIDEO_MODEL || "veo31-video-fast-audio";
 
-// Initialize Google Gemini AI client (direct API)
-function getGeminiClient(): GoogleGenAI {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error("GEMINI_API_KEY chưa được cấu hình trong .env");
+function getGeminiClient() {
+  return new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+}
+
+async function getVideoDuration(url: string): Promise<number> {
+  try {
+    const matchedRecord = await AIMediaModel.findOne({ url }).lean();
+    if (matchedRecord?.metadata?.duration) {
+      const dur = Number(matchedRecord.metadata.duration);
+      if (dur > 0) return dur;
+    }
+  } catch (dbErr) {
+    console.warn("[geminiService.getVideoDuration] DB query failed:", dbErr);
   }
-  return new GoogleGenAI({ apiKey });
+
+  return new Promise<number>((resolve) => {
+    const cmd = `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${url}"`;
+    exec(cmd, (error, stdout) => {
+      if (!error && stdout) {
+        const dur = parseFloat(stdout.trim());
+        if (!isNaN(dur) && dur > 0) {
+          resolve(dur);
+          return;
+        }
+      }
+      resolve(5); // default fallback
+    });
+  });
 }
 
 function normalizePiapiVideoModel(modelName?: string): string {
@@ -1467,9 +1488,9 @@ Do not add unrelated cinematic elements, fashion cues, generic lifestyle filler,
 If source images are provided, treat them as grounding constraints and keep the prompt semantically aligned with them.
 Output MUST be a valid JSON object matching this schema:
 {
-  "motion_analysis": "string describing the camera motion and subject physics",
-  "camera_movement": "string describing camera path and focus",
-  "optimized_english_prompt": "string of the final detailed prompt in English"
+  "motion_analysis": "Detailed description of the motion of subjects, speed changes, and physics of the scene",
+  "camera_movement": "Detailed description of camera movements, panning, focal adjustments, depth of field, and camera paths",
+  "optimized_english_prompt": "A complete, highly descriptive visual prompt in English, combining composition, lighting, cinematic style, and subject details"
 }
 Do not include markdown blocks or any text other than the JSON object.`
         }
@@ -1503,26 +1524,45 @@ Do not include markdown blocks or any text other than the JSON object.`
       duration?: number;
     }
   ): Promise<{ status: string; record: any; blueprint: any }> {
-    let originalDuration = options?.duration;
-    if (!originalDuration) {
-      try {
-        const matchedRecord = await AIMediaModel.findOne({ url: videoUrl }).lean();
-        if (matchedRecord?.metadata?.duration) {
-          originalDuration = Number(matchedRecord.metadata.duration);
-        }
-      } catch (dbErr) {
-        console.warn("[geminiService.editVideo] Failed to query original video duration:", dbErr);
-      }
+    const urls = videoUrl.split(",").map(u => u.trim()).filter(Boolean);
+    const isMultiple = urls.length > 1;
+
+    const urlDurations: { [url: string]: number } = {};
+    let totalComputedDuration = 0;
+    for (const url of urls) {
+      const dur = await getVideoDuration(url);
+      urlDurations[url] = dur;
+      totalComputedDuration += dur;
     }
 
+    let originalDuration = options?.duration || totalComputedDuration;
+
     const getFallbackBlueprint = () => {
-      const dur = originalDuration || 5;
-      return {
-        timeline: [
-          { type: "video", src: videoUrl, start: 0, end: dur },
-          { type: "text", content: "Tin tức", start: Math.max(0, dur - 3), end: dur }
-        ]
-      };
+      let currentOffset = 0;
+      const timeline: any[] = [];
+      for (const url of urls) {
+        const dur = urlDurations[url] || 5;
+        timeline.push({
+          type: "video",
+          src: url,
+          start: 0,
+          end: dur,
+          playbackRate: 1.0
+        });
+        currentOffset += dur;
+      }
+      timeline.push({
+        type: "text",
+        content: "Bản ghép Video",
+        start: 0,
+        end: Math.min(3, currentOffset),
+        style: {
+          position: "bottom-center",
+          color: "#FFFFFF",
+          fontSize: "32px"
+        }
+      });
+      return { timeline };
     };
 
     let blueprint = getFallbackBlueprint();
@@ -1531,203 +1571,224 @@ Do not include markdown blocks or any text other than the JSON object.`
       if (process.env.GEMINI_API_KEY) {
         const systemPrompt = `You are a professional video editing assistant. Your job is to translate a user's natural language video editing instructions (supporting both English and Vietnamese) into a precise Remotion video editing JSON blueprint.
 
-The original video URL is "${videoUrl}".
-The original video duration is exactly ${originalDuration || 5} seconds.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ CRITICAL DURATION PRESERVATION RULE (MANDATORY)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Unless the user explicitly requests to cut, crop, skip, trim, or remove segments of the video (using words like "cắt", "bỏ", "skip", "remove", "trim"), you MUST keep the ENTIRE duration of the video.
+- NEVER default to shortening the video.
+- If you split a video to apply an effect (such as a zoom, speed, or filter) to a specific part, the sum of the split segments MUST equal the EXACT duration of the original source video.
+- HANDLING GAPS: If the user describes edits for specific segments (e.g. 0-5s and 20-30s) but doesn't mention the middle segment (5-20s), you MUST still include the middle segment (5-20s) as a normal video clip (playbackRate: 1.0, no effects/filters) to keep the timeline continuous and preserve the entire video.
+- EXACT END TIME MATCHING: The final clip in the timeline must end exactly at the video's originalDuration (or the end of the last source video). If the last split segment ends at X and the video duration is D (where X < D), you MUST add a final clip from X to D.
+- For example, if a video is exactly 30 seconds long:
+  - If the user asks to "zoom 5 seconds at the beginning", you MUST output:
+    1. Clip 1 (0s to 5s) with zoom
+    2. Clip 2 (5s to 30s) without zoom
+    Total duration = 30 seconds.
+  - If the user asks to "zoom in/out every 3s", you must partition the full 30s into chunks of 3s: [0-3s], [3-6s], [6-9s], ..., [27-30s]. All parts must sum up to exactly 30s.
 
-You MUST follow these strict rules to map user editing requests to the timeline:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎵 CRITICAL AUDIO & SFX POSITIONING RULES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- "start" and "end" for all elements (text, image, audio) are specified relative to the FINAL COMPILED video timeline.
+- Background music (nhạc nền) or songs should span the exact requested range. If the user requests "10s cuối cho nhạc" (last 10 seconds for music) in a 30s video, the audio start MUST be 20, and end MUST be 30.
+- If the user wants background music throughout the video, start MUST be 0 and end MUST be total_final_duration.
+- Sound effects (SFX like "ting", "whoosh") should start exactly at the highlighted transition and last only 1-2 seconds (e.g., if a zoom happens at 5s, the ting SFX should start at 5 and end at 6.5).
 
-1. UNDERSTAND VIETNAMESE EDITING TERMS:
-   - "cắt bỏ X giây đầu" (cut first X seconds) -> Start video clips at X instead of 0.
-   - "cắt bỏ X giây cuối" (cut last X seconds) -> End video clips at (originalDuration - X).
-   - "tua nhanh gấp N lần" (fast forward N times) -> Set playbackRate to N.
-   - "tua chậm / slow-motion N lần" (slow down N times) -> Set playbackRate to (1/N).
-   - "tăng sáng" (brighten) -> set filters.brightness > 1.0 (e.g. 1.3).
-   - "làm tối" (darken) -> set filters.brightness < 1.0 (e.g. 0.7).
-   - "đen trắng" (grayscale) -> set filters.grayscale = 1.0.
-   - "làm mờ / hiệu ứng mờ" (blur) -> set filters.blur to value in pixels (e.g. 5).
-   - "màu cổ điển / màu hoài cổ / màu ngả vàng" (sepia) -> set filters.sepia to value from 0 to 1 (e.g. 0.8).
-   - "đảo ngược màu / đảo màu" (invert) -> set filters.invert to value from 0 to 1 (e.g. 1.0).
-   - "tăng độ tương phản" -> set filters.contrast > 1.0 (e.g. 1.4).
-   - "giảm độ tương phản" -> set filters.contrast < 1.0 (e.g. 0.7).
-   - "tăng độ bão hòa màu / làm màu rực rỡ" -> set filters.saturate > 1.0 (e.g. 1.5).
-   - "giảm độ bão hòa màu / làm màu nhạt đi" -> set filters.saturate < 1.0 (e.g. 0.5).
-   - "đổi sắc độ / xoay tông màu" (hue rotation) -> set filters.hueRotate to value in degrees (e.g. 90).
-   - "chèn logo / sticker / ảnh" (insert image/logo) -> type: "image".
-   - "chèn chữ / viết chữ / phụ đề / lyrics" (insert text/overlay) -> type: "text".
-   - "lồng nhạc / chèn âm thanh" (insert audio/music) -> type: "audio".
-   - "zoom vào / phóng to" (zoom in) -> set effects.zoom to "in".
-   - "zoom ra / thu nhỏ" (zoom out) -> set effects.zoom to "out".
-   - "xoay / đổi góc / quay nghiêng" (rotate angle) -> set effects.rotate to angle in degrees (e.g. 90, 180, 270, -45).
-   - "chuyển cảnh fade / mờ dần / chuyển cảnh mượt" -> set effects.transition to "fade".
-   - "tiếng ting / âm thanh thành công" (ting sound effect) -> type: "audio" with src "https://assets.mixkit.co/active_storage/sfx/2019/2019-84.wav".
-   - "tiếng whoosh / âm thanh lướt" (whoosh sound effect) -> type: "audio" with src "https://assets.mixkit.co/active_storage/sfx/2013/2013-84.wav".
-   - "tiếng cười / tiếng cười lớn" (laughter sound effect) -> type: "audio" with src "https://assets.mixkit.co/active_storage/sfx/2568/2568-84.wav".
-   - "tiếng nổ / vụ nổ" (explosion sound effect) -> type: "audio" with src "https://assets.mixkit.co/active_storage/sfx/2798/2798-84.wav".
-   - "tiếng tít / tiếng censor / beep" (beep sound effect) -> type: "audio" with src "https://assets.mixkit.co/active_storage/sfx/1076/1076-84.wav".
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📽️ SOURCE VIDEOS INFO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${isMultiple 
+  ? `The user has provided MULTIPLE input videos. Here is the list of source videos available:
+${urls.map((url, idx) => `▸ Video ${idx + 1}: URL: "${url}", Duration: ${urlDurations[url]} seconds.`).join("\n")}
 
-2. TIMELINE STRUCTURE & MATH GUIDELINES:
-   - The timeline consists of sequential video segments. Unless a user explicitly requests to cut or remove a section, you MUST preserve the entire original video from start to finish.
-   - If a specific segment is modified (e.g. slowed down or filtered), you must split the original video into multiple sequential 'video' clips.
-     Example: Original duration is 6s. User wants to slow down the first 2 seconds. You must create two clips:
-       Clip 1: start: 0, end: 2, playbackRate: 0.5 (takes 4 seconds in the final timeline)
-       Clip 2: start: 2, end: 6, playbackRate: 1.0 (takes 4 seconds in the final timeline)
-       Total final video duration: 8 seconds.
-   - TIMELINES FOR OVERLAYS (text, image, audio): The 'start' and 'end' values for overlays must match the final timeline timestamps (after speed/playbackRate calculations of the video clips).
-     In the example above, if the user wants text at the very end of the video for 2 seconds, it should be start: 6, end: 8.
-   - MULTIPLE TEXT / SUBTITLES / CAPTIONS: To add multiple lines of text, subtitles, or captions, output multiple "text" elements in the timeline, each with its own start, end, content, and style parameters matching the flow.
-   - SOUND EFFECTS: When the user requests a sound effect (e.g., ting, whoosh, laughter, explosion, censor/beep), insert a short "audio" clip at the requested timestamp. Use the exact URLs provided in Rule 1. Typically, these last between 1 to 3 seconds.
+You MUST map each video clip segment to its correct source URL by setting the "src" property of the video clip to the exact URL of that video from the list above. 
+CRITICAL MULTI-VIDEO RULES:
+- Join them in the logical order requested (e.g. Video 1, then Video 2).
+- The total target duration of the compiled video MUST be the EXACT sum of all source video durations: (Duration of Video 1 + Duration of Video 2 + ... + Duration of Video N) unless there is a specific instruction to trim or cut a video.
+- For each source video, you MUST generate segments that cover its ENTIRE original duration. For example, if Video 1 is 10s and Video 2 is 15s, you must create video clips for Video 1 covering [0s to 10s] and video clips for Video 2 covering [0s to 15s]. The final video length must be exactly 25s.
+- The "start" and "end" timestamps inside each video segment must be relative to that source video's original timeline (from 0 to its specific duration).
+- Keep the timeline continuous. Calculate the cumulative duration of all preceding clips (taking playbackRate into account) to know the start/end offsets for text overlays, audio tracks, and logos.` 
+  : `The original video URL is "${urls[0]}".
+The original video duration is exactly ${originalDuration || 5} seconds.`}
 
-3. VALID JSON SCHEMA:
-Output MUST be a valid JSON object matching this schema (with no other text or markdown blocks):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✂️ SECTION 1: CUTTING & TRIMMING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- "cắt bỏ X giây đầu" / "bỏ đầu X giây" / "skip first X seconds" -> start video clip at X.
+- "cắt bỏ X giây cuối" / "bỏ cuối X giây" / "remove last X seconds" -> end video clip at (originalDuration - X).
+- "lấy đoạn từ X đến Y giây" / "keep from X to Y" -> start=X, end=Y.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⏩ SECTION 2: PACING & PLAYBACK RATE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- "tua nhanh gấp N lần" -> set playbackRate to N (e.g. 2.0).
+- "tua chậm N lần" -> set playbackRate to 1/N (e.g. 0.5).
+* SPEED MATH RULE:
+If a segment from source time S to E is speed-ramped by rate R:
+Its final duration in the compiled video = (E - S) / R.
+You MUST split the video clip into multiple sequential clips whenever the playback rate changes.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔍 SECTION 3: ZOOM EFFECTS (TIMING & FREQUENCY)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Zoom is applied per clip. Split the video track at the exact second of the zoom and apply "effects.zoom": "in" or "out".
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎨 SECTION 4: VISUAL COLOR FILTERS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- "tăng sáng" / "brighten" -> filters.brightness: 1.35
+- "làm tối" / "darken" -> filters.brightness: 0.65
+- "đen trắng" / "grayscale" -> filters.grayscale: 1.0
+- "cinematic" / "màu phim điện ảnh" -> filters.contrast: 1.25, filters.saturate: 1.3, filters.brightness: 0.95
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎵 SECTION 5: MUSIC & SOUND DESIGN (CRITICAL)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+You MUST choose the exact URL from the preloaded library below. NEVER make up URLs.
+Background Music:
+▸ Upbeat/EDM/Sôi động: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
+▸ Tech/Rhythmic/Công nghệ nhịp nhàng: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3"
+▸ Corporate/Doanh nghiệp/Quảng cáo: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3"
+▸ Lofi Chill/Thư giãn: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3"
+▸ Acoustic/Piano/Nhẹ nhàng: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3"
+
+Sound Effects (SFX):
+▸ Success/Ting sound/Thành công: "https://assets.mixkit.co/active_storage/sfx/2019/2019-84.wav"
+▸ Transition/Whoosh sound/Lướt qua: "https://assets.mixkit.co/active_storage/sfx/2013/2013-84.wav"
+▸ Laughter/Tiếng cười: "https://assets.mixkit.co/active_storage/sfx/2568/2568-84.wav"
+▸ Explosion/Tiếng nổ: "https://assets.mixkit.co/active_storage/sfx/2798/2798-84.wav"
+▸ Censor Beep/Tiếng tít: "https://assets.mixkit.co/active_storage/sfx/1076/1076-84.wav"
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📝 SECTION 6: TEXT OVERLAYS & TITLES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- "chèn chữ" / "hiển thị phụ đề" / "add text" -> type: "text".
+- Placement: bottom-center (for captions/lyrics), center (for main titles), top-left/top-right (for logos/branding).
+- Style: high-contrast colors (white '#FFFFFF', yellow '#FFD700', red '#FF3333', cyan '#00FFFF').
+- Font size: title="56px", subtitle="32px", caption="24px".
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎬 SECTION 7: TRANSITIONS & ROTATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- "chuyển cảnh mờ dần" / "fade transition" -> set effects.transition to "fade" on the clip that ends the scene.
+- "xoay góc" / "quay nghiêng" -> set effects.rotate to degrees (e.g. 90, 180, -45).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📐 SECTION 8: TIMELINE INTEGRITY & MATH
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Visual timeline must be continuous (no gaps, no overlaps between sequential video clips).
+- Unless instructed to cut/trim, keep the entire original video source duration.
+- All overlay elements (text, image, audio) are placed relative to the FINAL timeline, not the source video time.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 SECTION 9: JSON OUTPUT SCHEMA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Return ONLY valid JSON. No markdown backticks, no comments, no conversational text.
 {
   "timeline": [
     {
       "type": "video",
-      "src": "string (MUST be the original video url exactly)",
-      "start": number (start time in seconds in the original video),
-      "end": number (end time in seconds in the original video),
-      "playbackRate": number (MUST be explicitly defined for every clip, default 1.0),
+      "src": "string (source video url exactly)",
+      "start": number (seconds),
+      "end": number (seconds),
+      "playbackRate": number (default 1.0),
       "filters": {
-        "brightness": number (optional, e.g. 1.2 or 0.8),
-        "grayscale": number (optional, 0 to 1),
-        "blur": number (optional, blur in pixels, e.g. 5),
-        "sepia": number (optional, 0 to 1),
-        "invert": number (optional, 0 to 1),
-        "contrast": number (optional, contrast multiplier, e.g. 1.3),
-        "saturate": number (optional, saturation multiplier, e.g. 1.5),
-        "hueRotate": number (optional, rotation in degrees, e.g. 90)
+        "brightness": number (optional),
+        "grayscale": number (optional),
+        "blur": number (optional),
+        "sepia": number (optional),
+        "contrast": number (optional),
+        "saturate": number (optional),
+        "hueRotate": number (optional)
       },
       "effects": {
-        "zoom": "in" | "out" | "none" (optional, default "none"),
-        "rotate": number (optional, rotation in degrees, default 0),
-        "transition": "fade" | "none" (optional, default "none")
+        "zoom": "in" | "out" | "none",
+        "rotate": number (degrees),
+        "transition": "fade" | "none"
       }
     },
     {
       "type": "text",
       "content": "string",
-      "start": number (start time in seconds in the final compiled video),
-      "end": number (end time in seconds in the final compiled video),
+      "start": number (seconds in final timeline),
+      "end": number (seconds in final timeline),
       "style": {
         "position": "top-left" | "top-center" | "top-right" | "center" | "bottom-left" | "bottom-center" | "bottom-right",
-        "color": "string (hex code, e.g. '#FFFFFF')",
-        "fontSize": "string (e.g. '36px')"
-      }
-    },
-    {
-      "type": "image",
-      "src": "string (URL of the image/logo)",
-      "start": number (start time in seconds in final compiled video),
-      "end": number (end time in seconds in final compiled video),
-      "style": {
-        "position": "top-right" | "top-left" | "bottom-right" | "bottom-left",
-        "width": number (width in pixels),
-        "opacity": number (0 to 1)
+        "color": "#HEX",
+        "fontSize": "32px"
       }
     },
     {
       "type": "audio",
-      "src": "string (URL of the audio/music track or preloaded sound effect)",
-      "start": number (start time in seconds in final compiled video),
-      "end": number (end time in seconds in final compiled video),
+      "src": "string (exact URL from library)",
+      "start": number (seconds in final timeline),
+      "end": number (seconds in final timeline),
       "volume": number (0 to 1)
     }
   ]
 }
 
-4. EXAMPLES:
-
-Example A (Speed & Filters):
-User prompt: "Tua nhanh 2 giây đầu gấp đôi và đổi sang đen trắng, giữ nguyên phần còn lại."
-Original duration: 5 seconds.
-JSON:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🏆 WORKED EXAMPLES FOR COMPLEX PROMPTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+▸ Example A: "Nối Video 1 (10s) và Video 2 (15s). Chèn nhạc lofi thư giãn xuyên suốt."
+- IMPORTANT: "start" and "end" inside each video clip are the timestamp range WITHIN THAT SOURCE VIDEO, always starting from 0 for each new source.
+- The total output duration = 10 + 15 = 25s. Audio spans 0 to 25s of the final output.
 {
   "timeline": [
-    {
-      "type": "video",
-      "src": "${videoUrl}",
-      "start": 0,
-      "end": 2,
-      "playbackRate": 2.0,
-      "filters": { "grayscale": 1.0 }
-    },
-    {
-      "type": "video",
-      "src": "${videoUrl}",
-      "start": 2,
-      "end": 5,
-      "playbackRate": 1.0
-    }
+    { "type": "video", "src": "URL_VIDEO_1", "start": 0, "end": 10, "playbackRate": 1.0 },
+    { "type": "video", "src": "URL_VIDEO_2", "start": 0, "end": 15, "playbackRate": 1.0 },
+    { "type": "audio", "src": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3", "start": 0, "end": 25, "volume": 0.7 }
   ]
 }
 
-Example B (Text Overlay & Trimming):
-User prompt: "Cắt bỏ 1 giây đầu. Hiện chữ 'Hello World' từ giây 1 đến giây 3 ở giữa màn hình."
-Original duration: 6 seconds.
-JSON:
+▸ Example B: "Nối 3 video (V1=5s, V2=7s, V3=10s). Không có hiệu ứng gì."
+- Total output = 5 + 7 + 10 = 22s. Each source video is fully used from 0 to its duration.
 {
   "timeline": [
-    {
-      "type": "video",
-      "src": "${videoUrl}",
-      "start": 1,
-      "end": 6,
-      "playbackRate": 1.0
-    },
-    {
-      "type": "text",
-      "content": "Hello World",
-      "start": 0,
-      "end": 2,
-      "style": {
-        "position": "center",
-        "color": "#FFFFFF",
-        "fontSize": "36px"
-      }
-    }
+    { "type": "video", "src": "URL_VIDEO_1", "start": 0, "end": 5, "playbackRate": 1.0 },
+    { "type": "video", "src": "URL_VIDEO_2", "start": 0, "end": 7, "playbackRate": 1.0 },
+    { "type": "video", "src": "URL_VIDEO_3", "start": 0, "end": 10, "playbackRate": 1.0 }
   ]
 }
 
-Example C (Effects & Sound Effects):
-User prompt: "Phóng to (zoom in) và xoay 90 độ ở 3 giây cuối cùng, đồng thời chèn tiếng ting thành công ở giây thứ 3."
-Original duration: 6 seconds.
-JSON:
+▸ Example C: "Cắt bỏ 3 giây đầu của video. Đoạn 5s tiếp theo zoom vào và làm đen trắng. Phần còn lại bình thường." (Duration: 15s)
 {
   "timeline": [
-    {
-      "type": "video",
-      "src": "${videoUrl}",
-      "start": 0,
-      "end": 3,
-      "playbackRate": 1.0
-    },
-    {
-      "type": "video",
-      "src": "${videoUrl}",
-      "start": 3,
-      "end": 6,
-      "playbackRate": 1.0,
-      "effects": {
-        "zoom": "in",
-        "rotate": 90,
-        "transition": "fade"
-      }
-    },
-    {
-      "type": "audio",
-      "src": "https://assets.mixkit.co/active_storage/sfx/2019/2019-84.wav",
-      "start": 3,
-      "end": 4.5,
-      "volume": 0.8
-    }
+    { "type": "video", "src": "URL_VIDEO", "start": 3, "end": 8, "playbackRate": 1.0, "filters": { "grayscale": 1.0 }, "effects": { "zoom": "in" } },
+    { "type": "video", "src": "URL_VIDEO", "start": 8, "end": 15, "playbackRate": 1.0 }
   ]
 }
 
-Do not output any markdown blocks or extra text. Output ONLY the JSON object.`;
+▸ Example D: "Tua nhanh 4s đầu gấp 2 lần, zoom vào giây thứ 2. Thêm phụ đề 'Bắt đầu' từ 0 đến 2s." (Duration: 8s)
+- Original 0-4s at 2x becomes 2s final. Zoom-in starts at original 2s (which is final 1s).
+{
+  "timeline": [
+    { "type": "video", "src": "URL_VIDEO", "start": 0, "end": 2, "playbackRate": 2.0 },
+    { "type": "video", "src": "URL_VIDEO", "start": 2, "end": 4, "playbackRate": 2.0, "effects": { "zoom": "in" } },
+    { "type": "video", "src": "URL_VIDEO", "start": 4, "end": 8, "playbackRate": 1.0 },
+    { "type": "text", "content": "Bắt đầu", "start": 0, "end": 2, "style": { "position": "bottom-center", "color": "#FFFFFF", "fontSize": "32px" } }
+  ]
+}
+
+▸ Example E: "Nối 2 video (V1=6s, V2=8s). Làm đen trắng V1. Zoom vào lúc giây thứ 3 của V1. Chèn tiếng cười sfx lúc bắt đầu V2."
+- V1 is 6s (split into 0-3s and 3-6s to apply zoom at second 3). V2 is 8s starting fresh from 0.
+- IMPORTANT: For each source video, start/end are timestamps within THAT video, not the final output timeline.
+- SFX "start" 6 = lúc V2 bắt đầu trong final timeline (sau V1=6s). SFX "end" 8 = 6s(V1) + 2s(SFX duration).
+{
+  "timeline": [
+    { "type": "video", "src": "URL_VIDEO_1", "start": 0, "end": 3, "playbackRate": 1.0, "filters": { "grayscale": 1.0 } },
+    { "type": "video", "src": "URL_VIDEO_1", "start": 3, "end": 6, "playbackRate": 1.0, "filters": { "grayscale": 1.0 }, "effects": { "zoom": "in" } },
+    { "type": "video", "src": "URL_VIDEO_2", "start": 0, "end": 8, "playbackRate": 1.0 },
+    { "type": "audio", "src": "https://assets.mixkit.co/active_storage/sfx/2568/2568-84.wav", "start": 6, "end": 8, "volume": 0.9 }
+  ]
+}
+`;
 
         const messages = [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Generate JSON blueprint for: "${prompt}"` }
+          { role: "user", content: `Generate the video editing JSON blueprint for: "${prompt}"` }
         ];
 
         const editResult = await generateText(GEMINI_TEXT_MODEL, `Generate JSON blueprint for: "${prompt}"`, {
@@ -1794,14 +1855,15 @@ Do not output any markdown blocks or extra text. Output ONLY the JSON object.`;
     };
 
     try {
+      const record = await AIMediaModel.findById(recordId);
+      const aspect = record?.metadata?.aspectRatio || "16:9";
+      const resolution = record?.metadata?.resolution || "720p";
+
       let finalVideoUrl = "";
       let renderSuccess = false;
 
       try {
         await updateLogs(25, "[Render Engine] Bắt đầu kết xuất video bằng Remotion...");
-        const record = await AIMediaModel.findById(recordId);
-        const aspect = record?.metadata?.aspectRatio || "16:9";
-        const resolution = record?.metadata?.resolution || "720p";
         
         finalVideoUrl = await remotionService.renderVideo(
           blueprint,
@@ -1830,713 +1892,852 @@ Do not output any markdown blocks or extra text. Output ONLY the JSON object.`;
         });
 
         await updateLogs(45, `[Render Engine Fallback] Kết quả FFMPEG: ${hasFfmpeg ? "Đã cài đặt" : "Chưa cài đặt"}`);
-
-        if (hasFfmpeg) {
-          const tempInput = path.join(os.tmpdir(), `input_${recordId}.mp4`);
-          const tempOutput = path.join(os.tmpdir(), `output_${recordId}.mp4`);
-          
           const cacheDir = path.join(process.cwd(), "server/cache/videos");
           if (!fs.existsSync(cacheDir)) {
             fs.mkdirSync(cacheDir, { recursive: true });
           }
-
-          const urlParts = videoUrl.split("/");
-          const filename = urlParts[urlParts.length - 1];
-          const localCachePath = path.join(cacheDir, filename);
-
-          if (filename && filename.match(/^[a-zA-Z0-9_-]+\.[a-zA-Z0-9]+$/) && fs.existsSync(localCachePath)) {
-            await updateLogs(50, `[Render Engine Cache] Phát hiện video nguồn trong cache cục bộ (${filename}). Sao chép trực tiếp...`);
-            fs.copyFileSync(localCachePath, tempInput);
-          } else {
-            await updateLogs(50, "[Render Engine Fallback] Đang tải video gốc xuống server tạm...");
-            const response = await fetch(videoUrl);
-            if (!response.ok) {
-              throw new Error(`Tải video gốc thất bại: HTTP ${response.status}`);
-            }
-            const buffer = Buffer.from(await response.arrayBuffer());
-            fs.writeFileSync(tempInput, buffer);
-          }
-          
-          await updateLogs(55, "[Render Engine Fallback] Đang phát hiện luồng âm thanh...");
-          const hasAudio = await new Promise<boolean>((resolve) => {
-            exec(`ffmpeg -i "${tempInput}"`, (error, stdout, stderr) => {
-              const info = stderr || stdout || "";
-              resolve(info.includes("Audio:"));
-            });
-          });
-          
-          await updateLogs(60, `[Render Engine Fallback] Âm thanh nguồn: ${hasAudio ? "Có" : "Không"}`);
-          await updateLogs(65, "[Render Engine Fallback] Đang xử lý các tài nguyên lớp phủ (overlay)...");
 
           const videoClips = timeline.filter((item: any) => item.type === "video");
           const textElements = timeline.filter((item: any) => item.type === "text");
           const imageElements = timeline.filter((item: any) => item.type === "image");
           const audioElements = timeline.filter((item: any) => item.type === "audio");
 
-          // 1. Download image overlays to temp files
-          const imageTempPaths: string[] = [];
-          for (let i = 0; i < imageElements.length; i++) {
-            const img = imageElements[i];
-            const tempImgPath = path.join(os.tmpdir(), `overlay_img_${recordId}_${i}${path.extname(img.src || '.png')}`);
-            try {
-              const imgRes = await fetch(img.src);
-              if (imgRes.ok) {
-                fs.writeFileSync(tempImgPath, Buffer.from(await imgRes.arrayBuffer()));
-                imageTempPaths.push(tempImgPath);
-              } else {
-                imageTempPaths.push("");
-              }
-            } catch (err) {
-              imageTempPaths.push("");
-            }
-          }
-
-          // 2. Download audio overlays to temp files
-          const audioTempPaths: string[] = [];
-          for (let i = 0; i < audioElements.length; i++) {
-            const aud = audioElements[i];
-            const tempAudPath = path.join(os.tmpdir(), `overlay_aud_${recordId}_${i}${path.extname(aud.src || '.mp3')}`);
-            try {
-              const audRes = await fetch(aud.src);
-              if (audRes.ok) {
-                fs.writeFileSync(tempAudPath, Buffer.from(await audRes.arrayBuffer()));
-                audioTempPaths.push(tempAudPath);
-              } else {
-                audioTempPaths.push("");
-              }
-            } catch (err) {
-              audioTempPaths.push("");
-            }
-          }
-
-          // 3. Build FFMPEG filter graph
-          let filterComplex = "";
-          let inputArgs: string[] = [];
+          // Extract all unique source video URLs from timeline video clips
+          let uniqueVideoUrls: string[] = Array.from(new Set(videoClips.map((clip: any) => clip.src).filter(Boolean))) as string[];
           
-          // Keep track of the actual inputs mapped in FFMPEG
-          // Input 0: tempInput
-          let currentInputIdx = 1;
-          const imageInputMappings: { [key: number]: number } = {};
-          const audioInputMappings: { [key: number]: number } = {};
+          // If the timeline didn't specify any source URLs (fallback case), extract them from the request videoUrl
+          if (uniqueVideoUrls.length === 0) {
+            uniqueVideoUrls = videoUrl.split(",").map(u => u.trim()).filter(Boolean);
+          }
 
-          imageElements.forEach((img: any, idx: number) => {
-            const localPath = imageTempPaths[idx];
-            if (localPath) {
-              inputArgs.push(`-i "${localPath}"`);
-              imageInputMappings[idx] = currentInputIdx;
-              currentInputIdx++;
-            }
-          });
+          const videoTempPaths: string[] = [];
+          const urlToInputIdx: { [url: string]: number } = {};
 
-          audioElements.forEach((aud: any, idx: number) => {
-            const localPath = audioTempPaths[idx];
-            if (localPath) {
-              inputArgs.push(`-i "${localPath}"`);
-              audioInputMappings[idx] = currentInputIdx;
-              currentInputIdx++;
-            }
-          });
+          for (let i = 0; i < uniqueVideoUrls.length; i++) {
+            const url = uniqueVideoUrls[i];
+            const tempInput = path.join(os.tmpdir(), `input_${ recordId }_${ i }.mp4`);
+            
+            const urlParts = url.split("/");
+            const filename = urlParts[urlParts.length - 1];
+            const localCachePath = path.join(cacheDir, filename);
 
-          let concatInputs = "";
-          videoClips.forEach((clip: any, idx: number) => {
-            const start = clip.start ?? 0;
-            const end = clip.end ?? 5;
-            const rate = clip.playbackRate ?? 1;
-            const clipDuration = (end - start) / rate;
-
-            // Video stream processing
-            let vFilter = `[0:v]trim=start=${start}:end=${end},setpts=PTS-STARTPTS`;
-            if (clip.filters?.grayscale !== undefined && clip.filters.grayscale > 0) {
-              vFilter += `,hue=s=${1 - clip.filters.grayscale}`;
-            }
-            if (clip.filters?.brightness !== undefined && clip.filters.brightness !== 1) {
-              vFilter += `,eq=brightness=${clip.filters.brightness - 1}`;
-            }
-            if (clip.effects?.rotate !== undefined && clip.effects.rotate !== 0) {
-              const rad = (clip.effects.rotate * Math.PI) / 180;
-              vFilter += `,rotate=${rad}`;
-            }
-            if (clip.effects?.transition === "fade") {
-              const fadeDur = Math.min(0.5, clipDuration / 2);
-              vFilter += `,fade=in:st=0:d=${fadeDur},fade=out:st=${clipDuration - fadeDur}:d=${fadeDur}`;
-            }
-            if (rate !== 1) {
-              vFilter += `,setpts=${1 / rate}*(PTS-STARTPTS)`;
-            }
-            vFilter += `,fps=fps=30`; // Force constant 30fps to prevent transition stutters
-            vFilter += `[v_proc_${idx}];`;
-            filterComplex += vFilter;
-            concatInputs += `[v_proc_${idx}]`;
-
-            // Audio stream processing
-            if (hasAudio) {
-              let aFilter = `[0:a]atrim=start=${start}:end=${end},asetpts=PTS-STARTPTS`;
-              if (rate !== 1) {
-                const clampedRate = Math.max(0.5, Math.min(2.0, rate));
-                aFilter += `,atempo=${clampedRate}`;
-              }
-              aFilter += `[a_proc_${idx}];`;
-              filterComplex += aFilter;
-              concatInputs += `[a_proc_${idx}]`;
+            if (filename && filename.match(/^[a-zA-Z0-9_-]+\.[a-zA-Z0-9]+$/) && fs.existsSync(localCachePath)) {
+              await updateLogs(50, `[Render Engine Cache]Phát hiện video nguồn ${ i + 1} trong cache cục bộ(${ filename }).Sao chép...`);
+              fs.copyFileSync(localCachePath, tempInput);
             } else {
-              filterComplex += `anullsrc=sample_rate=44100:channel_layout=stereo,atrim=duration=${clipDuration}[a_proc_${idx}];`;
-              concatInputs += `[a_proc_${idx}]`;
+              await updateLogs(50, `[Render Engine Fallback] Đang tải video gốc ${ i + 1 }/${uniqueVideoUrls.length} xuống server tạm...`);
+const response = await fetch(url);
+if (!response.ok) {
+  throw new Error(`Tải video gốc ${i + 1} thất bại: HTTP ${response.status}`);
+}
+const buffer = Buffer.from(await response.arrayBuffer());
+fs.writeFileSync(tempInput, buffer);
             }
-          });
-
-          const numClips = videoClips.length;
-          filterComplex += `${concatInputs}concat=n=${numClips}:v=1:a=1[concatv][concata];`;
-
-          let currentVideoOut = "[concatv]";
-          textElements.forEach((textItem: any, idx: number) => {
-            const start = textItem.start ?? 0;
-            const end = textItem.end ?? 5;
-            const content = (textItem.content || "").replace(/'/g, "'\\\\''").replace(/:/g, "\\:");
-            const style = textItem.style || {};
-            const color = style.color || "white";
-            
-            let x = "(w-text_w)/2";
-            let y = "h-text_h-80";
-            
-            // Vertical position mapping
-            if (style.position?.startsWith("top-")) {
-              y = "40";
-            } else if (style.position === "center") {
-              y = "(h-text_h)/2";
-            } else if (style.position?.startsWith("bottom-")) {
-              y = "h-text_h-80";
-            }
-
-            // Horizontal position mapping
-            if (style.position?.endsWith("-left")) {
-              x = "40";
-            } else if (style.position?.endsWith("-right")) {
-              x = "w-text_w-40";
-            } else if (style.position?.endsWith("-center") || style.position === "center") {
-              x = "(w-text_w)/2";
-            }
-
-            const nextVideoOut = `[textv_${idx}]`;
-            filterComplex += `${currentVideoOut}drawtext=text='${content}':x=${x}:y=${y}:fontsize=32:fontcolor=${color}:enable='between(t,${start},${end})'${nextVideoOut};`;
-            currentVideoOut = nextVideoOut;
-          });
-
-          imageElements.forEach((imgItem: any, idx: number) => {
-            const start = imgItem.start ?? 0;
-            const end = imgItem.end ?? 5;
-            const style = imgItem.style || {};
-            const mappedInputIdx = imageInputMappings[idx];
-            if (mappedInputIdx === undefined) return;
-            
-            let x = "w-overlay_w-20";
-            let y = "20";
-            if (style.position === "top-left") {
-              x = "20";
-              y = "20";
-            } else if (style.position === "bottom-left") {
-              x = "20";
-              y = "h-overlay_h-20";
-            } else if (style.position === "bottom-right") {
-              x = "w-overlay_w-20";
-              y = "h-overlay_h-20";
-            }
-
-            const nextVideoOut = `[imgv_${idx}]`;
-            filterComplex += `${currentVideoOut}[${mappedInputIdx}:v]overlay=x=${x}:y=${y}:enable='between(t,${start},${end})'${nextVideoOut};`;
-            currentVideoOut = nextVideoOut;
-          });
-
-          // Final video stream is ready. Check if we need to mix background audio
-          filterComplex = filterComplex.replace(/;$/, "");
-
-          let currentAudioOut = "[concata]";
-          const activeAudioOverlays = audioElements.filter((_, idx) => audioInputMappings[idx] !== undefined);
-          if (activeAudioOverlays.length > 0) {
-            let mixInputs = "[concata]";
-            let audioMixFilter = "";
-            audioElements.forEach((aud: any, idx: number) => {
-              const mappedInputIdx = audioInputMappings[idx];
-              if (mappedInputIdx === undefined) return;
-              const start = aud.start ?? 0;
-              const volume = aud.volume ?? 1;
-              
-              audioMixFilter += `[${mappedInputIdx}:a]adelay=${Math.round(start * 1000)}|${Math.round(start * 1000)},volume=${volume}[aud_delay_${idx}];`;
-              mixInputs += `[aud_delay_${idx}]`;
-            });
-            audioMixFilter += `${mixInputs}amix=inputs=${activeAudioOverlays.length + 1}:duration=first[outa]`;
-            filterComplex += `;${audioMixFilter}`;
-            currentAudioOut = "[outa]";
+videoTempPaths.push(tempInput);
+urlToInputIdx[url] = i;
           }
 
-          const inputsStr = `-i "${tempInput}" ` + inputArgs.join(" ");
-          const ffmpegCmd = `ffmpeg -y ${inputsStr} -filter_complex "${filterComplex}" -map "${currentVideoOut}" -map "${currentAudioOut}" -c:v libx264 -c:a aac -pix_fmt yuv420p -r 30 -vsync cfr "${tempOutput}"`;
+await updateLogs(55, "[Render Engine Fallback] Đang phát hiện luồng âm thanh...");
+const hasAudioMap: { [idx: number]: boolean } = {};
+for (let i = 0; i < videoTempPaths.length; i++) {
+  const tempInputPath = videoTempPaths[i];
+  const hasAudio = await new Promise<boolean>((resolve) => {
+    exec(`ffmpeg -i "${tempInputPath}"`, (error, stdout, stderr) => {
+      const info = stderr || stdout || "";
+      resolve(info.includes("Audio:"));
+    });
+  });
+  hasAudioMap[i] = hasAudio;
+}
 
-          await updateLogs(70, "[Render Engine Fallback] Đang thực thi lệnh FFMPEG chi tiết...");
-          
-          await new Promise<void>((resolve, reject) => {
-            exec(ffmpegCmd, (error, stdout, stderr) => {
-              if (error) {
-                console.error("FFMPEG execution failed detail:", stderr || stdout || error.message);
-                reject(new Error(`FFMPEG render failed: ${error.message}`));
-              } else {
-                resolve();
-              }
-            });
-          });
-          
-          await updateLogs(85, "[Render Engine Fallback] Đang tải video thành phẩm lên Cloudinary...");
-          const outputBuffer = fs.readFileSync(tempOutput);
-          finalVideoUrl = await cloudinaryService.uploadMediaBuffer(outputBuffer, "igen_erp/marketing/video");
-          
-          // Save output to local cache folder
-          try {
-            const cacheDir = path.join(process.cwd(), "server/cache/videos");
-            const outUrlParts = finalVideoUrl.split("/");
-            const outFilename = outUrlParts[outUrlParts.length - 1];
-            if (outFilename && outFilename.match(/^[a-zA-Z0-9_-]+\.[a-zA-Z0-9]+$/)) {
-              const outCachePath = path.join(cacheDir, outFilename);
-              fs.copyFileSync(tempOutput, outCachePath);
-              console.log(`[Render Engine Cache] Saved rendered video to local cache: ${outCachePath}`);
-            }
-          } catch (cacheErr) {
-            console.error("[Render Engine Cache Warning] Failed to save rendered video to cache:", cacheErr);
-          }
+await updateLogs(60, `[Render Engine Fallback] Âm thanh nguồn các video: ${videoTempPaths.map((_, i) => `Video ${i + 1}: ${hasAudioMap[i] ? "Có" : "Không"}`).join(", ")}`);
+await updateLogs(65, "[Render Engine Fallback] Đang xử lý các tài nguyên lớp phủ (overlay)...");
 
-          // Cleanup all temp files
-          try {
-            fs.unlinkSync(tempInput);
-            fs.unlinkSync(tempOutput);
-            imageTempPaths.forEach(p => { if (p) fs.unlinkSync(p); });
-            audioTempPaths.forEach(p => { if (p) fs.unlinkSync(p); });
-          } catch (e) {}
+// 1. Download image overlays to temp files
+const imageTempPaths: string[] = [];
+for (let i = 0; i < imageElements.length; i++) {
+  const img = imageElements[i];
+  const tempImgPath = path.join(os.tmpdir(), `overlay_img_${recordId}_${i}${path.extname(img.src || '.png')}`);
+  try {
+    const imgRes = await fetch(img.src);
+    if (imgRes.ok) {
+      fs.writeFileSync(tempImgPath, Buffer.from(await imgRes.arrayBuffer()));
+      imageTempPaths.push(tempImgPath);
+    } else {
+      imageTempPaths.push("");
+    }
+  } catch (err) {
+    imageTempPaths.push("");
+  }
+}
+
+// 2. Download audio overlays to temp files
+const audioTempPaths: string[] = [];
+for (let i = 0; i < audioElements.length; i++) {
+  const aud = audioElements[i];
+  const tempAudPath = path.join(os.tmpdir(), `overlay_aud_${recordId}_${i}${path.extname(aud.src || '.mp3')}`);
+  try {
+    const audRes = await fetch(aud.src);
+    if (audRes.ok) {
+      fs.writeFileSync(tempAudPath, Buffer.from(await audRes.arrayBuffer()));
+      audioTempPaths.push(tempAudPath);
+    } else {
+      audioTempPaths.push("");
+    }
+  } catch (err) {
+    audioTempPaths.push("");
+  }
+}
+
+// 3. Build FFMPEG filter graph
+let filterComplex = "";
+let inputArgs: string[] = [];
+
+// Image and audio inputs start after the video inputs
+let currentInputIdx = videoTempPaths.length;
+const imageInputMappings: { [key: number]: number } = {};
+const audioInputMappings: { [key: number]: number } = {};
+
+imageElements.forEach((img: any, idx: number) => {
+  const localPath = imageTempPaths[idx];
+  if (localPath) {
+    inputArgs.push(`-i "${localPath}"`);
+    imageInputMappings[idx] = currentInputIdx;
+    currentInputIdx++;
+  }
+});
+
+audioElements.forEach((aud: any, idx: number) => {
+  const localPath = audioTempPaths[idx];
+  if (localPath) {
+    inputArgs.push(`-i "${localPath}"`);
+    audioInputMappings[idx] = currentInputIdx;
+    currentInputIdx++;
+  }
+});
+
+// PRE-SPLIT: Each video input may be referenced by multiple clips (e.g. applying different
+// effects to different time ranges of the same source video). FFMPEG does NOT allow reading
+// the same input stream [N:v] or [N:a] multiple times in a filter_complex. We must pre-split
+// each unique video input into as many copies as needed using the `split` filter.
+const inputClipCounts: { [inputIdx: number]: number } = {};
+const inputSplitCounters: { [inputIdx: number]: number } = {};
+videoClips.forEach((clip: any) => {
+  const inputIdx = urlToInputIdx[clip.src] ?? 0;
+  inputClipCounts[inputIdx] = (inputClipCounts[inputIdx] || 0) + 1;
+});
+
+// Build split filters for video streams that are referenced more than once
+Object.keys(inputClipCounts).forEach((idxStr) => {
+  const inputIdx = parseInt(idxStr);
+  const count = inputClipCounts[inputIdx];
+  inputSplitCounters[inputIdx] = 0;
+  if (count > 1) {
+    const splitOutputs = Array.from({ length: count }, (_, i) => `[vsplit_${inputIdx}_${i}]`).join("");
+    filterComplex += `[${inputIdx}:v]split=${count}${splitOutputs};`;
+  }
+});
+
+// Build split filters for audio streams that are referenced more than once
+const inputAudioSplitCounters: { [inputIdx: number]: number } = {};
+Object.keys(inputClipCounts).forEach((idxStr) => {
+  const inputIdx = parseInt(idxStr);
+  const count = inputClipCounts[inputIdx];
+  inputAudioSplitCounters[inputIdx] = 0;
+  const hasAudioForInput = hasAudioMap[inputIdx] ?? false;
+  if (count > 1 && hasAudioForInput) {
+    const splitOutputs = Array.from({ length: count }, (_, i) => `[asplit_${inputIdx}_${i}]`).join("");
+    filterComplex += `[${inputIdx}:a]asplit=${count}${splitOutputs};`;
+  }
+});
+
+// Track silence inputs that will be added as extra ffmpeg inputs
+const silenceInputIdxMap: { [clipIdx: number]: number } = {};
+let silenceCount = 0;
+
+let concatInputs = "";
+videoClips.forEach((clip: any, idx: number) => {
+  const start = clip.start ?? 0;
+  const end = clip.end ?? 5;
+  const rate = clip.playbackRate ?? 1;
+  const clipDuration = (end - start) / rate;
+  const inputIdx = urlToInputIdx[clip.src] ?? 0;
+  const hasAudio = hasAudioMap[inputIdx] ?? false;
+  const usesSplit = inputClipCounts[inputIdx] > 1;
+
+  // Determine the video source label (split or direct)
+  let vSrcLabel: string;
+  if (usesSplit) {
+    const splitI = inputSplitCounters[inputIdx];
+    vSrcLabel = `[vsplit_${inputIdx}_${splitI}]`;
+    inputSplitCounters[inputIdx] = splitI + 1;
+  } else {
+    vSrcLabel = `[${inputIdx}:v]`;
+  }
+
+  // Video stream processing
+  let vFilter = `${vSrcLabel}trim=start=${start}:end=${end},setpts=PTS-STARTPTS`;
+  if (clip.filters?.grayscale !== undefined && clip.filters.grayscale > 0) {
+    vFilter += `,hue=s=${1 - clip.filters.grayscale}`;
+  }
+  if (clip.filters?.brightness !== undefined && clip.filters.brightness !== 1) {
+    vFilter += `,eq=brightness=${clip.filters.brightness - 1}`;
+  }
+  if (clip.effects?.rotate !== undefined && clip.effects.rotate !== 0) {
+    const rad = (clip.effects.rotate * Math.PI) / 180;
+    vFilter += `,rotate=${rad}`;
+  }
+  if (clip.effects?.transition === "fade") {
+    const fadeDur = Math.min(0.5, clipDuration / 2);
+    vFilter += `,fade=in:st=0:d=${fadeDur},fade=out:st=${clipDuration - fadeDur}:d=${fadeDur}`;
+  }
+  if (rate !== 1) {
+    vFilter += `,setpts=${1 / rate}*(PTS-STARTPTS)`;
+  }
+  vFilter += `,fps=fps=30`;
+  vFilter += `[v_proc_${idx}];`;
+  filterComplex += vFilter;
+  concatInputs += `[v_proc_${idx}]`;
+
+  // Audio stream processing
+  if (hasAudio) {
+    const usesSplitA = inputClipCounts[inputIdx] > 1;
+    let aSrcLabel: string;
+    if (usesSplitA) {
+      const splitAi = inputAudioSplitCounters[inputIdx];
+      aSrcLabel = `[asplit_${inputIdx}_${splitAi}]`;
+      inputAudioSplitCounters[inputIdx] = splitAi + 1;
+    } else {
+      aSrcLabel = `[${inputIdx}:a]`;
+    }
+    let aFilter = `${aSrcLabel}atrim=start=${start}:end=${end},asetpts=PTS-STARTPTS`;
+    if (rate !== 1) {
+      const clampedRate = Math.max(0.5, Math.min(2.0, rate));
+      aFilter += `,atempo=${clampedRate}`;
+    }
+    aFilter += `[a_proc_${idx}];`;
+    filterComplex += aFilter;
+    concatInputs += `[a_proc_${idx}]`;
+  } else {
+    // For videos without audio: we use a silence input added via -f lavfi -i anullsrc
+    // Track which extra input index this silence clip will be
+    silenceInputIdxMap[idx] = currentInputIdx + silenceCount;
+    silenceCount++;
+    concatInputs += `[a_proc_${idx}]`; // will be resolved after building silence inputs
+  }
+});
+
+// Add silence inputs for clips without audio (as -f lavfi -i anullsrc before filter_complex)
+// We'll inject them at the correct positions using inputArgs prefix
+const silenceInputArgs: string[] = [];
+videoClips.forEach((clip: any, idx: number) => {
+  const inputIdx = urlToInputIdx[clip.src] ?? 0;
+  const hasAudio = hasAudioMap[inputIdx] ?? false;
+  if (!hasAudio) {
+    const start = clip.start ?? 0;
+    const end = clip.end ?? 5;
+    const rate = clip.playbackRate ?? 1;
+    const clipDuration = (end - start) / rate;
+    const silenceInputIdx = silenceInputIdxMap[idx];
+    silenceInputArgs.push(`-f lavfi -i anullsrc=sample_rate=44100:channel_layout=stereo`);
+    // Add filter to trim silence to exact clip duration
+    filterComplex = filterComplex + `[${silenceInputIdx}:a]atrim=duration=${clipDuration}[a_proc_${idx}];`;
+  }
+});
+
+// Insert silence inputs before the overlay inputs in the correct order
+if (silenceInputArgs.length > 0) {
+  inputArgs = [...silenceInputArgs, ...inputArgs];
+  // Remap overlay input indices (they shifted by silenceCount)
+  const remappedImageMappings: { [k: number]: number } = {};
+  const remappedAudioMappings: { [k: number]: number } = {};
+  Object.keys(imageInputMappings).forEach(k => {
+    remappedImageMappings[parseInt(k)] = imageInputMappings[parseInt(k)] + silenceCount;
+  });
+  Object.keys(audioInputMappings).forEach(k => {
+    remappedAudioMappings[parseInt(k)] = audioInputMappings[parseInt(k)] + silenceCount;
+  });
+  // Remap references in filterComplex for image/audio overlays
+  Object.keys(imageInputMappings).forEach(k => {
+    const oldIdx = imageInputMappings[parseInt(k)];
+    const newIdx = remappedImageMappings[parseInt(k)];
+    filterComplex = filterComplex.replaceAll(`[${oldIdx}:v]`, `[${newIdx}:v]`);
+  });
+  Object.keys(audioInputMappings).forEach(k => {
+    const oldIdx = audioInputMappings[parseInt(k)];
+    const newIdx = remappedAudioMappings[parseInt(k)];
+    filterComplex = filterComplex.replaceAll(`[${oldIdx}:a]`, `[${newIdx}:a]`);
+  });
+  Object.assign(imageInputMappings, remappedImageMappings);
+  Object.assign(audioInputMappings, remappedAudioMappings);
+}
+
+const numClips = videoClips.length;
+filterComplex += `${concatInputs}concat=n=${numClips}:v=1:a=1[concatv][concata];`;
+
+let currentVideoOut = "[concatv]";
+const isWin = os.platform() === "win32";
+const fontfileArg = isWin ? "fontfile='C\\:/Windows/Fonts/arial.ttf':" : "";
+
+textElements.forEach((textItem: any, idx: number) => {
+  const start = textItem.start ?? 0;
+  const end = textItem.end ?? 5;
+  const content = (textItem.content || "").replace(/'/g, "'\\\\''").replace(/:/g, "\\:");
+  const style = textItem.style || {};
+  const color = style.color || "white";
+
+  let fontSizeNum = 32;
+  if (style.fontSize) {
+    const matched = String(style.fontSize).match(/(\d+)/);
+    if (matched) {
+      fontSizeNum = parseInt(matched[1]);
+    }
+  }
+
+  let x = "(w-text_w)/2";
+  let y = "h-text_h-80";
+
+  // Vertical position mapping
+  if (style.position?.startsWith("top-")) {
+    y = "40";
+  } else if (style.position === "center") {
+    y = "(h-text_h)/2";
+  } else if (style.position?.startsWith("bottom-")) {
+    y = "h-text_h-80";
+  }
+
+  // Horizontal position mapping
+  if (style.position?.endsWith("-left")) {
+    x = "40";
+  } else if (style.position?.endsWith("-right")) {
+    x = "w-text_w-40";
+  } else if (style.position?.endsWith("-center") || style.position === "center") {
+    x = "(w-text_w)/2";
+  }
+
+  const nextVideoOut = `[textv_${idx}]`;
+  filterComplex += `${currentVideoOut}drawtext=${fontfileArg}text='${content}':x=${x}:y=${y}:fontsize=${fontSizeNum}:fontcolor=${color}:enable='between(t,${start},${end})'${nextVideoOut};`;
+  currentVideoOut = nextVideoOut;
+});
+
+imageElements.forEach((imgItem: any, idx: number) => {
+  const start = imgItem.start ?? 0;
+  const end = imgItem.end ?? 5;
+  const style = imgItem.style || {};
+  const mappedInputIdx = imageInputMappings[idx];
+  if (mappedInputIdx === undefined) return;
+
+  let x = "w-overlay_w-20";
+  let y = "20";
+  if (style.position === "top-left") {
+    x = "20";
+    y = "20";
+  } else if (style.position === "bottom-left") {
+    x = "20";
+    y = "h-overlay_h-20";
+  } else if (style.position === "bottom-right") {
+    x = "w-overlay_w-20";
+    y = "h-overlay_h-20";
+  }
+
+  const nextVideoOut = `[imgv_${idx}]`;
+  filterComplex += `${currentVideoOut}[${mappedInputIdx}:v]overlay=x=${x}:y=${y}:enable='between(t,${start},${end})'${nextVideoOut};`;
+  currentVideoOut = nextVideoOut;
+});
+
+// Final video stream is ready. Check if we need to mix background audio
+filterComplex = filterComplex.replace(/;$/, "");
+
+let currentAudioOut = "[concata]";
+const activeAudioOverlays = audioElements.filter((_, idx) => audioInputMappings[idx] !== undefined);
+if (activeAudioOverlays.length > 0) {
+  let mixInputs = "[concata]";
+  let audioMixFilter = "";
+  audioElements.forEach((aud: any, idx: number) => {
+    const mappedInputIdx = audioInputMappings[idx];
+    if (mappedInputIdx === undefined) return;
+    const start = aud.start ?? 0;
+    const volume = aud.volume ?? 1;
+
+    audioMixFilter += `[${mappedInputIdx}:a]adelay=${Math.round(start * 1000)}|${Math.round(start * 1000)},volume=${volume}[aud_delay_${idx}];`;
+    mixInputs += `[aud_delay_${idx}]`;
+  });
+  audioMixFilter += `${mixInputs}amix=inputs=${activeAudioOverlays.length + 1}:duration=first[outa]`;
+  filterComplex += `;${audioMixFilter}`;
+  currentAudioOut = "[outa]";
+}
+
+const videoInputsStr = videoTempPaths.map(p => `-i "${p}"`).join(" ");
+const inputsStr = `${videoInputsStr} ` + inputArgs.join(" ");
+const tempOutput = path.join(os.tmpdir(), `output_${recordId}.mp4`);
+const ffmpegCmd = `ffmpeg -y ${inputsStr} -filter_complex "${filterComplex}" -map "${currentVideoOut}" -map "${currentAudioOut}" -c:v libx264 -c:a aac -pix_fmt yuv420p -r 30 -vsync cfr "${tempOutput}"`;
+
+await updateLogs(70, "[Render Engine Fallback] Đang thực thi lệnh FFMPEG chi tiết...");
+
+await new Promise<void>((resolve, reject) => {
+  exec(ffmpegCmd, (error, stdout, stderr) => {
+    if (error) {
+      console.error("FFMPEG execution failed detail:", stderr || stdout || error.message);
+      reject(new Error(`FFMPEG render failed: ${error.message}`));
+    } else {
+      resolve();
+    }
+  });
+});
+
+await updateLogs(85, "[Render Engine Fallback] Đang tải video thành phẩm lên Cloudinary...");
+const outputBuffer = fs.readFileSync(tempOutput);
+finalVideoUrl = await cloudinaryService.uploadMediaBuffer(outputBuffer, "igen_erp/marketing/video");
+
+// Save output to local cache folder
+try {
+  const cacheDir = path.join(process.cwd(), "server/cache/videos");
+  const outUrlParts = finalVideoUrl.split("/");
+  const outFilename = outUrlParts[outUrlParts.length - 1];
+  if (outFilename && outFilename.match(/^[a-zA-Z0-9_-]+\.[a-zA-Z0-9]+$/)) {
+    const outCachePath = path.join(cacheDir, outFilename);
+    fs.copyFileSync(tempOutput, outCachePath);
+    console.log(`[Render Engine Cache] Saved rendered video to local cache: ${outCachePath}`);
+  }
+} catch (cacheErr) {
+  console.error("[Render Engine Cache Warning] Failed to save rendered video to cache:", cacheErr);
+}
+
+// Cleanup all temp files
+try {
+  videoTempPaths.forEach(p => { if (p) fs.unlinkSync(p); });
+  fs.unlinkSync(tempOutput);
+  imageTempPaths.forEach(p => { if (p) fs.unlinkSync(p); });
+  audioTempPaths.forEach(p => { if (p) fs.unlinkSync(p); });
+} catch (e) { }
         } else if (videoUrl.includes("res.cloudinary.com")) {
-          await updateLogs(60, "[Render Engine Fallback] Không có FFMPEG. Phát hiện video nguồn trên Cloudinary. Sử dụng Cloud Render Engine...");
-          
-          const parts = videoUrl.split("/upload/");
-          let transformString = "";
-          
-          const videoElement = timeline.find((item: any) => item.type === "video");
-          if (videoElement) {
-            transformString += `so_${videoElement.start},eo_${videoElement.end}/`;
-          }
-          
-          const textElements = timeline.filter((item: any) => item.type === "text");
-          for (const textItem of textElements) {
-            const contentEscaped = encodeURIComponent(textItem.content).replace(/%/g, "%25");
-            transformString += `l_text:Arial_36_bold:${contentEscaped},g_center,so_${textItem.start},eo_${textItem.end}/`;
-          }
-          
-          finalVideoUrl = `${parts[0]}/upload/${transformString}${parts[1]}`;
-          await updateLogs(80, `[Render Engine Fallback] Liên kết Cloud Render đã tạo: ${finalVideoUrl}`);
-        } else {
-          await updateLogs(70, "[Render Engine Fallback] Không phát hiện FFMPEG. Chạy mô phỏng quá trình render...");
-          await new Promise((resolve) => setTimeout(resolve, 2000));
-          await updateLogs(85, "[Render Engine Fallback] Mô phỏng render hoàn tất.");
-        }
-      }
+  await updateLogs(60, "[Render Engine Fallback] Không có FFMPEG. Sử dụng Cloud Render Engine...");
 
-      await updateLogs(95, "[Cloudinary] Đồng bộ hóa tài nguyên biên tập...");
-      
-      await AIMediaModel.findByIdAndUpdate(recordId, {
-        url: finalVideoUrl,
-        "metadata.status": "completed",
-        "metadata.progress": 100,
-        "metadata.renderLogs": [...logs, "[Render Engine] Hoàn thành kết xuất video!"]
-      });
-      
-      console.log(`[Local Render Background] Successfully completed. Final URL: ${finalVideoUrl}`);
+  const firstUrl = videoUrl.split(",")[0];
+  const parts = firstUrl.split("/upload/");
+  let transformString = "";
+
+  const videoElement = timeline.find((item: any) => item.type === "video");
+  if (videoElement) {
+    transformString += `so_${videoElement.start},eo_${videoElement.end}/`;
+  }
+
+  const textElements = timeline.filter((item: any) => item.type === "text");
+  for (const textItem of textElements) {
+    const contentEscaped = encodeURIComponent(textItem.content).replace(/%/g, "%25");
+    transformString += `l_text:Arial_36_bold:${contentEscaped},g_center,so_${textItem.start},eo_${textItem.end}/`;
+  }
+
+  finalVideoUrl = `${parts[0]}/upload/${transformString}${parts[1]}`;
+  await updateLogs(80, `[Render Engine Fallback] Liên kết Cloud Render đã tạo: ${finalVideoUrl}`);
+} else {
+  await updateLogs(70, "[Render Engine Fallback] Không phát hiện FFMPEG. Chạy mô phỏng quá trình render...");
+  await new Promise((resolve) => setTimeout(resolve, 2000));
+  await updateLogs(85, "[Render Engine Fallback] Mô phỏng render hoàn tất.");
+}
+
+await updateLogs(95, "[Cloudinary] Đồng bộ hóa tài nguyên biên tập...");
+
+await AIMediaModel.findByIdAndUpdate(recordId, {
+  url: finalVideoUrl,
+  "metadata.status": "completed",
+  "metadata.progress": 100,
+  "metadata.renderLogs": [...logs, "[Render Engine] Hoàn thành kết xuất video!"]
+});
+
+console.log(`[Local Render Background] Successfully completed. Final URL: ${finalVideoUrl}`);
 
     } catch (error: any) {
-      console.error("[Local Render Background Error]", error);
-      await AIMediaModel.findByIdAndUpdate(recordId, {
-        "metadata.status": "failed",
-        "metadata.error": error.message || String(error),
-        "metadata.progress": 0,
-        "metadata.renderLogs": [...logs, `[Render Engine Lỗi] ${error.message || String(error)}`]
-      });
-    }
+  console.error("[Local Render Background Error]", error);
+  await AIMediaModel.findByIdAndUpdate(recordId, {
+    "metadata.status": "failed",
+    "metadata.error": error.message || String(error),
+    "metadata.progress": 0,
+    "metadata.renderLogs": [...logs, `[Render Engine Lỗi] ${error.message || String(error)}`]
+  });
+}
   },
 
   /**
    * Lấy lịch sử tạo đa phương tiện theo user và loại
    */
   async getMediaHistory(userId: string, mediaType: "image" | "video" | "voice") {
-    try {
-      const records = await AIMediaModel.find({ userId, mediaType })
-        .sort({ createdAt: -1 })
-        .limit(50)
-        .lean();
+  try {
+    const records = await AIMediaModel.find({ userId, mediaType })
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean();
 
-      if (mediaType === "video") {
-        await Promise.all(
-          records.map(async (record: any) => {
-            if (record.url && record.url.startsWith("pending://piapi/")) {
-              const taskId = record.url.replace("pending://piapi/", "");
-              try {
-                const result = await piapiService.getTaskStatus(taskId);
-                if (result.status === "completed" && result.url) {
-                  const cloudinaryUrl = await cloudinaryService.uploadMedia(result.url, "igen_erp/marketing/video");
-                  await AIMediaModel.updateOne(
-                    { _id: record._id },
-                    { url: cloudinaryUrl, "metadata.status": "completed", "metadata.progress": 100 }
-                  );
-                  record.url = cloudinaryUrl;
-                  record.metadata = { ...record.metadata, status: "completed", progress: 100 };
+    if (mediaType === "video") {
+      await Promise.all(
+        records.map(async (record: any) => {
+          if (record.url && record.url.startsWith("pending://piapi/")) {
+            const taskId = record.url.replace("pending://piapi/", "");
+            try {
+              const result = await piapiService.getTaskStatus(taskId);
+              if (result.status === "completed" && result.url) {
+                const cloudinaryUrl = await cloudinaryService.uploadMedia(result.url, "igen_erp/marketing/video");
+                await AIMediaModel.updateOne(
+                  { _id: record._id },
+                  { url: cloudinaryUrl, "metadata.status": "completed", "metadata.progress": 100 }
+                );
+                record.url = cloudinaryUrl;
+                record.metadata = { ...record.metadata, status: "completed", progress: 100 };
 
-                  const activeCardId = record.metadata?.activeCardId;
-                  if (activeCardId) {
-                    const { MarketingContentModel } = require("../model/marketing-content.model");
-                    await MarketingContentModel.findByIdAndUpdate(activeCardId, { videoUrl: cloudinaryUrl });
-                  }
-                } else if (result.status === "failed") {
-                  await AIMediaModel.updateOne(
-                    { _id: record._id },
-                    { "metadata.status": "failed", "metadata.error": result.error || "Failed", "metadata.progress": 0 }
-                  );
-                  record.metadata = { ...record.metadata, status: "failed", error: result.error, progress: 0 };
-                } else {
-                  const currentProgress = result.progress !== undefined ? result.progress : 0;
-                  await AIMediaModel.updateOne(
-                    { _id: record._id },
-                    { "metadata.progress": currentProgress }
-                  );
-                  record.metadata = { ...record.metadata, progress: currentProgress };
+                const activeCardId = record.metadata?.activeCardId;
+                if (activeCardId) {
+                  const { MarketingContentModel } = require("../model/marketing-content.model");
+                  await MarketingContentModel.findByIdAndUpdate(activeCardId, { videoUrl: cloudinaryUrl });
                 }
-              } catch (err) {
-                console.error(`[getMediaHistory] Error refreshing pending task ${taskId}:`, err);
+              } else if (result.status === "failed") {
+                await AIMediaModel.updateOne(
+                  { _id: record._id },
+                  { "metadata.status": "failed", "metadata.error": result.error || "Failed", "metadata.progress": 0 }
+                );
+                record.metadata = { ...record.metadata, status: "failed", error: result.error, progress: 0 };
+              } else {
+                const currentProgress = result.progress !== undefined ? result.progress : 0;
+                await AIMediaModel.updateOne(
+                  { _id: record._id },
+                  { "metadata.progress": currentProgress }
+                );
+                record.metadata = { ...record.metadata, progress: currentProgress };
               }
+            } catch (err) {
+              console.error(`[getMediaHistory] Error refreshing pending task ${taskId}:`, err);
             }
-          })
-        );
-      }
-      return records;
-    } catch (error: any) {
-      console.error("[geminiService.getMediaHistory] Error:", error);
-      throw error;
+          }
+        })
+      );
     }
-  },
+    return records;
+  } catch (error: any) {
+    console.error("[geminiService.getMediaHistory] Error:", error);
+    throw error;
+  }
+},
 
   /**
    * Xóa một bản ghi lịch sử
    */
   async deleteMediaHistory(userId: string, id: string) {
-    try {
-      const result = await AIMediaModel.deleteOne({ _id: id, userId });
-      if (result.deletedCount === 0) {
-        throw new Error("Không tìm thấy bản ghi hoặc không có quyền xóa");
-      }
-      return { status: "success" };
-    } catch (error: any) {
-      console.error("[geminiService.deleteMediaHistory] Error:", error);
-      throw error;
+  try {
+    const result = await AIMediaModel.deleteOne({ _id: id, userId });
+    if (result.deletedCount === 0) {
+      throw new Error("Không tìm thấy bản ghi hoặc không có quyền xóa");
     }
-  },
+    return { status: "success" };
+  } catch (error: any) {
+    console.error("[geminiService.deleteMediaHistory] Error:", error);
+    throw error;
+  }
+},
 
   /**
    * Polling trạng thái video từ PiAPI chạy ngầm không chặn luồng HTTP
    */
   async pollPiAPIVideoStatusBackground(recordId: string, taskId: string, userId: string) {
-    console.log(`[PiAPI Background Poll] Started polling for record ${recordId}, taskId ${taskId}`);
+  console.log(`[PiAPI Background Poll] Started polling for record ${recordId}, taskId ${taskId}`);
 
-    let attempts = 0;
-    const maxAttempts = 60; // 10 minutes (60 * 10 seconds)
+  let attempts = 0;
+  const maxAttempts = 60; // 10 minutes (60 * 10 seconds)
 
-    const runPoll = async () => {
-      try {
-        const result = await piapiService.getTaskStatus(taskId);
-        console.log(`[PiAPI Background Poll] Record ${recordId} status: ${result.status}`);
+  const runPoll = async () => {
+    try {
+      const result = await piapiService.getTaskStatus(taskId);
+      console.log(`[PiAPI Background Poll] Record ${recordId} status: ${result.status}`);
 
-        if (result.status === "completed" && result.url) {
-          console.log(`[PiAPI Background Poll] Completed! Uploading to Cloudinary...`);
-          const cloudinaryUrl = await cloudinaryService.uploadMedia(result.url, "igen_erp/marketing/video");
+      if (result.status === "completed" && result.url) {
+        console.log(`[PiAPI Background Poll] Completed! Uploading to Cloudinary...`);
+        const cloudinaryUrl = await cloudinaryService.uploadMedia(result.url, "igen_erp/marketing/video");
 
-          const record = await AIMediaModel.findByIdAndUpdate(
-            recordId,
-            { url: cloudinaryUrl, "metadata.status": "completed", "metadata.progress": 100 },
-            { new: true }
-          );
+        const record = await AIMediaModel.findByIdAndUpdate(
+          recordId,
+          { url: cloudinaryUrl, "metadata.status": "completed", "metadata.progress": 100 },
+          { new: true }
+        );
 
-          const activeCardId = record?.metadata?.activeCardId;
-          if (activeCardId) {
-            const { MarketingContentModel } = require("../model/marketing-content.model");
-            await MarketingContentModel.findByIdAndUpdate(activeCardId, { videoUrl: cloudinaryUrl });
-            console.log(`[PiAPI Background Poll] Updated target card ${activeCardId} with videoUrl: ${cloudinaryUrl}`);
-          }
-          return;
-        } else if (result.status === "failed") {
-          console.error(`[PiAPI Background Poll] Failed for task ${taskId}: ${result.error}`);
-          await AIMediaModel.findByIdAndUpdate(recordId, {
-            "metadata.status": "failed",
-            "metadata.error": result.error || "Lỗi tạo video từ PiAPI",
-            "metadata.progress": 0,
-          });
-          return;
-        } else {
-          let currentProgress = typeof result.progress === "number" && result.progress > 0 ? result.progress : 0;
-          if (currentProgress === 0) {
-            currentProgress = Math.min(5 + attempts * 7, 95);
-          }
-          await AIMediaModel.findByIdAndUpdate(recordId, {
-            "metadata.progress": currentProgress
-          });
+        const activeCardId = record?.metadata?.activeCardId;
+        if (activeCardId) {
+          const { MarketingContentModel } = require("../model/marketing-content.model");
+          await MarketingContentModel.findByIdAndUpdate(activeCardId, { videoUrl: cloudinaryUrl });
+          console.log(`[PiAPI Background Poll] Updated target card ${activeCardId} with videoUrl: ${cloudinaryUrl}`);
         }
-
-        attempts++;
-        if (attempts < maxAttempts) {
-          setTimeout(runPoll, 10000);
-        } else {
-          console.error(`[PiAPI Background Poll] Timeout for task ${taskId}`);
-          await AIMediaModel.findByIdAndUpdate(recordId, {
-            "metadata.status": "timeout",
-            "metadata.error": "Quá thời gian chờ tạo video từ PiAPI (10 phút)",
-          });
+        return;
+      } else if (result.status === "failed") {
+        console.error(`[PiAPI Background Poll] Failed for task ${taskId}: ${result.error}`);
+        await AIMediaModel.findByIdAndUpdate(recordId, {
+          "metadata.status": "failed",
+          "metadata.error": result.error || "Lỗi tạo video từ PiAPI",
+          "metadata.progress": 0,
+        });
+        return;
+      } else {
+        let currentProgress = typeof result.progress === "number" && result.progress > 0 ? result.progress : 0;
+        if (currentProgress === 0) {
+          currentProgress = Math.min(5 + attempts * 7, 95);
         }
-      } catch (error: any) {
-        console.error(`[PiAPI Background Poll] Error polling task ${taskId}:`, error);
-        attempts++;
-        if (attempts < maxAttempts) {
-          setTimeout(runPoll, 10000);
-        }
+        await AIMediaModel.findByIdAndUpdate(recordId, {
+          "metadata.progress": currentProgress
+        });
       }
-    };
 
-    setTimeout(runPoll, 10000);
-  },
+      attempts++;
+      if (attempts < maxAttempts) {
+        setTimeout(runPoll, 10000);
+      } else {
+        console.error(`[PiAPI Background Poll] Timeout for task ${taskId}`);
+        await AIMediaModel.findByIdAndUpdate(recordId, {
+          "metadata.status": "timeout",
+          "metadata.error": "Quá thời gian chờ tạo video từ PiAPI (10 phút)",
+        });
+      }
+    } catch (error: any) {
+      console.error(`[PiAPI Background Poll] Error polling task ${taskId}:`, error);
+      attempts++;
+      if (attempts < maxAttempts) {
+        setTimeout(runPoll, 10000);
+      }
+    }
+  };
+
+  setTimeout(runPoll, 10000);
+},
 
   /**
    * Đồng bộ lưu trữ nâng cao của Image/Video sau khi sinh thành công
    */
-  async saveGeneratedMediaRecord(userId: string, mediaType: "image" | "video", base64OrUrl: string, prompt: string, metadata?: any) {
-    try {
-      let finalUrl = base64OrUrl;
-      if (base64OrUrl.startsWith("data:")) {
-        finalUrl = await cloudinaryService.uploadMedia(base64OrUrl, `igen_erp/marketing/${mediaType}`);
-      }
-
-      const record = await AIMediaModel.create({
-        userId,
-        mediaType,
-        url: finalUrl,
-        prompt,
-        metadata,
-      });
-      return record;
-    } catch (error: any) {
-      console.error("[geminiService.saveGeneratedMediaRecord] Error:", error);
-      throw error;
+  async saveGeneratedMediaRecord(userId: string, mediaType: "image" | "video", base64OrUrl: string, prompt: string, metadata ?: any) {
+  try {
+    let finalUrl = base64OrUrl;
+    if (base64OrUrl.startsWith("data:")) {
+      finalUrl = await cloudinaryService.uploadMedia(base64OrUrl, `igen_erp/marketing/${mediaType}`);
     }
-  },
+
+    const record = await AIMediaModel.create({
+      userId,
+      mediaType,
+      url: finalUrl,
+      prompt,
+      metadata,
+    });
+    return record;
+  } catch (error: any) {
+    console.error("[geminiService.saveGeneratedMediaRecord] Error:", error);
+    throw error;
+  }
+},
 
   /**
    * Lấy danh sách giọng nói ElevenLabs
    */
   async getElevenLabsVoices() {
-    const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
-    if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
-      console.log("[geminiService.getElevenLabsVoices] ELEVENLABS_API_KEY is not configured. Running in MOCK mode.");
-      return {
-        status: "success",
-        voices: [
-          {
-            voice_id: "Sadaltager",
-            name: "Roger (Mock)",
-            category: "cloned",
-            description: "Laid-Back, Casual, Resonant",
-            labels: { gender: "male", age: "adult", accent: "american" }
-          }
-        ]
-      };
-    }
-
-    try {
-      const response = await fetch("https://api.elevenlabs.io/v1/voices", {
-        headers: {
-          "xi-api-key": elevenLabsApiKey.trim()
+  const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
+  if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
+    console.log("[geminiService.getElevenLabsVoices] ELEVENLABS_API_KEY is not configured. Running in MOCK mode.");
+    return {
+      status: "success",
+      voices: [
+        {
+          voice_id: "Sadaltager",
+          name: "Roger (Mock)",
+          category: "cloned",
+          description: "Laid-Back, Casual, Resonant",
+          labels: { gender: "male", age: "adult", accent: "american" }
         }
-      });
-      if (!response.ok) {
-        throw new Error(`ElevenLabs error: ${response.status}`);
+      ]
+    };
+  }
+
+  try {
+    const response = await fetch("https://api.elevenlabs.io/v1/voices", {
+      headers: {
+        "xi-api-key": elevenLabsApiKey.trim()
       }
-      const data = await response.json();
-      // Filter generated or cloned voices
-      const filtered = (data.voices || []).filter((v: any) => v.category === "cloned" || v.category === "generated" || v.category === "custom");
-      return { status: "success", voices: filtered };
-    } catch (error: any) {
-      console.error("[geminiService.getElevenLabsVoices] Error:", error);
-      throw error;
+    });
+    if (!response.ok) {
+      throw new Error(`ElevenLabs error: ${response.status}`);
     }
-  },
+    const data = await response.json();
+    // Filter generated or cloned voices
+    const filtered = (data.voices || []).filter((v: any) => v.category === "cloned" || v.category === "generated" || v.category === "custom");
+    return { status: "success", voices: filtered };
+  } catch (error: any) {
+    console.error("[geminiService.getElevenLabsVoices] Error:", error);
+    throw error;
+  }
+},
 
   /**
    * Thiết kế & phát nghe thử giọng nói ElevenLabs
    */
   async generateCustomVoicePreview(input: { gender: string; accent: string; age: string; accentStrength: number; text: string }) {
-    const { gender, accent, age, accentStrength, text } = input;
-    const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
-    if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
-      console.log("[geminiService.generateCustomVoicePreview] ELEVENLABS_API_KEY is not configured. Running in MOCK mode.");
-      return {
-        generatedVoiceId: "mock-voice-id-" + Date.now(),
-        url: "data:audio/wav;base64,UklGRigAAABXQVZFlm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAAAG"
-      };
+  const { gender, accent, age, accentStrength, text } = input;
+  const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
+  if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
+    console.log("[geminiService.generateCustomVoicePreview] ELEVENLABS_API_KEY is not configured. Running in MOCK mode.");
+    return {
+      generatedVoiceId: "mock-voice-id-" + Date.now(),
+      url: "data:audio/wav;base64,UklGRigAAABXQVZFlm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAAAG"
+    };
+  }
+
+  try {
+    const response = await fetch("https://api.elevenlabs.io/v1/voice-generation/generate-voice", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "xi-api-key": elevenLabsApiKey.trim()
+      },
+      body: JSON.stringify({
+        gender,
+        accent,
+        age,
+        accent_strength: accentStrength,
+        text
+      })
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`ElevenLabs preview error: ${response.status} - ${errText}`);
     }
 
-    try {
-      const response = await fetch("https://api.elevenlabs.io/v1/voice-generation/generate-voice", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "xi-api-key": elevenLabsApiKey.trim()
-        },
-        body: JSON.stringify({
-          gender,
-          accent,
-          age,
-          accent_strength: accentStrength,
-          text
-        })
-      });
-
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`ElevenLabs preview error: ${response.status} - ${errText}`);
-      }
-
-      const generatedVoiceId = response.headers.get("generated_voice_id");
-      if (!generatedVoiceId) {
-        throw new Error("No generated_voice_id found in headers");
-      }
-
-      const arrayBuffer = await response.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-      const base64Audio = buffer.toString('base64');
-      const audioDataUri = `data:audio/mpeg;base64,${base64Audio}`;
-
-      const mediaUrl = await cloudinaryService.uploadMedia(audioDataUri, "igen_erp/marketing/voice_previews");
-
-      return {
-        generatedVoiceId,
-        url: mediaUrl
-      };
-    } catch (error: any) {
-      console.error("[geminiService.generateCustomVoicePreview] Error:", error);
-      throw error;
+    const generatedVoiceId = response.headers.get("generated_voice_id");
+    if (!generatedVoiceId) {
+      throw new Error("No generated_voice_id found in headers");
     }
-  },
+
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const base64Audio = buffer.toString('base64');
+    const audioDataUri = `data:audio/mpeg;base64,${base64Audio}`;
+
+    const mediaUrl = await cloudinaryService.uploadMedia(audioDataUri, "igen_erp/marketing/voice_previews");
+
+    return {
+      generatedVoiceId,
+      url: mediaUrl
+    };
+  } catch (error: any) {
+    console.error("[geminiService.generateCustomVoicePreview] Error:", error);
+    throw error;
+  }
+},
 
   /**
    * Lưu giọng thiết kế thành giọng chính thức
    */
   async createCustomVoice(input: { voiceName: string; voiceDescription: string; generatedVoiceId: string }) {
-    const { voiceName, voiceDescription, generatedVoiceId } = input;
-    const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
-    if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
-      console.log("[geminiService.createCustomVoice] ELEVENLABS_API_KEY is not configured. Running in MOCK mode.");
-      return {
-        voice_id: "mock-saved-voice-id-" + Date.now()
-      };
+  const { voiceName, voiceDescription, generatedVoiceId } = input;
+  const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
+  if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
+    console.log("[geminiService.createCustomVoice] ELEVENLABS_API_KEY is not configured. Running in MOCK mode.");
+    return {
+      voice_id: "mock-saved-voice-id-" + Date.now()
+    };
+  }
+
+  try {
+    const response = await fetch("https://api.elevenlabs.io/v1/voice-generation/create-voice", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "xi-api-key": elevenLabsApiKey.trim()
+      },
+      body: JSON.stringify({
+        voice_name: voiceName,
+        voice_description: voiceDescription,
+        generated_voice_id: generatedVoiceId
+      })
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`ElevenLabs create-voice error: ${response.status} - ${errText}`);
     }
 
-    try {
-      const response = await fetch("https://api.elevenlabs.io/v1/voice-generation/create-voice", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "xi-api-key": elevenLabsApiKey.trim()
-        },
-        body: JSON.stringify({
-          voice_name: voiceName,
-          voice_description: voiceDescription,
-          generated_voice_id: generatedVoiceId
-        })
-      });
-
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`ElevenLabs create-voice error: ${response.status} - ${errText}`);
-      }
-
-      const result = await response.json();
-      return { voice_id: result.voice_id };
-    } catch (error: any) {
-      console.error("[geminiService.createCustomVoice] Error:", error);
-      throw error;
-    }
-  },
+    const result = await response.json();
+    return { voice_id: result.voice_id };
+  } catch (error: any) {
+    console.error("[geminiService.createCustomVoice] Error:", error);
+    throw error;
+  }
+},
 
   async addElevenLabsVoice(name: string, description: string, files: string[], userId: string) {
-    const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
-    if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
-      return { voice_id: "mock-saved-voice-id-" + Date.now() };
+  const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
+  if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
+    return { voice_id: "mock-saved-voice-id-" + Date.now() };
+  }
+
+  try {
+    const formData = new FormData();
+    formData.append('name', name);
+    formData.append('description', description);
+
+    if (userId) {
+      formData.append('labels', JSON.stringify({ userId }));
     }
 
-    try {
-      const formData = new FormData();
-      formData.append('name', name);
-      formData.append('description', description);
-
-      if (userId) {
-        formData.append('labels', JSON.stringify({ userId }));
+    for (let i = 0; i < files.length; i++) {
+      const dataUri = files[i];
+      const matches = dataUri.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/);
+      if (!matches) {
+        throw new Error("Invalid file format");
       }
-
-      for (let i = 0; i < files.length; i++) {
-        const dataUri = files[i];
-        const matches = dataUri.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/);
-        if (!matches) {
-          throw new Error("Invalid file format");
-        }
-        const type = matches[1];
-        const buffer = Buffer.from(matches[2], 'base64');
-        const blob = new Blob([buffer], { type });
-        formData.append('files', blob, `file-${i}.${type.split('/')[1]}`);
-      }
-
-      const response = await fetch('https://api.elevenlabs.io/v1/voices/add', {
-        method: 'POST',
-        headers: {
-          'xi-api-key': elevenLabsApiKey.trim(),
-        },
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorBody = await response.text();
-        throw new Error(`ElevenLabs API error: ${response.status} - ${errorBody}`);
-      }
-
-      const data = await response.json();
-      return data;
-    } catch (error: any) {
-      console.error("[geminiService.addElevenLabsVoice] Error:", error);
-      throw error;
+      const type = matches[1];
+      const buffer = Buffer.from(matches[2], 'base64');
+      const blob = new Blob([buffer], { type });
+      formData.append('files', blob, `file-${i}.${type.split('/')[1]}`);
     }
-  },
+
+    const response = await fetch('https://api.elevenlabs.io/v1/voices/add', {
+      method: 'POST',
+      headers: {
+        'xi-api-key': elevenLabsApiKey.trim(),
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error(`ElevenLabs API error: ${response.status} - ${errorBody}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error: any) {
+    console.error("[geminiService.addElevenLabsVoice] Error:", error);
+    throw error;
+  }
+},
 
   async deleteElevenLabsVoice(voiceId: string) {
-    const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
-    if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
-      return { success: true };
-    }
-
-    try {
-      const response = await fetch(`https://api.elevenlabs.io/v1/voices/${voiceId}`, {
-        method: 'DELETE',
-        headers: {
-          'xi-api-key': elevenLabsApiKey.trim(),
-        },
-      });
-
-      if (!response.ok) {
-        const errorBody = await response.text();
-        throw new Error(`ElevenLabs API error: ${response.status} - ${errorBody}`);
-      }
-
-      return { success: true };
-    } catch (error: any) {
-      console.error("[geminiService.deleteElevenLabsVoice] Error:", error);
-      throw error;
-    }
+  const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
+  if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
+    return { success: true };
   }
+
+  try {
+    const response = await fetch(`https://api.elevenlabs.io/v1/voices/${voiceId}`, {
+      method: 'DELETE',
+      headers: {
+        'xi-api-key': elevenLabsApiKey.trim(),
+      },
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error(`ElevenLabs API error: ${response.status} - ${errorBody}`);
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("[geminiService.deleteElevenLabsVoice] Error:", error);
+    throw error;
+  }
+}
 };
 
 /**
