@@ -8,7 +8,8 @@ import {
   CheckCircle2, 
   Facebook, 
   ExternalLink, 
-  RefreshCw
+  RefreshCw,
+  Loader2
 } from "lucide-react";
 import { ContentApprovalCard } from "../../types";
 
@@ -52,14 +53,31 @@ export function ModerationPipCard({
   onPublishToPlatform,
   isPublishing = false,
 }: ModerationPipCardProps) {
+  const isProcessing = card.status === 'processing';
+  const isFailed = card.status === 'failed';
+
   return (
     <div className="bg-white border text-left border-gray-150/70 p-3 rounded-xl shadow-xs hover:shadow-md transition-all flex flex-col gap-2 relative group" id={`approval_card_${card.id}`}>
       
+      {isProcessing && (
+        <div className="absolute inset-0 bg-white/80 backdrop-blur-[1px] flex flex-col items-center justify-center gap-2 rounded-xl z-20 select-none">
+          <Loader2 className="h-5 w-5 text-indigo-650 animate-spin" />
+          <span className="text-[9px] font-bold text-indigo-850 tracking-wide animate-pulse">Đang sinh phương tiện...</span>
+        </div>
+      )}
+
       {/* Category header */}
       <div className="flex justify-between items-center gap-2 cursor-pointer" onClick={onOpenDetail}>
-        <span className="px-2 py-0.5 bg-indigo-50 border border-indigo-150 rounded-sm text-[9px] font-mono font-bold text-indigo-700 tracking-wider shrink-0">
-          {card.channel}
-        </span>
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="px-2 py-0.5 bg-indigo-50 border border-indigo-150 rounded-sm text-[9px] font-mono font-bold text-indigo-700 tracking-wider shrink-0">
+            {card.channel}
+          </span>
+          {isFailed && (
+            <span className="px-1.5 py-0.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-sm text-[8px] font-bold shrink-0">
+              LỖI SINH
+            </span>
+          )}
+        </div>
         <span className="text-[9px] text-gray-400 font-mono tracking-wide truncate" title={card.contentType}>{card.contentType}</span>
       </div>
 
@@ -103,7 +121,11 @@ export function ModerationPipCard({
           className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 bg-purple-50 hover:bg-purple-100 text-purple-700 hover:text-purple-800 border border-purple-200 rounded-lg text-[10px] font-bold transition-all shadow-xs cursor-pointer active:scale-[0.98]"
         >
           <Sparkles className="h-3 w-3 text-purple-500 animate-pulse" />
-          <span>Tạo Ảnh / Video AI</span>
+          <span>
+            {card.mediaType === "human-video" ? "Tạo Voice → Video" :
+             card.mediaType === "video" ? "Tạo Video AI" :
+             card.mediaType === "image" ? "Tạo Ảnh AI" : "Tạo Ảnh / Video AI"}
+          </span>
         </button>
       )}
 

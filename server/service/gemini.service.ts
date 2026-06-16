@@ -207,13 +207,18 @@ async function generateText(
     geminiConfig.responseSchema = config.responseSchema;
   }
 
+  const geminiStartTime = Date.now();
+  console.log(`[generateText] Calling Gemini API | model=${modelId} | contentParts=${geminiContents.length} | hasSchema=${!!geminiConfig.responseSchema} | hasImages=${!!(config?.images?.length)}`);
+
   const response = await ai.models.generateContent({
     model: modelId,
     contents: geminiContents,
     config: geminiConfig,
   });
 
+  const geminiElapsed = Date.now() - geminiStartTime;
   const text = response.text || "";
+  console.log(`[generateText] Gemini API responded | ${geminiElapsed}ms (${(geminiElapsed / 1000).toFixed(1)}s) | responseLen=${text.length}`);
   return { text };
 }
 

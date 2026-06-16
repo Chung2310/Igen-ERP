@@ -3,7 +3,7 @@ import { useAuth } from "../context/AuthContext";
 import { authService } from "../services/authService";
 import { UserProfile } from "../types";
 import { toast } from "./Toast";
-import { Users, Shield, RefreshCw, Plus, Building2, Mail, Lock, User, X, SlidersHorizontal, Wallet } from "lucide-react";
+import { Users, Shield, RefreshCw, Plus, Building2, Mail, Lock, User, X, SlidersHorizontal, Wallet, Pencil, Trash2, MoreVertical } from "lucide-react";
 import { parseFirebaseError } from "../utils/firebaseErrorParser";
 import { rolePermissionService, RolePermission, Permission } from "../services/rolePermissionService";
 import { AdminTransactionInfo, AdminUserBalance, walletService } from "../services/walletService";
@@ -35,6 +35,7 @@ export default function UserAdminTab() {
 
   // Register User Modal States
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
   const [userDisplayName, setUserDisplayName] = useState("");
   const [userEmail, setUserEmail] = useState("");
   const [userPassword, setUserPassword] = useState("");
@@ -58,6 +59,18 @@ export default function UserAdminTab() {
       .split(/[\n,]+/)
       .map((item) => item.trim())
       .filter(Boolean);
+  const resetUserForm = () => {
+    setEditingUser(null);
+    setUserDisplayName("");
+    setUserEmail("");
+    setUserPassword("");
+    setUserRole("user");
+    setUserParentId("");
+    setUserDepartment("");
+    setUserHeyGenAvatarIds("");
+    setUserHeyGenVoiceId("");
+    setUserHeyGenApiKey("");
+  };
   const formatAvatarIds = (user?: UserProfile | null) =>
     Array.isArray(user?.heygenAccess?.avatarIds) && user?.heygenAccess?.avatarIds.length > 0
       ? user.heygenAccess.avatarIds.join(", ")
@@ -65,6 +78,7 @@ export default function UserAdminTab() {
 
   // Sub-tabs State
   const [activeTab, setActiveTab] = useState<"users" | "roles" | "balance">("users");
+  const [openActionMenuId, setOpenActionMenuId] = useState<string | null>(null);
   const [balanceUsers, setBalanceUsers] = useState<AdminUserBalance[]>([]);
   const [balanceLoading, setBalanceLoading] = useState(false);
   const [isBalanceModalOpen, setIsBalanceModalOpen] = useState(false);
@@ -94,13 +108,15 @@ export default function UserAdminTab() {
   // Initialize company code when modal opens
   useEffect(() => {
     if (isUserModalOpen) {
-      if (userProfile?.role === "admin") {
+      if (editingUser?.companyCode) {
+        setUserCompanyCode(editingUser.companyCode);
+      } else if (userProfile?.role === "admin") {
         setUserCompanyCode(userProfile.companyCode || "");
       } else {
         setUserCompanyCode(selectedCompanyCode === "all" ? "SYSTEM" : selectedCompanyCode);
       }
     }
-  }, [isUserModalOpen, userProfile, selectedCompanyCode]);
+  }, [editingUser, isUserModalOpen, userProfile, selectedCompanyCode]);
 
   // Handle parentId based on userRole and userCompanyCode automatically
   useEffect(() => {
@@ -136,6 +152,7 @@ export default function UserAdminTab() {
   useEffect(() => {
     if (!isUserModalOpen) {
       setUserDepartment("");
+      setEditingUser(null);
     }
   }, [isUserModalOpen]);
 
@@ -247,6 +264,21 @@ export default function UserAdminTab() {
       fetchAdminTransactions(selectedBalanceUserId);
     }
   }, [activeTab, selectedBalanceUserId]);
+
+  // Close action menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('[data-action-menu]')) {
+        setOpenActionMenuId(null);
+      }
+    };
+    
+    if (openActionMenuId) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [openActionMenuId]);
 
   useEffect(() => {
     setUserPage(1);
@@ -421,11 +453,11 @@ export default function UserAdminTab() {
 
   const handleRegisterUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!userDisplayName.trim() || !userEmail.trim() || !userPassword.trim() || !userCompanyCode) {
+    if (!userDisplayName.trim() || !userEmail.trim() || !userCompanyCode) {
       toast.warning("Vui lòng điền đầy đủ thông tin người dùng!");
       return;
     }
-    if (userPassword.length < 6) {
+    if (!editingUser && userPassword.length < 6) {
       toast.warning("Mật khẩu phải từ 6 ký tự trở lên!");
       return;
     }
@@ -446,46 +478,98 @@ export default function UserAdminTab() {
 
       // Tìm level của người quản lý để tính level nhân viên mới
       const managerProfile = userParentId ? usersList.find(u => u.uid === userParentId) : null;
-      await authService.registerUserForCompany(
-        userDisplayName,
-        userEmail,
-        userPassword,
-        userRole,
-        userCompanyCode,
-        compName,
-        userParentId || undefined,
-        managerProfile?.level,
-        userDepartment.trim() || undefined,
-        userDepartment.trim() || undefined,
-        undefined,
-        {
+      const heygenAccessPayload = {
           avatarIds: parseAvatarIdsInput(userHeyGenAvatarIds),
           avatarId: parseAvatarIdsInput(userHeyGenAvatarIds)[0] || undefined,
           voiceId: userHeyGenVoiceId.trim() || undefined,
           apiKey: userHeyGenApiKey.trim() || undefined,
-        }
-      );
+        };
 
-      toast.success(`Đăng ký tài khoản cho "${userDisplayName}" thành công!`);
+      if (editingUser) {
+        await authService.updateUser(editingUser.uid, {
+          displayName: userDisplayName.trim(),
+          role: userRole,
+          parentId: userParentId || null,
+          level: userRole === "user" && managerProfile?.level ? managerProfile.level + 1 : undefined,
+          department: userDepartment.trim() || "",
+          division: userDepartment.trim() || "",
+          phone: editingUser.phone || "",
+          heygenAccess: heygenAccessPayload,
+        });
+
+        toast.success(`Đã cập nhật tài khoản "${userDisplayName}".`);
+      } else {
+        await authService.registerUserForCompany(
+          userDisplayName,
+          userEmail,
+          userPassword,
+          userRole,
+          userCompanyCode,
+          compName,
+          userParentId || undefined,
+          managerProfile?.level,
+          userDepartment.trim() || undefined,
+          userDepartment.trim() || undefined,
+          undefined,
+          heygenAccessPayload
+        );
+
+        toast.success(`Đăng ký tài khoản cho "${userDisplayName}" thành công!`);
+      }
       setIsUserModalOpen(false);
-      // Reset form
-      setUserDisplayName("");
-      setUserEmail("");
-      setUserPassword("");
-      setUserRole("user");
-      setUserParentId("");
-      setUserDepartment("");
-      setUserHeyGenAvatarIds("");
-      setUserHeyGenVoiceId("");
-      setUserHeyGenApiKey("");
+      resetUserForm();
       // Refresh lists
       await fetchUsers();
     } catch (error: any) {
-      console.error("Lỗi đăng ký người dùng:", error);
-      const errMsg = parseFirebaseError(error, "Không thể đăng ký người dùng mới.");
+      console.error(editingUser ? "Lỗi cập nhật người dùng:" : "Lỗi đăng ký người dùng:", error);
+      const errMsg = parseFirebaseError(
+        error,
+        editingUser ? "Không thể cập nhật người dùng." : "Không thể đăng ký người dùng mới."
+      );
       toast.error(errMsg);
     } finally {
       setSubmittingUser(false);
+    }
+  };
+
+  const openCreateUserModal = () => {
+    resetUserForm();
+    setIsUserModalOpen(true);
+  };
+
+  const openEditUserModal = (user: UserProfile) => {
+    setEditingUser(user);
+    setUserDisplayName(user.displayName || "");
+    setUserEmail(user.email || "");
+    setUserPassword("");
+    setUserRole(user.role || "user");
+    setUserCompanyCode(user.companyCode || "");
+    setUserParentId(user.parentId || "");
+    setUserDepartment(user.department || "");
+    setUserHeyGenAvatarIds(formatAvatarIds(user) === "-" ? "" : formatAvatarIds(user));
+    setUserHeyGenVoiceId(user.heygenAccess?.voiceId || "");
+    setUserHeyGenApiKey(user.heygenAccess?.apiKey || "");
+    setIsUserModalOpen(true);
+  };
+
+  const handleDeleteUser = async (user: UserProfile) => {
+    if (user.uid === userProfile?.uid) {
+      toast.warning("Bạn không thể tự xóa chính mình.");
+      return;
+    }
+
+    const accepted = window.confirm(`Xóa người dùng "${user.displayName}"? Thao tác này không thể hoàn tác.`);
+    if (!accepted) {
+      return;
+    }
+
+    try {
+      await authService.deleteUser(user.uid);
+      setUsersList((prev) => prev.filter((item) => item.uid !== user.uid));
+      toast.success(`Đã xóa người dùng "${user.displayName}".`);
+    } catch (error: any) {
+      console.error("Lỗi xóa người dùng:", error);
+      toast.error(error.message || "Không thể xóa người dùng.");
     }
   };
 
@@ -674,7 +758,7 @@ export default function UserAdminTab() {
           {/* Add User button */}
           {(userProfile?.role === "superadmin" || userProfile?.role === "admin") && (
             <button
-              onClick={() => setIsUserModalOpen(true)}
+              onClick={openCreateUserModal}
               className="p-2 px-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold font-sans flex items-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-95"
             >
               <Plus className="h-3.5 w-3.5" />
@@ -809,7 +893,7 @@ export default function UserAdminTab() {
                 Không tìm thấy tài khoản nào trong hệ thống!
               </div>
             ) : (
-              <div className="bg-white border border-gray-150 rounded-2xl overflow-hidden shadow-xs max-w-full">
+              <div className="bg-white border border-gray-150 rounded-2xl shadow-xs max-w-full" style={{ overflow: 'clip' }}>
                 <div className="max-w-full overflow-x-auto overscroll-x-contain">
                 <table className="w-full min-w-[1180px] text-left border-collapse text-xs font-sans">
                   <thead>
@@ -821,7 +905,7 @@ export default function UserAdminTab() {
                       <th className="p-4">Quyền hạn (Role)</th>
                       {userProfile?.role === "superadmin" && <th className="p-4">Số dư</th>}
                       <th className="p-4">HeyGen</th>
-                      <th className="p-4 pr-6 text-center">Hành động cấp quyền</th>
+                      <th className="p-4 pr-6 text-center">Hành động</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 text-slate-700">
@@ -956,17 +1040,8 @@ export default function UserAdminTab() {
 
                           {/* Role Modify Selector */}
                           <td className="p-4 pr-6">
-                            <div className="flex justify-center gap-2">
-                              {userProfile?.role === "superadmin" && (
-                                <button
-                                  type="button"
-                                  onClick={() => openHeyGenEditor(usr)}
-                                  className="inline-flex items-center gap-1 rounded-lg border border-cyan-200 bg-cyan-50 px-2.5 py-1.5 text-[11px] font-bold text-cyan-800 transition hover:bg-cyan-100"
-                                >
-                                  <SlidersHorizontal className="h-3.5 w-3.5" />
-                                  Cấu hình
-                                </button>
-                              )}
+                            <div className="flex items-center justify-end gap-3">
+                              {/* Role Dropdown */}
                               <select
                                 disabled={
                                   isSelf ||
@@ -975,12 +1050,12 @@ export default function UserAdminTab() {
                                 }
                                 value={usr.role}
                                 onChange={(e) => handleRoleChange(usr.uid, usr.displayName, e.target.value)}
-                                className={`p-1.5 px-2.5 border border-gray-200 rounded-lg text-xs font-medium outline-none bg-white focus:ring-1 focus:ring-indigo-500 cursor-pointer ${
+                                className={`px-2.5 py-1.5 border rounded-lg text-xs font-semibold outline-none focus:ring-2 focus:ring-indigo-500 transition cursor-pointer ${
                                   isSelf ||
                                   usr.role === "superadmin" ||
                                   (usr.role === "admin" && userProfile?.role === "admin")
-                                    ? "opacity-50 cursor-not-allowed bg-gray-50"
-                                    : ""
+                                    ? "opacity-50 cursor-not-allowed bg-gray-50 border-gray-200 text-gray-400"
+                                    : "border-indigo-200 bg-indigo-50 text-indigo-700 hover:border-indigo-300"
                                 }`}
                               >
                                 {(() => {
@@ -999,6 +1074,66 @@ export default function UserAdminTab() {
                                   ));
                                 })()}
                               </select>
+
+                              {/* Action Menu */}
+                              <div className="relative" data-action-menu>
+                                <button
+                                  type="button"
+                                  onClick={() => setOpenActionMenuId(openActionMenuId === usr.uid ? null : usr.uid)}
+                                  className="p-2 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 transition"
+                                  title="Thao tác"
+                                >
+                                  <MoreVertical className="h-4 w-4" />
+                                </button>
+
+                                {/* Dropdown Menu */}
+                                {openActionMenuId === usr.uid && (
+                                  <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
+                                    {/* Sửa */}
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        openEditUserModal(usr);
+                                        setOpenActionMenuId(null);
+                                      }}
+                                      disabled={isSelf || usr.role === "superadmin"}
+                                      className="w-full text-left px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 transition flex items-center gap-2.5 border-b border-gray-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white"
+                                    >
+                                      <Pencil className="h-3.5 w-3.5 text-indigo-600" />
+                                      Sửa thông tin
+                                    </button>
+
+                                    {/* Cấu hình HeyGen */}
+                                    {userProfile?.role === "superadmin" && (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          openHeyGenEditor(usr);
+                                          setOpenActionMenuId(null);
+                                        }}
+                                        className="w-full text-left px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-cyan-50 transition flex items-center gap-2.5 border-b border-gray-100"
+                                      >
+                                        <SlidersHorizontal className="h-3.5 w-3.5 text-cyan-600" />
+                                        Cấu hình HeyGen
+                                      </button>
+                                    )}
+
+                                    {/* Xóa */}
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        handleDeleteUser(usr);
+                                        setOpenActionMenuId(null);
+                                      }}
+                                      disabled={isSelf || usr.role === "superadmin"}
+                                      className="w-full text-left px-4 py-2.5 text-xs font-semibold text-rose-700 hover:bg-rose-50 transition flex items-center gap-2.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5 text-rose-600" />
+                                      Xóa tài khoản
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </td>
                         </tr>
@@ -1079,7 +1214,7 @@ export default function UserAdminTab() {
             </div>
           ) : (
             <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.65fr)_minmax(320px,0.95fr)] gap-6">
-              <div className="bg-white border border-gray-150 rounded-2xl overflow-hidden shadow-xs max-w-full">
+              <div className="bg-white border border-gray-150 rounded-2xl shadow-xs max-w-full" style={{ overflow: 'clip' }}>
                 <div className="max-w-full overflow-x-auto overscroll-x-contain">
                 <table className="w-full min-w-[1280px] text-left border-collapse text-xs font-sans">
                   <thead>
@@ -1578,7 +1713,10 @@ export default function UserAdminTab() {
               </div>
               <button
                 type="button"
-                onClick={() => setIsUserModalOpen(false)}
+                onClick={() => {
+                  setIsUserModalOpen(false);
+                  resetUserForm();
+                }}
                 className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-all cursor-pointer"
               >
                 <X className="h-4 w-4" />

@@ -440,46 +440,6 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
 
   const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-  const resolveHeyGenVideoUrl = async (videoId: string, context: {
-    avatarId: string;
-    audioUrl?: string;
-    audioRecordId?: string;
-    motionText?: string;
-    aspectRatio?: "16:9" | "9:16" | "1:1";
-    title?: string;
-    description?: string;
-  }) => {
-    const maxAttempts = 36;
-
-    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-      await wait(10000);
-
-      const status = await heygenApi.getVideoStatus(videoId, context);
-      const jobStatus = String(status?.jobStatus || "").toLowerCase();
-      const finalUrl = status?.videoUrl || status?.record?.url || "";
-
-      if (finalUrl && !finalUrl.startsWith("pending://heygen/")) {
-        return {
-          videoUrl: finalUrl,
-          provider: "heygen",
-        };
-      }
-
-      if (jobStatus === "completed" && finalUrl) {
-        return {
-          videoUrl: finalUrl,
-          provider: "heygen",
-        };
-      }
-
-      if (jobStatus === "failed" || jobStatus === "error") {
-        throw new Error(status?.error || "HeyGen khong the tao video tu audio da sinh.");
-      }
-    }
-
-    throw new Error("HeyGen tao video qua lau. Vui long kiem tra lai lich su render sau.");
-  };
-
   const autoCreateHumanVideos = async (
     savedCards: ContentApprovalCard[],
     posts: any[],
@@ -494,69 +454,20 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
       const voiceScript = getHumanVideoScript(post, concept.title, concept.summary);
       const motionText = String(post?.motionText || "").trim();
 
-      setAutoPilotStatus(`Dang tao voice tieng Viet cho video nguoi that: "${card.title}"...`);
-      const voiceResult = await elevenlabsApi.generateVoice({
-        textToSpeak: voiceScript,
-        mode: "single",
-        modelName: selectedHumanVoiceModel,
-        voiceName: selectedHumanVoice,
-        title: card.title,
-        description: `Voice auto cho ${card.channel}`,
-        saveToHistory: true
-      });
+      // Temporarily update card status to processing in MongoDB/UI
+      await marketingService.updateCard(card.id, { status: "processing" });
 
-      const audioRecordId = voiceResult.record?._id || voiceResult.record?.id;
-      const audioUrl = voiceResult.record?.url || voiceResult.url;
-      if (!audioUrl) {
-        throw new Error("Khong nhan duoc audio tu ElevenLabs de tao video nguoi that.");
-      }
-
-      setAutoPilotStatus(`Dang gui audio sang HeyGen de tao video nguoi that cho kenh ${card.channel}...`);
-      const heygenCreated = await heygenApi.createAvatarVideo({
+      const updatedCard = await marketingService.generateHumanVideoForCard(card.id, {
         avatarId: selectedHumanAvatar,
-        audioRecordId,
-        audioUrl,
-        motionText,
+        voiceId: selectedHumanVoice,
+        voiceModel: selectedHumanVoiceModel,
         aspectRatio,
-        resolution: videoQuality === "1080p" ? "1080p" : "720p",
-        title: card.title,
-        description: concept.summary
+        quality: videoQuality === "1080p" ? "1080p" : "720p",
+        onProgressUpdate: (status) => setAutoPilotStatus(`${status} ("${card.title}")...`)
       });
 
-      const videoId = String(heygenCreated?.videoId || heygenCreated?.record?.metadata?.heygenVideoId || "").trim();
-      if (!videoId) {
-        throw new Error("HeyGen khong tra ve videoId hop le.");
-      }
-
-      setAutoPilotStatus(`Dang cho HeyGen hoan tat video nguoi that cho kenh ${card.channel}...`);
-      const resolvedVideo = await resolveHeyGenVideoUrl(videoId, {
-        avatarId: selectedHumanAvatar,
-        audioRecordId,
-        audioUrl,
-        motionText,
-        aspectRatio,
-        title: card.title,
-        description: concept.summary
-      });
-
-      await marketingService.updateCard(card.id, {
-        videoUrl: resolvedVideo.videoUrl,
-        voiceScript,
-        motionText,
-        audioUrl,
-        audioRecordId,
-        videoProvider: resolvedVideo.provider,
-      });
-
-      nextCards[index] = {
-        ...card,
-        videoUrl: resolvedVideo.videoUrl,
-        voiceScript,
-        motionText,
-        audioUrl,
-        audioRecordId,
-        videoProvider: resolvedVideo.provider,
-      };
+      // Restore status to scheduled (as autopilot schedules them immediately after)
+      nextCards[index] = updatedCard;
     }
 
     return nextCards;
@@ -789,6 +700,8 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
 
         setAutoPilotStatus("Đang lưu bài viết và chuẩn bị lên lịch đăng...");
         const newCards: ContentApprovalCard[] = result.posts.map((post: any, index: number) => {
+          const cardMediaType = bestConcept.mediaType || (actualMediaType as any);
+          const voiceScriptVal = cardMediaType === "human-video" ? getHumanVideoScript(post, bestConcept.title, bestConcept.summary) : (post.voiceScript || "");
           return {
             id: `mod_dev_${Date.now()}_${index}_${Math.floor(Math.random() * 1000)}`,
             title: bestConcept.title,
@@ -800,10 +713,12 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
             imageUrl: post.imageUrl || null,
             videoUrl: post.videoUrl || null,
             mediaPrompt: post.mediaPrompt || "",
-            voiceScript: post.voiceScript || "",
+            voiceScript: voiceScriptVal,
             motionText: post.motionText || "",
             generatedAt: new Date().toISOString(),
-            authorUid: userProfile?.uid ?? ''
+            authorUid: userProfile?.uid ?? '',
+            mediaType: cardMediaType,
+            referenceImage: uploadedImageBase64 || undefined
           };
         });
 
@@ -944,7 +859,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
     setDevelopingIdx(idx);
     try {
       console.log("[handleDevelopConcept] Calling marketingService.developIdea...");
-      const developMediaType = isAutoPilot ? mediaType : "none";
+      const developMediaType = isAutoPilot ? mediaType : (mediaType === "human-video" ? "human-video" : "none");
       const result = await marketingService.developIdea({
         title: concept.title,
         summary: concept.summary,
@@ -967,6 +882,8 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
 
       if (result && result.posts) {
         const newCards: ContentApprovalCard[] = result.posts.map((post: any, index: number) => {
+          const cardMediaType = concept.mediaType || (mediaType as any);
+          const voiceScriptVal = cardMediaType === "human-video" ? getHumanVideoScript(post, concept.title, concept.summary) : (post.voiceScript || "");
           return {
             id: `mod_dev_${Date.now()}_${index}_${Math.floor(Math.random() * 1000)}`,
             title: concept.title,
@@ -978,10 +895,12 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
             imageUrl: post.imageUrl || null,
             videoUrl: post.videoUrl || null,
             mediaPrompt: post.mediaPrompt || "",
-            voiceScript: post.voiceScript || "",
+            voiceScript: voiceScriptVal,
             motionText: post.motionText || "",
             generatedAt: new Date().toISOString(),
-            authorUid: userProfile?.uid ?? ''
+            authorUid: userProfile?.uid ?? '',
+            mediaType: cardMediaType,
+            referenceImage: uploadedImageBase64 || undefined
           };
         });
 

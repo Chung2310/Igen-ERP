@@ -9,17 +9,23 @@ interface ContentStudioWorkspaceProps {
     tab: 'image' | 'video' | 'voice';
     prompt: string;
     cardId: string;
+    image?: string;
+    autoTrigger?: boolean;
   } | null;
   onClearParams?: () => void;
-  onMediaSaved?: (cardId: string, mediaUrl: string, type: 'image' | 'video') => void;
+  onMediaSaved?: (cardId: string, mediaUrl: string, type: 'image' | 'video' | 'audio') => void;
 }
 
 export function ContentStudioWorkspace({ initialParams, onClearParams, onMediaSaved }: ContentStudioWorkspaceProps) {
   const [activeTab, setActiveTab] = useState<'image' | 'video' | 'voice'>(initialParams?.tab || 'image');
+  const [videoSubTab, setVideoSubTab] = useState<'veo' | 'heygen' | 'edit-video'>('veo');
 
   useEffect(() => {
     if (initialParams) {
       setActiveTab(initialParams.tab);
+      if (initialParams.tab === 'video') {
+        setVideoSubTab('veo');
+      }
     }
   }, [initialParams]);
 
@@ -71,6 +77,8 @@ export function ContentStudioWorkspace({ initialParams, onClearParams, onMediaSa
             initialPrompt={initialParams?.prompt}
             cardId={initialParams?.cardId}
             onMediaSaved={onMediaSaved}
+            initialImage={initialParams?.image}
+            autoTrigger={initialParams?.autoTrigger}
           />
         )}
         {activeTab === 'video' && (
@@ -78,9 +86,23 @@ export function ContentStudioWorkspace({ initialParams, onClearParams, onMediaSa
             initialPrompt={initialParams?.prompt}
             cardId={initialParams?.cardId}
             onMediaSaved={onMediaSaved}
+            initialVideoTab={videoSubTab}
+            initialImage={initialParams?.image}
+            autoTrigger={initialParams?.autoTrigger}
           />
         )}
-        {activeTab === 'voice' && <VoiceGenerationWorkspace />}
+        {activeTab === 'voice' && (
+          <VoiceGenerationWorkspace
+            initialText={initialParams?.prompt}
+            cardId={initialParams?.cardId}
+            autoTrigger={initialParams?.autoTrigger}
+            onMediaSaved={onMediaSaved}
+            onNavigateToHumanVideo={() => {
+              setVideoSubTab('heygen');
+              setActiveTab('video');
+            }}
+          />
+        )}
       </div>
     </div>
   );

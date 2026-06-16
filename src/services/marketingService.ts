@@ -1,6 +1,8 @@
 import { getAccessToken } from "./authService";
 import { ContentApprovalCard } from "../types";
 import { geminiApi } from "../api/gemini";
+import { elevenlabsApi } from "../api/elevenlabs";
+import { heygenApi } from "../api/heygen";
 
 export const marketingService = {
   async getCards(authorUid?: string): Promise<ContentApprovalCard[]> {
@@ -508,6 +510,156 @@ export const marketingService = {
     console.log(`[iGen ERP TikTok]: Đã đăng video thành công. Post ID: ${postId}`);
     return postId;
   },
+  async resolveHeyGenVideoUrl(videoId: string, context: {
+    avatarId: string;
+    audioUrl?: string;
+    audioRecordId?: string;
+    motionText?: string;
+    aspectRatio?: "16:9" | "9:16" | "1:1";
+    title?: string;
+    description?: string;
+  }) {
+    const maxAttempts = 36;
+    const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      await wait(10000);
+
+      const status = await heygenApi.getVideoStatus(videoId, context);
+      const jobStatus = String(status?.jobStatus || "").toLowerCase();
+      const finalUrl = status?.videoUrl || status?.record?.url || "";
+
+      if (finalUrl && !finalUrl.startsWith("pending://heygen/")) {
+        return {
+          videoUrl: finalUrl,
+          provider: "heygen",
+        };
+      }
+
+      if (jobStatus === "completed" && finalUrl) {
+        return {
+          videoUrl: finalUrl,
+          provider: "heygen",
+        };
+      }
+
+      if (jobStatus === "failed" || jobStatus === "error") {
+        throw new Error(status?.error || "HeyGen không thể tạo video từ audio đã sinh.");
+      }
+    }
+
+    throw new Error("HeyGen tạo video quá lâu. Vui lòng kiểm tra lại lịch sử render sau.");
+  },
+
+  async generateHumanVideoForCard(
+    cardId: string,
+    options?: {
+      avatarId?: string;
+      voiceId?: string;
+      voiceModel?: string;
+      aspectRatio?: "16:9" | "9:16" | "1:1";
+      quality?: string;
+      onProgressUpdate?: (status: string) => void;
+    }
+  ): Promise<ContentApprovalCard> {
+    const card = await this.getCardById(cardId);
+    if (!card) {
+      throw new Error("Không tìm thấy bài đăng.");
+    }
+
+    const voiceScript = getHumanVideoScript(card);
+    const motionText = String(card.motionText || "").trim();
+
+    let avatarId = options?.avatarId || "mc-linh";
+    let voiceId = options?.voiceId || "igen-female-bright";
+    let voiceModel = options?.voiceModel || "eleven_turbo_v2_5";
+    const aspectRatio = options?.aspectRatio || (card.channel === "TikTok" ? "9:16" : "16:9");
+    const quality = options?.quality || "720p";
+    const onProgressUpdate = options?.onProgressUpdate;
+
+    if (onProgressUpdate) {
+      onProgressUpdate("Đang tạo giọng nói Tiếng Việt...");
+    }
+
+    const voiceResult = await elevenlabsApi.generateVoice({
+      textToSpeak: voiceScript,
+      mode: "single",
+      modelName: voiceModel,
+      voiceName: voiceId,
+      title: card.title,
+      description: `Voice auto cho ${card.channel}`,
+      saveToHistory: true
+    });
+
+    const audioRecordId = voiceResult.record?._id || voiceResult.record?.id;
+    const audioUrl = voiceResult.record?.url || voiceResult.url;
+    if (!audioUrl) {
+      throw new Error("Không nhận được audio từ ElevenLabs để tạo video người thật.");
+    }
+
+    if (onProgressUpdate) {
+      onProgressUpdate("Đang gửi audio sang HeyGen...");
+    }
+
+    const heygenCreated = await heygenApi.createAvatarVideo({
+      avatarId,
+      audioRecordId,
+      audioUrl,
+      motionText,
+      aspectRatio,
+      resolution: quality === "1080p" ? "1080p" : "720p",
+      title: card.title,
+      description: card.title
+    });
+
+    const videoId = String(heygenCreated?.videoId || heygenCreated?.record?.metadata?.heygenVideoId || "").trim();
+    if (!videoId) {
+      throw new Error("HeyGen không trả về videoId hợp lệ.");
+    }
+
+    if (onProgressUpdate) {
+      onProgressUpdate("Đang chờ HeyGen xử lý video...");
+    }
+
+    const resolvedVideo = await this.resolveHeyGenVideoUrl(videoId, {
+      avatarId,
+      audioRecordId,
+      audioUrl,
+      motionText,
+      aspectRatio,
+      title: card.title,
+      description: card.title
+    });
+
+    let finalVideoUrl = resolvedVideo.videoUrl;
+    let finalAudioUrl = audioUrl;
+
+    try {
+      if (onProgressUpdate) {
+        onProgressUpdate("Đang tối ưu hóa lưu trữ Cloudinary...");
+      }
+      const filename = `human_video_${Date.now()}.mp4`;
+      finalVideoUrl = await this.uploadMediaToStorage(resolvedVideo.videoUrl, filename, 'video');
+    } catch (e) {
+      console.warn("Could not upload HeyGen video to Cloudinary, using direct URL:", e);
+    }
+
+    const updatePayload = {
+      videoUrl: finalVideoUrl,
+      voiceScript,
+      motionText,
+      audioUrl: finalAudioUrl,
+      audioRecordId,
+      videoProvider: resolvedVideo.provider,
+    };
+
+    await this.updateCard(card.id, updatePayload);
+
+    return {
+      ...card,
+      ...updatePayload
+    };
+  },
 };
 
 export function extractDraftContent(text: string): string {
@@ -616,4 +768,24 @@ export function splitOutlineAndDraft(text: string): { outline: string; bodyText:
   }
   
   return { outline: "", bodyText: text.trim() };
+}
+
+export function getHumanVideoScript(card: Partial<ContentApprovalCard>): string {
+  const directScript = String(card.voiceScript || "").trim();
+  if (directScript) return directScript;
+
+  const outlineText = String(card.outline || "").trim();
+  const bodyText = String(card.bodyText || "").trim();
+  const fallbackParts = [
+    `Xin chào, đây là video giới thiệu cho chiến dịch ${card.title || ""}.`,
+    card.outline || "",
+    bodyText,
+    "Liên hệ ngay để nhận tư vấn và nhận ưu đãi phù hợp."
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return (outlineText || fallbackParts).slice(0, 1200);
 }

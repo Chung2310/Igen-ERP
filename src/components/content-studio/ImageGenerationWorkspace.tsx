@@ -9,11 +9,14 @@ import {
 } from 'lucide-react';
 import { formatAiModelName } from '../../utils/usage-tracker';
 import { marketingService } from '../../services/marketingService';
+import { getAccessToken } from '../../services/authService';
 
-export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved }: {
+export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, initialImage, autoTrigger }: {
   initialPrompt?: string;
   cardId?: string;
-  onMediaSaved?: (cardId: string, mediaUrl: string, type: 'image' | 'video') => void;
+  onMediaSaved?: (cardId: string, mediaUrl: string, type: 'image' | 'video' | 'audio') => void;
+  initialImage?: string;
+  autoTrigger?: boolean;
 }) {
   const [activeCardId, setActiveCardId] = useState<string | undefined>(cardId);
 
@@ -23,7 +26,7 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved }
     }
   }, [cardId]);
 
-  const [simplePrompt, setSimplePrompt] = useState(initialPrompt || '');
+  const [simplePrompt, setSimplePrompt] = useState('');
   const [prompt, setPrompt] = useState(initialPrompt || '');
   const [negativePrompt, setNegativePrompt] = useState('');
   const [aspectRatio, setAspectRatio] = useState('1:1');
@@ -32,9 +35,15 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved }
   const [optimizeModel, setOptimizeModel] = useState('gemini-3.5-flash');
 
   // Input reference image list (base64 data URIs)
-  const [inputImageUrls, setInputImageUrls] = useState<string[]>([]);
+  const [inputImageUrls, setInputImageUrls] = useState<string[]>(initialImage ? [initialImage] : []);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+
+  useEffect(() => {
+    if (initialImage) {
+      setInputImageUrls([initialImage]);
+    }
+  }, [initialImage]);
 
   // States for processing
   const [isGenerating, setIsGenerating] = useState(false);
@@ -51,7 +60,6 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved }
 
   useEffect(() => {
     if (initialPrompt) {
-      setSimplePrompt(initialPrompt);
       setPrompt(initialPrompt);
     }
   }, [initialPrompt]);
@@ -228,6 +236,12 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved }
     }
   };
 
+  useEffect(() => {
+    if (autoTrigger && initialPrompt && !isGenerating && !generatedImageUrl) {
+      void handleGenerateImage();
+    }
+  }, [autoTrigger, initialPrompt]);
+
   const handleDeleteHistory = async (id: string) => {
     if (!confirm("Bạn có chắc chắn muốn xóa hình ảnh này khỏi lịch sử?")) return;
     try {
@@ -239,6 +253,48 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved }
       }
     } catch (e: any) {
       toast.error(`Lỗi khi xóa: ${e.message}`);
+    }
+  };
+
+  const handleDownloadImage = async (uri?: string, customName?: string) => {
+    const targetUri = uri || generatedImageUrl;
+    if (!targetUri) return;
+
+    toast.info("Đang tải ảnh về máy...");
+    try {
+      const fileName = customName || `igen-image-${Date.now()}.png`;
+      const proxyUrl = `/api/v1/media/download?url=${encodeURIComponent(targetUri)}&filename=${encodeURIComponent(fileName)}`;
+      
+      const response = await fetch(proxyUrl, {
+        headers: {
+          "Authorization": `Bearer ${getAccessToken()}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+      toast.success("Tải ảnh thành công!");
+    } catch (error) {
+      console.error("Direct image download failed, falling back:", error);
+      const link = document.createElement('a');
+      link.href = targetUri;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.warning("Không thể tải trực tiếp. Ảnh đã được mở trong tab mới để bạn tải xuống.");
     }
   };
 
@@ -476,12 +532,7 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved }
                   <div className="absolute top-3 right-3 flex gap-2">
                     <button
                       type="button"
-                      onClick={() => {
-                        const link = document.createElement('a');
-                        link.href = generatedImageUrl;
-                        link.download = `igen-image-${Date.now()}.png`;
-                        link.click();
-                      }}
+                      onClick={() => handleDownloadImage()}
                       className="p-2 bg-white/90 hover:bg-white text-slate-700 hover:text-slate-900 rounded-xl shadow-sm transition-all cursor-pointer"
                       title="Tải ảnh về máy"
                     >
