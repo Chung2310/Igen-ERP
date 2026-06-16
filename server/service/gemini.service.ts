@@ -1319,12 +1319,18 @@ Do not include markdown blocks or any text other than the JSON object.`
       const messages: any[] = [
         {
           role: "system",
-          content: `You are an expert prompt engineer for video generators. Optimize the description into a high-quality video prompt.
-Output MUST be a valid JSON object matching this schema:
+          content: `You are an elite video editing expert, cinematic director, and master prompt engineer. Your job is to take the user's video idea or editing instructions (supporting both English and Vietnamese) and translate them into a highly descriptive, professional video prompt in English.
+Analyze the user's input and expand it using standard film industry terminology across these key areas:
+1. Cinematic Style & Theme: e.g., corporate promo, fashion run, tech review, documentary, high-paced TikTok/Reel. Add descriptive elements for lighting (e.g., volumetric sunset rays, soft studio key light, dramatic split lighting) and camera specs (e.g., shot on 35mm lens, 8k resolution, crisp detail, rich color grading).
+2. Motion Dynamics (motion_analysis): Detail the velocity, pacing, and realistic physics of the subjects within the scene (e.g., high-speed motion with particle dust, slow-motion grace, smooth natural motion).
+3. Camera Direction (camera_movement): Specify the exact movement of the camera (e.g., slow cinematic panning, dynamic orbit, smooth crane lift, extreme macro close-up tracking, flycam drone shot).
+4. Audio & Text overlays: If the user mentions text, subtitles, music, or effects, integrate those cues into the general sequence breakdown.
+
+Output MUST be a valid JSON object matching this exact schema:
 {
-  "motion_analysis": "string describing the camera motion and subject physics",
-  "camera_movement": "string describing camera path and focus",
-  "optimized_english_prompt": "string of the final detailed prompt in English"
+  "motion_analysis": "Detailed description of the motion of subjects, speed changes, and physics of the scene",
+  "camera_movement": "Detailed description of camera movements, panning, focal adjustments, depth of field, and camera paths",
+  "optimized_english_prompt": "A complete, highly descriptive visual prompt in English, combining composition, lighting, cinematic style, and subject details"
 }
 Do not include markdown blocks or any text other than the JSON object.`
         }
@@ -1385,82 +1391,129 @@ Do not include markdown blocks or any text other than the JSON object.`
       duration?: number;
     }
   ): Promise<{ status: string; record: any; blueprint: any }> {
-    let originalDuration = options?.duration;
-    if (!originalDuration) {
+    const urls = videoUrl.split(",").map(u => u.trim()).filter(Boolean);
+    const isMultiple = urls.length > 1;
+
+    const urlDurations: { [url: string]: number } = {};
+    let totalComputedDuration = 0;
+    for (const url of urls) {
+      let dur = 5; // default fallback
       try {
-        const matchedRecord = await AIMediaModel.findOne({ url: videoUrl }).lean();
+        const matchedRecord = await AIMediaModel.findOne({ url }).lean();
         if (matchedRecord?.metadata?.duration) {
-          originalDuration = Number(matchedRecord.metadata.duration);
+          dur = Number(matchedRecord.metadata.duration);
         }
       } catch (dbErr) {
-        console.warn("[geminiService.editVideo] Failed to query original video duration:", dbErr);
+        console.warn("[geminiService.editVideo] Failed to query video duration for", url, dbErr);
       }
+      urlDurations[url] = dur;
+      totalComputedDuration += dur;
     }
 
+    let originalDuration = options?.duration || totalComputedDuration;
+
     const getFallbackBlueprint = () => {
-      const dur = originalDuration || 5;
-      return {
-        timeline: [
-          { type: "video", src: videoUrl, start: 0, end: dur },
-          { type: "text", content: "Tin tức", start: Math.max(0, dur - 3), end: dur }
-        ]
-      };
+      let currentOffset = 0;
+      const timeline: any[] = [];
+      for (const url of urls) {
+        const dur = urlDurations[url] || 5;
+        timeline.push({
+          type: "video",
+          src: url,
+          start: 0,
+          end: dur,
+          playbackRate: 1.0
+        });
+        currentOffset += dur;
+      }
+      timeline.push({
+        type: "text",
+        content: "Bản ghép Video",
+        start: 0,
+        end: Math.min(3, currentOffset),
+        style: {
+          position: "bottom-center",
+          color: "#FFFFFF",
+          fontSize: "32px"
+        }
+      });
+      return { timeline };
     };
 
     let blueprint = getFallbackBlueprint();
 
     try {
       if (process.env.PIAPI_API_KEY) {
-        const systemPrompt = `You are a professional video editing assistant. Your job is to translate a user's natural language video editing instructions (supporting both English and Vietnamese) into a precise Remotion video editing JSON blueprint.
+        const videoUrl = urls[0];
+        const systemPrompt = `You are a world-class senior video editor and post-production specialist. Your job is to translate a user's natural language video editing instructions (supporting both English and Vietnamese) into a precise Remotion video editing JSON blueprint. Act as a human video editor who pays meticulous attention to pacing, typography, timing, audio mixing, visual filters, and seamless scene structures.
 
-The original video URL is "${videoUrl}".
-The original video duration is exactly ${originalDuration || 5} seconds.
+${isMultiple ? `The user has provided MULTIPLE input videos. Here is the list of source videos available:
+${urls.map((url, idx) => `- Source Video ${idx + 1}: URL: "${url}", Duration: ${urlDurations[url]} seconds.`).join("\n")}
 
-You MUST follow these strict rules to map user editing requests to the timeline:
+You MUST map each video clip segment to its correct source URL by setting the "src" property of the video clip to the exact URL of that video from the list above. Ensure you join them in the logical order described in the user prompt (e.g. if the user wants to join/merge Video 1 and Video 2, create a clip for Video 1, followed by a clip for Video 2, ensuring correct start/end ranges and continuous timeline mapping).` : `The original video URL is "${urls[0]}".
+The original video duration is exactly ${originalDuration || 5} seconds.`}
 
-1. UNDERSTAND VIETNAMESE EDITING TERMS:
-   - "cắt bỏ X giây đầu" (cut first X seconds) -> Start video clips at X instead of 0.
-   - "cắt bỏ X giây cuối" (cut last X seconds) -> End video clips at (originalDuration - X).
-   - "tua nhanh gấp N lần" (fast forward N times) -> Set playbackRate to N.
-   - "tua chậm / slow-motion N lần" (slow down N times) -> Set playbackRate to (1/N).
-   - "tăng sáng" (brighten) -> set filters.brightness > 1.0 (e.g. 1.3).
-   - "làm tối" (darken) -> set filters.brightness < 1.0 (e.g. 0.7).
-   - "đen trắng" (grayscale) -> set filters.grayscale = 1.0.
-   - "làm mờ / hiệu ứng mờ" (blur) -> set filters.blur to value in pixels (e.g. 5).
-   - "màu cổ điển / màu hoài cổ / màu ngả vàng" (sepia) -> set filters.sepia to value from 0 to 1 (e.g. 0.8).
-   - "đảo ngược màu / đảo màu" (invert) -> set filters.invert to value from 0 to 1 (e.g. 1.0).
-   - "tăng độ tương phản" -> set filters.contrast > 1.0 (e.g. 1.4).
-   - "giảm độ tương phản" -> set filters.contrast < 1.0 (e.g. 0.7).
-   - "tăng độ bão hòa màu / làm màu rực rỡ" -> set filters.saturate > 1.0 (e.g. 1.5).
-   - "giảm độ bão hòa màu / làm màu nhạt đi" -> set filters.saturate < 1.0 (e.g. 0.5).
-   - "đổi sắc độ / xoay tông màu" (hue rotation) -> set filters.hueRotate to value in degrees (e.g. 90).
-   - "chèn logo / sticker / ảnh" (insert image/logo) -> type: "image".
-   - "chèn chữ / viết chữ / phụ đề / lyrics" (insert text/overlay) -> type: "text".
-   - "lồng nhạc / chèn âm thanh" (insert audio/music) -> type: "audio".
-   - "zoom vào / phóng to" (zoom in) -> set effects.zoom to "in".
-   - "zoom ra / thu nhỏ" (zoom out) -> set effects.zoom to "out".
-   - "xoay / đổi góc / quay nghiêng" (rotate angle) -> set effects.rotate to angle in degrees (e.g. 90, 180, 270, -45).
-   - "chuyển cảnh fade / mờ dần / chuyển cảnh mượt" -> set effects.transition to "fade".
-   - "tiếng ting / âm thanh thành công" (ting sound effect) -> type: "audio" with src "https://assets.mixkit.co/active_storage/sfx/2019/2019-84.wav".
-   - "tiếng whoosh / âm thanh lướt" (whoosh sound effect) -> type: "audio" with src "https://assets.mixkit.co/active_storage/sfx/2013/2013-84.wav".
-   - "tiếng cười / tiếng cười lớn" (laughter sound effect) -> type: "audio" with src "https://assets.mixkit.co/active_storage/sfx/2568/2568-84.wav".
-   - "tiếng nổ / vụ nổ" (explosion sound effect) -> type: "audio" with src "https://assets.mixkit.co/active_storage/sfx/2798/2798-84.wav".
-   - "tiếng tít / tiếng censor / beep" (beep sound effect) -> type: "audio" with src "https://assets.mixkit.co/active_storage/sfx/1076/1076-84.wav".
+You MUST follow these strict professional post-production rules to map editing requests to the timeline:
 
-2. TIMELINE STRUCTURE & MATH GUIDELINES:
-   - The timeline consists of sequential video segments. Unless a user explicitly requests to cut or remove a section, you MUST preserve the entire original video from start to finish.
-   - If a specific segment is modified (e.g. slowed down or filtered), you must split the original video into multiple sequential 'video' clips.
-     Example: Original duration is 6s. User wants to slow down the first 2 seconds. You must create two clips:
-       Clip 1: start: 0, end: 2, playbackRate: 0.5 (takes 4 seconds in the final timeline)
-       Clip 2: start: 2, end: 6, playbackRate: 1.0 (takes 4 seconds in the final timeline)
-       Total final video duration: 8 seconds.
-   - TIMELINES FOR OVERLAYS (text, image, audio): The 'start' and 'end' values for overlays must match the final timeline timestamps (after speed/playbackRate calculations of the video clips).
-     In the example above, if the user wants text at the very end of the video for 2 seconds, it should be start: 6, end: 8.
-   - MULTIPLE TEXT / SUBTITLES / CAPTIONS: To add multiple lines of text, subtitles, or captions, output multiple "text" elements in the timeline, each with its own start, end, content, and style parameters matching the flow.
-   - SOUND EFFECTS: When the user requests a sound effect (e.g., ting, whoosh, laughter, explosion, censor/beep), insert a short "audio" clip at the requested timestamp. Use the exact URLs provided in Rule 1. Typically, these last between 1 to 3 seconds.
+1. COMPREHENSIVE UNDERSTANDING OF EDITING TERMINOLOGY (ENGLISH & VIETNAMESE):
+   - Trimming & Cutting:
+     * "cắt bỏ X giây đầu" / "bỏ đầu X giây" (cut first X seconds) -> Start video clips at X instead of 0.
+     * "cắt bỏ X giây cuối" / "bỏ cuối X giây" (cut last X seconds) -> End video clips at (originalDuration - X).
+     * "lấy đoạn từ X đến Y giây" / "chỉ giữ lại từ X đến Y" -> Start video clips at X and end at Y.
+   - Pacing & Playback Speed (playbackRate):
+     * "tua nhanh gấp N lần" / "tăng tốc N lần" (fast forward N times) -> Set playbackRate to N.
+     * "tua chậm N lần" / "slow-motion N lần" / "giảm tốc N lần" (slow down N times) -> Set playbackRate to (1/N).
+   - Visual Filters (filters):
+     * "tăng sáng" / "làm sáng lên" (brighten) -> set filters.brightness > 1.0 (e.g., 1.35).
+     * "làm tối đi" / "giảm sáng" (darken) -> set filters.brightness < 1.0 (e.g., 0.65).
+     * "đên trắng" / "grayscale" (grayscale) -> set filters.grayscale = 1.0.
+     * "làm mờ" / "hiệu ứng mờ sương" (blur) -> set filters.blur to value in pixels (e.g., 6).
+     * "màu cổ điển" / "màu hoài cổ" / "sepia" (sepia) -> set filters.sepia from 0 to 1 (e.g., 0.85).
+     * "đảo ngược màu" / "đảo màu" (invert) -> set filters.invert from 0 to 1 (e.g., 1.0).
+     * "tăng tương phản" (contrast) -> set filters.contrast > 1.0 (e.g., 1.4).
+     * "giảm tương phản" -> set filters.contrast < 1.0 (e.g., 0.7).
+     * "tăng độ bão hòa" / "màu rực rỡ" (saturate) -> set filters.saturate > 1.0 (e.g., 1.6).
+     * "giảm độ bão hòa" / "màu nhạt đi" -> set filters.saturate < 1.0 (e.g., 0.4).
+     * "xoay tông màu" / "đổi sắc độ" (hue rotation) -> set filters.hueRotate in degrees (e.g., 120).
+   - Graphic & Visual Overlays (type: "image" or "text"):
+     * "chèn logo" / "chèn sticker" / "thêm ảnh" -> type: "image".
+     * "chèn chữ" / "hiển thị phụ đề" / "chèn lyrics" -> type: "text".
+   - Sound Design (type: "audio"):
+     * "lồng nhạc" / "chèn nhạc nền" / "thêm âm thanh" -> type: "audio".
+      * Preloaded Background Music Tracks:
+        * "nhạc công nghệ nhịp nhàng" / "nhạc công nghệ" / "rhythmic tech" -> src: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3"
+        * "nhạc sôi động" / "EDM" / "upbeat" -> src: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
+        * "nhạc lofi" / "lofi chill" / "thư giãn" -> src: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3"
+        * "nhạc nhẹ" / "acoustic" / "piano ambient" -> src: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3"
+        * "nhạc quảng cáo" / "corporate" / "doanh nghiệp" -> src: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3"
+      * Audio transitions and preloaded sound effects:
+       * "tiếng ting" / "ting sound" / "thành công" -> src: "https://assets.mixkit.co/active_storage/sfx/2019/2019-84.wav"
+       * "tiếng whoosh" / "whoosh sound" / "lướt qua" -> src: "https://assets.mixkit.co/active_storage/sfx/2013/2013-84.wav"
+       * "tiếng cười" / "laughter sound" / "cười lớn" -> src: "https://assets.mixkit.co/active_storage/sfx/2568/2568-84.wav"
+       * "tiếng nổ" / "explosion sound" -> src: "https://assets.mixkit.co/active_storage/sfx/2798/2798-84.wav"
+       * "tiếng tít" / "censor beep" / "tiếng chửi bậy" -> src: "https://assets.mixkit.co/active_storage/sfx/1076/1076-84.wav"
+      * CRITICAL RULE FOR AUDIO: You MUST choose the exact URL from the preloaded background music or sound effects lists above for any audio tracks or sfx requested by the user. NEVER generate placeholder domains or make up URLs, otherwise rendering will fail.
+   - Special Camera Effects (effects):
+     * "zoom vào" / "phóng to" (zoom in) -> set effects.zoom to "in".
+     * "zoom ra" / "thu nhỏ" (zoom out) -> set effects.zoom to "out".
+     * "xoay góc" / "quay nghiêng" (rotate) -> set effects.rotate in degrees (e.g., 90, 180, -45).
+     * "chuyển cảnh fade" / "mờ dần" -> set effects.transition to "fade".
+
+2. POST-PRODUCTION MATHEMATICS & TIMELINE INTEGRITY RULES:
+   - Preserving Sequence: Unless specifically instructed to delete, cut, or crop a segment, you MUST preserve the entire length of the original video.
+   - Speed Ramping & Splitting: If any segment speed or filter changes, you MUST split the original video track into multiple sequential clips.
+     * MATH RULE: If a segment from start_original to end_original is speed-ramped by rate R, its duration on the final timeline becomes: (end_original - start_original) / R.
+     * Example: Original duration is 8s. User requests: "Tua nhanh 4 giây đầu gấp đôi (speed = 2.0)".
+       You must create two clips:
+       Clip 1 (Original 0s to 4s): start: 0, end: 4, playbackRate: 2.0. (Final duration = 2s)
+       Clip 2 (Original 4s to 8s): start: 4, end: 8, playbackRate: 1.0. (Final duration = 4s)
+       Total final video duration = 6 seconds.
+   - Syncing Overlays (text, image, audio): All overlays are positioned relative to the FINAL timeline timestamps.
+     * In the example above, if the user wants a logo to appear at the start of Clip 2 (which starts at 4s in the original but 2s in the final), the overlay start MUST be 2.
+   - Text Readability & Placement: Make text visually appealing. Position them appropriately (bottom-center for captions/subtitles, center for titles, top-left for logos). Use high-contrast colors (e.g., yellow '#FFD700', white '#FFFFFF', red '#FF3333').
 
 3. VALID JSON SCHEMA:
-Output MUST be a valid JSON object matching this schema (with no other text or markdown blocks):
+Output MUST be a valid JSON object matching this schema (with no other text, markdown blocks, or comments):
 {
   "timeline": [
     {
@@ -1468,20 +1521,20 @@ Output MUST be a valid JSON object matching this schema (with no other text or m
       "src": "string (MUST be the original video url exactly)",
       "start": number (start time in seconds in the original video),
       "end": number (end time in seconds in the original video),
-      "playbackRate": number (MUST be explicitly defined for every clip, default 1.0),
+      "playbackRate": number (explicitly defined, default 1.0),
       "filters": {
-        "brightness": number (optional, e.g. 1.2 or 0.8),
+        "brightness": number (optional, e.g. 1.3),
         "grayscale": number (optional, 0 to 1),
-        "blur": number (optional, blur in pixels, e.g. 5),
+        "blur": number (optional, in pixels, e.g. 5),
         "sepia": number (optional, 0 to 1),
         "invert": number (optional, 0 to 1),
-        "contrast": number (optional, contrast multiplier, e.g. 1.3),
-        "saturate": number (optional, saturation multiplier, e.g. 1.5),
-        "hueRotate": number (optional, rotation in degrees, e.g. 90)
+        "contrast": number (optional, multiplier, e.g. 1.2),
+        "saturate": number (optional, multiplier, e.g. 1.5),
+        "hueRotate": number (optional, degrees, e.g. 90)
       },
       "effects": {
         "zoom": "in" | "out" | "none" (optional, default "none"),
-        "rotate": number (optional, rotation in degrees, default 0),
+        "rotate": number (optional, degrees, default 0),
         "transition": "fade" | "none" (optional, default "none")
       }
     },
@@ -1492,88 +1545,64 @@ Output MUST be a valid JSON object matching this schema (with no other text or m
       "end": number (end time in seconds in the final compiled video),
       "style": {
         "position": "top-left" | "top-center" | "top-right" | "center" | "bottom-left" | "bottom-center" | "bottom-right",
-        "color": "string (hex code, e.g. '#FFFFFF')",
+        "color": "string (hex, e.g. '#FFFFFF')",
         "fontSize": "string (e.g. '36px')"
       }
     },
     {
       "type": "image",
-      "src": "string (URL of the image/logo)",
-      "start": number (start time in seconds in final compiled video),
-      "end": number (end time in seconds in final compiled video),
+      "src": "string (URL of image/logo)",
+      "start": number (start time in seconds in the final compiled video),
+      "end": number (end time in seconds in the final compiled video),
       "style": {
         "position": "top-right" | "top-left" | "bottom-right" | "bottom-left",
-        "width": number (width in pixels),
-        "opacity": number (0 to 1)
+        "width": number,
+        "opacity": number
       }
     },
     {
       "type": "audio",
-      "src": "string (URL of the audio/music track or preloaded sound effect)",
-      "start": number (start time in seconds in final compiled video),
-      "end": number (end time in seconds in final compiled video),
+      "src": "string (URL of music track or sound effect)",
+      "start": number (start time in seconds in the final compiled video),
+      "end": number (end time in seconds in the final compiled video),
       "volume": number (0 to 1)
     }
   ]
 }
 
-4. EXAMPLES:
+4. ILLUSTRATIVE POST-PRODUCTION EXAMPLES:
 
-Example A (Speed & Filters):
-User prompt: "Tua nhanh 2 giây đầu gấp đôi và đổi sang đen trắng, giữ nguyên phần còn lại."
-Original duration: 5 seconds.
-JSON:
-{
-  "timeline": [
-    {
-      "type": "video",
-      "src": "${videoUrl}",
-      "start": 0,
-      "end": 2,
-      "playbackRate": 2.0,
-      "filters": { "grayscale": 1.0 }
-    },
-    {
-      "type": "video",
-      "src": "${videoUrl}",
-      "start": 2,
-      "end": 5,
-      "playbackRate": 1.0
-    }
-  ]
-}
-
-Example B (Text Overlay & Trimming):
-User prompt: "Cắt bỏ 1 giây đầu. Hiện chữ 'Hello World' từ giây 1 đến giây 3 ở giữa màn hình."
+Example A (Trim & Speed Ramp):
+User prompt: "Cắt bỏ 1 giây đầu. Tua nhanh 2 giây tiếp theo gấp đôi, phần còn lại giữ nguyên tốc độ bình thường."
 Original duration: 6 seconds.
-JSON:
+Visual timeline breakdown:
+- Step 1: Clip 1 starts at 1s in original, ends at 3s in original. Speed is 2.0. (Final duration = (3-1)/2 = 1s)
+- Step 2: Clip 2 starts at 3s in original, ends at 6s in original. Speed is 1.0. (Final duration = 3s)
+- Total compiled duration = 4s.
+JSON output:
 {
   "timeline": [
     {
       "type": "video",
       "src": "${videoUrl}",
       "start": 1,
-      "end": 6,
-      "playbackRate": 1.0
+      "end": 3,
+      "playbackRate": 2.0
     },
     {
-      "type": "text",
-      "content": "Hello World",
-      "start": 0,
-      "end": 2,
-      "style": {
-        "position": "center",
-        "color": "#FFFFFF",
-        "fontSize": "36px"
-      }
+      "type": "video",
+      "src": "${videoUrl}",
+      "start": 3,
+      "end": 6,
+      "playbackRate": 1.0
     }
   ]
 }
 
-Example C (Effects & Sound Effects):
-User prompt: "Phóng to (zoom in) và xoay 90 độ ở 3 giây cuối cùng, đồng thời chèn tiếng ting thành công ở giây thứ 3."
-Original duration: 6 seconds.
-JSON:
+Example B (Text Overlay & Filter Sync):
+User prompt: "Làm đen trắng 3 giây đầu tiên và chèn chữ 'Xin Chào' màu vàng nổi bật ở giữa màn hình."
+Original duration: 5 seconds.
+JSON output:
 {
   "timeline": [
     {
@@ -1581,177 +1610,126 @@ JSON:
       "src": "${videoUrl}",
       "start": 0,
       "end": 3,
-      "playbackRate": 1.0
+      "playbackRate": 1.0,
+      "filters": { "grayscale": 1.0 }
     },
     {
       "type": "video",
       "src": "${videoUrl}",
       "start": 3,
+      "end": 5,
+      "playbackRate": 1.0
+    },
+    {
+      "type": "text",
+      "content": "Xin Chào",
+      "start": 0,
+      "end": 3,
+      "style": {
+        "position": "center",
+        "color": "#FFD700",
+        "fontSize": "40px"
+      }
+    }
+  ]
+}
+
+Example C (Audio Sound Effects & Fade Transitions):
+User prompt: "Phóng to và chuyển cảnh mờ dần ở 2 giây cuối, chèn tiếng ting thành công khi chuyển cảnh."
+Original duration: 6 seconds.
+JSON output:
+{
+  "timeline": [
+    {
+      "type": "video",
+      "src": "${videoUrl}",
+      "start": 0,
+      "end": 4,
+      "playbackRate": 1.0
+    },
+    {
+      "type": "video",
+      "src": "${videoUrl}",
+      "start": 4,
       "end": 6,
       "playbackRate": 1.0,
       "effects": {
         "zoom": "in",
-        "rotate": 90,
         "transition": "fade"
       }
     },
     {
       "type": "audio",
       "src": "https://assets.mixkit.co/active_storage/sfx/2019/2019-84.wav",
-      "start": 3,
-      "end": 4.5,
-      "volume": 0.8
+      "start": 4,
+      "end": 5.5,
+      "volume": 0.95
     }
   ]
 }
 
-Do not output any markdown blocks or extra text. Output ONLY the JSON object.`;
-
-        const messages = [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: `Generate JSON blueprint for: "${prompt}"` }
-        ];
-
-        const response = await piapiService.chatCompletions(messages, "gpt-4o-mini", { type: "json_object" });
-        const content = response.choices?.[0]?.message?.content || "{}";
-        blueprint = JSON.parse(content.trim());
-      }
-    } catch (error) {
-      console.error("[geminiService.editVideo] Failed to get LLM blueprint, falling back:", error);
-      blueprint = getFallbackBlueprint();
-    }
-
-    // Save record to database with status processing
-    const record = await AIMediaModel.create({
-      userId,
-      mediaType: "video",
-      url: `pending://local-render/${userId}-${Date.now()}`,
-      prompt,
-      metadata: {
-        status: "processing",
-        progress: 10,
-        provider: "local-render",
-        title: `Biên tập: ${prompt}`,
-        description: `Đang kết xuất video tự động bằng FFMPEG / Cloud Render.`,
-        blueprint: JSON.stringify(blueprint),
-        renderLogs: [
-          "[LLM] Đang phân tích prompt...",
-          `[LLM] Đã phân tích thành công JSON Blueprint: ${JSON.stringify(blueprint, null, 2)}`
-        ],
-        aspectRatio: options?.aspectRatio || "16:9",
-        resolution: options?.resolution || "720p",
-      }
-    });
-
-    // Start background render execution
-    this.executeLocalRenderBackground(record._id.toString(), videoUrl, blueprint, userId);
-
-    return {
-      status: "success",
-      record,
-      blueprint
-    };
-  },
-
-  async executeLocalRenderBackground(recordId: string, videoUrl: string, blueprint: any, userId: string) {
-    console.log(`[Local Render Background] Starting task for record ${recordId}`);
-    const timeline = blueprint.timeline || [];
-    const logs = [
-      "[LLM] Đang phân tích prompt...",
-      `[LLM] Đã phân tích thành công JSON Blueprint: ${JSON.stringify(blueprint, null, 2)}`,
-      "[Render Engine] Khởi động Render Engine..."
-    ];
-    
-    const updateLogs = async (progress: number, newLog?: string) => {
-      if (newLog) {
-        console.log(`[Local Render Background] [${progress}%] ${newLog}`);
-        logs.push(newLog);
-      }
-      await AIMediaModel.findByIdAndUpdate(recordId, {
-        "metadata.progress": progress,
-        "metadata.renderLogs": logs
-      });
-    };
-
-    try {
-      let finalVideoUrl = "";
-      let renderSuccess = false;
-
-      try {
-        await updateLogs(25, "[Render Engine] Bắt đầu kết xuất video bằng Remotion...");
-        const record = await AIMediaModel.findById(recordId);
-        const aspect = record?.metadata?.aspectRatio || "16:9";
-        const resolution = record?.metadata?.resolution || "720p";
-        
-        finalVideoUrl = await remotionService.renderVideo(
-          blueprint,
-          { aspectRatio: aspect, resolution },
-          async (progress, msg) => {
-            await updateLogs(progress, msg);
-          }
-        );
-        renderSuccess = true;
-      } catch (remotionError: any) {
-        await updateLogs(
-          35,
-          `[Render Engine Warning] Remotion Engine không thể kết xuất (có thể do thiếu Chromium): ${remotionError.message || String(remotionError)}. Đang tự động chuyển sang công cụ Render Fallback...`
-        );
-      }
-
-      if (!renderSuccess) {
-        finalVideoUrl = videoUrl;
-
-        await updateLogs(40, "[Render Engine Fallback] Đang kiểm tra môi trường FFMPEG...");
-        
-        const hasFfmpeg = await new Promise<boolean>((resolve) => {
-          exec("ffmpeg -version", (error) => {
-            resolve(!error);
-          });
-        });
-
-        await updateLogs(45, `[Render Engine Fallback] Kết quả FFMPEG: ${hasFfmpeg ? "Đã cài đặt" : "Chưa cài đặt"}`);
-
-        if (hasFfmpeg) {
-          const tempInput = path.join(os.tmpdir(), `input_${recordId}.mp4`);
-          const tempOutput = path.join(os.tmpdir(), `output_${recordId}.mp4`);
-          
+Example D (Complex Trimming, Zoom patterns and Background Music):
+User prompt: "5 giây đầu zoom lên, 10s tiếp theo cách 3 giây sẽ zoom in và zoom out 1 lần, 10 giây cuối cho nhạc        if (hasFfmpeg) {
           const cacheDir = path.join(process.cwd(), "server/cache/videos");
           if (!fs.existsSync(cacheDir)) {
             fs.mkdirSync(cacheDir, { recursive: true });
           }
 
-          const urlParts = videoUrl.split("/");
-          const filename = urlParts[urlParts.length - 1];
-          const localCachePath = path.join(cacheDir, filename);
-
-          if (filename && filename.match(/^[a-zA-Z0-9_-]+\.[a-zA-Z0-9]+$/) && fs.existsSync(localCachePath)) {
-            await updateLogs(50, `[Render Engine Cache] Phát hiện video nguồn trong cache cục bộ (${filename}). Sao chép trực tiếp...`);
-            fs.copyFileSync(localCachePath, tempInput);
-          } else {
-            await updateLogs(50, "[Render Engine Fallback] Đang tải video gốc xuống server tạm...");
-            const response = await fetch(videoUrl);
-            if (!response.ok) {
-              throw new Error(`Tải video gốc thất bại: HTTP ${response.status}`);
-            }
-            const buffer = Buffer.from(await response.arrayBuffer());
-            fs.writeFileSync(tempInput, buffer);
-          }
-          
-          await updateLogs(55, "[Render Engine Fallback] Đang phát hiện luồng âm thanh...");
-          const hasAudio = await new Promise<boolean>((resolve) => {
-            exec(`ffmpeg -i "${tempInput}"`, (error, stdout, stderr) => {
-              const info = stderr || stdout || "";
-              resolve(info.includes("Audio:"));
-            });
-          });
-          
-          await updateLogs(60, `[Render Engine Fallback] Âm thanh nguồn: ${hasAudio ? "Có" : "Không"}`);
-          await updateLogs(65, "[Render Engine Fallback] Đang xử lý các tài nguyên lớp phủ (overlay)...");
-
           const videoClips = timeline.filter((item: any) => item.type === "video");
           const textElements = timeline.filter((item: any) => item.type === "text");
           const imageElements = timeline.filter((item: any) => item.type === "image");
           const audioElements = timeline.filter((item: any) => item.type === "audio");
+
+          // Extract all unique source video URLs from timeline video clips
+          let uniqueVideoUrls = Array.from(new Set(videoClips.map((clip: any) => clip.src).filter(Boolean)));
+          
+          // If the timeline didn't specify any source URLs (fallback case), extract them from the request videoUrl
+          if (uniqueVideoUrls.length === 0) {
+            uniqueVideoUrls = videoUrl.split(",").map(u => u.trim()).filter(Boolean);
+          }
+
+          const videoTempPaths: string[] = [];
+          const urlToInputIdx: { [url: string]: number } = {};
+
+          for (let i = 0; i < uniqueVideoUrls.length; i++) {
+            const url = uniqueVideoUrls[i];
+            const tempInput = path.join(os.tmpdir(), `input_${recordId}_${i}.mp4`);
+            
+            const urlParts = url.split("/");
+            const filename = urlParts[urlParts.length - 1];
+            const localCachePath = path.join(cacheDir, filename);
+
+            if (filename && filename.match(/^[a-zA-Z0-9_-]+\.[a-zA-Z0-9]+$/) && fs.existsSync(localCachePath)) {
+              await updateLogs(50, `[Render Engine Cache] Phát hiện video nguồn ${i + 1} trong cache cục bộ (${filename}). Sao chép...`);
+              fs.copyFileSync(localCachePath, tempInput);
+            } else {
+              await updateLogs(50, `[Render Engine Fallback] Đang tải video gốc ${i + 1}/${uniqueVideoUrls.length} xuống server tạm...`);
+              const response = await fetch(url);
+              if (!response.ok) {
+                throw new Error(`Tải video gốc ${i + 1} thất bại: HTTP ${response.status}`);
+              }
+              const buffer = Buffer.from(await response.arrayBuffer());
+              fs.writeFileSync(tempInput, buffer);
+            }
+            videoTempPaths.push(tempInput);
+            urlToInputIdx[url] = i;
+          }
+
+          await updateLogs(55, "[Render Engine Fallback] Đang phát hiện luồng âm thanh...");
+          const hasAudioMap: { [idx: number]: boolean } = {};
+          for (let i = 0; i < videoTempPaths.length; i++) {
+            const tempInputPath = videoTempPaths[i];
+            const hasAudio = await new Promise<boolean>((resolve) => {
+              exec(`ffmpeg -i "${tempInputPath}"`, (error, stdout, stderr) => {
+                const info = stderr || stdout || "";
+                resolve(info.includes("Audio:"));
+              });
+            });
+            hasAudioMap[i] = hasAudio;
+          }
+          
+          await updateLogs(60, `[Render Engine Fallback] Âm thanh nguồn các video: ${videoTempPaths.map((_, i) => `Video ${i+1}: ${hasAudioMap[i] ? "Có" : "Không"}`).join(", ")}`);
+          await updateLogs(65, "[Render Engine Fallback] Đang xử lý các tài nguyên lớp phủ (overlay)...");
 
           // 1. Download image overlays to temp files
           const imageTempPaths: string[] = [];
@@ -1793,9 +1771,8 @@ Do not output any markdown blocks or extra text. Output ONLY the JSON object.`;
           let filterComplex = "";
           let inputArgs: string[] = [];
           
-          // Keep track of the actual inputs mapped in FFMPEG
-          // Input 0: tempInput
-          let currentInputIdx = 1;
+          // Image and audio inputs start after the video inputs
+          let currentInputIdx = videoTempPaths.length;
           const imageInputMappings: { [key: number]: number } = {};
           const audioInputMappings: { [key: number]: number } = {};
 
@@ -1823,9 +1800,11 @@ Do not output any markdown blocks or extra text. Output ONLY the JSON object.`;
             const end = clip.end ?? 5;
             const rate = clip.playbackRate ?? 1;
             const clipDuration = (end - start) / rate;
+            const inputIdx = urlToInputIdx[clip.src] ?? 0;
+            const hasAudio = hasAudioMap[inputIdx] ?? false;
 
             // Video stream processing
-            let vFilter = `[0:v]trim=start=${start}:end=${end},setpts=PTS-STARTPTS`;
+            let vFilter = `[${inputIdx}:v]trim=start=${start}:end=${end},setpts=PTS-STARTPTS`;
             if (clip.filters?.grayscale !== undefined && clip.filters.grayscale > 0) {
               vFilter += `,hue=s=${1 - clip.filters.grayscale}`;
             }
@@ -1850,7 +1829,7 @@ Do not output any markdown blocks or extra text. Output ONLY the JSON object.`;
 
             // Audio stream processing
             if (hasAudio) {
-              let aFilter = `[0:a]atrim=start=${start}:end=${end},asetpts=PTS-STARTPTS`;
+              let aFilter = `[${inputIdx}:a]atrim=start=${start}:end=${end},asetpts=PTS-STARTPTS`;
               if (rate !== 1) {
                 const clampedRate = Math.max(0.5, Math.min(2.0, rate));
                 aFilter += `,atempo=${clampedRate}`;
@@ -1948,7 +1927,9 @@ Do not output any markdown blocks or extra text. Output ONLY the JSON object.`;
             currentAudioOut = "[outa]";
           }
 
-          const inputsStr = `-i "${tempInput}" ` + inputArgs.join(" ");
+          const videoInputsStr = videoTempPaths.map(p => `-i "${p}"`).join(" ");
+          const inputsStr = `${videoInputsStr} ` + inputArgs.join(" ");
+          const tempOutput = path.join(os.tmpdir(), `output_${recordId}.mp4`);
           const ffmpegCmd = `ffmpeg -y ${inputsStr} -filter_complex "${filterComplex}" -map "${currentVideoOut}" -map "${currentAudioOut}" -c:v libx264 -c:a aac -pix_fmt yuv420p -r 30 -vsync cfr "${tempOutput}"`;
 
           await updateLogs(70, "[Render Engine Fallback] Đang thực thi lệnh FFMPEG chi tiết...");
@@ -1984,15 +1965,16 @@ Do not output any markdown blocks or extra text. Output ONLY the JSON object.`;
 
           // Cleanup all temp files
           try {
-            fs.unlinkSync(tempInput);
+            videoTempPaths.forEach(p => { if (p) fs.unlinkSync(p); });
             fs.unlinkSync(tempOutput);
             imageTempPaths.forEach(p => { if (p) fs.unlinkSync(p); });
             audioTempPaths.forEach(p => { if (p) fs.unlinkSync(p); });
           } catch (e) {}
         } else if (videoUrl.includes("res.cloudinary.com")) {
-          await updateLogs(60, "[Render Engine Fallback] Không có FFMPEG. Phát hiện video nguồn trên Cloudinary. Sử dụng Cloud Render Engine...");
+          await updateLogs(60, "[Render Engine Fallback] Không có FFMPEG. Sử dụng Cloud Render Engine...");
           
-          const parts = videoUrl.split("/upload/");
+          const firstUrl = videoUrl.split(",")[0];
+          const parts = firstUrl.split("/upload/");
           let transformString = "";
           
           const videoElement = timeline.find((item: any) => item.type === "video");
@@ -2012,7 +1994,6 @@ Do not output any markdown blocks or extra text. Output ONLY the JSON object.`;
           await updateLogs(70, "[Render Engine Fallback] Không phát hiện FFMPEG. Chạy mô phỏng quá trình render...");
           await new Promise((resolve) => setTimeout(resolve, 2000));
           await updateLogs(85, "[Render Engine Fallback] Mô phỏng render hoàn tất.");
-        }
       }
 
       await updateLogs(95, "[Cloudinary] Đồng bộ hóa tài nguyên biên tập...");
