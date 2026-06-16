@@ -10,6 +10,11 @@ export interface IMarketingContent extends Document {
   imageUrl?: string;
   videoUrl?: string;
   mediaPrompt?: string;
+  voiceScript?: string;
+  motionText?: string;
+  audioUrl?: string;
+  audioRecordId?: string;
+  videoProvider?: string;
   generatedAt: Date;
   feedback?: string;
   scheduledDate?: string;

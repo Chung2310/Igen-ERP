@@ -18,6 +18,9 @@ import { marketingService } from "../../services/marketingService";
 import { socialIntegrationService } from "../../services/socialIntegrationService";
 import { geminiApi } from "../../api/gemini";
 import { toast } from "../../pages/Toast";
+import HumanVideoSettingsCard from "./HumanVideoSettingsCard";
+import { heygenApi, type HeyGenLibraryItem } from "../../api/heygen";
+import { elevenlabsApi } from "../../api/elevenlabs";
 
 interface IdeationTabProps {
   userProfile: any;
@@ -186,6 +189,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
 
   const [isAutoPilot, setIsAutoPilot] = useState(false);
   const [autoPilotStatus, setAutoPilotStatus] = useState<string>("");
+  const [autoPilotBackgroundRunning, setAutoPilotBackgroundRunning] = useState(false);
 
   // Auto-pilot scheduling & integrations configuration
   const tomorrowStr = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
@@ -208,6 +212,31 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
   const [videoQuality, setVideoQuality] = useState("720p");
   const [videoDuration, setVideoDuration] = useState("4");
   const [videoAspectRatio, setVideoAspectRatio] = useState("16:9");
+  const [selectedHumanAvatar, setSelectedHumanAvatar] = useState("mc-linh");
+  const [selectedHumanVoice, setSelectedHumanVoice] = useState("igen-female-bright");
+  const [selectedHumanVoiceModel, setSelectedHumanVoiceModel] = useState("eleven_turbo_v2_5");
+  const [estimatedHumanVoiceDuration, setEstimatedHumanVoiceDuration] = useState("15");
+  const [humanVideoAvatars, setHumanVideoAvatars] = useState<HeyGenLibraryItem[]>([]);
+  const [humanVideoVoices, setHumanVideoVoices] = useState<any[]>([]);
+  const [isLoadingHumanVideoAvatars, setIsLoadingHumanVideoAvatars] = useState(false);
+  const [isLoadingHumanVideoVoices, setIsLoadingHumanVideoVoices] = useState(false);
+  const [isPreviewingHumanVoice, setIsPreviewingHumanVoice] = useState(false);
+  const [humanVoicePreviewCache, setHumanVoicePreviewCache] = useState<Record<string, string>>({});
+
+  const mediaTypeMeta: Record<string, { label: string; tone: string }> = {
+    image: {
+      label: "Ảnh AI",
+      tone: "bg-sky-50 text-sky-700 border-sky-100"
+    },
+    video: {
+      label: "Video AI",
+      tone: "bg-amber-50 text-amber-700 border-amber-100"
+    },
+    "human-video": {
+      label: "Video người thật",
+      tone: "bg-emerald-50 text-emerald-700 border-emerald-100"
+    }
+  };
 
   const [concepts, setConcepts] = useState<MarketingConcept[]>([
     {
@@ -216,7 +245,8 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
       summary: "Tạo các video ngắn trên TikTok hướng đến lối sống tích cực, nhấn mạnh khả năng kết nối không dây siêu mượt và tính năng đo nhịp tim tự động của thiết bị X1.",
       channels: ["TikTok", "Zalo"],
       suggestedContent: "🎬 Kịch bản Reels: Một ngày bận rộn bắt đầu... Chạm nhẹ thiết bị đeo X1 để bật nhạc chạy bộ buổi sáng kết thúc ngày hiệu năng đỉnh cao.",
-      hashtags: ["#iGenX1", "#SmartWearable", "#NangTamCuocSong"]
+      hashtags: ["#iGenX1", "#SmartWearable", "#NangTamCuocSong"],
+      mediaType: "video"
     },
     {
       title: "Giải pháp chuyển đổi số - Tri ân doanh nghiệp",
@@ -224,7 +254,8 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
       summary: "Chiến dịch bài viết uy tín sâu trên LinkedIn & Facebook tri ân các đối tác đã số hóa quản lý Kho hàng nhờ iGen ERP.",
       channels: ["Zalo", "Facebook"],
       suggestedContent: "✍️ Câu chuyện: Gặp gỡ thương hiệu thời trang G-Trend, từ bế tắc thất thoát tồn kho đến quản lý an nhàn tự động 100% nhờ iGen-Forecast.",
-      hashtags: ["#iGenERP", "#ChuyenDoiSo", "#DigitalTransformation"]
+      hashtags: ["#iGenERP", "#ChuyenDoiSo", "#DigitalTransformation"],
+      mediaType: "image"
     }
   ]);
 
@@ -264,6 +295,272 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
       bulletColor: "bg-indigo-500",
     },
   ]);
+
+  useEffect(() => {
+    const loadHumanVideoLibraries = async () => {
+      setIsLoadingHumanVideoAvatars(true);
+      setIsLoadingHumanVideoVoices(true);
+
+      try {
+        const [heygenLibrary, voiceLibrary] = await Promise.all([
+          heygenApi.getLibrary(),
+          elevenlabsApi.getVoices()
+        ]);
+
+        const nextAvatars = heygenLibrary.avatars || [];
+        const mappedVoices = (voiceLibrary.voices || []).map((voice: any) => ({
+          ...voice,
+          id: voice.voice_id,
+          label: voice.name || "ElevenLabs Voice",
+          description: voice.description || voice.category || "ElevenLabs voice"
+        }));
+
+        setHumanVideoAvatars(nextAvatars);
+        setHumanVideoVoices(mappedVoices);
+
+        if (nextAvatars.length > 0) {
+          setSelectedHumanAvatar((current) =>
+            nextAvatars.some((avatar) => avatar.id === current)
+              ? current
+              : heygenLibrary.defaults?.avatarId && nextAvatars.some((avatar) => avatar.id === heygenLibrary.defaults?.avatarId)
+                ? heygenLibrary.defaults.avatarId
+                : nextAvatars[0].id
+          );
+        }
+
+        if (mappedVoices.length > 0) {
+          setSelectedHumanVoice((current) =>
+            mappedVoices.some((voice: any) => (voice.voice_id || voice.id) === current)
+              ? current
+              : mappedVoices[0].voice_id || mappedVoices[0].id || current
+          );
+        }
+      } catch (error) {
+        console.error("Failed to load human video libraries:", error);
+      } finally {
+        setIsLoadingHumanVideoAvatars(false);
+        setIsLoadingHumanVideoVoices(false);
+      }
+    };
+
+    loadHumanVideoLibraries();
+  }, []);
+
+  const humanVoicePreviewAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  const playHumanVoicePreview = (url: string) => {
+    if (humanVoicePreviewAudioRef.current) {
+      humanVoicePreviewAudioRef.current.pause();
+    }
+    const audio = new Audio(url);
+    humanVoicePreviewAudioRef.current = audio;
+    void audio.play();
+  };
+
+  const handlePreviewHumanVoice = async (voiceId?: string) => {
+    const targetVoiceId = voiceId || selectedHumanVoice;
+    if (!targetVoiceId) return;
+
+    const cachedUrl = humanVoicePreviewCache[targetVoiceId];
+    if (cachedUrl) {
+      playHumanVoicePreview(cachedUrl);
+      return;
+    }
+
+    setIsPreviewingHumanVoice(true);
+    try {
+      const humanVideoVoiceBrief = buildHumanVideoVoiceBrief();
+      const result = await elevenlabsApi.generateVoice({
+        textToSpeak: "Xin chao, day la ban nghe thu giong doc cho video nguoi that.",
+        mode: "single",
+        temperature: 1.0,
+        speakerA: "Aoede",
+        speakerB: "Puck",
+        modelName: "eleven_multilingual_v2",
+        voiceName: targetVoiceId,
+        saveToHistory: false
+      });
+
+      const previewUrl = result.url || result.record?.url;
+      if (previewUrl) {
+        setHumanVoicePreviewCache((prev) => ({ ...prev, [targetVoiceId]: previewUrl }));
+        playHumanVoicePreview(previewUrl);
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Khong the nghe thu giong doc.");
+    } finally {
+      setIsPreviewingHumanVoice(false);
+    }
+  };
+
+  const buildHumanVideoVoiceBrief = () => {
+    if (mediaType !== "human-video") return "";
+
+    const voiceLabel =
+      humanVideoVoices.find((voice: any) => (voice.voice_id || voice.id) === selectedHumanVoice)?.label ||
+      humanVideoVoices.find((voice: any) => (voice.voice_id || voice.id) === selectedHumanVoice)?.name ||
+      selectedHumanVoice;
+
+    const voiceModelLabel =
+      selectedHumanVoiceModel === "eleven_flash_v2_5"
+        ? "iGen Audio Flash v2.5"
+        : "iGen Audio Turbo v2.5";
+
+    return [
+      "YEU CAU RIENG CHO VIDEO NGUOI THAT:",
+      `- Hay phan tich mo ta chien dich va viet thanh mot doan loi thoai hoan chinh, tu nhien, co the dem doc truc tiep.`,
+      `- Giong doc duoc chon: ${voiceLabel}.`,
+      `- Model voice duoc chon: ${voiceModelLabel}.`,
+      `- Thoi luong doc muc tieu: khoang ${estimatedHumanVoiceDuration} giay.`,
+      `- Hay toi uu do dai cau chu de khi tao script voice, tong do dai phai phu hop de doc tron ven trong khoang thoi gian muc tieu.`,
+      `- Uu tien cau ngan, nhip doc ro, mo dau cuon hut, thong diep chinh ro rang va ket bang CTA ngan gon.`,
+      `- Dau ra can uu tien dang script voice hoan chinh truoc, sau do moi den goi y boi canh quay neu can.`
+    ].join("\n");
+  };
+
+  const getHumanVideoScript = (post: any, fallbackTitle: string, fallbackSummary: string) => {
+    const directScript = String(post?.voiceScript || "").trim();
+    if (directScript) return directScript;
+
+    const outlineText = String(post?.outline || "").trim();
+    const bodyText = String(post?.bodyText || "").trim();
+    const fallbackParts = [
+      `Xin chao, day la video gioi thieu cho chien dich ${fallbackTitle}.`,
+      fallbackSummary,
+      bodyText,
+      "Lien he ngay de nhan tu van va nhan uu dai phu hop."
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    return (outlineText || fallbackParts).slice(0, 1200);
+  };
+
+  const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  const resolveHeyGenVideoUrl = async (videoId: string, context: {
+    avatarId: string;
+    audioUrl?: string;
+    audioRecordId?: string;
+    motionText?: string;
+    aspectRatio?: "16:9" | "9:16" | "1:1";
+    title?: string;
+    description?: string;
+  }) => {
+    const maxAttempts = 36;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      await wait(10000);
+
+      const status = await heygenApi.getVideoStatus(videoId, context);
+      const jobStatus = String(status?.jobStatus || "").toLowerCase();
+      const finalUrl = status?.videoUrl || status?.record?.url || "";
+
+      if (finalUrl && !finalUrl.startsWith("pending://heygen/")) {
+        return {
+          videoUrl: finalUrl,
+          provider: "heygen",
+        };
+      }
+
+      if (jobStatus === "completed" && finalUrl) {
+        return {
+          videoUrl: finalUrl,
+          provider: "heygen",
+        };
+      }
+
+      if (jobStatus === "failed" || jobStatus === "error") {
+        throw new Error(status?.error || "HeyGen khong the tao video tu audio da sinh.");
+      }
+    }
+
+    throw new Error("HeyGen tao video qua lau. Vui long kiem tra lai lich su render sau.");
+  };
+
+  const autoCreateHumanVideos = async (
+    savedCards: ContentApprovalCard[],
+    posts: any[],
+    concept: MarketingConcept
+  ): Promise<ContentApprovalCard[]> => {
+    const nextCards = [...savedCards];
+    const aspectRatio = (videoAspectRatio === "9:16" ? "9:16" : "16:9") as "16:9" | "9:16";
+
+    for (let index = 0; index < nextCards.length; index += 1) {
+      const card = nextCards[index];
+      const post = posts[index] || {};
+      const voiceScript = getHumanVideoScript(post, concept.title, concept.summary);
+      const motionText = String(post?.motionText || "").trim();
+
+      setAutoPilotStatus(`Dang tao voice tieng Viet cho video nguoi that: "${card.title}"...`);
+      const voiceResult = await elevenlabsApi.generateVoice({
+        textToSpeak: voiceScript,
+        mode: "single",
+        modelName: selectedHumanVoiceModel,
+        voiceName: selectedHumanVoice,
+        title: card.title,
+        description: `Voice auto cho ${card.channel}`,
+        saveToHistory: true
+      });
+
+      const audioRecordId = voiceResult.record?._id || voiceResult.record?.id;
+      const audioUrl = voiceResult.record?.url || voiceResult.url;
+      if (!audioUrl) {
+        throw new Error("Khong nhan duoc audio tu ElevenLabs de tao video nguoi that.");
+      }
+
+      setAutoPilotStatus(`Dang gui audio sang HeyGen de tao video nguoi that cho kenh ${card.channel}...`);
+      const heygenCreated = await heygenApi.createAvatarVideo({
+        avatarId: selectedHumanAvatar,
+        audioRecordId,
+        audioUrl,
+        motionText,
+        aspectRatio,
+        resolution: videoQuality === "1080p" ? "1080p" : "720p",
+        title: card.title,
+        description: concept.summary
+      });
+
+      const videoId = String(heygenCreated?.videoId || heygenCreated?.record?.metadata?.heygenVideoId || "").trim();
+      if (!videoId) {
+        throw new Error("HeyGen khong tra ve videoId hop le.");
+      }
+
+      setAutoPilotStatus(`Dang cho HeyGen hoan tat video nguoi that cho kenh ${card.channel}...`);
+      const resolvedVideo = await resolveHeyGenVideoUrl(videoId, {
+        avatarId: selectedHumanAvatar,
+        audioRecordId,
+        audioUrl,
+        motionText,
+        aspectRatio,
+        title: card.title,
+        description: concept.summary
+      });
+
+      await marketingService.updateCard(card.id, {
+        videoUrl: resolvedVideo.videoUrl,
+        voiceScript,
+        motionText,
+        audioUrl,
+        audioRecordId,
+        videoProvider: resolvedVideo.provider,
+      });
+
+      nextCards[index] = {
+        ...card,
+        videoUrl: resolvedVideo.videoUrl,
+        voiceScript,
+        motionText,
+        audioUrl,
+        audioRecordId,
+        videoProvider: resolvedVideo.provider,
+      };
+    }
+
+    return nextCards;
+  };
 
   // Load suggestions from AI on mount
   useEffect(() => {
@@ -393,6 +690,11 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
         apiTopic = `${topic}\n\nTÀI LIỆU ĐÍNH KÈM:\nTên tài liệu: ${uploadedDocName}\nNội dung tài liệu:\n${uploadedDocText}`;
       }
 
+      const voiceBrief = buildHumanVideoVoiceBrief();
+      if (voiceBrief) {
+        apiTopic = `${apiTopic}\n\n${voiceBrief}`;
+      }
+
       let pillarsToUse = selectedPillars;
       if (isAutoPilot) {
         setAutoPilotStatus("Đang phân tích định hướng Content Pillars...");
@@ -436,10 +738,17 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
       }
 
       setAutoPilotStatus("Đang lên ý tưởng chiến dịch...");
-      const actualMediaType = isAutoPilot ? mediaType : "none";
+      const actualMediaType = mediaType;
       const data = await geminiApi.generateMarketingIdeas(apiTopic, pillarsToUse, selectedChannels, actualMediaType, uploadedImageBase64 ? [uploadedImageBase64] : undefined);
-      
-      const generatedConcepts = data.concepts || [];
+      if (data.isMock) {
+        console.warn("[IdeationTab] Marketing ideas fallbacked to mock data.");
+        toast.warning("AI đang trả về dữ liệu mẫu. Có thể backend vừa fallback sang mock.");
+      }
+
+      const generatedConcepts = (data.concepts || []).map((concept: MarketingConcept) => ({
+        ...concept,
+        mediaType: actualMediaType
+      }));
       if (generatedConcepts.length === 0) {
         throw new Error("AI không thể tạo ý tưởng chiến dịch phù hợp.");
       }
@@ -447,6 +756,9 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
       setConcepts(generatedConcepts);
 
       if (isAutoPilot) {
+        setLoadingAI(false);
+        setAutoPilotBackgroundRunning(true);
+
         // Run auto-pilot flow
         const sortedConcepts = [...generatedConcepts].sort((a: any, b: any) => (b.matchPercent || 0) - (a.matchPercent || 0));
         const bestConcept = sortedConcepts[0];
@@ -464,7 +776,11 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
           videoModel,
           videoQuality,
           videoDuration: parseInt(videoDuration),
-          videoAspectRatio
+          videoAspectRatio,
+          mediaPrompt: bestConcept.mediaPrompt,
+          humanVoiceId: selectedHumanVoice,
+          humanVoiceModel: selectedHumanVoiceModel,
+          humanDurationSeconds: parseInt(estimatedHumanVoiceDuration, 10) || 15,
         });
 
         if (!result || !result.posts || result.posts.length === 0) {
@@ -484,12 +800,18 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
             imageUrl: post.imageUrl || null,
             videoUrl: post.videoUrl || null,
             mediaPrompt: post.mediaPrompt || "",
+            voiceScript: post.voiceScript || "",
+            motionText: post.motionText || "",
             generatedAt: new Date().toISOString(),
             authorUid: userProfile?.uid ?? ''
           };
         });
 
-        const savedCards = await marketingService.saveCards(newCards);
+        let savedCards = await marketingService.saveCards(newCards);
+
+        if (actualMediaType === "human-video") {
+          savedCards = await autoCreateHumanVideos(savedCards, result.posts, bestConcept);
+        }
 
         // Check if there are any cards with pending video tasks
         const pendingCards = savedCards.filter(c => c.videoUrl && c.videoUrl.startsWith("pending://piapi/"));
@@ -612,6 +934,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
       toast.error(err.message || "Tự động hóa thất bại. Vui lòng kiểm tra lại cấu hình hoặc số dư ví.");
     } finally {
       setLoadingAI(false);
+      setAutoPilotBackgroundRunning(false);
       setAutoPilotStatus("");
     }
   };
@@ -621,19 +944,24 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
     setDevelopingIdx(idx);
     try {
       console.log("[handleDevelopConcept] Calling marketingService.developIdea...");
+      const developMediaType = isAutoPilot ? mediaType : "none";
       const result = await marketingService.developIdea({
         title: concept.title,
         summary: concept.summary,
         suggestedContent: concept.suggestedContent,
         channels: concept.channels,
-        mediaType: isAutoPilot ? mediaType : "none",
+        mediaType: developMediaType,
         imageModel,
         imageResolution,
         imageAspectRatio,
         videoModel,
         videoQuality,
         videoDuration: parseInt(videoDuration),
-        videoAspectRatio
+        videoAspectRatio,
+        mediaPrompt: concept.mediaPrompt,
+        humanVoiceId: selectedHumanVoice,
+        humanVoiceModel: selectedHumanVoiceModel,
+        humanDurationSeconds: parseInt(estimatedHumanVoiceDuration, 10) || 15,
       });
       console.log("[handleDevelopConcept] Received result from API:", result);
 
@@ -650,6 +978,8 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
             imageUrl: post.imageUrl || null,
             videoUrl: post.videoUrl || null,
             mediaPrompt: post.mediaPrompt || "",
+            voiceScript: post.voiceScript || "",
+            motionText: post.motionText || "",
             generatedAt: new Date().toISOString(),
             authorUid: userProfile?.uid ?? ''
           };
@@ -698,11 +1028,23 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
             </div>
           )}
           <div>
+            {autoPilotBackgroundRunning && isAutoPilot && (
+              <div className="mb-4 rounded-2xl border border-indigo-200 bg-indigo-50/80 px-4 py-3 text-left shadow-sm">
+                <div className="flex items-center gap-2 text-indigo-700">
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  <span className="text-xs font-bold uppercase tracking-wide">
+                    Auto-pilot đang chạy nền
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-slate-600">
+                  {autoPilotStatus || "AI đang tiếp tục xử lý lưu nội dung, media và lịch đăng."}
+                </p>
+              </div>
+            )}
             <h4 className="font-bold text-gray-850 text-sm tracking-wide font-sans flex items-center gap-1.5 uppercase">
               <Sparkles className="h-4.5 w-4.5 text-indigo-500 animate-pulse" />
               Khởi tạo ý tưởng chiến dịch marketing
             </h4>
-            <p className="text-xs text-slate-500 mt-1 lines-clamp-2">Nhập mục tiêu chiến dịch của bạn. Gemini AI sẽ phân tích và trả về các ý tưởng bản nháp content hoàn chỉnh.</p>
 
             <form onSubmit={handleGenerateIdeas} className="mt-5 space-y-4">
               <div className="flex flex-col gap-1.5">
@@ -896,16 +1238,21 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                 </span>
                 <div className="flex flex-wrap gap-2.5">
                   {[
-                    { id: "Facebook", icon: <Facebook className="h-3.5 w-3.5" /> },
-                    { id: "Zalo", icon: <span className="font-bold text-[10px] font-mono leading-none">ZL</span> },
-                    { id: "TikTok", icon: <span className="font-bold text-[10px] font-mono leading-none">TT</span> }
+                    { id: "Facebook", icon: <Facebook className="h-3.5 w-3.5" />, disabled: false },
+                    { id: "Zalo", icon: <span className="font-bold text-[10px] font-mono leading-none">ZL</span>, disabled: true },
+                    { id: "TikTok", icon: <span className="font-bold text-[10px] font-mono leading-none">TT</span>, disabled: true }
                   ].map((chan) => {
                     const isSelected = selectedChannels.includes(chan.id);
                     return (
                       <button
                         key={chan.id}
                         type="button"
+                        disabled={chan.disabled}
                         onClick={() => {
+                          if (chan.disabled) {
+                            toast.warning(`${chan.id} đang được tắt tạm thời.`);
+                            return;
+                          }
                           if (isSelected) {
                             if (selectedChannels.length === 1) {
                               toast.warning("Bạn phải chọn ít nhất một nền tảng!");
@@ -916,8 +1263,11 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                             setSelectedChannels([...selectedChannels, chan.id]);
                           }
                         }}
-                        className={`px-3.5 py-2 text-xs font-bold rounded-xl border transition-all flex items-center gap-2 cursor-pointer select-none ${
-                          isSelected
+                        title={chan.disabled ? `${chan.id} tạm thời chưa khả dụng` : undefined}
+                        className={`px-3.5 py-2 text-xs font-bold rounded-xl border transition-all flex items-center gap-2 select-none ${
+                          chan.disabled
+                            ? "border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed opacity-70"
+                            : isSelected
                             ? "border-indigo-650 bg-indigo-50 text-indigo-750 shadow-sm ring-2 ring-indigo-550/15 cursor-pointer hover:bg-indigo-100"
                             : "border-slate-200 bg-white text-gray-500 hover:bg-slate-100 cursor-pointer"
                         }`}
@@ -1020,15 +1370,15 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
               </div>
 
               {/* Media Type Selection */}
-              {isAutoPilot && (
-                <div className="space-y-2 text-left mt-4 animate-fadeIn">
+              <div className="space-y-2 text-left mt-4 animate-fadeIn">
                   <span className="text-xs font-bold text-gray-750 block uppercase tracking-wider font-mono">
                     🖼️ Chọn loại phương tiện (Media):
                   </span>
-                  <div className="grid grid-cols-2 gap-2.5">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                     {[
                       { value: "image", label: "Hình ảnh AI", icon: <ImageIcon className="h-3.5 w-3.5" /> },
-                      { value: "video", label: "Video AI", icon: <Video className="h-3.5 w-3.5" /> }
+                      { value: "video", label: "Video AI", icon: <Video className="h-3.5 w-3.5" /> },
+                      { value: "human-video", label: "Video người thật", icon: <Video className="h-3.5 w-3.5" /> }
                     ].map((opt) => {
                       const isSelected = mediaType === opt.value;
                       return (
@@ -1038,7 +1388,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                           onClick={() => setMediaType(opt.value)}
                           className={`py-2 text-xs font-bold rounded-xl border transition-all flex items-center justify-center gap-2 cursor-pointer select-none ${
                             isSelected
-                              ? "border-indigo-600 bg-indigo-50 text-indigo-700 shadow-xs ring-2 ring-indigo-500/10"
+                              ? "border-indigo-600 bg-indigo-50 text-indigo-750 shadow-sm ring-2 ring-indigo-550/10"
                               : "border-slate-200 bg-white text-gray-500 hover:bg-slate-100"
                           }`}
                         >
@@ -1049,7 +1399,6 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                     })}
                   </div>
                 </div>
-              )}
 
               {/* Image Settings */}
               {isAutoPilot && mediaType === "image" && (
@@ -1205,20 +1554,39 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                   </div>
                 </div>
               )}
+              {/* Human Video Settings */}
+              {isAutoPilot && mediaType === "human-video" && (
+                <HumanVideoSettingsCard
+                  selectedAvatar={selectedHumanAvatar}
+                  selectedVoice={selectedHumanVoice}
+                  selectedVoiceModel={selectedHumanVoiceModel}
+                  estimatedDurationSeconds={estimatedHumanVoiceDuration}
+                  avatars={humanVideoAvatars}
+                  voices={humanVideoVoices}
+                  isLoadingAvatars={isLoadingHumanVideoAvatars}
+                  isLoadingVoices={isLoadingHumanVideoVoices}
+                  isPreviewingVoice={isPreviewingHumanVoice}
+                  onAvatarChange={setSelectedHumanAvatar}
+                  onVoiceChange={setSelectedHumanVoice}
+                  onVoiceModelChange={setSelectedHumanVoiceModel}
+                  onEstimatedDurationChange={setEstimatedHumanVoiceDuration}
+                  onPreviewVoice={handlePreviewHumanVoice}
+                />
+              )}
             </form>
           </div>
 
           <div className="mt-6 pt-4 border-t border-gray-200 flex justify-end">
             <button 
               onClick={handleGenerateIdeas}
-              disabled={loadingAI || !campaignInput.trim() || (!isAutoPilot && campaignInput.trim() !== analyzedTopic.trim())}
+              disabled={loadingAI || autoPilotBackgroundRunning || !campaignInput.trim() || (!isAutoPilot && campaignInput.trim() !== analyzedTopic.trim())}
               className={`px-5 py-2.5 rounded-xl text-xs font-bold font-sans flex items-center gap-2 select-none shadow-sm transition-all ${
-                loadingAI || !campaignInput.trim() || (!isAutoPilot && campaignInput.trim() !== analyzedTopic.trim())
+                loadingAI || autoPilotBackgroundRunning || !campaignInput.trim() || (!isAutoPilot && campaignInput.trim() !== analyzedTopic.trim())
                   ? "bg-gray-200 text-gray-400 cursor-not-allowed"
                   : "bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer active:scale-95"
               }`}
             >
-              {loadingAI ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              {loadingAI || autoPilotBackgroundRunning ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               {loadingAI ? "AI Đang sáng tạo..." : "Phát sinh Ý tưởng từ AI"}
             </button>
           </div>
@@ -1264,7 +1632,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                       {pillar.description}
                     </p>
                     <div className="mt-3 flex items-center justify-between text-[9px] font-mono uppercase font-bold tracking-wider">
-                      <span className={isSelected ? "text-indigo-600 font-semibold" : "text-gray-400"}>
+                      <span className={isSelected ? "text-indigo-650 font-semibold" : "text-gray-400"}>
                         {isSelected ? "● Đang tuyển chọn" : "○ Tạm tắt"}
                       </span>
                       <span className="text-slate-400">Click để đổi</span>
@@ -1289,6 +1657,16 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5" id="concepts_container">
           {concepts.map((concept, idx) => (
             <div key={idx} className="p-5 bg-white border border-gray-250/70 hover:border-indigo-300 rounded-2xl transition-all shadow-xs text-left flex flex-col justify-between" id={`concept_card_${idx}`}>
+              {(() => {
+                const activeMediaMeta = mediaTypeMeta[concept.mediaType || mediaType] || mediaTypeMeta.image;
+                return (
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${activeMediaMeta.tone}`}>
+                      {activeMediaMeta.label}
+                    </span>
+                  </div>
+                );
+              })()}
               <div>
                 <div className="flex justify-between items-center gap-4">
                   <span className="text-xs font-bold text-slate-800 font-sans tracking-tight leading-snug line-clamp-2">{concept.title}</span>

@@ -34,6 +34,8 @@ interface CardDetailDrawerProps {
   setScheduleDate: (date: string) => void;
   setScheduleTime: (time: string) => void;
   onUpdateCard: (id: string, updatedFields: Partial<ContentApprovalCard>) => void;
+  onPublishToPlatform?: (card: ContentApprovalCard) => Promise<void>;
+  isPublishing?: boolean;
 }
 
 export default function CardDetailDrawer({
@@ -54,6 +56,8 @@ export default function CardDetailDrawer({
   setScheduleDate,
   setScheduleTime,
   onUpdateCard,
+  onPublishToPlatform,
+  isPublishing = false,
 }: CardDetailDrawerProps) {
   const [editedTitle, setEditedTitle] = useState("");
   const [editedBodyText, setEditedBodyText] = useState("");
@@ -229,20 +233,6 @@ export default function CardDetailDrawer({
             />
           </div>
 
-          {/* Outline */}
-          {(card.outline || card.status !== 'published') && (
-            <div className="space-y-1.5">
-              <label className="block text-[10px] font-bold text-gray-450 font-mono uppercase">🔍 Dàn ý (Outline)</label>
-              <textarea
-                disabled={card.status === 'published'}
-                className="w-full text-xs text-gray-650 leading-relaxed font-sans bg-white p-3.5 rounded-xl border border-gray-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none whitespace-pre-wrap min-h-[100px] resize-y disabled:bg-slate-50 disabled:cursor-not-allowed"
-                value={editedOutline}
-                onChange={(e) => setEditedOutline(e.target.value)}
-                placeholder="Nhập dàn ý hoặc kịch bản video..."
-              />
-            </div>
-          )}
-
           {/* Timing details */}
           <div className="grid grid-cols-2 gap-4 pt-2">
             <div>
@@ -393,6 +383,29 @@ export default function CardDetailDrawer({
               >
                 <Trash2 className="h-4 w-4" />
               </button>
+
+              {/* Đăng ngay button */}
+              {(card.status === 'approved' || card.status === 'scheduled' || card.status === 'failed') && onPublishToPlatform && (
+                <button 
+                  onClick={() => onPublishToPlatform(card)}
+                  disabled={isPublishing || (card.channel === 'TikTok' && !card.videoUrl)}
+                  className={`flex items-center gap-1.5 px-4.5 py-2.5 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm ${
+                    card.channel === 'TikTok' && !card.videoUrl
+                      ? 'bg-gray-300 text-gray-400 cursor-not-allowed shadow-none'
+                      : 'bg-green-600 hover:bg-green-700 shadow-green-150 active:scale-95'
+                  }`}
+                  title={card.channel === 'TikTok' && !card.videoUrl ? "Bài đăng TikTok cần có video" : "Đăng lên nền tảng ngay lập tức"}
+                >
+                  {isPublishing ? (
+                    <>
+                      <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                      <span>Đang đăng...</span>
+                    </>
+                  ) : (
+                    <span>Đăng ngay</span>
+                  )}
+                </button>
+              )}
 
               {/* Next status/approve/schedule button */}
               {card.status !== 'published' && card.status !== 'scheduled' && card.status !== 'failed' && (

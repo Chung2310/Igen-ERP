@@ -8,7 +8,7 @@ function handleGeminiError(res: Response, error: any, defaultMessage: string) {
   const details = error.message || String(error);
   const status = error.status || error.statusCode;
 
-  if (status === 402) {
+  if (status === 402 && !String(error.message || "").toUpperCase().includes("PIAPI")) {
     return res.status(402).json({
       status: "error",
       message: error.message || "Số dư ví không đủ. Vui lòng nạp thêm tiền.",
@@ -18,8 +18,43 @@ function handleGeminiError(res: Response, error: any, defaultMessage: string) {
   let errMsg = defaultMessage;
   let statusCode = 500;
   const errStr = String(error.message || "").toUpperCase();
+  const isPiApiError = errStr.includes("PIAPI");
 
-  if (status === 503 || errStr.includes("503") || errStr.includes("UNAVAILABLE")) {
+  if (
+    isPiApiError &&
+    (status === 402 ||
+      errStr.includes("INSUFFICIENT_CREDITS") ||
+      errStr.includes("OUT OF CREDITS") ||
+      errStr.includes("NO CREDIT") ||
+      errStr.includes("PAYMENT REQUIRED") ||
+      errStr.includes("BALANCE"))
+  ) {
+    errMsg = "PiAPI het credit hoac so du khong du de tao media.";
+    statusCode = 402;
+  } else if (
+    isPiApiError &&
+    (status === 429 ||
+      errStr.includes("RESOURCE_EXHAUSTED") ||
+      errStr.includes("RATE LIMIT") ||
+      errStr.includes("TOO MANY REQUESTS") ||
+      errStr.includes("QUOTA"))
+  ) {
+    errMsg = "PiAPI da vuot quota hoac rate limit.";
+    statusCode = 429;
+  } else if (
+    isPiApiError &&
+    (status === 401 ||
+      status === 403 ||
+      errStr.includes("UNAUTHORIZED") ||
+      errStr.includes("FORBIDDEN") ||
+      errStr.includes("INVALID API KEY"))
+  ) {
+    errMsg = "PiAPI tu choi truy cap hoac API key khong hop le.";
+    statusCode = status === 401 ? 401 : 403;
+  } else if (isPiApiError && status === 400) {
+    errMsg = "PiAPI tu choi yeu cau tao media do du lieu dau vao khong hop le hoac task bi fail.";
+    statusCode = 400;
+  } else if (status === 503 || errStr.includes("503") || errStr.includes("UNAVAILABLE")) {
     errMsg = "Dịch vụ AI của Gemini hiện đang quá tải hoặc tạm thời không khả dụng. Vui lòng thử lại sau ít phút.";
     statusCode = 503;
   } else if (status === 429 || errStr.includes("429") || errStr.includes("RESOURCE_EXHAUSTED")) {
@@ -260,7 +295,11 @@ export const geminiController = {
         videoModel,
         videoQuality,
         videoDuration,
-        videoAspectRatio
+        videoAspectRatio,
+        mediaPrompt,
+        humanVoiceId,
+        humanVoiceModel,
+        humanDurationSeconds
       } = req.body;
       const userId = (req as any).user?.id;
       if (!userId) {
@@ -276,7 +315,11 @@ export const geminiController = {
         videoModel,
         videoQuality,
         videoDuration,
-        videoAspectRatio
+        videoAspectRatio,
+        mediaPrompt,
+        humanVoiceId,
+        humanVoiceModel,
+        humanDurationSeconds: humanDurationSeconds ? Number(humanDurationSeconds) : undefined,
       });
       await walletService.deductBalance(userId, API_COSTS.GEMINI_MARKETING, "Chi phí viết bài và lập dàn ý Marketing AI");
       return res.status(200).json(result);
@@ -587,16 +630,16 @@ A: Hoàn toàn MIỄN PHÍ. Đội ngũ kỹ thuật của iGen sẽ hỗ trợ 
   /**
    * POST /api/v1/gemini/optimize-script
    */
-  async optimizeScript(req: Request, res: Response) {
+   async optimizeScript(req: Request, res: Response) {
     try {
-      const { text, readingStyle } = req.body;
+      const { text, readingStyle, model } = req.body;
       const userId = (req as any).user?.id;
       if (!userId) {
         return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
       }
 
       await walletService.checkBalance(userId, API_COSTS.GEMINI_OPTIMIZE);
-      const result = await geminiService.optimizeScript(text, readingStyle);
+      const result = await geminiService.optimizeScript(text, readingStyle, model);
       await walletService.deductBalance(userId, API_COSTS.GEMINI_OPTIMIZE, "Chi phí tối ưu kịch bản bằng AI");
       return res.status(200).json(result);
     } catch (error: any) {

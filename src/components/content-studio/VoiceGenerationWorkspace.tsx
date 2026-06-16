@@ -77,14 +77,14 @@ const MODEL_OPTIONS = [
    {
       key: 'eleven_flash_v2_5',
       modelId: 'eleven_flash_v2_5',
-      title: 'Eleven Flash v2.5',
+      title: 'iGen Audio Flash v2.5',
       description: 'Mô hình độ trễ cực thấp, tối ưu cho hội thoại nhanh.',
       badges: ['Low Latency', 'Flash'],
    },
    {
       key: 'eleven_turbo_v2_5',
       modelId: 'eleven_turbo_v2_5',
-      title: 'Eleven Turbo v2.5',
+      title: 'iGen Audio Turbo v2.5',
       description: 'Mô hình tốc độ nhanh, tối ưu chi phí phát sinh.',
       badges: ['Fast', 'Turbo'],
    },
@@ -290,7 +290,7 @@ export function VoiceGenerationWorkspace() {
             setAvailableModels(response.models);
          }
       } catch (e) {
-         console.error("Loi lay danh sach model ElevenLabs:", e);
+         console.error("Lỗi lấy danh sách model ElevenLabs:", e);
       }
    };
 
@@ -308,7 +308,7 @@ export function VoiceGenerationWorkspace() {
             setUseSpeakerBoost(settings.use_speaker_boost);
          }
       } catch (e) {
-         console.error('Loi lay voice settings ElevenLabs:', e);
+         console.error('Lỗi lấy voice settings ElevenLabs:', e);
          setStability(0.5);
          setSimilarityBoost(0.75);
          setUseSpeakerBoost(true);
@@ -483,7 +483,12 @@ const getSelectedVoice = () => {
       setIsOptimizing(true);
       try {
          toast.success('AI đang tối ưu hóa kịch bản...');
-         const result = await geminiApi.optimizeScript(text, styleInstructions || 'hấp dẫn, lôi cuốn');
+         const selectedTextModel = localStorage.getItem('selected_ai_model') || 'gemini-3.5-flash';
+         const result = await geminiApi.optimizeScript(
+            text,
+            styleInstructions || 'hấp dẫn, lôi cuốn',
+            selectedTextModel
+         );
          if (result.optimizedText) {
             setText(result.optimizedText);
             toast.success('Tối ưu hóa kịch bản thành công!');
@@ -577,12 +582,22 @@ const getSelectedVoice = () => {
             similarity_boost: similarityBoost,
             use_speaker_boost: useSpeakerBoost,
          });
-         toast.success('Da luu voice settings len ElevenLabs.');
+         toast.success('đã lưu voice settings lên ElevenLabs.');
       } catch (e: any) {
-         toast.error(`Khong the luu voice settings: ${e.message}`);
+         toast.error(`Không thể lưu voice settings: ${e.message}`);
       } finally {
          setIsSavingVoiceSettings(false);
       }
+   };
+
+   const handleResetVoiceSettings = () => {
+      setVoiceId(availableVoices[0]?.voice_id || '');
+      setStability(0.50);
+      setSimilarityBoost(0.75);
+      setUseSpeakerBoost(true);
+      setVoiceModel('eleven_turbo_v2_5');
+      setUseLanguageToggle(true);
+      toast.success('Đã khôi phục cài đặt mặc định.');
    };
 
    const handlePlayHistory = (url: string) => {
@@ -842,41 +857,13 @@ const getSelectedVoice = () => {
    const libraryVoicesList = availableVoices.filter(v => !['cloned', 'generated', 'custom'].includes(v.category));
    const quickLibraryVoices = libraryVoicesList.slice(0, 8);
    const activeModelInfo = availableModels.find((model: any) => model.model_id === getActiveModelId(voiceModel));
+   const activeModelLabel = MODEL_OPTIONS.find((opt) => opt.key === voiceModel)?.title || activeModelInfo?.name;
    const multilingualModelDetails = getModelDetails('eleven_multilingual_v2', availableModels);
    const flashModelDetails = getModelDetails('eleven_flash_v2_5', availableModels);
    const turboModelDetails = getModelDetails('eleven_turbo_v2_5', availableModels);
 
    return (
       <div className="space-y-6 max-w-[1400px] mx-auto w-full pb-12 font-sans text-slate-800" id="voice_workspace_wrapper">
-
-         {/* HEADER BANNER */}
-         <div className="flex flex-col md:flex-row md:items-center justify-between bg-white border border-slate-100 rounded-2xl p-6 shadow-sm gap-4">
-            <div className="flex items-center gap-3">
-               <div className="p-3 bg-cyan-50 rounded-xl text-cyan-600">
-                  <TapeIcon className="h-5 w-5 text-cyan-500" />
-               </div>
-               <div>
-                  <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">Nhân bản giọng nói</h3>
-                  <p className="text-xs text-slate-400 mt-1">Tạo audio từ văn bản, quản lý giọng đã clone và lưu lịch sử giọng nói trong một màn hình.</p>
-               </div>
-            </div>
-            <button
-               onClick={() => {
-                  setCreateStep('selection');
-                  setCreationMode(null);
-                  setInstantFiles([]);
-                  setNewVoiceName('');
-                  setNewVoiceDescription('');
-                  setDesignPreviewUrl(null);
-                  setDesignPreviewVoiceId(null);
-                  setIsCreateModalOpen(true);
-               }}
-               className="px-4 py-2 bg-white hover:bg-slate-50 text-cyan-600 border border-cyan-150 rounded-xl text-xs font-bold transition-all flex items-center gap-2"
-            >
-               <Plus className="h-4 w-4" />
-               Nhân bản giọng mới
-            </button>
-         </div>
 
          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
@@ -886,57 +873,50 @@ const getSelectedVoice = () => {
 
                   {/* Chosen Voice Panel */}
                   <div className="flex flex-col gap-2">
-                     <div className="flex items-center justify-between">
+                     <div className="flex items-center justify-between gap-3">
                         <label className="text-xs font-bold text-slate-700">Giọng nói đã chọn</label>
-                        <button
-                           onClick={() => {
-                              setIsVoicePickerView(false);
-                              setIsAdvancedModalOpen(true);
-                           }}
-                           className="px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-lg text-[11px] font-bold border flex items-center gap-1.5 transition-all"
-                        >
-                           <Settings2 className="h-3.5 w-3.5 text-slate-500" />
-                           Cài đặt
-                        </button>
+                        <div className="flex items-center gap-2">
+                           <button
+                              onClick={() => {
+                                 setIsVoicePickerView(true);
+                                 setVoiceActiveTab('library');
+                                 setIsAdvancedModalOpen(true);
+                              }}
+                              className="px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-lg text-[11px] font-bold border flex items-center gap-1.5 transition-all"
+                           >
+                              <BookOpen className="h-3.5 w-3.5 text-slate-500" />
+                              Thư viện giọng nói
+                           </button>
+                        </div>
                      </div>
 
                      <div className="border border-slate-200 rounded-xl p-4 flex flex-col gap-1 bg-slate-50/50">
                         <span className="text-xs font-bold text-slate-950 truncate">
                            {selectedVoice.label}{selectedVoice.description ? ` - ${selectedVoice.description}` : ''}
                         </span>
-                        <span className="text-[10px] text-slate-400 font-medium truncate">
-                           {selectedVoice.id === 'Sadaltager' ? 'iGen Audio v3' : (selectedVoice.tags || 'Giọng đã nhân bản')}
-                        </span>
                      </div>
 
-                     <div className="grid grid-cols-5 gap-2 mt-1">
-                        <button
-                           onClick={() => {
-                              setCreateStep('selection');
-                              setCreationMode(null);
-                              setInstantFiles([]);
-                              setNewVoiceName('');
-                              setNewVoiceDescription('');
-                              setDesignPreviewUrl(null);
-                              setDesignPreviewVoiceId(null);
-                              setIsCreateModalOpen(true);
-                           }}
-                           className="col-span-4 py-2 border-2 border-dashed border-cyan-200 hover:border-cyan-400 text-cyan-600 hover:bg-cyan-50/50 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5"
+                  </div>
+
+                  {/* Direct Voice Settings */}
+                  <div className="border border-slate-200 rounded-2xl p-4 bg-slate-50/40 flex flex-col gap-4">
+
+                     <div className="flex flex-col gap-2">
+                        <span className="text-xs font-bold text-slate-700">Model AI</span>
+                        {activeModelLabel && (
+                           <span className="text-[10px] text-slate-400">Đang sử dụng model iGen Audio: {activeModelLabel}</span>
+                        )}
+                        <select
+                           value={voiceModel}
+                           onChange={(e) => setVoiceModel(e.target.value as 'eleven_flash_v2_5' | 'eleven_turbo_v2_5')}
+                           className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:bg-white focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 outline-none cursor-pointer"
                         >
-                           <Plus className="h-4 w-4" />
-                           Thêm giọng nói mới
-                        </button>
-                        <button
-                           onClick={() => {
-                              setIsVoicePickerView(true);
-                              setVoiceActiveTab('library');
-                              setIsAdvancedModalOpen(true);
-                           }}
-                           className="col-span-1 py-2 border border-slate-200 hover:border-slate-300 text-slate-600 hover:bg-slate-50 rounded-xl flex items-center justify-center transition-all"
-                           title="Thư viện giọng nói"
-                        >
-                           <BookOpen className="h-4 w-4" />
-                        </button>
+                           {MODEL_OPTIONS.map((opt) => (
+                              <option key={opt.key} value={opt.key}>
+                                 {opt.title}
+                              </option>
+                           ))}
+                        </select>
                      </div>
                   </div>
 
@@ -1169,8 +1149,8 @@ const getSelectedVoice = () => {
 
          </div>
 
-         {/* MODAL 1: ADVANCED SETTINGS & VOICE PICKER */}
-         {isAdvancedModalOpen && (
+         {/* MODAL 1: VOICE PICKER */}
+         {isAdvancedModalOpen && isVoicePickerView && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-xs">
                <div className="bg-white rounded-2xl border border-slate-200 w-full max-w-xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95 duration-150">
 
@@ -1353,7 +1333,7 @@ const getSelectedVoice = () => {
                                           <div className="mb-2 flex items-center justify-between gap-3 px-1">
                                              <div>
                                                 <p className="text-xs font-bold text-slate-900">Thư viện giọng nói</p>
-                                                <p className="text-[10px] text-slate-400">Giữ nhanh để chọn giọng nói ElevenLabs</p>
+                                                <p className="text-[10px] text-slate-400">Giữ nhanh để chọn giọng nói iGen Audio</p>
                                              </div>
                                              <button
                                                 type="button"
@@ -1413,8 +1393,8 @@ const getSelectedVoice = () => {
                            {/* Model AI selection cards */}
                            <div className="flex flex-col gap-2">
                               <span className="text-xs font-bold text-slate-700">Model AI</span>
-                              {activeModelInfo?.name && (
-                                 <span className="text-[10px] text-slate-400">Đang sử dụng model ElevenLabs: {activeModelInfo.name}</span>
+                              {activeModelLabel && (
+                                <span className="text-[10px] text-slate-400">Đang sử dụng model iGen Audio: {activeModelLabel}</span>
                               )}
                               <span className="text-[10px] text-slate-400 font-medium leading-relaxed">Chọn mô hình phù hợp với mục tiêu tạo giọng nói của bạn.</span>
                               <div className="flex flex-col gap-2.5">
@@ -1544,20 +1524,12 @@ const getSelectedVoice = () => {
 
                   {/* Modal Footer */}
                   <div className="border-t p-4 flex justify-between items-center bg-slate-50 shrink-0">
-                     <button
-                        onClick={() => {
-                           setVoiceId(availableVoices[0]?.voice_id || '');
-                           setStability(0.50);
-                           setSimilarityBoost(0.75);
-                           setUseSpeakerBoost(true);
-                           setVoiceModel('eleven_turbo_v2_5');
-                           setUseLanguageToggle(true);
-                           toast.success('Đã khôi phục cài đặt mặc định.');
-                        }}
-                        className="text-xs font-bold text-slate-500 hover:text-slate-700 transition-colors"
-                     >
-                        Reset
-                     </button>
+                      <button
+                         onClick={handleResetVoiceSettings}
+                         className="text-xs font-bold text-slate-500 hover:text-slate-700 transition-colors"
+                      >
+                         Reset
+                      </button>
                      <button
                         onClick={handleSaveVoiceSettings}
                         disabled={isSavingVoiceSettings}

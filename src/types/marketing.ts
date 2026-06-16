@@ -7,6 +7,8 @@ export interface MarketingConcept {
   channels: string[];
   suggestedContent: string;
   hashtags: string[];
+  mediaType?: "image" | "video" | "human-video";
+  mediaPrompt?: string;
 }
 
 export interface ContentApprovalCard {
@@ -20,6 +22,11 @@ export interface ContentApprovalCard {
   imageUrl?: string;
   videoUrl?: string;
   mediaPrompt?: string;
+  voiceScript?: string;
+  motionText?: string;
+  audioUrl?: string;
+  audioRecordId?: string;
+  videoProvider?: string;
   generatedAt: string;
   feedback?: string;
   scheduledDate?: string;

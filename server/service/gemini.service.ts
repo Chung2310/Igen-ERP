@@ -1,4 +1,4 @@
-import { Type } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { AIMediaModel } from "../model/ai-media.model";
 import { cloudinaryService } from "./cloudinary.service";
 import { remotionService } from "./remotion.service";
@@ -8,7 +8,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 
-const GEMINI_TEXT_MODEL = process.env.TEXT_MODEL || process.env.GEMINI_MODEL || "gemini-3.5-flash";
+const GEMINI_TEXT_MODEL = "gemini-3.5-flash";
 const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || "piapi-flux";
 const GEMINI_VIDEO_MODEL = process.env.GEMINI_VIDEO_MODEL || "veo31-video-fast-audio";
 
@@ -78,6 +78,91 @@ function normalizePiapiVideoModel(modelName?: string): string {
   return "veo31-video-fast-audio";
 }
 
+function extractSourceBrief(rawText: string): {
+  userRequest: string;
+  attachedDocumentName: string;
+  attachedDocumentExcerpt: string;
+  normalizedBrief: string;
+} {
+  const text = String(rawText || "").trim();
+  if (!text) {
+    return {
+      userRequest: "",
+      attachedDocumentName: "",
+      attachedDocumentExcerpt: "",
+      normalizedBrief: "",
+    };
+  }
+
+  const docMarker = "TÀI LIỆU ĐÍNH KÈM:";
+  const docMarkerIndex = text.indexOf(docMarker);
+  const userRequest = (docMarkerIndex >= 0 ? text.slice(0, docMarkerIndex) : text).trim();
+  const attachedBlock = docMarkerIndex >= 0 ? text.slice(docMarkerIndex + docMarker.length).trim() : "";
+
+  let attachedDocumentName = "";
+  let attachedDocumentExcerpt = "";
+
+  if (attachedBlock) {
+    const nameMatch = attachedBlock.match(/Tên tài liệu:\s*(.+)/i);
+    attachedDocumentName = String(nameMatch?.[1] || "").trim();
+
+    const contentMatch = attachedBlock.match(/Nội dung tài liệu:\s*([\s\S]+)/i);
+    attachedDocumentExcerpt = String(contentMatch?.[1] || attachedBlock)
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 2200);
+  }
+
+  const normalizedBrief = [
+    userRequest ? `User request: ${userRequest}` : "",
+    attachedDocumentName ? `Attached document: ${attachedDocumentName}` : "",
+    attachedDocumentExcerpt ? `Attached document facts: ${attachedDocumentExcerpt}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  return {
+    userRequest,
+    attachedDocumentName,
+    attachedDocumentExcerpt,
+    normalizedBrief,
+  };
+}
+
+function buildFaithfulVisualGuardrail(input: {
+  sourceBrief?: string;
+  title?: string;
+  summary?: string;
+  suggestedContent?: string;
+  outline?: string;
+  bodyText?: string;
+  channels?: string[];
+  selectedPillars?: string[];
+}) {
+  const source = extractSourceBrief(input.sourceBrief || "");
+
+  return [
+    "STRICT SOURCE-OF-TRUTH REQUIREMENT:",
+    source.userRequest ? `Original user brief in Vietnamese: ${source.userRequest}` : "",
+    source.attachedDocumentName ? `Attached source file: ${source.attachedDocumentName}` : "",
+    source.attachedDocumentExcerpt ? `Facts extracted from the attached file: ${source.attachedDocumentExcerpt}` : "",
+    input.title ? `Campaign title: ${input.title}` : "",
+    input.summary ? `Campaign summary: ${input.summary}` : "",
+    input.suggestedContent ? `Suggested content direction: ${input.suggestedContent}` : "",
+    input.outline ? `Post outline: ${input.outline}` : "",
+    input.bodyText ? `Post body/caption: ${input.bodyText}` : "",
+    Array.isArray(input.channels) && input.channels.length > 0 ? `Target channels: ${input.channels.join(", ")}.` : "",
+    Array.isArray(input.selectedPillars) && input.selectedPillars.length > 0 ? `Required pillars: ${input.selectedPillars.join(", ")}.` : "",
+    "The English media prompt must preserve the exact meaning of the Vietnamese brief and attached file.",
+    "Do not add products, people, locations, industries, outfits, props, or use-cases that are not grounded in the source brief.",
+    "Do not generalize into generic office, lifestyle, beauty, fashion, product showcase, or abstract marketing scenes unless the source explicitly asks for that.",
+    "If the source is about software, ecommerce, logistics, education, training, omnichannel, operations, CRM, warehouse, or business workflow, the visual must clearly show that exact context.",
+    "Translate faithfully into English for image/video generation, but keep the original business meaning, subject, context, and constraints unchanged.",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
 async function generateText(
   model: string,
   contents: any,
@@ -89,85 +174,63 @@ async function generateText(
     images?: string[];
   }
 ): Promise<{ text: string }> {
-  if (!process.env.PIAPI_API_KEY) {
-    throw new Error("PiAPI API key is not configured.");
-  }
+  const ai = getGeminiClient();
+  const modelId = model || GEMINI_TEXT_MODEL;
 
-  let mappedModel = model;
-  if (model.includes("gemini") || model.includes("flash") || model.includes("3.5")) {
-    mappedModel = model.includes("pro") ? "gpt-4o" : "gpt-4o-mini";
-  }
-
-  const messages: any[] = [];
-  if (config?.systemInstruction) {
-    messages.push({ role: "system", content: config.systemInstruction });
-  }
+  // Build Gemini-native contents
+  const geminiContents: any[] = [];
 
   if (typeof contents === "string") {
+    const parts: any[] = [{ text: contents }];
     if (config?.images && config.images.length > 0) {
-      const contentParts: any[] = [{ type: "text", text: contents }];
       for (const img of config.images) {
-        contentParts.push({
-          type: "image_url",
-          image_url: { url: img }
-        });
+        if (img.startsWith("data:")) {
+          const mimeMatch = img.match(/^data:([^;]+);base64,(.+)$/);
+          if (mimeMatch) {
+            parts.push({ inlineData: { mimeType: mimeMatch[1], data: mimeMatch[2] } });
+          }
+        } else {
+          parts.push({ fileData: { fileUri: img } });
+        }
       }
-      messages.push({ role: "user", content: contentParts });
-    } else {
-      messages.push({ role: "user", content: contents });
     }
+    geminiContents.push({ role: "user", parts });
   } else if (Array.isArray(contents)) {
     for (const item of contents) {
       if (typeof item === "string") {
-        messages.push({ role: "user", content: item });
+        geminiContents.push({ role: "user", parts: [{ text: item }] });
       } else if (item.role && item.parts) {
-        const role = item.role === "model" ? "assistant" : item.role;
-        const textParts = item.parts.map((p: any) => p.text || "").join("\n");
-        messages.push({ role, content: textParts });
+        geminiContents.push({ role: item.role === "model" ? "model" : "user", parts: item.parts });
       } else if (item.text) {
-        messages.push({ role: "user", content: item.text });
+        geminiContents.push({ role: "user", parts: [{ text: item.text }] });
       }
     }
   }
 
-  const body: any = {
-    model: mappedModel,
-    messages,
+  const geminiConfig: any = {
     temperature: config?.temperature ?? 0.7,
   };
 
-  if (config?.responseMimeType === "application/json" || config?.responseSchema) {
-    body.response_format = { type: "json_object" };
+  if (config?.systemInstruction) {
+    geminiConfig.systemInstruction = config.systemInstruction;
+  }
+
+  if (config?.responseMimeType) {
+    geminiConfig.responseMimeType = config.responseMimeType;
   }
 
   if (config?.responseSchema) {
-    const schemaStr = JSON.stringify(config.responseSchema);
-    if (messages[0]?.role === "system") {
-      messages[0].content += `\n\nCRITICAL REQUIREMENT: Output MUST be a valid JSON object matching this JSON Schema:\n${schemaStr}`;
-    } else {
-      messages.unshift({
-        role: "system",
-        content: `Output MUST be a valid JSON object matching this JSON Schema:\n${schemaStr}`
-      });
-    }
+    geminiConfig.responseMimeType = "application/json";
+    geminiConfig.responseSchema = config.responseSchema;
   }
 
-  const response = await fetch("https://api.piapi.ai/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${process.env.PIAPI_API_KEY}`,
-    },
-    body: JSON.stringify(body),
+  const response = await ai.models.generateContent({
+    model: modelId,
+    contents: geminiContents,
+    config: geminiConfig,
   });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`PiAPI LLM call failed: ${response.status} - ${errorText}`);
-  }
-
-  const resJson: any = await response.json();
-  const text = resJson.choices?.[0]?.message?.content || "";
+  const text = response.text || "";
   return { text };
 }
 
@@ -203,7 +266,7 @@ export const geminiService = {
       });
     };
 
-    if (!process.env.PIAPI_API_KEY) {
+    if (!process.env.GEMINI_API_KEY) {
       return getMockResponse();
     }
 
@@ -292,7 +355,7 @@ Q: Chính sách vận chuyển của chúng tôi là gì?
 A: Giao hàng toàn quốc. Miễn phí vận chuyển cho đơn hàng trị giá từ 500k trở lên.`;
     };
 
-    if (!process.env.PIAPI_API_KEY) {
+    if (!process.env.GEMINI_API_KEY) {
       return getMockFAQ();
     }
 
@@ -338,7 +401,7 @@ ${docText}
       "Sự kiện ra mắt dòng sản phẩm mới hướng tới phong cách sống xanh bảo vệ môi trường",
     ];
 
-    if (!process.env.PIAPI_API_KEY) {
+    if (!process.env.GEMINI_API_KEY) {
       return fallbackSuggestions;
     }
 
@@ -481,7 +544,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
       return mockPillars;
     };
 
-    if (!process.env.PIAPI_API_KEY) {
+    if (!process.env.GEMINI_API_KEY) {
       return { pillars: getMockPillars(), isMock: true };
     }
 
@@ -563,6 +626,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
           suggestedContent:
             "🎬 Kịch bản Tiktok: Biến đổi phong cách thường ngày thành phong cách năng động thể thao chỉ sau 1 cái chạm màn hình X1.",
           hashtags: ["#iGenX1", "#SmartWearable", "#NangTamCuocSong"],
+          mediaPrompt: `A dynamic lifestyle photoshoot featuring a young professional using ${campaignTopic || "smart wearable device"} in an urban setting, bright natural lighting, modern cityscape background, energetic mood, 8k high-resolution product photography.`,
         },
         {
           title: `Trải nghiệm Đỉnh Cao - Tri Ân Hội Viên`,
@@ -573,6 +637,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
           suggestedContent:
             "✍️ Facebook Post: 'Gặp gỡ anh Hùng, Giám đốc Sáng tạo, người đã nâng cấp 200% tốc độ gõ nhờ Bàn phím cơ Workspace V2...'",
           hashtags: ["#WorkspaceV2", "#KeyboardMechanic", "#TangHieuSuat"],
+          mediaPrompt: `A premium flatlay product photograph of a mechanical keyboard on a clean wooden desk, warm ambient lighting, coffee cup and notebook nearby, professional workspace aesthetic, detailed textures, 4k resolution.`,
         },
         {
           title: `Giờ Vàng Giá Sốc - Săn Độc Quyền AI`,
@@ -583,16 +648,18 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
           suggestedContent:
             "🔥 Tin nhắn Zalo: 'Duy nhất hôm nay! Giờ vàng từ 12h-14h, giảm giá 30% toàn bộ tai nghe Không dây Pro Max. Đặt ngay!'",
           hashtags: ["#FlashSale", "#TaiNgheProMax", "#AmThanhDinhCao"],
+          mediaPrompt: `A vibrant flash sale promotional banner featuring wireless headphones with neon glow effects, countdown timer overlay, bold typography, dark background with electric blue and orange accents, high-energy commercial style.`,
         },
       ];
       return concepts;
     };
 
-    if (!process.env.PIAPI_API_KEY) {
+    if (!process.env.GEMINI_API_KEY) {
       return { concepts: getMockConcepts(), isMock: true };
     }
 
     try {
+      const sourceBrief = extractSourceBrief(campaignTopic);
       const pillarsContext =
         selectedPillars && selectedPillars.length > 0
           ? `\nCác Trụ cột nội dung (Content Pillars) bắt buộc phải tích hợp và bám sát: ${selectedPillars.join(
@@ -610,6 +677,8 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
           ? "\nYêu cầu về phương tiện: Các ý tưởng phải thiết kế đi kèm hình ảnh làm chủ đạo."
           : mediaType === "video"
             ? "\nYêu cầu về phương tiện: Các ý tưởng phải thiết kế đi kèm video làm chủ đạo."
+            : mediaType === "human-video"
+              ? "\nYÃªu cáº§u vá» phÆ°Æ¡ng tiá»‡n: CÃ¡c Ã½ tÆ°á»Ÿng pháº£i phÃ¹ há»£p cho video ngÆ°á»i tháº­t/avatar nÃ³i trÆ°á»›c camera, Æ°u tiÃªn hook máº¡nh, lá»i thoáº¡i tá»± nhiÃªn, cáº£nh quay Ä‘Æ¡n giáº£n vÃ  cÃ³ thá»ƒ chuyá»ƒn thÃ nh voice script trá»±c tiáº¿p."
             : mediaType === "none"
               ? "\nYêu cầu về phương tiện: Các bài đăng không đi kèm hình ảnh hoặc video (chỉ văn bản/caption)."
               : "";
@@ -623,6 +692,11 @@ Yêu cầu kết quả đầu ra:
 4. Các kênh truyền thông phù hợp đề xuất đăng bài (mảng các chuỗi, ví dụ: ["Facebook", "TikTok"] - Bắt buộc phải trùng khớp với danh sách kênh đã được yêu cầu ở trên).
 5. Ý tưởng nội dung gợi ý ban đầu để triển khai bài đăng trên kênh.
 6. Hashtags liên quan phù hợp.
+7. mediaPrompt: Một đoạn mô tả chi tiết bằng tiếng Anh (visual prompt) mô tả chính xác hình ảnh hoặc video phù hợp nhất cho ý tưởng này, dùng để gửi tới AI Image/Video Generator. Prompt phải bao gồm: chủ thể chính, bối cảnh, ánh sáng, phong cách nghệ thuật, mood/tone, và chi tiết kỹ thuật.
+8. mediaPrompt phải dịch đúng nghĩa và bám sát nhất với input người dùng và nội dung phân tích từ file đính kèm. Không được thêm bớt chủ đề hay làm generic hóa bối cảnh.
+
+NGUỒN SỰ THẬT BẮT BUỘC:
+${sourceBrief.normalizedBrief || campaignTopic}
 
 Trả về kết quả ở định dạng JSON phù hợp chính xác với cấu trúc yêu cầu.`;
 
@@ -653,8 +727,12 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
                       items: { type: Type.STRING },
                       description: "Hashtags liên quan",
                     },
+                    mediaPrompt: {
+                      type: Type.STRING,
+                      description: "A detailed English visual prompt describing the ideal image or video for this concept, including subject, setting, lighting, art style, mood, and technical details.",
+                    },
                   },
-                  required: ["title", "matchPercent", "summary", "channels", "suggestedContent", "hashtags"],
+                  required: ["title", "matchPercent", "summary", "channels", "suggestedContent", "hashtags", "mediaPrompt"],
                 },
                 description: "Danh sách 3 ý tưởng/bản nháp chiến dịch marketing",
               },
@@ -667,7 +745,24 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
 
       const responseText = response.text || "{}";
       const parsedData = JSON.parse(responseText.trim());
-      return { concepts: parsedData.concepts || [], isMock: false };
+      const groundedConcepts = (parsedData.concepts || []).map((concept: any) => {
+        const groundedConcept = buildFaithfulVisualGuardrail({
+          sourceBrief: campaignTopic,
+          title: concept?.title,
+          summary: concept?.summary,
+          suggestedContent: concept?.suggestedContent,
+          channels,
+          selectedPillars,
+        });
+
+        return {
+          ...concept,
+          mediaPrompt: concept?.mediaPrompt
+            ? `${groundedConcept} ${concept.mediaPrompt}`.trim()
+            : groundedConcept,
+        };
+      });
+      return { concepts: groundedConcepts, isMock: false };
     } catch (error: any) {
       console.error("[geminiService.generateMarketingIdeas] Error, fallback to mock concepts:", error);
       return { concepts: getMockConcepts(), isMock: true };
@@ -688,9 +783,14 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
       videoQuality?: string;
       videoDuration?: number;
       videoAspectRatio?: string;
+      mediaPrompt?: string;
+      humanVoiceId?: string;
+      humanVoiceModel?: string;
+      humanDurationSeconds?: number;
     }
   ): Promise<{ posts: any[]; isMock: boolean }> {
     const validChannels = ["Facebook", "TikTok", "LinkedIn", "Instagram", "Zalo"];
+    const sourceBriefText = String(mediaOptions?.mediaPrompt || suggestedContent || `${title}. ${summary}`).trim();
 
     // Normalize target channels: filter out invalid channels, map input to valid ones
     const normalizeChannel = (chan: string): string => {
@@ -785,15 +885,33 @@ Dựa trên gợi ý đề xuất: "${suggestedContent}", iGen ERP mang tới g�
 Nội dung chi tiết gợi ý: ${suggestedContent}`;
           mockMediaPrompt = `A creative, appealing social media visual representing ${title}.`;
         }
-        return { channel: chan, contentType, outline, bodyText, mediaPrompt: mockMediaPrompt };
+        const voiceScript = `Xin chao, day la noi dung gioi thieu ngan gon cho chien dich ${title}. ${summary}. Hay lien he ngay de nhan tu van chi tiet va uu dai phu hop.`;
+        const motionText = `Confident presenter, natural hand gestures, clear eye contact, upbeat delivery, topic-focused marketing explainer.`;
+        return { channel: chan, contentType, outline, bodyText, mediaPrompt: mockMediaPrompt, voiceScript, motionText };
       });
     };
 
-    if (!process.env.PIAPI_API_KEY) {
+    if (!process.env.GEMINI_API_KEY) {
       isMock = true;
       posts = getMockPosts();
     } else {
       try {
+        const isHumanVideo = mediaOptions?.mediaType === "human-video";
+        const humanDurationSeconds = Number(mediaOptions?.humanDurationSeconds || 15);
+        const humanVoiceRules = isHumanVideo
+          ? `
+
+YÊU CẦU RIÊNG CHO VIDEO NGƯỜI THẬT:
+1. Mỗi bài phải có thêm trường "voiceScript" bằng tiếng Việt tự nhiên, nói mượt, không bị dịch máy.
+2. "voiceScript" phải là đoạn lời thoại hoàn chỉnh để đưa thẳng sang TTS, không chứa markdown, không chứa bullet, không chứa nhãn như MC/Voiceover.
+3. Thời lượng đọc mục tiêu của "voiceScript" là khoảng ${humanDurationSeconds} giây, sai số tối đa khoảng 10%.
+4. "bodyText" vẫn là caption/ngữ cảnh đăng bài ngắn gọn, còn "voiceScript" mới là phần được đọc thành tiếng.
+5. "outline" phải mô tả các cảnh quay, biểu cảm, nhịp cắt và CTA để khớp với "voiceScript".
+6. "motionText" là mô tả chuyển động ngắn gọn cho avatar/video, bằng tiếng Anh, bám sát đúng chủ đề và lời thoại.
+7. Tuyệt đối không viết voiceScript chung chung. Nội dung phải bám đúng tiêu đề, tóm tắt chiến dịch, insight và thông điệp bán hàng được cung cấp.
+`
+          : "";
+
         const prompt = `Bạn là một chuyên gia viết kịch bản và AI Copywriter xuất sắc.
 Hãy lập Dàn ý (Outline) và viết Bản nháp nội dung (Draft Content) cho các kênh sau đây: ${targetChannels.join(", ")}
 
@@ -805,11 +923,16 @@ QUY TẮC PHÂN TÁCH DỮ LIỆU BẮT BUỘC CHO TỪNG KÊNH:
    - Trường "outline": Lập dàn ý chi tiết, cụ thể và tối ưu của bài viết.
    - Trường "bodyText": Lưu bản nháp nội dung bài viết sạch hoàn chỉnh để đăng tải trực tiếp (không chứa dàn ý hay tiêu đề nháp).
 3. Đối với mọi kênh: Sinh thêm trường "mediaPrompt" là một đoạn mô tả chi tiết bằng tiếng Anh (visual prompt) mô phỏng chính xác nội dung trực quan (hình ảnh hoặc video) phù hợp cho bài viết này để gửi tới AI Generator.
+4. mediaPrompt phải là bản dịch trung thành sang tiếng Anh từ dữ liệu gốc, không được đổi nghĩa, không được tự ý thêm chi tiết không có trong input hoặc tài liệu đính kèm, không được biến thành bối cảnh generic.
+${humanVoiceRules}
 
 Thông tin chiến dịch marketing:
 - Tiêu đề ý tưởng: "${title}"
 - Tóm tắt ý tưởng: "${summary}"
 - Nội dung gợi ý ban đầu: "${suggestedContent}"
+
+NGUỒN SỰ THẬT BẮT BUỘC:
+${extractSourceBrief(sourceBriefText).normalizedBrief || sourceBriefText}
 
 Trả về kết quả ở định dạng JSON phù hợp chính xác với cấu trúc yêu cầu.`;
 
@@ -839,6 +962,14 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
                       mediaPrompt: {
                         type: Type.STRING,
                         description: "A detailed visual description prompt in English for generating a matching image or video (e.g. scenic views, product display, lifestyle scene, characters, setting details)."
+                      },
+                      voiceScript: {
+                        type: Type.STRING,
+                        description: "Natural Vietnamese narration script for human-video voice generation. Keep empty string when not needed."
+                      },
+                      motionText: {
+                        type: Type.STRING,
+                        description: "Short English motion direction for avatar or human-video scene. Keep empty string when not needed."
                       }
                     },
                     required: ["channel", "contentType", "outline", "bodyText", "mediaPrompt"],
@@ -852,10 +983,27 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
 
         const responseText = response.text || "{}";
         const parsedData = JSON.parse(responseText.trim());
-        posts = (parsedData.posts || []).map((post: any) => ({
-          ...post,
-          channel: normalizeChannel(post.channel)
-        }));
+        posts = (parsedData.posts || []).map((post: any) => {
+          const groundedPrompt = buildFaithfulVisualGuardrail({
+            sourceBrief: sourceBriefText,
+            title,
+            summary,
+            suggestedContent,
+            outline: post?.outline,
+            bodyText: post?.bodyText,
+            channels: [normalizeChannel(post.channel)],
+          });
+
+          return {
+            ...post,
+            channel: normalizeChannel(post.channel),
+            voiceScript: typeof post?.voiceScript === "string" ? post.voiceScript.trim() : "",
+            motionText: typeof post?.motionText === "string" ? post.motionText.trim() : "",
+            mediaPrompt: post?.mediaPrompt
+              ? `${groundedPrompt} ${post.mediaPrompt}`.trim()
+              : groundedPrompt,
+          };
+        });
       } catch (error: any) {
         console.error("[geminiService.developMarketingIdea] Error, fallback to mock posts:", error);
         isMock = true;
@@ -869,7 +1017,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
       for (const post of posts) {
         if (mediaOptions.mediaType === "image") {
           try {
-            const promptToUse = post.mediaPrompt || `A professional photo matching the campaign topic: ${title}`;
+            const promptToUse = post.mediaPrompt || mediaOptions.mediaPrompt || `A professional photo matching the campaign topic: ${title}`;
             const imageResult = await geminiService.generateImage(promptToUse, {
               modelName: mediaOptions.imageModel,
               resolution: mediaOptions.imageResolution,
@@ -896,7 +1044,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
           }
         } else if (mediaOptions.mediaType === "video") {
           try {
-            const promptToUse = post.mediaPrompt || `A cinematic video clip matching the campaign topic: ${title}`;
+            const promptToUse = post.mediaPrompt || mediaOptions.mediaPrompt || `A cinematic video clip matching the campaign topic: ${title}`;
             const durationSec = mediaOptions.videoDuration ? Number(mediaOptions.videoDuration) : 6;
             const videoResult = await geminiService.generateVideo(promptToUse, durationSec, {
               modelName: mediaOptions.videoModel,
@@ -1105,14 +1253,15 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
   /**
    * Tối ưu kịch bản giọng nói
    */
-  async optimizeScript(text: string, readingStyle: string) {
-    if (!process.env.PIAPI_API_KEY) {
+  async optimizeScript(text: string, readingStyle: string, model?: string) {
+    if (!process.env.GEMINI_API_KEY) {
       return { optimizedText: `[Tối ưu hóa Giả lập] ${text}` };
     }
     try {
       const systemInstruction = "Bạn là chuyên gia biên soạn kịch bản và viết nội dung phát thanh radio. Hãy tối ưu hóa văn bản của người dùng để trở nên tự nhiên, cuốn hút, dễ đọc và phù hợp nhất với phong cách được yêu cầu. Trả về DUY NHẤT văn bản đã tối ưu hóa, không có thêm lời giải thích hay ký tự đặc biệt.";
+      const selectedModel = model || GEMINI_TEXT_MODEL;
       const response = await generateText(
-        GEMINI_TEXT_MODEL,
+        selectedModel,
         `Phong cách: ${readingStyle || "hấp dẫn, lôi cuốn"}\nVăn bản gốc:\n${text}`,
         {
           systemInstruction,
@@ -1139,7 +1288,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
         action_pose: "",
         setting_lighting: "",
         camera_parameters: "",
-        optimized_english_prompt: `A professional studio photo representing: ${normalizedDescription || "the provided concept"}`,
+        optimized_english_prompt: `A precise visual that faithfully represents this exact marketing or business concept: ${normalizedDescription || "the provided concept"}`,
         negative_prompt: "ugly, blurry, low quality",
       };
     };
@@ -1148,15 +1297,21 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
       return getMockImagePrompt();
     }
 
-    if (!process.env.PIAPI_API_KEY) {
+    if (!process.env.GEMINI_API_KEY) {
       return getMockImagePrompt();
     }
 
     try {
-      const messages: any[] = [
+      const optimizeMessages: any[] = [
         {
           role: "system",
           content: `You are an expert prompt engineer for image generators. Optimize the user's image description into a high-quality, descriptive English prompt.
+Preserve the exact business topic, audience, use-case, and key message from the user's input.
+Do not convert a concrete brief into a generic product shot, generic lifestyle image, abstract office scene, or unrelated beauty visual.
+If the prompt is about software, ecommerce, omnichannel, logistics, operations, training, consulting, customer growth, or workflow, explicitly visualize that real context.
+Translate faithfully from Vietnamese to English when needed. Semantic fidelity is more important than creative embellishment.
+Do not introduce new objects, characters, industries, locations, demographics, props, outfits, or claims unless they are explicitly grounded in the source input or attached references.
+When source files or images are provided, use them as constraints and preserve the same meaning as closely as possible.
 Output MUST be a valid JSON object matching this schema:
 {
   "subject": "string",
@@ -1171,43 +1326,16 @@ Do not include markdown blocks or any text other than the JSON object.`
         }
       ];
 
-      const userContent: any[] = [
-        { type: "text", text: `Optimize this prompt: ${normalizedDescription}` }
-      ];
-
-      if (imageUris && imageUris.length > 0) {
-        for (const uri of imageUris) {
-          if (!uri || typeof uri !== 'string') continue;
-          let imageUrl = uri;
-          if (uri.startsWith("data:")) {
-            try {
-              imageUrl = await cloudinaryService.uploadMedia(uri, "piapi_temp_inputs");
-            } catch (uploadError) {
-              console.error("[geminiService.optimizeImagePrompt] Failed to upload reference image to Cloudinary:", uploadError);
-            }
-          }
-          userContent.push({
-            type: "image_url",
-            image_url: { url: imageUrl }
-          });
-        }
-      }
-
-      messages.push({
-        role: "user",
-        content: userContent
+      const systemMessage = optimizeMessages[0].content;
+      const userText = `Translate and optimize this media brief into English while preserving the exact topic, context, audience, business meaning, and factual constraints from the original input: ${normalizedDescription}`;
+      const result = await generateText(GEMINI_TEXT_MODEL, userText, {
+        systemInstruction: systemMessage,
+        responseMimeType: "application/json",
+        images: imageUris?.filter((u: string) => u && typeof u === "string"),
       });
-
-      const callPromise = piapiService.chatCompletions(messages, "gpt-4o-mini", { type: "json_object" });
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("PiAPI chat completions timeout")), 15000)
-      );
-
-      const response = await Promise.race([callPromise, timeoutPromise]);
-      const content = response.choices?.[0]?.message?.content || "{}";
-      return JSON.parse(content.trim());
+      return JSON.parse(result.text.trim());
     } catch (error: any) {
-      console.error("[geminiService.optimizeImagePrompt] PiAPI Error, fallback to local optimizer:", error);
+      console.error("[geminiService.optimizeImagePrompt] Gemini Error, fallback to local optimizer:", error);
       return getMockImagePrompt();
     }
   },
@@ -1337,7 +1465,7 @@ Do not include markdown blocks or any text other than the JSON object.`
       };
     }
 
-    if (!process.env.PIAPI_API_KEY) {
+    if (!process.env.GEMINI_API_KEY) {
       return getMockVideoPrompt();
     }
 
@@ -1345,14 +1473,11 @@ Do not include markdown blocks or any text other than the JSON object.`
       const messages: any[] = [
         {
           role: "system",
-          content: `You are an elite video editing expert, cinematic director, and master prompt engineer. Your job is to take the user's video idea or editing instructions (supporting both English and Vietnamese) and translate them into a highly descriptive, professional video prompt in English.
-Analyze the user's input and expand it using standard film industry terminology across these key areas:
-1. Cinematic Style & Theme: e.g., corporate promo, fashion run, tech review, documentary, high-paced TikTok/Reel. Add descriptive elements for lighting (e.g., volumetric sunset rays, soft studio key light, dramatic split lighting) and camera specs (e.g., shot on 35mm lens, 8k resolution, crisp detail, rich color grading).
-2. Motion Dynamics (motion_analysis): Detail the velocity, pacing, and realistic physics of the subjects within the scene (e.g., high-speed motion with particle dust, slow-motion grace, smooth natural motion).
-3. Camera Direction (camera_movement): Specify the exact movement of the camera (e.g., slow cinematic panning, dynamic orbit, smooth crane lift, extreme macro close-up tracking, flycam drone shot).
-4. Audio & Text overlays: If the user mentions text, subtitles, music, or effects, integrate those cues into the general sequence breakdown.
-
-Output MUST be a valid JSON object matching this exact schema:
+          content: `You are an expert prompt engineer for video generators. Optimize the description into a high-quality video prompt.
+Preserve the exact meaning of the original input. Translate faithfully from Vietnamese to English when needed.
+Do not add unrelated cinematic elements, fashion cues, generic lifestyle filler, or abstract visuals that are not grounded in the source brief.
+If source images are provided, treat them as grounding constraints and keep the prompt semantically aligned with them.
+Output MUST be a valid JSON object matching this schema:
 {
   "motion_analysis": "Detailed description of the motion of subjects, speed changes, and physics of the scene",
   "camera_movement": "Detailed description of camera movements, panning, focal adjustments, depth of field, and camera paths",
@@ -1362,43 +1487,16 @@ Do not include markdown blocks or any text other than the JSON object.`
         }
       ];
 
-      const userContent: any[] = [
-        { type: "text", text: `Optimize this prompt: ${normalizedDescription}` }
-      ];
-
-      if (imageUris && imageUris.length > 0) {
-        for (const uri of imageUris) {
-          if (!uri || typeof uri !== 'string') continue;
-          let imageUrl = uri;
-          if (uri.startsWith("data:")) {
-            try {
-              imageUrl = await cloudinaryService.uploadMedia(uri, "piapi_temp_inputs");
-            } catch (uploadError) {
-              console.error("[geminiService.optimizeVideoPrompt] Failed to upload reference image to Cloudinary:", uploadError);
-            }
-          }
-          userContent.push({
-            type: "image_url",
-            image_url: { url: imageUrl }
-          });
-        }
-      }
-
-      messages.push({
-        role: "user",
-        content: userContent
+      const videoSystemMessage = messages[0].content;
+      const videoUserText = `Translate and optimize this video brief into English while preserving the exact topic, context, audience, and factual meaning from the original input: ${normalizedDescription}`;
+      const videoResult = await generateText(GEMINI_TEXT_MODEL, videoUserText, {
+        systemInstruction: videoSystemMessage,
+        responseMimeType: "application/json",
+        images: imageUris?.filter((u: string) => u && typeof u === "string"),
       });
-
-      const callPromise = piapiService.chatCompletions(messages, "gpt-4o-mini", { type: "json_object" });
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("PiAPI chat completions timeout")), 15000)
-      );
-
-      const response = await Promise.race([callPromise, timeoutPromise]);
-      const content = response.choices?.[0]?.message?.content || "{}";
-      return JSON.parse(content.trim());
+      return JSON.parse(videoResult.text.trim());
     } catch (error: any) {
-      console.error("[geminiService.optimizeVideoPrompt] PiAPI Error, fallback to local optimizer:", error);
+      console.error("[geminiService.optimizeVideoPrompt] Gemini Error, fallback to local optimizer:", error);
       return getMockVideoPrompt();
     }
   },
@@ -1461,8 +1559,8 @@ Do not include markdown blocks or any text other than the JSON object.`
     let blueprint = getFallbackBlueprint();
 
     try {
-      if (process.env.PIAPI_API_KEY) {
-        const systemPrompt = `You are a MASTER VIDEO EDITOR and POST-PRODUCTION SPECIALIST. Your ONLY goal is to transform the user's natural language instructions (supporting English and Vietnamese) into a mathematically precise, 100% executable JSON video editing blueprint.
+      if (process.env.GEMINI_API_KEY) {
+        const systemPrompt = `You are a professional video editing assistant. Your job is to translate a user's natural language video editing instructions (supporting both English and Vietnamese) into a precise Remotion video editing JSON blueprint.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ⚠️ CRITICAL DURATION PRESERVATION RULE (MANDATORY)
@@ -1670,11 +1768,11 @@ Return ONLY valid JSON. No markdown backticks, no comments, no conversational te
           { role: "user", content: `Generate the video editing JSON blueprint for: "${prompt}"` }
         ];
 
-        const response = await piapiService.chatCompletions(messages, "gpt-4o-mini", { type: "json_object" });
-        const content = response.choices?.[0]?.message?.content || "{}";
-        blueprint = JSON.parse(content.trim());
-        console.log("[geminiService.editVideo] urlDurations:", urlDurations);
-        console.log("[geminiService.editVideo] Generated blueprint:", JSON.stringify(blueprint, null, 2));
+        const editResult = await generateText(GEMINI_TEXT_MODEL, `Generate JSON blueprint for: "${prompt}"`, {
+          systemInstruction: systemPrompt,
+          responseMimeType: "application/json",
+        });
+        blueprint = JSON.parse(editResult.text.trim());
       }
     } catch (error) {
       console.error("[geminiService.editVideo] Failed to get LLM blueprint, falling back:", error);
