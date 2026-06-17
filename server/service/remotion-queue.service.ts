@@ -1,4 +1,5 @@
 import { Queue, Worker, Job } from "bullmq";
+import Redis from "ioredis";
 import { geminiService } from "./gemini.service";
 import net from "net";
 
@@ -6,7 +7,7 @@ const redisConfig = {
   host: process.env.REDIS_HOST || "127.0.0.1",
   port: Number(process.env.REDIS_PORT) || 6379,
   password: process.env.REDIS_PASSWORD || undefined,
-  maxRetriesPerRequest: null, // Required configuration for BullMQ
+  maxRetriesPerRequest: null,
 };
 
 const QUEUE_NAME = "remotion-render-queue";
@@ -14,6 +15,7 @@ const QUEUE_NAME = "remotion-render-queue";
 let remotionQueue: Queue | null = null;
 let worker: Worker | null = null;
 let isRedisAvailable: boolean | null = null;
+let checkPromise: Promise<boolean> | null = null;
 
 function handleRedisAuthError(err: Error) {
   const msg = err.message || "";
@@ -91,25 +93,59 @@ async function ensureRedisConnection(): Promise<boolean> {
   return isRedisAvailable;
 }
 
+const redisClient = new Redis({
+  host: redisConfig.host,
+  port: redisConfig.port,
+  password: redisConfig.password,
+  maxRetriesPerRequest: null,
+  connectTimeout: 2000, // Fail fast after 2 seconds if Redis is not running locally
+  lazyConnect: true,
+});
+
+// Quietly ignore connection errors to prevent unhandled rejection spam in local/dev env
+redisClient.on("error", () => {
+  // Silence is golden
+});
+
 export const remotionQueueService = {
   /**
-   * Đẩy tác vụ render video vào hàng đợi Redis
+   * Kiểm tra kết nối tới Redis
+   */
+  async checkRedis(): Promise<boolean> {
+    return ensureRedisConnection();
+  },
+
+  /**
+   * Đẩy tác vụ render video vào hàng đợi Redis (hoặc chạy trực tiếp nếu không có Redis)
    */
   async addRenderJob(recordId: string, videoUrl: string, blueprint: any, userId: string) {
     const hasRedis = await ensureRedisConnection();
+
     if (!hasRedis || !remotionQueue) {
-      throw new Error("Redis không khả dụng");
+      console.log(`[Remotion Queue] Redis không khả dụng. Chạy render trực tiếp trong background cho record ${recordId}...`);
+      geminiService.executeLocalRenderJob(recordId, videoUrl, blueprint, userId).catch((err) => {
+        console.error(`[Remotion Queue Direct Render] Lỗi khi render trực tiếp cho record ${recordId}:`, err);
+      });
+      return { id: "direct-render" } as any;
     }
 
-    console.log(`[Remotion Queue] Đang đẩy record ${recordId} vào hàng đợi...`);
-    return remotionQueue.add(
-      "render-video-job",
-      { recordId, videoUrl, blueprint, userId },
-      {
-        removeOnComplete: true,
-        removeOnFail: false,
-      }
-    );
+    console.log(`[Remotion Queue] Đang đẩy record ${recordId} vào hàng đợi Redis...`);
+    try {
+      return await remotionQueue.add(
+        "render-video-job",
+        { recordId, videoUrl, blueprint, userId },
+        {
+          removeOnComplete: true,
+          removeOnFail: false,
+        }
+      );
+    } catch (err) {
+      console.warn(`[Remotion Queue] Lỗi khi add job vào Queue: ${err}. Chuyển sang chạy render trực tiếp...`);
+      geminiService.executeLocalRenderJob(recordId, videoUrl, blueprint, userId).catch((directErr) => {
+        console.error(`[Remotion Queue Direct Render Fallback] Lỗi khi render trực tiếp cho record ${recordId}:`, directErr);
+      });
+      return { id: "direct-render-fallback" } as any;
+    }
   },
 
   /**
@@ -118,6 +154,7 @@ export const remotionQueueService = {
   async initWorker() {
     const hasRedis = await ensureRedisConnection();
     if (!hasRedis) {
+      console.log("[Remotion Queue] Chạy chế độ fallback: không khởi tạo Worker.");
       return;
     }
 
@@ -134,8 +171,6 @@ export const remotionQueueService = {
       async (job: Job) => {
         const { recordId, videoUrl, blueprint, userId } = job.data;
         console.log(`[Remotion Queue Worker] Bắt đầu xử lý Job ${job.id} cho record ${recordId}`);
-
-        // Gọi hàm kết xuất video đồng bộ bên trong Worker
         await geminiService.executeLocalRenderJob(recordId, videoUrl, blueprint, userId);
       },
       {
