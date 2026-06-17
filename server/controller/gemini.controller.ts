@@ -464,7 +464,7 @@ export const geminiController = {
    */
   async editVideo(req: Request, res: Response) {
     try {
-      const { videoUrl, prompt, modelName, aspectRatio, resolution, duration } = req.body;
+      const { videoUrl, prompt, modelName, aspectRatio, resolution, duration, videoDurations } = req.body;
       const userId = (req as any).user?.id;
 
       if (!userId) {
@@ -476,6 +476,7 @@ export const geminiController = {
         aspectRatio,
         resolution,
         duration,
+        videoDurations,
       });
 
       return res.status(200).json(result);
