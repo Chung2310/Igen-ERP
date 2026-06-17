@@ -33,6 +33,9 @@ export const aiAutoReplyService = {
       const resolvedPlatformId = String(platformId).trim();
       console.log(`[AI AutoReply] Bắt đầu triggerAutoReply: channel=${channel}, platformId=${platformId} (ép kiểu string: "${resolvedPlatformId}"), conversationId=${conversationId}, messageId=${incomingMessageId || "n/a"}`);
 
+      // 1. Cancel any existing pending reply for this conversation immediately to debounce
+      this.cancelPendingReply(conversationId);
+
       const messageKey = incomingMessageId || `${conversationId}:${incomingText}:${Date.now()}`;
       const existingPending = pendingReplies.get(conversationId);
       if (existingPending?.messageKey === messageKey) {
@@ -118,9 +121,6 @@ export const aiAutoReplyService = {
         return;
       }
 
-      // Cancel any existing pending reply for this conversation to debounce (customer is still typing)
-      this.cancelPendingReply(conversationId);
-
       const delayMs = (aiConfig.replyDelay || 15) * 1000;
       console.log(`[AI AutoReply] 🕒 LÊN LỊCH: Đang lên lịch phản hồi tự động sau ${aiConfig.replyDelay}s cho hội thoại: ${conversationId} (User: ${user.email})`);
 
@@ -136,6 +136,7 @@ export const aiAutoReplyService = {
           // Fetch the conversation to ensure it still exists and check if the last message is still inbound
           let lastMessageDirection = "inbound";
           let history: any[] = [];
+          let latestDbMessage: any = null;
 
           if (channel === "zalo") {
             const conv = await ZaloConversationModel.findById(conversationId);
@@ -152,7 +153,18 @@ export const aiAutoReplyService = {
             dbMsgs.reverse();
             
             if (dbMsgs.length > 0) {
-              lastMessageDirection = dbMsgs[dbMsgs.length - 1].direction;
+              latestDbMessage = dbMsgs[dbMsgs.length - 1];
+              lastMessageDirection = latestDbMessage.direction;
+            }
+
+            // Deduplicate history context
+            const lastMsg = dbMsgs[dbMsgs.length - 1];
+            const isSameMessage = lastMsg && (
+              (incomingMessageId && lastMsg.messageId === incomingMessageId) ||
+              (!incomingMessageId && lastMsg.direction === "inbound" && lastMsg.text === incomingText)
+            );
+            if (isSameMessage) {
+              dbMsgs.pop();
             }
 
             history = dbMsgs.map(m => ({
@@ -174,7 +186,18 @@ export const aiAutoReplyService = {
             dbMsgs.reverse();
 
             if (dbMsgs.length > 0) {
-              lastMessageDirection = dbMsgs[dbMsgs.length - 1].direction;
+              latestDbMessage = dbMsgs[dbMsgs.length - 1];
+              lastMessageDirection = latestDbMessage.direction;
+            }
+
+            // Deduplicate history context
+            const lastMsg = dbMsgs[dbMsgs.length - 1];
+            const isSameMessage = lastMsg && (
+              (incomingMessageId && lastMsg.messageId === incomingMessageId) ||
+              (!incomingMessageId && lastMsg.direction === "inbound" && lastMsg.text === incomingText)
+            );
+            if (isSameMessage) {
+              dbMsgs.pop();
             }
 
             history = dbMsgs.map(m => ({
@@ -183,10 +206,20 @@ export const aiAutoReplyService = {
             }));
           }
 
-          // Security check: if the last message in DB is outbound (meaning human agent replied in the meantime),
+          // Security check 1: if the last message in DB is outbound (meaning human agent replied in the meantime),
           // we do not auto-reply anymore.
           if (lastMessageDirection === "outbound") {
             console.log(`[AI AutoReply] ⚠️ BỎ QUA: Bỏ qua tự động phản hồi hội thoại ${conversationId} vì tin nhắn gần nhất trong DB là "outbound" (nhân viên đã trả lời thủ công).`);
+            return;
+          }
+
+          // Security check 2: if a newer message has arrived from the customer, abort this task (since it was debounced and a newer task will execute instead)
+          const isLatest = latestDbMessage && (
+            (incomingMessageId && latestDbMessage.messageId === incomingMessageId) ||
+            (!incomingMessageId && latestDbMessage.direction === "inbound" && latestDbMessage.text === incomingText)
+          );
+          if (!isLatest) {
+            console.log(`[AI AutoReply] ⚠️ BỎ QUA: Bỏ qua tự động phản hồi cho message ${incomingMessageId || incomingText} vì đã có tin nhắn mới hơn trong cuộc hội thoại.`);
             return;
           }
 
@@ -196,9 +229,10 @@ export const aiAutoReplyService = {
           try {
             const startedAt = Date.now();
             const companyCode = user.companyCode || "SYSTEM";
+            const queryText = `${history.map((h) => h.text).join("\n")}\n${incomingText}`.trim();
             const ragContext = await aiKnowledgeService.searchRelevantContext({
               companyCode,
-              query: `${history.map((h) => h.text).join("\n")}\n${incomingText}`,
+              query: queryText,
               channel,
               topK: 5,
             });
@@ -223,6 +257,21 @@ export const aiAutoReplyService = {
 
             if (!aiResponse || !aiResponse.text) {
               console.error(`[AI AutoReply] ❌ LỖI API: Không nhận được câu trả lời từ Gemini cho hội thoại: ${conversationId}`);
+              return;
+            }
+
+            // Pre-send check: verify if a human agent has replied during the Gemini inference
+            let preSendDirection = "inbound";
+            if (channel === "zalo") {
+              const latestMsg = await ZaloMessageModel.findOne({ conversationId }).sort({ timestamp: -1 });
+              if (latestMsg) preSendDirection = latestMsg.direction;
+            } else {
+              const latestMsg = await FBMessageModel.findOne({ conversationId }).sort({ timestamp: -1 });
+              if (latestMsg) preSendDirection = latestMsg.direction;
+            }
+
+            if (preSendDirection === "outbound") {
+              console.log(`[AI AutoReply] ⚠️ CAN THIỆP PHÚT CUỐI: Nhân viên đã gửi tin nhắn thủ công trong thời gian Gemini sinh câu trả lời cho conversationId=${conversationId}. Huỷ bỏ việc gửi câu trả lời AI.`);
               return;
             }
 

@@ -815,13 +815,13 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                 <svg className="h-3.5 w-3.5 text-emerald-600 fill-emerald-600/10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
                 </svg>
-                Đồng bộ tài liệu từ Google Drive
+                Đồng bộ thư mục/tài liệu Google Drive
               </label>
-              <p className="text-[9px] text-slate-400 leading-normal">Dán link Google Doc công khai (hỗ trợ dán nhiều link cách nhau bởi dấu phẩy hoặc xuống dòng). AI sẽ tự động đọc và chuẩn hóa thành FAQ.</p>
+              <p className="text-[9px] text-slate-400 leading-normal">Hỗ trợ dán đường dẫn <b>Thư mục Google Drive</b> hoặc <b>Google Doc/Sheet</b> công khai. Hệ thống sẽ quét toàn bộ thư mục và tự động đọc, chuẩn hóa dữ liệu thành FAQs.</p>
               <div className="flex gap-1.5">
                 <input 
                   type="text" 
-                  placeholder="Dán link hoặc danh sách link Google Doc..."
+                  placeholder="Dán link Thư mục Google Drive hoặc Google Doc..."
                   value={driveLink}
                   onChange={(e) => setDriveLink(e.target.value)}
                   disabled={syncingDrive}

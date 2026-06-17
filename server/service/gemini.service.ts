@@ -1992,7 +1992,13 @@ Return ONLY valid JSON. No markdown backticks, no comments, no conversational te
     });
 
     // Add render task to Redis queue
-    await remotionQueueService.addRenderJob(record._id.toString(), videoUrl, blueprint, userId);
+    try {
+      await remotionQueueService.addRenderJob(record._id.toString(), videoUrl, blueprint, userId);
+    } catch (queueErr: any) {
+      console.warn(`[Remotion Queue] Không thể dùng hàng đợi Redis (lỗi: ${queueErr.message || queueErr}). Đang tự động xử lý render trực tiếp.`);
+      // Run the rendering task in the background directly without queue
+      void geminiService.executeLocalRenderJob(record._id.toString(), videoUrl, blueprint, userId);
+    }
 
     return {
       status: "success",
