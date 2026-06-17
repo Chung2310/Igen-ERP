@@ -711,6 +711,113 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
   },
 
   /**
+   * Thay thế 1 Content Pillar bằng 1 Trụ cột khác mới hoàn toàn
+   */
+  async swapMarketingPillar(
+    campaignTopic: string,
+    currentPillars: any[],
+    pillarIdToReplace: string,
+    images?: string[]
+  ): Promise<{ pillar: any; isMock: boolean }> {
+    const getMockSwapPillar = () => {
+      const replacementOptions = [
+        {
+          id: "kien_thuc_chuyen_sau",
+          title: "Pillar D: Kiến thức chuyên sâu & Khác biệt",
+          ratio: "35% tỉ trọng",
+          description: "Chia sẻ những phân tích độc quyền, thông số kỹ thuật ấn tượng và so sánh chi tiết để chứng minh tính ưu việt vượt trội của sản phẩm.",
+        },
+        {
+          id: "phong_cach_loi_song",
+          title: "Pillar E: Phong cách sống & Cảm hứng",
+          ratio: "30% tỉ trọng",
+          description: "Truyền tải thông điệp tích cực, xây dựng phong cách cá nhân hiện đại và kết nối sản phẩm với thói quen hàng ngày của khách hàng mục tiêu.",
+        },
+        {
+          id: "tu_ong_tuong_tac",
+          title: "Pillar F: Hỏi đáp & Tương tác Cộng đồng",
+          ratio: "25% tỉ trọng",
+          description: "Tổ chức các buổi mini-game, thảo luận mở hoặc giải đáp thắc mắc trực tiếp nhằm gắn kết người dùng và gia tăng tỷ lệ phản hồi tự nhiên.",
+        },
+        {
+          id: "cam_nhan_chuyen_gia",
+          title: "Pillar G: Góc nhìn Chuyên gia & Uy tín",
+          ratio: "40% tỉ trọng",
+          description: "Trích dẫn nhận xét từ các chuyên gia đầu ngành, người có sức ảnh hưởng (KOLs) để bảo chứng chất lượng và nâng cao vị thế thương hiệu.",
+        }
+      ];
+
+      const existingIds = new Set(currentPillars.map(p => p.id));
+      const available = replacementOptions.filter(opt => !existingIds.has(opt.id));
+      const selected = available.length > 0 ? available[Math.floor(Math.random() * available.length)] : replacementOptions[0];
+
+      const targetPillar = currentPillars.find(p => p.id === pillarIdToReplace);
+      if (targetPillar) {
+        selected.ratio = targetPillar.ratio;
+      }
+      return selected;
+    };
+
+    if (!process.env.GEMINI_API_KEY) {
+      return { pillar: getMockSwapPillar(), isMock: true };
+    }
+
+    try {
+      const existingPillarsStr = currentPillars
+        .map(p => `- ID: "${p.id}", Tiêu đề: "${p.title}", Mô tả: "${p.description}"`)
+        .join("\n");
+      
+      const toReplace = currentPillars.find(p => p.id === pillarIdToReplace);
+      const replaceStr = toReplace 
+        ? `ID: "${toReplace.id}", Tiêu đề: "${toReplace.title}" (Tỷ lệ phân bổ: ${toReplace.ratio})`
+        : pillarIdToReplace;
+
+      const prompt = `Phân tích mục tiêu/chủ đề chiến dịch marketing sau: "${campaignTopic}"
+Hiện tại, chúng tôi đang sử dụng các trụ cột nội dung (Content Pillars) sau đây:
+${existingPillarsStr}
+
+Chúng tôi muốn THAY THẾ (đổi) trụ cột sau đây:
+${replaceStr}
+
+YÊU CẦU:
+Hãy đề xuất 1 trụ cột nội dung (Content Pillar) mới và hoàn toàn KHÁC BIỆT so với các trụ cột hiện có ở trên để thay thế cho trụ cột muốn đổi. Trụ cột mới này phải bổ trợ tốt cho chiến dịch và mục tiêu "${campaignTopic}".
+Trụ cột mới phải có thông tin cấu trúc sau:
+1. id: chuỗi ngắn gọn, không dấu cách, viết thường (ví dụ: "kien_thuc_chuyen_sau", "goc_nhin_chuyen_gia") và KHÔNG ĐƯỢC TRÙNG với bất kỳ ID nào của các trụ cột hiện tại.
+2. title: Tiêu đề trụ cột nội dung mới tối ưu bằng tiếng Việt (Ví dụ: "Pillar D: Kiến thức chuyên sâu", "Pillar E: Phong cách sống").
+3. ratio: Tỷ lệ phân bổ hợp lý hiển thị dưới dạng chuỗi (Ví dụ: "35% tỉ trọng"). Hãy giữ nguyên tỉ lệ của trụ cột cũ là: "${toReplace?.ratio || "33% tỉ trọng"}".
+4. description: Mô tả ngắn gọn trực quan bằng tiếng Việt hướng dẫn cách triển khai cụ thể trụ cột này đối với chiến dịch "${campaignTopic}".
+
+Trả về kết quả ở định dạng JSON phù hợp chính xác với cấu trúc yêu cầu.`;
+
+      const response = await generateText(
+        GEMINI_TEXT_MODEL,
+        prompt,
+        {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              id: { type: Type.STRING, description: "ID ngắn gọn viết liền không dấu, không trùng ID hiện tại" },
+              title: { type: Type.STRING, description: "Tiêu đề tiếng Việt của trụ cột" },
+              ratio: { type: Type.STRING, description: "Tỷ lệ phân bổ (giữ nguyên tỷ lệ cũ)" },
+              description: { type: Type.STRING, description: "Mô tả triển khai chi tiết" },
+            },
+            required: ["id", "title", "ratio", "description"],
+          },
+          images
+        }
+      );
+
+      const responseText = response.text || "{}";
+      const parsedPillar = safeParseJson(responseText);
+      return { pillar: parsedPillar, isMock: false };
+    } catch (error: any) {
+      console.error("[geminiService.swapMarketingPillar] Error, fallback to mock swap pillar:", error);
+      return { pillar: getMockSwapPillar(), isMock: true };
+    }
+  },
+
+  /**
    * Phát sinh bản nháp ý tưởng chiến dịch
    */
   async generateMarketingIdeas(
