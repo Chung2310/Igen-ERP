@@ -223,12 +223,12 @@ export default function CardDetailDrawer({
           </div>
 
           {/* Title */}
-          <div className="space-y-1">
-            <label className="block text-[10px] font-bold text-gray-450 font-mono uppercase">Tiêu đề chiến dịch</label>
+          <div className="space-y-1.5">
+            <label className="block text-[10px] font-extrabold text-slate-450 font-mono uppercase tracking-wide">Tiêu đề chiến dịch</label>
             <input
               type="text"
               disabled={card.status === 'published'}
-              className="w-full font-bold text-gray-800 text-sm leading-snug border border-gray-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none rounded-lg p-2.5 bg-white disabled:bg-slate-50 disabled:cursor-not-allowed"
+              className="w-full font-bold text-gray-800 text-sm leading-snug border border-slate-200/80 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none rounded-xl p-3 bg-white disabled:bg-slate-50 disabled:cursor-not-allowed transition-all duration-200 shadow-3xs"
               value={editedTitle}
               onChange={(e) => setEditedTitle(e.target.value)}
               placeholder="Nhập tiêu đề bài đăng..."
@@ -237,10 +237,10 @@ export default function CardDetailDrawer({
 
           {/* Body Text */}
           <div className="space-y-1.5">
-            <label className="block text-[10px] font-bold text-gray-450 font-mono uppercase">Nội dung bài đăng (Body Text)</label>
+            <label className="block text-[10px] font-extrabold text-slate-450 font-mono uppercase tracking-wide">Nội dung bài đăng (Body Text)</label>
             <textarea
               disabled={card.status === 'published'}
-              className="w-full text-xs text-gray-650 leading-relaxed font-sans bg-white p-3.5 rounded-xl border border-gray-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none select-text whitespace-pre-wrap min-h-[160px] resize-y disabled:bg-slate-50 disabled:cursor-not-allowed"
+              className="w-full text-xs text-slate-650 leading-relaxed font-sans bg-white p-4 rounded-2xl border border-slate-200/80 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none select-text whitespace-pre-wrap min-h-[160px] resize-y disabled:bg-slate-50 disabled:cursor-not-allowed transition-all duration-200 shadow-3xs"
               value={editedBodyText}
               onChange={(e) => setEditedBodyText(e.target.value)}
               placeholder="Nhập nội dung chi tiết bài viết..."
