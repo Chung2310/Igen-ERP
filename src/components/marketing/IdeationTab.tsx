@@ -440,37 +440,105 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
 
   const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-  const autoCreateHumanVideos = async (
-    savedCards: ContentApprovalCard[],
+  const pollStandardVideoBackground = async (card: ContentApprovalCard): Promise<ContentApprovalCard> => {
+    let currentCard = card;
+    let attempts = 0;
+    const maxAttempts = 24;
+    const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+    
+    while (attempts < maxAttempts) {
+      if (!currentCard.videoUrl || !currentCard.videoUrl.startsWith("pending://piapi/")) {
+        return currentCard;
+      }
+      await delay(10000);
+      try {
+        const freshCard = await marketingService.getCardById(card.id);
+        currentCard = freshCard;
+      } catch (e) {
+        console.error("[pollStandardVideoBackground] error fetching status:", e);
+      }
+      attempts++;
+    }
+    
+    if (currentCard.videoUrl && currentCard.videoUrl.startsWith("pending://piapi/")) {
+      throw new Error("Hết thời gian chờ kết xuất video AI.");
+    }
+    return currentCard;
+  };
+
+  const runBackgroundMediaGeneration = async (
+    cards: ContentApprovalCard[],
     posts: any[],
     concept: MarketingConcept
-  ): Promise<ContentApprovalCard[]> => {
-    const nextCards = [...savedCards];
+  ) => {
     const aspectRatio = (videoAspectRatio === "9:16" ? "9:16" : "16:9") as "16:9" | "9:16";
 
-    for (let index = 0; index < nextCards.length; index += 1) {
-      const card = nextCards[index];
-      const post = posts[index] || {};
-      const voiceScript = getHumanVideoScript(post, concept.title, concept.summary);
-      const motionText = String(post?.motionText || "").trim();
+    const promises = cards.map(async (card, idx) => {
+      try {
+        let updatedCard = card;
+        const targetMediaType = concept.mediaType || mediaType;
 
-      // Temporarily update card status to processing in MongoDB/UI
-      await marketingService.updateCard(card.id, { status: "processing" });
+        if (targetMediaType === "human-video") {
+          const post = posts[idx] || {};
+          const voiceScript = getHumanVideoScript(post, concept.title, concept.summary);
+          const motionText = String(post?.motionText || "").trim();
 
-      const updatedCard = await marketingService.generateHumanVideoForCard(card.id, {
-        avatarId: selectedHumanAvatar,
-        voiceId: selectedHumanVoice,
-        voiceModel: selectedHumanVoiceModel,
-        aspectRatio,
-        quality: videoQuality === "1080p" ? "1080p" : "720p",
-        onProgressUpdate: (status) => setAutoPilotStatus(`${status} ("${card.title}")...`)
-      });
+          updatedCard = await marketingService.generateHumanVideoForCard(card.id, {
+            avatarId: selectedHumanAvatar,
+            voiceId: selectedHumanVoice,
+            voiceModel: selectedHumanVoiceModel,
+            aspectRatio,
+            quality: videoQuality === "1080p" ? "1080p" : "720p",
+          });
+        }
+        else if (card.videoUrl && card.videoUrl.startsWith("pending://piapi/")) {
+          updatedCard = await pollStandardVideoBackground(card);
+        }
 
-      // Restore status to scheduled (as autopilot schedules them immediately after)
-      nextCards[index] = updatedCard;
-    }
+        const platform = updatedCard.channel;
+        const integrationId = selectedIntegrations[platform] || undefined;
+        const scheduledDate = autoScheduleDate;
+        let scheduledTime = autoScheduleTime;
+        try {
+          const [hStr, mStr] = autoScheduleTime.split(":");
+          const startHour = parseInt(hStr);
+          const hour = (startHour + idx) % 24;
+          scheduledTime = `${hour.toString().padStart(2, '0')}:${mStr}`;
+        } catch (e) {
+          console.warn("Lỗi tính toán giờ đăng tự động:", e);
+        }
 
-    return nextCards;
+        if (platform === "Facebook" || platform === "TikTok") {
+          await marketingService.scheduleCard(updatedCard.id, scheduledDate, scheduledTime, integrationId);
+        } else {
+          await marketingService.updateCard(updatedCard.id, {
+            status: 'scheduled',
+            scheduledDate,
+            scheduledTime,
+            integrationId
+          });
+        }
+
+        const scheduledCard = {
+          ...updatedCard,
+          status: "scheduled" as const,
+          scheduledDate,
+          scheduledTime,
+          integrationId
+        };
+
+        setApprovalCards(prev => prev.map(c => c.id === card.id ? scheduledCard : c));
+        toast.success(`Đã tự động tạo và lên lịch bài đăng "${card.title}" trên ${card.channel}!`);
+
+      } catch (err: any) {
+        console.error(`[Background Autopilot Error] for card ${card.id}:`, err);
+        await marketingService.updateCard(card.id, { status: "failed" });
+        setApprovalCards(prev => prev.map(c => c.id === card.id ? { ...c, status: "failed" as const } : c));
+        toast.error(`Không thể tạo phương tiện tự động cho bài "${card.title}": ${err.message || err}`);
+      }
+    });
+
+    await Promise.all(promises);
   };
 
   // Load suggestions from AI on mount
@@ -670,7 +738,6 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
         setLoadingAI(false);
         setAutoPilotBackgroundRunning(true);
 
-        // Run auto-pilot flow
         const sortedConcepts = [...generatedConcepts].sort((a: any, b: any) => (b.matchPercent || 0) - (a.matchPercent || 0));
         const bestConcept = sortedConcepts[0];
         
@@ -698,7 +765,6 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
           throw new Error("AI không thể phát triển chi tiết bài viết.");
         }
 
-        setAutoPilotStatus("Đang lưu bài viết và chuẩn bị lên lịch đăng...");
         const newCards: ContentApprovalCard[] = result.posts.map((post: any, index: number) => {
           const cardMediaType = bestConcept.mediaType || (actualMediaType as any);
           const voiceScriptVal = cardMediaType === "human-video" ? getHumanVideoScript(post, bestConcept.title, bestConcept.summary) : (post.voiceScript || "");
@@ -707,7 +773,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
             title: bestConcept.title,
             channel: post.channel as any,
             contentType: post.contentType,
-            status: "pending",
+            status: "processing",
             outline: post.outline || "",
             bodyText: post.bodyText || "",
             imageUrl: post.imageUrl || null,
@@ -722,127 +788,13 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
           };
         });
 
-        let savedCards = await marketingService.saveCards(newCards);
+        const savedCards = await marketingService.saveCards(newCards);
+        setApprovalCards(prev => [...prev, ...savedCards]);
 
-        if (actualMediaType === "human-video") {
-          savedCards = await autoCreateHumanVideos(savedCards, result.posts, bestConcept);
-        }
+        void runBackgroundMediaGeneration(savedCards, result.posts, bestConcept);
 
-        // Check if there are any cards with pending video tasks
-        const pendingCards = savedCards.filter(c => c.videoUrl && c.videoUrl.startsWith("pending://piapi/"));
-        if (pendingCards.length > 0) {
-          setAutoPilotStatus("Đang kết xuất video AI hoàn chỉnh (Mất khoảng 1-3 phút)...");
-          
-          let attempts = 0;
-          const maxAttempts = 24; // 4 minutes timeout (24 * 10 seconds)
-          const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-          
-          let resolvedCards = [...savedCards];
-          
-          while (attempts < maxAttempts) {
-            const stillPending = resolvedCards.filter(c => c.videoUrl && c.videoUrl.startsWith("pending://piapi/"));
-            if (stillPending.length === 0) {
-              console.log("[Auto-pilot] All video tasks completed successfully!");
-              break;
-            }
-            
-            setAutoPilotStatus(`Đang kết xuất video AI hoàn chỉnh (Thời gian chờ còn lại: ${Math.max(0, 240 - attempts * 10)}s)...`);
-            await delay(10000);
-            
-            try {
-              const updatedList = await Promise.all(
-                resolvedCards.map(async (card) => {
-                  if (card.videoUrl && card.videoUrl.startsWith("pending://piapi/")) {
-                    try {
-                      const freshCard = await marketingService.getCardById(card.id);
-                      return freshCard;
-                    } catch (e) {
-                      console.error("[Auto-pilot polling] error fetching card status:", e);
-                      return card;
-                    }
-                  }
-                  return card;
-                })
-              );
-              resolvedCards = updatedList;
-            } catch (err) {
-              console.error("[Auto-pilot polling] error polling loop:", err);
-            }
-            attempts++;
-          }
-          
-          // Use the updated cards (with resolved video URLs) for the rest of the flow
-          savedCards.forEach((card, idx) => {
-            const rc = resolvedCards.find(item => item.id === card.id);
-            if (rc) {
-              savedCards[idx] = rc;
-            }
-          });
-        }
-        
-        setAutoPilotStatus("Đang tự động thiết lập thời gian và kết nối mạng xã hội...");
-        
-        // Schedule each card using selected integrations and scheduled date/time
-        const scheduledCards = await Promise.all(
-          savedCards.map(async (card, idx) => {
-            try {
-              const platform = card.channel;
-              const integrationId = selectedIntegrations[platform] || undefined;
-
-              const scheduledDate = autoScheduleDate;
-              let scheduledTime = autoScheduleTime;
-              try {
-                const [hStr, mStr] = autoScheduleTime.split(":");
-                const startHour = parseInt(hStr);
-                const hour = (startHour + idx) % 24;
-                scheduledTime = `${hour.toString().padStart(2, '0')}:${mStr}`;
-              } catch (e) {
-                console.warn("Lỗi tính toán giờ đăng tự động:", e);
-              }
-
-              if (platform === "Facebook" || platform === "TikTok") {
-                await marketingService.scheduleCard(card.id, scheduledDate, scheduledTime, integrationId);
-              } else {
-                await marketingService.updateCard(card.id, {
-                  status: 'scheduled',
-                  scheduledDate,
-                  scheduledTime,
-                  integrationId
-                });
-              }
-              
-              return {
-                ...card,
-                status: "scheduled" as const,
-                scheduledDate,
-                scheduledTime,
-                integrationId
-              };
-            } catch (schErr) {
-              console.error(`Tự động lên lịch cho card ${card.id} thất bại:`, schErr);
-              const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
-              const scheduledDate = tomorrow.toISOString().slice(0, 10);
-              const scheduledTime = "09:00";
-              
-              await marketingService.updateCard(card.id, {
-                status: 'scheduled',
-                scheduledDate,
-                scheduledTime
-              });
-              
-              return {
-                ...card,
-                status: "scheduled" as const,
-                scheduledDate,
-                scheduledTime
-              };
-            }
-          })
-        );
-
-        setApprovalCards(prev => [...prev, ...scheduledCards]);
-        toast.success("Đã kích hoạt chế độ Tự động hoàn toàn (Auto-pilot) thành công!");
-        setSubTab("LỊCH ĐĂNG CONTENT"); // Switch to Calendar tab directly
+        toast.success("Chiến dịch đã khởi chạy! Đang tự động tạo phương tiện truyền thông chạy nền...");
+        setSubTab("DUYỆT NỘI DUNG");
       }
     } catch (err: any) {
       console.error(err);

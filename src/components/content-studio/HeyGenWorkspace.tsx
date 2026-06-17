@@ -8,6 +8,8 @@ import { HeyGenVideoItem } from "./HeyGenVideoItem";
 import { HeyGenVideoPreview } from "./HeyGenVideoPreview";
 import { HeyGenVerticalToolbar, type HeyGenTab } from "./HeyGenVerticalToolbar";
 import { HEYGEN_MODEL_OPTIONS, HEYGEN_THEME } from "./heygenTheme";
+import { marketingService } from "../../services/marketingService";
+import { toast } from "../../pages/Toast";
 
 const HeyGenOptionsDrawer = lazy(() =>
   import("./HeyGenOptionsDrawer").then((module) => ({ default: module.HeyGenOptionsDrawer }))
@@ -29,9 +31,11 @@ const HEYGEN_FALLBACK_POLL_DELAYS = [8000, 20000] as const;
 export function HeyGenWorkspace({
   initialPrompt,
   onEditVideo,
+  cardId,
 }: {
   initialPrompt?: string;
   onEditVideo?: (url: string) => void;
+  cardId?: string;
 }) {
   const [avatars, setAvatars] = useState<HeyGenLibraryItem[]>([]);
   const [isLoadingLibrary, setIsLoadingLibrary] = useState(false);
@@ -78,6 +82,39 @@ export function HeyGenWorkspace({
   useEffect(() => {
     void loadWorkspaceData();
   }, []);
+
+  useEffect(() => {
+    if (cardId) {
+      const loadCardAudio = async () => {
+        try {
+          const card = await marketingService.getCardById(cardId);
+          if (card) {
+            if (card.audioRecordId) {
+              setSelectedAudioRecordId(card.audioRecordId);
+            }
+            if (card.audioUrl) {
+              setAudioRecords((prev) => {
+                const alreadyExists = prev.some(item => item._id === card.audioRecordId);
+                if (alreadyExists) return prev;
+                const newRecord = {
+                  _id: card.audioRecordId || `mod_aud_${Date.now()}`,
+                  url: card.audioUrl!,
+                  title: card.title || "Giọng nói được tạo",
+                  description: "Nạp từ kịch bản bài đăng",
+                  generatedAt: card.generatedAt || new Date().toISOString()
+                } as any;
+                return [newRecord, ...prev];
+              });
+              toast.info(`Đã tự động nạp giọng nói cho bài đăng: "${card.title}"`);
+            }
+          }
+        } catch (err) {
+          console.error("Lỗi nạp audio từ card trong HeyGen:", err);
+        }
+      };
+      void loadCardAudio();
+    }
+  }, [cardId]);
 
   useEffect(() => {
     setHistoryPage(1);
