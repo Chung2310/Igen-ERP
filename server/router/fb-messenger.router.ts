@@ -8,6 +8,9 @@ export const fbMessengerRouter = Router();
 fbMessengerRouter.get("/webhook", fbMessengerController.verifyWebhook);
 fbMessengerRouter.post("/webhook", fbMessengerController.receiveWebhookEvent);
 
+// Diagnostic PUBLIC endpoint - tạm thời để debug AI auto-reply logs
+fbMessengerRouter.get("/debug-ai-logs", fbMessengerController.debugAILogs);
+
 // Routes dành cho Igen-ERP Client (Frontend) - Bắt buộc yêu cầu đăng nhập (requireAuth)
 fbMessengerRouter.get("/messenger/conversations", requireAuth as any, fbMessengerController.getConversations);
 fbMessengerRouter.get("/messenger/conversations/:recipientId/messages", requireAuth as any, fbMessengerController.getMessages);
@@ -15,3 +18,4 @@ fbMessengerRouter.post("/messenger/conversations/:recipientId/mark-read", requir
 fbMessengerRouter.get("/messenger/diagnostics/page", requireAuth as any, fbMessengerController.diagnosePageConfig);
 fbMessengerRouter.get("/messenger/diagnostics/:conversationId", requireAuth as any, fbMessengerController.diagnoseConversation);
 fbMessengerRouter.post("/messenger/reply", requireAuth as any, fbMessengerController.sendReply);
+

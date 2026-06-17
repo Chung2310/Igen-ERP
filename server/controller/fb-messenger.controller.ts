@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { fbMessengerService } from "../service/fb-messenger.service";
 import { UserModel } from "../model/user.model";
+import { AIReplyLogModel } from "../model/ai-knowledge.model";
 
 async function getFacebookPageConfig(userId: string): Promise<{ isConnected: boolean; pageId?: string }> {
   const dbUser = await UserModel.findById(userId).lean();
@@ -308,5 +309,36 @@ export const fbMessengerController = {
         message: error.message || "Không thể chẩn đoán cấu hình Facebook page.",
       });
     }
-  }
+  },
+
+  /**
+   * GET /api/v1/facebook/debug-ai-logs
+   * PUBLIC endpoint (no auth) - Temporary diagnostic to show recent AI reply logs across all companyCode
+   */
+  async debugAILogs(req: Request, res: Response): Promise<any> {
+    try {
+      const limit = Math.min(Number(req.query.limit || 10), 30);
+      const logs = await AIReplyLogModel.find({})
+        .sort({ createdAt: -1 })
+        .limit(limit)
+        .lean();
+      return res.status(200).json({
+        success: true,
+        count: logs.length,
+        logs: logs.map(l => ({
+          _id: l._id,
+          companyCode: l.companyCode,
+          channel: l.channel,
+          conversationId: l.conversationId,
+          status: l.status,
+          customerMessage: String(l.customerMessage || "").slice(0, 100),
+          aiResponse: String(l.aiResponse || "").slice(0, 200),
+          latencyMs: l.latencyMs,
+          createdAt: l.createdAt,
+        })),
+      });
+    } catch (error: any) {
+      return res.status(500).json({ success: false, message: error.message });
+    }
+  },
 };
