@@ -110,6 +110,15 @@ export const aiAutoReplyService = {
 
       if (!selectedUser) {
         console.warn(`[AI AutoReply] ❌ THẤT BẠI: Không tìm thấy bất kỳ cấu hình tích hợp nào cho ${channel} ID (Page/OA ID): "${resolvedPlatformId}". Bỏ qua auto reply.`);
+        await aiKnowledgeService.createReplyLog({
+          companyCode: "SYSTEM",
+          channel,
+          conversationId,
+          customerMessage: incomingText,
+          aiResponse: `[SKIPPED] Không tìm thấy cấu hình tích hợp cho ${channel} ID: ${resolvedPlatformId}`,
+          latencyMs: 0,
+          status: "failed",
+        }).catch(() => {});
         return;
       }
 
@@ -118,6 +127,15 @@ export const aiAutoReplyService = {
 
       if (!aiConfig || !aiConfig.enabled) {
         console.log(`[AI AutoReply] ⚠️ TỪ CHỐI: Tự động trả lời AI đang bị TẮT cho user=${user.email}, conversationId=${conversationId}`);
+        await aiKnowledgeService.createReplyLog({
+          companyCode: user.companyCode || "SYSTEM",
+          channel,
+          conversationId,
+          customerMessage: incomingText,
+          aiResponse: `[SKIPPED] Tự động trả lời AI đang bị TẮT cho user=${user.email}`,
+          latencyMs: 0,
+          status: "failed",
+        }).catch(() => {});
         return;
       }
 
@@ -130,6 +148,15 @@ export const aiAutoReplyService = {
 
           if (generatingReplies.has(conversationId)) {
             console.log(`[AI AutoReply] ⚠️ BỎ QUA: Bỏ qua tự động phản hồi hội thoại ${conversationId} vì đang có tiến trình sinh câu trả lời đang chạy.`);
+            await aiKnowledgeService.createReplyLog({
+              companyCode: user.companyCode || "SYSTEM",
+              channel,
+              conversationId,
+              customerMessage: incomingText,
+              aiResponse: `[SKIPPED] Đang có tiến trình sinh câu trả lời cho cuộc hội thoại này`,
+              latencyMs: 0,
+              status: "failed",
+            }).catch(() => {});
             return;
           }
 
@@ -142,6 +169,15 @@ export const aiAutoReplyService = {
             const conv = await ZaloConversationModel.findById(conversationId);
             if (!conv) {
               console.error(`[AI AutoReply] ❌ LỖI: Không tìm thấy cuộc hội thoại Zalo ${conversationId} trong DB.`);
+              await aiKnowledgeService.createReplyLog({
+                companyCode: user.companyCode || "SYSTEM",
+                channel,
+                conversationId,
+                customerMessage: incomingText,
+                aiResponse: `[FAILED] Không tìm thấy cuộc hội thoại Zalo trong DB`,
+                latencyMs: 0,
+                status: "failed",
+              }).catch(() => {});
               return;
             }
 
@@ -175,6 +211,15 @@ export const aiAutoReplyService = {
             const conv = await FBConversationModel.findById(conversationId);
             if (!conv) {
               console.error(`[AI AutoReply] ❌ LỖI: Không tìm thấy cuộc hội thoại FB ${conversationId} trong DB.`);
+              await aiKnowledgeService.createReplyLog({
+                companyCode: user.companyCode || "SYSTEM",
+                channel,
+                conversationId,
+                customerMessage: incomingText,
+                aiResponse: `[FAILED] Không tìm thấy cuộc hội thoại FB trong DB`,
+                latencyMs: 0,
+                status: "failed",
+              }).catch(() => {});
               return;
             }
 
@@ -210,6 +255,15 @@ export const aiAutoReplyService = {
           // we do not auto-reply anymore.
           if (lastMessageDirection === "outbound") {
             console.log(`[AI AutoReply] ⚠️ BỎ QUA: Bỏ qua tự động phản hồi hội thoại ${conversationId} vì tin nhắn gần nhất trong DB là "outbound" (nhân viên đã trả lời thủ công).`);
+            await aiKnowledgeService.createReplyLog({
+              companyCode: user.companyCode || "SYSTEM",
+              channel,
+              conversationId,
+              customerMessage: incomingText,
+              aiResponse: `[SKIPPED] Tin nhắn gần nhất trong DB là outbound (nhân viên đã trả lời thủ công)`,
+              latencyMs: 0,
+              status: "failed",
+            }).catch(() => {});
             return;
           }
 
@@ -220,6 +274,15 @@ export const aiAutoReplyService = {
           );
           if (!isLatest) {
             console.log(`[AI AutoReply] ⚠️ BỎ QUA: Bỏ qua tự động phản hồi cho message ${incomingMessageId || incomingText} vì đã có tin nhắn mới hơn trong cuộc hội thoại.`);
+            await aiKnowledgeService.createReplyLog({
+              companyCode: user.companyCode || "SYSTEM",
+              channel,
+              conversationId,
+              customerMessage: incomingText,
+              aiResponse: `[SKIPPED] Có tin nhắn mới hơn trong cuộc hội thoại`,
+              latencyMs: 0,
+              status: "failed",
+            }).catch(() => {});
             return;
           }
 
@@ -257,6 +320,15 @@ export const aiAutoReplyService = {
 
             if (!aiResponse || !aiResponse.text) {
               console.error(`[AI AutoReply] ❌ LỖI API: Không nhận được câu trả lời từ Gemini cho hội thoại: ${conversationId}`);
+              await aiKnowledgeService.createReplyLog({
+                companyCode: user.companyCode || "SYSTEM",
+                channel,
+                conversationId,
+                customerMessage: incomingText,
+                aiResponse: `[FAILED] Không nhận được câu trả lời từ Gemini (aiResponse trống)`,
+                latencyMs: 0,
+                status: "failed",
+              }).catch(() => {});
               return;
             }
 
@@ -272,6 +344,15 @@ export const aiAutoReplyService = {
 
             if (preSendDirection === "outbound") {
               console.log(`[AI AutoReply] ⚠️ CAN THIỆP PHÚT CUỐI: Nhân viên đã gửi tin nhắn thủ công trong thời gian Gemini sinh câu trả lời cho conversationId=${conversationId}. Huỷ bỏ việc gửi câu trả lời AI.`);
+              await aiKnowledgeService.createReplyLog({
+                companyCode: user.companyCode || "SYSTEM",
+                channel,
+                conversationId,
+                customerMessage: incomingText,
+                aiResponse: `[SKIPPED] Nhân viên đã gửi tin nhắn thủ công trước khi AI gửi đi`,
+                latencyMs: 0,
+                status: "failed",
+              }).catch(() => {});
               return;
             }
 
@@ -317,7 +398,20 @@ export const aiAutoReplyService = {
             generatingReplies.delete(conversationId);
           }
         } catch (err: any) {
-          console.error(`[AI AutoReply Timeout Execution] ❌ LỖI NGHÊM TRỌNG khi thực hiện gửi phản hồi tự động:`, err.message || err);
+          console.error(`[AI AutoReply Timeout Execution] ❌ LỖI NGHIÊM TRỌNG khi thực hiện gửi phản hồi tự động:`, err.message || err);
+          try {
+            await aiKnowledgeService.createReplyLog({
+              companyCode: user?.companyCode || "SYSTEM",
+              channel,
+              conversationId,
+              customerMessage: incomingText,
+              aiResponse: `[ERROR] ${err.message || String(err)}`,
+              latencyMs: 0,
+              status: "failed",
+            });
+          } catch (logErr) {
+            console.error(`[AI AutoReply] Không thể lưu log lỗi:`, logErr);
+          }
         }
       }, delayMs);
 
