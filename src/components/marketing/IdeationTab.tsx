@@ -1634,13 +1634,13 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
       <div className="space-y-4" id="campaign_draft_concepts_section">
         <span className="text-[10px] font-bold text-gray-500 font-mono uppercase tracking-wider block">Bản nháp ý tưởng sáng tạo ({concepts.length})</span>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5" id="concepts_container">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4" id="concepts_container">
           {concepts.map((concept, idx) => (
-            <div key={idx} className="p-5 bg-white border border-gray-250/70 hover:border-indigo-300 rounded-2xl transition-all shadow-xs text-left flex flex-col justify-between" id={`concept_card_${idx}`}>
+            <div key={idx} className="p-4 bg-white border border-gray-250/70 hover:border-indigo-300 rounded-2xl transition-all shadow-xs text-left flex flex-col justify-between" id={`concept_card_${idx}`}>
               {(() => {
                 const activeMediaMeta = mediaTypeMeta[concept.mediaType || mediaType] || mediaTypeMeta.image;
                 return (
-                  <div className="mb-3 flex items-center justify-between gap-3">
+                  <div className="mb-2.5 flex items-center justify-between gap-3">
                     <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${activeMediaMeta.tone}`}>
                       {activeMediaMeta.label}
                     </span>
@@ -1676,8 +1676,8 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                 )}
               </div>
 
-              <div className="mt-5 border-t border-gray-100 pt-4 bg-gray-50 p-4 rounded-xl border border-dashed">
-                <div className="flex items-center gap-1.5 text-indigo-600 font-bold mb-1.5">
+              <div className="mt-4 border-t border-gray-100 pt-3 bg-gray-50 p-3 rounded-xl border border-dashed">
+                <div className="flex items-center gap-1.5 text-indigo-600 font-bold mb-1">
                   <Zap className="h-3.5 w-3.5" />
                   <span className="text-[10px] font-mono uppercase">Mẫu Content sinh ra từ AI:</span>
                 </div>

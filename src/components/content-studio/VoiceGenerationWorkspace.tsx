@@ -160,6 +160,7 @@ export function VoiceGenerationWorkspace({
 
    // Custom states
    
+   const [activeCardId, setActiveCardId] = useState<string | undefined>(cardId);
    const [selectedStylePrompt, setSelectedStylePrompt] = useState('');
    const [selectedRegionPrompt, setSelectedRegionPrompt] = useState('');
    const [mode, setMode] = useState<'single' | 'multi'>('single');
@@ -170,22 +171,32 @@ export function VoiceGenerationWorkspace({
    const [archiveDescription, setArchiveDescription] = useState(initialDescription || '');
 
    useEffect(() => {
-      setArchiveTitle(initialTitle || '');
+      if (cardId) {
+         setActiveCardId(cardId);
+      }
+   }, [cardId]);
+
+   useEffect(() => {
+      if (initialTitle) {
+         setArchiveTitle(initialTitle);
+      }
    }, [initialTitle]);
 
    useEffect(() => {
-      setArchiveDescription(initialDescription || '');
+      if (initialDescription) {
+         setArchiveDescription(initialDescription);
+      }
    }, [initialDescription]);
 
-   
-
    useEffect(() => {
-      if (!cardId) return;
+      console.log("VoiceGenerationWorkspace - activeCardId:", activeCardId, "initialTitle:", initialTitle, "initialDescription:", initialDescription);
+      if (!activeCardId) return;
       if (archiveTitle.trim() && archiveDescription.trim()) return;
 
       let isMounted = true;
-      void marketingService.getCardById(cardId)
+      void marketingService.getCardById(activeCardId)
          .then((card) => {
+            console.log("VoiceGenerationWorkspace - Fetched card:", card);
             if (!isMounted || !card) return;
 
             if (!archiveTitle.trim()) {
@@ -193,10 +204,8 @@ export function VoiceGenerationWorkspace({
             }
 
             if (!archiveDescription.trim()) {
-               setArchiveDescription(card.motionText || card.voiceDescription || `Script tạo voice cho bài đăng kênh ${card.channel}.`);
+               setArchiveDescription(card.motionText || card.voiceDescription || `Script tạo voice cho bài đăng kênh ${card.channel || ''}.`);
             }
-
-
 
             if (!text.trim()) {
                const sanitizedText = stripHumanVideoOutlineSections(
@@ -214,7 +223,7 @@ export function VoiceGenerationWorkspace({
       return () => {
          isMounted = false;
       };
-   }, [cardId, archiveTitle, archiveDescription, text]);
+   }, [activeCardId, archiveTitle, archiveDescription, text]);
 
    // Voice selection states
    const [voiceId, setVoiceId] = useState(DEFAULT_FALLBACK_VOICE_ID);
@@ -610,12 +619,12 @@ const getSelectedVoice = () => {
             toast.success('Tạo giọng nói thành công!');
             loadHistory(); // Reload history
 
-            if (cardId) {
+            if (activeCardId) {
                toast.info('Đang đồng bộ audio lên Cloudinary...');
                try {
                   const filename = `voice_${Date.now()}.mp3`;
                   const cloudinaryUrl = await marketingService.uploadMediaToStorage(result.record.url, filename, 'video');
-                  await marketingService.updateCard(cardId, {
+                  await marketingService.updateCard(activeCardId, {
                      audioUrl: cloudinaryUrl,
                      voiceScript: text,
                      audioRecordId: result.record?._id || result.record?.id,
@@ -623,11 +632,11 @@ const getSelectedVoice = () => {
                      voiceDescription: archiveDescription.trim() || undefined
                   });
                   if (onMediaSaved) {
-                     onMediaSaved(cardId, cloudinaryUrl, 'audio');
+                     onMediaSaved(activeCardId, cloudinaryUrl, 'audio');
                   }
                                     toast.success('Đã lưu trữ và đồng bộ hóa audio thành công!');
                   try {
-                     const card = await marketingService.getCardById(cardId);
+                     const card = await marketingService.getCardById(activeCardId);
                      if (card && card.mediaType === 'human-video' && onNavigateToHumanVideo) {
                         toast.info('Đang tự động chuyển sang Xưởng Video để tạo video người thật...');
                         onNavigateToHumanVideo();
