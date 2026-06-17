@@ -626,7 +626,7 @@ export function HeyGenWorkspace({
           onClick={() => setPreviewItem(null)}
         >
           <div
-            className="relative w-full max-w-4xl rounded-[32px] bg-white p-6 shadow-2xl flex flex-col md:flex-row gap-6 cursor-default overflow-hidden border border-slate-100"
+            className="relative w-full max-w-2xl rounded-[32px] bg-white p-6 shadow-2xl flex flex-col md:flex-row gap-6 cursor-default overflow-hidden border border-slate-100"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Close Button */}
@@ -640,19 +640,18 @@ export function HeyGenWorkspace({
             </button>
 
             {/* Left Column: Video Player */}
-            <div className="flex-1 rounded-[24px] bg-slate-950 overflow-hidden flex items-center justify-center aspect-video md:max-h-[480px]">
+            <div className="flex-1 rounded-[24px] bg-slate-50 overflow-hidden flex items-center justify-center md:h-[440px] w-full relative border border-slate-100">
               {String(previewItem.status || "").toLowerCase() === "completed" ? (
                 <video
                   src={previewItem.url || previewItem.captionedVideoUrl || previewItem.videoPageUrl || ""}
                   controls
                   autoPlay
                   playsInline
-                  className="w-full h-full object-contain"
-                  style={{ objectPosition: "center top" }}
+                  className="max-h-full max-w-full object-contain"
                 />
               ) : (
-                <div className="flex flex-col items-center justify-center p-6 text-center text-slate-400 h-full w-full bg-slate-900">
-                  <span className="text-rose-400 text-base font-bold mb-2">Video này render bị lỗi</span>
+                <div className="flex flex-col items-center justify-center p-6 text-center text-slate-400 h-full w-full bg-slate-50">
+                  <span className="text-rose-455 text-sm font-bold mb-2">Video này render bị lỗi</span>
                   <p className="text-xs text-slate-500 max-w-xs">
                     {previewItem.error || "Không thể phát video này do lỗi hệ thống HeyGen."}
                   </p>
@@ -660,91 +659,55 @@ export function HeyGenWorkspace({
               )}
             </div>
 
-            {/* Right Column: Actions & Metadata */}
-            <div className="w-full md:w-[320px] flex flex-col justify-between gap-6 py-2">
-              <div className="space-y-4">
-                <div>
-                  {String(previewItem.status || "").toLowerCase() === "completed" ? (
-                    <span className="rounded-full bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200 px-3 py-1 text-xs font-bold">
-                      Hoàn thành
-                    </span>
-                  ) : (
-                    <span className="rounded-full bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-200 px-3 py-1 text-xs font-bold">
-                      Thất bại
-                    </span>
-                  )}
-                  <h4 className="text-xl font-bold text-slate-900 mt-3">
-                    Render {history.length - history.findIndex(item => item._id === previewItem._id)}
-                  </h4>
-                  <p className="text-xs text-slate-400 mt-1">
-                    {previewItem.createdAt ? new Date(previewItem.createdAt).toLocaleString("vi-VN") : ""}
-                  </p>
-                </div>
-
-                <div className="border-t border-slate-100 pt-4">
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Kịch bản / Prompt</p>
-                  <p className="mt-1.5 text-sm text-slate-600 line-clamp-6 leading-relaxed bg-slate-50 rounded-xl p-3 border border-slate-100">
-                    {previewItem.prompt || "Video người thật tạo bởi AI"}
-                  </p>
-                </div>
-
-                {previewItem.duration ? (
-                  <div className="flex justify-between items-center bg-slate-50 rounded-xl px-3.5 py-2.5 border border-slate-100 text-xs text-slate-500">
-                    <span>Thời lượng:</span>
-                    <span className="font-semibold text-slate-700">{Math.max(1, Math.round(previewItem.duration))} giây</span>
-                  </div>
-                ) : null}
-              </div>
-
-              <div className="space-y-3">
-                {String(previewItem.status || "").toLowerCase() === "completed" && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        handleEditRecent(previewItem);
-                        setPreviewItem(null);
-                      }}
-                      className="flex items-center justify-center gap-2 w-full rounded-2xl bg-cyan-600 hover:bg-cyan-700 text-white py-3.5 font-bold transition shadow-sm hover:shadow"
-                    >
-                      <Pencil className="h-4 w-4" />
-                      Sử dụng cấu hình này
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        setIsDownloading(true);
-                        await handleDownloadVideo(previewItem);
-                        setIsDownloading(false);
-                      }}
-                      disabled={isDownloading}
-                      className="flex items-center justify-center gap-2 w-full rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 py-3.5 font-bold transition disabled:opacity-50"
-                    >
-                      {isDownloading ? (
-                        <LoaderCircle className="h-4 w-4 animate-spin text-slate-500" />
-                      ) : (
-                        <Download className="h-4 w-4" />
-                      )}
-                      Tải xuống video
-                    </button>
-                  </>
-                )}
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (window.confirm("Bạn có chắc chắn muốn xóa video này khỏi lịch sử không?")) {
-                      handleDeleteHistory(previewItem.videoId || previewItem.id || previewItem._id);
+            {/* Right Column: Actions Only (Circular Icons) */}
+            <div className="w-full md:w-[70px] flex flex-row md:flex-col justify-center items-center gap-4 py-2 border-t md:border-t-0 md:border-l border-slate-100 pt-4 md:pt-0 md:pl-4">
+              {String(previewItem.status || "").toLowerCase() === "completed" && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleEditRecent(previewItem);
                       setPreviewItem(null);
-                    }
-                  }}
-                  className="flex items-center justify-center gap-2 w-full rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-600 py-3.5 font-bold transition"
-                >
-                  <Trash2 className="h-4 w-4" />
-                  Xóa lịch sử video
-                </button>
-              </div>
+                    }}
+                    className="flex h-13 w-13 items-center justify-center rounded-full bg-cyan-50 hover:bg-cyan-100 text-cyan-600 transition shadow-sm hover:scale-105"
+                    title="Sử dụng cấu hình này"
+                  >
+                    <Pencil className="h-5.5 w-5.5" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setIsDownloading(true);
+                      await handleDownloadVideo(previewItem);
+                      setIsDownloading(false);
+                    }}
+                    disabled={isDownloading}
+                    className="flex h-13 w-13 items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 transition disabled:opacity-50 shadow-sm hover:scale-105"
+                    title="Tải xuống video"
+                  >
+                    {isDownloading ? (
+                      <LoaderCircle className="h-5.5 w-5.5 animate-spin text-slate-500" />
+                    ) : (
+                      <Download className="h-5.5 w-5.5" />
+                    )}
+                  </button>
+                </>
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm("Bạn có chắc chắn muốn xóa video này khỏi lịch sử không?")) {
+                    handleDeleteHistory(previewItem.videoId || previewItem.id || previewItem._id);
+                    setPreviewItem(null);
+                  }
+                }}
+                className="flex h-13 w-13 items-center justify-center rounded-full bg-rose-50 hover:bg-rose-100 text-rose-600 transition shadow-sm hover:scale-105"
+                title="Xóa lịch sử video"
+              >
+                <Trash2 className="h-5.5 w-5.5" />
+              </button>
             </div>
           </div>
         </div>
