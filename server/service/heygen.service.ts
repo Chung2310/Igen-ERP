@@ -656,6 +656,56 @@ export const heygenService = {
       .sort({ createdAt: -1 })
       .lean();
 
+    const activeRecords = localRecords.filter((r) =>
+      r.metadata?.status && ACTIVE_VIDEO_STATUSES.has(String(r.metadata.status).toLowerCase())
+    );
+
+    if (activeRecords.length > 0) {
+      try {
+        const accessContext = await getHeyGenAccessContext(userId);
+        if (accessContext.apiKey) {
+          await Promise.allSettled(
+            activeRecords.map(async (record) => {
+              try {
+                const videoId = record.metadata.heygenVideoId;
+                if (!videoId) return;
+                const data = await requestHeyGenJson(`/v3/videos/${encodeURIComponent(videoId)}`, undefined, accessContext.apiKey);
+                const normalized = normalizeStatusPayload(data);
+                await upsertVideoRecord(userId, {
+                  videoId,
+                  videoUrl: normalized.videoUrl || undefined,
+                  captionedVideoUrl: normalized.captionedVideoUrl || undefined,
+                  subtitleUrl: normalized.subtitleUrl || undefined,
+                  script: record.prompt || "Video người thật",
+                  status: normalized.jobStatus,
+                  aspectRatio: record.metadata?.aspectRatio,
+                  title: record.metadata?.title,
+                  description: record.metadata?.description,
+                });
+              } catch (e) {
+                console.error(`[getVideoHistory] Error polling live status for video ${record._id}:`, e);
+              }
+            })
+          );
+
+          // Refetch updated list from DB
+          const updatedRecords = await AIMediaModel.find({
+            userId,
+            mediaType: "video",
+            $or: [
+              { "metadata.provider": "heygen" },
+              { "metadata.heygenVideoId": { $exists: true, $ne: "" } },
+            ],
+          })
+            .sort({ createdAt: -1 })
+            .lean();
+          return updatedRecords.map((record) => normalizeHeyGenVideo(null, record));
+        }
+      } catch (error) {
+        console.error("[getVideoHistory] Live sync error:", error);
+      }
+    }
+
     return localRecords.map((record) => normalizeHeyGenVideo(null, record));
   },
 
