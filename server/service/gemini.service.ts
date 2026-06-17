@@ -212,7 +212,10 @@ async function generateText(
   }
 ): Promise<{ text: string }> {
   const ai = getGeminiClient();
-  const modelId = model || GEMINI_TEXT_MODEL;
+  let modelId = model || GEMINI_TEXT_MODEL;
+  if (modelId === "gemini-3.5-flash") {
+    modelId = "gemini-2.5-flash";
+  }
 
   // Build Gemini-native contents
   const geminiContents: any[] = [];
