@@ -328,9 +328,18 @@ export const fbMessengerController = {
       }
 
       const limit = Math.min(Number(req.query.limit || 10), 30);
-      const filter = user.role === "superadmin" && req.query.companyCode
+      const baseFilter = user.role === "superadmin" && req.query.companyCode
         ? { companyCode: String(req.query.companyCode).trim().toUpperCase() }
         : { companyCode: String(user.companyCode || "SYSTEM").trim().toUpperCase() };
+      const rawChannel = typeof req.query.channel === "string" ? req.query.channel.trim() : "";
+      const channelFilter = rawChannel === "facebook" || rawChannel === "zalo" || rawChannel === "test"
+        ? rawChannel
+        : undefined;
+      const filter = {
+        ...baseFilter,
+        ...(req.query.conversationId ? { conversationId: String(req.query.conversationId).trim() } : {}),
+        ...(channelFilter ? { channel: channelFilter } : {}),
+      };
       const logs = await AIReplyLogModel.find(filter)
         .sort({ createdAt: -1 })
         .limit(limit)

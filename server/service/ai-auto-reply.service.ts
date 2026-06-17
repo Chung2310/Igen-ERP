@@ -17,6 +17,64 @@ function normalizeIncomingText(text: string) {
   return String(text || "").trim();
 }
 
+async function collectCandidateUsers(
+  channel: "facebook" | "zalo",
+  resolvedPlatformId: string
+) {
+  const candidateUsers: any[] = [];
+
+  const userLevelQuery = channel === "zalo"
+    ? { "zaloIntegration.isConnected": true, "zaloIntegration.oaId": resolvedPlatformId }
+    : { "facebookIntegration.isConnected": true, "facebookIntegration.pageId": resolvedPlatformId };
+
+  console.log(`[AI AutoReply] Dang tim tich hop ca nhan cho ${channel} bang query:`, JSON.stringify(userLevelQuery));
+  const userLevelOwners = await UserModel.find(userLevelQuery);
+  if (userLevelOwners.length > 0) {
+    console.log(`[AI AutoReply] Tim thay ${userLevelOwners.length} users lien ket ca nhan:`, userLevelOwners.map((u) => u.email));
+    candidateUsers.push(...userLevelOwners);
+  }
+
+  const companyIntegrations = await SocialIntegrationModel.find({
+    platform: channel === "zalo" ? "Zalo" : "Facebook",
+    username: resolvedPlatformId,
+    isConnected: true
+  }).lean();
+
+  if (companyIntegrations.length > 0) {
+    console.log(`[AI AutoReply] Tim thay ${companyIntegrations.length} tich hop doanh nghiep.`);
+    for (const integration of companyIntegrations) {
+      if (integration.createdBy) {
+        const creator = await UserModel.findById(integration.createdBy);
+        if (creator) {
+          candidateUsers.push(creator);
+        }
+      }
+
+      const companyUsers = await UserModel.find({ companyCode: integration.companyCode });
+      if (companyUsers.length > 0) {
+        candidateUsers.push(...companyUsers);
+      }
+    }
+  }
+
+  const uniqueCandidatesMap = new Map<string, any>();
+  for (const candidate of candidateUsers) {
+    uniqueCandidatesMap.set(candidate._id.toString(), candidate);
+  }
+
+  const uniqueCandidates = Array.from(uniqueCandidatesMap.values());
+  console.log(
+    `[AI AutoReply] Danh sach ung vien duy nhat:`,
+    uniqueCandidates.map((u) => `${u.email} (AIEnabled: ${!!u.aiAutoReplyConfig?.enabled})`)
+  );
+
+  return {
+    userLevelOwners,
+    companyIntegrations,
+    uniqueCandidates,
+  };
+}
+
 async function logAutoReplyFailure(params: {
   companyCode?: string;
   channel: "facebook" | "zalo";
@@ -81,55 +139,11 @@ export const aiAutoReplyService = {
       let user = null;
       let aiConfig = null;
 
-      const candidateUsers: any[] = [];
-
-      // A. Tìm theo cấu hình tích hợp cá nhân (UserModel)
-      const userLevelQuery = channel === "zalo"
-        ? { "zaloIntegration.isConnected": true, "zaloIntegration.oaId": resolvedPlatformId }
-        : { "facebookIntegration.isConnected": true, "facebookIntegration.pageId": resolvedPlatformId };
-
-      console.log(`[AI AutoReply] Đang tìm tích hợp cá nhân cho ${channel} bằng query:`, JSON.stringify(userLevelQuery));
-      const userLevelOwners = await UserModel.find(userLevelQuery);
-      if (userLevelOwners && userLevelOwners.length > 0) {
-        console.log(`[AI AutoReply] Tìm thấy ${userLevelOwners.length} users liên kết cá nhân:`, userLevelOwners.map(u => u.email));
-        candidateUsers.push(...userLevelOwners);
-      }
-
-      // B. Tìm theo cấu hình tích hợp doanh nghiệp (SocialIntegrationModel)
-      const companyIntegrations = await SocialIntegrationModel.find({
-        platform: channel === "zalo" ? "Zalo" : "Facebook",
-        username: resolvedPlatformId,
-        isConnected: true
-      }).lean();
-
-      if (companyIntegrations && companyIntegrations.length > 0) {
-        console.log(`[AI AutoReply] Tìm thấy ${companyIntegrations.length} tích hợp doanh nghiệp.`);
-        for (const integration of companyIntegrations) {
-          console.log(`  - Tích hợp: companyCode=${integration.companyCode}, createdBy=${integration.createdBy}`);
-          
-          if (integration.createdBy) {
-            const creator = await UserModel.findById(integration.createdBy);
-            if (creator) {
-              console.log(`    - Thêm người tạo tích hợp doanh nghiệp làm ứng viên: ${creator.email}`);
-              candidateUsers.push(creator);
-            }
-          }
-
-          const companyUsers = await UserModel.find({ companyCode: integration.companyCode });
-          if (companyUsers && companyUsers.length > 0) {
-            console.log(`    - Thêm các thành viên trong công ty làm ứng viên:`, companyUsers.map(u => u.email));
-            candidateUsers.push(...companyUsers);
-          }
-        }
-      }
-
-      // C. Lọc trùng lặp danh sách ứng viên
-      const uniqueCandidatesMap = new Map<string, any>();
-      for (const u of candidateUsers) {
-        uniqueCandidatesMap.set(u._id.toString(), u);
-      }
-      const uniqueCandidates = Array.from(uniqueCandidatesMap.values());
-      console.log(`[AI AutoReply] Danh sách tất cả ứng viên duy nhất:`, uniqueCandidates.map(u => `${u.email} (AIEnabled: ${!!u.aiAutoReplyConfig?.enabled})`));
+      const {
+        userLevelOwners,
+        companyIntegrations,
+        uniqueCandidates,
+      } = await collectCandidateUsers(channel, resolvedPlatformId);
 
       // D. Chọn user phù hợp nhất (ưu tiên người dùng đã BẬT AI tự động trả lời)
       let selectedUser = uniqueCandidates.find(u => u.aiAutoReplyConfig?.enabled === true);
@@ -148,13 +162,22 @@ export const aiAutoReplyService = {
           conversationId,
           customerMessage: normalizedIncomingText,
           reason: `No integration owner found for ${channel} platform ID ${resolvedPlatformId}`,
-          details: { platformId: resolvedPlatformId, candidateCount: uniqueCandidates.length },
+          details: {
+            platformId: resolvedPlatformId,
+            candidateCount: uniqueCandidates.length,
+            userLevelOwnerCount: userLevelOwners.length,
+            companyIntegrationCount: companyIntegrations.length,
+          },
         });
         return;
       }
 
       user = selectedUser;
       aiConfig = selectedUser.aiAutoReplyConfig;
+      console.log(
+        `[AI AutoReply] Owner selected: channel=${channel}, platformId=${resolvedPlatformId}, ` +
+        `conversationId=${conversationId}, user=${user.email}, company=${user.companyCode || "SYSTEM"}, enabled=${!!aiConfig?.enabled}`
+      );
 
       if (!aiConfig || !aiConfig.enabled) {
         await logAutoReplyFailure({
@@ -189,6 +212,10 @@ export const aiAutoReplyService = {
       }
 
       const delayMs = (aiConfig.replyDelay || 15) * 1000;
+      console.log(
+        `[AI AutoReply] Schedule reply: channel=${channel}, conversationId=${conversationId}, ` +
+        `delayMs=${delayMs}, model=${aiConfig.model || "n/a"}, user=${user.email}`
+      );
       console.log(`[AI AutoReply] 🕒 LÊN LỊCH: Đang lên lịch phản hồi tự động sau ${aiConfig.replyDelay}s cho hội thoại: ${conversationId} (User: ${user.email})`);
 
       const timeoutId = setTimeout(async () => {
@@ -339,6 +366,7 @@ export const aiAutoReplyService = {
           }
 
           console.log(`[AI AutoReply] 🤖 KHỞI CHẠY: Bắt đầu gọi Gemini sinh câu trả lời cho hội thoại: ${conversationId} (${channel.toUpperCase()})`);
+          console.log(`[AI AutoReply] Gemini start: conversationId=${conversationId}, channel=${channel}, historyCount=${history.length}`);
           generatingReplies.add(conversationId);
 
           try {
@@ -362,12 +390,18 @@ export const aiAutoReplyService = {
             }
 
             console.log(
+              `[AI AutoReply] Context ready: conversationId=${conversationId}, channel=${channel}, ` +
+              `matches=${effectiveRagContext.matches}, contextLength=${effectiveRagContext.contextText?.length || 0}`
+            );
+
+            console.log(
               `[AI AutoReply] 📚 TRUY XUẤT RAG: Context ready cho conversation=${conversationId}, matches=${effectiveRagContext.matches}, ` +
               `contextLength=${effectiveRagContext.contextText?.length || 0}`
             );
 
             // Call Gemini Service
             console.log(`[AI AutoReply] 🧠 GEMINI CALL: Đang gửi request tới Gemini cho conversation=${conversationId}...`);
+            console.log(`[AI AutoReply] Gemini call: conversationId=${conversationId}, channel=${channel}`);
             const aiResponse = await geminiService.chat(normalizedIncomingText, history, aiConfig, effectiveRagContext);
 
             if (!aiResponse || !aiResponse.text) {
@@ -410,6 +444,7 @@ export const aiAutoReplyService = {
 
             console.log(`[AI AutoReply] 💬 GEMINI OK: Đã sinh xong câu trả lời (độ dài: ${aiResponse.text.length} ký tự). Tiến hành gửi qua ${channel}...`);
 
+            console.log(`[AI AutoReply] Gemini ok: conversationId=${conversationId}, channel=${channel}, replyLength=${aiResponse.text.length}`);
             try {
               // Send response using existing sendReply helper
               if (channel === "zalo") {
@@ -429,6 +464,7 @@ export const aiAutoReplyService = {
                 latencyMs: Date.now() - startedAt,
                 status: "sent",
               });
+              console.log(`[AI AutoReply] Reply sent: conversationId=${conversationId}, channel=${channel}, latencyMs=${Date.now() - startedAt}`);
               console.log(`[AI AutoReply] ✅ THÀNH CÔNG: Đã gửi phản hồi tự động thành công cho hội thoại: ${conversationId} trong ${Date.now() - startedAt}ms`);
             } catch (sendErr: any) {
               console.error(`[AI AutoReply] ❌ LỖI GỬI TIN: Thất bại khi gửi tin nhắn qua API ${channel.toUpperCase()}:`, sendErr.message || sendErr);
