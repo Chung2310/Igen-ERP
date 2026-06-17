@@ -43,6 +43,10 @@ ENV PORT=3000
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/package.json /app/yarn.lock ./
 
+# Copy Remotion entrypoint and video composition template for runtime Webpack bundling
+COPY --from=builder /app/server/remotion ./server/remotion
+COPY --from=builder /app/src/components/content-studio/video-composition.tsx ./src/components/content-studio/video-composition.tsx
+
 # Install only production dependencies
 RUN --mount=type=cache,target=/root/.yarn-cache \
     yarn install --production --frozen-lockfile --cache-folder /root/.yarn-cache
