@@ -67,11 +67,16 @@ export function ModerationPipCard({
       )}
 
       {/* Category header */}
-      <div className="flex justify-between items-center gap-2 cursor-pointer" onClick={onOpenDetail}>
-        <div className="flex items-center gap-1.5 min-w-0">
-          <span className="px-2 py-0.5 bg-indigo-50 border border-indigo-150 rounded-sm text-[9px] font-mono font-bold text-indigo-700 tracking-wider shrink-0">
-            {card.channel}
-          </span>
+      <div className="flex items-center justify-between gap-2 cursor-pointer" onClick={onOpenDetail}>
+        <span className="px-2 py-0.5 bg-indigo-50 border border-indigo-150 rounded-sm text-[9px] font-mono font-bold text-indigo-700 tracking-wider shrink-0">
+          {card.channel}
+        </span>
+        <div className="flex items-center gap-1.5">
+          {isFailed && (
+            <span className="px-1.5 py-0.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-sm text-[8px] font-bold shrink-0">
+              LỖI SINH
+            </span>
+          )}
           {card.mediaType && (
             <span className={`px-2 py-0.5 rounded-sm text-[9px] font-mono font-bold tracking-wide shrink-0 border ${
               card.mediaType === 'human-video' ? 'bg-amber-50 text-amber-700 border-amber-100' :
@@ -82,13 +87,7 @@ export function ModerationPipCard({
               {card.mediaType === 'human-video' ? 'Video người thật' : card.mediaType === 'video' ? 'Video AI' : card.mediaType === 'image' ? 'Ảnh AI' : 'Media AI'}
             </span>
           )}
-          {isFailed && (
-            <span className="px-1.5 py-0.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-sm text-[8px] font-bold shrink-0">
-              LỖI SINH
-            </span>
-          )}
         </div>
-        <span className="text-[9px] text-gray-400 font-mono tracking-wide truncate" title={card.contentType}>{card.contentType}</span>
       </div>
 
       {/* Media Thumbnails */}
