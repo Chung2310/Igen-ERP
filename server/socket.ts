@@ -128,3 +128,13 @@ export function emitToPage(pageId: string, eventName: string, data: any) {
     console.warn("[Socket.IO] Server instance (io) not initialized.");
   }
 }
+
+export function broadcastEvent(eventName: string, data: any) {
+  if (io) {
+    console.log(`[Socket.IO] Broadcasting event "${eventName}"`);
+    io.emit(eventName, data);
+  } else {
+    console.warn("[Socket.IO] Server instance (io) not initialized.");
+  }
+}
+

@@ -79,24 +79,42 @@ export const fbMessengerService = {
         }
       }
 
-      await FBConversationModel.findOneAndUpdate(
-        { pageId, facebookConversationId: fbConversation.id || "" },
-        {
+      let conversation = await FBConversationModel.findOne({
+        pageId,
+        $or: [
+          { facebookConversationId: fbConversation.id },
+          { recipientId }
+        ]
+      });
+
+      if (conversation) {
+        conversation.facebookConversationId = fbConversation.id;
+        conversation.recipientId = recipientId;
+        conversation.senderName = nonPageSender?.name || conversation.senderName || "Khách hàng Facebook";
+        if (avatarUrl) {
+          conversation.avatarUrl = avatarUrl;
+        }
+        conversation.lastMessageText = latestMessage?.message || conversation.lastMessageText || "[Đính kèm]";
+        conversation.lastMessageAt = latestMessage?.created_time
+          ? new Date(latestMessage.created_time)
+          : (conversation.lastMessageAt || new Date(fbConversation?.updated_time || Date.now()));
+        conversation.status = "open";
+        await conversation.save();
+      } else {
+        conversation = new FBConversationModel({
           recipientId,
           pageId,
-          facebookConversationId: fbConversation.id || "",
+          facebookConversationId: fbConversation.id,
           senderName: nonPageSender?.name || "Khách hàng Facebook",
           avatarUrl,
           lastMessageText: latestMessage?.message || "[Đính kèm]",
-          lastMessageAt: latestMessage?.created_time ? new Date(latestMessage.created_time) : new Date(fbConversation?.updated_time || Date.now()),
+          lastMessageAt: latestMessage?.created_time
+            ? new Date(latestMessage.created_time)
+            : new Date(fbConversation?.updated_time || Date.now()),
           status: "open",
-        },
-        {
-          upsert: true,
-          new: true,
-          setDefaultsOnInsert: true,
-        }
-      );
+        });
+        await conversation.save();
+      }
     }
 
     console.log(`[FB Service syncConversations] Đồng bộ xong ${conversations.length} hội thoại từ Facebook cho Page ID: ${pageId} trong ${Date.now() - startedAt}ms`);
@@ -124,8 +142,10 @@ export const fbMessengerService = {
       throw new Error(`Không tìm thấy Access Token cấu hình cho Page ID: ${pageId}`);
     }
 
-    const latestStoredMessage = await FBMessageModel.findOne({ conversationId: refreshedConversation._id }).sort({ timestamp: -1 });
-    const latestStoredTime = latestStoredMessage?.timestamp ? new Date(latestStoredMessage.timestamp).getTime() : 0;
+    const existingMids = new Set(
+      (await FBMessageModel.find({ conversationId: refreshedConversation._id }, { messageId: 1 }))
+        .map(m => m.messageId)
+    );
 
     const fields = ["id", "message", "created_time", "from", "to", "attachments"].join(",");
     const url = `https://graph.facebook.com/v19.0/${refreshedConversation.facebookConversationId}/messages?fields=${encodeURIComponent(fields)}&limit=25&access_token=${encodeURIComponent(token)}`;
@@ -134,8 +154,7 @@ export const fbMessengerService = {
     let upsertedCount = 0;
 
     for (const fbMessage of messages) {
-      const fbCreatedTime = fbMessage?.created_time ? new Date(fbMessage.created_time).getTime() : 0;
-      if (latestStoredTime && fbCreatedTime && fbCreatedTime < latestStoredTime) {
+      if (existingMids.has(fbMessage.id)) {
         continue;
       }
 
@@ -525,7 +544,7 @@ export const fbMessengerService = {
     }
 
     // Hủy các phản hồi AI đang lên lịch do nhân viên đã can thiệp
-    aiAutoReplyService.cancelPendingReply(conversationId);
+    aiAutoReplyService.cancelPendingReply(conversationId, "human_reply");
 
     const recipientPsid = conversation.recipientId;
     const resolvedPageId = conversation.pageId || pageId || process.env.FB_PAGE_ID || "";
@@ -675,25 +694,33 @@ export const fbMessengerService = {
     })
       .select("email companyCode aiAutoReplyConfig facebookIntegration.pageId facebookIntegration.pageName facebookIntegration.pageAccessToken")
       .lean();
+    const { SocialIntegrationModel } = require("../model/social-integration.model");
+    const companyIntegration = await SocialIntegrationModel.findOne({
+      platform: "Facebook",
+      username: pageId,
+      isConnected: true
+    }).lean();
     let companyCode = pageOwner?.companyCode || null;
     let aiEnabled = !!pageOwner?.aiAutoReplyConfig?.enabled;
     let replyDelay = pageOwner?.aiAutoReplyConfig?.replyDelay ?? null;
+    let model = pageOwner?.aiAutoReplyConfig?.model || null;
     let pageOwnerEmail = pageOwner?.email || null;
+    let ownerSource = pageOwner ? "user" : null;
 
     if (!pageOwner) {
-      const { SocialIntegrationModel } = require("../model/social-integration.model");
-      const companyIntegration = await SocialIntegrationModel.findOne({
-        platform: "Facebook",
-        username: pageId,
-        isConnected: true
-      }).lean();
       if (companyIntegration) {
         companyCode = companyIntegration.companyCode;
-        const companyUser = await UserModel.findOne({ companyCode }).select("email aiAutoReplyConfig").lean();
+        const companyUser = await UserModel.findOne({
+          companyCode,
+          "aiAutoReplyConfig.enabled": true,
+        }).select("email aiAutoReplyConfig").lean()
+          || await UserModel.findOne({ companyCode }).select("email aiAutoReplyConfig").lean();
         if (companyUser) {
           pageOwnerEmail = companyUser.email;
           aiEnabled = !!companyUser.aiAutoReplyConfig?.enabled;
           replyDelay = companyUser.aiAutoReplyConfig?.replyDelay ?? null;
+          model = companyUser.aiAutoReplyConfig?.model || null;
+          ownerSource = "company";
         }
       }
     }
@@ -702,29 +729,36 @@ export const fbMessengerService = {
       ? await FBMessageModel.findOne({ conversationId: conversation._id }).sort({ timestamp: -1 }).lean()
       : null;
     const token = await this.getPageAccessTokenByPageId(pageId);
+    const reasons: string[] = [];
+    if (!conversation) reasons.push("conversation_not_found");
+    if (!pageOwner && !companyIntegration) reasons.push("owner_not_found");
+    if (!aiEnabled) reasons.push("ai_disabled");
+    if (!token) reasons.push("missing_page_access_token");
+    if (conversation && !latestMessage) reasons.push("no_messages");
+    if (latestMessage && latestMessage.direction !== "inbound") reasons.push("latest_message_not_inbound");
+    if (latestMessage?.direction === "inbound" && !String(latestMessage.text || "").trim()) reasons.push("latest_inbound_message_empty");
+    const shouldTriggerAutoReply = reasons.length === 0;
 
     return {
+      channel: "facebook",
       pageId,
       conversationFound: !!conversation,
       conversationPageId: conversation?.pageId || null,
       recipientId: conversation?.recipientId || null,
       pageOwnerEmail,
+      ownerSource,
       companyCode,
       aiEnabled,
       replyDelay,
+      model,
       hasPageAccessToken: !!token,
       pageAccessTokenTail: token ? token.slice(-6) : null,
       latestMessageDirection: latestMessage?.direction || null,
       latestMessageId: latestMessage?.messageId || null,
       latestMessageText: latestMessage?.text || null,
       latestMessageAt: latestMessage?.timestamp || null,
-      shouldTriggerAutoReply: !!(
-        conversation &&
-        aiEnabled &&
-        token &&
-        latestMessage?.direction === "inbound" &&
-        latestMessage?.text
-      ),
+      shouldTriggerAutoReply,
+      reasons,
     };
   },
 

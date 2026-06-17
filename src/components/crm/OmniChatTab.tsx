@@ -46,6 +46,26 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const [showScrollBottom, setShowScrollBottom] = useState(false);
 
+  const [localConfig, setLocalConfig] = useState<AIChatConfig>(aiConfig);
+  const [savingConfig, setSavingConfig] = useState(false);
+
+  useEffect(() => {
+    setLocalConfig(aiConfig);
+  }, [aiConfig]);
+
+  const handleSaveConfig = async () => {
+    setSavingConfig(true);
+    try {
+      await setAIConfig(localConfig);
+      toast.success("Đã lưu cấu hình trợ lý AI thành công!");
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Không thể lưu cấu hình.");
+    } finally {
+      setSavingConfig(false);
+    }
+  };
+
   // Google Drive integrations for Omni-Inbox
   const [driveLink, setDriveLink] = useState("");
   const [syncingDrive, setSyncingDrive] = useState(false);
@@ -80,7 +100,7 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
     }
     setTestingAI(true);
     try {
-      const result = await geminiApi.testReply(testQuestion, aiConfig);
+      const result = await geminiApi.testReply(testQuestion, localConfig);
       setTestReply(result);
       await refreshAIHealth();
     } catch (err: any) {
@@ -720,8 +740,8 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                 <label className="relative inline-flex items-center cursor-pointer select-none shrink-0 mt-0.5">
                   <input 
                     type="checkbox" 
-                    checked={aiConfig.enabled}
-                    onChange={(e) => setAIConfig({ ...aiConfig, enabled: e.target.checked })}
+                    checked={localConfig.enabled}
+                    onChange={(e) => setLocalConfig({ ...localConfig, enabled: e.target.checked })}
                     className="sr-only peer" 
                   />
                   <div className="w-8 h-4 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3.5 after:transition-all peer-checked:bg-blue-600" />
@@ -737,8 +757,8 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                 <label className="relative inline-flex items-center cursor-pointer select-none shrink-0 mt-0.5">
                   <input 
                     type="checkbox" 
-                    checked={aiConfig.autoClassify}
-                    onChange={(e) => setAIConfig({ ...aiConfig, autoClassify: e.target.checked })}
+                    checked={localConfig.autoClassify}
+                    onChange={(e) => setLocalConfig({ ...localConfig, autoClassify: e.target.checked })}
                     className="sr-only peer" 
                   />
                   <div className="w-8 h-4 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3.5 after:transition-all peer-checked:bg-blue-600" />
@@ -754,8 +774,8 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                 <label className="relative inline-flex items-center cursor-pointer select-none shrink-0 mt-0.5">
                   <input 
                     type="checkbox" 
-                    checked={aiConfig.autoCloseDeal}
-                    onChange={(e) => setAIConfig({ ...aiConfig, autoCloseDeal: e.target.checked })}
+                    checked={localConfig.autoCloseDeal}
+                    onChange={(e) => setLocalConfig({ ...localConfig, autoCloseDeal: e.target.checked })}
                     className="sr-only peer" 
                   />
                   <div className="w-8 h-4 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3.5 after:transition-all peer-checked:bg-blue-600" />
@@ -771,8 +791,8 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                 <label className="relative inline-flex items-center cursor-pointer select-none shrink-0 mt-0.5">
                   <input 
                     type="checkbox" 
-                    checked={aiConfig.autoFeedback}
-                    onChange={(e) => setAIConfig({ ...aiConfig, autoFeedback: e.target.checked })}
+                    checked={localConfig.autoFeedback}
+                    onChange={(e) => setLocalConfig({ ...localConfig, autoFeedback: e.target.checked })}
                     className="sr-only peer" 
                   />
                   <div className="w-8 h-4 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3.5 after:transition-all peer-checked:bg-blue-600" />
@@ -785,14 +805,14 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
             <div className="pt-4 border-t border-slate-100 space-y-2">
               <div className="flex justify-between items-center text-xs">
                 <span className="font-extrabold text-slate-700 font-sans">Thời gian trễ trả lời</span>
-                <strong className="font-mono bg-slate-50 px-2 py-0.5 border border-slate-200 rounded text-slate-600">{aiConfig.replyDelay} giây (s)</strong>
+                <strong className="font-mono bg-slate-50 px-2 py-0.5 border border-slate-200 rounded text-slate-600">{localConfig.replyDelay} giây (s)</strong>
               </div>
               <input 
                 type="range" 
                 min={1} 
                 max={45} 
-                value={aiConfig.replyDelay}
-                onChange={(e) => setAIConfig({ ...aiConfig, replyDelay: parseInt(e.target.value) })}
+                value={localConfig.replyDelay}
+                onChange={(e) => setLocalConfig({ ...localConfig, replyDelay: parseInt(e.target.value) })}
                 className="w-full h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600 animate-pulse-slow"
               />
               <span className="text-[9px] text-slate-400 block leading-normal text-left">Độ trễ giúp chatbot hành xử tương thích như người chăm sóc thật phục vụ hội thoại.</span>
@@ -803,8 +823,8 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
               <label className="block font-extrabold text-slate-700">Cài đặt nâng cao (AI Prompts)</label>
               <textarea 
                 placeholder="Nhập luật hành xử nghiêm ngặt cho AI..."
-                value={aiConfig.advancedInstructions}
-                onChange={(e) => setAIConfig({ ...aiConfig, advancedInstructions: e.target.value })}
+                value={localConfig.advancedInstructions}
+                onChange={(e) => setLocalConfig({ ...localConfig, advancedInstructions: e.target.value })}
                 className="w-full h-24 p-3 border border-slate-200 bg-slate-50 focus:bg-white rounded-xl text-xs leading-relaxed focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all duration-200"
               />
             </div>
@@ -815,13 +835,13 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                 <svg className="h-3.5 w-3.5 text-emerald-600 fill-emerald-600/10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
                 </svg>
-                Đồng bộ tài liệu từ Google Drive
+                Đồng bộ thư mục/tài liệu Google Drive
               </label>
-              <p className="text-[9px] text-slate-400 leading-normal">Dán link Google Doc công khai (hỗ trợ dán nhiều link cách nhau bởi dấu phẩy hoặc xuống dòng). AI sẽ tự động đọc và chuẩn hóa thành FAQ.</p>
+              <p className="text-[9px] text-slate-400 leading-normal">Hỗ trợ dán đường dẫn <b>Thư mục Google Drive</b> hoặc <b>Google Doc/Sheet</b> công khai. Hệ thống sẽ quét toàn bộ thư mục và tự động đọc, chuẩn hóa dữ liệu thành FAQs.</p>
               <div className="flex gap-1.5">
                 <input 
                   type="text" 
-                  placeholder="Dán link hoặc danh sách link Google Doc..."
+                  placeholder="Dán link Thư mục Google Drive hoặc Google Doc..."
                   value={driveLink}
                   onChange={(e) => setDriveLink(e.target.value)}
                   disabled={syncingDrive}
@@ -949,24 +969,44 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
             <div className="pt-4 border-t border-slate-100 space-y-2">
               <div className="flex items-center justify-between">
                 <label className="block font-extrabold text-slate-700">Dữ liệu huấn luyện AI</label>
-                {aiConfig.trainingKnowledge && aiConfig.trainingKnowledge.trim().length > 0 && (
+                {localConfig.trainingKnowledge && localConfig.trainingKnowledge.trim().length > 0 && (
                   <span className="text-[8px] bg-emerald-100 text-emerald-700 font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider">
-                    {aiConfig.trainingKnowledge.includes("Q:") ? "FAQ đã chuẩn hóa" : "Dữ liệu tùy chỉnh"}
+                    {localConfig.trainingKnowledge.includes("Q:") ? "FAQ đã chuẩn hóa" : "Dữ liệu tùy chỉnh"}
                   </span>
                 )}
               </div>
               <textarea 
                 placeholder={"Nhập thông tin sản phẩm, chính sách bán hàng, bảng giá...\nHoặc bấm 'Đồng bộ & Tạo FAQ' ở trên để AI tự động tạo từ Google Doc.\n\nVí dụ:\nQ: Gói dịch vụ cơ bản giá bao nhiêu?\nA: Dạ, gói cơ bản có giá 500.000đ/tháng ạ."}
-                value={aiConfig.trainingKnowledge}
-                onChange={(e) => setAIConfig({ ...aiConfig, trainingKnowledge: e.target.value })}
+                value={localConfig.trainingKnowledge}
+                onChange={(e) => setLocalConfig({ ...localConfig, trainingKnowledge: e.target.value })}
                 className="w-full h-48 p-3 border border-slate-200 bg-slate-50 focus:bg-white rounded-xl text-xs leading-relaxed focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all duration-200 font-sans"
               />
               <p className="text-[9px] text-slate-400 leading-normal">Bot sẽ sử dụng dữ liệu trên để trả lời khách hàng. Bạn có thể chỉnh sửa trực tiếp hoặc đồng bộ lại từ Google Drive.</p>
             </div>
           </div>
 
-          <div className="mt-6 pt-4 border-t border-slate-100 font-mono text-center text-[9px] text-slate-400 select-none">
-            Cấu hình trợ lý AI tự động lưu
+          {/* Save config button */}
+          <div className="mt-6 pt-4 border-t border-slate-100 flex flex-col gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={handleSaveConfig}
+              disabled={savingConfig}
+              className="w-full py-2 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white rounded-xl font-bold text-[11px] transition-all flex items-center justify-center gap-2 shadow-md shadow-blue-600/15 disabled:opacity-50 cursor-pointer"
+            >
+              {savingConfig ? (
+                <>
+                  <svg className="h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                    <circle cx="12" cy="12" r="10" strokeDasharray="32" strokeDashoffset="12" />
+                  </svg>
+                  Đang lưu cấu hình...
+                </>
+              ) : (
+                <>Lưu cấu hình trợ lý AI</>
+              )}
+            </button>
+            <div className="font-mono text-center text-[9px] text-slate-400 select-none">
+              Cấu hình trợ lý AI
+            </div>
           </div>
         </div>
       )}

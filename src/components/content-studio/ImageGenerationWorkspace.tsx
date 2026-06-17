@@ -5,7 +5,7 @@ import { toast } from '../../pages/Toast';
 import {
   Loader2, ImageIcon, X, Wand2, UploadCloud, Download,
   Images, Check, Sparkles, Trash2,
-  ChevronLeft, ChevronRight
+  ChevronLeft, ChevronRight, ZoomIn
 } from 'lucide-react';
 import { formatAiModelName } from '../../utils/usage-tracker';
 import { marketingService } from '../../services/marketingService';
@@ -49,6 +49,7 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, 
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
+  const [showZoomModal, setShowZoomModal] = useState(false);
 
   // History state
   const [history, setHistory] = useState<any[]>([]);
@@ -520,7 +521,16 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, 
               <p className="text-xs text-slate-400 mt-0.5">Ảnh render mới nhất của bạn</p>
             </div>
 
-            <div className="min-w-0 aspect-video max-h-[420px] rounded-2xl overflow-hidden bg-slate-50 border border-slate-200/80 flex items-center justify-center relative shadow-inner">
+            <div 
+              className={`min-w-0 ${
+                aspectRatio === '16:9' ? 'aspect-video' :
+                aspectRatio === '9:16' ? 'aspect-[9/16]' :
+                aspectRatio === '4:3' ? 'aspect-[4/3]' :
+                aspectRatio === '3:4' ? 'aspect-[3/4]' : 'aspect-square'
+              } max-h-[420px] rounded-2xl overflow-hidden ${generatedImageUrl ? 'bg-slate-950 cursor-pointer group' : 'bg-slate-50'} border border-slate-200/80 flex items-center justify-center relative shadow-inner transition-all duration-300`}
+              onClick={generatedImageUrl ? () => setShowZoomModal(true) : undefined}
+              title={generatedImageUrl ? "Bấm để phóng to xem ảnh full" : undefined}
+            >
               {isGenerating ? (
                 <div className="flex max-w-full flex-col items-center gap-3 px-4 text-center text-slate-400">
                   <Loader2 className="h-10 w-10 text-cyan-500 animate-spin" />
@@ -528,11 +538,18 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, 
                 </div>
               ) : generatedImageUrl ? (
                 <>
-                  <img src={generatedImageUrl} alt="Generated AI illustration" className="max-w-full max-h-full object-contain" />
-                  <div className="absolute top-3 right-3 flex gap-2">
+                  <img src={generatedImageUrl} alt="Generated AI illustration" className="max-w-full max-h-full object-contain transition-transform duration-300 group-hover:scale-[1.02]" />
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col items-center justify-center text-white gap-1.5 font-sans text-xs font-bold select-none">
+                    <ZoomIn className="h-6 w-6 text-white animate-pulse" />
+                    <span>Bấm để phóng to</span>
+                  </div>
+                  <div className="absolute top-3 right-3 flex gap-2 z-10">
                     <button
                       type="button"
-                      onClick={() => handleDownloadImage()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDownloadImage();
+                      }}
                       className="p-2 bg-white/90 hover:bg-white text-slate-700 hover:text-slate-900 rounded-xl shadow-sm transition-all cursor-pointer"
                       title="Tải ảnh về máy"
                     >
@@ -601,7 +618,12 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, 
                       <div
                         key={id}
                         className="relative flex-shrink-0 w-[160px] aspect-square rounded-2xl overflow-hidden border border-slate-150 shadow-xs hover:shadow-md transition-all bg-slate-100 group/card cursor-pointer"
-                        onClick={() => setGeneratedImageUrl(record.url)}
+                        onClick={() => {
+                          setGeneratedImageUrl(record.url);
+                          if (record.metadata?.aspectRatio) {
+                            setAspectRatio(record.metadata.aspectRatio);
+                          }
+                        }}
                       >
                         <img src={record.url} alt="Render thumbnail" className="w-full h-full object-cover" />
 
@@ -634,6 +656,46 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, 
         </div>
 
       </div>
+
+      {/* Glassmorphic Zoom Lightbox Modal */}
+      {showZoomModal && generatedImageUrl && (
+        <div 
+          className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fadeIn"
+          onClick={() => setShowZoomModal(false)}
+        >
+          <div 
+            className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-3xl shadow-2xl p-2 relative max-w-5xl max-h-[90vh] flex items-center justify-center overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img 
+              src={generatedImageUrl} 
+              alt="Full AI Preview" 
+              className="max-w-full max-h-[85vh] object-contain rounded-2xl animate-scaleIn shadow-lg" 
+            />
+            
+            {/* Close Button */}
+            <button
+              type="button"
+              onClick={() => setShowZoomModal(false)}
+              className="absolute top-4 right-4 bg-slate-950/60 hover:bg-slate-950 text-white/90 hover:text-white p-2.5 rounded-full border border-white/10 transition-all cursor-pointer shadow-md hover:scale-105 active:scale-95 flex items-center justify-center"
+              title="Đóng"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            {/* Download Button in Zoom View */}
+            <button
+              type="button"
+              onClick={() => handleDownloadImage()}
+              className="absolute bottom-4 right-4 bg-cyan-600 hover:bg-cyan-500 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-md flex items-center gap-1.5 hover:scale-105 active:scale-95"
+              title="Tải ảnh về máy"
+            >
+              <Download className="h-4 w-4" />
+              <span>Tải ảnh về máy</span>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

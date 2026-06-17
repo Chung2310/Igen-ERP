@@ -482,16 +482,25 @@ export const zaloMessengerService = {
     }
 
     // Hủy các phản hồi AI đang lên lịch do nhân viên đã can thiệp
-    aiAutoReplyService.cancelPendingReply(conversationId);
+    aiAutoReplyService.cancelPendingReply(conversationId, "human_reply");
 
     const user = await UserModel.findOne({
       "zaloIntegration.isConnected": true,
       "zaloIntegration.oaId": oaId
     });
 
-    const isMock = user?.zaloIntegration?.isMock ?? false;
+    const { SocialIntegrationModel } = require("../model/social-integration.model");
+    const companyIntegration = await SocialIntegrationModel.findOne({
+      platform: "Zalo",
+      username: oaId,
+      isConnected: true
+    }).lean();
+
+    const isMock = companyIntegration
+      ? !!companyIntegration.isMock
+      : (user?.zaloIntegration?.isMock ?? false);
     const recipientId = conversation.recipientId;
-    console.log(`[Zalo SendReply] oaId=${oaId}, conversationId=${conversationId}, recipientId=${recipientId}, textLength=${text.length}, hasUserLevel=${user ? "true" : "false"}`);
+    console.log(`[Zalo SendReply] oaId=${oaId}, conversationId=${conversationId}, recipientId=${recipientId}, textLength=${text.length}, hasUserLevel=${user ? "true" : "false"}, hasCompanyLevel=${companyIntegration ? "true" : "false"}, isMock=${isMock ? "true" : "false"}`);
 
     const messageId = `zalo_out_${Date.now()}`;
     const sentAt = new Date();
@@ -614,6 +623,77 @@ export const zaloMessengerService = {
     return {
       status: "success",
       messageId: newMsg.messageId,
+    };
+  },
+
+  async diagnoseConversation(oaId: string, conversationId: string) {
+    const conversation = await ZaloConversationModel.findOne({ _id: conversationId, oaId }).lean();
+    const userOwner = await UserModel.findOne({
+      "zaloIntegration.isConnected": true,
+      "zaloIntegration.oaId": oaId
+    }).select("email companyCode aiAutoReplyConfig zaloIntegration.oaId zaloIntegration.oaName zaloIntegration.accessToken").lean();
+    const { SocialIntegrationModel } = require("../model/social-integration.model");
+    const companyIntegration = await SocialIntegrationModel.findOne({
+      platform: "Zalo",
+      username: oaId,
+      isConnected: true
+    }).lean();
+
+    let companyCode = userOwner?.companyCode || companyIntegration?.companyCode || null;
+    let ownerEmail = userOwner?.email || null;
+    let ownerSource = userOwner ? "user" : null;
+    let aiEnabled = !!userOwner?.aiAutoReplyConfig?.enabled;
+    let replyDelay = userOwner?.aiAutoReplyConfig?.replyDelay ?? null;
+    let model = userOwner?.aiAutoReplyConfig?.model || null;
+
+    if (!userOwner && companyCode) {
+      const companyUser = await UserModel.findOne({
+        companyCode,
+        "aiAutoReplyConfig.enabled": true,
+      }).select("email aiAutoReplyConfig").lean()
+        || await UserModel.findOne({ companyCode }).select("email aiAutoReplyConfig").lean();
+      if (companyUser) {
+        ownerEmail = companyUser.email;
+        ownerSource = "company";
+        aiEnabled = !!companyUser.aiAutoReplyConfig?.enabled;
+        replyDelay = companyUser.aiAutoReplyConfig?.replyDelay ?? null;
+        model = companyUser.aiAutoReplyConfig?.model || null;
+      }
+    }
+
+    const latestMessage = conversation
+      ? await ZaloMessageModel.findOne({ conversationId: conversation._id }).sort({ timestamp: -1 }).lean()
+      : null;
+    const token = await this.getAccessTokenByOAId(oaId);
+    const reasons: string[] = [];
+    if (!conversation) reasons.push("conversation_not_found");
+    if (!userOwner && !companyIntegration) reasons.push("owner_not_found");
+    if (!aiEnabled) reasons.push("ai_disabled");
+    if (!token) reasons.push("missing_zalo_access_token");
+    if (conversation && !latestMessage) reasons.push("no_messages");
+    if (latestMessage && latestMessage.direction !== "inbound") reasons.push("latest_message_not_inbound");
+    if (latestMessage?.direction === "inbound" && !String(latestMessage.text || "").trim()) reasons.push("latest_inbound_message_empty");
+
+    return {
+      channel: "zalo",
+      oaId,
+      conversationFound: !!conversation,
+      conversationOaId: conversation?.oaId || null,
+      recipientId: conversation?.recipientId || null,
+      ownerEmail,
+      ownerSource,
+      companyCode,
+      aiEnabled,
+      replyDelay,
+      model,
+      hasAccessToken: !!token,
+      accessTokenTail: token ? token.slice(-8) : null,
+      latestMessageDirection: latestMessage?.direction || null,
+      latestMessageId: latestMessage?.messageId || null,
+      latestMessageText: latestMessage?.text || null,
+      latestMessageAt: latestMessage?.timestamp || null,
+      shouldTriggerAutoReply: reasons.length === 0,
+      reasons,
     };
   },
 

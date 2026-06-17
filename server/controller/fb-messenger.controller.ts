@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { fbMessengerService } from "../service/fb-messenger.service";
 import { UserModel } from "../model/user.model";
+import { AIReplyLogModel } from "../model/ai-reply-log.model";
 
 async function getFacebookPageConfig(userId: string): Promise<{ isConnected: boolean; pageId?: string }> {
   const dbUser = await UserModel.findById(userId).lean();
@@ -308,5 +309,50 @@ export const fbMessengerController = {
         message: error.message || "Không thể chẩn đoán cấu hình Facebook page.",
       });
     }
-  }
+  },
+
+  /**
+   * GET /api/v1/facebook/debug-ai-logs
+   * Authenticated diagnostic endpoint scoped to the current user's company.
+   */
+  async debugAILogs(req: any, res: Response): Promise<any> {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ success: false, message: "Nguoi dung chua dang nhap." });
+      }
+
+      const user = await UserModel.findById(userId).select("companyCode role email").lean();
+      if (!user) {
+        return res.status(404).json({ success: false, message: "Khong tim thay user." });
+      }
+
+      const limit = Math.min(Number(req.query.limit || 10), 30);
+      const filter = user.role === "superadmin" && req.query.companyCode
+        ? { companyCode: String(req.query.companyCode).trim().toUpperCase() }
+        : { companyCode: String(user.companyCode || "SYSTEM").trim().toUpperCase() };
+      const logs = await AIReplyLogModel.find(filter)
+        .sort({ createdAt: -1 })
+        .limit(limit)
+        .lean();
+      return res.status(200).json({
+        success: true,
+        filter,
+        count: logs.length,
+        logs: logs.map(l => ({
+          _id: l._id,
+          companyCode: l.companyCode,
+          channel: l.channel,
+          conversationId: l.conversationId,
+          status: l.status,
+          customerMessage: String(l.customerMessage || "").slice(0, 100),
+          aiResponse: String(l.aiResponse || "").slice(0, 200),
+          latencyMs: l.latencyMs,
+          createdAt: l.createdAt,
+        })),
+      });
+    } catch (error: any) {
+      return res.status(500).json({ success: false, message: error.message });
+    }
+  },
 };

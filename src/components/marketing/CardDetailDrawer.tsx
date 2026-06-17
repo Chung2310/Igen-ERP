@@ -10,7 +10,8 @@ import {
   ExternalLink, 
   RefreshCw,
   X,
-  Loader2
+  Loader2,
+  ZoomIn
 } from "lucide-react";
 import { ContentApprovalCard } from "../../types";
 import { formatCardDate } from "./CardWidgets";
@@ -197,9 +198,14 @@ export default function CardDetailDrawer({
             {card.imageUrl && (
               <div 
                 onClick={() => onPreviewMedia('image', card.imageUrl!)}
-                className="relative cursor-pointer overflow-hidden rounded-xl aspect-video w-full border border-gray-150 shadow-xs hover:scale-[1.01] transition-transform bg-slate-50"
+                className="relative cursor-pointer overflow-hidden rounded-xl w-full border border-gray-150 shadow-xs hover:scale-[1.01] transition-all bg-slate-950 flex items-center justify-center min-h-[220px] group"
+                title="Bấm để xem ảnh phóng to"
               >
-                <img src={card.imageUrl} alt="AI Illustration" className="w-full h-full object-cover" />
+                <img src={card.imageUrl} alt="AI Illustration" className="max-w-full max-h-[400px] object-contain transition-transform duration-300 group-hover:scale-[1.01]" />
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col items-center justify-center text-white gap-1.5 font-sans text-xs font-bold select-none">
+                  <ZoomIn className="h-6 w-6 text-white animate-pulse" />
+                  <span>Bấm để phóng to</span>
+                </div>
               </div>
             )}
 

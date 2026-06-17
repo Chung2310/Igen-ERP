@@ -8,12 +8,24 @@ import type { TabType } from "./types";
 import { SEOHead } from "./seo/SEOHead";
 import { AUTH_SEO, getSeoForTab } from "./seo/seo-config";
 import { AppRouterView, useTabRouter } from "./router";
+import { socketService } from "./services/socketService";
 
 const AuthPage = lazy(() => import("./pages/AuthPage"));
 
 function AppContent() {
   const { activeTab, setActiveTab } = useTabRouter();
   const { user, userProfile, loading } = useAuth();
+
+  React.useEffect(() => {
+    const token = localStorage.getItem("accessToken");
+    if (user && token) {
+      console.log("[App] Connecting global socket...");
+      socketService.connect(token);
+    } else {
+      console.log("[App] Disconnecting global socket...");
+      socketService.disconnect();
+    }
+  }, [user]);
 
   if (loading) {
     return (

@@ -195,10 +195,13 @@ function buildFaithfulVisualGuardrail(input: {
     Array.isArray(input.channels) && input.channels.length > 0 ? `Target channels: ${input.channels.join(", ")}.` : "",
     Array.isArray(input.selectedPillars) && input.selectedPillars.length > 0 ? `Required pillars: ${input.selectedPillars.join(", ")}.` : "",
     "The English media prompt must preserve the exact meaning of the Vietnamese brief and attached file.",
+    "If the brief mentions a company name, logo, product, salary, location, or other business details, these must appear in the generated image prompt.",
+    "Do not omit or paraphrase critical business details that are present in the input.",
     "Do not add products, people, locations, industries, outfits, props, or use-cases that are not grounded in the source brief.",
     "Do not generalize into generic office, lifestyle, beauty, fashion, product showcase, or abstract marketing scenes unless the source explicitly asks for that.",
     "If the source is about software, ecommerce, logistics, education, training, omnichannel, operations, CRM, warehouse, or business workflow, the visual must clearly show that exact context.",
     "Translate faithfully into English for image/video generation, but keep the original business meaning, subject, context, and constraints unchanged.",
+    "If the user mentions a brand, company name, or campaign name, include it in the image prompt as visible text, signage, uniform, or logo.",
   ]
     .filter(Boolean)
     .join(" ");
@@ -216,7 +219,10 @@ async function generateText(
   }
 ): Promise<{ text: string }> {
   const ai = getGeminiClient();
-  const modelId = model || GEMINI_TEXT_MODEL;
+  let modelId = model || GEMINI_TEXT_MODEL;
+  if (modelId === "gemini-3.5-flash") {
+    modelId = "gemini-2.5-flash";
+  }
 
   // Build Gemini-native contents
   const geminiContents: any[] = [];
@@ -712,6 +718,113 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
   },
 
   /**
+   * Thay thế 1 Content Pillar bằng 1 Trụ cột khác mới hoàn toàn
+   */
+  async swapMarketingPillar(
+    campaignTopic: string,
+    currentPillars: any[],
+    pillarIdToReplace: string,
+    images?: string[]
+  ): Promise<{ pillar: any; isMock: boolean }> {
+    const getMockSwapPillar = () => {
+      const replacementOptions = [
+        {
+          id: "kien_thuc_chuyen_sau",
+          title: "Pillar D: Kiến thức chuyên sâu & Khác biệt",
+          ratio: "35% tỉ trọng",
+          description: "Chia sẻ những phân tích độc quyền, thông số kỹ thuật ấn tượng và so sánh chi tiết để chứng minh tính ưu việt vượt trội của sản phẩm.",
+        },
+        {
+          id: "phong_cach_loi_song",
+          title: "Pillar E: Phong cách sống & Cảm hứng",
+          ratio: "30% tỉ trọng",
+          description: "Truyền tải thông điệp tích cực, xây dựng phong cách cá nhân hiện đại và kết nối sản phẩm với thói quen hàng ngày của khách hàng mục tiêu.",
+        },
+        {
+          id: "tu_ong_tuong_tac",
+          title: "Pillar F: Hỏi đáp & Tương tác Cộng đồng",
+          ratio: "25% tỉ trọng",
+          description: "Tổ chức các buổi mini-game, thảo luận mở hoặc giải đáp thắc mắc trực tiếp nhằm gắn kết người dùng và gia tăng tỷ lệ phản hồi tự nhiên.",
+        },
+        {
+          id: "cam_nhan_chuyen_gia",
+          title: "Pillar G: Góc nhìn Chuyên gia & Uy tín",
+          ratio: "40% tỉ trọng",
+          description: "Trích dẫn nhận xét từ các chuyên gia đầu ngành, người có sức ảnh hưởng (KOLs) để bảo chứng chất lượng và nâng cao vị thế thương hiệu.",
+        }
+      ];
+
+      const existingIds = new Set(currentPillars.map(p => p.id));
+      const available = replacementOptions.filter(opt => !existingIds.has(opt.id));
+      const selected = available.length > 0 ? available[Math.floor(Math.random() * available.length)] : replacementOptions[0];
+
+      const targetPillar = currentPillars.find(p => p.id === pillarIdToReplace);
+      if (targetPillar) {
+        selected.ratio = targetPillar.ratio;
+      }
+      return selected;
+    };
+
+    if (!process.env.GEMINI_API_KEY) {
+      return { pillar: getMockSwapPillar(), isMock: true };
+    }
+
+    try {
+      const existingPillarsStr = currentPillars
+        .map(p => `- ID: "${p.id}", Tiêu đề: "${p.title}", Mô tả: "${p.description}"`)
+        .join("\n");
+      
+      const toReplace = currentPillars.find(p => p.id === pillarIdToReplace);
+      const replaceStr = toReplace 
+        ? `ID: "${toReplace.id}", Tiêu đề: "${toReplace.title}" (Tỷ lệ phân bổ: ${toReplace.ratio})`
+        : pillarIdToReplace;
+
+      const prompt = `Phân tích mục tiêu/chủ đề chiến dịch marketing sau: "${campaignTopic}"
+Hiện tại, chúng tôi đang sử dụng các trụ cột nội dung (Content Pillars) sau đây:
+${existingPillarsStr}
+
+Chúng tôi muốn THAY THẾ (đổi) trụ cột sau đây:
+${replaceStr}
+
+YÊU CẦU:
+Hãy đề xuất 1 trụ cột nội dung (Content Pillar) mới và hoàn toàn KHÁC BIỆT so với các trụ cột hiện có ở trên để thay thế cho trụ cột muốn đổi. Trụ cột mới này phải bổ trợ tốt cho chiến dịch và mục tiêu "${campaignTopic}".
+Trụ cột mới phải có thông tin cấu trúc sau:
+1. id: chuỗi ngắn gọn, không dấu cách, viết thường (ví dụ: "kien_thuc_chuyen_sau", "goc_nhin_chuyen_gia") và KHÔNG ĐƯỢC TRÙNG với bất kỳ ID nào của các trụ cột hiện tại.
+2. title: Tiêu đề trụ cột nội dung mới tối ưu bằng tiếng Việt (Ví dụ: "Pillar D: Kiến thức chuyên sâu", "Pillar E: Phong cách sống").
+3. ratio: Tỷ lệ phân bổ hợp lý hiển thị dưới dạng chuỗi (Ví dụ: "35% tỉ trọng"). Hãy giữ nguyên tỉ lệ của trụ cột cũ là: "${toReplace?.ratio || "33% tỉ trọng"}".
+4. description: Mô tả ngắn gọn trực quan bằng tiếng Việt hướng dẫn cách triển khai cụ thể trụ cột này đối với chiến dịch "${campaignTopic}".
+
+Trả về kết quả ở định dạng JSON phù hợp chính xác với cấu trúc yêu cầu.`;
+
+      const response = await generateText(
+        GEMINI_TEXT_MODEL,
+        prompt,
+        {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              id: { type: Type.STRING, description: "ID ngắn gọn viết liền không dấu, không trùng ID hiện tại" },
+              title: { type: Type.STRING, description: "Tiêu đề tiếng Việt của trụ cột" },
+              ratio: { type: Type.STRING, description: "Tỷ lệ phân bổ (giữ nguyên tỷ lệ cũ)" },
+              description: { type: Type.STRING, description: "Mô tả triển khai chi tiết" },
+            },
+            required: ["id", "title", "ratio", "description"],
+          },
+          images
+        }
+      );
+
+      const responseText = response.text || "{}";
+      const parsedPillar = safeParseJson(responseText);
+      return { pillar: parsedPillar, isMock: false };
+    } catch (error: any) {
+      console.error("[geminiService.swapMarketingPillar] Error, fallback to mock swap pillar:", error);
+      return { pillar: getMockSwapPillar(), isMock: true };
+    }
+  },
+
+  /**
    * Phát sinh bản nháp ý tưởng chiến dịch
    */
   async generateMarketingIdeas(
@@ -1050,6 +1163,8 @@ QUY TẮC PHÂN TÁCH DỮ LIỆU BẮT BUỘC CHO TỪNG KÊNH:
    - Trường "bodyText": Lưu bản nháp nội dung bài viết sạch hoàn chỉnh để đăng tải trực tiếp (không chứa dàn ý hay tiêu đề nháp).
 3. Đối với mọi kênh: Sinh thêm trường "mediaPrompt" là một đoạn mô tả chi tiết bằng tiếng Anh (visual prompt) mô phỏng chính xác nội dung trực quan (hình ảnh hoặc video) phù hợp cho bài viết này để gửi tới AI Generator.
 4. mediaPrompt phải là bản dịch trung thành sang tiếng Anh từ dữ liệu gốc, không được đổi nghĩa, không được tự ý thêm chi tiết không có trong input hoặc tài liệu đính kèm, không được biến thành bối cảnh generic.
+5. Nếu input chứa tên công ty, thông tin lương, địa điểm, hay tên chiến dịch, bắt buộc phải nhắc lại chính xác chúng trong mediaPrompt dưới dạng nội dung trực quan.
+6. mediaPrompt phải ghi rõ cách hiển thị nội dung đó trên ảnh/video: logo, banner, bảng hiệu, đồng phục, biển chỉ dẫn, hoặc văn bản nổi bật.
 ${humanVoiceRules}
 
 Thông tin chiến dịch marketing:
@@ -1087,7 +1202,13 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
                       },
                       mediaPrompt: {
                         type: Type.STRING,
-                        description: "A detailed visual description prompt in English for generating a matching image or video (e.g. scenic views, product display, lifestyle scene, characters, setting details)."
+                        description: `A detailed visual description prompt in English for generating a matching image or video. It must:
+1. Preserve all business details from the original Vietnamese brief.
+2. Include company name, campaign name, salary, location, and product or role details when present.
+3. Describe exact visual composition, lighting, text placement, and environment.
+4. Avoid adding elements not present in the original input.
+5. Avoid generic phrasing and instead use specific, grounded language related to the campaign.
+Example: 'Recruitment poster for PHÚC CƯƠNG PDCA at Quế Võ, Bắc Ninh, showing a worker in blue uniform with salary text "4 triệu + 8 triệu" visible on a banner.'`,
                       },
                       voiceScript: {
                         type: Type.STRING,
@@ -2005,7 +2126,13 @@ Return ONLY valid JSON. No markdown backticks, no comments, no conversational te
     });
 
     // Add render task to Redis queue
-    await remotionQueueService.addRenderJob(record._id.toString(), videoUrl, blueprint, userId);
+    try {
+      await remotionQueueService.addRenderJob(record._id.toString(), videoUrl, blueprint, userId);
+    } catch (queueErr: any) {
+      console.warn(`[Remotion Queue] Không thể dùng hàng đợi Redis (lỗi: ${queueErr.message || queueErr}). Đang tự động xử lý render trực tiếp.`);
+      // Run the rendering task in the background directly without queue
+      void geminiService.executeLocalRenderJob(record._id.toString(), videoUrl, blueprint, userId);
+    }
 
     return {
       status: "success",
