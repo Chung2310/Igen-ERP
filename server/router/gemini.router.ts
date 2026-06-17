@@ -173,6 +173,7 @@ geminiRouter.post("/marketing-develop", requireAuth as any, validateRequest(deve
 
 // Knowledge management / auto reply endpoints
 geminiRouter.get("/knowledge-health", requireAuth as any, geminiController.getKnowledgeHealth as any);
+geminiRouter.post("/clear-knowledge", requireAuth as any, geminiController.clearKnowledge as any);
 geminiRouter.post("/test-reply", requireAuth as any, validateRequest(testReplySchema), geminiController.testReply as any);
 geminiRouter.get("/ai-reply-logs", requireAuth as any, geminiController.listAIReplyLogs as any);
 geminiRouter.patch("/ai-reply-logs/:id/feedback", requireAuth as any, validateRequest(feedbackSchema), geminiController.updateAIReplyFeedback as any);

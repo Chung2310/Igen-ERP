@@ -254,6 +254,14 @@ export const aiKnowledgeService = {
     };
   },
 
+  async clearKnowledge(companyCode?: string) {
+    const normalizedCompanyCode = normalizeCompanyCode(companyCode);
+    await Promise.all([
+      AIKnowledgeDocumentModel.deleteMany({ companyCode: normalizedCompanyCode }),
+      AIKnowledgeChunkModel.deleteMany({ companyCode: normalizedCompanyCode }),
+    ]);
+  },
+
   async createReplyLog(params: {
     companyCode?: string;
     channel: "facebook" | "zalo" | "test";

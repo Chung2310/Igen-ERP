@@ -219,6 +219,27 @@ export const geminiController = {
   },
 
   /**
+   * POST /api/v1/gemini/clear-knowledge
+   */
+  async clearKnowledge(req: AuthenticatedRequest, res: Response) {
+    try {
+      const companyCode = req.user?.companyCode || "SYSTEM";
+      await aiKnowledgeService.clearKnowledge(companyCode);
+      return res.status(200).json({
+        status: "success",
+        message: "Đã xóa toàn bộ tài liệu tri thức AI của doanh nghiệp thành công."
+      });
+    } catch (error: any) {
+      console.error("[geminiController.clearKnowledge] Error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Không thể xóa tài liệu tri thức",
+        details: error.message,
+      });
+    }
+  },
+
+  /**
    * POST /api/v1/gemini/test-reply
    */
   async testReply(req: AuthenticatedRequest, res: Response) {
