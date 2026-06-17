@@ -15,6 +15,8 @@ RUN --mount=type=cache,target=/root/.yarn-cache \
 # Copy the entire workspace (excluding files in .dockerignore)
 COPY . .
 
+RUN apk add --no-cache ffmpeg
+
 # Remove package-lock.json if it exists (avoid conflicts with yarn.lock)
 RUN rm -f package-lock.json
 
