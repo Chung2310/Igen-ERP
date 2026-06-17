@@ -740,6 +740,24 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
     const topic = campaignInput.trim();
     if (!topic) return;
 
+    if (mediaType === "video") {
+      const durVal = parseInt(videoDuration, 10);
+      if (!videoDuration || isNaN(durVal) || durVal <= 0) {
+        toast.error("Vui lòng nhập thời lượng video hợp lệ.");
+        return;
+      }
+      if (durVal > 10) {
+        toast.error("Thời lượng Video AI tối đa là 10 giây.");
+        return;
+      }
+    } else if (mediaType === "human-video") {
+      const durVal = parseInt(estimatedHumanVoiceDuration, 10);
+      if (!estimatedHumanVoiceDuration || isNaN(durVal) || durVal <= 0) {
+        toast.error("Vui lòng nhập thời lượng video người thật hợp lệ.");
+        return;
+      }
+    }
+
     setLoadingAI(true);
     setConcepts([]);
     try {
@@ -906,6 +924,25 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
 
   const handleDevelopConcept = async (concept: MarketingConcept, idx: number) => {
     console.log("[handleDevelopConcept] Starting development for concept:", concept.title);
+    
+    if (mediaType === "video") {
+      const durVal = parseInt(videoDuration, 10);
+      if (!videoDuration || isNaN(durVal) || durVal <= 0) {
+        toast.error("Vui lòng nhập thời lượng video hợp lệ.");
+        return;
+      }
+      if (durVal > 10) {
+        toast.error("Thời lượng Video AI tối đa là 10 giây.");
+        return;
+      }
+    } else if (mediaType === "human-video") {
+      const durVal = parseInt(estimatedHumanVoiceDuration, 10);
+      if (!estimatedHumanVoiceDuration || isNaN(durVal) || durVal <= 0) {
+        toast.error("Vui lòng nhập thời lượng video người thật hợp lệ.");
+        return;
+      }
+    }
+
     setDevelopingIdx(idx);
     try {
       console.log("[handleDevelopConcept] Calling marketingService.developIdea...");
@@ -1378,6 +1415,127 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                 </div>
               </div>
 
+              {/* Duration selection exposed manually for video tabs */}
+              {(mediaType === "video" || mediaType === "human-video") && (
+                <div className="space-y-2.5 text-left mt-4 animate-fadeIn p-4 border border-slate-200 bg-white rounded-2xl shadow-2xs">
+                  <span className="text-xs font-bold text-gray-750 block uppercase tracking-wider font-mono flex items-center gap-1.5">
+                    ⏱️ Thời lượng video (giây):
+                  </span>
+                  <div className="flex flex-wrap gap-2 items-center">
+                    {["4", "6", "8"].map((dur) => {
+                      const isSelected =
+                        mediaType === "video"
+                          ? (videoDuration === dur)
+                          : (estimatedHumanVoiceDuration === dur);
+                      return (
+                        <button
+                          key={dur}
+                          type="button"
+                          onClick={() => {
+                            if (mediaType === "video") {
+                              setVideoDuration(dur);
+                              if (parseInt(dur) <= 4 && videoQuality === "1080p") {
+                                setVideoQuality("720p");
+                                toast.warning("1080p yêu cầu tối thiểu 6 giây. Đã tự động chuyển sang 720p.");
+                              }
+                            } else {
+                              setEstimatedHumanVoiceDuration(dur);
+                            }
+                          }}
+                          className={`px-4 py-2 text-xs font-bold rounded-xl border transition-all cursor-pointer ${
+                            isSelected
+                              ? "border-indigo-500 bg-indigo-50 text-indigo-700 shadow-2xs ring-2 ring-indigo-500/10 font-extrabold"
+                              : "border-slate-200 bg-white text-gray-500 hover:bg-slate-50 hover:border-slate-350"
+                          }`}
+                        >
+                          {dur}s
+                        </button>
+                      );
+                    })}
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (mediaType === "video") {
+                          if (["4", "6", "8"].includes(videoDuration)) {
+                            setVideoDuration("10"); // Default custom value for Video AI
+                          }
+                        } else {
+                          if (["4", "6", "8"].includes(estimatedHumanVoiceDuration)) {
+                            setEstimatedHumanVoiceDuration(String(DEFAULT_HUMAN_VOICE_DURATION_SECONDS)); // Default custom value for Human Video
+                          }
+                        }
+                      }}
+                      className={`px-4 py-2 text-xs font-bold rounded-xl border transition-all cursor-pointer ${
+                        (mediaType === "video" ? !["4", "6", "8"].includes(videoDuration) : !["4", "6", "8"].includes(estimatedHumanVoiceDuration))
+                          ? "border-indigo-500 bg-indigo-50 text-indigo-750 shadow-2xs ring-2 ring-indigo-500/10 font-extrabold"
+                          : "border-slate-200 bg-white text-gray-500 hover:bg-slate-50 hover:border-slate-350"
+                      }`}
+                    >
+                      Khác
+                    </button>
+
+                    {mediaType === "video" && !["4", "6", "8"].includes(videoDuration) && (
+                      <div className="flex items-center gap-1.5 ml-2">
+                        <input
+                          type="number"
+                          min="1"
+                          max={10}
+                          value={videoDuration}
+                          onChange={(e) => {
+                            let val = e.target.value.replace(/[^0-9]/g, "");
+                            if (!val) {
+                              setVideoDuration("");
+                              return;
+                            }
+                            let num = parseInt(val, 10);
+                            if (num > 10) {
+                              num = 10;
+                              toast.warning("Video AI chỉ hỗ trợ thời lượng tối đa 10 giây.");
+                            } else if (num < 1) {
+                              num = 1;
+                            }
+                            setVideoDuration(String(num));
+                          }}
+                          placeholder="Tối đa 10s"
+                          className="w-24 text-xs p-2 border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 text-center font-bold"
+                        />
+                        <span className="text-xs text-gray-500 font-bold">giây (tối đa 10s)</span>
+                      </div>
+                    )}
+
+                    {mediaType === "human-video" && !["4", "6", "8"].includes(estimatedHumanVoiceDuration) && (
+                      <div className="flex items-center gap-1.5 ml-2">
+                        <input
+                          type="number"
+                          min="1"
+                          max={600}
+                          value={estimatedHumanVoiceDuration}
+                          onChange={(e) => {
+                            let val = e.target.value.replace(/[^0-9]/g, "");
+                            if (!val) {
+                              setEstimatedHumanVoiceDuration("");
+                              return;
+                            }
+                            let num = parseInt(val, 10);
+                            if (num > 600) {
+                              num = 600;
+                              toast.warning("Video người thật chỉ hỗ trợ thời lượng tối đa 600 giây (10 phút).");
+                            } else if (num < 1) {
+                              num = 1;
+                            }
+                            setEstimatedHumanVoiceDuration(String(num));
+                          }}
+                          placeholder="Nhập số giây"
+                          className="w-24 text-xs p-2 border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 text-center font-bold"
+                        />
+                        <span className="text-xs text-gray-500 font-bold">giây (tối đa 600s)</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Image Settings */}
               {isAutoPilot && mediaType === "image" && (
                 <div className="p-4 border border-slate-200 bg-white rounded-2xl space-y-4 text-left mt-4 shadow-2xs">
@@ -1481,32 +1639,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <span className="text-xs font-bold text-gray-500 font-mono block">Thời lượng video</span>
-                      <div className="grid grid-cols-3 gap-2">
-                        {["4", "6", "8"].map((dur) => (
-                          <button
-                            key={dur}
-                            type="button"
-                            onClick={() => {
-                              setVideoDuration(dur);
-                              if (parseInt(dur) <= 4 && videoQuality === "1080p") {
-                                setVideoQuality("720p");
-                                toast.warning("1080p yêu cầu tối thiểu 6 giây. Đã tự động chuyển sang 720p.");
-                              }
-                            }}
-                            className={`py-1.5 text-xs font-bold rounded-lg border transition-all ${videoDuration === dur
-                                ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                                : "border-slate-200 bg-white text-gray-500 hover:bg-slate-50"
-                              }`}
-                          >
-                            {dur}s
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
+                  <div className="grid grid-cols-1 gap-4">
                     <div className="space-y-1.5">
                       <span className="text-xs font-bold text-gray-500 font-mono block">Tỉ lệ khung hình</span>
                       <div className="grid grid-cols-2 gap-2">
@@ -1515,8 +1648,8 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                             key={ratio}
                             type="button"
                             onClick={() => setVideoAspectRatio(ratio)}
-                            className={`py-1.5 text-xs font-bold rounded-lg border transition-all ${videoAspectRatio === ratio
-                                ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                            className={`py-1.5 text-xs font-bold rounded-lg border transition-all cursor-pointer ${videoAspectRatio === ratio
+                                ? "border-indigo-500 bg-indigo-50 text-indigo-700 font-extrabold"
                                 : "border-slate-200 bg-white text-gray-500 hover:bg-slate-50"
                               }`}
                           >
