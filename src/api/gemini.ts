@@ -298,6 +298,9 @@ export const geminiApi = {
     title?: string;
     description?: string;
     stability?: number;
+    similarityBoost?: number;
+    useSpeakerBoost?: boolean;
+    style?: number;
   }): Promise<{ status: string; record: any }> {
     const headers = await getHeaders(true);
     const response = await fetch('/api/v1/gemini/generate-voice', {
