@@ -63,6 +63,7 @@ export function EditVideoWorkspace({
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [outputUrl, setOutputUrl] = useState<string | null>(null);
+  const [displayProgress, setDisplayProgress] = useState(0);
   const [blueprint, setBlueprint] = useState<any | null>(null);
   const [currentRecordId, setCurrentRecordId] = useState<string | null>(null);
   const [isUploadingVideo, setIsUploadingVideo] = useState(false);
@@ -122,6 +123,7 @@ export function EditVideoWorkspace({
       setOptimizedData(null);
       setBlueprint(null);
       setOutputUrl(null);
+      setDisplayProgress(0);
       if (onClearInitialVideoUrl) {
         onClearInitialVideoUrl();
       }
@@ -180,15 +182,64 @@ export function EditVideoWorkspace({
     return () => clearInterval(interval);
   }, [history, outputUrl]);
 
+  // Smoothly increment progress percentage to avoid sudden jumps
+  useEffect(() => {
+    const isPending = isGenerating || (outputUrl && outputUrl.startsWith('pending://'));
+    if (!isPending) {
+      setDisplayProgress(0);
+      return;
+    }
+
+    const matchedRecord = history.find(h => h.url === outputUrl || h._id === currentRecordId || h.id === currentRecordId);
+    const statusVal = matchedRecord?.metadata?.status ?? (isGenerating ? 'processing' : 'queued');
+    const realProgress = matchedRecord?.metadata?.progress ?? 0;
+
+    let target = 0;
+    if (statusVal === 'completed') {
+      target = 100;
+    } else if (statusVal === 'failed') {
+      target = displayProgress; // freeze
+    } else if (matchedRecord) {
+      target = Math.max(realProgress, 5);
+    } else {
+      // Still in generation/uploading phase, slowly crawl up to 15%
+      target = 15;
+    }
+
+    const timer = setInterval(() => {
+      setDisplayProgress(prev => {
+        if (prev < target) {
+          const diff = target - prev;
+          let step = 1;
+          if (statusVal === 'completed') {
+            step = Math.max(5, Math.ceil(diff / 5));
+          } else if (diff > 30) {
+            step = 3;
+          } else if (diff > 15) {
+            step = 2;
+          }
+          return Math.min(prev + step, target);
+        } else if (prev > target && statusVal !== 'completed') {
+          return prev;
+        }
+        return prev;
+      });
+    }, 100);
+
+    return () => clearInterval(timer);
+  }, [isGenerating, outputUrl, history, currentRecordId, displayProgress]);
+
   useEffect(() => {
     if (!outputUrl || !outputUrl.startsWith('pending://')) return;
     
     const matched = history.find(h => h._id === currentRecordId || h.id === currentRecordId);
     if (matched && matched.url && !matched.url.startsWith('pending://')) {
-      setOutputUrl(matched.url);
-      console.log("[EditVideoWorkspace] Dynamic sync: outputUrl updated to completed URL:", matched.url);
+      if (displayProgress >= 100) {
+        setOutputUrl(matched.url);
+        console.log("[EditVideoWorkspace] Dynamic sync: outputUrl updated to completed URL:", matched.url);
+      }
     }
-  }, [history, outputUrl, currentRecordId]);
+  }, [history, outputUrl, currentRecordId, displayProgress]);
 
   const loadVideoHistory = async () => {
     try {
@@ -277,6 +328,7 @@ export function EditVideoWorkspace({
     setBlueprint(null);
     setCurrentRecordId(null);
     setOutputUrl(null);
+    setDisplayProgress(0);
 
     try {
       const uploadedUrls: string[] = [];
@@ -404,6 +456,8 @@ export function EditVideoWorkspace({
                           src={video.url}
                           className="w-full h-full object-cover"
                           muted
+                          playsInline
+                          crossOrigin="anonymous"
                         />
                         <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
                           <Play className="h-6 w-6 text-white fill-white" />
@@ -620,26 +674,26 @@ export function EditVideoWorkspace({
                 <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">Preview</div>
               </div>
               <div className={`mt-6 rounded-[28px] border bg-slate-50 p-6 text-center text-slate-500 ${
-                outputUrl
+                (outputUrl || isGenerating)
                   ? 'border-solid border-slate-250' 
                   : 'border-dashed border-slate-300 flex h-[380px] items-center justify-center'
               }`}>
-                {outputUrl ? (
-                  outputUrl.startsWith('pending://') ? (() => {
+                {(outputUrl || isGenerating) ? (
+                  (isGenerating || (outputUrl && outputUrl.startsWith('pending://'))) ? (() => {
                     const matchedRecord = history.find(h => h.url === outputUrl || h._id === currentRecordId || h.id === currentRecordId);
-                    const isLocalRender = (matchedRecord?.metadata?.provider === 'local-render') || (outputUrl ? outputUrl.includes('local-render') : false);
+                    const isLocalRender = (matchedRecord?.metadata?.provider === 'local-render') || (outputUrl ? outputUrl.includes('local-render') : true);
                     
-                    const progressVal = matchedRecord?.metadata?.progress ?? 0;
-                    const statusVal = matchedRecord?.metadata?.status ?? 'processing';
+                    const progressVal = displayProgress;
+                    const statusVal = matchedRecord?.metadata?.status ?? (isGenerating ? 'processing' : 'queued');
                     const errorVal = matchedRecord?.metadata?.error;
                     const finalVideoUrl = (matchedRecord && matchedRecord.url && !matchedRecord.url.startsWith('pending://'))
                       ? matchedRecord.url
                       : null;
 
-                    if (statusVal === 'completed' && finalVideoUrl) {
+                    if (statusVal === 'completed' && finalVideoUrl && displayProgress >= 100) {
                       return (
                         <div className="w-full h-full flex flex-col gap-4">
-                          <video controls src={finalVideoUrl} className="w-full rounded-[24px] object-contain max-h-[300px] shadow-sm border border-slate-100" />
+                          <video controls src={finalVideoUrl} className="w-full rounded-[24px] object-contain max-h-[300px] shadow-sm border border-slate-100" playsInline crossOrigin="anonymous" />
                           <button
                             type="button"
                             onClick={() => {
@@ -653,6 +707,7 @@ export function EditVideoWorkspace({
                               setOptimizedData(null);
                               setBlueprint(null);
                               setOutputUrl(null);
+                              setDisplayProgress(0);
                               toast.success('Đã đặt video kết quả thành video đầu vào. Hãy nhập ý tưởng mới để tiếp tục chỉnh sửa!');
                             }}
                             className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-cyan-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-cyan-700 cursor-pointer shadow-sm shadow-cyan-155 mt-2"
@@ -743,7 +798,7 @@ export function EditVideoWorkspace({
                     );
                   })() : (
                     <div className="w-full h-full flex flex-col gap-4">
-                      <video controls src={outputUrl} className="w-full rounded-[24px] object-contain max-h-[300px] shadow-sm border border-slate-100" />
+                      <video controls src={outputUrl} className="w-full rounded-[24px] object-contain max-h-[300px] shadow-sm border border-slate-100" playsInline crossOrigin="anonymous" />
                       <button
                         type="button"
                         onClick={() => {
@@ -759,6 +814,7 @@ export function EditVideoWorkspace({
                           setOptimizedData(null);
                           setBlueprint(null);
                           setOutputUrl(null);
+                          setDisplayProgress(0);
                           toast.success('Đã thêm video kết quả vào danh sách video đầu vào. Hãy nhập ý tưởng mới để tiếp tục chỉnh sửa!');
                         }}
                         className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-cyan-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-cyan-700 cursor-pointer shadow-sm shadow-cyan-155"
@@ -820,7 +876,7 @@ export function EditVideoWorkspace({
                         <div className="relative h-20 w-28 overflow-hidden rounded-3xl bg-slate-100">
                           {item.url && (item.url.startsWith('http') || item.url.startsWith('blob:') || item.url.startsWith('data:')) ? (
                             <>
-                              <video src={item.url} className="h-full w-full object-cover" muted preload="metadata" />
+                              <video src={item.url} className="h-full w-full object-cover" muted preload="metadata" playsInline crossOrigin="anonymous" />
                               <div className="absolute inset-0 flex items-center justify-center bg-slate-950/25">
                                 <Play className="h-5 w-5 text-white" />
                               </div>
@@ -888,7 +944,7 @@ export function EditVideoWorkspace({
                         <div className="relative aspect-video overflow-hidden rounded-2xl bg-slate-900">
                           {item.url && (item.url.startsWith('http') || item.url.startsWith('blob:') || item.url.startsWith('data:')) ? (
                             <>
-                              <video src={item.url} className="h-full w-full object-cover" muted preload="metadata" />
+                              <video src={item.url} className="h-full w-full object-cover" muted preload="metadata" playsInline crossOrigin="anonymous" />
                               <div className="absolute inset-0 bg-slate-950/20"></div>
                             </>
                           ) : (
@@ -938,6 +994,8 @@ export function EditVideoWorkspace({
                   controls 
                   autoPlay
                   className="max-h-[500px] w-full rounded-2xl object-contain"
+                  playsInline
+                  crossOrigin="anonymous"
                 />
               </div>
             </div>

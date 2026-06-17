@@ -165,6 +165,8 @@ export function HeyGenVideoItem({
             <video
               src={downloadUrl}
               preload="metadata"
+              playsInline
+              crossOrigin="anonymous"
               className="absolute inset-0 z-10 h-full w-full object-contain bg-transparent"
               style={{ objectPosition: "center top" }}
             />

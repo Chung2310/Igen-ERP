@@ -216,6 +216,8 @@ export function HeyGenVideoPreview({
               className={`h-full w-full ${mediaFitClass} bg-white`}
               style={{ objectPosition: "center top" }}
               onClick={togglePlayback}
+              playsInline
+              crossOrigin="anonymous"
             />
           ) : (
             <div className={`absolute inset-0 flex items-center justify-center transition-all duration-300 ${backgroundClass}`} style={{ backgroundColor: avatarBackground === "color" ? backgroundColor : undefined }}>
