@@ -482,8 +482,7 @@ export default function CRMTab() {
 
     const fetchMessages = async () => {
       if (document.hidden) return;
-      if (socketConnected) return;
-      console.log(`[FE CRMTab] Fallback polling lịch sử tin nhắn cho conversation ID: ${activeCustomer.id}...`);
+      console.log(`[FE CRMTab] Polling lịch sử tin nhắn cho conversation ID: ${activeCustomer.id}...`);
       try {
         await loadConversationMessages(activeCustomer.id, "replace", activeCustomer.channel, { syncChannel: true });
       } catch (err) {
@@ -491,10 +490,10 @@ export default function CRMTab() {
       }
     };
 
-    loadConversationMessages(activeCustomer.id, "replace", activeCustomer.channel, { syncChannel: !socketConnected }).catch((err) => {
+    loadConversationMessages(activeCustomer.id, "replace", activeCustomer.channel, { syncChannel: true }).catch((err) => {
       console.error("[FE CRMTab] Lỗi khi tải lịch sử tin nhắn ban đầu:", err);
     });
-    const interval = setInterval(fetchMessages, 30000);
+    const interval = setInterval(fetchMessages, 10000);
 
     const handleVisibility = () => {
       if (!document.hidden) {

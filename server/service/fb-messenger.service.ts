@@ -124,8 +124,10 @@ export const fbMessengerService = {
       throw new Error(`Không tìm thấy Access Token cấu hình cho Page ID: ${pageId}`);
     }
 
-    const latestStoredMessage = await FBMessageModel.findOne({ conversationId: refreshedConversation._id }).sort({ timestamp: -1 });
-    const latestStoredTime = latestStoredMessage?.timestamp ? new Date(latestStoredMessage.timestamp).getTime() : 0;
+    const existingMids = new Set(
+      (await FBMessageModel.find({ conversationId: refreshedConversation._id }, { messageId: 1 }))
+        .map(m => m.messageId)
+    );
 
     const fields = ["id", "message", "created_time", "from", "to", "attachments"].join(",");
     const url = `https://graph.facebook.com/v19.0/${refreshedConversation.facebookConversationId}/messages?fields=${encodeURIComponent(fields)}&limit=25&access_token=${encodeURIComponent(token)}`;
@@ -134,8 +136,7 @@ export const fbMessengerService = {
     let upsertedCount = 0;
 
     for (const fbMessage of messages) {
-      const fbCreatedTime = fbMessage?.created_time ? new Date(fbMessage.created_time).getTime() : 0;
-      if (latestStoredTime && fbCreatedTime && fbCreatedTime < latestStoredTime) {
+      if (existingMids.has(fbMessage.id)) {
         continue;
       }
 
