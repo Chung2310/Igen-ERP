@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { UserModel } from "../model/user.model";
 import { ZaloConversationModel, ZaloMessageModel } from "../model/zalo-messenger.model";
 import { FBConversationModel, FBMessageModel } from "../model/fb-messenger.model";
@@ -44,7 +45,9 @@ async function collectCandidateUsers(
     console.log(`[AI AutoReply] Tim thay ${companyIntegrations.length} tich hop doanh nghiep.`);
     for (const integration of companyIntegrations) {
       if (integration.createdBy) {
-        const creator = await UserModel.findById(integration.createdBy);
+        const creator = mongoose.Types.ObjectId.isValid(integration.createdBy)
+          ? await UserModel.findById(integration.createdBy)
+          : await UserModel.findOne({ email: integration.createdBy });
         if (creator) {
           candidateUsers.push(creator);
         }
