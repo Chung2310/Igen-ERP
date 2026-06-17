@@ -132,14 +132,19 @@ export function HeyGenVideoItem({
     : isFailed
       ? "bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-200"
       : "bg-cyan-50 text-cyan-700 ring-1 ring-inset ring-cyan-200";
-  const badgeLabel =
-    status === "processing"
-      ? "Đang xử lý"
-      : status === "completed"
-        ? "Hoàn thành"
-        : status === "failed"
-          ? "Thất bại"
-          : status;
+
+  let badgeLabel = status;
+  if (status === "waiting" || status === "pending") {
+    badgeLabel = "Đang chờ hàng đợi";
+  } else if (status === "processing" || status === "running") {
+    badgeLabel = "Đang xử lý";
+  } else if (status === "completed") {
+    badgeLabel = "Hoàn thành";
+  } else if (status === "failed" || status === "error") {
+    badgeLabel = "Thất bại";
+  } else if (status === "canceled") {
+    badgeLabel = "Đã hủy";
+  }
 
   return (
     <div
