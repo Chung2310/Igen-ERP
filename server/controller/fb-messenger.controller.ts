@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { fbMessengerService } from "../service/fb-messenger.service";
 import { UserModel } from "../model/user.model";
-import { AIReplyLogModel } from "../model/ai-knowledge.model";
+import { AIReplyLogModel } from "../model/ai-reply-log.model";
 
 async function getFacebookPageConfig(userId: string): Promise<{ isConnected: boolean; pageId?: string }> {
   const dbUser = await UserModel.findById(userId).lean();
