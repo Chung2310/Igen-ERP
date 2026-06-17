@@ -657,6 +657,8 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved, onEd
                         controls
                         autoPlay
                         loop
+                        playsInline
+                        crossOrigin="anonymous"
                         className="w-full h-full object-contain"
                         id="canvas_video_player"
                       />
@@ -750,7 +752,7 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved, onEd
                           }`}
                       >
                         {record.url && (record.url.startsWith('http') || record.url.startsWith('blob:') || record.url.startsWith('data:')) ? (
-                          <video src={record.url} className="w-full h-full object-cover" muted preload="metadata" />
+                          <video src={record.url} className="w-full h-full object-cover" muted preload="metadata" playsInline crossOrigin="anonymous" />
                         ) : (
                           <div className="w-full h-full bg-slate-900 flex flex-col items-center justify-center text-[8px] font-bold text-cyan-400 uppercase tracking-widest p-1 text-center">
                             <Loader2 className="h-4 w-4 animate-spin mb-1 text-cyan-500" />

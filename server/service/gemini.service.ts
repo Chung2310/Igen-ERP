@@ -34,7 +34,11 @@ async function fetchWithRetry(url: string, retries = 3, delay = 2000): Promise<R
   let lastError: any;
   for (let i = 0; i < retries; i++) {
     try {
-      const res = await fetch(url);
+      const res = await fetch(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        }
+      });
       if (res.ok) return res;
       lastError = new Error(`HTTP ${res.status} - ${res.statusText}`);
     } catch (err) {

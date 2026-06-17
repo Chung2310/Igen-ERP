@@ -560,6 +560,8 @@ export function HeyGenWorkspace({
                           <video
                             src={videoUrl}
                             preload="metadata"
+                            playsInline
+                            crossOrigin="anonymous"
                             className="absolute inset-0 h-full w-full object-cover bg-transparent"
                           />
                         ) : (
@@ -656,6 +658,7 @@ export function HeyGenWorkspace({
                   controls
                   autoPlay
                   playsInline
+                  crossOrigin="anonymous"
                   className="max-h-full max-w-full object-contain"
                 />
               ) : (
