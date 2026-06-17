@@ -619,7 +619,7 @@ export const geminiController = {
         extractedText = filesContent.filter(Boolean).join("\n");
         if (extractedText.trim().length > 0) {
           isMocked = false;
-          docTitle = isFolder 
+          docTitle = isFolder
             ? `Thư mục Google Drive (ID: ${folderId}, ${docIds.length} files)`
             : (docIds.length === 1 ? `Google Doc (ID: ${docIds[0]})` : `Bộ tài liệu Google Docs (${docIds.length} files)`);
           console.log(`[AI AutoReply] Đồng bộ thành công từ các links thật! Độ dài ký tự: ${extractedText.length}`);
@@ -749,7 +749,7 @@ A: Hoàn toàn MIỄN PHÍ. Đội ngũ kỹ thuật của iGen sẽ hỗ trợ 
   /**
    * POST /api/v1/gemini/optimize-script
    */
-   async optimizeScript(req: Request, res: Response) {
+  async optimizeScript(req: Request, res: Response) {
     try {
       const { text, readingStyle, model } = req.body;
       const userId = (req as any).user?.id;

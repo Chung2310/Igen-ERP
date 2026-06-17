@@ -9,7 +9,8 @@ import {
   Facebook, 
   ExternalLink, 
   RefreshCw,
-  Loader2
+  Loader2,
+  ZoomIn
 } from "lucide-react";
 import { ContentApprovalCard } from "../../types";
 
@@ -105,9 +106,14 @@ export function ModerationPipCard({
             e.stopPropagation();
             onPreviewMedia('image', card.imageUrl!);
           }}
-          className="relative cursor-pointer overflow-hidden rounded-xl aspect-video w-full border border-slate-100 shadow-2xs hover:scale-[1.015] transition-all bg-slate-50/50"
+          className="relative cursor-pointer overflow-hidden rounded-xl aspect-video w-full border border-slate-100 shadow-2xs hover:scale-[1.015] transition-all bg-slate-950 flex items-center justify-center group"
+          title="Bấm để phóng to"
         >
-          <img src={card.imageUrl} alt="AI Illustration" className="w-full h-full object-cover transition-transform duration-500 hover:scale-[1.04]" />
+          <img src={card.imageUrl} alt="AI Illustration" className="w-full h-full object-contain transition-transform duration-500 hover:scale-[1.03]" />
+          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col items-center justify-center text-white gap-1 font-sans text-[10px] font-bold select-none">
+            <ZoomIn className="h-4 w-4 text-white animate-pulse" />
+            <span>Bấm để phóng to</span>
+          </div>
         </div>
       )}
 
@@ -307,9 +313,14 @@ export function ScheduledCard({
             e.stopPropagation();
             onPreviewMedia('image', card.imageUrl!);
           }}
-          className="relative cursor-pointer overflow-hidden rounded-xl aspect-video w-full border border-slate-100 shadow-2xs hover:scale-[1.015] transition-all bg-slate-50/50"
+          className="relative cursor-pointer overflow-hidden rounded-xl aspect-video w-full border border-slate-100 shadow-2xs hover:scale-[1.015] transition-all bg-slate-950 flex items-center justify-center group"
+          title="Bấm để phóng to"
         >
-          <img src={card.imageUrl} alt="AI Illustration" className="w-full h-full object-cover transition-transform duration-500 hover:scale-[1.04]" />
+          <img src={card.imageUrl} alt="AI Illustration" className="w-full h-full object-contain transition-transform duration-500 hover:scale-[1.03]" />
+          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col items-center justify-center text-white gap-1 font-sans text-[10px] font-bold select-none">
+            <ZoomIn className="h-4 w-4 text-white animate-pulse" />
+            <span>Bấm để phóng to</span>
+          </div>
         </div>
       )}
 
@@ -494,9 +505,14 @@ export function PublishedCard({ card, onDelete, isUserRole, onPreviewMedia, onOp
             e.stopPropagation();
             onPreviewMedia('image', card.imageUrl!);
           }}
-          className="relative cursor-pointer overflow-hidden rounded-xl aspect-video w-full border border-slate-100 shadow-2xs hover:scale-[1.015] transition-all bg-slate-50/50"
+          className="relative cursor-pointer overflow-hidden rounded-xl aspect-video w-full border border-slate-100 shadow-2xs hover:scale-[1.015] transition-all bg-slate-950 flex items-center justify-center group"
+          title="Bấm để phóng to"
         >
-          <img src={card.imageUrl} alt="AI Illustration" className="w-full h-full object-cover transition-transform duration-500 hover:scale-[1.04]" />
+          <img src={card.imageUrl} alt="AI Illustration" className="w-full h-full object-contain transition-transform duration-500 hover:scale-[1.03]" />
+          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col items-center justify-center text-white gap-1 font-sans text-[10px] font-bold select-none">
+            <ZoomIn className="h-4 w-4 text-white animate-pulse" />
+            <span>Bấm để phóng to</span>
+          </div>
         </div>
       )}
 

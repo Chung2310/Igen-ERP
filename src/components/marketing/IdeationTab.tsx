@@ -874,11 +874,11 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
             : "";
           const voiceDescriptionVal = cardMediaType === "human-video"
             ? buildHumanVideoVoiceDescription(
-                bestConcept.title,
-                bestConcept.summary,
-                post.channel,
-                parseInt(estimatedHumanVoiceDuration, 10) || DEFAULT_HUMAN_VOICE_DURATION_SECONDS
-              )
+              bestConcept.title,
+              bestConcept.summary,
+              post.channel,
+              parseInt(estimatedHumanVoiceDuration, 10) || DEFAULT_HUMAN_VOICE_DURATION_SECONDS
+            )
             : "";
           return {
             id: `mod_dev_${Date.now()}_${index}_${Math.floor(Math.random() * 1000)}`,
@@ -924,7 +924,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
 
   const handleDevelopConcept = async (concept: MarketingConcept, idx: number) => {
     console.log("[handleDevelopConcept] Starting development for concept:", concept.title);
-    
+
     if (mediaType === "video") {
       const durVal = parseInt(videoDuration, 10);
       if (!videoDuration || isNaN(durVal) || durVal <= 0) {
@@ -976,11 +976,11 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
             : "";
           const voiceDescriptionVal = cardMediaType === "human-video"
             ? buildHumanVideoVoiceDescription(
-                concept.title,
-                concept.summary,
-                post.channel,
-                parseInt(estimatedHumanVoiceDuration, 10) || DEFAULT_HUMAN_VOICE_DURATION_SECONDS
-              )
+              concept.title,
+              concept.summary,
+              post.channel,
+              parseInt(estimatedHumanVoiceDuration, 10) || DEFAULT_HUMAN_VOICE_DURATION_SECONDS
+            )
             : "";
           return {
             id: `mod_dev_${Date.now()}_${index}_${Math.floor(Math.random() * 1000)}`,
@@ -1091,8 +1091,8 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                 {/* Unified AI-style prompt box */}
                 <div
                   className={`relative flex flex-col bg-white border rounded-2xl transition-all overflow-hidden ${isDragging
-                      ? "border-indigo-400 ring-2 ring-indigo-400/20 shadow-md"
-                      : "border-gray-200 focus-within:border-indigo-400 focus-within:ring-2 focus-within:ring-indigo-400/15 hover:border-gray-300"
+                    ? "border-indigo-400 ring-2 ring-indigo-400/20 shadow-md"
+                    : "border-gray-200 focus-within:border-indigo-400 focus-within:ring-2 focus-within:ring-indigo-400/15 hover:border-gray-300"
                     }`}
                   onDragOver={handleDragOver}
                   onDragLeave={handleDragLeave}
@@ -1185,8 +1185,8 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                       onClick={() => handleAnalyzePillars()}
                       disabled={loadingPillars || !campaignInput.trim()}
                       className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[10px] font-bold transition-all ${loadingPillars || !campaignInput.trim()
-                          ? "bg-gray-50 text-gray-400 border-gray-250 cursor-not-allowed"
-                          : "bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-150 cursor-pointer active:scale-98"
+                        ? "bg-gray-50 text-gray-400 border-gray-250 cursor-not-allowed"
+                        : "bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-150 cursor-pointer active:scale-98"
                         }`}
                     >
                       <Sparkles className={`h-3.5 w-3.5 text-indigo-500 ${loadingPillars ? "animate-spin" : ""}`} />
@@ -1236,8 +1236,8 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                             }
                           }}
                           className={`px-2.5 py-1 text-[10px] rounded-md font-medium transition-all cursor-pointer select-none border ${isMatch
-                              ? "bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-600 shadow-xs transform scale-102 font-semibold"
-                              : "bg-white hover:bg-slate-100 text-gray-600 border-gray-200"
+                            ? "bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-600 shadow-xs transform scale-102 font-semibold"
+                            : "bg-white hover:bg-slate-100 text-gray-600 border-gray-200"
                             }`}
                         >
                           {s}
@@ -1282,10 +1282,10 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                         }}
                         title={chan.disabled ? `${chan.id} tạm thời chưa khả dụng` : undefined}
                         className={`px-3.5 py-2 text-xs font-bold rounded-xl border transition-all flex items-center gap-2 select-none ${chan.disabled
-                            ? "border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed opacity-70"
-                            : isSelected
-                              ? "border-indigo-650 bg-indigo-50 text-indigo-750 shadow-sm ring-2 ring-indigo-550/15 cursor-pointer hover:bg-indigo-100"
-                              : "border-slate-200 bg-white text-gray-500 hover:bg-slate-100 cursor-pointer"
+                          ? "border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed opacity-70"
+                          : isSelected
+                            ? "border-indigo-650 bg-indigo-50 text-indigo-750 shadow-sm ring-2 ring-indigo-550/15 cursor-pointer hover:bg-indigo-100"
+                            : "border-slate-200 bg-white text-gray-500 hover:bg-slate-100 cursor-pointer"
                           }`}
                       >
                         {chan.icon}
@@ -1403,8 +1403,8 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                         type="button"
                         onClick={() => setMediaType(opt.value)}
                         className={`py-2.5 text-xs font-extrabold rounded-2xl border transition-all flex items-center justify-center gap-2 cursor-pointer select-none ${isSelected
-                            ? "border-indigo-500 bg-indigo-50/50 text-indigo-750 shadow-2xs ring-2 ring-indigo-500/10"
-                            : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:border-slate-350"
+                          ? "border-indigo-500 bg-indigo-50/50 text-indigo-750 shadow-2xs ring-2 ring-indigo-500/10"
+                          : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:border-slate-350"
                           }`}
                       >
                         {opt.icon}
@@ -1442,11 +1442,10 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                               setEstimatedHumanVoiceDuration(dur);
                             }
                           }}
-                          className={`px-4 py-2 text-xs font-bold rounded-xl border transition-all cursor-pointer ${
-                            isSelected
-                              ? "border-indigo-500 bg-indigo-50 text-indigo-700 shadow-2xs ring-2 ring-indigo-500/10 font-extrabold"
-                              : "border-slate-200 bg-white text-gray-500 hover:bg-slate-50 hover:border-slate-350"
-                          }`}
+                          className={`px-4 py-2 text-xs font-bold rounded-xl border transition-all cursor-pointer ${isSelected
+                            ? "border-indigo-500 bg-indigo-50 text-indigo-700 shadow-2xs ring-2 ring-indigo-500/10 font-extrabold"
+                            : "border-slate-200 bg-white text-gray-500 hover:bg-slate-50 hover:border-slate-350"
+                            }`}
                         >
                           {dur}s
                         </button>
@@ -1466,11 +1465,10 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                           }
                         }
                       }}
-                      className={`px-4 py-2 text-xs font-bold rounded-xl border transition-all cursor-pointer ${
-                        (mediaType === "video" ? !["4", "6", "8"].includes(videoDuration) : !["4", "6", "8"].includes(estimatedHumanVoiceDuration))
-                          ? "border-indigo-500 bg-indigo-50 text-indigo-750 shadow-2xs ring-2 ring-indigo-500/10 font-extrabold"
-                          : "border-slate-200 bg-white text-gray-500 hover:bg-slate-50 hover:border-slate-350"
-                      }`}
+                      className={`px-4 py-2 text-xs font-bold rounded-xl border transition-all cursor-pointer ${(mediaType === "video" ? !["4", "6", "8"].includes(videoDuration) : !["4", "6", "8"].includes(estimatedHumanVoiceDuration))
+                        ? "border-indigo-500 bg-indigo-50 text-indigo-750 shadow-2xs ring-2 ring-indigo-500/10 font-extrabold"
+                        : "border-slate-200 bg-white text-gray-500 hover:bg-slate-50 hover:border-slate-350"
+                        }`}
                     >
                       Khác
                     </button>
@@ -1566,8 +1564,8 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                             type="button"
                             onClick={() => setImageResolution(res)}
                             className={`py-1.5 text-xs font-bold rounded-lg border transition-all ${imageResolution === res
-                                ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                                : "border-slate-200 bg-white text-gray-500 hover:bg-slate-50"
+                              ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                              : "border-slate-200 bg-white text-gray-500 hover:bg-slate-50"
                               }`}
                           >
                             {res === "1K" ? "1K Standard" : "2K Ultra HD"}
@@ -1586,8 +1584,8 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                           type="button"
                           onClick={() => setImageAspectRatio(ratio)}
                           className={`py-1.5 text-xs font-bold rounded-lg border transition-all ${imageAspectRatio === ratio
-                              ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                              : "border-slate-200 bg-white text-gray-500 hover:bg-slate-50"
+                            ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                            : "border-slate-200 bg-white text-gray-500 hover:bg-slate-50"
                             }`}
                         >
                           {ratio}
@@ -1649,8 +1647,8 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                             type="button"
                             onClick={() => setVideoAspectRatio(ratio)}
                             className={`py-1.5 text-xs font-bold rounded-lg border transition-all cursor-pointer ${videoAspectRatio === ratio
-                                ? "border-indigo-500 bg-indigo-50 text-indigo-700 font-extrabold"
-                                : "border-slate-200 bg-white text-gray-500 hover:bg-slate-50"
+                              ? "border-indigo-500 bg-indigo-50 text-indigo-700 font-extrabold"
+                              : "border-slate-200 bg-white text-gray-500 hover:bg-slate-50"
                               }`}
                           >
                             {ratio === "16:9" ? "Ngang 16:9" : "Dọc 9:16"}
@@ -1695,8 +1693,8 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
               onClick={handleGenerateIdeas}
               disabled={loadingAI || autoPilotBackgroundRunning || !campaignInput.trim() || (!isAutoPilot && campaignInput.trim() !== analyzedTopic.trim())}
               className={`px-5 py-2.5 rounded-xl text-xs font-bold font-sans flex items-center gap-2 select-none shadow-sm transition-all ${loadingAI || autoPilotBackgroundRunning || !campaignInput.trim() || (!isAutoPilot && campaignInput.trim() !== analyzedTopic.trim())
-                  ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                  : "bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer active:scale-95"
+                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                : "bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer active:scale-95"
                 }`}
             >
               {loadingAI || autoPilotBackgroundRunning ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
@@ -1708,10 +1706,26 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
         {/* Content Pillars guidelines panel */}
         <div className="bg-white border p-6 rounded-2xl flex flex-col justify-between" id="content_pillars_advisory">
           <div>
-            <h4 className="font-bold text-gray-850 text-sm tracking-wide font-sans uppercase">
-              📚 Content Pillars Đề xuất
-            </h4>
-            <p className="text-xs text-slate-500 mt-1 mb-4">Phân tích mục tiêu để đề xuất ra các trụ cột nội dung cốt lõi của chiến dịch, đảm bảo phân bổ đa dạng:</p>
+            <div className="flex justify-between items-center">
+              <h4 className="font-bold text-gray-850 text-sm tracking-wide font-sans uppercase">
+                📚 Content Pillars Đề xuất
+              </h4>
+              <button
+                type="button"
+                onClick={() => handleAnalyzePillars()}
+                disabled={loadingPillars || !campaignInput.trim()}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border transition-all ${
+                  loadingPillars || !campaignInput.trim()
+                    ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                    : "bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200 hover:border-indigo-300 active:scale-95 cursor-pointer shadow-xs"
+                }`}
+                title="Tạo lại content pillars"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${loadingPillars ? "animate-spin" : ""}`} />
+                <span>Tạo lại</span>
+              </button>
+            </div>
+            <p className="text-xs text-slate-500 mt-1.5 mb-4">Phân tích mục tiêu để đề xuất ra các trụ cột nội dung cốt lõi của chiến dịch, đảm bảo phân bổ đa dạng:</p>
 
             <div className="space-y-3 text-xs text-left relative">
               {loadingPillars && (
@@ -1729,16 +1743,16 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                     key={pillar.id}
                     onClick={() => togglePillar(pillar.id)}
                     className={`p-3.5 border rounded-xl cursor-pointer transition-all ${isSelected
-                        ? pillar.selectedColorClass
-                        : `${pillar.colorClass} opacity-50 hover:opacity-85`
+                      ? pillar.selectedColorClass
+                      : `${pillar.colorClass} opacity-50 hover:opacity-85`
                       }`}
                   >
-                    <div className="flex justify-between items-center font-bold">
-                      <span className="flex items-center gap-1.5 text-xs text-slate-800">
-                        <span className={`w-2.5 h-2.5 rounded-full ${pillar.bulletColor}`} />
-                        {pillar.title}
+                    <div className="flex justify-between items-start gap-2 font-bold">
+                      <span className="flex items-start gap-1.5 text-xs text-slate-800 min-w-0">
+                        <span className={`w-2.5 h-2.5 rounded-full shrink-0 mt-0.5 ${pillar.bulletColor}`} />
+                        <span>{pillar.title}</span>
                       </span>
-                      <span className="text-[10px] opacity-80 font-mono font-semibold text-slate-500">{pillar.ratio}</span>
+                      <span className="text-[10px] opacity-80 font-mono font-semibold text-slate-500 whitespace-nowrap shrink-0">{pillar.ratio}</span>
                     </div>
                     <p className="text-[10px] mt-2 leading-relaxed text-slate-500 font-sans pointer-events-none">
                       {pillar.description}
@@ -1765,7 +1779,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
       {/* Campaign concepts generator list */}
       <div className="space-y-4" id="campaign_draft_concepts_section">
         <span className="text-[10px] font-bold text-gray-500 font-mono uppercase tracking-wider block">Bản nháp ý tưởng sáng tạo ({concepts.length})</span>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3" id="concepts_container">
           {concepts.map((concept, idx) => (
             <div key={idx} className="p-3.5 bg-white border border-gray-250/70 hover:border-indigo-300 rounded-2xl transition-all shadow-xs text-left flex flex-col justify-between min-w-0 overflow-hidden" id={`concept_card_${idx}`}>
@@ -1784,9 +1798,9 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
               })()}
               <div className="min-w-0">
                 <span className="text-[11px] font-bold text-slate-800 font-sans tracking-tight leading-snug line-clamp-2 block">{concept.title}</span>
-                
+
                 <p className="text-[11px] text-gray-500 mt-1.5 leading-relaxed line-clamp-3">{concept.summary}</p>
-                
+
                 <div className="flex flex-wrap gap-1 mt-2">
                   {concept.channels.map((chan, cidx) => (
                     <span key={cidx} className="px-1.5 py-0.5 bg-slate-50 border border-gray-150 rounded-sm text-[8px] font-mono text-slate-500 uppercase tracking-wide">
