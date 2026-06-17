@@ -148,14 +148,26 @@ export const aiAutoReplyService = {
         uniqueCandidates,
       } = await collectCandidateUsers(channel, resolvedPlatformId);
 
-      // D. Chọn user phù hợp nhất (ưu tiên người dùng đã BẬT AI tự động trả lời)
-      let selectedUser = uniqueCandidates.find(u => u.aiAutoReplyConfig?.enabled === true);
+      // A. Xác định targetCompanyCode từ tích hợp hoặc chủ sở hữu cấp cá nhân
+      const targetCompanyCode = companyIntegrations[0]?.companyCode || userLevelOwners[0]?.companyCode || "SYSTEM";
+      console.log(`[AI AutoReply] Xác định targetCompanyCode cho hội thoại: ${targetCompanyCode}`);
+
+      // B. Chọn user phù hợp nhất thuộc công ty này
+      let selectedUser = uniqueCandidates.find(
+        u => u.companyCode === targetCompanyCode && u.aiAutoReplyConfig?.enabled === true
+      );
+
       if (selectedUser) {
-        console.log(`[AI AutoReply] Chọn được user đang BẬT AI: ${selectedUser.email}`);
+        console.log(`[AI AutoReply] Chọn được user thuộc công ty ${targetCompanyCode} đang BẬT AI: ${selectedUser.email}`);
       } else {
-        selectedUser = uniqueCandidates[0];
+        selectedUser = uniqueCandidates.find(u => u.companyCode === targetCompanyCode);
         if (selectedUser) {
-          console.log(`[AI AutoReply] Không có user nào bật AI. Chọn user dự phòng đầu tiên: ${selectedUser.email}`);
+          console.log(`[AI AutoReply] Tìm thấy user thuộc công ty ${targetCompanyCode} nhưng chưa bật AI (dùng làm fallback): ${selectedUser.email}`);
+        } else {
+          selectedUser = uniqueCandidates.find(u => u.aiAutoReplyConfig?.enabled === true) || uniqueCandidates[0];
+          if (selectedUser) {
+            console.log(`[AI AutoReply] Fallback chọn user ngoài công ty: ${selectedUser.email}`);
+          }
         }
       }
 
@@ -179,19 +191,19 @@ export const aiAutoReplyService = {
       aiConfig = selectedUser.aiAutoReplyConfig;
       console.log(
         `[AI AutoReply] Owner selected: channel=${channel}, platformId=${resolvedPlatformId}, ` +
-        `conversationId=${conversationId}, user=${user.email}, company=${user.companyCode || "SYSTEM"}, enabled=${!!aiConfig?.enabled}`
+        `conversationId=${conversationId}, user=${user.email}, company=${targetCompanyCode} (userCompany=${user.companyCode || "SYSTEM"}), enabled=${!!aiConfig?.enabled}`
       );
 
       if (!aiConfig || !aiConfig.enabled) {
         await logAutoReplyFailure({
-          companyCode: user.companyCode || "SYSTEM",
+          companyCode: targetCompanyCode,
           channel,
           conversationId,
           customerMessage: normalizedIncomingText,
           reason: `AI auto-reply is disabled for selected user ${user.email}`,
           details: {
             selectedUserEmail: user.email,
-            companyCode: user.companyCode || "SYSTEM",
+            companyCode: targetCompanyCode,
             enabled: !!aiConfig?.enabled,
           },
         });
@@ -200,7 +212,7 @@ export const aiAutoReplyService = {
 
       if (!normalizedIncomingText) {
         await logAutoReplyFailure({
-          companyCode: user.companyCode || "SYSTEM",
+          companyCode: targetCompanyCode,
           channel,
           conversationId,
           customerMessage: "[EMPTY_MESSAGE]",
@@ -228,7 +240,7 @@ export const aiAutoReplyService = {
           if (generatingReplies.has(conversationId)) {
             console.log(`[AI AutoReply] ⚠️ BỎ QUA: Bỏ qua tự động phản hồi hội thoại ${conversationId} vì đang có tiến trình sinh câu trả lời đang chạy.`);
             await aiKnowledgeService.createReplyLog({
-              companyCode: user.companyCode || "SYSTEM",
+              companyCode: targetCompanyCode,
               channel,
               conversationId,
               customerMessage: normalizedIncomingText,
@@ -249,7 +261,7 @@ export const aiAutoReplyService = {
             if (!conv) {
               console.error(`[AI AutoReply] ❌ LỖI: Không tìm thấy cuộc hội thoại Zalo ${conversationId} trong DB.`);
               await aiKnowledgeService.createReplyLog({
-                companyCode: user.companyCode || "SYSTEM",
+                companyCode: targetCompanyCode,
                 channel,
                 conversationId,
                 customerMessage: normalizedIncomingText,
@@ -291,7 +303,7 @@ export const aiAutoReplyService = {
             if (!conv) {
               console.error(`[AI AutoReply] ❌ LỖI: Không tìm thấy cuộc hội thoại FB ${conversationId} trong DB.`);
               await aiKnowledgeService.createReplyLog({
-                companyCode: user.companyCode || "SYSTEM",
+                companyCode: targetCompanyCode,
                 channel,
                 conversationId,
                 customerMessage: normalizedIncomingText,
@@ -334,7 +346,7 @@ export const aiAutoReplyService = {
           // we do not auto-reply anymore.
           if (HUMAN_INTERVENTION_GUARD_ENABLED && lastMessageDirection === "outbound") {
             await logAutoReplyFailure({
-              companyCode: user.companyCode || "SYSTEM",
+              companyCode: targetCompanyCode,
               channel,
               conversationId,
               customerMessage: normalizedIncomingText,
@@ -354,7 +366,7 @@ export const aiAutoReplyService = {
           );
           if (!isLatest) {
             await logAutoReplyFailure({
-              companyCode: user.companyCode || "SYSTEM",
+              companyCode: targetCompanyCode,
               channel,
               conversationId,
               customerMessage: normalizedIncomingText,
@@ -374,7 +386,7 @@ export const aiAutoReplyService = {
 
           try {
             const startedAt = Date.now();
-            const companyCode = user.companyCode || "SYSTEM";
+            const companyCode = targetCompanyCode;
             const queryText = `${history.map((h) => h.text).join("\n")}\n${normalizedIncomingText}`.trim();
             const ragContext = await aiKnowledgeService.searchRelevantContext({
               companyCode,
@@ -410,7 +422,7 @@ export const aiAutoReplyService = {
             if (!aiResponse || !aiResponse.text) {
               console.error(`[AI AutoReply] ❌ LỖI API: Không nhận được câu trả lời từ Gemini cho hội thoại: ${conversationId}`);
               await aiKnowledgeService.createReplyLog({
-                companyCode: user.companyCode || "SYSTEM",
+                companyCode: targetCompanyCode,
                 channel,
                 conversationId,
                 customerMessage: normalizedIncomingText,
@@ -434,7 +446,7 @@ export const aiAutoReplyService = {
             if (HUMAN_INTERVENTION_GUARD_ENABLED && preSendDirection === "outbound") {
               console.log(`[AI AutoReply] ⚠️ CAN THIỆP PHÚT CUỐI: Nhân viên đã gửi tin nhắn thủ công trong thời gian Gemini sinh câu trả lời cho conversationId=${conversationId}. Huỷ bỏ việc gửi câu trả lời AI.`);
               await aiKnowledgeService.createReplyLog({
-                companyCode: user.companyCode || "SYSTEM",
+                companyCode: targetCompanyCode,
                 channel,
                 conversationId,
                 customerMessage: normalizedIncomingText,
