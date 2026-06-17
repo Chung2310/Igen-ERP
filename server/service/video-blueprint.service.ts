@@ -17,6 +17,12 @@ function safeParseJson(text: string): any {
   return JSON.parse(cleaned);
 }
 
+function isOverloadError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  const status = (err as any)?.status;
+  return status === 503 || msg.includes("503") || msg.includes("UNAVAILABLE") || msg.includes("experiencing high demand") || msg.includes("quá tải");
+}
+
 async function downloadFile(url: string, destPath: string): Promise<void> {
   const res = await fetch(url);
   if (!res.ok) {
@@ -262,6 +268,9 @@ Mục tiêu là mô tả thật chi tiết và chính xác để từ bản mô 
       }
     } catch (err) {
       console.error("[videoBlueprintService] Error during multimodal analysis of video 1:", err);
+      if (isOverloadError(err)) {
+        throw new Error("Mô hình AI quá tải, vui lòng thử lại sau.");
+      }
       throw new Error(`Lỗi khi phân tích video gốc: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       // Dọn dẹp local temp file
@@ -322,6 +331,9 @@ Chú ý: Hãy điều chỉnh tỉ xích thời gian (scale) của các hiệu �
       return blueprint;
     } catch (err) {
       console.error("[videoBlueprintService] Error generating JSON blueprint from scenario:", err);
+      if (isOverloadError(err)) {
+        throw new Error("Mô hình AI quá tải, vui lòng thử lại sau.");
+      }
       throw new Error(`Lỗi khi sinh kịch bản JSON từ kịch bản phân tích: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
