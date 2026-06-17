@@ -102,15 +102,16 @@ export default function ApprovalTab({
       )}
 
       <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin" id="moderation_columns">
-        <div className="bg-gray-50 border border-gray-150 rounded-2xl p-3 flex flex-col min-h-[450px] flex-1 min-w-[280px] md:min-w-[320px]">
-          <div className="flex justify-between items-center mb-3 pb-2 border-b border-gray-200">
-            <span className="text-[11px] font-bold text-amber-800 tracking-wider flex items-center gap-1">
-              CHỜ DUYỆT ({pendingCards.length})
+        <div className="bg-slate-50/50 border border-slate-200/60 rounded-3xl p-3 flex flex-col min-h-[500px] flex-1 min-w-[280px] md:min-w-[320px] shadow-3xs">
+          <div className="flex justify-between items-center mb-3.5 pb-2.5 border-b border-slate-200">
+            <span className="text-[11px] font-bold text-amber-800 tracking-wider flex items-center gap-1.5 uppercase font-mono">
+              <span>Chờ duyệt</span>
+              <span className="inline-flex items-center justify-center bg-amber-100 text-amber-800 text-[10px] font-bold rounded-full w-5 h-5">{pendingCards.length}</span>
             </span>
           </div>
-          <div className="space-y-3 flex-1 overflow-y-auto max-h-[500px] pr-1">
+          <div className="space-y-3 flex-1 overflow-y-auto max-h-[500px] pr-1 scrollbar-thin">
             {pendingCards.length === 0 ? (
-              <div className="p-8 text-center text-gray-400 text-xs italic leading-normal">Hết bài duyệt cho!</div>
+              <div className="p-8 text-center text-gray-400 text-xs italic leading-normal">Hết bài chờ duyệt!</div>
             ) : (
               pendingCards.map((card) => (
                 <ModerationPipCard
@@ -128,15 +129,16 @@ export default function ApprovalTab({
           </div>
         </div>
 
-        <div className="bg-gray-50 border border-gray-150 rounded-2xl p-3 flex flex-col min-h-[450px] flex-1 min-w-[280px] md:min-w-[320px]">
-          <div className="flex justify-between items-center mb-3 pb-2 border-b border-gray-200">
-            <span className="text-[11px] font-bold text-blue-800 tracking-wider flex items-center gap-1">
-              ĐÃ DUYỆT ({approvedCards.length})
+        <div className="bg-slate-50/50 border border-slate-200/60 rounded-3xl p-3 flex flex-col min-h-[500px] flex-1 min-w-[280px] md:min-w-[320px] shadow-3xs">
+          <div className="flex justify-between items-center mb-3.5 pb-2.5 border-b border-slate-200">
+            <span className="text-[11px] font-bold text-blue-800 tracking-wider flex items-center gap-1.5 uppercase font-mono">
+              <span>Đã duyệt</span>
+              <span className="inline-flex items-center justify-center bg-blue-100 text-blue-800 text-[10px] font-bold rounded-full w-5 h-5">{approvedCards.length}</span>
             </span>
           </div>
-          <div className="space-y-3 flex-1 overflow-y-auto max-h-[500px] pr-1">
+          <div className="space-y-3 flex-1 overflow-y-auto max-h-[500px] pr-1 scrollbar-thin">
             {approvedCards.length === 0 ? (
-              <div className="p-8 text-center text-gray-400 text-xs italic leading-normal">Chua co bai da duyet</div>
+              <div className="p-8 text-center text-gray-400 text-xs italic leading-normal">Chưa có bài đã duyệt</div>
             ) : (
               approvedCards.map((card) => (
                 <ModerationPipCard
@@ -144,7 +146,7 @@ export default function ApprovalTab({
                   card={card}
                   onNextStatus={() => {
                     if (card.channel !== "Facebook" && card.channel !== "TikTok") {
-                      toast.error(`Kenh "${card.channel}" chua ho tro tu dong len lich.`);
+                      toast.error(`Kênh "${card.channel}" chưa hỗ trợ tự động lên lịch.`);
                       return;
                     }
                     setSchedulingCard(card);
@@ -164,13 +166,14 @@ export default function ApprovalTab({
           </div>
         </div>
 
-        <div className="bg-gray-50 border border-gray-150 rounded-2xl p-3 flex flex-col min-h-[450px] flex-1 min-w-[280px] md:min-w-[320px]">
-          <div className="flex justify-between items-center mb-3 pb-2 border-b border-gray-200">
-            <span className="text-[11px] font-bold text-emerald-800 tracking-wider flex items-center gap-1">
-              ĐÃ LÊN LỊCH ({scheduledCards.length})
+        <div className="bg-slate-50/50 border border-slate-200/60 rounded-3xl p-3 flex flex-col min-h-[500px] flex-1 min-w-[280px] md:min-w-[320px] shadow-3xs">
+          <div className="flex justify-between items-center mb-3.5 pb-2.5 border-b border-slate-200">
+            <span className="text-[11px] font-bold text-emerald-800 tracking-wider flex items-center gap-1.5 uppercase font-mono">
+              <span>Đã lên lịch</span>
+              <span className="inline-flex items-center justify-center bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-full w-5 h-5">{scheduledCards.length}</span>
             </span>
           </div>
-          <div className="space-y-3 flex-1 overflow-y-auto max-h-[500px] pr-1">
+          <div className="space-y-3 flex-1 overflow-y-auto max-h-[500px] pr-1 scrollbar-thin">
             {scheduledCards.length === 0 ? (
               <div className="p-8 text-center text-gray-400 text-xs italic leading-normal">Kéo bài viết để lên lịch!</div>
             ) : (
@@ -196,15 +199,16 @@ export default function ApprovalTab({
           </div>
         </div>
 
-        <div className="bg-green-50/70 border border-green-200 rounded-2xl p-3 flex flex-col min-h-[450px] flex-1 min-w-[280px] md:min-w-[320px]">
-          <div className="flex justify-between items-center mb-3 pb-2 border-b border-green-200">
-            <span className="text-[11px] font-bold text-green-800 tracking-wider flex items-center gap-1">
-              ĐÃ ĐĂNG TẢI ({publishedCards.length})
+        <div className="bg-green-50/40 border border-green-200/60 rounded-3xl p-3 flex flex-col min-h-[500px] flex-1 min-w-[280px] md:min-w-[320px] shadow-3xs">
+          <div className="flex justify-between items-center mb-3.5 pb-2.5 border-b border-green-200">
+            <span className="text-[11px] font-bold text-green-800 tracking-wider flex items-center gap-1.5 uppercase font-mono">
+              <span>Đã đăng tải</span>
+              <span className="inline-flex items-center justify-center bg-green-150 text-green-800 text-[10px] font-bold rounded-full w-5 h-5">{publishedCards.length}</span>
             </span>
           </div>
-          <div className="space-y-3 flex-1 overflow-y-auto max-h-[500px] pr-1">
+          <div className="space-y-3 flex-1 overflow-y-auto max-h-[500px] pr-1 scrollbar-thin">
             {publishedCards.length === 0 ? (
-              <div className="p-8 text-center text-gray-400 text-xs italic leading-normal">Chưa có bài nào được đăng tải!</div>
+              <div className="p-8 text-center text-gray-400 text-xs italic leading-normal">Chưa có bài nào được đăng!</div>
             ) : (
               publishedCards.map((card) => (
                 <PublishedCard

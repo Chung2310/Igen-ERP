@@ -106,7 +106,7 @@ export const aiAutoReplyService = {
       }
 
       if (!selectedUser) {
-        console.warn(`[AI AutoReply] Không tìm thấy bất kỳ cấu hình tích hợp nào cho ${channel} ID: ${resolvedPlatformId}. Bỏ qua auto reply.`);
+        console.warn(`[AI AutoReply] ❌ THẤT BẠI: Không tìm thấy bất kỳ cấu hình tích hợp nào cho ${channel} ID (Page/OA ID): "${resolvedPlatformId}". Bỏ qua auto reply.`);
         return;
       }
 
@@ -114,7 +114,7 @@ export const aiAutoReplyService = {
       aiConfig = selectedUser.aiAutoReplyConfig;
 
       if (!aiConfig || !aiConfig.enabled) {
-        console.log(`[AI AutoReply] Tự động trả lời AI đang bị TẮT cho user=${user.email}, conversationId=${conversationId}`);
+        console.log(`[AI AutoReply] ⚠️ TỪ CHỐI: Tự động trả lời AI đang bị TẮT cho user=${user.email}, conversationId=${conversationId}`);
         return;
       }
 
@@ -122,14 +122,14 @@ export const aiAutoReplyService = {
       this.cancelPendingReply(conversationId);
 
       const delayMs = (aiConfig.replyDelay || 15) * 1000;
-      console.log(`[AI AutoReply] Đang lên lịch phản hồi tự động sau ${aiConfig.replyDelay}s cho hội thoại: ${conversationId}`);
+      console.log(`[AI AutoReply] 🕒 LÊN LỊCH: Đang lên lịch phản hồi tự động sau ${aiConfig.replyDelay}s cho hội thoại: ${conversationId} (User: ${user.email})`);
 
       const timeoutId = setTimeout(async () => {
         try {
           pendingReplies.delete(conversationId); // Remove from pending list since we are processing it now
 
           if (generatingReplies.has(conversationId)) {
-            console.log(`[AI AutoReply] Bỏ qua tự động phản hồi hội thoại ${conversationId} vì đang có tiến trình sinh câu trả lời đang chạy.`);
+            console.log(`[AI AutoReply] ⚠️ BỎ QUA: Bỏ qua tự động phản hồi hội thoại ${conversationId} vì đang có tiến trình sinh câu trả lời đang chạy.`);
             return;
           }
 
@@ -140,7 +140,7 @@ export const aiAutoReplyService = {
           if (channel === "zalo") {
             const conv = await ZaloConversationModel.findById(conversationId);
             if (!conv) {
-              console.log(`[AI AutoReply] Không tìm thấy cuộc hội thoại Zalo ${conversationId} trong DB.`);
+              console.error(`[AI AutoReply] ❌ LỖI: Không tìm thấy cuộc hội thoại Zalo ${conversationId} trong DB.`);
               return;
             }
 
@@ -162,7 +162,7 @@ export const aiAutoReplyService = {
           } else {
             const conv = await FBConversationModel.findById(conversationId);
             if (!conv) {
-              console.log(`[AI AutoReply] Không tìm thấy cuộc hội thoại FB ${conversationId} trong DB.`);
+              console.error(`[AI AutoReply] ❌ LỖI: Không tìm thấy cuộc hội thoại FB ${conversationId} trong DB.`);
               return;
             }
 
@@ -186,11 +186,11 @@ export const aiAutoReplyService = {
           // Security check: if the last message in DB is outbound (meaning human agent replied in the meantime),
           // we do not auto-reply anymore.
           if (lastMessageDirection === "outbound") {
-            console.log(`[AI AutoReply] Bỏ qua tự động phản hồi hội thoại ${conversationId} vì tin nhắn gần nhất là outbound (nhân viên đã trả lời).`);
+            console.log(`[AI AutoReply] ⚠️ BỎ QUA: Bỏ qua tự động phản hồi hội thoại ${conversationId} vì tin nhắn gần nhất trong DB là "outbound" (nhân viên đã trả lời thủ công).`);
             return;
           }
 
-          console.log(`[AI AutoReply] Bắt đầu gọi Gemini sinh câu trả lời cho hội thoại: ${conversationId}`);
+          console.log(`[AI AutoReply] 🤖 KHỞI CHẠY: Bắt đầu gọi Gemini sinh câu trả lời cho hội thoại: ${conversationId} (${channel.toUpperCase()})`);
           generatingReplies.add(conversationId);
 
           try {
@@ -213,19 +213,20 @@ export const aiAutoReplyService = {
             }
 
             console.log(
-              `[AI AutoReply] Context ready for conversation=${conversationId}, matches=${effectiveRagContext.matches}, ` +
+              `[AI AutoReply] 📚 TRUY XUẤT RAG: Context ready cho conversation=${conversationId}, matches=${effectiveRagContext.matches}, ` +
               `contextLength=${effectiveRagContext.contextText?.length || 0}`
             );
 
             // Call Gemini Service
+            console.log(`[AI AutoReply] 🧠 GEMINI CALL: Đang gửi request tới Gemini cho conversation=${conversationId}...`);
             const aiResponse = await geminiService.chat(incomingText, history, aiConfig, effectiveRagContext);
 
             if (!aiResponse || !aiResponse.text) {
-              console.error(`[AI AutoReply] Không nhận được câu trả lời từ Gemini cho hội thoại: ${conversationId}`);
+              console.error(`[AI AutoReply] ❌ LỖI API: Không nhận được câu trả lời từ Gemini cho hội thoại: ${conversationId}`);
               return;
             }
 
-            console.log(`[AI AutoReply] Đã sinh xong câu trả lời. Gửi tin nhắn thật qua ${channel}...`);
+            console.log(`[AI AutoReply] 💬 GEMINI OK: Đã sinh xong câu trả lời (độ dài: ${aiResponse.text.length} ký tự). Tiến hành gửi qua ${channel}...`);
 
             try {
               // Send response using existing sendReply helper
@@ -246,7 +247,9 @@ export const aiAutoReplyService = {
                 latencyMs: Date.now() - startedAt,
                 status: "sent",
               });
+              console.log(`[AI AutoReply] ✅ THÀNH CÔNG: Đã gửi phản hồi tự động thành công cho hội thoại: ${conversationId} trong ${Date.now() - startedAt}ms`);
             } catch (sendErr: any) {
+              console.error(`[AI AutoReply] ❌ LỖI GỬI TIN: Thất bại khi gửi tin nhắn qua API ${channel.toUpperCase()}:`, sendErr.message || sendErr);
               await aiKnowledgeService.createReplyLog({
                 companyCode,
                 channel,
@@ -261,18 +264,17 @@ export const aiAutoReplyService = {
               throw sendErr;
             }
 
-            console.log(`[AI AutoReply] Gửi phản hồi tự động thành công cho hội thoại: ${conversationId}`);
           } finally {
             generatingReplies.delete(conversationId);
           }
-        } catch (err) {
-          console.error(`[AI AutoReply Timeout Execution] Thất bại khi thực hiện gửi phản hồi tự động:`, err);
+        } catch (err: any) {
+          console.error(`[AI AutoReply Timeout Execution] ❌ LỖI NGHÊM TRỌNG khi thực hiện gửi phản hồi tự động:`, err.message || err);
         }
       }, delayMs);
 
       pendingReplies.set(conversationId, { timeout: timeoutId, messageKey });
-    } catch (error) {
-      console.error("[AI AutoReply triggerAutoReply] Lỗi xử lý trigger:", error);
+    } catch (error: any) {
+      console.error("[AI AutoReply triggerAutoReply] ❌ LỖI HỆ THỐNG khi xử lý trigger:", error.message || error);
     }
   }
 };

@@ -24,6 +24,7 @@ export interface IAIMedia extends Document {
     description?: string;
     captionedVideoUrl?: string;
     subtitleUrl?: string;
+    thumbnailUrl?: string;
     piapiTaskId?: string;
     activeCardId?: string;
     progress?: number;

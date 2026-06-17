@@ -1,6 +1,6 @@
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { X } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Play, Download, Trash2, Pencil, LoaderCircle } from "lucide-react";
 import { elevenlabsApi } from "../../api/elevenlabs";
 import { type HeyGenLibraryItem, heygenApi } from "../../api/heygen";
 import type { ElevenLabsAudioRecord } from "./HeyGenPopovers";
@@ -27,6 +27,27 @@ const ModelSelectionPopover = lazy(() =>
 const TERMINAL_JOB_STATES = new Set(["completed", "failed", "error", "canceled"]);
 const HISTORY_PAGE_SIZE = 6;
 const HEYGEN_FALLBACK_POLL_DELAYS = [8000, 20000] as const;
+
+export function translateJobStatus(status: string): string {
+  const s = String(status || "").toLowerCase().trim();
+  switch (s) {
+    case "waiting":
+    case "pending":
+      return "Đang chờ trong hàng đợi";
+    case "processing":
+    case "running":
+      return "Đang render video...";
+    case "completed":
+      return "Hoàn thành";
+    case "failed":
+    case "error":
+      return "Thất bại";
+    case "canceled":
+      return "Đã hủy";
+    default:
+      return status;
+  }
+}
 
 export function HeyGenWorkspace({
   initialPrompt,
@@ -57,6 +78,9 @@ export function HeyGenWorkspace({
   const [isAudioPickerOpen, setIsAudioPickerOpen] = useState(false);
   const [isModelPickerOpen, setIsModelPickerOpen] = useState(false);
   const [historyPage, setHistoryPage] = useState(1);
+  const [previewItem, setPreviewItem] = useState<any | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const carouselRef = useRef<HTMLDivElement | null>(null);
   const [previewVideoUrl, setPreviewVideoUrl] = useState("");
   const [activeTab, setActiveTab] = useState<HeyGenTab>("avatar");
   const [isDrawerOpen, setIsDrawerOpen] = useState(true);
@@ -171,10 +195,10 @@ export function HeyGenWorkspace({
         setSelectedAvatarId((current) => current && nextAvatars.some((avatar) => avatar.id === current) ? current : defaultAvatarId && nextAvatars.some((avatar) => avatar.id === defaultAvatarId) ? defaultAvatarId : nextAvatars[0]?.id || "");
         preloadAvatarImages(nextAvatars);
       } else {
-        setErrorMessage(libraryResult.reason?.message || "Không thể tải thư viện HeyGen");
+        setErrorMessage(libraryResult.reason?.message || "Không thể tải thư viện khuôn mặt");
       }
     } catch (error: any) {
-      setErrorMessage(error.message || "Không thể tải dữ liệu HeyGen");
+      setErrorMessage(error.message || "Không thể tải dữ liệu khuôn mặt");
     }
     setIsLoadingLibrary(false);
   }
@@ -197,7 +221,7 @@ export function HeyGenWorkspace({
       setHistory(historyResult.history || []);
       setHasLoadedHistory(true);
     } catch (error: any) {
-      setErrorMessage((current) => current || error.message || "Không thể tải lịch sử HeyGen");
+      setErrorMessage((current) => current || error.message || "Không thể tải lịch sử khuôn mặt");
     } finally {
       setIsLoadingHistory(false);
     }
@@ -210,7 +234,7 @@ export function HeyGenWorkspace({
       setHistory(historyResult.history || []);
       setHasLoadedHistory(true);
     } catch (error: any) {
-      setErrorMessage((current) => current || error.message || "Không thể tải lịch sử HeyGen");
+      setErrorMessage((current) => current || error.message || "Không thể tải lịch sử khuôn mặt");
     } finally {
       setIsLoadingHistory(false);
     }
@@ -226,7 +250,7 @@ export function HeyGenWorkspace({
       setSelectedAudioRecordId((current) => current && records.some((item) => item._id === current) ? current : records[0]?._id || "");
       setHasLoadedAudioHistory(true);
     } catch (error: any) {
-      setErrorMessage(error.message || "Không thể tải lịch sử audio ElevenLabs");
+      setErrorMessage(error.message || "Không thể tải lịch sử giọng nói");
     } finally {
       setIsLoadingAudioHistory(false);
     }
@@ -266,7 +290,7 @@ export function HeyGenWorkspace({
     }
     const hasAudio = Boolean(selectedAudioRecordId);
     if (!hasAudio) {
-      setErrorMessage("Vui lòng chọn audio ElevenLabs để tạo video.");
+      setErrorMessage("Vui lòng chọn giọng nói để tạo video.");
       return;
     }
 
@@ -302,7 +326,7 @@ export function HeyGenWorkspace({
       setJobStatus(String(created.jobStatus || "processing").toLowerCase());
       const finalStatus = await pollVideoStatus(created.videoId, payload);
       if (!finalStatus?.videoUrl) {
-        setWarnings((current) => current.includes("Video đang chờ webhook/lịch sử cập nhật. Bạn xem trực tiếp trong lịch sử bên dưới.") ? current : ["Video đang chờ webhook/lịch sử cập nhật. Bạn xem trực tiếp trong lịch sử bên dưới.", ...current]);
+        setWarnings((current) => current.includes("Video đang chờ cập nhật lịch sử. Bạn xem trực tiếp trong lịch sử bên dưới.") ? current : ["Video đang chờ cập nhật lịch sử. Bạn xem trực tiếp trong lịch sử bên dưới.", ...current]);
       }
       const historyRes = await heygenApi.getVideoHistory();
       setHistory(historyRes.history || []);
@@ -342,6 +366,39 @@ export function HeyGenWorkspace({
 
     setPreviewVideoUrl(editUrl);
   }
+
+  const scrollCarousel = (direction: "left" | "right") => {
+    if (carouselRef.current) {
+      const { scrollLeft, clientWidth } = carouselRef.current;
+      const scrollAmount = clientWidth * 0.75;
+      const scrollTo = direction === "left" ? scrollLeft - scrollAmount : scrollLeft + scrollAmount;
+      carouselRef.current.scrollTo({ left: scrollTo, behavior: "smooth" });
+    }
+  };
+
+  const handleDownloadVideo = async (item: any) => {
+    const downloadUrl = item.url || item.captionedVideoUrl || item.videoPageUrl || "";
+    if (!downloadUrl || !downloadUrl.startsWith("http")) return;
+    toast.info("Đang tải xuống video...");
+    try {
+      const response = await fetch(downloadUrl);
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = `${item.prompt || "heygen-video"}.mp4`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(blobUrl);
+      toast.success("Tải xuống video thành công!");
+    } catch (error) {
+      console.error("Direct download failed, opening in new tab:", error);
+      window.open(downloadUrl, "_blank");
+      toast.warning("Mở video trong tab mới để tải về.");
+    }
+  };
 
   return (
     <div className="mx-auto w-full max-w-[1700px] space-y-5 px-2">
@@ -421,18 +478,22 @@ export function HeyGenWorkspace({
         <div className={`rounded-2xl border p-4 text-xs font-semibold ${errorMessage ? "border-rose-200 bg-rose-50 text-rose-700" : "border-cyan-200 bg-cyan-50 text-cyan-700"}`}>
           {errorMessage ? <p className="font-bold">{errorMessage}</p> : null}
           {!errorMessage && warnings.length > 0 ? <p className="font-bold">{warnings[0]}</p> : null}
-          {!errorMessage && !warnings.length && jobStatus ? <p className="font-bold">Trang thai render: {jobStatus}</p> : null}
+          {!errorMessage && !warnings.length && jobStatus ? <p className="font-bold">Trạng thái render: {translateJobStatus(jobStatus)}</p> : null}
         </div>
       ) : null}
 
-      <div ref={historySectionRef} className={`rounded-[24px] border ${HEYGEN_THEME.border} ${HEYGEN_THEME.surface} p-5 text-slate-900 shadow-sm md:p-6`}>
-        <div className="mb-5 flex items-center justify-between gap-3">
+      <div ref={historySectionRef} className="rounded-[32px] border border-slate-100 bg-white p-6 shadow-sm md:p-8">
+        <div className="flex items-center justify-between gap-3 pb-4">
           <div>
-            <h4 className="text-2xl font-bold tracking-tight text-slate-900">Lịch sử tạo video</h4>
-            <p className="text-sm text-slate-500">Xem và tải xuống các video avatar đã hoàn thành của bạn</p>
+            <h4 className="text-xl font-bold tracking-tight text-slate-900">Lịch sử tạo video</h4>
+            <p className="mt-1 text-sm text-slate-400">Hiển thị tối đa 20 kết quả gần nhất, từ mới đến cũ.</p>
           </div>
-          <span className={`rounded-full border ${HEYGEN_THEME.border} ${HEYGEN_THEME.surfaceMuted} px-3 py-1 text-xs font-semibold text-slate-600`}>{history.length} video</span>
+          <span className="rounded-full bg-cyan-50 border border-cyan-100 px-3.5 py-1 text-sm font-bold text-cyan-600">
+            {history.length}/20
+          </span>
         </div>
+
+        <hr className="border-slate-100 mb-6" />
 
         {!hasLoadedHistory ? (
           <div className="flex flex-col items-center justify-center py-10 text-slate-400">
@@ -440,33 +501,125 @@ export function HeyGenWorkspace({
           </div>
         ) : isLoadingHistory && history.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-10 text-slate-400">
+            <LoaderCircle className="h-6 w-6 animate-spin text-cyan-600 mb-2" />
             <p className="text-sm">Đang tải lịch sử video...</p>
           </div>
         ) : history.length > 0 ? (
-          <div className="space-y-6">
-            <div className="grid gap-6">
-              {paginatedHistory.map((item) => (
-                <div key={item._id}>
-                  <HeyGenVideoItem
-                    item={item}
-                    onPlay={(url) => setPreviewVideoUrl(url)}
-                    onReuse={handleEditRecent}
-                    onDelete={handleDeleteHistory}
-                    onStatusUpdate={(updatedItem) => setHistory((current) => current.map((historyItem) => historyItem._id === updatedItem._id ? updatedItem : historyItem))}
-                  />
-                </div>
-              ))}
+          <div className="relative group/carousel">
+            {/* Left Button */}
+            <button
+              type="button"
+              onClick={() => scrollCarousel("left")}
+              className="absolute -left-4 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-slate-100 bg-white text-slate-600 shadow-md transition hover:scale-105 hover:bg-slate-50 hover:text-slate-900"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+
+            {/* Scroll Area */}
+            <div
+              ref={carouselRef}
+              className="flex gap-5 overflow-x-auto scroll-smooth py-2 px-1 scrollbar-none"
+              style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+            >
+              {history.slice(0, 20).map((item, index) => {
+                const status = String(item.status || "").toLowerCase();
+                const isCompleted = status === "completed";
+                const isFailed = ["failed", "error", "canceled"].includes(status);
+                const isProcessing = !isCompleted && !isFailed;
+                const renderName = `Render ${history.length - index}`;
+                const aspectRatio = item.metadata?.aspectRatio || "16:9";
+                const videoUrl = item.url || item.captionedVideoUrl || item.videoPageUrl || "";
+                const hasVideoUrl = videoUrl.startsWith("http") && !videoUrl.startsWith("pending://");
+
+                return (
+                  <div
+                    key={item._id || item.id || index}
+                    onClick={() => {
+                      if (isProcessing) {
+                        toast.info("Video đang trong quá trình xử lý, vui lòng chờ hoàn tất.");
+                        return;
+                      }
+                      setPreviewItem(item);
+                    }}
+                    title={item.prompt || item.title || renderName}
+                    className={`relative w-[240px] aspect-[16/9] flex-shrink-0 overflow-hidden rounded-[20px] border-2 bg-slate-900 cursor-pointer shadow-sm transition-all duration-300 hover:shadow-md hover:scale-[1.02] group/card ${index === 0
+                        ? "border-cyan-500 shadow-[0_0_12px_rgba(6,182,212,0.15)]"
+                        : "border-slate-100 hover:border-cyan-400"
+                      }`}
+                  >
+                    {isCompleted ? (
+                      <>
+                        {item.thumbnailUrl ? (
+                          <img
+                            src={item.thumbnailUrl}
+                            alt={renderName}
+                            loading="lazy"
+                            className="absolute inset-0 h-full w-full object-cover"
+                          />
+                        ) : hasVideoUrl ? (
+                          <video
+                            src={videoUrl}
+                            preload="metadata"
+                            className="absolute inset-0 h-full w-full object-cover bg-transparent"
+                          />
+                        ) : (
+                          <div className="absolute inset-0 bg-slate-800 flex items-center justify-center">
+                            <Play className="h-8 w-8 text-white/50" />
+                          </div>
+                        )}
+                        {/* Play Overlay */}
+                        <div className="absolute inset-0 flex items-center justify-center bg-slate-950/20 transition hover:bg-slate-950/30">
+                          <div className="flex h-12 w-12 items-center justify-center rounded-full border border-white/60 bg-slate-950/30 text-white backdrop-blur-[2px]">
+                            <Play className="ml-0.5 h-4.5 w-4.5 fill-current" />
+                          </div>
+                        </div>
+
+                        {/* Direct Download Button on Card */}
+                        <button
+                          type="button"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            await handleDownloadVideo(item);
+                          }}
+                          className="absolute top-2.5 right-2.5 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-slate-950/60 hover:bg-cyan-600 border border-white/20 text-white backdrop-blur-[2px] opacity-0 group-hover/card:opacity-100 transition-all duration-200 shadow-sm"
+                          title="Tải video trực tiếp"
+                        >
+                          <Download className="h-4 w-4" />
+                        </button>
+                      </>
+                    ) : isFailed ? (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-rose-950/70 p-3 text-center text-white">
+                        <span className="text-xs font-bold uppercase tracking-wider text-rose-300">Thất bại</span>
+                      </div>
+                    ) : (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/80 p-3 text-center text-white">
+                        <LoaderCircle className="h-6 w-6 animate-spin text-cyan-400 mb-1.5" />
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-300">
+                          Đang xử lý
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Bottom Info Bar */}
+                    <div className="absolute bottom-0 inset-x-0 bg-[linear-gradient(to_top,rgba(15,23,42,0.95),rgba(15,23,42,0.3))] p-2.5 flex justify-between items-center text-white text-[11px] font-semibold">
+                      <span className="truncate max-w-[150px]">{renderName}</span>
+                      <span className="bg-slate-950/40 rounded px-1.5 py-0.5 text-[9px] uppercase tracking-wide border border-white/10">
+                        {aspectRatio}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
-            {totalHistoryPages > 1 ? (
-              <div className={`flex flex-col gap-3 rounded-[18px] border ${HEYGEN_THEME.border} ${HEYGEN_THEME.surfaceMuted} px-4 py-3 sm:flex-row sm:items-center sm:justify-between`}>
-                <p className="text-sm text-slate-500">Trang {historyPage}/{totalHistoryPages}</p>
-                <div className="flex items-center gap-2">
-                  <PagerButton disabled={historyPage === 1} onClick={() => setHistoryPage((current) => Math.max(1, current - 1))}>Trước</PagerButton>
-                  <PagerButton disabled={historyPage === totalHistoryPages} onClick={() => setHistoryPage((current) => Math.min(totalHistoryPages, current + 1))}>Sau</PagerButton>
-                </div>
-              </div>
-            ) : null}
+            {/* Right Button */}
+            <button
+              type="button"
+              onClick={() => scrollCarousel("right")}
+              className="absolute -right-4 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-slate-100 bg-white text-slate-600 shadow-md transition hover:scale-105 hover:bg-slate-50 hover:text-slate-900"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-12 text-slate-400">
@@ -475,24 +628,96 @@ export function HeyGenWorkspace({
         )}
       </div>
 
-      {previewVideoUrl ? (
-        <div 
+      {/* Detail Preview & Action Modal */}
+      {previewItem ? (
+        <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm cursor-pointer"
-          onClick={() => setPreviewVideoUrl("")}
+          onClick={() => setPreviewItem(null)}
         >
-          <div 
-            className="relative w-full max-w-5xl rounded-[28px] bg-white p-3 shadow-2xl cursor-default"
+          <div
+            className="relative w-full max-w-2xl rounded-[32px] bg-white p-6 shadow-2xl flex flex-col md:flex-row gap-6 cursor-default overflow-hidden border border-slate-100"
             onClick={(e) => e.stopPropagation()}
           >
-            <button 
-              type="button" 
-              onClick={() => setPreviewVideoUrl("")} 
-              className="absolute right-5 top-5 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-slate-900/80 text-white shadow-md transition hover:scale-105 hover:bg-slate-950"
-              title="Đóng xem trước"
+            {/* Close Button */}
+            <button
+              type="button"
+              onClick={() => setPreviewItem(null)}
+              className="absolute right-5 top-5 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 shadow-sm transition hover:scale-105"
+              title="Đóng"
             >
               <X className="h-5 w-5" />
             </button>
-            <video src={previewVideoUrl} controls autoPlay playsInline className="aspect-video w-full rounded-[22px] bg-white object-contain" style={{ objectPosition: "center top" }} />
+
+            {/* Left Column: Video Player */}
+            <div className="flex-1 rounded-[24px] bg-slate-50 overflow-hidden flex items-center justify-center md:h-[440px] w-full relative border border-slate-100">
+              {String(previewItem.status || "").toLowerCase() === "completed" ? (
+                <video
+                  src={previewItem.url || previewItem.captionedVideoUrl || previewItem.videoPageUrl || ""}
+                  controls
+                  autoPlay
+                  playsInline
+                  className="max-h-full max-w-full object-contain"
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center p-6 text-center text-slate-400 h-full w-full bg-slate-50">
+                  <span className="text-rose-455 text-sm font-bold mb-2">Video này render bị lỗi</span>
+                  <p className="text-xs text-slate-500 max-w-xs">
+                    {previewItem.error || "Không thể phát video này do lỗi hệ thống HeyGen."}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Right Column: Actions Only (Circular Icons) */}
+            <div className="w-full md:w-[70px] flex flex-row md:flex-col justify-center items-center gap-4 py-2 border-t md:border-t-0 md:border-l border-slate-100 pt-4 md:pt-0 md:pl-4">
+              {String(previewItem.status || "").toLowerCase() === "completed" && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleEditRecent(previewItem);
+                      setPreviewItem(null);
+                    }}
+                    className="flex h-13 w-13 items-center justify-center rounded-full bg-cyan-50 hover:bg-cyan-100 text-cyan-600 transition shadow-sm hover:scale-105"
+                    title="Sử dụng cấu hình này"
+                  >
+                    <Pencil className="h-5.5 w-5.5" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setIsDownloading(true);
+                      await handleDownloadVideo(previewItem);
+                      setIsDownloading(false);
+                    }}
+                    disabled={isDownloading}
+                    className="flex h-13 w-13 items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 transition disabled:opacity-50 shadow-sm hover:scale-105"
+                    title="Tải xuống video"
+                  >
+                    {isDownloading ? (
+                      <LoaderCircle className="h-5.5 w-5.5 animate-spin text-slate-500" />
+                    ) : (
+                      <Download className="h-5.5 w-5.5" />
+                    )}
+                  </button>
+                </>
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm("Bạn có chắc chắn muốn xóa video này khỏi lịch sử không?")) {
+                    handleDeleteHistory(previewItem.videoId || previewItem.id || previewItem._id);
+                    setPreviewItem(null);
+                  }
+                }}
+                className="flex h-13 w-13 items-center justify-center rounded-full bg-rose-50 hover:bg-rose-100 text-rose-600 transition shadow-sm hover:scale-105"
+                title="Xóa lịch sử video"
+              >
+                <Trash2 className="h-5.5 w-5.5" />
+              </button>
+            </div>
           </div>
         </div>
       ) : null}

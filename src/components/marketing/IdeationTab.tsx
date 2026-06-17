@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from "react";
-import { 
-  Sparkles, 
-  Send, 
-  RefreshCw, 
-  Zap, 
-  Facebook, 
+import {
+  Sparkles,
+  Send,
+  RefreshCw,
+  Zap,
+  Facebook,
   Lock,
-  Video, 
+  Video,
   Image as ImageIcon,
   Paperclip,
   X,
@@ -30,6 +30,7 @@ interface IdeationTabProps {
 
 export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }: IdeationTabProps) {
   const hasFetchedRef = useRef(false);
+  const librariesLoadedRef = useRef(false);
   const DEFAULT_HUMAN_VOICE_DURATION_SECONDS = 45;
 
   // 1. AI Campaign Ideation States
@@ -106,7 +107,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
       try {
         const pdfjs = await loadScript("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js", "pdfjsLib");
         pdfjs.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js";
-        
+
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
         let extractedText = "";
@@ -202,7 +203,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
 
   const [selectedChannels, setSelectedChannels] = useState<string[]>(["Facebook"]);
   const [mediaType, setMediaType] = useState<string>("image"); // "none" | "image" | "video"
-  
+
   // Image Options
   const [imageModel, setImageModel] = useState("nano-banana-pro");
   const [imageResolution, setImageResolution] = useState("1K");
@@ -239,26 +240,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
     }
   };
 
-  const [concepts, setConcepts] = useState<MarketingConcept[]>([
-    {
-      title: "Chiến dịch: Chạm Đột Phá - Sành điệu công nghệ X1",
-      matchPercent: 92,
-      summary: "Tạo các video ngắn trên TikTok hướng đến lối sống tích cực, nhấn mạnh khả năng kết nối không dây siêu mượt và tính năng đo nhịp tim tự động của thiết bị X1.",
-      channels: ["TikTok", "Zalo"],
-      suggestedContent: "🎬 Kịch bản Reels: Một ngày bận rộn bắt đầu... Chạm nhẹ thiết bị đeo X1 để bật nhạc chạy bộ buổi sáng kết thúc ngày hiệu năng đỉnh cao.",
-      hashtags: ["#iGenX1", "#SmartWearable", "#NangTamCuocSong"],
-      mediaType: "video"
-    },
-    {
-      title: "Giải pháp chuyển đổi số - Tri ân doanh nghiệp",
-      matchPercent: 88,
-      summary: "Chiến dịch bài viết uy tín sâu trên LinkedIn & Facebook tri ân các đối tác đã số hóa quản lý Kho hàng nhờ iGen ERP.",
-      channels: ["Zalo", "Facebook"],
-      suggestedContent: "✍️ Câu chuyện: Gặp gỡ thương hiệu thời trang G-Trend, từ bế tắc thất thoát tồn kho đến quản lý an nhàn tự động 100% nhờ iGen-Forecast.",
-      hashtags: ["#iGenERP", "#ChuyenDoiSo", "#DigitalTransformation"],
-      mediaType: "image"
-    }
-  ]);
+  const [concepts, setConcepts] = useState<MarketingConcept[]>([]);
 
   const [selectedPillars, setSelectedPillars] = useState<string[]>([
     "Pillar A: Educate & Guides",
@@ -298,6 +280,9 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
   ]);
 
   useEffect(() => {
+    if (mediaType !== "human-video" || librariesLoadedRef.current) return;
+    librariesLoadedRef.current = true;
+
     const loadHumanVideoLibraries = async () => {
       setIsLoadingHumanVideoAvatars(true);
       setIsLoadingHumanVideoVoices(true);
@@ -338,6 +323,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
         }
       } catch (error) {
         console.error("Failed to load human video libraries:", error);
+        librariesLoadedRef.current = false;
       } finally {
         setIsLoadingHumanVideoAvatars(false);
         setIsLoadingHumanVideoVoices(false);
@@ -345,7 +331,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
     };
 
     loadHumanVideoLibraries();
-  }, []);
+  }, [mediaType]);
 
   const humanVoicePreviewAudioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -446,6 +432,90 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
     return (outlineText || fallbackParts).slice(0, 1200);
   };
 
+  const buildHumanVideoVoiceTitle = (campaignTitle: string, channel: string) => {
+    const cleanTitle = String(campaignTitle || "").trim() || "noi dung marketing";
+    const cleanChannel = String(channel || "").trim() || "marketing";
+    return `Voice ${cleanChannel}: ${cleanTitle}`;
+  };
+
+  const buildHumanVideoVoiceDescription = (
+    campaignTitle: string,
+    campaignSummary: string,
+    channel: string,
+    durationSeconds: number
+  ) => {
+    const cleanTitle = String(campaignTitle || "").trim();
+    const cleanSummary = String(campaignSummary || "").trim();
+    const cleanChannel = String(channel || "").trim() || "marketing";
+    const normalizedDuration = Math.max(1, durationSeconds || DEFAULT_HUMAN_VOICE_DURATION_SECONDS);
+
+    return [
+      `Đọc bằng tiếng Việt có dấu cho nội dung chiến dịch "${cleanTitle}" trên kênh ${cleanChannel}.`,
+      cleanSummary ? `Tóm tắt chiến dịch: ${cleanSummary}.` : "",
+      `Mục tiêu đọc tự nhiên, liền mạch, âm rõ từng dấu và đúng nhịp khoảng ${normalizedDuration} giây.`,
+      "Ưu tiên cách đọc mềm, có ngữ điệu, tránh tách từng cụm từ như robot.",
+      "Cần đọc chuẩn dấu tiếng Việt, xử lý đúng tên riêng, địa danh và thông điệp quảng cáo."
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim();
+  };
+
+  const normalizeConceptChannels = (rawChannels: unknown): string[] => {
+    const channels = Array.isArray(rawChannels) ? rawChannels : [];
+    const normalized = channels
+      .map((channel) => String(channel || "").trim())
+      .filter(Boolean)
+      .map((channel) => {
+        const lower = channel.toLowerCase();
+        if (lower.includes("facebook") || lower === "fb") return "Facebook";
+        if (lower.includes("tiktok") || lower.includes("tik tok")) return "TikTok";
+        if (lower.includes("linkedin") || lower.includes("linked in")) return "LinkedIn";
+        if (lower.includes("instagram") || lower === "ig" || lower.includes("insta")) return "Instagram";
+        if (lower.includes("zalo")) return "Zalo";
+        return channel;
+      })
+      .filter((channel, index, arr) => arr.indexOf(channel) === index);
+
+    return normalized.length > 0 ? normalized : [...selectedChannels];
+  };
+
+  const normalizeConceptHashtags = (rawHashtags: unknown, title: string): string[] => {
+    const hashtags = Array.isArray(rawHashtags) ? rawHashtags : [];
+    const normalized = hashtags
+      .map((tag) => String(tag || "").trim())
+      .filter(Boolean)
+      .map((tag) => (tag.startsWith("#") ? tag : `#${tag}`))
+      .map((tag) => tag.replace(/\s+/g, ""))
+      .filter((tag, index, arr) => arr.indexOf(tag) === index);
+
+    if (normalized.length > 0) {
+      return normalized.slice(0, 6);
+    }
+
+    const fallback = String(title || "")
+      .split(/[^A-Za-z0-9À-ỹ]+/)
+      .map((part) => part.trim())
+      .filter((part) => part.length >= 3)
+      .slice(0, 3)
+      .map((part) => `#${part}`);
+
+    return fallback.length > 0 ? fallback : ["#Marketing"];
+  };
+
+  const normalizeGeneratedConcept = (concept: MarketingConcept, forcedMediaType: string): MarketingConcept => ({
+    ...concept,
+    title: String(concept?.title || "").trim(),
+    summary: String(concept?.summary || "").trim(),
+    suggestedContent: String(concept?.suggestedContent || "").trim(),
+    matchPercent: Math.max(50, Math.min(100, Number(concept?.matchPercent || 50))),
+    channels: normalizeConceptChannels(concept?.channels),
+    hashtags: normalizeConceptHashtags(concept?.hashtags, String(concept?.title || "")),
+    mediaType: (concept?.mediaType || forcedMediaType) as MarketingConcept["mediaType"],
+    mediaPrompt: String(concept?.mediaPrompt || "").trim(),
+  });
+
   const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
   const pollStandardVideoBackground = async (card: ContentApprovalCard): Promise<ContentApprovalCard> => {
@@ -453,7 +523,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
     let attempts = 0;
     const maxAttempts = 24;
     const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-    
+
     while (attempts < maxAttempts) {
       if (!currentCard.videoUrl || !currentCard.videoUrl.startsWith("pending://piapi/")) {
         return currentCard;
@@ -467,7 +537,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
       }
       attempts++;
     }
-    
+
     if (currentCard.videoUrl && currentCard.videoUrl.startsWith("pending://piapi/")) {
       throw new Error("Hết thời gian chờ kết xuất video AI.");
     }
@@ -569,34 +639,34 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
     loadSuggestions();
   }, []);
 
-    // Load connected integrations on mount
-    useEffect(() => {
-      const loadAllIntegrations = async () => {
-        setLoadingIntegrations(true);
-        try {
-          const list = await socialIntegrationService.getIntegrations();
-          setIntegrationsList(list.filter(item => item.isConnected));
-        } catch (err) {
-          console.error("Lỗi khi tải liên kết mạng xã hội:", err);
-        } finally {
-          setLoadingIntegrations(false);
-        }
-      };
-      loadAllIntegrations();
-    }, []);
+  // Load connected integrations on mount
+  useEffect(() => {
+    const loadAllIntegrations = async () => {
+      setLoadingIntegrations(true);
+      try {
+        const list = await socialIntegrationService.getIntegrations();
+        setIntegrationsList(list.filter(item => item.isConnected));
+      } catch (err) {
+        console.error("Lỗi khi tải liên kết mạng xã hội:", err);
+      } finally {
+        setLoadingIntegrations(false);
+      }
+    };
+    loadAllIntegrations();
+  }, []);
 
-    // Set default selected integrations when integrationsList is loaded
-    useEffect(() => {
-      const initialMapping: Record<string, string> = {};
-      const platforms = ["Facebook", "TikTok", "Zalo"];
-      platforms.forEach(p => {
-        const match = integrationsList.find(item => item.platform === p);
-        if (match) {
-          initialMapping[p] = match._id || "";
-        }
-      });
-      setSelectedIntegrations(prev => ({ ...initialMapping, ...prev }));
-    }, [integrationsList]);
+  // Set default selected integrations when integrationsList is loaded
+  useEffect(() => {
+    const initialMapping: Record<string, string> = {};
+    const platforms = ["Facebook", "TikTok", "Zalo"];
+    platforms.forEach(p => {
+      const match = integrationsList.find(item => item.platform === p);
+      if (match) {
+        initialMapping[p] = match._id || "";
+      }
+    });
+    setSelectedIntegrations(prev => ({ ...initialMapping, ...prev }));
+  }, [integrationsList]);
 
   const handleAnalyzePillars = async (rawTopic?: string) => {
     const topic = (typeof rawTopic === "string" ? rawTopic : campaignInput).trim();
@@ -671,6 +741,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
     if (!topic) return;
 
     setLoadingAI(true);
+    setConcepts([]);
     try {
       let apiTopic = topic;
       if (uploadedDocText) {
@@ -684,43 +755,48 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
 
       let pillarsToUse = selectedPillars;
       if (isAutoPilot) {
-        setAutoPilotStatus("Đang phân tích định hướng Content Pillars...");
-        try {
-          const pillarsData = await geminiApi.analyzeMarketingPillars(apiTopic, uploadedImageBase64 ? [uploadedImageBase64] : undefined);
-          if (pillarsData.pillars && Array.isArray(pillarsData.pillars) && pillarsData.pillars.length > 0) {
-            const styles = [
-              {
-                colorClass: "border-red-200 bg-red-50/50 text-red-700",
-                selectedColorClass: "border-red-500 bg-red-50 text-red-850 ring-2 ring-red-500/20 shadow-xs",
-                bulletColor: "bg-red-500"
-              },
-              {
-                colorClass: "border-blue-200 bg-blue-50/50 text-blue-700",
-                selectedColorClass: "border-blue-500 bg-blue-50 text-blue-800 ring-2 ring-blue-500/20 shadow-xs",
-                bulletColor: "bg-blue-500"
-              },
-              {
-                colorClass: "border-indigo-200 bg-indigo-50/50 text-indigo-700",
-                selectedColorClass: "border-indigo-500 bg-indigo-50 text-indigo-900 ring-2 ring-indigo-500/20 shadow-xs",
-                bulletColor: "bg-indigo-500"
-              }
-            ];
-            const mappedPillars = pillarsData.pillars.map((p: any, idx: number) => ({
-              id: p.id,
-              title: p.title,
-              ratio: p.ratio || "33% tỉ trọng",
-              description: p.description,
-              ...styles[idx % styles.length]
-            }));
-            setPillars(mappedPillars);
-            const activePillars = mappedPillars.map((p: any) => p.id);
-            setSelectedPillars(activePillars);
-            setAnalyzedTopic(topic);
-            pillarsToUse = activePillars;
+        if (analyzedTopic === topic && selectedPillars.length > 0) {
+          // Sử dụng pillars đã phân tích từ trước để tránh gọi lại API trùng lặp
+          pillarsToUse = selectedPillars;
+        } else {
+          setAutoPilotStatus("Đang phân tích định hướng Content Pillars...");
+          try {
+            const pillarsData = await geminiApi.analyzeMarketingPillars(apiTopic, uploadedImageBase64 ? [uploadedImageBase64] : undefined);
+            if (pillarsData.pillars && Array.isArray(pillarsData.pillars) && pillarsData.pillars.length > 0) {
+              const styles = [
+                {
+                  colorClass: "border-red-200 bg-red-50/50 text-red-700",
+                  selectedColorClass: "border-red-500 bg-red-50 text-red-850 ring-2 ring-red-500/20 shadow-xs",
+                  bulletColor: "bg-red-500"
+                },
+                {
+                  colorClass: "border-blue-200 bg-blue-50/50 text-blue-700",
+                  selectedColorClass: "border-blue-500 bg-blue-50 text-blue-800 ring-2 ring-blue-500/20 shadow-xs",
+                  bulletColor: "bg-blue-500"
+                },
+                {
+                  colorClass: "border-indigo-200 bg-indigo-50/50 text-indigo-700",
+                  selectedColorClass: "border-indigo-500 bg-indigo-50 text-indigo-900 ring-2 ring-indigo-500/20 shadow-xs",
+                  bulletColor: "bg-indigo-500"
+                }
+              ];
+              const mappedPillars = pillarsData.pillars.map((p: any, idx: number) => ({
+                id: p.id,
+                title: p.title,
+                ratio: p.ratio || "33% tỉ trọng",
+                description: p.description,
+                ...styles[idx % styles.length]
+              }));
+              setPillars(mappedPillars);
+              const activePillars = mappedPillars.map((p: any) => p.id);
+              setSelectedPillars(activePillars);
+              setAnalyzedTopic(topic);
+              pillarsToUse = activePillars;
+            }
+          } catch (pillarErr: any) {
+            console.error("Lỗi phân tích pillars tự động:", pillarErr);
+            toast.warning("Lỗi phân tích Content Pillars tự động, đang thử lên ý tưởng trực tiếp...");
           }
-        } catch (pillarErr: any) {
-          console.error("Lỗi phân tích pillars tự động:", pillarErr);
-          toast.warning("Lỗi phân tích Content Pillars tự động, đang thử lên ý tưởng trực tiếp...");
         }
       }
 
@@ -732,14 +808,13 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
         toast.warning("AI đang trả về dữ liệu mẫu. Có thể backend vừa fallback sang mock.");
       }
 
-      const generatedConcepts = (data.concepts || []).map((concept: MarketingConcept) => ({
-        ...concept,
-        mediaType: actualMediaType
-      }));
+      const generatedConcepts = (data.concepts || [])
+        .map((concept: MarketingConcept) => normalizeGeneratedConcept(concept, actualMediaType))
+        .filter((concept: MarketingConcept) => concept.title && concept.summary && concept.suggestedContent);
       if (generatedConcepts.length === 0) {
         throw new Error("AI không thể tạo ý tưởng chiến dịch phù hợp.");
       }
-      
+
       setConcepts(generatedConcepts);
 
       if (isAutoPilot) {
@@ -748,7 +823,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
 
         const sortedConcepts = [...generatedConcepts].sort((a: any, b: any) => (b.matchPercent || 0) - (a.matchPercent || 0));
         const bestConcept = sortedConcepts[0];
-        
+
         setAutoPilotStatus(`Đang tự động viết nội dung chi tiết cho ý tưởng: "${bestConcept.title}"...`);
         const result = await marketingService.developIdea({
           title: bestConcept.title,
@@ -776,6 +851,17 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
         const newCards: ContentApprovalCard[] = result.posts.map((post: any, index: number) => {
           const cardMediaType = bestConcept.mediaType || (actualMediaType as any);
           const voiceScriptVal = cardMediaType === "human-video" ? getHumanVideoScript(post, bestConcept.title, bestConcept.summary) : (post.voiceScript || "");
+          const voiceTitleVal = cardMediaType === "human-video"
+            ? buildHumanVideoVoiceTitle(bestConcept.title, post.channel)
+            : "";
+          const voiceDescriptionVal = cardMediaType === "human-video"
+            ? buildHumanVideoVoiceDescription(
+                bestConcept.title,
+                bestConcept.summary,
+                post.channel,
+                parseInt(estimatedHumanVoiceDuration, 10) || DEFAULT_HUMAN_VOICE_DURATION_SECONDS
+              )
+            : "";
           return {
             id: `mod_dev_${Date.now()}_${index}_${Math.floor(Math.random() * 1000)}`,
             title: bestConcept.title,
@@ -788,10 +874,13 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
             videoUrl: post.videoUrl || null,
             mediaPrompt: post.mediaPrompt || "",
             voiceScript: voiceScriptVal,
+            voiceTitle: voiceTitleVal,
+            voiceDescription: voiceDescriptionVal,
             motionText: post.motionText || "",
             generatedAt: new Date().toISOString(),
             authorUid: userProfile?.uid ?? '',
             mediaType: cardMediaType,
+            humanDurationSeconds: parseInt(estimatedHumanVoiceDuration, 10) || DEFAULT_HUMAN_VOICE_DURATION_SECONDS,
             referenceImage: uploadedImageBase64 || undefined
           };
         });
@@ -806,6 +895,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
       }
     } catch (err: any) {
       console.error(err);
+      setConcepts([]);
       toast.error(err.message || "Tự động hóa thất bại. Vui lòng kiểm tra lại cấu hình hoặc số dư ví.");
     } finally {
       setLoadingAI(false);
@@ -844,6 +934,17 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
         const newCards: ContentApprovalCard[] = result.posts.map((post: any, index: number) => {
           const cardMediaType = concept.mediaType || (mediaType as any);
           const voiceScriptVal = cardMediaType === "human-video" ? getHumanVideoScript(post, concept.title, concept.summary) : (post.voiceScript || "");
+          const voiceTitleVal = cardMediaType === "human-video"
+            ? buildHumanVideoVoiceTitle(concept.title, post.channel)
+            : "";
+          const voiceDescriptionVal = cardMediaType === "human-video"
+            ? buildHumanVideoVoiceDescription(
+                concept.title,
+                concept.summary,
+                post.channel,
+                parseInt(estimatedHumanVoiceDuration, 10) || DEFAULT_HUMAN_VOICE_DURATION_SECONDS
+              )
+            : "";
           return {
             id: `mod_dev_${Date.now()}_${index}_${Math.floor(Math.random() * 1000)}`,
             title: concept.title,
@@ -856,10 +957,13 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
             videoUrl: post.videoUrl || null,
             mediaPrompt: post.mediaPrompt || "",
             voiceScript: voiceScriptVal,
+            voiceTitle: voiceTitleVal,
+            voiceDescription: voiceDescriptionVal,
             motionText: post.motionText || "",
             generatedAt: new Date().toISOString(),
             authorUid: userProfile?.uid ?? '',
             mediaType: cardMediaType,
+            humanDurationSeconds: parseInt(estimatedHumanVoiceDuration, 10) || DEFAULT_HUMAN_VOICE_DURATION_SECONDS,
             referenceImage: uploadedImageBase64 || undefined
           };
         });
@@ -884,7 +988,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
   return (
     <div className="space-y-6" id="ai_marketing_ideas_tab">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6" id="ideation_grid">
-        
+
         {/* Creator Form */}
         <div className="lg:col-span-2 bg-slate-50 border border-gray-200 p-6 rounded-2xl flex flex-col justify-between relative" id="ideation_campaign_form">
           {loadingAI && isAutoPilot && (
@@ -949,17 +1053,16 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
 
                 {/* Unified AI-style prompt box */}
                 <div
-                  className={`relative flex flex-col bg-white border rounded-2xl transition-all overflow-hidden ${
-                    isDragging
+                  className={`relative flex flex-col bg-white border rounded-2xl transition-all overflow-hidden ${isDragging
                       ? "border-indigo-400 ring-2 ring-indigo-400/20 shadow-md"
                       : "border-gray-200 focus-within:border-indigo-400 focus-within:ring-2 focus-within:ring-indigo-400/15 hover:border-gray-300"
-                  }`}
+                    }`}
                   onDragOver={handleDragOver}
                   onDragLeave={handleDragLeave}
                   onDrop={handleDrop}
                 >
-                  <textarea 
-                    placeholder="Mô tả mục tiêu của bạn (Ex: Khởi động giới thiệu dòng Bàn phím cơ Workspace V2 phân khúc lập trình viên, chiết khấu 10%)..." 
+                  <textarea
+                    placeholder="Mô tả mục tiêu của bạn (Ex: Khởi động giới thiệu dòng Bàn phím cơ Workspace V2 phân khúc lập trình viên, chiết khấu 10%)..."
                     className="w-full text-left min-h-[100px] max-h-[200px] p-4 pb-2 bg-transparent text-xs font-sans outline-none resize-none"
                     value={campaignInput}
                     onChange={(e) => setCampaignInput(e.target.value)}
@@ -979,10 +1082,10 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                         <div className="flex-1 min-w-0">
                           <p className="text-[11px] font-semibold text-gray-700 truncate leading-tight">{uploadedDocName}</p>
                           <p className="text-[9px] text-gray-400 font-mono leading-tight">
-                            {loadingDoc 
-                              ? "Đang xử lý..." 
-                              : uploadedImageBase64 
-                                ? "Hình ảnh" 
+                            {loadingDoc
+                              ? "Đang xử lý..."
+                              : uploadedImageBase64
+                                ? "Hình ảnh"
                                 : "Tài liệu"
                             }
                           </p>
@@ -1044,11 +1147,10 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                       type="button"
                       onClick={() => handleAnalyzePillars()}
                       disabled={loadingPillars || !campaignInput.trim()}
-                      className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[10px] font-bold transition-all ${
-                        loadingPillars || !campaignInput.trim()
+                      className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[10px] font-bold transition-all ${loadingPillars || !campaignInput.trim()
                           ? "bg-gray-50 text-gray-400 border-gray-250 cursor-not-allowed"
                           : "bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-150 cursor-pointer active:scale-98"
-                      }`}
+                        }`}
                     >
                       <Sparkles className={`h-3.5 w-3.5 text-indigo-500 ${loadingPillars ? "animate-spin" : ""}`} />
                       {loadingPillars ? "Đang phân tích..." : "Phân tích Mục tiêu AI"}
@@ -1061,7 +1163,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                   ⚠️ Bạn đã thay đổi nội dung mục tiêu. Vui lòng bấm "Phân tích Mục tiêu & Đề xuất Trụ cột AI" ở cột bên phải trước để cập nhật định hướng trước khi phát sinh ý tưởng!
                 </p>
               )}
-              
+
               {/* Quick suggestions chips bubble list */}
               <div className="space-y-1.5 font-sans">
                 <span className="text-[10px] font-bold text-gray-400 font-mono uppercase tracking-wider block">Gợi ý chủ đề nhanh:</span>
@@ -1085,7 +1187,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                     quickSuggestions.map((s, idx) => {
                       const isMatch = campaignInput === s;
                       return (
-                        <button 
+                        <button
                           key={idx}
                           type="button"
                           onClick={() => {
@@ -1096,11 +1198,10 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                               setAnalyzedTopic(s);
                             }
                           }}
-                          className={`px-2.5 py-1 text-[10px] rounded-md font-medium transition-all cursor-pointer select-none border ${
-                            isMatch
+                          className={`px-2.5 py-1 text-[10px] rounded-md font-medium transition-all cursor-pointer select-none border ${isMatch
                               ? "bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-600 shadow-xs transform scale-102 font-semibold"
                               : "bg-white hover:bg-slate-100 text-gray-600 border-gray-200"
-                          }`}
+                            }`}
                         >
                           {s}
                         </button>
@@ -1143,13 +1244,12 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                           }
                         }}
                         title={chan.disabled ? `${chan.id} tạm thời chưa khả dụng` : undefined}
-                        className={`px-3.5 py-2 text-xs font-bold rounded-xl border transition-all flex items-center gap-2 select-none ${
-                          chan.disabled
+                        className={`px-3.5 py-2 text-xs font-bold rounded-xl border transition-all flex items-center gap-2 select-none ${chan.disabled
                             ? "border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed opacity-70"
                             : isSelected
-                            ? "border-indigo-650 bg-indigo-50 text-indigo-750 shadow-sm ring-2 ring-indigo-550/15 cursor-pointer hover:bg-indigo-100"
-                            : "border-slate-200 bg-white text-gray-500 hover:bg-slate-100 cursor-pointer"
-                        }`}
+                              ? "border-indigo-650 bg-indigo-50 text-indigo-750 shadow-sm ring-2 ring-indigo-550/15 cursor-pointer hover:bg-indigo-100"
+                              : "border-slate-200 bg-white text-gray-500 hover:bg-slate-100 cursor-pointer"
+                          }`}
                       >
                         {chan.icon}
                         <span>{chan.id}</span>
@@ -1184,8 +1284,8 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                       {/* Scheduled Date */}
                       <div className="space-y-1.5">
                         <label className="block text-gray-500 font-bold text-[10px] uppercase font-mono">Ngày đăng bài *</label>
-                        <input 
-                          type="date" 
+                        <input
+                          type="date"
                           required
                           className="w-full p-2.5 border border-slate-200 bg-white rounded-lg text-xs font-mono focus:ring-1 focus:ring-purple-500 outline-none"
                           value={autoScheduleDate}
@@ -1196,8 +1296,8 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                       {/* Scheduled Time */}
                       <div className="space-y-1.5">
                         <label className="block text-gray-500 font-bold text-[10px] uppercase font-mono">Giờ đăng bài *</label>
-                        <input 
-                          type="time" 
+                        <input
+                          type="time"
                           required
                           className="w-full p-2.5 border border-slate-200 bg-white rounded-lg text-xs font-mono focus:ring-1 focus:ring-purple-500 outline-none"
                           value={autoScheduleTime}
@@ -1250,34 +1350,33 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
 
               {/* Media Type Selection */}
               <div className="space-y-2 text-left mt-4 animate-fadeIn">
-                  <span className="text-xs font-bold text-gray-750 block uppercase tracking-wider font-mono">
-                    🖼️ Chọn loại phương tiện (Media):
-                  </span>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                    {[
-                      { value: "image", label: "Hình ảnh AI", icon: <ImageIcon className="h-3.5 w-3.5" /> },
-                      { value: "video", label: "Video AI", icon: <Video className="h-3.5 w-3.5" /> },
-                      { value: "human-video", label: "Video người thật", icon: <Video className="h-3.5 w-3.5" /> }
-                    ].map((opt) => {
-                      const isSelected = mediaType === opt.value;
-                      return (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          onClick={() => setMediaType(opt.value)}
-                          className={`py-2 text-xs font-bold rounded-xl border transition-all flex items-center justify-center gap-2 cursor-pointer select-none ${
-                            isSelected
-                              ? "border-indigo-600 bg-indigo-50 text-indigo-750 shadow-sm ring-2 ring-indigo-550/10"
-                              : "border-slate-200 bg-white text-gray-500 hover:bg-slate-100"
+                <span className="text-xs font-bold text-gray-750 block uppercase tracking-wider font-mono">
+                  🖼️ Chọn loại phương tiện (Media):
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  {[
+                    { value: "image", label: "Hình ảnh AI", icon: <ImageIcon className="h-3.5 w-3.5" /> },
+                    { value: "video", label: "Video AI", icon: <Video className="h-3.5 w-3.5" /> },
+                    { value: "human-video", label: "Video người thật", icon: <Video className="h-3.5 w-3.5" /> }
+                  ].map((opt) => {
+                    const isSelected = mediaType === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setMediaType(opt.value)}
+                        className={`py-2.5 text-xs font-extrabold rounded-2xl border transition-all flex items-center justify-center gap-2 cursor-pointer select-none ${isSelected
+                            ? "border-indigo-500 bg-indigo-50/50 text-indigo-750 shadow-2xs ring-2 ring-indigo-500/10"
+                            : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:border-slate-350"
                           }`}
-                        >
-                          {opt.icon}
-                          <span>{opt.label}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
+                      >
+                        {opt.icon}
+                        <span>{opt.label}</span>
+                      </button>
+                    );
+                  })}
                 </div>
+              </div>
 
               {/* Image Settings */}
               {isAutoPilot && mediaType === "image" && (
@@ -1286,7 +1385,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                     <ImageIcon className="h-4 w-4 text-indigo-500" />
                     Cấu hình hình ảnh AI
                   </span>
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <span className="text-xs font-bold text-gray-500 font-mono">Mô hình AI</span>
@@ -1299,7 +1398,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                         <option value="nano-banana-2">iGen Image Flash</option>
                       </select>
                     </div>
-                    
+
                     <div className="space-y-1.5">
                       <span className="text-xs font-bold text-gray-500 font-mono">Độ phân giải</span>
                       <div className="grid grid-cols-2 gap-2">
@@ -1308,11 +1407,10 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                             key={res}
                             type="button"
                             onClick={() => setImageResolution(res)}
-                            className={`py-1.5 text-xs font-bold rounded-lg border transition-all ${
-                              imageResolution === res
+                            className={`py-1.5 text-xs font-bold rounded-lg border transition-all ${imageResolution === res
                                 ? "border-indigo-500 bg-indigo-50 text-indigo-700"
                                 : "border-slate-200 bg-white text-gray-500 hover:bg-slate-50"
-                            }`}
+                              }`}
                           >
                             {res === "1K" ? "1K Standard" : "2K Ultra HD"}
                           </button>
@@ -1329,11 +1427,10 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                           key={ratio}
                           type="button"
                           onClick={() => setImageAspectRatio(ratio)}
-                          className={`py-1.5 text-xs font-bold rounded-lg border transition-all ${
-                            imageAspectRatio === ratio
+                          className={`py-1.5 text-xs font-bold rounded-lg border transition-all ${imageAspectRatio === ratio
                               ? "border-indigo-500 bg-indigo-50 text-indigo-700"
                               : "border-slate-200 bg-white text-gray-500 hover:bg-slate-50"
-                          }`}
+                            }`}
                         >
                           {ratio}
                         </button>
@@ -1350,7 +1447,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                     <Video className="h-4 w-4 text-indigo-500" />
                     Cấu hình video AI
                   </span>
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <span className="text-xs font-bold text-gray-500 font-mono">Mô hình AI Video</span>
@@ -1399,11 +1496,10 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                                 toast.warning("1080p yêu cầu tối thiểu 6 giây. Đã tự động chuyển sang 720p.");
                               }
                             }}
-                            className={`py-1.5 text-xs font-bold rounded-lg border transition-all ${
-                              videoDuration === dur
+                            className={`py-1.5 text-xs font-bold rounded-lg border transition-all ${videoDuration === dur
                                 ? "border-indigo-500 bg-indigo-50 text-indigo-700"
                                 : "border-slate-200 bg-white text-gray-500 hover:bg-slate-50"
-                            }`}
+                              }`}
                           >
                             {dur}s
                           </button>
@@ -1419,11 +1515,10 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                             key={ratio}
                             type="button"
                             onClick={() => setVideoAspectRatio(ratio)}
-                            className={`py-1.5 text-xs font-bold rounded-lg border transition-all ${
-                              videoAspectRatio === ratio
+                            className={`py-1.5 text-xs font-bold rounded-lg border transition-all ${videoAspectRatio === ratio
                                 ? "border-indigo-500 bg-indigo-50 text-indigo-700"
                                 : "border-slate-200 bg-white text-gray-500 hover:bg-slate-50"
-                            }`}
+                              }`}
                           >
                             {ratio === "16:9" ? "Ngang 16:9" : "Dọc 9:16"}
                           </button>
@@ -1463,14 +1558,13 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
           </div>
 
           <div className="mt-6 pt-4 border-t border-gray-200 flex justify-end">
-            <button 
+            <button
               onClick={handleGenerateIdeas}
               disabled={loadingAI || autoPilotBackgroundRunning || !campaignInput.trim() || (!isAutoPilot && campaignInput.trim() !== analyzedTopic.trim())}
-              className={`px-5 py-2.5 rounded-xl text-xs font-bold font-sans flex items-center gap-2 select-none shadow-sm transition-all ${
-                loadingAI || autoPilotBackgroundRunning || !campaignInput.trim() || (!isAutoPilot && campaignInput.trim() !== analyzedTopic.trim())
+              className={`px-5 py-2.5 rounded-xl text-xs font-bold font-sans flex items-center gap-2 select-none shadow-sm transition-all ${loadingAI || autoPilotBackgroundRunning || !campaignInput.trim() || (!isAutoPilot && campaignInput.trim() !== analyzedTopic.trim())
                   ? "bg-gray-200 text-gray-400 cursor-not-allowed"
                   : "bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer active:scale-95"
-              }`}
+                }`}
             >
               {loadingAI || autoPilotBackgroundRunning ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               {loadingAI ? "AI Đang sáng tạo..." : "Phát sinh Ý tưởng từ AI"}
@@ -1498,14 +1592,13 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
               {pillars.map((pillar) => {
                 const isSelected = selectedPillars.includes(pillar.id);
                 return (
-                  <div 
+                  <div
                     key={pillar.id}
                     onClick={() => togglePillar(pillar.id)}
-                    className={`p-3.5 border rounded-xl cursor-pointer transition-all ${
-                      isSelected 
-                        ? pillar.selectedColorClass 
+                    className={`p-3.5 border rounded-xl cursor-pointer transition-all ${isSelected
+                        ? pillar.selectedColorClass
                         : `${pillar.colorClass} opacity-50 hover:opacity-85`
-                    }`}
+                      }`}
                   >
                     <div className="flex justify-between items-center font-bold">
                       <span className="flex items-center gap-1.5 text-xs text-slate-800">
@@ -1529,7 +1622,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
             </div>
           </div>
 
-          <div className="pt-4 border-t border-gray-100 text-center text-[10px] text-gray-400 font-mono">
+          <div className="pt-4 border-t border-slate-100 text-center text-[10px] text-gray-400 font-mono">
             Phân tích bởi iGen Marketing Advisor
           </div>
         </div>
@@ -1540,41 +1633,39 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
       <div className="space-y-4" id="campaign_draft_concepts_section">
         <span className="text-[10px] font-bold text-gray-500 font-mono uppercase tracking-wider block">Bản nháp ý tưởng sáng tạo ({concepts.length})</span>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5" id="concepts_container">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3" id="concepts_container">
           {concepts.map((concept, idx) => (
-            <div key={idx} className="p-5 bg-white border border-gray-250/70 hover:border-indigo-300 rounded-2xl transition-all shadow-xs text-left flex flex-col justify-between" id={`concept_card_${idx}`}>
+            <div key={idx} className="p-3.5 bg-white border border-gray-250/70 hover:border-indigo-300 rounded-2xl transition-all shadow-xs text-left flex flex-col justify-between min-w-0 overflow-hidden" id={`concept_card_${idx}`}>
               {(() => {
                 const activeMediaMeta = mediaTypeMeta[concept.mediaType || mediaType] || mediaTypeMeta.image;
                 return (
-                  <div className="mb-3 flex items-center justify-between gap-3">
-                    <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${activeMediaMeta.tone}`}>
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide shrink-0 ${activeMediaMeta.tone}`}>
                       {activeMediaMeta.label}
+                    </span>
+                    <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-full font-bold font-mono text-[9px] whitespace-nowrap shrink-0">
+                      Phù hợp: {concept.matchPercent}%
                     </span>
                   </div>
                 );
               })()}
-              <div>
-                <div className="flex justify-between items-center gap-4">
-                  <span className="text-xs font-bold text-slate-800 font-sans tracking-tight leading-snug line-clamp-2">{concept.title}</span>
-                  <span className="px-2.5 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-full font-bold font-mono text-[10px]">
-                    Phù hợp: {concept.matchPercent}%
-                  </span>
-                </div>
+              <div className="min-w-0">
+                <span className="text-[11px] font-bold text-slate-800 font-sans tracking-tight leading-snug line-clamp-2 block">{concept.title}</span>
                 
-                <p className="text-xs text-gray-500 mt-2 leading-relaxed">{concept.summary}</p>
+                <p className="text-[11px] text-gray-500 mt-1.5 leading-relaxed line-clamp-3">{concept.summary}</p>
                 
-                <div className="flex flex-wrap gap-1.5 mt-3">
+                <div className="flex flex-wrap gap-1 mt-2">
                   {concept.channels.map((chan, cidx) => (
-                    <span key={cidx} className="px-2 py-0.5 bg-slate-50 border border-gray-150 rounded-sm text-[9px] font-mono text-slate-500 uppercase tracking-wide">
+                    <span key={cidx} className="px-1.5 py-0.5 bg-slate-50 border border-gray-150 rounded-sm text-[8px] font-mono text-slate-500 uppercase tracking-wide">
                       {chan}
                     </span>
                   ))}
                 </div>
 
                 {concept.hashtags && concept.hashtags.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mt-2">
+                  <div className="flex flex-wrap gap-1 mt-1.5 overflow-hidden max-h-[36px]">
                     {concept.hashtags.map((tag, tidx) => (
-                      <span key={tidx} className="text-[10px] font-mono text-indigo-500 font-semibold">
+                      <span key={tidx} className="text-[9px] font-mono text-indigo-500 font-semibold">
                         {tag}
                       </span>
                     ))}
@@ -1582,20 +1673,19 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                 )}
               </div>
 
-              <div className="mt-5 border-t border-gray-100 pt-4 bg-gray-50 p-4 rounded-xl border border-dashed">
+              <div className="mt-5 border-t border-slate-100 pt-4 bg-slate-50/50 p-4 rounded-xl border border-dashed border-slate-200">
                 <div className="flex items-center gap-1.5 text-indigo-600 font-bold mb-1.5">
                   <Zap className="h-3.5 w-3.5" />
                   <span className="text-[10px] font-mono uppercase">Mẫu Content sinh ra từ AI:</span>
                 </div>
                 <p className="text-xs text-gray-600 line-clamp-3 italic leading-relaxed font-sans">{concept.suggestedContent}</p>
-                
+
                 <div className="mt-3.5 flex justify-end gap-2 text-xs">
-                  <button 
+                  <button
                     onClick={() => handleDevelopConcept(concept, idx)}
                     disabled={developingIdx !== null}
-                    className={`px-3 py-1.5 text-white rounded-lg font-bold select-none text-[10px] transition-all transform hover:scale-105 active:scale-95 cursor-pointer flex items-center gap-1 ${
-                      developingIdx === idx ? "bg-purple-600 hover:bg-purple-700" : "bg-indigo-600 hover:bg-indigo-700"
-                    }`}
+                    className={`px-3 py-1.5 text-white rounded-lg font-bold select-none text-[10px] transition-all transform hover:scale-105 active:scale-95 cursor-pointer flex items-center gap-1 ${developingIdx === idx ? "bg-purple-600 hover:bg-purple-700 animate-pulse" : "bg-indigo-600 hover:bg-indigo-750"
+                      }`}
                   >
                     {developingIdx === idx ? (
                       <>

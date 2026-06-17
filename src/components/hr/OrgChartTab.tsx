@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Users,
   Search,
@@ -65,6 +65,58 @@ export default function OrgChartTab({
   loading
 }: OrgChartTabProps) {
   const [zoomLevel, setZoomLevel] = useState<number>(1);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [startY, setStartY] = useState(0);
+  const [scrollLeftState, setScrollLeftState] = useState(0);
+  const [scrollTopState, setScrollTopState] = useState(0);
+
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    if (
+      target.closest("button") ||
+      target.closest("select") ||
+      target.closest("input") ||
+      target.closest("[draggable='true']") ||
+      target.closest(".cursor-pointer")
+    ) {
+      return;
+    }
+    setIsDragging(true);
+    if (containerRef.current) {
+      setStartX(e.pageX - containerRef.current.offsetLeft);
+      setStartY(e.pageY - containerRef.current.offsetTop);
+      setScrollLeftState(containerRef.current.scrollLeft);
+      setScrollTopState(containerRef.current.scrollTop);
+    }
+  };
+
+  const handleMouseLeaveOrUp = () => {
+    setIsDragging(false);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isDragging || !containerRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - containerRef.current.offsetLeft;
+    const y = e.pageY - containerRef.current.offsetTop;
+    const walkX = (x - startX) * 1.5;
+    const walkY = (y - startY) * 1.5;
+    containerRef.current.scrollLeft = scrollLeftState - walkX;
+    containerRef.current.scrollTop = scrollTopState - walkY;
+  };
+
+  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const zoomFactor = 0.05;
+    if (e.deltaY < 0) {
+      setZoomLevel(prev => Math.min(1.5, Number((prev + zoomFactor).toFixed(2))));
+    } else {
+      setZoomLevel(prev => Math.max(0.5, Number((prev - zoomFactor).toFixed(2))));
+    }
+  };
+
   const [filterDivision, setFilterDivision] = useState<string>("Tất cả");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [collapsedNodes, setCollapsedNodes] = useState<Set<string>>(new Set());
@@ -835,8 +887,19 @@ export default function OrgChartTab({
               <span>🖱️ Giữ chuột trái kéo để xem sơ đồ</span>
             </div>
 
-            <div className="flex-1 overflow-auto p-12 flex items-start justify-center min-h-[440px]" id="interactive_org_chart">
-              <div style={{ zoom: zoomLevel, transition: "zoom 0.2s ease-out" }} className="flex flex-col items-center">
+            <div
+              ref={containerRef}
+              onMouseDown={handleMouseDown}
+              onMouseLeave={handleMouseLeaveOrUp}
+              onMouseUp={handleMouseLeaveOrUp}
+              onMouseMove={handleMouseMove}
+              onWheel={handleWheel}
+              className={`flex-1 overflow-auto p-12 flex items-start justify-start min-h-[440px] select-none ${
+                isDragging ? "cursor-grabbing" : "cursor-grab"
+              }`}
+              id="interactive_org_chart"
+            >
+              <div style={{ zoom: zoomLevel, transition: "zoom 0.2s ease-out" }} className="flex flex-col items-center mx-auto min-w-max">
                 {employees.length === 0 ? (
                   <div className="text-center py-20 text-gray-400">
                     <Users className="h-12 w-12 text-gray-300 mx-auto mb-3" />

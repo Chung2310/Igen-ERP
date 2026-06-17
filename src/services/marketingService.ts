@@ -39,64 +39,6 @@ export const marketingService = {
       try {
         let data = await this.getCards(authorUid);
         
-        // Seed dữ liệu mẫu nếu database hoàn toàn trống
-        if (data.length === 0 && !isUserRole) {
-          const initialCards = [
-            {
-              title: 'Review Bàn phím Workspace V2',
-              channel: 'Facebook',
-              contentType: 'Hình ảnh kèm Caption',
-              status: 'pending',
-              bodyText: '⌨️ Bạn đã chán cảnh gõ phím kẹt rít, mỏi nhức tay khi ngồi làm việc liên tục 8 tiếng? Nâng cấp phong cách bàn làm việc của bạn cùng Bàn phím cơ Workspace V2 - trải nghiệm lực gõ êm mượt, tối ưu cho năng suất cực hạn!',
-              generatedAt: new Date().toISOString(),
-              authorUid: '',
-            },
-            {
-              title: 'Khai phá Sức mạnh AI trong iGen ERP',
-              channel: 'LinkedIn',
-              contentType: 'Bài viết chuyên sâu (Pulse/Article)',
-              status: 'pending',
-              bodyText: '📊 Thống kê cho thấy hơn 72% doanh nghiệp vừa và nhỏ tại Đông Nam Á vẫn đau đầu vì thông tin đứt quãng giữa CRM và Kho bãi... Hôm nay, hãng iGen ra mắt giải pháp Tích hợp Tự động AI hóa, kết hợp mô hình Gemini 3.5 dự báo thiếu hàng cực kỳ chính xác.',
-              generatedAt: new Date().toISOString(),
-              authorUid: '',
-            },
-            {
-              title: 'Trải nghiệm Đeo X1 Thể dục',
-              channel: 'TikTok',
-              contentType: 'Kịch bản Video ngắn 15s',
-              status: 'draft',
-              bodyText: '🎬 [Mở đầu camera zoom cận cảnh thiết bị X1] Tiếng beep đếm nhịp tim đập. Giọng nói thoại: \'Đừng để mệt mỏi ngăn cản nhịp đập tiến bước của bạn...\' Trải nghiệm thể dục năng động thông minh.',
-              generatedAt: new Date().toISOString(),
-              authorUid: '',
-            },
-            {
-              title: 'Công bố Chương trình Flash Sale Tháng 10',
-              channel: 'Facebook',
-              contentType: 'Hình ảnh Banner',
-              status: 'scheduled',
-              bodyText: '🔥 ĐỘC QUYỀN TRÊN IGEN: GIỜ VÀNG SĂN SHOCK từ 12h-14h hôm nay! Giảm giá tới 40% cho tất cả thiết bị đeo thông minh và linh kiện phụ trợ robot.',
-              generatedAt: new Date().toISOString(),
-              scheduledDate: new Date().toISOString().slice(0, 10),
-              scheduledTime: '12:00',
-              authorUid: '',
-            },
-          ];
-
-          await Promise.all(
-            initialCards.map(async (card) => {
-              const res = await fetch("/api/v1/crud/marketing-contents", {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  "Authorization": `Bearer ${getAccessToken()}`,
-                },
-                body: JSON.stringify(card),
-              });
-              return res.json();
-            })
-          );
-          data = await this.getCards(authorUid);
-        }
         onUpdate(data);
       } catch (err) {
         if (onError) {
@@ -587,7 +529,7 @@ export const marketingService = {
       modelName: voiceModel,
       voiceName: voiceId,
       title: card.title,
-      description: `Voice auto cho ${card.channel}`,
+      description: card.motionText || `Voice auto cho ${card.channel}`,
       saveToHistory: true
     });
 
@@ -817,4 +759,27 @@ export function sanitizeHumanVideoVoiceScript(rawText: string): string {
     .trim();
 
   return cleaned;
+}
+
+export function stripHumanVideoOutlineSections(rawText: string): string {
+  const text = String(rawText || "").trim();
+  if (!text) return "";
+
+  const outlineMarkers = [
+    "DAN Y CHI TIET",
+    "OUTLINE:",
+    "(OUTLINE):",
+    "[OUTLINE]:",
+  ];
+
+  let cleaned = text;
+  for (const marker of outlineMarkers) {
+    const markerIndex = cleaned.toUpperCase().indexOf(marker);
+    if (markerIndex !== -1) {
+      cleaned = cleaned.slice(0, markerIndex).trim();
+      break;
+    }
+  }
+
+  return cleaned.replace(/\s+/g, " ").trim();
 }

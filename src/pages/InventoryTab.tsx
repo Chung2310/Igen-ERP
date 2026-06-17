@@ -62,7 +62,7 @@ function getStockLogItems(log: StockLog) {
 }
 
 export default function InventoryTab() {
-  const { user } = useAuth();
+  const { user, userProfile } = useAuth();
   const INVENTORY_SUB_TAB_ROUTES = [
     { slug: "danh-muc", value: "DANH MỤC" as InventorySubTabType },
     { slug: "phan-loai", value: "PHÂN LOẠI SẢN PHẨM" as InventorySubTabType },
@@ -242,12 +242,13 @@ export default function InventoryTab() {
 
   const handleSaveProduct = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!newProdName.trim() || !newProdSKU.trim() || !newProdCategory) return;
+    if (!newProdName.trim() || !newProdSKU.trim()) return;
 
     const sku = newProdSKU.trim().toUpperCase();
     const name = newProdName.trim();
     const stock = parseInt(newProdStock, 10) || 0;
     const price = parseInt(newProdPrice, 10) || 0;
+    const category = newProdCategory || "Chưa phân loại";
 
     setProductSubmitting(true);
 
@@ -264,7 +265,7 @@ export default function InventoryTab() {
         const result = await inventoryProductService.updateProduct(editingProductId, {
           sku,
           name,
-          category: newProdCategory,
+          category,
           stock,
           price,
           imageFile: newProdImageFile,
@@ -281,26 +282,28 @@ export default function InventoryTab() {
         const result = await inventoryProductService.createProduct({
           sku,
           name,
-          category: newProdCategory,
+          category,
           stock,
           price,
           imageFile: newProdImageFile,
         });
 
-        setStockLogs((currentLogs) => [
-          {
-            id: `NK-${Date.now()}`,
+        try {
+          await inventoryStockLogService.createLog({
             type: "nhập",
+            title: `Nhập hàng khởi tạo: ${name}`,
             sku,
             productName: name,
             quantity: stock,
-            operatorName: "iGen Admin System",
-            createdAt: "Hôm nay",
+            operatorName: userProfile?.displayName || "iGen Admin System",
             notes: "Khởi tạo sản phẩm mới trong danh mục",
-            status: "Thành công",
-          },
-          ...currentLogs,
-        ]);
+            status: "Hoàn thành",
+            items: [{ productId: result.productId || "", sku, productName: name, quantity: stock }],
+          });
+        } catch (logErr) {
+          console.error("Lỗi tạo phiếu nhập kho khởi tạo:", logErr);
+        }
+
         if (result?.imageUploadFailed) {
           const uploadErrMsg = parseFirebaseError(result.imageUploadError, "Lỗi kết nối bộ lưu trữ.");
           toast.success(`Đã tạo sản phẩm mới, nhưng không thể tải lên hình ảnh (${uploadErrMsg})`);
