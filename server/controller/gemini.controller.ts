@@ -82,6 +82,76 @@ function getTextModelCost(aiConfig: any): number {
   return 2.5; // Default flash
 }
 
+async function fetchDriveFileContent(fileId: string): Promise<{ text: string; title: string }> {
+  // 1. Google Doc Text Export
+  try {
+    const docUrl = `https://docs.google.com/document/d/${fileId}/export?format=txt`;
+    const res = await fetch(docUrl);
+    if (res.ok) {
+      const text = await res.text();
+      if (text && !text.includes("<!DOCTYPE html>") && text.length > 50) {
+        return { text, title: `Google Doc (${fileId})` };
+      }
+    }
+  } catch (e) {
+    console.warn(`Doc export failed for ${fileId}:`, e);
+  }
+
+  // 2. Google Sheet CSV Export
+  try {
+    const sheetUrl = `https://docs.google.com/spreadsheets/d/${fileId}/export?format=csv`;
+    const res = await fetch(sheetUrl);
+    if (res.ok) {
+      const text = await res.text();
+      if (text && !text.includes("<!DOCTYPE html>") && text.length > 50) {
+        return { text, title: `Google Sheet (${fileId})` };
+      }
+    }
+  } catch (e) {
+    console.warn(`Sheet export failed for ${fileId}:`, e);
+  }
+
+  // 3. Direct File Download (e.g. for text/markdown files)
+  try {
+    const directUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
+    const res = await fetch(directUrl);
+    if (res.ok) {
+      const text = await res.text();
+      if (text && !text.includes("<!DOCTYPE html>") && text.length > 10) {
+        return { text, title: `Drive File (${fileId})` };
+      }
+    }
+  } catch (e) {
+    console.warn(`Direct download failed for ${fileId}:`, e);
+  }
+
+  return { text: "", title: "" };
+}
+
+async function fetchDriveFolderFileIds(folderId: string): Promise<string[]> {
+  try {
+    const url = `https://drive.google.com/embeddedfolderview?id=${folderId}`;
+    const res = await fetch(url);
+    if (!res.ok) {
+      console.warn(`Failed to fetch embedded folder view for folder ${folderId}`);
+      return [];
+    }
+    const html = await res.text();
+    const fileIdMatches = [
+      ...html.matchAll(/\/document\/d\/([a-zA-Z0-9-_]{25,50})/g),
+      ...html.matchAll(/\/file\/d\/([a-zA-Z0-9-_]{25,50})/g),
+      ...html.matchAll(/\/open\?id=([a-zA-Z0-9-_]{25,50})/g),
+      ...html.matchAll(/"id"\s*:\s*"([a-zA-Z0-9-_]{25,50})"/g)
+    ];
+    const docIds = Array.from(new Set(fileIdMatches.map(m => m[1])));
+    console.log(`[AI AutoReply] Đã phân tích thư mục ${folderId}, tìm thấy ${docIds.length} files:`, docIds);
+    return docIds;
+  } catch (err) {
+    console.error(`Error listing folder ${folderId}:`, err);
+    return [];
+  }
+}
+
 export const geminiController = {
   /**
    * POST /api/v1/gemini/chat
@@ -507,42 +577,48 @@ export const geminiController = {
       await walletService.checkBalance(userId, API_COSTS.GEMINI_FAQ);
       console.log(`[AI AutoReply] Bắt đầu đồng bộ tài liệu từ Google Drive/Doc link: ${docLink}`);
 
-      // Extract all Google Doc IDs if multiple are pasted
-      const matches = [...docLink.matchAll(/\/document\/d\/([a-zA-Z0-9-_]+)/g)];
-      const docIds = matches.map(m => m[1]).filter(Boolean);
+      const folderMatch = docLink.match(/folders\/([a-zA-Z0-9-_]{25,50})/);
+      const folderId = folderMatch ? folderMatch[1] : null;
+
+      let docIds: string[] = [];
+      let isFolder = false;
+
+      if (folderId) {
+        console.log(`[AI AutoReply] Phát hiện đường dẫn thư mục Google Drive. Folder ID: ${folderId}`);
+        isFolder = true;
+        docIds = await fetchDriveFolderFileIds(folderId);
+      } else {
+        const matches = [...docLink.matchAll(/\/document\/d\/([a-zA-Z0-9-_]+)/g)];
+        docIds = matches.map(m => m[1]).filter(Boolean);
+      }
+
       let extractedText = "";
       let isMocked = true;
-      let docTitle = "Tài liệu Google Drive";
+      let docTitle = isFolder ? "Thư mục Google Drive" : "Tài liệu Google Drive";
 
       if (docIds.length > 0) {
-        console.log(`[AI AutoReply] Phát hiện ${docIds.length} tài liệu Google Doc để đồng bộ.`);
-        const texts = await Promise.all(
+        console.log(`[AI AutoReply] Bắt đầu tải nội dung từ ${docIds.length} tài liệu...`);
+        const filesContent = await Promise.all(
           docIds.map(async (fileId) => {
-            const exportUrl = `https://docs.google.com/document/d/${fileId}/export?format=txt`;
-            try {
-              const fetchRes = await fetch(exportUrl);
-              if (fetchRes.ok) {
-                const txt = await fetchRes.text();
-                return `--- BẮT ĐẦU TÀI LIỆU (${fileId}) ---\n${txt}\n--- KẾT THÚC TÀI LIỆU (${fileId}) ---\n`;
-              }
-            } catch (err) {
-              console.warn(`[AI AutoReply] Không thể tải doc ${fileId} trực tiếp:`, err);
+            const fileData = await fetchDriveFileContent(fileId);
+            if (fileData.text) {
+              return `--- BẮT ĐẦU TÀI LIỆU (${fileData.title}) ---\n${fileData.text}\n--- KẾT THÚC TÀI LIỆU (${fileData.title}) ---\n`;
             }
             return "";
           })
         );
-        
-        extractedText = texts.filter(Boolean).join("\n");
+        extractedText = filesContent.filter(Boolean).join("\n");
         if (extractedText.trim().length > 0) {
           isMocked = false;
-          docTitle = docIds.length === 1 ? `Google Doc (ID: ${docIds[0]})` : `Bộ tài liệu Google Docs (${docIds.length} files)`;
+          docTitle = isFolder 
+            ? `Thư mục Google Drive (ID: ${folderId}, ${docIds.length} files)`
+            : (docIds.length === 1 ? `Google Doc (ID: ${docIds[0]})` : `Bộ tài liệu Google Docs (${docIds.length} files)`);
           console.log(`[AI AutoReply] Đồng bộ thành công từ các links thật! Độ dài ký tự: ${extractedText.length}`);
         }
       }
 
       // Fallback/Simulated sync if fetch failed or no valid doc IDs matched
       if (isMocked) {
-        // Generate a nice title from the URL
         let parsedName = "Huong_dan_ban_hang_va_FAQ_Doanh_nghiep";
         try {
           const urlObj = new URL(docLink);
@@ -552,8 +628,26 @@ export const geminiController = {
           }
         } catch (e) { }
 
-        docTitle = `Mô phỏng file [${parsedName}]`;
-        extractedText = `--- TÀI LIỆU ĐỒNG BỘ TỪ GOOGLE DRIVE [${parsedName}] ---
+        if (isFolder) {
+          docTitle = `Mô phỏng thư mục [${parsedName}] (3 tài liệu)`;
+          extractedText = `--- TÀI LIỆU 1: Chinh_sach_van_chuyen.txt ---
+- Giao hàng hỏa tốc trong nội thành Hà Nội chỉ từ 2 giờ.
+- Miễn phí vận chuyển cho tất cả đơn hàng từ 1.000.000đ trở lên.
+- Đơn hàng dưới 1.000.000đ áp dụng phí vận chuyển đồng giá 30.000đ toàn quốc.
+
+--- TÀI LIỆU 2: Bang_gia_san_pham.txt ---
+- Thiết bị iGen Hub Basic: 1.500.000đ/bộ.
+- Cảm biến thông minh iGen Sensor: 350.000đ/cái.
+- Bản quyền phần mềm Quản lý iGen App (Gói Năm): 1.200.000đ/năm.
+
+--- TÀI LIỆU 3: Chinh_sach_bao_hanh.txt ---
+- Bảo hành 1 đổi 1 trong vòng 30 ngày đầu tiên nếu phát sinh lỗi từ nhà sản xuất.
+- Thời gian bảo hành tiêu chuẩn là 12 tháng kể từ ngày mua hàng.
+- Không bảo hành cho các trường hợp rơi vỡ, vào nước hoặc tự ý tháo mở thiết bị.
+`;
+        } else {
+          docTitle = `Mô phỏng file [${parsedName}]`;
+          extractedText = `--- TÀI LIỆU ĐỒNG BỘ TỪ GOOGLE DRIVE [${parsedName}] ---
 Ngày đồng bộ: ${new Date().toLocaleString("vi-VN")}
 Trạng thái: Thành công (Chế độ demo thông minh)
 
@@ -575,6 +669,7 @@ A: Có, iGen ERP tích hợp AI trợ lý thông minh giúp tự động phản 
 Q: Phí lắp đặt và cài đặt ban đầu là bao nhiêu?
 A: Hoàn toàn MIỄN PHÍ. Đội ngũ kỹ thuật của iGen sẽ hỗ trợ cài đặt cấu hình và training sử dụng online 1-1.
 --------------------------------------------------`;
+        }
       }
 
       // Convert the extracted text (whether real or mocked) to a structured FAQ using Gemini
