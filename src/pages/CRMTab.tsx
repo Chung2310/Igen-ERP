@@ -350,24 +350,14 @@ export default function CRMTab() {
     }, 180);
   };
 
-  // Connect and disconnect Socket.IO client when active
+  // Track Socket.IO connection status
   useEffect(() => {
-    if (subTab !== "OMNI-INBOX CHAT" || (!isFbConnected && !isZaloConnected)) {
-      socketService.disconnect();
-      return;
-    }
-
-    const token = getAccessToken();
-    if (token) {
-      socketService.connect(token);
-    }
     const unsubscribeStatus = socketService.onStatusChange(setSocketConnected);
 
     return () => {
       unsubscribeStatus();
-      socketService.disconnect();
     };
-  }, [subTab, isFbConnected, isZaloConnected]);
+  }, []);
 
   // Handle Socket.IO realtime events
   useEffect(() => {
