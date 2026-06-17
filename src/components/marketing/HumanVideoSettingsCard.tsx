@@ -176,7 +176,7 @@ export default function HumanVideoSettingsCard({
         </section>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4">
         <section className="min-h-[118px] rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
           <p className="font-mono text-[10px] font-bold uppercase tracking-wide text-slate-500">Model giọng nói</p>
           <select
@@ -192,26 +192,6 @@ export default function HumanVideoSettingsCard({
           </select>
           <p className="mt-2 text-[10px] leading-relaxed text-slate-400">
             {VOICE_MODEL_OPTIONS.find((option) => option.value === selectedVoiceModel)?.description}
-          </p>
-        </section>
-
-        <section className="min-h-[118px] rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
-          <p className="font-mono text-[10px] font-bold uppercase tracking-wide text-slate-500">Thời lượng đọc dự kiến</p>
-          <div className="relative mt-2">
-            <input
-              type="number"
-              min="1"
-              max="600"
-              value={estimatedDurationSeconds}
-              onChange={(e) => onEstimatedDurationChange(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-white p-2.5 pr-12 text-xs font-sans focus:outline-none focus:ring-1 focus:ring-indigo-500"
-            />
-            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 font-mono text-[10px] text-slate-400">
-              giây
-            </span>
-          </div>
-          <p className="mt-2 text-[10px] leading-relaxed text-slate-400">
-            Dùng để ước lượng số giây voice cho video người thật.
           </p>
         </section>
       </div>
