@@ -19,7 +19,11 @@ export const crudController = {
       const search = req.query.search as string;
 
       // Trích xuất các tham số còn lại làm bộ lọc động (filters)
-      const { page: _p, limit: _l, sort: _s, search: _sh, ...filters } = req.query;
+      const { page: _p, limit: _l, sort: _s, search: _sh, filters: queryFilters, ...otherParams } = req.query;
+      const filters = {
+        ...(typeof queryFilters === "object" && queryFilters !== null ? queryFilters : {}),
+        ...otherParams,
+      };
 
       const result = await crudService.getList(modelName, companyCode, {
         page,

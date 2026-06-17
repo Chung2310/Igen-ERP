@@ -74,21 +74,21 @@ export default function CalendarTab({ isUserRole, approvalCards }: CalendarTabPr
   return (
     <div className="grid grid-cols-1 xl:grid-cols-3 gap-6" id="publishing_calendar_block">
       {/* Left 2 Cols: Monthly grid view */}
-      <div className="xl:col-span-2 bg-slate-50 border border-gray-200 p-6 rounded-2xl text-xs flex flex-col justify-between" id="calendar_grid_container">
+      <div className="xl:col-span-2 bg-white border border-slate-200/60 p-6 rounded-3xl text-xs flex flex-col justify-between shadow-2xs hover:shadow-xs transition-shadow duration-300 animate-fadeIn" id="calendar_grid_container">
         <div>
-          <div className="flex justify-between items-center mb-5">
+          <div className="flex justify-between items-center mb-6">
             <h4 className="font-bold text-slate-800 text-sm font-sans tracking-tight flex items-center gap-2">
-              <Calendar className="h-4.5 w-4.5 text-blue-500" />
+              <Calendar className="h-4.5 w-4.5 text-indigo-500 animate-pulse" />
               Lịch Xuất Bản Content • {monthNamesVi[currentMonth]}, {currentYear}
             </h4>
-            <div className="flex items-center gap-1 bg-white p-1 rounded-md border text-[11px] font-mono select-none">
-              <button onClick={handlePrevMonth} className="p-1 hover:bg-slate-100 rounded-sm cursor-pointer">‹</button>
-              <span className="font-bold px-2">{monthNamesVi[currentMonth]}, {currentYear}</span>
-              <button onClick={handleNextMonth} className="p-1 hover:bg-slate-100 rounded-sm cursor-pointer">›</button>
+            <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-xl border border-slate-200/60 text-[11px] font-mono select-none">
+              <button onClick={handlePrevMonth} className="p-1 px-2 hover:bg-white rounded-lg cursor-pointer transition-colors shadow-3xs font-extrabold text-slate-650">‹</button>
+              <span className="font-bold px-2 text-slate-800 uppercase text-[10px] tracking-wide">{monthNamesVi[currentMonth]}, {currentYear}</span>
+              <button onClick={handleNextMonth} className="p-1 px-2 hover:bg-white rounded-lg cursor-pointer transition-colors shadow-3xs font-extrabold text-slate-650">›</button>
             </div>
           </div>
 
-          <div className="grid grid-cols-7 gap-1 bg-gray-200 p-1 rounded-xl text-center font-bold tracking-wider text-slate-600 text-[10px] uppercase mb-1">
+          <div className="grid grid-cols-7 gap-1.5 bg-slate-50/80 p-1.5 rounded-2xl text-center font-bold tracking-wider text-slate-500 text-[10px] uppercase mb-2 border border-slate-200/40">
             <div>T2</div>
             <div>T3</div>
             <div>T4</div>
@@ -99,12 +99,12 @@ export default function CalendarTab({ isUserRole, approvalCards }: CalendarTabPr
           </div>
 
           {/* Grid squares rendering dynamic items */}
-          <div className="grid grid-cols-7 gap-1 font-mono text-[11px]" id="calendar_days_grid">
+          <div className="grid grid-cols-7 gap-1.5 font-mono text-[11px]" id="calendar_days_grid">
             {/* Mock padded previous month days */}
             {Array.from({ length: startOffset }).map((_, idx) => {
               const dayVal = prevMonthLastDate - startOffset + idx + 1;
               return (
-                <div key={`prev-${idx}`} className="h-16 p-2 bg-gray-150 text-gray-300 rounded-lg select-none text-left opacity-40">
+                <div key={`prev-${idx}`} className="h-16 p-2 bg-slate-50 text-slate-300 rounded-xl select-none text-left opacity-30 border border-transparent">
                   {dayVal}
                 </div>
               );
@@ -118,26 +118,32 @@ export default function CalendarTab({ isUserRole, approvalCards }: CalendarTabPr
                 <div 
                   key={dayNum}
                   onClick={() => setSelectedDay(dayNum)}
-                  className={`h-16 p-2 text-left rounded-lg border transition-all cursor-pointer relative ${
+                  className={`h-16 p-2 text-left rounded-xl border transition-all cursor-pointer relative ${
                     isSelected 
-                      ? "bg-blue-50 border-blue-400 text-blue-800" 
-                      : "bg-white border-gray-100 hover:bg-gray-50"
+                      ? "bg-indigo-50/50 border-indigo-400 text-indigo-900 shadow-2xs" 
+                      : "bg-white border-slate-100 hover:bg-slate-50 hover:border-slate-200 hover:shadow-3xs"
                   }`}
                 >
-                  <span className="font-semibold select-none text-[10px]">{dayNum}</span>
+                  <span className="font-extrabold select-none text-[10px] text-slate-700">{dayNum}</span>
                   {matchEvents.length > 0 && (
-                    <div className="absolute bottom-1 left-2.5 right-2.5 flex flex-col gap-0.5">
-                      {matchEvents.map(e => (
-                        <div key={e.id} className={`px-1 rounded-sm text-[8px] font-sans truncate font-bold uppercase tracking-wider ${
-                          e.status === "Published" 
-                            ? "bg-green-500 text-white" 
-                            : e.status === "Approved" 
-                              ? "bg-blue-500 text-white" 
-                              : "bg-amber-400 text-white"
-                        }`}>
-                          {e.channel}: {e.status}
+                    <div className="absolute bottom-1.5 left-1.5 right-1.5 flex flex-col gap-0.5">
+                      {matchEvents.slice(0, 2).map(e => {
+                        const eventStyle = 
+                          e.channel === "Facebook" ? "bg-blue-600 text-white" :
+                          e.channel === "TikTok" ? "bg-slate-900 text-white border border-slate-950" :
+                          e.channel === "Zalo" ? "bg-sky-500 text-white" :
+                          "bg-indigo-650 text-white";
+                        return (
+                          <div key={e.id} className={`px-1 rounded-md text-[8px] font-sans truncate font-bold uppercase tracking-wider text-center ${eventStyle}`}>
+                            {e.channel}
+                          </div>
+                        );
+                      })}
+                      {matchEvents.length > 2 && (
+                        <div className="text-[7px] text-slate-400 text-center font-bold font-sans tracking-wide leading-none mt-0.5">
+                          + {matchEvents.length - 2} bài
                         </div>
-                      ))}
+                      )}
                     </div>
                   )}
                 </div>
@@ -146,8 +152,8 @@ export default function CalendarTab({ isUserRole, approvalCards }: CalendarTabPr
           </div>
         </div>
 
-        <div className="p-3 bg-gray-50 border-t border-gray-150 rounded-b-xl select-none text-center text-[10px] text-gray-400 font-mono mt-4">
-          Click chọn các ngày có gắn sự kiện để truy lục lịch truyền thông tương ứng của iGen ERP
+        <div className="p-3.5 bg-slate-50 border-t border-slate-200/60 rounded-b-2xl select-none text-center text-[10px] text-slate-400 font-mono mt-5">
+          👉 Click chọn các ngày có gắn sự kiện để truy lục lịch truyền thông tương ứng của iGen ERP
         </div>
       </div>
 
