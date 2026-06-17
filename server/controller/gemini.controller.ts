@@ -643,59 +643,12 @@ export const geminiController = {
         }
       }
 
-      // Fallback/Simulated sync if fetch failed or no valid doc IDs matched
+      // Return error if fetch failed or no valid text could be extracted
       if (isMocked) {
-        let parsedName = "Huong_dan_ban_hang_va_FAQ_Doanh_nghiep";
-        try {
-          const urlObj = new URL(docLink);
-          const pathSegments = urlObj.pathname.split("/").filter(Boolean);
-          if (pathSegments.length > 0) {
-            parsedName = pathSegments[pathSegments.length - 1];
-          }
-        } catch (e) { }
-
-        if (isFolder) {
-          docTitle = `Mô phỏng thư mục [${parsedName}] (3 tài liệu)`;
-          extractedText = `--- TÀI LIỆU 1: Chinh_sach_van_chuyen.txt ---
-- Giao hàng hỏa tốc trong nội thành Hà Nội chỉ từ 2 giờ.
-- Miễn phí vận chuyển cho tất cả đơn hàng từ 1.000.000đ trở lên.
-- Đơn hàng dưới 1.000.000đ áp dụng phí vận chuyển đồng giá 30.000đ toàn quốc.
-
---- TÀI LIỆU 2: Bang_gia_san_pham.txt ---
-- Thiết bị iGen Hub Basic: 1.500.000đ/bộ.
-- Cảm biến thông minh iGen Sensor: 350.000đ/cái.
-- Bản quyền phần mềm Quản lý iGen App (Gói Năm): 1.200.000đ/năm.
-
---- TÀI LIỆU 3: Chinh_sach_bao_hanh.txt ---
-- Bảo hành 1 đổi 1 trong vòng 30 ngày đầu tiên nếu phát sinh lỗi từ nhà sản xuất.
-- Thời gian bảo hành tiêu chuẩn là 12 tháng kể từ ngày mua hàng.
-- Không bảo hành cho các trường hợp rơi vỡ, vào nước hoặc tự ý tháo mở thiết bị.
-`;
-        } else {
-          docTitle = `Mô phỏng file [${parsedName}]`;
-          extractedText = `--- TÀI LIỆU ĐỒNG BỘ TỪ GOOGLE DRIVE [${parsedName}] ---
-Ngày đồng bộ: ${new Date().toLocaleString("vi-VN")}
-Trạng thái: Thành công (Chế độ demo thông minh)
-
-1. VỀ CHÚNG TÔI (iGen ERP):
-- iGen ERP cung cấp giải pháp chuyển đổi số toàn diện cho doanh nghiệp (Quản lý Nhân sự, Kho hàng, Marketing và Sales CRM Omni-Channel).
-- Địa chỉ văn phòng: Tòa nhà iGen, Cầu Giấy, Hà Nội.
-- Hotline chăm sóc khách hàng: 1900-8888 (Hoạt động 8:00 - 18:00 hàng ngày).
-
-2. CHÍNH SÁCH VÀ DỊCH VỤ:
-- Gói Start: 500.000đ/tháng (Tối đa 5 nhân sự, đầy đủ tính năng CRM cơ bản).
-- Gói Growth: 1.200.000đ/tháng (Tối đa 20 nhân sự, tích hợp Facebook/Zalo OA).
-- Gói Enterprise: 3.500.000đ/tháng (Không giới hạn nhân sự, tùy chỉnh theo yêu cầu).
-- Khách hàng đăng ký mới được dùng thử MIỄN PHÍ 14 ngày, đầy đủ tính năng.
-
-3. HỎI ĐÁP THƯỜNG GẶP (FAQs):
-Q: Hệ thống có hỗ trợ gửi tin tự động không?
-A: Có, iGen ERP tích hợp AI trợ lý thông minh giúp tự động phản hồi khách hàng đa kênh Facebook, Zalo, TikTok với độ trễ tùy chỉnh và học trực tiếp tài liệu này.
-
-Q: Phí lắp đặt và cài đặt ban đầu là bao nhiêu?
-A: Hoàn toàn MIỄN PHÍ. Đội ngũ kỹ thuật của iGen sẽ hỗ trợ cài đặt cấu hình và training sử dụng online 1-1.
---------------------------------------------------`;
-        }
+        return res.status(400).json({
+          status: "error",
+          message: "Không thể tải hoặc trích xuất văn bản từ Google Drive. Vui lòng kiểm tra lại quyền chia sẻ công khai (Bất kỳ ai có liên kết đều có thể Xem/Viewer) và đảm bảo thư mục hoặc các file bên trong thuộc định dạng được hỗ trợ (PDF, Google Doc, Google Sheet, File văn bản)."
+        });
       }
 
       // Convert the extracted text (whether real or mocked) to a structured FAQ using Gemini
