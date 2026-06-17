@@ -191,10 +191,13 @@ function buildFaithfulVisualGuardrail(input: {
     Array.isArray(input.channels) && input.channels.length > 0 ? `Target channels: ${input.channels.join(", ")}.` : "",
     Array.isArray(input.selectedPillars) && input.selectedPillars.length > 0 ? `Required pillars: ${input.selectedPillars.join(", ")}.` : "",
     "The English media prompt must preserve the exact meaning of the Vietnamese brief and attached file.",
+    "If the brief mentions a company name, logo, product, salary, location, or other business details, these must appear in the generated image prompt.",
+    "Do not omit or paraphrase critical business details that are present in the input.",
     "Do not add products, people, locations, industries, outfits, props, or use-cases that are not grounded in the source brief.",
     "Do not generalize into generic office, lifestyle, beauty, fashion, product showcase, or abstract marketing scenes unless the source explicitly asks for that.",
     "If the source is about software, ecommerce, logistics, education, training, omnichannel, operations, CRM, warehouse, or business workflow, the visual must clearly show that exact context.",
     "Translate faithfully into English for image/video generation, but keep the original business meaning, subject, context, and constraints unchanged.",
+    "If the user mentions a brand, company name, or campaign name, include it in the image prompt as visible text, signage, uniform, or logo.",
   ]
     .filter(Boolean)
     .join(" ");
@@ -1156,6 +1159,8 @@ QUY TẮC PHÂN TÁCH DỮ LIỆU BẮT BUỘC CHO TỪNG KÊNH:
    - Trường "bodyText": Lưu bản nháp nội dung bài viết sạch hoàn chỉnh để đăng tải trực tiếp (không chứa dàn ý hay tiêu đề nháp).
 3. Đối với mọi kênh: Sinh thêm trường "mediaPrompt" là một đoạn mô tả chi tiết bằng tiếng Anh (visual prompt) mô phỏng chính xác nội dung trực quan (hình ảnh hoặc video) phù hợp cho bài viết này để gửi tới AI Generator.
 4. mediaPrompt phải là bản dịch trung thành sang tiếng Anh từ dữ liệu gốc, không được đổi nghĩa, không được tự ý thêm chi tiết không có trong input hoặc tài liệu đính kèm, không được biến thành bối cảnh generic.
+5. Nếu input chứa tên công ty, thông tin lương, địa điểm, hay tên chiến dịch, bắt buộc phải nhắc lại chính xác chúng trong mediaPrompt dưới dạng nội dung trực quan.
+6. mediaPrompt phải ghi rõ cách hiển thị nội dung đó trên ảnh/video: logo, banner, bảng hiệu, đồng phục, biển chỉ dẫn, hoặc văn bản nổi bật.
 ${humanVoiceRules}
 
 Thông tin chiến dịch marketing:
@@ -1193,7 +1198,13 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
                       },
                       mediaPrompt: {
                         type: Type.STRING,
-                        description: "A detailed visual description prompt in English for generating a matching image or video (e.g. scenic views, product display, lifestyle scene, characters, setting details)."
+                        description: `A detailed visual description prompt in English for generating a matching image or video. It must:
+1. Preserve all business details from the original Vietnamese brief.
+2. Include company name, campaign name, salary, location, and product or role details when present.
+3. Describe exact visual composition, lighting, text placement, and environment.
+4. Avoid adding elements not present in the original input.
+5. Avoid generic phrasing and instead use specific, grounded language related to the campaign.
+Example: 'Recruitment poster for PHÚC CƯƠNG PDCA at Quế Võ, Bắc Ninh, showing a worker in blue uniform with salary text "4 triệu + 8 triệu" visible on a banner.'`,
                       },
                       voiceScript: {
                         type: Type.STRING,

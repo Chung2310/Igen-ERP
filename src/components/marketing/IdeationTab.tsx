@@ -1706,10 +1706,26 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
         {/* Content Pillars guidelines panel */}
         <div className="bg-white border p-6 rounded-2xl flex flex-col justify-between" id="content_pillars_advisory">
           <div>
-            <h4 className="font-bold text-gray-850 text-sm tracking-wide font-sans uppercase">
-              📚 Content Pillars Đề xuất
-            </h4>
-            <p className="text-xs text-slate-500 mt-1 mb-4">Phân tích mục tiêu để đề xuất ra các trụ cột nội dung cốt lõi của chiến dịch, đảm bảo phân bổ đa dạng:</p>
+            <div className="flex justify-between items-center">
+              <h4 className="font-bold text-gray-850 text-sm tracking-wide font-sans uppercase">
+                📚 Content Pillars Đề xuất
+              </h4>
+              <button
+                type="button"
+                onClick={() => handleAnalyzePillars()}
+                disabled={loadingPillars || !campaignInput.trim()}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border transition-all ${
+                  loadingPillars || !campaignInput.trim()
+                    ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                    : "bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200 hover:border-indigo-300 active:scale-95 cursor-pointer shadow-xs"
+                }`}
+                title="Tạo lại content pillars"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${loadingPillars ? "animate-spin" : ""}`} />
+                <span>Tạo lại</span>
+              </button>
+            </div>
+            <p className="text-xs text-slate-500 mt-1.5 mb-4">Phân tích mục tiêu để đề xuất ra các trụ cột nội dung cốt lõi của chiến dịch, đảm bảo phân bổ đa dạng:</p>
 
             <div className="space-y-3 text-xs text-left relative">
               {loadingPillars && (
