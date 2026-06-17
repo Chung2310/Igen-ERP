@@ -1,5 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { AIMediaModel } from "../model/ai-media.model";
+import { CompanyModel } from "../model/company.model";
 import { cloudinaryService } from "./cloudinary.service";
 import { remotionService } from "./remotion.service";
 import { piapiService } from "./piapi.service";
@@ -363,42 +364,32 @@ export const geminiService = {
     aiConfig: any,
     ragContext?: { contextText?: string; companyCode?: string; matches?: number }
   ): Promise<{ text: string; isMock: boolean }> {
-    const getMockResponse = () => {
-      return new Promise<{ text: string; isMock: boolean }>((resolve) => {
-        setTimeout(() => {
-          let replyText = `[Giả lập Trợ lý AI] Cảm ơn bạn đã phản hồi! Với cài đặt Trợ lý AI (Cấu hình: ${aiConfig.autoClassify ? "Tự phân loại" : "Thường"
-            }), tôi đề xuất phương án tối ưu cho bạn.`;
-
-          const msgLower = message.toLowerCase();
-          if (msgLower.includes("giá") || msgLower.includes("bao nhiêu")) {
-            replyText =
-              "Chào bạn! Hiện tại dòng sản phẩm Thiết bị đeo thông minh X1 đang có giá ưu đãi là 1.890.000đ (giảm từ 2.450.000đ). Trợ lý AI có thể hỗ trợ tạo đơn hàng ngay lập tức nếu bạn sẵn sàng!";
-          } else if (msgLower.includes("khuyến mãi") || msgLower.includes("ưu đãi")) {
-            replyText =
-              "Dạ, bên mình đang có chương trình khuyến mãi 'SIÊU ƯU ĐÃI THÁNG 10': giảm giá lên đến 30% cho toàn bộ linh kiện robot và tặng voucher 200k cho đơn hàng sau đó. Bạn có muốn nhận mã voucher không ạ?";
-          } else if (msgLower.includes("vận chuyển") || msgLower.includes("ship")) {
-            replyText =
-              "Đơn hàng của bạn sẽ được hỗ trợ Freeship toàn quốc cho các hóa đơn từ 500k trở lên. Thời gian giao hàng dự kiến là từ 2-3 ngày làm việc đối với khu vực tỉnh thành khác, Hà Nội/HCM sẽ nhận hàng trong ngày ạ!";
-          }
-          resolve({ text: replyText, isMock: true });
-        }, 800);
-      });
-    };
-
     if (!process.env.GEMINI_API_KEY) {
-      return getMockResponse();
+      throw new Error("Cấu hình GEMINI_API_KEY bị thiếu trên hệ thống.");
+    }
+
+    let companyName = "Doanh nghiệp";
+    if (ragContext?.companyCode && ragContext.companyCode !== "SYSTEM") {
+      try {
+        const company = await CompanyModel.findOne({ code: ragContext.companyCode.toUpperCase() });
+        if (company && company.name) {
+          companyName = company.name;
+        }
+      } catch (err) {
+        console.error("[geminiService.chat] Error fetching company name:", err);
+      }
     }
 
     const hasCompanyKnowledge = !!ragContext?.contextText;
     const assistantMode = hasCompanyKnowledge ? "COMPANY_TRAINED_MODE" : "DEFAULT_ASSISTANT_MODE";
 
     const systemInstruction = `
-Bạn là một Trợ lý Chăm sóc Khách hàng AI đỉnh cao cho hệ thống iGen ERP doanh nghiệp.
-Bạn đang hỗ trợ khách hàng trong khung chat Omni-Inbox.
+Bạn là một Trợ lý Chăm sóc Khách hàng AI chuyên nghiệp đại diện cho doanh nghiệp "${companyName}".
+Bạn đang hỗ trợ khách hàng trong khung chat trực tuyến.
 
 QUY CHUẨN XƯNG HÔ VÀ CHÀO HỎI CHUYÊN NGHIỆP:
-- Luôn mở đầu câu trả lời bằng lời chào lịch sự như: "Dạ, [Tên doanh nghiệp] xin chào anh/chị ạ!" hoặc "Dạ, em chào anh/chị ạ!" hoặc "Dạ xin kính chào Quý khách!".
-- Luôn xưng hô là "Dạ, bên em..." hoặc "Dạ, [Tên doanh nghiệp]..." hoặc "Dạ, em..." và gọi khách hàng là "Quý khách" hoặc "Anh/Chị".
+- Luôn mở đầu câu trả lời bằng lời chào lịch sự như: "Dạ, ${companyName} xin chào anh/chị ạ!" hoặc "Dạ, em chào anh/chị ạ!" hoặc "Dạ xin kính chào Quý khách!".
+- Luôn xưng hô là "Dạ, bên em..." hoặc "Dạ, ${companyName}..." hoặc "Dạ, em..." và gọi khách hàng là "Quý khách" hoặc "Anh/Chị".
 - Luôn sử dụng kính ngữ "Dạ" ở đầu câu và "ạ" ở cuối câu để đảm bảo sự lịch thiệp, tôn trọng và chuyên nghiệp tuyệt đối.
 - Tuyệt đối KHÔNG sử dụng các từ xưng hô quá thân mật hoặc thiếu trang trọng như "cậu", "tớ", "bạn", "mày", "tao".
 - Trả lời bằng ngôn phong tiếng Việt chuẩn mực, tinh tế, tích cực, không dùng ngôn ngữ teen, từ lóng hoặc icon quá đà.
@@ -411,20 +402,19 @@ Dữ liệu vận hành hiện tại:
 - COMPANY_TRAINED_MODE: đã có tài liệu/chính sách riêng của công ty, hãy bám sát tài liệu và nói theo chỉ dẫn doanh nghiệp.
 - DEFAULT_ASSISTANT_MODE: chưa có tài liệu riêng, vẫn trả lời khách mặc định một cách lịch sự, hỗ trợ hỏi thêm nhu cầu và chuyển nhân viên khi cần.
 
-Dữ liệu tri thức đã truy xuất riêng cho doanh nghiệp ${ragContext?.companyCode || "hiện tại"}:
+Dữ liệu tri thức đã truy xuất riêng cho doanh nghiệp "${companyName}":
 ${ragContext?.contextText ? ragContext.contextText : "- Không tìm thấy tri thức phù hợp trong kho dữ liệu."}
 
-Quy tắc an toàn bắt buộc:
-- Khi ở DEFAULT_ASSISTANT_MODE, vẫn được chào hỏi, xác nhận nhu cầu, hỏi thêm thông tin, hướng dẫn khách để lại số điện thoại/nhu cầu và nói sẽ có nhân viên hỗ trợ.
-- Chỉ trả lời các thông tin cụ thể về giá, bảo hành, giao hàng, đổi trả, khuyến mãi nếu có trong dữ liệu tri thức ở trên hoặc trong lịch sử hội thoại.
-- Nếu khách hỏi chính sách/giá/thông tin cụ thể mà không có dữ liệu phù hợp, hãy nói rằng bạn cần chuyển nhân viên kiểm tra lại, tuyệt đối không tự bịa.
-- Không trộn lẫn thông tin giữa các công ty khác nhau.
+QUY TẮC AN TOÀN BẮT BUỘC ĐỂ TRÁNH BỊA ĐẶT THÔNG TIN (ANTI-HALLUCINATION):
+1. Tuyệt đối KHÔNG tự bịa ra bất kỳ thông tin nào không có trong "Dữ liệu tri thức đã truy xuất riêng cho doanh nghiệp" ở trên (bao gồm cả giá cả, tính năng sản phẩm, chính sách bảo hành, số điện thoại, địa chỉ, ưu đãi...).
+2. Nếu khách hỏi thông tin cụ thể (ví dụ: giá sản phẩm, chính sách đổi trả, ship hàng, thông số sản phẩm...) mà KHÔNG có trong dữ liệu tri thức được cung cấp ở trên, bạn PHẢI trả lời lịch sự rằng hiện tại bạn chưa có thông tin chi tiết này và xin phép được chuyển cuộc trò chuyện cho nhân viên hỗ trợ giải đáp trực tiếp. KHÔNG được đoán hay tự bịa ra thông tin.
+3. KHÔNG nhắc đến "iGen ERP" hay bất kỳ thông tin nào của iGen ERP trừ khi tên doanh nghiệp của bạn chính là iGen ERP hoặc thông tin này nằm trong tài liệu tri thức.
+4. Trả lời ngắn gọn, trực diện, không dài dòng.
 
 Thông tin cấu hình hiện tại của bạn:
 - Tự động phân loại khách hàng: ${aiConfig.autoClassify ? "Đang BẬT. Hãy phân loại khách dựa trên xu hướng hội thoại và thông báo khéo léo." : "Đang TẮT"}
 - Tự động chốt đơn hàng: ${aiConfig.autoCloseDeal ? "Đang BẬT. Hãy tìm cơ hội khéo léo hướng khách hàng chốt mua sản phẩm một cách nhanh gọn, gửi thông tin tạo đơn." : "Đang TẮT"}
 - Tự động xin feedback cuối hội thoại: ${aiConfig.autoFeedback ? "Đang BẬT. Nếu cuộc đối thoại đi đến hồi kết, hãy lịch sự xin ý kiến đánh giá chất lượng dịch vụ." : "Đang TẮT"}
-- Với Nguyễn Thị Mai (khách VIP): hãy đối xử cực kỳ chu đáo, tặng voucher riêng VIP-10 nếu có ý than phiền hoặc hỏi giá.
 `;
 
     const contents = history.map((h: any) => ({
@@ -462,20 +452,8 @@ Thông tin cấu hình hiện tại của bạn:
    * Tự động băm/chuyển đổi tài liệu dài thành danh sách FAQs rút gọn
    */
   async convertDocToFAQ(docText: string): Promise<string> {
-    const getMockFAQ = () => {
-      return `--- BẢN FAQ ĐÃ ĐƯỢC CHUẨN HÓA (CHẾ ĐỘ MÔ PHỎNG AI) ---
-Q: Tài liệu này nói về chủ đề gì?
-A: Tài liệu giới thiệu thông tin vận hành, chính sách bán hàng của doanh nghiệp.
-
-Q: Làm thế nào để liên hệ hỗ trợ kỹ thuật?
-A: Vui lòng liên hệ số hotline 1900xxxx hoặc email support@igen.com.
-
-Q: Chính sách vận chuyển của chúng tôi là gì?
-A: Giao hàng toàn quốc. Miễn phí vận chuyển cho đơn hàng trị giá từ 500k trở lên.`;
-    };
-
     if (!process.env.GEMINI_API_KEY) {
-      return getMockFAQ();
+      throw new Error("Cấu hình GEMINI_API_KEY bị thiếu trên hệ thống.");
     }
 
     try {
@@ -505,8 +483,46 @@ ${docText}
 
       return response.text || "Không thể trích xuất được dữ liệu FAQ từ tài liệu.";
     } catch (error: any) {
-      console.error("[geminiService.convertDocToFAQ] Error, fallback to mock FAQ:", error);
-      return getMockFAQ();
+      console.error("[geminiService.convertDocToFAQ] Error converting doc to FAQ:", error);
+      throw new Error(`Lỗi xử lý tài liệu AI: ${error.message || error}`);
+    }
+  },
+
+  /**
+   * Trích xuất văn bản từ file PDF sử dụng Gemini API
+   */
+  async extractTextFromPdf(pdfBase64: string): Promise<string> {
+    if (!process.env.GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY is not configured");
+    }
+
+    try {
+      console.log(`[AI AutoReply] Đang gọi Gemini trích xuất văn bản từ PDF (base64 length: ${pdfBase64.length})...`);
+      const ai = getGeminiClient();
+      const response = await ai.models.generateContent({
+        model: GEMINI_TEXT_MODEL,
+        contents: [
+          {
+            role: "user",
+            parts: [
+              {
+                inlineData: {
+                  mimeType: "application/pdf",
+                  data: pdfBase64,
+                },
+              },
+              {
+                text: "Bạn là trợ lý trích xuất văn bản. Hãy trích xuất và trả về toàn bộ nội dung văn bản (text) có trong file tài liệu PDF này một cách đầy đủ, chính xác nhất theo đúng thứ tự đọc của tài liệu. Chỉ trả về nội dung văn bản thuần, không thêm thắt giải thích, không định dạng markdown hay giới thiệu gì ngoài nội dung gốc.",
+              },
+            ],
+          },
+        ],
+      });
+
+      return response.text || "";
+    } catch (error: any) {
+      console.error("[geminiService.extractTextFromPdf] Error extracting text from PDF:", error);
+      throw error;
     }
   },
 
