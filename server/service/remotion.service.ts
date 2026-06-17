@@ -62,10 +62,21 @@ export const remotionService = {
         },
       };
 
+      // Use system Chromium on Debian/Docker (avoids Puppeteer download)
+      // Note: Remotion handles --no-sandbox automatically when running as root in Docker
+      const chromiumOptions: Parameters<typeof renderMedia>[0]["chromiumOptions"] = {
+        disableWebSecurity: false,
+        ignoreCertificateErrors: false,
+        enableMultiProcessOnLinux: true,
+      };
+
+      const browserExecutable = process.env.PUPPETEER_EXECUTABLE_PATH || process.env.CHROME_PATH || null;
+
       const composition = await selectComposition({
         serveUrl: bundleLocation,
         id: "video-edit",
         inputProps,
+        ...(browserExecutable ? { browserExecutable } : {}),
       });
 
       if (onProgress) {
@@ -78,6 +89,8 @@ export const remotionService = {
         codec: "h264",
         outputLocation: outputPath,
         inputProps,
+        chromiumOptions,
+        ...(browserExecutable ? { browserExecutable } : {}),
         onProgress: (progressData) => {
           const percent = Math.round(65 + progressData.progress * 20);
           if (onProgress) {

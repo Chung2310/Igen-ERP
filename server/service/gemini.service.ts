@@ -31,6 +31,10 @@ function safeParseJson(text: string): any {
 }
 
 async function fetchWithRetry(url: string, retries = 3, delay = 2000): Promise<Response> {
+  // Guard: reject non-HTTP(S) URLs immediately (e.g. pending://, blob://) to avoid cryptic errors
+  if (!url || (!url.startsWith("http://") && !url.startsWith("https://"))) {
+    throw new Error(`fetchWithRetry: URL không hợp lệ hoặc không thể tải qua HTTP: "${url}"`);
+  }
   let lastError: any;
   for (let i = 0; i < retries; i++) {
     try {
@@ -2245,11 +2249,19 @@ Return ONLY valid JSON. No markdown backticks, no comments, no conversational te
           const audioElements = timeline.filter((item: any) => item.type === "audio");
 
           // Extract all unique source video URLs from timeline video clips
-          let uniqueVideoUrls: string[] = Array.from(new Set(videoClips.map((clip: any) => clip.src).filter(Boolean))) as string[];
+          // Filter out any non-HTTP URLs (e.g. pending://, blob://) which cannot be fetched
+          let uniqueVideoUrls: string[] = Array.from(new Set(
+            videoClips
+              .map((clip: any) => clip.src)
+              .filter((src: any) => typeof src === "string" && src.startsWith("http"))
+          )) as string[];
           
           // If the timeline didn't specify any source URLs (fallback case), extract them from the request videoUrl
           if (uniqueVideoUrls.length === 0) {
-            uniqueVideoUrls = videoUrl.split(/,\s*(?=https?:\/\/)/).map(u => u.trim()).filter(Boolean);
+            uniqueVideoUrls = videoUrl
+              .split(/,\s*(?=https?:\/\/)/)
+              .map((u: string) => u.trim())
+              .filter((u: string) => u.startsWith("http"));
           }
 
           const videoTempPaths: string[] = [];
