@@ -111,14 +111,14 @@ export function HeyGenOptionsDrawer(props: HeyGenOptionsDrawerProps) {
                 </div>
                 <div>
                   <p className="text-sm font-bold text-slate-900">{selectedAudio?.metadata?.title || selectedAudio?.metadata?.voiceName || "Đổi giọng nói"}</p>
-                  <p className="text-xs text-slate-500">Nguồn audio ElevenLabs</p>
+                
                 </div>
               </div>
               <ChevronRight className="h-4 w-4 text-slate-400" />
             </OptionCard>
 
             <div className="space-y-2">
-              <p className="text-sm font-bold text-slate-900">Bộ máy chuyển động</p>
+              <p className="text-sm font-bold text-slate-900">Model tạo Video</p>
               <button type="button" onClick={onOpenModelPicker} disabled={isLoadingLibrary} className={`flex w-full items-center justify-between rounded-[20px] border ${HEYGEN_THEME.accentBorder} ${HEYGEN_THEME.surfaceMuted} px-4 py-3 text-left shadow-[0_0_0_1px_rgba(34,211,238,0.1)] transition-all duration-200 hover:bg-cyan-50/60 disabled:cursor-wait disabled:opacity-70`}>
                 <div className="flex items-center gap-3">
                   <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-fuchsia-300 via-violet-200 to-slate-300 text-[11px] font-bold text-slate-900">
