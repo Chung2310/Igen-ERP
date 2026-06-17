@@ -261,5 +261,29 @@ export const zaloMessengerController = {
         message: error.message || "Không thể chẩn đoán cấu hình Zalo OA.",
       });
     }
+  },
+
+  async diagnoseConversation(req: any, res: Response): Promise<any> {
+    try {
+      const userId = req.user?.id;
+      const { conversationId } = req.params;
+      if (!userId) {
+        return res.status(401).json({ success: false, message: "Nguoi dung chua dang nhap." });
+      }
+
+      const { isConnected, oaId } = await getZaloOaConfig(userId);
+      if (!isConnected || !oaId) {
+        return res.status(403).json({ success: false, message: "Ban chua cau hinh tich hop Zalo OA." });
+      }
+
+      const diagnostic = await zaloMessengerService.diagnoseConversation(oaId, conversationId);
+      return res.status(200).json({ success: true, data: diagnostic });
+    } catch (error: any) {
+      console.error("[Zalo Controller diagnoseConversation] Loi:", error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || "Khong the chan doan hoi thoai Zalo.",
+      });
+    }
   }
 };
