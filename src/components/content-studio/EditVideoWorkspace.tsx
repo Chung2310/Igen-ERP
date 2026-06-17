@@ -823,7 +823,7 @@ export function EditVideoWorkspace({
                     Chưa có lịch sử tạo video.
                   </div>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="max-h-[600px] overflow-y-auto pr-1 space-y-3">
                     {history.slice(0, 20).map((item) => (
                       <button
                         key={item._id || item.id || item.url}
