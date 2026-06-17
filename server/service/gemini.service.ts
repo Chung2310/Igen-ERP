@@ -2020,6 +2020,35 @@ Return ONLY valid JSON. No markdown backticks, no comments, no conversational te
       const aspect = record?.metadata?.aspectRatio || "16:9";
       const resolution = record?.metadata?.resolution || "720p";
 
+      let targetWidth = 1280;
+      let targetHeight = 720;
+
+      if (aspect === "9:16") {
+        if (resolution === "1080p") {
+          targetWidth = 1080;
+          targetHeight = 1920;
+        } else {
+          targetWidth = 720;
+          targetHeight = 1280;
+        }
+      } else if (aspect === "1:1") {
+        if (resolution === "1080p") {
+          targetWidth = 1080;
+          targetHeight = 1080;
+        } else {
+          targetWidth = 720;
+          targetHeight = 720;
+        }
+      } else { // default 16:9
+        if (resolution === "1080p") {
+          targetWidth = 1920;
+          targetHeight = 1080;
+        } else {
+          targetWidth = 1280;
+          targetHeight = 720;
+        }
+      }
+
       let finalVideoUrl = "";
       let renderSuccess = false;
 
@@ -2256,6 +2285,7 @@ videoClips.forEach((clip: any, idx: number) => {
   if (rate !== 1) {
     vFilter += `,setpts=${1 / rate}*(PTS-STARTPTS)`;
   }
+  vFilter += `,scale=w='min(${targetWidth},iw*${targetHeight}/ih)':h='min(${targetHeight},ih*${targetWidth}/iw)',pad=w=${targetWidth}:h=${targetHeight}:x='(${targetWidth}-iw)/2':y='(${targetHeight}-ih)/2':color=black,setsar=1`;
   vFilter += `,fps=fps=30`;
   vFilter += `[v_proc_${idx}];`;
   filterComplex += vFilter;
