@@ -112,8 +112,7 @@ export function EditVideoWorkspace({
   };
 
   useEffect(() => {
-    // Only add initialVideoUrl if it's a real, fetchable URL (not pending://)
-    if (initialVideoUrl && initialVideoUrl.startsWith('http')) {
+    if (initialVideoUrl) {
       setVideoInputs(prev => {
         if (prev.some(item => item.url === initialVideoUrl)) {
           return prev;
@@ -375,12 +374,7 @@ export function EditVideoWorkspace({
         toast.success('Tải các video gốc thành công.');
       }
 
-      const jointVideoUrl = uploadedUrls.filter(u => u.startsWith('http')).join(',');
-      if (!jointVideoUrl) {
-        toast.error('Không có URL video hợp lệ. Vui lòng tải lên video thực trước khi tạo.');
-        setIsGenerating(false);
-        return;
-      }
+      const jointVideoUrl = uploadedUrls.join(',');
       const totalDuration = videoInputs.reduce((sum, v) => sum + (v.duration || 0), 0);
 
       toast.info('Đang gửi yêu cầu biên tập video đến AI...');
@@ -941,11 +935,6 @@ export function EditVideoWorkspace({
                         key={item._id || item.id || item.url}
                         type="button"
                         onClick={() => {
-                          // Don't allow selecting videos that are still processing
-                          if (!item.url || item.url.startsWith('pending://')) {
-                            toast.warning('Video này đang được xử lý, vui lòng chờ hoàn tất trước khi sử dụng làm nguồn đầu vào.');
-                            return;
-                          }
                           const duration = item.metadata?.duration ? Number(item.metadata.duration) : 0;
                           setVideoInputs(prev => [...prev, { url: item.url, duration }]);
                           setShowLibraryModal(false);
