@@ -34,6 +34,8 @@ const STYLE_PRESETS = [
   { label: 'Product Demo', prompt: 'Làm video review sản phẩm chuyên nghiệp, highlight tính năng, chuyển cảnh mượt.' },
   { label: 'Travel Vlog', prompt: 'Biên tập clip travel cinematic, màu ấm, chuyển cảnh mềm, nhạc nhẹ.' },
   { label: 'Before / After', prompt: 'So sánh trước sau, giữ rõ nội dung chính và nhấn mạnh diệu màu, hiệu ứng zoom.' },
+  { label: 'Ghép video', prompt: 'Ghép nối các video này lại với nhau theo thứ tự, giữ nguyên độ dài ban đầu của từng video.' },
+  { label: 'Ghép & Nhạc nền', prompt: 'Ghép các video này lại với nhau theo thứ tự và chèn thêm nhạc lofi thư giãn chạy suốt cả video.' }
 ];
 
 export function EditVideoWorkspace({
@@ -333,6 +335,7 @@ export function EditVideoWorkspace({
         aspectRatio,
         resolution,
         duration: totalDuration || undefined,
+        videoDurations: videoInputs.map(v => v.duration || 0),
       });
 
       if (response.record) {
@@ -471,6 +474,24 @@ export function EditVideoWorkspace({
                   Xóa
                 </button>
               </div>
+
+              <div className="flex flex-wrap gap-2 pt-1 pb-2">
+                {STYLE_PRESETS.map((preset, idx) => {
+                  const isConcatPreset = preset.label.startsWith('Ghép');
+                  if (isConcatPreset && videoInputs.length < 2) return null;
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => handleSelectPreset(preset.prompt)}
+                      className="rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-slate-950 hover:border-slate-350 shadow-xs cursor-pointer animate-in fade-in duration-200"
+                    >
+                      {preset.label}
+                    </button>
+                  );
+                })}
+              </div>
+
               <textarea
                 value={prompt}
                 onChange={(e) => {

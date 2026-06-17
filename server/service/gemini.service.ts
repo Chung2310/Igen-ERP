@@ -8,12 +8,42 @@ import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 
-const GEMINI_TEXT_MODEL = "gemini-3.5-flash";
+const GEMINI_TEXT_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || "piapi-flux";
 const GEMINI_VIDEO_MODEL = process.env.GEMINI_VIDEO_MODEL || "veo31-video-fast-audio";
 
 function getGeminiClient() {
   return new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+}
+
+function safeParseJson(text: string): any {
+  let cleaned = text.trim();
+  if (cleaned.startsWith("```")) {
+    const match = cleaned.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+    if (match) {
+      cleaned = match[1].trim();
+    }
+  }
+  return JSON.parse(cleaned);
+}
+
+async function fetchWithRetry(url: string, retries = 3, delay = 2000): Promise<Response> {
+  let lastError: any;
+  for (let i = 0; i < retries; i++) {
+    try {
+      const res = await fetch(url);
+      if (res.ok) return res;
+      lastError = new Error(`HTTP ${res.status} - ${res.statusText}`);
+    } catch (err) {
+      lastError = err;
+    }
+    if (i < retries - 1) {
+      console.warn(`[fetchWithRetry] Failed to fetch ${url}. Retrying in ${delay}ms... Error: ${lastError?.message || lastError}`);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      delay *= 2;
+    }
+  }
+  throw lastError;
 }
 
 async function getVideoDuration(url: string): Promise<number> {
@@ -231,16 +261,39 @@ async function generateText(
   const geminiStartTime = Date.now();
   console.log(`[generateText] Calling Gemini API | model=${modelId} | contentParts=${geminiContents.length} | hasSchema=${!!geminiConfig.responseSchema} | hasImages=${!!(config?.images?.length)}`);
 
-  const response = await ai.models.generateContent({
-    model: modelId,
-    contents: geminiContents,
-    config: geminiConfig,
-  });
+  const maxRetries = 3;
+  let delay = 1000;
+  let lastError: any;
 
-  const geminiElapsed = Date.now() - geminiStartTime;
-  const text = response.text || "";
-  console.log(`[generateText] Gemini API responded | ${geminiElapsed}ms (${(geminiElapsed / 1000).toFixed(1)}s) | responseLen=${text.length}`);
-  return { text };
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await ai.models.generateContent({
+        model: modelId,
+        contents: geminiContents,
+        config: geminiConfig,
+      });
+
+      const geminiElapsed = Date.now() - geminiStartTime;
+      const text = response.text || "";
+      console.log(`[generateText] Gemini API responded | ${geminiElapsed}ms (${(geminiElapsed / 1000).toFixed(1)}s) | responseLen=${text.length}`);
+      return { text };
+    } catch (error: any) {
+      lastError = error;
+      const errorMsg = error?.message || String(error);
+      const isRateLimit = error?.status === 429 || errorMsg.includes("429") || errorMsg.includes("RESOURCE_EXHAUSTED") || errorMsg.includes("quota");
+      const isUnavailable = error?.status === 503 || errorMsg.includes("503") || errorMsg.includes("UNAVAILABLE") || errorMsg.includes("experiencing high demand");
+
+      if ((isRateLimit || isUnavailable) && attempt < maxRetries) {
+        console.warn(`[generateText] Attempt ${attempt} failed with API error (rate-limit/unavailable). Retrying in ${delay}ms... Error: ${errorMsg}`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        delay *= 2;
+      } else {
+        throw error;
+      }
+    }
+  }
+
+  throw lastError;
 }
 
 export const geminiService = {
@@ -439,7 +492,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
       );
 
       const responseText = response.text || "{}";
-      const parsedData = JSON.parse(responseText.trim());
+      const parsedData = safeParseJson(responseText);
       return parsedData.suggestions || fallbackSuggestions;
     } catch (error: any) {
       console.error("[geminiService.getMarketingSuggestions] Fallback to mock suggestions:", error);
@@ -599,7 +652,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
       );
 
       const responseText = response.text || "{}";
-      const parsedData = JSON.parse(responseText.trim());
+      const parsedData = safeParseJson(responseText);
       return { pillars: parsedData.pillars || [], isMock: false };
     } catch (error: any) {
       console.error("[geminiService.analyzeMarketingPillars] Error, fallback to mock pillars:", error);
@@ -753,7 +806,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
       );
 
       const responseText = response.text || "{}";
-      const parsedData = JSON.parse(responseText.trim());
+      const parsedData = safeParseJson(responseText);
       const groundedConcepts = (parsedData.concepts || []).map((concept: any) => {
         const groundedConcept = buildFaithfulVisualGuardrail({
           sourceBrief: campaignTopic,
@@ -991,7 +1044,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
         );
 
         const responseText = response.text || "{}";
-        const parsedData = JSON.parse(responseText.trim());
+        const parsedData = safeParseJson(responseText);
         posts = (parsedData.posts || []).map((post: any) => {
           const groundedPrompt = buildFaithfulVisualGuardrail({
             sourceBrief: sourceBriefText,
@@ -1128,7 +1181,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
   ): Promise<{ url: string; isMock: boolean }> {
     let actualPrompt = prompt;
     try {
-      const parsed = JSON.parse(prompt);
+      const parsed = safeParseJson(prompt);
       if (parsed.optimized_english_prompt) {
         actualPrompt = parsed.optimized_english_prompt;
         if (parsed.motion_analysis) actualPrompt += `. Motion: ${parsed.motion_analysis}`;
@@ -1342,7 +1395,7 @@ Do not include markdown blocks or any text other than the JSON object.`
         responseMimeType: "application/json",
         images: imageUris?.filter((u: string) => u && typeof u === "string"),
       });
-      return JSON.parse(result.text.trim());
+      return safeParseJson(result.text);
     } catch (error: any) {
       console.error("[geminiService.optimizeImagePrompt] Gemini Error, fallback to local optimizer:", error);
       return getMockImagePrompt();
@@ -1503,7 +1556,7 @@ Do not include markdown blocks or any text other than the JSON object.`
         responseMimeType: "application/json",
         images: imageUris?.filter((u: string) => u && typeof u === "string"),
       });
-      return JSON.parse(videoResult.text.trim());
+      return safeParseJson(videoResult.text);
     } catch (error: any) {
       console.error("[geminiService.optimizeVideoPrompt] Gemini Error, fallback to local optimizer:", error);
       return getMockVideoPrompt();
@@ -1522,15 +1575,21 @@ Do not include markdown blocks or any text other than the JSON object.`
       aspectRatio?: string;
       resolution?: string;
       duration?: number;
+      videoDurations?: number[];
     }
   ): Promise<{ status: string; record: any; blueprint: any }> {
     const urls = videoUrl.split(",").map(u => u.trim()).filter(Boolean);
     const isMultiple = urls.length > 1;
+    const clientDurations = options?.videoDurations || [];
 
     const urlDurations: { [url: string]: number } = {};
     let totalComputedDuration = 0;
-    for (const url of urls) {
-      const dur = await getVideoDuration(url);
+    for (let i = 0; i < urls.length; i++) {
+      const url = urls[i];
+      let dur = clientDurations[i] ? Number(clientDurations[i]) : 0;
+      if (dur <= 0) {
+        dur = await getVideoDuration(url);
+      }
       urlDurations[url] = dur;
       totalComputedDuration += dur;
     }
@@ -1607,7 +1666,16 @@ CRITICAL MULTI-VIDEO RULES:
 - The total target duration of the compiled video MUST be the EXACT sum of all source video durations: (Duration of Video 1 + Duration of Video 2 + ... + Duration of Video N) unless there is a specific instruction to trim or cut a video.
 - For each source video, you MUST generate segments that cover its ENTIRE original duration. For example, if Video 1 is 10s and Video 2 is 15s, you must create video clips for Video 1 covering [0s to 10s] and video clips for Video 2 covering [0s to 15s]. The final video length must be exactly 25s.
 - The "start" and "end" timestamps inside each video segment must be relative to that source video's original timeline (from 0 to its specific duration).
-- Keep the timeline continuous. Calculate the cumulative duration of all preceding clips (taking playbackRate into account) to know the start/end offsets for text overlays, audio tracks, and logos.` 
+- Keep the timeline continuous. Calculate the cumulative duration of all preceding clips (taking playbackRate into account) to know the start/end offsets for text overlays, audio tracks, and logos.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🇻🇳 QUY TẮC GHÉP VIDEO TIẾNG VIỆT (VIETNAMESE CONCATENATION RULES)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Khi người dùng yêu cầu ghép video (sử dụng các từ như "ghép video", "nối video", "ghép lại", "nối lại", "gộp video", "ghép các clip", "nối các clip lại với nhau"):
+  - Bạn MUST sắp xếp tất cả các video được cung cấp theo đúng thứ tự (Video 1, Video 2,... Video N).
+  - Trừ khi có yêu cầu cắt/trim cụ thể, mỗi video phải chạy trọn vẹn thời lượng gốc của nó (start: 0, end: duration).
+  - Tổng thời lượng của video đầu ra phải bằng tổng thời lượng của các video gốc cộng lại.
+  - Vẫn giữ nguyên các layer text, nhạc nền hay logo chạy song song trong final timeline nếu được yêu cầu.` 
   : `The original video URL is "${urls[0]}".
 The original video duration is exactly ${originalDuration || 5} seconds.`}
 
@@ -1784,6 +1852,26 @@ Return ONLY valid JSON. No markdown backticks, no comments, no conversational te
     { "type": "audio", "src": "https://assets.mixkit.co/active_storage/sfx/2568/2568-84.wav", "start": 6, "end": 8, "volume": 0.9 }
   ]
 }
+
+▸ Example F: "Ghép các video này lại với nhau, thêm nhạc lofi thư giãn" (V1=8s, V2=12s)
+- Total output = 8 + 12 = 20s. Both videos are played sequentially in full.
+{
+  "timeline": [
+    { "type": "video", "src": "URL_VIDEO_1", "start": 0, "end": 8, "playbackRate": 1.0 },
+    { "type": "video", "src": "URL_VIDEO_2", "start": 0, "end": 12, "playbackRate": 1.0 },
+    { "type": "audio", "src": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3", "start": 0, "end": 20, "volume": 0.7 }
+  ]
+}
+
+▸ Example G: "Ghép video 1 và video 2 lại, chèn chữ 'Kết quả' ở giây thứ 5 đến 8" (V1=6s, V2=10s)
+- Total output = 6 + 10 = 16s.
+{
+  "timeline": [
+    { "type": "video", "src": "URL_VIDEO_1", "start": 0, "end": 6, "playbackRate": 1.0 },
+    { "type": "video", "src": "URL_VIDEO_2", "start": 0, "end": 10, "playbackRate": 1.0 },
+    { "type": "text", "content": "Kết quả", "start": 5, "end": 8, "style": { "position": "bottom-center", "color": "#FFFFFF", "fontSize": "32px" } }
+  ]
+}
 `;
 
         const messages = [
@@ -1795,7 +1883,7 @@ Return ONLY valid JSON. No markdown backticks, no comments, no conversational te
           systemInstruction: systemPrompt,
           responseMimeType: "application/json",
         });
-        blueprint = JSON.parse(editResult.text.trim());
+        blueprint = safeParseJson(editResult.text);
       }
     } catch (error) {
       console.error("[geminiService.editVideo] Failed to get LLM blueprint, falling back:", error);
@@ -1926,7 +2014,7 @@ Return ONLY valid JSON. No markdown backticks, no comments, no conversational te
               fs.copyFileSync(localCachePath, tempInput);
             } else {
               await updateLogs(50, `[Render Engine Fallback] Đang tải video gốc ${ i + 1 }/${uniqueVideoUrls.length} xuống server tạm...`);
-const response = await fetch(url);
+const response = await fetchWithRetry(url);
 if (!response.ok) {
   throw new Error(`Tải video gốc ${i + 1} thất bại: HTTP ${response.status}`);
 }
@@ -1959,7 +2047,7 @@ for (let i = 0; i < imageElements.length; i++) {
   const img = imageElements[i];
   const tempImgPath = path.join(os.tmpdir(), `overlay_img_${recordId}_${i}${path.extname(img.src || '.png')}`);
   try {
-    const imgRes = await fetch(img.src);
+    const imgRes = await fetchWithRetry(img.src);
     if (imgRes.ok) {
       fs.writeFileSync(tempImgPath, Buffer.from(await imgRes.arrayBuffer()));
       imageTempPaths.push(tempImgPath);
@@ -1977,7 +2065,7 @@ for (let i = 0; i < audioElements.length; i++) {
   const aud = audioElements[i];
   const tempAudPath = path.join(os.tmpdir(), `overlay_aud_${recordId}_${i}${path.extname(aud.src || '.mp3')}`);
   try {
-    const audRes = await fetch(aud.src);
+    const audRes = await fetchWithRetry(aud.src);
     if (audRes.ok) {
       fs.writeFileSync(tempAudPath, Buffer.from(await audRes.arrayBuffer()));
       audioTempPaths.push(tempAudPath);
