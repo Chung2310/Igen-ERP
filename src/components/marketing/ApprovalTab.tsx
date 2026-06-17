@@ -13,7 +13,7 @@ interface ApprovalTabProps {
   setApprovalCards: React.Dispatch<React.SetStateAction<ContentApprovalCard[]>>;
   updateCardStatus: (id: string, newStatus: "draft" | "pending" | "approved" | "scheduled" | "published") => Promise<void>;
   deleteCard: (id: string) => Promise<void>;
-  handleInitAIGeneration: (card: ContentApprovalCard, type?: "image" | "video") => void;
+  handleInitAIGeneration: (card: ContentApprovalCard, type?: "image" | "video" | "voice") => void;
   handleOpenLightbox: (card: ContentApprovalCard, type: "image" | "video", url: string) => void;
   handlePublishToTikTok: (card: ContentApprovalCard) => Promise<void>;
   publishingTikTokId: string | null;
@@ -100,8 +100,6 @@ export default function ApprovalTab({
           <span>Bạn đang sử dụng tài khoản quyền USER. Bạn có thể tạo bài viết mới, gửi duyệt nhập, lên lịch đăng tải và xóa bài viết của mình, nhưng không có quyền phê duyệt bài viết đang chờ duyệt.</span>
         </div>
       )}
-
-
 
       <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin" id="moderation_columns">
         <div className="bg-slate-50/50 border border-slate-200/60 rounded-3xl p-3 flex flex-col min-h-[500px] flex-1 min-w-[280px] md:min-w-[320px] shadow-3xs">

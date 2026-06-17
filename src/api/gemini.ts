@@ -272,7 +272,7 @@ export const geminiApi = {
   async editVideo(
     videoUrl: string,
     prompt: string,
-    options?: { modelName?: string; aspectRatio?: string; resolution?: string; duration?: number }
+    options?: { modelName?: string; aspectRatio?: string; resolution?: string; duration?: number; videoDurations?: number[] }
   ): Promise<{ status: string; record: any; blueprint: any }> {
     const headers = await getHeaders(true);
     const response = await fetch('/api/v1/gemini/edit-video', {
@@ -298,6 +298,9 @@ export const geminiApi = {
     title?: string;
     description?: string;
     stability?: number;
+    similarityBoost?: number;
+    useSpeakerBoost?: boolean;
+    style?: number;
   }): Promise<{ status: string; record: any }> {
     const headers = await getHeaders(true);
     const response = await fetch('/api/v1/gemini/generate-voice', {

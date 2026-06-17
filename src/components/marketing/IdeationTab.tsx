@@ -30,6 +30,7 @@ interface IdeationTabProps {
 
 export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }: IdeationTabProps) {
   const hasFetchedRef = useRef(false);
+  const DEFAULT_HUMAN_VOICE_DURATION_SECONDS = 45;
 
   // 1. AI Campaign Ideation States
   const [campaignInput, setCampaignInput] = useState("");
@@ -215,7 +216,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
   const [selectedHumanAvatar, setSelectedHumanAvatar] = useState("mc-linh");
   const [selectedHumanVoice, setSelectedHumanVoice] = useState("igen-female-bright");
   const [selectedHumanVoiceModel, setSelectedHumanVoiceModel] = useState("eleven_turbo_v2_5");
-  const [estimatedHumanVoiceDuration, setEstimatedHumanVoiceDuration] = useState("15");
+  const [estimatedHumanVoiceDuration, setEstimatedHumanVoiceDuration] = useState(String(DEFAULT_HUMAN_VOICE_DURATION_SECONDS));
   const [humanVideoAvatars, setHumanVideoAvatars] = useState<HeyGenLibraryItem[]>([]);
   const [humanVideoVoices, setHumanVideoVoices] = useState<any[]>([]);
   const [isLoadingHumanVideoAvatars, setIsLoadingHumanVideoAvatars] = useState(false);
@@ -238,26 +239,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
     }
   };
 
-  const [concepts, setConcepts] = useState<MarketingConcept[]>([
-    {
-      title: "Chiến dịch: Chạm Đột Phá - Sành điệu công nghệ X1",
-      matchPercent: 92,
-      summary: "Tạo các video ngắn trên TikTok hướng đến lối sống tích cực, nhấn mạnh khả năng kết nối không dây siêu mượt và tính năng đo nhịp tim tự động của thiết bị X1.",
-      channels: ["TikTok", "Zalo"],
-      suggestedContent: "🎬 Kịch bản Reels: Một ngày bận rộn bắt đầu... Chạm nhẹ thiết bị đeo X1 để bật nhạc chạy bộ buổi sáng kết thúc ngày hiệu năng đỉnh cao.",
-      hashtags: ["#iGenX1", "#SmartWearable", "#NangTamCuocSong"],
-      mediaType: "video"
-    },
-    {
-      title: "Giải pháp chuyển đổi số - Tri ân doanh nghiệp",
-      matchPercent: 88,
-      summary: "Chiến dịch bài viết uy tín sâu trên LinkedIn & Facebook tri ân các đối tác đã số hóa quản lý Kho hàng nhờ iGen ERP.",
-      channels: ["Zalo", "Facebook"],
-      suggestedContent: "✍️ Câu chuyện: Gặp gỡ thương hiệu thời trang G-Trend, từ bế tắc thất thoát tồn kho đến quản lý an nhàn tự động 100% nhờ iGen-Forecast.",
-      hashtags: ["#iGenERP", "#ChuyenDoiSo", "#DigitalTransformation"],
-      mediaType: "image"
-    }
-  ]);
+  const [concepts, setConcepts] = useState<MarketingConcept[]>([]);
 
   const [selectedPillars, setSelectedPillars] = useState<string[]>([
     "Pillar A: Educate & Guides",
@@ -395,6 +377,11 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
 
   const buildHumanVideoVoiceBrief = () => {
     if (mediaType !== "human-video") return "";
+    const normalizedDuration = Math.max(
+      1,
+      parseInt(estimatedHumanVoiceDuration, 10) || DEFAULT_HUMAN_VOICE_DURATION_SECONDS
+    );
+    const targetWordCount = Math.max(80, Math.round(normalizedDuration * 2.6));
 
     const voiceLabel =
       humanVideoVoices.find((voice: any) => (voice.voice_id || voice.id) === selectedHumanVoice)?.label ||
@@ -407,14 +394,16 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
         : "iGen Audio Turbo v2.5";
 
     return [
-      "YEU CAU RIENG CHO VIDEO NGUOI THAT:",
-      `- Hay phan tich mo ta chien dich va viet thanh mot doan loi thoai hoan chinh, tu nhien, co the dem doc truc tiep.`,
-      `- Giong doc duoc chon: ${voiceLabel}.`,
-      `- Model voice duoc chon: ${voiceModelLabel}.`,
-      `- Thoi luong doc muc tieu: khoang ${estimatedHumanVoiceDuration} giay.`,
-      `- Hay toi uu do dai cau chu de khi tao script voice, tong do dai phai phu hop de doc tron ven trong khoang thoi gian muc tieu.`,
-      `- Uu tien cau ngan, nhip doc ro, mo dau cuon hut, thong diep chinh ro rang va ket bang CTA ngan gon.`,
-      `- Dau ra can uu tien dang script voice hoan chinh truoc, sau do moi den goi y boi canh quay neu can.`
+      "YÊU CẦU RIÊNG CHO VIDEO NGƯỜI THẬT:",
+      `- Hãy phân tích mô tả chiến dịch và viết thành một đoạn lời thoại hoàn chỉnh, tự nhiên, có thể đem đọc trực tiếp.`,
+      `- Giọng đọc được chọn: ${voiceLabel}.`,
+      `- Model voice được chọn: ${voiceModelLabel}.`,
+      `- Thời lượng đọc mục tiêu: khoảng ${normalizedDuration} giây.`,
+      `- Độ dài script voice cần được tối ưu để đọc hết trong khoảng ${normalizedDuration} giây, tương đương xấp xỉ ${targetWordCount} từ với tốc độ đọc tự nhiên.`,
+      `- Đầu ra ưu tiên là một đoạn voice script hoàn chỉnh để đưa thẳng vào công cụ tạo voice; không viết dạng dàn ý, không chèn bullet, không thêm nhãn MC/Voiceover.`,
+      `- Ưu tiên câu ngắn, nhịp đọc rõ, mở đầu cuốn hút, thông điệp chính rõ ràng và kết bằng CTA ngắn gọn.`,
+      `- Đầu ra cần ưu tiên dạng script voice hoàn chỉnh trước, sau đó mới đến gợi ý bối cảnh quay nếu cần.`,
+      `- BẮT BUỘC viết bằng tiếng Việt có dấu, không được bỏ dấu tiếng Việt.`
     ].join("\n");
   };
 
@@ -425,10 +414,10 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
     const outlineText = String(post?.outline || "").trim();
     const bodyText = String(post?.bodyText || "").trim();
     const fallbackParts = [
-      `Xin chao, day la video gioi thieu cho chien dich ${fallbackTitle}.`,
+      `Xin chào, đây là video giới thiệu cho chiến dịch ${fallbackTitle}.`,
       fallbackSummary,
       bodyText,
-      "Lien he ngay de nhan tu van va nhan uu dai phu hop."
+      "Liên hệ ngay để nhận tư vấn và nhận ưu đãi phù hợp."
     ]
       .filter(Boolean)
       .join(" ")
@@ -437,6 +426,90 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
 
     return (outlineText || fallbackParts).slice(0, 1200);
   };
+
+  const buildHumanVideoVoiceTitle = (campaignTitle: string, channel: string) => {
+    const cleanTitle = String(campaignTitle || "").trim() || "noi dung marketing";
+    const cleanChannel = String(channel || "").trim() || "marketing";
+    return `Voice ${cleanChannel}: ${cleanTitle}`;
+  };
+
+  const buildHumanVideoVoiceDescription = (
+    campaignTitle: string,
+    campaignSummary: string,
+    channel: string,
+    durationSeconds: number
+  ) => {
+    const cleanTitle = String(campaignTitle || "").trim();
+    const cleanSummary = String(campaignSummary || "").trim();
+    const cleanChannel = String(channel || "").trim() || "marketing";
+    const normalizedDuration = Math.max(1, durationSeconds || DEFAULT_HUMAN_VOICE_DURATION_SECONDS);
+
+    return [
+      `Đọc bằng tiếng Việt có dấu cho nội dung chiến dịch "${cleanTitle}" trên kênh ${cleanChannel}.`,
+      cleanSummary ? `Tóm tắt chiến dịch: ${cleanSummary}.` : "",
+      `Mục tiêu đọc tự nhiên, liền mạch, âm rõ từng dấu và đúng nhịp khoảng ${normalizedDuration} giây.`,
+      "Ưu tiên cách đọc mềm, có ngữ điệu, tránh tách từng cụm từ như robot.",
+      "Cần đọc chuẩn dấu tiếng Việt, xử lý đúng tên riêng, địa danh và thông điệp quảng cáo."
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim();
+  };
+
+  const normalizeConceptChannels = (rawChannels: unknown): string[] => {
+    const channels = Array.isArray(rawChannels) ? rawChannels : [];
+    const normalized = channels
+      .map((channel) => String(channel || "").trim())
+      .filter(Boolean)
+      .map((channel) => {
+        const lower = channel.toLowerCase();
+        if (lower.includes("facebook") || lower === "fb") return "Facebook";
+        if (lower.includes("tiktok") || lower.includes("tik tok")) return "TikTok";
+        if (lower.includes("linkedin") || lower.includes("linked in")) return "LinkedIn";
+        if (lower.includes("instagram") || lower === "ig" || lower.includes("insta")) return "Instagram";
+        if (lower.includes("zalo")) return "Zalo";
+        return channel;
+      })
+      .filter((channel, index, arr) => arr.indexOf(channel) === index);
+
+    return normalized.length > 0 ? normalized : [...selectedChannels];
+  };
+
+  const normalizeConceptHashtags = (rawHashtags: unknown, title: string): string[] => {
+    const hashtags = Array.isArray(rawHashtags) ? rawHashtags : [];
+    const normalized = hashtags
+      .map((tag) => String(tag || "").trim())
+      .filter(Boolean)
+      .map((tag) => (tag.startsWith("#") ? tag : `#${tag}`))
+      .map((tag) => tag.replace(/\s+/g, ""))
+      .filter((tag, index, arr) => arr.indexOf(tag) === index);
+
+    if (normalized.length > 0) {
+      return normalized.slice(0, 6);
+    }
+
+    const fallback = String(title || "")
+      .split(/[^A-Za-z0-9À-ỹ]+/)
+      .map((part) => part.trim())
+      .filter((part) => part.length >= 3)
+      .slice(0, 3)
+      .map((part) => `#${part}`);
+
+    return fallback.length > 0 ? fallback : ["#Marketing"];
+  };
+
+  const normalizeGeneratedConcept = (concept: MarketingConcept, forcedMediaType: string): MarketingConcept => ({
+    ...concept,
+    title: String(concept?.title || "").trim(),
+    summary: String(concept?.summary || "").trim(),
+    suggestedContent: String(concept?.suggestedContent || "").trim(),
+    matchPercent: Math.max(50, Math.min(100, Number(concept?.matchPercent || 50))),
+    channels: normalizeConceptChannels(concept?.channels),
+    hashtags: normalizeConceptHashtags(concept?.hashtags, String(concept?.title || "")),
+    mediaType: (concept?.mediaType || forcedMediaType) as MarketingConcept["mediaType"],
+    mediaPrompt: String(concept?.mediaPrompt || "").trim(),
+  });
 
   const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -663,6 +736,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
     if (!topic) return;
 
     setLoadingAI(true);
+    setConcepts([]);
     try {
       let apiTopic = topic;
       if (uploadedDocText) {
@@ -724,10 +798,9 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
         toast.warning("AI đang trả về dữ liệu mẫu. Có thể backend vừa fallback sang mock.");
       }
 
-      const generatedConcepts = (data.concepts || []).map((concept: MarketingConcept) => ({
-        ...concept,
-        mediaType: actualMediaType
-      }));
+      const generatedConcepts = (data.concepts || [])
+        .map((concept: MarketingConcept) => normalizeGeneratedConcept(concept, actualMediaType))
+        .filter((concept: MarketingConcept) => concept.title && concept.summary && concept.suggestedContent);
       if (generatedConcepts.length === 0) {
         throw new Error("AI không thể tạo ý tưởng chiến dịch phù hợp.");
       }
@@ -758,7 +831,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
           mediaPrompt: bestConcept.mediaPrompt,
           humanVoiceId: selectedHumanVoice,
           humanVoiceModel: selectedHumanVoiceModel,
-          humanDurationSeconds: parseInt(estimatedHumanVoiceDuration, 10) || 15,
+          humanDurationSeconds: parseInt(estimatedHumanVoiceDuration, 10) || DEFAULT_HUMAN_VOICE_DURATION_SECONDS,
         });
 
         if (!result || !result.posts || result.posts.length === 0) {
@@ -768,6 +841,17 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
         const newCards: ContentApprovalCard[] = result.posts.map((post: any, index: number) => {
           const cardMediaType = bestConcept.mediaType || (actualMediaType as any);
           const voiceScriptVal = cardMediaType === "human-video" ? getHumanVideoScript(post, bestConcept.title, bestConcept.summary) : (post.voiceScript || "");
+          const voiceTitleVal = cardMediaType === "human-video"
+            ? buildHumanVideoVoiceTitle(bestConcept.title, post.channel)
+            : "";
+          const voiceDescriptionVal = cardMediaType === "human-video"
+            ? buildHumanVideoVoiceDescription(
+                bestConcept.title,
+                bestConcept.summary,
+                post.channel,
+                parseInt(estimatedHumanVoiceDuration, 10) || DEFAULT_HUMAN_VOICE_DURATION_SECONDS
+              )
+            : "";
           return {
             id: `mod_dev_${Date.now()}_${index}_${Math.floor(Math.random() * 1000)}`,
             title: bestConcept.title,
@@ -780,10 +864,13 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
             videoUrl: post.videoUrl || null,
             mediaPrompt: post.mediaPrompt || "",
             voiceScript: voiceScriptVal,
+            voiceTitle: voiceTitleVal,
+            voiceDescription: voiceDescriptionVal,
             motionText: post.motionText || "",
             generatedAt: new Date().toISOString(),
             authorUid: userProfile?.uid ?? '',
             mediaType: cardMediaType,
+            humanDurationSeconds: parseInt(estimatedHumanVoiceDuration, 10) || DEFAULT_HUMAN_VOICE_DURATION_SECONDS,
             referenceImage: uploadedImageBase64 || undefined
           };
         });
@@ -798,6 +885,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
       }
     } catch (err: any) {
       console.error(err);
+      setConcepts([]);
       toast.error(err.message || "Tự động hóa thất bại. Vui lòng kiểm tra lại cấu hình hoặc số dư ví.");
     } finally {
       setLoadingAI(false);
@@ -828,7 +916,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
         mediaPrompt: concept.mediaPrompt,
         humanVoiceId: selectedHumanVoice,
         humanVoiceModel: selectedHumanVoiceModel,
-        humanDurationSeconds: parseInt(estimatedHumanVoiceDuration, 10) || 15,
+        humanDurationSeconds: parseInt(estimatedHumanVoiceDuration, 10) || DEFAULT_HUMAN_VOICE_DURATION_SECONDS,
       });
       console.log("[handleDevelopConcept] Received result from API:", result);
 
@@ -836,6 +924,17 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
         const newCards: ContentApprovalCard[] = result.posts.map((post: any, index: number) => {
           const cardMediaType = concept.mediaType || (mediaType as any);
           const voiceScriptVal = cardMediaType === "human-video" ? getHumanVideoScript(post, concept.title, concept.summary) : (post.voiceScript || "");
+          const voiceTitleVal = cardMediaType === "human-video"
+            ? buildHumanVideoVoiceTitle(concept.title, post.channel)
+            : "";
+          const voiceDescriptionVal = cardMediaType === "human-video"
+            ? buildHumanVideoVoiceDescription(
+                concept.title,
+                concept.summary,
+                post.channel,
+                parseInt(estimatedHumanVoiceDuration, 10) || DEFAULT_HUMAN_VOICE_DURATION_SECONDS
+              )
+            : "";
           return {
             id: `mod_dev_${Date.now()}_${index}_${Math.floor(Math.random() * 1000)}`,
             title: concept.title,
@@ -848,10 +947,13 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
             videoUrl: post.videoUrl || null,
             mediaPrompt: post.mediaPrompt || "",
             voiceScript: voiceScriptVal,
+            voiceTitle: voiceTitleVal,
+            voiceDescription: voiceDescriptionVal,
             motionText: post.motionText || "",
             generatedAt: new Date().toISOString(),
             authorUid: userProfile?.uid ?? '',
             mediaType: cardMediaType,
+            humanDurationSeconds: parseInt(estimatedHumanVoiceDuration, 10) || DEFAULT_HUMAN_VOICE_DURATION_SECONDS,
             referenceImage: uploadedImageBase64 || undefined
           };
         });
@@ -1431,7 +1533,14 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                   onAvatarChange={setSelectedHumanAvatar}
                   onVoiceChange={setSelectedHumanVoice}
                   onVoiceModelChange={setSelectedHumanVoiceModel}
-                  onEstimatedDurationChange={setEstimatedHumanVoiceDuration}
+                  onEstimatedDurationChange={(value) => {
+                    if (!value.trim()) {
+                      setEstimatedHumanVoiceDuration("");
+                      return;
+                    }
+                    const normalizedValue = String(Math.min(600, Math.max(1, parseInt(value, 10) || DEFAULT_HUMAN_VOICE_DURATION_SECONDS)));
+                    setEstimatedHumanVoiceDuration(normalizedValue);
+                  }}
                   onPreviewVoice={handlePreviewHumanVoice}
                 />
               )}
@@ -1513,14 +1622,14 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
       {/* Campaign concepts generator list */}
       <div className="space-y-4" id="campaign_draft_concepts_section">
         <span className="text-[10px] font-bold text-gray-500 font-mono uppercase tracking-wider block">Bản nháp ý tưởng sáng tạo ({concepts.length})</span>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5" id="concepts_container">
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4" id="concepts_container">
           {concepts.map((concept, idx) => (
-            <div key={idx} className="p-5 bg-white border border-slate-200/70 hover:border-indigo-400 hover:shadow-md transition-all duration-300 rounded-2xl text-left flex flex-col justify-between hover:-translate-y-0.5 shadow-2xs" id={`concept_card_${idx}`}>
+            <div key={idx} className="p-4 bg-white border border-gray-250/70 hover:border-indigo-300 rounded-2xl transition-all shadow-xs text-left flex flex-col justify-between" id={`concept_card_${idx}`}>
               {(() => {
                 const activeMediaMeta = mediaTypeMeta[concept.mediaType || mediaType] || mediaTypeMeta.image;
                 return (
-                  <div className="mb-3 flex items-center justify-between gap-3">
+                  <div className="mb-2.5 flex items-center justify-between gap-3">
                     <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${activeMediaMeta.tone}`}>
                       {activeMediaMeta.label}
                     </span>

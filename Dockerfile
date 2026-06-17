@@ -15,6 +15,8 @@ RUN --mount=type=cache,target=/root/.yarn-cache \
 # Copy the entire workspace (excluding files in .dockerignore)
 COPY . .
 
+RUN apk add --no-cache ffmpeg
+
 # Remove package-lock.json if it exists (avoid conflicts with yarn.lock)
 RUN rm -f package-lock.json
 
@@ -28,6 +30,9 @@ RUN yarn build
 
 # Step 2: Production runner stage (keeps the final image lightweight)
 FROM node:22-alpine AS runner
+
+# Install ffmpeg and fonts for video rendering/text drawing
+RUN apk add --no-cache ffmpeg fontconfig ttf-freefont
 
 WORKDIR /app
 

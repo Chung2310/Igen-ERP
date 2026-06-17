@@ -3,17 +3,48 @@ import { AIMediaModel } from "../model/ai-media.model";
 import { cloudinaryService } from "./cloudinary.service";
 import { remotionService } from "./remotion.service";
 import { piapiService } from "./piapi.service";
+import { remotionQueueService } from "./remotion-queue.service";
 import { exec } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 
-const GEMINI_TEXT_MODEL = "gemini-3.5-flash";
+const GEMINI_TEXT_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || "piapi-flux";
 const GEMINI_VIDEO_MODEL = process.env.GEMINI_VIDEO_MODEL || "veo31-video-fast-audio";
 
 function getGeminiClient() {
   return new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+}
+
+function safeParseJson(text: string): any {
+  let cleaned = text.trim();
+  if (cleaned.startsWith("```")) {
+    const match = cleaned.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+    if (match) {
+      cleaned = match[1].trim();
+    }
+  }
+  return JSON.parse(cleaned);
+}
+
+async function fetchWithRetry(url: string, retries = 3, delay = 2000): Promise<Response> {
+  let lastError: any;
+  for (let i = 0; i < retries; i++) {
+    try {
+      const res = await fetch(url);
+      if (res.ok) return res;
+      lastError = new Error(`HTTP ${res.status} - ${res.statusText}`);
+    } catch (err) {
+      lastError = err;
+    }
+    if (i < retries - 1) {
+      console.warn(`[fetchWithRetry] Failed to fetch ${url}. Retrying in ${delay}ms... Error: ${lastError?.message || lastError}`);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      delay *= 2;
+    }
+  }
+  throw lastError;
 }
 
 async function getVideoDuration(url: string): Promise<number> {
@@ -231,19 +262,77 @@ async function generateText(
   const geminiStartTime = Date.now();
   console.log(`[generateText] Calling Gemini API | model=${modelId} | contentParts=${geminiContents.length} | hasSchema=${!!geminiConfig.responseSchema} | hasImages=${!!(config?.images?.length)}`);
 
-  const response = await ai.models.generateContent({
-    model: modelId,
-    contents: geminiContents,
-    config: geminiConfig,
-  });
+  const maxRetries = 4;
+  let delay = 1000;
+  let lastError: any;
 
-  const geminiElapsed = Date.now() - geminiStartTime;
-  const text = response.text || "";
-  console.log(`[generateText] Gemini API responded | ${geminiElapsed}ms (${(geminiElapsed / 1000).toFixed(1)}s) | responseLen=${text.length}`);
-  return { text };
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await ai.models.generateContent({
+        model: modelId,
+        contents: geminiContents,
+        config: geminiConfig,
+      });
+
+      const geminiElapsed = Date.now() - geminiStartTime;
+      const text = response.text || "";
+      console.log(`[generateText] Gemini API responded | ${geminiElapsed}ms (${(geminiElapsed / 1000).toFixed(1)}s) | responseLen=${text.length}`);
+      return { text };
+    } catch (error: any) {
+      lastError = error;
+      const errorMsg = error?.message || String(error);
+      const isRateLimit = error?.status === 429 || errorMsg.includes("429") || errorMsg.includes("RESOURCE_EXHAUSTED") || errorMsg.includes("quota");
+      const isUnavailable = error?.status === 503 || errorMsg.includes("503") || errorMsg.includes("UNAVAILABLE") || errorMsg.includes("experiencing high demand");
+      const isNetworkError = errorMsg.includes("fetch failed") || errorMsg.includes("ENOTFOUND") || errorMsg.includes("ECONNRESET") || errorMsg.includes("ETIMEDOUT") || errorMsg.includes("socket");
+
+      if ((isRateLimit || isUnavailable || isNetworkError) && attempt < maxRetries) {
+        console.warn(`[generateText] Attempt ${attempt} failed with API error (rate-limit/unavailable/network). Retrying in ${delay}ms... Error: ${errorMsg}`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        delay *= 2;
+      } else {
+        throw error;
+      }
+    }
+  }
+
+  throw lastError;
 }
 
 export const geminiService = {
+  normalizeMarketingChannel(rawChannel: string): string {
+    if (!rawChannel) return "Facebook";
+    const c = String(rawChannel).toLowerCase().trim();
+    if (c.includes("facebook") || c === "fb") return "Facebook";
+    if (c.includes("tiktok") || c.includes("tik tok")) return "TikTok";
+    if (c.includes("linkedin") || c.includes("linked in")) return "LinkedIn";
+    if (c.includes("instagram") || c === "ig" || c.includes("insta")) return "Instagram";
+    if (c.includes("zalo")) return "Zalo";
+    return "Facebook";
+  },
+
+  sanitizeHashtags(rawHashtags: unknown, fallbackTitle: string): string[] {
+    const hashtags = Array.isArray(rawHashtags) ? rawHashtags : [];
+    const normalized = hashtags
+      .map((tag) => String(tag || "").trim())
+      .filter(Boolean)
+      .map((tag) => (tag.startsWith("#") ? tag : `#${tag}`))
+      .map((tag) => tag.replace(/\s+/g, ""))
+      .filter((tag, index, arr) => arr.indexOf(tag) === index);
+
+    if (normalized.length > 0) {
+      return normalized.slice(0, 6);
+    }
+
+    const fallback = String(fallbackTitle || "")
+      .split(/[^A-Za-z0-9À-ỹ]+/)
+      .map((part) => part.trim())
+      .filter((part) => part.length >= 3)
+      .slice(0, 3)
+      .map((part) => `#${part}`);
+
+    return fallback.length > 0 ? fallback : ["#Marketing"];
+  },
+
   /**
    * Trợ lý Chat CRM Omni-Inbox
    */
@@ -439,7 +528,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
       );
 
       const responseText = response.text || "{}";
-      const parsedData = JSON.parse(responseText.trim());
+      const parsedData = safeParseJson(responseText);
       return parsedData.suggestions || fallbackSuggestions;
     } catch (error: any) {
       console.error("[geminiService.getMarketingSuggestions] Fallback to mock suggestions:", error);
@@ -599,7 +688,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
       );
 
       const responseText = response.text || "{}";
-      const parsedData = JSON.parse(responseText.trim());
+      const parsedData = safeParseJson(responseText);
       return { pillars: parsedData.pillars || [], isMock: false };
     } catch (error: any) {
       console.error("[geminiService.analyzeMarketingPillars] Error, fallback to mock pillars:", error);
@@ -664,7 +753,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
     };
 
     if (!process.env.GEMINI_API_KEY) {
-      return { concepts: getMockConcepts(), isMock: true };
+      throw new Error("GEMINI_API_KEY is not configured.");
     }
 
     try {
@@ -753,7 +842,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
       );
 
       const responseText = response.text || "{}";
-      const parsedData = JSON.parse(responseText.trim());
+      const parsedData = safeParseJson(responseText);
       const groundedConcepts = (parsedData.concepts || []).map((concept: any) => {
         const groundedConcept = buildFaithfulVisualGuardrail({
           sourceBrief: campaignTopic,
@@ -766,15 +855,27 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
 
         return {
           ...concept,
+          title: String(concept?.title || "").trim(),
+          summary: String(concept?.summary || "").trim(),
+          suggestedContent: String(concept?.suggestedContent || "").trim(),
+          matchPercent: Math.max(50, Math.min(100, Number(concept?.matchPercent || 50))),
+          channels: (Array.isArray(concept?.channels) ? concept.channels : (channels || ["Facebook"]))
+            .map((channel: string) => this.normalizeMarketingChannel(channel))
+            .filter((channel: string, index: number, arr: string[]) => arr.indexOf(channel) === index),
+          hashtags: this.sanitizeHashtags(concept?.hashtags, concept?.title || campaignTopic),
           mediaPrompt: concept?.mediaPrompt
             ? `${groundedConcept} ${concept.mediaPrompt}`.trim()
             : groundedConcept,
         };
-      });
+      }).filter((concept: any) => concept.title && concept.summary && concept.suggestedContent);
+
+      if (groundedConcepts.length === 0) {
+        throw new Error("AI khong tra ve concept hop le.");
+      }
       return { concepts: groundedConcepts, isMock: false };
     } catch (error: any) {
-      console.error("[geminiService.generateMarketingIdeas] Error, fallback to mock concepts:", error);
-      return { concepts: getMockConcepts(), isMock: true };
+      console.error("[geminiService.generateMarketingIdeas] Failed to generate grounded concepts:", error);
+      throw new Error(error?.message || "Khong the phat sinh y tuong marketing tu AI.");
     }
   },
 
@@ -901,23 +1002,24 @@ Nội dung chi tiết gợi ý: ${suggestedContent}`;
     };
 
     if (!process.env.GEMINI_API_KEY) {
-      isMock = true;
-      posts = getMockPosts();
+      throw new Error("GEMINI_API_KEY is not configured.");
     } else {
       try {
         const isHumanVideo = mediaOptions?.mediaType === "human-video";
         const humanDurationSeconds = Number(mediaOptions?.humanDurationSeconds || 15);
+        const minWords = Math.floor(humanDurationSeconds * 2.2);
+        const maxWords = Math.ceil(humanDurationSeconds * 2.8);
         const humanVoiceRules = isHumanVideo
           ? `
 
 YÊU CẦU RIÊNG CHO VIDEO NGƯỜI THẬT:
-1. Mỗi bài phải có thêm trường "voiceScript" bằng tiếng Việt tự nhiên, nói mượt, không bị dịch máy.
-2. "voiceScript" phải là đoạn lời thoại hoàn chỉnh để đưa thẳng sang TTS, không chứa markdown, không chứa bullet, không chứa nhãn như MC/Voiceover.
-3. Thời lượng đọc mục tiêu của "voiceScript" là khoảng ${humanDurationSeconds} giây, sai số tối đa khoảng 10%.
-4. "bodyText" vẫn là caption/ngữ cảnh đăng bài ngắn gọn, còn "voiceScript" mới là phần được đọc thành tiếng.
-5. "outline" phải mô tả các cảnh quay, biểu cảm, nhịp cắt và CTA để khớp với "voiceScript".
-6. "motionText" là mô tả chuyển động ngắn gọn cho avatar/video, bằng tiếng Anh, bám sát đúng chủ đề và lời thoại.
-7. Tuyệt đối không viết voiceScript chung chung. Nội dung phải bám đúng tiêu đề, tóm tắt chiến dịch, insight và thông điệp bán hàng được cung cấp.
+1. Mỗi bài viết bắt buộc phải có thêm trường "voiceScript" bằng tiếng Việt tự nhiên, mượt mà, chuẩn văn phong nói tiếng Việt và không bị cảm giác dịch máy.
+2. "voiceScript" phải là đoạn lời thoại hoàn chỉnh để đưa trực tiếp sang bộ chuyển đổi Text-to-Speech (TTS). Tuyệt đối không chứa ký hiệu markdown, không chứa gạch đầu dòng (bullet points), không chứa bất kỳ nhãn dẫn hay lời ghi chú nào (ví dụ: không có "MC:", "Voiceover:", "Cảnh 1:", v.v.).
+3. RÀNG BUỘC ĐỘ DÀI VÀ THỜI LƯỢNG NGHIÊM NGẶT: Thời lượng đọc mục tiêu là đúng ${humanDurationSeconds} giây. Để đảm bảo điều này, số lượng từ/âm tiết tiếng Việt trong "voiceScript" bắt buộc phải nằm trong giới hạn từ ${minWords} đến ${maxWords} từ. Tránh việc viết quá dài hoặc quá ngắn sẽ làm hỏng thời lượng video.
+4. "bodyText" vẫn là phần caption/nội dung ngắn gọn đăng lên kênh mạng xã hội, còn "voiceScript" mới là kịch bản thoại được đọc thành tiếng. Hai trường này phải nhất quán nhưng tách biệt.
+5. "outline" phải mô tả các cảnh quay, góc máy, nhịp cắt khớp hoàn hảo với diễn biến của "voiceScript".
+6. "motionText" là mô tả chi tiết bằng TIẾNG VIỆT về cử chỉ, biểu cảm gương mặt, cử động cơ thể và hành động của avatar người thật trong video (ví dụ: "Người thuyết trình tự tin, gật đầu nhẹ nhàng, biểu cảm thân thiện, cử chỉ tay cởi mở"). Mô tả phải tự nhiên, bám sát nội dung và ngữ điệu lời thoại.
+7. Tuyệt đối không viết "voiceScript" chung chung. Nội dung phải tập trung làm nổi bật tiêu đề, tóm tắt chiến dịch, insight khách hàng và thông điệp bán hàng cụ thể được cung cấp.
 `
           : "";
 
@@ -974,11 +1076,11 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
                       },
                       voiceScript: {
                         type: Type.STRING,
-                        description: "Natural Vietnamese narration script for human-video voice generation. Keep empty string when not needed."
+                        description: "Natural Vietnamese narration script for human-video voice generation. Strictly limited to " + minWords + "-" + maxWords + " words/syllables. Keep empty string when not needed."
                       },
                       motionText: {
                         type: Type.STRING,
-                        description: "Short English motion direction for avatar or human-video scene. Keep empty string when not needed."
+                        description: "Short motion and expression direction in Vietnamese for the avatar/presenter (e.g., 'Người thuyết trình tự tin, gật đầu thân thiện, cử chỉ tay mở rộng'). Keep empty string when not needed."
                       }
                     },
                     required: ["channel", "contentType", "outline", "bodyText", "mediaPrompt"],
@@ -991,7 +1093,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
         );
 
         const responseText = response.text || "{}";
-        const parsedData = JSON.parse(responseText.trim());
+        const parsedData = safeParseJson(responseText);
         posts = (parsedData.posts || []).map((post: any) => {
           const groundedPrompt = buildFaithfulVisualGuardrail({
             sourceBrief: sourceBriefText,
@@ -1000,23 +1102,29 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
             suggestedContent,
             outline: post?.outline,
             bodyText: post?.bodyText,
-            channels: [normalizeChannel(post.channel)],
+            channels: [this.normalizeMarketingChannel(post.channel)],
           });
 
           return {
             ...post,
-            channel: normalizeChannel(post.channel),
+            channel: this.normalizeMarketingChannel(post.channel),
+            contentType: String(post?.contentType || "").trim(),
+            outline: String(post?.outline || "").trim(),
+            bodyText: String(post?.bodyText || "").trim(),
             voiceScript: typeof post?.voiceScript === "string" ? post.voiceScript.trim() : "",
             motionText: typeof post?.motionText === "string" ? post.motionText.trim() : "",
             mediaPrompt: post?.mediaPrompt
               ? `${groundedPrompt} ${post.mediaPrompt}`.trim()
               : groundedPrompt,
           };
-        });
+        }).filter((post: any) => post.channel && post.contentType && post.bodyText);
+
+        if (posts.length === 0) {
+          throw new Error("AI khong tra ve post hop le.");
+        }
       } catch (error: any) {
-        console.error("[geminiService.developMarketingIdea] Error, fallback to mock posts:", error);
-        isMock = true;
-        posts = getMockPosts();
+        console.error("[geminiService.developMarketingIdea] Failed to develop grounded posts:", error);
+        throw new Error(error?.message || "Khong the phat trien noi dung marketing tu AI.");
       }
     }
 
@@ -1128,7 +1236,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
   ): Promise<{ url: string; isMock: boolean }> {
     let actualPrompt = prompt;
     try {
-      const parsed = JSON.parse(prompt);
+      const parsed = safeParseJson(prompt);
       if (parsed.optimized_english_prompt) {
         actualPrompt = parsed.optimized_english_prompt;
         if (parsed.motion_analysis) actualPrompt += `. Motion: ${parsed.motion_analysis}`;
@@ -1155,7 +1263,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
    * Tạo giọng nói TTS (Gemini Voice Modality)
    */
   async generateVoice(userId: string, input: any) {
-    const { textToSpeak, styleInstructions, mode, temperature, modelName, voiceName, speakerA, speakerB, title, description } = input;
+    const { textToSpeak, styleInstructions, mode, temperature, modelName, voiceName, speakerA, speakerB, title, description, stability, similarityBoost, useSpeakerBoost } = input;
 
     // ElevenLabs Voice Mapping Table
     const ELEVENLABS_VOICE_MAP: Record<string, string> = {
@@ -1217,8 +1325,9 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
             text: textToSpeak,
             model_id: modelName || "eleven_v3",
             voice_settings: {
-              stability: 0.5,
-              similarity_boost: 0.75
+              stability: typeof stability === 'number' ? stability : 0.5,
+              similarity_boost: typeof similarityBoost === 'number' ? similarityBoost : 0.75,
+              use_speaker_boost: typeof useSpeakerBoost === 'boolean' ? useSpeakerBoost : true
             }
           })
         });
@@ -1267,7 +1376,18 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
       return { optimizedText: `[Tối ưu hóa Giả lập] ${text}` };
     }
     try {
-      const systemInstruction = "Bạn là chuyên gia biên soạn kịch bản và viết nội dung phát thanh radio. Hãy tối ưu hóa văn bản của người dùng để trở nên tự nhiên, cuốn hút, dễ đọc và phù hợp nhất với phong cách được yêu cầu. Trả về DUY NHẤT văn bản đã tối ưu hóa, không có thêm lời giải thích hay ký tự đặc biệt.";
+      const systemInstruction = `Bạn là một chuyên gia biên soạn kịch bản và phát thanh viên chuyên nghiệp của Đài Tiếng nói Việt Nam (VOV).
+Hãy tối ưu hóa văn bản gốc của người dùng để biến nó thành một kịch bản thoại (voiceover script) chất lượng cao, lưu loát, chuẩn tiếng Việt và cực kỳ tự nhiên.
+
+Áp dụng các quy tắc biên tập và phát thanh nghiêm ngặt sau:
+1. SỰ TỰ NHIÊN VÀ TRÔI CHẢY: Chuyển đổi văn bản thành văn phong nói tự nhiên, chuẩn ngôn ngữ phát thanh. Loại bỏ các cụm từ rườm rà, lặp ý hoặc mang tính chất văn viết khô khan.
+2. NGẮT NGHỈ HỢP LÝ BẰNG DẤU CÂU: Tự động chèn thêm dấu phẩy (,), dấu chấm (.) hoặc dấu ba chấm (...) tại các vị trí cần ngắt nghỉ, lấy hơi tự nhiên của phát thanh viên. Điều này rất quan trọng để giúp công cụ Text-to-Speech (TTS) đọc với nhịp điệu vừa phải, nhấn nhá chính xác, không bị đọc liền một mạch quá nhanh hay dính chữ.
+3. PHÁT ÂM VÀ CHỮ SỐ (BẮT BUỘC):
+   - Đọc và viết rõ hoàn toàn các từ viết tắt thành tiếng Việt chuẩn (Ví dụ: "KH" -> "khách hàng", "SP" -> "sản phẩm", "DN" -> "doanh nghiệp", "VS" -> "với").
+   - Viết rõ các từ tiếng Anh thông dụng theo cách đọc tự nhiên của tiếng Việt hoặc phiên âm dễ đọc (Ví dụ: "ERP" -> "E-R-P", "AI" -> "A-I", "IT" -> "I-T", "Sales" -> "sale", "Marketing" -> "mác-két-tinh").
+   - Viết chữ hoàn toàn cho tất cả các con số, phần trăm, ký hiệu, ngày tháng hoặc số tiền (Ví dụ: "10%" -> "mười phần trăm", "24/7" -> "hai mươi tư trên bảy", "2026" -> "năm hai nghìn không trăm hai mươi sáu", "15s" -> "mười lăm giây", "$100" -> "một trăm đô la").
+4. PHONG CÁCH ĐỌC: Bám sát và thể hiện rõ nét phong cách đọc yêu cầu (ví dụ: hào hứng, sâu lắng, chậm rãi...).
+5. KẾT QUẢ TRẢ VỀ: Chỉ trả về DUY NHẤT văn bản kịch bản thoại tiếng Việt đã được tối ưu hóa hoàn chỉnh. Không thêm lời bình luận, không có ký tự markdown (như **, ##, *), không chứa tiêu đề kịch bản, lời mở đầu hay bất kỳ lời giải thích nào.`;
       const selectedModel = model || GEMINI_TEXT_MODEL;
       const response = await generateText(
         selectedModel,
@@ -1342,7 +1462,7 @@ Do not include markdown blocks or any text other than the JSON object.`
         responseMimeType: "application/json",
         images: imageUris?.filter((u: string) => u && typeof u === "string"),
       });
-      return JSON.parse(result.text.trim());
+      return safeParseJson(result.text);
     } catch (error: any) {
       console.error("[geminiService.optimizeImagePrompt] Gemini Error, fallback to local optimizer:", error);
       return getMockImagePrompt();
@@ -1503,7 +1623,7 @@ Do not include markdown blocks or any text other than the JSON object.`
         responseMimeType: "application/json",
         images: imageUris?.filter((u: string) => u && typeof u === "string"),
       });
-      return JSON.parse(videoResult.text.trim());
+      return safeParseJson(videoResult.text);
     } catch (error: any) {
       console.error("[geminiService.optimizeVideoPrompt] Gemini Error, fallback to local optimizer:", error);
       return getMockVideoPrompt();
@@ -1522,15 +1642,21 @@ Do not include markdown blocks or any text other than the JSON object.`
       aspectRatio?: string;
       resolution?: string;
       duration?: number;
+      videoDurations?: number[];
     }
   ): Promise<{ status: string; record: any; blueprint: any }> {
     const urls = videoUrl.split(",").map(u => u.trim()).filter(Boolean);
     const isMultiple = urls.length > 1;
+    const clientDurations = options?.videoDurations || [];
 
     const urlDurations: { [url: string]: number } = {};
     let totalComputedDuration = 0;
-    for (const url of urls) {
-      const dur = await getVideoDuration(url);
+    for (let i = 0; i < urls.length; i++) {
+      const url = urls[i];
+      let dur = clientDurations[i] ? Number(clientDurations[i]) : 0;
+      if (dur <= 0) {
+        dur = await getVideoDuration(url);
+      }
       urlDurations[url] = dur;
       totalComputedDuration += dur;
     }
@@ -1607,7 +1733,16 @@ CRITICAL MULTI-VIDEO RULES:
 - The total target duration of the compiled video MUST be the EXACT sum of all source video durations: (Duration of Video 1 + Duration of Video 2 + ... + Duration of Video N) unless there is a specific instruction to trim or cut a video.
 - For each source video, you MUST generate segments that cover its ENTIRE original duration. For example, if Video 1 is 10s and Video 2 is 15s, you must create video clips for Video 1 covering [0s to 10s] and video clips for Video 2 covering [0s to 15s]. The final video length must be exactly 25s.
 - The "start" and "end" timestamps inside each video segment must be relative to that source video's original timeline (from 0 to its specific duration).
-- Keep the timeline continuous. Calculate the cumulative duration of all preceding clips (taking playbackRate into account) to know the start/end offsets for text overlays, audio tracks, and logos.` 
+- Keep the timeline continuous. Calculate the cumulative duration of all preceding clips (taking playbackRate into account) to know the start/end offsets for text overlays, audio tracks, and logos.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🇻🇳 QUY TẮC GHÉP VIDEO TIẾNG VIỆT (VIETNAMESE CONCATENATION RULES)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Khi người dùng yêu cầu ghép video (sử dụng các từ như "ghép video", "nối video", "ghép lại", "nối lại", "gộp video", "ghép các clip", "nối các clip lại với nhau"):
+  - Bạn MUST sắp xếp tất cả các video được cung cấp theo đúng thứ tự (Video 1, Video 2,... Video N).
+  - Trừ khi có yêu cầu cắt/trim cụ thể, mỗi video phải chạy trọn vẹn thời lượng gốc của nó (start: 0, end: duration).
+  - Tổng thời lượng của video đầu ra phải bằng tổng thời lượng của các video gốc cộng lại.
+  - Vẫn giữ nguyên các layer text, nhạc nền hay logo chạy song song trong final timeline nếu được yêu cầu.` 
   : `The original video URL is "${urls[0]}".
 The original video duration is exactly ${originalDuration || 5} seconds.`}
 
@@ -1784,6 +1919,26 @@ Return ONLY valid JSON. No markdown backticks, no comments, no conversational te
     { "type": "audio", "src": "https://assets.mixkit.co/active_storage/sfx/2568/2568-84.wav", "start": 6, "end": 8, "volume": 0.9 }
   ]
 }
+
+▸ Example F: "Ghép các video này lại với nhau, thêm nhạc lofi thư giãn" (V1=8s, V2=12s)
+- Total output = 8 + 12 = 20s. Both videos are played sequentially in full.
+{
+  "timeline": [
+    { "type": "video", "src": "URL_VIDEO_1", "start": 0, "end": 8, "playbackRate": 1.0 },
+    { "type": "video", "src": "URL_VIDEO_2", "start": 0, "end": 12, "playbackRate": 1.0 },
+    { "type": "audio", "src": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3", "start": 0, "end": 20, "volume": 0.7 }
+  ]
+}
+
+▸ Example G: "Ghép video 1 và video 2 lại, chèn chữ 'Kết quả' ở giây thứ 5 đến 8" (V1=6s, V2=10s)
+- Total output = 6 + 10 = 16s.
+{
+  "timeline": [
+    { "type": "video", "src": "URL_VIDEO_1", "start": 0, "end": 6, "playbackRate": 1.0 },
+    { "type": "video", "src": "URL_VIDEO_2", "start": 0, "end": 10, "playbackRate": 1.0 },
+    { "type": "text", "content": "Kết quả", "start": 5, "end": 8, "style": { "position": "bottom-center", "color": "#FFFFFF", "fontSize": "32px" } }
+  ]
+}
 `;
 
         const messages = [
@@ -1795,14 +1950,14 @@ Return ONLY valid JSON. No markdown backticks, no comments, no conversational te
           systemInstruction: systemPrompt,
           responseMimeType: "application/json",
         });
-        blueprint = JSON.parse(editResult.text.trim());
+        blueprint = safeParseJson(editResult.text);
       }
     } catch (error) {
-      console.error("[geminiService.editVideo] Failed to get LLM blueprint, falling back:", error);
-      blueprint = getFallbackBlueprint();
+      console.error("[geminiService.editVideo] Failed to get LLM blueprint:", error);
+      throw error;
     }
 
-    // Save record to database with status processing
+    // Save record to database with status processing (queued state description)
     const record = await AIMediaModel.create({
       userId,
       mediaType: "video",
@@ -1810,22 +1965,23 @@ Return ONLY valid JSON. No markdown backticks, no comments, no conversational te
       prompt,
       metadata: {
         status: "processing",
-        progress: 10,
+        progress: 5,
         provider: "local-render",
         title: `Biên tập: ${prompt}`,
-        description: `Đang kết xuất video tự động bằng FFMPEG / Cloud Render.`,
+        description: `Đang xếp hàng chờ kết xuất video bằng FFMPEG / Cloud Render.`,
         blueprint: JSON.stringify(blueprint),
         renderLogs: [
           "[LLM] Đang phân tích prompt...",
-          `[LLM] Đã phân tích thành công JSON Blueprint: ${JSON.stringify(blueprint, null, 2)}`
+          `[LLM] Đã phân tích thành công JSON Blueprint: ${JSON.stringify(blueprint, null, 2)}`,
+          "[Hàng đợi] Đã thêm yêu cầu render vào hàng đợi Redis."
         ],
         aspectRatio: options?.aspectRatio || "16:9",
         resolution: options?.resolution || "720p",
       }
     });
 
-    // Start background render execution
-    this.executeLocalRenderBackground(record._id.toString(), videoUrl, blueprint, userId);
+    // Add render task to Redis queue
+    await remotionQueueService.addRenderJob(record._id.toString(), videoUrl, blueprint, userId);
 
     return {
       status: "success",
@@ -1834,23 +1990,28 @@ Return ONLY valid JSON. No markdown backticks, no comments, no conversational te
     };
   },
 
-  async executeLocalRenderBackground(recordId: string, videoUrl: string, blueprint: any, userId: string) {
-    console.log(`[Local Render Background] Starting task for record ${recordId}`);
+  async executeLocalRenderJob(recordId: string, videoUrl: string, blueprint: any, userId: string) {
+    console.log(`[Remotion Queue Worker] Starting task for record ${recordId}`);
     const timeline = blueprint.timeline || [];
-    const logs = [
+    
+    const currentRecord = await AIMediaModel.findById(recordId);
+    const logs = currentRecord?.metadata?.renderLogs || [
       "[LLM] Đang phân tích prompt...",
       `[LLM] Đã phân tích thành công JSON Blueprint: ${JSON.stringify(blueprint, null, 2)}`,
-      "[Render Engine] Khởi động Render Engine..."
+      "[Hàng đợi] Đã thêm yêu cầu render vào hàng đợi Redis."
     ];
+    
+    logs.push("[Render Engine] Bắt đầu xử lý tác vụ từ hàng đợi...");
     
     const updateLogs = async (progress: number, newLog?: string) => {
       if (newLog) {
-        console.log(`[Local Render Background] [${progress}%] ${newLog}`);
+        console.log(`[Remotion Queue Worker] [${progress}%] ${newLog}`);
         logs.push(newLog);
       }
       await AIMediaModel.findByIdAndUpdate(recordId, {
         "metadata.progress": progress,
-        "metadata.renderLogs": logs
+        "metadata.renderLogs": logs,
+        "metadata.description": `Đang kết xuất video tự động bằng FFMPEG / Cloud Render. Tiến trình: ${progress}%`
       });
     };
 
@@ -1892,6 +2053,7 @@ Return ONLY valid JSON. No markdown backticks, no comments, no conversational te
         });
 
         await updateLogs(45, `[Render Engine Fallback] Kết quả FFMPEG: ${hasFfmpeg ? "Đã cài đặt" : "Chưa cài đặt"}`);
+        if (hasFfmpeg) {
           const cacheDir = path.join(process.cwd(), "server/cache/videos");
           if (!fs.existsSync(cacheDir)) {
             fs.mkdirSync(cacheDir, { recursive: true });
@@ -1926,7 +2088,7 @@ Return ONLY valid JSON. No markdown backticks, no comments, no conversational te
               fs.copyFileSync(localCachePath, tempInput);
             } else {
               await updateLogs(50, `[Render Engine Fallback] Đang tải video gốc ${ i + 1 }/${uniqueVideoUrls.length} xuống server tạm...`);
-const response = await fetch(url);
+const response = await fetchWithRetry(url);
 if (!response.ok) {
   throw new Error(`Tải video gốc ${i + 1} thất bại: HTTP ${response.status}`);
 }
@@ -1959,7 +2121,7 @@ for (let i = 0; i < imageElements.length; i++) {
   const img = imageElements[i];
   const tempImgPath = path.join(os.tmpdir(), `overlay_img_${recordId}_${i}${path.extname(img.src || '.png')}`);
   try {
-    const imgRes = await fetch(img.src);
+    const imgRes = await fetchWithRetry(img.src);
     if (imgRes.ok) {
       fs.writeFileSync(tempImgPath, Buffer.from(await imgRes.arrayBuffer()));
       imageTempPaths.push(tempImgPath);
@@ -1977,7 +2139,7 @@ for (let i = 0; i < audioElements.length; i++) {
   const aud = audioElements[i];
   const tempAudPath = path.join(os.tmpdir(), `overlay_aud_${recordId}_${i}${path.extname(aud.src || '.mp3')}`);
   try {
-    const audRes = await fetch(aud.src);
+    const audRes = await fetchWithRetry(aud.src);
     if (audRes.ok) {
       fs.writeFileSync(tempAudPath, Buffer.from(await audRes.arrayBuffer()));
       audioTempPaths.push(tempAudPath);
@@ -2311,7 +2473,7 @@ try {
   audioTempPaths.forEach(p => { if (p) fs.unlinkSync(p); });
 } catch (e) { }
         } else if (videoUrl.includes("res.cloudinary.com")) {
-  await updateLogs(60, "[Render Engine Fallback] Không có FFMPEG. Sử dụng Cloud Render Engine...");
+          await updateLogs(60, "[Render Engine Fallback] Không có FFMPEG. Sử dụng Cloud Render Engine...");
 
   const firstUrl = videoUrl.split(",")[0];
   const parts = firstUrl.split("/upload/");
@@ -2335,6 +2497,7 @@ try {
   await new Promise((resolve) => setTimeout(resolve, 2000));
   await updateLogs(85, "[Render Engine Fallback] Mô phỏng render hoàn tất.");
 }
+      }
 
 await updateLogs(95, "[Cloudinary] Đồng bộ hóa tài nguyên biên tập...");
 
@@ -2345,10 +2508,10 @@ await AIMediaModel.findByIdAndUpdate(recordId, {
   "metadata.renderLogs": [...logs, "[Render Engine] Hoàn thành kết xuất video!"]
 });
 
-console.log(`[Local Render Background] Successfully completed. Final URL: ${finalVideoUrl}`);
+console.log(`[Remotion Queue Worker] Successfully completed. Final URL: ${finalVideoUrl}`);
 
     } catch (error: any) {
-  console.error("[Local Render Background Error]", error);
+  console.error("[Remotion Queue Worker Error]", error);
   await AIMediaModel.findByIdAndUpdate(recordId, {
     "metadata.status": "failed",
     "metadata.error": error.message || String(error),
