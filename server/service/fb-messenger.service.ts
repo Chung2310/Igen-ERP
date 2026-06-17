@@ -79,24 +79,42 @@ export const fbMessengerService = {
         }
       }
 
-      await FBConversationModel.findOneAndUpdate(
-        { pageId, facebookConversationId: fbConversation.id || "" },
-        {
+      let conversation = await FBConversationModel.findOne({
+        pageId,
+        $or: [
+          { facebookConversationId: fbConversation.id },
+          { recipientId }
+        ]
+      });
+
+      if (conversation) {
+        conversation.facebookConversationId = fbConversation.id;
+        conversation.recipientId = recipientId;
+        conversation.senderName = nonPageSender?.name || conversation.senderName || "Khách hàng Facebook";
+        if (avatarUrl) {
+          conversation.avatarUrl = avatarUrl;
+        }
+        conversation.lastMessageText = latestMessage?.message || conversation.lastMessageText || "[Đính kèm]";
+        conversation.lastMessageAt = latestMessage?.created_time
+          ? new Date(latestMessage.created_time)
+          : (conversation.lastMessageAt || new Date(fbConversation?.updated_time || Date.now()));
+        conversation.status = "open";
+        await conversation.save();
+      } else {
+        conversation = new FBConversationModel({
           recipientId,
           pageId,
-          facebookConversationId: fbConversation.id || "",
+          facebookConversationId: fbConversation.id,
           senderName: nonPageSender?.name || "Khách hàng Facebook",
           avatarUrl,
           lastMessageText: latestMessage?.message || "[Đính kèm]",
-          lastMessageAt: latestMessage?.created_time ? new Date(latestMessage.created_time) : new Date(fbConversation?.updated_time || Date.now()),
+          lastMessageAt: latestMessage?.created_time
+            ? new Date(latestMessage.created_time)
+            : new Date(fbConversation?.updated_time || Date.now()),
           status: "open",
-        },
-        {
-          upsert: true,
-          new: true,
-          setDefaultsOnInsert: true,
-        }
-      );
+        });
+        await conversation.save();
+      }
     }
 
     console.log(`[FB Service syncConversations] Đồng bộ xong ${conversations.length} hội thoại từ Facebook cho Page ID: ${pageId} trong ${Date.now() - startedAt}ms`);
