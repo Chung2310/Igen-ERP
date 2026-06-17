@@ -278,6 +278,7 @@ async function upsertVideoRecord(userId: string, payload: {
   videoUrl?: string;
   captionedVideoUrl?: string;
   subtitleUrl?: string;
+  thumbnailUrl?: string;
 }) {
   const existing = await AIMediaModel.findOne({
     userId,
@@ -294,6 +295,7 @@ async function upsertVideoRecord(userId: string, payload: {
     heygenAudioRecordId: payload.audioRecordId,
     captionedVideoUrl: payload.captionedVideoUrl,
     subtitleUrl: payload.subtitleUrl,
+    thumbnailUrl: payload.thumbnailUrl,
     provider: "heygen",
     status: payload.status || "processing",
     title: payload.title,
@@ -385,10 +387,10 @@ function normalizeHeyGenVideo(video: any, localRecord?: any): HeyGenRemoteVideo 
     title: String(video?.title || localRecord?.metadata?.title || fallbackPrompt),
     prompt: String(fallbackPrompt),
     url: String(video?.video_url || localRecord?.url || ""),
-    thumbnailUrl: String(video?.thumbnail_url || ""),
+    thumbnailUrl: String(video?.thumbnail_url || localRecord?.metadata?.thumbnailUrl || ""),
     gifUrl: String(video?.gif_url || ""),
-    captionedVideoUrl: String(video?.captioned_video_url || ""),
-    subtitleUrl: String(video?.subtitle_url || ""),
+    captionedVideoUrl: String(video?.captioned_video_url || localRecord?.metadata?.captionedVideoUrl || ""),
+    subtitleUrl: String(video?.subtitle_url || localRecord?.metadata?.subtitleUrl || ""),
     duration: Number(video?.duration || localRecord?.metadata?.duration || 0),
     status: String(video?.status || localRecord?.metadata?.status || (video?.video_url ? "completed" : "processing")),
     createdAt: toIsoStringFromUnix(video?.created_at) || (localRecord?.createdAt ? new Date(localRecord.createdAt).toISOString() : null),
@@ -620,6 +622,7 @@ export const heygenService = {
       videoUrl: normalized.videoUrl || undefined,
       captionedVideoUrl: normalized.captionedVideoUrl || undefined,
       subtitleUrl: normalized.subtitleUrl || undefined,
+      thumbnailUrl: normalized.thumbnailUrl || undefined,
       script: context?.title || "Video người thật",
       motionText: context?.motionText,
       avatarId: context?.avatarId,
@@ -676,6 +679,7 @@ export const heygenService = {
                   videoUrl: normalized.videoUrl || undefined,
                   captionedVideoUrl: normalized.captionedVideoUrl || undefined,
                   subtitleUrl: normalized.subtitleUrl || undefined,
+                  thumbnailUrl: normalized.thumbnailUrl || undefined,
                   script: record.prompt || "Video người thật",
                   status: normalized.jobStatus,
                   aspectRatio: record.metadata?.aspectRatio,
@@ -737,6 +741,7 @@ export const heygenService = {
         status: normalized.jobStatus,
         captionedVideoUrl: normalized.captionedVideoUrl || record.metadata?.captionedVideoUrl,
         subtitleUrl: normalized.subtitleUrl || record.metadata?.subtitleUrl,
+        thumbnailUrl: normalized.thumbnailUrl || record.metadata?.thumbnailUrl,
         title: normalized.title || record.metadata?.title,
         duration: normalized.duration || record.metadata?.duration,
         heygenLastWebhookEvent: normalized.eventType,
