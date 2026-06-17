@@ -6,7 +6,7 @@ import {
   RefreshCw 
 } from "lucide-react";
 import { MarketingSubTabType, ContentApprovalCard } from "../types";
-import { marketingService, extractDraftContent, sanitizeHumanVideoVoiceScript } from "../services/marketingService";
+import { marketingService, extractDraftContent, sanitizeHumanVideoVoiceScript, stripHumanVideoOutlineSections } from "../services/marketingService";
 import { toast } from "./Toast";
 import { useAuth } from "../context/AuthContext";
 import { parseFirebaseError } from "../utils/firebaseErrorParser";
@@ -295,12 +295,13 @@ export default function MarketingTab() {
 
   const handleInitAIGeneration = (card: ContentApprovalCard, type?: 'image' | 'video' | 'voice') => {
     const isHumanVideo = card.mediaType === 'human-video';
-    const baseVoiceScript = sanitizeHumanVideoVoiceScript(
-      card.voiceScript || card.outline || extractDraftContent(card.bodyText) || ""
+    const baseVoiceScript = stripHumanVideoOutlineSections(
+      sanitizeHumanVideoVoiceScript(card.voiceScript || card.outline || extractDraftContent(card.bodyText) || "")
     );
-    const bodyScript = sanitizeHumanVideoVoiceScript(extractDraftContent(card.bodyText) || "");
-    const outlineScript = sanitizeHumanVideoVoiceScript(card.outline || "");
-    const voiceScriptParts = [baseVoiceScript, bodyScript, outlineScript].filter(Boolean);
+    const bodyScript = stripHumanVideoOutlineSections(
+      sanitizeHumanVideoVoiceScript(extractDraftContent(card.bodyText) || "")
+    );
+    const voiceScriptParts = [baseVoiceScript, bodyScript].filter(Boolean);
     const voiceScript = voiceScriptParts.join(" ").replace(/\s+/g, " ").trim();
     const estimatedVoiceDuration = estimateAudioDuration(voiceScript);
 
@@ -321,6 +322,29 @@ export default function MarketingTab() {
     );
 
     if (isHumanVideo) {
+      void marketingService.updateCard(card.id, {
+        voiceScript,
+        voiceTitle,
+        voiceDescription,
+        humanDurationSeconds: DEFAULT_HUMAN_VOICE_DURATION_SECONDS,
+      }).catch((error) => {
+        console.error("Không thể lưu metadata voice vào card:", error);
+      });
+
+      setApprovalCards((prev) =>
+        prev.map((item) =>
+          item.id === card.id
+            ? {
+                ...item,
+                voiceScript,
+                voiceTitle,
+                voiceDescription,
+                humanDurationSeconds: DEFAULT_HUMAN_VOICE_DURATION_SECONDS,
+              }
+            : item
+        )
+      );
+
       setContentStudioParams({
         tab: 'voice',
         prompt: voiceScript,
@@ -335,32 +359,12 @@ export default function MarketingTab() {
       return;
     }
 
-    // Headless background generation for human-video card when clicking the main generate button
-    if (isHumanVideo && !type) {
-      toast.info(`Bắt đầu tạo video người thật tự động cho "${card.title}"...`);
-      
-      // Update card status to processing in state
-      setApprovalCards(prev => prev.map(c => c.id === card.id ? { ...c, status: "processing" } : c));
-      
-      marketingService.generateHumanVideoForCard(card.id, {
-        onProgressUpdate: (progressStatus) => {
-          console.log(`[Human Video Pipeline] ${card.title}: ${progressStatus}`);
-        }
-      }).then((updatedCard) => {
-        setApprovalCards(prev => prev.map(c => c.id === card.id ? updatedCard : c));
-        toast.success(`Đã tạo video người thật thành công cho bài viết "${card.title}"!`);
-      }).catch((err) => {
-        console.error("Lỗi tạo video người thật ở chế độ nền:", err);
-        // Mark failed
-        setApprovalCards(prev => prev.map(c => c.id === card.id ? { ...c, status: "failed" } : c));
-        toast.error(`Lỗi tạo video người thật cho "${card.title}": ${err.message}`);
-      });
-      return;
-    }
     
     let cleanText = "";
     if (selectedType === 'voice') {
-      cleanText = card.voiceScript || card.outline || extractDraftContent(card.bodyText) || "";
+      cleanText = stripHumanVideoOutlineSections(
+        sanitizeHumanVideoVoiceScript(card.voiceScript || card.outline || extractDraftContent(card.bodyText) || "")
+      );
     } else {
       cleanText = card.mediaPrompt || "";
       if (!cleanText) {
@@ -380,7 +384,6 @@ export default function MarketingTab() {
       autoTrigger: true
     });
     setSubTab(CONTENT_STUDIO_SUB_TAB);
-    setSubTab("XƯỞNG NỘI DUNG");
   };
 
   return (

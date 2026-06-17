@@ -297,6 +297,40 @@ async function generateText(
 }
 
 export const geminiService = {
+  normalizeMarketingChannel(rawChannel: string): string {
+    if (!rawChannel) return "Facebook";
+    const c = String(rawChannel).toLowerCase().trim();
+    if (c.includes("facebook") || c === "fb") return "Facebook";
+    if (c.includes("tiktok") || c.includes("tik tok")) return "TikTok";
+    if (c.includes("linkedin") || c.includes("linked in")) return "LinkedIn";
+    if (c.includes("instagram") || c === "ig" || c.includes("insta")) return "Instagram";
+    if (c.includes("zalo")) return "Zalo";
+    return "Facebook";
+  },
+
+  sanitizeHashtags(rawHashtags: unknown, fallbackTitle: string): string[] {
+    const hashtags = Array.isArray(rawHashtags) ? rawHashtags : [];
+    const normalized = hashtags
+      .map((tag) => String(tag || "").trim())
+      .filter(Boolean)
+      .map((tag) => (tag.startsWith("#") ? tag : `#${tag}`))
+      .map((tag) => tag.replace(/\s+/g, ""))
+      .filter((tag, index, arr) => arr.indexOf(tag) === index);
+
+    if (normalized.length > 0) {
+      return normalized.slice(0, 6);
+    }
+
+    const fallback = String(fallbackTitle || "")
+      .split(/[^A-Za-z0-9À-ỹ]+/)
+      .map((part) => part.trim())
+      .filter((part) => part.length >= 3)
+      .slice(0, 3)
+      .map((part) => `#${part}`);
+
+    return fallback.length > 0 ? fallback : ["#Marketing"];
+  },
+
   /**
    * Trợ lý Chat CRM Omni-Inbox
    */
@@ -717,7 +751,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
     };
 
     if (!process.env.GEMINI_API_KEY) {
-      return { concepts: getMockConcepts(), isMock: true };
+      throw new Error("GEMINI_API_KEY is not configured.");
     }
 
     try {
@@ -819,15 +853,27 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
 
         return {
           ...concept,
+          title: String(concept?.title || "").trim(),
+          summary: String(concept?.summary || "").trim(),
+          suggestedContent: String(concept?.suggestedContent || "").trim(),
+          matchPercent: Math.max(50, Math.min(100, Number(concept?.matchPercent || 50))),
+          channels: (Array.isArray(concept?.channels) ? concept.channels : (channels || ["Facebook"]))
+            .map((channel: string) => this.normalizeMarketingChannel(channel))
+            .filter((channel: string, index: number, arr: string[]) => arr.indexOf(channel) === index),
+          hashtags: this.sanitizeHashtags(concept?.hashtags, concept?.title || campaignTopic),
           mediaPrompt: concept?.mediaPrompt
             ? `${groundedConcept} ${concept.mediaPrompt}`.trim()
             : groundedConcept,
         };
-      });
+      }).filter((concept: any) => concept.title && concept.summary && concept.suggestedContent);
+
+      if (groundedConcepts.length === 0) {
+        throw new Error("AI khong tra ve concept hop le.");
+      }
       return { concepts: groundedConcepts, isMock: false };
     } catch (error: any) {
-      console.error("[geminiService.generateMarketingIdeas] Error, fallback to mock concepts:", error);
-      return { concepts: getMockConcepts(), isMock: true };
+      console.error("[geminiService.generateMarketingIdeas] Failed to generate grounded concepts:", error);
+      throw new Error(error?.message || "Khong the phat sinh y tuong marketing tu AI.");
     }
   },
 
@@ -954,23 +1000,24 @@ Nội dung chi tiết gợi ý: ${suggestedContent}`;
     };
 
     if (!process.env.GEMINI_API_KEY) {
-      isMock = true;
-      posts = getMockPosts();
+      throw new Error("GEMINI_API_KEY is not configured.");
     } else {
       try {
         const isHumanVideo = mediaOptions?.mediaType === "human-video";
         const humanDurationSeconds = Number(mediaOptions?.humanDurationSeconds || 15);
+        const minWords = Math.floor(humanDurationSeconds * 2.2);
+        const maxWords = Math.ceil(humanDurationSeconds * 2.8);
         const humanVoiceRules = isHumanVideo
           ? `
 
 YÊU CẦU RIÊNG CHO VIDEO NGƯỜI THẬT:
-1. Mỗi bài phải có thêm trường "voiceScript" bằng tiếng Việt tự nhiên, nói mượt, không bị dịch máy.
-2. "voiceScript" phải là đoạn lời thoại hoàn chỉnh để đưa thẳng sang TTS, không chứa markdown, không chứa bullet, không chứa nhãn như MC/Voiceover.
-3. Thời lượng đọc mục tiêu của "voiceScript" là khoảng ${humanDurationSeconds} giây, sai số tối đa khoảng 10%.
-4. "bodyText" vẫn là caption/ngữ cảnh đăng bài ngắn gọn, còn "voiceScript" mới là phần được đọc thành tiếng.
-5. "outline" phải mô tả các cảnh quay, biểu cảm, nhịp cắt và CTA để khớp với "voiceScript".
-6. "motionText" là mô tả chuyển động ngắn gọn cho avatar/video, bằng tiếng Anh, bám sát đúng chủ đề và lời thoại.
-7. Tuyệt đối không viết voiceScript chung chung. Nội dung phải bám đúng tiêu đề, tóm tắt chiến dịch, insight và thông điệp bán hàng được cung cấp.
+1. Mỗi bài viết bắt buộc phải có thêm trường "voiceScript" bằng tiếng Việt tự nhiên, mượt mà, chuẩn văn phong nói tiếng Việt và không bị cảm giác dịch máy.
+2. "voiceScript" phải là đoạn lời thoại hoàn chỉnh để đưa trực tiếp sang bộ chuyển đổi Text-to-Speech (TTS). Tuyệt đối không chứa ký hiệu markdown, không chứa gạch đầu dòng (bullet points), không chứa bất kỳ nhãn dẫn hay lời ghi chú nào (ví dụ: không có "MC:", "Voiceover:", "Cảnh 1:", v.v.).
+3. RÀNG BUỘC ĐỘ DÀI VÀ THỜI LƯỢNG NGHIÊM NGẶT: Thời lượng đọc mục tiêu là đúng ${humanDurationSeconds} giây. Để đảm bảo điều này, số lượng từ/âm tiết tiếng Việt trong "voiceScript" bắt buộc phải nằm trong giới hạn từ ${minWords} đến ${maxWords} từ. Tránh việc viết quá dài hoặc quá ngắn sẽ làm hỏng thời lượng video.
+4. "bodyText" vẫn là phần caption/nội dung ngắn gọn đăng lên kênh mạng xã hội, còn "voiceScript" mới là kịch bản thoại được đọc thành tiếng. Hai trường này phải nhất quán nhưng tách biệt.
+5. "outline" phải mô tả các cảnh quay, góc máy, nhịp cắt khớp hoàn hảo với diễn biến của "voiceScript".
+6. "motionText" là mô tả chi tiết bằng TIẾNG VIỆT về cử chỉ, biểu cảm gương mặt, cử động cơ thể và hành động của avatar người thật trong video (ví dụ: "Người thuyết trình tự tin, gật đầu nhẹ nhàng, biểu cảm thân thiện, cử chỉ tay cởi mở"). Mô tả phải tự nhiên, bám sát nội dung và ngữ điệu lời thoại.
+7. Tuyệt đối không viết "voiceScript" chung chung. Nội dung phải tập trung làm nổi bật tiêu đề, tóm tắt chiến dịch, insight khách hàng và thông điệp bán hàng cụ thể được cung cấp.
 `
           : "";
 
@@ -1027,11 +1074,11 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
                       },
                       voiceScript: {
                         type: Type.STRING,
-                        description: "Natural Vietnamese narration script for human-video voice generation. Keep empty string when not needed."
+                        description: "Natural Vietnamese narration script for human-video voice generation. Strictly limited to " + minWords + "-" + maxWords + " words/syllables. Keep empty string when not needed."
                       },
                       motionText: {
                         type: Type.STRING,
-                        description: "Short English motion direction for avatar or human-video scene. Keep empty string when not needed."
+                        description: "Short motion and expression direction in Vietnamese for the avatar/presenter (e.g., 'Người thuyết trình tự tin, gật đầu thân thiện, cử chỉ tay mở rộng'). Keep empty string when not needed."
                       }
                     },
                     required: ["channel", "contentType", "outline", "bodyText", "mediaPrompt"],
@@ -1053,23 +1100,29 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
             suggestedContent,
             outline: post?.outline,
             bodyText: post?.bodyText,
-            channels: [normalizeChannel(post.channel)],
+            channels: [this.normalizeMarketingChannel(post.channel)],
           });
 
           return {
             ...post,
-            channel: normalizeChannel(post.channel),
+            channel: this.normalizeMarketingChannel(post.channel),
+            contentType: String(post?.contentType || "").trim(),
+            outline: String(post?.outline || "").trim(),
+            bodyText: String(post?.bodyText || "").trim(),
             voiceScript: typeof post?.voiceScript === "string" ? post.voiceScript.trim() : "",
             motionText: typeof post?.motionText === "string" ? post.motionText.trim() : "",
             mediaPrompt: post?.mediaPrompt
               ? `${groundedPrompt} ${post.mediaPrompt}`.trim()
               : groundedPrompt,
           };
-        });
+        }).filter((post: any) => post.channel && post.contentType && post.bodyText);
+
+        if (posts.length === 0) {
+          throw new Error("AI khong tra ve post hop le.");
+        }
       } catch (error: any) {
-        console.error("[geminiService.developMarketingIdea] Error, fallback to mock posts:", error);
-        isMock = true;
-        posts = getMockPosts();
+        console.error("[geminiService.developMarketingIdea] Failed to develop grounded posts:", error);
+        throw new Error(error?.message || "Khong the phat trien noi dung marketing tu AI.");
       }
     }
 
@@ -1208,7 +1261,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
    * Tạo giọng nói TTS (Gemini Voice Modality)
    */
   async generateVoice(userId: string, input: any) {
-    const { textToSpeak, styleInstructions, mode, temperature, modelName, voiceName, speakerA, speakerB, title, description } = input;
+    const { textToSpeak, styleInstructions, mode, temperature, modelName, voiceName, speakerA, speakerB, title, description, stability, similarityBoost, useSpeakerBoost } = input;
 
     // ElevenLabs Voice Mapping Table
     const ELEVENLABS_VOICE_MAP: Record<string, string> = {
@@ -1270,8 +1323,9 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
             text: textToSpeak,
             model_id: modelName || "eleven_v3",
             voice_settings: {
-              stability: 0.5,
-              similarity_boost: 0.75
+              stability: typeof stability === 'number' ? stability : 0.5,
+              similarity_boost: typeof similarityBoost === 'number' ? similarityBoost : 0.75,
+              use_speaker_boost: typeof useSpeakerBoost === 'boolean' ? useSpeakerBoost : true
             }
           })
         });
@@ -1320,7 +1374,18 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
       return { optimizedText: `[Tối ưu hóa Giả lập] ${text}` };
     }
     try {
-      const systemInstruction = "Bạn là chuyên gia biên soạn kịch bản và viết nội dung phát thanh radio. Hãy tối ưu hóa văn bản của người dùng để trở nên tự nhiên, cuốn hút, dễ đọc và phù hợp nhất với phong cách được yêu cầu. Trả về DUY NHẤT văn bản đã tối ưu hóa, không có thêm lời giải thích hay ký tự đặc biệt.";
+      const systemInstruction = `Bạn là một chuyên gia biên soạn kịch bản và phát thanh viên chuyên nghiệp của Đài Tiếng nói Việt Nam (VOV).
+Hãy tối ưu hóa văn bản gốc của người dùng để biến nó thành một kịch bản thoại (voiceover script) chất lượng cao, lưu loát, chuẩn tiếng Việt và cực kỳ tự nhiên.
+
+Áp dụng các quy tắc biên tập và phát thanh nghiêm ngặt sau:
+1. SỰ TỰ NHIÊN VÀ TRÔI CHẢY: Chuyển đổi văn bản thành văn phong nói tự nhiên, chuẩn ngôn ngữ phát thanh. Loại bỏ các cụm từ rườm rà, lặp ý hoặc mang tính chất văn viết khô khan.
+2. NGẮT NGHỈ HỢP LÝ BẰNG DẤU CÂU: Tự động chèn thêm dấu phẩy (,), dấu chấm (.) hoặc dấu ba chấm (...) tại các vị trí cần ngắt nghỉ, lấy hơi tự nhiên của phát thanh viên. Điều này rất quan trọng để giúp công cụ Text-to-Speech (TTS) đọc với nhịp điệu vừa phải, nhấn nhá chính xác, không bị đọc liền một mạch quá nhanh hay dính chữ.
+3. PHÁT ÂM VÀ CHỮ SỐ (BẮT BUỘC):
+   - Đọc và viết rõ hoàn toàn các từ viết tắt thành tiếng Việt chuẩn (Ví dụ: "KH" -> "khách hàng", "SP" -> "sản phẩm", "DN" -> "doanh nghiệp", "VS" -> "với").
+   - Viết rõ các từ tiếng Anh thông dụng theo cách đọc tự nhiên của tiếng Việt hoặc phiên âm dễ đọc (Ví dụ: "ERP" -> "E-R-P", "AI" -> "A-I", "IT" -> "I-T", "Sales" -> "sale", "Marketing" -> "mác-két-tinh").
+   - Viết chữ hoàn toàn cho tất cả các con số, phần trăm, ký hiệu, ngày tháng hoặc số tiền (Ví dụ: "10%" -> "mười phần trăm", "24/7" -> "hai mươi tư trên bảy", "2026" -> "năm hai nghìn không trăm hai mươi sáu", "15s" -> "mười lăm giây", "$100" -> "một trăm đô la").
+4. PHONG CÁCH ĐỌC: Bám sát và thể hiện rõ nét phong cách đọc yêu cầu (ví dụ: hào hứng, sâu lắng, chậm rãi...).
+5. KẾT QUẢ TRẢ VỀ: Chỉ trả về DUY NHẤT văn bản kịch bản thoại tiếng Việt đã được tối ưu hóa hoàn chỉnh. Không thêm lời bình luận, không có ký tự markdown (như **, ##, *), không chứa tiêu đề kịch bản, lời mở đầu hay bất kỳ lời giải thích nào.`;
       const selectedModel = model || GEMINI_TEXT_MODEL;
       const response = await generateText(
         selectedModel,

@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { estimateAudioDuration } from '../../utils/usage-tracker';
 import { getAccessToken } from '../../services/authService';
-import { marketingService } from '../../services/marketingService';
+import { marketingService, sanitizeHumanVideoVoiceScript, stripHumanVideoOutlineSections } from '../../services/marketingService';
 
 const VOICE_STYLE_TEMPLATES = [
    { id: 'none', label: 'Tùy chỉnh (Tự nhập)', prompt: '' },
@@ -159,7 +159,8 @@ export function VoiceGenerationWorkspace({
    }, [initialText]);
 
    // Custom states
-   const [customStyleInstructions, setCustomStyleInstructions] = useState('');
+   
+   const [activeCardId, setActiveCardId] = useState<string | undefined>(cardId);
    const [selectedStylePrompt, setSelectedStylePrompt] = useState('');
    const [selectedRegionPrompt, setSelectedRegionPrompt] = useState('');
    const [mode, setMode] = useState<'single' | 'multi'>('single');
@@ -170,12 +171,59 @@ export function VoiceGenerationWorkspace({
    const [archiveDescription, setArchiveDescription] = useState(initialDescription || '');
 
    useEffect(() => {
-      setArchiveTitle(initialTitle || '');
+      if (cardId) {
+         setActiveCardId(cardId);
+      }
+   }, [cardId]);
+
+   useEffect(() => {
+      if (initialTitle) {
+         setArchiveTitle(initialTitle);
+      }
    }, [initialTitle]);
 
    useEffect(() => {
-      setArchiveDescription(initialDescription || '');
+      if (initialDescription) {
+         setArchiveDescription(initialDescription);
+      }
    }, [initialDescription]);
+
+   useEffect(() => {
+      console.log("VoiceGenerationWorkspace - activeCardId:", activeCardId, "initialTitle:", initialTitle, "initialDescription:", initialDescription);
+      if (!activeCardId) return;
+      if (archiveTitle.trim() && archiveDescription.trim()) return;
+
+      let isMounted = true;
+      void marketingService.getCardById(activeCardId)
+         .then((card) => {
+            console.log("VoiceGenerationWorkspace - Fetched card:", card);
+            if (!isMounted || !card) return;
+
+            if (!archiveTitle.trim()) {
+               setArchiveTitle(card.voiceTitle || `Voice cho ${card.title || "nội dung marketing"}`);
+            }
+
+            if (!archiveDescription.trim()) {
+               setArchiveDescription(card.motionText || card.voiceDescription || `Script tạo voice cho bài đăng kênh ${card.channel || ''}.`);
+            }
+
+            if (!text.trim()) {
+               const sanitizedText = stripHumanVideoOutlineSections(
+                  sanitizeHumanVideoVoiceScript(card.voiceScript || card.bodyText || card.outline || "")
+               );
+               if (sanitizedText) {
+                  setText(sanitizedText);
+               }
+            }
+         })
+         .catch((error) => {
+            console.error("Không thể nạp dữ liệu card cho form voice:", error);
+         });
+
+      return () => {
+         isMounted = false;
+      };
+   }, [activeCardId, archiveTitle, archiveDescription, text]);
 
    // Voice selection states
    const [voiceId, setVoiceId] = useState(DEFAULT_FALLBACK_VOICE_ID);
@@ -259,7 +307,7 @@ export function VoiceGenerationWorkspace({
    const styleInstructions = [
       selectedStylePrompt,
       selectedRegionPrompt,
-      customStyleInstructions
+      archiveDescription
    ].filter(Boolean).join(', ');
 
    useEffect(() => {
@@ -569,26 +617,26 @@ const getSelectedVoice = () => {
          if (result.record?.url) {
             setAudioUri(result.record.url);
             toast.success('Tạo giọng nói thành công!');
-            setArchiveTitle('');
-            setArchiveDescription('');
             loadHistory(); // Reload history
 
-            if (cardId) {
+            if (activeCardId) {
                toast.info('Đang đồng bộ audio lên Cloudinary...');
                try {
                   const filename = `voice_${Date.now()}.mp3`;
                   const cloudinaryUrl = await marketingService.uploadMediaToStorage(result.record.url, filename, 'video');
-                  await marketingService.updateCard(cardId, {
+                  await marketingService.updateCard(activeCardId, {
                      audioUrl: cloudinaryUrl,
                      voiceScript: text,
-                     audioRecordId: result.record?._id || result.record?.id
+                     audioRecordId: result.record?._id || result.record?.id,
+                     voiceTitle: archiveTitle.trim() || undefined,
+                     voiceDescription: archiveDescription.trim() || undefined
                   });
                   if (onMediaSaved) {
-                     onMediaSaved(cardId, cloudinaryUrl, 'audio');
+                     onMediaSaved(activeCardId, cloudinaryUrl, 'audio');
                   }
                                     toast.success('Đã lưu trữ và đồng bộ hóa audio thành công!');
                   try {
-                     const card = await marketingService.getCardById(cardId);
+                     const card = await marketingService.getCardById(activeCardId);
                      if (card && card.mediaType === 'human-video' && onNavigateToHumanVideo) {
                         toast.info('Đang tự động chuyển sang Xưởng Video để tạo video người thật...');
                         onNavigateToHumanVideo();
@@ -997,17 +1045,19 @@ const getSelectedVoice = () => {
                      </div>
                   </div>
 
-                  {/* Style instructions & Templates */}
+
+
+                  {/* Mẫu phong cách đọc */}
                   <div className="flex flex-col gap-2">
                      <div className="flex justify-between items-center">
-                        <label className="text-xs font-bold text-slate-700">Kịch bản đọc mẫu</label>
+                        <label className="text-xs font-bold text-slate-700">Mẫu phong cách đọc</label>
                         <select
                            value={VOICE_STYLE_TEMPLATES.find(t => t.prompt === selectedStylePrompt)?.id || 'none'}
                            onChange={(e) => {
                               const t = VOICE_STYLE_TEMPLATES.find(x => x.id === e.target.value);
                               setSelectedStylePrompt(t ? t.prompt : '');
                            }}
-                           className="text-[11px] font-bold text-slate-600 border border-slate-200 rounded-lg p-1.5 px-2 bg-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                           className="text-[11px] font-bold text-slate-650 border border-slate-200 rounded-lg p-1.5 px-2 bg-white focus:outline-none focus:ring-1 focus:ring-cyan-500 cursor-pointer"
                         >
                            {VOICE_STYLE_TEMPLATES.map(t => (
                               <option key={t.id} value={t.id}>{t.label}</option>
@@ -1027,12 +1077,30 @@ const getSelectedVoice = () => {
 
                      <div className="relative">
                         <textarea
-                           placeholder="Nhập văn bản bạn muốn chuyển thành giọng nói... Ví dụ: Xin chào, tôi là trợ lý ảo AI của bạn!"
-                           className="w-full text-xs p-4 border border-slate-200 rounded-xl h-44 focus:ring-1 focus:ring-cyan-500 focus:outline-none leading-relaxed font-sans resize-none"
-                           value={text}
-                           onChange={(e) => setText(e.target.value)}
-                           disabled={isGenerating}
-                        />
+                            placeholder="Nhập văn bản bạn muốn chuyển thành giọng nói... Ví dụ: Xin chào, tôi là trợ lý ảo AI của bạn!"
+                            className="w-full text-xs p-4 pr-32 border border-slate-200 rounded-xl h-44 focus:ring-1 focus:ring-cyan-500 focus:outline-none leading-relaxed font-sans resize-none"
+                            value={text}
+                            onChange={(e) => setText(e.target.value)}
+                            disabled={isGenerating}
+                         />
+                         <button
+                            type="button"
+                            onClick={handleOptimizeScript}
+                            disabled={isOptimizing || isGenerating || !text.trim()}
+                            className="absolute bottom-3 right-3 px-3 py-1.5 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white rounded-lg text-[10px] font-bold transition-all shadow-sm flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.02] active:scale-[0.98]"
+                         >
+                            {isOptimizing ? (
+                               <>
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                  <span>Đang tối ưu...</span>
+                               </>
+                            ) : (
+                               <>
+                                  <Sparkles className="h-3 w-3" />
+                                  <span>Tối ưu kịch bản (AI)</span>
+                               </>
+                            )}
+                         </button>
                      </div>
                   </div>
 
