@@ -313,8 +313,8 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, 
   };
 
   return (
-    <div className="max-w-[1500px] mx-auto w-full pb-8 px-2" id="image_workspace_wrapper">
-      <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-6 items-start">
+    <div className="mx-auto w-full max-w-[1500px] overflow-x-hidden px-2 pb-8" id="image_workspace_wrapper">
+      <div className="grid grid-cols-1 lg:grid-cols-[360px_minmax(0,1fr)] gap-6 items-start">
 
         {/* LEFT COLUMN: Configuration Form */}
         <div className="flex flex-col gap-4 bg-white border border-slate-200/80 p-4 md:p-5 rounded-3xl shadow-sm">
@@ -511,7 +511,7 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, 
         </div>
 
         {/* RIGHT COLUMN: Output Preview & Render History */}
-        <div className="flex flex-col gap-6">
+        <div className="min-w-0 flex flex-col gap-6">
 
           {/* Section 1: Kết Quả Render */}
           <div className="bg-white border border-slate-200/80 p-5 rounded-3xl shadow-sm flex flex-col gap-4">
@@ -520,9 +520,9 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, 
               <p className="text-xs text-slate-400 mt-0.5">Ảnh render mới nhất của bạn</p>
             </div>
 
-            <div className="aspect-video max-h-[420px] rounded-2xl overflow-hidden bg-slate-50 border border-slate-200/80 flex items-center justify-center relative shadow-inner">
+            <div className="min-w-0 aspect-video max-h-[420px] rounded-2xl overflow-hidden bg-slate-50 border border-slate-200/80 flex items-center justify-center relative shadow-inner">
               {isGenerating ? (
-                <div className="flex flex-col items-center gap-3 text-slate-400">
+                <div className="flex max-w-full flex-col items-center gap-3 px-4 text-center text-slate-400">
                   <Loader2 className="h-10 w-10 text-cyan-500 animate-spin" />
                   <span className="text-xs font-bold tracking-wider uppercase font-mono animate-pulse">Đang dựng khung hình AI {generateProgress}%...</span>
                 </div>

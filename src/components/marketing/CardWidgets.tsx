@@ -36,7 +36,7 @@ interface ModerationPipCardProps {
   onPrevStatus: ((...args: any[]) => any) | null;
   onDelete?: ((...args: any[]) => any) | null;
   onPreviewMedia: (type: 'image' | 'video', url: string) => void;
-  onGenerateMedia: (card: ContentApprovalCard, type?: 'image' | 'video') => void;
+  onGenerateMedia: (card: ContentApprovalCard, type?: 'image' | 'video' | 'voice') => void;
   onOpenDetail?: () => void;
   onPublishToPlatform?: (card: ContentApprovalCard) => Promise<void>;
   isPublishing?: boolean;
@@ -72,6 +72,16 @@ export function ModerationPipCard({
           <span className="px-2 py-0.5 bg-indigo-50 border border-indigo-150 rounded-sm text-[9px] font-mono font-bold text-indigo-700 tracking-wider shrink-0">
             {card.channel}
           </span>
+          {card.mediaType && (
+            <span className={`px-2 py-0.5 rounded-sm text-[9px] font-mono font-bold tracking-wide shrink-0 border ${
+              card.mediaType === 'human-video' ? 'bg-amber-50 text-amber-700 border-amber-100' :
+              card.mediaType === 'video' ? 'bg-sky-50 text-sky-700 border-sky-100' :
+              card.mediaType === 'image' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
+              'bg-slate-50 text-slate-600 border-slate-100'
+            }`}>
+              {card.mediaType === 'human-video' ? 'Video người thật' : card.mediaType === 'video' ? 'Video AI' : card.mediaType === 'image' ? 'Ảnh AI' : 'Media AI'}
+            </span>
+          )}
           {isFailed && (
             <span className="px-1.5 py-0.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-sm text-[8px] font-bold shrink-0">
               LỖI SINH
@@ -116,7 +126,7 @@ export function ModerationPipCard({
         <button
           onClick={(e) => {
             e.stopPropagation();
-            onGenerateMedia(card);
+            onGenerateMedia(card, card.mediaType === 'human-video' ? 'voice' : card.mediaType === 'video' ? 'video' : card.mediaType === 'image' ? 'image' : undefined);
           }}
           className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 bg-purple-50 hover:bg-purple-100 text-purple-700 hover:text-purple-800 border border-purple-200 rounded-lg text-[10px] font-bold transition-all shadow-xs cursor-pointer active:scale-[0.98]"
         >
@@ -231,7 +241,7 @@ interface ScheduledCardProps {
   fbIntegration?: { isConnected: boolean; pageId: string; pageName: string; pageAccessToken: string; isMock?: boolean } | null;
   tiktokIntegration?: { isConnected: boolean; username: string; displayName: string; isMock?: boolean; privacyLevel?: string } | null;
   onPreviewMedia: (type: 'image' | 'video', url: string) => void;
-  onGenerateMedia: (card: ContentApprovalCard, type?: 'image' | 'video') => void;
+  onGenerateMedia: (card: ContentApprovalCard, type?: 'image' | 'video' | 'voice') => void;
   onPublishToTikTok?: (...args: any[]) => any;
   isPublishingTikTok?: boolean;
   onPublishToFacebook?: (...args: any[]) => any;
@@ -258,9 +268,21 @@ export function ScheduledCard({
     <div className="bg-white border text-left border-gray-150/70 p-3 rounded-xl shadow-xs hover:shadow-md transition-all flex flex-col gap-2 relative group" id={`scheduled_card_${card.id}`}>
       
       <div className="flex justify-between items-center gap-2 cursor-pointer" onClick={onOpenDetail}>
-        <span className="px-2 py-0.5 bg-indigo-50 border border-indigo-150 rounded-sm text-[9px] font-mono font-bold text-indigo-700 tracking-wider shrink-0">
-          {card.channel}
-        </span>
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="px-2 py-0.5 bg-indigo-50 border border-indigo-150 rounded-sm text-[9px] font-mono font-bold text-indigo-700 tracking-wider shrink-0">
+            {card.channel}
+          </span>
+          {card.mediaType && (
+            <span className={`px-2 py-0.5 rounded-sm text-[9px] font-mono font-bold tracking-wide shrink-0 border ${
+              card.mediaType === 'human-video' ? 'bg-amber-50 text-amber-700 border-amber-100' :
+              card.mediaType === 'video' ? 'bg-sky-50 text-sky-700 border-sky-100' :
+              card.mediaType === 'image' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
+              'bg-slate-50 text-slate-600 border-slate-100'
+            }`}>
+              {card.mediaType === 'human-video' ? 'Video người thật' : card.mediaType === 'video' ? 'Video AI' : card.mediaType === 'image' ? 'Ảnh AI' : 'Media AI'}
+            </span>
+          )}
+        </div>
         <span className="text-[9px] text-gray-400 font-mono tracking-wide truncate" title={card.contentType}>{card.contentType}</span>
       </div>
 
@@ -299,12 +321,34 @@ export function ScheduledCard({
         <button
           onClick={(e) => {
             e.stopPropagation();
-            onGenerateMedia(card);
+            onGenerateMedia(card, card.mediaType === 'human-video' ? 'voice' : card.mediaType === 'video' ? 'video' : 'image');
           }}
           className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 bg-purple-50 hover:bg-purple-100 text-purple-700 hover:text-purple-800 border border-purple-200 rounded-lg text-[10px] font-bold transition-all shadow-xs cursor-pointer active:scale-[0.98]"
         >
           <Sparkles className="h-3 w-3 text-purple-500 animate-pulse" />
-          <span>Tạo Ảnh / Video AI</span>
+          <span>{
+            card.mediaType === "human-video" ? "Tạo Voice → Video người thật" :
+            card.mediaType === "video" ? "Tạo Video AI" :
+            card.mediaType === "image" ? "Tạo Ảnh AI" :
+            "Tạo Ảnh / Video AI"
+          }</span>
+        </button>
+      )}
+      {card.mediaType && (card.imageUrl || card.videoUrl) && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onGenerateMedia(card, card.mediaType === 'human-video' ? 'voice' : card.mediaType === 'video' ? 'video' : 'image');
+          }}
+          className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-[10px] font-bold transition-all shadow-xs cursor-pointer active:scale-[0.98]"
+        >
+          <Sparkles className="h-3 w-3 text-slate-500" />
+          <span>{
+            card.mediaType === "human-video" ? "Mở Xưởng Voice → Video" :
+            card.mediaType === "video" ? "Mở Xưởng Video AI" :
+            card.mediaType === "image" ? "Mở Xưởng Ảnh AI" :
+            "Mở Xưởng Media"
+          }</span>
         </button>
       )}
 
