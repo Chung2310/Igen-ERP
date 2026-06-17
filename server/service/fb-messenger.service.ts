@@ -421,9 +421,18 @@ export const fbMessengerService = {
     const duplicateMsg = await FBMessageModel.findOne({ messageId });
     if (duplicateMsg) {
       console.info(
-        `[FB Service processIncomingMessage] ⚠️ BỎ QUA: Webhook bị trùng messageId=${messageId}, ` +
-        `conversationId=${duplicateMsg.conversationId?.toString?.() || "unknown"}`
+        `[FB Service processIncomingMessage] ⚠️ Webhook nhận được messageId=${messageId} đã tồn tại trong DB (do sync hoặc trùng webhook).`
       );
+
+      // Vẫn kích hoạt AI nếu tin nhắn này là inbound và chưa được xử lý phản hồi
+      const conversation = await FBConversationModel.findOne({ recipientId: senderId, pageId: recipientId });
+      if (conversation) {
+        console.log(
+          `[FB Service processIncomingMessage] 🚀 TRIGGER AI (Fallback): Tin nhắn đã được lưu qua sync. ` +
+          `Đang kích hoạt AI cho conversationId=${conversation._id.toString()}`
+        );
+        aiAutoReplyService.triggerAutoReply("facebook", recipientId, conversation._id.toString(), text, messageId);
+      }
       return;
     }
 
