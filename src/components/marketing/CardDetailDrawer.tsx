@@ -26,7 +26,7 @@ interface CardDetailDrawerProps {
   onPrevStatus: ((id: string, newStatus: any) => Promise<void>) | null;
   onDelete: (id: string) => Promise<void>;
   onPreviewMedia: (type: 'image' | 'video', url: string) => void;
-  onGenerateMedia: (card: ContentApprovalCard, type?: 'image' | 'video') => void;
+  onGenerateMedia: (card: ContentApprovalCard, type?: 'image' | 'video' | 'voice') => void;
   fbIntegration?: any;
   tiktokIntegration?: any;
   onPublishToTikTok?: (card: ContentApprovalCard) => Promise<void>;
@@ -159,6 +159,16 @@ export default function CardDetailDrawer({
             <span className="px-2.5 py-0.5 bg-indigo-50 border border-indigo-150 rounded text-xs font-mono font-bold text-indigo-700 tracking-wider">
               {card.channel}
             </span>
+            {card.mediaType && (
+              <span className={`px-2.5 py-0.5 rounded text-xs font-mono font-bold tracking-wide ${
+                card.mediaType === 'human-video' ? 'bg-amber-50 text-amber-700 border border-amber-100' :
+                card.mediaType === 'video' ? 'bg-sky-50 text-sky-700 border border-sky-100' :
+                card.mediaType === 'image' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
+                'bg-slate-50 text-slate-600 border border-slate-100'
+              }`}>
+                {card.mediaType === 'human-video' ? 'Video người thật' : card.mediaType === 'video' ? 'Video AI' : card.mediaType === 'image' ? 'Ảnh AI' : 'Media AI'}
+              </span>
+            )}
             <span className="text-xs text-gray-400 font-mono tracking-wide">{card.contentType}</span>
           </div>
           <button 
@@ -209,7 +219,7 @@ export default function CardDetailDrawer({
 
             {!card.imageUrl && !card.videoUrl && card.status !== 'published' && card.status !== 'processing' && (
               <button
-                onClick={() => onGenerateMedia(card)}
+                onClick={() => onGenerateMedia(card, card.mediaType === 'human-video' ? 'voice' : card.mediaType === 'video' ? 'video' : 'image')}
                 className="w-full flex items-center justify-center gap-2 py-4 px-3 bg-purple-50 hover:bg-purple-100 text-purple-750 border border-purple-200 border-dashed rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-[0.99]"
               >
                 <Sparkles className="h-4 w-4 text-purple-500 animate-pulse" />
