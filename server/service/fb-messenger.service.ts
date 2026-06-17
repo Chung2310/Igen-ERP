@@ -544,7 +544,7 @@ export const fbMessengerService = {
     }
 
     // Hủy các phản hồi AI đang lên lịch do nhân viên đã can thiệp
-    aiAutoReplyService.cancelPendingReply(conversationId);
+    aiAutoReplyService.cancelPendingReply(conversationId, "human_reply");
 
     const recipientPsid = conversation.recipientId;
     const resolvedPageId = conversation.pageId || pageId || process.env.FB_PAGE_ID || "";
@@ -694,25 +694,33 @@ export const fbMessengerService = {
     })
       .select("email companyCode aiAutoReplyConfig facebookIntegration.pageId facebookIntegration.pageName facebookIntegration.pageAccessToken")
       .lean();
+    const { SocialIntegrationModel } = require("../model/social-integration.model");
+    const companyIntegration = await SocialIntegrationModel.findOne({
+      platform: "Facebook",
+      username: pageId,
+      isConnected: true
+    }).lean();
     let companyCode = pageOwner?.companyCode || null;
     let aiEnabled = !!pageOwner?.aiAutoReplyConfig?.enabled;
     let replyDelay = pageOwner?.aiAutoReplyConfig?.replyDelay ?? null;
+    let model = pageOwner?.aiAutoReplyConfig?.model || null;
     let pageOwnerEmail = pageOwner?.email || null;
+    let ownerSource = pageOwner ? "user" : null;
 
     if (!pageOwner) {
-      const { SocialIntegrationModel } = require("../model/social-integration.model");
-      const companyIntegration = await SocialIntegrationModel.findOne({
-        platform: "Facebook",
-        username: pageId,
-        isConnected: true
-      }).lean();
       if (companyIntegration) {
         companyCode = companyIntegration.companyCode;
-        const companyUser = await UserModel.findOne({ companyCode }).select("email aiAutoReplyConfig").lean();
+        const companyUser = await UserModel.findOne({
+          companyCode,
+          "aiAutoReplyConfig.enabled": true,
+        }).select("email aiAutoReplyConfig").lean()
+          || await UserModel.findOne({ companyCode }).select("email aiAutoReplyConfig").lean();
         if (companyUser) {
           pageOwnerEmail = companyUser.email;
           aiEnabled = !!companyUser.aiAutoReplyConfig?.enabled;
           replyDelay = companyUser.aiAutoReplyConfig?.replyDelay ?? null;
+          model = companyUser.aiAutoReplyConfig?.model || null;
+          ownerSource = "company";
         }
       }
     }
@@ -721,29 +729,36 @@ export const fbMessengerService = {
       ? await FBMessageModel.findOne({ conversationId: conversation._id }).sort({ timestamp: -1 }).lean()
       : null;
     const token = await this.getPageAccessTokenByPageId(pageId);
+    const reasons: string[] = [];
+    if (!conversation) reasons.push("conversation_not_found");
+    if (!pageOwner && !companyIntegration) reasons.push("owner_not_found");
+    if (!aiEnabled) reasons.push("ai_disabled");
+    if (!token) reasons.push("missing_page_access_token");
+    if (conversation && !latestMessage) reasons.push("no_messages");
+    if (latestMessage && latestMessage.direction !== "inbound") reasons.push("latest_message_not_inbound");
+    if (latestMessage?.direction === "inbound" && !String(latestMessage.text || "").trim()) reasons.push("latest_inbound_message_empty");
+    const shouldTriggerAutoReply = reasons.length === 0;
 
     return {
+      channel: "facebook",
       pageId,
       conversationFound: !!conversation,
       conversationPageId: conversation?.pageId || null,
       recipientId: conversation?.recipientId || null,
       pageOwnerEmail,
+      ownerSource,
       companyCode,
       aiEnabled,
       replyDelay,
+      model,
       hasPageAccessToken: !!token,
       pageAccessTokenTail: token ? token.slice(-6) : null,
       latestMessageDirection: latestMessage?.direction || null,
       latestMessageId: latestMessage?.messageId || null,
       latestMessageText: latestMessage?.text || null,
       latestMessageAt: latestMessage?.timestamp || null,
-      shouldTriggerAutoReply: !!(
-        conversation &&
-        aiEnabled &&
-        token &&
-        latestMessage?.direction === "inbound" &&
-        latestMessage?.text
-      ),
+      shouldTriggerAutoReply,
+      reasons,
     };
   },
 

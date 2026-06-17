@@ -5,6 +5,7 @@ class SocketService {
   private messageCallbacks: Array<(data: { message: any; conversation: any }) => void> = [];
   private conversationCallbacks: Array<(conversation: any) => void> = [];
   private statusCallbacks: Array<(connected: boolean) => void> = [];
+  private videoCallbacks: Array<(data: { videoId: string; status: string; updates: any[] }) => void> = [];
 
   connect(token: string) {
     if (this.socket?.connected) {
@@ -52,6 +53,12 @@ class SocketService {
       console.log("[SocketService] Received 'conversation_updated' event:", conversation);
       this.conversationCallbacks.forEach((cb) => cb(conversation));
     });
+
+    // Listen to video status updates
+    this.socket.on("video_status_updated", (data: { videoId: string; status: string; updates: any[] }) => {
+      console.log("[SocketService] Received 'video_status_updated' event:", data);
+      this.videoCallbacks.forEach((cb) => cb(data));
+    });
   }
 
   disconnect() {
@@ -78,6 +85,13 @@ class SocketService {
     this.conversationCallbacks.push(callback);
     return () => {
       this.conversationCallbacks = this.conversationCallbacks.filter((cb) => cb !== callback);
+    };
+  }
+
+  onVideoStatusUpdated(callback: (data: { videoId: string; status: string; updates: any[] }) => void) {
+    this.videoCallbacks.push(callback);
+    return () => {
+      this.videoCallbacks = this.videoCallbacks.filter((cb) => cb !== callback);
     };
   }
 
