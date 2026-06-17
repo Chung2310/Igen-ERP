@@ -528,6 +528,8 @@ export function HeyGenWorkspace({
                 const isProcessing = !isCompleted && !isFailed;
                 const renderName = `Render ${history.length - index}`;
                 const aspectRatio = item.metadata?.aspectRatio || "16:9";
+                const videoUrl = item.url || item.captionedVideoUrl || item.videoPageUrl || "";
+                const hasVideoUrl = videoUrl.startsWith("http") && !videoUrl.startsWith("pending://");
 
                 return (
                   <div
@@ -539,6 +541,7 @@ export function HeyGenWorkspace({
                       }
                       setPreviewItem(item);
                     }}
+                    title={item.prompt || item.title || renderName}
                     className={`relative w-[240px] aspect-[16/9] flex-shrink-0 overflow-hidden rounded-[20px] border-2 bg-slate-900 cursor-pointer shadow-sm transition-all duration-300 hover:shadow-md hover:scale-[1.02] group/card ${index === 0
                         ? "border-cyan-500 shadow-[0_0_12px_rgba(6,182,212,0.15)]"
                         : "border-slate-100 hover:border-cyan-400"
@@ -552,6 +555,12 @@ export function HeyGenWorkspace({
                             alt={renderName}
                             loading="lazy"
                             className="absolute inset-0 h-full w-full object-cover"
+                          />
+                        ) : hasVideoUrl ? (
+                          <video
+                            src={videoUrl}
+                            preload="metadata"
+                            className="absolute inset-0 h-full w-full object-cover bg-transparent"
                           />
                         ) : (
                           <div className="absolute inset-0 bg-slate-800 flex items-center justify-center">
