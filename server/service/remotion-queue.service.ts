@@ -2,7 +2,7 @@ import { Queue, Worker, Job } from "bullmq";
 import { geminiService } from "./gemini.service";
 
 const redisConfig = {
-  host: process.env.REDIS_HOST || "127.0.0.1",
+  host: process.env.REDIS_HOST || "redis",
   port: Number(process.env.REDIS_PORT) || 6379,
   password: process.env.REDIS_PASSWORD || undefined,
   maxRetriesPerRequest: null, // Required configuration for BullMQ
@@ -49,7 +49,7 @@ export const remotionQueueService = {
       async (job: Job) => {
         const { recordId, videoUrl, blueprint, userId } = job.data;
         console.log(`[Remotion Queue Worker] Bắt đầu xử lý Job ${job.id} cho record ${recordId}`);
-        
+
         // Gọi hàm kết xuất video đồng bộ bên trong Worker
         await geminiService.executeLocalRenderJob(recordId, videoUrl, blueprint, userId);
       },
