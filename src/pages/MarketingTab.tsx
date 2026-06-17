@@ -6,12 +6,13 @@ import {
   RefreshCw 
 } from "lucide-react";
 import { MarketingSubTabType, ContentApprovalCard } from "../types";
-import { marketingService, extractDraftContent } from "../services/marketingService";
+import { marketingService, extractDraftContent, sanitizeHumanVideoVoiceScript } from "../services/marketingService";
 import { toast } from "./Toast";
 import { useAuth } from "../context/AuthContext";
 import { parseFirebaseError } from "../utils/firebaseErrorParser";
 import { socialIntegrationService, SocialIntegration } from "../services/socialIntegrationService";
 import { useSubTabRouter } from "../hooks/useSubTabRouter";
+import { estimateAudioDuration } from "../utils/usage-tracker";
 
 // Lazy-loaded subcomponents
 const IdeationTab = lazy(() => import("../components/marketing/IdeationTab"));
@@ -34,6 +35,9 @@ export default function MarketingTab() {
   ] as const;
   const [subTab, setSubTab] = useSubTabRouter<MarketingSubTabType>(MARKETING_SUB_TAB_ROUTES as any, "LÊN Ý TƯỞNG AI");
 
+  const CONTENT_STUDIO_SUB_TAB = MARKETING_SUB_TAB_ROUTES[3].value;
+  const DEFAULT_HUMAN_VOICE_DURATION_SECONDS = 45;
+
   // AI Media Generation States
   const [publishingTikTokId, setPublishingTikTokId] = useState<string | null>(null);
   const [isPublishing, setIsPublishing] = useState(false);
@@ -41,6 +45,11 @@ export default function MarketingTab() {
     tab: 'image' | 'video' | 'voice';
     prompt: string;
     cardId: string;
+    image?: string;
+    autoTrigger?: boolean;
+    videoSubTab?: 'veo' | 'heygen' | 'edit-video';
+    title?: string;
+    description?: string;
   } | null>(null);
 
   // Lightbox Preview States
@@ -285,15 +294,49 @@ export default function MarketingTab() {
   };;
 
   const handleInitAIGeneration = (card: ContentApprovalCard, type?: 'image' | 'video' | 'voice') => {
+    const isHumanVideo = card.mediaType === 'human-video';
+    const baseVoiceScript = sanitizeHumanVideoVoiceScript(
+      card.voiceScript || card.outline || extractDraftContent(card.bodyText) || ""
+    );
+    const bodyScript = sanitizeHumanVideoVoiceScript(extractDraftContent(card.bodyText) || "");
+    const outlineScript = sanitizeHumanVideoVoiceScript(card.outline || "");
+    const voiceScriptParts = [baseVoiceScript, bodyScript, outlineScript].filter(Boolean);
+    const voiceScript = voiceScriptParts.join(" ").replace(/\s+/g, " ").trim();
+    const estimatedVoiceDuration = estimateAudioDuration(voiceScript);
+
+    const voiceTitle = `Voice cho ${card.title}`;
+    const voiceDescription = [
+      `Script tạo voice cho bài đăng kênh ${card.channel}.`,
+      `Thời lượng mục tiêu khoảng ${DEFAULT_HUMAN_VOICE_DURATION_SECONDS} giây.`,
+      `Thời lượng ước tính hiện tại khoảng ${estimatedVoiceDuration} giây.`,
+      "Giữ nguyên sát nội dung chiến dịch, không tự ý thêm ý ngoài brief.",
+      "Ưu tiên nhịp đọc rõ ràng, tự nhiên, đều tốc độ.",
+      "Nếu dùng để tạo video người thật, hãy đọc đúng nhịp và không quá nhanh."
+    ].join(" ");
     const selectedType = type ?? (
-      card.mediaType === 'human-video' ? 'voice' :
+      isHumanVideo ? 'voice' :
       card.mediaType === 'video' ? 'video' :
       card.mediaType === 'image' ? 'image' :
       (card.channel === 'TikTok' ? 'video' : 'image')
     );
 
+    if (isHumanVideo) {
+      setContentStudioParams({
+        tab: 'voice',
+        prompt: voiceScript,
+        cardId: card.id,
+        image: card.referenceImage,
+        autoTrigger: false,
+        videoSubTab: 'heygen',
+        title: voiceTitle,
+        description: voiceDescription,
+      });
+      setSubTab(CONTENT_STUDIO_SUB_TAB);
+      return;
+    }
+
     // Headless background generation for human-video card when clicking the main generate button
-    if (card.mediaType === 'human-video' && !type) {
+    if (isHumanVideo && !type) {
       toast.info(`Bắt đầu tạo video người thật tự động cho "${card.title}"...`);
       
       // Update card status to processing in state
@@ -336,6 +379,7 @@ export default function MarketingTab() {
       image: card.referenceImage,
       autoTrigger: true
     });
+    setSubTab(CONTENT_STUDIO_SUB_TAB);
     setSubTab("XƯỞNG NỘI DUNG");
   };
 

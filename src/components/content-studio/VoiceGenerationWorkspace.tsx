@@ -133,6 +133,8 @@ const TapeIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
 
 interface VoiceGenerationWorkspaceProps {
    initialText?: string;
+   initialTitle?: string;
+   initialDescription?: string;
    onNavigateToHumanVideo?: () => void;
    cardId?: string;
    autoTrigger?: boolean;
@@ -141,6 +143,8 @@ interface VoiceGenerationWorkspaceProps {
 
 export function VoiceGenerationWorkspace({
    initialText = '',
+   initialTitle = '',
+   initialDescription = '',
    onNavigateToHumanVideo,
    cardId,
    autoTrigger,
@@ -162,8 +166,16 @@ export function VoiceGenerationWorkspace({
    const [temperature, setTemperature] = useState(1.0);
 
    // Archive Metadata (Optional fields from mockup)
-   const [archiveTitle, setArchiveTitle] = useState('');
-   const [archiveDescription, setArchiveDescription] = useState('');
+   const [archiveTitle, setArchiveTitle] = useState(initialTitle || '');
+   const [archiveDescription, setArchiveDescription] = useState(initialDescription || '');
+
+   useEffect(() => {
+      setArchiveTitle(initialTitle || '');
+   }, [initialTitle]);
+
+   useEffect(() => {
+      setArchiveDescription(initialDescription || '');
+   }, [initialDescription]);
 
    // Voice selection states
    const [voiceId, setVoiceId] = useState(DEFAULT_FALLBACK_VOICE_ID);

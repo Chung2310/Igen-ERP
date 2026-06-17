@@ -358,15 +358,13 @@ export function EditVideoWorkspace({
       <div className="rounded-[28px] border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-6 shadow-sm">
         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-700">Video Studio</p>
+           
             <h1 className="mt-3 text-3xl font-bold text-slate-900">Chỉnh sửa Video </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
               Chỉnh sửa video gốc bằng prompt AI, thêm style, tự động cắt ghép, và xem preview nhanh.
             </p>
           </div>
-          <span className="inline-flex items-center rounded-full border border-cyan-200 bg-cyan-50 px-4 py-2 text-sm font-semibold text-cyan-700">
-            Igen ERP
-          </span>
+        
         </div>
 
         <div className="grid gap-6 xl:grid-cols-[1.02fr_0.98fr]">

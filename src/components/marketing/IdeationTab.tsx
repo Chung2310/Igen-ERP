@@ -30,6 +30,7 @@ interface IdeationTabProps {
 
 export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }: IdeationTabProps) {
   const hasFetchedRef = useRef(false);
+  const DEFAULT_HUMAN_VOICE_DURATION_SECONDS = 45;
 
   // 1. AI Campaign Ideation States
   const [campaignInput, setCampaignInput] = useState("");
@@ -215,7 +216,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
   const [selectedHumanAvatar, setSelectedHumanAvatar] = useState("mc-linh");
   const [selectedHumanVoice, setSelectedHumanVoice] = useState("igen-female-bright");
   const [selectedHumanVoiceModel, setSelectedHumanVoiceModel] = useState("eleven_turbo_v2_5");
-  const [estimatedHumanVoiceDuration, setEstimatedHumanVoiceDuration] = useState("15");
+  const [estimatedHumanVoiceDuration, setEstimatedHumanVoiceDuration] = useState(String(DEFAULT_HUMAN_VOICE_DURATION_SECONDS));
   const [humanVideoAvatars, setHumanVideoAvatars] = useState<HeyGenLibraryItem[]>([]);
   const [humanVideoVoices, setHumanVideoVoices] = useState<any[]>([]);
   const [isLoadingHumanVideoAvatars, setIsLoadingHumanVideoAvatars] = useState(false);
@@ -395,6 +396,11 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
 
   const buildHumanVideoVoiceBrief = () => {
     if (mediaType !== "human-video") return "";
+    const normalizedDuration = Math.max(
+      1,
+      parseInt(estimatedHumanVoiceDuration, 10) || DEFAULT_HUMAN_VOICE_DURATION_SECONDS
+    );
+    const targetWordCount = Math.max(80, Math.round(normalizedDuration * 2.6));
 
     const voiceLabel =
       humanVideoVoices.find((voice: any) => (voice.voice_id || voice.id) === selectedHumanVoice)?.label ||
@@ -407,14 +413,16 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
         : "iGen Audio Turbo v2.5";
 
     return [
-      "YEU CAU RIENG CHO VIDEO NGUOI THAT:",
-      `- Hay phan tich mo ta chien dich va viet thanh mot doan loi thoai hoan chinh, tu nhien, co the dem doc truc tiep.`,
-      `- Giong doc duoc chon: ${voiceLabel}.`,
-      `- Model voice duoc chon: ${voiceModelLabel}.`,
-      `- Thoi luong doc muc tieu: khoang ${estimatedHumanVoiceDuration} giay.`,
-      `- Hay toi uu do dai cau chu de khi tao script voice, tong do dai phai phu hop de doc tron ven trong khoang thoi gian muc tieu.`,
-      `- Uu tien cau ngan, nhip doc ro, mo dau cuon hut, thong diep chinh ro rang va ket bang CTA ngan gon.`,
-      `- Dau ra can uu tien dang script voice hoan chinh truoc, sau do moi den goi y boi canh quay neu can.`
+      "YÊU CẦU RIÊNG CHO VIDEO NGƯỜI THẬT:",
+      `- Hãy phân tích mô tả chiến dịch và viết thành một đoạn lời thoại hoàn chỉnh, tự nhiên, có thể đem đọc trực tiếp.`,
+      `- Giọng đọc được chọn: ${voiceLabel}.`,
+      `- Model voice được chọn: ${voiceModelLabel}.`,
+      `- Thời lượng đọc mục tiêu: khoảng ${normalizedDuration} giây.`,
+      `- Độ dài script voice cần được tối ưu để đọc hết trong khoảng ${normalizedDuration} giây, tương đương xấp xỉ ${targetWordCount} từ với tốc độ đọc tự nhiên.`,
+      `- Đầu ra ưu tiên là một đoạn voice script hoàn chỉnh để đưa thẳng vào công cụ tạo voice; không viết dạng dàn ý, không chèn bullet, không thêm nhãn MC/Voiceover.`,
+      `- Ưu tiên câu ngắn, nhịp đọc rõ, mở đầu cuốn hút, thông điệp chính rõ ràng và kết bằng CTA ngắn gọn.`,
+      `- Đầu ra cần ưu tiên dạng script voice hoàn chỉnh trước, sau đó mới đến gợi ý bối cảnh quay nếu cần.`,
+      `- BẮT BUỘC viết bằng tiếng Việt có dấu, không được bỏ dấu tiếng Việt.`
     ].join("\n");
   };
 
@@ -425,10 +433,10 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
     const outlineText = String(post?.outline || "").trim();
     const bodyText = String(post?.bodyText || "").trim();
     const fallbackParts = [
-      `Xin chao, day la video gioi thieu cho chien dich ${fallbackTitle}.`,
+      `Xin chào, đây là video giới thiệu cho chiến dịch ${fallbackTitle}.`,
       fallbackSummary,
       bodyText,
-      "Lien he ngay de nhan tu van va nhan uu dai phu hop."
+      "Liên hệ ngay để nhận tư vấn và nhận ưu đãi phù hợp."
     ]
       .filter(Boolean)
       .join(" ")
@@ -758,7 +766,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
           mediaPrompt: bestConcept.mediaPrompt,
           humanVoiceId: selectedHumanVoice,
           humanVoiceModel: selectedHumanVoiceModel,
-          humanDurationSeconds: parseInt(estimatedHumanVoiceDuration, 10) || 15,
+          humanDurationSeconds: parseInt(estimatedHumanVoiceDuration, 10) || DEFAULT_HUMAN_VOICE_DURATION_SECONDS,
         });
 
         if (!result || !result.posts || result.posts.length === 0) {
@@ -828,7 +836,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
         mediaPrompt: concept.mediaPrompt,
         humanVoiceId: selectedHumanVoice,
         humanVoiceModel: selectedHumanVoiceModel,
-        humanDurationSeconds: parseInt(estimatedHumanVoiceDuration, 10) || 15,
+        humanDurationSeconds: parseInt(estimatedHumanVoiceDuration, 10) || DEFAULT_HUMAN_VOICE_DURATION_SECONDS,
       });
       console.log("[handleDevelopConcept] Received result from API:", result);
 
@@ -1440,7 +1448,14 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                   onAvatarChange={setSelectedHumanAvatar}
                   onVoiceChange={setSelectedHumanVoice}
                   onVoiceModelChange={setSelectedHumanVoiceModel}
-                  onEstimatedDurationChange={setEstimatedHumanVoiceDuration}
+                  onEstimatedDurationChange={(value) => {
+                    if (!value.trim()) {
+                      setEstimatedHumanVoiceDuration("");
+                      return;
+                    }
+                    const normalizedValue = String(Math.min(600, Math.max(1, parseInt(value, 10) || DEFAULT_HUMAN_VOICE_DURATION_SECONDS)));
+                    setEstimatedHumanVoiceDuration(normalizedValue);
+                  }}
                   onPreviewVoice={handlePreviewHumanVoice}
                 />
               )}

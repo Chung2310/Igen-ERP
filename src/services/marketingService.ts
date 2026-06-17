@@ -771,7 +771,7 @@ export function splitOutlineAndDraft(text: string): { outline: string; bodyText:
 }
 
 export function getHumanVideoScript(card: Partial<ContentApprovalCard>): string {
-  const directScript = String(card.voiceScript || "").trim();
+  const directScript = sanitizeHumanVideoVoiceScript(String(card.voiceScript || "").trim());
   if (directScript) return directScript;
 
   const outlineText = String(card.outline || "").trim();
@@ -788,4 +788,33 @@ export function getHumanVideoScript(card: Partial<ContentApprovalCard>): string 
     .trim();
 
   return (outlineText || fallbackParts).slice(0, 1200);
+}
+
+export function sanitizeHumanVideoVoiceScript(rawText: string): string {
+  const text = String(rawText || "").trim();
+  if (!text) return "";
+
+  const instructionMarkers = [
+    "YÊU CẦU RIÊNG CHO VIDEO NGƯỜI THẬT:",
+    "YEU CAU RIENG CHO VIDEO NGUOI THAT:",
+  ];
+
+  let cleaned = text;
+  for (const marker of instructionMarkers) {
+    const markerIndex = cleaned.toUpperCase().indexOf(marker.toUpperCase());
+    if (markerIndex !== -1) {
+      cleaned = cleaned.slice(0, markerIndex).trim();
+      break;
+    }
+  }
+
+  cleaned = cleaned
+    .replace(/^Xin chao,\s*/i, "Xin chào, ")
+    .replace(/\bday la\b/gi, "đây là")
+    .replace(/\bnoi dung gioi thieu ngan gon cho chien dich\b/gi, "nội dung giới thiệu cho chiến dịch")
+    .replace(/\bHay lien he ngay de nhan tu van chi tiet va uu dai phu hop\.?$/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return cleaned;
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ImageIcon, Mic, Video } from 'lucide-react';
 import { ImageGenerationWorkspace } from './ImageGenerationWorkspace';
 import { VideoGenerationWorkspace } from './VideoGenerationWorkspace';
@@ -11,6 +11,9 @@ interface ContentStudioWorkspaceProps {
     cardId: string;
     image?: string;
     autoTrigger?: boolean;
+    videoSubTab?: 'veo' | 'heygen' | 'edit-video';
+    title?: string;
+    description?: string;
   } | null;
   onClearParams?: () => void;
   onMediaSaved?: (cardId: string, mediaUrl: string, type: 'image' | 'video' | 'audio') => void;
@@ -19,21 +22,26 @@ interface ContentStudioWorkspaceProps {
 export function ContentStudioWorkspace({ initialParams, onClearParams, onMediaSaved }: ContentStudioWorkspaceProps) {
   const [activeTab, setActiveTab] = useState<'image' | 'video' | 'voice'>(initialParams?.tab || 'image');
   const [videoSubTab, setVideoSubTab] = useState<'veo' | 'heygen' | 'edit-video'>('veo');
+  const clearParamsRef = useRef(onClearParams);
+
+  useEffect(() => {
+    clearParamsRef.current = onClearParams;
+  }, [onClearParams]);
 
   useEffect(() => {
     if (initialParams) {
       setActiveTab(initialParams.tab);
       if (initialParams.tab === 'video') {
-        setVideoSubTab('veo');
+        setVideoSubTab(initialParams.videoSubTab || 'veo');
       }
     }
   }, [initialParams]);
 
   useEffect(() => {
     return () => {
-      onClearParams?.();
+      clearParamsRef.current?.();
     };
-  }, [onClearParams]);
+  }, []);
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col bg-[linear-gradient(180deg,#fcfdfd_0%,#f4f8fb_100%)]" id="content_studio_workspace_root">
@@ -94,6 +102,8 @@ export function ContentStudioWorkspace({ initialParams, onClearParams, onMediaSa
         {activeTab === 'voice' && (
           <VoiceGenerationWorkspace
             initialText={initialParams?.prompt}
+            initialTitle={initialParams?.title}
+            initialDescription={initialParams?.description}
             cardId={initialParams?.cardId}
             autoTrigger={initialParams?.autoTrigger}
             onMediaSaved={onMediaSaved}
