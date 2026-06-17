@@ -511,6 +511,44 @@ ${docText}
   },
 
   /**
+   * Trích xuất văn bản từ file PDF sử dụng Gemini API
+   */
+  async extractTextFromPdf(pdfBase64: string): Promise<string> {
+    if (!process.env.GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY is not configured");
+    }
+
+    try {
+      console.log(`[AI AutoReply] Đang gọi Gemini trích xuất văn bản từ PDF (base64 length: ${pdfBase64.length})...`);
+      const ai = getGeminiClient();
+      const response = await ai.models.generateContent({
+        model: GEMINI_TEXT_MODEL,
+        contents: [
+          {
+            role: "user",
+            parts: [
+              {
+                inlineData: {
+                  mimeType: "application/pdf",
+                  data: pdfBase64,
+                },
+              },
+              {
+                text: "Bạn là trợ lý trích xuất văn bản. Hãy trích xuất và trả về toàn bộ nội dung văn bản (text) có trong file tài liệu PDF này một cách đầy đủ, chính xác nhất theo đúng thứ tự đọc của tài liệu. Chỉ trả về nội dung văn bản thuần, không thêm thắt giải thích, không định dạng markdown hay giới thiệu gì ngoài nội dung gốc.",
+              },
+            ],
+          },
+        ],
+      });
+
+      return response.text || "";
+    } catch (error: any) {
+      console.error("[geminiService.extractTextFromPdf] Error extracting text from PDF:", error);
+      throw error;
+    }
+  },
+
+  /**
    * Tạo 3 gợi ý chủ đề marketing chung
    */
   async getMarketingSuggestions(): Promise<string[]> {

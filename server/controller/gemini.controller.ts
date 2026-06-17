@@ -120,14 +120,31 @@ async function fetchDriveFileContent(fileId: string): Promise<{ text: string; ti
     console.warn(`Sheet export failed for ${fileId}:`, e);
   }
 
-  // 3. Direct File Download (e.g. for text/markdown files)
+  // 3. Direct File Download (e.g. for text/markdown files or PDFs)
   try {
     const directUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
     const res = await fetch(directUrl);
     if (res.ok) {
-      const text = await res.text();
-      if (text && !text.includes("<!DOCTYPE html>") && text.length > 10) {
-        return { text, title: `Drive File (${fileId})` };
+      const contentType = res.headers.get("content-type") || "";
+      const arrayBuffer = await res.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+
+      // Check if it is a PDF file by content-type or magic bytes (%PDF)
+      const isPdf = contentType.toLowerCase().includes("pdf") || 
+        (buffer.length >= 4 && buffer[0] === 0x25 && buffer[1] === 0x50 && buffer[2] === 0x44 && buffer[3] === 0x46);
+
+      if (isPdf) {
+        console.log(`[AI AutoReply] Phát hiện file PDF (${fileId}). Tiến hành trích xuất văn bản qua Gemini...`);
+        const base64 = buffer.toString("base64");
+        const extractedText = await geminiService.extractTextFromPdf(base64);
+        if (extractedText && extractedText.trim().length > 0) {
+          return { text: extractedText, title: `PDF File (${fileId})` };
+        }
+      } else {
+        const text = buffer.toString("utf-8");
+        if (text && !text.includes("<!DOCTYPE html>") && text.length > 10) {
+          return { text, title: `Drive File (${fileId})` };
+        }
       }
     }
   } catch (e) {
