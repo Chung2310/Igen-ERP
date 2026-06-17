@@ -96,11 +96,15 @@ export function EditVideoWorkspace({
       const previewUrl = URL.createObjectURL(file);
       
       const tempVideo = document.createElement('video');
+      tempVideo.preload = 'metadata';
+      tempVideo.muted = true;
+      tempVideo.playsInline = true;
       tempVideo.src = previewUrl;
       tempVideo.onloadedmetadata = () => {
         const duration = tempVideo.duration || 0;
         setVideoInputs(prev => prev.map(item => item.url === previewUrl ? { ...item, duration } : item));
       };
+      tempVideo.load();
 
       newInputs.push({
         url: previewUrl,
@@ -267,11 +271,15 @@ export function EditVideoWorkspace({
       const previewUrl = URL.createObjectURL(file);
       
       const tempVideo = document.createElement('video');
+      tempVideo.preload = 'metadata';
+      tempVideo.muted = true;
+      tempVideo.playsInline = true;
       tempVideo.src = previewUrl;
       tempVideo.onloadedmetadata = () => {
         const duration = tempVideo.duration || 0;
         setVideoInputs(prev => prev.map(item => item.url === previewUrl ? { ...item, duration } : item));
       };
+      tempVideo.load();
 
       newInputs.push({
         url: previewUrl,
