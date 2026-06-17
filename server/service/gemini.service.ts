@@ -1980,6 +1980,7 @@ Return ONLY valid JSON. No markdown backticks, no comments, no conversational te
         });
 
         await updateLogs(45, `[Render Engine Fallback] Kết quả FFMPEG: ${hasFfmpeg ? "Đã cài đặt" : "Chưa cài đặt"}`);
+        if (hasFfmpeg) {
           const cacheDir = path.join(process.cwd(), "server/cache/videos");
           if (!fs.existsSync(cacheDir)) {
             fs.mkdirSync(cacheDir, { recursive: true });
@@ -2399,7 +2400,7 @@ try {
   audioTempPaths.forEach(p => { if (p) fs.unlinkSync(p); });
 } catch (e) { }
         } else if (videoUrl.includes("res.cloudinary.com")) {
-  await updateLogs(60, "[Render Engine Fallback] Không có FFMPEG. Sử dụng Cloud Render Engine...");
+          await updateLogs(60, "[Render Engine Fallback] Không có FFMPEG. Sử dụng Cloud Render Engine...");
 
   const firstUrl = videoUrl.split(",")[0];
   const parts = firstUrl.split("/upload/");
@@ -2423,6 +2424,7 @@ try {
   await new Promise((resolve) => setTimeout(resolve, 2000));
   await updateLogs(85, "[Render Engine Fallback] Mô phỏng render hoàn tất.");
 }
+      }
 
 await updateLogs(95, "[Cloudinary] Đồng bộ hóa tài nguyên biên tập...");
 
