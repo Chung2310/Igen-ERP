@@ -3,6 +3,7 @@ import { AIMediaModel } from "../model/ai-media.model";
 import { cloudinaryService } from "./cloudinary.service";
 import { remotionService } from "./remotion.service";
 import { piapiService } from "./piapi.service";
+import { remotionQueueService } from "./remotion-queue.service";
 import { exec } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
@@ -262,7 +263,7 @@ async function generateText(
   const geminiStartTime = Date.now();
   console.log(`[generateText] Calling Gemini API | model=${modelId} | contentParts=${geminiContents.length} | hasSchema=${!!geminiConfig.responseSchema} | hasImages=${!!(config?.images?.length)}`);
 
-  const maxRetries = 3;
+  const maxRetries = 4;
   let delay = 1000;
   let lastError: any;
 
@@ -283,9 +284,10 @@ async function generateText(
       const errorMsg = error?.message || String(error);
       const isRateLimit = error?.status === 429 || errorMsg.includes("429") || errorMsg.includes("RESOURCE_EXHAUSTED") || errorMsg.includes("quota");
       const isUnavailable = error?.status === 503 || errorMsg.includes("503") || errorMsg.includes("UNAVAILABLE") || errorMsg.includes("experiencing high demand");
+      const isNetworkError = errorMsg.includes("fetch failed") || errorMsg.includes("ENOTFOUND") || errorMsg.includes("ECONNRESET") || errorMsg.includes("ETIMEDOUT") || errorMsg.includes("socket");
 
-      if ((isRateLimit || isUnavailable) && attempt < maxRetries) {
-        console.warn(`[generateText] Attempt ${attempt} failed with API error (rate-limit/unavailable). Retrying in ${delay}ms... Error: ${errorMsg}`);
+      if ((isRateLimit || isUnavailable || isNetworkError) && attempt < maxRetries) {
+        console.warn(`[generateText] Attempt ${attempt} failed with API error (rate-limit/unavailable/network). Retrying in ${delay}ms... Error: ${errorMsg}`);
         await new Promise((resolve) => setTimeout(resolve, delay));
         delay *= 2;
       } else {
@@ -1952,11 +1954,11 @@ Return ONLY valid JSON. No markdown backticks, no comments, no conversational te
         blueprint = safeParseJson(editResult.text);
       }
     } catch (error) {
-      console.error("[geminiService.editVideo] Failed to get LLM blueprint, falling back:", error);
-      blueprint = getFallbackBlueprint();
+      console.error("[geminiService.editVideo] Failed to get LLM blueprint:", error);
+      throw error;
     }
 
-    // Save record to database with status processing
+    // Save record to database with status processing (queued state description)
     const record = await AIMediaModel.create({
       userId,
       mediaType: "video",
@@ -1964,22 +1966,23 @@ Return ONLY valid JSON. No markdown backticks, no comments, no conversational te
       prompt,
       metadata: {
         status: "processing",
-        progress: 10,
+        progress: 5,
         provider: "local-render",
         title: `Biên tập: ${prompt}`,
-        description: `Đang kết xuất video tự động bằng FFMPEG / Cloud Render.`,
+        description: `Đang xếp hàng chờ kết xuất video bằng FFMPEG / Cloud Render.`,
         blueprint: JSON.stringify(blueprint),
         renderLogs: [
           "[LLM] Đang phân tích prompt...",
-          `[LLM] Đã phân tích thành công JSON Blueprint: ${JSON.stringify(blueprint, null, 2)}`
+          `[LLM] Đã phân tích thành công JSON Blueprint: ${JSON.stringify(blueprint, null, 2)}`,
+          "[Hàng đợi] Đã thêm yêu cầu render vào hàng đợi Redis."
         ],
         aspectRatio: options?.aspectRatio || "16:9",
         resolution: options?.resolution || "720p",
       }
     });
 
-    // Start background render execution
-    this.executeLocalRenderBackground(record._id.toString(), videoUrl, blueprint, userId);
+    // Add render task to Redis queue
+    await remotionQueueService.addRenderJob(record._id.toString(), videoUrl, blueprint, userId);
 
     return {
       status: "success",
@@ -1988,23 +1991,28 @@ Return ONLY valid JSON. No markdown backticks, no comments, no conversational te
     };
   },
 
-  async executeLocalRenderBackground(recordId: string, videoUrl: string, blueprint: any, userId: string) {
-    console.log(`[Local Render Background] Starting task for record ${recordId}`);
+  async executeLocalRenderJob(recordId: string, videoUrl: string, blueprint: any, userId: string) {
+    console.log(`[Remotion Queue Worker] Starting task for record ${recordId}`);
     const timeline = blueprint.timeline || [];
-    const logs = [
+    
+    const currentRecord = await AIMediaModel.findById(recordId);
+    const logs = currentRecord?.metadata?.renderLogs || [
       "[LLM] Đang phân tích prompt...",
       `[LLM] Đã phân tích thành công JSON Blueprint: ${JSON.stringify(blueprint, null, 2)}`,
-      "[Render Engine] Khởi động Render Engine..."
+      "[Hàng đợi] Đã thêm yêu cầu render vào hàng đợi Redis."
     ];
+    
+    logs.push("[Render Engine] Bắt đầu xử lý tác vụ từ hàng đợi...");
     
     const updateLogs = async (progress: number, newLog?: string) => {
       if (newLog) {
-        console.log(`[Local Render Background] [${progress}%] ${newLog}`);
+        console.log(`[Remotion Queue Worker] [${progress}%] ${newLog}`);
         logs.push(newLog);
       }
       await AIMediaModel.findByIdAndUpdate(recordId, {
         "metadata.progress": progress,
-        "metadata.renderLogs": logs
+        "metadata.renderLogs": logs,
+        "metadata.description": `Đang kết xuất video tự động bằng FFMPEG / Cloud Render. Tiến trình: ${progress}%`
       });
     };
 
@@ -2012,6 +2020,35 @@ Return ONLY valid JSON. No markdown backticks, no comments, no conversational te
       const record = await AIMediaModel.findById(recordId);
       const aspect = record?.metadata?.aspectRatio || "16:9";
       const resolution = record?.metadata?.resolution || "720p";
+
+      let targetWidth = 1280;
+      let targetHeight = 720;
+
+      if (aspect === "9:16") {
+        if (resolution === "1080p") {
+          targetWidth = 1080;
+          targetHeight = 1920;
+        } else {
+          targetWidth = 720;
+          targetHeight = 1280;
+        }
+      } else if (aspect === "1:1") {
+        if (resolution === "1080p") {
+          targetWidth = 1080;
+          targetHeight = 1080;
+        } else {
+          targetWidth = 720;
+          targetHeight = 720;
+        }
+      } else { // default 16:9
+        if (resolution === "1080p") {
+          targetWidth = 1920;
+          targetHeight = 1080;
+        } else {
+          targetWidth = 1280;
+          targetHeight = 720;
+        }
+      }
 
       let finalVideoUrl = "";
       let renderSuccess = false;
@@ -2249,6 +2286,7 @@ videoClips.forEach((clip: any, idx: number) => {
   if (rate !== 1) {
     vFilter += `,setpts=${1 / rate}*(PTS-STARTPTS)`;
   }
+  vFilter += `,scale=w='min(${targetWidth},iw*${targetHeight}/ih)':h='min(${targetHeight},ih*${targetWidth}/iw)',pad=w=${targetWidth}:h=${targetHeight}:x='(${targetWidth}-iw)/2':y='(${targetHeight}-ih)/2':color=black,setsar=1`;
   vFilter += `,fps=fps=30`;
   vFilter += `[v_proc_${idx}];`;
   filterComplex += vFilter;
@@ -2501,10 +2539,10 @@ await AIMediaModel.findByIdAndUpdate(recordId, {
   "metadata.renderLogs": [...logs, "[Render Engine] Hoàn thành kết xuất video!"]
 });
 
-console.log(`[Local Render Background] Successfully completed. Final URL: ${finalVideoUrl}`);
+console.log(`[Remotion Queue Worker] Successfully completed. Final URL: ${finalVideoUrl}`);
 
     } catch (error: any) {
-  console.error("[Local Render Background Error]", error);
+  console.error("[Remotion Queue Worker Error]", error);
   await AIMediaModel.findByIdAndUpdate(recordId, {
     "metadata.status": "failed",
     "metadata.error": error.message || String(error),

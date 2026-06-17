@@ -31,6 +31,9 @@ RUN yarn build
 # Step 2: Production runner stage (keeps the final image lightweight)
 FROM node:22-alpine AS runner
 
+# Install ffmpeg and fonts for video rendering/text drawing
+RUN apk add --no-cache ffmpeg fontconfig ttf-freefont
+
 WORKDIR /app
 
 ENV NODE_ENV=production

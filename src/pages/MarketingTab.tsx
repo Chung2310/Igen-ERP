@@ -1,9 +1,9 @@
 import React, { useState, useEffect, lazy, Suspense } from "react";
-import { 
-  Zap, 
-  Trash2, 
-  Calendar, 
-  RefreshCw 
+import {
+  Zap,
+  Trash2,
+  Calendar,
+  RefreshCw
 } from "lucide-react";
 import { MarketingSubTabType, ContentApprovalCard } from "../types";
 import { marketingService, extractDraftContent, sanitizeHumanVideoVoiceScript, stripHumanVideoOutlineSections } from "../services/marketingService";
@@ -156,12 +156,12 @@ export default function MarketingTab() {
         scheduleIntegrationId || undefined
       );
       toast.success(`Đã lên lịch đăng bài "${schedulingCard.title}" thành công!`);
-      setApprovalCards(prev => prev.map(c => c.id === schedulingCard.id ? { 
-        ...c, 
-        status: "scheduled", 
-        scheduledDate: scheduleDate, 
+      setApprovalCards(prev => prev.map(c => c.id === schedulingCard.id ? {
+        ...c,
+        status: "scheduled",
+        scheduledDate: scheduleDate,
         scheduledTime: scheduleTime,
-        integrationId: scheduleIntegrationId 
+        integrationId: scheduleIntegrationId
       } : c));
       setSchedulingCard(null);
     } catch (e) {
@@ -207,7 +207,7 @@ export default function MarketingTab() {
     setShowDeleteMediaConfirm(false);
     try {
       await marketingService.updateCardMedia(null, activeLightboxType, [activeLightboxCard.id]);
-      
+
       setApprovalCards(prev => prev.map(c => c.id === activeLightboxCard.id ? {
         ...c,
         imageUrl: activeLightboxType === 'image' ? null : c.imageUrl,
@@ -359,7 +359,6 @@ export default function MarketingTab() {
       return;
     }
 
-    
     let cleanText = "";
     if (selectedType === 'voice') {
       cleanText = stripHumanVideoOutlineSections(
@@ -389,7 +388,7 @@ export default function MarketingTab() {
   return (
     <div className="flex flex-col h-full bg-white max-h-[85vh] overflow-hidden" id="marketing_tab_wrapper">
       <h1 className="sr-only">Chiến dịch Marketing - {subTab}</h1>
-      
+
       {/* Sub Tabs control header switcher */}
       <div className="border-b border-gray-200 bg-gray-50/50 p-2 text-xs flex justify-between shrink-0" id="marketing_sub_tabs_switch">
         <div className="flex gap-2">
@@ -397,11 +396,10 @@ export default function MarketingTab() {
             <button
               key={tab}
               onClick={() => setSubTab(tab as MarketingSubTabType)}
-              className={`px-4 py-2 rounded-lg border font-bold uppercase transition-all tracking-wide ${
-                subTab === tab 
-                  ? "bg-slate-800 text-white border-slate-800 shadow-xs" 
+              className={`px-4 py-2 rounded-lg border font-bold uppercase transition-all tracking-wide ${subTab === tab
+                  ? "bg-slate-800 text-white border-slate-800 shadow-xs"
                   : "bg-white text-gray-500 border-gray-200 hover:bg-gray-100"
-              }`}
+                }`}
             >
               {tab}
             </button>
@@ -414,7 +412,7 @@ export default function MarketingTab() {
         <Suspense fallback={<TabLoader label="Đang tải dữ liệu marketing..." />}>
           {/* SUB TAB 1: LÊN Ý TƯỞNG AI */}
           <div style={{ display: subTab === "LÊN Ý TƯỞNG AI" ? "block" : "none" }}>
-            <IdeationTab 
+            <IdeationTab
               userProfile={userProfile}
               setApprovalCards={setApprovalCards}
               setSubTab={setSubTab}
@@ -423,7 +421,7 @@ export default function MarketingTab() {
 
           {/* SUB TAB 2: DUYỆT NỘI DUNG */}
           {subTab === "DUYỆT NỘI DUNG" && (
-            <ApprovalTab 
+            <ApprovalTab
               userProfile={userProfile}
               isUserRole={isUserRole}
               approvalCards={approvalCards}
@@ -444,7 +442,7 @@ export default function MarketingTab() {
 
           {/* SUB TAB 3: LỊCH ĐĂNG CONTENT */}
           {subTab === "LỊCH ĐĂNG CONTENT" && (
-            <CalendarTab 
+            <CalendarTab
               isUserRole={isUserRole}
               approvalCards={approvalCards}
             />
@@ -452,7 +450,7 @@ export default function MarketingTab() {
 
           {/* SUB TAB 4: XƯỞNG NỘI DUNG */}
           {subTab === "XƯỞNG NỘI DUNG" && (
-            <ContentStudioWorkspace 
+            <ContentStudioWorkspace
               initialParams={contentStudioParams}
               onClearParams={() => setContentStudioParams(null)}
               onMediaSaved={handleMediaSaved}
@@ -465,20 +463,20 @@ export default function MarketingTab() {
       {activeLightboxCard && activeLightboxUrl && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fadeIn">
           <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-3xl shadow-2xl w-full max-w-4xl overflow-hidden text-left flex flex-col md:flex-row max-h-[85vh]">
-            
+
             {/* Left side: Media preview */}
             <div className="flex-1 bg-black/40 flex items-center justify-center p-4 relative min-h-[300px]">
               {activeLightboxType === "image" ? (
-                <img 
-                  src={activeLightboxUrl} 
-                  alt="AI Preview" 
+                <img
+                  src={activeLightboxUrl}
+                  alt="AI Preview"
                   className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-lg animate-scaleIn"
                 />
               ) : (
-                <video 
-                  src={activeLightboxUrl} 
-                  controls 
-                  autoPlay 
+                <video
+                  src={activeLightboxUrl}
+                  controls
+                  autoPlay
                   className="max-w-full max-h-[70vh] rounded-lg shadow-lg"
                 />
               )}
@@ -491,7 +489,7 @@ export default function MarketingTab() {
                   <span className="px-2.5 py-0.5 bg-purple-500/20 text-purple-300 border border-purple-500/30 rounded-full font-bold text-[10px] tracking-wide uppercase">
                     Preview Phương Tiện
                   </span>
-                  <button 
+                  <button
                     onClick={() => {
                       setActiveLightboxCard(null);
                       setActiveLightboxType(null);
@@ -512,7 +510,7 @@ export default function MarketingTab() {
               </div>
 
               <div className="pt-4 border-t border-white/15">
-                <button 
+                <button
                   onClick={handleDeleteMedia}
                   className="w-full flex items-center justify-center gap-1.5 py-2.5 px-4 bg-red-950/40 hover:bg-red-900/60 text-red-300 hover:text-red-200 border border-red-900/50 hover:border-red-800 rounded-xl text-xs font-bold transition-all cursor-pointer"
                 >
@@ -561,7 +559,7 @@ export default function MarketingTab() {
       {schedulingCard && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fadeIn" id="schedule_modal_backdrop">
           <div className="bg-white rounded-3xl border border-gray-200/50 shadow-2xl w-full max-w-md overflow-hidden font-sans">
-            
+
             <div className="p-6 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
               <div>
                 <h4 className="font-bold text-gray-800 text-base flex items-center gap-2">
@@ -570,14 +568,14 @@ export default function MarketingTab() {
                 </h4>
                 <p className="text-xs text-gray-400 mt-1">Chọn ngày và giờ đăng bài lên kênh truyền thông</p>
               </div>
-              <button 
+              <button
                 onClick={() => setSchedulingCard(null)}
                 className="p-1 px-3 text-sm text-slate-400 hover:text-slate-655 hover:bg-slate-100 rounded-md font-bold transition-all cursor-pointer"
               >
                 ✕
               </button>
             </div>
-            
+
             <div className="p-6 space-y-4 text-xs text-left">
               <div className="bg-slate-50 p-3.5 rounded-xl border border-dashed border-gray-200">
                 <p className="text-[10px] text-gray-400 font-mono uppercase tracking-wider">Bài viết được chọn:</p>
@@ -600,9 +598,8 @@ export default function MarketingTab() {
                 ) : availableIntegrations.length > 0 ? (
                   <select
                     disabled={isScheduling}
-                    className={`w-full p-2.5 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white font-medium text-gray-750 ${
-                      isScheduling ? "bg-gray-50 text-gray-400 cursor-not-allowed" : ""
-                    }`}
+                    className={`w-full p-2.5 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white font-medium text-gray-750 ${isScheduling ? "bg-gray-50 text-gray-400 cursor-not-allowed" : ""
+                      }`}
                     value={scheduleIntegrationId}
                     onChange={(e) => setScheduleIntegrationId(e.target.value)}
                   >
@@ -626,13 +623,12 @@ export default function MarketingTab() {
 
               <div>
                 <label className="block text-gray-500 font-bold mb-1.5 uppercase tracking-wide text-[10px]">Ngày đăng bài *</label>
-                <input 
-                  type="date" 
+                <input
+                  type="date"
                   required
                   disabled={isScheduling}
-                  className={`w-full p-2.5 border border-gray-200 rounded-lg text-xs font-mono focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none ${
-                    isScheduling ? "bg-gray-50 text-gray-400 cursor-not-allowed" : ""
-                  }`}
+                  className={`w-full p-2.5 border border-gray-200 rounded-lg text-xs font-mono focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none ${isScheduling ? "bg-gray-50 text-gray-400 cursor-not-allowed" : ""
+                    }`}
                   value={scheduleDate}
                   onChange={(e) => setScheduleDate(e.target.value)}
                 />
@@ -640,38 +636,35 @@ export default function MarketingTab() {
 
               <div>
                 <label className="block text-gray-500 font-bold mb-1.5 uppercase tracking-wide text-[10px]">Giờ đăng bài *</label>
-                <input 
-                  type="time" 
+                <input
+                  type="time"
                   required
                   disabled={isScheduling}
-                  className={`w-full p-2.5 border border-gray-200 rounded-lg text-xs font-mono focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none ${
-                    isScheduling ? "bg-gray-50 text-gray-400 cursor-not-allowed" : ""
-                  }`}
+                  className={`w-full p-2.5 border border-gray-200 rounded-lg text-xs font-mono focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none ${isScheduling ? "bg-gray-50 text-gray-400 cursor-not-allowed" : ""
+                    }`}
                   value={scheduleTime}
                   onChange={(e) => setScheduleTime(e.target.value)}
                 />
               </div>
 
               <div className="pt-4 border-t border-gray-100 flex gap-2 justify-end">
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   disabled={isScheduling}
                   onClick={() => setSchedulingCard(null)}
-                  className={`px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-bold transition-all text-xs ${
-                    isScheduling ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
-                  }`}
+                  className={`px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-bold transition-all text-xs ${isScheduling ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
+                    }`}
                 >
                   Bỏ qua
                 </button>
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   disabled={isScheduling || availableIntegrations.length === 0}
                   onClick={handleConfirmSchedule}
-                  className={`px-5 py-2 text-white rounded-lg font-bold transition-colors text-xs shadow-sm flex items-center gap-1.5 ${
-                    isScheduling || availableIntegrations.length === 0
+                  className={`px-5 py-2 text-white rounded-lg font-bold transition-colors text-xs shadow-sm flex items-center gap-1.5 ${isScheduling || availableIntegrations.length === 0
                       ? "bg-gray-300 text-gray-400 cursor-not-allowed shadow-none"
                       : "bg-indigo-600 hover:bg-indigo-700 cursor-pointer shadow-sm shadow-indigo-200"
-                  }`}
+                    }`}
                 >
                   {isScheduling ? (
                     <>
