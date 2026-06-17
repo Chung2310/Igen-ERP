@@ -376,13 +376,13 @@ export const fbMessengerService = {
       url: att.payload?.url || "",
     }));
 
-    console.log(`[FB Service processIncomingMessage] senderId=${senderId}, recipientId(pageId)=${recipientId}, messageId=${messageId}, textLength=${text.length}, attachments=${attachments.length}`);
+    console.log(`[FB Service processIncomingMessage] 📥 NHẬN TIN: senderId(khách)=${senderId}, recipientId(pageId)=${recipientId}, messageId=${messageId}, textLength=${text.length}, attachments=${attachments.length}`);
 
     const token = await this.getPageAccessTokenByPageId(recipientId);
-    console.log(`[FB Service processIncomingMessage] Token lookup cho pageId=${recipientId}: ${token ? `FOUND(...${token.slice(-6)})` : "NOT_FOUND"}`);
+    console.log(`[FB Service processIncomingMessage] 🔑 TOKEN: Kết quả tra cứu token cho pageId=${recipientId}: ${token ? `CÓ TOKEN (...${token.slice(-6)})` : "KHÔNG CÓ TOKEN"}`);
     const duplicateMsg = await FBMessageModel.findOne({ messageId });
     if (duplicateMsg) {
-      console.info(`[FB Service processIncomingMessage] Bo qua webhook trung cho messageId=${messageId}.`);
+      console.info(`[FB Service processIncomingMessage] ⚠️ BỎ QUA: Webhook bị trùng messageId=${messageId}.`);
       return;
     }
 
@@ -390,7 +390,7 @@ export const fbMessengerService = {
 
     // 1. Kiểm tra xem đã có cuộc hội thoại với khách hàng này chưa
     let conversation = await FBConversationModel.findOne({ recipientId: senderId, pageId: recipientId });
-    console.log(`[FB Service processIncomingMessage] Conversation existing for pageId=${recipientId}, senderId=${senderId}: ${conversation ? conversation._id.toString() : "none"}`);
+    console.log(`[FB Service processIncomingMessage] 📂 CONVERSATION: Trạng thái hội thoại (pageId=${recipientId}, senderId=${senderId}): ${conversation ? `ĐÃ CÓ (_id=${conversation._id.toString()})` : "CHƯA CÓ"}`);
 
     if (!conversation) {
       let senderName = "Khách hàng Facebook";
@@ -398,6 +398,7 @@ export const fbMessengerService = {
 
       if (token) {
         try {
+          console.log(`[FB Service processIncomingMessage] 👤 PROFILE: Đang lấy thông tin user profile từ Facebook Graph API cho PSID: ${senderId}...`);
           const profile = await Promise.race([
             this.getSenderProfile(senderId, token),
             new Promise<null>((resolve) => setTimeout(() => resolve(null), 350))
@@ -405,12 +406,15 @@ export const fbMessengerService = {
           if (profile) {
             senderName = `${profile.first_name || ""} ${profile.last_name || ""}`.trim() || "Khách hàng Facebook";
             avatarUrl = profile.profile_pic || "";
+            console.log(`[FB Service processIncomingMessage] 👤 PROFILE OK: Lấy được tên: "${senderName}"`);
+          } else {
+            console.warn(`[FB Service processIncomingMessage] 👤 PROFILE TIMEOUT: Không lấy kịp profile của PSID ${senderId} trong 350ms, dùng tên mặc định.`);
           }
-        } catch (err) {
-          console.error("[FB Service processIncomingMessage] Thất bại khi lấy thông tin profile từ Graph API:", err);
+        } catch (err: any) {
+          console.error("[FB Service processIncomingMessage] 👤 PROFILE ERROR: Thất bại khi lấy thông tin profile từ Graph API:", err.message || err);
         }
       } else {
-        console.warn("[FB Service processIncomingMessage] Không có Access Token hợp lệ để gọi Profile Graph API.");
+        console.warn("[FB Service processIncomingMessage] 👤 PROFILE WARNING: Không có Access Token hợp lệ để gọi Profile Graph API.");
       }
 
       conversation = new FBConversationModel({
@@ -424,14 +428,14 @@ export const fbMessengerService = {
         status: "open",
       });
       await conversation.save();
-      console.log(`[FB Service processIncomingMessage] Tao conversation moi _id=${conversation._id.toString()} cho pageId=${recipientId}`);
+      console.log(`[FB Service processIncomingMessage] 💾 CONVERSATION NEW: Đã tạo cuộc hội thoại mới _id=${conversation._id.toString()}`);
     } else {
       conversation.lastMessageText = text || "[Đính kèm]";
       conversation.lastMessageAt = timestamp;
       conversation.unreadCount += 1;
       conversation.status = "open";
       await conversation.save();
-      console.log(`[FB Service processIncomingMessage] Cap nhat conversation _id=${conversation._id.toString()}, unreadCount=${conversation.unreadCount}`);
+      console.log(`[FB Service processIncomingMessage] 💾 CONVERSATION UPDATE: Đã cập nhật hội thoại _id=${conversation._id.toString()}, unreadCount=${conversation.unreadCount}`);
     }
 
     // 2. Lưu tin nhắn chi tiết vào DB
@@ -449,7 +453,7 @@ export const fbMessengerService = {
         status: "delivered",
       });
       await newMsg.save();
-      console.log(`[FB Service processIncomingMessage] Luu inbound message thanh cong conversationId=${conversation._id.toString()}, messageId=${messageId}`);
+      console.log(`[FB Service processIncomingMessage] 💾 MSG SAVE: Đã lưu tin nhắn inbound thành công (messageId=${messageId})`);
 
       // Realtime update via Socket.IO
       emitToPage(recipientId, "new_message", {
@@ -459,6 +463,7 @@ export const fbMessengerService = {
       emitToPage(recipientId, "conversation_updated", conversation);
 
       // Kích hoạt AI Auto-Reply Bot bất đồng bộ
+      console.log(`[FB Service processIncomingMessage] 🚀 TRIGGER AI: Đang chuyển tiếp sang aiAutoReplyService.triggerAutoReply cho conversationId=${conversation._id.toString()}...`);
       aiAutoReplyService.triggerAutoReply("facebook", recipientId, conversation._id.toString(), text, messageId);
     }
   },

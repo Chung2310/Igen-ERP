@@ -30,6 +30,7 @@ interface IdeationTabProps {
 
 export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }: IdeationTabProps) {
   const hasFetchedRef = useRef(false);
+  const librariesLoadedRef = useRef(false);
   const DEFAULT_HUMAN_VOICE_DURATION_SECONDS = 45;
 
   // 1. AI Campaign Ideation States
@@ -279,6 +280,9 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
   ]);
 
   useEffect(() => {
+    if (mediaType !== "human-video" || librariesLoadedRef.current) return;
+    librariesLoadedRef.current = true;
+
     const loadHumanVideoLibraries = async () => {
       setIsLoadingHumanVideoAvatars(true);
       setIsLoadingHumanVideoVoices(true);
@@ -319,6 +323,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
         }
       } catch (error) {
         console.error("Failed to load human video libraries:", error);
+        librariesLoadedRef.current = false;
       } finally {
         setIsLoadingHumanVideoAvatars(false);
         setIsLoadingHumanVideoVoices(false);
@@ -326,7 +331,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
     };
 
     loadHumanVideoLibraries();
-  }, []);
+  }, [mediaType]);
 
   const humanVoicePreviewAudioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -750,43 +755,48 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
 
       let pillarsToUse = selectedPillars;
       if (isAutoPilot) {
-        setAutoPilotStatus("Đang phân tích định hướng Content Pillars...");
-        try {
-          const pillarsData = await geminiApi.analyzeMarketingPillars(apiTopic, uploadedImageBase64 ? [uploadedImageBase64] : undefined);
-          if (pillarsData.pillars && Array.isArray(pillarsData.pillars) && pillarsData.pillars.length > 0) {
-            const styles = [
-              {
-                colorClass: "border-red-200 bg-red-50/50 text-red-700",
-                selectedColorClass: "border-red-500 bg-red-50 text-red-850 ring-2 ring-red-500/20 shadow-xs",
-                bulletColor: "bg-red-500"
-              },
-              {
-                colorClass: "border-blue-200 bg-blue-50/50 text-blue-700",
-                selectedColorClass: "border-blue-500 bg-blue-50 text-blue-800 ring-2 ring-blue-500/20 shadow-xs",
-                bulletColor: "bg-blue-500"
-              },
-              {
-                colorClass: "border-indigo-200 bg-indigo-50/50 text-indigo-700",
-                selectedColorClass: "border-indigo-500 bg-indigo-50 text-indigo-900 ring-2 ring-indigo-500/20 shadow-xs",
-                bulletColor: "bg-indigo-500"
-              }
-            ];
-            const mappedPillars = pillarsData.pillars.map((p: any, idx: number) => ({
-              id: p.id,
-              title: p.title,
-              ratio: p.ratio || "33% tỉ trọng",
-              description: p.description,
-              ...styles[idx % styles.length]
-            }));
-            setPillars(mappedPillars);
-            const activePillars = mappedPillars.map((p: any) => p.id);
-            setSelectedPillars(activePillars);
-            setAnalyzedTopic(topic);
-            pillarsToUse = activePillars;
+        if (analyzedTopic === topic && selectedPillars.length > 0) {
+          // Sử dụng pillars đã phân tích từ trước để tránh gọi lại API trùng lặp
+          pillarsToUse = selectedPillars;
+        } else {
+          setAutoPilotStatus("Đang phân tích định hướng Content Pillars...");
+          try {
+            const pillarsData = await geminiApi.analyzeMarketingPillars(apiTopic, uploadedImageBase64 ? [uploadedImageBase64] : undefined);
+            if (pillarsData.pillars && Array.isArray(pillarsData.pillars) && pillarsData.pillars.length > 0) {
+              const styles = [
+                {
+                  colorClass: "border-red-200 bg-red-50/50 text-red-700",
+                  selectedColorClass: "border-red-500 bg-red-50 text-red-850 ring-2 ring-red-500/20 shadow-xs",
+                  bulletColor: "bg-red-500"
+                },
+                {
+                  colorClass: "border-blue-200 bg-blue-50/50 text-blue-700",
+                  selectedColorClass: "border-blue-500 bg-blue-50 text-blue-800 ring-2 ring-blue-500/20 shadow-xs",
+                  bulletColor: "bg-blue-500"
+                },
+                {
+                  colorClass: "border-indigo-200 bg-indigo-50/50 text-indigo-700",
+                  selectedColorClass: "border-indigo-500 bg-indigo-50 text-indigo-900 ring-2 ring-indigo-500/20 shadow-xs",
+                  bulletColor: "bg-indigo-500"
+                }
+              ];
+              const mappedPillars = pillarsData.pillars.map((p: any, idx: number) => ({
+                id: p.id,
+                title: p.title,
+                ratio: p.ratio || "33% tỉ trọng",
+                description: p.description,
+                ...styles[idx % styles.length]
+              }));
+              setPillars(mappedPillars);
+              const activePillars = mappedPillars.map((p: any) => p.id);
+              setSelectedPillars(activePillars);
+              setAnalyzedTopic(topic);
+              pillarsToUse = activePillars;
+            }
+          } catch (pillarErr: any) {
+            console.error("Lỗi phân tích pillars tự động:", pillarErr);
+            toast.warning("Lỗi phân tích Content Pillars tự động, đang thử lên ý tưởng trực tiếp...");
           }
-        } catch (pillarErr: any) {
-          console.error("Lỗi phân tích pillars tự động:", pillarErr);
-          toast.warning("Lỗi phân tích Content Pillars tự động, đang thử lên ý tưởng trực tiếp...");
         }
       }
 
@@ -1623,48 +1633,39 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
       <div className="space-y-4" id="campaign_draft_concepts_section">
         <span className="text-[10px] font-bold text-gray-500 font-mono uppercase tracking-wider block">Bản nháp ý tưởng sáng tạo ({concepts.length})</span>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4" id="concepts_container">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3" id="concepts_container">
           {concepts.map((concept, idx) => (
-            <div key={idx} className="p-4 bg-white border border-gray-250/70 hover:border-indigo-300 rounded-2xl transition-all shadow-xs text-left flex flex-col justify-between" id={`concept_card_${idx}`}>
+            <div key={idx} className="p-3.5 bg-white border border-gray-250/70 hover:border-indigo-300 rounded-2xl transition-all shadow-xs text-left flex flex-col justify-between min-w-0 overflow-hidden" id={`concept_card_${idx}`}>
               {(() => {
                 const activeMediaMeta = mediaTypeMeta[concept.mediaType || mediaType] || mediaTypeMeta.image;
                 return (
-                  <div className="mb-2.5 flex items-center justify-between gap-3">
-                    <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${activeMediaMeta.tone}`}>
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide shrink-0 ${activeMediaMeta.tone}`}>
                       {activeMediaMeta.label}
+                    </span>
+                    <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-full font-bold font-mono text-[9px] whitespace-nowrap shrink-0">
+                      Phù hợp: {concept.matchPercent}%
                     </span>
                   </div>
                 );
               })()}
-              <div>
-                <div className="flex justify-between items-center gap-4">
-                  <span className="text-xs font-bold text-slate-800 font-sans tracking-tight leading-snug line-clamp-2">{concept.title}</span>
-                  <span className="px-2.5 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-full font-bold font-mono text-[10px]">
-                    Phù hợp: {concept.matchPercent}%
-                  </span>
-                </div>
-
-                <p className="text-xs text-gray-500 mt-2 leading-relaxed">{concept.summary}</p>
-
-                <div className="flex flex-wrap gap-1.5 mt-3">
-                  {concept.channels.map((chan, cidx) => {
-                    const tagStyle = 
-                      chan === "Facebook" ? "bg-blue-50 text-blue-700 border-blue-200/50" :
-                      chan === "TikTok" ? "bg-slate-900 text-white border-slate-950" :
-                      chan === "Zalo" ? "bg-sky-50 text-sky-700 border-sky-200/50" :
-                      "bg-slate-50 text-slate-650 border-gray-150";
-                    return (
-                      <span key={cidx} className={`px-2 py-0.5 border rounded-md text-[9px] font-mono font-bold uppercase tracking-wide ${tagStyle}`}>
-                        {chan}
-                      </span>
-                    );
-                  })}
+              <div className="min-w-0">
+                <span className="text-[11px] font-bold text-slate-800 font-sans tracking-tight leading-snug line-clamp-2 block">{concept.title}</span>
+                
+                <p className="text-[11px] text-gray-500 mt-1.5 leading-relaxed line-clamp-3">{concept.summary}</p>
+                
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {concept.channels.map((chan, cidx) => (
+                    <span key={cidx} className="px-1.5 py-0.5 bg-slate-50 border border-gray-150 rounded-sm text-[8px] font-mono text-slate-500 uppercase tracking-wide">
+                      {chan}
+                    </span>
+                  ))}
                 </div>
 
                 {concept.hashtags && concept.hashtags.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mt-2">
+                  <div className="flex flex-wrap gap-1 mt-1.5 overflow-hidden max-h-[36px]">
                     {concept.hashtags.map((tag, tidx) => (
-                      <span key={tidx} className="text-[10px] font-mono text-indigo-500 font-semibold">
+                      <span key={tidx} className="text-[9px] font-mono text-indigo-500 font-semibold">
                         {tag}
                       </span>
                     ))}

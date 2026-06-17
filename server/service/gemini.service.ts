@@ -10,6 +10,7 @@ import * as path from "path";
 import * as os from "os";
 
 const GEMINI_TEXT_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+const GEMINI_HEAVY_MODEL = process.env.GEMINI_HEAVY_MODEL || "gemini-3.5-flash";
 const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || "piapi-flux";
 const GEMINI_VIDEO_MODEL = process.env.GEMINI_VIDEO_MODEL || "veo31-video-fast-audio";
 
@@ -799,7 +800,7 @@ ${sourceBrief.normalizedBrief || campaignTopic}
 Trả về kết quả ở định dạng JSON phù hợp chính xác với cấu trúc yêu cầu.`;
 
       const response = await generateText(
-        GEMINI_TEXT_MODEL,
+        GEMINI_HEAVY_MODEL,
         prompt,
         {
           responseMimeType: "application/json",
@@ -1048,7 +1049,7 @@ ${extractSourceBrief(sourceBriefText).normalizedBrief || sourceBriefText}
 Trả về kết quả ở định dạng JSON phù hợp chính xác với cấu trúc yêu cầu.`;
 
         const response = await generateText(
-          GEMINI_TEXT_MODEL,
+          GEMINI_HEAVY_MODEL,
           prompt,
           {
             responseMimeType: "application/json",
