@@ -281,7 +281,7 @@ export const geminiApi = {
       body: JSON.stringify({ videoUrl, prompt, ...options }),
     });
     if (!response.ok) {
-      throw new Error('Lỗi khi biên tập video bằng AI');
+      await handleErrorResponse(response, 'Lỗi khi biên tập video bằng AI');
     }
     return response.json();
   },

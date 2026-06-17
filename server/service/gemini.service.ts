@@ -291,12 +291,21 @@ async function generateText(
         console.warn(`[generateText] Attempt ${attempt} failed with API error (rate-limit/unavailable/network). Retrying in ${delay}ms... Error: ${errorMsg}`);
         await new Promise((resolve) => setTimeout(resolve, delay));
         delay *= 2;
+      } else if (isUnavailable) {
+        // Throw user-friendly message for overload errors after all retries are exhausted
+        throw new Error("Mô hình AI quá tải, vui lòng thử lại sau.");
       } else {
         throw error;
       }
     }
   }
 
+  // Final check: if last error was an overload error, return friendly message
+  const lastErrorMsg = lastError?.message || String(lastError);
+  const wasOverloaded = lastError?.status === 503 || lastErrorMsg.includes("503") || lastErrorMsg.includes("UNAVAILABLE") || lastErrorMsg.includes("experiencing high demand");
+  if (wasOverloaded) {
+    throw new Error("Mô hình AI quá tải, vui lòng thử lại sau.");
+  }
   throw lastError;
 }
 

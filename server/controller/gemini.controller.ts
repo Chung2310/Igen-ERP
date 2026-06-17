@@ -20,6 +20,15 @@ function handleGeminiError(res: Response, error: any, defaultMessage: string) {
   const errStr = String(error.message || "").toUpperCase();
   const isPiApiError = errStr.includes("PIAPI");
 
+  // Pass through user-friendly overload message directly
+  const isOverloadMsg = (error.message || "").includes("Mô hình AI quá tải");
+  if (isOverloadMsg) {
+    return res.status(503).json({
+      status: "error",
+      message: error.message,
+    });
+  }
+
   if (
     isPiApiError &&
     (status === 402 ||
