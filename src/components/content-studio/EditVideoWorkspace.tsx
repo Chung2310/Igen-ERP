@@ -620,7 +620,7 @@ export function EditVideoWorkspace({
                 <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">Preview</div>
               </div>
               <div className={`mt-6 rounded-[28px] border bg-slate-50 p-6 text-center text-slate-500 ${
-                outputUrl && (outputUrl.startsWith('pending://local-render/') || (history.find(h => h.url === outputUrl)?.metadata?.provider === 'local-render'))
+                outputUrl
                   ? 'border-solid border-slate-250' 
                   : 'border-dashed border-slate-300 flex h-[380px] items-center justify-center'
               }`}>
@@ -629,146 +629,116 @@ export function EditVideoWorkspace({
                     const matchedRecord = history.find(h => h.url === outputUrl || h._id === currentRecordId || h.id === currentRecordId);
                     const isLocalRender = (matchedRecord?.metadata?.provider === 'local-render') || (outputUrl ? outputUrl.includes('local-render') : false);
                     
-                    if (isLocalRender) {
-                      const progressVal = matchedRecord?.metadata?.progress ?? 0;
-                      const statusVal = matchedRecord?.metadata?.status ?? 'processing';
-                      const errorVal = matchedRecord?.metadata?.error;
-                      
-                      let currentBlueprint: any = null;
-                      try {
-                        if (blueprint) {
-                          currentBlueprint = blueprint;
-                        } else if (matchedRecord?.metadata?.blueprint) {
-                          currentBlueprint = typeof matchedRecord.metadata.blueprint === 'string'
-                            ? JSON.parse(matchedRecord.metadata.blueprint)
-                            : matchedRecord.metadata.blueprint;
-                        }
-                      } catch (e) {
-                        console.error('Lỗi parse blueprint:', e);
-                      }
-                      
+                    const progressVal = matchedRecord?.metadata?.progress ?? 0;
+                    const statusVal = matchedRecord?.metadata?.status ?? 'processing';
+                    const errorVal = matchedRecord?.metadata?.error;
+                    const finalVideoUrl = (matchedRecord && matchedRecord.url && !matchedRecord.url.startsWith('pending://'))
+                      ? matchedRecord.url
+                      : null;
+
+                    if (statusVal === 'completed' && finalVideoUrl) {
                       return (
-                        <div className="w-full flex flex-col gap-4 text-left">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tiến trình Biên tập AI</span>
-                            <span className="text-[10px] font-bold font-mono px-2 py-0.5 rounded bg-cyan-100 text-cyan-800">
-                              {statusVal === 'completed' ? 'HOÀN THÀNH' : statusVal === 'failed' ? 'THẤT BẠI' : `ĐANG XỬ LÝ (${progressVal}%)`}
-                            </span>
-                          </div>
-
-                          {currentBlueprint && (
-                            <div className="w-full flex flex-col gap-2 p-4 rounded-3xl border border-slate-200 bg-slate-50/50 shadow-inner">
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="flex items-center gap-1.5 text-xs font-bold text-cyan-700">
-                                  <span className="h-2 w-2 rounded-full bg-cyan-500 animate-ping" />
-                                  <span>Bản Xem Trước Thời Gian Thực (Client Preview)</span>
-                                </div>
-                                <span className="text-[10px] text-slate-400">Remotion Player</span>
-                              </div>
-                              <div className="w-full overflow-hidden rounded-2xl bg-black border border-slate-200 flex items-center justify-center">
-                                <Player
-                                  component={VideoComposition}
-                                  inputProps={{ blueprint: currentBlueprint }}
-                                  durationInFrames={(() => {
-                                    const timeline = currentBlueprint.timeline || [];
-                                    const videoClips = timeline.filter((item: any) => item.type === "video");
-                                    let durationSeconds = 0;
-                                    if (videoClips.length > 0) {
-                                      durationSeconds = videoClips.reduce((sum: number, item: any) => {
-                                        const clipDuration = (item.end ?? 5) - (item.start ?? 0);
-                                        const rate = item.playbackRate ?? 1;
-                                        return sum + (clipDuration / rate);
-                                      }, 0);
-                                    } else {
-                                      durationSeconds = 10;
-                                    }
-                                    return Math.max(30, Math.round(durationSeconds * 30));
-                                  })()}
-                                  fps={30}
-                                  compositionWidth={aspectRatio === '9:16' ? 720 : aspectRatio === '1:1' ? 720 : 1280}
-                                  compositionHeight={aspectRatio === '9:16' ? 1280 : aspectRatio === '1:1' ? 720 : 720}
-                                  style={{
-                                    width: '100%',
-                                    aspectRatio: aspectRatio === '9:16' ? '9/16' : aspectRatio === '1:1' ? '1/1' : '16/9',
-                                  }}
-                                  controls
-                                  loop
-                                />
-                              </div>
-                              <p className="text-[10px] text-slate-500 italic text-center">
-                                Bạn có thể phát thử, tua thanh thời gian để xem trước vị trí chữ chạy trên trình duyệt ngay lập tức.
-                              </p>
-                            </div>
-                          )}
-                          <div className="space-y-1.5">
-                            <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">
-                              <span>Tiến độ kết xuất MP4</span>
-                              <span className="text-cyan-600 font-mono text-xs">{progressVal}%</span>
-                            </div>
-                            <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
-                              <div
-                                className={`h-full transition-all duration-300 rounded-full ${statusVal === 'failed' ? 'bg-rose-500' : 'bg-cyan-600'}`}
-                                style={{ width: `${progressVal}%` }}
-                              />
-                            </div>
-                          </div>
-
-                          {errorVal && (
-                            <p className="text-xs text-rose-500 font-semibold bg-rose-50 border border-rose-100 px-3 py-2 rounded-xl">
-                              Lỗi render: {errorVal}
-                            </p>
-                          )}
-
-                          {statusVal === 'completed' && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const targetUrl = (matchedRecord && matchedRecord.url && !matchedRecord.url.startsWith('pending://'))
-                                  ? matchedRecord.url
-                                  : (outputUrl && !outputUrl.startsWith('pending://') ? outputUrl : undefined);
-                                if (targetUrl) {
-                                  setVideoInputs(prev => {
-                                    if (prev.some(item => item.url === targetUrl)) {
-                                      return prev;
-                                    }
-                                    return [...prev, { url: targetUrl, duration: 0 }];
-                                  });
+                        <div className="w-full h-full flex flex-col gap-4">
+                          <video controls src={finalVideoUrl} className="w-full rounded-[24px] object-contain max-h-[300px] shadow-sm border border-slate-100" />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setVideoInputs(prev => {
+                                if (prev.some(item => item.url === finalVideoUrl)) {
+                                  return prev;
                                 }
-                                setPrompt('');
-                                setOptimizedData(null);
-                                setBlueprint(null);
-                                setOutputUrl(null);
-                                toast.success('Đã đặt video kết quả thành video đầu vào. Hãy nhập ý tưởng mới để tiếp tục chỉnh sửa!');
-                              }}
-                              className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-cyan-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-cyan-700 cursor-pointer shadow-sm shadow-cyan-155 mt-2"
-                            >
-                              <Wand2 className="h-4 w-4" />
-                              Chỉnh sửa tiếp
-                            </button>
-                          )}
+                                return [...prev, { url: finalVideoUrl, duration: 0 }];
+                              });
+                              setPrompt('');
+                              setOptimizedData(null);
+                              setBlueprint(null);
+                              setOutputUrl(null);
+                              toast.success('Đã đặt video kết quả thành video đầu vào. Hãy nhập ý tưởng mới để tiếp tục chỉnh sửa!');
+                            }}
+                            className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-cyan-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-cyan-700 cursor-pointer shadow-sm shadow-cyan-155 mt-2"
+                          >
+                            <Wand2 className="h-4 w-4" />
+                            Chỉnh sửa tiếp
+                          </button>
                         </div>
                       );
                     }
 
-                    const progressVal = matchedRecord?.metadata?.progress;
                     return (
-                      <div className="flex flex-col items-center justify-center gap-4 p-8 text-center animate-pulse">
-                        <Loader2 className="h-8 w-8 text-cyan-500 animate-spin" />
-                        <div>
-                          <p className="text-sm font-semibold text-slate-900">Video đang được tạo ngầm...</p>
-                          {progressVal !== undefined && (
-                            <div className="flex flex-col items-center gap-1.5 mt-2 w-48 mx-auto">
-                              <span className="text-xs text-cyan-600 font-semibold font-mono">Tiến độ: {progressVal}%</span>
-                              <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
-                                <div
-                                  className="bg-cyan-600 h-full transition-all duration-300 rounded-full"
-                                  style={{ width: `${progressVal}%` }}
-                                />
-                              </div>
+                      <div className="w-full flex flex-col items-center justify-center gap-6 py-10 px-4 text-center">
+                        {/* Circular Progress Bar */}
+                        <div className="relative flex items-center justify-center">
+                          {statusVal === 'failed' ? (
+                            <div className="w-32 h-32 rounded-full border-8 border-rose-100 flex items-center justify-center bg-rose-50">
+                              <X className="h-10 w-10 text-rose-500" />
                             </div>
+                          ) : (
+                            <>
+                              <svg className="w-32 h-32 transform -rotate-90">
+                                <circle
+                                  cx="64"
+                                  cy="64"
+                                  r="54"
+                                  className="stroke-current text-slate-200/60"
+                                  strokeWidth="8"
+                                  fill="transparent"
+                                />
+                                <circle
+                                  cx="64"
+                                  cy="64"
+                                  r="54"
+                                  className="stroke-current text-cyan-600 transition-all duration-300"
+                                  strokeWidth="8"
+                                  fill="transparent"
+                                  strokeDasharray={339.3}
+                                  strokeDashoffset={339.3 - (339.3 * Math.min(100, Math.max(0, progressVal))) / 100}
+                                  strokeLinecap="round"
+                                />
+                              </svg>
+                              <div className="absolute flex flex-col items-center justify-center">
+                                <Loader2 className="h-7 w-7 text-cyan-500 animate-spin mb-1" />
+                                <span className="text-xl font-bold text-slate-800 font-mono">{progressVal}%</span>
+                              </div>
+                            </>
                           )}
-                          <p className="mt-2 text-xs text-slate-500">Tiến trình đang xử lý ở chế độ nền. Theo dõi trong Lịch sử render bên dưới.</p>
                         </div>
+
+                        <div className="max-w-md space-y-2">
+                          <p className={`text-sm font-bold uppercase tracking-wider ${statusVal === 'failed' ? 'text-rose-600' : 'text-slate-900'}`}>
+                            {statusVal === 'failed' 
+                              ? 'TIẾN TRÌNH DỰNG VIDEO THẤT BẠI' 
+                              : statusVal === 'queued' 
+                                ? 'ĐANG CHỜ TRONG HÀNG ĐỢI...' 
+                                : isLocalRender 
+                                  ? 'ĐANG TIẾN HÀNH DỰNG VIDEO...' 
+                                  : 'ĐANG TẠO VIDEO TRÊN CLOUD...'}
+                          </p>
+                          <p className="text-xs text-slate-500 leading-relaxed">
+                            {statusVal === 'failed'
+                              ? 'Đã xảy ra lỗi trong quá trình xử lý hoặc kết xuất video. Vui lòng kiểm tra chi tiết lỗi bên dưới.'
+                              : statusVal === 'queued'
+                                ? 'Yêu cầu của bạn đã được đưa vào hàng đợi. Hệ thống sẽ tiến hành xử lý ngay khi có tài nguyên trống.'
+                                : isLocalRender
+                                  ? 'Hệ thống đang thực hiện xử lý hình ảnh, âm thanh và kết xuất tệp MP4 chất lượng cao tại local. Vui lòng đợi trong giây lát.'
+                                  : 'Video đang được tạo bằng dịch vụ đám mây (Cloud). Quá trình này có thể mất vài phút.'}
+                          </p>
+                        </div>
+
+                        {/* Progress Line Bar */}
+                        <div className="w-full max-w-xs space-y-1">
+                          <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full transition-all duration-300 rounded-full ${statusVal === 'failed' ? 'bg-rose-500' : 'bg-cyan-600'}`}
+                              style={{ width: `${progressVal}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        {errorVal && (
+                          <p className="text-xs text-rose-500 font-semibold bg-rose-50 border border-rose-100 px-4 py-2 rounded-2xl max-w-sm">
+                            Lỗi render: {errorVal}
+                          </p>
+                        )}
                       </div>
                     );
                   })() : (
