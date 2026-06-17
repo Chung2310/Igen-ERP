@@ -463,7 +463,7 @@ export default function CRMTab() {
     };
 
     runFetch();
-    const interval = setInterval(runFetch, 15000);
+    const interval = setInterval(runFetch, 60000);
 
     const handleVisibility = () => {
       if (!document.hidden) fetchOmniConversations(false, { syncFacebook: true });
@@ -494,7 +494,7 @@ export default function CRMTab() {
     loadConversationMessages(activeCustomer.id, "replace", activeCustomer.channel, { syncChannel: !socketConnected }).catch((err) => {
       console.error("[FE CRMTab] Lỗi khi tải lịch sử tin nhắn ban đầu:", err);
     });
-    const interval = setInterval(fetchMessages, 30000);
+    const interval = setInterval(fetchMessages, 60000);
 
     const handleVisibility = () => {
       if (!document.hidden) {

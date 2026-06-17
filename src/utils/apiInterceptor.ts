@@ -80,11 +80,11 @@ window.fetch = async function (input, init) {
 
           return originalFetch(input, newInit);
         }
-      } else if (refreshRes.status === 401 || refreshRes.status === 403) {
-        // Refresh token is also expired or invalid. Force logout by clearing token and reloading.
-        localStorage.removeItem("accessToken");
-        window.location.reload();
       }
+      
+      // Refresh token failed or is invalid/expired. Force logout by clearing token and reloading.
+      localStorage.removeItem("accessToken");
+      window.location.reload();
     } catch (err) {
       console.error("Lỗi tự động làm mới token:", err);
     } finally {
