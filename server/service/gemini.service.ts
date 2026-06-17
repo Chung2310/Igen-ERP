@@ -4,6 +4,7 @@ import { cloudinaryService } from "./cloudinary.service";
 import { remotionService } from "./remotion.service";
 import { piapiService } from "./piapi.service";
 import { remotionQueueService } from "./remotion-queue.service";
+import { videoBlueprintService } from "./video-blueprint.service";
 import { exec } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
@@ -1646,7 +1647,7 @@ Do not include markdown blocks or any text other than the JSON object.`
       videoDurations?: number[];
     }
   ): Promise<{ status: string; record: any; blueprint: any }> {
-    const urls = videoUrl.split(",").map(u => u.trim()).filter(Boolean);
+    const urls = videoUrl.split(/,\s*(?=https?:\/\/)/).map(u => u.trim()).filter(Boolean);
     const isMultiple = urls.length > 1;
     const clientDurations = options?.videoDurations || [];
 
@@ -1695,7 +1696,16 @@ Do not include markdown blocks or any text other than the JSON object.`
     let blueprint = getFallbackBlueprint();
 
     try {
-      if (process.env.GEMINI_API_KEY) {
+      const isCopyPrompt = videoBlueprintService.isCopyPrompt(prompt);
+
+      if (isCopyPrompt) {
+        blueprint = await videoBlueprintService.copyAndScaleBlueprint(
+          userId,
+          urls,
+          urlDurations,
+          getVideoDuration
+        );
+      } else if (process.env.GEMINI_API_KEY) {
         const systemPrompt = `You are a professional video editing assistant. Your job is to translate a user's natural language video editing instructions (supporting both English and Vietnamese) into a precise Remotion video editing JSON blueprint.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -2099,7 +2109,7 @@ Return ONLY valid JSON. No markdown backticks, no comments, no conversational te
           
           // If the timeline didn't specify any source URLs (fallback case), extract them from the request videoUrl
           if (uniqueVideoUrls.length === 0) {
-            uniqueVideoUrls = videoUrl.split(",").map(u => u.trim()).filter(Boolean);
+            uniqueVideoUrls = videoUrl.split(/,\s*(?=https?:\/\/)/).map(u => u.trim()).filter(Boolean);
           }
 
           const videoTempPaths: string[] = [];
@@ -2506,13 +2516,15 @@ try {
         } else if (videoUrl.includes("res.cloudinary.com")) {
           await updateLogs(60, "[Render Engine Fallback] Không có FFMPEG. Sử dụng Cloud Render Engine...");
 
-  const firstUrl = videoUrl.split(",")[0];
+  const firstUrl = videoUrl.split(/,\s*(?=https?:\/\/)/)[0];
   const parts = firstUrl.split("/upload/");
   let transformString = "";
 
-  const videoElement = timeline.find((item: any) => item.type === "video");
-  if (videoElement) {
-    transformString += `so_${videoElement.start},eo_${videoElement.end}/`;
+  const videoClips = timeline.filter((item: any) => item.type === "video");
+  if (videoClips.length > 0) {
+    const minStart = Math.min(...videoClips.map((item: any) => item.start ?? 0));
+    const maxEnd = Math.max(...videoClips.map((item: any) => item.end ?? 5));
+    transformString += `so_${minStart},eo_${maxEnd}/`;
   }
 
   const textElements = timeline.filter((item: any) => item.type === "text");
