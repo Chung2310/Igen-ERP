@@ -1999,19 +1999,19 @@ Zoom is applied per clip. Split the video track at the exact second of the zoom 
 🎵 SECTION 5: MUSIC & SOUND DESIGN (CRITICAL)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 You MUST choose the exact URL from the preloaded library below. NEVER make up URLs.
-Background Music:
-▸ Upbeat/EDM/Sôi động: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
-▸ Tech/Rhythmic/Công nghệ nhịp nhàng: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3"
-▸ Corporate/Doanh nghiệp/Quảng cáo: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3"
-▸ Lofi Chill/Thư giãn: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3"
-▸ Acoustic/Piano/Nhẹ nhàng: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3"
+Background Music (proxied through server for full cross-browser/Safari CORS compatibility):
+▸ Upbeat/EDM/Sôi động: "/api/v1/media/audio-proxy?url=https%3A%2F%2Fwww.soundhelix.com%2Fexamples%2Fmp3%2FSoundHelix-Song-1.mp3"
+▸ Tech/Rhythmic/Công nghệ nhịp nhàng: "/api/v1/media/audio-proxy?url=https%3A%2F%2Fwww.soundhelix.com%2Fexamples%2Fmp3%2FSoundHelix-Song-3.mp3"
+▸ Corporate/Doanh nghiệp/Quảng cáo: "/api/v1/media/audio-proxy?url=https%3A%2F%2Fwww.soundhelix.com%2Fexamples%2Fmp3%2FSoundHelix-Song-4.mp3"
+▸ Lofi Chill/Thư giãn: "/api/v1/media/audio-proxy?url=https%3A%2F%2Fwww.soundhelix.com%2Fexamples%2Fmp3%2FSoundHelix-Song-8.mp3"
+▸ Acoustic/Piano/Nhẹ nhàng: "/api/v1/media/audio-proxy?url=https%3A%2F%2Fwww.soundhelix.com%2Fexamples%2Fmp3%2FSoundHelix-Song-10.mp3"
 
 Sound Effects (SFX):
-▸ Success/Ting sound/Thành công: "https://assets.mixkit.co/active_storage/sfx/2019/2019-84.wav"
-▸ Transition/Whoosh sound/Lướt qua: "https://assets.mixkit.co/active_storage/sfx/2013/2013-84.wav"
-▸ Laughter/Tiếng cười: "https://assets.mixkit.co/active_storage/sfx/2568/2568-84.wav"
-▸ Explosion/Tiếng nổ: "https://assets.mixkit.co/active_storage/sfx/2798/2798-84.wav"
-▸ Censor Beep/Tiếng tít: "https://assets.mixkit.co/active_storage/sfx/1076/1076-84.wav"
+▸ Success/Ting sound/Thành công: "/api/v1/media/audio-proxy?url=https%3A%2F%2Fassets.mixkit.co%2Factive_storage%2Fsfx%2F2019%2F2019-84.wav"
+▸ Transition/Whoosh sound/Lướt qua: "/api/v1/media/audio-proxy?url=https%3A%2F%2Fassets.mixkit.co%2Factive_storage%2Fsfx%2F2013%2F2013-84.wav"
+▸ Laughter/Tiếng cười: "/api/v1/media/audio-proxy?url=https%3A%2F%2Fassets.mixkit.co%2Factive_storage%2Fsfx%2F2568%2F2568-84.wav"
+▸ Explosion/Tiếng nổ: "/api/v1/media/audio-proxy?url=https%3A%2F%2Fassets.mixkit.co%2Factive_storage%2Fsfx%2F2798%2F2798-84.wav"
+▸ Censor Beep/Tiếng tít: "/api/v1/media/audio-proxy?url=https%3A%2F%2Fassets.mixkit.co%2Factive_storage%2Fsfx%2F1076%2F1076-84.wav"
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -2331,26 +2331,40 @@ Return ONLY valid JSON. No markdown backticks, no comments, no conversational te
 
           for (let i = 0; i < uniqueVideoUrls.length; i++) {
             const url = uniqueVideoUrls[i];
-            const tempInput = path.join(os.tmpdir(), `input_${ recordId }_${ i }.mp4`);
-            
+            const tempInput = path.join(os.tmpdir(), `input_${recordId}_${i}.mp4`);
+
             const urlParts = url.split("/");
             const filename = urlParts[urlParts.length - 1];
             const localCachePath = path.join(cacheDir, filename);
 
+            console.log(`[FFMPEG Fallback] Xử lý video nguồn ${i + 1}/${uniqueVideoUrls.length}: ${url}`);
+
             if (filename && filename.match(/^[a-zA-Z0-9_-]+\.[a-zA-Z0-9]+$/) && fs.existsSync(localCachePath)) {
-              await updateLogs(50, `[Render Engine Cache]Phát hiện video nguồn ${ i + 1} trong cache cục bộ(${ filename }).Sao chép...`);
+              await updateLogs(50, `[Render Engine Cache] Phát hiện video nguồn ${i + 1} trong cache cục bộ (${filename}). Sao chép...`);
+              console.log(`[FFMPEG Fallback] Cache hit → copy từ: ${localCachePath}`);
               fs.copyFileSync(localCachePath, tempInput);
             } else {
-              await updateLogs(50, `[Render Engine Fallback] Đang tải video gốc ${ i + 1 }/${uniqueVideoUrls.length} xuống server tạm...`);
-const response = await fetchWithRetry(url);
-if (!response.ok) {
-  throw new Error(`Tải video gốc ${i + 1} thất bại: HTTP ${response.status}`);
-}
-const buffer = Buffer.from(await response.arrayBuffer());
-fs.writeFileSync(tempInput, buffer);
+              await updateLogs(50, `[Render Engine Fallback] Đang tải video gốc ${i + 1}/${uniqueVideoUrls.length} xuống server tạm...`);
+              console.log(`[FFMPEG Fallback] Bắt đầu fetch: ${url}`);
+              const fetchStart = Date.now();
+              const response = await fetchWithRetry(url);
+              const fetchMs = Date.now() - fetchStart;
+              console.log(`[FFMPEG Fallback] Fetch kết quả: HTTP ${response.status} | ${fetchMs}ms`);
+              console.log(`[FFMPEG Fallback]   Content-Type : ${response.headers.get("content-type") || "(không có)"}`);
+              console.log(`[FFMPEG Fallback]   Content-Length: ${response.headers.get("content-length") || "(không có)"}`);
+              console.log(`[FFMPEG Fallback]   CORS header  : ${response.headers.get("access-control-allow-origin") || "(không có)"}`);
+              if (!response.ok) {
+                const errBody = await response.text().catch(() => "(không đọc được body)");
+                console.error(`[FFMPEG Fallback] ❌ HTTP ${response.status} khi tải video ${i + 1}: ${url}`);
+                console.error(`[FFMPEG Fallback]   Response body: ${errBody.slice(0, 500)}`);
+                throw new Error(`Tải video gốc ${i + 1} thất bại: HTTP ${response.status} - ${errBody.slice(0, 200)}`);
+              }
+              const buffer = Buffer.from(await response.arrayBuffer());
+              fs.writeFileSync(tempInput, buffer);
+              console.log(`[FFMPEG Fallback] ✅ Đã lưu video ${i + 1} → ${tempInput} (${(buffer.length / 1024 / 1024).toFixed(2)} MB)`);
             }
-videoTempPaths.push(tempInput);
-urlToInputIdx[url] = i;
+            videoTempPaths.push(tempInput);
+            urlToInputIdx[url] = i;
           }
 
 await updateLogs(55, "[Render Engine Fallback] Đang phát hiện luồng âm thanh...");
@@ -2374,15 +2388,23 @@ const imageTempPaths: string[] = [];
 for (let i = 0; i < imageElements.length; i++) {
   const img = imageElements[i];
   const tempImgPath = path.join(os.tmpdir(), `overlay_img_${recordId}_${i}${path.extname(img.src || '.png')}`);
+  console.log(`[FFMPEG Overlay] Fetch image ${i + 1}/${imageElements.length}: ${img.src}`);
   try {
     const imgRes = await fetchWithRetry(img.src);
+    console.log(`[FFMPEG Overlay]   Image HTTP ${imgRes.status} | CORS: ${imgRes.headers.get("access-control-allow-origin") || "(không có)"}`);
     if (imgRes.ok) {
-      fs.writeFileSync(tempImgPath, Buffer.from(await imgRes.arrayBuffer()));
+      const buf = Buffer.from(await imgRes.arrayBuffer());
+      fs.writeFileSync(tempImgPath, buf);
       imageTempPaths.push(tempImgPath);
+      console.log(`[FFMPEG Overlay] ✅ Image ${i + 1} lưu OK (${(buf.length / 1024).toFixed(1)} KB)`);
     } else {
+      const body = await imgRes.text().catch(() => "");
+      console.error(`[FFMPEG Overlay] ❌ Image ${i + 1} HTTP ${imgRes.status}: ${img.src}`);
+      console.error(`[FFMPEG Overlay]   Body: ${body.slice(0, 300)}`);
       imageTempPaths.push("");
     }
-  } catch (err) {
+  } catch (err: any) {
+    console.error(`[FFMPEG Overlay] ❌ Lỗi fetch image ${i + 1}: ${err.message}`);
     imageTempPaths.push("");
   }
 }
@@ -2392,15 +2414,23 @@ const audioTempPaths: string[] = [];
 for (let i = 0; i < audioElements.length; i++) {
   const aud = audioElements[i];
   const tempAudPath = path.join(os.tmpdir(), `overlay_aud_${recordId}_${i}${path.extname(aud.src || '.mp3')}`);
+  console.log(`[FFMPEG Overlay] Fetch audio ${i + 1}/${audioElements.length}: ${aud.src}`);
   try {
     const audRes = await fetchWithRetry(aud.src);
+    console.log(`[FFMPEG Overlay]   Audio HTTP ${audRes.status} | Content-Type: ${audRes.headers.get("content-type") || "(không có)"} | CORS: ${audRes.headers.get("access-control-allow-origin") || "(không có)"}`);
     if (audRes.ok) {
-      fs.writeFileSync(tempAudPath, Buffer.from(await audRes.arrayBuffer()));
+      const buf = Buffer.from(await audRes.arrayBuffer());
+      fs.writeFileSync(tempAudPath, buf);
       audioTempPaths.push(tempAudPath);
+      console.log(`[FFMPEG Overlay] ✅ Audio ${i + 1} lưu OK (${(buf.length / 1024).toFixed(1)} KB)`);
     } else {
+      const body = await audRes.text().catch(() => "");
+      console.error(`[FFMPEG Overlay] ❌ Audio ${i + 1} HTTP ${audRes.status}: ${aud.src}`);
+      console.error(`[FFMPEG Overlay]   Body: ${body.slice(0, 300)}`);
       audioTempPaths.push("");
     }
-  } catch (err) {
+  } catch (err: any) {
+    console.error(`[FFMPEG Overlay] ❌ Lỗi fetch audio ${i + 1}: ${err.message}`);
     audioTempPaths.push("");
   }
 }
