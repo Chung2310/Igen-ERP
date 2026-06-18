@@ -32,6 +32,7 @@ export interface ContentApprovalCard {
   videoProvider?: string;
   generatedAt: string;
   feedback?: string;
+  isNew?: boolean; // Đánh dấu card vừa được phát triển
   scheduledDate?: string;
   scheduledTime?: string;
   authorUid?: string;

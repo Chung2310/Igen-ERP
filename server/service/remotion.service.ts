@@ -142,6 +142,10 @@ export const remotionService = {
         codec: "h264",
         outputLocation: outputPath,
         inputProps,
+        chromiumOptions: {
+          // Required for Docker/Alpine containers
+          enableMultiProcessOnLinux: true,
+        },
         onBrowserLog: (log) => {
           // Bắt tất cả log từ Chromium headless — nguồn chính xác của lỗi 403/CORS
           const level = log.type;

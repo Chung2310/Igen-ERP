@@ -13,6 +13,9 @@ services:
       - .env:/app/.env
     networks:
       - default_network
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
 
 networks:
   default_network:

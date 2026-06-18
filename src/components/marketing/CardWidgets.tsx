@@ -65,7 +65,15 @@ export function ModerationPipCard({
   const channelStyle = channelBadgeStyles[card.channel] || "bg-slate-50 border-slate-200 text-slate-700";
 
   return (
-    <div className="bg-white border text-left border-slate-200/70 p-4 rounded-2xl shadow-3xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 flex flex-col gap-3 relative group" id={`approval_card_${card.id}`}>
+    <div
+      className={`border text-left p-4 rounded-2xl flex flex-col gap-3 relative group transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 ${
+        card.isNew
+          ? "bg-gradient-to-br from-cyan-50/60 via-white to-white border-cyan-300 shadow-[0_0_16px_rgba(6,182,212,0.25)] animate-[pulse-glow_2s_ease-in-out_3]"
+          : "bg-white border-slate-200/70 shadow-3xs"
+      }`}
+      id={`approval_card_${card.id}`}
+      style={card.isNew ? { animation: "pulseGlow 2s ease-in-out 3" } as React.CSSProperties : undefined}
+    >
       
       {isProcessing && (
         <div className="absolute inset-0 bg-white/80 backdrop-blur-[1.5px] flex flex-col items-center justify-center gap-2 rounded-2xl z-20 select-none">
@@ -75,7 +83,10 @@ export function ModerationPipCard({
       )}
 
       {/* Category header */}
-      <div className="flex justify-between items-center gap-2 cursor-pointer" onClick={onOpenDetail}>
+      <div className="flex justify-between items-center gap-2 cursor-pointer relative" onClick={onOpenDetail}>
+        {card.isNew && (
+          <div className="absolute -top-1 -left-1 w-2.5 h-2.5 bg-cyan-400 rounded-full animate-ping opacity-75" />
+        )}
         <div className="flex items-center gap-1.5 min-w-0">
           <span className={`px-2.5 py-0.5 border rounded-md text-[9px] font-mono font-bold tracking-wider shrink-0 uppercase ${channelStyle}`}>
             {card.channel}
@@ -88,6 +99,11 @@ export function ModerationPipCard({
               'bg-slate-50 text-slate-600 border-slate-100'
             }`}>
               {card.mediaType === 'human-video' ? 'Video người thật' : card.mediaType === 'video' ? 'Video AI' : card.mediaType === 'image' ? 'Ảnh AI' : 'Media AI'}
+            </span>
+          )}
+          {card.isNew && (
+            <span className="px-2 py-0.5 bg-green-50 border border-green-200 text-green-700 rounded-sm text-[9px] font-bold tracking-wider shrink-0 animate-pulse">
+              🆕 MỚI
             </span>
           )}
           {isFailed && (
