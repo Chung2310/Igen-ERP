@@ -11,7 +11,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 
-const GEMINI_TEXT_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+const GEMINI_TEXT_MODEL = process.env.GEMINI_MODEL || "gemini-3.5-flash";
 const GEMINI_HEAVY_MODEL = process.env.GEMINI_HEAVY_MODEL || "gemini-3.5-flash";
 const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || "piapi-flux";
 const GEMINI_VIDEO_MODEL = process.env.GEMINI_VIDEO_MODEL || "veo31-video-fast-audio";
@@ -221,9 +221,6 @@ async function generateText(
 ): Promise<{ text: string }> {
   const ai = getGeminiClient();
   let modelId = model || GEMINI_TEXT_MODEL;
-  if (modelId === "gemini-3.5-flash") {
-    modelId = "gemini-2.5-flash";
-  }
 
   // Build Gemini-native contents
   const geminiContents: any[] = [];
@@ -278,18 +275,19 @@ async function generateText(
   const maxRetries = 4;
   let delay = 1000;
   let lastError: any;
+  let activeModel = modelId;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       const response = await ai.models.generateContent({
-        model: modelId,
+        model: activeModel,
         contents: geminiContents,
         config: geminiConfig,
       });
 
       const geminiElapsed = Date.now() - geminiStartTime;
       const text = response.text || "";
-      console.log(`[generateText] Gemini API responded | ${geminiElapsed}ms (${(geminiElapsed / 1000).toFixed(1)}s) | responseLen=${text.length}`);
+      console.log(`[generateText] Gemini API responded | model=${activeModel} | ${geminiElapsed}ms (${(geminiElapsed / 1000).toFixed(1)}s) | responseLen=${text.length}`);
       return { text };
     } catch (error: any) {
       lastError = error;
@@ -298,8 +296,17 @@ async function generateText(
       const isUnavailable = error?.status === 503 || errorMsg.includes("503") || errorMsg.includes("UNAVAILABLE") || errorMsg.includes("experiencing high demand");
       const isNetworkError = errorMsg.includes("fetch failed") || errorMsg.includes("ENOTFOUND") || errorMsg.includes("ECONNRESET") || errorMsg.includes("ETIMEDOUT") || errorMsg.includes("socket");
 
+      // Bất kỳ lúc nào gemini-3.5-flash lỗi tải hoặc hết quota/giới hạn tần suất, tự động chuyển về gemini-2.5-flash chạy dự phòng
+      if (activeModel === "gemini-3.5-flash" && (isRateLimit || isUnavailable)) {
+        console.warn(`[generateText] Model gemini-3.5-flash failed with API error (${isRateLimit ? "rate-limit" : "unavailable"}). Falling back to gemini-2.5-flash immediately.`);
+        activeModel = "gemini-2.5-flash";
+        delay = 1000;
+        attempt = 0; // Tiếp tục vòng lặp với model mới từ đầu
+        continue;
+      }
+
       if ((isRateLimit || isUnavailable || isNetworkError) && attempt < maxRetries) {
-        console.warn(`[generateText] Attempt ${attempt} failed with API error (rate-limit/unavailable/network). Retrying in ${delay}ms... Error: ${errorMsg}`);
+        console.warn(`[generateText] Attempt ${attempt} with model=${activeModel} failed with API error. Retrying in ${delay}ms... Error: ${errorMsg}`);
         await new Promise((resolve) => setTimeout(resolve, delay));
         delay *= 2;
       } else if (isUnavailable) {
@@ -2919,7 +2926,7 @@ try {
 }
       }
 
-await updateLogs(95, "[Cloudinary] Đồng bộ hóa tài nguyên biên tập...");
+await updateLogs(95, "Cloudinary Đồng bộ hóa tài nguyên biên tập...");
 
 await AIMediaModel.findByIdAndUpdate(recordId, {
   url: finalVideoUrl,

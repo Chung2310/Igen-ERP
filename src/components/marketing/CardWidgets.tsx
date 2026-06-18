@@ -183,11 +183,14 @@ export function ModerationPipCard({
       </div>
 
       {/* Detail list status */}
-      <div className="flex items-center justify-between border-t border-slate-100 pt-2 text-[9px] mt-auto">
-        <span className="text-gray-400 font-mono text-[8px]">{formatCardDate(card.generatedAt)}</span>
+      <div className="flex flex-col gap-2 border-t border-slate-100 pt-2.5 mt-auto">
+        <div className="flex items-center justify-between text-gray-400 font-mono text-[8px] select-none">
+          <span>Thời gian tạo:</span>
+          <span>{formatCardDate(card.generatedAt)}</span>
+        </div>
         
         {/* Approve/Reject Controls action buttons */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center justify-end gap-1.5 flex-wrap">
           {onPrevStatus && (
             <button 
               onClick={(e) => {
@@ -447,9 +450,12 @@ export function ScheduledCard({
         </button>
       )}
 
-      <div className="flex items-center justify-between border-t border-slate-100 pt-2 text-[9px] mt-auto">
-        <span className="text-gray-400 font-mono text-[8px]">{formatCardDate(card.generatedAt)}</span>
-        <div className="flex items-center gap-1.5">
+      <div className="flex flex-col gap-2 border-t border-slate-100 pt-2.5 mt-auto">
+        <div className="flex items-center justify-between text-gray-400 font-mono text-[8px] select-none">
+          <span>Thời gian tạo:</span>
+          <span>{formatCardDate(card.generatedAt)}</span>
+        </div>
+        <div className="flex items-center justify-end gap-1.5 flex-wrap">
           <button 
             onClick={(e) => {
               e.stopPropagation();
@@ -589,18 +595,23 @@ export function PublishedCard({ card, onDelete, isUserRole, onPreviewMedia, onOp
         </div>
       )}
 
-      <div className="flex items-center justify-between border-t border-slate-100 pt-2 mt-auto">
-        <span className="text-gray-400 font-mono text-[8px]">{formatCardDate(card.generatedAt)}</span>
-        <button 
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete();
-          }} 
-          title="Xóa bài đăng"
-          className="p-1.5 text-red-500 bg-red-50 hover:bg-red-100 hover:text-red-755 border border-red-100/50 rounded-lg transition-all flex items-center justify-center cursor-pointer"
-        >
-          <Trash2 className="h-3 w-3" />
-        </button>
+      <div className="flex flex-col gap-2 border-t border-slate-100 pt-2.5 mt-auto">
+        <div className="flex items-center justify-between text-gray-400 font-mono text-[8px] select-none">
+          <span>Thời gian tạo:</span>
+          <span>{formatCardDate(card.generatedAt)}</span>
+        </div>
+        <div className="flex items-center justify-end gap-1.5 flex-wrap">
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }} 
+            title="Xóa bài đăng"
+            className="p-1.5 text-red-500 bg-red-50 hover:bg-red-100 hover:text-red-755 border border-red-100/50 rounded-lg transition-all flex items-center justify-center cursor-pointer"
+          >
+            <Trash2 className="h-3 w-3" />
+          </button>
+        </div>
       </div>
     </div>
   );

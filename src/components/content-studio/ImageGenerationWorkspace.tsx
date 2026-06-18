@@ -541,7 +541,7 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, 
                 </div>
               ) : generatedImageUrl ? (
                 <>
-                  <img src={generatedImageUrl} alt="Generated AI illustration" className="max-w-full max-h-full object-contain transition-transform duration-300 group-hover:scale-[1.02]" />
+                  <img src={generatedImageUrl} alt="Generated AI illustration" className="absolute inset-0 w-full h-full object-contain transition-transform duration-300 group-hover:scale-[1.02]" />
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col items-center justify-center text-white gap-1.5 font-sans text-xs font-bold select-none">
                     <ZoomIn className="h-6 w-6 text-white animate-pulse" />
                     <span>Bấm để phóng to</span>
