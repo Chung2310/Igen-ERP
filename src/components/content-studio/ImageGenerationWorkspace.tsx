@@ -523,12 +523,12 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, 
             </div>
 
             <div 
-              className={`min-w-0 ${
+              className={`w-full mx-auto min-w-0 ${
                 aspectRatio === '16:9' ? 'aspect-video' :
                 aspectRatio === '9:16' ? 'aspect-[9/16]' :
                 aspectRatio === '4:3' ? 'aspect-[4/3]' :
                 aspectRatio === '3:4' ? 'aspect-[3/4]' : 'aspect-square'
-              } max-h-[420px] rounded-2xl overflow-hidden ${generatedImageUrl ? 'bg-slate-950 cursor-pointer group' : 'bg-slate-50'} border border-slate-200/80 flex items-center justify-center relative shadow-inner transition-all duration-300`}
+              } max-h-[520px] rounded-2xl overflow-hidden ${generatedImageUrl ? 'bg-slate-950 cursor-pointer group' : 'bg-slate-50'} border border-slate-200/80 flex items-center justify-center relative shadow-inner transition-all duration-300`}
               onClick={generatedImageUrl ? () => setShowZoomModal(true) : undefined}
               title={generatedImageUrl ? "Bấm để phóng to xem ảnh full" : undefined}
             >
