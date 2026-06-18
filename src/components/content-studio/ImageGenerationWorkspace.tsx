@@ -239,10 +239,12 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, 
   };
 
   useEffect(() => {
-    if (autoTrigger && initialPrompt && !isGenerating && !generatedImageUrl) {
+    const cacheKey = `autotrigger_image_${activeCardId}`;
+    if (autoTrigger && initialPrompt && !isGenerating && !generatedImageUrl && !sessionStorage.getItem(cacheKey)) {
+      sessionStorage.setItem(cacheKey, 'true');
       void handleGenerateImage();
     }
-  }, [autoTrigger, initialPrompt]);
+  }, [autoTrigger, initialPrompt, activeCardId]);
 
   const handleDeleteHistory = async (id: string) => {
     if (!confirm("Bạn có chắc chắn muốn xóa hình ảnh này khỏi lịch sử?")) return;

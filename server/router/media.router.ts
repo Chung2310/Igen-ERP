@@ -3,6 +3,8 @@ import Joi from "joi";
 import { mediaController } from "../controller/media.controller";
 import { validateRequest } from "../middleware/validation";
 import { requireAuth } from "../middleware/auth";
+import https from "https";
+import http from "http";
 
 export const mediaRouter = Router();
 
@@ -54,6 +56,87 @@ mediaRouter.get(
     } catch (err: any) {
       console.error("[Media Proxy Download Error]:", err);
       res.status(500).json({ error: "Failed to download file", details: err.message });
+    }
+  }
+);
+
+/**
+ * Audio proxy endpoint — phục vụ audio từ URL bên ngoài qua server nội bộ.
+ * Giải quyết lỗi 403 Forbidden trên Safari do thiếu CORS headers từ domain bên ngoài.
+ * Hỗ trợ Range requests (cần thiết cho HTML5 audio/video streaming).
+ */
+mediaRouter.get(
+  "/audio-proxy",
+  async (req, res) => {
+    const audioUrl = req.query.url as string;
+    if (!audioUrl) {
+      return res.status(400).json({ error: "Thiếu tham số 'url'." });
+    }
+
+    // Chỉ cho phép proxy các domain audio đã được whitelist
+    const allowedDomains = [
+      "cdn.pixabay.com",
+      "www.soundhelix.com",
+      "assets.mixkit.co",
+      "freesound.org",
+      "res.cloudinary.com",
+    ];
+
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(audioUrl);
+    } catch {
+      return res.status(400).json({ error: "URL không hợp lệ." });
+    }
+
+    const isAllowed = allowedDomains.some((domain) => parsedUrl.hostname === domain || parsedUrl.hostname.endsWith(`.${domain}`));
+    if (!isAllowed) {
+      return res.status(403).json({ error: "Domain không được phép proxy." });
+    }
+
+    try {
+      const upstreamHeaders: Record<string, string> = {
+        "User-Agent": "Mozilla/5.0 (compatible; IgenERP/1.0)",
+      };
+
+      // Chuyển tiếp Range header nếu có (để hỗ trợ seek/streaming)
+      if (req.headers.range) {
+        upstreamHeaders["Range"] = req.headers.range as string;
+      }
+
+      const protocol = parsedUrl.protocol === "https:" ? https : http;
+      const proxyReq = protocol.get(
+        audioUrl,
+        { headers: upstreamHeaders },
+        (proxyRes) => {
+          // Gán CORS headers để Safari chấp nhận
+          res.setHeader("Access-Control-Allow-Origin", "*");
+          res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+          res.setHeader("Accept-Ranges", "bytes");
+
+          // Chuyển tiếp status và headers từ upstream
+          const statusCode = proxyRes.statusCode || 200;
+          res.status(statusCode);
+
+          const headersToForward = ["content-type", "content-length", "content-range", "accept-ranges", "cache-control"];
+          for (const header of headersToForward) {
+            const val = proxyRes.headers[header];
+            if (val) res.setHeader(header, val);
+          }
+
+          proxyRes.pipe(res);
+        }
+      );
+
+      proxyReq.on("error", (err) => {
+        console.error("[Audio Proxy Error]:", err.message);
+        if (!res.headersSent) {
+          res.status(502).json({ error: "Không thể kết nối đến nguồn audio.", details: err.message });
+        }
+      });
+    } catch (err: any) {
+      console.error("[Audio Proxy Unexpected Error]:", err);
+      res.status(500).json({ error: "Lỗi không xác định khi proxy audio.", details: err.message });
     }
   }
 );

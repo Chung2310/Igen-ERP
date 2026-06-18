@@ -1,5 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { AIMediaModel } from "../model/ai-media.model";
+import { CompanyModel } from "../model/company.model";
 import { cloudinaryService } from "./cloudinary.service";
 import { remotionService } from "./remotion.service";
 import { piapiService } from "./piapi.service";
@@ -34,7 +35,11 @@ async function fetchWithRetry(url: string, retries = 3, delay = 2000): Promise<R
   let lastError: any;
   for (let i = 0; i < retries; i++) {
     try {
-      const res = await fetch(url);
+      const res = await fetch(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        }
+      });
       if (res.ok) return res;
       lastError = new Error(`HTTP ${res.status} - ${res.statusText}`);
     } catch (err) {
@@ -366,42 +371,32 @@ export const geminiService = {
     aiConfig: any,
     ragContext?: { contextText?: string; companyCode?: string; matches?: number }
   ): Promise<{ text: string; isMock: boolean }> {
-    const getMockResponse = () => {
-      return new Promise<{ text: string; isMock: boolean }>((resolve) => {
-        setTimeout(() => {
-          let replyText = `[Giả lập Trợ lý AI] Cảm ơn bạn đã phản hồi! Với cài đặt Trợ lý AI (Cấu hình: ${aiConfig.autoClassify ? "Tự phân loại" : "Thường"
-            }), tôi đề xuất phương án tối ưu cho bạn.`;
-
-          const msgLower = message.toLowerCase();
-          if (msgLower.includes("giá") || msgLower.includes("bao nhiêu")) {
-            replyText =
-              "Chào bạn! Hiện tại dòng sản phẩm Thiết bị đeo thông minh X1 đang có giá ưu đãi là 1.890.000đ (giảm từ 2.450.000đ). Trợ lý AI có thể hỗ trợ tạo đơn hàng ngay lập tức nếu bạn sẵn sàng!";
-          } else if (msgLower.includes("khuyến mãi") || msgLower.includes("ưu đãi")) {
-            replyText =
-              "Dạ, bên mình đang có chương trình khuyến mãi 'SIÊU ƯU ĐÃI THÁNG 10': giảm giá lên đến 30% cho toàn bộ linh kiện robot và tặng voucher 200k cho đơn hàng sau đó. Bạn có muốn nhận mã voucher không ạ?";
-          } else if (msgLower.includes("vận chuyển") || msgLower.includes("ship")) {
-            replyText =
-              "Đơn hàng của bạn sẽ được hỗ trợ Freeship toàn quốc cho các hóa đơn từ 500k trở lên. Thời gian giao hàng dự kiến là từ 2-3 ngày làm việc đối với khu vực tỉnh thành khác, Hà Nội/HCM sẽ nhận hàng trong ngày ạ!";
-          }
-          resolve({ text: replyText, isMock: true });
-        }, 800);
-      });
-    };
-
     if (!process.env.GEMINI_API_KEY) {
-      return getMockResponse();
+      throw new Error("Cấu hình GEMINI_API_KEY bị thiếu trên hệ thống.");
+    }
+
+    let companyName = "Doanh nghiệp";
+    if (ragContext?.companyCode && ragContext.companyCode !== "SYSTEM") {
+      try {
+        const company = await CompanyModel.findOne({ code: ragContext.companyCode.toUpperCase() });
+        if (company && company.name) {
+          companyName = company.name;
+        }
+      } catch (err) {
+        console.error("[geminiService.chat] Error fetching company name:", err);
+      }
     }
 
     const hasCompanyKnowledge = !!ragContext?.contextText;
     const assistantMode = hasCompanyKnowledge ? "COMPANY_TRAINED_MODE" : "DEFAULT_ASSISTANT_MODE";
 
     const systemInstruction = `
-Bạn là một Trợ lý Chăm sóc Khách hàng AI đỉnh cao cho hệ thống iGen ERP doanh nghiệp.
-Bạn đang hỗ trợ khách hàng trong khung chat Omni-Inbox.
+Bạn là một Trợ lý Chăm sóc Khách hàng AI chuyên nghiệp đại diện cho doanh nghiệp "${companyName}".
+Bạn đang hỗ trợ khách hàng trong khung chat trực tuyến.
 
 QUY CHUẨN XƯNG HÔ VÀ CHÀO HỎI CHUYÊN NGHIỆP:
-- Luôn mở đầu câu trả lời bằng lời chào lịch sự như: "Dạ, [Tên doanh nghiệp] xin chào anh/chị ạ!" hoặc "Dạ, em chào anh/chị ạ!" hoặc "Dạ xin kính chào Quý khách!".
-- Luôn xưng hô là "Dạ, bên em..." hoặc "Dạ, [Tên doanh nghiệp]..." hoặc "Dạ, em..." và gọi khách hàng là "Quý khách" hoặc "Anh/Chị".
+- Luôn mở đầu câu trả lời bằng lời chào lịch sự như: "Dạ, ${companyName} xin chào anh/chị ạ!" hoặc "Dạ, em chào anh/chị ạ!" hoặc "Dạ xin kính chào Quý khách!".
+- Luôn xưng hô là "Dạ, bên em..." hoặc "Dạ, ${companyName}..." hoặc "Dạ, em..." và gọi khách hàng là "Quý khách" hoặc "Anh/Chị".
 - Luôn sử dụng kính ngữ "Dạ" ở đầu câu và "ạ" ở cuối câu để đảm bảo sự lịch thiệp, tôn trọng và chuyên nghiệp tuyệt đối.
 - Tuyệt đối KHÔNG sử dụng các từ xưng hô quá thân mật hoặc thiếu trang trọng như "cậu", "tớ", "bạn", "mày", "tao".
 - Trả lời bằng ngôn phong tiếng Việt chuẩn mực, tinh tế, tích cực, không dùng ngôn ngữ teen, từ lóng hoặc icon quá đà.
@@ -414,20 +409,19 @@ Dữ liệu vận hành hiện tại:
 - COMPANY_TRAINED_MODE: đã có tài liệu/chính sách riêng của công ty, hãy bám sát tài liệu và nói theo chỉ dẫn doanh nghiệp.
 - DEFAULT_ASSISTANT_MODE: chưa có tài liệu riêng, vẫn trả lời khách mặc định một cách lịch sự, hỗ trợ hỏi thêm nhu cầu và chuyển nhân viên khi cần.
 
-Dữ liệu tri thức đã truy xuất riêng cho doanh nghiệp ${ragContext?.companyCode || "hiện tại"}:
+Dữ liệu tri thức đã truy xuất riêng cho doanh nghiệp "${companyName}":
 ${ragContext?.contextText ? ragContext.contextText : "- Không tìm thấy tri thức phù hợp trong kho dữ liệu."}
 
-Quy tắc an toàn bắt buộc:
-- Khi ở DEFAULT_ASSISTANT_MODE, vẫn được chào hỏi, xác nhận nhu cầu, hỏi thêm thông tin, hướng dẫn khách để lại số điện thoại/nhu cầu và nói sẽ có nhân viên hỗ trợ.
-- Chỉ trả lời các thông tin cụ thể về giá, bảo hành, giao hàng, đổi trả, khuyến mãi nếu có trong dữ liệu tri thức ở trên hoặc trong lịch sử hội thoại.
-- Nếu khách hỏi chính sách/giá/thông tin cụ thể mà không có dữ liệu phù hợp, hãy nói rằng bạn cần chuyển nhân viên kiểm tra lại, tuyệt đối không tự bịa.
-- Không trộn lẫn thông tin giữa các công ty khác nhau.
+QUY TẮC AN TOÀN BẮT BUỘC ĐỂ TRÁNH BỊA ĐẶT THÔNG TIN (ANTI-HALLUCINATION):
+1. Tuyệt đối KHÔNG tự bịa ra bất kỳ thông tin nào không có trong "Dữ liệu tri thức đã truy xuất riêng cho doanh nghiệp" ở trên (bao gồm cả giá cả, tính năng sản phẩm, chính sách bảo hành, số điện thoại, địa chỉ, ưu đãi...).
+2. Nếu khách hỏi thông tin cụ thể (ví dụ: giá sản phẩm, chính sách đổi trả, ship hàng, thông số sản phẩm...) mà KHÔNG có trong dữ liệu tri thức được cung cấp ở trên, bạn PHẢI trả lời lịch sự rằng hiện tại bạn chưa có thông tin chi tiết này và xin phép được chuyển cuộc trò chuyện cho nhân viên hỗ trợ giải đáp trực tiếp. KHÔNG được đoán hay tự bịa ra thông tin.
+3. KHÔNG nhắc đến "iGen ERP" hay bất kỳ thông tin nào của iGen ERP trừ khi tên doanh nghiệp của bạn chính là iGen ERP hoặc thông tin này nằm trong tài liệu tri thức.
+4. Trả lời ngắn gọn, trực diện, không dài dòng.
 
 Thông tin cấu hình hiện tại của bạn:
 - Tự động phân loại khách hàng: ${aiConfig.autoClassify ? "Đang BẬT. Hãy phân loại khách dựa trên xu hướng hội thoại và thông báo khéo léo." : "Đang TẮT"}
 - Tự động chốt đơn hàng: ${aiConfig.autoCloseDeal ? "Đang BẬT. Hãy tìm cơ hội khéo léo hướng khách hàng chốt mua sản phẩm một cách nhanh gọn, gửi thông tin tạo đơn." : "Đang TẮT"}
 - Tự động xin feedback cuối hội thoại: ${aiConfig.autoFeedback ? "Đang BẬT. Nếu cuộc đối thoại đi đến hồi kết, hãy lịch sự xin ý kiến đánh giá chất lượng dịch vụ." : "Đang TẮT"}
-- Với Nguyễn Thị Mai (khách VIP): hãy đối xử cực kỳ chu đáo, tặng voucher riêng VIP-10 nếu có ý than phiền hoặc hỏi giá.
 `;
 
     const contents = history.map((h: any) => ({
@@ -465,20 +459,8 @@ Thông tin cấu hình hiện tại của bạn:
    * Tự động băm/chuyển đổi tài liệu dài thành danh sách FAQs rút gọn
    */
   async convertDocToFAQ(docText: string): Promise<string> {
-    const getMockFAQ = () => {
-      return `--- BẢN FAQ ĐÃ ĐƯỢC CHUẨN HÓA (CHẾ ĐỘ MÔ PHỎNG AI) ---
-Q: Tài liệu này nói về chủ đề gì?
-A: Tài liệu giới thiệu thông tin vận hành, chính sách bán hàng của doanh nghiệp.
-
-Q: Làm thế nào để liên hệ hỗ trợ kỹ thuật?
-A: Vui lòng liên hệ số hotline 1900xxxx hoặc email support@igen.com.
-
-Q: Chính sách vận chuyển của chúng tôi là gì?
-A: Giao hàng toàn quốc. Miễn phí vận chuyển cho đơn hàng trị giá từ 500k trở lên.`;
-    };
-
     if (!process.env.GEMINI_API_KEY) {
-      return getMockFAQ();
+      throw new Error("Cấu hình GEMINI_API_KEY bị thiếu trên hệ thống.");
     }
 
     try {
@@ -508,8 +490,46 @@ ${docText}
 
       return response.text || "Không thể trích xuất được dữ liệu FAQ từ tài liệu.";
     } catch (error: any) {
-      console.error("[geminiService.convertDocToFAQ] Error, fallback to mock FAQ:", error);
-      return getMockFAQ();
+      console.error("[geminiService.convertDocToFAQ] Error converting doc to FAQ:", error);
+      throw new Error(`Lỗi xử lý tài liệu AI: ${error.message || error}`);
+    }
+  },
+
+  /**
+   * Trích xuất văn bản từ file PDF sử dụng Gemini API
+   */
+  async extractTextFromPdf(pdfBase64: string): Promise<string> {
+    if (!process.env.GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY is not configured");
+    }
+
+    try {
+      console.log(`[AI AutoReply] Đang gọi Gemini trích xuất văn bản từ PDF (base64 length: ${pdfBase64.length})...`);
+      const ai = getGeminiClient();
+      const response = await ai.models.generateContent({
+        model: GEMINI_TEXT_MODEL,
+        contents: [
+          {
+            role: "user",
+            parts: [
+              {
+                inlineData: {
+                  mimeType: "application/pdf",
+                  data: pdfBase64,
+                },
+              },
+              {
+                text: "Bạn là trợ lý trích xuất văn bản. Hãy trích xuất và trả về toàn bộ nội dung văn bản (text) có trong file tài liệu PDF này một cách đầy đủ, chính xác nhất theo đúng thứ tự đọc của tài liệu. Chỉ trả về nội dung văn bản thuần, không thêm thắt giải thích, không định dạng markdown hay giới thiệu gì ngoài nội dung gốc.",
+              },
+            ],
+          },
+        ],
+      });
+
+      return response.text || "";
+    } catch (error: any) {
+      console.error("[geminiService.extractTextFromPdf] Error extracting text from PDF:", error);
+      throw error;
     }
   },
 
@@ -1293,10 +1313,30 @@ Example: 'Recruitment poster for PHÚC CƯƠNG PDCA at Quế Võ, Bắc Ninh, sh
             }
           } catch (err) {
             console.error(`[developMarketingIdea] Error generating image for post on ${post.channel}:`, err);
-            // Fallback to mock image in case of PiAPI credit/service failures
-            const seed = Math.floor(Math.random() * 1000000);
-            post.imageUrl = `https://picsum.photos/seed/${seed}/800/600`;
-            console.log(`[developMarketingIdea] Fallback to mock image: ${post.imageUrl}`);
+            // Retry once before giving up
+            try {
+              console.log(`[developMarketingIdea] Retrying image generation (attempt 2/2)...`);
+              const retryResult = await geminiService.generateImage(
+                post.mediaPrompt || mediaOptions.mediaPrompt || `A professional image for: ${title}`,
+                { aspectRatio: mediaOptions.imageAspectRatio, modelName: mediaOptions.imageModel, resolution: mediaOptions.imageResolution }
+              );
+              if (retryResult.isMock) {
+                post.imageUrl = retryResult.url;
+              } else {
+                try {
+                  const uploadedUrl = await cloudinaryService.uploadMedia(retryResult.url, "igen_erp");
+                  post.imageUrl = uploadedUrl;
+                } catch (clErr2) {
+                  console.error("[developMarketingIdea] Cloudinary upload retry failed:", clErr2);
+                  post.imageUrl = retryResult.url;
+                }
+              }
+              console.log(`[developMarketingIdea] Image retry succeeded: ${post.imageUrl}`);
+            } catch (retryErr) {
+              console.error(`[developMarketingIdea] Image generation failed after retry for post on ${post.channel}:`, retryErr);
+              // No mock — throw to let caller handle
+              throw new Error(`Không thể tạo ảnh AI cho kênh ${post.channel} sau 2 lần thử.`);
+            }
           }
         } else if (mediaOptions.mediaType === "video") {
           try {
@@ -1321,9 +1361,32 @@ Example: 'Recruitment poster for PHÚC CƯƠNG PDCA at Quế Võ, Bắc Ninh, sh
             }
           } catch (err) {
             console.error(`[developMarketingIdea] Error generating video for post on ${post.channel}:`, err);
-            // Fallback to mock video in case of PiAPI credit/service failures
-            post.videoUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4";
-            console.log(`[developMarketingIdea] Fallback to mock video: ${post.videoUrl}`);
+            // Retry once before giving up
+            try {
+              console.log(`[developMarketingIdea] Retrying video generation (attempt 2/2)...`);
+              const promptToUse = post.mediaPrompt || mediaOptions.mediaPrompt || `A cinematic video clip matching the campaign topic: ${title}`;
+              const durationSec = mediaOptions.videoDuration ? Number(mediaOptions.videoDuration) : 6;
+              const retryResult = await geminiService.generateVideo(promptToUse, durationSec, {
+                modelName: mediaOptions.videoModel,
+                resolution: mediaOptions.videoQuality,
+                aspectRatio: mediaOptions.videoAspectRatio,
+              });
+              if (retryResult.isMock) {
+                post.videoUrl = retryResult.url;
+              } else {
+                try {
+                  const uploadedUrl = await cloudinaryService.uploadMedia(retryResult.url, "igen_erp");
+                  post.videoUrl = uploadedUrl;
+                } catch (clErr2) {
+                  console.error("[developMarketingIdea] Cloudinary upload retry failed:", clErr2);
+                  post.videoUrl = retryResult.url;
+                }
+              }
+              console.log(`[developMarketingIdea] Video retry succeeded: ${post.videoUrl}`);
+            } catch (retryErr) {
+              console.error(`[developMarketingIdea] Video generation failed after retry for post on ${post.channel}:`, retryErr);
+              throw new Error(`Không thể tạo video AI cho kênh ${post.channel} sau 2 lần thử.`);
+            }
           }
         }
       }
@@ -1351,8 +1414,7 @@ Example: 'Recruitment poster for PHÚC CƯƠNG PDCA at Quế Võ, Bắc Ninh, sh
     }
 
     if (!process.env.PIAPI_API_KEY) {
-      const seed = Math.floor(Math.random() * 1000000);
-      return { url: `https://picsum.photos/seed/${seed}/800/600`, isMock: true };
+      throw new Error("PIAPI_API_KEY chưa được cấu hình. Vui lòng thêm API key để tạo ảnh AI.");
     }
 
     return piapiService.generateImage(prompt, modelToUse, { aspectRatio: options?.aspectRatio });
@@ -1674,7 +1736,7 @@ Do not include markdown blocks or any text other than the JSON object.`;
 
     const getMockVideoPrompt = () => {
       const text = normalizedDescription.toLowerCase().trim();
-      const isEnglish = !/[àáảãạăắằẳẵặâấầẩẫậèéẻẽẹêếềểễệđìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵ]/i.test(normalizedDescription);
+      const isEnglish = !/[àáảãạăắằẳẵặâấầẩẫậèéẻẽẹêếềểễệđìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵÀÁẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬÈÉẺẼẸÊẾỀỂỄỆĐÌÍỈĨỊÒÓỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÙÚỦŨỤƯỨỪỬỮỰỲÝỶỸỴ]/i.test(normalizedDescription);
       if (isEnglish) {
         return {
           motion_analysis: "smooth cinematic motion of the subject",
@@ -1823,7 +1885,60 @@ Do not include markdown blocks or any text other than the JSON object.`
       return safeParseJson(videoResult.text);
     } catch (error: any) {
       console.error("[geminiService.optimizeVideoPrompt] Gemini Error, fallback to local optimizer:", error);
-      return getMockVideoPrompt();
+    }
+  },
+
+  /**
+   * Tối ưu hóa prompt CHỈNH SỬA VIDEO (dành cho Remotion, không phải Veo/Kling)
+   * Chuyển prompt tự nhiên của người dùng thành lệnh chỉnh sửa cụ thể, rõ ràng
+   */
+  async optimizeEditPrompt(description: string): Promise<{ optimized_prompt: string }> {
+    const normalizedDescription = String(description || "").trim();
+    if (!normalizedDescription) {
+      return { optimized_prompt: "" };
+    }
+
+    if (!process.env.GEMINI_API_KEY) {
+      // Fallback: giữ nguyên prompt gốc
+      return { optimized_prompt: normalizedDescription };
+    }
+
+    try {
+      const systemInstruction = `Bạn là trợ lý chỉnh sửa video chuyên nghiệp, thành thạo tiếng Việt và tiếng Anh.
+Nhiệm vụ của bạn: chuyển đổi prompt mô tả tự nhiên của người dùng thành các lệnh chỉnh sửa video CỤ THỂ, CHI TIẾT bằng tiếng Việt.
+
+⚠️ QUAN TRỌNG: 
+- Đầu ra phải là các LỆNH CHỈNH SỬA (cắt, zoom, filter, text, nhạc, tốc độ), KHÔNG phải mô tả chung chung.
+- Nếu người dùng nói "viral TikTok", hãy cụ thể hóa: "cắt thành các đoạn 2-3 giây, tua nhanh 1.5x, zoom in/out xen kẽ, thêm text popup nổi bật, chèn nhạc EDM sôi động xuyên suốt"
+- Nếu người dùng nói "chuyên nghiệp", hãy cụ thể: "filter cinematic, chuyển cảnh fade mượt, text tiêu đề ở giữa 3 giây đầu, nhạc nền corporate, tăng tương phản 1.25"
+- Bao gồm CHÍNH XÁC các thông số: thời gian (giây), tốc độ (playbackRate), vị trí text, màu sắc.
+- Viết bằng TIẾNG VIỆT.
+
+Ví dụ:
+Input: "Biến video này thành clip viral TikTok"
+Output: "Cắt video thành các đoạn ngắn 2-3 giây, tua nhanh gấp 1.5 lần toàn bộ, zoom in và zoom out xen kẽ mỗi 2 giây, thêm text highlight màu vàng #FFD700 ở bottom-center, chèn nhạc EDM sôi động xuyên suốt từ 0 giây đến hết video."
+
+Input: "Làm video chuyên nghiệp hơn"
+Output: "Thêm filter cinematic (tăng tương phản 1.25, tăng bão hòa 1.3, giảm sáng 0.95), chuyển cảnh fade mượt giữa các đoạn, thêm text tiêu đề 'Giới thiệu' ở center trong 3 giây đầu, chèn nhạc nền corporate xuyên suốt."
+
+CHỈ trả về lệnh chỉnh sửa, không thêm giải thích, không markdown.`;
+
+      const response = await generateText(
+        GEMINI_TEXT_MODEL,
+        `Chuyển prompt sau thành lệnh chỉnh sửa video cụ thể, chi tiết:
+"${normalizedDescription}"`,
+        {
+          systemInstruction,
+          temperature: 0.7,
+        }
+      );
+
+      const optimizedPrompt = (response.text || normalizedDescription).trim();
+      console.log(`[geminiService.optimizeEditPrompt] Original: "${normalizedDescription}" → Optimized: "${optimizedPrompt}"`);
+      return { optimized_prompt: optimizedPrompt };
+    } catch (error: any) {
+      console.error("[geminiService.optimizeEditPrompt] Error, fallback to original:", error);
+      return { optimized_prompt: normalizedDescription };
     }
   },
 
@@ -1953,6 +2068,34 @@ CRITICAL MULTI-VIDEO RULES:
 The original video duration is exactly ${originalDuration || 5} seconds.`}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🗣️ SECTION 0: NATURAL LANGUAGE UNDERSTANDING (VIỆT + ANH)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+The user may use conversational, non-technical language. You MUST interpret their intent and map it to the correct editing actions.
+
+▸ "làm video này viral đi" / "make this go viral" → fast cuts every 2-3s, upbeat music, zoom in/out effects, text pop-ups, bright tone.
+▸ "video trông chuyên nghiệp hơn" / "make it look more professional" → cinematic filter, fade transitions, subtle text overlay, corporate music.
+▸ "video buồn quá, làm vui lên" / "make it more cheerful" → increase brightness 1.35, upbeat/EDM music, speed up 1.2x.
+▸ "thêm intro và outro" / "add intro and outro" → text overlay 0-3s for intro, text overlay last 3s for outro.
+▸ "làm nổi bật sản phẩm" / "highlight the product" → zoom in at key moments, brighten, add text captions.
+▸ "video dài quá, rút ngắn lại" / "too long, shorten it" → cut to best 15-30s, fast playback, keep highlights.
+▸ "thêm phụ đề tự động" / "add auto captions" → text overlays at bottom-center throughout, high-contrast color.
+▸ "cho nhạc nền nhẹ nhàng" / "add soft background music" → acoustic/lofi music, volume 0.3, full duration.
+▸ "chỉnh sửa như phim điện ảnh" / "edit like a movie" → cinematic filter, 2.35:1 feel (letterbox), slow pacing, dramatic music.
+▸ "làm video ngắn 15 giây" / "make a 15-second clip" → trim/cut to best 15s, fast pace, zoom effects, trending music.
+▸ "so sánh trước và sau" / "before and after comparison" → split screen effect, keep both segments equal length, label text.
+▸ "chỉ giữ lại đoạn hay nhất" / "keep only the best parts" → identify key moments, cut out dull sections, keep highlights.
+▸ "thêm logo góc trên bên phải" / "add watermark top right" → text overlay at top-right position, full duration, small font.
+▸ "tua nhanh đoạn nhàm chán" / "speed up boring parts" → playbackRate 2.0-3.0 for middle sections, keep intro/outro normal.
+▸ "làm chậm đoạn quan trọng" / "slow down the important part" → playbackRate 0.5 for key segment, highlight with zoom.
+▸ "video bị rung, làm mượt hơn" / "video is shaky, stabilize it" → add slight zoom (1.05x) to crop edges, smooth transitions.
+▸ "tạo video montage" / "create a montage" → fast cuts 1-2s each, crossfade transitions, upbeat music, zoom variety.
+▸ "thêm hiệu ứng chuyển cảnh" / "add transition effects" → fade or zoom transitions between each scene change.
+▸ "giảm tiếng ồn, tăng giọng nói" / "reduce noise, boost voice" → lower original audio volume, add clean background music.
+
+When the prompt is vague, default to enhancing the video (brighten slightly, add subtle music, keep original duration).
+When the prompt conflicts (e.g. "chậm" + "nhanh"), prioritize the first instruction or apply to different segments.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ✂️ SECTION 1: CUTTING & TRIMMING
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 - "cắt bỏ X giây đầu" / "bỏ đầu X giây" / "skip first X seconds" -> start video clip at X.
@@ -1986,19 +2129,19 @@ Zoom is applied per clip. Split the video track at the exact second of the zoom 
 🎵 SECTION 5: MUSIC & SOUND DESIGN (CRITICAL)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 You MUST choose the exact URL from the preloaded library below. NEVER make up URLs.
-Background Music:
-▸ Upbeat/EDM/Sôi động: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
-▸ Tech/Rhythmic/Công nghệ nhịp nhàng: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3"
-▸ Corporate/Doanh nghiệp/Quảng cáo: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3"
-▸ Lofi Chill/Thư giãn: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3"
-▸ Acoustic/Piano/Nhẹ nhàng: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3"
+Background Music (proxied through server for full cross-browser/Safari CORS compatibility):
+▸ Upbeat/EDM/Sôi động: "/api/v1/media/audio-proxy?url=https%3A%2F%2Fwww.soundhelix.com%2Fexamples%2Fmp3%2FSoundHelix-Song-1.mp3"
+▸ Tech/Rhythmic/Công nghệ nhịp nhàng: "/api/v1/media/audio-proxy?url=https%3A%2F%2Fwww.soundhelix.com%2Fexamples%2Fmp3%2FSoundHelix-Song-3.mp3"
+▸ Corporate/Doanh nghiệp/Quảng cáo: "/api/v1/media/audio-proxy?url=https%3A%2F%2Fwww.soundhelix.com%2Fexamples%2Fmp3%2FSoundHelix-Song-4.mp3"
+▸ Lofi Chill/Thư giãn: "/api/v1/media/audio-proxy?url=https%3A%2F%2Fwww.soundhelix.com%2Fexamples%2Fmp3%2FSoundHelix-Song-8.mp3"
+▸ Acoustic/Piano/Nhẹ nhàng: "/api/v1/media/audio-proxy?url=https%3A%2F%2Fwww.soundhelix.com%2Fexamples%2Fmp3%2FSoundHelix-Song-10.mp3"
 
 Sound Effects (SFX):
-▸ Success/Ting sound/Thành công: "https://assets.mixkit.co/active_storage/sfx/2019/2019-84.wav"
-▸ Transition/Whoosh sound/Lướt qua: "https://assets.mixkit.co/active_storage/sfx/2013/2013-84.wav"
-▸ Laughter/Tiếng cười: "https://assets.mixkit.co/active_storage/sfx/2568/2568-84.wav"
-▸ Explosion/Tiếng nổ: "https://assets.mixkit.co/active_storage/sfx/2798/2798-84.wav"
-▸ Censor Beep/Tiếng tít: "https://assets.mixkit.co/active_storage/sfx/1076/1076-84.wav"
+▸ Success/Ting sound/Thành công: "/api/v1/media/audio-proxy?url=https%3A%2F%2Fassets.mixkit.co%2Factive_storage%2Fsfx%2F2019%2F2019-84.wav"
+▸ Transition/Whoosh sound/Lướt qua: "/api/v1/media/audio-proxy?url=https%3A%2F%2Fassets.mixkit.co%2Factive_storage%2Fsfx%2F2013%2F2013-84.wav"
+▸ Laughter/Tiếng cười: "/api/v1/media/audio-proxy?url=https%3A%2F%2Fassets.mixkit.co%2Factive_storage%2Fsfx%2F2568%2F2568-84.wav"
+▸ Explosion/Tiếng nổ: "/api/v1/media/audio-proxy?url=https%3A%2F%2Fassets.mixkit.co%2Factive_storage%2Fsfx%2F2798%2F2798-84.wav"
+▸ Censor Beep/Tiếng tít: "/api/v1/media/audio-proxy?url=https%3A%2F%2Fassets.mixkit.co%2Factive_storage%2Fsfx%2F1076%2F1076-84.wav"
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -2318,26 +2461,50 @@ Return ONLY valid JSON. No markdown backticks, no comments, no conversational te
 
           for (let i = 0; i < uniqueVideoUrls.length; i++) {
             const url = uniqueVideoUrls[i];
-            const tempInput = path.join(os.tmpdir(), `input_${ recordId }_${ i }.mp4`);
-            
+            const tempInput = path.join(os.tmpdir(), `input_${recordId}_${i}.mp4`);
+
             const urlParts = url.split("/");
             const filename = urlParts[urlParts.length - 1];
             const localCachePath = path.join(cacheDir, filename);
 
+            console.log(`[FFMPEG Fallback] Xử lý video nguồn ${i + 1}/${uniqueVideoUrls.length}: ${url}`);
+
             if (filename && filename.match(/^[a-zA-Z0-9_-]+\.[a-zA-Z0-9]+$/) && fs.existsSync(localCachePath)) {
-              await updateLogs(50, `[Render Engine Cache]Phát hiện video nguồn ${ i + 1} trong cache cục bộ(${ filename }).Sao chép...`);
+              await updateLogs(50, `[Render Engine Cache] Phát hiện video nguồn ${i + 1} trong cache cục bộ (${filename}). Sao chép...`);
+              console.log(`[FFMPEG Fallback] Cache hit → copy từ: ${localCachePath}`);
               fs.copyFileSync(localCachePath, tempInput);
             } else {
-              await updateLogs(50, `[Render Engine Fallback] Đang tải video gốc ${ i + 1 }/${uniqueVideoUrls.length} xuống server tạm...`);
-const response = await fetchWithRetry(url);
-if (!response.ok) {
-  throw new Error(`Tải video gốc ${i + 1} thất bại: HTTP ${response.status}`);
-}
-const buffer = Buffer.from(await response.arrayBuffer());
-fs.writeFileSync(tempInput, buffer);
+              await updateLogs(50, `[Render Engine Fallback] Đang tải video gốc ${i + 1}/${uniqueVideoUrls.length} xuống server tạm...`);
+              console.log(`[FFMPEG Fallback] Bắt đầu fetch: ${url}`);
+              const fetchStart = Date.now();
+              let response: Response;
+              try {
+                response = await fetchWithRetry(url);
+              } catch (fetchErr: any) {
+                const is403 = fetchErr?.message?.includes('403');
+                const isExpired = url.includes('Expires=') || url.includes('Signature=');
+                if (is403 && isExpired) {
+                  throw new Error(`URL video nguồn đã hết hạn (403 Forbidden). Video từ HeyGen/AWS có thời hạn ~24h. Vui lòng tạo lại video hoặc upload video lên Cloudinary trước khi render. URL: ${url.substring(0, 80)}...`);
+                }
+                throw fetchErr;
+              }
+              const fetchMs = Date.now() - fetchStart;
+              console.log(`[FFMPEG Fallback] Fetch kết quả: HTTP ${response.status} | ${fetchMs}ms`);
+              console.log(`[FFMPEG Fallback]   Content-Type : ${response.headers.get("content-type") || "(không có)"}`);
+              console.log(`[FFMPEG Fallback]   Content-Length: ${response.headers.get("content-length") || "(không có)"}`);
+              console.log(`[FFMPEG Fallback]   CORS header  : ${response.headers.get("access-control-allow-origin") || "(không có)"}`);
+              if (!response.ok) {
+                const errBody = await response.text().catch(() => "(không đọc được body)");
+                console.error(`[FFMPEG Fallback] ❌ HTTP ${response.status} khi tải video ${i + 1}: ${url}`);
+                console.error(`[FFMPEG Fallback]   Response body: ${errBody.slice(0, 500)}`);
+                throw new Error(`Tải video gốc ${i + 1} thất bại: HTTP ${response.status} - ${errBody.slice(0, 200)}`);
+              }
+              const buffer = Buffer.from(await response.arrayBuffer());
+              fs.writeFileSync(tempInput, buffer);
+              console.log(`[FFMPEG Fallback] ✅ Đã lưu video ${i + 1} → ${tempInput} (${(buffer.length / 1024 / 1024).toFixed(2)} MB)`);
             }
-videoTempPaths.push(tempInput);
-urlToInputIdx[url] = i;
+            videoTempPaths.push(tempInput);
+            urlToInputIdx[url] = i;
           }
 
 await updateLogs(55, "[Render Engine Fallback] Đang phát hiện luồng âm thanh...");
@@ -2361,15 +2528,23 @@ const imageTempPaths: string[] = [];
 for (let i = 0; i < imageElements.length; i++) {
   const img = imageElements[i];
   const tempImgPath = path.join(os.tmpdir(), `overlay_img_${recordId}_${i}${path.extname(img.src || '.png')}`);
+  console.log(`[FFMPEG Overlay] Fetch image ${i + 1}/${imageElements.length}: ${img.src}`);
   try {
     const imgRes = await fetchWithRetry(img.src);
+    console.log(`[FFMPEG Overlay]   Image HTTP ${imgRes.status} | CORS: ${imgRes.headers.get("access-control-allow-origin") || "(không có)"}`);
     if (imgRes.ok) {
-      fs.writeFileSync(tempImgPath, Buffer.from(await imgRes.arrayBuffer()));
+      const buf = Buffer.from(await imgRes.arrayBuffer());
+      fs.writeFileSync(tempImgPath, buf);
       imageTempPaths.push(tempImgPath);
+      console.log(`[FFMPEG Overlay] ✅ Image ${i + 1} lưu OK (${(buf.length / 1024).toFixed(1)} KB)`);
     } else {
+      const body = await imgRes.text().catch(() => "");
+      console.error(`[FFMPEG Overlay] ❌ Image ${i + 1} HTTP ${imgRes.status}: ${img.src}`);
+      console.error(`[FFMPEG Overlay]   Body: ${body.slice(0, 300)}`);
       imageTempPaths.push("");
     }
-  } catch (err) {
+  } catch (err: any) {
+    console.error(`[FFMPEG Overlay] ❌ Lỗi fetch image ${i + 1}: ${err.message}`);
     imageTempPaths.push("");
   }
 }
@@ -2379,15 +2554,23 @@ const audioTempPaths: string[] = [];
 for (let i = 0; i < audioElements.length; i++) {
   const aud = audioElements[i];
   const tempAudPath = path.join(os.tmpdir(), `overlay_aud_${recordId}_${i}${path.extname(aud.src || '.mp3')}`);
+  console.log(`[FFMPEG Overlay] Fetch audio ${i + 1}/${audioElements.length}: ${aud.src}`);
   try {
     const audRes = await fetchWithRetry(aud.src);
+    console.log(`[FFMPEG Overlay]   Audio HTTP ${audRes.status} | Content-Type: ${audRes.headers.get("content-type") || "(không có)"} | CORS: ${audRes.headers.get("access-control-allow-origin") || "(không có)"}`);
     if (audRes.ok) {
-      fs.writeFileSync(tempAudPath, Buffer.from(await audRes.arrayBuffer()));
+      const buf = Buffer.from(await audRes.arrayBuffer());
+      fs.writeFileSync(tempAudPath, buf);
       audioTempPaths.push(tempAudPath);
+      console.log(`[FFMPEG Overlay] ✅ Audio ${i + 1} lưu OK (${(buf.length / 1024).toFixed(1)} KB)`);
     } else {
+      const body = await audRes.text().catch(() => "");
+      console.error(`[FFMPEG Overlay] ❌ Audio ${i + 1} HTTP ${audRes.status}: ${aud.src}`);
+      console.error(`[FFMPEG Overlay]   Body: ${body.slice(0, 300)}`);
       audioTempPaths.push("");
     }
-  } catch (err) {
+  } catch (err: any) {
+    console.error(`[FFMPEG Overlay] ❌ Lỗi fetch audio ${i + 1}: ${err.message}`);
     audioTempPaths.push("");
   }
 }

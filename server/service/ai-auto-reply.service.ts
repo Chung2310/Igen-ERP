@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { UserModel } from "../model/user.model";
 import { ZaloConversationModel, ZaloMessageModel } from "../model/zalo-messenger.model";
 import { FBConversationModel, FBMessageModel } from "../model/fb-messenger.model";
@@ -11,12 +12,105 @@ import { aiKnowledgeService } from "./ai-knowledge.service";
 // messageKey prevents polling/sync from pushing the same inbound message forever.
 const pendingReplies = new Map<string, { timeout: NodeJS.Timeout; messageKey: string }>();
 const generatingReplies = new Set<string>();
+const HUMAN_INTERVENTION_GUARD_ENABLED = false;
+
+function normalizeIncomingText(text: string) {
+  return String(text || "").trim();
+}
+
+async function collectCandidateUsers(
+  channel: "facebook" | "zalo",
+  resolvedPlatformId: string
+) {
+  const candidateUsers: any[] = [];
+
+  const userLevelQuery = channel === "zalo"
+    ? { "zaloIntegration.isConnected": true, "zaloIntegration.oaId": resolvedPlatformId }
+    : { "facebookIntegration.isConnected": true, "facebookIntegration.pageId": resolvedPlatformId };
+
+  console.log(`[AI AutoReply] Dang tim tich hop ca nhan cho ${channel} bang query:`, JSON.stringify(userLevelQuery));
+  const userLevelOwners = await UserModel.find(userLevelQuery);
+  if (userLevelOwners.length > 0) {
+    console.log(`[AI AutoReply] Tim thay ${userLevelOwners.length} users lien ket ca nhan:`, userLevelOwners.map((u) => u.email));
+    candidateUsers.push(...userLevelOwners);
+  }
+
+  const companyIntegrations = await SocialIntegrationModel.find({
+    platform: channel === "zalo" ? "Zalo" : "Facebook",
+    username: resolvedPlatformId,
+    isConnected: true
+  }).lean();
+
+  if (companyIntegrations.length > 0) {
+    console.log(`[AI AutoReply] Tim thay ${companyIntegrations.length} tich hop doanh nghiep.`);
+    for (const integration of companyIntegrations) {
+      if (integration.createdBy) {
+        const creator = mongoose.Types.ObjectId.isValid(integration.createdBy)
+          ? await UserModel.findById(integration.createdBy)
+          : await UserModel.findOne({ email: integration.createdBy });
+        if (creator) {
+          candidateUsers.push(creator);
+        }
+      }
+
+      const companyUsers = await UserModel.find({ companyCode: integration.companyCode });
+      if (companyUsers.length > 0) {
+        candidateUsers.push(...companyUsers);
+      }
+    }
+  }
+
+  const uniqueCandidatesMap = new Map<string, any>();
+  for (const candidate of candidateUsers) {
+    uniqueCandidatesMap.set(candidate._id.toString(), candidate);
+  }
+
+  const uniqueCandidates = Array.from(uniqueCandidatesMap.values());
+  console.log(
+    `[AI AutoReply] Danh sach ung vien duy nhat:`,
+    uniqueCandidates.map((u) => `${u.email} (AIEnabled: ${!!u.aiAutoReplyConfig?.enabled})`)
+  );
+
+  return {
+    userLevelOwners,
+    companyIntegrations,
+    uniqueCandidates,
+  };
+}
+
+async function logAutoReplyFailure(params: {
+  companyCode?: string;
+  channel: "facebook" | "zalo";
+  conversationId: string;
+  customerMessage: string;
+  reason: string;
+  details?: Record<string, any>;
+}) {
+  const detailsText = params.details ? ` | details=${JSON.stringify(params.details)}` : "";
+  console.warn(`[AI AutoReply] SKIPPED: ${params.reason}${detailsText}`);
+  await aiKnowledgeService.createReplyLog({
+    companyCode: params.companyCode || "SYSTEM",
+    channel: params.channel,
+    conversationId: params.conversationId,
+    customerMessage: params.customerMessage || "[EMPTY_MESSAGE]",
+    aiResponse: `[SKIPPED] ${params.reason}${detailsText}`,
+    latencyMs: 0,
+    status: "failed",
+  }).catch((err) => {
+    console.error("[AI AutoReply] Failed to persist skipped reply log:", err);
+  });
+}
 
 export const aiAutoReplyService = {
   /**
    * Cancel any pending AI auto-reply for a conversation (e.g. when an agent replies manually)
    */
-  cancelPendingReply(conversationId: string) {
+  cancelPendingReply(conversationId: string, reason: "debounce" | "human_reply" = "debounce") {
+    if (reason === "human_reply" && !HUMAN_INTERVENTION_GUARD_ENABLED) {
+      console.log(`[AI AutoReply] Human intervention guard is temporarily disabled. Keeping pending auto-reply for conversationId=${conversationId}.`);
+      return;
+    }
+
     const pending = pendingReplies.get(conversationId);
     if (pending) {
       clearTimeout(pending.timeout);
@@ -31,12 +125,13 @@ export const aiAutoReplyService = {
   async triggerAutoReply(channel: "facebook" | "zalo", platformId: string, conversationId: string, incomingText: string, incomingMessageId?: string) {
     try {
       const resolvedPlatformId = String(platformId).trim();
-      console.log(`[AI AutoReply] Bắt đầu triggerAutoReply: channel=${channel}, platformId=${platformId} (ép kiểu string: "${resolvedPlatformId}"), conversationId=${conversationId}, messageId=${incomingMessageId || "n/a"}`);
+      const normalizedIncomingText = normalizeIncomingText(incomingText);
+      console.log(`[AI AutoReply] Trigger start: channel=${channel}, platformId=${platformId} (resolved="${resolvedPlatformId}"), conversationId=${conversationId}, messageId=${incomingMessageId || "n/a"}, textLength=${normalizedIncomingText.length}`);
 
       // 1. Cancel any existing pending reply for this conversation immediately to debounce
       this.cancelPendingReply(conversationId);
 
-      const messageKey = incomingMessageId || `${conversationId}:${incomingText}:${Date.now()}`;
+      const messageKey = incomingMessageId || `${conversationId}:${normalizedIncomingText}:${Date.now()}`;
       const existingPending = pendingReplies.get(conversationId);
       if (existingPending?.messageKey === messageKey) {
         console.log(`[AI AutoReply] Đã có lịch phản hồi cho message ${messageKey}, bỏ qua trigger trùng.`);
@@ -47,81 +142,95 @@ export const aiAutoReplyService = {
       let user = null;
       let aiConfig = null;
 
-      const candidateUsers: any[] = [];
+      const {
+        userLevelOwners,
+        companyIntegrations,
+        uniqueCandidates,
+      } = await collectCandidateUsers(channel, resolvedPlatformId);
 
-      // A. Tìm theo cấu hình tích hợp cá nhân (UserModel)
-      const userLevelQuery = channel === "zalo"
-        ? { "zaloIntegration.isConnected": true, "zaloIntegration.oaId": resolvedPlatformId }
-        : { "facebookIntegration.isConnected": true, "facebookIntegration.pageId": resolvedPlatformId };
+      // A. Xác định targetCompanyCode từ tích hợp hoặc chủ sở hữu cấp cá nhân
+      const targetCompanyCode = companyIntegrations[0]?.companyCode || userLevelOwners[0]?.companyCode || "SYSTEM";
+      console.log(`[AI AutoReply] Xác định targetCompanyCode cho hội thoại: ${targetCompanyCode}`);
 
-      console.log(`[AI AutoReply] Đang tìm tích hợp cá nhân cho ${channel} bằng query:`, JSON.stringify(userLevelQuery));
-      const userLevelOwners = await UserModel.find(userLevelQuery);
-      if (userLevelOwners && userLevelOwners.length > 0) {
-        console.log(`[AI AutoReply] Tìm thấy ${userLevelOwners.length} users liên kết cá nhân:`, userLevelOwners.map(u => u.email));
-        candidateUsers.push(...userLevelOwners);
-      }
+      // B. Chọn user phù hợp nhất thuộc công ty này
+      let selectedUser = uniqueCandidates.find(
+        u => u.companyCode === targetCompanyCode && u.aiAutoReplyConfig?.enabled === true
+      );
 
-      // B. Tìm theo cấu hình tích hợp doanh nghiệp (SocialIntegrationModel)
-      const companyIntegrations = await SocialIntegrationModel.find({
-        platform: channel === "zalo" ? "Zalo" : "Facebook",
-        username: resolvedPlatformId,
-        isConnected: true
-      }).lean();
-
-      if (companyIntegrations && companyIntegrations.length > 0) {
-        console.log(`[AI AutoReply] Tìm thấy ${companyIntegrations.length} tích hợp doanh nghiệp.`);
-        for (const integration of companyIntegrations) {
-          console.log(`  - Tích hợp: companyCode=${integration.companyCode}, createdBy=${integration.createdBy}`);
-          
-          if (integration.createdBy) {
-            const creator = await UserModel.findById(integration.createdBy);
-            if (creator) {
-              console.log(`    - Thêm người tạo tích hợp doanh nghiệp làm ứng viên: ${creator.email}`);
-              candidateUsers.push(creator);
-            }
-          }
-
-          const companyUsers = await UserModel.find({ companyCode: integration.companyCode });
-          if (companyUsers && companyUsers.length > 0) {
-            console.log(`    - Thêm các thành viên trong công ty làm ứng viên:`, companyUsers.map(u => u.email));
-            candidateUsers.push(...companyUsers);
-          }
-        }
-      }
-
-      // C. Lọc trùng lặp danh sách ứng viên
-      const uniqueCandidatesMap = new Map<string, any>();
-      for (const u of candidateUsers) {
-        uniqueCandidatesMap.set(u._id.toString(), u);
-      }
-      const uniqueCandidates = Array.from(uniqueCandidatesMap.values());
-      console.log(`[AI AutoReply] Danh sách tất cả ứng viên duy nhất:`, uniqueCandidates.map(u => `${u.email} (AIEnabled: ${!!u.aiAutoReplyConfig?.enabled})`));
-
-      // D. Chọn user phù hợp nhất (ưu tiên người dùng đã BẬT AI tự động trả lời)
-      let selectedUser = uniqueCandidates.find(u => u.aiAutoReplyConfig?.enabled === true);
       if (selectedUser) {
-        console.log(`[AI AutoReply] Chọn được user đang BẬT AI: ${selectedUser.email}`);
+        console.log(`[AI AutoReply] Chọn được user thuộc công ty ${targetCompanyCode} đang BẬT AI: ${selectedUser.email}`);
       } else {
-        selectedUser = uniqueCandidates[0];
+        selectedUser = uniqueCandidates.find(u => u.companyCode === targetCompanyCode);
         if (selectedUser) {
-          console.log(`[AI AutoReply] Không có user nào bật AI. Chọn user dự phòng đầu tiên: ${selectedUser.email}`);
+          console.log(`[AI AutoReply] Tìm thấy user thuộc công ty ${targetCompanyCode} nhưng chưa bật AI (dùng làm fallback): ${selectedUser.email}`);
+        } else {
+          selectedUser = uniqueCandidates.find(u => u.aiAutoReplyConfig?.enabled === true) || uniqueCandidates[0];
+          if (selectedUser) {
+            console.log(`[AI AutoReply] Fallback chọn user ngoài công ty: ${selectedUser.email}`);
+          }
         }
       }
 
       if (!selectedUser) {
-        console.warn(`[AI AutoReply] ❌ THẤT BẠI: Không tìm thấy bất kỳ cấu hình tích hợp nào cho ${channel} ID (Page/OA ID): "${resolvedPlatformId}". Bỏ qua auto reply.`);
+        await logAutoReplyFailure({
+          channel,
+          conversationId,
+          customerMessage: normalizedIncomingText,
+          reason: `No integration owner found for ${channel} platform ID ${resolvedPlatformId}`,
+          details: {
+            platformId: resolvedPlatformId,
+            candidateCount: uniqueCandidates.length,
+            userLevelOwnerCount: userLevelOwners.length,
+            companyIntegrationCount: companyIntegrations.length,
+          },
+        });
         return;
       }
 
       user = selectedUser;
       aiConfig = selectedUser.aiAutoReplyConfig;
+      console.log(
+        `[AI AutoReply] Owner selected: channel=${channel}, platformId=${resolvedPlatformId}, ` +
+        `conversationId=${conversationId}, user=${user.email}, company=${targetCompanyCode} (userCompany=${user.companyCode || "SYSTEM"}), enabled=${!!aiConfig?.enabled}`
+      );
 
       if (!aiConfig || !aiConfig.enabled) {
-        console.log(`[AI AutoReply] ⚠️ TỪ CHỐI: Tự động trả lời AI đang bị TẮT cho user=${user.email}, conversationId=${conversationId}`);
+        await logAutoReplyFailure({
+          companyCode: targetCompanyCode,
+          channel,
+          conversationId,
+          customerMessage: normalizedIncomingText,
+          reason: `AI auto-reply is disabled for selected user ${user.email}`,
+          details: {
+            selectedUserEmail: user.email,
+            companyCode: targetCompanyCode,
+            enabled: !!aiConfig?.enabled,
+          },
+        });
+        return;
+      }
+
+      if (!normalizedIncomingText) {
+        await logAutoReplyFailure({
+          companyCode: targetCompanyCode,
+          channel,
+          conversationId,
+          customerMessage: "[EMPTY_MESSAGE]",
+          reason: "Inbound message has no text content",
+          details: {
+            selectedUserEmail: user.email,
+            platformId: resolvedPlatformId,
+            messageId: incomingMessageId || null,
+          },
+        });
         return;
       }
 
       const delayMs = (aiConfig.replyDelay || 15) * 1000;
+      console.log(
+        `[AI AutoReply] Schedule reply: channel=${channel}, conversationId=${conversationId}, ` +
+        `delayMs=${delayMs}, model=${aiConfig.model || "n/a"}, user=${user.email}`
+      );
       console.log(`[AI AutoReply] 🕒 LÊN LỊCH: Đang lên lịch phản hồi tự động sau ${aiConfig.replyDelay}s cho hội thoại: ${conversationId} (User: ${user.email})`);
 
       const timeoutId = setTimeout(async () => {
@@ -130,6 +239,15 @@ export const aiAutoReplyService = {
 
           if (generatingReplies.has(conversationId)) {
             console.log(`[AI AutoReply] ⚠️ BỎ QUA: Bỏ qua tự động phản hồi hội thoại ${conversationId} vì đang có tiến trình sinh câu trả lời đang chạy.`);
+            await aiKnowledgeService.createReplyLog({
+              companyCode: targetCompanyCode,
+              channel,
+              conversationId,
+              customerMessage: normalizedIncomingText,
+              aiResponse: `[SKIPPED] Đang có tiến trình sinh câu trả lời cho cuộc hội thoại này`,
+              latencyMs: 0,
+              status: "failed",
+            }).catch(() => {});
             return;
           }
 
@@ -142,6 +260,15 @@ export const aiAutoReplyService = {
             const conv = await ZaloConversationModel.findById(conversationId);
             if (!conv) {
               console.error(`[AI AutoReply] ❌ LỖI: Không tìm thấy cuộc hội thoại Zalo ${conversationId} trong DB.`);
+              await aiKnowledgeService.createReplyLog({
+                companyCode: targetCompanyCode,
+                channel,
+                conversationId,
+                customerMessage: normalizedIncomingText,
+                aiResponse: `[FAILED] Không tìm thấy cuộc hội thoại Zalo trong DB`,
+                latencyMs: 0,
+                status: "failed",
+              }).catch(() => {});
               return;
             }
 
@@ -161,7 +288,7 @@ export const aiAutoReplyService = {
             const lastMsg = dbMsgs[dbMsgs.length - 1];
             const isSameMessage = lastMsg && (
               (incomingMessageId && lastMsg.messageId === incomingMessageId) ||
-              (!incomingMessageId && lastMsg.direction === "inbound" && lastMsg.text === incomingText)
+              (!incomingMessageId && lastMsg.direction === "inbound" && normalizeIncomingText(lastMsg.text) === normalizedIncomingText)
             );
             if (isSameMessage) {
               dbMsgs.pop();
@@ -175,6 +302,15 @@ export const aiAutoReplyService = {
             const conv = await FBConversationModel.findById(conversationId);
             if (!conv) {
               console.error(`[AI AutoReply] ❌ LỖI: Không tìm thấy cuộc hội thoại FB ${conversationId} trong DB.`);
+              await aiKnowledgeService.createReplyLog({
+                companyCode: targetCompanyCode,
+                channel,
+                conversationId,
+                customerMessage: normalizedIncomingText,
+                aiResponse: `[FAILED] Không tìm thấy cuộc hội thoại FB trong DB`,
+                latencyMs: 0,
+                status: "failed",
+              }).catch(() => {});
               return;
             }
 
@@ -194,7 +330,7 @@ export const aiAutoReplyService = {
             const lastMsg = dbMsgs[dbMsgs.length - 1];
             const isSameMessage = lastMsg && (
               (incomingMessageId && lastMsg.messageId === incomingMessageId) ||
-              (!incomingMessageId && lastMsg.direction === "inbound" && lastMsg.text === incomingText)
+              (!incomingMessageId && lastMsg.direction === "inbound" && normalizeIncomingText(lastMsg.text) === normalizedIncomingText)
             );
             if (isSameMessage) {
               dbMsgs.pop();
@@ -208,28 +344,50 @@ export const aiAutoReplyService = {
 
           // Security check 1: if the last message in DB is outbound (meaning human agent replied in the meantime),
           // we do not auto-reply anymore.
-          if (lastMessageDirection === "outbound") {
-            console.log(`[AI AutoReply] ⚠️ BỎ QUA: Bỏ qua tự động phản hồi hội thoại ${conversationId} vì tin nhắn gần nhất trong DB là "outbound" (nhân viên đã trả lời thủ công).`);
+          if (HUMAN_INTERVENTION_GUARD_ENABLED && lastMessageDirection === "outbound") {
+            await logAutoReplyFailure({
+              companyCode: targetCompanyCode,
+              channel,
+              conversationId,
+              customerMessage: normalizedIncomingText,
+              reason: "Latest message is outbound, likely handled by a human agent",
+              details: {
+                latestMessageId: latestDbMessage?.messageId || null,
+                latestMessageAt: latestDbMessage?.timestamp || null,
+              },
+            });
             return;
           }
 
           // Security check 2: if a newer message has arrived from the customer, abort this task (since it was debounced and a newer task will execute instead)
           const isLatest = latestDbMessage && (
             (incomingMessageId && latestDbMessage.messageId === incomingMessageId) ||
-            (!incomingMessageId && latestDbMessage.direction === "inbound" && latestDbMessage.text === incomingText)
+            (!incomingMessageId && latestDbMessage.direction === "inbound" && normalizeIncomingText(latestDbMessage.text) === normalizedIncomingText)
           );
           if (!isLatest) {
-            console.log(`[AI AutoReply] ⚠️ BỎ QUA: Bỏ qua tự động phản hồi cho message ${incomingMessageId || incomingText} vì đã có tin nhắn mới hơn trong cuộc hội thoại.`);
+            await logAutoReplyFailure({
+              companyCode: targetCompanyCode,
+              channel,
+              conversationId,
+              customerMessage: normalizedIncomingText,
+              reason: "A newer message exists in the conversation",
+              details: {
+                incomingMessageId: incomingMessageId || null,
+                latestMessageId: latestDbMessage?.messageId || null,
+                latestDirection: latestDbMessage?.direction || null,
+              },
+            });
             return;
           }
 
           console.log(`[AI AutoReply] 🤖 KHỞI CHẠY: Bắt đầu gọi Gemini sinh câu trả lời cho hội thoại: ${conversationId} (${channel.toUpperCase()})`);
+          console.log(`[AI AutoReply] Gemini start: conversationId=${conversationId}, channel=${channel}, historyCount=${history.length}`);
           generatingReplies.add(conversationId);
 
           try {
             const startedAt = Date.now();
-            const companyCode = user.companyCode || "SYSTEM";
-            const queryText = `${history.map((h) => h.text).join("\n")}\n${incomingText}`.trim();
+            const companyCode = targetCompanyCode;
+            const queryText = `${history.map((h) => h.text).join("\n")}\n${normalizedIncomingText}`.trim();
             const ragContext = await aiKnowledgeService.searchRelevantContext({
               companyCode,
               query: queryText,
@@ -247,16 +405,31 @@ export const aiAutoReplyService = {
             }
 
             console.log(
+              `[AI AutoReply] Context ready: conversationId=${conversationId}, channel=${channel}, ` +
+              `matches=${effectiveRagContext.matches}, contextLength=${effectiveRagContext.contextText?.length || 0}`
+            );
+
+            console.log(
               `[AI AutoReply] 📚 TRUY XUẤT RAG: Context ready cho conversation=${conversationId}, matches=${effectiveRagContext.matches}, ` +
               `contextLength=${effectiveRagContext.contextText?.length || 0}`
             );
 
             // Call Gemini Service
             console.log(`[AI AutoReply] 🧠 GEMINI CALL: Đang gửi request tới Gemini cho conversation=${conversationId}...`);
-            const aiResponse = await geminiService.chat(incomingText, history, aiConfig, effectiveRagContext);
+            console.log(`[AI AutoReply] Gemini call: conversationId=${conversationId}, channel=${channel}`);
+            const aiResponse = await geminiService.chat(normalizedIncomingText, history, aiConfig, effectiveRagContext);
 
             if (!aiResponse || !aiResponse.text) {
               console.error(`[AI AutoReply] ❌ LỖI API: Không nhận được câu trả lời từ Gemini cho hội thoại: ${conversationId}`);
+              await aiKnowledgeService.createReplyLog({
+                companyCode: targetCompanyCode,
+                channel,
+                conversationId,
+                customerMessage: normalizedIncomingText,
+                aiResponse: `[FAILED] Không nhận được câu trả lời từ Gemini (aiResponse trống)`,
+                latencyMs: 0,
+                status: "failed",
+              }).catch(() => {});
               return;
             }
 
@@ -270,13 +443,23 @@ export const aiAutoReplyService = {
               if (latestMsg) preSendDirection = latestMsg.direction;
             }
 
-            if (preSendDirection === "outbound") {
+            if (HUMAN_INTERVENTION_GUARD_ENABLED && preSendDirection === "outbound") {
               console.log(`[AI AutoReply] ⚠️ CAN THIỆP PHÚT CUỐI: Nhân viên đã gửi tin nhắn thủ công trong thời gian Gemini sinh câu trả lời cho conversationId=${conversationId}. Huỷ bỏ việc gửi câu trả lời AI.`);
+              await aiKnowledgeService.createReplyLog({
+                companyCode: targetCompanyCode,
+                channel,
+                conversationId,
+                customerMessage: normalizedIncomingText,
+                aiResponse: `[SKIPPED] Nhân viên đã gửi tin nhắn thủ công trước khi AI gửi đi`,
+                latencyMs: 0,
+                status: "failed",
+              }).catch(() => {});
               return;
             }
 
             console.log(`[AI AutoReply] 💬 GEMINI OK: Đã sinh xong câu trả lời (độ dài: ${aiResponse.text.length} ký tự). Tiến hành gửi qua ${channel}...`);
 
+            console.log(`[AI AutoReply] Gemini ok: conversationId=${conversationId}, channel=${channel}, replyLength=${aiResponse.text.length}`);
             try {
               // Send response using existing sendReply helper
               if (channel === "zalo") {
@@ -289,13 +472,14 @@ export const aiAutoReplyService = {
                 companyCode,
                 channel,
                 conversationId,
-                customerMessage: incomingText,
+                customerMessage: normalizedIncomingText,
                 aiResponse: aiResponse.text,
                 contextText: effectiveRagContext.contextText,
                 contextMatches: effectiveRagContext.matches,
                 latencyMs: Date.now() - startedAt,
                 status: "sent",
               });
+              console.log(`[AI AutoReply] Reply sent: conversationId=${conversationId}, channel=${channel}, latencyMs=${Date.now() - startedAt}`);
               console.log(`[AI AutoReply] ✅ THÀNH CÔNG: Đã gửi phản hồi tự động thành công cho hội thoại: ${conversationId} trong ${Date.now() - startedAt}ms`);
             } catch (sendErr: any) {
               console.error(`[AI AutoReply] ❌ LỖI GỬI TIN: Thất bại khi gửi tin nhắn qua API ${channel.toUpperCase()}:`, sendErr.message || sendErr);
@@ -303,7 +487,7 @@ export const aiAutoReplyService = {
                 companyCode,
                 channel,
                 conversationId,
-                customerMessage: incomingText,
+                customerMessage: normalizedIncomingText,
                 aiResponse: `[SEND_FAILED] ${aiResponse.text}\n\nError: ${sendErr?.message || sendErr}`,
                 contextText: effectiveRagContext.contextText,
                 contextMatches: effectiveRagContext.matches,
@@ -317,7 +501,20 @@ export const aiAutoReplyService = {
             generatingReplies.delete(conversationId);
           }
         } catch (err: any) {
-          console.error(`[AI AutoReply Timeout Execution] ❌ LỖI NGHÊM TRỌNG khi thực hiện gửi phản hồi tự động:`, err.message || err);
+          console.error(`[AI AutoReply Timeout Execution] ❌ LỖI NGHIÊM TRỌNG khi thực hiện gửi phản hồi tự động:`, err.message || err);
+          try {
+            await aiKnowledgeService.createReplyLog({
+              companyCode: user?.companyCode || "SYSTEM",
+              channel,
+              conversationId,
+              customerMessage: normalizedIncomingText,
+              aiResponse: `[ERROR] ${err.message || String(err)}`,
+              latencyMs: 0,
+              status: "failed",
+            });
+          } catch (logErr) {
+            console.error(`[AI AutoReply] Không thể lưu log lỗi:`, logErr);
+          }
         }
       }, delayMs);
 

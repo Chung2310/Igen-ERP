@@ -142,7 +142,7 @@ export default function CardDetailDrawer({
   };
 
   return (
-    <div className="fixed inset-0 z-40 flex justify-end" id="card_detail_drawer_container">
+    <div className="fixed inset-0 z-40 flex items-center justify-center p-4 md:p-6" id="card_detail_drawer_container">
       {/* Backdrop */}
       <div 
         className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs transition-opacity duration-300"
@@ -150,8 +150,8 @@ export default function CardDetailDrawer({
       />
 
       {/* Drawer Body */}
-      <div className={`relative w-full max-w-lg bg-white h-full shadow-2xl flex flex-col z-10 border-l border-gray-150 overflow-hidden ${
-        shouldAnimate ? "animate-slideOver" : ""
+      <div className={`relative w-full max-w-2xl bg-white rounded-3xl max-h-[90vh] shadow-2xl flex flex-col z-10 border border-gray-100 overflow-hidden ${
+        shouldAnimate ? "animate-scale-in" : ""
       }`}>
         
         {/* Header */}

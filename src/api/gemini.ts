@@ -149,7 +149,7 @@ export const geminiApi = {
     humanVoiceId?: string;
     humanVoiceModel?: string;
     humanDurationSeconds?: number;
-  }): Promise<{ posts: MarketingDevelopPost[] }> {
+  }): Promise<{ posts: MarketingDevelopPost[]; isMock?: boolean }> {
     const headers = await getHeaders(true);
     const response = await fetchWithTimeout(
       '/api/v1/gemini/marketing-develop',
@@ -336,6 +336,19 @@ export const geminiApi = {
     });
     if (!response.ok) {
       await handleErrorResponse(response, 'Lỗi khi tối ưu prompt ảnh');
+    }
+    return response.json();
+  },
+
+  async optimizeEditPrompt(description: string): Promise<{ optimized_prompt: string }> {
+    const headers = await getHeaders(true);
+    const response = await fetch('/api/v1/gemini/optimize-edit-prompt', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ description }),
+    });
+    if (!response.ok) {
+      await handleErrorResponse(response, 'Lỗi khi tối ưu prompt chỉnh sửa video');
     }
     return response.json();
   },

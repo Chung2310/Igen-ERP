@@ -184,8 +184,13 @@ async function startServer() {
       res.setHeader("Access-Control-Allow-Origin", origin);
     }
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Range");
     res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader("Access-Control-Expose-Headers", "Content-Range, Content-Length, Accept-Ranges");
+    // Safari requires Cross-Origin-Resource-Policy to allow cross-origin media requests
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    // Do NOT set COEP to require-corp — it blocks cross-origin media in Safari
+    res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
     if (req.method === "OPTIONS") {
       return res.sendStatus(200);
     }

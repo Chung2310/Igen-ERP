@@ -10,6 +10,7 @@ import { HeyGenVerticalToolbar, type HeyGenTab } from "./HeyGenVerticalToolbar";
 import { HEYGEN_MODEL_OPTIONS, HEYGEN_THEME } from "./heygenTheme";
 import { marketingService } from "../../services/marketingService";
 import { toast } from "../../pages/Toast";
+import { socketService } from "../../services/socketService";
 
 const HeyGenOptionsDrawer = lazy(() =>
   import("./HeyGenOptionsDrawer").then((module) => ({ default: module.HeyGenOptionsDrawer }))
@@ -181,6 +182,31 @@ export function HeyGenWorkspace({
     }, 10000);
     return () => window.clearInterval(interval);
   }, [history]);
+
+  useEffect(() => {
+    const unsubscribe = socketService.onVideoStatusUpdated((data) => {
+      console.log("[HeyGenWorkspace] Real-time video update received:", data);
+      
+      // Reload history so user sees the update instantly
+      reloadHistoryData().catch((err) => console.error("Error reloading history on socket event:", err));
+      
+      // Determine video title and status
+      const videoTitle = data.updates?.[0]?.metadata?.title || "Video AI HeyGen";
+      const statusText = String(data.status).toLowerCase();
+      
+      if (statusText === "completed" || statusText === "success") {
+        toast.success(`🎉 Video "${videoTitle}" đã tạo thành công!`);
+      } else if (statusText === "failed" || statusText === "error") {
+        toast.error(`❌ Video "${videoTitle}" tạo thất bại.`);
+      } else {
+        toast.info(`ℹ️ Video "${videoTitle}" đang: ${translateJobStatus(data.status)}`);
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   async function loadWorkspaceData() {
     setIsLoadingLibrary(true);
@@ -560,6 +586,8 @@ export function HeyGenWorkspace({
                           <video
                             src={videoUrl}
                             preload="metadata"
+                            playsInline
+                            crossOrigin="anonymous"
                             className="absolute inset-0 h-full w-full object-cover bg-transparent"
                           />
                         ) : (
@@ -656,6 +684,7 @@ export function HeyGenWorkspace({
                   controls
                   autoPlay
                   playsInline
+                  crossOrigin="anonymous"
                   className="max-h-full max-w-full object-contain"
                 />
               ) : (

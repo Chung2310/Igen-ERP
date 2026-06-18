@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import mongoose from "mongoose";
 import { AIMediaModel } from "../model/ai-media.model";
 import { UserModel } from "../model/user.model";
+import { broadcastEvent } from "../socket";
 
 type HeyGenLibraryItem = {
   id: string;
@@ -750,6 +751,13 @@ export const heygenService = {
       await record.save();
       return record.toObject();
     }));
+
+    // Broadcast video status update event to connected socket clients
+    broadcastEvent("video_status_updated", {
+      videoId: normalized.videoId,
+      status: normalized.jobStatus,
+      updates,
+    });
 
     return {
       status: "success",
