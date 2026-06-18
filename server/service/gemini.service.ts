@@ -2470,7 +2470,17 @@ Return ONLY valid JSON. No markdown backticks, no comments, no conversational te
               await updateLogs(50, `[Render Engine Fallback] Đang tải video gốc ${i + 1}/${uniqueVideoUrls.length} xuống server tạm...`);
               console.log(`[FFMPEG Fallback] Bắt đầu fetch: ${url}`);
               const fetchStart = Date.now();
-              const response = await fetchWithRetry(url);
+              let response: Response;
+              try {
+                response = await fetchWithRetry(url);
+              } catch (fetchErr: any) {
+                const is403 = fetchErr?.message?.includes('403');
+                const isExpired = url.includes('Expires=') || url.includes('Signature=');
+                if (is403 && isExpired) {
+                  throw new Error(`URL video nguồn đã hết hạn (403 Forbidden). Video từ HeyGen/AWS có thời hạn ~24h. Vui lòng tạo lại video hoặc upload video lên Cloudinary trước khi render. URL: ${url.substring(0, 80)}...`);
+                }
+                throw fetchErr;
+              }
               const fetchMs = Date.now() - fetchStart;
               console.log(`[FFMPEG Fallback] Fetch kết quả: HTTP ${response.status} | ${fetchMs}ms`);
               console.log(`[FFMPEG Fallback]   Content-Type : ${response.headers.get("content-type") || "(không có)"}`);

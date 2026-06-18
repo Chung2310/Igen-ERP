@@ -39,6 +39,23 @@ export const marketingService = {
       try {
         let data = await this.getCards(authorUid);
         
+        // Sắp xếp bài mới lên đầu (generatedAt giảm dần)
+        data.sort((a, b) => {
+          const timeA = a.generatedAt ? new Date(a.generatedAt).getTime() : 0;
+          const timeB = b.generatedAt ? new Date(b.generatedAt).getTime() : 0;
+          return timeB - timeA;
+        });
+
+        // Tự động đánh dấu isNew cho các bài viết tạo mới trong vòng 30 giây gần đây
+        const nowTime = Date.now();
+        data = data.map(card => {
+          const isRecent = card.generatedAt && (nowTime - new Date(card.generatedAt).getTime() < 30000);
+          if (isRecent) {
+            return { ...card, isNew: true };
+          }
+          return card;
+        });
+
         onUpdate(data);
       } catch (err) {
         if (onError) {

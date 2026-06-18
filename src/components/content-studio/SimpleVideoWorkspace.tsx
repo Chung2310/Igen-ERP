@@ -306,10 +306,12 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved, onEd
   };
 
   useEffect(() => {
-    if (autoTrigger && prompt.trim() && !isGenerating && !generatedVideoUrl) {
+    const cacheKey = `autotrigger_video_${activeCardId}`;
+    if (autoTrigger && prompt.trim() && !isGenerating && !generatedVideoUrl && !sessionStorage.getItem(cacheKey)) {
+      sessionStorage.setItem(cacheKey, 'true');
       void handleGenerateVideo();
     }
-  }, [autoTrigger]);
+  }, [autoTrigger, activeCardId]);
 
   const handleDeleteHistory = async (id: string) => {
     if (!confirm("Bạn có chắc chắn muốn xóa video này khỏi lịch sử?")) return;
