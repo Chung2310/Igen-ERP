@@ -29,7 +29,7 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, 
   const [simplePrompt, setSimplePrompt] = useState('');
   const [prompt, setPrompt] = useState(initialPrompt || '');
   const [negativePrompt, setNegativePrompt] = useState('');
-  const [aspectRatio, setAspectRatio] = useState('1:1');
+  const [aspectRatio, setAspectRatio] = useState('3:4');
   const [imageModel, setImageModel] = useState('nano-banana-pro');
   const [resolution, setResolution] = useState('1K');
   const [optimizeModel, setOptimizeModel] = useState('gemini-3.5-flash');
