@@ -899,12 +899,13 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
             authorUid: userProfile?.uid ?? '',
             mediaType: cardMediaType,
             humanDurationSeconds: parseInt(estimatedHumanVoiceDuration, 10) || DEFAULT_HUMAN_VOICE_DURATION_SECONDS,
-            referenceImage: uploadedImageBase64 || undefined
+            referenceImage: uploadedImageBase64 || undefined,
+            isNew: true // Đánh dấu card mới phát triển
           };
         });
 
         const savedCards = await marketingService.saveCards(newCards);
-        setApprovalCards(prev => [...prev, ...savedCards]);
+        setApprovalCards(prev => [...savedCards, ...prev]);
 
         void runBackgroundMediaGeneration(savedCards, result.posts, bestConcept);
 
@@ -967,51 +968,47 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
       });
       console.log("[handleDevelopConcept] Received result from API:", result);
 
-      if (result && result.posts) {
+      if (!result) {
+        console.error("[handleDevelopConcept] API returned null/undefined result");
+        toast.error("API không phản hồi. Vui lòng thử lại sau.");
+        return;
+      }
+      if (result && result.posts && result.posts.length > 0) {
         const newCards: ContentApprovalCard[] = result.posts.map((post: any, index: number) => {
           const cardMediaType = concept.mediaType || (mediaType as any);
-          const voiceScriptVal = cardMediaType === "human-video" ? getHumanVideoScript(post, concept.title, concept.summary) : (post.voiceScript || "");
-          const voiceTitleVal = cardMediaType === "human-video"
-            ? buildHumanVideoVoiceTitle(concept.title, post.channel)
-            : "";
-          const voiceDescriptionVal = cardMediaType === "human-video"
-            ? buildHumanVideoVoiceDescription(
-              concept.title,
-              concept.summary,
-              post.channel,
-              parseInt(estimatedHumanVoiceDuration, 10) || DEFAULT_HUMAN_VOICE_DURATION_SECONDS
-            )
-            : "";
           return {
-            id: `mod_dev_${Date.now()}_${index}_${Math.floor(Math.random() * 1000)}`,
+            id: `dev_${Date.now()}_${index}_${Math.floor(Math.random() * 1000)}`,
             title: concept.title,
-            channel: post.channel as any,
-            contentType: post.contentType,
+            channel: post.channel as any || "Facebook",
+            contentType: post.contentType || "Bài viết truyền thông",
             status: "pending",
             outline: post.outline || "",
             bodyText: post.bodyText || "",
             imageUrl: post.imageUrl || null,
             videoUrl: post.videoUrl || null,
             mediaPrompt: post.mediaPrompt || "",
-            voiceScript: voiceScriptVal,
-            voiceTitle: voiceTitleVal,
-            voiceDescription: voiceDescriptionVal,
+            voiceScript: post.voiceScript || "",
+            voiceTitle: post.voiceTitle || "",
+            voiceDescription: post.voiceDescription || "",
             motionText: post.motionText || "",
             generatedAt: new Date().toISOString(),
-            authorUid: userProfile?.uid ?? '',
+            authorUid: userProfile?.uid ?? "",
             mediaType: cardMediaType,
-            humanDurationSeconds: parseInt(estimatedHumanVoiceDuration, 10) || DEFAULT_HUMAN_VOICE_DURATION_SECONDS,
-            referenceImage: uploadedImageBase64 || undefined
+            conceptTitle: concept.title,
+            conceptSummary: concept.summary || "",
+            isNew: true,
           };
         });
 
         console.log("[handleDevelopConcept] Saving new cards to MongoDB:", newCards);
         const savedCards = await marketingService.saveCards(newCards);
         console.log("[handleDevelopConcept] Cards saved successfully. Updating local state and switching subTab...");
-        setApprovalCards(prev => [...prev, ...savedCards]);
+        setApprovalCards(prev => [...savedCards, ...prev]);
         setSubTab("DUYỆT NỘI DUNG");
       } else {
         console.warn("[handleDevelopConcept] Result has no posts:", result);
+        const reason = result?.isMock ? "AI đang dùng dữ liệu mẫu (mock)." : "API Gemini không trả về bài viết nào.";
+        toast.error(`Không thể tạo nội dung: ${reason}`);
       }
     } catch (e: any) {
       console.error("Lỗi phát triển ý tưởng đa kênh:", e);

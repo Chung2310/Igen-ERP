@@ -32,7 +32,21 @@ RUN yarn build
 FROM node:22-alpine AS runner
 
 # Install ffmpeg and fonts for video rendering/text drawing
-RUN apk add --no-cache ffmpeg fontconfig ttf-freefont
+# Cài Chromium + font cho Remotion render video
+RUN apk add --no-cache \
+    ffmpeg \
+    fontconfig \
+    ttf-freefont \
+    chromium \
+    nss \
+    freetype \
+    harfbuzz \
+    ca-certificates \
+    ttf-liberation
+
+# Set Chromium path cho Puppeteer/Remotion
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+ENV CHROMIUM_PATH=/usr/bin/chromium-browser
 
 WORKDIR /app
 
@@ -46,6 +60,7 @@ COPY --from=builder /app/package.json /app/yarn.lock ./
 # Copy Remotion entrypoint and video composition template for runtime Webpack bundling
 COPY --from=builder /app/server/remotion ./server/remotion
 COPY --from=builder /app/src/components/content-studio/video-composition.tsx ./src/components/content-studio/video-composition.tsx
+COPY --from=builder /app/.puppeteerrc.cjs ./.puppeteerrc.cjs
 
 # Install only production dependencies
 RUN --mount=type=cache,target=/root/.yarn-cache \

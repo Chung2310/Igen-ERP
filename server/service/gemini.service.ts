@@ -1290,10 +1290,30 @@ Example: 'Recruitment poster for PHÚC CƯƠNG PDCA at Quế Võ, Bắc Ninh, sh
             }
           } catch (err) {
             console.error(`[developMarketingIdea] Error generating image for post on ${post.channel}:`, err);
-            // Fallback to mock image in case of PiAPI credit/service failures
-            const seed = Math.floor(Math.random() * 1000000);
-            post.imageUrl = `https://picsum.photos/seed/${seed}/800/600`;
-            console.log(`[developMarketingIdea] Fallback to mock image: ${post.imageUrl}`);
+            // Retry once before giving up
+            try {
+              console.log(`[developMarketingIdea] Retrying image generation (attempt 2/2)...`);
+              const retryResult = await geminiService.generateImage(
+                post.mediaPrompt || mediaOptions.mediaPrompt || `A professional image for: ${title}`,
+                { aspectRatio: mediaOptions.imageAspectRatio, modelName: mediaOptions.imageModel, resolution: mediaOptions.imageResolution }
+              );
+              if (retryResult.isMock) {
+                post.imageUrl = retryResult.url;
+              } else {
+                try {
+                  const uploadedUrl = await cloudinaryService.uploadMedia(retryResult.url, "igen_erp");
+                  post.imageUrl = uploadedUrl;
+                } catch (clErr2) {
+                  console.error("[developMarketingIdea] Cloudinary upload retry failed:", clErr2);
+                  post.imageUrl = retryResult.url;
+                }
+              }
+              console.log(`[developMarketingIdea] Image retry succeeded: ${post.imageUrl}`);
+            } catch (retryErr) {
+              console.error(`[developMarketingIdea] Image generation failed after retry for post on ${post.channel}:`, retryErr);
+              // No mock — throw to let caller handle
+              throw new Error(`Không thể tạo ảnh AI cho kênh ${post.channel} sau 2 lần thử.`);
+            }
           }
         } else if (mediaOptions.mediaType === "video") {
           try {
@@ -1318,9 +1338,32 @@ Example: 'Recruitment poster for PHÚC CƯƠNG PDCA at Quế Võ, Bắc Ninh, sh
             }
           } catch (err) {
             console.error(`[developMarketingIdea] Error generating video for post on ${post.channel}:`, err);
-            // Fallback to mock video in case of PiAPI credit/service failures
-            post.videoUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4";
-            console.log(`[developMarketingIdea] Fallback to mock video: ${post.videoUrl}`);
+            // Retry once before giving up
+            try {
+              console.log(`[developMarketingIdea] Retrying video generation (attempt 2/2)...`);
+              const promptToUse = post.mediaPrompt || mediaOptions.mediaPrompt || `A cinematic video clip matching the campaign topic: ${title}`;
+              const durationSec = mediaOptions.videoDuration ? Number(mediaOptions.videoDuration) : 6;
+              const retryResult = await geminiService.generateVideo(promptToUse, durationSec, {
+                modelName: mediaOptions.videoModel,
+                resolution: mediaOptions.videoQuality,
+                aspectRatio: mediaOptions.videoAspectRatio,
+              });
+              if (retryResult.isMock) {
+                post.videoUrl = retryResult.url;
+              } else {
+                try {
+                  const uploadedUrl = await cloudinaryService.uploadMedia(retryResult.url, "igen_erp");
+                  post.videoUrl = uploadedUrl;
+                } catch (clErr2) {
+                  console.error("[developMarketingIdea] Cloudinary upload retry failed:", clErr2);
+                  post.videoUrl = retryResult.url;
+                }
+              }
+              console.log(`[developMarketingIdea] Video retry succeeded: ${post.videoUrl}`);
+            } catch (retryErr) {
+              console.error(`[developMarketingIdea] Video generation failed after retry for post on ${post.channel}:`, retryErr);
+              throw new Error(`Không thể tạo video AI cho kênh ${post.channel} sau 2 lần thử.`);
+            }
           }
         }
       }
@@ -1348,8 +1391,7 @@ Example: 'Recruitment poster for PHÚC CƯƠNG PDCA at Quế Võ, Bắc Ninh, sh
     }
 
     if (!process.env.PIAPI_API_KEY) {
-      const seed = Math.floor(Math.random() * 1000000);
-      return { url: `https://picsum.photos/seed/${seed}/800/600`, isMock: true };
+      throw new Error("PIAPI_API_KEY chưa được cấu hình. Vui lòng thêm API key để tạo ảnh AI.");
     }
 
     return piapiService.generateImage(prompt, modelToUse, { aspectRatio: options?.aspectRatio });

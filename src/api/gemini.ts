@@ -149,7 +149,7 @@ export const geminiApi = {
     humanVoiceId?: string;
     humanVoiceModel?: string;
     humanDurationSeconds?: number;
-  }): Promise<{ posts: MarketingDevelopPost[] }> {
+  }): Promise<{ posts: MarketingDevelopPost[]; isMock?: boolean }> {
     const headers = await getHeaders(true);
     const response = await fetchWithTimeout(
       '/api/v1/gemini/marketing-develop',
