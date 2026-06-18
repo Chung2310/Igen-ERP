@@ -227,11 +227,21 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
   const filteredResults =
     normalizedQuery === ""
       ? []
-      : searchIndex.filter(
-        (item) =>
-          item.label.toLowerCase().includes(normalizedQuery) ||
-          item.keywords.toLowerCase().includes(normalizedQuery)
-      );
+      : searchIndex
+          .filter((item) => {
+            if (item.tab === "VÍ & NẠP TIỀN" && userProfile?.role !== "superadmin") {
+              return false;
+            }
+            if (item.tab === "HIỆU SUẤT AI" && userProfile?.role !== "superadmin") {
+              return false;
+            }
+            return true;
+          })
+          .filter(
+            (item) =>
+              item.label.toLowerCase().includes(normalizedQuery) ||
+              item.keywords.toLowerCase().includes(normalizedQuery)
+          );
 
   return (
     <header className="sticky top-0 z-40 flex h-18 items-center justify-between border-b border-gray-100 bg-white px-6 shadow-xs" id="app_header">
@@ -288,16 +298,18 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
       <div className="ml-6 flex items-center gap-3" id="header_controls">
 
         {/* Wallet Balance Pill */}
-        <button
-          onClick={() => onSearchSelect("VÍ & NẠP TIỀN" as TabType)}
-          className="flex items-center gap-2 rounded-full bg-blue-50 border border-blue-100 px-4 py-2 font-sans transition-all hover:bg-blue-100/50 hover:border-blue-200 active:scale-95 shadow-xs shadow-blue-500/5 cursor-pointer"
-          id="header_wallet_pill"
-        >
-          <Wallet className="h-4 w-4 text-blue-600 shrink-0" />
-          <span className="text-xs font-bold text-blue-700 font-mono select-none">
-            {new Intl.NumberFormat("vi-VN", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(balance)} Credit
-          </span>
-        </button>
+        {userProfile?.role === "superadmin" && (
+          <button
+            onClick={() => onSearchSelect("VÍ & NẠP TIỀN" as TabType)}
+            className="flex items-center gap-2 rounded-full bg-blue-50 border border-blue-100 px-4 py-2 font-sans transition-all hover:bg-blue-100/50 hover:border-blue-200 active:scale-95 shadow-xs shadow-blue-500/5 cursor-pointer"
+            id="header_wallet_pill"
+          >
+            <Wallet className="h-4 w-4 text-blue-600 shrink-0" />
+            <span className="text-xs font-bold text-blue-700 font-mono select-none">
+              {new Intl.NumberFormat("vi-VN", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(balance)} Credit
+            </span>
+          </button>
+        )}
 
         {/* Pricing Info Button */}
         <button

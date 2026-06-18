@@ -34,6 +34,7 @@ export const APP_ROUTES: AppRoute[] = [
   {
     tab: "HIỆU SUẤT AI",
     component: lazy(() => import("../pages/AIPerformanceTab")),
+    canAccess: (userProfile) => userProfile.role === "superadmin",
   },
   {
     tab: "QUẢN TRỊ USER",
@@ -47,6 +48,7 @@ export const APP_ROUTES: AppRoute[] = [
   {
     tab: "VÍ & NẠP TIỀN",
     component: lazy(() => import("../pages/WalletTab")),
+    canAccess: (userProfile) => userProfile.role === "superadmin",
   },
 ];
 
