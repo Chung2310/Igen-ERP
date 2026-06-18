@@ -2326,8 +2326,17 @@ Return ONLY valid JSON. No markdown backticks, no comments, no conversational te
       let finalVideoUrl = "";
       let renderSuccess = false;
 
-      try {
-        await updateLogs(25, "[Render Engine] Bắt đầu kết xuất video bằng Remotion...");
+      // FFMPEG-FIRST: nếu FFMPEG có sẵn, bỏ qua Remotion (nặng) → dùng FFMPEG (nhẹ, nhanh)
+      const hasFfmpegForRender = await new Promise<boolean>((resolve) => {
+        exec("ffmpeg -version", (error) => resolve(!error));
+      });
+
+      if (hasFfmpegForRender) {
+        await updateLogs(20, "[Render Engine] FFMPEG detected. Skipping heavy Remotion, using fast FFMPEG...");
+        // renderSuccess stays false → falls through to FFMPEG block below
+      } else {
+        try {
+          await updateLogs(25, "[Render Engine] FFMPEG not available. Bắt đầu kết xuất video bằng Remotion...");
         
         finalVideoUrl = await remotionService.renderVideo(
           blueprint,
@@ -2336,13 +2345,14 @@ Return ONLY valid JSON. No markdown backticks, no comments, no conversational te
             await updateLogs(progress, msg);
           }
         );
-        renderSuccess = true;
-      } catch (remotionError: any) {
-        await updateLogs(
-          35,
-          `[Render Engine Warning] Remotion Engine không thể kết xuất (có thể do thiếu Chromium): ${remotionError.message || String(remotionError)}. Đang tự động chuyển sang công cụ Render Fallback...`
-        );
-      }
+          renderSuccess = true;
+        } catch (remotionError: any) {
+          await updateLogs(
+            35,
+            `[Render Engine Warning] Remotion Engine không thể kết xuất (có thể do thiếu Chromium): ${remotionError.message || String(remotionError)}. Đang tự động chuyển sang công cụ Render Fallback...`
+          );
+        }
+      } // close else (!hasFfmpegForRender)
 
       if (!renderSuccess) {
         finalVideoUrl = videoUrl;
