@@ -796,9 +796,9 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
       const existingPillarsStr = currentPillars
         .map(p => `- ID: "${p.id}", Tiêu đề: "${p.title}", Mô tả: "${p.description}"`)
         .join("\n");
-      
+
       const toReplace = currentPillars.find(p => p.id === pillarIdToReplace);
-      const replaceStr = toReplace 
+      const replaceStr = toReplace
         ? `ID: "${toReplace.id}", Tiêu đề: "${toReplace.title}" (Tỷ lệ phân bổ: ${toReplace.ratio})`
         : pillarIdToReplace;
 
@@ -928,9 +928,9 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
             ? "\nYêu cầu về phương tiện: Các ý tưởng phải thiết kế đi kèm video làm chủ đạo."
             : mediaType === "human-video"
               ? "\nYÃªu cáº§u vá» phÆ°Æ¡ng tiá»‡n: CÃ¡c Ã½ tÆ°á»Ÿng pháº£i phÃ¹ há»£p cho video ngÆ°á»i tháº­t/avatar nÃ³i trÆ°á»›c camera, Æ°u tiÃªn hook máº¡nh, lá»i thoáº¡i tá»± nhiÃªn, cáº£nh quay Ä‘Æ¡n giáº£n vÃ  cÃ³ thá»ƒ chuyá»ƒn thÃ nh voice script trá»±c tiáº¿p."
-            : mediaType === "none"
-              ? "\nYêu cầu về phương tiện: Các bài đăng không đi kèm hình ảnh hoặc video (chỉ văn bản/caption)."
-              : "";
+              : mediaType === "none"
+                ? "\nYêu cầu về phương tiện: Các bài đăng không đi kèm hình ảnh hoặc video (chỉ văn bản/caption)."
+                : "";
 
       const prompt = `Bạn là một chuyên gia marketing xuất sắc.
 Hãy tạo đúng 3 ý tưởng/bản nháp chiến dịch marketing chi tiết cho chủ đề/chiến dịch này: "${campaignTopic}".${pillarsContext}${channelsContext}${mediaContext}
@@ -943,6 +943,7 @@ Yêu cầu kết quả đầu ra:
 6. Hashtags liên quan phù hợp.
 7. mediaPrompt: Một đoạn mô tả chi tiết bằng tiếng Anh (visual prompt) mô tả chính xác hình ảnh hoặc video phù hợp nhất cho ý tưởng này, dùng để gửi tới AI Image/Video Generator. Prompt phải bao gồm: chủ thể chính, bối cảnh, ánh sáng, phong cách nghệ thuật, mood/tone, và chi tiết kỹ thuật.
 8. mediaPrompt phải dịch đúng nghĩa và bám sát nhất với input người dùng và nội dung phân tích từ file đính kèm. Không được thêm bớt chủ đề hay làm generic hóa bối cảnh.
+9. KHÔNG được thêm bất kỳ chi tiết nào không có trong nội dung đầu vào. Nếu input không đề cập đến một yếu tố cụ thể, hãy giữ prompt ở mức mô tả chung hợp lý.
 
 NGUỒN SỰ THẬT BẮT BUỘC:
 ${sourceBrief.normalizedBrief || campaignTopic}
@@ -1634,7 +1635,65 @@ Hãy tối ưu hóa văn bản gốc của người dùng để biến nó thàn
     try {
       const systemInstruction = `You are a world-class creative director and prompt engineer for advanced AI image generators (Flux Pro, Imagen 3, SDXL, Midjourney). Your job is to transform any Vietnamese brief into a highly detailed, professional English image prompt that produces stunning, commercial-grade, contextually accurate results.
 
-STEP 1 — CONTEXT DETECTION: Identify the image category from the brief. Categories and their rules:
+════════════════════════════════════════════════════════════
+CRITICAL IMAGE-TO-IMAGE FIDELITY PROTOCOL (HIGHEST PRIORITY)
+When reference images are provided, this section OVERRIDES everything else.
+Your ONLY mission is to reproduce the primary subject 100% identically.
+Apply ALL 8 rules to every subject type — vehicle, human, animal, plant, food, furniture, electronics, or any object.
+════════════════════════════════════════════════════════════
+
+RULE 1 — EXACT ANATOMY & GEOMETRY (PART-BY-PART):
+Describe every visible structural sub-part with precise, unambiguous geometry:
+  - HEADLIGHT/EYES: State the EXACT shape — hexagonal, rectangular, oval, round, teardrop — and internal structure (LED cluster, projector lens, DRL ring). If it is hexagonal, write "hexagonal LED headlight" NOT "round headlight".
+  - WHEEL SPOKES: Count them and state the pattern — "5 double Y-spokes", "7 thin spokes", "solid disc wheel". Never use generic "alloy wheel".
+  - BODY PANELS: Describe curvature, creases, and where panels meet. Note sharp edges vs smooth curves.
+  - MATERIAL FINISH: Per-part — matte powder-coat, gloss lacquer, brushed aluminum, raw carbon fiber, soft velvet, etc.
+
+RULE 2 — BADGES, LOGOS, TEXT & SURFACE DETAILS:
+  - Transcribe EVERY visible brand name, model badge, slogan, or number exactly and wrap in double quotes (e.g., badge "VERA S" in red italic font on left body panel).
+  - Describe stitching lines, quilting, embossed logos, embroidery, decals, and color-split surface finishes.
+  - If text/badge is NOT visible on the reference image, do NOT add any text or badge.
+
+RULE 3 — CAMERA ANGLE & ORIENTATION (Preserve exactly from reference):
+  - Identify the exact shooting angle: front-on, 3/4 front-left, 3/4 front-right, side profile left, side profile right, rear 3/4, top-down, low-angle worm's eye, high-angle bird's eye.
+  - State the subject's directional tilt: "front wheel turned slightly right", "head tilted down-left", "handlebar angled toward viewer".
+  - Use the exact same angle in optimized_english_prompt.
+
+RULE 4 — POSE, STANCE & RESTING POSITION:
+  - Vehicle: "parked on center kickstand with rear wheel slightly raised", "leaning on side kickstand to the left", "upright on flat stand".
+  - Person: describe arm position, leg stance, weight shift, head turn angle.
+  - Animal: describe each limb position, body orientation, ear state.
+
+RULE 5 — MANDATORY NEGATIVE FEATURE LIST (CRITICAL — prevents hallucination):
+  List every feature that is ABSENT from the reference image using explicit NO/WITHOUT phrases in the prompt itself:
+  Examples: "no side mirrors", "no exhaust pipe visible", "no chain or belt drive visible", "no rear passenger grab handle", "no windshield", "no luggage rack", "no collar", "no antlers".
+  These MUST appear verbatim inside the optimized_english_prompt field.
+
+RULE 6 — LIGHTING (Honor user description — never override or add unsolicited weather):
+  - If user says "ánh nắng nhẹ" → write "soft warm dappled sunlight filtering through leaves, gentle shadows, no harsh glare".
+  - NEVER add rain, puddles, wet cobblestones, fog, mist, or dramatic storm unless the user explicitly requested it.
+  - State light direction (front-lit, side-lit left, backlit, rim-lit), color temperature (warm 4000K, cool 6500K), and shadow softness.
+
+RULE 7 — SUBJECT LOCKED / BACKGROUND FLEXIBLE:
+  - Background and environment CAN change to match the user's description.
+  - The primary subject MUST remain 100% identical to the reference: same model, same color, same geometry, same badges, same absent features.
+
+RULE 8 — ABSOLUTE NO SUBSTITUTION:
+  - NEVER replace a specific design with a visually similar generic model.
+  - Example: do NOT turn the "Vera S" electric scooter (hexagonal headlight, no mirrors, no exhaust, VERA S badge) into a generic "Vespa GTS" (round headlight, mirrors, exhaust, Vespa badge).
+  - Example: do NOT turn a specific cat breed into "a cat", or a baroque armchair into "a chair".
+  - If the subject looks similar to a well-known brand/model, explicitly describe the DIFFERENCES that make it unique and state those differences directly in the prompt.
+
+WHEN WRITING optimized_english_prompt FOR A VEHICLE/PRODUCT WITH REFERENCE IMAGE:
+  1. Open with the exact shooting angle and stance.
+  2. Describe the subject part-by-part (front to rear, top to bottom).
+  3. After each major part, immediately state what is NOT there.
+  4. Then describe the background/lighting/environment.
+  5. Close with camera/lens/rendering style.
+
+════════════════════════════════════════════════════════════
+STEP 1 — CONTEXT DETECTION (applies when NO reference image is provided):
+Identify the image category from the brief. Categories and their rules:
 
 [A] RECRUITMENT/ADVERTISING/MARKETING BANNER (tuyển dụng, quảng cáo, khuyến mãi, sự kiện):
   - Layout: A professional commercial banner divided into two zones:
@@ -1692,6 +1751,8 @@ STEP 1 — CONTEXT DETECTION: Identify the image category from the brief. Catego
   - Atmosphere: Volumetric light rays, mist, clouds for drama.
 
 STEP 2 — LOCALIZATION: Always translate Vietnamese to English. Preserve all specific factual details: people names, company names, location names (Vietnamese city/province names), exact numbers, prices, events. Never generalize or substitute real information with placeholders.
+  - If the brief does not mention a specific person, product, place, logo, or text, do not invent one.
+  - Do not add unrelated brand claims, slogans, or visual elements that are not explicitly present in the original brief.
 
 STEP 3 — TEXT RENDERING: If the brief contains text that must appear IN the image (signs, banners, price tags, labels, overlays), do the following:
   - Put exact text strings inside double quotes: "LƯƠNG 4 TRIỆU VNĐ/THÁNG"
@@ -1709,13 +1770,29 @@ Output MUST be a valid JSON object matching this schema:
   "setting_lighting": "background setting, environment, lighting style",
   "camera_parameters": "camera shot, lens, depth of field, visual style",
   "optimized_english_prompt": "the complete final detailed prompt in English (150-300 words) combining all enriched visual details",
-  "negative_prompt": "ugly, deformed, blurry, low quality, distorted text, generic stock photo, amateur, western-only aesthetics, overexposed, watermark"
+  "negative_prompt": "If reference images were provided: include explicit negations of features NOT present on the subject (e.g. 'no side mirrors, no exhaust pipe, no round headlight, no Vespa badge, no helmet, no windshield'). Always include: ugly, deformed, blurry, low quality, distorted text, generic stock photo, amateur, wrong vehicle model, substituted design, added accessories not in reference, hallucinated parts, wrong headlight shape, wrong badge text, extra mirrors, extra pipes, overexposed, watermark"
 }
 Do not include markdown blocks or any text other than the JSON object.`;
 
       const optimizeMessages = [{ role: "system", content: systemInstruction }];
       const systemMessage = optimizeMessages[0].content;
-      const userText = `Translate and optimize this media brief into English while preserving the exact topic, context, audience, business meaning, and factual constraints from the original input: ${normalizedDescription}`;
+      const hasImages = imageUris && imageUris.length > 0;
+      const userText = hasImages
+        ? `You are given ${imageUris!.length} reference image(s). Follow this EXACT sequence:
+
+PHASE 1 — FORENSIC ANALYSIS: Examine every pixel of the reference image(s). For each reference, document:
+  a) Exact headlight/eye/opening shape (hexagonal? round? rectangular?) — be precise.
+  b) Exact number and pattern of wheel spokes or equivalent structural elements.
+  c) Every badge, logo, text, or decal — transcribe exactly.
+  d) Features that are ABSENT compared to similar objects (no mirrors? no exhaust? no collar?).
+  e) Exact camera angle and subject stance/pose.
+  f) Color and surface finish per body part.
+  g) Any unique design elements that differentiate this from generic similar objects.
+
+PHASE 2 — BACKGROUND INSTRUCTION: The user wants this background/context: "${normalizedDescription}"
+
+PHASE 3 — WRITE THE PROMPT: Using ONLY the subject details from PHASE 1 (do not substitute, do not generalize, do not add parts that weren't there), write the optimized_english_prompt that places the EXACT SAME subject into the new background from PHASE 2. The subject description must be more detailed and specific than the background description.`
+        : `Translate and optimize this media brief into English while preserving the exact topic, context, audience, business meaning, and factual constraints from the original input: ${normalizedDescription}`;
       const result = await generateText(GEMINI_TEXT_MODEL, userText, {
         systemInstruction: systemMessage,
         responseMimeType: "application/json",
@@ -1863,6 +1940,7 @@ Do not include markdown blocks or any text other than the JSON object.`;
           role: "system",
           content: `You are an expert prompt engineer for video generators. Optimize the description into a high-quality video prompt.
 Preserve the exact meaning of the original input. Translate faithfully from Vietnamese to English when needed.
+Do not invent people, products, locations, brands, logos, or visual text that are not explicitly mentioned in the original description.
 Do not add unrelated cinematic elements, fashion cues, generic lifestyle filler, or abstract visuals that are not grounded in the source brief.
 If source images are provided, treat them as grounding constraints and keep the prompt semantically aligned with them.
 Output MUST be a valid JSON object matching this schema:
@@ -1870,7 +1948,7 @@ Output MUST be a valid JSON object matching this schema:
   "motion_analysis": "Detailed description of the motion of subjects, speed changes, and physics of the scene",
   "camera_movement": "Detailed description of camera movements, panning, focal adjustments, depth of field, and camera paths",
   "optimized_english_prompt": "A complete, highly descriptive visual prompt in English, combining composition, lighting, cinematic style, and subject details"
-}
+} 
 Do not include markdown blocks or any text other than the JSON object.`
         }
       ];
@@ -2044,8 +2122,8 @@ CHỈ trả về lệnh chỉnh sửa, không thêm giải thích, không markdo
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📽️ SOURCE VIDEOS INFO
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${isMultiple 
-  ? `The user has provided MULTIPLE input videos. Here is the list of source videos available:
+${isMultiple
+            ? `The user has provided MULTIPLE input videos. Here is the list of source videos available:
 ${urls.map((url, idx) => `▸ Video ${idx + 1}: URL: "${url}", Duration: ${urlDurations[url]} seconds.`).join("\n")}
 
 You MUST map each video clip segment to its correct source URL by setting the "src" property of the video clip to the exact URL of that video from the list above. 
@@ -2063,8 +2141,8 @@ CRITICAL MULTI-VIDEO RULES:
   - Bạn MUST sắp xếp tất cả các video được cung cấp theo đúng thứ tự (Video 1, Video 2,... Video N).
   - Trừ khi có yêu cầu cắt/trim cụ thể, mỗi video phải chạy trọn vẹn thời lượng gốc của nó (start: 0, end: duration).
   - Tổng thời lượng của video đầu ra phải bằng tổng thời lượng của các video gốc cộng lại.
-  - Vẫn giữ nguyên các layer text, nhạc nền hay logo chạy song song trong final timeline nếu được yêu cầu.` 
-  : `The original video URL is "${urls[0]}".
+  - Vẫn giữ nguyên các layer text, nhạc nền hay logo chạy song song trong final timeline nếu được yêu cầu.`
+            : `The original video URL is "${urls[0]}".
 The original video duration is exactly ${originalDuration || 5} seconds.`}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -2348,16 +2426,16 @@ Return ONLY valid JSON. No markdown backticks, no comments, no conversational te
   async executeLocalRenderJob(recordId: string, videoUrl: string, blueprint: any, userId: string) {
     console.log(`[Remotion Queue Worker] Starting task for record ${recordId}`);
     const timeline = blueprint.timeline || [];
-    
+
     const currentRecord = await AIMediaModel.findById(recordId);
     const logs = currentRecord?.metadata?.renderLogs || [
       "[LLM] Đang phân tích prompt...",
       `[LLM] Đã phân tích thành công JSON Blueprint: ${JSON.stringify(blueprint, null, 2)}`,
       "[Hàng đợi] Đã thêm yêu cầu render vào hàng đợi Redis."
     ];
-    
+
     logs.push("[Render Engine] Bắt đầu xử lý tác vụ từ hàng đợi...");
-    
+
     const updateLogs = async (progress: number, newLog?: string) => {
       if (newLog) {
         console.log(`[Remotion Queue Worker] [${progress}%] ${newLog}`);
@@ -2409,7 +2487,7 @@ Return ONLY valid JSON. No markdown backticks, no comments, no conversational te
 
       try {
         await updateLogs(25, "[Render Engine] Bắt đầu kết xuất video bằng Remotion...");
-        
+
         finalVideoUrl = await remotionService.renderVideo(
           blueprint,
           { aspectRatio: aspect, resolution },
@@ -2429,7 +2507,7 @@ Return ONLY valid JSON. No markdown backticks, no comments, no conversational te
         finalVideoUrl = videoUrl;
 
         await updateLogs(40, "[Render Engine Fallback] Đang kiểm tra môi trường FFMPEG...");
-        
+
         const hasFfmpeg = await new Promise<boolean>((resolve) => {
           exec("ffmpeg -version", (error) => {
             resolve(!error);
@@ -2450,7 +2528,7 @@ Return ONLY valid JSON. No markdown backticks, no comments, no conversational te
 
           // Extract all unique source video URLs from timeline video clips
           let uniqueVideoUrls: string[] = Array.from(new Set(videoClips.map((clip: any) => clip.src).filter(Boolean))) as string[];
-          
+
           // If the timeline didn't specify any source URLs (fallback case), extract them from the request videoUrl
           if (uniqueVideoUrls.length === 0) {
             uniqueVideoUrls = videoUrl.split(/,\s*(?=https?:\/\/)/).map(u => u.trim()).filter(Boolean);
@@ -2507,827 +2585,827 @@ Return ONLY valid JSON. No markdown backticks, no comments, no conversational te
             urlToInputIdx[url] = i;
           }
 
-await updateLogs(55, "[Render Engine Fallback] Đang phát hiện luồng âm thanh...");
-const hasAudioMap: { [idx: number]: boolean } = {};
-for (let i = 0; i < videoTempPaths.length; i++) {
-  const tempInputPath = videoTempPaths[i];
-  const hasAudio = await new Promise<boolean>((resolve) => {
-    exec(`ffmpeg -i "${tempInputPath}"`, (error, stdout, stderr) => {
-      const info = stderr || stdout || "";
-      resolve(info.includes("Audio:"));
-    });
-  });
-  hasAudioMap[i] = hasAudio;
-}
+          await updateLogs(55, "[Render Engine Fallback] Đang phát hiện luồng âm thanh...");
+          const hasAudioMap: { [idx: number]: boolean } = {};
+          for (let i = 0; i < videoTempPaths.length; i++) {
+            const tempInputPath = videoTempPaths[i];
+            const hasAudio = await new Promise<boolean>((resolve) => {
+              exec(`ffmpeg -i "${tempInputPath}"`, (error, stdout, stderr) => {
+                const info = stderr || stdout || "";
+                resolve(info.includes("Audio:"));
+              });
+            });
+            hasAudioMap[i] = hasAudio;
+          }
 
-await updateLogs(60, `[Render Engine Fallback] Âm thanh nguồn các video: ${videoTempPaths.map((_, i) => `Video ${i + 1}: ${hasAudioMap[i] ? "Có" : "Không"}`).join(", ")}`);
-await updateLogs(65, "[Render Engine Fallback] Đang xử lý các tài nguyên lớp phủ (overlay)...");
+          await updateLogs(60, `[Render Engine Fallback] Âm thanh nguồn các video: ${videoTempPaths.map((_, i) => `Video ${i + 1}: ${hasAudioMap[i] ? "Có" : "Không"}`).join(", ")}`);
+          await updateLogs(65, "[Render Engine Fallback] Đang xử lý các tài nguyên lớp phủ (overlay)...");
 
-// 1. Download image overlays to temp files
-const imageTempPaths: string[] = [];
-for (let i = 0; i < imageElements.length; i++) {
-  const img = imageElements[i];
-  const tempImgPath = path.join(os.tmpdir(), `overlay_img_${recordId}_${i}${path.extname(img.src || '.png')}`);
-  console.log(`[FFMPEG Overlay] Fetch image ${i + 1}/${imageElements.length}: ${img.src}`);
-  try {
-    const imgRes = await fetchWithRetry(img.src);
-    console.log(`[FFMPEG Overlay]   Image HTTP ${imgRes.status} | CORS: ${imgRes.headers.get("access-control-allow-origin") || "(không có)"}`);
-    if (imgRes.ok) {
-      const buf = Buffer.from(await imgRes.arrayBuffer());
-      fs.writeFileSync(tempImgPath, buf);
-      imageTempPaths.push(tempImgPath);
-      console.log(`[FFMPEG Overlay] ✅ Image ${i + 1} lưu OK (${(buf.length / 1024).toFixed(1)} KB)`);
-    } else {
-      const body = await imgRes.text().catch(() => "");
-      console.error(`[FFMPEG Overlay] ❌ Image ${i + 1} HTTP ${imgRes.status}: ${img.src}`);
-      console.error(`[FFMPEG Overlay]   Body: ${body.slice(0, 300)}`);
-      imageTempPaths.push("");
-    }
-  } catch (err: any) {
-    console.error(`[FFMPEG Overlay] ❌ Lỗi fetch image ${i + 1}: ${err.message}`);
-    imageTempPaths.push("");
-  }
-}
+          // 1. Download image overlays to temp files
+          const imageTempPaths: string[] = [];
+          for (let i = 0; i < imageElements.length; i++) {
+            const img = imageElements[i];
+            const tempImgPath = path.join(os.tmpdir(), `overlay_img_${recordId}_${i}${path.extname(img.src || '.png')}`);
+            console.log(`[FFMPEG Overlay] Fetch image ${i + 1}/${imageElements.length}: ${img.src}`);
+            try {
+              const imgRes = await fetchWithRetry(img.src);
+              console.log(`[FFMPEG Overlay]   Image HTTP ${imgRes.status} | CORS: ${imgRes.headers.get("access-control-allow-origin") || "(không có)"}`);
+              if (imgRes.ok) {
+                const buf = Buffer.from(await imgRes.arrayBuffer());
+                fs.writeFileSync(tempImgPath, buf);
+                imageTempPaths.push(tempImgPath);
+                console.log(`[FFMPEG Overlay] ✅ Image ${i + 1} lưu OK (${(buf.length / 1024).toFixed(1)} KB)`);
+              } else {
+                const body = await imgRes.text().catch(() => "");
+                console.error(`[FFMPEG Overlay] ❌ Image ${i + 1} HTTP ${imgRes.status}: ${img.src}`);
+                console.error(`[FFMPEG Overlay]   Body: ${body.slice(0, 300)}`);
+                imageTempPaths.push("");
+              }
+            } catch (err: any) {
+              console.error(`[FFMPEG Overlay] ❌ Lỗi fetch image ${i + 1}: ${err.message}`);
+              imageTempPaths.push("");
+            }
+          }
 
-// 2. Download audio overlays to temp files
-const audioTempPaths: string[] = [];
-for (let i = 0; i < audioElements.length; i++) {
-  const aud = audioElements[i];
-  const tempAudPath = path.join(os.tmpdir(), `overlay_aud_${recordId}_${i}${path.extname(aud.src || '.mp3')}`);
-  console.log(`[FFMPEG Overlay] Fetch audio ${i + 1}/${audioElements.length}: ${aud.src}`);
-  try {
-    const audRes = await fetchWithRetry(aud.src);
-    console.log(`[FFMPEG Overlay]   Audio HTTP ${audRes.status} | Content-Type: ${audRes.headers.get("content-type") || "(không có)"} | CORS: ${audRes.headers.get("access-control-allow-origin") || "(không có)"}`);
-    if (audRes.ok) {
-      const buf = Buffer.from(await audRes.arrayBuffer());
-      fs.writeFileSync(tempAudPath, buf);
-      audioTempPaths.push(tempAudPath);
-      console.log(`[FFMPEG Overlay] ✅ Audio ${i + 1} lưu OK (${(buf.length / 1024).toFixed(1)} KB)`);
-    } else {
-      const body = await audRes.text().catch(() => "");
-      console.error(`[FFMPEG Overlay] ❌ Audio ${i + 1} HTTP ${audRes.status}: ${aud.src}`);
-      console.error(`[FFMPEG Overlay]   Body: ${body.slice(0, 300)}`);
-      audioTempPaths.push("");
-    }
-  } catch (err: any) {
-    console.error(`[FFMPEG Overlay] ❌ Lỗi fetch audio ${i + 1}: ${err.message}`);
-    audioTempPaths.push("");
-  }
-}
+          // 2. Download audio overlays to temp files
+          const audioTempPaths: string[] = [];
+          for (let i = 0; i < audioElements.length; i++) {
+            const aud = audioElements[i];
+            const tempAudPath = path.join(os.tmpdir(), `overlay_aud_${recordId}_${i}${path.extname(aud.src || '.mp3')}`);
+            console.log(`[FFMPEG Overlay] Fetch audio ${i + 1}/${audioElements.length}: ${aud.src}`);
+            try {
+              const audRes = await fetchWithRetry(aud.src);
+              console.log(`[FFMPEG Overlay]   Audio HTTP ${audRes.status} | Content-Type: ${audRes.headers.get("content-type") || "(không có)"} | CORS: ${audRes.headers.get("access-control-allow-origin") || "(không có)"}`);
+              if (audRes.ok) {
+                const buf = Buffer.from(await audRes.arrayBuffer());
+                fs.writeFileSync(tempAudPath, buf);
+                audioTempPaths.push(tempAudPath);
+                console.log(`[FFMPEG Overlay] ✅ Audio ${i + 1} lưu OK (${(buf.length / 1024).toFixed(1)} KB)`);
+              } else {
+                const body = await audRes.text().catch(() => "");
+                console.error(`[FFMPEG Overlay] ❌ Audio ${i + 1} HTTP ${audRes.status}: ${aud.src}`);
+                console.error(`[FFMPEG Overlay]   Body: ${body.slice(0, 300)}`);
+                audioTempPaths.push("");
+              }
+            } catch (err: any) {
+              console.error(`[FFMPEG Overlay] ❌ Lỗi fetch audio ${i + 1}: ${err.message}`);
+              audioTempPaths.push("");
+            }
+          }
 
-// 3. Build FFMPEG filter graph
-let filterComplex = "";
-let inputArgs: string[] = [];
+          // 3. Build FFMPEG filter graph
+          let filterComplex = "";
+          let inputArgs: string[] = [];
 
-// Image and audio inputs start after the video inputs
-let currentInputIdx = videoTempPaths.length;
-const imageInputMappings: { [key: number]: number } = {};
-const audioInputMappings: { [key: number]: number } = {};
+          // Image and audio inputs start after the video inputs
+          let currentInputIdx = videoTempPaths.length;
+          const imageInputMappings: { [key: number]: number } = {};
+          const audioInputMappings: { [key: number]: number } = {};
 
-imageElements.forEach((img: any, idx: number) => {
-  const localPath = imageTempPaths[idx];
-  if (localPath) {
-    inputArgs.push(`-i "${localPath}"`);
-    imageInputMappings[idx] = currentInputIdx;
-    currentInputIdx++;
-  }
-});
+          imageElements.forEach((img: any, idx: number) => {
+            const localPath = imageTempPaths[idx];
+            if (localPath) {
+              inputArgs.push(`-i "${localPath}"`);
+              imageInputMappings[idx] = currentInputIdx;
+              currentInputIdx++;
+            }
+          });
 
-audioElements.forEach((aud: any, idx: number) => {
-  const localPath = audioTempPaths[idx];
-  if (localPath) {
-    inputArgs.push(`-i "${localPath}"`);
-    audioInputMappings[idx] = currentInputIdx;
-    currentInputIdx++;
-  }
-});
+          audioElements.forEach((aud: any, idx: number) => {
+            const localPath = audioTempPaths[idx];
+            if (localPath) {
+              inputArgs.push(`-i "${localPath}"`);
+              audioInputMappings[idx] = currentInputIdx;
+              currentInputIdx++;
+            }
+          });
 
-// PRE-SPLIT: Each video input may be referenced by multiple clips (e.g. applying different
-// effects to different time ranges of the same source video). FFMPEG does NOT allow reading
-// the same input stream [N:v] or [N:a] multiple times in a filter_complex. We must pre-split
-// each unique video input into as many copies as needed using the `split` filter.
-const inputClipCounts: { [inputIdx: number]: number } = {};
-const inputSplitCounters: { [inputIdx: number]: number } = {};
-videoClips.forEach((clip: any) => {
-  const inputIdx = urlToInputIdx[clip.src] ?? 0;
-  inputClipCounts[inputIdx] = (inputClipCounts[inputIdx] || 0) + 1;
-});
+          // PRE-SPLIT: Each video input may be referenced by multiple clips (e.g. applying different
+          // effects to different time ranges of the same source video). FFMPEG does NOT allow reading
+          // the same input stream [N:v] or [N:a] multiple times in a filter_complex. We must pre-split
+          // each unique video input into as many copies as needed using the `split` filter.
+          const inputClipCounts: { [inputIdx: number]: number } = {};
+          const inputSplitCounters: { [inputIdx: number]: number } = {};
+          videoClips.forEach((clip: any) => {
+            const inputIdx = urlToInputIdx[clip.src] ?? 0;
+            inputClipCounts[inputIdx] = (inputClipCounts[inputIdx] || 0) + 1;
+          });
 
-// Build split filters for video streams that are referenced more than once
-Object.keys(inputClipCounts).forEach((idxStr) => {
-  const inputIdx = parseInt(idxStr);
-  const count = inputClipCounts[inputIdx];
-  inputSplitCounters[inputIdx] = 0;
-  if (count > 1) {
-    const splitOutputs = Array.from({ length: count }, (_, i) => `[vsplit_${inputIdx}_${i}]`).join("");
-    filterComplex += `[${inputIdx}:v]split=${count}${splitOutputs};`;
-  }
-});
+          // Build split filters for video streams that are referenced more than once
+          Object.keys(inputClipCounts).forEach((idxStr) => {
+            const inputIdx = parseInt(idxStr);
+            const count = inputClipCounts[inputIdx];
+            inputSplitCounters[inputIdx] = 0;
+            if (count > 1) {
+              const splitOutputs = Array.from({ length: count }, (_, i) => `[vsplit_${inputIdx}_${i}]`).join("");
+              filterComplex += `[${inputIdx}:v]split=${count}${splitOutputs};`;
+            }
+          });
 
-// Build split filters for audio streams that are referenced more than once
-const inputAudioSplitCounters: { [inputIdx: number]: number } = {};
-Object.keys(inputClipCounts).forEach((idxStr) => {
-  const inputIdx = parseInt(idxStr);
-  const count = inputClipCounts[inputIdx];
-  inputAudioSplitCounters[inputIdx] = 0;
-  const hasAudioForInput = hasAudioMap[inputIdx] ?? false;
-  if (count > 1 && hasAudioForInput) {
-    const splitOutputs = Array.from({ length: count }, (_, i) => `[asplit_${inputIdx}_${i}]`).join("");
-    filterComplex += `[${inputIdx}:a]asplit=${count}${splitOutputs};`;
-  }
-});
+          // Build split filters for audio streams that are referenced more than once
+          const inputAudioSplitCounters: { [inputIdx: number]: number } = {};
+          Object.keys(inputClipCounts).forEach((idxStr) => {
+            const inputIdx = parseInt(idxStr);
+            const count = inputClipCounts[inputIdx];
+            inputAudioSplitCounters[inputIdx] = 0;
+            const hasAudioForInput = hasAudioMap[inputIdx] ?? false;
+            if (count > 1 && hasAudioForInput) {
+              const splitOutputs = Array.from({ length: count }, (_, i) => `[asplit_${inputIdx}_${i}]`).join("");
+              filterComplex += `[${inputIdx}:a]asplit=${count}${splitOutputs};`;
+            }
+          });
 
-// Track silence inputs that will be added as extra ffmpeg inputs
-const silenceInputIdxMap: { [clipIdx: number]: number } = {};
-let silenceCount = 0;
+          // Track silence inputs that will be added as extra ffmpeg inputs
+          const silenceInputIdxMap: { [clipIdx: number]: number } = {};
+          let silenceCount = 0;
 
-let concatInputs = "";
-videoClips.forEach((clip: any, idx: number) => {
-  const start = clip.start ?? 0;
-  const end = clip.end ?? 5;
-  const rate = clip.playbackRate ?? 1;
-  const clipDuration = (end - start) / rate;
-  const inputIdx = urlToInputIdx[clip.src] ?? 0;
-  const hasAudio = hasAudioMap[inputIdx] ?? false;
-  const usesSplit = inputClipCounts[inputIdx] > 1;
+          let concatInputs = "";
+          videoClips.forEach((clip: any, idx: number) => {
+            const start = clip.start ?? 0;
+            const end = clip.end ?? 5;
+            const rate = clip.playbackRate ?? 1;
+            const clipDuration = (end - start) / rate;
+            const inputIdx = urlToInputIdx[clip.src] ?? 0;
+            const hasAudio = hasAudioMap[inputIdx] ?? false;
+            const usesSplit = inputClipCounts[inputIdx] > 1;
 
-  // Determine the video source label (split or direct)
-  let vSrcLabel: string;
-  if (usesSplit) {
-    const splitI = inputSplitCounters[inputIdx];
-    vSrcLabel = `[vsplit_${inputIdx}_${splitI}]`;
-    inputSplitCounters[inputIdx] = splitI + 1;
-  } else {
-    vSrcLabel = `[${inputIdx}:v]`;
-  }
+            // Determine the video source label (split or direct)
+            let vSrcLabel: string;
+            if (usesSplit) {
+              const splitI = inputSplitCounters[inputIdx];
+              vSrcLabel = `[vsplit_${inputIdx}_${splitI}]`;
+              inputSplitCounters[inputIdx] = splitI + 1;
+            } else {
+              vSrcLabel = `[${inputIdx}:v]`;
+            }
 
-  // Video stream processing
-  let vFilter = `${vSrcLabel}trim=start=${start}:end=${end},setpts=PTS-STARTPTS`;
-  if (clip.filters?.grayscale !== undefined && clip.filters.grayscale > 0) {
-    vFilter += `,hue=s=${1 - clip.filters.grayscale}`;
-  }
-  if (clip.filters?.brightness !== undefined && clip.filters.brightness !== 1) {
-    vFilter += `,eq=brightness=${clip.filters.brightness - 1}`;
-  }
-  if (clip.effects?.rotate !== undefined && clip.effects.rotate !== 0) {
-    const rad = (clip.effects.rotate * Math.PI) / 180;
-    vFilter += `,rotate=${rad}`;
-  }
-  if (clip.effects?.transition === "fade") {
-    const fadeDur = Math.min(0.5, clipDuration / 2);
-    vFilter += `,fade=in:st=0:d=${fadeDur},fade=out:st=${clipDuration - fadeDur}:d=${fadeDur}`;
-  }
-  if (rate !== 1) {
-    vFilter += `,setpts=${1 / rate}*(PTS-STARTPTS)`;
-  }
-  vFilter += `,scale=w='min(${targetWidth},iw*${targetHeight}/ih)':h='min(${targetHeight},ih*${targetWidth}/iw)',pad=w=${targetWidth}:h=${targetHeight}:x='(${targetWidth}-iw)/2':y='(${targetHeight}-ih)/2':color=black,setsar=1`;
-  vFilter += `,fps=fps=30`;
-  vFilter += `[v_proc_${idx}];`;
-  filterComplex += vFilter;
-  concatInputs += `[v_proc_${idx}]`;
+            // Video stream processing
+            let vFilter = `${vSrcLabel}trim=start=${start}:end=${end},setpts=PTS-STARTPTS`;
+            if (clip.filters?.grayscale !== undefined && clip.filters.grayscale > 0) {
+              vFilter += `,hue=s=${1 - clip.filters.grayscale}`;
+            }
+            if (clip.filters?.brightness !== undefined && clip.filters.brightness !== 1) {
+              vFilter += `,eq=brightness=${clip.filters.brightness - 1}`;
+            }
+            if (clip.effects?.rotate !== undefined && clip.effects.rotate !== 0) {
+              const rad = (clip.effects.rotate * Math.PI) / 180;
+              vFilter += `,rotate=${rad}`;
+            }
+            if (clip.effects?.transition === "fade") {
+              const fadeDur = Math.min(0.5, clipDuration / 2);
+              vFilter += `,fade=in:st=0:d=${fadeDur},fade=out:st=${clipDuration - fadeDur}:d=${fadeDur}`;
+            }
+            if (rate !== 1) {
+              vFilter += `,setpts=${1 / rate}*(PTS-STARTPTS)`;
+            }
+            vFilter += `,scale=w='min(${targetWidth},iw*${targetHeight}/ih)':h='min(${targetHeight},ih*${targetWidth}/iw)',pad=w=${targetWidth}:h=${targetHeight}:x='(${targetWidth}-iw)/2':y='(${targetHeight}-ih)/2':color=black,setsar=1`;
+            vFilter += `,fps=fps=30`;
+            vFilter += `[v_proc_${idx}];`;
+            filterComplex += vFilter;
+            concatInputs += `[v_proc_${idx}]`;
 
-  // Audio stream processing
-  if (hasAudio) {
-    const usesSplitA = inputClipCounts[inputIdx] > 1;
-    let aSrcLabel: string;
-    if (usesSplitA) {
-      const splitAi = inputAudioSplitCounters[inputIdx];
-      aSrcLabel = `[asplit_${inputIdx}_${splitAi}]`;
-      inputAudioSplitCounters[inputIdx] = splitAi + 1;
-    } else {
-      aSrcLabel = `[${inputIdx}:a]`;
-    }
-    let aFilter = `${aSrcLabel}atrim=start=${start}:end=${end},asetpts=PTS-STARTPTS`;
-    if (rate !== 1) {
-      const clampedRate = Math.max(0.5, Math.min(2.0, rate));
-      aFilter += `,atempo=${clampedRate}`;
-    }
-    aFilter += `[a_proc_${idx}];`;
-    filterComplex += aFilter;
-    concatInputs += `[a_proc_${idx}]`;
-  } else {
-    // For videos without audio: we use a silence input added via -f lavfi -i anullsrc
-    // Track which extra input index this silence clip will be
-    silenceInputIdxMap[idx] = currentInputIdx + silenceCount;
-    silenceCount++;
-    concatInputs += `[a_proc_${idx}]`; // will be resolved after building silence inputs
-  }
-});
+            // Audio stream processing
+            if (hasAudio) {
+              const usesSplitA = inputClipCounts[inputIdx] > 1;
+              let aSrcLabel: string;
+              if (usesSplitA) {
+                const splitAi = inputAudioSplitCounters[inputIdx];
+                aSrcLabel = `[asplit_${inputIdx}_${splitAi}]`;
+                inputAudioSplitCounters[inputIdx] = splitAi + 1;
+              } else {
+                aSrcLabel = `[${inputIdx}:a]`;
+              }
+              let aFilter = `${aSrcLabel}atrim=start=${start}:end=${end},asetpts=PTS-STARTPTS`;
+              if (rate !== 1) {
+                const clampedRate = Math.max(0.5, Math.min(2.0, rate));
+                aFilter += `,atempo=${clampedRate}`;
+              }
+              aFilter += `[a_proc_${idx}];`;
+              filterComplex += aFilter;
+              concatInputs += `[a_proc_${idx}]`;
+            } else {
+              // For videos without audio: we use a silence input added via -f lavfi -i anullsrc
+              // Track which extra input index this silence clip will be
+              silenceInputIdxMap[idx] = currentInputIdx + silenceCount;
+              silenceCount++;
+              concatInputs += `[a_proc_${idx}]`; // will be resolved after building silence inputs
+            }
+          });
 
-// Add silence inputs for clips without audio (as -f lavfi -i anullsrc before filter_complex)
-// We'll inject them at the correct positions using inputArgs prefix
-const silenceInputArgs: string[] = [];
-videoClips.forEach((clip: any, idx: number) => {
-  const inputIdx = urlToInputIdx[clip.src] ?? 0;
-  const hasAudio = hasAudioMap[inputIdx] ?? false;
-  if (!hasAudio) {
-    const start = clip.start ?? 0;
-    const end = clip.end ?? 5;
-    const rate = clip.playbackRate ?? 1;
-    const clipDuration = (end - start) / rate;
-    const silenceInputIdx = silenceInputIdxMap[idx];
-    silenceInputArgs.push(`-f lavfi -i anullsrc=sample_rate=44100:channel_layout=stereo`);
-    // Add filter to trim silence to exact clip duration
-    filterComplex = filterComplex + `[${silenceInputIdx}:a]atrim=duration=${clipDuration}[a_proc_${idx}];`;
-  }
-});
+          // Add silence inputs for clips without audio (as -f lavfi -i anullsrc before filter_complex)
+          // We'll inject them at the correct positions using inputArgs prefix
+          const silenceInputArgs: string[] = [];
+          videoClips.forEach((clip: any, idx: number) => {
+            const inputIdx = urlToInputIdx[clip.src] ?? 0;
+            const hasAudio = hasAudioMap[inputIdx] ?? false;
+            if (!hasAudio) {
+              const start = clip.start ?? 0;
+              const end = clip.end ?? 5;
+              const rate = clip.playbackRate ?? 1;
+              const clipDuration = (end - start) / rate;
+              const silenceInputIdx = silenceInputIdxMap[idx];
+              silenceInputArgs.push(`-f lavfi -i anullsrc=sample_rate=44100:channel_layout=stereo`);
+              // Add filter to trim silence to exact clip duration
+              filterComplex = filterComplex + `[${silenceInputIdx}:a]atrim=duration=${clipDuration}[a_proc_${idx}];`;
+            }
+          });
 
-// Insert silence inputs before the overlay inputs in the correct order
-if (silenceInputArgs.length > 0) {
-  inputArgs = [...silenceInputArgs, ...inputArgs];
-  // Remap overlay input indices (they shifted by silenceCount)
-  const remappedImageMappings: { [k: number]: number } = {};
-  const remappedAudioMappings: { [k: number]: number } = {};
-  Object.keys(imageInputMappings).forEach(k => {
-    remappedImageMappings[parseInt(k)] = imageInputMappings[parseInt(k)] + silenceCount;
-  });
-  Object.keys(audioInputMappings).forEach(k => {
-    remappedAudioMappings[parseInt(k)] = audioInputMappings[parseInt(k)] + silenceCount;
-  });
-  // Remap references in filterComplex for image/audio overlays
-  Object.keys(imageInputMappings).forEach(k => {
-    const oldIdx = imageInputMappings[parseInt(k)];
-    const newIdx = remappedImageMappings[parseInt(k)];
-    filterComplex = filterComplex.replaceAll(`[${oldIdx}:v]`, `[${newIdx}:v]`);
-  });
-  Object.keys(audioInputMappings).forEach(k => {
-    const oldIdx = audioInputMappings[parseInt(k)];
-    const newIdx = remappedAudioMappings[parseInt(k)];
-    filterComplex = filterComplex.replaceAll(`[${oldIdx}:a]`, `[${newIdx}:a]`);
-  });
-  Object.assign(imageInputMappings, remappedImageMappings);
-  Object.assign(audioInputMappings, remappedAudioMappings);
-}
+          // Insert silence inputs before the overlay inputs in the correct order
+          if (silenceInputArgs.length > 0) {
+            inputArgs = [...silenceInputArgs, ...inputArgs];
+            // Remap overlay input indices (they shifted by silenceCount)
+            const remappedImageMappings: { [k: number]: number } = {};
+            const remappedAudioMappings: { [k: number]: number } = {};
+            Object.keys(imageInputMappings).forEach(k => {
+              remappedImageMappings[parseInt(k)] = imageInputMappings[parseInt(k)] + silenceCount;
+            });
+            Object.keys(audioInputMappings).forEach(k => {
+              remappedAudioMappings[parseInt(k)] = audioInputMappings[parseInt(k)] + silenceCount;
+            });
+            // Remap references in filterComplex for image/audio overlays
+            Object.keys(imageInputMappings).forEach(k => {
+              const oldIdx = imageInputMappings[parseInt(k)];
+              const newIdx = remappedImageMappings[parseInt(k)];
+              filterComplex = filterComplex.replaceAll(`[${oldIdx}:v]`, `[${newIdx}:v]`);
+            });
+            Object.keys(audioInputMappings).forEach(k => {
+              const oldIdx = audioInputMappings[parseInt(k)];
+              const newIdx = remappedAudioMappings[parseInt(k)];
+              filterComplex = filterComplex.replaceAll(`[${oldIdx}:a]`, `[${newIdx}:a]`);
+            });
+            Object.assign(imageInputMappings, remappedImageMappings);
+            Object.assign(audioInputMappings, remappedAudioMappings);
+          }
 
-const numClips = videoClips.length;
-filterComplex += `${concatInputs}concat=n=${numClips}:v=1:a=1[concatv][concata];`;
+          const numClips = videoClips.length;
+          filterComplex += `${concatInputs}concat=n=${numClips}:v=1:a=1[concatv][concata];`;
 
-let currentVideoOut = "[concatv]";
-const isWin = os.platform() === "win32";
-const fontfileArg = isWin ? "fontfile='C\\:/Windows/Fonts/arial.ttf':" : "";
+          let currentVideoOut = "[concatv]";
+          const isWin = os.platform() === "win32";
+          const fontfileArg = isWin ? "fontfile='C\\:/Windows/Fonts/arial.ttf':" : "";
 
-textElements.forEach((textItem: any, idx: number) => {
-  const start = textItem.start ?? 0;
-  const end = textItem.end ?? 5;
-  const content = (textItem.content || "").replace(/'/g, "'\\\\''").replace(/:/g, "\\:");
-  const style = textItem.style || {};
-  const color = style.color || "white";
+          textElements.forEach((textItem: any, idx: number) => {
+            const start = textItem.start ?? 0;
+            const end = textItem.end ?? 5;
+            const content = (textItem.content || "").replace(/'/g, "'\\\\''").replace(/:/g, "\\:");
+            const style = textItem.style || {};
+            const color = style.color || "white";
 
-  let fontSizeNum = 32;
-  if (style.fontSize) {
-    const matched = String(style.fontSize).match(/(\d+)/);
-    if (matched) {
-      fontSizeNum = parseInt(matched[1]);
-    }
-  }
+            let fontSizeNum = 32;
+            if (style.fontSize) {
+              const matched = String(style.fontSize).match(/(\d+)/);
+              if (matched) {
+                fontSizeNum = parseInt(matched[1]);
+              }
+            }
 
-  let x = "(w-text_w)/2";
-  let y = "h-text_h-80";
+            let x = "(w-text_w)/2";
+            let y = "h-text_h-80";
 
-  // Vertical position mapping
-  if (style.position?.startsWith("top-")) {
-    y = "40";
-  } else if (style.position === "center") {
-    y = "(h-text_h)/2";
-  } else if (style.position?.startsWith("bottom-")) {
-    y = "h-text_h-80";
-  }
+            // Vertical position mapping
+            if (style.position?.startsWith("top-")) {
+              y = "40";
+            } else if (style.position === "center") {
+              y = "(h-text_h)/2";
+            } else if (style.position?.startsWith("bottom-")) {
+              y = "h-text_h-80";
+            }
 
-  // Horizontal position mapping
-  if (style.position?.endsWith("-left")) {
-    x = "40";
-  } else if (style.position?.endsWith("-right")) {
-    x = "w-text_w-40";
-  } else if (style.position?.endsWith("-center") || style.position === "center") {
-    x = "(w-text_w)/2";
-  }
+            // Horizontal position mapping
+            if (style.position?.endsWith("-left")) {
+              x = "40";
+            } else if (style.position?.endsWith("-right")) {
+              x = "w-text_w-40";
+            } else if (style.position?.endsWith("-center") || style.position === "center") {
+              x = "(w-text_w)/2";
+            }
 
-  const nextVideoOut = `[textv_${idx}]`;
-  filterComplex += `${currentVideoOut}drawtext=${fontfileArg}text='${content}':x=${x}:y=${y}:fontsize=${fontSizeNum}:fontcolor=${color}:enable='between(t,${start},${end})'${nextVideoOut};`;
-  currentVideoOut = nextVideoOut;
-});
+            const nextVideoOut = `[textv_${idx}]`;
+            filterComplex += `${currentVideoOut}drawtext=${fontfileArg}text='${content}':x=${x}:y=${y}:fontsize=${fontSizeNum}:fontcolor=${color}:enable='between(t,${start},${end})'${nextVideoOut};`;
+            currentVideoOut = nextVideoOut;
+          });
 
-imageElements.forEach((imgItem: any, idx: number) => {
-  const start = imgItem.start ?? 0;
-  const end = imgItem.end ?? 5;
-  const style = imgItem.style || {};
-  const mappedInputIdx = imageInputMappings[idx];
-  if (mappedInputIdx === undefined) return;
+          imageElements.forEach((imgItem: any, idx: number) => {
+            const start = imgItem.start ?? 0;
+            const end = imgItem.end ?? 5;
+            const style = imgItem.style || {};
+            const mappedInputIdx = imageInputMappings[idx];
+            if (mappedInputIdx === undefined) return;
 
-  let x = "w-overlay_w-20";
-  let y = "20";
-  if (style.position === "top-left") {
-    x = "20";
-    y = "20";
-  } else if (style.position === "bottom-left") {
-    x = "20";
-    y = "h-overlay_h-20";
-  } else if (style.position === "bottom-right") {
-    x = "w-overlay_w-20";
-    y = "h-overlay_h-20";
-  }
+            let x = "w-overlay_w-20";
+            let y = "20";
+            if (style.position === "top-left") {
+              x = "20";
+              y = "20";
+            } else if (style.position === "bottom-left") {
+              x = "20";
+              y = "h-overlay_h-20";
+            } else if (style.position === "bottom-right") {
+              x = "w-overlay_w-20";
+              y = "h-overlay_h-20";
+            }
 
-  const nextVideoOut = `[imgv_${idx}]`;
-  filterComplex += `${currentVideoOut}[${mappedInputIdx}:v]overlay=x=${x}:y=${y}:enable='between(t,${start},${end})'${nextVideoOut};`;
-  currentVideoOut = nextVideoOut;
-});
+            const nextVideoOut = `[imgv_${idx}]`;
+            filterComplex += `${currentVideoOut}[${mappedInputIdx}:v]overlay=x=${x}:y=${y}:enable='between(t,${start},${end})'${nextVideoOut};`;
+            currentVideoOut = nextVideoOut;
+          });
 
-// Final video stream is ready. Check if we need to mix background audio
-filterComplex = filterComplex.replace(/;$/, "");
+          // Final video stream is ready. Check if we need to mix background audio
+          filterComplex = filterComplex.replace(/;$/, "");
 
-let currentAudioOut = "[concata]";
-const activeAudioOverlays = audioElements.filter((_, idx) => audioInputMappings[idx] !== undefined);
-if (activeAudioOverlays.length > 0) {
-  let mixInputs = "[concata]";
-  let audioMixFilter = "";
-  audioElements.forEach((aud: any, idx: number) => {
-    const mappedInputIdx = audioInputMappings[idx];
-    if (mappedInputIdx === undefined) return;
-    const start = aud.start ?? 0;
-    const volume = aud.volume ?? 1;
+          let currentAudioOut = "[concata]";
+          const activeAudioOverlays = audioElements.filter((_, idx) => audioInputMappings[idx] !== undefined);
+          if (activeAudioOverlays.length > 0) {
+            let mixInputs = "[concata]";
+            let audioMixFilter = "";
+            audioElements.forEach((aud: any, idx: number) => {
+              const mappedInputIdx = audioInputMappings[idx];
+              if (mappedInputIdx === undefined) return;
+              const start = aud.start ?? 0;
+              const volume = aud.volume ?? 1;
 
-    audioMixFilter += `[${mappedInputIdx}:a]adelay=${Math.round(start * 1000)}|${Math.round(start * 1000)},volume=${volume}[aud_delay_${idx}];`;
-    mixInputs += `[aud_delay_${idx}]`;
-  });
-  audioMixFilter += `${mixInputs}amix=inputs=${activeAudioOverlays.length + 1}:duration=first[outa]`;
-  filterComplex += `;${audioMixFilter}`;
-  currentAudioOut = "[outa]";
-}
+              audioMixFilter += `[${mappedInputIdx}:a]adelay=${Math.round(start * 1000)}|${Math.round(start * 1000)},volume=${volume}[aud_delay_${idx}];`;
+              mixInputs += `[aud_delay_${idx}]`;
+            });
+            audioMixFilter += `${mixInputs}amix=inputs=${activeAudioOverlays.length + 1}:duration=first[outa]`;
+            filterComplex += `;${audioMixFilter}`;
+            currentAudioOut = "[outa]";
+          }
 
-const videoInputsStr = videoTempPaths.map(p => `-i "${p}"`).join(" ");
-const inputsStr = `${videoInputsStr} ` + inputArgs.join(" ");
-const tempOutput = path.join(os.tmpdir(), `output_${recordId}.mp4`);
-const ffmpegCmd = `ffmpeg -y ${inputsStr} -filter_complex "${filterComplex}" -map "${currentVideoOut}" -map "${currentAudioOut}" -c:v libx264 -c:a aac -pix_fmt yuv420p -r 30 -vsync cfr "${tempOutput}"`;
+          const videoInputsStr = videoTempPaths.map(p => `-i "${p}"`).join(" ");
+          const inputsStr = `${videoInputsStr} ` + inputArgs.join(" ");
+          const tempOutput = path.join(os.tmpdir(), `output_${recordId}.mp4`);
+          const ffmpegCmd = `ffmpeg -y ${inputsStr} -filter_complex "${filterComplex}" -map "${currentVideoOut}" -map "${currentAudioOut}" -c:v libx264 -c:a aac -pix_fmt yuv420p -r 30 -vsync cfr "${tempOutput}"`;
 
-await updateLogs(70, "[Render Engine Fallback] Đang thực thi lệnh FFMPEG chi tiết...");
+          await updateLogs(70, "[Render Engine Fallback] Đang thực thi lệnh FFMPEG chi tiết...");
 
-await new Promise<void>((resolve, reject) => {
-  exec(ffmpegCmd, (error, stdout, stderr) => {
-    if (error) {
-      console.error("FFMPEG execution failed detail:", stderr || stdout || error.message);
-      reject(new Error(`FFMPEG render failed: ${error.message}`));
-    } else {
-      resolve();
-    }
-  });
-});
+          await new Promise<void>((resolve, reject) => {
+            exec(ffmpegCmd, (error, stdout, stderr) => {
+              if (error) {
+                console.error("FFMPEG execution failed detail:", stderr || stdout || error.message);
+                reject(new Error(`FFMPEG render failed: ${error.message}`));
+              } else {
+                resolve();
+              }
+            });
+          });
 
-await updateLogs(85, "[Render Engine Fallback] Đang tải video thành phẩm lên Cloudinary...");
-const outputBuffer = fs.readFileSync(tempOutput);
-finalVideoUrl = await cloudinaryService.uploadMediaBuffer(outputBuffer, "igen_erp/marketing/video");
+          await updateLogs(85, "[Render Engine Fallback] Đang tải video thành phẩm lên Cloudinary...");
+          const outputBuffer = fs.readFileSync(tempOutput);
+          finalVideoUrl = await cloudinaryService.uploadMediaBuffer(outputBuffer, "igen_erp/marketing/video");
 
-// Save output to local cache folder
-try {
-  const cacheDir = path.join(process.cwd(), "server/cache/videos");
-  const outUrlParts = finalVideoUrl.split("/");
-  const outFilename = outUrlParts[outUrlParts.length - 1];
-  if (outFilename && outFilename.match(/^[a-zA-Z0-9_-]+\.[a-zA-Z0-9]+$/)) {
-    const outCachePath = path.join(cacheDir, outFilename);
-    fs.copyFileSync(tempOutput, outCachePath);
-    console.log(`[Render Engine Cache] Saved rendered video to local cache: ${outCachePath}`);
-  }
-} catch (cacheErr) {
-  console.error("[Render Engine Cache Warning] Failed to save rendered video to cache:", cacheErr);
-}
+          // Save output to local cache folder
+          try {
+            const cacheDir = path.join(process.cwd(), "server/cache/videos");
+            const outUrlParts = finalVideoUrl.split("/");
+            const outFilename = outUrlParts[outUrlParts.length - 1];
+            if (outFilename && outFilename.match(/^[a-zA-Z0-9_-]+\.[a-zA-Z0-9]+$/)) {
+              const outCachePath = path.join(cacheDir, outFilename);
+              fs.copyFileSync(tempOutput, outCachePath);
+              console.log(`[Render Engine Cache] Saved rendered video to local cache: ${outCachePath}`);
+            }
+          } catch (cacheErr) {
+            console.error("[Render Engine Cache Warning] Failed to save rendered video to cache:", cacheErr);
+          }
 
-// Cleanup all temp files
-try {
-  videoTempPaths.forEach(p => { if (p) fs.unlinkSync(p); });
-  fs.unlinkSync(tempOutput);
-  imageTempPaths.forEach(p => { if (p) fs.unlinkSync(p); });
-  audioTempPaths.forEach(p => { if (p) fs.unlinkSync(p); });
-} catch (e) { }
+          // Cleanup all temp files
+          try {
+            videoTempPaths.forEach(p => { if (p) fs.unlinkSync(p); });
+            fs.unlinkSync(tempOutput);
+            imageTempPaths.forEach(p => { if (p) fs.unlinkSync(p); });
+            audioTempPaths.forEach(p => { if (p) fs.unlinkSync(p); });
+          } catch (e) { }
         } else if (videoUrl.includes("res.cloudinary.com")) {
           await updateLogs(60, "[Render Engine Fallback] Không có FFMPEG. Sử dụng Cloud Render Engine...");
 
-  const firstUrl = videoUrl.split(/,\s*(?=https?:\/\/)/)[0];
-  const parts = firstUrl.split("/upload/");
-  let transformString = "";
+          const firstUrl = videoUrl.split(/,\s*(?=https?:\/\/)/)[0];
+          const parts = firstUrl.split("/upload/");
+          let transformString = "";
 
-  const videoClips = timeline.filter((item: any) => item.type === "video");
-  if (videoClips.length > 0) {
-    const minStart = Math.min(...videoClips.map((item: any) => item.start ?? 0));
-    const maxEnd = Math.max(...videoClips.map((item: any) => item.end ?? 5));
-    transformString += `so_${minStart},eo_${maxEnd}/`;
-  }
+          const videoClips = timeline.filter((item: any) => item.type === "video");
+          if (videoClips.length > 0) {
+            const minStart = Math.min(...videoClips.map((item: any) => item.start ?? 0));
+            const maxEnd = Math.max(...videoClips.map((item: any) => item.end ?? 5));
+            transformString += `so_${minStart},eo_${maxEnd}/`;
+          }
 
-  const textElements = timeline.filter((item: any) => item.type === "text");
-  for (const textItem of textElements) {
-    const contentEscaped = encodeURIComponent(textItem.content).replace(/%/g, "%25");
-    transformString += `l_text:Arial_36_bold:${contentEscaped},g_center,so_${textItem.start},eo_${textItem.end}/`;
-  }
+          const textElements = timeline.filter((item: any) => item.type === "text");
+          for (const textItem of textElements) {
+            const contentEscaped = encodeURIComponent(textItem.content).replace(/%/g, "%25");
+            transformString += `l_text:Arial_36_bold:${contentEscaped},g_center,so_${textItem.start},eo_${textItem.end}/`;
+          }
 
-  finalVideoUrl = `${parts[0]}/upload/${transformString}${parts[1]}`;
-  await updateLogs(80, `[Render Engine Fallback] Liên kết Cloud Render đã tạo: ${finalVideoUrl}`);
-} else {
-  await updateLogs(70, "[Render Engine Fallback] Không phát hiện FFMPEG. Chạy mô phỏng quá trình render...");
-  await new Promise((resolve) => setTimeout(resolve, 2000));
-  await updateLogs(85, "[Render Engine Fallback] Mô phỏng render hoàn tất.");
-}
+          finalVideoUrl = `${parts[0]}/upload/${transformString}${parts[1]}`;
+          await updateLogs(80, `[Render Engine Fallback] Liên kết Cloud Render đã tạo: ${finalVideoUrl}`);
+        } else {
+          await updateLogs(70, "[Render Engine Fallback] Không phát hiện FFMPEG. Chạy mô phỏng quá trình render...");
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+          await updateLogs(85, "[Render Engine Fallback] Mô phỏng render hoàn tất.");
+        }
       }
 
-await updateLogs(95, "Cloudinary Đồng bộ hóa tài nguyên biên tập...");
+      await updateLogs(95, "Cloudinary Đồng bộ hóa tài nguyên biên tập...");
 
-await AIMediaModel.findByIdAndUpdate(recordId, {
-  url: finalVideoUrl,
-  "metadata.status": "completed",
-  "metadata.progress": 100,
-  "metadata.renderLogs": [...logs, "[Render Engine] Hoàn thành kết xuất video!"]
-});
+      await AIMediaModel.findByIdAndUpdate(recordId, {
+        url: finalVideoUrl,
+        "metadata.status": "completed",
+        "metadata.progress": 100,
+        "metadata.renderLogs": [...logs, "[Render Engine] Hoàn thành kết xuất video!"]
+      });
 
-console.log(`[Remotion Queue Worker] Successfully completed. Final URL: ${finalVideoUrl}`);
+      console.log(`[Remotion Queue Worker] Successfully completed. Final URL: ${finalVideoUrl}`);
 
     } catch (error: any) {
-  console.error("[Remotion Queue Worker Error]", error);
-  await AIMediaModel.findByIdAndUpdate(recordId, {
-    "metadata.status": "failed",
-    "metadata.error": error.message || String(error),
-    "metadata.progress": 0,
-    "metadata.renderLogs": [...logs, `[Render Engine Lỗi] ${error.message || String(error)}`]
-  });
-}
+      console.error("[Remotion Queue Worker Error]", error);
+      await AIMediaModel.findByIdAndUpdate(recordId, {
+        "metadata.status": "failed",
+        "metadata.error": error.message || String(error),
+        "metadata.progress": 0,
+        "metadata.renderLogs": [...logs, `[Render Engine Lỗi] ${error.message || String(error)}`]
+      });
+    }
   },
 
   /**
    * Lấy lịch sử tạo đa phương tiện theo user và loại
    */
   async getMediaHistory(userId: string, mediaType: "image" | "video" | "voice") {
-  try {
-    const records = await AIMediaModel.find({ userId, mediaType })
-      .sort({ createdAt: -1 })
-      .limit(50)
-      .lean();
+    try {
+      const records = await AIMediaModel.find({ userId, mediaType })
+        .sort({ createdAt: -1 })
+        .limit(50)
+        .lean();
 
-    if (mediaType === "video") {
-      await Promise.all(
-        records.map(async (record: any) => {
-          if (record.url && record.url.startsWith("pending://piapi/")) {
-            const taskId = record.url.replace("pending://piapi/", "");
-            try {
-              const result = await piapiService.getTaskStatus(taskId);
-              if (result.status === "completed" && result.url) {
-                const cloudinaryUrl = await cloudinaryService.uploadMedia(result.url, "igen_erp/marketing/video");
-                await AIMediaModel.updateOne(
-                  { _id: record._id },
-                  { url: cloudinaryUrl, "metadata.status": "completed", "metadata.progress": 100 }
-                );
-                record.url = cloudinaryUrl;
-                record.metadata = { ...record.metadata, status: "completed", progress: 100 };
+      if (mediaType === "video") {
+        await Promise.all(
+          records.map(async (record: any) => {
+            if (record.url && record.url.startsWith("pending://piapi/")) {
+              const taskId = record.url.replace("pending://piapi/", "");
+              try {
+                const result = await piapiService.getTaskStatus(taskId);
+                if (result.status === "completed" && result.url) {
+                  const cloudinaryUrl = await cloudinaryService.uploadMedia(result.url, "igen_erp/marketing/video");
+                  await AIMediaModel.updateOne(
+                    { _id: record._id },
+                    { url: cloudinaryUrl, "metadata.status": "completed", "metadata.progress": 100 }
+                  );
+                  record.url = cloudinaryUrl;
+                  record.metadata = { ...record.metadata, status: "completed", progress: 100 };
 
-                const activeCardId = record.metadata?.activeCardId;
-                if (activeCardId) {
-                  const { MarketingContentModel } = require("../model/marketing-content.model");
-                  await MarketingContentModel.findByIdAndUpdate(activeCardId, { videoUrl: cloudinaryUrl });
+                  const activeCardId = record.metadata?.activeCardId;
+                  if (activeCardId) {
+                    const { MarketingContentModel } = require("../model/marketing-content.model");
+                    await MarketingContentModel.findByIdAndUpdate(activeCardId, { videoUrl: cloudinaryUrl });
+                  }
+                } else if (result.status === "failed") {
+                  await AIMediaModel.updateOne(
+                    { _id: record._id },
+                    { "metadata.status": "failed", "metadata.error": result.error || "Failed", "metadata.progress": 0 }
+                  );
+                  record.metadata = { ...record.metadata, status: "failed", error: result.error, progress: 0 };
+                } else {
+                  const currentProgress = result.progress !== undefined ? result.progress : 0;
+                  await AIMediaModel.updateOne(
+                    { _id: record._id },
+                    { "metadata.progress": currentProgress }
+                  );
+                  record.metadata = { ...record.metadata, progress: currentProgress };
                 }
-              } else if (result.status === "failed") {
-                await AIMediaModel.updateOne(
-                  { _id: record._id },
-                  { "metadata.status": "failed", "metadata.error": result.error || "Failed", "metadata.progress": 0 }
-                );
-                record.metadata = { ...record.metadata, status: "failed", error: result.error, progress: 0 };
-              } else {
-                const currentProgress = result.progress !== undefined ? result.progress : 0;
-                await AIMediaModel.updateOne(
-                  { _id: record._id },
-                  { "metadata.progress": currentProgress }
-                );
-                record.metadata = { ...record.metadata, progress: currentProgress };
+              } catch (err) {
+                console.error(`[getMediaHistory] Error refreshing pending task ${taskId}:`, err);
               }
-            } catch (err) {
-              console.error(`[getMediaHistory] Error refreshing pending task ${taskId}:`, err);
             }
-          }
-        })
-      );
+          })
+        );
+      }
+      return records;
+    } catch (error: any) {
+      console.error("[geminiService.getMediaHistory] Error:", error);
+      throw error;
     }
-    return records;
-  } catch (error: any) {
-    console.error("[geminiService.getMediaHistory] Error:", error);
-    throw error;
-  }
-},
+  },
 
   /**
    * Xóa một bản ghi lịch sử
    */
   async deleteMediaHistory(userId: string, id: string) {
-  try {
-    const result = await AIMediaModel.deleteOne({ _id: id, userId });
-    if (result.deletedCount === 0) {
-      throw new Error("Không tìm thấy bản ghi hoặc không có quyền xóa");
+    try {
+      const result = await AIMediaModel.deleteOne({ _id: id, userId });
+      if (result.deletedCount === 0) {
+        throw new Error("Không tìm thấy bản ghi hoặc không có quyền xóa");
+      }
+      return { status: "success" };
+    } catch (error: any) {
+      console.error("[geminiService.deleteMediaHistory] Error:", error);
+      throw error;
     }
-    return { status: "success" };
-  } catch (error: any) {
-    console.error("[geminiService.deleteMediaHistory] Error:", error);
-    throw error;
-  }
-},
+  },
 
   /**
    * Polling trạng thái video từ PiAPI chạy ngầm không chặn luồng HTTP
    */
   async pollPiAPIVideoStatusBackground(recordId: string, taskId: string, userId: string) {
-  console.log(`[PiAPI Background Poll] Started polling for record ${recordId}, taskId ${taskId}`);
+    console.log(`[PiAPI Background Poll] Started polling for record ${recordId}, taskId ${taskId}`);
 
-  let attempts = 0;
-  const maxAttempts = 60; // 10 minutes (60 * 10 seconds)
+    let attempts = 0;
+    const maxAttempts = 60; // 10 minutes (60 * 10 seconds)
 
-  const runPoll = async () => {
-    try {
-      const result = await piapiService.getTaskStatus(taskId);
-      console.log(`[PiAPI Background Poll] Record ${recordId} status: ${result.status}`);
+    const runPoll = async () => {
+      try {
+        const result = await piapiService.getTaskStatus(taskId);
+        console.log(`[PiAPI Background Poll] Record ${recordId} status: ${result.status}`);
 
-      if (result.status === "completed" && result.url) {
-        console.log(`[PiAPI Background Poll] Completed! Uploading to Cloudinary...`);
-        const cloudinaryUrl = await cloudinaryService.uploadMedia(result.url, "igen_erp/marketing/video");
+        if (result.status === "completed" && result.url) {
+          console.log(`[PiAPI Background Poll] Completed! Uploading to Cloudinary...`);
+          const cloudinaryUrl = await cloudinaryService.uploadMedia(result.url, "igen_erp/marketing/video");
 
-        const record = await AIMediaModel.findByIdAndUpdate(
-          recordId,
-          { url: cloudinaryUrl, "metadata.status": "completed", "metadata.progress": 100 },
-          { new: true }
-        );
+          const record = await AIMediaModel.findByIdAndUpdate(
+            recordId,
+            { url: cloudinaryUrl, "metadata.status": "completed", "metadata.progress": 100 },
+            { new: true }
+          );
 
-        const activeCardId = record?.metadata?.activeCardId;
-        if (activeCardId) {
-          const { MarketingContentModel } = require("../model/marketing-content.model");
-          await MarketingContentModel.findByIdAndUpdate(activeCardId, { videoUrl: cloudinaryUrl });
-          console.log(`[PiAPI Background Poll] Updated target card ${activeCardId} with videoUrl: ${cloudinaryUrl}`);
+          const activeCardId = record?.metadata?.activeCardId;
+          if (activeCardId) {
+            const { MarketingContentModel } = require("../model/marketing-content.model");
+            await MarketingContentModel.findByIdAndUpdate(activeCardId, { videoUrl: cloudinaryUrl });
+            console.log(`[PiAPI Background Poll] Updated target card ${activeCardId} with videoUrl: ${cloudinaryUrl}`);
+          }
+          return;
+        } else if (result.status === "failed") {
+          console.error(`[PiAPI Background Poll] Failed for task ${taskId}: ${result.error}`);
+          await AIMediaModel.findByIdAndUpdate(recordId, {
+            "metadata.status": "failed",
+            "metadata.error": result.error || "Lỗi tạo video từ PiAPI",
+            "metadata.progress": 0,
+          });
+          return;
+        } else {
+          let currentProgress = typeof result.progress === "number" && result.progress > 0 ? result.progress : 0;
+          if (currentProgress === 0) {
+            currentProgress = Math.min(5 + attempts * 7, 95);
+          }
+          await AIMediaModel.findByIdAndUpdate(recordId, {
+            "metadata.progress": currentProgress
+          });
         }
-        return;
-      } else if (result.status === "failed") {
-        console.error(`[PiAPI Background Poll] Failed for task ${taskId}: ${result.error}`);
-        await AIMediaModel.findByIdAndUpdate(recordId, {
-          "metadata.status": "failed",
-          "metadata.error": result.error || "Lỗi tạo video từ PiAPI",
-          "metadata.progress": 0,
-        });
-        return;
-      } else {
-        let currentProgress = typeof result.progress === "number" && result.progress > 0 ? result.progress : 0;
-        if (currentProgress === 0) {
-          currentProgress = Math.min(5 + attempts * 7, 95);
+
+        attempts++;
+        if (attempts < maxAttempts) {
+          setTimeout(runPoll, 10000);
+        } else {
+          console.error(`[PiAPI Background Poll] Timeout for task ${taskId}`);
+          await AIMediaModel.findByIdAndUpdate(recordId, {
+            "metadata.status": "timeout",
+            "metadata.error": "Quá thời gian chờ tạo video từ PiAPI (10 phút)",
+          });
         }
-        await AIMediaModel.findByIdAndUpdate(recordId, {
-          "metadata.progress": currentProgress
-        });
+      } catch (error: any) {
+        console.error(`[PiAPI Background Poll] Error polling task ${taskId}:`, error);
+        attempts++;
+        if (attempts < maxAttempts) {
+          setTimeout(runPoll, 10000);
+        }
       }
+    };
 
-      attempts++;
-      if (attempts < maxAttempts) {
-        setTimeout(runPoll, 10000);
-      } else {
-        console.error(`[PiAPI Background Poll] Timeout for task ${taskId}`);
-        await AIMediaModel.findByIdAndUpdate(recordId, {
-          "metadata.status": "timeout",
-          "metadata.error": "Quá thời gian chờ tạo video từ PiAPI (10 phút)",
-        });
-      }
-    } catch (error: any) {
-      console.error(`[PiAPI Background Poll] Error polling task ${taskId}:`, error);
-      attempts++;
-      if (attempts < maxAttempts) {
-        setTimeout(runPoll, 10000);
-      }
-    }
-  };
-
-  setTimeout(runPoll, 10000);
-},
+    setTimeout(runPoll, 10000);
+  },
 
   /**
    * Đồng bộ lưu trữ nâng cao của Image/Video sau khi sinh thành công
    */
-  async saveGeneratedMediaRecord(userId: string, mediaType: "image" | "video", base64OrUrl: string, prompt: string, metadata ?: any) {
-  try {
-    let finalUrl = base64OrUrl;
-    if (base64OrUrl.startsWith("data:")) {
-      finalUrl = await cloudinaryService.uploadMedia(base64OrUrl, `igen_erp/marketing/${mediaType}`);
-    }
+  async saveGeneratedMediaRecord(userId: string, mediaType: "image" | "video", base64OrUrl: string, prompt: string, metadata?: any) {
+    try {
+      let finalUrl = base64OrUrl;
+      if (base64OrUrl.startsWith("data:")) {
+        finalUrl = await cloudinaryService.uploadMedia(base64OrUrl, `igen_erp/marketing/${mediaType}`);
+      }
 
-    const record = await AIMediaModel.create({
-      userId,
-      mediaType,
-      url: finalUrl,
-      prompt,
-      metadata,
-    });
-    return record;
-  } catch (error: any) {
-    console.error("[geminiService.saveGeneratedMediaRecord] Error:", error);
-    throw error;
-  }
-},
+      const record = await AIMediaModel.create({
+        userId,
+        mediaType,
+        url: finalUrl,
+        prompt,
+        metadata,
+      });
+      return record;
+    } catch (error: any) {
+      console.error("[geminiService.saveGeneratedMediaRecord] Error:", error);
+      throw error;
+    }
+  },
 
   /**
    * Lấy danh sách giọng nói ElevenLabs
    */
   async getElevenLabsVoices() {
-  const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
-  if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
-    console.log("[geminiService.getElevenLabsVoices] ELEVENLABS_API_KEY is not configured. Running in MOCK mode.");
-    return {
-      status: "success",
-      voices: [
-        {
-          voice_id: "Sadaltager",
-          name: "Roger (Mock)",
-          category: "cloned",
-          description: "Laid-Back, Casual, Resonant",
-          labels: { gender: "male", age: "adult", accent: "american" }
-        }
-      ]
-    };
-  }
-
-  try {
-    const response = await fetch("https://api.elevenlabs.io/v1/voices", {
-      headers: {
-        "xi-api-key": elevenLabsApiKey.trim()
-      }
-    });
-    if (!response.ok) {
-      throw new Error(`ElevenLabs error: ${response.status}`);
+    const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
+    if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
+      console.log("[geminiService.getElevenLabsVoices] ELEVENLABS_API_KEY is not configured. Running in MOCK mode.");
+      return {
+        status: "success",
+        voices: [
+          {
+            voice_id: "Sadaltager",
+            name: "Roger (Mock)",
+            category: "cloned",
+            description: "Laid-Back, Casual, Resonant",
+            labels: { gender: "male", age: "adult", accent: "american" }
+          }
+        ]
+      };
     }
-    const data = await response.json();
-    // Filter generated or cloned voices
-    const filtered = (data.voices || []).filter((v: any) => v.category === "cloned" || v.category === "generated" || v.category === "custom");
-    return { status: "success", voices: filtered };
-  } catch (error: any) {
-    console.error("[geminiService.getElevenLabsVoices] Error:", error);
-    throw error;
-  }
-},
+
+    try {
+      const response = await fetch("https://api.elevenlabs.io/v1/voices", {
+        headers: {
+          "xi-api-key": elevenLabsApiKey.trim()
+        }
+      });
+      if (!response.ok) {
+        throw new Error(`ElevenLabs error: ${response.status}`);
+      }
+      const data = await response.json();
+      // Filter generated or cloned voices
+      const filtered = (data.voices || []).filter((v: any) => v.category === "cloned" || v.category === "generated" || v.category === "custom");
+      return { status: "success", voices: filtered };
+    } catch (error: any) {
+      console.error("[geminiService.getElevenLabsVoices] Error:", error);
+      throw error;
+    }
+  },
 
   /**
    * Thiết kế & phát nghe thử giọng nói ElevenLabs
    */
   async generateCustomVoicePreview(input: { gender: string; accent: string; age: string; accentStrength: number; text: string }) {
-  const { gender, accent, age, accentStrength, text } = input;
-  const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
-  if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
-    console.log("[geminiService.generateCustomVoicePreview] ELEVENLABS_API_KEY is not configured. Running in MOCK mode.");
-    return {
-      generatedVoiceId: "mock-voice-id-" + Date.now(),
-      url: "data:audio/wav;base64,UklGRigAAABXQVZFlm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAAAG"
-    };
-  }
-
-  try {
-    const response = await fetch("https://api.elevenlabs.io/v1/voice-generation/generate-voice", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "xi-api-key": elevenLabsApiKey.trim()
-      },
-      body: JSON.stringify({
-        gender,
-        accent,
-        age,
-        accent_strength: accentStrength,
-        text
-      })
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`ElevenLabs preview error: ${response.status} - ${errText}`);
+    const { gender, accent, age, accentStrength, text } = input;
+    const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
+    if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
+      console.log("[geminiService.generateCustomVoicePreview] ELEVENLABS_API_KEY is not configured. Running in MOCK mode.");
+      return {
+        generatedVoiceId: "mock-voice-id-" + Date.now(),
+        url: "data:audio/wav;base64,UklGRigAAABXQVZFlm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAAAG"
+      };
     }
 
-    const generatedVoiceId = response.headers.get("generated_voice_id");
-    if (!generatedVoiceId) {
-      throw new Error("No generated_voice_id found in headers");
+    try {
+      const response = await fetch("https://api.elevenlabs.io/v1/voice-generation/generate-voice", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "xi-api-key": elevenLabsApiKey.trim()
+        },
+        body: JSON.stringify({
+          gender,
+          accent,
+          age,
+          accent_strength: accentStrength,
+          text
+        })
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`ElevenLabs preview error: ${response.status} - ${errText}`);
+      }
+
+      const generatedVoiceId = response.headers.get("generated_voice_id");
+      if (!generatedVoiceId) {
+        throw new Error("No generated_voice_id found in headers");
+      }
+
+      const arrayBuffer = await response.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      const base64Audio = buffer.toString('base64');
+      const audioDataUri = `data:audio/mpeg;base64,${base64Audio}`;
+
+      const mediaUrl = await cloudinaryService.uploadMedia(audioDataUri, "igen_erp/marketing/voice_previews");
+
+      return {
+        generatedVoiceId,
+        url: mediaUrl
+      };
+    } catch (error: any) {
+      console.error("[geminiService.generateCustomVoicePreview] Error:", error);
+      throw error;
     }
-
-    const arrayBuffer = await response.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    const base64Audio = buffer.toString('base64');
-    const audioDataUri = `data:audio/mpeg;base64,${base64Audio}`;
-
-    const mediaUrl = await cloudinaryService.uploadMedia(audioDataUri, "igen_erp/marketing/voice_previews");
-
-    return {
-      generatedVoiceId,
-      url: mediaUrl
-    };
-  } catch (error: any) {
-    console.error("[geminiService.generateCustomVoicePreview] Error:", error);
-    throw error;
-  }
-},
+  },
 
   /**
    * Lưu giọng thiết kế thành giọng chính thức
    */
   async createCustomVoice(input: { voiceName: string; voiceDescription: string; generatedVoiceId: string }) {
-  const { voiceName, voiceDescription, generatedVoiceId } = input;
-  const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
-  if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
-    console.log("[geminiService.createCustomVoice] ELEVENLABS_API_KEY is not configured. Running in MOCK mode.");
-    return {
-      voice_id: "mock-saved-voice-id-" + Date.now()
-    };
-  }
-
-  try {
-    const response = await fetch("https://api.elevenlabs.io/v1/voice-generation/create-voice", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "xi-api-key": elevenLabsApiKey.trim()
-      },
-      body: JSON.stringify({
-        voice_name: voiceName,
-        voice_description: voiceDescription,
-        generated_voice_id: generatedVoiceId
-      })
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`ElevenLabs create-voice error: ${response.status} - ${errText}`);
+    const { voiceName, voiceDescription, generatedVoiceId } = input;
+    const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
+    if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
+      console.log("[geminiService.createCustomVoice] ELEVENLABS_API_KEY is not configured. Running in MOCK mode.");
+      return {
+        voice_id: "mock-saved-voice-id-" + Date.now()
+      };
     }
 
-    const result = await response.json();
-    return { voice_id: result.voice_id };
-  } catch (error: any) {
-    console.error("[geminiService.createCustomVoice] Error:", error);
-    throw error;
-  }
-},
+    try {
+      const response = await fetch("https://api.elevenlabs.io/v1/voice-generation/create-voice", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "xi-api-key": elevenLabsApiKey.trim()
+        },
+        body: JSON.stringify({
+          voice_name: voiceName,
+          voice_description: voiceDescription,
+          generated_voice_id: generatedVoiceId
+        })
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`ElevenLabs create-voice error: ${response.status} - ${errText}`);
+      }
+
+      const result = await response.json();
+      return { voice_id: result.voice_id };
+    } catch (error: any) {
+      console.error("[geminiService.createCustomVoice] Error:", error);
+      throw error;
+    }
+  },
 
   async addElevenLabsVoice(name: string, description: string, files: string[], userId: string) {
-  const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
-  if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
-    return { voice_id: "mock-saved-voice-id-" + Date.now() };
-  }
-
-  try {
-    const formData = new FormData();
-    formData.append('name', name);
-    formData.append('description', description);
-
-    if (userId) {
-      formData.append('labels', JSON.stringify({ userId }));
+    const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
+    if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
+      return { voice_id: "mock-saved-voice-id-" + Date.now() };
     }
 
-    for (let i = 0; i < files.length; i++) {
-      const dataUri = files[i];
-      const matches = dataUri.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/);
-      if (!matches) {
-        throw new Error("Invalid file format");
+    try {
+      const formData = new FormData();
+      formData.append('name', name);
+      formData.append('description', description);
+
+      if (userId) {
+        formData.append('labels', JSON.stringify({ userId }));
       }
-      const type = matches[1];
-      const buffer = Buffer.from(matches[2], 'base64');
-      const blob = new Blob([buffer], { type });
-      formData.append('files', blob, `file-${i}.${type.split('/')[1]}`);
+
+      for (let i = 0; i < files.length; i++) {
+        const dataUri = files[i];
+        const matches = dataUri.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/);
+        if (!matches) {
+          throw new Error("Invalid file format");
+        }
+        const type = matches[1];
+        const buffer = Buffer.from(matches[2], 'base64');
+        const blob = new Blob([buffer], { type });
+        formData.append('files', blob, `file-${i}.${type.split('/')[1]}`);
+      }
+
+      const response = await fetch('https://api.elevenlabs.io/v1/voices/add', {
+        method: 'POST',
+        headers: {
+          'xi-api-key': elevenLabsApiKey.trim(),
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(`ElevenLabs API error: ${response.status} - ${errorBody}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error: any) {
+      console.error("[geminiService.addElevenLabsVoice] Error:", error);
+      throw error;
     }
-
-    const response = await fetch('https://api.elevenlabs.io/v1/voices/add', {
-      method: 'POST',
-      headers: {
-        'xi-api-key': elevenLabsApiKey.trim(),
-      },
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const errorBody = await response.text();
-      throw new Error(`ElevenLabs API error: ${response.status} - ${errorBody}`);
-    }
-
-    const data = await response.json();
-    return data;
-  } catch (error: any) {
-    console.error("[geminiService.addElevenLabsVoice] Error:", error);
-    throw error;
-  }
-},
+  },
 
   async deleteElevenLabsVoice(voiceId: string) {
-  const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
-  if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
-    return { success: true };
-  }
-
-  try {
-    const response = await fetch(`https://api.elevenlabs.io/v1/voices/${voiceId}`, {
-      method: 'DELETE',
-      headers: {
-        'xi-api-key': elevenLabsApiKey.trim(),
-      },
-    });
-
-    if (!response.ok) {
-      const errorBody = await response.text();
-      throw new Error(`ElevenLabs API error: ${response.status} - ${errorBody}`);
+    const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
+    if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
+      return { success: true };
     }
 
-    return { success: true };
-  } catch (error: any) {
-    console.error("[geminiService.deleteElevenLabsVoice] Error:", error);
-    throw error;
+    try {
+      const response = await fetch(`https://api.elevenlabs.io/v1/voices/${voiceId}`, {
+        method: 'DELETE',
+        headers: {
+          'xi-api-key': elevenLabsApiKey.trim(),
+        },
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(`ElevenLabs API error: ${response.status} - ${errorBody}`);
+      }
+
+      return { success: true };
+    } catch (error: any) {
+      console.error("[geminiService.deleteElevenLabsVoice] Error:", error);
+      throw error;
+    }
   }
-}
 };
 
 /**

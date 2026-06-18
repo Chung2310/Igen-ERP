@@ -268,7 +268,7 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, 
     try {
       const fileName = customName || `igen-image-${Date.now()}.png`;
       const proxyUrl = `/api/v1/media/download?url=${encodeURIComponent(targetUri)}&filename=${encodeURIComponent(fileName)}`;
-      
+
       const response = await fetch(proxyUrl, {
         headers: {
           "Authorization": `Bearer ${getAccessToken()}`,
@@ -471,8 +471,8 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, 
                   type="button"
                   onClick={() => setResolution(res)}
                   className={`py-2 text-xs font-bold rounded-xl border transition-all cursor-pointer ${resolution === res
-                      ? 'border-cyan-500 bg-cyan-50 text-cyan-700 font-extrabold ring-1 ring-cyan-500/20'
-                      : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                    ? 'border-cyan-500 bg-cyan-50 text-cyan-700 font-extrabold ring-1 ring-cyan-500/20'
+                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                     }`}
                 >
                   {res}
@@ -504,8 +504,8 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, 
               onClick={handleGenerateImage}
               disabled={isGenerating || isGeneratingPrompt}
               className={`w-full py-3 rounded-2xl text-xs font-bold tracking-wider uppercase transition-all shadow-md flex items-center justify-center gap-2 ${isGenerating || isGeneratingPrompt
-                  ? "bg-gray-200 text-gray-400 border border-gray-300 shadow-none cursor-not-allowed"
-                  : "bg-cyan-500 hover:bg-cyan-600 text-white active:scale-[0.99] shadow-cyan-500/20 cursor-pointer"
+                ? "bg-gray-200 text-gray-400 border border-gray-300 shadow-none cursor-not-allowed"
+                : "bg-cyan-500 hover:bg-cyan-600 text-white active:scale-[0.99] shadow-cyan-500/20 cursor-pointer"
                 }`}
             >
               {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
@@ -524,13 +524,12 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, 
               <p className="text-xs text-slate-400 mt-0.5">Ảnh render mới nhất của bạn</p>
             </div>
 
-            <div 
-              className={`w-full mx-auto min-w-0 ${
-                aspectRatio === '16:9' ? 'aspect-video' :
+            <div
+              className={`w-full mx-auto min-w-0 ${aspectRatio === '16:9' ? 'aspect-video' :
                 aspectRatio === '9:16' ? 'aspect-[9/16]' :
-                aspectRatio === '4:3' ? 'aspect-[4/3]' :
-                aspectRatio === '3:4' ? 'aspect-[3/4]' : 'aspect-square'
-              } max-h-[520px] rounded-2xl overflow-hidden ${generatedImageUrl ? 'bg-slate-950 cursor-pointer group' : 'bg-slate-50'} border border-slate-200/80 flex items-center justify-center relative shadow-inner transition-all duration-300`}
+                  aspectRatio === '4:3' ? 'aspect-[4/3]' :
+                    aspectRatio === '3:4' ? 'aspect-[3/4]' : 'aspect-square'
+                } max-h-[520px] rounded-2xl overflow-hidden ${generatedImageUrl ? 'bg-slate-950 cursor-pointer group' : 'bg-slate-50'} border border-slate-200/80 flex items-center justify-center relative shadow-inner transition-all duration-300`}
               onClick={generatedImageUrl ? () => setShowZoomModal(true) : undefined}
               title={generatedImageUrl ? "Bấm để phóng to xem ảnh full" : undefined}
             >
@@ -662,20 +661,20 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, 
 
       {/* Glassmorphic Zoom Lightbox Modal */}
       {showZoomModal && generatedImageUrl && (
-        <div 
+        <div
           className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fadeIn"
           onClick={() => setShowZoomModal(false)}
         >
-          <div 
+          <div
             className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-3xl shadow-2xl p-2 relative max-w-5xl max-h-[90vh] flex items-center justify-center overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <img 
-              src={generatedImageUrl} 
-              alt="Full AI Preview" 
-              className="max-w-full max-h-[85vh] object-contain rounded-2xl animate-scaleIn shadow-lg" 
+            <img
+              src={generatedImageUrl}
+              alt="Full AI Preview"
+              className="max-w-full max-h-[85vh] object-contain rounded-2xl animate-scaleIn shadow-lg"
             />
-            
+
             {/* Close Button */}
             <button
               type="button"
