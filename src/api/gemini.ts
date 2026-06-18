@@ -340,6 +340,19 @@ export const geminiApi = {
     return response.json();
   },
 
+  async optimizeEditPrompt(description: string): Promise<{ optimized_prompt: string }> {
+    const headers = await getHeaders(true);
+    const response = await fetch('/api/v1/gemini/optimize-edit-prompt', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ description }),
+    });
+    if (!response.ok) {
+      await handleErrorResponse(response, 'Lỗi khi tối ưu prompt chỉnh sửa video');
+    }
+    return response.json();
+  },
+
   async optimizeVideoPrompt(description: string, imageUris?: string[]): Promise<any> {
     const headers = await getHeaders(true);
     const response = await fetch('/api/v1/gemini/optimize-video-prompt', {

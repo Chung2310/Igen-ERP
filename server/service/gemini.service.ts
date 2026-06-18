@@ -1687,7 +1687,7 @@ Do not include markdown blocks or any text other than the JSON object.`;
 
     const getMockVideoPrompt = () => {
       const text = normalizedDescription.toLowerCase().trim();
-      const isEnglish = !/[àáảãạăắằẳẵặâấầẩẫậèéẻẽẹêếềểễệđìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵ]/i.test(normalizedDescription);
+      const isEnglish = !/[àáảãạăắằẳẵặâấầẩẫậèéẻẽẹêếềểễệđìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵÀÁẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬÈÉẺẼẸÊẾỀỂỄỆĐÌÍỈĨỊÒÓỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÙÚỦŨỤƯỨỪỬỮỰỲÝỶỸỴ]/i.test(normalizedDescription);
       if (isEnglish) {
         return {
           motion_analysis: "smooth cinematic motion of the subject",
@@ -1836,7 +1836,60 @@ Do not include markdown blocks or any text other than the JSON object.`
       return safeParseJson(videoResult.text);
     } catch (error: any) {
       console.error("[geminiService.optimizeVideoPrompt] Gemini Error, fallback to local optimizer:", error);
-      return getMockVideoPrompt();
+    }
+  },
+
+  /**
+   * Tối ưu hóa prompt CHỈNH SỬA VIDEO (dành cho Remotion, không phải Veo/Kling)
+   * Chuyển prompt tự nhiên của người dùng thành lệnh chỉnh sửa cụ thể, rõ ràng
+   */
+  async optimizeEditPrompt(description: string): Promise<{ optimized_prompt: string }> {
+    const normalizedDescription = String(description || "").trim();
+    if (!normalizedDescription) {
+      return { optimized_prompt: "" };
+    }
+
+    if (!process.env.GEMINI_API_KEY) {
+      // Fallback: giữ nguyên prompt gốc
+      return { optimized_prompt: normalizedDescription };
+    }
+
+    try {
+      const systemInstruction = `Bạn là trợ lý chỉnh sửa video chuyên nghiệp, thành thạo tiếng Việt và tiếng Anh.
+Nhiệm vụ của bạn: chuyển đổi prompt mô tả tự nhiên của người dùng thành các lệnh chỉnh sửa video CỤ THỂ, CHI TIẾT bằng tiếng Việt.
+
+⚠️ QUAN TRỌNG: 
+- Đầu ra phải là các LỆNH CHỈNH SỬA (cắt, zoom, filter, text, nhạc, tốc độ), KHÔNG phải mô tả chung chung.
+- Nếu người dùng nói "viral TikTok", hãy cụ thể hóa: "cắt thành các đoạn 2-3 giây, tua nhanh 1.5x, zoom in/out xen kẽ, thêm text popup nổi bật, chèn nhạc EDM sôi động xuyên suốt"
+- Nếu người dùng nói "chuyên nghiệp", hãy cụ thể: "filter cinematic, chuyển cảnh fade mượt, text tiêu đề ở giữa 3 giây đầu, nhạc nền corporate, tăng tương phản 1.25"
+- Bao gồm CHÍNH XÁC các thông số: thời gian (giây), tốc độ (playbackRate), vị trí text, màu sắc.
+- Viết bằng TIẾNG VIỆT.
+
+Ví dụ:
+Input: "Biến video này thành clip viral TikTok"
+Output: "Cắt video thành các đoạn ngắn 2-3 giây, tua nhanh gấp 1.5 lần toàn bộ, zoom in và zoom out xen kẽ mỗi 2 giây, thêm text highlight màu vàng #FFD700 ở bottom-center, chèn nhạc EDM sôi động xuyên suốt từ 0 giây đến hết video."
+
+Input: "Làm video chuyên nghiệp hơn"
+Output: "Thêm filter cinematic (tăng tương phản 1.25, tăng bão hòa 1.3, giảm sáng 0.95), chuyển cảnh fade mượt giữa các đoạn, thêm text tiêu đề 'Giới thiệu' ở center trong 3 giây đầu, chèn nhạc nền corporate xuyên suốt."
+
+CHỈ trả về lệnh chỉnh sửa, không thêm giải thích, không markdown.`;
+
+      const response = await generateText(
+        GEMINI_TEXT_MODEL,
+        `Chuyển prompt sau thành lệnh chỉnh sửa video cụ thể, chi tiết:
+"${normalizedDescription}"`,
+        {
+          systemInstruction,
+          temperature: 0.7,
+        }
+      );
+
+      const optimizedPrompt = (response.text || normalizedDescription).trim();
+      console.log(`[geminiService.optimizeEditPrompt] Original: "${normalizedDescription}" → Optimized: "${optimizedPrompt}"`);
+      return { optimized_prompt: optimizedPrompt };
+    } catch (error: any) {
+      console.error("[geminiService.optimizeEditPrompt] Error, fallback to original:", error);
+      return { optimized_prompt: normalizedDescription };
     }
   },
 
@@ -1964,6 +2017,34 @@ CRITICAL MULTI-VIDEO RULES:
   - Vẫn giữ nguyên các layer text, nhạc nền hay logo chạy song song trong final timeline nếu được yêu cầu.` 
   : `The original video URL is "${urls[0]}".
 The original video duration is exactly ${originalDuration || 5} seconds.`}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🗣️ SECTION 0: NATURAL LANGUAGE UNDERSTANDING (VIỆT + ANH)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+The user may use conversational, non-technical language. You MUST interpret their intent and map it to the correct editing actions.
+
+▸ "làm video này viral đi" / "make this go viral" → fast cuts every 2-3s, upbeat music, zoom in/out effects, text pop-ups, bright tone.
+▸ "video trông chuyên nghiệp hơn" / "make it look more professional" → cinematic filter, fade transitions, subtle text overlay, corporate music.
+▸ "video buồn quá, làm vui lên" / "make it more cheerful" → increase brightness 1.35, upbeat/EDM music, speed up 1.2x.
+▸ "thêm intro và outro" / "add intro and outro" → text overlay 0-3s for intro, text overlay last 3s for outro.
+▸ "làm nổi bật sản phẩm" / "highlight the product" → zoom in at key moments, brighten, add text captions.
+▸ "video dài quá, rút ngắn lại" / "too long, shorten it" → cut to best 15-30s, fast playback, keep highlights.
+▸ "thêm phụ đề tự động" / "add auto captions" → text overlays at bottom-center throughout, high-contrast color.
+▸ "cho nhạc nền nhẹ nhàng" / "add soft background music" → acoustic/lofi music, volume 0.3, full duration.
+▸ "chỉnh sửa như phim điện ảnh" / "edit like a movie" → cinematic filter, 2.35:1 feel (letterbox), slow pacing, dramatic music.
+▸ "làm video ngắn 15 giây" / "make a 15-second clip" → trim/cut to best 15s, fast pace, zoom effects, trending music.
+▸ "so sánh trước và sau" / "before and after comparison" → split screen effect, keep both segments equal length, label text.
+▸ "chỉ giữ lại đoạn hay nhất" / "keep only the best parts" → identify key moments, cut out dull sections, keep highlights.
+▸ "thêm logo góc trên bên phải" / "add watermark top right" → text overlay at top-right position, full duration, small font.
+▸ "tua nhanh đoạn nhàm chán" / "speed up boring parts" → playbackRate 2.0-3.0 for middle sections, keep intro/outro normal.
+▸ "làm chậm đoạn quan trọng" / "slow down the important part" → playbackRate 0.5 for key segment, highlight with zoom.
+▸ "video bị rung, làm mượt hơn" / "video is shaky, stabilize it" → add slight zoom (1.05x) to crop edges, smooth transitions.
+▸ "tạo video montage" / "create a montage" → fast cuts 1-2s each, crossfade transitions, upbeat music, zoom variety.
+▸ "thêm hiệu ứng chuyển cảnh" / "add transition effects" → fade or zoom transitions between each scene change.
+▸ "giảm tiếng ồn, tăng giọng nói" / "reduce noise, boost voice" → lower original audio volume, add clean background music.
+
+When the prompt is vague, default to enhancing the video (brighten slightly, add subtle music, keep original duration).
+When the prompt conflicts (e.g. "chậm" + "nhanh"), prioritize the first instruction or apply to different segments.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ✂️ SECTION 1: CUTTING & TRIMMING

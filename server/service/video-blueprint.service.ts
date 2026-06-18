@@ -102,12 +102,26 @@ Sound Effects (SFX):
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📝 SECTION 6: TEXT OVERLAYS & TITLES
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- type: "text".
-- Placement: bottom-center, center, top-left, etc.
-- Style: high-contrast colors (white '#FFFFFF', yellow '#FFD700').
+- "chèn chữ" / "hiển thị phụ đề" / "add text" -> type: "text".
+- Placement: top-left, top-center, top-right, center, bottom-left, bottom-center, bottom-right.
+- Style: high-contrast colors (white '#FFFFFF', yellow '#FFD700', red '#FF3333', cyan '#00FFFF').
+- Font size: title="56px", subtitle="32px", caption="24px".
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📋 SECTION 7: JSON OUTPUT SCHEMA
+🎬 SECTION 7: TRANSITIONS & ROTATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- "chuyển cảnh mờ dần" / "fade transition" -> set effects.transition to "fade" on the clip that ends the scene.
+- "xoay góc" / "quay nghiêng" -> set effects.rotate to degrees (e.g. 90, 180, -45).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📐 SECTION 8: TIMELINE INTEGRITY & MATH
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Visual timeline must be continuous (no gaps, no overlaps between sequential video clips).
+- Unless instructed to cut/trim, keep the entire original video source duration.
+- All overlay elements (text, image, audio) are placed relative to the FINAL timeline, not the source video time.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 SECTION 9: JSON OUTPUT SCHEMA
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Return ONLY valid JSON. No markdown backticks, no comments.
 {
