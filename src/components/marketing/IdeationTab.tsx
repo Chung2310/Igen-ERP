@@ -185,7 +185,11 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
 
   const [analyzedTopic, setAnalyzedTopic] = useState("");
   const [loadingAI, setLoadingAI] = useState(false);
-  const [quickSuggestions, setQuickSuggestions] = useState<string[]>([]);
+  const [quickSuggestions, setQuickSuggestions] = useState<string[]>([
+    "Chiến dịch khuyến mãi theo mùa để tăng doanh số và thu hút khách hàng mới.",
+    "Chương trình tri ân khách hàng thân thiết nhằm củng cố lòng trung thành và khuyến khích mua sắm lặp lại.",
+    "Chiến dịch giới thiệu bạn bè để mở rộng tệp khách hàng tiềm năng thông qua mạng lưới hiện có."
+  ]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [developingIdx, setDevelopingIdx] = useState<number | null>(null);
 
@@ -619,25 +623,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
     await Promise.all(promises);
   };
 
-  // Load suggestions from AI on mount
-  useEffect(() => {
-    if (hasFetchedRef.current) return;
-    hasFetchedRef.current = true;
-
-    const loadSuggestions = async () => {
-      setLoadingSuggestions(true);
-      try {
-        const suggestions = await marketingService.fetchSuggestions();
-        setQuickSuggestions(suggestions);
-      } catch (err: any) {
-        console.error("Lỗi tải gợi ý chiến dịch:", err);
-        toast.error(err.message || "Không thể tải gợi ý chiến dịch marketing từ AI.");
-      } finally {
-        setLoadingSuggestions(false);
-      }
-    };
-    loadSuggestions();
-  }, []);
+  // Quick suggestions are now hardcoded as requested, no remote API call needed.
 
   // Load connected integrations on mount
   useEffect(() => {
@@ -1229,11 +1215,6 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                           type="button"
                           onClick={() => {
                             setCampaignInput(s);
-                            if (!isAutoPilot) {
-                              handleAnalyzePillars(s);
-                            } else {
-                              setAnalyzedTopic(s);
-                            }
                           }}
                           className={`px-2.5 py-1 text-[10px] rounded-md font-medium transition-all cursor-pointer select-none border ${isMatch
                             ? "bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-600 shadow-xs transform scale-102 font-semibold"
