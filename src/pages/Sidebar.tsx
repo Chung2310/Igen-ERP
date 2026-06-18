@@ -106,13 +106,6 @@ const baseMenuItems: MenuItem[] = [
     icon: MessageSquareShare,
     tone: "rose",
   },
-  {
-    label: "HIỆU SUẤT AI",
-    title: "Hiệu suất AI",
-    desc: "So sánh máy và con người",
-    icon: LineChart,
-    tone: "indigo",
-  },
 ];
 
 export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
@@ -130,13 +123,25 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
     });
   }
 
-  menuItems.push({
-    label: "VÍ & NẠP TIỀN",
-    title: "Ví & Nạp tiền",
-    desc: "Số dư ví và cổng PayOS",
-    icon: Wallet,
-    tone: "blue",
-  });
+  if (userProfile?.role === "superadmin") {
+    menuItems.push({
+      label: "HIỆU SUẤT AI",
+      title: "Hiệu suất AI",
+      desc: "So sánh máy và con người",
+      icon: LineChart,
+      tone: "indigo",
+    });
+  }
+
+  if (userProfile?.role === "superadmin") {
+    menuItems.push({
+      label: "VÍ & NẠP TIỀN",
+      title: "Ví & Nạp tiền",
+      desc: "Số dư ví và cổng PayOS",
+      icon: Wallet,
+      tone: "blue",
+    });
+  }
 
   menuItems.push({
     label: "CÀI ĐẶT",
