@@ -156,6 +156,7 @@ export const VideoComposition: React.FC<VideoCompositionProps> = ({ blueprint })
               startFrom={Math.round((clip.start ?? 0) * fps)}
               playbackRate={clip.playbackRate ?? 1}
               preload="auto"
+              crossOrigin="anonymous"
               volume={transitionOpacity}
               style={{
                 width: '100%',
@@ -290,6 +291,7 @@ export const VideoComposition: React.FC<VideoCompositionProps> = ({ blueprint })
             >
               <Audio
                 src={audioItem.src}
+                crossOrigin="anonymous"
                 volume={audioItem.volume ?? 1}
               />
             </Sequence>
