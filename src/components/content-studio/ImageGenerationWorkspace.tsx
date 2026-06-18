@@ -161,9 +161,10 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, 
         inputImageUrls.length > 0
           ? `Reference images attached: ${inputImageUrls.length}. Preserve the same subject, context, and meaning from the text and references.`
           : "No reference image attached.",
-        "Translate faithfully into English for image generation.",
-        "Do not add unrelated objects, people, locations, outfits, industries, or generic lifestyle/product-shot details unless they are explicitly present in the source brief.",
-        "Keep the final prompt as close as possible to the user's original idea while still being renderable."
+        "Translate into English and enrich the prompt with appropriate visual details for image generation.",
+        "If the user description is a recruitment, advertisement, or marketing brief, enhance it into a professional layout or a highly realistic workplace photo setting.",
+        "Preserve all core business details (company name, salary/numbers, location, products) and ensure they are explicitly described to be rendered as clear text in the image.",
+        "Make the final prompt highly descriptive, realistic, and contextually rich, matching the style of professional commercial photography or clean promotional layouts."
       ].join("\n");
 
       const result = await geminiApi.optimizeImagePrompt(optimizationBrief, inputImageUrls, optimizeModel);
