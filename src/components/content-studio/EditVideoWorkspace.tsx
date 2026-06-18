@@ -784,7 +784,7 @@ export function EditVideoWorkspace({
                   <p className="text-sm font-semibold text-slate-900">Lịch sử tạo video</p>
                   <p className="mt-1 text-sm text-slate-500">Hiển thị tối đa 20 kết quả gần nhất, từ mới đến cũ.</p>
                 </div>
-                <span className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-700">{history.length}/20</span>
+                <span className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-700">{history.slice(0, 20).length}/20</span>
               </div>
 
               <div className="space-y-4">

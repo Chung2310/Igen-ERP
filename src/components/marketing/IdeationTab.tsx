@@ -732,10 +732,6 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
         toast.error("Vui lòng nhập thời lượng video hợp lệ.");
         return;
       }
-      if (durVal > 10) {
-        toast.error("Thời lượng Video AI tối đa là 10 giây.");
-        return;
-      }
     } else if (mediaType === "human-video") {
       const durVal = parseInt(estimatedHumanVoiceDuration, 10);
       if (!estimatedHumanVoiceDuration || isNaN(durVal) || durVal <= 0) {
@@ -915,10 +911,6 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
       const durVal = parseInt(videoDuration, 10);
       if (!videoDuration || isNaN(durVal) || durVal <= 0) {
         toast.error("Vui lòng nhập thời lượng video hợp lệ.");
-        return;
-      }
-      if (durVal > 10) {
-        toast.error("Thời lượng Video AI tối đa là 10 giây.");
         return;
       }
     } else if (mediaType === "human-video") {
@@ -1459,7 +1451,6 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                         <input
                           type="number"
                           min="1"
-                          max={10}
                           value={videoDuration}
                           onChange={(e) => {
                             let val = e.target.value.replace(/[^0-9]/g, "");
@@ -1468,18 +1459,15 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                               return;
                             }
                             let num = parseInt(val, 10);
-                            if (num > 10) {
-                              num = 10;
-                              toast.warning("Video AI chỉ hỗ trợ thời lượng tối đa 10 giây.");
-                            } else if (num < 1) {
+                            if (num < 1) {
                               num = 1;
                             }
                             setVideoDuration(String(num));
                           }}
-                          placeholder="Tối đa 10s"
+                          placeholder="Thời lượng"
                           className="w-24 text-xs p-2 border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 text-center font-bold"
                         />
-                        <span className="text-xs text-gray-500 font-bold">giây (tối đa 10s)</span>
+                        <span className="text-xs text-gray-500 font-bold">giây</span>
                       </div>
                     )}
 

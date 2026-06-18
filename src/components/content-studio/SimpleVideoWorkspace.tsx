@@ -705,7 +705,7 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved, onEd
                 <p className="text-[10px] text-slate-400 mt-0.5">Hiển thị tối đa 20 kết quả gần nhất, từ mới đến cũ.</p>
               </div>
               <span className="px-2.5 py-0.5 bg-[#e0f7fc] text-[#0891b2] rounded-full text-[10px] font-bold font-mono">
-                {history.length}/20
+                {history.slice(0, 20).length}/20
               </span>
             </div>
 

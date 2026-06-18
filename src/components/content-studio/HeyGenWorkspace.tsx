@@ -489,7 +489,7 @@ export function HeyGenWorkspace({
             <p className="mt-1 text-sm text-slate-400">Hiển thị tối đa 20 kết quả gần nhất, từ mới đến cũ.</p>
           </div>
           <span className="rounded-full bg-cyan-50 border border-cyan-100 px-3.5 py-1 text-sm font-bold text-cyan-600">
-            {history.length}/20
+            {history.slice(0, 20).length}/20
           </span>
         </div>
 
@@ -679,7 +679,7 @@ export function HeyGenWorkspace({
                       setPreviewItem(null);
                     }}
                     className="flex h-13 w-13 items-center justify-center rounded-full bg-cyan-50 hover:bg-cyan-100 text-cyan-600 transition shadow-sm hover:scale-105"
-                    title="Sử dụng cấu hình này"
+                    title="Chỉnh sửa video này"
                   >
                     <Pencil className="h-5.5 w-5.5" />
                   </button>

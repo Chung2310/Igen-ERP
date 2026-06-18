@@ -5,7 +5,8 @@ import { aiKnowledgeService } from "../service/ai-knowledge.service";
 import { walletService, API_COSTS } from "../service/wallet.service";
 
 function handleGeminiError(res: Response, error: any, defaultMessage: string) {
-  const details = error.message || String(error);
+  const isPiApiError = String(error.message || "").toUpperCase().includes("PIAPI");
+  const details = isPiApiError ? "Lỗi nội bộ dịch vụ tạo media AI." : error.message || String(error);
   const status = error.status || error.statusCode;
 
   if (status === 402 && !String(error.message || "").toUpperCase().includes("PIAPI")) {
@@ -18,7 +19,6 @@ function handleGeminiError(res: Response, error: any, defaultMessage: string) {
   let errMsg = defaultMessage;
   let statusCode = 500;
   const errStr = String(error.message || "").toUpperCase();
-  const isPiApiError = errStr.includes("PIAPI");
 
   // Pass through user-friendly overload message directly
   const isOverloadMsg = (error.message || "").includes("Mô hình AI quá tải");
