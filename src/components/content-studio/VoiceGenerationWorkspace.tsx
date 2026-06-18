@@ -659,10 +659,12 @@ const getSelectedVoice = () => {
    };
 
    useEffect(() => {
-      if (autoTrigger && text.trim() && !isGenerating && !audioUri) {
-         void handleGenerate();
-      }
-   }, [autoTrigger, text]);
+       const cacheKey = `autotrigger_voice_${activeCardId}`;
+       if (autoTrigger && text.trim() && !isGenerating && !audioUri && !sessionStorage.getItem(cacheKey)) {
+          sessionStorage.setItem(cacheKey, 'true');
+          void handleGenerate();
+       }
+    }, [autoTrigger, text, activeCardId]);
 
    const handleDeleteHistory = async (id: string) => {
       if (!confirm("Bạn có chắc chắn muốn xóa bản thu âm này?")) return;

@@ -294,6 +294,11 @@ export default function MarketingTab() {
   };;
 
   const handleInitAIGeneration = (card: ContentApprovalCard, type?: 'image' | 'video' | 'voice') => {
+    // Clear auto-trigger cache so it can trigger exactly once upon redirection
+    sessionStorage.removeItem(`autotrigger_image_${card.id}`);
+    sessionStorage.removeItem(`autotrigger_video_${card.id}`);
+    sessionStorage.removeItem(`autotrigger_voice_${card.id}`);
+
     const isHumanVideo = card.mediaType === 'human-video';
     const baseVoiceScript = stripHumanVideoOutlineSections(
       sanitizeHumanVideoVoiceScript(card.voiceScript || card.outline || extractDraftContent(card.bodyText) || "")
