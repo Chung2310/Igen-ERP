@@ -30,12 +30,43 @@ const QUALITY_OPTIONS = [
 ];
 
 const STYLE_PRESETS = [
+  // 🎬 Video ngắn / Mạng xã hội
   { label: 'Trending Reels', prompt: 'Chỉnh video thành clip TikTok 15s, cut nhanh theo nhạc, text pop-up, tone sáng.' },
+  { label: 'Viral TikTok', prompt: 'Biến video này thành clip viral TikTok: tua nhanh đoạn đầu, zoom theo nhịp, thêm text highlight, chèn nhạc EDM sôi động từ đầu đến cuối.' },
+  { label: 'YouTube Shorts', prompt: 'Cắt video thành Shorts 60s, giữ lại những khoảnh khắc hấp dẫn nhất, thêm phụ đề tiếng Việt bắt mắt, hiệu ứng zoom lúc cao trào.' },
+
+  // 🛍️ Sản phẩm / Kinh doanh
   { label: 'Product Demo', prompt: 'Làm video review sản phẩm chuyên nghiệp, highlight tính năng, chuyển cảnh mượt.' },
-  { label: 'Travel Vlog', prompt: 'Biên tập clip travel cinematic, màu ấm, chuyển cảnh mềm, nhạc nhẹ.' },
+  { label: 'Unboxing', prompt: 'Chỉnh sửa video unboxing: tua nhanh đoạn mở hộp, zoom cận cảnh sản phẩm, thêm text mô tả tính năng, chèn nhạc nền nhẹ nhàng xuyên suốt.' },
   { label: 'Before / After', prompt: 'So sánh trước sau, giữ rõ nội dung chính và nhấn mạnh diệu màu, hiệu ứng zoom.' },
+
+  // ✈️ Du lịch / Đời sống
+  { label: 'Travel Vlog', prompt: 'Biên tập clip travel cinematic, màu ấm, chuyển cảnh mềm, nhạc nhẹ.' },
+  { label: 'Cinematic Film', prompt: 'Biên tập theo phong cách điện ảnh: filter cinematic, chuyển cảnh fade mượt, slow-motion đoạn đẹp, thêm nhạc piano nhẹ nhàng.' },
+
+  // ⚡ Tốc độ & Nhịp điệu
+  { label: 'Slow Motion', prompt: 'Tua chậm toàn bộ video 2 lần, thêm nhạc lofi thư giãn chạy suốt video, tone màu ấm áp.' },
+  { label: 'Fast Cut', prompt: 'Cắt video thành các đoạn ngắn 2-3 giây, tua nhanh gấp rưỡi, chèn nhạc sôi động, zoom in/out liên tục.' },
+  { label: 'Beat Sync', prompt: 'Cắt video theo từng đoạn 2 giây xen kẽ zoom in và zoom out, tua nhanh gấp 1.5 lần, thêm nhạc EDM chạy xuyên suốt, hiệu ứng text bắt mắt.' },
+
+  // 🎨 Màu sắc & Filter
+  { label: 'Black & White', prompt: 'Chuyển toàn bộ video sang đen trắng, thêm text mở đầu 3 giây "Ký ức", chèn nhạc piano, chuyển cảnh fade giữa các đoạn.' },
+  { label: 'Vintage Film', prompt: 'Làm video tone vintage: giảm sáng nhẹ, filter sepia 0.3, thêm hạt film (grain), tua chậm 1.2x, nhạc acoustic nhẹ nhàng.' },
+  { label: 'Vivid Colors', prompt: 'Tăng sáng 1.35, tăng độ tương phản 1.25, tăng độ bão hòa 1.3, tạo hiệu ứng màu sắc rực rỡ, thêm nhạc upbeat.' },
+
+  // 📝 Text & Phụ đề
+  { label: 'Subtitled', prompt: 'Thêm phụ đề tiếng Việt bắt mắt cho toàn bộ video, text màu vàng viền đen ở giữa dưới, fontSize 28px.' },
+  { label: 'Intro + Outro', prompt: 'Thêm text intro "Chào mừng" trong 3 giây đầu và text outro "Cảm ơn đã xem" trong 3 giây cuối, tone chuyên nghiệp với nhạc nền corporate.' },
+
+  // 🔀 Ghép & Tổng hợp
   { label: 'Ghép video', prompt: 'Ghép nối các video này lại với nhau theo thứ tự, giữ nguyên độ dài ban đầu của từng video.' },
-  { label: 'Ghép & Nhạc nền', prompt: 'Ghép các video này lại với nhau theo thứ tự và chèn thêm nhạc lofi thư giãn chạy suốt cả video.' }
+  { label: 'Ghép & Nhạc nền', prompt: 'Ghép các video này lại với nhau theo thứ tự và chèn thêm nhạc lofi thư giãn chạy suốt cả video.' },
+  { label: 'Ghép & Zoom FX', prompt: 'Ghép các video lại với nhau theo thứ tự, xen kẽ zoom in và zoom out mỗi 3 giây, chèn nhạc EDM xuyên suốt.' },
+  { label: 'Ghép + Chữ + Nhạc', prompt: 'Ghép các video theo thứ tự, thêm text tiêu đề 3 giây đầu, thêm text kết thúc 3 giây cuối, chèn nhạc nền nhẹ nhàng toàn bộ video.' },
+
+  // 🎵 Âm thanh
+  { label: 'SFX Transitions', prompt: 'Thêm hiệu ứng âm thanh whoosh vào mỗi lần chuyển cảnh, thêm tiếng ting lúc text xuất hiện, giữ video gốc không đổi.' },
+  { label: 'Mute + Music', prompt: 'Giảm âm lượng video gốc xuống 0.1, chèn nhạc nền acoustic chạy xuyên suốt toàn bộ video.' },
 ];
 
 export function EditVideoWorkspace({
@@ -49,6 +80,13 @@ export function EditVideoWorkspace({
   const [videoInputs, setVideoInputs] = useState<Array<{ url: string; duration: number; file?: File }>>([]);
   const [selectedPreviewUrl, setSelectedPreviewUrl] = useState<string | null>(null);
   const [prompt, setPrompt] = useState('');
+  const [promptHistory, setPromptHistory] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('igen_edit_prompt_history');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+  const [showHistory, setShowHistory] = useState(false);
   const [optimizedData, setOptimizedData] = useState<{
     optimized_english_prompt: string;
     motion_analysis?: string;
@@ -295,6 +333,21 @@ export function EditVideoWorkspace({
     setVideoInputs(prev => prev.filter((_, idx) => idx !== indexToRemove));
   };
 
+  const savePromptToHistory = (promptText: string) => {
+    if (!promptText.trim()) return;
+    setPromptHistory(prev => {
+      const filtered = prev.filter(p => p !== promptText);
+      const updated = [promptText, ...filtered].slice(0, 20);
+      try { localStorage.setItem('igen_edit_prompt_history', JSON.stringify(updated)); } catch {}
+      return updated;
+    });
+  };
+
+  const clearPromptHistory = () => {
+    setPromptHistory([]);
+    try { localStorage.removeItem('igen_edit_prompt_history'); } catch {}
+  };
+
   const handleSelectPreset = (presetPrompt: string) => {
     setPrompt(presetPrompt);
     setOptimizedData(null);
@@ -310,10 +363,10 @@ export function EditVideoWorkspace({
     setIsOptimizing(true);
     try {
       console.log("[EditVideoWorkspace] Sending optimize request with prompt:", description);
-      const result = await geminiApi.optimizeVideoPrompt(description, []);
+      const result = await geminiApi.optimizeEditPrompt(description);
       console.log("[EditVideoWorkspace] Optimization result received:", result);
-      setOptimizedData(result);
-      toast.success('Đã tối ưu prompt video bằng AI.');
+      setOptimizedData({ optimized_english_prompt: result.optimized_prompt });
+      toast.success('Đã tối ưu prompt chỉnh sửa video.');
     } catch (error: any) {
       console.error("[EditVideoWorkspace] Optimization failed:", error);
       toast.error(`Lỗi khi tối ưu prompt: ${error?.message || 'Không xác định'}`);
@@ -386,6 +439,7 @@ export function EditVideoWorkspace({
       const totalDuration = videoInputs.reduce((sum, v) => sum + (v.duration || 0), 0);
 
       toast.info('Đang gửi yêu cầu biên tập video đến AI...');
+      savePromptToHistory(prompt.trim());
       const finalPrompt = optimizedData?.optimized_english_prompt
         ? optimizedData.optimized_english_prompt
         : prompt.trim();
@@ -559,10 +613,49 @@ export function EditVideoWorkspace({
                   setOptimizedData(null);
                 }}
                 rows={6}
-                placeholder="Nhập ý tưởng video: ví dụ 'Chỉnh video review sản phẩm thành reel 15s, cut nhanh theo nhạc EDM, text pop-up, tone sáng.'"
+                placeholder="Nhập ý tưởng chỉnh sửa: ví dụ 'Làm video này thành clip viral TikTok', 'Thêm phụ đề và nhạc nền', 'Cắt bỏ 5 giây đầu, zoom cận cảnh đoạn giữa', 'Chuyển sang đen trắng, thêm nhạc piano', 'Ghép 2 video + text intro + nhạc EDM'"
                 className="min-h-[160px] w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-900 outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100"
               />
             </div>
+
+            {/* Prompt History - Recent prompts */}
+            {promptHistory.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 px-1">
+                <button
+                  type="button"
+                  onClick={() => setShowHistory(!showHistory)}
+                  className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100 transition"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  Gần đây ({promptHistory.length})
+                  <svg className={`w-3 h-3 transition ${showHistory ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                </button>
+                {showHistory && (
+                  <button
+                    type="button"
+                    onClick={clearPromptHistory}
+                    className="rounded-full px-2 py-0.5 text-xs text-red-400 hover:bg-red-50 transition"
+                  >
+                    Xóa tất cả
+                  </button>
+                )}
+              </div>
+            )}
+            {showHistory && promptHistory.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto px-1">
+                {promptHistory.map((histPrompt, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => { setPrompt(histPrompt); setOptimizedData(null); setShowHistory(false); }}
+                    className="inline-block max-w-xs truncate rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-600 hover:border-cyan-300 hover:bg-cyan-50 hover:text-cyan-700 transition"
+                    title={histPrompt}
+                  >
+                    {histPrompt.length > 50 ? histPrompt.slice(0, 50) + '...' : histPrompt}
+                  </button>
+                ))}
+              </div>
+            )}
 
             <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4 flex flex-col gap-3">
               <button
@@ -574,12 +667,12 @@ export function EditVideoWorkspace({
                 {isOptimizing ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Đang tối ưu prompt...
+                    Đang phân tích prompt...
                   </>
                 ) : (
                   <>
                     <Sparkles className="h-4 w-4" />
-                    Phân tích và hoàn thiện prompt
+                    Phân tích → Lệnh chỉnh sửa
                   </>
                 )}
               </button>
@@ -601,7 +694,7 @@ export function EditVideoWorkspace({
                   </div>
 
                   <div className="flex flex-col gap-1">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Prompt Tiếng Anh chi tiết</span>
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Prompt chỉnh sửa đã tối ưu</span>
                     <textarea
                       className="w-full text-xs p-3 border border-cyan-200/50 rounded-xl focus:outline-none focus:ring-1 focus:ring-cyan-400 bg-white resize-none font-medium text-slate-700 leading-relaxed min-h-[70px]"
                       value={optimizedData.optimized_english_prompt}
@@ -609,7 +702,7 @@ export function EditVideoWorkspace({
                         ...optimizedData,
                         optimized_english_prompt: e.target.value
                       })}
-                      placeholder="Prompt tiếng Anh chi tiết..."
+                      placeholder="Prompt chỉnh sửa đã được AI tối ưu hóa..."
                     />
                   </div>
 

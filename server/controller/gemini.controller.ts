@@ -808,6 +808,28 @@ A: Hoàn toàn MIỄN PHÍ. Đội ngũ kỹ thuật của iGen sẽ hỗ trợ 
   },
 
   /**
+   * POST /api/v1/gemini/optimize-edit-prompt
+   * Tối ưu prompt dành riêng cho chỉnh sửa video (Remotion)
+   */
+  async optimizeEditPrompt(req: Request, res: Response) {
+    try {
+      const { description } = req.body;
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
+      }
+
+      console.log(`[geminiController.optimizeEditPrompt] Incoming: "${description}"`);
+      const result = await geminiService.optimizeEditPrompt(description);
+      console.log(`[geminiController.optimizeEditPrompt] Result: "${result.optimized_prompt?.slice(0, 100)}..."`);
+      return res.status(200).json(result);
+    } catch (error: any) {
+      console.error("[geminiController.optimizeEditPrompt] Error:", error);
+      return handleGeminiError(res, error, "Lỗi tối ưu prompt chỉnh sửa");
+    }
+  },
+
+  /**
    * GET /api/v1/gemini/media-history
    */
   async getMediaHistory(req: Request, res: Response) {
