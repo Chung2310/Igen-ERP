@@ -69,6 +69,25 @@ const STYLE_PRESETS = [
   { label: 'Mute + Music', prompt: 'Giảm âm lượng video gốc xuống 0.1, chèn nhạc nền acoustic chạy xuyên suốt toàn bộ video.' },
 ];
 
+function isPlayableVideoUrl(url?: string | null) {
+  const value = String(url || '').trim();
+  return value.startsWith('http://') || value.startsWith('https://') || value.startsWith('blob:') || value.startsWith('data:');
+}
+
+function isInlinePreviewSafe(url?: string | null) {
+  const value = String(url || '').trim();
+  if (!value) return false;
+  if (value.startsWith('blob:') || value.startsWith('data:') || value.startsWith('/')) {
+    return true;
+  }
+  try {
+    const parsed = new URL(value, window.location.origin);
+    return parsed.origin === window.location.origin || parsed.hostname.includes('cloudinary.com') || parsed.hostname.includes('googleusercontent.com');
+  } catch {
+    return false;
+  }
+}
+
 export function EditVideoWorkspace({
   initialVideoUrl,
   onClearInitialVideoUrl
@@ -794,7 +813,16 @@ export function EditVideoWorkspace({
                     if (statusVal === 'completed' && finalVideoUrl && displayProgress >= 100) {
                       return (
                         <div className="w-full h-full flex flex-col gap-4">
-                          <video controls src={finalVideoUrl} className="w-full rounded-[24px] object-contain max-h-[300px] shadow-sm border border-slate-100" playsInline crossOrigin="anonymous" />
+                          {isInlinePreviewSafe(finalVideoUrl) ? (
+                            <video controls src={finalVideoUrl} className="w-full rounded-[24px] object-contain max-h-[300px] shadow-sm border border-slate-100" playsInline />
+                          ) : (
+                            <div className="flex w-full flex-col items-center justify-center gap-3 rounded-[24px] border border-slate-100 bg-slate-50 px-4 py-10 text-center">
+                              <p className="text-sm font-semibold text-slate-700">Video da render nhung khong ho tro preview truc tiep tren trinh duyet nay.</p>
+                              <a href={finalVideoUrl} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center rounded-2xl bg-cyan-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-cyan-700">
+                                Mo video trong tab moi
+                              </a>
+                            </div>
+                          )}
                           <button
                             type="button"
                             onClick={() => {
@@ -899,7 +927,16 @@ export function EditVideoWorkspace({
                     );
                   })() : (
                     <div className="w-full h-full flex flex-col gap-4">
-                      <video controls src={outputUrl} className="w-full rounded-[24px] object-contain max-h-[300px] shadow-sm border border-slate-100" playsInline crossOrigin="anonymous" />
+                      {isInlinePreviewSafe(outputUrl) ? (
+                        <video controls src={outputUrl} className="w-full rounded-[24px] object-contain max-h-[300px] shadow-sm border border-slate-100" playsInline />
+                      ) : (
+                        <div className="flex w-full flex-col items-center justify-center gap-3 rounded-[24px] border border-slate-100 bg-slate-50 px-4 py-10 text-center">
+                          <p className="text-sm font-semibold text-slate-700">URL video nay khong cho phep preview inline.</p>
+                          <a href={outputUrl} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center rounded-2xl bg-cyan-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-cyan-700">
+                            Mo video trong tab moi
+                          </a>
+                        </div>
+                      )}
                       <button
                         type="button"
                         onClick={() => {
@@ -975,9 +1012,9 @@ export function EditVideoWorkspace({
                         className="w-full flex items-center gap-4 rounded-3xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-cyan-300 hover:bg-cyan-50"
                       >
                         <div className="relative h-20 w-28 overflow-hidden rounded-3xl bg-slate-100">
-                          {item.url && (item.url.startsWith('http') || item.url.startsWith('blob:') || item.url.startsWith('data:')) ? (
+                          {isInlinePreviewSafe(item.url) ? (
                             <>
-                              <video src={item.url} className="h-full w-full object-cover" muted preload="metadata" playsInline crossOrigin="anonymous" />
+                              <video src={item.url} className="h-full w-full object-cover" muted preload="metadata" playsInline />
                               <div className="absolute inset-0 flex items-center justify-center bg-slate-950/25">
                                 <Play className="h-5 w-5 text-white" />
                               </div>
@@ -1043,9 +1080,9 @@ export function EditVideoWorkspace({
                         className="group rounded-3xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:border-cyan-300 hover:bg-cyan-50"
                       >
                         <div className="relative aspect-video overflow-hidden rounded-2xl bg-slate-900">
-                          {item.url && (item.url.startsWith('http') || item.url.startsWith('blob:') || item.url.startsWith('data:')) ? (
+                          {isInlinePreviewSafe(item.url) ? (
                             <>
-                              <video src={item.url} className="h-full w-full object-cover" muted preload="metadata" playsInline crossOrigin="anonymous" />
+                              <video src={item.url} className="h-full w-full object-cover" muted preload="metadata" playsInline />
                               <div className="absolute inset-0 bg-slate-950/20"></div>
                             </>
                           ) : (
@@ -1090,14 +1127,22 @@ export function EditVideoWorkspace({
                 </button>
               </div>
               <div className="p-6 bg-black flex items-center justify-center">
-                <video 
-                  src={selectedPreviewUrl} 
-                  controls 
-                  autoPlay
-                  className="max-h-[500px] w-full rounded-2xl object-contain"
-                  playsInline
-                  crossOrigin="anonymous"
-                />
+                {isInlinePreviewSafe(selectedPreviewUrl) ? (
+                  <video 
+                    src={selectedPreviewUrl} 
+                    controls 
+                    autoPlay
+                    className="max-h-[500px] w-full rounded-2xl object-contain"
+                    playsInline
+                  />
+                ) : (
+                  <div className="flex w-full flex-col items-center justify-center gap-3 px-4 py-16 text-center text-slate-200">
+                    <p className="text-sm font-semibold">Video nay khong ho tro preview inline do chinh sach CORS cua nguon.</p>
+                    <a href={selectedPreviewUrl} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center rounded-2xl bg-cyan-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-cyan-700">
+                      Mo video trong tab moi
+                    </a>
+                  </div>
+                )}
               </div>
             </div>
           </div>

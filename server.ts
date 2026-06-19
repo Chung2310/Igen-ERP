@@ -9,6 +9,7 @@ import { apiRouter } from "./server/router";
 import { swaggerRouter } from "./server/swagger";
 import { initSocketServer } from "./server/socket";
 import { remotionQueueService } from "./server/service/remotion-queue.service";
+import { tiktokController } from "./server/controller/tiktok.controller";
 import { getSeoForPath, resolveSeoUrl } from "./src/seo/seo-config";
 import { BRAND_NAME, BRAND_TAGLINE, BRAND_LOGO_URL } from "./src/config/brand";
 
@@ -217,6 +218,16 @@ async function startServer() {
   });
 
   // 3. Đăng ký Versioned API Router với tiền tố /api/v1/
+  app.get("/webhooks/tiktok", (req, res) => {
+    return res.status(200).json({
+      status: "ok",
+      path: "/webhooks/tiktok",
+      message: "TikTok webhook endpoint is reachable",
+      timestamp: new Date().toISOString(),
+    });
+  });
+  app.post("/webhooks/tiktok", tiktokController.receiveWebhook as any);
+
   app.use("/api/v1", apiRouter);
 
   // Bộ xử lý lỗi dung lượng yêu cầu quá lớn (Payload Too Large)

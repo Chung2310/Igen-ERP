@@ -376,6 +376,14 @@ export function HeyGenWorkspace({
       await new Promise((resolve) => window.setTimeout(resolve, delay));
       const status = await heygenApi.getVideoStatus(videoId, payload);
       const nextStatus = String(status.jobStatus || "processing").toLowerCase();
+      console.log("[HeyGenWorkspace] pollVideoStatus:", {
+        videoId,
+        delay,
+        nextStatus,
+        hasVideoUrl: Boolean(status.videoUrl),
+        hasThumbnailUrl: Boolean(status.thumbnailUrl),
+        error: status.error || "",
+      });
       setJobStatus(nextStatus);
       if (status.videoUrl) setJobVideoUrl(status.videoUrl);
       if (TERMINAL_JOB_STATES.has(nextStatus)) {
@@ -435,12 +443,15 @@ export function HeyGenWorkspace({
       }
 
       const created = await heygenApi.createAvatarVideo(payload);
+      console.log("[HeyGenWorkspace] createAvatarVideo result:", created);
       setJobStatus(String(created.jobStatus || "processing").toLowerCase());
       const finalStatus = await pollVideoStatus(created.videoId, payload);
+      console.log("[HeyGenWorkspace] finalStatus after polling:", finalStatus);
       if (!finalStatus?.videoUrl) {
         setWarnings((current) => current.includes("Video đang chờ cập nhật lịch sử. Bạn xem trực tiếp trong lịch sử bên dưới.") ? current : ["Video đang chờ cập nhật lịch sử. Bạn xem trực tiếp trong lịch sử bên dưới.", ...current]);
       }
       const historyRes = await heygenApi.getVideoHistory();
+      console.log("[HeyGenWorkspace] history after create:", historyRes.history || []);
       setHistory(historyRes.history || []);
       setHasLoadedHistory(true);
 
