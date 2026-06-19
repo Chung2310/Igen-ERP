@@ -1,4 +1,5 @@
-﻿import { Building2, Lock, Mail, RefreshCw, User, X } from "lucide-react";
+import type { FormEvent } from "react";
+import { Building2, Lock, Mail, RefreshCw, User, X } from "lucide-react";
 import { CompanyEditFormState, CompanyFormState } from "./types";
 
 interface Props {
@@ -8,7 +9,7 @@ interface Props {
   submitting: boolean;
   onClose: () => void;
   onChange: (field: string, value: string) => void;
-  onSubmit: (e: React.FormEvent) => void;
+  onSubmit: (e: FormEvent) => void;
 }
 
 export function CompanyModal({ mode, open, form, submitting, onClose, onChange, onSubmit }: Props) {
@@ -26,10 +27,10 @@ export function CompanyModal({ mode, open, form, submitting, onClose, onChange, 
             </div>
             <div>
               <h3 className="font-bold text-sm uppercase tracking-wider font-sans">
-                {isEdit ? "Chỉnh sửa doanh nghiệp" : "Đăng ký doanh nghiệp mới"}
+                {isEdit ? "Chá»‰nh sá»­a doanh nghiá»‡p" : "ÄÄƒng kÃ½ doanh nghiá»‡p má»›i"}
               </h3>
               <p className="text-[10px] text-slate-350 font-mono mt-0.5">
-                {isEdit ? "Chỉ superadmin được phép cập nhật thông tin doanh nghiệp" : "Khởi tạo môi trường SaaS Multi-tenant"}
+                {isEdit ? "Chá»‰ superadmin Ä‘Æ°á»£c phÃ©p cáº­p nháº­t thÃ´ng tin doanh nghiá»‡p" : "Khá»Ÿi táº¡o mÃ´i trÆ°á»ng SaaS Multi-tenant"}
               </p>
             </div>
           </div>
@@ -41,22 +42,22 @@ export function CompanyModal({ mode, open, form, submitting, onClose, onChange, 
         <form onSubmit={onSubmit} className="p-6 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5 text-left col-span-2">
-              <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Tên doanh nghiệp *</label>
+              <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">TÃªn doanh nghiá»‡p *</label>
               <input
                 type="text"
                 required
-                placeholder="Ví dụ: Công ty TNHH ABC"
+                placeholder="VÃ­ dá»¥: CÃ´ng ty TNHH ABC"
                 value={(form as any).companyName ?? (form as any).name}
                 onChange={(e) => onChange(isEdit ? "name" : "companyName", e.target.value)}
                 className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
               />
             </div>
             <div className="space-y-1.5 text-left col-span-2">
-              <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Mã doanh nghiệp *</label>
+              <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">MÃ£ doanh nghiá»‡p *</label>
               <input
                 type="text"
                 required
-                placeholder="Ví dụ: ABC"
+                placeholder="VÃ­ dá»¥: ABC"
                 value={(form as any).companyCode ?? (form as any).code}
                 onChange={(e) => onChange(isEdit ? "code" : "companyCode", e.target.value)}
                 className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none font-mono uppercase"
@@ -66,7 +67,7 @@ export function CompanyModal({ mode, open, form, submitting, onClose, onChange, 
 
           {isEdit ? (
             <div className="space-y-1.5 text-left">
-              <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Email chủ doanh nghiệp *</label>
+              <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Email chá»§ doanh nghiá»‡p *</label>
               <div className="relative">
                 <Mail className="absolute left-3.5 top-2.5 h-4 w-4 text-gray-400" />
                 <input
@@ -82,16 +83,16 @@ export function CompanyModal({ mode, open, form, submitting, onClose, onChange, 
           ) : (
             <div className="border-t border-gray-100 my-4 pt-4 space-y-4">
               <div className="text-left">
-                <span className="text-[10px] font-bold text-indigo-650 uppercase tracking-widest font-mono">Tài khoản chủ doanh nghiệp (Admin Owner)</span>
+                <span className="text-[10px] font-bold text-indigo-650 uppercase tracking-widest font-mono">TÃ i khoáº£n chá»§ doanh nghiá»‡p (Admin Owner)</span>
               </div>
               <div className="space-y-1.5 text-left">
-                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Tên chủ sở hữu *</label>
+                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">TÃªn chá»§ sá»Ÿ há»¯u *</label>
                 <div className="relative">
                   <User className="absolute left-3.5 top-2.5 h-4 w-4 text-gray-400" />
                   <input
                     type="text"
                     required
-                    placeholder="Ví dụ: Nguyễn Văn A"
+                    placeholder="VÃ­ dá»¥: Nguyá»…n VÄƒn A"
                     value={(form as CompanyFormState).ownerName}
                     onChange={(e) => onChange("ownerName", e.target.value)}
                     className="w-full pl-10 pr-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
@@ -99,7 +100,7 @@ export function CompanyModal({ mode, open, form, submitting, onClose, onChange, 
                 </div>
               </div>
               <div className="space-y-1.5 text-left">
-                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Địa chỉ email *</label>
+                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Äá»‹a chá»‰ email *</label>
                 <div className="relative">
                   <Mail className="absolute left-3.5 top-2.5 h-4 w-4 text-gray-400" />
                   <input
@@ -113,13 +114,13 @@ export function CompanyModal({ mode, open, form, submitting, onClose, onChange, 
                 </div>
               </div>
               <div className="space-y-1.5 text-left">
-                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Mật khẩu *</label>
+                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Máº­t kháº©u *</label>
                 <div className="relative">
                   <Lock className="absolute left-3.5 top-2.5 h-4 w-4 text-gray-400" />
                   <input
                     type="password"
                     required
-                    placeholder="Tối thiểu 6 ký tự"
+                    placeholder="Tá»‘i thiá»ƒu 6 kÃ½ tá»±"
                     value={(form as CompanyFormState).ownerPassword}
                     onChange={(e) => onChange("ownerPassword", e.target.value)}
                     className="w-full pl-10 pr-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
@@ -131,15 +132,15 @@ export function CompanyModal({ mode, open, form, submitting, onClose, onChange, 
 
           <div className="flex gap-3 justify-end pt-4 border-t border-gray-100">
             <button type="button" onClick={onClose} className="px-4 py-2 border border-gray-200 rounded-xl text-xs font-bold text-gray-500 hover:bg-gray-50 transition-all cursor-pointer">
-              Hủy bỏ
+              Há»§y bá»
             </button>
             <button type="submit" disabled={submitting} className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-600/10 flex items-center gap-1.5 disabled:opacity-50 cursor-pointer">
               {submitting ? (
                 <>
                   <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                  Đang xử lý...
+                  Äang xá»­ lÃ½...
                 </>
-              ) : isEdit ? "Lưu doanh nghiệp" : "Khởi tạo doanh nghiệp"}
+              ) : isEdit ? "LÆ°u doanh nghiá»‡p" : "Khá»Ÿi táº¡o doanh nghiá»‡p"}
             </button>
           </div>
         </form>

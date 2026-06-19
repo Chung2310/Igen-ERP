@@ -1,9 +1,9 @@
-﻿import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { authService } from "../services/authService";
 import { CompanyProfile, UserProfile } from "../types";
 import { toast } from "./Toast";
-import { Shield, RefreshCw, Plus, User, X, Wallet, Mail, Lock } from "lucide-react";
+import { Shield, RefreshCw, Plus, User, X, Wallet, Mail, Lock, SlidersHorizontal } from "lucide-react";
 import { parseFirebaseError } from "../utils/firebaseErrorParser";
 import { rolePermissionService, RolePermission, Permission } from "../services/rolePermissionService";
 import { AdminTransactionInfo, AdminUserBalance, walletService } from "../services/walletService";
