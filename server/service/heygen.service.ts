@@ -249,6 +249,34 @@ export async function getHeyGenAccessContext(userId: string): Promise<HeyGenAcce
   };
 }
 
+interface CacheEntry {
+  data: any;
+  timestamp: number;
+}
+const libraryCache = new Map<string, CacheEntry>();
+const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+async function fetchLookDetails(lookId: string, apiKey: string): Promise<HeyGenLibraryItem | null> {
+  try {
+    const data = await requestHeyGenJson(`/v3/avatars/looks/${encodeURIComponent(lookId)}`, undefined, apiKey);
+    const item = data?.data || data;
+    if (!item?.id) return null;
+    return {
+      id: String(item.id),
+      name: String(item.name || "Technology iGen"),
+      previewImage: String(item.preview_image_url || item.thumbnail_url || ""),
+      gender: item.gender,
+      language: item.language || "Vietnamese",
+      accent: item.accent || "",
+      isDefault: false,
+      isCustom: true,
+    };
+  } catch (err) {
+    console.error(`[fetchLookDetails] Failed to fetch look details for ${lookId}:`, err);
+    return null;
+  }
+}
+
 function filterLibraryByAccess(items: HeyGenLibraryItem[], selectedIds: string[], allowFullLibrary: boolean) {
   if (allowFullLibrary) {
     return items;
@@ -521,28 +549,87 @@ export const heygenService = {
   async getLibrary(userId: string) {
     const accessContext = await getHeyGenAccessContext(userId);
     requireApiKey(accessContext.apiKey);
+    const apiKey = accessContext.apiKey || process.env.HEYGEN_API_KEY?.trim() || "";
 
-    const [avatarResult, voiceResult] = await Promise.all([
-      fetchLibraryWithCandidates("avatar", accessContext.apiKey),
-      fetchLibraryWithCandidates("voice", accessContext.apiKey),
-    ]);
+    const selectedAvatarIds = accessContext.avatarIds.length > 0
+      ? accessContext.avatarIds
+      : (accessContext.avatarId ? [accessContext.avatarId] : []);
 
-    const avatarPool = accessContext.allowFullLibrary
-      ? filterCustomAvatars(avatarResult.items)
-      : avatarResult.items;
+    const cacheKey = `${apiKey}_library`;
+    const cached = libraryCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+      const { avatars, voices, sources } = cached.data;
+      return {
+        status: "success",
+        avatars: filterLibraryByAccess(
+          avatars,
+          selectedAvatarIds,
+          accessContext.allowFullLibrary
+        ),
+        voices,
+        sources,
+        warnings: accessContext.warnings,
+        defaults: {
+          avatarId: accessContext.avatarId,
+          voiceId: accessContext.voiceId,
+        },
+      };
+    }
+
+    let avatars: HeyGenLibraryItem[] = [];
+    let avatarSource = "direct_look_fetch";
+
+    // Speed Optimization: If user only has access to a list of specific avatars, fetch them directly instead of downloading all 1285+ avatars
+    if (!accessContext.allowFullLibrary && selectedAvatarIds.length > 0) {
+      try {
+        const fetchedLooks = await Promise.all(
+          selectedAvatarIds.map(id => fetchLookDetails(id, apiKey))
+        );
+        avatars = fetchedLooks.filter((item): item is HeyGenLibraryItem => item !== null);
+        if (avatars.length > 0) {
+          avatarSource = "v3_looks_api";
+        }
+      } catch (err) {
+        console.warn("[getLibrary] Direct look fetch failed, falling back to full library fetch:", err);
+      }
+    }
+
+    // Fallback/Full fetch
+    if (avatars.length === 0) {
+      const avatarResult = await fetchLibraryWithCandidates("avatar", apiKey);
+      avatars = accessContext.allowFullLibrary
+        ? filterCustomAvatars(avatarResult.items)
+        : avatarResult.items;
+      avatarSource = avatarResult.source;
+    }
+
+    // Always fetch full voice library since they are not restricted
+    const voiceResult = await fetchLibraryWithCandidates("voice", apiKey);
+
+    // Save to cache for instant sub-sequent loads
+    const dataToCache = {
+      avatars,
+      voices: voiceResult.items,
+      sources: {
+        avatars: avatarSource,
+        voices: voiceResult.source,
+      },
+    };
+
+    libraryCache.set(cacheKey, {
+      data: dataToCache,
+      timestamp: Date.now(),
+    });
 
     return {
       status: "success",
       avatars: filterLibraryByAccess(
-        avatarPool,
-        accessContext.avatarIds.length > 0 ? accessContext.avatarIds : (accessContext.avatarId ? [accessContext.avatarId] : []),
+        avatars,
+        selectedAvatarIds,
         accessContext.allowFullLibrary
       ),
       voices: voiceResult.items,
-      sources: {
-        avatars: avatarResult.source,
-        voices: voiceResult.source,
-      },
+      sources: dataToCache.sources,
       warnings: accessContext.warnings,
       defaults: {
         avatarId: accessContext.avatarId,
