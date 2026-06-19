@@ -188,7 +188,7 @@ export default function AuthPage() {
         <div className="border-t border-slate-100 pt-4 text-center text-[11px] text-slate-500">
           <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2">
             <a
-              href="/privacy-policy.html"
+              href="/privacy-policy"
               target="_blank"
               rel="noopener noreferrer"
               className="font-semibold text-slate-600 underline underline-offset-2 hover:text-blue-700"
@@ -196,7 +196,7 @@ export default function AuthPage() {
               Privacy Policy
             </a>
             <a
-              href="/terms-of-service.html"
+              href="/terms-of-service"
               target="_blank"
               rel="noopener noreferrer"
               className="font-semibold text-slate-600 underline underline-offset-2 hover:text-blue-700"

@@ -220,6 +220,27 @@ authRouter.get("/users", requireAuth as any, requirePermission("user:read") as a
 // Lấy danh sách tất cả doanh nghiệp (yêu cầu Access Token và vai trò superadmin)
 authRouter.get("/companies", requireAuth as any, requireRole(["superadmin"]) as any, authController.getCompanies as any);
 
+const updateCompanySchema = {
+  params: Joi.object({
+    id: Joi.string().regex(/^[0-9a-fA-F]{24}$/).required(),
+  }),
+  body: Joi.object({
+    name: Joi.string().optional().allow(""),
+    code: Joi.string().optional().allow(""),
+    ownerEmail: Joi.string().pattern(emailRegex).optional().allow("").messages({
+      "string.pattern.base": "Email chủ doanh nghiệp không đúng định dạng.",
+    }),
+  }),
+};
+
+authRouter.patch(
+  "/companies/:id",
+  requireAuth as any,
+  requireRole(["superadmin"]) as any,
+  validateRequest(updateCompanySchema),
+  authController.updateCompany as any
+);
+
 const bulkUpdateUsersSchema = {
   body: Joi.object({
     updates: Joi.array().items(
@@ -256,6 +277,8 @@ const updateUserSchema = {
     division: Joi.string().optional().allow(""),
     jobTitle: Joi.string().optional().allow(""),
     displayName: Joi.string().optional().allow(""),
+    companyCode: Joi.string().optional().allow(""),
+    companyName: Joi.string().optional().allow(""),
     heygenAccess: Joi.object({
       avatarIds: Joi.array().items(Joi.string().allow("")).optional(),
       avatarId: Joi.string().optional().allow(""),

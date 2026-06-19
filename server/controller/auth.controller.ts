@@ -355,6 +355,27 @@ export const authController = {
   },
 
   /**
+   * PATCH /api/v1/auth/companies/:id
+   * (Chỉ dành cho superadmin)
+   */
+  async updateCompany(req: AuthenticatedRequest, res: Response) {
+    try {
+      const updatedCompany = await authService.updateCompany(req.params.id, req.body);
+      return res.status(200).json({
+        status: "success",
+        message: "Cập nhật doanh nghiệp thành công",
+        data: updatedCompany,
+      });
+    } catch (error: any) {
+      console.error("[authController.updateCompany] Error:", error);
+      return res.status(400).json({
+        status: "error",
+        message: error.message || "Không thể cập nhật doanh nghiệp",
+      });
+    }
+  },
+
+  /**
    * PATCH /api/v1/auth/users/bulk
    */
   async bulkUpdateUsers(req: AuthenticatedRequest, res: Response) {

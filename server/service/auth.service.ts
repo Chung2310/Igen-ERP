@@ -330,6 +330,84 @@ export const authService = {
   },
 
   /**
+   * Cập nhật thông tin doanh nghiệp (Superadmin only)
+   */
+  async updateCompany(companyId: string, updateData: { name?: string; code?: string; ownerEmail?: string }): Promise<ICompany> {
+    const company = await CompanyModel.findById(companyId);
+    if (!company) {
+      throw new Error("Không tìm thấy doanh nghiệp trên hệ thống.");
+    }
+
+    const oldCode = company.code;
+    const oldName = company.name;
+
+    const newCode = updateData.code ? updateData.code.toUpperCase().trim() : undefined;
+    const newName = updateData.name ? updateData.name.trim() : undefined;
+    const newOwnerEmail = updateData.ownerEmail ? updateData.ownerEmail.toLowerCase().trim() : undefined;
+
+    // 1. Nếu có thay đổi mã doanh nghiệp, kiểm tra tính duy nhất
+    if (newCode && newCode !== oldCode) {
+      const existingCompany = await CompanyModel.findOne({ code: newCode });
+      if (existingCompany) {
+        throw new Error(`Mã doanh nghiệp "${newCode}" đã tồn tại trên hệ thống.`);
+      }
+    }
+
+    // 2. Cập nhật cơ sở dữ liệu cascade nếu thay đổi mã hoặc tên doanh nghiệp
+    if ((newCode && newCode !== oldCode) || (newName && newName !== oldName)) {
+      const codeToUse = newCode || oldCode;
+      const nameToUse = newName || oldName;
+
+      // Cập nhật Users
+      if (newCode && newCode !== oldCode) {
+        await UserModel.updateMany({ companyCode: oldCode }, { $set: { companyCode: newCode, companyName: nameToUse } });
+      } else if (newName && newName !== oldName) {
+        await UserModel.updateMany({ companyCode: oldCode }, { $set: { companyName: newName } });
+      }
+
+      // Nếu thay đổi code, cập nhật tất cả các collection khác
+      if (newCode && newCode !== oldCode) {
+        const { TrainingEnrollmentModel } = require("../model/training-enrollment.model");
+        const { TrainingCourseModel } = require("../model/training-course.model");
+        const { StockLogModel } = require("../model/stock-log.model");
+        const { SocialIntegrationModel } = require("../model/social-integration.model");
+        const { ProjectModel } = require("../model/project.model");
+        const { ProductModel } = require("../model/product.model");
+        const { MarketingContentModel } = require("../model/marketing-content.model");
+        const { KanbanTaskModel } = require("../model/kanban-task.model");
+        const { CrmTicketModel } = require("../model/crm-ticket.model");
+        const { CategoryModel } = require("../model/category.model");
+        const { AIReplyLogModel } = require("../model/ai-reply-log.model");
+        const { AIKnowledgeDocumentModel, AIKnowledgeChunkModel } = require("../model/ai-knowledge.model");
+
+        await Promise.all([
+          TrainingEnrollmentModel.updateMany({ companyCode: oldCode }, { $set: { companyCode: newCode } }),
+          TrainingCourseModel.updateMany({ companyCode: oldCode }, { $set: { companyCode: newCode } }),
+          StockLogModel.updateMany({ companyCode: oldCode }, { $set: { companyCode: newCode } }),
+          SocialIntegrationModel.updateMany({ companyCode: oldCode }, { $set: { companyCode: newCode } }),
+          ProjectModel.updateMany({ companyCode: oldCode }, { $set: { companyCode: newCode } }),
+          ProductModel.updateMany({ companyCode: oldCode }, { $set: { companyCode: newCode } }),
+          MarketingContentModel.updateMany({ companyCode: oldCode }, { $set: { companyCode: newCode } }),
+          KanbanTaskModel.updateMany({ companyCode: oldCode }, { $set: { companyCode: newCode } }),
+          CrmTicketModel.updateMany({ companyCode: oldCode }, { $set: { companyCode: newCode } }),
+          CategoryModel.updateMany({ companyCode: oldCode }, { $set: { companyCode: newCode } }),
+          AIReplyLogModel.updateMany({ companyCode: oldCode }, { $set: { companyCode: newCode } }),
+          AIKnowledgeDocumentModel.updateMany({ companyCode: oldCode }, { $set: { companyCode: newCode } }),
+          AIKnowledgeChunkModel.updateMany({ companyCode: oldCode }, { $set: { companyCode: newCode } }),
+          RolePermissionModel.updateMany({ companyCode: oldCode }, { $set: { companyCode: newCode } })
+        ]);
+      }
+    }
+
+    // 3. Thực hiện lưu thông tin doanh nghiệp
+    if (newName !== undefined) company.name = newName;
+    if (newCode !== undefined) company.code = newCode;
+    if (newOwnerEmail !== undefined) company.ownerEmail = newOwnerEmail;
+
+    return await company.save();
+  },
+
+  /**
    * Đăng ký người dùng mới cho doanh nghiệp
    */
   async registerUserForCompany(data: any, callerCompanyCode?: string, callerRole?: string): Promise<IUser> {
@@ -414,6 +492,8 @@ export const authService = {
     }
 
     if (callerRole !== "superadmin") {
+      delete updateData.companyCode;
+      delete updateData.companyName;
       if (user.companyCode !== callerCompanyCode) {
         throw new Error("Bạn không có quyền chỉnh sửa nhân sự của doanh nghiệp khác.");
       }
@@ -467,6 +547,8 @@ export const authService = {
       if (!user) continue;
 
       if (callerRole !== "superadmin") {
+        delete data.companyCode;
+        delete data.companyName;
         if (user.companyCode !== callerCompanyCode) {
           throw new Error("Bạn không có quyền chỉnh sửa nhân sự của doanh nghiệp khác.");
         }
