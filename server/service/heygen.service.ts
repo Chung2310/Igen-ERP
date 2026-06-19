@@ -355,7 +355,7 @@ export async function upsertVideoRecord(userId: string, payload: {
 }
 
 function normalizeStatusPayload(data: any) {
-  const root = data?.data || data;
+  const root = data?.data || data?.event_data || data;
   const captionedVideoUrl = root?.captioned_video_url || root?.video_url_with_caption || "";
   const subtitleUrl = root?.subtitle_url || "";
   const videoUrl =
@@ -378,7 +378,7 @@ function normalizeStatusPayload(data: any) {
 }
 
 function normalizeWebhookPayload(payload: HeyGenWebhookPayload) {
-  const root = payload?.data || payload?.video || payload;
+  const root = payload?.data || payload?.video || payload?.event_data || payload;
   const eventType = String(payload?.event_type || payload?.event || payload?.type || "video.updated").trim();
   const videoId = String(
     root?.video_id ||
@@ -740,7 +740,8 @@ export const heygenService = {
     if (activeRecords.length > 0) {
       try {
         const accessContext = await getHeyGenAccessContext(userId);
-        if (accessContext.apiKey) {
+        const apiKey = accessContext.apiKey || process.env.HEYGEN_API_KEY?.trim();
+        if (apiKey) {
           await Promise.allSettled(
             activeRecords.map(async (record) => {
               try {
@@ -748,10 +749,10 @@ export const heygenService = {
                 if (!videoId) return;
                 let data: any = null;
                 try {
-                  data = await requestHeyGenJson(`/v3/videos/${encodeURIComponent(videoId)}`, undefined, accessContext.apiKey);
+                  data = await requestHeyGenJson(`/v3/videos/${encodeURIComponent(videoId)}`, undefined, apiKey);
                 } catch (v3Err) {
                   try {
-                    data = await heygenLegacyService.getLegacyStatus(videoId, accessContext.apiKey || process.env.HEYGEN_API_KEY?.trim() || "");
+                    data = await heygenLegacyService.getLegacyStatus(videoId, apiKey);
                   } catch (v1Err) {
                     console.error(`[getVideoHistory] Status fetch failed for video ${videoId}:`, v1Err);
                     throw v3Err;
