@@ -30,7 +30,7 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, 
   const [prompt, setPrompt] = useState(initialPrompt || '');
   const [negativePrompt, setNegativePrompt] = useState('');
   const [aspectRatio, setAspectRatio] = useState('3:4');
-  const [imageModel, setImageModel] = useState('nano-banana-pro');
+  const [imageModel, setImageModel] = useState('gemini-banana-pro');
   const [resolution, setResolution] = useState('1K');
   const [optimizeModel, setOptimizeModel] = useState('gemini-3.5-flash');
 
@@ -532,8 +532,9 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, 
               value={imageModel}
               onChange={(e) => setImageModel(e.target.value)}
             >
-              <option value="nano-banana-pro">iGen Image Pro</option>
-              <option value="nano-banana-2">iGen Image Flash</option>
+              <option value="nano-banana-pro">iGen Image Pro (PiAPI)</option>
+              <option value="nano-banana-2">iGen Image Flash (PiAPI)</option>
+              <option value="gemini-banana-pro">iGen Gemini Image Pro (Google)</option>
             </select>
           </div>
 
