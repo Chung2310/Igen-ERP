@@ -1,3 +1,5 @@
+import { broadcastEvent } from "../socket";
+import { MarketingContentModel } from "../model/marketing-content.model";
 import { SocialIntegrationModel } from "../model/social-integration.model";
 
 const TIKTOK_API_BASE = "https://open.tiktokapis.com";
@@ -111,7 +113,102 @@ const getBlotatoAccounts = async (platform = "tiktok", blotatoApiKeyInput?: stri
   return data;
 };
 
+function verifyWebhookToken(token?: string) {
+  const expectedToken = String(process.env.TIKTOK_WEBHOOK_SECRET || process.env.N8N_WEBHOOK_SECRET || "").trim();
+  if (!expectedToken) {
+    return true;
+  }
+  return String(token || "").trim() === expectedToken;
+}
+
+function extractWebhookIdentifiers(payload: any) {
+  const event = payload?.event || payload?.data?.event || payload?.type || payload?.event_type || "unknown";
+  const data = payload?.data || payload;
+  return {
+    eventType: String(event || "unknown"),
+    cardId: String(data?.cardId || data?.metadata?.cardId || payload?.cardId || "").trim(),
+    publishId: String(
+      data?.publishId ||
+      data?.publish_id ||
+      data?.postSubmissionId ||
+      data?.post_submission_id ||
+      payload?.publishId ||
+      payload?.publish_id ||
+      payload?.postSubmissionId ||
+      payload?.post_submission_id ||
+      ""
+    ).trim(),
+    postId: String(
+      data?.postId ||
+      data?.post_id ||
+      data?.videoId ||
+      data?.video_id ||
+      data?.publicaly_available_post_id?.[0] ||
+      payload?.postId ||
+      payload?.post_id ||
+      ""
+    ).trim(),
+    shareUrl: String(data?.shareUrl || data?.share_url || payload?.shareUrl || payload?.share_url || "").trim(),
+    status: String(
+      data?.status ||
+      data?.publishStatus ||
+      data?.publish_status ||
+      payload?.status ||
+      payload?.publishStatus ||
+      payload?.publish_status ||
+      ""
+    ).trim(),
+    messageText: String(data?.message?.text || data?.text || payload?.text || "").trim(),
+    conversationId: String(data?.conversationId || data?.conversation_id || payload?.conversationId || "").trim(),
+    senderId: String(data?.senderId || data?.sender_id || payload?.senderId || "").trim(),
+    raw: payload,
+  };
+}
+
+function mapWebhookStatusToCardStatus(status: string) {
+  const normalized = String(status || "").toLowerCase();
+  if (!normalized) return null;
+  if (["publish_complete", "completed", "success", "published", "posted"].includes(normalized)) {
+    return "published";
+  }
+  if (["failed", "error", "rejected", "canceled", "cancelled"].includes(normalized)) {
+    return "failed";
+  }
+  if (["processing", "pending", "queued", "scheduled", "submitted"].includes(normalized)) {
+    return "processing";
+  }
+  return null;
+}
+
+async function savePublishTracking(cardId: string, payload: {
+  publishId?: string;
+  provider?: string;
+  status?: string;
+  shareUrl?: string;
+  postId?: string;
+}) {
+  const updateData: Record<string, any> = {
+    tiktokWebhookUpdatedAt: new Date(),
+  };
+
+  if (payload.publishId) updateData.tiktokPublishId = payload.publishId;
+  if (payload.provider) updateData.tiktokProvider = payload.provider;
+  if (payload.shareUrl) updateData.tiktokShareUrl = payload.shareUrl;
+  if (payload.postId) updateData.tiktokPostId = payload.postId;
+
+  const mappedStatus = mapWebhookStatusToCardStatus(payload.status || "");
+  if (mappedStatus) {
+    updateData.status = mappedStatus;
+    if (mappedStatus === "published") {
+      updateData.publishedAt = new Date();
+    }
+  }
+
+  await MarketingContentModel.findByIdAndUpdate(cardId, { $set: updateData });
+}
+
 export const tiktokService = {
+  verifyWebhookToken,
   /**
    * Đăng video lên TikTok.
    *
@@ -255,12 +352,12 @@ export const tiktokService = {
           console.log(`[TikTok Service → Direct] Poll #${attempt}: status = ${publishStatus}`);
 
           if (publishStatus === "PUBLISH_COMPLETE") {
-            return {
-              status: "success",
-              message: "Đăng video lên TikTok trực tiếp thành công",
-              provider: "tiktok_direct",
-              data: { publishId, shareUrl, publishStatus, success: true },
-            };
+          return {
+            status: "success",
+            message: "Đăng video lên TikTok trực tiếp thành công",
+            provider: "tiktok_direct",
+            data: { publishId, shareUrl, publishStatus, success: true },
+          };
           }
 
           if (publishStatus === "FAILED") {
@@ -322,6 +419,106 @@ export const tiktokService = {
         "Chưa cấu hình BLOTATO_API_KEY hoặc tài khoản kết nối TikTok (integrationId/accessToken). Vui lòng cấu hình tài khoản kết nối trước khi đăng bài."
       );
     }
+  },
+
+  async registerPublishTracking(cardId: string, result: any) {
+    const provider = String(result?.provider || "").trim();
+    const data = result?.data || {};
+    const publishId = String(data?.publishId || data?.postSubmissionId || "").trim();
+    const postId = String(data?.postId || "").trim();
+    const shareUrl = String(data?.shareUrl || "").trim();
+    const publishStatus = String(data?.publishStatus || result?.status || "").trim();
+
+    if (!cardId) {
+      return;
+    }
+
+    await savePublishTracking(cardId, {
+      publishId,
+      provider,
+      status: publishStatus,
+      shareUrl,
+      postId,
+    });
+  },
+
+  async processWebhook(payload: any) {
+    const parsed = extractWebhookIdentifiers(payload);
+    const normalizedEvent = parsed.eventType.toLowerCase();
+
+    const matchedCard = parsed.cardId
+      ? await MarketingContentModel.findById(parsed.cardId)
+      : await MarketingContentModel.findOne({
+        $or: [
+          ...(parsed.publishId ? [{ tiktokPublishId: parsed.publishId }] : []),
+          ...(parsed.postId ? [{ tiktokPostId: parsed.postId }] : []),
+        ],
+      });
+
+    if (normalizedEvent.includes("message")) {
+      const messageEvent = {
+        platform: "tiktok",
+        conversationId: parsed.conversationId,
+        senderId: parsed.senderId,
+        text: parsed.messageText,
+        cardId: matchedCard?._id?.toString() || parsed.cardId || "",
+        raw: parsed.raw,
+      };
+
+      broadcastEvent("tiktok_message_received", messageEvent);
+
+      return {
+        status: "success",
+        type: "message",
+        matchedCardId: matchedCard?._id?.toString() || null,
+      };
+    }
+
+    if (!matchedCard) {
+      return {
+        status: "ignored",
+        type: "publish",
+        reason: "card_not_found",
+        publishId: parsed.publishId,
+        postId: parsed.postId,
+      };
+    }
+
+    const mappedStatus = mapWebhookStatusToCardStatus(parsed.status);
+    const updateData: Record<string, any> = {
+      tiktokLastWebhookEvent: parsed.eventType,
+      tiktokWebhookUpdatedAt: new Date(),
+    };
+
+    if (parsed.publishId) updateData.tiktokPublishId = parsed.publishId;
+    if (parsed.postId) updateData.tiktokPostId = parsed.postId;
+    if (parsed.shareUrl) updateData.tiktokShareUrl = parsed.shareUrl;
+    if (mappedStatus) updateData.status = mappedStatus;
+    if (mappedStatus === "published") updateData.publishedAt = new Date();
+
+    const updatedCard = await MarketingContentModel.findByIdAndUpdate(
+      matchedCard._id,
+      { $set: updateData },
+      { new: true }
+    ).lean();
+
+    broadcastEvent("tiktok_post_updated", {
+      cardId: String(matchedCard._id),
+      publishId: parsed.publishId,
+      postId: parsed.postId,
+      status: mappedStatus || parsed.status || "updated",
+      shareUrl: parsed.shareUrl,
+      eventType: parsed.eventType,
+      card: updatedCard,
+    });
+
+    return {
+      status: "success",
+      type: "publish",
+      cardId: String(matchedCard._id),
+      eventType: parsed.eventType,
+      publishStatus: parsed.status,
+    };
   },
 
   /**

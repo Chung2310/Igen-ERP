@@ -23,7 +23,11 @@ export interface IMarketingContent extends Document {
   publishedAt?: Date;
   facebookPostId?: string;
   tiktokPostId?: string;
+  tiktokPublishId?: string;
   tiktokShareUrl?: string;
+  tiktokProvider?: string;
+  tiktokLastWebhookEvent?: string;
+  tiktokWebhookUpdatedAt?: Date;
   companyCode: string;
   integrationId?: Types.ObjectId | string; // ID tài khoản mạng xã hội liên kết dùng để đăng bài
   referenceImage?: string;
