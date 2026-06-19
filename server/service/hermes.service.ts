@@ -100,7 +100,7 @@ Yêu cầu chỉnh sửa của người dùng: "${prompt}"
 ${cloudinaryPrompt}
 `;
       const hermesUrl = `${process.env.HERMES_API_URL || "https://agent.igentechsolutions.com"}/v1/chat/completions`;
-      const hermesKey = process.env.HERMES_API_KEY || "igentech123456";
+      const hermesKey = process.env.HERMES_API_KEY || "";
 
       const response = await fetch(hermesUrl, {
         method: "POST",
@@ -141,12 +141,12 @@ ${cloudinaryPrompt}
         for await (const chunk of reader as any) {
           chunkCount++;
           buffer += typeof chunk === "string" ? chunk : decoder.decode(chunk, { stream: true });
-          
+
           let lineEnd;
           while ((lineEnd = buffer.indexOf("\n")) !== -1) {
             const line = buffer.slice(0, lineEnd).trim();
             buffer = buffer.slice(lineEnd + 1);
-            
+
             if (line.startsWith("data:")) {
               const dataStr = line.slice(5).trim();
               if (dataStr === "[DONE]") {
@@ -180,12 +180,12 @@ ${cloudinaryPrompt}
           if (value) {
             chunkCount++;
             buffer += decoder.decode(value, { stream: true });
-            
+
             let lineEnd;
             while ((lineEnd = buffer.indexOf("\n")) !== -1) {
               const line = buffer.slice(0, lineEnd).trim();
               buffer = buffer.slice(lineEnd + 1);
-              
+
               if (line.startsWith("data:")) {
                 const dataStr = line.slice(5).trim();
                 if (dataStr === "[DONE]") {
@@ -223,7 +223,7 @@ ${cloudinaryPrompt}
 
       if (extractedUrl) {
         await updateLogs(95, `[Hermes] Tìm thấy URL video đã upload: ${extractedUrl}`);
-        
+
         await AIMediaModel.findByIdAndUpdate(recordId, {
           url: extractedUrl,
           "metadata.status": "completed",
@@ -235,7 +235,7 @@ ${cloudinaryPrompt}
         const anyUrlRegex = /(https?:\/\/[^\s\)\"\`\'\>]+)/i;
         const fallbackMatch = fullText.match(anyUrlRegex);
         const fallbackUrl = fallbackMatch ? fallbackMatch[1] : null;
-        
+
         if (fallbackUrl) {
           await updateLogs(95, `[Hermes] Không tìm thấy URL Cloudinary nhưng phát hiện URL thay thế: ${fallbackUrl}`);
           await AIMediaModel.findByIdAndUpdate(recordId, {
