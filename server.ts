@@ -239,6 +239,29 @@ async function startServer() {
       appType: "spa",
     });
     app.use(vite.middlewares);
+
+    app.use("*", async (req, res, next) => {
+      if (req.method !== "GET") {
+        return next();
+      }
+
+      const requestPath = req.path.toLowerCase();
+      if (requestPath.startsWith("/api") || requestPath.startsWith("/uploads")) {
+        return next();
+      }
+
+      try {
+        const indexHtmlPath = path.join(process.cwd(), "index.html");
+        const template = await fs.promises.readFile(indexHtmlPath, "utf-8");
+        const transformedTemplate = await vite.transformIndexHtml(req.originalUrl, template);
+        const personalizedHtml = injectSeoMeta(transformedTemplate, req.path);
+
+        res.status(200).set({ "Content-Type": "text/html" }).end(personalizedHtml);
+      } catch (err) {
+        vite.ssrFixStacktrace(err as Error);
+        next(err);
+      }
+    });
   } else {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath, {

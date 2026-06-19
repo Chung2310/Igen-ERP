@@ -7,24 +7,38 @@ function resolveInitialTab() {
   return pathToTab(window.location.pathname) || DEFAULT_APP_TAB;
 }
 
-export function useTabRouter() {
+function isAppTabPath(pathname: string) {
+  const normalized = pathname.startsWith("/") ? pathname : `/${pathname}`;
+  return normalized === "/" || Boolean(pathToTab(normalized));
+}
+
+export function useTabRouter(options?: { enabled?: boolean }) {
+  const enabled = options?.enabled ?? true;
   const [activeTab, setActiveTab] = useState<TabType>(resolveInitialTab);
 
   useEffect(() => {
+    if (!enabled) return;
+
     const handlePopState = () => {
       setActiveTab(pathToTab(window.location.pathname) || DEFAULT_APP_TAB);
     };
 
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
-  }, []);
+  }, [enabled]);
 
   useEffect(() => {
+    if (!enabled) return;
+
+    if (!isAppTabPath(window.location.pathname)) {
+      return;
+    }
+
     const nextPath = tabToPath(activeTab);
     if (window.location.pathname !== nextPath) {
       window.history.pushState(null, "", nextPath);
     }
-  }, [activeTab]);
+  }, [activeTab, enabled]);
 
   return {
     activeTab,

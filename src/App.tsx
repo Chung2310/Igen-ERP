@@ -15,8 +15,14 @@ const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const TermsOfService = lazy(() => import("./pages/TermsOfService"));
 
 function AppContent() {
-  const { activeTab, setActiveTab } = useTabRouter();
   const { user, userProfile, loading } = useAuth();
+  const currentPath = normalizePublicPath(window.location.pathname);
+  const isPrivacyPage = currentPath === "/privacy-policy" || currentPath === "/privacy-policy.html";
+  const isTermsPage = currentPath === "/terms-of-service" || currentPath === "/terms-of-service.html";
+  const isPublicPage = isPrivacyPage || isTermsPage;
+  const { activeTab, setActiveTab } = useTabRouter({
+    enabled: !isPublicPage && !loading && Boolean(user && userProfile),
+  });
 
   React.useEffect(() => {
     const token = localStorage.getItem("accessToken");
@@ -28,11 +34,6 @@ function AppContent() {
       socketService.disconnect();
     }
   }, [user]);
-
-  const currentPath = window.location.pathname.toLowerCase();
-  const isPrivacyPage = currentPath === "/privacy-policy" || currentPath === "/privacy-policy.html";
-  const isTermsPage = currentPath === "/terms-of-service" || currentPath === "/terms-of-service.html";
-  const isPublicPage = isPrivacyPage || isTermsPage;
 
   if (isPublicPage) {
     return (
@@ -100,6 +101,12 @@ function AppContent() {
       </div>
     </div>
   );
+}
+
+function normalizePublicPath(pathname: string) {
+  const normalized = pathname.toLowerCase().trim();
+  if (!normalized || normalized === "/") return "/";
+  return normalized.endsWith("/") ? normalized.slice(0, -1) : normalized;
 }
 
 export default function App() {
