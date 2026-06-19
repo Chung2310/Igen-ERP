@@ -125,11 +125,46 @@ function extractWorkbookText(buffer: Buffer) {
   }
 }
 
+const COMMON_HEADERS = {
+  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+};
+
+async function fetchDirectDriveFile(fileId: string): Promise<{ buffer: Buffer; contentType: string }> {
+  const directUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
+  
+  let res = await fetch(directUrl, { headers: COMMON_HEADERS });
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}`);
+  }
+  
+  let contentType = res.headers.get("content-type") || "";
+  let arrayBuffer = await res.arrayBuffer();
+  let buffer = Buffer.from(arrayBuffer);
+  
+  // Check if we got a Google Drive virus scan warning HTML page
+  if (contentType.toLowerCase().includes("text/html")) {
+    const htmlText = buffer.toString("utf-8");
+    const confirmMatch = htmlText.match(/confirm=([a-zA-Z0-9-_]+)/);
+    if (confirmMatch) {
+      const confirmToken = confirmMatch[1];
+      const confirmUrl = `https://drive.google.com/uc?export=download&confirm=${confirmToken}&id=${fileId}`;
+      const confirmRes = await fetch(confirmUrl, { headers: COMMON_HEADERS });
+      if (confirmRes.ok) {
+        contentType = confirmRes.headers.get("content-type") || "";
+        const confirmBuffer = await confirmRes.arrayBuffer();
+        buffer = Buffer.from(confirmBuffer);
+      }
+    }
+  }
+  
+  return { buffer, contentType };
+}
+
 async function fetchDriveFileContent(fileId: string): Promise<{ text: string; title: string }> {
   // 1. Google Doc Text Export
   try {
     const docUrl = `https://docs.google.com/document/d/${fileId}/export?format=txt`;
-    const res = await fetch(docUrl);
+    const res = await fetch(docUrl, { headers: COMMON_HEADERS });
     if (res.ok) {
       const text = await res.text();
       if (text && !isProbablyHtml(text) && text.length > 50) {
@@ -143,7 +178,7 @@ async function fetchDriveFileContent(fileId: string): Promise<{ text: string; ti
   // 2. Google Sheet CSV Export
   try {
     const sheetUrl = `https://docs.google.com/spreadsheets/d/${fileId}/export?format=csv`;
-    const res = await fetch(sheetUrl);
+    const res = await fetch(sheetUrl, { headers: COMMON_HEADERS });
     if (res.ok) {
       const text = await res.text();
       if (text && !isProbablyHtml(text) && text.length > 50) {
@@ -157,7 +192,7 @@ async function fetchDriveFileContent(fileId: string): Promise<{ text: string; ti
   // 3. Google Slides text export
   try {
     const slideUrl = `https://docs.google.com/presentation/d/${fileId}/export/txt`;
-    const res = await fetch(slideUrl);
+    const res = await fetch(slideUrl, { headers: COMMON_HEADERS });
     if (res.ok) {
       const text = await res.text();
       if (text && !isProbablyHtml(text) && text.length > 20) {
@@ -170,43 +205,37 @@ async function fetchDriveFileContent(fileId: string): Promise<{ text: string; ti
 
   // 4. Direct File Download (e.g. for text files, spreadsheets or PDFs)
   try {
-    const directUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
-    const res = await fetch(directUrl);
-    if (res.ok) {
-      const contentType = res.headers.get("content-type") || "";
-      const arrayBuffer = await res.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
+    const { buffer, contentType } = await fetchDirectDriveFile(fileId);
 
-      // Check if it is a PDF file by content-type or magic bytes (%PDF)
-      const isPdf = contentType.toLowerCase().includes("pdf") || 
-        (buffer.length >= 4 && buffer[0] === 0x25 && buffer[1] === 0x50 && buffer[2] === 0x44 && buffer[3] === 0x46);
+    // Check if it is a PDF file by content-type or magic bytes (%PDF)
+    const isPdf = contentType.toLowerCase().includes("pdf") || 
+      (buffer.length >= 4 && buffer[0] === 0x25 && buffer[1] === 0x50 && buffer[2] === 0x44 && buffer[3] === 0x46);
 
-      if (isPdf) {
-        console.log(`[AI AutoReply] Phát hiện file PDF (${fileId}). Tiến hành trích xuất văn bản qua Gemini...`);
-        const base64 = buffer.toString("base64");
-        const extractedText = await geminiService.extractTextFromPdf(base64);
-        if (extractedText && extractedText.trim().length > 0) {
-          return { text: extractedText, title: `PDF File (${fileId})` };
-        }
+    if (isPdf) {
+      console.log(`[AI AutoReply] Phát hiện file PDF (${fileId}). Tiến hành trích xuất văn bản qua Gemini...`);
+      const base64 = buffer.toString("base64");
+      const extractedText = await geminiService.extractTextFromPdf(base64);
+      if (extractedText && extractedText.trim().length > 0) {
+        return { text: extractedText, title: `PDF File (${fileId})` };
       }
+    }
 
-      const normalizedContentType = contentType.toLowerCase();
-      const isSpreadsheet =
-        normalizedContentType.includes("spreadsheetml") ||
-        normalizedContentType.includes("ms-excel") ||
-        normalizedContentType.includes("officedocument.spreadsheetml");
-      if (isSpreadsheet) {
-        const workbookText = extractWorkbookText(buffer);
-        if (workbookText) {
-          return { text: workbookText, title: `Spreadsheet File (${fileId})` };
-        }
+    const normalizedContentType = contentType.toLowerCase();
+    const isSpreadsheet =
+      normalizedContentType.includes("spreadsheetml") ||
+      normalizedContentType.includes("ms-excel") ||
+      normalizedContentType.includes("officedocument.spreadsheetml");
+    if (isSpreadsheet) {
+      const workbookText = extractWorkbookText(buffer);
+      if (workbookText) {
+        return { text: workbookText, title: `Spreadsheet File (${fileId})` };
       }
+    }
 
-      if (isTextLikeContentType(normalizedContentType)) {
-        const text = buffer.toString("utf-8");
-        if (text && !isProbablyHtml(text) && text.length > 10) {
-          return { text, title: `Drive File (${fileId})` };
-        }
+    if (isTextLikeContentType(normalizedContentType)) {
+      const text = buffer.toString("utf-8");
+      if (text && !isProbablyHtml(text) && text.length > 10) {
+        return { text, title: `Drive File (${fileId})` };
       }
     }
   } catch (e) {
@@ -218,20 +247,37 @@ async function fetchDriveFileContent(fileId: string): Promise<{ text: string; ti
 
 async function fetchDriveFolderFileIds(folderId: string): Promise<string[]> {
   try {
-    const url = `https://drive.google.com/embeddedfolderview?id=${folderId}`;
-    const res = await fetch(url);
-    if (!res.ok) {
-      console.warn(`Failed to fetch embedded folder view for folder ${folderId}`);
+    const embeddedUrl = `https://drive.google.com/embeddedfolderview?id=${folderId}`;
+    let res = await fetch(embeddedUrl, { headers: COMMON_HEADERS });
+    let html = "";
+    if (res.ok) {
+      html = await res.text();
+    } else {
+      console.warn(`Failed to fetch embedded folder view, trying public folder view for ${folderId}`);
+      const publicUrl = `https://drive.google.com/drive/folders/${folderId}`;
+      res = await fetch(publicUrl, { headers: COMMON_HEADERS });
+      if (res.ok) {
+        html = await res.text();
+      }
+    }
+
+    if (!html) {
+      console.warn(`Could not retrieve folder HTML for ${folderId}`);
       return [];
     }
-    const html = await res.text();
+
     const fileIdMatches = [
       ...html.matchAll(/\/document\/d\/([a-zA-Z0-9-_]{25,50})/g),
       ...html.matchAll(/\/file\/d\/([a-zA-Z0-9-_]{25,50})/g),
+      ...html.matchAll(/\/spreadsheets\/d\/([a-zA-Z0-9-_]{25,50})/g),
+      ...html.matchAll(/\/presentation\/d\/([a-zA-Z0-9-_]{25,50})/g),
       ...html.matchAll(/\/open\?id=([a-zA-Z0-9-_]{25,50})/g),
-      ...html.matchAll(/"id"\s*:\s*"([a-zA-Z0-9-_]{25,50})"/g)
+      ...html.matchAll(/data-id="([a-zA-Z0-9-_]{28,45})"/g),
+      ...html.matchAll(/"id"\s*:\s*"([a-zA-Z0-9-_]{28,45})"/g),
+      ...html.matchAll(/\\x22([a-zA-Z0-9-_]{28,45})\\x22/g),
+      ...html.matchAll(/\\u0022([a-zA-Z0-9-_]{28,45})\\u0022/g)
     ];
-    const docIds = Array.from(new Set(fileIdMatches.map(m => m[1])));
+    const docIds = Array.from(new Set(fileIdMatches.map(m => m[1]).filter(id => id !== folderId)));
     console.log(`[AI AutoReply] Đã phân tích thư mục ${folderId}, tìm thấy ${docIds.length} files:`, docIds);
     return docIds;
   } catch (err) {

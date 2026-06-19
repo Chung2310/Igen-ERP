@@ -83,6 +83,7 @@ export const heygenApi = {
     engineType?: "avatar_v" | "avatar_iv" | "avatar_iii";
     title?: string;
     description?: string;
+    inputText?: string;
   }): Promise<any> {
     const response = await fetch("/api/v1/heygen/videos", {
       method: "POST",

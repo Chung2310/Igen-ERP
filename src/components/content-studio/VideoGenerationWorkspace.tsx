@@ -14,6 +14,7 @@ interface VideoGenerationWorkspaceProps {
   initialVideoTab?: VideoToolTab;
   initialImage?: string;
   autoTrigger?: boolean;
+  engineType?: string;
 }
 
 type VideoToolTab = 'veo' | 'heygen' | 'edit-video';
@@ -35,6 +36,7 @@ export function VideoGenerationWorkspace({
   initialVideoTab = 'veo',
   initialImage,
   autoTrigger,
+  engineType,
 }: VideoGenerationWorkspaceProps) {
   const [activeVideoTab, setActiveVideoTab] = useState<VideoToolTab>(initialVideoTab);
   const [editVideoSourceUrl, setEditVideoSourceUrl] = useState<string | null>(null);
@@ -98,6 +100,9 @@ export function VideoGenerationWorkspace({
               setEditVideoSourceUrl(url);
               setActiveVideoTab('edit-video');
             }}
+            onMediaSaved={onMediaSaved}
+            autoTrigger={autoTrigger}
+            engineType={engineType}
           />
         </Suspense>
       )}

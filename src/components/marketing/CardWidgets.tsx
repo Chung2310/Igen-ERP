@@ -155,13 +155,18 @@ export function ModerationPipCard({
         <button
           onClick={(e) => {
             e.stopPropagation();
-            onGenerateMedia(card, card.mediaType === 'human-video' ? 'voice' : card.mediaType === 'video' ? 'video' : card.mediaType === 'image' ? 'image' : undefined);
+            onGenerateMedia(
+              card,
+              card.mediaType === 'human-video'
+                ? (card.engineType === 'avatar_iii' ? 'video' : 'voice')
+                : card.mediaType === 'video' ? 'video' : card.mediaType === 'image' ? 'image' : undefined
+            );
           }}
           className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-purple-50 hover:bg-purple-100 text-purple-700 hover:text-purple-800 border border-purple-200/50 rounded-xl text-[10px] font-bold transition-all shadow-3xs cursor-pointer active:scale-[0.98]"
         >
           <Sparkles className="h-3 w-3 text-purple-500 animate-pulse" />
           <span>
-            {card.mediaType === "human-video" ? "Tạo Voice → Video" :
+            {card.mediaType === "human-video" ? (card.engineType === "avatar_iii" ? "Tạo Video người thật" : "Tạo Voice → Video") :
              card.mediaType === "video" ? "Tạo Video AI" :
              card.mediaType === "image" ? "Tạo Ảnh AI" : "Tạo Ảnh / Video AI"}
           </span>
@@ -365,16 +370,22 @@ export function ScheduledCard({
         <button
           onClick={(e) => {
             e.stopPropagation();
-            onGenerateMedia(card, card.mediaType === 'human-video' ? 'voice' : card.mediaType === 'video' ? 'video' : 'image');
+            onGenerateMedia(
+              card,
+              card.mediaType === 'human-video'
+                ? (card.engineType === 'avatar_iii' ? 'video' : 'voice')
+                : card.mediaType === 'video' ? 'video' : 'image'
+            );
           }}
           className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-purple-50 hover:bg-purple-100 text-purple-700 hover:text-purple-800 border border-purple-200/50 rounded-xl text-[10px] font-bold transition-all shadow-3xs cursor-pointer active:scale-[0.98]"
         >
           <Sparkles className="h-3 w-3 text-purple-500 animate-pulse" />
           <span>{
-            card.mediaType === "human-video" ? "Tạo Voice → Video người thật" :
-            card.mediaType === "video" ? "Tạo Video AI" :
-            card.mediaType === "image" ? "Tạo Ảnh AI" :
-            "Tạo Ảnh / Video AI"
+            card.mediaType === "human-video"
+              ? (card.engineType === "avatar_iii" ? "Tạo Video người thật" : "Tạo Voice → Video người thật")
+              : card.mediaType === "video" ? "Tạo Video AI" :
+              card.mediaType === "image" ? "Tạo Ảnh AI" :
+              "Tạo Ảnh / Video AI"
           }</span>
         </button>
       )}
@@ -382,16 +393,22 @@ export function ScheduledCard({
         <button
           onClick={(e) => {
             e.stopPropagation();
-            onGenerateMedia(card, card.mediaType === 'human-video' ? 'voice' : card.mediaType === 'video' ? 'video' : 'image');
+            onGenerateMedia(
+              card,
+              card.mediaType === 'human-video'
+                ? (card.engineType === 'avatar_iii' ? 'video' : 'voice')
+                : card.mediaType === 'video' ? 'video' : 'image'
+            );
           }}
           className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-[10px] font-bold transition-all shadow-xs cursor-pointer active:scale-[0.98]"
         >
           <Sparkles className="h-3 w-3 text-slate-500" />
           <span>{
-            card.mediaType === "human-video" ? "Mở Xưởng Voice → Video" :
-            card.mediaType === "video" ? "Mở Xưởng Video AI" :
-            card.mediaType === "image" ? "Mở Xưởng Ảnh AI" :
-            "Mở Xưởng Media"
+            card.mediaType === "human-video"
+              ? (card.engineType === "avatar_iii" ? "Mở Xưởng Video người thật" : "Mở Xưởng Voice → Video")
+              : card.mediaType === "video" ? "Mở Xưởng Video AI" :
+              card.mediaType === "image" ? "Mở Xưởng Ảnh AI" :
+              "Mở Xưởng Media"
           }</span>
         </button>
       )}

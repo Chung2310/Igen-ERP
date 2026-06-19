@@ -228,6 +228,9 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
   const [isLoadingHumanVideoVoices, setIsLoadingHumanVideoVoices] = useState(false);
   const [isPreviewingHumanVoice, setIsPreviewingHumanVoice] = useState(false);
   const [humanVoicePreviewCache, setHumanVoicePreviewCache] = useState<Record<string, string>>({});
+  const [selectedEngineType, setSelectedEngineType] = useState<string>("avatar_iv");
+  const [heygenVoices, setHeygenVoices] = useState<HeyGenLibraryItem[]>([]);
+  const [manualInputText, setManualInputText] = useState("");
 
   const mediaTypeMeta: Record<string, { label: string; tone: string }> = {
     image: {
@@ -298,6 +301,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
         ]);
 
         const nextAvatars = heygenLibrary.avatars || [];
+        const nextHeygenVoices = heygenLibrary.voices || [];
         const mappedVoices = (voiceLibrary.voices || []).map((voice: any) => ({
           ...voice,
           id: voice.voice_id,
@@ -306,6 +310,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
         }));
 
         setHumanVideoAvatars(nextAvatars);
+        setHeygenVoices(nextHeygenVoices);
         setHumanVideoVoices(mappedVoices);
 
         if (nextAvatars.length > 0) {
@@ -318,12 +323,24 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
           );
         }
 
-        if (mappedVoices.length > 0) {
-          setSelectedHumanVoice((current) =>
-            mappedVoices.some((voice: any) => (voice.voice_id || voice.id) === current)
-              ? current
-              : mappedVoices[0].voice_id || mappedVoices[0].id || current
-          );
+        if (selectedEngineType === "avatar_iii") {
+          if (nextHeygenVoices.length > 0) {
+            setSelectedHumanVoice((current) =>
+              nextHeygenVoices.some((voice) => voice.id === current)
+                ? current
+                : heygenLibrary.defaults?.voiceId && nextHeygenVoices.some((voice) => voice.id === heygenLibrary.defaults?.voiceId)
+                  ? heygenLibrary.defaults.voiceId
+                  : nextHeygenVoices[0].id
+            );
+          }
+        } else {
+          if (mappedVoices.length > 0) {
+            setSelectedHumanVoice((current) =>
+              mappedVoices.some((voice: any) => (voice.voice_id || voice.id) === current)
+                ? current
+                : mappedVoices[0].voice_id || mappedVoices[0].id || current
+            );
+          }
         }
       } catch (error) {
         console.error("Failed to load human video libraries:", error);
@@ -336,6 +353,20 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
 
     loadHumanVideoLibraries();
   }, [mediaType]);
+
+  const handleEngineTypeChange = (engine: string) => {
+    setSelectedEngineType(engine);
+    if (engine === "avatar_iii") {
+      if (heygenVoices.length > 0) {
+        setSelectedHumanVoice(heygenVoices[0].id);
+      }
+    } else {
+      if (humanVideoVoices.length > 0) {
+        const firstVoiceId = humanVideoVoices[0].voice_id || humanVideoVoices[0].id;
+        setSelectedHumanVoice(firstVoiceId);
+      }
+    }
+  };
 
   const humanVoicePreviewAudioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -882,6 +913,10 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
             mediaType: cardMediaType,
             humanDurationSeconds: parseInt(estimatedHumanVoiceDuration, 10) || DEFAULT_HUMAN_VOICE_DURATION_SECONDS,
             referenceImage: uploadedImageBase64 || undefined,
+            engineType: cardMediaType === "human-video" ? selectedEngineType : undefined,
+            avatarId: cardMediaType === "human-video" ? selectedHumanAvatar : undefined,
+            voiceId: cardMediaType === "human-video" ? selectedHumanVoice : undefined,
+            inputText: cardMediaType === "human-video" ? voiceScriptVal : undefined,
             isNew: true // Đánh dấu card mới phát triển
           };
         });
@@ -974,6 +1009,10 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
             mediaType: cardMediaType,
             conceptTitle: concept.title,
             conceptSummary: concept.summary || "",
+            engineType: cardMediaType === "human-video" ? selectedEngineType : undefined,
+            avatarId: cardMediaType === "human-video" ? selectedHumanAvatar : undefined,
+            voiceId: cardMediaType === "human-video" ? selectedHumanVoice : undefined,
+            inputText: cardMediaType === "human-video" ? (manualInputText || post.voiceScript || "") : undefined,
             isNew: true,
           };
         });
@@ -1626,7 +1665,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                 </div>
               )}
               {/* Human Video Settings */}
-              {isAutoPilot && mediaType === "human-video" && (
+              {mediaType === "human-video" && (
                 <HumanVideoSettingsCard
                   selectedAvatar={selectedHumanAvatar}
                   selectedVoice={selectedHumanVoice}
@@ -1649,6 +1688,12 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                     setEstimatedHumanVoiceDuration(normalizedValue);
                   }}
                   onPreviewVoice={handlePreviewHumanVoice}
+                  selectedEngineType={selectedEngineType}
+                  onEngineTypeChange={handleEngineTypeChange}
+                  heygenVoices={heygenVoices}
+                  isAutoPilot={isAutoPilot}
+                  inputText={manualInputText}
+                  onInputTextChange={setManualInputText}
                 />
               )}
             </form>

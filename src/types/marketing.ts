@@ -44,6 +44,10 @@ export interface ContentApprovalCard {
   publishError?: string;
   mediaType?: "image" | "video" | "human-video";
   referenceImage?: string;
+  engineType?: string;
+  avatarId?: string;
+  voiceId?: string;
+  inputText?: string;
 }
 
 export interface PublishEvent {

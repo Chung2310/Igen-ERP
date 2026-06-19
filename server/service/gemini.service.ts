@@ -598,39 +598,69 @@ ${docText}
       throw new Error("GEMINI_API_KEY is not configured");
     }
 
-    try {
-      console.log(`[AI AutoReply] Đang gọi Gemini trích xuất văn bản từ PDF (base64 length: ${pdfBase64.length})...`);
-      const ai = getGeminiClient();
-      const response = await ai.models.generateContent({
-        model: GEMINI_TEXT_MODEL,
-        contents: [
-          {
-            role: "user",
-            parts: [
-              {
-                inlineData: {
-                  mimeType: "application/pdf",
-                  data: pdfBase64,
-                },
-              },
-              {
-                text: "Bạn là trợ lý trích xuất văn bản. Hãy trích xuất và trả về toàn bộ nội dung văn bản (text) có trong file tài liệu PDF này một cách đầy đủ, chính xác nhất theo đúng thứ tự đọc của tài liệu. Chỉ trả về nội dung văn bản thuần, không thêm thắt giải thích, không định dạng markdown hay giới thiệu gì ngoài nội dung gốc.",
-              },
-            ],
-          },
-        ],
-      });
+    const ai = getGeminiClient();
+    let activeModel = GEMINI_TEXT_MODEL;
+    const maxRetries = 4;
+    let delay = 1000;
+    let lastError: any;
 
-      return response.text || "";
-    } catch (error: any) {
-      console.error("[geminiService.extractTextFromPdf] Error extracting text from PDF:", error);
-      throw error;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`[AI AutoReply] Đang gọi Gemini trích xuất văn bản từ PDF (model: ${activeModel}, attempt: ${attempt})...`);
+        const response = await ai.models.generateContent({
+          model: activeModel,
+          contents: [
+            {
+              role: "user",
+              parts: [
+                {
+                  inlineData: {
+                    mimeType: "application/pdf",
+                    data: pdfBase64,
+                  },
+                },
+                {
+                  text: "Bạn là trợ lý trích xuất văn bản. Hãy trích xuất và trả về toàn bộ nội dung văn bản (text) có trong file tài liệu PDF này một cách đầy đủ, chính xác nhất theo đúng thứ tự đọc của tài liệu. Chỉ trả về nội dung văn bản thuần, không thêm thắt giải thích, không định dạng markdown hay giới thiệu gì ngoài nội dung gốc.",
+                },
+              ],
+            },
+          ],
+        });
+
+        return response.text || "";
+      } catch (error: any) {
+        lastError = error;
+        const errorMsg = error?.message || String(error);
+        const isRateLimit = error?.status === 429 || errorMsg.includes("429") || errorMsg.includes("RESOURCE_EXHAUSTED") || errorMsg.includes("quota");
+        const isUnavailable = error?.status === 503 || errorMsg.includes("503") || errorMsg.includes("UNAVAILABLE") || errorMsg.includes("experiencing high demand");
+
+        if (activeModel === "gemini-3.5-flash" && (isRateLimit || isUnavailable)) {
+          console.warn(`[extractTextFromPdf] Model gemini-3.5-flash failed with API error. Falling back to gemini-2.5-flash.`);
+          activeModel = "gemini-2.5-flash";
+          delay = 1000;
+          attempt = 0;
+          continue;
+        }
+
+        if (activeModel === "gemini-2.5-flash" && (isRateLimit || isUnavailable)) {
+          console.warn(`[extractTextFromPdf] Model gemini-2.5-flash failed. Falling back to gemini-1.5-flash.`);
+          activeModel = "gemini-1.5-flash";
+          delay = 1000;
+          attempt = 0;
+          continue;
+        }
+
+        if (attempt < maxRetries) {
+          console.warn(`[extractTextFromPdf] Attempt ${attempt} failed, retrying in ${delay}ms... Error: ${errorMsg}`);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          delay *= 2;
+        }
+      }
     }
+
+    throw lastError;
   },
 
-  /**
-   * Tạo 3 gợi ý chủ đề marketing chung
-   */
   async getMarketingSuggestions(): Promise<string[]> {
     const fallbackSuggestions = [
       "Chiến dịch tri ân khách hàng thân thiết và tặng quà tri ân kỷ niệm thành lập",

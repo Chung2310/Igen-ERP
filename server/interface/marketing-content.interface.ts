@@ -28,4 +28,8 @@ export interface IMarketingContent extends Document {
   integrationId?: Types.ObjectId | string; // ID tài khoản mạng xã hội liên kết dùng để đăng bài
   referenceImage?: string;
   mediaType?: "image" | "video" | "human-video";
+  engineType?: string;
+  avatarId?: string;
+  voiceId?: string;
+  inputText?: string;
 }

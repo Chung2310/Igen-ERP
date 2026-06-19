@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import { AIMediaModel } from "../model/ai-media.model";
 import { UserModel } from "../model/user.model";
 import { broadcastEvent } from "../socket";
+import { heygenLegacyService } from "./heygen-legacy.service";
 
 type HeyGenLibraryItem = {
   id: string;
@@ -46,7 +47,7 @@ type HeyGenRemoteVideo = {
   model: string;
 };
 
-type CreateAvatarVideoInput = {
+export type CreateAvatarVideoInput = {
   avatarId: string;
   voiceId?: string;
   audioUrl?: string;
@@ -58,16 +59,17 @@ type CreateAvatarVideoInput = {
   title?: string;
   description?: string;
   enableCaption?: boolean;
+  inputText?: string;
 };
 
 type HeyGenWebhookPayload = {
   [key: string]: any;
 };
 
-const HEYGEN_API_BASE = "https://api.heygen.com";
+export const HEYGEN_API_BASE = "https://api.heygen.com";
 const ACTIVE_VIDEO_STATUSES = new Set(["processing", "pending", "queued", "waiting", "in_progress", "rendering"]);
 
-class HeyGenApiError extends Error {
+export class HeyGenApiError extends Error {
   statusCode: number;
   details: any;
 
@@ -99,7 +101,7 @@ function requireApiKey(overrideApiKey?: string) {
   return apiKey;
 }
 
-async function parseHeyGenResponse(response: Response, fallbackMessage: string) {
+export async function parseHeyGenResponse(response: Response, fallbackMessage: string) {
   const raw = await response.text();
   let parsed: any = null;
 
@@ -117,7 +119,7 @@ async function parseHeyGenResponse(response: Response, fallbackMessage: string) 
   return parsed ?? {};
 }
 
-async function requestHeyGenJson(path: string, init?: RequestInit, overrideApiKey?: string) {
+export async function requestHeyGenJson(path: string, init?: RequestInit, overrideApiKey?: string) {
   const apiKey = requireApiKey(overrideApiKey);
   const response = await fetch(`${HEYGEN_API_BASE}${path}`, {
     ...init,
@@ -189,7 +191,7 @@ function filterCustomAvatars(items: HeyGenLibraryItem[]) {
   return customOnly.length > 0 ? customOnly : items;
 }
 
-async function getHeyGenAccessContext(userId: string): Promise<HeyGenAccessContext> {
+export async function getHeyGenAccessContext(userId: string): Promise<HeyGenAccessContext> {
   const user = await UserModel.findById(userId)
     .select("role heygenAccess")
     .lean();
@@ -264,7 +266,7 @@ async function fetchLibraryWithCandidates(type: "avatar" | "voice", overrideApiK
   throw lastError || new Error(`Không lấy được thư viện HeyGen cho ${type}`);
 }
 
-async function upsertVideoRecord(userId: string, payload: {
+export async function upsertVideoRecord(userId: string, payload: {
   videoId: string;
   script: string;
   motionText?: string;
@@ -489,11 +491,7 @@ export const heygenService = {
         accessContext.avatarIds.length > 0 ? accessContext.avatarIds : (accessContext.avatarId ? [accessContext.avatarId] : []),
         accessContext.allowFullLibrary
       ),
-      voices: filterLibraryByAccess(
-        voiceResult.items,
-        accessContext.voiceId ? [accessContext.voiceId] : [],
-        accessContext.allowFullLibrary
-      ),
+      voices: voiceResult.items,
       sources: {
         avatars: avatarResult.source,
         voices: voiceResult.source,
@@ -507,6 +505,10 @@ export const heygenService = {
   },
 
   async createAvatarVideo(userId: string, input: CreateAvatarVideoInput) {
+    if (input.engineType === "avatar_iii") {
+      return heygenLegacyService.generateLegacyVideo(userId, input);
+    }
+
     const accessContext = await getHeyGenAccessContext(userId);
     const apiKey = requireApiKey(accessContext.apiKey);
     const { avatarId, voiceId, motionText, aspectRatio, resolution, engineType, title, description } = input;
@@ -615,7 +617,18 @@ export const heygenService = {
 
   async getVideoStatus(userId: string, videoId: string, context?: Partial<CreateAvatarVideoInput>) {
     const accessContext = await getHeyGenAccessContext(userId);
-    const data = await requestHeyGenJson(`/v3/videos/${encodeURIComponent(videoId)}`, undefined, accessContext.apiKey);
+    let data: any = null;
+    try {
+      data = await requestHeyGenJson(`/v3/videos/${encodeURIComponent(videoId)}`, undefined, accessContext.apiKey);
+    } catch (err) {
+      console.log(`[getVideoStatus] v3 endpoint failed, trying v1/video_status.get for video ${videoId}:`, err);
+      try {
+        data = await heygenLegacyService.getLegacyStatus(videoId, accessContext.apiKey || process.env.HEYGEN_API_KEY?.trim() || "");
+      } catch (v1Err) {
+        console.error(`[getVideoStatus] Both v3 and v1 status calls failed:`, v1Err);
+        throw err;
+      }
+    }
     const normalized = normalizeStatusPayload(data);
 
     const record = await upsertVideoRecord(userId, {
@@ -673,7 +686,17 @@ export const heygenService = {
               try {
                 const videoId = record.metadata.heygenVideoId;
                 if (!videoId) return;
-                const data = await requestHeyGenJson(`/v3/videos/${encodeURIComponent(videoId)}`, undefined, accessContext.apiKey);
+                let data: any = null;
+                try {
+                  data = await requestHeyGenJson(`/v3/videos/${encodeURIComponent(videoId)}`, undefined, accessContext.apiKey);
+                } catch (v3Err) {
+                  try {
+                    data = await heygenLegacyService.getLegacyStatus(videoId, accessContext.apiKey || process.env.HEYGEN_API_KEY?.trim() || "");
+                  } catch (v1Err) {
+                    console.error(`[getVideoHistory] Status fetch failed for video ${videoId}:`, v1Err);
+                    throw v3Err;
+                  }
+                }
                 const normalized = normalizeStatusPayload(data);
                 await upsertVideoRecord(userId, {
                   videoId,

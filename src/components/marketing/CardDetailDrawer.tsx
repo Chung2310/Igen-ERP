@@ -225,14 +225,20 @@ export default function CardDetailDrawer({
 
             {!card.imageUrl && !card.videoUrl && card.status !== 'published' && card.status !== 'processing' && (
               <button
-                onClick={() => onGenerateMedia(card, card.mediaType === 'human-video' ? 'voice' : card.mediaType === 'video' ? 'video' : 'image')}
+                onClick={() => onGenerateMedia(
+                  card,
+                  card.mediaType === 'human-video'
+                    ? (card.engineType === 'avatar_iii' ? 'video' : 'voice')
+                    : card.mediaType === 'video' ? 'video' : 'image'
+                )}
                 className="w-full flex items-center justify-center gap-2 py-4 px-3 bg-purple-50 hover:bg-purple-100 text-purple-750 border border-purple-200 border-dashed rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-[0.99]"
               >
                 <Sparkles className="h-4 w-4 text-purple-500 animate-pulse" />
                 <span>
-                  {card.mediaType === "human-video" ? "Tạo Voice → Video người thật mới" :
-                   card.mediaType === "video" ? "Tạo Video AI mới" :
-                   card.mediaType === "image" ? "Tạo Ảnh AI mới" : "Tạo Ảnh / Video AI mới"}
+                  {card.mediaType === "human-video"
+                    ? (card.engineType === "avatar_iii" ? "Tạo Video người thật mới (Direct Text)" : "Tạo Voice → Video người thật mới")
+                    : card.mediaType === "video" ? "Tạo Video AI mới" :
+                    card.mediaType === "image" ? "Tạo Ảnh AI mới" : "Tạo Ảnh / Video AI mới"}
                 </span>
               </button>
             )}
