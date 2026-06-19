@@ -1,37 +1,37 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://io.igentechsolutions.com/</loc>
+    <loc>https://erp.igentechsolutions.com/</loc>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://io.igentechsolutions.com/tong-quan</loc>
+    <loc>https://erp.igentechsolutions.com/tong-quan</loc>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://io.igentechsolutions.com/nhan-su</loc>
+    <loc>https://erp.igentechsolutions.com/nhan-su</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://io.igentechsolutions.com/kho-san-pham</loc>
+    <loc>https://erp.igentechsolutions.com/kho-san-pham</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://io.igentechsolutions.com/marketing</loc>
+    <loc>https://erp.igentechsolutions.com/marketing</loc>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://io.igentechsolutions.com/sales-crm</loc>
+    <loc>https://erp.igentechsolutions.com/sales-crm</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://io.igentechsolutions.com/hieu-suat-ai</loc>
+    <loc>https://erp.igentechsolutions.com/hieu-suat-ai</loc>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>

@@ -3,6 +3,7 @@ import { geminiService } from "../service/gemini.service";
 import { AuthenticatedRequest } from "../middleware/auth";
 import { aiKnowledgeService } from "../service/ai-knowledge.service";
 import { walletService, API_COSTS } from "../service/wallet.service";
+import * as XLSX from "xlsx";
 
 function handleGeminiError(res: Response, error: any, defaultMessage: string) {
   const isPiApiError = String(error.message || "").toUpperCase().includes("PIAPI");
@@ -91,6 +92,39 @@ function getTextModelCost(aiConfig: any): number {
   return 2.5; // Default flash
 }
 
+function isProbablyHtml(text: string) {
+  const sample = String(text || "").trim().slice(0, 500).toLowerCase();
+  return sample.includes("<!doctype html") || sample.includes("<html");
+}
+
+function isTextLikeContentType(contentType: string) {
+  const normalized = String(contentType || "").toLowerCase();
+  return [
+    "text/plain",
+    "text/csv",
+    "text/markdown",
+    "text/html",
+    "text/xml",
+    "application/json",
+    "application/xml",
+    "application/rtf",
+  ].some((type) => normalized.includes(type));
+}
+
+function extractWorkbookText(buffer: Buffer) {
+  try {
+    const workbook = XLSX.read(buffer, { type: "buffer" });
+    return workbook.SheetNames.map((sheetName) => {
+      const worksheet = workbook.Sheets[sheetName];
+      const csv = XLSX.utils.sheet_to_csv(worksheet).trim();
+      return csv ? `Sheet: ${sheetName}\n${csv}` : "";
+    }).filter(Boolean).join("\n\n");
+  } catch (error) {
+    console.warn("[AI AutoReply] Khong the doc file bang xlsx:", error);
+    return "";
+  }
+}
+
 async function fetchDriveFileContent(fileId: string): Promise<{ text: string; title: string }> {
   // 1. Google Doc Text Export
   try {
@@ -98,7 +132,7 @@ async function fetchDriveFileContent(fileId: string): Promise<{ text: string; ti
     const res = await fetch(docUrl);
     if (res.ok) {
       const text = await res.text();
-      if (text && !text.includes("<!DOCTYPE html>") && text.length > 50) {
+      if (text && !isProbablyHtml(text) && text.length > 50) {
         return { text, title: `Google Doc (${fileId})` };
       }
     }
@@ -112,7 +146,7 @@ async function fetchDriveFileContent(fileId: string): Promise<{ text: string; ti
     const res = await fetch(sheetUrl);
     if (res.ok) {
       const text = await res.text();
-      if (text && !text.includes("<!DOCTYPE html>") && text.length > 50) {
+      if (text && !isProbablyHtml(text) && text.length > 50) {
         return { text, title: `Google Sheet (${fileId})` };
       }
     }
@@ -120,7 +154,21 @@ async function fetchDriveFileContent(fileId: string): Promise<{ text: string; ti
     console.warn(`Sheet export failed for ${fileId}:`, e);
   }
 
-  // 3. Direct File Download (e.g. for text/markdown files or PDFs)
+  // 3. Google Slides text export
+  try {
+    const slideUrl = `https://docs.google.com/presentation/d/${fileId}/export/txt`;
+    const res = await fetch(slideUrl);
+    if (res.ok) {
+      const text = await res.text();
+      if (text && !isProbablyHtml(text) && text.length > 20) {
+        return { text, title: `Google Slides (${fileId})` };
+      }
+    }
+  } catch (e) {
+    console.warn(`Slides export failed for ${fileId}:`, e);
+  }
+
+  // 4. Direct File Download (e.g. for text files, spreadsheets or PDFs)
   try {
     const directUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
     const res = await fetch(directUrl);
@@ -140,9 +188,23 @@ async function fetchDriveFileContent(fileId: string): Promise<{ text: string; ti
         if (extractedText && extractedText.trim().length > 0) {
           return { text: extractedText, title: `PDF File (${fileId})` };
         }
-      } else {
+      }
+
+      const normalizedContentType = contentType.toLowerCase();
+      const isSpreadsheet =
+        normalizedContentType.includes("spreadsheetml") ||
+        normalizedContentType.includes("ms-excel") ||
+        normalizedContentType.includes("officedocument.spreadsheetml");
+      if (isSpreadsheet) {
+        const workbookText = extractWorkbookText(buffer);
+        if (workbookText) {
+          return { text: workbookText, title: `Spreadsheet File (${fileId})` };
+        }
+      }
+
+      if (isTextLikeContentType(normalizedContentType)) {
         const text = buffer.toString("utf-8");
-        if (text && !text.includes("<!DOCTYPE html>") && text.length > 10) {
+        if (text && !isProbablyHtml(text) && text.length > 10) {
           return { text, title: `Drive File (${fileId})` };
         }
       }
@@ -176,6 +238,14 @@ async function fetchDriveFolderFileIds(folderId: string): Promise<string[]> {
     console.error(`Error listing folder ${folderId}:`, err);
     return [];
   }
+}
+
+function normalizeDriveDocText(rawText: string) {
+  return String(rawText || "")
+    .replace(/\r\n/g, "\n")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 export const geminiController = {
@@ -641,26 +711,53 @@ export const geminiController = {
 
       let extractedText = "";
       let isMocked = true;
-      let docTitle = isFolder ? "Thư mục Google Drive" : "Tài liệu Google Drive";
+      let docTitle = isFolder ? "Thu muc Google Drive" : "Tai lieu Google Drive";
+      const companyCode = req.user?.companyCode || "SYSTEM";
+      const syncedDocuments: Array<{ title: string; fileId: string; chars: number; chunksCount: number }> = [];
 
       if (docIds.length > 0) {
         console.log(`[AI AutoReply] Bắt đầu tải nội dung từ ${docIds.length} tài liệu...`);
         const filesContent = await Promise.all(
           docIds.map(async (fileId) => {
             const fileData = await fetchDriveFileContent(fileId);
-            if (fileData.text) {
-              return `--- BẮT ĐẦU TÀI LIỆU (${fileData.title}) ---\n${fileData.text}\n--- KẾT THÚC TÀI LIỆU (${fileData.title}) ---\n`;
-            }
-            return "";
+            return {
+              fileId,
+              title: fileData.title || `Drive File (${fileId})`,
+              text: normalizeDriveDocText(fileData.text || ""),
+            };
           })
         );
-        extractedText = filesContent.filter(Boolean).join("\n");
-        if (extractedText.trim().length > 0) {
+
+        const validFiles = filesContent.filter((file) => file.text.length > 0);
+        extractedText = validFiles
+          .map((file) => `--- BAT DAU TAI LIEU (${file.title}) ---\n${file.text}\n--- KET THUC TAI LIEU (${file.title}) ---`)
+          .join("\n\n");
+
+        if (validFiles.length > 0) {
           isMocked = false;
           docTitle = isFolder
-            ? `Thư mục Google Drive (ID: ${folderId}, ${docIds.length} files)`
-            : (docIds.length === 1 ? `Google Doc (ID: ${docIds[0]})` : `Bộ tài liệu Google Docs (${docIds.length} files)`);
+            ? `Thu muc Google Drive (ID: ${folderId}, ${validFiles.length} files)`
+            : (validFiles.length === 1 ? validFiles[0].title : `Bo tai lieu Google Drive (${validFiles.length} files)`);
           console.log(`[AI AutoReply] Đồng bộ thành công từ các links thật! Độ dài ký tự: ${extractedText.length}`);
+
+          for (const file of validFiles) {
+            const syncResult = await aiKnowledgeService.upsertKnowledgeFromText({
+              companyCode,
+              sourceType: "google_doc",
+              sourceTitle: file.title,
+              sourceUrl: `https://drive.google.com/open?id=${file.fileId}`,
+              text: file.text,
+              createdBy: req.user?.id,
+              channelScope: ["all"],
+            });
+
+            syncedDocuments.push({
+              title: file.title,
+              fileId: file.fileId,
+              chars: file.text.length,
+              chunksCount: syncResult.chunksCount,
+            });
+          }
         }
       }
 
@@ -672,28 +769,16 @@ export const geminiController = {
         });
       }
 
-      // Convert the extracted text (whether real or mocked) to a structured FAQ using Gemini
-      console.log(`[AI AutoReply] Đang tiến hành băm và chuyển đổi tài liệu thành dạng FAQs bằng Gemini...`);
-      const faqText = await geminiService.convertDocToFAQ(extractedText);
-      const companyCode = req.user?.companyCode || "SYSTEM";
-      const syncResult = await aiKnowledgeService.upsertKnowledgeFromText({
-        companyCode,
-        sourceType: "google_doc",
-        sourceTitle: docTitle,
-        sourceUrl: docLink,
-        text: faqText,
-        createdBy: req.user?.id,
-        channelScope: ["all"],
-      });
-
       await walletService.deductBalance(userId, API_COSTS.GEMINI_FAQ, `Chi phí đồng bộ Drive & FAQ AI (${docTitle})`);
       return res.status(200).json({
         status: "success",
         title: docTitle,
-        text: faqText,
+        text: extractedText,
         isMocked,
         companyCode,
-        chunksCount: syncResult.chunksCount
+        documentsCount: syncedDocuments.length,
+        chunksCount: syncedDocuments.reduce((sum, item) => sum + item.chunksCount, 0),
+        documents: syncedDocuments,
       });
     } catch (error: any) {
       console.error("[geminiController.syncGoogleDrive] Error:", error);

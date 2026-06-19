@@ -171,6 +171,64 @@ function extractSourceBrief(rawText: string): {
   };
 }
 
+type ChatIntent = "small_talk" | "company_faq" | "product_pricing_policy" | "out_of_scope";
+
+function normalizeIntentText(text: string) {
+  return String(text || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function detectChatIntent(message: string, history: any[] = []): ChatIntent {
+  const currentText = normalizeIntentText(message);
+  const recentHistoryText = history
+    .slice(-4)
+    .map((item) => normalizeIntentText(item?.text || ""))
+    .join(" ");
+  const combinedText = `${recentHistoryText} ${currentText}`.trim();
+
+  const smallTalkPatterns = [
+    /\b(xin chao|chao shop|chao ban|hello|hi|alo|ad oi|shop oi)\b/,
+    /\b(cam on|thank you|ok nha|ok em|vang|dạ|da roi)\b/,
+    /\b(tu van giup|minh can tu van|hoi ti|cho hoi)\b/,
+  ];
+  if (smallTalkPatterns.some((pattern) => pattern.test(currentText)) && currentText.length <= 120) {
+    return "small_talk";
+  }
+
+  const factualPatterns = [
+    /\b(gia|bao nhieu tien|bao nhieu|bang gia|bao gia|chi phi|phi ship|freeship|uu dai|khuyen mai)\b/,
+    /\b(bao hanh|doi tra|hoan tien|giao hang|van chuyen|thanh toan|thoi gian giao)\b/,
+    /\b(san pham|goi dich vu|goi|tinh nang|thong so|con hang|size|mau|chat lieu)\b/,
+    /\b(dia chi|hotline|so dien thoai|email|cong ty|thuong hieu|chi nhanh)\b/,
+  ];
+  if (factualPatterns.some((pattern) => pattern.test(combinedText))) {
+    return "product_pricing_policy";
+  }
+
+  const companyPatterns = [
+    /\b(ben minh lam gi|gioi thieu cong ty|cong ty ban gi|ve ben minh|thong tin cong ty)\b/,
+    /\b(quy trinh|faq|ho tro|cham soc khach hang|lien he)\b/,
+  ];
+  if (companyPatterns.some((pattern) => pattern.test(combinedText))) {
+    return "company_faq";
+  }
+
+  const outOfScopePatterns = [
+    /\b(boi bai|tu vi|xem ngay|xem menh|du doan so xo)\b/,
+    /\b(viet tho|ke chuyen cuoi|giai toan|lap trinh|code giup)\b/,
+    /\b(tin tuc the gioi|chinh tri|bong da hom nay|gia vang)\b/,
+  ];
+  if (outOfScopePatterns.some((pattern) => pattern.test(combinedText))) {
+    return "out_of_scope";
+  }
+
+  return "company_faq";
+}
+
 function buildFaithfulVisualGuardrail(input: {
   sourceBrief?: string;
   title?: string;
@@ -387,6 +445,8 @@ export const geminiService = {
       }
     }
 
+    const detectedIntent = detectChatIntent(message, history);
+    const shouldRequireStrictKnowledge = detectedIntent === "product_pricing_policy" || detectedIntent === "company_faq";
     const hasCompanyKnowledge = !!ragContext?.contextText;
     const assistantMode = hasCompanyKnowledge ? "COMPANY_TRAINED_MODE" : "DEFAULT_ASSISTANT_MODE";
 
@@ -406,8 +466,15 @@ ${aiConfig.advancedInstructions ? `- ${aiConfig.advancedInstructions}` : "- Khô
 
 Dữ liệu vận hành hiện tại:
 - Chế độ trả lời: ${assistantMode}
+- Nhóm ý định hội thoại hiện tại: ${detectedIntent}
 - COMPANY_TRAINED_MODE: đã có tài liệu/chính sách riêng của công ty, hãy bám sát tài liệu và nói theo chỉ dẫn doanh nghiệp.
 - DEFAULT_ASSISTANT_MODE: chưa có tài liệu riêng, vẫn trả lời khách mặc định một cách lịch sự, hỗ trợ hỏi thêm nhu cầu và chuyển nhân viên khi cần.
+
+QUY TẮC PHÂN LOẠI CÁCH TRẢ LỜI THEO Ý ĐỊNH:
+- small_talk: với lời chào, cảm ơn, hỏi xã giao, yêu cầu tư vấn chung, bạn được trả lời tự nhiên, lịch sự, thân thiện mà không cần bám cứng vào knowledge base.
+- company_faq: với câu hỏi về công ty, liên hệ, quy trình hỗ trợ, giới thiệu chung, hãy ưu tiên tri thức doanh nghiệp nếu có. Nếu thiếu dữ liệu, nói rõ chưa có đủ thông tin xác nhận.
+- product_pricing_policy: với câu hỏi về sản phẩm, giá, bảng giá, báo giá, giao hàng, bảo hành, đổi trả, hotline, địa chỉ, tính năng, bạn chỉ được trả lời theo tài liệu đã truy xuất.
+- out_of_scope: với câu hỏi ngoài phạm vi chăm sóc khách hàng/doanh nghiệp, hãy từ chối nhẹ nhàng và kéo khách quay lại nhu cầu liên quan đến doanh nghiệp.
 
 Dữ liệu tri thức đã truy xuất riêng cho doanh nghiệp "${companyName}":
 ${ragContext?.contextText ? ragContext.contextText : "- Không tìm thấy tri thức phù hợp trong kho dữ liệu."}
@@ -416,7 +483,16 @@ QUY TẮC AN TOÀN BẮT BUỘC ĐỂ TRÁNH BỊA ĐẶT THÔNG TIN (ANTI-HALLU
 1. Tuyệt đối KHÔNG tự bịa ra bất kỳ thông tin nào không có trong "Dữ liệu tri thức đã truy xuất riêng cho doanh nghiệp" ở trên (bao gồm cả giá cả, tính năng sản phẩm, chính sách bảo hành, số điện thoại, địa chỉ, ưu đãi...).
 2. Nếu khách hỏi thông tin cụ thể (ví dụ: giá sản phẩm, chính sách đổi trả, ship hàng, thông số sản phẩm...) mà KHÔNG có trong dữ liệu tri thức được cung cấp ở trên, bạn PHẢI trả lời lịch sự rằng hiện tại bạn chưa có thông tin chi tiết này và xin phép được chuyển cuộc trò chuyện cho nhân viên hỗ trợ giải đáp trực tiếp. KHÔNG được đoán hay tự bịa ra thông tin.
 3. KHÔNG nhắc đến "iGen ERP" hay bất kỳ thông tin nào của iGen ERP trừ khi tên doanh nghiệp của bạn chính là iGen ERP hoặc thông tin này nằm trong tài liệu tri thức.
-4. Trả lời ngắn gọn, trực diện, không dài dòng.
+4. Khi có nhiều tài liệu nguồn, hãy ưu tiên dùng đúng tài liệu khớp với câu hỏi của khách, ví dụ:
+- Câu hỏi về sản phẩm/tính năng: ưu tiên tài liệu sản phẩm, catalogue, mô tả dịch vụ.
+- Câu hỏi về giá/báo giá/ưu đãi: ưu tiên bảng giá, báo giá, chính sách bán hàng.
+- Câu hỏi về bảo hành/đổi trả/giao hàng/chăm sóc khách hàng: ưu tiên quy trình CSKH, chính sách vận hành, FAQ hỗ trợ.
+- Câu hỏi về doanh nghiệp/thương hiệu/liên hệ: ưu tiên tài liệu giới thiệu công ty, thông tin doanh nghiệp, hotline, địa chỉ.
+5. Nếu các nguồn có vẻ mâu thuẫn hoặc không đủ rõ ràng, hãy nói rằng bạn cần nhân viên xác nhận lại thông tin mới nhất. Không tự chọn một con số hay chính sách nếu chưa chắc.
+6. Khi trả lời thông tin quan trọng như giá, chính sách, mô tả sản phẩm, hotline, địa chỉ, hãy diễn đạt bám sát nguyên văn ý trong tài liệu nguồn, không sáng tạo thêm.
+7. Trả lời ngắn gọn, trực diện, không dài dòng.
+8. Nếu intent là out_of_scope, không trả lời sâu nội dung ngoài phạm vi. Hãy lịch sự nói bạn đang hỗ trợ thông tin về doanh nghiệp/sản phẩm/dịch vụ và mời khách đặt câu hỏi liên quan hơn.
+9. Nếu intent là product_pricing_policy hoặc company_faq mà chưa có context phù hợp, phải nói chưa đủ dữ liệu để xác nhận và đề nghị nhân viên hỗ trợ tiếp.
 
 Thông tin cấu hình hiện tại của bạn:
 - Tự động phân loại khách hàng: ${aiConfig.autoClassify ? "Đang BẬT. Hãy phân loại khách dựa trên xu hướng hội thoại và thông báo khéo léo." : "Đang TẮT"}
@@ -436,12 +512,31 @@ Thông tin cấu hình hiện tại của bạn:
 
     try {
       const selectedModel = aiConfig?.model || GEMINI_TEXT_MODEL;
+      const fallbackNoKnowledgeReply =
+        shouldRequireStrictKnowledge && !hasCompanyKnowledge
+          ? `Dạ, hiện tại em chưa có đủ dữ liệu xác nhận chính xác thông tin này từ tài liệu nội bộ của ${companyName}. Em xin phép chuyển nhân viên hỗ trợ để tư vấn đúng và đầy đủ hơn ạ.`
+          : null;
+
+      if (detectedIntent === "out_of_scope") {
+        return {
+          text: `Dạ, em đang hỗ trợ thông tin về sản phẩm, dịch vụ và chính sách của ${companyName}. Anh/chị cứ gửi giúp em câu hỏi liên quan đến doanh nghiệp để em hỗ trợ đúng hơn ạ.`,
+          isMock: false,
+        };
+      }
+
+      if (fallbackNoKnowledgeReply) {
+        return {
+          text: fallbackNoKnowledgeReply,
+          isMock: false,
+        };
+      }
+
       const response = await generateText(
         selectedModel,
         contents,
         {
           systemInstruction,
-          temperature: 0.8,
+          temperature: detectedIntent === "small_talk" ? 0.75 : 0.35,
         }
       );
 
