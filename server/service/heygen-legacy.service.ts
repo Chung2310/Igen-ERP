@@ -9,6 +9,24 @@ import {
 
 const HEYGEN_API_BASE = "https://api.heygen.com";
 
+function getHeyGenWebhookUrl() {
+  const baseUrl = String(process.env.APP_URL || "").trim();
+  if (!baseUrl) {
+    return "";
+  }
+
+  try {
+    const webhookUrl = new URL("/api/v1/heygen/webhook", baseUrl);
+    const secret = String(process.env.HEYGEN_WEBHOOK_SECRET || "").trim();
+    if (secret) {
+      webhookUrl.searchParams.set("token", secret);
+    }
+    return webhookUrl.toString();
+  } catch {
+    return "";
+  }
+}
+
 export const heygenLegacyService = {
   async generateLegacyVideo(userId: string, input: CreateAvatarVideoInput) {
     const accessContext = await getHeyGenAccessContext(userId);
@@ -41,7 +59,7 @@ export const heygenLegacyService = {
       height = 720;
     }
 
-    const requestBody = {
+    const requestBody: Record<string, any> = {
       video_inputs: [
         {
           character: {
@@ -61,6 +79,11 @@ export const heygenLegacyService = {
         height,
       },
     };
+
+    const webhookUrl = getHeyGenWebhookUrl();
+    if (webhookUrl) {
+      requestBody.callback_url = webhookUrl;
+    }
 
     const response = await fetch(`${HEYGEN_API_BASE}/v2/video/generate`, {
       method: "POST",
