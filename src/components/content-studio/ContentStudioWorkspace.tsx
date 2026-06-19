@@ -14,6 +14,7 @@ interface ContentStudioWorkspaceProps {
     videoSubTab?: 'veo' | 'heygen' | 'edit-video';
     title?: string;
     description?: string;
+    engineType?: string;
   } | null;
   onClearParams?: () => void;
   onMediaSaved?: (cardId: string, mediaUrl: string, type: 'image' | 'video' | 'audio') => void;
@@ -97,6 +98,7 @@ export function ContentStudioWorkspace({ initialParams, onClearParams, onMediaSa
             initialVideoTab={videoSubTab}
             initialImage={initialParams?.image}
             autoTrigger={initialParams?.autoTrigger}
+            engineType={initialParams?.engineType}
           />
         )}
         {activeTab === 'voice' && (

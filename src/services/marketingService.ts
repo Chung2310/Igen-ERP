@@ -516,6 +516,8 @@ export const marketingService = {
       avatarId?: string;
       voiceId?: string;
       voiceModel?: string;
+      engineType?: string;
+      inputText?: string;
       aspectRatio?: "16:9" | "9:16" | "1:1";
       quality?: string;
       onProgressUpdate?: (status: string) => void;
@@ -526,44 +528,58 @@ export const marketingService = {
       throw new Error("Không tìm thấy bài đăng.");
     }
 
-    const voiceScript = getHumanVideoScript(card);
+    const engineType = options?.engineType || card.engineType || "avatar_iv";
+    const isAvatarThree = engineType === "avatar_iii";
+    const voiceScript = options?.inputText || card.inputText || getHumanVideoScript(card);
     const motionText = String(card.motionText || "").trim();
 
-    let avatarId = options?.avatarId || "mc-linh";
-    let voiceId = options?.voiceId || "igen-female-bright";
+    let avatarId = options?.avatarId || card.avatarId || "mc-linh";
+    let voiceId = options?.voiceId || card.voiceId || (isAvatarThree ? "0e7e1377232f4544876e37c503cc083f" : "igen-female-bright");
     let voiceModel = options?.voiceModel || "eleven_turbo_v2_5";
     const aspectRatio = options?.aspectRatio || (card.channel === "TikTok" ? "9:16" : "16:9");
     const quality = options?.quality || "720p";
     const onProgressUpdate = options?.onProgressUpdate;
 
-    if (onProgressUpdate) {
-      onProgressUpdate("Đang tạo giọng nói Tiếng Việt...");
-    }
+    let audioRecordId: string | undefined = undefined;
+    let audioUrl: string | undefined = undefined;
 
-    const voiceResult = await elevenlabsApi.generateVoice({
-      textToSpeak: voiceScript,
-      mode: "single",
-      modelName: voiceModel,
-      voiceName: voiceId,
-      title: card.title,
-      description: card.motionText || `Voice auto cho ${card.channel}`,
-      saveToHistory: true
-    });
+    if (isAvatarThree) {
+      if (onProgressUpdate) {
+        onProgressUpdate("Đang gửi yêu cầu tạo video trực tiếp bằng văn bản sang HeyGen...");
+      }
+    } else {
+      if (onProgressUpdate) {
+        onProgressUpdate("Đang tạo giọng nói Tiếng Việt...");
+      }
 
-    const audioRecordId = voiceResult.record?._id || voiceResult.record?.id;
-    const audioUrl = voiceResult.record?.url || voiceResult.url;
-    if (!audioUrl) {
-      throw new Error("Không nhận được audio từ ElevenLabs để tạo video người thật.");
-    }
+      const voiceResult = await elevenlabsApi.generateVoice({
+        textToSpeak: voiceScript,
+        mode: "single",
+        modelName: voiceModel,
+        voiceName: voiceId,
+        title: card.title,
+        description: card.motionText || `Voice auto cho ${card.channel}`,
+        saveToHistory: true
+      });
 
-    if (onProgressUpdate) {
-      onProgressUpdate("Đang gửi audio sang HeyGen...");
+      audioRecordId = voiceResult.record?._id || voiceResult.record?.id;
+      audioUrl = voiceResult.record?.url || voiceResult.url;
+      if (!audioUrl) {
+        throw new Error("Không nhận được audio từ ElevenLabs để tạo video người thật.");
+      }
+
+      if (onProgressUpdate) {
+        onProgressUpdate("Đang gửi audio sang HeyGen...");
+      }
     }
 
     const heygenCreated = await heygenApi.createAvatarVideo({
       avatarId,
       audioRecordId,
       audioUrl,
+      inputText: isAvatarThree ? voiceScript : undefined,
+      engineType,
+      voiceId: isAvatarThree ? voiceId : undefined,
       motionText,
       aspectRatio,
       resolution: quality === "1080p" ? "1080p" : "720p",
@@ -584,6 +600,9 @@ export const marketingService = {
       avatarId,
       audioRecordId,
       audioUrl,
+      inputText: isAvatarThree ? voiceScript : undefined,
+      engineType,
+      voiceId: isAvatarThree ? voiceId : undefined,
       motionText,
       aspectRatio,
       title: card.title,
@@ -610,6 +629,10 @@ export const marketingService = {
       audioUrl: finalAudioUrl,
       audioRecordId,
       videoProvider: resolvedVideo.provider,
+      engineType,
+      avatarId,
+      voiceId,
+      inputText: isAvatarThree ? voiceScript : undefined
     };
 
     await this.updateCard(card.id, updatePayload);

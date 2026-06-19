@@ -30,6 +30,10 @@ const MarketingContentSchema = new Schema<IMarketingContent>(
     integrationId: { type: Schema.Types.ObjectId, ref: "SocialIntegration", index: true },
     referenceImage: { type: String },
     mediaType: { type: String, enum: ["image", "video", "human-video"] },
+    engineType: { type: String },
+    avatarId: { type: String },
+    voiceId: { type: String },
+    inputText: { type: String },
   },
   { timestamps: false }
 );

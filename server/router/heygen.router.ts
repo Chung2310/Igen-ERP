@@ -13,6 +13,7 @@ const createAvatarVideoSchema = {
     audioUrl: Joi.string().uri().allow("").optional(),
     audioRecordId: Joi.string().allow("").optional(),
     motionText: Joi.string().allow("").optional(),
+    inputText: Joi.string().allow("").optional(),
     aspectRatio: Joi.string().valid("16:9", "9:16", "1:1").optional(),
     resolution: Joi.string().valid("720p", "1080p", "4k").optional(),
     engineType: Joi.string().valid("avatar_v", "avatar_iv", "avatar_iii").optional(),
@@ -20,6 +21,12 @@ const createAvatarVideoSchema = {
     description: Joi.string().allow("").optional(),
     enableCaption: Joi.boolean().optional(),
   }).custom((value, helpers) => {
+    if (value.engineType === "avatar_iii") {
+      if (!String(value.inputText || "").trim()) {
+        return helpers.message({ custom: '"inputText" is required for avatar_iii engine' });
+      }
+      return value;
+    }
     const hasAudio = Boolean(String(value.audioUrl || "").trim()) || Boolean(String(value.audioRecordId || "").trim());
     if (!hasAudio) {
       return helpers.error("any.invalid");

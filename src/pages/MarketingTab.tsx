@@ -50,6 +50,7 @@ export default function MarketingTab() {
     videoSubTab?: 'veo' | 'heygen' | 'edit-video';
     title?: string;
     description?: string;
+    engineType?: string;
   } | null>(null);
 
   // Lightbox Preview States
@@ -327,6 +328,23 @@ export default function MarketingTab() {
     );
 
     if (isHumanVideo) {
+      const isAvatarThree = card.engineType === 'avatar_iii';
+      if (isAvatarThree) {
+        setContentStudioParams({
+          tab: 'video',
+          videoSubTab: 'heygen',
+          prompt: voiceScript,
+          cardId: card.id,
+          image: card.referenceImage,
+          autoTrigger: false,
+          title: voiceTitle,
+          description: voiceDescription,
+          engineType: card.engineType,
+        });
+        setSubTab(CONTENT_STUDIO_SUB_TAB);
+        return;
+      }
+
       void marketingService.updateCard(card.id, {
         voiceScript,
         voiceTitle,

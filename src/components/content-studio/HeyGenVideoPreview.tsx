@@ -2,10 +2,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, DragEvent, PointerEvent } from "react";
 import { Pause, Play, Plus, Volume2 } from "lucide-react";
 import { HEYGEN_THEME } from "./heygenTheme";
+import { HeyGenLegacyScriptInput } from "./HeyGenLegacyScriptInput";
 
 interface HeyGenVideoPreviewProps {
   selectedAvatar?: any;
   script: string;
+  onScriptChange?: (val: string) => void;
+  selectedAvatarModel?: string;
   enableCaption: boolean;
   setEnableCaption: (value: boolean) => void;
   captionPreset?: "brand" | "clean" | "outline" | "highlight";
@@ -29,6 +32,8 @@ const CAPTION_BREAK_PATTERN = /[,.!?;:]\s+/;
 export function HeyGenVideoPreview({
   selectedAvatar,
   script,
+  onScriptChange,
+  selectedAvatarModel,
   enableCaption,
   setEnableCaption,
   captionPreset = "brand",
@@ -276,6 +281,10 @@ export function HeyGenVideoPreview({
           </div>
         </div>
       </div>
+      
+      {selectedAvatarModel === "Avatar III" ? (
+        <HeyGenLegacyScriptInput value={script} onChange={onScriptChange || (() => {})} />
+      ) : null}
 
       <div className={`space-y-2 border-t ${HEYGEN_THEME.border} ${HEYGEN_THEME.surfaceMuted} p-3`}>
         <h4 className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Các phân cảnh</h4>

@@ -13,6 +13,7 @@ export const HEYGEN_THEME = {
 export const HEYGEN_MODEL_OPTIONS = [
   { id: "Avatar V", description: "Chuyển động tự nhiên theo nội dung.", icon: "V", engineType: "avatar_v" as const },
   { id: "Avatar IV", description: "Chuyển động tiêu chuẩn, dễ dùng.", icon: "IV", engineType: "avatar_iv" as const },
+  { id: "Avatar III", description: "Sử dụng API v2 và giọng đọc HeyGen.", icon: "III", engineType: "avatar_iii" as const },
 ] as const;
 
 export const HEYGEN_CAPTION_STYLES = [

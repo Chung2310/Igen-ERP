@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { ChevronDown, ChevronRight, Grip, LoaderCircle, Plus, SlidersHorizontal, Trash2, Tv, Volume2, X } from "lucide-react";
 import { type HeyGenTab } from "./HeyGenVerticalToolbar";
 import { HEYGEN_CAPTION_FONTS, HEYGEN_CAPTION_STYLES, HEYGEN_THEME } from "./heygenTheme";
+import { HeyGenLegacyVoiceOption } from "./HeyGenLegacyVoiceOption";
 
 interface HeyGenOptionsDrawerProps {
   activeTab: HeyGenTab;
@@ -14,6 +15,7 @@ interface HeyGenOptionsDrawerProps {
   onOpenModelPicker: () => void;
   selectedAvatarModel: string;
   selectedAvatarModelDescription?: string;
+  selectedHeyGenVoice?: any;
   avatarBackground: "customize" | "remove" | "color";
   setAvatarBackground: (bg: "customize" | "remove" | "color") => void;
   avatarLayout: "original" | "circle";
@@ -50,6 +52,7 @@ export function HeyGenOptionsDrawer(props: HeyGenOptionsDrawerProps) {
     onOpenModelPicker,
     selectedAvatarModel,
     selectedAvatarModelDescription,
+    selectedHeyGenVoice,
     avatarBackground,
     setAvatarBackground,
     avatarLayout,
@@ -104,18 +107,25 @@ export function HeyGenOptionsDrawer(props: HeyGenOptionsDrawerProps) {
               <ChevronRight className="h-4 w-4 text-slate-400" />
             </OptionCard>
 
-            <OptionCard onClick={onOpenVoicePicker}>
-              <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-50 text-cyan-600">
-                  <Volume2 className="h-5 w-5" />
+            {selectedAvatarModel === "Avatar III" ? (
+              <HeyGenLegacyVoiceOption
+                selectedVoiceName={selectedHeyGenVoice?.name}
+                selectedVoiceLanguage={selectedHeyGenVoice?.language || selectedHeyGenVoice?.accent}
+                onClick={onOpenVoicePicker}
+              />
+            ) : (
+              <OptionCard onClick={onOpenVoicePicker}>
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-50 text-cyan-600">
+                    <Volume2 className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-slate-900">{selectedAudio?.metadata?.title || selectedAudio?.metadata?.voiceName || "Đổi giọng nói"}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-bold text-slate-900">{selectedAudio?.metadata?.title || selectedAudio?.metadata?.voiceName || "Đổi giọng nói"}</p>
-                
-                </div>
-              </div>
-              <ChevronRight className="h-4 w-4 text-slate-400" />
-            </OptionCard>
+                <ChevronRight className="h-4 w-4 text-slate-400" />
+              </OptionCard>
+            )}
 
             <div className="space-y-2">
               <p className="text-sm font-bold text-slate-900">Model tạo Video</p>
