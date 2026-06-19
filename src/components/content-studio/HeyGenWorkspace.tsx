@@ -29,6 +29,11 @@ const TERMINAL_JOB_STATES = new Set(["completed", "failed", "error", "canceled"]
 const HISTORY_PAGE_SIZE = 6;
 const HEYGEN_FALLBACK_POLL_DELAYS = [8000, 20000] as const;
 
+function isPlayableVideoUrl(url?: string | null) {
+  const value = String(url || "").trim();
+  return value.startsWith("http://") || value.startsWith("https://");
+}
+
 export function translateJobStatus(status: string): string {
   const s = String(status || "").toLowerCase().trim();
   switch (s) {
@@ -479,7 +484,7 @@ export function HeyGenWorkspace({
 
   function handleEditRecent(item: any) {
     const editUrl = String(item?.url || item?.captionedVideoUrl || item?.videoPageUrl || "").trim();
-    if (!editUrl || !editUrl.startsWith("http")) {
+    if (!isPlayableVideoUrl(editUrl)) {
       setErrorMessage("Video này chưa sẵn sàng để đưa sang chỉnh sửa Video.");
       return;
     }
@@ -503,7 +508,7 @@ export function HeyGenWorkspace({
 
   const handleDownloadVideo = async (item: any) => {
     const downloadUrl = item.url || item.captionedVideoUrl || item.videoPageUrl || "";
-    if (!downloadUrl || !downloadUrl.startsWith("http")) return;
+    if (!isPlayableVideoUrl(downloadUrl)) return;
     toast.info("Đang tải xuống video...");
     try {
       const response = await fetch(downloadUrl);
@@ -657,7 +662,7 @@ export function HeyGenWorkspace({
                 const renderName = `Render ${history.length - index}`;
                 const aspectRatio = item.metadata?.aspectRatio || "16:9";
                 const videoUrl = item.url || item.captionedVideoUrl || item.videoPageUrl || "";
-                const hasVideoUrl = videoUrl.startsWith("http") && !videoUrl.startsWith("pending://");
+                const hasVideoUrl = isPlayableVideoUrl(videoUrl);
 
                 return (
                   <div
@@ -689,7 +694,6 @@ export function HeyGenWorkspace({
                             src={videoUrl}
                             preload="metadata"
                             playsInline
-                            crossOrigin="anonymous"
                             className="absolute inset-0 h-full w-full object-cover bg-transparent"
                           />
                         ) : (
@@ -780,13 +784,12 @@ export function HeyGenWorkspace({
 
             {/* Left Column: Video Player */}
             <div className="flex-1 rounded-[24px] bg-slate-50 overflow-hidden flex items-center justify-center md:h-[440px] w-full relative border border-slate-100">
-              {String(previewItem.status || "").toLowerCase() === "completed" ? (
+              {String(previewItem.status || "").toLowerCase() === "completed" && isPlayableVideoUrl(previewItem.url || previewItem.captionedVideoUrl || previewItem.videoPageUrl) ? (
                 <video
                   src={previewItem.url || previewItem.captionedVideoUrl || previewItem.videoPageUrl || ""}
                   controls
                   autoPlay
                   playsInline
-                  crossOrigin="anonymous"
                   className="max-h-full max-w-full object-contain"
                 />
               ) : (
