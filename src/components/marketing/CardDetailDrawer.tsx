@@ -14,7 +14,7 @@ import {
   ZoomIn
 } from "lucide-react";
 import { ContentApprovalCard } from "../../types";
-import { formatCardDate } from "./CardWidgets";
+import { formatCardDate, isRenderableVideoUrl } from "./CardWidgets";
 import { marketingService } from "../../services/marketingService";
 import { toast } from "../../pages/Toast";
 
@@ -92,6 +92,7 @@ export default function CardDetailDrawer({
     editedBodyText !== (card.bodyText || "") ||
     editedOutline !== (card.outline || "")
   );
+  const canRenderVideo = isRenderableVideoUrl(card.videoUrl);
 
   const handleCancelEdit = () => {
     setEditedTitle(card.title || "");
@@ -209,7 +210,7 @@ export default function CardDetailDrawer({
               </div>
             )}
 
-            {card.videoUrl && (
+            {canRenderVideo && (
               <div 
                 onClick={() => onPreviewMedia('video', card.videoUrl!)}
                 className="relative cursor-pointer overflow-hidden rounded-xl aspect-video w-full border border-gray-150 shadow-xs hover:scale-[1.01] transition-transform bg-slate-900 flex items-center justify-center"

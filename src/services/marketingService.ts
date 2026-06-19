@@ -4,6 +4,37 @@ import { geminiApi } from "../api/gemini";
 import { elevenlabsApi } from "../api/elevenlabs";
 import { heygenApi } from "../api/heygen";
 
+const DEMO_VIDEO_URL_PATTERNS = [
+  "w3schools.com/html/mov_bbb.mp4",
+  "example.com/video.mp4",
+  "example.com/videos/"
+];
+
+function stripDemoVideoUrl(videoUrl?: string | null): string | null {
+  const value = String(videoUrl || "").trim();
+  if (!value) return null;
+  const normalized = value.toLowerCase();
+  return DEMO_VIDEO_URL_PATTERNS.some((pattern) => normalized.includes(pattern)) ? null : value;
+}
+
+function normalizeMarketingCard(item: any): ContentApprovalCard {
+  return {
+    ...item,
+    id: item._id || item.id,
+    videoUrl: stripDemoVideoUrl(item.videoUrl),
+  };
+}
+
+function sanitizeMarketingPayload<T extends Record<string, any>>(payload: T): T {
+  if (!Object.prototype.hasOwnProperty.call(payload, "videoUrl")) {
+    return payload;
+  }
+  return {
+    ...payload,
+    videoUrl: stripDemoVideoUrl(payload.videoUrl),
+  };
+}
+
 export const marketingService = {
   async getCards(authorUid?: string): Promise<ContentApprovalCard[]> {
     let url = "/api/v1/crud/marketing-contents";
@@ -19,10 +50,7 @@ export const marketingService = {
       throw new Error("Không thể tải danh sách bài viết duyệt.");
     }
     const json = await res.json();
-    return (json.data || []).map((item: any) => ({
-      ...item,
-      id: item._id, // map MongoDB _id to id
-    }));
+    return (json.data || []).map(normalizeMarketingCard);
   },
 
   subscribeToContents(
@@ -217,7 +245,7 @@ export const marketingService = {
   },
 
   async saveCard(card: ContentApprovalCard): Promise<ContentApprovalCard> {
-    const { id, ...postBody } = card;
+    const { id, ...postBody } = sanitizeMarketingPayload(card);
     const res = await fetch("/api/v1/crud/marketing-contents", {
       method: "POST",
       headers: {
@@ -230,16 +258,13 @@ export const marketingService = {
       throw new Error("Không thể lưu bài đăng.");
     }
     const json = await res.json();
-    return {
-      ...json.data,
-      id: json.data._id,
-    };
+    return normalizeMarketingCard(json.data);
   },
 
   async saveCards(cards: ContentApprovalCard[]): Promise<ContentApprovalCard[]> {
     const savedCards = await Promise.all(
       cards.map(async (card) => {
-        const { id, ...postBody } = card;
+        const { id, ...postBody } = sanitizeMarketingPayload(card);
         const res = await fetch("/api/v1/crud/marketing-contents", {
           method: "POST",
           headers: {
@@ -252,10 +277,7 @@ export const marketingService = {
           throw new Error("Không thể lưu bài đăng.");
         }
         const json = await res.json();
-        return {
-          ...json.data,
-          id: json.data._id,
-        };
+        return normalizeMarketingCard(json.data);
       })
     );
     return savedCards;
@@ -268,7 +290,7 @@ export const marketingService = {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${getAccessToken()}`,
       },
-      body: JSON.stringify(card),
+      body: JSON.stringify(sanitizeMarketingPayload(card)),
     });
     if (!res.ok) {
       throw new Error("Không thể cập nhật bài đăng.");
@@ -285,10 +307,7 @@ export const marketingService = {
       throw new Error("Không tìm thấy thông tin bài đăng.");
     }
     const json = await res.json();
-    return {
-      ...json.data,
-      id: json.data._id
-    };
+    return normalizeMarketingCard(json.data);
   },
 
   async publishToFacebook(

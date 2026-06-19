@@ -12,6 +12,40 @@ import { SocialIntegrationModel } from "../model/social-integration.model";
 import { SupportedModelName, ICRUDQueryOptions } from "../interface/crud.interface";
 import mongoose from "mongoose";
 
+const DEMO_VIDEO_URL_PATTERNS = [
+  "w3schools.com/html/mov_bbb.mp4",
+  "example.com/video.mp4",
+  "example.com/videos/"
+];
+
+function stripDemoVideoUrl(videoUrl?: string | null) {
+  const value = String(videoUrl || "").trim();
+  if (!value) return videoUrl;
+  const normalized = value.toLowerCase();
+  return DEMO_VIDEO_URL_PATTERNS.some((pattern) => normalized.includes(pattern)) ? "" : videoUrl;
+}
+
+function sanitizeMarketingPayload(modelName: string, payload: any) {
+  if (modelName !== "marketing-contents" || !payload || typeof payload !== "object") {
+    return payload;
+  }
+  if (!Object.prototype.hasOwnProperty.call(payload, "videoUrl")) {
+    return payload;
+  }
+  return {
+    ...payload,
+    videoUrl: stripDemoVideoUrl(payload.videoUrl),
+  };
+}
+
+function sanitizeMarketingResult(modelName: string, item: any) {
+  if (modelName !== "marketing-contents" || !item) {
+    return item;
+  }
+  const plainItem = typeof item.toObject === "function" ? item.toObject() : item;
+  return sanitizeMarketingPayload(modelName, plainItem);
+}
+
 async function handlePendingVideoUrl(item: any, modelName: string) {
   if (modelName === "marketing-contents" && item && item.videoUrl && item.videoUrl.startsWith("pending://piapi/")) {
     const taskId = item.videoUrl.replace("pending://piapi/", "");
@@ -108,7 +142,7 @@ export const crudService = {
     const total = await model.countDocuments(query);
 
     return {
-      items,
+      items: items.map((item) => sanitizeMarketingResult(modelName, item)),
       total,
       page,
       limit,
@@ -138,7 +172,7 @@ export const crudService = {
     if (!item) {
       throw new Error("Không tìm thấy tài nguyên hoặc bạn không có quyền truy cập.");
     }
-    return item;
+    return sanitizeMarketingResult(modelName, item);
   },
 
   /**
@@ -155,10 +189,10 @@ export const crudService = {
     }
 
     // Ép buộc gán companyCode để bảo mật dữ liệu doanh nghiệp
-    const payload = {
+    const payload = sanitizeMarketingPayload(modelName, {
       ...data,
       companyCode,
-    };
+    });
 
     const newItem = new model(payload);
     await newItem.save();
@@ -167,7 +201,7 @@ export const crudService = {
       console.error("[crudService.create] error in handlePendingVideoUrl:", err);
     });
 
-    return newItem;
+    return sanitizeMarketingResult(modelName, newItem);
   },
 
   /**
@@ -191,7 +225,8 @@ export const crudService = {
     }
 
     // Loại bỏ các trường nhạy cảm không cho phép đè trực tiếp
-    const { companyCode: _cCode, _id: _itemId, id: _plainId, ...updatePayload } = data;
+    const { companyCode: _cCode, _id: _itemId, id: _plainId, ...rawUpdatePayload } = data;
+    const updatePayload = sanitizeMarketingPayload(modelName, rawUpdatePayload);
 
     const updatedItem = await model.findOneAndUpdate(query, updatePayload, { new: true });
     if (!updatedItem) {
@@ -202,7 +237,7 @@ export const crudService = {
       console.error("[crudService.update] error in handlePendingVideoUrl:", err);
     });
 
-    return updatedItem;
+    return sanitizeMarketingResult(modelName, updatedItem);
   },
 
   /**

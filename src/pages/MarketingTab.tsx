@@ -13,6 +13,7 @@ import { parseFirebaseError } from "../utils/firebaseErrorParser";
 import { socialIntegrationService, SocialIntegration } from "../services/socialIntegrationService";
 import { useSubTabRouter } from "../hooks/useSubTabRouter";
 import { estimateAudioDuration } from "../utils/usage-tracker";
+import { isRenderableVideoUrl } from "../components/marketing/CardWidgets";
 
 // Lazy-loaded subcomponents
 const IdeationTab = lazy(() => import("../components/marketing/IdeationTab"));
@@ -193,6 +194,10 @@ export default function MarketingTab() {
   };
 
   const handleOpenLightbox = (card: ContentApprovalCard, type: 'image' | 'video', url: string) => {
+    if (type === "video" && !isRenderableVideoUrl(url)) {
+      toast.info("Video đang xử lý, chưa có URL phát hợp lệ.");
+      return;
+    }
     setActiveLightboxCard(card);
     setActiveLightboxType(type);
     setActiveLightboxUrl(url);
@@ -483,7 +488,7 @@ export default function MarketingTab() {
       </div>
 
       {/* Glassmorphic Lightbox Preview modal */}
-      {activeLightboxCard && activeLightboxUrl && (
+      {activeLightboxCard && activeLightboxUrl && (activeLightboxType !== "video" || isRenderableVideoUrl(activeLightboxUrl)) && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fadeIn">
           <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-3xl shadow-2xl w-full max-w-4xl overflow-hidden text-left flex flex-col md:flex-row max-h-[85vh]">
 
