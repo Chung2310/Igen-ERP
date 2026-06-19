@@ -301,6 +301,14 @@ export async function upsertVideoRecord(userId: string, payload: {
   subtitleUrl?: string;
   thumbnailUrl?: string;
 }) {
+  console.log("[heygenService.upsertVideoRecord] Upserting:", {
+    userId,
+    videoId: payload.videoId,
+    status: payload.status,
+    hasVideoUrl: Boolean(payload.videoUrl),
+    hasCaptionedVideoUrl: Boolean(payload.captionedVideoUrl),
+    title: payload.title,
+  });
   const existing = await AIMediaModel.findOne({
     userId,
     mediaType: "video",
@@ -350,7 +358,13 @@ function normalizeStatusPayload(data: any) {
   const root = data?.data || data;
   const captionedVideoUrl = root?.captioned_video_url || root?.video_url_with_caption || "";
   const subtitleUrl = root?.subtitle_url || "";
-  const videoUrl = root?.video_url || root?.url || captionedVideoUrl || root?.download_url || "";
+  const videoUrl =
+    root?.video_url ||
+    root?.url ||
+    captionedVideoUrl ||
+    root?.download_url ||
+    root?.video_page_url ||
+    "";
   const error = root?.failure_message || root?.error?.message || root?.error || "";
   return {
     jobStatus: root?.status || root?.video_status || root?.state || (error ? "failed" : videoUrl ? "completed" : "processing"),
@@ -365,6 +379,7 @@ function normalizeStatusPayload(data: any) {
 
 function normalizeWebhookPayload(payload: HeyGenWebhookPayload) {
   const root = payload?.data || payload?.video || payload;
+  const eventType = String(payload?.event_type || payload?.event || payload?.type || "video.updated").trim();
   const videoId = String(
     root?.video_id ||
     root?.id ||
@@ -374,12 +389,26 @@ function normalizeWebhookPayload(payload: HeyGenWebhookPayload) {
     ""
   ).trim();
   const normalized = normalizeStatusPayload(payload);
+  const eventTypeLower = eventType.toLowerCase();
+  const inferredJobStatus =
+    (eventTypeLower.includes("fail") || eventTypeLower.includes("error") ? "failed" : "") ||
+    (eventTypeLower.includes("complete") || eventTypeLower.includes("success") || eventTypeLower.includes("finish") ? "completed" : "") ||
+    normalized.jobStatus ||
+    "processing";
+  const normalizedJobStatus = String(inferredJobStatus).toLowerCase() === "success" ? "completed" : inferredJobStatus;
+  const resolvedVideoUrl =
+    normalized.videoUrl ||
+    root?.video_page_url ||
+    root?.share_url ||
+    root?.download_url ||
+    root?.captioned_video_url ||
+    "";
 
   return {
-    eventType: String(payload?.event_type || payload?.event || payload?.type || "video.updated"),
+    eventType,
     videoId,
-    jobStatus: normalized.jobStatus,
-    videoUrl: normalized.videoUrl,
+    jobStatus: normalizedJobStatus,
+    videoUrl: resolvedVideoUrl,
     captionedVideoUrl: normalized.captionedVideoUrl,
     subtitleUrl: normalized.subtitleUrl,
     thumbnailUrl: normalized.thumbnailUrl,
@@ -653,6 +682,14 @@ export const heygenService = {
       }
     }
     const normalized = normalizeStatusPayload(data);
+    console.log("[heygenService.getVideoStatus] Normalized status:", {
+      userId,
+      videoId,
+      jobStatus: normalized.jobStatus,
+      hasVideoUrl: Boolean(normalized.videoUrl),
+      hasThumbnailUrl: Boolean(normalized.thumbnailUrl),
+      error: normalized.error || "",
+    });
 
     const record = await upsertVideoRecord(userId, {
       videoId,
@@ -762,36 +799,86 @@ export const heygenService = {
 
   async processWebhook(payload: HeyGenWebhookPayload) {
     const normalized = normalizeWebhookPayload(payload);
+    console.log("[heygenService.processWebhook] Normalized payload:", {
+      videoId: normalized.videoId,
+      eventType: normalized.eventType,
+      jobStatus: normalized.jobStatus,
+      hasVideoUrl: Boolean(normalized.videoUrl),
+      hasCaptionedVideoUrl: Boolean(normalized.captionedVideoUrl),
+      hasThumbnailUrl: Boolean(normalized.thumbnailUrl),
+      error: normalized.error || "",
+    });
 
     if (!normalized.videoId) {
       throw new HeyGenApiError("Webhook HeyGen không có video_id.", 400, payload);
     }
 
+    let resolvedNormalized = normalized;
+    const normalizedStatus = String(normalized.jobStatus || "").toLowerCase();
+    const needsStatusRefetch =
+      (normalizedStatus === "completed" || normalizedStatus === "success") &&
+      !String(normalized.videoUrl || "").trim();
+
+    if (needsStatusRefetch) {
+      try {
+        const recordForLookup = await AIMediaModel.findOne({
+          mediaType: "video",
+          "metadata.heygenVideoId": normalized.videoId,
+        }).lean();
+
+        const userId = String(recordForLookup?.userId || "").trim();
+        if (userId) {
+          const accessContext = await getHeyGenAccessContext(userId);
+          let data: any = null;
+          try {
+            data = await requestHeyGenJson(`/v3/videos/${encodeURIComponent(normalized.videoId)}`, undefined, accessContext.apiKey);
+          } catch {
+            data = await heygenLegacyService.getLegacyStatus(
+              normalized.videoId,
+              accessContext.apiKey || process.env.HEYGEN_API_KEY?.trim() || ""
+            );
+          }
+          const statusNormalized = normalizeStatusPayload(data);
+          resolvedNormalized = {
+            ...normalized,
+            jobStatus: statusNormalized.jobStatus || normalized.jobStatus,
+            videoUrl: statusNormalized.videoUrl || normalized.videoUrl,
+            captionedVideoUrl: statusNormalized.captionedVideoUrl || normalized.captionedVideoUrl,
+            subtitleUrl: statusNormalized.subtitleUrl || normalized.subtitleUrl,
+            thumbnailUrl: statusNormalized.thumbnailUrl || normalized.thumbnailUrl,
+            error: statusNormalized.error || normalized.error,
+          };
+        }
+      } catch (error) {
+        console.error("[heygenService.processWebhook] Fallback status refetch failed:", error);
+      }
+    }
+
     const records = await AIMediaModel.find({
       mediaType: "video",
-      "metadata.heygenVideoId": normalized.videoId,
+      "metadata.heygenVideoId": resolvedNormalized.videoId,
     });
 
     if (records.length === 0) {
       return {
         status: "ignored",
         reason: "video_not_found",
-        videoId: normalized.videoId,
-        eventType: normalized.eventType,
+        videoId: resolvedNormalized.videoId,
+        eventType: resolvedNormalized.eventType,
       };
     }
 
     const updates = await Promise.all(records.map(async (record) => {
-      record.url = normalized.videoUrl || record.url || `pending://heygen/${normalized.videoId}`;
+      record.url = resolvedNormalized.videoUrl || record.url || `pending://heygen/${resolvedNormalized.videoId}`;
       record.metadata = {
         ...record.metadata,
-        status: normalized.jobStatus,
-        captionedVideoUrl: normalized.captionedVideoUrl || record.metadata?.captionedVideoUrl,
-        subtitleUrl: normalized.subtitleUrl || record.metadata?.subtitleUrl,
-        thumbnailUrl: normalized.thumbnailUrl || record.metadata?.thumbnailUrl,
-        title: normalized.title || record.metadata?.title,
-        duration: normalized.duration || record.metadata?.duration,
-        heygenLastWebhookEvent: normalized.eventType,
+        status: resolvedNormalized.jobStatus,
+        captionedVideoUrl: resolvedNormalized.captionedVideoUrl || record.metadata?.captionedVideoUrl,
+        subtitleUrl: resolvedNormalized.subtitleUrl || record.metadata?.subtitleUrl,
+        thumbnailUrl: resolvedNormalized.thumbnailUrl || record.metadata?.thumbnailUrl,
+        title: resolvedNormalized.title || record.metadata?.title,
+        duration: resolvedNormalized.duration || record.metadata?.duration,
+        heygenLastWebhookEvent: resolvedNormalized.eventType,
         heygenWebhookUpdatedAt: new Date().toISOString(),
       };
       await record.save();
@@ -800,16 +887,16 @@ export const heygenService = {
 
     // Broadcast video status update event to connected socket clients
     broadcastEvent("video_status_updated", {
-      videoId: normalized.videoId,
-      status: normalized.jobStatus,
+      videoId: resolvedNormalized.videoId,
+      status: resolvedNormalized.jobStatus,
       updates,
     });
 
     return {
       status: "success",
-      videoId: normalized.videoId,
-      eventType: normalized.eventType,
-      jobStatus: normalized.jobStatus,
+      videoId: resolvedNormalized.videoId,
+      eventType: resolvedNormalized.eventType,
+      jobStatus: resolvedNormalized.jobStatus,
       updatedCount: updates.length,
       records: updates,
     };

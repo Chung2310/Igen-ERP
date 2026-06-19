@@ -6,6 +6,7 @@ import { facebookPostRouter } from "./facebook-post.router";
 import { fbMessengerRouter } from "./fb-messenger.router";
 import { zaloMessengerRouter } from "./zalo-messenger.router";
 import { tiktokRouter } from "./tiktok.router";
+import { tiktokController } from "../controller/tiktok.controller";
 import { schedulerRouter } from "./scheduler.router";
 import { mediaRouter } from "./media.router";
 import { authRouter } from "./auth.router";
@@ -45,6 +46,15 @@ apiRouter.use("/zalo", zaloMessengerRouter);
 
 
 // Gắn kết router phụ của TikTok
+apiRouter.get("/webhooks/tiktok", (req, res) => {
+  return res.status(200).json({
+    status: "ok",
+    path: "/api/v1/webhooks/tiktok",
+    message: "TikTok webhook endpoint is reachable",
+    timestamp: new Date().toISOString(),
+  });
+});
+apiRouter.post("/webhooks/tiktok", tiktokController.receiveWebhook as any);
 apiRouter.use("/tiktok", tiktokRouter);
 
 // Gắn kết router phụ của Scheduler

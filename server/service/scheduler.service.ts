@@ -229,7 +229,7 @@ export const schedulerService = {
                 card.companyCode
               );
 
-              const tiktokPostId = publishResult.data?.postSubmissionId || publishResult.data?.publishId || `tiktok_post_${Date.now()}`;
+              const tiktokPostId = publishResult.data?.postId || publishResult.data?.publishId || `tiktok_post_${Date.now()}`;
               const tiktokShareUrl = publishResult.data?.shareUrl || "";
 
               await MarketingContentModel.findByIdAndUpdate(cardId, {
