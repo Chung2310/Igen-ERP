@@ -48,6 +48,8 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, 
   // States for processing
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
+  const [isPromptAnalyzed, setIsPromptAnalyzed] = useState(false);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
   const [showZoomModal, setShowZoomModal] = useState(false);
 
@@ -68,6 +70,7 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, 
   useEffect(() => {
     if (initialPrompt) {
       setPrompt(initialPrompt);
+      setIsPromptAnalyzed(true);
     }
   }, [initialPrompt]);
 
@@ -195,6 +198,7 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, 
       }
 
       setInputImageUrls((prev) => [...prev, ...newUrls].slice(0, 3));
+      setIsPromptAnalyzed(false);
       toast.success("Đã tải ảnh lên thành công!");
     } catch (err) {
       console.error(err);
@@ -214,6 +218,7 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, 
       if (prev.includes(url)) return prev;
       return [...prev, url].slice(0, 3);
     });
+    setIsPromptAnalyzed(false);
     setShowLibraryModal(false);
     toast.success("Đã chọn ảnh làm ảnh tham chiếu đầu vào!");
   };
@@ -268,6 +273,7 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, 
         setPrompt(JSON.stringify(result, null, 2));
       }
       toast.success('Đã tối ưu hóa prompt bằng AI thành công!');
+      setIsPromptAnalyzed(true);
     } catch (e: any) {
       toast.error(`Lỗi tối ưu prompt: ${e.message}`);
     } finally {
@@ -443,11 +449,21 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, 
                       <img src={url} alt="Ref source" className="w-full h-full object-cover" />
                       <button
                         type="button"
+                        onClick={() => setPreviewImageUrl(url)}
+                        className="absolute top-1 left-1 p-1 bg-black/70 hover:bg-black text-white rounded-full transition-all cursor-pointer shadow-sm hover:scale-105 active:scale-95"
+                        title="Xem trước"
+                      >
+                        <ZoomIn className="h-3 w-3" />
+                      </button>
+                      <button
+                        type="button"
                         onClick={(e) => {
                           e.stopPropagation();
                           setInputImageUrls(prev => prev.filter((_, i) => i !== idx));
+                          setIsPromptAnalyzed(false);
                         }}
-                        className="absolute top-1 right-1 p-1 bg-black/70 hover:bg-black text-white rounded-full transition-all"
+                        className="absolute top-1 right-1 p-1 bg-black/70 hover:bg-black text-white rounded-full transition-all cursor-pointer shadow-sm hover:scale-105 active:scale-95"
+                        title="Xóa"
                       >
                         <X className="h-3 w-3" />
                       </button>
@@ -493,7 +509,10 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, 
               placeholder="Mô tả đúng ý tưởng gốc bạn muốn render. AI sẽ dịch và tối ưu sang tiếng Anh nhưng vẫn phải giữ sát nghĩa với brief này."
               className="w-full text-xs p-3 border border-slate-200 rounded-xl h-20 focus:ring-1 focus:ring-cyan-500 focus:outline-none leading-relaxed bg-slate-50/30"
               value={simplePrompt}
-              onChange={(e) => setSimplePrompt(e.target.value)}
+              onChange={(e) => {
+                setSimplePrompt(e.target.value);
+                setIsPromptAnalyzed(false);
+              }}
             />
           </div>
 
@@ -595,8 +614,9 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, 
             <button
               type="button"
               onClick={handleGenerateImage}
-              disabled={isGenerating || isGeneratingPrompt}
-              className={`w-full py-3 rounded-2xl text-xs font-bold tracking-wider uppercase transition-all shadow-md flex items-center justify-center gap-2 ${isGenerating || isGeneratingPrompt
+              disabled={isGenerating || isGeneratingPrompt || !isPromptAnalyzed}
+              title={!isPromptAnalyzed ? "Vui lòng ấn nút 'Phân tích và hoàn thiện prompt' trước khi tạo ảnh" : undefined}
+              className={`w-full py-3 rounded-2xl text-xs font-bold tracking-wider uppercase transition-all shadow-md flex items-center justify-center gap-2 ${isGenerating || isGeneratingPrompt || !isPromptAnalyzed
                 ? "bg-gray-200 text-gray-400 border border-gray-300 shadow-none cursor-not-allowed"
                 : "bg-cyan-500 hover:bg-cyan-600 text-white active:scale-[0.99] shadow-cyan-500/20 cursor-pointer"
                 }`}
@@ -901,6 +921,35 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, 
                 )
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reference Image Preview Lightbox Modal */}
+      {previewImageUrl && (
+        <div
+          className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center z-[100] p-4 animate-fadeIn"
+          onClick={() => setPreviewImageUrl(null)}
+        >
+          <div
+            className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-3xl shadow-2xl p-2 relative max-w-5xl max-h-[90vh] flex items-center justify-center overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={previewImageUrl}
+              alt="Reference Image Preview"
+              className="max-w-full max-h-[85vh] object-contain rounded-2xl animate-scaleIn shadow-lg"
+            />
+
+            {/* Close Button */}
+            <button
+              type="button"
+              onClick={() => setPreviewImageUrl(null)}
+              className="absolute top-4 right-4 bg-slate-950/60 hover:bg-slate-950 text-white/90 hover:text-white p-2.5 rounded-full border border-white/10 transition-all cursor-pointer shadow-md hover:scale-105 active:scale-95 flex items-center justify-center"
+              title="Đóng"
+            >
+              <X className="h-5 w-5" />
+            </button>
           </div>
         </div>
       )}
