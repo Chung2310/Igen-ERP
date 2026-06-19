@@ -218,6 +218,28 @@ export const authService = {
     }));
   },
 
+  async updateCompany(companyId: string, updateData: { name?: string; code?: string; ownerEmail?: string }): Promise<CompanyProfile> {
+    const res = await fetch(`/api/v1/auth/companies/${companyId}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${getAccessToken()}`,
+      },
+      body: JSON.stringify(updateData),
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.message || "Không thể cập nhật doanh nghiệp");
+    }
+
+    const result = await res.json();
+    return {
+      ...result.data,
+      id: result.data._id || result.data.id,
+    };
+  },
+
   // Cập nhật chi tiết thông tin một nhân sự
   async updateUser(uid: string, updateData: any): Promise<void> {
     const res = await fetch(`/api/v1/auth/users/${uid}`, {

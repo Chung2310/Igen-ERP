@@ -11,6 +11,8 @@ import { AppRouterView, useTabRouter } from "./router";
 import { socketService } from "./services/socketService";
 
 const AuthPage = lazy(() => import("./pages/AuthPage"));
+const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
+const TermsOfService = lazy(() => import("./pages/TermsOfService"));
 
 function AppContent() {
   const { activeTab, setActiveTab } = useTabRouter();
@@ -26,6 +28,28 @@ function AppContent() {
       socketService.disconnect();
     }
   }, [user]);
+
+  const currentPath = window.location.pathname.toLowerCase();
+  const isPrivacyPage = currentPath === "/privacy-policy" || currentPath === "/privacy-policy.html";
+  const isTermsPage = currentPath === "/terms-of-service" || currentPath === "/terms-of-service.html";
+  const isPublicPage = isPrivacyPage || isTermsPage;
+
+  if (isPublicPage) {
+    return (
+      <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col justify-between py-10 px-4 font-sans overflow-y-auto">
+        <div className="flex-1">
+          <Suspense fallback={<AuthLoader />}>
+            {isPrivacyPage ? <PrivacyPolicy /> : <TermsOfService />}
+          </Suspense>
+        </div>
+        <div className="mt-8 text-center text-xs text-slate-400">
+          <a href="/dang-nhap" className="font-semibold text-slate-500 hover:text-blue-600 underline">
+            Quay lại trang Đăng nhập
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

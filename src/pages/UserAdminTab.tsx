@@ -1,12 +1,18 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { authService } from "../services/authService";
-import { UserProfile } from "../types";
+import { CompanyProfile, UserProfile } from "../types";
 import { toast } from "./Toast";
-import { Users, Shield, RefreshCw, Plus, Building2, Mail, Lock, User, X, SlidersHorizontal, Wallet, Pencil, Trash2, MoreVertical } from "lucide-react";
+import { Shield, RefreshCw, Plus, User, X, Wallet, Mail, Lock, SlidersHorizontal } from "lucide-react";
 import { parseFirebaseError } from "../utils/firebaseErrorParser";
 import { rolePermissionService, RolePermission, Permission } from "../services/rolePermissionService";
 import { AdminTransactionInfo, AdminUserBalance, walletService } from "../services/walletService";
+import { CompanyModal } from "../components/user-admin/CompanyModal";
+import { UserAdminHeader } from "../components/user-admin/UserAdminHeader";
+import { UserAdminTabs } from "../components/user-admin/UserAdminTabs";
+import { UserFiltersBar } from "../components/user-admin/UserFiltersBar";
+import { UserListTable } from "../components/user-admin/UserListTable";
+import { CompanyEditFormState, CompanyFormState } from "../components/user-admin/types";
 
 export default function UserAdminTab() {
   const { userProfile } = useAuth();
@@ -14,7 +20,7 @@ export default function UserAdminTab() {
   const [loading, setLoading] = useState(true);
   
   // SaaS States
-  const [companies, setCompanies] = useState<any[]>([]);
+  const [companies, setCompanies] = useState<CompanyProfile[]>([]);
   const [selectedCompanyCode, setSelectedCompanyCode] = useState<string>("all");
 
   // Advanced Filter States
@@ -32,6 +38,8 @@ export default function UserAdminTab() {
   const [ownerEmail, setOwnerEmail] = useState("");
   const [ownerPassword, setOwnerPassword] = useState("");
   const [submittingCompany, setSubmittingCompany] = useState(false);
+  const [isEditCompanyModalOpen, setIsEditCompanyModalOpen] = useState(false);
+  const [editingCompany, setEditingCompany] = useState<CompanyEditFormState | null>(null);
 
   // Register User Modal States
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
@@ -75,6 +83,14 @@ export default function UserAdminTab() {
     Array.isArray(user?.heygenAccess?.avatarIds) && user?.heygenAccess?.avatarIds.length > 0
       ? user.heygenAccess.avatarIds.join(", ")
       : (user?.heygenAccess?.avatarId || "-");
+
+  const companyFormState: CompanyFormState = {
+    companyName,
+    companyCode,
+    ownerName,
+    ownerEmail,
+    ownerPassword,
+  };
 
   // Sub-tabs State
   const [activeTab, setActiveTab] = useState<"users" | "roles" | "balance">("users");
@@ -168,7 +184,7 @@ export default function UserAdminTab() {
       }
       setUsersList(data);
     } catch (error) {
-      console.error("Lỗi khi tải danh sách user:", error);
+      console.error("Lấy danh sách user thất bại:", error);
       toast.error("Không thể tải danh sách tài khoản người dùng.");
     } finally {
       setLoading(false);
@@ -182,7 +198,7 @@ export default function UserAdminTab() {
       const data = await authService.getAllCompanies();
       setCompanies(data);
     } catch (error) {
-      console.error("Lỗi khi tải danh sách doanh nghiệp:", error);
+      console.error("Lấy danh sách doanh nghiệp thất bại:", error);
     }
   };
 
@@ -198,7 +214,7 @@ export default function UserAdminTab() {
       const data = await rolePermissionService.getRolePermissions(code);
       setRolePermissionsList(data);
     } catch (error) {
-      console.error("Lỗi khi tải cấu hình vai trò:", error);
+      console.error("Lấy cấu hình vai trò thất bại:", error);
     } finally {
       setRoleLoading(false);
     }
@@ -209,7 +225,7 @@ export default function UserAdminTab() {
       const data = await rolePermissionService.getPermissions();
       setSystemPermissions(data);
     } catch (error) {
-      console.error("Lỗi khi tải mã quyền hệ thống:", error);
+      console.error("Lấy mã quyền hệ thống thất bại:", error);
     }
   };
 
@@ -226,7 +242,7 @@ export default function UserAdminTab() {
         return data.some((item) => item.userId === prev) ? prev : data[0].userId;
       });
     } catch (error) {
-      console.error("Lỗi khi tải danh sách số dư:", error);
+      console.error("Lấy danh sách số dư thất bại:", error);
       toast.error("Không thể tải danh sách số dư người dùng.");
     } finally {
       setBalanceLoading(false);
@@ -244,7 +260,7 @@ export default function UserAdminTab() {
       const data = await walletService.getAdminUserTransactions(targetUserId, 20);
       setBalanceTransactions(data);
     } catch (error) {
-      console.error("Lỗi khi tải lịch sử giao dịch:", error);
+      console.error("Lấy lịch sử giao dịch thất bại:", error);
       toast.error("Không thể tải lịch sử giao dịch của người dùng.");
     } finally {
       setTransactionsLoading(false);
@@ -320,7 +336,7 @@ export default function UserAdminTab() {
   // - Superadmin: see all, filter by selectedCompanyCode
   // - Admin: see all users in the same company (except superadmins)
   const visibleUsers = usersList.filter((usr) => {
-    // 1. Lọc theo Doanh nghiệp
+    // 1. Lá»c theo Doanh nghiá»‡p
     if (userProfile?.role === "superadmin") {
       if (selectedCompanyCode !== "all" && usr.companyCode !== selectedCompanyCode) {
         return false;
@@ -332,7 +348,7 @@ export default function UserAdminTab() {
       }
     }
 
-    // 2. Lọc theo Tên hoặc Email
+    // 2. Lá»c theo TÃªn hoáº·c Email
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim();
       const matchName = usr.displayName?.toLowerCase().includes(query);
@@ -340,7 +356,7 @@ export default function UserAdminTab() {
       if (!matchName && !matchEmail) return false;
     }
 
-    // 3. Lọc theo Ngày đăng ký (createdAt)
+    // 3. Lá»c theo NgÃ y Ä‘Äƒng kÃ½ (createdAt)
     if (filterStartDate || filterEndDate) {
       if (!usr.createdAt) return false;
       const userDate = new Date(usr.createdAt);
@@ -393,8 +409,8 @@ export default function UserAdminTab() {
       setUsersList((prev) =>
         prev.map((u) => {
           if (u.uid === targetUid) {
-            const dept = newRole === "admin" || newRole === "superadmin" ? "Ban Giám Đốc" : (newRole === "manager" ? "Quản lý" : "Nhân sự");
-            const div = newRole === "admin" || newRole === "superadmin" ? "Ban Giám Đốc" : (newRole === "manager" ? "Quản lý" : "Nhân sự");
+            const dept = newRole === "admin" || newRole === "superadmin" ? "Ban Giám đốc" : (newRole === "manager" ? "Quản lý" : "Nhân viên");
+            const div = newRole === "admin" || newRole === "superadmin" ? "Ban Giám đốc" : (newRole === "manager" ? "Quản lý" : "Nhân viên");
             const title = newRole === "admin" ? "Chief Executive Officer (CEO)" : (newRole === "manager" ? "Quản lý phòng ban" : "Nhân viên");
             return { ...u, role: newRole, department: dept, division: div, jobTitle: title };
           }
@@ -451,6 +467,61 @@ export default function UserAdminTab() {
     }
   };
 
+  const handleCompanyFormChange = (field: keyof CompanyFormState, value: string) => {
+    if (field === "companyName") setCompanyName(value);
+    if (field === "companyCode") setCompanyCode(value);
+    if (field === "ownerName") setOwnerName(value);
+    if (field === "ownerEmail") setOwnerEmail(value);
+    if (field === "ownerPassword") setOwnerPassword(value);
+  };
+
+  const handleEditCompanyFormChange = (field: keyof CompanyEditFormState, value: string) => {
+    setEditingCompany((prev) => (prev ? { ...prev, [field]: value } : prev));
+  };
+
+  const openEditCompanyModal = () => {
+    if (userProfile?.role !== "superadmin" || selectedCompanyCode === "all") return;
+    const targetCompany = companies.find((company) => company.code === selectedCompanyCode);
+    if (!targetCompany) {
+      toast.warning("Không tìm thấy doanh nghiệp để chỉnh sửa.");
+      return;
+    }
+    setEditingCompany({
+      id: targetCompany.id,
+      name: targetCompany.name,
+      code: targetCompany.code,
+      ownerEmail: targetCompany.ownerEmail,
+    });
+    setIsEditCompanyModalOpen(true);
+  };
+
+  const handleUpdateCompany = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (userProfile?.role !== "superadmin" || !editingCompany) {
+      toast.error("Chỉ superadmin mới được chỉnh sửa doanh nghiệp.");
+      return;
+    }
+
+    setSubmittingCompany(true);
+    try {
+      await authService.updateCompany(editingCompany.id, {
+        name: editingCompany.name.trim(),
+        code: editingCompany.code.trim(),
+        ownerEmail: editingCompany.ownerEmail.trim(),
+      });
+      toast.success(`Đã cập nhật doanh nghiệp "${editingCompany.name}".`);
+      setIsEditCompanyModalOpen(false);
+      await fetchCompanies();
+      await fetchUsers();
+      setSelectedCompanyCode(editingCompany.code.trim().toUpperCase());
+    } catch (error: any) {
+      console.error("Lỗi cập nhật doanh nghiệp:", error);
+      toast.error(parseFirebaseError(error, "Không thể cập nhật doanh nghiệp."));
+    } finally {
+      setSubmittingCompany(false);
+    }
+  };
+
   const handleRegisterUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!userDisplayName.trim() || !userEmail.trim() || !userCompanyCode) {
@@ -489,6 +560,8 @@ export default function UserAdminTab() {
         await authService.updateUser(editingUser.uid, {
           displayName: userDisplayName.trim(),
           role: userRole,
+          companyCode: userCompanyCode,
+          companyName: compName,
           parentId: userParentId || null,
           level: userRole === "user" && managerProfile?.level ? managerProfile.level + 1 : undefined,
           department: userDepartment.trim() || "",
@@ -538,6 +611,7 @@ export default function UserAdminTab() {
   };
 
   const openEditUserModal = (user: UserProfile) => {
+    setOpenActionMenuId(null);
     setEditingUser(user);
     setUserDisplayName(user.displayName || "");
     setUserEmail(user.email || "");
@@ -553,6 +627,7 @@ export default function UserAdminTab() {
   };
 
   const handleDeleteUser = async (user: UserProfile) => {
+    setOpenActionMenuId(null);
     if (user.uid === userProfile?.uid) {
       toast.warning("Bạn không thể tự xóa chính mình.");
       return;
@@ -587,7 +662,7 @@ export default function UserAdminTab() {
 
     const parsedAmount = Number(newBalanceValue);
     if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-      toast.warning("So tien dieu chinh phai lon hon 0.");
+      toast.warning("Số tiền điều chỉnh phải lớn hơn 0.");
       return;
     }
 
@@ -646,6 +721,7 @@ export default function UserAdminTab() {
   };
 
   const openHeyGenEditor = (user: UserProfile) => {
+    setOpenActionMenuId(null);
     setEditingHeyGenUser(user);
     setEditingHeyGenAvatarIds(
       Array.isArray(user.heygenAccess?.avatarIds) && user.heygenAccess?.avatarIds.length > 0
@@ -706,181 +782,35 @@ export default function UserAdminTab() {
     <div className="flex flex-col h-full bg-white max-h-[85vh] overflow-hidden" id="user_admin_tab_wrapper">
       <h1 className="sr-only">Quản trị Hệ thống & Phân quyền - {activeTab}</h1>
       
-      {/* Header section */}
-      <div className="border-b border-gray-200 bg-gray-50/50 p-4 flex flex-col sm:flex-row justify-between sm:items-center gap-4 shrink-0" id="user_admin_header">
-        <div className="flex items-center gap-2">
-          <div className="p-2 bg-indigo-50 rounded-xl border border-indigo-150">
-            <Users className="h-5 w-5 text-indigo-650" />
-          </div>
-          <div>
-            <h4 className="font-bold text-slate-800 text-sm font-sans tracking-tight uppercase">
-              Quản trị Tài khoản & Phân quyền
-            </h4>
-            <p className="text-xs text-gray-500 mt-0.5">
-              {userProfile?.role === "superadmin"
-                ? "Quản trị toàn bộ hệ thống SaaS Multi-tenant và các tài khoản doanh nghiệp."
-                : `Quản lý và cấp quyền hạn cho tất cả thành viên trong công ty ${userProfile?.companyName || ""}.`}
-            </p>
-          </div>
-        </div>
+      <UserAdminHeader
+        userProfile={userProfile}
+        companies={companies}
+        selectedCompanyCode={selectedCompanyCode}
+        onSelectedCompanyCodeChange={setSelectedCompanyCode}
+        onOpenCompanyModal={() => setIsCompanyModalOpen(true)}
+        onOpenCreateUserModal={openCreateUserModal}
+        onRefresh={fetchUsers}
+        loading={loading}
+      />
 
-        <div className="flex flex-wrap items-center gap-2.5">
-          {userProfile?.role === "superadmin" && (
-            <>
-              {/* Dropdown lọc Doanh nghiệp */}
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider font-mono">Doanh nghiệp:</span>
-                <select
-                  value={selectedCompanyCode}
-                  onChange={(e) => setSelectedCompanyCode(e.target.value)}
-                  className="p-1.5 border border-gray-200 bg-white rounded-xl text-xs font-semibold focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer"
-                >
-                  <option value="all">Tất cả Doanh nghiệp</option>
-                  {companies.map((c) => (
-                    <option key={c.id || c._id || c.code} value={c.code}>
-                      {c.name} ({c.code})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Nút Đăng ký Doanh nghiệp mới */}
-              <button
-                onClick={() => setIsCompanyModalOpen(true)}
-                className="p-2 px-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold font-sans flex items-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-95"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Đăng ký Doanh nghiệp
-              </button>
-            </>
-          )}
-
-          {/* Add User button */}
-          {(userProfile?.role === "superadmin" || userProfile?.role === "admin") && (
-            <button
-              onClick={openCreateUserModal}
-              className="p-2 px-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold font-sans flex items-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-95"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Thêm Người dùng
-            </button>
-          )}
-
-          <button 
-            onClick={fetchUsers}
-            disabled={loading}
-            className="p-2 px-3.5 bg-white hover:bg-slate-100 border border-gray-205 rounded-xl text-xs font-bold font-sans flex items-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-95 disabled:opacity-50"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-            Tải lại danh sách
-          </button>
-        </div>
-      </div>
-
-      {/* Sub-tab selection */}
-      <div className="border-b border-gray-200 px-6 py-2 bg-slate-50 flex gap-4 shrink-0" id="user_admin_subtabs">
-        <button
-          onClick={() => setActiveTab("users")}
-          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-            activeTab === "users"
-              ? "bg-slate-900 text-white shadow-xs"
-              : "text-slate-600 hover:bg-slate-250"
-          }`}
-        >
-          👤 Danh sách tài khoản
-        </button>
-        <button
-          onClick={() => setActiveTab("roles")}
-          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-            activeTab === "roles"
-              ? "bg-slate-900 text-white shadow-xs"
-              : "text-slate-600 hover:bg-slate-250"
-          }`}
-        >
-          🛡️ Vai trò & Phân quyền
-        </button>
-        {userProfile?.role === "superadmin" && (
-          <button
-            onClick={() => setActiveTab("balance")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-              activeTab === "balance"
-                ? "bg-slate-900 text-white shadow-xs"
-                : "text-slate-600 hover:bg-slate-250"
-            }`}
-          >
-            <Wallet className="h-3.5 w-3.5" />
-            Số dư người dùng
-          </button>
-        )}
-      </div>
-
+      <UserAdminTabs activeTab={activeTab} onChange={setActiveTab} userProfile={userProfile} />
       {activeTab === "users" ? (
         <>
-          {/* Filter Bar */}
-          <div className="bg-white border-b border-gray-200 px-6 py-3.5 flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center shrink-0">
-            <div className="flex flex-wrap items-center gap-3 flex-1">
-              {/* Lọc theo Tên/Email */}
-              <div className="relative min-w-[240px] flex-1 max-w-sm">
-                <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                  🔍
-                </span>
-                <input
-                  type="text"
-                  placeholder="Tìm theo tên hoặc email..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-3.5 py-1.5 border border-gray-200 bg-gray-50/50 hover:bg-white focus:bg-white rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery("")}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-650 text-[10px] font-bold"
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
-
-              {/* Lọc theo Ngày đăng ký */}
-              <div className="flex items-center gap-2 text-xs">
-                <span className="text-gray-400 font-bold uppercase text-[9px] tracking-wider font-mono">Từ ngày:</span>
-                <input
-                  type="date"
-                  value={filterStartDate}
-                  onChange={(e) => setFilterStartDate(e.target.value)}
-                  className="p-1.5 border border-gray-200 bg-gray-50/50 hover:bg-white focus:bg-white rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-semibold cursor-pointer"
-                />
-                
-                <span className="text-gray-400 font-bold uppercase text-[9px] tracking-wider font-mono">Đến ngày:</span>
-                <input
-                  type="date"
-                  value={filterEndDate}
-                  onChange={(e) => setFilterEndDate(e.target.value)}
-                  className="p-1.5 border border-gray-200 bg-gray-50/50 hover:bg-white focus:bg-white rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-semibold cursor-pointer"
-                />
-              </div>
-
-              {/* Hiển thị số lượng kết quả */}
-              <div className="text-[10px] text-gray-400 font-semibold font-mono">
-                Kết quả: {visibleUsers.length} / {usersList.length}
-              </div>
-            </div>
-
-            {/* Nút Clear Filters */}
-            {(searchQuery || filterStartDate || filterEndDate) && (
-              <button
-                onClick={() => {
-                  setSearchQuery("");
-                  setFilterStartDate("");
-                  setFilterEndDate("");
-                }}
-                className="px-3.5 py-1.5 border border-dashed border-red-200 hover:border-red-400 bg-red-50/30 hover:bg-red-50 text-red-650 hover:text-red-700 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 shrink-0 active:scale-95"
-              >
-                ✕ Xóa bộ lọc
-              </button>
-            )}
-          </div>
-
+          <UserFiltersBar
+            searchQuery={searchQuery}
+            filterStartDate={filterStartDate}
+            filterEndDate={filterEndDate}
+            visibleUsersCount={visibleUsers.length}
+            totalUsersCount={usersList.length}
+            onSearchChange={setSearchQuery}
+            onFilterStartDateChange={setFilterStartDate}
+            onFilterEndDateChange={setFilterEndDate}
+            onClear={() => {
+              setSearchQuery("");
+              setFilterStartDate("");
+              setFilterEndDate("");
+            }}
+          />
           {/* Main List Area */}
           <div className="flex-1 p-6 overflow-y-auto" id="user_admin_content">
             {loading ? (
@@ -893,303 +823,47 @@ export default function UserAdminTab() {
                 Không tìm thấy tài khoản nào trong hệ thống!
               </div>
             ) : (
-              <div className="bg-white border border-gray-150 rounded-2xl shadow-xs max-w-full" style={{ overflow: 'clip' }}>
-                <div className="max-w-full overflow-x-auto overscroll-x-contain">
-                <table className="w-full min-w-[1180px] text-left border-collapse text-xs font-sans">
-                  <thead>
-                    <tr className="bg-gray-50 border-b border-gray-150 text-[10px] font-bold text-gray-400 font-mono uppercase tracking-wider">
-                      <th className="p-4 pl-6">Thành viên</th>
-                      <th className="p-4">Địa chỉ Email</th>
-                      {userProfile?.role === "superadmin" && <th className="p-4">Doanh nghiệp</th>}
-                      <th className="p-4">Ngày đăng ký</th>
-                      <th className="p-4">Quyền hạn (Role)</th>
-                      {userProfile?.role === "superadmin" && <th className="p-4">Số dư</th>}
-                      <th className="p-4">HeyGen</th>
-                      <th className="p-4 pr-6 text-center">Hành động</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100 text-slate-700">
-                    {paginatedVisibleUsers.map((usr) => {
-                      const isSelf = usr.uid === userProfile?.uid;
-                      const userBalance = balanceByUserId[usr.uid];
-                      return (
-                        <tr key={usr.uid} className="hover:bg-slate-50/40 transition-colors">
-                          {/* Name / Avatar */}
-                          <td className="p-4 pl-6 flex items-center gap-3">
-                            {usr.photoURL && (usr.photoURL.startsWith("http") || usr.photoURL.startsWith("/")) ? (
-                              <img 
-                                src={usr.photoURL} 
-                                alt={usr.displayName} 
-                                className="w-8 h-8 rounded-full object-cover border border-gray-200" 
-                              />
-                            ) : (
-                              <div className="w-8 h-8 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center font-bold text-indigo-700 text-xs">
-                                {(usr.displayName || usr.email || "US").slice(0, 2).toUpperCase()}
-                              </div>
-                            )}
-                            <div>
-                              <span className="font-semibold text-slate-800 flex items-center gap-1.5">
-                                {usr.displayName}
-                                {isSelf && (
-                                  <span className="px-1.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-150 rounded-sm text-[8px] font-bold font-mono">
-                                    BẠN
-                                  </span>
-                                )}
-                              </span>
-                              <span className="text-[10px] text-gray-400 font-mono block mt-0.5">UID: {usr.uid.slice(0, 8)}...</span>
-                            </div>
-                          </td>
-
-                          {/* Email */}
-                          <td className="p-4 font-mono">{usr.email}</td>
-
-                          {/* Company Name / Code (SaaS only) */}
-                          {userProfile?.role === "superadmin" && (
-                            <td className="p-4 font-semibold text-slate-700">
-                              {usr.companyName ? (
-                                <span title={usr.companyCode}>{usr.companyName}</span>
-                              ) : (
-                                <span className="text-gray-400 italic">Hệ thống ({usr.companyCode || "SYSTEM"})</span>
-                              )}
-                            </td>
-                          )}
-
-                          {/* Created At */}
-                          <td className="p-4 text-gray-400 font-mono">
-                            {usr.createdAt instanceof Date ? usr.createdAt.toLocaleDateString("vi-VN") : "Hôm nay"}
-                          </td>
-
-                          {/* Current Role Badge */}
-                          <td className="p-4">
-                            <span className={`px-2.5 py-0.75 rounded-full font-bold font-mono text-[9px] uppercase tracking-wider flex items-center gap-1.5 w-max ${
-                              usr.role === "superadmin"
-                                ? "bg-rose-50 border border-rose-200 text-rose-800"
-                                : usr.role === "admin"
-                                  ? "bg-amber-50 border border-amber-200 text-amber-800"
-                                  : usr.role === "manager"
-                                    ? "bg-blue-50 border border-blue-200 text-blue-800"
-                                    : usr.role === "user"
-                                      ? "bg-slate-50 border border-slate-200 text-slate-600"
-                                      : "bg-indigo-50 border border-indigo-200 text-indigo-700"
-                            }`}>
-                              <Shield className="h-3 w-3" />
-                              {usr.role === "superadmin"
-                                ? "superadmin"
-                                : usr.role === "admin"
-                                  ? "admin"
-                                  : usr.role === "manager"
-                                    ? "manager"
-                                : usr.role === "user"
-                                      ? "user"
-                                      : (rolePermissionsList.find(rp => rp.role === usr.role)?.displayName || usr.role)}
-                            </span>
-                          </td>
-
-                          {userProfile?.role === "superadmin" && (
-                            <td className="p-4 min-w-[170px]">
-                              <div className="flex items-center gap-2 whitespace-nowrap">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setSelectedBalanceUserId(usr.uid);
-                                    setActiveTab("balance");
-                                  }}
-                                  className="inline-flex items-center gap-2 rounded-full border border-sky-100 bg-sky-50 px-3 py-1.5 text-sky-900 transition hover:bg-sky-100"
-                                >
-                                  <Wallet className="h-3.5 w-3.5 text-sky-600" />
-                                  <span className="text-xs font-bold">{new Intl.NumberFormat("vi-VN", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(userBalance?.balance || 0)} Credit</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    openBalanceEditor(
-                                      userBalance || {
-                                        userId: usr.uid,
-                                        displayName: usr.displayName,
-                                        email: usr.email,
-                                        role: usr.role,
-                                        companyCode: usr.companyCode || "",
-                                        companyName: usr.companyName || "",
-                                        balance: 0,
-                                        currency: "Credit",
-                                      },
-                                      "add"
-                                    )
-                                  }
-                                  className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[10px] font-bold text-slate-700 transition hover:bg-slate-50"
-                                >
-                                  Sửa
-                                </button>
-                              </div>
-                            </td>
-                          )}
-
-                          <td className="p-4">
-                            <div className="space-y-1">
-                              <p className="text-[10px] text-slate-600">
-                                Avatar(s): <span className="font-mono">{formatAvatarIds(usr)}</span>
-                              </p>
-                              <p className="text-[10px] text-slate-600">
-                                Giọng đọc: <span className="font-mono">{usr.heygenAccess?.voiceId || "-"}</span>
-                              </p>
-                              <p className="text-[10px] text-slate-400">
-                                {usr.heygenAccess?.apiKey ? "Có khóa API riêng" : "Dùng khóa API hệ thống"}
-                              </p>
-                            </div>
-                          </td>
-
-                          {/* Role Modify Selector */}
-                          <td className="p-4 pr-6">
-                            <div className="flex items-center justify-end gap-3">
-                              {/* Role Dropdown */}
-                              <select
-                                disabled={
-                                  isSelf ||
-                                  usr.role === "superadmin" ||
-                                  (usr.role === "admin" && userProfile?.role === "admin")
-                                }
-                                value={usr.role}
-                                onChange={(e) => handleRoleChange(usr.uid, usr.displayName, e.target.value)}
-                                className={`px-2.5 py-1.5 border rounded-lg text-xs font-semibold outline-none focus:ring-2 focus:ring-indigo-500 transition cursor-pointer ${
-                                  isSelf ||
-                                  usr.role === "superadmin" ||
-                                  (usr.role === "admin" && userProfile?.role === "admin")
-                                    ? "opacity-50 cursor-not-allowed bg-gray-50 border-gray-200 text-gray-400"
-                                    : "border-indigo-200 bg-indigo-50 text-indigo-700 hover:border-indigo-300"
-                                }`}
-                              >
-                                {(() => {
-                                  const rolesForSelect = [...getAvailableRoles()];
-                                  if (!rolesForSelect.some(r => r.role === usr.role)) {
-                                    rolesForSelect.push({
-                                      role: usr.role,
-                                      displayName: usr.role.toUpperCase(),
-                                      level: 99
-                                    });
-                                  }
-                                  return rolesForSelect.map((r, index) => (
-                                    <option key={`${usr.uid}-${r.role}-${index}`} value={r.role}>
-                                      {r.displayName}
-                                    </option>
-                                  ));
-                                })()}
-                              </select>
-
-                              {/* Action Menu */}
-                              <div className="relative" data-action-menu>
-                                <button
-                                  type="button"
-                                  onClick={() => setOpenActionMenuId(openActionMenuId === usr.uid ? null : usr.uid)}
-                                  className="p-2 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 transition"
-                                  title="Thao tác"
-                                >
-                                  <MoreVertical className="h-4 w-4" />
-                                </button>
-
-                                {/* Dropdown Menu */}
-                                {openActionMenuId === usr.uid && (
-                                  <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
-                                    {/* Sửa */}
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        openEditUserModal(usr);
-                                        setOpenActionMenuId(null);
-                                      }}
-                                      disabled={isSelf || usr.role === "superadmin"}
-                                      className="w-full text-left px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 transition flex items-center gap-2.5 border-b border-gray-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white"
-                                    >
-                                      <Pencil className="h-3.5 w-3.5 text-indigo-600" />
-                                      Sửa thông tin
-                                    </button>
-
-                                    {/* Cấu hình HeyGen */}
-                                    {userProfile?.role === "superadmin" && (
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          openHeyGenEditor(usr);
-                                          setOpenActionMenuId(null);
-                                        }}
-                                        className="w-full text-left px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-cyan-50 transition flex items-center gap-2.5 border-b border-gray-100"
-                                      >
-                                        <SlidersHorizontal className="h-3.5 w-3.5 text-cyan-600" />
-                                        Cấu hình HeyGen
-                                      </button>
-                                    )}
-
-                                    {/* Xóa */}
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        handleDeleteUser(usr);
-                                        setOpenActionMenuId(null);
-                                      }}
-                                      disabled={isSelf || usr.role === "superadmin"}
-                                      className="w-full text-left px-4 py-2.5 text-xs font-semibold text-rose-700 hover:bg-rose-50 transition flex items-center gap-2.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white"
-                                    >
-                                      <Trash2 className="h-3.5 w-3.5 text-rose-600" />
-                                      Xóa tài khoản
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-                </div>
-                <div className="flex flex-col gap-3 border-t border-gray-100 bg-gray-50/70 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="text-[11px] font-mono text-slate-500">
-                    Trang {safeUserPage} / {totalUserPages} · Hiển thị {paginatedVisibleUsers.length} / {visibleUsers.length} tài khoản
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setUserPage((prev) => Math.max(1, prev - 1))}
-                      disabled={safeUserPage === 1}
-                      className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-[11px] font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      Trang trước
-                    </button>
-                    {Array.from({ length: totalUserPages }, (_, index) => index + 1)
-                      .slice(Math.max(0, safeUserPage - 3), Math.min(totalUserPages, safeUserPage + 2))
-                      .map((page) => (
-                        <button
-                          key={page}
-                          type="button"
-                          onClick={() => setUserPage(page)}
-                          className={`h-9 min-w-9 rounded-xl px-3 text-[11px] font-bold transition ${
-                            page === safeUserPage
-                              ? "bg-slate-900 text-white"
-                              : "border border-gray-200 bg-white text-slate-700 hover:bg-slate-50"
-                          }`}
-                        >
-                          {page}
-                        </button>
-                      ))}
-                    <button
-                      type="button"
-                      onClick={() => setUserPage((prev) => Math.min(totalUserPages, prev + 1))}
-                      disabled={safeUserPage === totalUserPages}
-                      className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-[11px] font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      Trang sau
-                    </button>
-                  </div>
-                </div>
-              </div>
+              <UserListTable
+                users={paginatedVisibleUsers}
+                currentUser={userProfile}
+                rolePermissionsList={rolePermissionsList}
+                balanceByUserId={balanceByUserId}
+                userPage={safeUserPage}
+                totalUserPages={totalUserPages}
+                onPageChange={setUserPage}
+                getAvailableRoles={getAvailableRoles}
+                onRoleChange={handleRoleChange}
+                openActionMenuId={openActionMenuId}
+                onToggleActionMenu={(uid) => setOpenActionMenuId(openActionMenuId === uid ? null : uid)}
+                onEditUser={openEditUserModal}
+                onDeleteUser={handleDeleteUser}
+                onOpenHeyGenEditor={openHeyGenEditor}
+                onOpenBalance={(usr) => {
+                  setSelectedBalanceUserId(usr.uid);
+                  openBalanceEditor(
+                    balanceByUserId[usr.uid] || {
+                      userId: usr.uid,
+                      displayName: usr.displayName,
+                      email: usr.email,
+                      role: usr.role,
+                      companyCode: usr.companyCode || "",
+                      companyName: usr.companyName || "",
+                      balance: 0,
+                      currency: "Credit",
+                    },
+                    "add"
+                  );
+                }}
+                setActiveTab={setActiveTab}
+                formatAvatarIds={formatAvatarIds}
+              />
             )}
           </div>
-        </>
-      ) : activeTab === "balance" ? (
+        </>      ) : activeTab === "balance" ? (
         <div className="flex-1 p-6 overflow-y-auto space-y-6" id="user_balance_tab_content">
           <div className="flex flex-col sm:flex-row justify-between sm:items-center bg-gray-50 p-4 rounded-2xl border border-gray-150 gap-4">
             <div>
-              <h5 className="font-bold text-slate-800 text-sm">Quản lý số dư ví người dùng</h5>
+              <h5 className="font-bold text-slate-800 text-sm">Quản lý số dư người dùng</h5>
               <p className="text-xs text-gray-500 mt-0.5">Chỉ superadmin mới được chỉnh sửa balance của người dùng.</p>
             </div>
             <button
@@ -1242,7 +916,7 @@ export default function UserAdminTab() {
                             </div>
                           </td>
                           <td className="p-4 cursor-pointer" onClick={() => setSelectedBalanceUserId(item.userId)}>
-                            <div className="font-semibold text-slate-700">{item.companyName || "Hệ thống"}</div>
+                            <div className="font-semibold text-slate-700">{item.companyName || "Há»‡ thá»‘ng"}</div>
                             <div className="text-[10px] text-gray-400 font-mono">{item.companyCode || "SYSTEM"}</div>
                           </td>
                           <td className="p-4">
@@ -1287,7 +961,7 @@ export default function UserAdminTab() {
                 </div>
                 <div className="flex flex-col gap-3 border-t border-gray-100 bg-gray-50/70 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="text-[11px] font-mono text-slate-500">
-                    Trang {safeUserPage} / {totalUserPages} · Hiển thị {paginatedVisibleUsers.length} / {visibleUsers.length} tài khoản
+                    Trang {safeUserPage} / {totalUserPages}  ‹ {paginatedVisibleUsers.length} / {visibleUsers.length} tài khoản hiển thị
                   </div>
                   <div className="flex items-center gap-2">
                     <button
@@ -1329,9 +1003,9 @@ export default function UserAdminTab() {
               <div className="bg-white border border-gray-150 rounded-2xl shadow-xs p-5 space-y-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <h6 className="font-bold text-slate-800 text-sm">Lịch sử giao dịch</h6>
+                    <h6 className="font-bold text-slate-800 text-sm">Lá»‹ch sá»­ giao dá»‹ch</h6>
                     <p className="text-xs text-gray-500 mt-1">
-                      {balanceUsers.find((item) => item.userId === selectedBalanceUserId)?.displayName || "Chọn người dùng"}
+                      {balanceUsers.find((item) => item.userId === selectedBalanceUserId)?.displayName || "Chá»n ngÆ°á»i dÃ¹ng"}
                     </p>
                   </div>
                   <button
@@ -1373,10 +1047,10 @@ export default function UserAdminTab() {
                           {new Date(transaction.createdAt).toLocaleString("vi-VN")}
                         </div>
                         <div className="mt-2 text-xs text-slate-600 leading-5">
-                          {transaction.description || "Không có mô tả giao dịch."}
+                          {transaction.description || "KhÃ´ng cÃ³ mÃ´ táº£ giao dá»‹ch."}
                         </div>
                         <div className="mt-2 text-[10px] text-gray-400 font-mono">
-                          Order: {transaction.orderCode} · Status: {transaction.status}
+                          Order: {transaction.orderCode} Â· Status: {transaction.status}
                         </div>
                       </div>
                     ))}
@@ -1521,13 +1195,13 @@ export default function UserAdminTab() {
                             }}
                             className="p-1.5 px-3 bg-white hover:bg-slate-100 border border-gray-205 rounded-xl text-[10px] font-bold text-slate-700 cursor-pointer transition-all active:scale-95 flex items-center gap-1"
                           >
-                            ⚙️ Thiết lập quyền
+                            Thiết lập phân quyền
                           </button>
                         )}
                         {!roleInfo.isDefault && (
                           <button
                             onClick={async () => {
-                              if (window.confirm(`Bạn có chắc chắn muốn xóa vai trò "${roleInfo.displayName}"? Hành động này sẽ gỡ bỏ phân quyền vai trò.`)) {
+                              if (window.confirm(`Bạn có chắc chắn muốn xóa vai trò "${roleInfo.displayName}"? Hành động này sẽ bỏ phân quyền vai trò.`)) {
                                 try {
                                   let code = undefined;
                                   if (userProfile?.role === "superadmin") {
@@ -1547,7 +1221,7 @@ export default function UserAdminTab() {
                             className="p-1.5 bg-red-50 hover:bg-red-100 border border-red-200 rounded-xl text-[10px] font-bold text-red-650 cursor-pointer transition-all active:scale-95"
                             title="Xóa vai trò"
                           >
-                            🗑️ Xóa
+                            Xóa
                           </button>
                         )}
                       </div>
@@ -1560,143 +1234,27 @@ export default function UserAdminTab() {
         </div>
       )}
 
-      {/* Modal Đăng ký Doanh nghiệp mới */}
-      {isCompanyModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden transform transition-all scale-100">
-            {/* Modal Header */}
-            <div className="bg-slate-900 text-white p-6 flex justify-between items-center relative">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-indigo-600 rounded-xl shadow-lg shadow-indigo-500/20">
-                  <Building2 className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-sm uppercase tracking-wider font-sans">Đăng ký Doanh nghiệp Mới</h3>
-                  <p className="text-[10px] text-slate-350 font-mono mt-0.5">Khởi tạo môi trường SaaS Multi-tenant</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setIsCompanyModalOpen(false)}
-                className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-all cursor-pointer"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
+      <CompanyModal
+        mode="create"
+        open={isCompanyModalOpen}
+        form={companyFormState}
+        submitting={submittingCompany}
+        onClose={() => setIsCompanyModalOpen(false)}
+        onChange={(field, value) => handleCompanyFormChange(field as keyof CompanyFormState, value)}
+        onSubmit={handleRegisterCompany}
+      />
 
-            {/* Modal Content / Form */}
-            <form onSubmit={handleRegisterCompany} className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                {/* Tên Doanh nghiệp */}
-                <div className="space-y-1.5 text-left col-span-2">
-                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Tên doanh nghiệp *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Ví dụ: VNG Corporation"
-                    value={companyName}
-                    onChange={(e) => setCompanyName(e.target.value)}
-                    className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                  />
-                </div>
+      <CompanyModal
+        mode="edit"
+        open={isEditCompanyModalOpen && !!editingCompany}
+        form={editingCompany || { id: "", name: "", code: "", ownerEmail: "" }}
+        submitting={submittingCompany}
+        onClose={() => setIsEditCompanyModalOpen(false)}
+        onChange={(field, value) => handleEditCompanyFormChange(field as keyof CompanyEditFormState, value)}
+        onSubmit={handleUpdateCompany}
+      />
 
-                {/* Mã Doanh nghiệp */}
-                <div className="space-y-1.5 text-left col-span-2">
-                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Mã doanh nghiệp (Company Code) *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Ví dụ: VNG (viết liền, không dấu, chữ hoa)"
-                    value={companyCode}
-                    onChange={(e) => setCompanyCode(e.target.value)}
-                    className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none font-mono uppercase"
-                  />
-                </div>
-              </div>
-
-              <div className="border-t border-gray-100 my-4 pt-4 space-y-4">
-                <div className="text-left">
-                  <span className="text-[10px] font-bold text-indigo-650 uppercase tracking-widest font-mono">Tài khoản Chủ doanh nghiệp (Admin Owner)</span>
-                </div>
-
-                {/* Tên chủ sở hữu */}
-                <div className="space-y-1.5 text-left">
-                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Tên chủ sở hữu *</label>
-                  <div className="relative">
-                    <User className="absolute left-3.5 top-2.5 h-4 w-4 text-gray-400" />
-                    <input
-                      type="text"
-                      required
-                      placeholder="Ví dụ: Lê Hồng Minh"
-                      value={ownerName}
-                      onChange={(e) => setOwnerName(e.target.value)}
-                      className="w-full pl-10 pr-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                    />
-                  </div>
-                </div>
-
-                {/* Email chủ sở hữu */}
-                <div className="space-y-1.5 text-left">
-                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Địa chỉ Email *</label>
-                  <div className="relative">
-                    <Mail className="absolute left-3.5 top-2.5 h-4 w-4 text-gray-400" />
-                    <input
-                      type="email"
-                      required
-                      placeholder="owner@vng.com"
-                      value={ownerEmail}
-                      onChange={(e) => setOwnerEmail(e.target.value)}
-                      className="w-full pl-10 pr-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none font-mono"
-                    />
-                  </div>
-                </div>
-
-                {/* Mật khẩu */}
-                <div className="space-y-1.5 text-left">
-                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Mật khẩu *</label>
-                  <div className="relative">
-                    <Lock className="absolute left-3.5 top-2.5 h-4 w-4 text-gray-400" />
-                    <input
-                      type="password"
-                      required
-                      placeholder="Tối thiểu 6 ký tự"
-                      value={ownerPassword}
-                      onChange={(e) => setOwnerPassword(e.target.value)}
-                      className="w-full pl-10 pr-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Form Actions */}
-              <div className="flex gap-3 justify-end pt-4 border-t border-gray-100">
-                <button
-                  type="button"
-                  onClick={() => setIsCompanyModalOpen(false)}
-                  className="px-4 py-2 border border-gray-200 rounded-xl text-xs font-bold text-gray-500 hover:bg-gray-50 transition-all cursor-pointer"
-                >
-                  Hủy bỏ
-                </button>
-                <button
-                  type="submit"
-                  disabled={submittingCompany}
-                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-600/10 flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
-                >
-                  {submittingCompany ? (
-                    <>
-                      <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                      Đang xử lý...
-                    </>
-                  ) : (
-                    "Khởi tạo Doanh nghiệp"
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal Đăng ký Người dùng mới */}
+      {/* Modal ÄÄƒng kÃ½ NgÆ°á»i dÃ¹ng má»›i */}
       {isUserModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl max-w-2xl w-full overflow-hidden transform transition-all scale-100 flex flex-col max-h-[90vh]">
@@ -1707,8 +1265,12 @@ export default function UserAdminTab() {
                   <User className="h-5 w-5 text-white" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-sm uppercase tracking-wider font-sans">Thêm Người dùng Mới</h3>
-                  <p className="text-[10px] text-slate-350 font-mono mt-0.5">Tạo tài khoản và gán doanh nghiệp</p>
+                  <h3 className="font-bold text-sm uppercase tracking-wider font-sans">
+                    {editingUser ? "Sửa thông tin người dùng" : "Thêm người dùng mới"}
+                  </h3>
+                  <p className="text-[10px] text-slate-350 font-mono mt-0.5">
+                    {editingUser ? "Cập nhật hồ sơ, quyền hạn và công ty của tài khoản" : "Tạo tài khoản và gán doanh nghiệp"}
+                  </p>
                 </div>
               </div>
               <button
@@ -1726,7 +1288,7 @@ export default function UserAdminTab() {
             {/* Modal Content / Form */}
             <form onSubmit={handleRegisterUser} className="flex flex-col min-h-0">
               <div className="p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
-                {/* Tên hiển thị */}
+                {/* TÃªn hiá»ƒn thá»‹ */}
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-1.5 text-left sm:col-span-2">
                     <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Họ và Tên *</label>
@@ -1759,27 +1321,31 @@ export default function UserAdminTab() {
                     </div>
                   </div>
 
-                  {/* Mật khẩu */}
+                  {/* Máº­t kháº©u */}
                   <div className="space-y-1.5 text-left">
                     <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Mật khẩu *</label>
                     <div className="relative">
                       <Lock className="absolute left-3.5 top-2.5 h-4 w-4 text-gray-400" />
                       <input
                         type="password"
-                        required
-                        placeholder="Tối thiểu 6 ký tự"
+                        required={!editingUser}
                         value={userPassword}
                         onChange={(e) => setUserPassword(e.target.value)}
                         className="w-full pl-10 pr-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
                       />
+                    {editingUser && (
+                      <p className="text-[10px] text-gray-400 mt-1">
+                        Để trống nếu không cần đổi mật khẩu.
+                      </p>
+                    )}
                     </div>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  {/* Vai trò */}
+                  {/* Vai trÃ² */}
                   <div className="space-y-1.5 text-left">
-                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Quyền hạn (Role) *</label>
+                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Quyền hạn *</label>
                     <select
                       value={userRole}
                       onChange={(e) => setUserRole(e.target.value as any)}
@@ -1793,7 +1359,7 @@ export default function UserAdminTab() {
                     </select>
                   </div>
 
-                  {/* Doanh nghiệp */}
+                  {/* Doanh nghiá»‡p */}
                   <div className="space-y-1.5 text-left">
                     <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Doanh nghiệp *</label>
                     {userProfile?.role === "superadmin" ? (
@@ -1826,7 +1392,7 @@ export default function UserAdminTab() {
                   <div className="space-y-1.5 text-left">
                     <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
                       Người quản lý trực tiếp
-                      <span className="ml-1.5 font-normal normal-case text-gray-400">(tuỳ chọn — xác định cấp bậc trong sơ đồ nhân sự)</span>
+                      <span className="ml-1.5 font-normal normal-case text-gray-400">(tự chọn — xác định cấp bậc trong sơ đồ nhân sự)</span>
                     </label>
                     {(() => {
                       const eligibleManagers = usersList.filter(
@@ -1846,7 +1412,7 @@ export default function UserAdminTab() {
                             <option value="">— Không có / Chọn sau —</option>
                             {eligibleManagers.map((mgr) => (
                               <option key={mgr.uid} value={mgr.uid}>
-                                {`${mgr.displayName} (Manager${mgr.jobTitle ? " · " + mgr.jobTitle : ""}${mgr.department ? " · " + mgr.department : ""})`}
+                                {`${mgr.displayName} (Manager${mgr.jobTitle ? " Â· " + mgr.jobTitle : ""}${mgr.department ? " Â· " + mgr.department : ""})`}
                               </option>
                             ))}
                           </select>
@@ -1909,9 +1475,9 @@ export default function UserAdminTab() {
                         className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none resize-none"
                       />
                       <div className="rounded-xl border border-cyan-100 bg-cyan-50/70 px-3 py-2 text-[11px] leading-5 text-cyan-900">
-                        Nhap 1 hoac nhieu <span className="font-mono font-semibold">Avatar ID</span>. Moi ID co the cach nhau bang dau phay hoac xuong dong.
-                        Vi du: <span className="font-mono">avatar_001, avatar_002</span> hoac moi dong 1 ID.
-                        Avatar dau tien se duoc dung lam mac dinh trong studio.
+                        Nhập 1 hoặc nhiều <span className="font-mono font-semibold">Avatar ID</span>. Mọi ID có thể cách nhau bằng dấu phẩy hoặc xuống dòng.
+                        Ví dụ: <span className="font-mono">avatar_001, avatar_002</span> hoặc mỗi dòng 1 ID.
+                        Avatar đầu tiên sẽ được dùng làm mặc định trong studio.
                       </div>
                     </div>
                     <div className="space-y-1.5">
@@ -2048,7 +1614,7 @@ export default function UserAdminTab() {
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
-                    So tien {balanceAction === "add" ? "cong them" : "tru di"} (Credit)
+                    Số tiền {balanceAction === "add" ? "cộng thêm" : "trừ đi  "} (Credit)
                   </label>
                   <input
                     type="number"
@@ -2060,12 +1626,12 @@ export default function UserAdminTab() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Ghi chu noi bo</label>
+                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Ghi chú nội bộ</label>
                   <textarea
                     value={balanceNote}
                     onChange={(e) => setBalanceNote(e.target.value)}
                     rows={2}
-                    placeholder="Vi du: cap bu cong no, tang thuong, dieu chinh sau doi soat..."
+                    placeholder="Ví dụ: cấp bổ sung công nợ, tăng thưởng, điều chỉnh sau đối soát..."
                     className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none resize-none"
                   />
                 </div>
@@ -2076,7 +1642,7 @@ export default function UserAdminTab() {
                   onClick={closeBalanceModal}
                   className="min-w-[94px] px-4 py-2 border border-gray-200 bg-white rounded-xl text-xs font-bold text-gray-500 hover:bg-gray-50 transition-all cursor-pointer"
                 >
-                  Huy bo
+                  Hủy bỏ
                 </button>
                 <button
                   type="submit"
@@ -2086,10 +1652,10 @@ export default function UserAdminTab() {
                   {submittingBalance ? (
                     <>
                       <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                      Dang luu...
+                      Đang lưu...
                     </>
                   ) : (
-                    balanceAction === "add" ? "Xac nhan cong tien" : "Xac nhan tru tien"
+                    balanceAction === "add" ? "Xác nhận cộng tiền" : "Xác nhận trừ tiền"
                   )}
                 </button>
               </div>
@@ -2112,7 +1678,7 @@ export default function UserAdminTab() {
                     {editingRole ? "Cấu hình vai trò & Phân quyền" : "Tạo vai trò tùy chỉnh mới"}
                   </h3>
                   <p className="text-[10px] text-slate-300 font-mono mt-0.5">
-                    {editingRole ? `Vai trò: ${roleSlug}` : "Thiết lập vai trò động cho doanh nghiệp"}
+                    {editingRole ? `Vai trò: ${roleSlug}` : "Thiết lập vai trò dành cho doanh nghiệp"}
                   </p>
                 </div>
               </div>
@@ -2166,7 +1732,7 @@ export default function UserAdminTab() {
             >
               <div className="p-6 space-y-4 overflow-y-auto flex-1 text-left">
                 <div className="grid grid-cols-2 gap-4">
-                  {/* Mã vai trò */}
+                  {/* MÃ£ vai trÃ² */}
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Mã vai trò (slug) *</label>
                     <input
@@ -2323,7 +1889,7 @@ export default function UserAdminTab() {
                     Cấu hình HeyGen cho người dùng
                   </h3>
                   <p className="text-[10px] text-cyan-100 font-mono mt-0.5">
-                    {editingHeyGenUser.displayName} · {editingHeyGenUser.email}
+                    {editingHeyGenUser.displayName} Â· {editingHeyGenUser.email}
                   </p>
                 </div>
               </div>
@@ -2420,3 +1986,4 @@ export default function UserAdminTab() {
     </div>
   );
 }
+
