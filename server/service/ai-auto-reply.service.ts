@@ -13,9 +13,51 @@ import { aiKnowledgeService } from "./ai-knowledge.service";
 const pendingReplies = new Map<string, { timeout: NodeJS.Timeout; messageKey: string }>();
 const generatingReplies = new Set<string>();
 const HUMAN_INTERVENTION_GUARD_ENABLED = false;
+const DEFAULT_MESSAGE_GROUPING_DELAY_MS = 7000;
+
+function getMessageGroupingDelayMs() {
+  const configuredDelaySeconds = Number(process.env.AI_REPLY_GROUPING_DELAY_SECONDS);
+  if (Number.isFinite(configuredDelaySeconds) && configuredDelaySeconds >= 0) {
+    return configuredDelaySeconds * 1000;
+  }
+
+  return DEFAULT_MESSAGE_GROUPING_DELAY_MS;
+}
 
 function normalizeIncomingText(text: string) {
   return String(text || "").trim();
+}
+
+function splitHistoryAndPendingInboundMessages(messages: any[]) {
+  const pendingInboundMessages: any[] = [];
+
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message?.direction !== "inbound") {
+      break;
+    }
+
+    const text = normalizeIncomingText(message.text);
+    if (text) {
+      pendingInboundMessages.unshift(message);
+    }
+  }
+
+  const pendingIds = new Set(pendingInboundMessages.map((message) => String(message._id)));
+  const historyMessages = messages.filter((message) => !pendingIds.has(String(message._id)));
+  const pendingTexts = pendingInboundMessages
+    .map((message) => normalizeIncomingText(message.text))
+    .filter(Boolean);
+  const combinedText = pendingTexts.length > 1
+    ? pendingTexts.map((text, index) => `${index + 1}. ${text}`).join("\n")
+    : pendingTexts[0] || "";
+
+  return {
+    historyMessages,
+    combinedText,
+    pendingMessageCount: pendingInboundMessages.length,
+    latestPendingMessage: pendingInboundMessages[pendingInboundMessages.length - 1] || null,
+  };
 }
 
 async function collectCandidateUsers(
@@ -226,12 +268,15 @@ export const aiAutoReplyService = {
         return;
       }
 
-      const delayMs = (aiConfig.replyDelay || 15) * 1000;
+      const userDelayMs = (aiConfig.replyDelay || 15) * 1000;
+      const groupingDelayMs = getMessageGroupingDelayMs();
+      const delayMs = groupingDelayMs + userDelayMs;
       console.log(
         `[AI AutoReply] Schedule reply: channel=${channel}, conversationId=${conversationId}, ` +
-        `delayMs=${delayMs}, model=${aiConfig.model || "n/a"}, user=${user.email}`
+        `groupingDelayMs=${groupingDelayMs}, userDelayMs=${userDelayMs}, totalDelayMs=${delayMs}, ` +
+        `model=${aiConfig.model || "n/a"}, user=${user.email}`
       );
-      console.log(`[AI AutoReply] 🕒 LÊN LỊCH: Đang lên lịch phản hồi tự động sau ${aiConfig.replyDelay}s cho hội thoại: ${conversationId} (User: ${user.email})`);
+      console.log(`[AI AutoReply] 🕒 LÊN LỊCH: Đang gom tin ${groupingDelayMs / 1000}s rồi chờ thêm ${aiConfig.replyDelay}s cấu hình trước khi phản hồi hội thoại: ${conversationId} (User: ${user.email})`);
 
       const timeoutId = setTimeout(async () => {
         try {
@@ -255,6 +300,8 @@ export const aiAutoReplyService = {
           let lastMessageDirection = "inbound";
           let history: any[] = [];
           let latestDbMessage: any = null;
+          let groupedCustomerMessage = normalizedIncomingText;
+          let groupedMessageCount = 1;
 
           if (channel === "zalo") {
             const conv = await ZaloConversationModel.findById(conversationId);
@@ -284,17 +331,11 @@ export const aiAutoReplyService = {
               lastMessageDirection = latestDbMessage.direction;
             }
 
-            // Deduplicate history context
-            const lastMsg = dbMsgs[dbMsgs.length - 1];
-            const isSameMessage = lastMsg && (
-              (incomingMessageId && lastMsg.messageId === incomingMessageId) ||
-              (!incomingMessageId && lastMsg.direction === "inbound" && normalizeIncomingText(lastMsg.text) === normalizedIncomingText)
-            );
-            if (isSameMessage) {
-              dbMsgs.pop();
-            }
+            const grouped = splitHistoryAndPendingInboundMessages(dbMsgs);
+            groupedCustomerMessage = grouped.combinedText || normalizedIncomingText;
+            groupedMessageCount = grouped.pendingMessageCount || 1;
 
-            history = dbMsgs.map(m => ({
+            history = grouped.historyMessages.map(m => ({
               sender: m.direction === "inbound" ? "user" : "model",
               text: m.text || ""
             }));
@@ -326,17 +367,11 @@ export const aiAutoReplyService = {
               lastMessageDirection = latestDbMessage.direction;
             }
 
-            // Deduplicate history context
-            const lastMsg = dbMsgs[dbMsgs.length - 1];
-            const isSameMessage = lastMsg && (
-              (incomingMessageId && lastMsg.messageId === incomingMessageId) ||
-              (!incomingMessageId && lastMsg.direction === "inbound" && normalizeIncomingText(lastMsg.text) === normalizedIncomingText)
-            );
-            if (isSameMessage) {
-              dbMsgs.pop();
-            }
+            const grouped = splitHistoryAndPendingInboundMessages(dbMsgs);
+            groupedCustomerMessage = grouped.combinedText || normalizedIncomingText;
+            groupedMessageCount = grouped.pendingMessageCount || 1;
 
-            history = dbMsgs.map(m => ({
+            history = grouped.historyMessages.map(m => ({
               sender: m.direction === "inbound" ? "user" : "model",
               text: m.text || ""
             }));
@@ -381,13 +416,13 @@ export const aiAutoReplyService = {
           }
 
           console.log(`[AI AutoReply] 🤖 KHỞI CHẠY: Bắt đầu gọi Gemini sinh câu trả lời cho hội thoại: ${conversationId} (${channel.toUpperCase()})`);
-          console.log(`[AI AutoReply] Gemini start: conversationId=${conversationId}, channel=${channel}, historyCount=${history.length}`);
+          console.log(`[AI AutoReply] Gemini start: conversationId=${conversationId}, channel=${channel}, historyCount=${history.length}, groupedMessageCount=${groupedMessageCount}, groupedTextLength=${groupedCustomerMessage.length}`);
           generatingReplies.add(conversationId);
 
           try {
             const startedAt = Date.now();
             const companyCode = targetCompanyCode;
-            const queryText = `${history.map((h) => h.text).join("\n")}\n${normalizedIncomingText}`.trim();
+            const queryText = `${history.map((h) => h.text).join("\n")}\n${groupedCustomerMessage}`.trim();
             const ragContext = await aiKnowledgeService.searchRelevantContext({
               companyCode,
               query: queryText,
@@ -417,7 +452,7 @@ export const aiAutoReplyService = {
             // Call Gemini Service
             console.log(`[AI AutoReply] 🧠 GEMINI CALL: Đang gửi request tới Gemini cho conversation=${conversationId}...`);
             console.log(`[AI AutoReply] Gemini call: conversationId=${conversationId}, channel=${channel}`);
-            const aiResponse = await geminiService.chat(normalizedIncomingText, history, aiConfig, effectiveRagContext);
+            const aiResponse = await geminiService.chat(groupedCustomerMessage, history, aiConfig, effectiveRagContext);
 
             if (!aiResponse || !aiResponse.text) {
               console.error(`[AI AutoReply] ❌ LỖI API: Không nhận được câu trả lời từ Gemini cho hội thoại: ${conversationId}`);
@@ -472,7 +507,7 @@ export const aiAutoReplyService = {
                 companyCode,
                 channel,
                 conversationId,
-                customerMessage: normalizedIncomingText,
+                customerMessage: groupedCustomerMessage,
                 aiResponse: aiResponse.text,
                 contextText: effectiveRagContext.contextText,
                 contextMatches: effectiveRagContext.matches,

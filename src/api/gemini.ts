@@ -199,6 +199,17 @@ export const geminiApi = {
     return response.json();
   },
 
+  async clearKnowledge(): Promise<any> {
+    const response = await fetch("/api/v1/gemini/clear-knowledge", {
+      method: "POST",
+      headers: getJwtHeaders(true),
+    });
+    if (!response.ok) {
+      throw new Error("Khong the xoa toan bo tri thuc AI");
+    }
+    return response.json();
+  },
+
   async testReply(message: string, aiConfig: any): Promise<any> {
     const response = await fetch("/api/v1/gemini/test-reply", {
       method: "POST",

@@ -69,12 +69,16 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
   // Google Drive integrations for Omni-Inbox
   const [driveLink, setDriveLink] = useState("");
   const [syncingDrive, setSyncingDrive] = useState(false);
+  const [clearingKnowledge, setClearingKnowledge] = useState(false);
   const [knowledgeHealth, setKnowledgeHealth] = useState<any | null>(null);
   const [loadingAIHealth, setLoadingAIHealth] = useState(false);
   const [testQuestion, setTestQuestion] = useState("Phí ship và chính sách bảo hành bên mình như thế nào?");
   const [testReply, setTestReply] = useState<any | null>(null);
   const [testingAI, setTestingAI] = useState(false);
   const [aiReplyLogs, setAIReplyLogs] = useState<any[]>([]);
+  const knowledgeDocuments = Array.isArray(knowledgeHealth?.documents) ? knowledgeHealth.documents : [];
+  const detectedTopics = Array.isArray(knowledgeHealth?.detectedTopics) ? knowledgeHealth.detectedTopics : [];
+  const knowledgeWarnings = Array.isArray(knowledgeHealth?.warnings) ? knowledgeHealth.warnings : [];
 
   const refreshAIHealth = async () => {
     setLoadingAIHealth(true);
@@ -154,6 +158,29 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
       toast.error("Không thể kết nối tới máy chủ.");
     } finally {
       setSyncingDrive(false);
+    }
+  };
+
+  const handleClearKnowledge = async () => {
+    if (clearingKnowledge) return;
+
+    const confirmed = window.confirm("Xoa toan bo tai lieu AI da feed va reset du lieu huan luyen hien tai?");
+    if (!confirmed) return;
+
+    setClearingKnowledge(true);
+    try {
+      await geminiApi.clearKnowledge();
+      const nextConfig = { ...localConfig, trainingKnowledge: "" };
+      setLocalConfig(nextConfig);
+      await setAIConfig(nextConfig);
+      setTestReply(null);
+      await refreshAIHealth();
+      toast.success("Da xoa toan bo tai lieu AI da feed.");
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Khong the xoa tai lieu AI.");
+    } finally {
+      setClearingKnowledge(false);
     }
   };
 
@@ -709,6 +736,14 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                 >
                   <Send className="w-4 h-4" />
                 </button>
+                <button
+                  type="button"
+                  onClick={handleClearKnowledge}
+                  disabled={clearingKnowledge || syncingDrive}
+                  className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg font-bold text-[9px] shrink-0 transition-all active:scale-95 disabled:opacity-60 cursor-pointer"
+                >
+                  {clearingKnowledge ? "Dang xoa..." : "Xoa tai lieu"}
+                </button>
               </div>
             </form>
           </>
@@ -896,20 +931,40 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                     <strong className="text-slate-700">{knowledgeHealth?.documentsCount ?? 0}</strong>
                   </div>
                   <div className="bg-white border border-slate-100 rounded-lg p-2">
-                    <p className="text-slate-400">Knowledge chunks</p>
+                    <p className="text-slate-400">Khoi tri thuc AI</p>
                     <strong className="text-slate-700">{knowledgeHealth?.chunksCount ?? 0}</strong>
                   </div>
                 </div>
-                {knowledgeHealth?.detectedTopics?.length > 0 && (
+                {detectedTopics.length > 0 && (
                   <div className="flex flex-wrap gap-1">
-                    {knowledgeHealth.detectedTopics.map((topic: any) => (
+                    {detectedTopics.map((topic: any) => (
                       <span key={topic.key} className="px-1.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-100 rounded-md text-[8px] font-bold">
                         {topic.label}
                       </span>
                     ))}
                   </div>
                 )}
-                {knowledgeHealth?.warnings?.map((warning: string, idx: number) => (
+                {knowledgeDocuments.length > 0 && (
+                  <div className="space-y-1.5">
+                    <p className="text-[8px] font-extrabold uppercase text-slate-400">Nguon tai lieu dang hoc</p>
+                    <div className="space-y-1.5">
+                      {knowledgeDocuments.map((doc: any, idx: number) => (
+                        <div key={`${doc.title}-${idx}`} className="rounded-lg border border-slate-100 bg-white px-2 py-1.5">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="text-[9px] font-bold text-slate-700 leading-snug line-clamp-2">{doc.title}</p>
+                            <span className="shrink-0 rounded-md bg-slate-100 px-1.5 py-0.5 text-[8px] font-bold text-slate-500">
+                              v{doc.version ?? 1}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-[8px] text-slate-400">
+                            {doc.sourceType === "google_doc" ? "Google Drive" : "Tai lieu nhap tay"}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {knowledgeWarnings.map((warning: string, idx: number) => (
                   <p key={idx} className="text-[9px] text-amber-700 bg-amber-50 border border-amber-100 rounded-lg p-2 leading-normal">
                     {warning}
                   </p>

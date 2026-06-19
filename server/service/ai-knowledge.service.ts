@@ -30,6 +30,31 @@ function tokenize(text: string) {
     .filter((token) => token.length >= 2);
 }
 
+function buildTokenFrequency(tokens: string[]) {
+  const frequency = new Map<string, number>();
+  for (const token of tokens) {
+    frequency.set(token, (frequency.get(token) || 0) + 1);
+  }
+  return frequency;
+}
+
+function computeTokenOverlapScore(queryTokens: string[], chunkTokens: string[]) {
+  if (queryTokens.length === 0 || chunkTokens.length === 0) {
+    return 0;
+  }
+
+  const chunkFrequency = buildTokenFrequency(chunkTokens);
+  let matches = 0;
+  for (const token of queryTokens) {
+    const count = chunkFrequency.get(token) || 0;
+    if (count > 0) {
+      matches += Math.min(count, 2);
+    }
+  }
+
+  return matches / Math.max(queryTokens.length, 1);
+}
+
 function hashToken(token: string) {
   const digest = crypto.createHash("md5").update(token).digest();
   return digest.readUInt32BE(0);
@@ -169,7 +194,9 @@ export const aiKnowledgeService = {
     topK?: number;
   }) {
     const companyCode = normalizeCompanyCode(params.companyCode);
-    const queryVector = embedText(params.query);
+    const normalizedQuery = normalizeText(params.query);
+    const queryVector = embedText(normalizedQuery);
+    const queryTokens = tokenize(normalizedQuery);
     const topK = params.topK || DEFAULT_TOP_K;
     const channel = params.channel || "facebook";
 
@@ -181,12 +208,35 @@ export const aiKnowledgeService = {
       .limit(300)
       .lean();
 
+    const documentIds = Array.from(new Set(chunks.map((chunk) => String(chunk.documentId))));
+    const documents = await AIKnowledgeDocumentModel.find({
+      _id: { $in: documentIds },
+    })
+      .select("_id sourceTitle sourceUrl")
+      .lean();
+    const documentMap = new Map(documents.map((doc) => [String(doc._id), doc]));
+
     const ranked = chunks
-      .map((chunk) => ({
-        text: chunk.text,
-        score: cosineSimilarity(queryVector, chunk.embedding || []),
-      }))
-      .filter((item) => item.score > 0.08)
+      .map((chunk) => {
+        const doc = documentMap.get(String(chunk.documentId));
+        const title = normalizeText(doc?.sourceTitle || "");
+        const titleTokens = tokenize(title);
+        const bodyTokens = tokenize(chunk.text);
+        const semanticScore = cosineSimilarity(queryVector, chunk.embedding || []);
+        const lexicalScore = computeTokenOverlapScore(queryTokens, [...titleTokens, ...bodyTokens]);
+        const titleBoost = computeTokenOverlapScore(queryTokens, titleTokens);
+        const score = semanticScore + lexicalScore * 0.9 + titleBoost * 0.6;
+
+        return {
+          text: chunk.text,
+          score,
+          semanticScore,
+          lexicalScore,
+          title: doc?.sourceTitle || "Tai lieu noi bo",
+          sourceUrl: doc?.sourceUrl || "",
+        };
+      })
+      .filter((item) => item.score > 0.12)
       .sort((a, b) => b.score - a.score)
       .slice(0, topK);
 
@@ -194,8 +244,10 @@ export const aiKnowledgeService = {
     const selected: string[] = [];
     for (const item of ranked) {
       if (usedChars + item.text.length > MAX_CONTEXT_CHARS) break;
-      selected.push(item.text);
-      usedChars += item.text.length;
+      const labeledText = `[Tai lieu] ${item.title}${item.sourceUrl ? `\n[Link] ${item.sourceUrl}` : ""}\n${item.text}`;
+      if (usedChars + labeledText.length > MAX_CONTEXT_CHARS) break;
+      selected.push(labeledText);
+      usedChars += labeledText.length;
     }
 
     return {
