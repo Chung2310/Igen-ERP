@@ -4,6 +4,11 @@ import { heygenApi } from "../../api/heygen";
 import { HEYGEN_THEME } from "./heygenTheme";
 import { toast } from "../../pages/Toast";
 
+function isPlayableVideoUrl(url?: string | null) {
+  const value = String(url || "").trim();
+  return value.startsWith("http://") || value.startsWith("https://");
+}
+
 function usePseudoProgress(createdAt?: string, status?: string) {
   const [progress, setProgress] = useState(0);
 
@@ -124,7 +129,7 @@ export function HeyGenVideoItem({
   const downloadUrl = useMemo(() => {
     if (!isCompleted) return "";
     const url = item.url || item.captionedVideoUrl || item.videoPageUrl || "";
-    return url.startsWith("http") && !url.startsWith("pending://") ? url : "";
+    return isPlayableVideoUrl(url) ? url : "";
   }, [item, isCompleted]);
 
   const badgeClass = isCompleted
@@ -166,7 +171,6 @@ export function HeyGenVideoItem({
               src={downloadUrl}
               preload="metadata"
               playsInline
-              crossOrigin="anonymous"
               className="absolute inset-0 z-10 h-full w-full object-contain bg-transparent"
               style={{ objectPosition: "center top" }}
             />
