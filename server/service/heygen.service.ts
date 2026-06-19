@@ -93,6 +93,24 @@ function getDefaultVoiceId() {
   return String(process.env.HEYGEN_DEFAULT_VOICE_ID || "").trim();
 }
 
+function getHeyGenWebhookUrl() {
+  const baseUrl = String(process.env.APP_URL || "").trim();
+  if (!baseUrl) {
+    return "";
+  }
+
+  try {
+    const webhookUrl = new URL("/api/v1/heygen/webhook", baseUrl);
+    const secret = String(process.env.HEYGEN_WEBHOOK_SECRET || "").trim();
+    if (secret) {
+      webhookUrl.searchParams.set("token", secret);
+    }
+    return webhookUrl.toString();
+  } catch {
+    return "";
+  }
+}
+
 function requireApiKey(overrideApiKey?: string) {
   const apiKey = getApiKey(overrideApiKey);
   if (!apiKey) {
@@ -543,6 +561,11 @@ export const heygenService = {
       resolution: resolution || "720p",
       output_format: "mp4",
     };
+
+    const webhookUrl = getHeyGenWebhookUrl();
+    if (webhookUrl) {
+      requestBody.callback_url = webhookUrl;
+    }
 
     if (input.enableCaption) {
       requestBody.caption = {
