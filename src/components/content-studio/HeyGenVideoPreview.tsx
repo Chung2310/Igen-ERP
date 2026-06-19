@@ -29,6 +29,16 @@ const MOCK_DURATION = 15;
 const CAPTION_MAX_WORDS = 5;
 const CAPTION_BREAK_PATTERN = /[,.!?;:]\s+/;
 
+function isRenderableVideoUrl(url?: string | null) {
+  const value = String(url || "").trim();
+  return (
+    value.startsWith("http://") ||
+    value.startsWith("https://") ||
+    value.startsWith("blob:") ||
+    value.startsWith("data:video/")
+  );
+}
+
 export function HeyGenVideoPreview({
   selectedAvatar,
   script,
@@ -50,6 +60,7 @@ export function HeyGenVideoPreview({
   previewVideoUrl,
 }: HeyGenVideoPreviewProps) {
   const [isPlaying, setIsPlaying] = useState(false);
+  const renderablePreviewVideoUrl = isRenderableVideoUrl(previewVideoUrl) ? previewVideoUrl : "";
   const [currentTime, setCurrentTime] = useState(0);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [volume, setVolume] = useState(80);
@@ -214,10 +225,10 @@ export function HeyGenVideoPreview({
           onDrop={handlePreviewDrop}
           className={`relative aspect-[16/9] h-full max-h-[420px] w-full max-w-[920px] overflow-hidden rounded-[22px] border ${HEYGEN_THEME.border} bg-white shadow-sm transition-all duration-300`}
         >
-          {previewVideoUrl ? (
+          {renderablePreviewVideoUrl ? (
             <video
               ref={videoRef}
-              src={previewVideoUrl}
+              src={renderablePreviewVideoUrl}
               className={`h-full w-full ${mediaFitClass} bg-white`}
               style={{ objectPosition: "center top" }}
               onClick={togglePlayback}

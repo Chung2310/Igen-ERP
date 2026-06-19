@@ -30,6 +30,16 @@ export const formatCardDate = (dateStr: any): string => {
   }
 };
 
+export const isRenderableVideoUrl = (url?: string | null): boolean => {
+  const value = String(url || "").trim();
+  return (
+    value.startsWith("http://") ||
+    value.startsWith("https://") ||
+    value.startsWith("blob:") ||
+    value.startsWith("data:video/")
+  );
+};
+
 interface ModerationPipCardProps {
   key?: string | number | null;
   card: ContentApprovalCard;
@@ -56,6 +66,7 @@ export function ModerationPipCard({
 }: ModerationPipCardProps) {
   const isProcessing = card.status === 'processing';
   const isFailed = card.status === 'failed';
+  const canRenderVideo = isRenderableVideoUrl(card.videoUrl);
 
   const channelBadgeStyles: Record<string, string> = {
     Facebook: "bg-blue-50 border-blue-250/30 text-blue-700",
@@ -133,7 +144,7 @@ export function ModerationPipCard({
         </div>
       )}
 
-      {card.videoUrl && (
+      {canRenderVideo && (
         <div 
           onClick={(e) => {
             e.stopPropagation();
@@ -301,6 +312,8 @@ export function ScheduledCard({
   isPublishingFacebook = false,
   onOpenDetail
 }: ScheduledCardProps) {
+  const canRenderVideo = isRenderableVideoUrl(card.videoUrl);
+
   const channelBadgeStyles: Record<string, string> = {
     Facebook: "bg-blue-50 border-blue-250/30 text-blue-700",
     TikTok: "bg-slate-900 border-slate-950 text-white",
@@ -348,7 +361,7 @@ export function ScheduledCard({
         </div>
       )}
 
-      {card.videoUrl && (
+      {canRenderVideo && (
         <div 
           onClick={(e) => {
             e.stopPropagation();
@@ -518,6 +531,8 @@ interface PublishedCardProps {
 }
 
 export function PublishedCard({ card, onDelete, isUserRole, onPreviewMedia, onOpenDetail }: PublishedCardProps) {
+  const canRenderVideo = isRenderableVideoUrl(card.videoUrl);
+
   const channelBadgeStyles: Record<string, string> = {
     Facebook: "bg-blue-50 border-blue-250/30 text-blue-700",
     TikTok: "bg-slate-900 border-slate-950 text-white",
@@ -555,7 +570,7 @@ export function PublishedCard({ card, onDelete, isUserRole, onPreviewMedia, onOp
         </div>
       )}
 
-      {card.videoUrl && (
+      {canRenderVideo && (
         <div 
           onClick={(e) => {
             e.stopPropagation();
