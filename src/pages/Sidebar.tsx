@@ -236,6 +236,26 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
           </span>
           {!isCollapsed ? <ChevronRight className="h-4 w-4" /> : null}
         </button>
+        {!isCollapsed ? (
+          <div className="mt-3 flex flex-wrap gap-x-3 gap-y-2 px-1 text-[11px] text-gray-500">
+            <a
+              href="/privacy-policy.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium underline underline-offset-2 hover:text-blue-700"
+            >
+              Privacy
+            </a>
+            <a
+              href="/terms-of-service.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium underline underline-offset-2 hover:text-blue-700"
+            >
+              Terms
+            </a>
+          </div>
+        ) : null}
       </div>
     </aside>
   );
