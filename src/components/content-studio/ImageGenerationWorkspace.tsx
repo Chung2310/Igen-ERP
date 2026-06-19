@@ -30,7 +30,7 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, 
   const [prompt, setPrompt] = useState(initialPrompt || '');
   const [negativePrompt, setNegativePrompt] = useState('');
   const [aspectRatio, setAspectRatio] = useState('3:4');
-  const [imageModel, setImageModel] = useState('nano-banana-pro');
+  const [imageModel, setImageModel] = useState('gemini-banana-pro');
   const [resolution, setResolution] = useState('1K');
   const [optimizeModel, setOptimizeModel] = useState('gemini-3.5-flash');
 
@@ -54,6 +54,12 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, 
   // History state
   const [history, setHistory] = useState<any[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+
+  // Library state
+  const [showLibraryModal, setShowLibraryModal] = useState(false);
+  const [libraryTab, setLibraryTab] = useState<'uploaded' | 'ai'>('uploaded');
+  const [uploadedImages, setUploadedImages] = useState<string[]>([]);
+  const [isLoadingLibrary, setIsLoadingLibrary] = useState(false);
 
   // Progress helpers
   const generateProgress = useProgress(isGenerating, 12);
@@ -82,34 +88,141 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, 
     }
   };
 
+  const loadLibraryImages = async () => {
+    setIsLoadingLibrary(true);
+    try {
+      let localImages: string[] = [];
+      try {
+        const stored = localStorage.getItem('igen_uploaded_images');
+        localImages = stored ? JSON.parse(stored) : [];
+      } catch (e) {
+        console.error("Lỗi khi đọc localStorage:", e);
+      }
+
+      // Fallback to fetch from cards and products if localStorage is empty
+      if (localImages.length === 0) {
+        const cardsResponse = await fetch("/api/v1/crud/marketing-contents", {
+          headers: { "Authorization": `Bearer ${getAccessToken()}` }
+        });
+        let cardsImages: string[] = [];
+        if (cardsResponse.ok) {
+          const data = await cardsResponse.json();
+          const items = data.data || data.items || [];
+          items.forEach((item: any) => {
+            if (item.imageUrl) cardsImages.push(item.imageUrl);
+            if (item.referenceImage) cardsImages.push(item.referenceImage);
+          });
+        }
+
+        const productsResponse = await fetch("/api/v1/crud/products?sort=name", {
+          headers: { "Authorization": `Bearer ${getAccessToken()}` }
+        });
+        let productsImages: string[] = [];
+        if (productsResponse.ok) {
+          const data = await productsResponse.json();
+          const items = data.data || data.items || [];
+          items.forEach((item: any) => {
+            if (item.imageUrl) productsImages.push(item.imageUrl);
+          });
+        }
+
+        const allImages = [...cardsImages, ...productsImages]
+          .filter(url => url && typeof url === 'string' && url.startsWith('http') && !url.includes('pending://'))
+          .filter((url, index, self) => self.indexOf(url) === index);
+
+        localImages = allImages;
+        try {
+          localStorage.setItem('igen_uploaded_images', JSON.stringify(allImages));
+        } catch {}
+      }
+
+      setUploadedImages(localImages);
+    } catch (err) {
+      console.error("Lỗi khi tải thư viện ảnh:", err);
+    } finally {
+      setIsLoadingLibrary(false);
+    }
+  };
+
+  const uploadAndSaveImage = async (base64Url: string): Promise<string> => {
+    try {
+      const filename = `upload_${Date.now()}.png`;
+      const cloudinaryUrl = await marketingService.uploadMediaToStorage(base64Url, filename, 'image');
+      
+      // Save to localStorage
+      try {
+        const stored = localStorage.getItem('igen_uploaded_images');
+        const list: string[] = stored ? JSON.parse(stored) : [];
+        if (!list.includes(cloudinaryUrl)) {
+          const updated = [cloudinaryUrl, ...list].slice(0, 50); // limit to 50 uploads
+          localStorage.setItem('igen_uploaded_images', JSON.stringify(updated));
+          setUploadedImages(updated);
+        }
+      } catch (storageErr) {
+        console.error("Lỗi khi lưu ảnh vào localStorage:", storageErr);
+      }
+
+      return cloudinaryUrl;
+    } catch (err) {
+      console.error("Lỗi khi tải ảnh lên Cloudinary:", err);
+      throw err;
+    }
+  };
+
+  const handleUploadedFiles = async (files: File[]) => {
+    setIsUploading(true);
+    toast.info("Đang xử lý ảnh tải lên...");
+    
+    try {
+      const newUrls: string[] = [];
+      for (const file of files) {
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+
+        try {
+          // Attempt to upload to Cloudinary and save to library history
+          const cloudinaryUrl = await uploadAndSaveImage(base64);
+          newUrls.push(cloudinaryUrl);
+        } catch (uploadErr) {
+          // Fallback to raw base64 if Cloudinary upload fails
+          console.warn("Could not upload to Cloudinary, using base64 fallback:", uploadErr);
+          newUrls.push(base64);
+        }
+      }
+
+      setInputImageUrls((prev) => [...prev, ...newUrls].slice(0, 3));
+      toast.success("Đã tải ảnh lên thành công!");
+    } catch (err) {
+      console.error(err);
+      toast.error("Không thể xử lý tệp ảnh tải lên.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleOpenLibrary = () => {
+    setShowLibraryModal(true);
+    loadLibraryImages();
+  };
+
+  const handleSelectLibraryImage = (url: string) => {
+    setInputImageUrls((prev) => {
+      if (prev.includes(url)) return prev;
+      return [...prev, url].slice(0, 3);
+    });
+    setShowLibraryModal(false);
+    toast.success("Đã chọn ảnh làm ảnh tham chiếu đầu vào!");
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
-
-    setIsUploading(true);
-    const readers = (Array.from(files) as File[]).map((file) => {
-      return new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          resolve(reader.result as string);
-        };
-        reader.readAsDataURL(file);
-      });
-    });
-
-    Promise.all(readers)
-      .then((urls) => {
-        setInputImageUrls((prev) => [...prev, ...urls].slice(0, 3));
-        toast.success(`Đã thêm ${urls.length} ảnh tham chiếu thành công!`);
-      })
-      .catch((err) => {
-        console.error(err);
-        toast.error("Không thể xử lý ảnh tải lên");
-      })
-      .finally(() => {
-        setIsUploading(false);
-        e.target.value = '';
-      });
+    handleUploadedFiles(Array.from(files));
+    e.target.value = '';
   };
 
   const handleDrag = (e: React.DragEvent) => {
@@ -123,28 +236,7 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, 
     setIsDragging(false);
     const files = e.dataTransfer.files;
     if (!files || files.length === 0) return;
-
-    setIsUploading(true);
-    const readers = (Array.from(files) as File[]).map((file) => {
-      return new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          resolve(reader.result as string);
-        };
-        reader.readAsDataURL(file);
-      });
-    });
-
-    Promise.all(readers)
-      .then((urls) => {
-        setInputImageUrls((prev) => [...prev, ...urls].slice(0, 3));
-        toast.success(`Đã thêm ${urls.length} ảnh tham chiếu!`);
-      })
-      .catch((err) => {
-        console.error(err);
-        toast.error("Không thể tải ảnh");
-      })
-      .finally(() => setIsUploading(false));
+    handleUploadedFiles(Array.from(files));
   };
 
   const handleGenerateOptimalPrompt = async () => {
@@ -329,7 +421,7 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, 
               <label className="text-xs font-bold text-slate-800 uppercase tracking-wide">Ảnh đầu vào</label>
               <button
                 type="button"
-                onClick={() => toast.info('Thư viện ảnh sẽ sớm được tích hợp!')}
+                onClick={handleOpenLibrary}
                 className="text-[11px] font-semibold text-cyan-600 hover:text-cyan-700 flex items-center gap-1 bg-cyan-50 px-2.5 py-1 rounded-lg transition-all"
               >
                 <Images className="h-3.5 w-3.5" />
@@ -440,8 +532,9 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, 
               value={imageModel}
               onChange={(e) => setImageModel(e.target.value)}
             >
-              <option value="nano-banana-pro">iGen Image Pro</option>
-              <option value="nano-banana-2">iGen Image Flash</option>
+              <option value="nano-banana-pro">iGen Image Pro (PiAPI)</option>
+              <option value="nano-banana-2">iGen Image Flash (PiAPI)</option>
+              <option value="gemini-banana-pro">iGen Gemini Image Pro (Google)</option>
             </select>
           </div>
 
@@ -695,6 +788,119 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, 
               <Download className="h-4 w-4" />
               <span>Tải ảnh về máy</span>
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Image Library Modal */}
+      {showLibraryModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 px-4 py-6 backdrop-blur-xs">
+          <div className="w-full max-w-4xl overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-2xl flex flex-col max-h-[85vh]">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <Images className="h-5 w-5 text-cyan-600" />
+                  Thư viện ảnh
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">Chọn ảnh từ các tệp đã tải lên hoặc ảnh do AI tạo trước đó</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowLibraryModal(false)}
+                className="rounded-full border border-slate-100 bg-slate-50 p-2 text-slate-650 transition hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Tab Selector */}
+            <div className="flex border-b border-slate-100 px-6 bg-slate-50/50">
+              <button
+                type="button"
+                onClick={() => setLibraryTab('uploaded')}
+                className={`py-3 px-4 text-xs font-bold border-b-2 transition-all cursor-pointer ${
+                  libraryTab === 'uploaded'
+                    ? 'border-cyan-500 text-cyan-600 font-extrabold'
+                    : 'border-transparent text-slate-400 hover:text-slate-600'
+                }`}
+              >
+                Đã tải lên
+              </button>
+              <button
+                type="button"
+                onClick={() => setLibraryTab('ai')}
+                className={`py-3 px-4 text-xs font-bold border-b-2 transition-all cursor-pointer ${
+                  libraryTab === 'ai'
+                    ? 'border-cyan-500 text-cyan-600 font-extrabold'
+                    : 'border-transparent text-slate-400 hover:text-slate-600'
+                }`}
+              >
+                Do AI tạo
+              </button>
+            </div>
+
+            {/* Grid Container */}
+            <div className="flex-1 overflow-y-auto p-6 min-h-[300px]">
+              {isLoadingLibrary ? (
+                <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+                  <Loader2 className="h-8 w-8 text-cyan-500 animate-spin mb-2" />
+                  <span className="text-xs font-bold uppercase tracking-wider font-mono animate-pulse">Đang tải thư viện...</span>
+                </div>
+              ) : libraryTab === 'uploaded' ? (
+                uploadedImages.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16 text-slate-400 border border-dashed rounded-3xl bg-slate-50/50">
+                    <ImageIcon className="h-10 w-10 text-slate-350 mb-2" />
+                    <span className="text-xs font-bold text-slate-500">Chưa có ảnh tải lên nào</span>
+                    <p className="text-[10px] text-slate-450 mt-1">Ảnh từ sản phẩm hoặc bài đăng sẽ xuất hiện ở đây</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    {uploadedImages.map((url, idx) => (
+                      <div
+                        key={idx}
+                        onClick={() => handleSelectLibraryImage(url)}
+                        className="relative aspect-square border border-slate-150 rounded-2xl overflow-hidden bg-slate-50 group cursor-pointer hover:border-cyan-400 hover:shadow-md transition-all duration-200"
+                      >
+                        <img src={url} alt={`Uploaded ${idx}`} className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-103" />
+                        <div className="absolute inset-0 bg-black/35 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                          <Check className="h-6 w-6 text-white bg-cyan-500 rounded-full p-1.5 shadow-sm" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )
+              ) : (
+                history.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16 text-slate-400 border border-dashed rounded-3xl bg-slate-50/50">
+                    <ImageIcon className="h-10 w-10 text-slate-350 mb-2" />
+                    <span className="text-xs font-bold text-slate-500">Chưa có ảnh AI nào</span>
+                    <p className="text-[10px] text-slate-450 mt-1">Tạo ảnh AI đầu tiên để lưu vào lịch sử</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    {history.map((record) => {
+                      const id = record._id || record.id;
+                      return (
+                        <div
+                          key={id}
+                          onClick={() => handleSelectLibraryImage(record.url)}
+                          className="relative aspect-square border border-slate-150 rounded-2xl overflow-hidden bg-slate-50 group cursor-pointer hover:border-cyan-400 hover:shadow-md transition-all duration-200"
+                        >
+                          <img src={record.url} alt={record.prompt} className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-103" />
+                          <div className="absolute inset-0 bg-black/35 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                            <Check className="h-6 w-6 text-white bg-cyan-500 rounded-full p-1.5 shadow-sm" />
+                          </div>
+                          <div className="absolute bottom-0 inset-x-0 bg-black/60 p-2 text-white text-[9px] font-medium truncate opacity-0 group-hover:opacity-100 transition-opacity">
+                            {record.prompt}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )
+              )}
+            </div>
           </div>
         </div>
       )}
