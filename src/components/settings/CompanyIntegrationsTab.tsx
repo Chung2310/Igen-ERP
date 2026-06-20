@@ -23,6 +23,12 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
   const [loadingZaloDiagnostics, setLoadingZaloDiagnostics] = useState(false);
   const [zaloDiagnostics, setZaloDiagnostics] = useState<any | null>(null);
 
+  // Form states for Facebook credentials login
+  const [fbConnectMode, setFbConnectMode] = useState<"oauth" | "token" | "credentials">("oauth");
+  const [fbEmail, setFbEmail] = useState("");
+  const [fbPassword, setFbPassword] = useState("");
+  const [fbPagesList, setFbPagesList] = useState<any[]>([]);
+
   // Form states for company integration
   const [compPlatform, setCompPlatform] = useState<"TikTok" | "Facebook" | "Zalo">("TikTok");
   const [compDisplayName, setCompDisplayName] = useState("");
@@ -83,20 +89,108 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
     fetchCompanyIntegrations();
   }, []);
 
+  // Mở popup OAuth để đăng nhập Facebook trực tiếp
+  const handleFacebookOAuth = () => {
+    const appId = "1022427163587456"; 
+    const redirectUri = `${window.location.origin}/api/v1/facebook/oauth-callback`;
+    const oauthUrl = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=pages_manage_posts,pages_read_engagement,pages_show_list`;
+
+    const width = 600;
+    const height = 650;
+    const left = window.screen.width / 2 - width / 2;
+    const top = window.screen.height / 2 - height / 2;
+    
+    window.open(
+      oauthUrl,
+      "FacebookOAuthPopup",
+      `width=${width},height=${height},left=${left},top=${top},status=no,resizable=yes,scrollbars=yes`
+    );
+  };
+
+  // Lắng nghe sự kiện callback từ cửa sổ popup gửi về
+  useEffect(() => {
+    const handleOAuthMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+
+      if (event.data && event.data.type === "FACEBOOK_OAUTH_SUCCESS") {
+        const pages = event.data.pages;
+        if (pages && pages.length > 0) {
+          setFbPagesList(pages);
+          const firstPage = pages[0];
+          setCompUsername(firstPage.id);
+          setCompAccessToken(firstPage.access_token);
+          setCompDisplayName(firstPage.name);
+          toast.success(`Kết nối tài khoản Facebook thành công! Đã tải ${pages.length} Fanpage.`);
+        } else {
+          toast.error("Tài khoản Facebook của bạn không có quản lý Trang (Fanpage) nào.");
+        }
+      } else if (event.data && event.data.type === "FACEBOOK_OAUTH_FAILED") {
+        toast.error(`Kết nối Facebook thất bại: ${event.data.error || "Lỗi không xác định"}`);
+      }
+    };
+
+    window.addEventListener("message", handleOAuthMessage);
+    return () => window.removeEventListener("message", handleOAuthMessage);
+  }, []);
+
   const handleSaveCompanyIntegration = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!compDisplayName.trim()) {
       toast.error("Vui lòng nhập Tên hiển thị!");
       return;
     }
-    if (!compAccessToken.trim()) {
-      toast.error("Vui lòng nhập Access Token hoặc API Key!");
-      return;
+
+    let finalAccessToken = compAccessToken.trim();
+    let finalUsername = compUsername.trim();
+    let finalDisplayName = compDisplayName.trim();
+
+    // Nếu chọn kết nối Facebook bằng tài khoản/mật khẩu, gọi backend lấy token trước
+    if (compPlatform === "Facebook" && fbConnectMode === "credentials") {
+      if (!fbEmail.trim() || !fbPassword.trim()) {
+        toast.error("Vui lòng nhập đầy đủ tài khoản và mật khẩu Facebook!");
+        return;
+      }
+      setSubmittingIntegration(true);
+      try {
+        const response = await fetch("/api/v1/facebook/login-credentials", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${getAccessToken()}`
+          },
+          body: JSON.stringify({
+            email: fbEmail.trim(),
+            password: fbPassword.trim(),
+            pageId: compUsername.trim() || undefined
+          })
+        });
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData.message || "Đăng nhập Facebook thất bại.");
+        }
+
+        const result = await response.json();
+        toast.success(result.message || "Tự động kết nối lấy token thành công!");
+        finalAccessToken = result.accessToken;
+        finalUsername = result.pageId;
+        finalDisplayName = result.pageName || finalDisplayName;
+      } catch (err: any) {
+        toast.error(err.message || "Không thể kết nối. Vui lòng kiểm tra lại tài khoản.");
+        setSubmittingIntegration(false);
+        return;
+      }
+    } else {
+      if (!finalAccessToken) {
+        toast.error("Vui lòng nhập Access Token hoặc API Key!");
+        return;
+      }
+      if (compPlatform === "Facebook" && finalUsername && !/^\d+$/.test(finalUsername)) {
+        toast.error("Facebook cần nhập Page ID dạng số thật, không dùng username/vanity URL.");
+        return;
+      }
     }
-    if (compPlatform === "Facebook" && compUsername.trim() && !/^\d+$/.test(compUsername.trim())) {
-      toast.error("Facebook cần nhập Page ID dạng số thật, không dùng username/vanity URL.");
-      return;
-    }
+
     if (compPlatform === "TikTok" && !compBlotatoAccountId.trim()) {
       toast.error("TikTok yêu cầu Blotato Account ID!");
       return;
@@ -106,10 +200,10 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
     try {
       const payload: Partial<SocialIntegration> = {
         platform: compPlatform,
-        displayName: compDisplayName.trim(),
-        username: compUsername.trim() || undefined,
+        displayName: finalDisplayName,
+        username: finalUsername || undefined,
         blotatoAccountId: compPlatform === "TikTok" ? compBlotatoAccountId.trim() : undefined,
-        accessToken: compAccessToken.trim(),
+        accessToken: finalAccessToken,
         refreshToken: compPlatform === "Zalo" ? compRefreshToken.trim() || undefined : undefined,
         tokenExpiredAt: compPlatform === "Zalo" && compTokenExpiredAt ? new Date(compTokenExpiredAt).toISOString() : undefined,
         appSecret: compPlatform === "Facebook" ? compAppSecret.trim() : undefined,
@@ -317,89 +411,190 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
                 />
               </div>
 
-              {/* Username */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">{currentPlatformMeta.usernameLabel}</label>
-                <div className="relative">
-                  {compPlatform === "TikTok" && <span className="absolute left-3.5 top-2.5 text-xs text-gray-400 font-bold select-none">@</span>}
-                  <input
-                    type="text"
-                    value={compUsername}
-                    onChange={(e) => setCompUsername(e.target.value)}
-                    placeholder={currentPlatformMeta.usernamePlaceholder}
-                    className={`w-full ${compPlatform === "TikTok" ? "pl-8" : "px-3.5"} py-2.5 bg-white border border-gray-200 rounded-xl text-xs text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all`}
-                  />
-                </div>
-                {compPlatform === "Facebook" && (
-                  <p className="text-[9px] text-gray-400 leading-normal">
-                    Ưu tiên nhập Page ID thật của fanpage. Đây là trường backend đang dùng để gọi lại các luồng Facebook.
-                  </p>
-                )}
-              </div>
-
-              {/* Blotato Account ID (Only for TikTok) */}
-              {compPlatform === "TikTok" && (
+              {/* Facebook Connection Mode Selector */}
+              {compPlatform === "Facebook" && (
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Blotato Account ID *</label>
-                  <input
-                    type="text"
-                    required
-                    value={compBlotatoAccountId}
-                    onChange={(e) => setCompBlotatoAccountId(e.target.value)}
-                    placeholder="Ví dụ: acc_60d5ec123456"
-                    className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-mono text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all"
-                  />
-                  <p className="text-[9px] text-gray-400 leading-normal">
-                    ID tài khoản TikTok được Blotato cấp. Xem trong trang cấu hình Blotato của bạn.
-                  </p>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Hình thức liên kết Facebook</label>
+                  <div className="grid grid-cols-3 gap-1">
+                    {[
+                      { value: "oauth", label: "Facebook Login" },
+                      { value: "token", label: "Nhập Token trực tiếp" },
+                      { value: "credentials", label: "Tài khoản & Mật khẩu" }
+                    ].map((mode) => (
+                      <button
+                        key={mode.value}
+                        type="button"
+                        onClick={() => setFbConnectMode(mode.value as any)}
+                        className={`py-2 text-[10px] font-bold text-center rounded-xl border transition-all cursor-pointer ${
+                          fbConnectMode === mode.value
+                            ? "bg-indigo-650 border-indigo-650 text-white shadow-sm"
+                            : "border-gray-250 bg-white text-gray-500 hover:border-gray-300"
+                        }`}
+                      >
+                        {mode.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
 
-              {/* Access Token / API Key */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">{currentPlatformMeta.tokenLabel}</label>
-                <div className="relative flex items-center">
-                  <input
-                    type={showCompToken ? "text" : "password"}
-                    required
-                    value={compAccessToken}
-                    onChange={(e) => setCompAccessToken(e.target.value)}
-                    placeholder={currentPlatformMeta.tokenPlaceholder}
-                    className="w-full pl-3.5 pr-10 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-mono text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all"
-                  />
+              {/* Conditional Facebook Inputs */}
+              {compPlatform === "Facebook" && fbConnectMode === "oauth" && (
+                <div className="space-y-4 pt-2">
                   <button
                     type="button"
-                    onClick={() => setShowCompToken(!showCompToken)}
-                    className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600 cursor-pointer"
+                    onClick={handleFacebookOAuth}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#1877F2] hover:bg-[#166FE5] text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer"
                   >
-                    {showCompToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    <Globe className="h-4 w-4" />
+                    <span>Đăng nhập qua Facebook (OAuth)</span>
                   </button>
-                </div>
-                <p className="text-[9px] text-gray-400 leading-normal">{currentPlatformMeta.tokenHelp}</p>
-                {compPlatform === "Zalo" && (
-                  <div className="mt-3 space-y-1">
-                    <label className="text-[11px] font-semibold text-gray-700">Refresh Token (tùy chọn)</label>
-                    <input
-                      type={showCompToken ? "text" : "password"}
-                      value={compRefreshToken}
-                      onChange={(e) => setCompRefreshToken(e.target.value)}
-                      placeholder="Dán Refresh Token nếu có"
-                      className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-[11px] text-gray-800 shadow-sm focus:border-[#0068ff] focus:outline-none focus:ring-1 focus:ring-[#0068ff]"
-                    />
-                    <p className="text-[9px] text-gray-400 leading-normal">Nếu Zalo OA của bạn có Refresh Token, hãy nhập để hệ thống tự làm mới token khi sắp hết hạn.</p>
-                    <div className="pt-2 space-y-1">
-                      <label className="text-[11px] font-semibold text-gray-700">Token hết hạn lúc (tùy chọn)</label>
-                      <input
-                        type="datetime-local"
-                        value={compTokenExpiredAt}
-                        onChange={(e) => setCompTokenExpiredAt(e.target.value)}
-                        className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-[11px] text-gray-800 shadow-sm focus:border-[#0068ff] focus:outline-none focus:ring-1 focus:ring-[#0068ff]"
-                      />
-                      <p className="text-[9px] text-gray-400 leading-normal">Nếu bạn biết thời điểm hết hạn của access token hiện tại, hãy lưu để backend chủ động refresh sớm hơn.</p>
+                  <p className="text-[9px] text-gray-400 text-center leading-normal">
+                    Bấm để mở popup đăng nhập và ủy quyền Facebook. Hệ thống sẽ tự động tải danh sách Fanpage và thiết lập liên kết dài hạn không hết hạn.
+                  </p>
+
+                  {fbPagesList.length > 0 && (
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Chọn Fanpage của bạn *</label>
+                      <select
+                        value={compUsername}
+                        onChange={(e) => {
+                          const selectedId = e.target.value;
+                          const page = fbPagesList.find((p) => String(p.id) === String(selectedId));
+                          if (page) {
+                            setCompUsername(page.id);
+                            setCompAccessToken(page.access_token);
+                            setCompDisplayName(page.name);
+                          }
+                        }}
+                        className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs text-gray-800 focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all"
+                      >
+                        {fbPagesList.map((page) => (
+                          <option key={page.id} value={page.id}>
+                            {page.name} (ID: {page.id})
+                          </option>
+                        ))}
+                      </select>
                     </div>
+                  )}
+                </div>
+              )}
+
+              {compPlatform === "Facebook" && fbConnectMode === "credentials" && (
+                <>
+                  {/* FB Account */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Tài khoản Facebook (Email/SĐT) *</label>
+                    <input
+                      type="text"
+                      required
+                      value={fbEmail}
+                      onChange={(e) => setFbEmail(e.target.value)}
+                      placeholder="Nhập email hoặc số điện thoại đăng nhập"
+                      className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all"
+                    />
                   </div>
-                )}
-              </div>
+
+                  {/* FB Password */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Mật khẩu Facebook *</label>
+                    <input
+                      type="password"
+                      required
+                      value={fbPassword}
+                      onChange={(e) => setFbPassword(e.target.value)}
+                      placeholder="Nhập mật khẩu Facebook"
+                      className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all"
+                    />
+                    <p className="text-[9px] text-gray-450 leading-normal">
+                      Mẹo: Nhập email chứa từ "demo" hoặc "mock" (ví dụ: `demo@gmail.com`) để liên kết Fanpage giả lập lập tức.
+                    </p>
+                  </div>
+
+                  {/* FB Target Page ID (Optional) */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Mục tiêu Page ID (Tùy chọn)</label>
+                    <input
+                      type="text"
+                      value={compUsername}
+                      onChange={(e) => setCompUsername(e.target.value)}
+                      placeholder="Để trống để tự động lấy Page đầu tiên"
+                      className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all"
+                    />
+                  </div>
+                </>
+              )}
+
+              {/* Standard Platform Fields (Visible when NOT in Facebook OAuth/Credentials mode) */}
+              {!(compPlatform === "Facebook" && (fbConnectMode === "oauth" || fbConnectMode === "credentials")) && (
+                <>
+                  {/* Username (Page ID / Account Username) */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">{currentPlatformMeta.usernameLabel}</label>
+                    <div className="relative">
+                      {compPlatform === "TikTok" && <span className="absolute left-3.5 top-2.5 text-xs text-gray-400 font-bold select-none">@</span>}
+                      <input
+                        type="text"
+                        value={compUsername}
+                        onChange={(e) => setCompUsername(e.target.value)}
+                        placeholder={currentPlatformMeta.usernamePlaceholder}
+                        className={`w-full ${compPlatform === "TikTok" ? "pl-8" : "px-3.5"} py-2.5 bg-white border border-gray-200 rounded-xl text-xs text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all`}
+                      />
+                    </div>
+                    {compPlatform === "Facebook" && (
+                      <p className="text-[9px] text-gray-400 leading-normal">
+                        Ưu tiên nhập Page ID thật của fanpage. Đây là trường backend đang dùng để gọi lại các luồng Facebook.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Access Token / API Key / Zalo Configs */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">{currentPlatformMeta.tokenLabel}</label>
+                    <div className="relative flex items-center">
+                      <input
+                        type={showCompToken ? "text" : "password"}
+                        required={fbConnectMode === "token" || compPlatform !== "Facebook"}
+                        value={compAccessToken}
+                        onChange={(e) => setCompAccessToken(e.target.value)}
+                        placeholder={currentPlatformMeta.tokenPlaceholder}
+                        className="w-full pl-3.5 pr-10 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-mono text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowCompToken(!showCompToken)}
+                        className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600 cursor-pointer"
+                      >
+                        {showCompToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                    <p className="text-[9px] text-gray-400 leading-normal">{currentPlatformMeta.tokenHelp}</p>
+                    {compPlatform === "Zalo" && (
+                      <div className="mt-3 space-y-1">
+                        <label className="text-[11px] font-semibold text-gray-700">Refresh Token (tùy chọn)</label>
+                        <input
+                          type={showCompToken ? "text" : "password"}
+                          value={compRefreshToken}
+                          onChange={(e) => setCompRefreshToken(e.target.value)}
+                          placeholder="Dán Refresh Token nếu có"
+                          className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-[11px] text-gray-800 shadow-sm focus:border-[#0068ff] focus:outline-none focus:ring-1 focus:ring-[#0068ff]"
+                        />
+                        <p className="text-[9px] text-gray-400 leading-normal">Nếu Zalo OA của bạn có Refresh Token, hãy nhập để hệ thống tự làm mới token khi sắp hết hạn.</p>
+                        <div className="pt-2 space-y-1">
+                          <label className="text-[11px] font-semibold text-gray-700">Token hết hạn lúc (tùy chọn)</label>
+                          <input
+                            type="datetime-local"
+                            value={compTokenExpiredAt}
+                            onChange={(e) => setCompTokenExpiredAt(e.target.value)}
+                            className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-[11px] text-gray-800 shadow-sm focus:border-[#0068ff] focus:outline-none focus:ring-1 focus:ring-[#0068ff]"
+                          />
+                          <p className="text-[9px] text-gray-400 leading-normal">Nếu bạn biết thời điểm hết hạn của access token hiện tại, hãy lưu để backend chủ động refresh sớm hơn.</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
 
               {/* Facebook Message configurations: App Secret and Verify Token */}
               {compPlatform === "Facebook" && (
