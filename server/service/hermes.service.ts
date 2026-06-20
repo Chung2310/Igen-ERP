@@ -45,7 +45,7 @@ Trả về URL Cloudinary hợp lệ dạng: https://res.cloudinary.com/...
  * tối đa MAX_POLL_ATTEMPTS lần (~10 phút).
  */
 const POLL_INTERVAL_MS = 10_000;   // 10 giây
-const MAX_POLL_ATTEMPTS = 60;      // 60 × 10s = 10 phút
+const MAX_POLL_ATTEMPTS = 120;     // 120 × 10s = 20 phút
 
 async function pollTaskStatus(
   taskId: string,
