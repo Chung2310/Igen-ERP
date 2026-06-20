@@ -241,14 +241,53 @@ export default function MarketingTab() {
       return;
     }
     setPublishingTikTokId(card.id);
+    const integrationId = card.integrationId;
+    const accessToken = tiktok.accessToken;
+    const username = tiktok.username;
     try {
       const caption = extractDraftContent(card.bodyText).slice(0, 2200); // TikTok caption max 2200 chars
-      const postId = await marketingService.publishToTikTok(
+      const publishResult = await marketingService.publishToTikTok(
         card.id,
         caption,
         card.videoUrl,
         tiktok.isMock ?? false,
-        tiktok.privacyLevel ?? 'SELF_ONLY'
+        tiktok.privacyLevel ?? 'SELF_ONLY',
+        {
+          integrationId,
+          accessToken,
+          username,
+        }
+      );
+      const postId = String(publishResult.postId || "");
+      if (publishResult.status === "pending") {
+        setApprovalCards((prev) =>
+          prev.map((item) =>
+            item.id === card.id
+              ? {
+                  ...item,
+                  status: "processing",
+                  tiktokPostId: publishResult.postId || item.tiktokPostId,
+                  tiktokShareUrl: publishResult.shareUrl || item.tiktokShareUrl,
+                }
+              : item
+          )
+        );
+        toast.success("Da gui video sang TikTok. He thong dang cho TikTok xu ly.");
+        return;
+      }
+
+      setApprovalCards((prev) =>
+        prev.map((item) =>
+          item.id === card.id
+            ? {
+                ...item,
+                status: "published",
+                publishedAt: new Date().toISOString(),
+                tiktokPostId: publishResult.postId || item.tiktokPostId,
+                tiktokShareUrl: publishResult.shareUrl || item.tiktokShareUrl,
+              }
+            : item
+        )
       );
       toast.success(`Đã đăng video lên TikTok thành công! ${(tiktok.isMock ?? false) ? '(Demo)' : ''} ID: ${postId.slice(-8)}`);
     } catch (e: any) {
