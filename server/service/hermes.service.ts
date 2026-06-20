@@ -1,5 +1,19 @@
 import { AIMediaModel } from "../model/ai-media.model";
 
+function getHermesWebhookUrl(recordId: string) {
+  const baseUrl = String(process.env.APP_URL || "").trim();
+  if (!baseUrl) {
+    return "";
+  }
+  try {
+    const webhookUrl = new URL("/api/v1/gemini/hermes-webhook", baseUrl);
+    webhookUrl.searchParams.set("recordId", recordId);
+    return webhookUrl.toString();
+  } catch {
+    return "";
+  }
+}
+
 export const hermesService = {
   async editVideo(
     userId: string,
@@ -36,7 +50,7 @@ export const hermesService = {
       }
     });
 
-    // Run the background task to call Hermes Agent API with streaming
+    // Run the background task to call Hermes Agent API with webhook
     void this.executeHermesEditVideoJob(record._id.toString(), userId, videoUrl, prompt, {
       aspectRatio: options?.aspectRatio,
       resolution: options?.resolution
@@ -79,7 +93,7 @@ export const hermesService = {
     };
 
     try {
-      await updateLogs(10, "[Hermes] Đang gửi yêu cầu và khởi tạo stream...");
+      await updateLogs(10, "[Hermes] Đang gửi yêu cầu biên tập (non-stream)...");
 
       const cloudinaryPrompt = `
 Sau khi đã hoàn thành việc chỉnh sửa video theo yêu cầu, bạn PHẢI tải (upload) video kết quả lên Cloudinary sử dụng thông tin tài khoản Cloudinary sau:
@@ -91,7 +105,6 @@ Yêu cầu đầu ra:
 Bạn BẮT BUỘC phải trả về đường dẫn URL của video sau khi đã upload lên Cloudinary trong nội dung phản hồi của bạn. Đường dẫn này phải là một URL hợp lệ có định dạng của Cloudinary (ví dụ: https://res.cloudinary.com/...).
 `;
 
-      const systemPrompt = `Bạn là một trợ lý ảo hỗ trợ chỉnh sửa và biên tập video chuyên nghiệp. Bạn có khả năng gọi các MCP tools/skills để xử lý video và tải lên Cloudinary.`;
       const userPrompt = `Hãy thực hiện chỉnh sửa video sau theo yêu cầu của người dùng.
 
 Video nguồn cần chỉnh sửa: ${videoUrl}
@@ -99,8 +112,10 @@ Yêu cầu chỉnh sửa của người dùng: "${prompt}"
 
 ${cloudinaryPrompt}
 `;
-      const hermesUrl = `${process.env.HERMES_API_URL || "https://agent.igentechsolutions.com"}/v1/chat/completions`;
+
+      const hermesUrl = `${process.env.HERMES_API_URL || "https://agent.igentechsolutions.com"}/api/chat`;
       const hermesKey = process.env.HERMES_API_KEY || "";
+      const webhookUrl = getHermesWebhookUrl(recordId);
 
       const response = await fetch(hermesUrl, {
         method: "POST",
@@ -109,13 +124,9 @@ ${cloudinaryPrompt}
           "Authorization": `Bearer ${hermesKey}`
         },
         body: JSON.stringify({
-          model: "hermes",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt }
-          ],
-          temperature: 0.7,
-          stream: true
+          message: userPrompt,
+          stream: false,
+          webhook_url: webhookUrl
         })
       });
 
@@ -124,130 +135,24 @@ ${cloudinaryPrompt}
         throw new Error(`Hermes API error: ${response.status} - ${errorText}`);
       }
 
-      const reader = response.body;
-      if (!reader) {
-        throw new Error("No response body from Hermes Agent");
+      const result = await response.json();
+      const sessionId = result.session_id;
+
+      if (!sessionId) {
+        throw new Error("Không nhận được session_id từ Hermes Agent");
       }
 
-      await updateLogs(20, "[Hermes] Đang nhận phản hồi từ Hermes Agent...");
-
-      let fullText = "";
-      const decoder = new TextDecoder();
-      let buffer = "";
-      let lastProgressUpdate = Date.now();
-      let chunkCount = 0;
-
-      if (typeof (reader as any)[Symbol.asyncIterator] === "function") {
-        for await (const chunk of reader as any) {
-          chunkCount++;
-          buffer += typeof chunk === "string" ? chunk : decoder.decode(chunk, { stream: true });
-
-          let lineEnd;
-          while ((lineEnd = buffer.indexOf("\n")) !== -1) {
-            const line = buffer.slice(0, lineEnd).trim();
-            buffer = buffer.slice(lineEnd + 1);
-
-            if (line.startsWith("data:")) {
-              const dataStr = line.slice(5).trim();
-              if (dataStr === "[DONE]") {
-                break;
-              }
-              try {
-                const parsed = JSON.parse(dataStr);
-                const content = parsed.choices?.[0]?.delta?.content || "";
-                if (content) {
-                  fullText += content;
-                }
-              } catch (e) {
-                // Ignore partial/invalid JSON chunks
-              }
-            }
-          }
-
-          if (Date.now() - lastProgressUpdate > 3000) {
-            const progressPercent = Math.min(85, 20 + Math.floor(chunkCount / 10));
-            const previewText = fullText.slice(-100);
-            await updateLogs(progressPercent, `[Hermes Streaming] ...${previewText}`);
-            lastProgressUpdate = Date.now();
-          }
-        }
-      } else {
-        const streamReader = (reader as any).getReader();
-        let done = false;
-        while (!done) {
-          const { value, done: isDone } = await streamReader.read();
-          done = isDone;
-          if (value) {
-            chunkCount++;
-            buffer += decoder.decode(value, { stream: true });
-
-            let lineEnd;
-            while ((lineEnd = buffer.indexOf("\n")) !== -1) {
-              const line = buffer.slice(0, lineEnd).trim();
-              buffer = buffer.slice(lineEnd + 1);
-
-              if (line.startsWith("data:")) {
-                const dataStr = line.slice(5).trim();
-                if (dataStr === "[DONE]") {
-                  break;
-                }
-                try {
-                  const parsed = JSON.parse(dataStr);
-                  const content = parsed.choices?.[0]?.delta?.content || "";
-                  if (content) {
-                    fullText += content;
-                  }
-                } catch (e) {
-                  // Ignore partial/invalid JSON chunks
-                }
-              }
-            }
-          }
-
-          if (Date.now() - lastProgressUpdate > 3000) {
-            const progressPercent = Math.min(85, 20 + Math.floor(chunkCount / 10));
-            const previewText = fullText.slice(-100);
-            await updateLogs(progressPercent, `[Hermes Streaming] ...${previewText}`);
-            lastProgressUpdate = Date.now();
-          }
-        }
-      }
-
-      await updateLogs(90, `[Hermes Completed] Nhận phản hồi hoàn tất. Đang trích xuất URL video...`);
-      console.log("[Hermes Job] Full response:", fullText);
-
-      // Search for Cloudinary URL inside fullText
-      const cloudinaryRegex = /(https:\/\/res\.cloudinary\.com\/[^\s\)\"\`\'\>]+)/i;
-      const match = fullText.match(cloudinaryRegex);
-      const extractedUrl = match ? match[1] : null;
-
-      if (extractedUrl) {
-        await updateLogs(95, `[Hermes] Tìm thấy URL video đã upload: ${extractedUrl}`);
-
-        await AIMediaModel.findByIdAndUpdate(recordId, {
-          url: extractedUrl,
-          "metadata.status": "completed",
-          "metadata.progress": 100,
-          "metadata.description": "Biên tập video hoàn tất."
-        });
-      } else {
-        // Try searching for any valid http/https URL that might be a video URL as fallback
-        const anyUrlRegex = /(https?:\/\/[^\s\)\"\`\'\>]+)/i;
-        const fallbackMatch = fullText.match(anyUrlRegex);
-        const fallbackUrl = fallbackMatch ? fallbackMatch[1] : null;
-
-        if (fallbackUrl) {
-          await updateLogs(95, `[Hermes] Không tìm thấy URL Cloudinary nhưng phát hiện URL thay thế: ${fallbackUrl}`);
-          await AIMediaModel.findByIdAndUpdate(recordId, {
-            url: fallbackUrl,
-            "metadata.status": "completed",
-            "metadata.progress": 100,
-            "metadata.description": "Biên tập video hoàn tất (URL fallback)."
-          });
-        } else {
-          throw new Error("Hermes Agent không trả về URL video hợp lệ trong nội dung phản hồi.");
-        }
-      }
+      // Update record log with session_id
+      await AIMediaModel.findByIdAndUpdate(recordId, {
+        "metadata.progress": 30,
+        "metadata.hermesSessionId": sessionId,
+        "metadata.renderLogs": [
+          ...logs,
+          `[Hermes] Gửi yêu cầu thành công. Session ID: ${sessionId}`,
+          `[Hermes] Đang đợi Hermes Agent hoàn thành chỉnh sửa và gọi Webhook...`
+        ],
+        "metadata.description": "Yêu cầu đã được tiếp nhận. Đang đợi xử lý..."
+      });
     } catch (error: any) {
       console.error("[Hermes Job] Failed:", error);
       await AIMediaModel.findByIdAndUpdate(recordId, {
@@ -259,3 +164,4 @@ ${cloudinaryPrompt}
     }
   }
 };
+
