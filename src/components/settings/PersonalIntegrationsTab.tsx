@@ -143,7 +143,7 @@ export default function PersonalIntegrationsTab() {
           <div>
             <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">{title}</h4>
             <p className="mt-1 text-[11px] text-slate-500">
-              He thong uu tien kenh ca nhan truoc. Neu tai khoan hien tai chua ket noi, bot moi dung kenh doanh nghiep.
+              Hệ thống ưu tiên kênh cá nhân trước. Nếu tài khoản hiện tại chưa kết nối, bot mới dùng kênh doanh nghiệp.
             </p>
           </div>
           <span className={`rounded-full px-2 py-1 text-[9px] font-extrabold uppercase ${
@@ -153,32 +153,32 @@ export default function PersonalIntegrationsTab() {
                 ? "bg-amber-100 text-amber-700"
                 : "bg-slate-200 text-slate-600"
           }`}>
-            {activeSource === "personal" ? "Dang dung ca nhan" : activeSource === "company" ? "Dang fallback company" : "Chua ket noi"}
+            {activeSource === "personal" ? "Đang dùng cá nhân" : activeSource === "company" ? "Đang fallback doanh nghiệp" : "Chưa kết nối"}
           </span>
         </div>
 
         <div className="mt-3 grid gap-2 md:grid-cols-2">
           <div className="rounded-xl border border-emerald-100 bg-white p-3">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Kenh ca nhan</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Kênh cá nhân</p>
             {personal ? (
               <>
                 <p className="mt-2 text-[11px] font-bold text-slate-700">{personal.name}</p>
                 <p className="mt-1 font-mono text-[10px] text-slate-500">{personal.identifier}</p>
               </>
             ) : (
-              <p className="mt-2 text-[10px] text-slate-400">Chua ket noi cho tai khoan hien tai.</p>
+              <p className="mt-2 text-[10px] text-slate-400">Chưa kết nối cho tài khoản hiện tại.</p>
             )}
           </div>
 
           <div className="rounded-xl border border-amber-100 bg-white p-3">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600">Kenh doanh nghiep</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600">Kênh doanh nghiệp</p>
             {company ? (
               <>
                 <p className="mt-2 text-[11px] font-bold text-slate-700">{company.name}</p>
                 <p className="mt-1 font-mono text-[10px] text-slate-500">{company.identifier}</p>
               </>
             ) : (
-              <p className="mt-2 text-[10px] text-slate-400">Doanh nghiep chua cau hinh kenh nay.</p>
+              <p className="mt-2 text-[10px] text-slate-400">Doanh nghiệp chưa cấu hình kênh này.</p>
             )}
           </div>
         </div>
@@ -193,10 +193,10 @@ export default function PersonalIntegrationsTab() {
           <div className="text-left">
             <h3 className="flex items-center gap-2 text-base font-bold text-gray-800">
               <User className="h-5 w-5 text-emerald-600" />
-              MXH Ca Nhan
+              MXH Cá Nhân
             </h3>
             <p className="mt-1 text-xs text-gray-500">
-              Cau hinh rieng cho tai khoan dang dang nhap. Sua o day chi anh huong tai khoan hien tai.
+              Cấu hình riêng cho tài khoản đang đăng nhập. Sửa ở đây chỉ ảnh hưởng đến tài khoản hiện tại.
             </p>
           </div>
           <button
@@ -207,7 +207,7 @@ export default function PersonalIntegrationsTab() {
                 const data = await socialIntegrationService.getIntegrations();
                 setCompanyIntegrations(data || []);
               } catch (error: any) {
-                toast.error(error.message || "Khong the tai lai danh sach.");
+                toast.error(error.message || "Không thể tải lại danh sách.");
               } finally {
                 setLoadingCompanyIntegrations(false);
               }
@@ -215,7 +215,7 @@ export default function PersonalIntegrationsTab() {
             className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-2 text-[11px] font-bold text-gray-600"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${loadingCompanyIntegrations ? "animate-spin" : ""}`} />
-            Tai lai
+            Tải lại
           </button>
         </div>
 
@@ -224,13 +224,13 @@ export default function PersonalIntegrationsTab() {
             "Facebook",
             userProfile?.facebookIntegration?.isConnected
               ? {
-                  name: userProfile.facebookIntegration.pageName || "Facebook Page ca nhan",
+                  name: userProfile.facebookIntegration.pageName || "Facebook Page cá nhân",
                   identifier: userProfile.facebookIntegration.pageId || "",
                 }
               : null,
             companyFacebookIntegration
               ? {
-                  name: companyFacebookIntegration.displayName || "Facebook Page doanh nghiep",
+                  name: companyFacebookIntegration.displayName || "Facebook Page doanh nghiệp",
                   identifier: companyFacebookIntegration.username || "",
                 }
               : null
@@ -240,13 +240,13 @@ export default function PersonalIntegrationsTab() {
             "Zalo",
             userProfile?.zaloIntegration?.isConnected
               ? {
-                  name: userProfile.zaloIntegration.oaName || "Zalo OA ca nhan",
+                  name: userProfile.zaloIntegration.oaName || "Zalo OA cá nhân",
                   identifier: userProfile.zaloIntegration.oaId || "",
                 }
               : null,
             companyZaloIntegration
               ? {
-                  name: companyZaloIntegration.displayName || "Zalo OA doanh nghiep",
+                  name: companyZaloIntegration.displayName || "Zalo OA doanh nghiệp",
                   identifier: companyZaloIntegration.username || "",
                 }
               : null
@@ -259,8 +259,8 @@ export default function PersonalIntegrationsTab() {
           <div className="flex items-center gap-2 text-left">
             <Facebook className="h-5 w-5 text-blue-600" />
             <div>
-              <h4 className="text-sm font-bold text-slate-800">Facebook Ca Nhan</h4>
-              <p className="text-[11px] text-slate-500">Page rieng cua tai khoan dang dang nhap.</p>
+              <h4 className="text-sm font-bold text-slate-800">Facebook Cá Nhân</h4>
+              <p className="text-[11px] text-slate-500">Page riêng của tài khoản đang đăng nhập.</p>
             </div>
           </div>
 
@@ -276,7 +276,7 @@ export default function PersonalIntegrationsTab() {
               type="text"
               value={facebookForm.pageName}
               onChange={(e) => setFacebookForm((prev) => ({ ...prev, pageName: e.target.value }))}
-              placeholder="Ten page"
+              placeholder="Tên page"
               className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs"
             />
             <input
@@ -290,14 +290,14 @@ export default function PersonalIntegrationsTab() {
               type="text"
               value={facebookForm.appSecret}
               onChange={(e) => setFacebookForm((prev) => ({ ...prev, appSecret: e.target.value }))}
-              placeholder="App Secret (tuy chon)"
+              placeholder="App Secret (tùy chọn)"
               className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs"
             />
             <input
               type="text"
               value={facebookForm.verifyToken}
               onChange={(e) => setFacebookForm((prev) => ({ ...prev, verifyToken: e.target.value }))}
-              placeholder="Verify Token (tuy chon)"
+              placeholder="Verify Token (tùy chọn)"
               className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs"
             />
 
@@ -330,8 +330,8 @@ export default function PersonalIntegrationsTab() {
           <div className="flex items-center gap-2 text-left">
             <MessageCircleMore className="h-5 w-5 text-sky-600" />
             <div>
-              <h4 className="text-sm font-bold text-slate-800">Zalo OA Ca Nhan</h4>
-              <p className="text-[11px] text-slate-500">OA rieng cua tai khoan dang dang nhap.</p>
+              <h4 className="text-sm font-bold text-slate-800">Zalo OA Cá Nhân</h4>
+              <p className="text-[11px] text-slate-500">OA riêng của tài khoản đang đăng nhập .</p>
             </div>
           </div>
 
@@ -347,7 +347,7 @@ export default function PersonalIntegrationsTab() {
               type="text"
               value={zaloForm.oaName}
               onChange={(e) => setZaloForm((prev) => ({ ...prev, oaName: e.target.value }))}
-              placeholder="Ten OA"
+              placeholder="Tên OA"
               className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs"
             />
             <input
@@ -361,7 +361,7 @@ export default function PersonalIntegrationsTab() {
               type="text"
               value={zaloForm.refreshToken}
               onChange={(e) => setZaloForm((prev) => ({ ...prev, refreshToken: e.target.value }))}
-              placeholder="Refresh Token (tuy chon)"
+              placeholder="Refresh Token (tùy chọn)"
               className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs"
             />
 
@@ -395,10 +395,10 @@ export default function PersonalIntegrationsTab() {
         <div className="flex items-start gap-2">
           <CheckCircle className="mt-0.5 h-4 w-4 text-emerald-600" />
           <div className="text-[11px] leading-relaxed text-emerald-800">
-            <p className="font-bold">Nguyen tac van hanh</p>
+            <p className="font-bold">Nguyên tắc vận hành</p>
             <p className="mt-1">
-              1 tai khoan co the co kenh rieng. Neu co, CRM va bot uu tien dung kenh rieng cua tai khoan do.
-              Chi khi tai khoan hien tai chua ket noi, he thong moi fallback sang kenh dung chung cua doanh nghiep.
+              1 tài khoản có thể có kênh riêng. Nếu có, CRM và bot ưu tiên sử dụng kênh riêng của tài khoản đó.
+              Chỉ khi tài khoản hiện tại chưa kết nối, hệ thống mới fallback sang kênh dùng chung của doanh nghiệp.
             </p>
           </div>
         </div>

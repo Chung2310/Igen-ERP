@@ -412,6 +412,76 @@ export const aiKnowledgeService = {
     };
   },
 
+  buildEffectiveRagContext(input: {
+    companyCode?: string;
+    ragContext?: {
+      contextText?: string;
+      matches?: number;
+      bestScore?: number;
+      productCandidateNames?: string[];
+      shouldAskProductConfirmation?: boolean;
+    };
+    trainingKnowledge?: string;
+  }) {
+    const normalizedCompanyCode = normalizeCompanyCode(input.companyCode);
+    const ragContext = input.ragContext || {};
+
+    if (ragContext.contextText) {
+      return {
+        contextText: ragContext.contextText,
+        matches: ragContext.matches || 0,
+        bestScore: ragContext.bestScore || 0,
+        productCandidateNames: ragContext.productCandidateNames || [],
+        shouldAskProductConfirmation: !!ragContext.shouldAskProductConfirmation,
+        companyCode: normalizedCompanyCode,
+        source: "rag",
+      };
+    }
+
+    if (input.trainingKnowledge) {
+      return {
+        contextText: String(input.trainingKnowledge).slice(0, 4500),
+        matches: 0,
+        bestScore: 0,
+        productCandidateNames: [],
+        shouldAskProductConfirmation: false,
+        companyCode: normalizedCompanyCode,
+        source: "training_knowledge",
+      };
+    }
+
+    return {
+      contextText: "",
+      matches: 0,
+      bestScore: 0,
+      productCandidateNames: [],
+      shouldAskProductConfirmation: false,
+      companyCode: normalizedCompanyCode,
+      source: "empty",
+    };
+  },
+
+  describeEffectiveRagContext(input: {
+    source?: string;
+    companyCode?: string;
+    contextText?: string;
+    matches?: number;
+    bestScore?: number;
+    productCandidateNames?: string[];
+    shouldAskProductConfirmation?: boolean;
+  }) {
+    const preview = normalizeText(input.contextText || "").slice(0, 320);
+    return {
+      source: input.source || "unknown",
+      companyCode: normalizeCompanyCode(input.companyCode),
+      matches: input.matches || 0,
+      bestScore: Number(input.bestScore || 0),
+      shouldAskProductConfirmation: !!input.shouldAskProductConfirmation,
+      productCandidateNames: Array.isArray(input.productCandidateNames) ? input.productCandidateNames.slice(0, 3) : [],
+      contextPreview: preview,
+    };
+  },
+
   async getKnowledgeHealth(companyCode?: string) {
     const normalizedCompanyCode = normalizeCompanyCode(companyCode);
     const [documents, chunksCount, latestLog] = await Promise.all([

@@ -532,27 +532,31 @@ export const aiAutoReplyService = {
               topK: 5,
             });
 
-            let effectiveRagContext = { ...ragContext, companyCode };
-            if (!ragContext.contextText && aiConfig.trainingKnowledge) {
-              effectiveRagContext = {
-                contextText: String(aiConfig.trainingKnowledge).slice(0, 4500),
-                matches: 0,
-                bestScore: 0,
-                productCandidateNames: [],
-                shouldAskProductConfirmation: false,
-                companyCode,
-              };
-            }
+            const effectiveRagContext = aiKnowledgeService.buildEffectiveRagContext({
+              companyCode,
+              ragContext,
+              trainingKnowledge: aiConfig.trainingKnowledge,
+            });
+            const effectiveRagContextDebug = aiKnowledgeService.describeEffectiveRagContext(effectiveRagContext as any);
 
             console.log(
               `[AI AutoReply] Context ready: conversationId=${conversationId}, channel=${channel}, ` +
-              `matches=${effectiveRagContext.matches}, contextLength=${effectiveRagContext.contextText?.length || 0}`
+              `matches=${effectiveRagContext.matches}, contextLength=${effectiveRagContext.contextText?.length || 0}, ` +
+              `source=${(effectiveRagContext as any).source || "unknown"}`
             );
 
             console.log(
               `[AI AutoReply] 📚 TRUY XUẤT RAG: Context ready cho conversation=${conversationId}, matches=${effectiveRagContext.matches}, ` +
               `contextLength=${effectiveRagContext.contextText?.length || 0}`
             );
+
+            console.log("[AI AutoReply] Context diagnostics:", JSON.stringify({
+              conversationId,
+              channel,
+              ownerEmail: user?.email || null,
+              ownerCompanyCode: companyCode,
+              ...effectiveRagContextDebug,
+            }));
 
             // Call Gemini Service
             console.log(`[AI AutoReply] 🧠 GEMINI CALL: Đang gửi request tới Gemini cho conversation=${conversationId}...`);
