@@ -187,15 +187,6 @@ function detectChatIntent(message: string, history: any[] = []): ChatIntent {
     .join(" ");
   const combinedText = `${recentHistoryText} ${currentText}`.trim();
 
-  const smallTalkPatterns = [
-    /\b(xin chao|chao shop|chao ban|hello|hi|alo|ad oi|shop oi)\b/,
-    /\b(cam on|thank you|ok nha|ok em|vang|dạ|da roi)\b/,
-    /\b(tu van giup|minh can tu van|hoi ti|cho hoi)\b/,
-  ];
-  if (smallTalkPatterns.some((pattern) => pattern.test(currentText)) && currentText.length <= 120) {
-    return "small_talk";
-  }
-
   const factualPatterns = [
     /\b(gia|bao nhieu tien|bao nhieu|bang gia|bao gia|chi phi|phi ship|freeship|uu dai|khuyen mai)\b/,
     /\b(bao hanh|doi tra|hoan tien|giao hang|van chuyen|thanh toan|thoi gian giao)\b/,
@@ -204,6 +195,15 @@ function detectChatIntent(message: string, history: any[] = []): ChatIntent {
   ];
   if (factualPatterns.some((pattern) => pattern.test(combinedText))) {
     return "product_pricing_policy";
+  }
+
+  const smallTalkPatterns = [
+    /\b(xin chao|chao shop|chao ban|hello|hi|alo|ad oi|shop oi)\b/,
+    /\b(cam on|thank you|ok nha|ok em|vang|dạ|da roi)\b/,
+    /\b(tu van giup|minh can tu van|hoi ti|cho hoi)\b/,
+  ];
+  if (smallTalkPatterns.some((pattern) => pattern.test(currentText)) && currentText.length <= 120) {
+    return "small_talk";
   }
 
   const companyPatterns = [
@@ -490,6 +490,7 @@ QUY TẮC CHĂM SÓC KHÁCH HÀNG THÔNG MINH VÀ KHÉO LÉO:
 - Mỗi câu trả lời nên ưu tiên theo thứ tự: xác nhận nhu cầu, đưa gợi ý phù hợp từ knowledge, rồi kết bằng 1 câu hỏi ngắn để dẫn dắt bước tiếp theo.
 - Không hỏi dồn quá nhiều câu trong một lượt. Chỉ hỏi 1-2 câu thật sự cần thiết.
 - Nếu khách đã cung cấp đủ thông tin, không hỏi lại điều khách vừa nói. Hãy chuyển sang gợi ý hoặc chốt bước tiếp theo.
+- Khi khách vừa cung cấp thêm thông tin, làm rõ nhu cầu, xác nhận lựa chọn, hoặc phản hồi tích cực, hãy cảm ơn ngắn gọn một cách tự nhiên trước khi tư vấn tiếp, ví dụ như "Dạ em cảm ơn Anh/Chị đã chia sẻ ạ".
 - Khi knowledge có nhiều lựa chọn, chỉ chọn ra 1-3 phương án phù hợp nhất và giải thích rất ngắn vì sao phù hợp.
 - Nếu thiếu dữ liệu về giá, tồn kho, màu, size, phiên bản hoặc khuyến mãi, hãy nói rõ phần nào chưa đủ dữ liệu nhưng vẫn hỗ trợ tối đa bằng thông tin hiện có.
 - Chỉ đề nghị chuyển nhân viên khi thực sự cần xác nhận thông tin ngoài knowledge hoặc cần thao tác mà AI không làm được.
