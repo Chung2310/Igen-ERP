@@ -191,7 +191,7 @@ function extractWorkbookText(buffer: Buffer) {
 
       if (!normalizedRows.length) return "";
 
-      const headerKeywords = /(ten|tên|san pham|sản phẩm|sku|ma|mã|gia|giá|don gia|đơn giá|price|model|size|mau|màu|so luong|số lượng)/i;
+      const headerKeywords = /(ten|tên|san pham|sản phẩm|sku|ma|mã|gia|giá|don gia|đơn giá|price|model|size|mau|màu|so luong|số lượng|tên hàng|tên hàng hóa|mã hàng|giá bán|giá lẻ|nhóm hàng|loại sản phẩm)/i;
       const headerIndex = normalizedRows.findIndex((row) => row.filter(Boolean).some((cell) => headerKeywords.test(cell)));
       const safeHeaderIndex = headerIndex >= 0 ? headerIndex : 0;
 
@@ -220,6 +220,10 @@ function extractWorkbookText(buffer: Buffer) {
           const productName =
             rowMap.get("tên sản phẩm") ||
             rowMap.get("ten san pham") ||
+            rowMap.get("tên hàng") ||
+            rowMap.get("ten hang") ||
+            rowMap.get("tên hàng hóa") ||
+            rowMap.get("ten hang hoa") ||
             rowMap.get("sản phẩm") ||
             rowMap.get("san pham") ||
             rowMap.get("product") ||
@@ -228,39 +232,43 @@ function extractWorkbookText(buffer: Buffer) {
           const category =
             rowMap.get("danh mục") ||
             rowMap.get("danh muc") ||
+            rowMap.get("nhóm hàng") ||
+            rowMap.get("nhom hang") ||
+            rowMap.get("loại sản phẩm") ||
+            rowMap.get("loai san pham") ||
             rowMap.get("category") ||
             "";
 
           const price =
             rowMap.get("giá tham khảo (vnđ)") ||
             rowMap.get("gia tham khao (vnd)") ||
+            rowMap.get("giá bán") ||
+            rowMap.get("gia ban") ||
+            rowMap.get("giá lẻ") ||
+            rowMap.get("gia le") ||
+            rowMap.get("đơn giá") ||
+            rowMap.get("don gia") ||
             rowMap.get("giá") ||
             rowMap.get("gia") ||
             rowMap.get("price") ||
             "";
 
           if (productName) {
-            return [
-              `San pham ${rowIndex + 1}: ${productName}`,
-              category ? `Danh muc: ${category}` : "",
-              pairs.join(" | "),
-              price ? `Gia tham khao: ${price}` : "",
-            ].filter(Boolean).join("\n");
+            const detailStr = pairs.join(" | ");
+            return `Sản phẩm ${rowIndex + 1}: ${productName}${category ? ` (Danh mục: ${category})` : ""}${price ? ` - Giá: ${price}` : ""} | Chi tiết: ${detailStr}`;
           }
 
-          return `Dong ${rowIndex + 1}: ${pairs.join(" | ")}`;
+          return `Dòng ${rowIndex + 1}: ${pairs.join(" | ")}`;
         })
         .filter(Boolean);
 
-      const csv = XLSX.utils.sheet_to_csv(worksheet).trim();
       const sections = [
         `Sheet: ${sheetName}`,
-        headers.filter(Boolean).length > 0 ? `Tieu de cot: ${headers.filter(Boolean).join(" | ")}` : "",
-        structuredLines.join("\n"),
-        csv ? `CSV:\n${csv}` : "",
+        headers.filter(Boolean).length > 0 ? `Tiêu đề cột: ${headers.filter(Boolean).join(" | ")}` : "",
+        structuredLines.join("\n\n"),
       ].filter(Boolean);
 
-      return sections.join("\n");
+      return sections.join("\n\n");
     }).filter(Boolean).join("\n\n");
   } catch (error) {
     console.warn("[AI AutoReply] Khong the doc file bang xlsx:", error);
