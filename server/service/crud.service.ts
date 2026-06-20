@@ -40,6 +40,36 @@ function sanitizeMarketingPayload(modelName: string, payload: any) {
   };
 }
 
+function sanitizeInventoryPayload(modelName: string, payload: any) {
+  if (!payload || typeof payload !== "object") {
+    return payload;
+  }
+
+  if (modelName === "products") {
+    return {
+      ...payload,
+      sku: typeof payload.sku === "string" ? payload.sku.trim().toUpperCase() : payload.sku,
+      name: typeof payload.name === "string" ? payload.name.trim() : payload.name,
+      category: typeof payload.category === "string" ? payload.category.trim() : payload.category,
+      brand: typeof payload.brand === "string" ? payload.brand.trim() : (payload.brand ?? ""),
+      unit: typeof payload.unit === "string" ? payload.unit.trim() : payload.unit,
+      description: typeof payload.description === "string" ? payload.description.trim() : (payload.description ?? ""),
+      imageUrl: typeof payload.imageUrl === "string" ? payload.imageUrl.trim() : (payload.imageUrl ?? ""),
+    };
+  }
+
+  if (modelName === "categories") {
+    return {
+      ...payload,
+      name: typeof payload.name === "string" ? payload.name.trim() : payload.name,
+      code: typeof payload.code === "string" ? payload.code.trim().toUpperCase() : payload.code,
+      description: typeof payload.description === "string" ? payload.description.trim() : payload.description,
+    };
+  }
+
+  return payload;
+}
+
 function sanitizeMarketingResult(modelName: string, item: any) {
   if (modelName !== "marketing-contents" || !item) {
     return item;
@@ -221,7 +251,7 @@ export const crudService = {
 
     // Ép buộc gán companyCode để bảo mật dữ liệu doanh nghiệp
     const payload = sanitizeMarketingPayload(modelName, {
-      ...data,
+      ...sanitizeInventoryPayload(modelName, data),
       companyCode,
     });
 
@@ -261,7 +291,10 @@ export const crudService = {
 
     // Loại bỏ các trường nhạy cảm không cho phép đè trực tiếp
     const { companyCode: _cCode, _id: _itemId, id: _plainId, ...rawUpdatePayload } = data;
-    const updatePayload = sanitizeMarketingPayload(modelName, rawUpdatePayload);
+    const updatePayload = sanitizeMarketingPayload(
+      modelName,
+      sanitizeInventoryPayload(modelName, rawUpdatePayload)
+    );
 
     if (modelName === "social-integrations") {
       const existingItem = await model.findOne(query).lean();

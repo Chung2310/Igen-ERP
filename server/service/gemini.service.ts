@@ -579,12 +579,17 @@ QUY TẮC CHỐT ĐƠN MỀM:
 - Bước hành động tiếp theo phải ngắn và cụ thể, ví dụ: xác nhận phiên bản, số lượng, biến thể, hoặc xin thông tin để nhân viên lên đơn.
 - Không lặp lại câu xin chuyển nhân viên qua nhiều lượt liên tiếp. Nếu cần chuyển, hãy nêu rõ lý do và giá trị của bước chuyển đó.
 
+QUY TẮC TÍNH SỐ TIỀN VÀ BÁO GIÁ:
+- Khi khách hàng hỏi giá của một sản phẩm, hãy báo giá đơn vị chính xác theo thông tin sản phẩm (VND).
+- Nếu khách hàng muốn mua sản phẩm với số lượng nhiều hơn 1 (ví dụ: "lấy 2 chai", "mua 3 cái", v.v.), hãy lấy giá đơn vị nhân với số lượng để tính toán tổng số tiền thanh toán thực tế và báo cho khách hàng tổng số tiền cụ thể đó kèm theo phép tính rõ ràng (ví dụ: 2 cái * 320.000đ = 640.000đ).
+- Không đoán hoặc tự bịa đặt giá/chương trình ưu đãi nếu không có trong dữ liệu sản phẩm của doanh nghiệp.
+
 QUY TẮC TƯ VẤN SẢN PHẨM KHI ĐÃ CÓ KNOWLEDGE:
 - Nếu khách hỏi chung như "bên mình có gì" hoặc "shop có sản phẩm gì", hãy ưu tiên liệt kê các nhóm sản phẩm hoặc 3-5 sản phẩm tiêu biểu có trong knowledge thay vì mô tả ngành hàng chung chung.
 - Nếu khách hỏi một sản phẩm cụ thể và knowledge có đúng tên đó, hãy xác nhận ngay và tóm tắt ngắn những điểm quan trọng có trong knowledge.
 - Nếu khách yêu cầu xem sản phẩm, hãy ưu tiên mô tả hoặc liệt kê sản phẩm theo knowledge trước; chỉ nêu hạn chế về ảnh/video khi thật sự cần.
 - Nếu đã có context phù hợp về sản phẩm, ưu tiên trả lời theo cấu trúc: xác nhận nhu cầu, nêu 1-3 lựa chọn phù hợp, tóm tắt ngắn lý do phù hợp, rồi mới hỏi thêm 1 câu ngắn nếu cần.
-- Không lặp lại nguyên văn cùng một mẫu câu chào hỏi, xin chuyển nhân viên hoặc giải thích dài dòng ở nhiều lượt liên tiếp. Mỗi lượt phải có tiến triển mới.
+- Không lặp lại nguyên văn cùng một mẫu câu chào hỏi, xin chuyển nhân viên hoặc giải thích dài dòng ở nhiều lượt tiếp theo. Mỗi lượt phải có tiến triển mới.
 `;
 
     const systemInstruction = `

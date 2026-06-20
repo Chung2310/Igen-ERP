@@ -7,8 +7,12 @@ type ProductInput = {
   sku: string;
   name: string;
   category: string;
+  brand?: string;
+  unit: string;
   stock: number;
   price: number;
+  description?: string;
+  status: "Active" | "Inactive";
   imageFile?: File | null;
   imageUrl?: string;
 };
@@ -122,9 +126,13 @@ export const inventoryProductService = {
           sku: input.sku,
           name: input.name,
           category: input.category,
+          brand: input.brand || "",
+          unit: input.unit || "Cái",
           stock: input.stock,
           minStockAlert: 15,
           price: input.price,
+          description: input.description || "",
+          status: input.status || "Active",
           demandForecast: "Ổn định",
           imageUrl: uploadedImageUrl || input.imageUrl || "",
         }),
@@ -159,8 +167,12 @@ export const inventoryProductService = {
           sku: input.sku,
           name: input.name,
           category: input.category,
+          brand: input.brand || "",
+          unit: input.unit || "Cái",
           stock: input.stock,
           price: input.price,
+          description: input.description || "",
+          status: input.status || "Active",
           imageUrl: uploadedImageUrl || input.imageUrl || "",
         }),
       });

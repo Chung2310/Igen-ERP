@@ -15,15 +15,23 @@ export function ProductCard({ product, onDelete, onEdit }: ProductCardProps) {
   return (
     <div
       className={`relative flex h-full flex-col justify-between rounded-xl border bg-white p-3.5 transition-all hover:-translate-y-0.5 hover:shadow-md ${
-        alertState ? "border-red-200 bg-red-50/10 shadow-xs" : "border-gray-200"
+        product.status === "Inactive"
+          ? "border-gray-200 bg-gray-50/50 opacity-80"
+          : alertState
+            ? "border-red-200 bg-red-50/10 shadow-xs"
+            : "border-gray-200"
       }`}
     >
-      {alertState && (
+      {product.status === "Inactive" ? (
+        <span className="absolute right-3 top-3 flex items-center gap-1 rounded-full border border-gray-250 bg-gray-100 px-2 py-0.5 font-mono text-[9px] font-bold text-gray-550 shadow-xs">
+          Ngừng bán
+        </span>
+      ) : alertState ? (
         <span className="absolute right-3 top-3 flex items-center gap-1 rounded-full border border-red-100 bg-red-50 px-2 py-0.5 font-mono text-[9px] font-bold text-red-500">
           <AlertTriangle className="h-3 w-3" />
           Thiếu hàng
         </span>
-      )}
+      ) : null}
 
       <div className="text-left">
         <div className="mb-2.5 overflow-hidden rounded-lg border border-slate-100 bg-slate-50">
@@ -38,9 +46,23 @@ export function ProductCard({ product, onDelete, onEdit }: ProductCardProps) {
 
         <p className="font-mono text-[10px] tracking-wide text-gray-400">SKU: {product.sku}</p>
         <h4 className="mt-1.5 line-clamp-2 min-h-10 text-[13px] font-bold leading-5 text-slate-800">{product.name}</h4>
-        <span className="mt-2 inline-flex max-w-full rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">
-          {product.category}
-        </span>
+        
+        <div className="mt-2 flex flex-wrap gap-1.5 items-center">
+          <span className="inline-flex max-w-full rounded-md bg-blue-50 border border-blue-100/50 px-2 py-0.5 text-[10px] font-medium text-blue-600">
+            {product.category}
+          </span>
+          {product.brand && (
+            <span className="inline-flex max-w-full rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">
+              {product.brand}
+            </span>
+          )}
+        </div>
+
+        {product.description && (
+          <p className="mt-2 line-clamp-1 text-[11px] text-gray-450 italic" title={product.description}>
+            {product.description}
+          </p>
+        )}
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-3 border-t border-gray-100 pt-3">
@@ -50,8 +72,8 @@ export function ProductCard({ product, onDelete, onEdit }: ProductCardProps) {
         </div>
         <div className="text-right">
           <p className="font-mono text-[10px] text-gray-400">Tồn kho</p>
-          <p className={`font-mono text-[13px] font-bold ${alertState ? "text-red-500" : "text-gray-700"}`}>
-            {formattedStock} chiếc
+          <p className={`font-mono text-[13px] font-bold ${alertState && product.status !== "Inactive" ? "text-red-500" : "text-gray-700"}`}>
+            {formattedStock} {product.unit || "chiếc"}
           </p>
         </div>
       </div>
