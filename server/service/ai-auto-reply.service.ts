@@ -618,6 +618,10 @@ export const aiAutoReplyService = {
           console.log(`[AI AutoReply] Gemini start: conversationId=${conversationId}, channel=${channel}, historyCount=${history.length}, groupedMessageCount=${groupedMessageCount}, groupedTextLength=${groupedCustomerMessage.length}`);
           generatingReplies.add(conversationId);
 
+          if (channel === "facebook") {
+            await fbMessengerService.sendSenderAction(resolvedPlatformId, conversationId, "typing_on").catch(() => {});
+          }
+
           try {
             const startedAt = Date.now();
             const companyCode = targetCompanyCode;
@@ -721,6 +725,9 @@ export const aiAutoReplyService = {
                 }
 
                 if (index < messagesToSend.length - 1) {
+                  if (channel === "facebook") {
+                    await fbMessengerService.sendSenderAction(resolvedPlatformId, conversationId, "typing_on").catch(() => {});
+                  }
                   await new Promise((resolve) => setTimeout(resolve, getBubbleDelayMs()));
                 }
               }
