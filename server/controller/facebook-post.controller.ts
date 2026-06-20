@@ -105,41 +105,146 @@ export const facebookPostController = {
       const redirectUri = `${protocol}://${host}/api/v1/facebook/oauth-callback`;
       const pages = await facebookPostService.exchangeCodeForPages(String(code), redirectUri);
 
-      // Trả về HTML chứa script postMessage gửi dữ liệu về cho cửa sổ cha (parent window)
+      // Trả về HTML hiển thị danh sách page để user chọn
       return res.send(`
         <!DOCTYPE html>
-        <html>
+        <html lang="vi">
         <head>
-          <title>Facebook Login Success</title>
+          <meta charset="UTF-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+          <title>Chọn Fanpage Facebook</title>
           <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; text-align: center; padding: 50px; background-color: #f3f4f6; color: #1f2937; }
-            .card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); display: inline-block; max-width: 400px; }
-            h2 { color: #1877F2; margin-top: 0; }
-            .spinner { border: 4px solid rgba(0, 0, 0, 0.1); width: 36px; height: 36px; border-radius: 50%; border-left-color: #1877F2; animation: spin 1s linear infinite; display: inline-block; margin-top: 15px; }
-            @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+            * { box-sizing: border-box; margin: 0; padding: 0; }
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              background: linear-gradient(135deg, #1877F2 0%, #0d5bc4 100%);
+              min-height: 100vh;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              padding: 20px;
+            }
+            .container {
+              background: white;
+              border-radius: 16px;
+              box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+              width: 100%;
+              max-width: 480px;
+              overflow: hidden;
+            }
+            .header {
+              background: linear-gradient(135deg, #1877F2 0%, #0d5bc4 100%);
+              padding: 24px;
+              text-align: center;
+              color: white;
+            }
+            .fb-logo {
+              width: 48px; height: 48px;
+              background: white;
+              border-radius: 50%;
+              display: inline-flex;
+              align-items: center;
+              justify-content: center;
+              margin-bottom: 12px;
+              font-size: 28px;
+              font-weight: 900;
+              color: #1877F2;
+            }
+            .header h2 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+            .header p { font-size: 13px; opacity: 0.85; }
+            .pages-list { padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+            .page-card {
+              display: flex;
+              align-items: center;
+              gap: 14px;
+              padding: 14px 16px;
+              border: 2px solid #e5e7eb;
+              border-radius: 12px;
+              cursor: pointer;
+              transition: all 0.2s ease;
+              background: white;
+              text-align: left;
+              width: 100%;
+            }
+            .page-card:hover {
+              border-color: #1877F2;
+              background: #f0f4ff;
+              transform: translateY(-1px);
+              box-shadow: 0 4px 12px rgba(24,119,242,0.2);
+            }
+            .page-avatar {
+              width: 48px; height: 48px;
+              border-radius: 50%;
+              background: linear-gradient(135deg, #1877F2, #42a5f5);
+              display: flex; align-items: center; justify-content: center;
+              color: white; font-size: 22px; font-weight: 700;
+              flex-shrink: 0;
+            }
+            .page-info { flex: 1; overflow: hidden; }
+            .page-name {
+              font-size: 15px; font-weight: 600;
+              color: #111827;
+              white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            }
+            .page-id { font-size: 12px; color: #6b7280; margin-top: 2px; }
+            .page-category { font-size: 12px; color: #1877F2; margin-top: 2px; }
+            .arrow { color: #9ca3af; font-size: 18px; }
+            .empty {
+              text-align: center; padding: 40px 20px; color: #6b7280;
+            }
+            .empty-icon { font-size: 48px; margin-bottom: 12px; }
+            .footer {
+              padding: 16px 20px;
+              border-top: 1px solid #f3f4f6;
+              text-align: center;
+              font-size: 12px;
+              color: #9ca3af;
+            }
+            .loading { text-align: center; padding: 40px; color: #6b7280; }
           </style>
         </head>
         <body>
-          <div class="card">
-            <h2>Đăng nhập thành công!</h2>
-            <p>Đang đồng bộ hóa danh sách Fanpage của bạn về hệ thống ERP...</p>
-            <div class="spinner"></div>
+          <div class="container">
+            <div class="header">
+              <div class="fb-logo">f</div>
+              <h2>Chọn Fanpage để kết nối</h2>
+              <p>Chọn một Fanpage bạn muốn tích hợp vào iGen ERP</p>
+            </div>
+            <div class="pages-list" id="pagesList">
+              ${(pages as any[]).length === 0 ? `
+                <div class="empty">
+                  <div class="empty-icon">📭</div>
+                  <p>Tài khoản của bạn chưa quản lý Fanpage nào.</p>
+                </div>
+              ` : (pages as any[]).map((p: any) => `
+                <button class="page-card" onclick="selectPage(${JSON.stringify(JSON.stringify(p))})">
+                  <div class="page-avatar">${(p.name || 'P')[0].toUpperCase()}</div>
+                  <div class="page-info">
+                    <div class="page-name">${p.name || 'Facebook Page'}</div>
+                    <div class="page-id">ID: ${p.id}</div>
+                    ${p.category ? `<div class="page-category">${p.category}</div>` : ''}
+                  </div>
+                  <span class="arrow">›</span>
+                </button>
+              `).join('')}
+            </div>
+            <div class="footer">Dữ liệu được mã hóa và lưu trữ an toàn</div>
           </div>
           <script>
-            try {
-              const pages = ${JSON.stringify(pages)};
-              window.opener.postMessage({
-                type: 'FACEBOOK_OAUTH_SUCCESS',
-                pages: pages
-              }, '*');
-            } catch (err) {
-              console.error('Error postMessage to opener:', err);
-              window.opener.postMessage({
-                type: 'FACEBOOK_OAUTH_FAILED',
-                error: err.message
-              }, '*');
+            function selectPage(pageJsonStr) {
+              try {
+                const page = JSON.parse(pageJsonStr);
+                if (window.opener) {
+                  window.opener.postMessage({
+                    type: 'FACEBOOK_PAGE_SELECTED',
+                    page: page
+                  }, '*');
+                }
+                setTimeout(() => window.close(), 300);
+              } catch(err) {
+                alert('Lỗi: ' + err.message);
+              }
             }
-            setTimeout(() => window.close(), 1500);
           </script>
         </body>
         </html>
@@ -154,10 +259,12 @@ export const facebookPostController = {
           <h2>Lỗi hệ thống khi xử lý kết nối Facebook</h2>
           <p>${err.message}</p>
           <script>
-            window.opener.postMessage({
-              type: 'FACEBOOK_OAUTH_FAILED',
-              error: '${err.message}'
-            }, '*');
+            if (window.opener) {
+              window.opener.postMessage({
+                type: 'FACEBOOK_OAUTH_FAILED',
+                error: '${err.message.replace(/'/g, "\\'")}'
+              }, '*');
+            }
             setTimeout(() => window.close(), 5000);
           </script>
         </body>
