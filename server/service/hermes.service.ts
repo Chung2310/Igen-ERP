@@ -1,4 +1,5 @@
 import { AIMediaModel } from "../model/ai-media.model";
+import { broadcastEvent } from "../socket";
 
 /**
  * Base URL của Hermes Worker Pool API (port 8643)
@@ -83,6 +84,29 @@ async function pollTaskStatus(
       console.log(`[Hermes Poll] task=${taskId} status=${status} attempt=${i + 1}`);
       if (status === "done" || status === "failed") {
         return { status, result_url: data.result_url, error: data.error };
+      }
+
+      // Tăng tiến độ giả định từ 25% lên tối đa 95% trong lúc chờ đợi
+      const currentProgress = Math.min(25 + Math.floor((i / MAX_POLL_ATTEMPTS) * 70), 95);
+      try {
+        const updated = await AIMediaModel.findByIdAndUpdate(
+          recordId,
+          {
+            "metadata.progress": currentProgress,
+            "metadata.description": `Hermes Worker đang xử lý video. Đang chờ kết quả... (Tiến độ: ${currentProgress}%)`
+          },
+          { new: true }
+        ).lean();
+
+        if (updated) {
+          broadcastEvent("video_status_updated", {
+            videoId: recordId,
+            status: "processing",
+            updates: [updated]
+          });
+        }
+      } catch (dbErr) {
+        console.warn(`[Hermes Poll] Không thể cập nhật tiến độ giả định cho record ${recordId}:`, dbErr);
       }
     } catch (err) {
       console.warn(`[Hermes Poll] Lỗi kết nối /status attempt ${i + 1}:`, err);
