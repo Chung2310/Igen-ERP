@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { geminiApi } from '../../api/gemini';
 import { toast } from '../../pages/Toast';
 import { Film, Loader2, Play, Sparkles, Video, X, Wand2, UploadCloud } from 'lucide-react';
+import { socketService } from '../../services/socketService';
 
 const MODEL_OPTIONS = [
   { value: 'piapi-veo31-video-fast-audio', label: 'iGen video 3.1 Fast' },
@@ -224,6 +225,28 @@ export function EditVideoWorkspace({
   useEffect(() => {
     loadVideoHistory();
   }, []);
+
+  useEffect(() => {
+    const unsubscribe = socketService.onVideoStatusUpdated((data) => {
+      console.log("[EditVideoWorkspace] Real-time video update received:", data);
+      loadVideoHistory();
+      
+      const matchedUpdate = data.updates?.find(u => u._id === currentRecordId || u.id === currentRecordId);
+      if (matchedUpdate) {
+        const status = matchedUpdate?.metadata?.status;
+        if (status === 'completed') {
+          toast.success('🎉 Video đã được biên tập và xuất bản thành công!');
+        } else if (status === 'failed') {
+          const errorMsg = matchedUpdate?.metadata?.error || 'Lỗi không xác định';
+          toast.error(`❌ Biên tập video thất bại: ${errorMsg}`);
+        }
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [currentRecordId]);
 
   useEffect(() => {
     const hasPending = (outputUrl && outputUrl.startsWith('pending://')) || history.some(item => item.url && item.url.startsWith('pending://'));
