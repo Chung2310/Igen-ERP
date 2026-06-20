@@ -1,5 +1,5 @@
 # Step 1: Build stage
-FROM node:22-slim AS builder
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
@@ -26,12 +26,10 @@ ENV NODE_OPTIONS="--max-old-space-size=4096"
 RUN yarn build
 
 # Step 2: Production runner stage (keeps the final image lightweight)
-FROM node:22-slim AS runner
+FROM node:22-alpine AS runner
 
-# Cài ca-certificates (Debian)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+# Cài ca-certificates (Alpine)
+RUN apk add --no-cache ca-certificates
 
 WORKDIR /app
 
