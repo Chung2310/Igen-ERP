@@ -736,14 +736,6 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                 >
                   <Send className="w-4 h-4" />
                 </button>
-                <button
-                  type="button"
-                  onClick={handleClearKnowledge}
-                  disabled={clearingKnowledge || syncingDrive}
-                  className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg font-bold text-[9px] shrink-0 transition-all active:scale-95 disabled:opacity-60 cursor-pointer"
-                >
-                  {clearingKnowledge ? "Dang xoa..." : "Xoa tai lieu"}
-                </button>
               </div>
             </form>
           </>
@@ -1024,11 +1016,21 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
             <div className="pt-4 border-t border-slate-100 space-y-2">
               <div className="flex items-center justify-between">
                 <label className="block font-extrabold text-slate-700">Dữ liệu huấn luyện AI</label>
-                {localConfig.trainingKnowledge && localConfig.trainingKnowledge.trim().length > 0 && (
-                  <span className="text-[8px] bg-emerald-100 text-emerald-700 font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider">
-                    {localConfig.trainingKnowledge.includes("Q:") ? "FAQ đã chuẩn hóa" : "Dữ liệu tùy chỉnh"}
-                  </span>
-                )}
+                <div className="flex items-center gap-2">
+                  {localConfig.trainingKnowledge && localConfig.trainingKnowledge.trim().length > 0 && (
+                    <span className="text-[8px] bg-emerald-100 text-emerald-700 font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider">
+                      {localConfig.trainingKnowledge.includes("Q:") ? "FAQ đã chuẩn hóa" : "Dữ liệu tùy chỉnh"}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleClearKnowledge}
+                    disabled={clearingKnowledge || syncingDrive}
+                    className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg font-bold text-[9px] transition-all active:scale-95 disabled:opacity-60 cursor-pointer"
+                  >
+                    {clearingKnowledge ? "Đang xóa..." : "Xóa tài liệu"}
+                  </button>
+                </div>
               </div>
               <textarea 
                 placeholder={"Nhập thông tin sản phẩm, chính sách bán hàng, bảng giá...\nHoặc bấm 'Đồng bộ & Tạo FAQ' ở trên để AI tự động tạo từ Google Doc.\n\nVí dụ:\nQ: Gói dịch vụ cơ bản giá bao nhiêu?\nA: Dạ, gói cơ bản có giá 500.000đ/tháng ạ."}

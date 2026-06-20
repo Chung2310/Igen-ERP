@@ -14,7 +14,8 @@ const CANDIDATE_STOPWORDS = new Set([
   "khong", "nay", "la", "gi", "de", "va", "them", "bot", "tu", "van", 
   "lam", "sao", "nao", "lien", "he", "anh", "chi", "em", "quy", "khach",
   "khao", "sat", "tim", "kiem", "xem", "lay", "nhan", "co", "ha", "nha", "a",
-  "di", "nhe", "nha", "voi", "giup", "dum", "dum", "oi", "ah", "uh"
+  "di", "nhe", "nha", "voi", "giup", "dum", "dum", "oi", "ah", "uh",
+  "hoi", "duoc", "ben", "minh", "da"
 ]);
 
 function normalizeCompanyCode(companyCode?: string) {
@@ -55,8 +56,8 @@ function isProductSearchQuery(text: string) {
   const hasCommerceIntent = /\b(san pham|mua|ban|xem hang|xem san pham|danh sach|catalog|bang gia|bao gia|gia|bao nhieu|co gi|con gi|loai nao|mau nao|size nao|model nao)\b/.test(normalized);
   const hasSpecificProductHint =
     tokens.length > 0 &&
-    tokens.some((token) => token.length >= 3) &&
-    normalized.split(/\s+/).length <= 6;
+    tokens.some((token) => token.length >= 2) &&
+    normalized.split(/\s+/).length <= 15;
 
   return hasCommerceIntent || hasSpecificProductHint;
 }
@@ -67,7 +68,7 @@ function computeLooseSubstringScore(queryTokens: string[], title: string, text: 
   const haystack = `${normalizeForLookup(title)} ${normalizeForLookup(text)}`;
   let hits = 0;
   for (const token of queryTokens) {
-    if (token.length >= 3 && haystack.includes(token)) {
+    if (token.length >= 2 && haystack.includes(token)) {
       hits += 1;
     }
   }
@@ -342,13 +343,32 @@ export const aiKnowledgeService = {
     const topK = params.topK || DEFAULT_TOP_K;
     const channel = params.channel || "facebook";
 
-    const chunks = await AIKnowledgeChunkModel.find({
+    const filter: any = {
       companyCode,
       channelScope: { $in: ["all", channel] },
-    })
+    };
+
+    if (queryTokens.length > 0) {
+      filter.$or = queryTokens.map((token) => ({
+        text: { $regex: token, $options: "i" },
+      }));
+    }
+
+    let chunks = await AIKnowledgeChunkModel.find(filter as any)
       .sort({ updatedAt: -1 })
       .limit(MAX_CHUNKS_TO_RANK)
       .lean();
+
+    if (chunks.length === 0 && queryTokens.length > 0) {
+      const fallbackFilter = {
+        companyCode,
+        channelScope: { $in: ["all", channel] },
+      };
+      chunks = await AIKnowledgeChunkModel.find(fallbackFilter as any)
+        .sort({ updatedAt: -1 })
+        .limit(MAX_CHUNKS_TO_RANK)
+        .lean();
+    }
 
     const documentIds = Array.from(new Set(chunks.map((chunk) => String(chunk.documentId))));
     const documents = await AIKnowledgeDocumentModel.find({
