@@ -57,13 +57,33 @@ export const piapiService = {
   async generateImage(
     prompt: string,
     model: string,
-    options?: { aspectRatio?: string }
+    options?: { aspectRatio?: string; existingImageUris?: string[] }
   ): Promise<{ url: string; isMock: boolean }> {
     if (!PIAPI_API_KEY) {
       throw new Error("Chưa cấu hình PIAPI_API_KEY. Không thể sinh ảnh.");
     }
 
     const aspect = options?.aspectRatio || "1:1";
+    let imageUrls: string[] = [];
+    if (options?.existingImageUris && options.existingImageUris.length > 0) {
+      for (const uri of options.existingImageUris) {
+        if (!uri) continue;
+        if (uri.startsWith("data:")) {
+          try {
+            console.log("[PiAPI Image Generation] Uploading reference image to Cloudinary...");
+            const uploadedUrl = await cloudinaryService.uploadMedia(uri, "igen_erp/image_refs");
+            console.log(`[PiAPI Image Generation] Reference image uploaded: ${uploadedUrl}`);
+            imageUrls.push(uploadedUrl);
+          } catch (err) {
+            console.error("[PiAPI Image Generation] Failed to upload reference image to Cloudinary:", err);
+            imageUrls.push(uri);
+          }
+        } else {
+          imageUrls.push(uri);
+        }
+      }
+    }
+
     let reqBody: any;
 
     if (model === "nano-banana-pro" || model === "nano-banana-2") {
@@ -75,6 +95,7 @@ export const piapiService = {
           output_format: "png",
           aspect_ratio: aspect,
           resolution: "1K",
+          ...(imageUrls.length > 0 ? { image_urls: imageUrls } : {}),
         },
       };
     } else {
@@ -82,14 +103,23 @@ export const piapiService = {
       if (piapiModel === "flux") {
         piapiModel = "Qubico/flux1-dev";
       }
+      const isMidjourney = piapiModel === "midjourney";
       reqBody = {
         model: piapiModel,
-        task_type: piapiModel === "midjourney" ? "imagine" : "text2img",
+        task_type: isMidjourney ? "imagine" : "text2img",
         input: {
-          prompt,
+          prompt: isMidjourney && imageUrls.length > 0 ? `${imageUrls.join(" ")} ${prompt}` : prompt,
           aspect_ratio: aspect,
+          ...(!isMidjourney && imageUrls.length > 0 ? {
+            image_url: imageUrls[0],
+            image: imageUrls[0],
+            image_urls: imageUrls,
+          } : {}),
         },
       };
+      if (!isMidjourney && imageUrls.length > 0) {
+        reqBody.task_type = "img2img";
+      }
     }
 
     try {
