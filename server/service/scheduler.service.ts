@@ -223,8 +223,6 @@ export const schedulerService = {
                 accessToken,
                 username,
                 undefined, // Không gửi scheduledTime vì cần đăng ngay khi scheduler trigger
-                undefined,
-                undefined,
                 integrationId,
                 card.companyCode
               );
