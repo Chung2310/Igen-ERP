@@ -3,12 +3,12 @@ import { InventorySubTabType, ProductCategory, ProductItem, StockLog } from "../
 export const inventoryTabs: InventorySubTabType[] = ["DANH MỤC", "PHÂN LOẠI SẢN PHẨM", "NHẬP / XUẤT KHO", "DỰ BÁO AI"];
 
 export const initialProducts: ProductItem[] = [
-  { id: "p1", sku: "PROD-X1", name: "Thiết bị đeo thông minh X1", category: "Thiết bị đeo", stock: 120, minStockAlert: 20, price: 1890000, demandForecast: "Tăng mạnh", imageUrl: "TB" },
-  { id: "p2", sku: "CLOUD-ENT-05", name: "Cloud Storage Enterprise", category: "Gói Dịch vụ Cloud", stock: 500, minStockAlert: 50, price: 5500000, demandForecast: "Ổn định", imageUrl: "CL" },
-  { id: "p3", sku: "HEADPHONE-MAX", name: "Tai nghe không dây Pro Max", category: "Âm thanh", stock: 15, minStockAlert: 25, price: 2990000, demandForecast: "Tăng mạnh", imageUrl: "AT" },
-  { id: "p4", sku: "KEY-WORK-V2", name: "Bàn phím cơ Workspace V2", category: "Phụ kiện", stock: 8, minStockAlert: 15, price: 1650000, demandForecast: "Giảm nhẹ", imageUrl: "PK" },
-  { id: "p5", sku: "LAP-DELL-XPS", name: "Laptop Dell XPS 15 Pro", category: "Máy tính xách tay", stock: 3, minStockAlert: 10, price: 45000000, demandForecast: "Tăng mạnh", imageUrl: "LT" },
-  { id: "p6", sku: "MONITOR-LG-4K", name: "Màn hình LG 27 inch 4K IPS", category: "Thiết bị hiển thị", stock: 2, minStockAlert: 8, price: 8900000, demandForecast: "Tăng mạnh", imageUrl: "MH" },
+  { id: "p1", sku: "PROD-X1", name: "Thiết bị đeo thông minh X1", category: "Thiết bị đeo", stock: 120, minStockAlert: 20, price: 1890000, demandForecast: "Tăng mạnh", imageUrl: "TB", unit: "Cái", status: "Active" },
+  { id: "p2", sku: "CLOUD-ENT-05", name: "Cloud Storage Enterprise", category: "Gói Dịch vụ Cloud", stock: 500, minStockAlert: 50, price: 5500000, demandForecast: "Ổn định", imageUrl: "CL", unit: "Cái", status: "Active" },
+  { id: "p3", sku: "HEADPHONE-MAX", name: "Tai nghe không dây Pro Max", category: "Âm thanh", stock: 15, minStockAlert: 25, price: 2990000, demandForecast: "Tăng mạnh", imageUrl: "AT", unit: "Cái", status: "Active" },
+  { id: "p4", sku: "KEY-WORK-V2", name: "Bàn phím cơ Workspace V2", category: "Phụ kiện", stock: 8, minStockAlert: 15, price: 1650000, demandForecast: "Giảm nhẹ", imageUrl: "PK", unit: "Cái", status: "Active" },
+  { id: "p5", sku: "LAP-DELL-XPS", name: "Laptop Dell XPS 15 Pro", category: "Máy tính xách tay", stock: 3, minStockAlert: 10, price: 45000000, demandForecast: "Tăng mạnh", imageUrl: "LT", unit: "Cái", status: "Active" },
+  { id: "p6", sku: "MONITOR-LG-4K", name: "Màn hình LG 27 inch 4K IPS", category: "Thiết bị hiển thị", stock: 2, minStockAlert: 8, price: 8900000, demandForecast: "Tăng mạnh", imageUrl: "MH", unit: "Cái", status: "Active" },
 ];
 
 export const initialCategories: ProductCategory[] = [

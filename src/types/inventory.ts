@@ -5,9 +5,13 @@ export interface ProductItem {
   sku: string;
   name: string;
   category: string;
+  brand?: string;
+  unit: string;
   stock: number;
   minStockAlert: number;
   price: number;
+  description?: string;
+  status: "Active" | "Inactive";
   demandForecast: "Tăng mạnh" | "Ổn định" | "Giảm nhẹ";
   imageUrl: string;
 }

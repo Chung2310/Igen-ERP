@@ -93,6 +93,10 @@ export default function InventoryTab() {
   const [newProdStock, setNewProdStock] = useState("");
   const [newProdPrice, setNewProdPrice] = useState("");
   const [newProdSKU, setNewProdSKU] = useState("");
+  const [newProdBrand, setNewProdBrand] = useState("");
+  const [newProdUnit, setNewProdUnit] = useState("Cái");
+  const [newProdDescription, setNewProdDescription] = useState("");
+  const [newProdStatus, setNewProdStatus] = useState("Active");
   const [newProdImageFile, setNewProdImageFile] = useState<File | null>(null);
   const [newProdImagePreview, setNewProdImagePreview] = useState("");
 
@@ -206,6 +210,10 @@ export default function InventoryTab() {
     setNewProdStock("");
     setNewProdPrice("");
     setNewProdSKU("");
+    setNewProdBrand("");
+    setNewProdUnit("Cái");
+    setNewProdDescription("");
+    setNewProdStatus("Active");
     setNewProdImageFile(null);
     setNewProdImagePreview("");
     const activeCategory = categories.find((category) => category.status === "Đang dùng");
@@ -224,6 +232,10 @@ export default function InventoryTab() {
     setNewProdStock(String(product.stock));
     setNewProdPrice(String(product.price));
     setNewProdSKU(product.sku);
+    setNewProdBrand(product.brand || "");
+    setNewProdUnit(product.unit || "Cái");
+    setNewProdDescription(product.description || "");
+    setNewProdStatus(product.status || "Active");
     setNewProdImageFile(null);
     setNewProdImagePreview(product.imageUrl);
     setShowProductModal(true);
@@ -249,6 +261,10 @@ export default function InventoryTab() {
     const stock = parseInt(newProdStock, 10) || 0;
     const price = parseInt(newProdPrice, 10) || 0;
     const category = newProdCategory || "Chưa phân loại";
+    const brand = newProdBrand.trim();
+    const unit = newProdUnit.trim() || "Cái";
+    const description = newProdDescription.trim();
+    const status = (newProdStatus || "Active") as "Active" | "Inactive";
 
     setProductSubmitting(true);
 
@@ -266,8 +282,12 @@ export default function InventoryTab() {
           sku,
           name,
           category,
+          brand,
+          unit,
           stock,
           price,
+          description,
+          status,
           imageFile: newProdImageFile,
           imageUrl: currentProduct?.imageUrl || "",
         });
@@ -283,8 +303,12 @@ export default function InventoryTab() {
           sku,
           name,
           category,
+          brand,
+          unit,
           stock,
           price,
+          description,
+          status,
           imageFile: newProdImageFile,
         });
 
@@ -476,8 +500,12 @@ export default function InventoryTab() {
           sku: row.sku,
           name: row.name,
           category: row.category,
+          brand: row.brand || "",
+          unit: row.unit || "Cái",
           stock: row.stock,
           price: row.price,
+          description: row.description || "",
+          status: row.status || "Active",
           imageUrl: row.imageUrl || "",
         });
 
@@ -974,12 +1002,12 @@ export default function InventoryTab() {
                 newProdPrice={newProdPrice}
                 newProdSKU={newProdSKU}
                 newProdStock={newProdStock}
+                newProdBrand={newProdBrand}
+                newProdUnit={newProdUnit}
+                newProdDescription={newProdDescription}
+                newProdStatus={newProdStatus}
                 onClose={resetProductForm}
-                onCreateCategory={() => {
-                  setShowProductModal(false);
-                  openCreateCategoryModal();
-                  setSubTab("PHÂN LOẠI SẢN PHẨM");
-                }}
+                onCreateCategory={openCreateCategoryModal}
                 onImageChange={handleProductImageChange}
                 onSubmit={handleSaveProduct}
                 setNewProdCategory={setNewProdCategory}
@@ -987,6 +1015,10 @@ export default function InventoryTab() {
                 setNewProdPrice={setNewProdPrice}
                 setNewProdSKU={setNewProdSKU}
                 setNewProdStock={setNewProdStock}
+                setNewProdBrand={setNewProdBrand}
+                setNewProdUnit={setNewProdUnit}
+                setNewProdDescription={setNewProdDescription}
+                setNewProdStatus={setNewProdStatus}
               />
             )}
           </div>
@@ -1066,19 +1098,6 @@ export default function InventoryTab() {
               </div>
             )}
 
-            {showCategoryModal && (
-              <CategoryModal
-                editingCategoryId={editingCategoryId}
-                newCategoryCode={newCategoryCode}
-                newCategoryDescription={newCategoryDescription}
-                newCategoryName={newCategoryName}
-                onClose={resetCategoryForm}
-                onSubmit={handleSaveCategory}
-                setNewCategoryCode={setNewCategoryCode}
-                setNewCategoryDescription={setNewCategoryDescription}
-                setNewCategoryName={setNewCategoryName}
-              />
-            )}
           </div>
         )}
 
@@ -1112,6 +1131,21 @@ export default function InventoryTab() {
           {subTab === "DỰ BÁO AI" && <AiForecastPanel forecast={forecastSummary} />}
         </Suspense>
       </div>
+
+      {showCategoryModal && (
+        <CategoryModal
+          editingCategoryId={editingCategoryId}
+          newCategoryCode={newCategoryCode}
+          newCategoryDescription={newCategoryDescription}
+          newCategoryName={newCategoryName}
+          onClose={resetCategoryForm}
+          onSubmit={handleSaveCategory}
+          setNewCategoryCode={setNewCategoryCode}
+          setNewCategoryDescription={setNewCategoryDescription}
+          setNewCategoryName={setNewCategoryName}
+        />
+      )}
+
       <ConfirmDialog
         isOpen={Boolean(deleteTarget)}
         title={deleteTarget?.title || ""}
