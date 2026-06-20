@@ -304,7 +304,7 @@ export const facebookPostController = {
                   <p>Tài khoản của bạn chưa quản lý Fanpage nào.</p>
                 </div>
               ` : (pages as any[]).map((p: any) => `
-                <button class="page-card" onclick="selectPage(${JSON.stringify(JSON.stringify(p))})">
+                <button class="page-card" onclick="selectPage('${p.id}')">
                   <div class="page-avatar">${(p.name || "P")[0].toUpperCase()}</div>
                   <div class="page-info">
                     <div class="page-name">${p.name || "Facebook Page"}</div>
@@ -319,9 +319,14 @@ export const facebookPostController = {
           </div>
           <script>
             const integrationId = ${JSON.stringify(integrationId)};
-            function selectPage(pageJsonStr) {
+            const pagesList = ${JSON.stringify(pages)};
+            function selectPage(pageId) {
               try {
-                const page = JSON.parse(pageJsonStr);
+                const page = pagesList.find(p => p.id === pageId);
+                if (!page) {
+                  alert('Không tìm thấy thông tin Fanpage.');
+                  return;
+                }
                 if (window.opener) {
                   window.opener.postMessage({
                     type: 'FACEBOOK_PAGE_SELECTED',
