@@ -47,17 +47,19 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 
-# Copy only the compiled output directory from builder
-COPY --from=builder /app/dist ./dist
+# Copy package files first to leverage Docker build cache for node_modules
 COPY --from=builder /app/package.json /app/yarn.lock ./
-
-# Copy Remotion entrypoint and video composition template for runtime Webpack bundling
-COPY --from=builder /app/server/remotion ./server/remotion
-COPY --from=builder /app/src/components/content-studio/video-composition.tsx ./src/components/content-studio/video-composition.tsx
 COPY --from=builder /app/.puppeteerrc.cjs ./.puppeteerrc.cjs
 
 # Install only production dependencies
 RUN yarn install --production --frozen-lockfile
+
+# Copy only the compiled output directory from builder
+COPY --from=builder /app/dist ./dist
+
+# Copy Remotion entrypoint and video composition template for runtime Webpack bundling
+COPY --from=builder /app/server/remotion ./server/remotion
+COPY --from=builder /app/src/components/content-studio/video-composition.tsx ./src/components/content-studio/video-composition.tsx
 
 # Expose Express server port
 EXPOSE 3000
