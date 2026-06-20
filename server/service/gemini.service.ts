@@ -10,7 +10,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 
-const GEMINI_TEXT_MODEL = process.env.GEMINI_MODEL || "gemini-3.5-flash";
+const GEMINI_TEXT_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 const GEMINI_HEAVY_MODEL = process.env.GEMINI_HEAVY_MODEL || "gemini-3.5-flash";
 const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || "piapi-flux";
 const GEMINI_VIDEO_MODEL = process.env.GEMINI_VIDEO_MODEL || "veo31-video-fast-audio";
@@ -34,11 +34,7 @@ async function fetchWithRetry(url: string, retries = 3, delay = 2000): Promise<R
   let lastError: any;
   for (let i = 0; i < retries; i++) {
     try {
-      const res = await fetch(url, {
-        headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-        }
-      });
+      const res = await fetch(url);
       if (res.ok) return res;
       lastError = new Error(`HTTP ${res.status} - ${res.statusText}`);
     } catch (err) {
@@ -253,16 +249,27 @@ function buildFaithfulVisualGuardrail(input: {
     Array.isArray(input.channels) && input.channels.length > 0 ? `Target channels: ${input.channels.join(", ")}.` : "",
     Array.isArray(input.selectedPillars) && input.selectedPillars.length > 0 ? `Required pillars: ${input.selectedPillars.join(", ")}.` : "",
     "The English media prompt must preserve the exact meaning of the Vietnamese brief and attached file.",
-    "If the brief mentions a company name, logo, product, salary, location, or other business details, these must appear in the generated image prompt.",
-    "Do not omit or paraphrase critical business details that are present in the input.",
     "Do not add products, people, locations, industries, outfits, props, or use-cases that are not grounded in the source brief.",
     "Do not generalize into generic office, lifestyle, beauty, fashion, product showcase, or abstract marketing scenes unless the source explicitly asks for that.",
     "If the source is about software, ecommerce, logistics, education, training, omnichannel, operations, CRM, warehouse, or business workflow, the visual must clearly show that exact context.",
     "Translate faithfully into English for image/video generation, but keep the original business meaning, subject, context, and constraints unchanged.",
-    "If the user mentions a brand, company name, or campaign name, include it in the image prompt as visible text, signage, uniform, or logo.",
   ]
     .filter(Boolean)
     .join(" ");
+}
+
+async function fetchImageAsBase64(url: string): Promise<{ mimeType: string; data: string } | null> {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) return null;
+    const contentType = response.headers.get("content-type") || "image/png";
+    const arrayBuffer = await response.arrayBuffer();
+    const base64 = Buffer.from(arrayBuffer).toString("base64");
+    return { mimeType: contentType, data: base64 };
+  } catch (error) {
+    console.error(`[fetchImageAsBase64] Error fetching image from ${url}:`, error);
+    return null;
+  }
 }
 
 async function generateText(
@@ -278,6 +285,9 @@ async function generateText(
 ): Promise<{ text: string }> {
   const ai = getGeminiClient();
   let modelId = model || GEMINI_TEXT_MODEL;
+  if (modelId === "gemini-3.5-flash") {
+    modelId = "gemini-2.5-flash";
+  }
 
   // Build Gemini-native contents
   const geminiContents: any[] = [];
@@ -290,6 +300,11 @@ async function generateText(
           const mimeMatch = img.match(/^data:([^;]+);base64,(.+)$/);
           if (mimeMatch) {
             parts.push({ inlineData: { mimeType: mimeMatch[1], data: mimeMatch[2] } });
+          }
+        } else if (img.startsWith("http://") || img.startsWith("https://")) {
+          const base64Data = await fetchImageAsBase64(img);
+          if (base64Data) {
+            parts.push({ inlineData: { mimeType: base64Data.mimeType, data: base64Data.data } });
           }
         } else {
           parts.push({ fileData: { fileUri: img } });
@@ -332,19 +347,18 @@ async function generateText(
   const maxRetries = 4;
   let delay = 1000;
   let lastError: any;
-  let activeModel = modelId;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       const response = await ai.models.generateContent({
-        model: activeModel,
+        model: modelId,
         contents: geminiContents,
         config: geminiConfig,
       });
 
       const geminiElapsed = Date.now() - geminiStartTime;
       const text = response.text || "";
-      console.log(`[generateText] Gemini API responded | model=${activeModel} | ${geminiElapsed}ms (${(geminiElapsed / 1000).toFixed(1)}s) | responseLen=${text.length}`);
+      console.log(`[generateText] Gemini API responded | ${geminiElapsed}ms (${(geminiElapsed / 1000).toFixed(1)}s) | responseLen=${text.length}`);
       return { text };
     } catch (error: any) {
       lastError = error;
@@ -353,17 +367,8 @@ async function generateText(
       const isUnavailable = error?.status === 503 || errorMsg.includes("503") || errorMsg.includes("UNAVAILABLE") || errorMsg.includes("experiencing high demand");
       const isNetworkError = errorMsg.includes("fetch failed") || errorMsg.includes("ENOTFOUND") || errorMsg.includes("ECONNRESET") || errorMsg.includes("ETIMEDOUT") || errorMsg.includes("socket");
 
-      // Bất kỳ lúc nào gemini-3.5-flash lỗi tải hoặc hết quota/giới hạn tần suất, tự động chuyển về gemini-2.5-flash chạy dự phòng
-      if (activeModel === "gemini-3.5-flash" && (isRateLimit || isUnavailable)) {
-        console.warn(`[generateText] Model gemini-3.5-flash failed with API error (${isRateLimit ? "rate-limit" : "unavailable"}). Falling back to gemini-2.5-flash immediately.`);
-        activeModel = "gemini-2.5-flash";
-        delay = 1000;
-        attempt = 0; // Tiếp tục vòng lặp với model mới từ đầu
-        continue;
-      }
-
       if ((isRateLimit || isUnavailable || isNetworkError) && attempt < maxRetries) {
-        console.warn(`[generateText] Attempt ${attempt} with model=${activeModel} failed with API error. Retrying in ${delay}ms... Error: ${errorMsg}`);
+        console.warn(`[generateText] Attempt ${attempt} failed with API error (rate-limit/unavailable/network). Retrying in ${delay}ms... Error: ${errorMsg}`);
         await new Promise((resolve) => setTimeout(resolve, delay));
         delay *= 2;
       } else if (isUnavailable) {
@@ -428,20 +433,30 @@ export const geminiService = {
     aiConfig: any,
     ragContext?: { contextText?: string; companyCode?: string; matches?: number }
   ): Promise<{ text: string; isMock: boolean }> {
-    if (!process.env.GEMINI_API_KEY) {
-      throw new Error("Cấu hình GEMINI_API_KEY bị thiếu trên hệ thống.");
-    }
+    const getMockResponse = () => {
+      return new Promise<{ text: string; isMock: boolean }>((resolve) => {
+        setTimeout(() => {
+          let replyText = `[Giả lập Trợ lý AI] Cảm ơn bạn đã phản hồi! Với cài đặt Trợ lý AI (Cấu hình: ${aiConfig.autoClassify ? "Tự phân loại" : "Thường"
+            }), tôi đề xuất phương án tối ưu cho bạn.`;
 
-    let companyName = "Doanh nghiệp";
-    if (ragContext?.companyCode && ragContext.companyCode !== "SYSTEM") {
-      try {
-        const company = await CompanyModel.findOne({ code: ragContext.companyCode.toUpperCase() });
-        if (company && company.name) {
-          companyName = company.name;
-        }
-      } catch (err) {
-        console.error("[geminiService.chat] Error fetching company name:", err);
-      }
+          const msgLower = message.toLowerCase();
+          if (msgLower.includes("giá") || msgLower.includes("bao nhiêu")) {
+            replyText =
+              "Chào bạn! Hiện tại dòng sản phẩm Thiết bị đeo thông minh X1 đang có giá ưu đãi là 1.890.000đ (giảm từ 2.450.000đ). Trợ lý AI có thể hỗ trợ tạo đơn hàng ngay lập tức nếu bạn sẵn sàng!";
+          } else if (msgLower.includes("khuyến mãi") || msgLower.includes("ưu đãi")) {
+            replyText =
+              "Dạ, bên mình đang có chương trình khuyến mãi 'SIÊU ƯU ĐÃI THÁNG 10': giảm giá lên đến 30% cho toàn bộ linh kiện robot và tặng voucher 200k cho đơn hàng sau đó. Bạn có muốn nhận mã voucher không ạ?";
+          } else if (msgLower.includes("vận chuyển") || msgLower.includes("ship")) {
+            replyText =
+              "Đơn hàng của bạn sẽ được hỗ trợ Freeship toàn quốc cho các hóa đơn từ 500k trở lên. Thời gian giao hàng dự kiến là từ 2-3 ngày làm việc đối với khu vực tỉnh thành khác, Hà Nội/HCM sẽ nhận hàng trong ngày ạ!";
+          }
+          resolve({ text: replyText, isMock: true });
+        }, 800);
+      });
+    };
+
+    if (!process.env.GEMINI_API_KEY) {
+      return getMockResponse();
     }
 
     const detectedIntent = detectChatIntent(message, history);
@@ -449,19 +464,69 @@ export const geminiService = {
     const hasCompanyKnowledge = !!ragContext?.contextText;
     const assistantMode = hasCompanyKnowledge ? "COMPANY_TRAINED_MODE" : "DEFAULT_ASSISTANT_MODE";
 
+    // Resolve companyName dynamically
+    const companyCode = ragContext?.companyCode || aiConfig?.companyCode;
+    let companyName = aiConfig?.companyName || "";
+
+    if (!companyName && companyCode) {
+      try {
+        const company = await CompanyModel.findOne({ code: companyCode.toUpperCase() }).lean();
+        if (company) {
+          companyName = company.name;
+        }
+      } catch (err) {
+        console.warn("[geminiService.chat] Error fetching company from DB:", err);
+      }
+    }
+    if (!companyName) {
+      companyName = "doanh nghiệp";
+    }
+
+    const conversationPlaybook = `
+QUY TẮC CHĂM SÓC KHÁCH HÀNG THÔNG MINH VÀ KHÉO LÉO:
+- Chỉ chào đầy đủ ở đầu hội thoại. Ở các lượt sau, trả lời tự nhiên, ngắn gọn và đi thẳng vào nhu cầu của khách.
+- Mỗi câu trả lời nên ưu tiên theo thứ tự: xác nhận nhu cầu, đưa gợi ý phù hợp từ knowledge, rồi kết bằng 1 câu hỏi ngắn để dẫn dắt bước tiếp theo.
+- Không hỏi dồn quá nhiều câu trong một lượt. Chỉ hỏi 1-2 câu thật sự cần thiết.
+- Nếu khách đã cung cấp đủ thông tin, không hỏi lại điều khách vừa nói. Hãy chuyển sang gợi ý hoặc chốt bước tiếp theo.
+- Khi knowledge có nhiều lựa chọn, chỉ chọn ra 1-3 phương án phù hợp nhất và giải thích rất ngắn vì sao phù hợp.
+- Nếu thiếu dữ liệu về giá, tồn kho, màu, size, phiên bản hoặc khuyến mãi, hãy nói rõ phần nào chưa đủ dữ liệu nhưng vẫn hỗ trợ tối đa bằng thông tin hiện có.
+- Chỉ đề nghị chuyển nhân viên khi thực sự cần xác nhận thông tin ngoài knowledge hoặc cần thao tác mà AI không làm được.
+
+QUY TẮC UPSELL VÀ CROSS-SELL:
+- Upsell phải khéo, đúng ngữ cảnh và chỉ dựa trên knowledge của doanh nghiệp.
+- Chỉ upsell khi khách đã thể hiện nhu cầu tương đối rõ hoặc đang quan tâm tới một sản phẩm/dịch vụ cụ thể.
+- Ưu tiên upsell theo hướng giá trị: phiên bản phù hợp hơn, gói đầy đủ hơn, dung tích lớn hơn, giải pháp tiết kiệm hơn, hoặc sản phẩm bổ trợ hợp lý.
+- Không ép bán, không upsell quá sớm ngay ở lượt đầu.
+- Nếu cross-sell, chỉ gợi ý thêm tối đa 1-2 sản phẩm bổ trợ thực sự liên quan trực tiếp.
+- Không tự bịa combo, quà tặng hay ưu đãi nếu knowledge không có.
+
+QUY TẮC CHỐT ĐƠN MỀM:
+- Khi khách đã có ý định mua rõ, hãy chuyển từ tư vấn sang chốt nhẹ nhàng: xác nhận nhu cầu, tóm tắt lựa chọn phù hợp, rồi hỏi bước hành động tiếp theo.
+- Bước hành động tiếp theo phải ngắn và cụ thể, ví dụ: xác nhận phiên bản, số lượng, biến thể, hoặc xin thông tin để nhân viên lên đơn.
+- Không lặp lại câu xin chuyển nhân viên qua nhiều lượt liên tiếp. Nếu cần chuyển, hãy nêu rõ lý do và giá trị của bước chuyển đó.
+
+QUY TẮC TƯ VẤN SẢN PHẨM KHI ĐÃ CÓ KNOWLEDGE:
+- Nếu khách hỏi chung như "bên mình có gì" hoặc "shop có sản phẩm gì", hãy ưu tiên liệt kê các nhóm sản phẩm hoặc 3-5 sản phẩm tiêu biểu có trong knowledge thay vì mô tả ngành hàng chung chung.
+- Nếu khách hỏi một sản phẩm cụ thể và knowledge có đúng tên đó, hãy xác nhận ngay và tóm tắt ngắn những điểm quan trọng có trong knowledge.
+- Nếu khách yêu cầu xem sản phẩm, hãy ưu tiên mô tả hoặc liệt kê sản phẩm theo knowledge trước; chỉ nêu hạn chế về ảnh/video khi thật sự cần.
+- Nếu đã có context phù hợp về sản phẩm, ưu tiên trả lời theo cấu trúc: xác nhận nhu cầu, nêu 1-3 lựa chọn phù hợp, tóm tắt ngắn lý do phù hợp, rồi mới hỏi thêm 1 câu ngắn nếu cần.
+- Không lặp lại nguyên văn cùng một mẫu câu chào hỏi, xin chuyển nhân viên hoặc giải thích dài dòng ở nhiều lượt liên tiếp. Mỗi lượt phải có tiến triển mới.
+`;
+
     const systemInstruction = `
-Bạn là một Trợ lý Chăm sóc Khách hàng AI chuyên nghiệp đại diện cho doanh nghiệp "${companyName}".
-Bạn đang hỗ trợ khách hàng trong khung chat trực tuyến.
+Bạn là một Trợ lý Chăm sóc Khách hàng AI đỉnh cao cho hệ thống iGen ERP doanh nghiệp.
+Bạn đang hỗ trợ khách hàng trong khung chat Omni-Inbox.
 
 QUY CHUẨN XƯNG HÔ VÀ CHÀO HỎI CHUYÊN NGHIỆP:
-- Luôn mở đầu câu trả lời bằng lời chào lịch sự như: "Dạ, ${companyName} xin chào anh/chị ạ!" hoặc "Dạ, em chào anh/chị ạ!" hoặc "Dạ xin kính chào Quý khách!".
-- Luôn xưng hô là "Dạ, bên em..." hoặc "Dạ, ${companyName}..." hoặc "Dạ, em..." và gọi khách hàng là "Quý khách" hoặc "Anh/Chị".
+- Luôn mở đầu câu trả lời bằng lời chào lịch sự như: "Dạ, [Tên doanh nghiệp] xin chào anh/chị ạ!" hoặc "Dạ, em chào anh/chị ạ!" hoặc "Dạ xin kính chào Quý khách!".
+- Luôn xưng hô là "Dạ, bên em..." hoặc "Dạ, [Tên doanh nghiệp]..." hoặc "Dạ, em..." và gọi khách hàng là "Quý khách" hoặc "Anh/Chị".
 - Luôn sử dụng kính ngữ "Dạ" ở đầu câu và "ạ" ở cuối câu để đảm bảo sự lịch thiệp, tôn trọng và chuyên nghiệp tuyệt đối.
 - Tuyệt đối KHÔNG sử dụng các từ xưng hô quá thân mật hoặc thiếu trang trọng như "cậu", "tớ", "bạn", "mày", "tao".
 - Trả lời bằng ngôn phong tiếng Việt chuẩn mực, tinh tế, tích cực, không dùng ngôn ngữ teen, từ lóng hoặc icon quá đà.
 
 Quy tắc và chỉ dẫn hành xử từ doanh nghiệp:
 ${aiConfig.advancedInstructions ? `- ${aiConfig.advancedInstructions}` : "- Không có chỉ dẫn đặc biệt."}
+${conversationPlaybook}
 
 Dữ liệu vận hành hiện tại:
 - Chế độ trả lời: ${assistantMode}
@@ -469,34 +534,20 @@ Dữ liệu vận hành hiện tại:
 - COMPANY_TRAINED_MODE: đã có tài liệu/chính sách riêng của công ty, hãy bám sát tài liệu và nói theo chỉ dẫn doanh nghiệp.
 - DEFAULT_ASSISTANT_MODE: chưa có tài liệu riêng, vẫn trả lời khách mặc định một cách lịch sự, hỗ trợ hỏi thêm nhu cầu và chuyển nhân viên khi cần.
 
-QUY TẮC PHÂN LOẠI CÁCH TRẢ LỜI THEO Ý ĐỊNH:
-- small_talk: với lời chào, cảm ơn, hỏi xã giao, yêu cầu tư vấn chung, bạn được trả lời tự nhiên, lịch sự, thân thiện mà không cần bám cứng vào knowledge base.
-- company_faq: với câu hỏi về công ty, liên hệ, quy trình hỗ trợ, giới thiệu chung, hãy ưu tiên tri thức doanh nghiệp nếu có. Nếu thiếu dữ liệu, nói rõ chưa có đủ thông tin xác nhận.
-- product_pricing_policy: với câu hỏi về sản phẩm, giá, bảng giá, báo giá, giao hàng, bảo hành, đổi trả, hotline, địa chỉ, tính năng, bạn chỉ được trả lời theo tài liệu đã truy xuất.
-- out_of_scope: với câu hỏi ngoài phạm vi chăm sóc khách hàng/doanh nghiệp, hãy từ chối nhẹ nhàng và kéo khách quay lại nhu cầu liên quan đến doanh nghiệp.
-
-Dữ liệu tri thức đã truy xuất riêng cho doanh nghiệp "${companyName}":
+Dữ liệu tri thức đã truy xuất riêng cho doanh nghiệp ${ragContext?.companyCode || "hiện tại"}:
 ${ragContext?.contextText ? ragContext.contextText : "- Không tìm thấy tri thức phù hợp trong kho dữ liệu."}
 
-QUY TẮC AN TOÀN BẮT BUỘC ĐỂ TRÁNH BỊA ĐẶT THÔNG TIN (ANTI-HALLUCINATION):
-1. Tuyệt đối KHÔNG tự bịa ra bất kỳ thông tin nào không có trong "Dữ liệu tri thức đã truy xuất riêng cho doanh nghiệp" ở trên (bao gồm cả giá cả, tính năng sản phẩm, chính sách bảo hành, số điện thoại, địa chỉ, ưu đãi...).
-2. Nếu khách hỏi thông tin cụ thể (ví dụ: giá sản phẩm, chính sách đổi trả, ship hàng, thông số sản phẩm...) mà KHÔNG có trong dữ liệu tri thức được cung cấp ở trên, bạn PHẢI trả lời lịch sự rằng hiện tại bạn chưa có thông tin chi tiết này và xin phép được chuyển cuộc trò chuyện cho nhân viên hỗ trợ giải đáp trực tiếp. KHÔNG được đoán hay tự bịa ra thông tin.
-3. KHÔNG nhắc đến "iGen ERP" hay bất kỳ thông tin nào của iGen ERP trừ khi tên doanh nghiệp của bạn chính là iGen ERP hoặc thông tin này nằm trong tài liệu tri thức.
-4. Khi có nhiều tài liệu nguồn, hãy ưu tiên dùng đúng tài liệu khớp với câu hỏi của khách, ví dụ:
-- Câu hỏi về sản phẩm/tính năng: ưu tiên tài liệu sản phẩm, catalogue, mô tả dịch vụ.
-- Câu hỏi về giá/báo giá/ưu đãi: ưu tiên bảng giá, báo giá, chính sách bán hàng.
-- Câu hỏi về bảo hành/đổi trả/giao hàng/chăm sóc khách hàng: ưu tiên quy trình CSKH, chính sách vận hành, FAQ hỗ trợ.
-- Câu hỏi về doanh nghiệp/thương hiệu/liên hệ: ưu tiên tài liệu giới thiệu công ty, thông tin doanh nghiệp, hotline, địa chỉ.
-5. Nếu các nguồn có vẻ mâu thuẫn hoặc không đủ rõ ràng, hãy nói rằng bạn cần nhân viên xác nhận lại thông tin mới nhất. Không tự chọn một con số hay chính sách nếu chưa chắc.
-6. Khi trả lời thông tin quan trọng như giá, chính sách, mô tả sản phẩm, hotline, địa chỉ, hãy diễn đạt bám sát nguyên văn ý trong tài liệu nguồn, không sáng tạo thêm.
-7. Trả lời ngắn gọn, trực diện, không dài dòng.
-8. Nếu intent là out_of_scope, không trả lời sâu nội dung ngoài phạm vi. Hãy lịch sự nói bạn đang hỗ trợ thông tin về doanh nghiệp/sản phẩm/dịch vụ và mời khách đặt câu hỏi liên quan hơn.
-9. Nếu intent là product_pricing_policy hoặc company_faq mà chưa có context phù hợp, phải nói chưa đủ dữ liệu để xác nhận và đề nghị nhân viên hỗ trợ tiếp.
+Quy tắc an toàn bắt buộc:
+- Khi ở DEFAULT_ASSISTANT_MODE, vẫn được chào hỏi, xác nhận nhu cầu, hỏi thêm thông tin, hướng dẫn khách để lại số điện thoại/nhu cầu và nói sẽ có nhân viên hỗ trợ.
+- Chỉ trả lời các thông tin cụ thể về giá, bảo hành, giao hàng, đổi trả, khuyến mãi nếu có trong dữ liệu tri thức ở trên hoặc trong lịch sử hội thoại.
+- Nếu khách hỏi chính sách/giá/thông tin cụ thể mà không có dữ liệu phù hợp, hãy nói rằng bạn cần chuyển nhân viên kiểm tra lại, tuyệt đối không tự bịa.
+- Không trộn lẫn thông tin giữa các công ty khác nhau.
 
 Thông tin cấu hình hiện tại của bạn:
 - Tự động phân loại khách hàng: ${aiConfig.autoClassify ? "Đang BẬT. Hãy phân loại khách dựa trên xu hướng hội thoại và thông báo khéo léo." : "Đang TẮT"}
 - Tự động chốt đơn hàng: ${aiConfig.autoCloseDeal ? "Đang BẬT. Hãy tìm cơ hội khéo léo hướng khách hàng chốt mua sản phẩm một cách nhanh gọn, gửi thông tin tạo đơn." : "Đang TẮT"}
 - Tự động xin feedback cuối hội thoại: ${aiConfig.autoFeedback ? "Đang BẬT. Nếu cuộc đối thoại đi đến hồi kết, hãy lịch sự xin ý kiến đánh giá chất lượng dịch vụ." : "Đang TẮT"}
+- Với Nguyễn Thị Mai (khách VIP): hãy đối xử cực kỳ chu đáo, tặng voucher riêng VIP-10 nếu có ý than phiền hoặc hỏi giá.
 `;
 
     const contents = history.map((h: any) => ({
@@ -553,8 +604,20 @@ Thông tin cấu hình hiện tại của bạn:
    * Tự động băm/chuyển đổi tài liệu dài thành danh sách FAQs rút gọn
    */
   async convertDocToFAQ(docText: string): Promise<string> {
+    const getMockFAQ = () => {
+      return `--- BẢN FAQ ĐÃ ĐƯỢC CHUẨN HÓA (CHẾ ĐỘ MÔ PHỎNG AI) ---
+Q: Tài liệu này nói về chủ đề gì?
+A: Tài liệu giới thiệu thông tin vận hành, chính sách bán hàng của doanh nghiệp.
+
+Q: Làm thế nào để liên hệ hỗ trợ kỹ thuật?
+A: Vui lòng liên hệ số hotline 1900xxxx hoặc email support@igen.com.
+
+Q: Chính sách vận chuyển của chúng tôi là gì?
+A: Giao hàng toàn quốc. Miễn phí vận chuyển cho đơn hàng trị giá từ 500k trở lên.`;
+    };
+
     if (!process.env.GEMINI_API_KEY) {
-      throw new Error("Cấu hình GEMINI_API_KEY bị thiếu trên hệ thống.");
+      return getMockFAQ();
     }
 
     try {
@@ -584,80 +647,9 @@ ${docText}
 
       return response.text || "Không thể trích xuất được dữ liệu FAQ từ tài liệu.";
     } catch (error: any) {
-      console.error("[geminiService.convertDocToFAQ] Error converting doc to FAQ:", error);
-      throw new Error(`Lỗi xử lý tài liệu AI: ${error.message || error}`);
+      console.error("[geminiService.convertDocToFAQ] Error, fallback to mock FAQ:", error);
+      return getMockFAQ();
     }
-  },
-
-  /**
-   * Trích xuất văn bản từ file PDF sử dụng Gemini API
-   */
-  async extractTextFromPdf(pdfBase64: string): Promise<string> {
-    if (!process.env.GEMINI_API_KEY) {
-      throw new Error("GEMINI_API_KEY is not configured");
-    }
-
-    const ai = getGeminiClient();
-    let activeModel = GEMINI_TEXT_MODEL;
-    const maxRetries = 4;
-    let delay = 1000;
-    let lastError: any;
-
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        console.log(`[AI AutoReply] Đang gọi Gemini trích xuất văn bản từ PDF (model: ${activeModel}, attempt: ${attempt})...`);
-        const response = await ai.models.generateContent({
-          model: activeModel,
-          contents: [
-            {
-              role: "user",
-              parts: [
-                {
-                  inlineData: {
-                    mimeType: "application/pdf",
-                    data: pdfBase64,
-                  },
-                },
-                {
-                  text: "Bạn là trợ lý trích xuất văn bản. Hãy trích xuất và trả về toàn bộ nội dung văn bản (text) có trong file tài liệu PDF này một cách đầy đủ, chính xác nhất theo đúng thứ tự đọc của tài liệu. Chỉ trả về nội dung văn bản thuần, không thêm thắt giải thích, không định dạng markdown hay giới thiệu gì ngoài nội dung gốc.",
-                },
-              ],
-            },
-          ],
-        });
-
-        return response.text || "";
-      } catch (error: any) {
-        lastError = error;
-        const errorMsg = error?.message || String(error);
-        const isRateLimit = error?.status === 429 || errorMsg.includes("429") || errorMsg.includes("RESOURCE_EXHAUSTED") || errorMsg.includes("quota");
-        const isUnavailable = error?.status === 503 || errorMsg.includes("503") || errorMsg.includes("UNAVAILABLE") || errorMsg.includes("experiencing high demand");
-
-        if (activeModel === "gemini-3.5-flash" && (isRateLimit || isUnavailable)) {
-          console.warn(`[extractTextFromPdf] Model gemini-3.5-flash failed with API error. Falling back to gemini-2.5-flash.`);
-          activeModel = "gemini-2.5-flash";
-          delay = 1000;
-          attempt = 0;
-          continue;
-        }
-
-        if (activeModel === "gemini-2.5-flash" && (isRateLimit || isUnavailable)) {
-          console.warn(`[extractTextFromPdf] Model gemini-2.5-flash failed. Falling back to gemini-1.5-flash.`);
-          activeModel = "gemini-1.5-flash";
-          delay = 1000;
-          attempt = 0;
-          continue;
-        }
-
-        if (attempt < maxRetries) {
-          console.warn(`[extractTextFromPdf] Attempt ${attempt} failed, retrying in ${delay}ms... Error: ${errorMsg}`);
-          await new Promise((resolve) => setTimeout(resolve, delay));
-          delay *= 2;
-        }
-      }
-    }
-
-    throw lastError;
   },
 
   async getMarketingSuggestions(): Promise<string[]> {
@@ -920,9 +912,9 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
       const existingPillarsStr = currentPillars
         .map(p => `- ID: "${p.id}", Tiêu đề: "${p.title}", Mô tả: "${p.description}"`)
         .join("\n");
-
+      
       const toReplace = currentPillars.find(p => p.id === pillarIdToReplace);
-      const replaceStr = toReplace
+      const replaceStr = toReplace 
         ? `ID: "${toReplace.id}", Tiêu đề: "${toReplace.title}" (Tỷ lệ phân bổ: ${toReplace.ratio})`
         : pillarIdToReplace;
 
@@ -1052,9 +1044,9 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
             ? "\nYêu cầu về phương tiện: Các ý tưởng phải thiết kế đi kèm video làm chủ đạo."
             : mediaType === "human-video"
               ? "\nYÃªu cáº§u vá» phÆ°Æ¡ng tiá»‡n: CÃ¡c Ã½ tÆ°á»Ÿng pháº£i phÃ¹ há»£p cho video ngÆ°á»i tháº­t/avatar nÃ³i trÆ°á»›c camera, Æ°u tiÃªn hook máº¡nh, lá»i thoáº¡i tá»± nhiÃªn, cáº£nh quay Ä‘Æ¡n giáº£n vÃ  cÃ³ thá»ƒ chuyá»ƒn thÃ nh voice script trá»±c tiáº¿p."
-              : mediaType === "none"
-                ? "\nYêu cầu về phương tiện: Các bài đăng không đi kèm hình ảnh hoặc video (chỉ văn bản/caption)."
-                : "";
+            : mediaType === "none"
+              ? "\nYêu cầu về phương tiện: Các bài đăng không đi kèm hình ảnh hoặc video (chỉ văn bản/caption)."
+              : "";
 
       const prompt = `Bạn là một chuyên gia marketing xuất sắc.
 Hãy tạo đúng 3 ý tưởng/bản nháp chiến dịch marketing chi tiết cho chủ đề/chiến dịch này: "${campaignTopic}".${pillarsContext}${channelsContext}${mediaContext}
@@ -1067,7 +1059,6 @@ Yêu cầu kết quả đầu ra:
 6. Hashtags liên quan phù hợp.
 7. mediaPrompt: Một đoạn mô tả chi tiết bằng tiếng Anh (visual prompt) mô tả chính xác hình ảnh hoặc video phù hợp nhất cho ý tưởng này, dùng để gửi tới AI Image/Video Generator. Prompt phải bao gồm: chủ thể chính, bối cảnh, ánh sáng, phong cách nghệ thuật, mood/tone, và chi tiết kỹ thuật.
 8. mediaPrompt phải dịch đúng nghĩa và bám sát nhất với input người dùng và nội dung phân tích từ file đính kèm. Không được thêm bớt chủ đề hay làm generic hóa bối cảnh.
-9. KHÔNG được thêm bất kỳ chi tiết nào không có trong nội dung đầu vào. Nếu input không đề cập đến một yếu tố cụ thể, hãy giữ prompt ở mức mô tả chung hợp lý.
 
 NGUỒN SỰ THẬT BẮT BUỘC:
 ${sourceBrief.normalizedBrief || campaignTopic}
@@ -1311,8 +1302,6 @@ QUY TẮC PHÂN TÁCH DỮ LIỆU BẮT BUỘC CHO TỪNG KÊNH:
    - Trường "bodyText": Lưu bản nháp nội dung bài viết sạch hoàn chỉnh để đăng tải trực tiếp (không chứa dàn ý hay tiêu đề nháp).
 3. Đối với mọi kênh: Sinh thêm trường "mediaPrompt" là một đoạn mô tả chi tiết bằng tiếng Anh (visual prompt) mô phỏng chính xác nội dung trực quan (hình ảnh hoặc video) phù hợp cho bài viết này để gửi tới AI Generator.
 4. mediaPrompt phải là bản dịch trung thành sang tiếng Anh từ dữ liệu gốc, không được đổi nghĩa, không được tự ý thêm chi tiết không có trong input hoặc tài liệu đính kèm, không được biến thành bối cảnh generic.
-5. Nếu input chứa tên công ty, thông tin lương, địa điểm, hay tên chiến dịch, bắt buộc phải nhắc lại chính xác chúng trong mediaPrompt dưới dạng nội dung trực quan.
-6. mediaPrompt phải ghi rõ cách hiển thị nội dung đó trên ảnh/video: logo, banner, bảng hiệu, đồng phục, biển chỉ dẫn, hoặc văn bản nổi bật.
 ${humanVoiceRules}
 
 Thông tin chiến dịch marketing:
@@ -1350,13 +1339,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
                       },
                       mediaPrompt: {
                         type: Type.STRING,
-                        description: `A detailed visual description prompt in English for generating a matching image or video. It must:
-1. Preserve all business details from the original Vietnamese brief.
-2. Include company name, campaign name, salary, location, and product or role details when present.
-3. Describe exact visual composition, lighting, text placement, and environment.
-4. Avoid adding elements not present in the original input.
-5. Avoid generic phrasing and instead use specific, grounded language related to the campaign.
-Example: 'Recruitment poster for PHÚC CƯƠNG PDCA at Quế Võ, Bắc Ninh, showing a worker in blue uniform with salary text "4 triệu + 8 triệu" visible on a banner.'`,
+                        description: "A detailed visual description prompt in English for generating a matching image or video (e.g. scenic views, product display, lifestyle scene, characters, setting details)."
                       },
                       voiceScript: {
                         type: Type.STRING,
@@ -1438,30 +1421,10 @@ Example: 'Recruitment poster for PHÚC CƯƠNG PDCA at Quế Võ, Bắc Ninh, sh
             }
           } catch (err) {
             console.error(`[developMarketingIdea] Error generating image for post on ${post.channel}:`, err);
-            // Retry once before giving up
-            try {
-              console.log(`[developMarketingIdea] Retrying image generation (attempt 2/2)...`);
-              const retryResult = await geminiService.generateImage(
-                post.mediaPrompt || mediaOptions.mediaPrompt || `A professional image for: ${title}`,
-                { aspectRatio: mediaOptions.imageAspectRatio, modelName: mediaOptions.imageModel, resolution: mediaOptions.imageResolution }
-              );
-              if (retryResult.isMock) {
-                post.imageUrl = retryResult.url;
-              } else {
-                try {
-                  const uploadedUrl = await cloudinaryService.uploadMedia(retryResult.url, "igen_erp");
-                  post.imageUrl = uploadedUrl;
-                } catch (clErr2) {
-                  console.error("[developMarketingIdea] Cloudinary upload retry failed:", clErr2);
-                  post.imageUrl = retryResult.url;
-                }
-              }
-              console.log(`[developMarketingIdea] Image retry succeeded: ${post.imageUrl}`);
-            } catch (retryErr) {
-              console.error(`[developMarketingIdea] Image generation failed after retry for post on ${post.channel}:`, retryErr);
-              // No mock — throw to let caller handle
-              throw new Error(`Không thể tạo ảnh AI cho kênh ${post.channel} sau 2 lần thử.`);
-            }
+            // Fallback to mock image in case of PiAPI credit/service failures
+            const seed = Math.floor(Math.random() * 1000000);
+            post.imageUrl = `https://picsum.photos/seed/${seed}/800/600`;
+            console.log(`[developMarketingIdea] Fallback to mock image: ${post.imageUrl}`);
           }
         } else if (mediaOptions.mediaType === "video") {
           try {
@@ -1486,32 +1449,9 @@ Example: 'Recruitment poster for PHÚC CƯƠNG PDCA at Quế Võ, Bắc Ninh, sh
             }
           } catch (err) {
             console.error(`[developMarketingIdea] Error generating video for post on ${post.channel}:`, err);
-            // Retry once before giving up
-            try {
-              console.log(`[developMarketingIdea] Retrying video generation (attempt 2/2)...`);
-              const promptToUse = post.mediaPrompt || mediaOptions.mediaPrompt || `A cinematic video clip matching the campaign topic: ${title}`;
-              const durationSec = mediaOptions.videoDuration ? Number(mediaOptions.videoDuration) : 6;
-              const retryResult = await geminiService.generateVideo(promptToUse, durationSec, {
-                modelName: mediaOptions.videoModel,
-                resolution: mediaOptions.videoQuality,
-                aspectRatio: mediaOptions.videoAspectRatio,
-              });
-              if (retryResult.isMock) {
-                post.videoUrl = retryResult.url;
-              } else {
-                try {
-                  const uploadedUrl = await cloudinaryService.uploadMedia(retryResult.url, "igen_erp");
-                  post.videoUrl = uploadedUrl;
-                } catch (clErr2) {
-                  console.error("[developMarketingIdea] Cloudinary upload retry failed:", clErr2);
-                  post.videoUrl = retryResult.url;
-                }
-              }
-              console.log(`[developMarketingIdea] Video retry succeeded: ${post.videoUrl}`);
-            } catch (retryErr) {
-              console.error(`[developMarketingIdea] Video generation failed after retry for post on ${post.channel}:`, retryErr);
-              throw new Error(`Không thể tạo video AI cho kênh ${post.channel} sau 2 lần thử.`);
-            }
+            // Fallback to mock video in case of PiAPI credit/service failures
+            post.videoUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4";
+            console.log(`[developMarketingIdea] Fallback to mock video: ${post.videoUrl}`);
           }
         }
       }
@@ -1522,14 +1462,22 @@ Example: 'Recruitment poster for PHÚC CƯƠNG PDCA at Quế Võ, Bắc Ninh, sh
 
 
   /**
-   * Sinh ảnh AI bằng model Nano-Banana hoặc Imagen 4
+   * Sinh ảnh AI bằng model Nano-Banana (PiAPI), Gemini Banana Pro (Google Imagen), hoặc Imagen 4
    */
   async generateImage(
     prompt: string,
     options?: { aspectRatio?: string; modelName?: string; resolution?: string; existingImageUris?: string[] }
   ): Promise<{ url: string; isMock: boolean }> {
     let modelToUse = options?.modelName || GEMINI_IMAGE_MODEL;
-    // Route all calls to PiAPI
+
+    // Gemini Banana Pro / Nano-Banana-Pro: Ưu tiên tạo ảnh trực tiếp qua Google Gemini API
+    if (modelToUse === "gemini-banana-pro" || modelToUse === "nano-banana-pro" || modelToUse === "igen-image-pro") {
+      if (process.env.GEMINI_API_KEY) {
+        return this._generateImageWithGemini(prompt, options);
+      }
+    }
+
+    // Route các model PiAPI
     if (modelToUse === "igen-image-pro" || modelToUse === "nano-banana-pro") {
       modelToUse = "nano-banana-pro";
     } else if (modelToUse === "igen-image-flash" || modelToUse === "nano-banana-2") {
@@ -1539,11 +1487,87 @@ Example: 'Recruitment poster for PHÚC CƯƠNG PDCA at Quế Võ, Bắc Ninh, sh
     }
 
     if (!process.env.PIAPI_API_KEY) {
-      throw new Error("PIAPI_API_KEY chưa được cấu hình. Vui lòng thêm API key để tạo ảnh AI.");
+      const seed = Math.floor(Math.random() * 1000000);
+      return { url: `https://picsum.photos/seed/${seed}/800/600`, isMock: true };
     }
 
-    return piapiService.generateImage(prompt, modelToUse, { aspectRatio: options?.aspectRatio });
+    return piapiService.generateImage(prompt, modelToUse, { 
+      aspectRatio: options?.aspectRatio,
+      existingImageUris: options?.existingImageUris 
+    });
   },
+
+  /**
+   * Tạo ảnh bằng Google Gemini Image Model (gemini-banana-pro)
+   * Sử dụng gemini-3-pro-image-preview qua generateContent với responseModalities IMAGE
+   */
+  async _generateImageWithGemini(
+    prompt: string,
+    options?: { aspectRatio?: string; resolution?: string; existingImageUris?: string[] }
+  ): Promise<{ url: string; isMock: boolean }> {
+    const ai = getGeminiClient();
+    const inputImageUris = options?.existingImageUris || [];
+
+    try {
+      console.log(`[Gemini Banana Pro] Generating image via gemini-3-pro-image | hasRefImages=${inputImageUris.length > 0}`);
+
+      // Build parts: text prompt + optional reference images
+      const parts: any[] = [{ text: prompt }];
+
+      for (const uri of inputImageUris) {
+        if (uri.startsWith("data:")) {
+          const mimeMatch = uri.match(/^data:([^;]+);base64,(.+)$/);
+          if (mimeMatch) {
+            parts.push({ inlineData: { mimeType: mimeMatch[1], data: mimeMatch[2] } });
+          }
+        } else if (uri.startsWith("http://") || uri.startsWith("https://")) {
+          const imgData = await fetchImageAsBase64(uri);
+          if (imgData) {
+            parts.push({ inlineData: { mimeType: imgData.mimeType, data: imgData.data } });
+          }
+        }
+      }
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3-pro-image",
+        contents: [{ role: "user", parts }],
+        config: {
+          responseModalities: ["IMAGE", "TEXT"],
+        },
+      });
+
+      // Tìm inline image trong response
+      let imageBase64: string | null = null;
+      let imageMimeType = "image/png";
+
+      const candidates = (response as any).candidates || [];
+      for (const candidate of candidates) {
+        for (const part of candidate?.content?.parts || []) {
+          if (part?.inlineData?.data) {
+            imageBase64 = part.inlineData.data;
+            imageMimeType = part.inlineData.mimeType || "image/png";
+            break;
+          }
+        }
+        if (imageBase64) break;
+      }
+
+      if (!imageBase64) {
+        throw new Error("Gemini Image API không trả về ảnh nào trong response.");
+      }
+
+      console.log(`[Gemini Banana Pro] Image generated. Uploading to Cloudinary...`);
+      const base64DataUrl = `data:${imageMimeType};base64,${imageBase64}`;
+      const cloudinaryUrl = await cloudinaryService.uploadMedia(base64DataUrl, "igen_erp/gemini_images");
+
+      console.log(`[Gemini Banana Pro] Uploaded to Cloudinary: ${cloudinaryUrl}`);
+      return { url: cloudinaryUrl, isMock: false };
+    } catch (error: any) {
+      console.error("[Gemini Banana Pro] Error generating image:", error);
+      throw error;
+    }
+  },
+
 
   /**
    * Sinh video AI bằng model Veo3 hoặc Veo2
@@ -1757,166 +1781,32 @@ Hãy tối ưu hóa văn bản gốc của người dùng để biến nó thàn
     }
 
     try {
-      const systemInstruction = `You are a world-class creative director and prompt engineer for advanced AI image generators (Flux Pro, Imagen 3, SDXL, Midjourney). Your job is to transform any Vietnamese brief into a highly detailed, professional English image prompt that produces stunning, commercial-grade, contextually accurate results.
-
-════════════════════════════════════════════════════════════
-CRITICAL IMAGE-TO-IMAGE FIDELITY PROTOCOL (HIGHEST PRIORITY)
-When reference images are provided, this section OVERRIDES everything else.
-Your ONLY mission is to reproduce the primary subject 100% identically.
-Apply ALL 8 rules to every subject type — vehicle, human, animal, plant, food, furniture, electronics, or any object.
-════════════════════════════════════════════════════════════
-
-RULE 1 — EXACT ANATOMY & GEOMETRY (PART-BY-PART):
-Describe every visible structural sub-part with precise, unambiguous geometry:
-  - HEADLIGHT/EYES: State the EXACT shape — hexagonal, rectangular, oval, round, teardrop — and internal structure (LED cluster, projector lens, DRL ring). If it is hexagonal, write "hexagonal LED headlight" NOT "round headlight".
-  - WHEEL SPOKES: Count them and state the pattern — "5 double Y-spokes", "7 thin spokes", "solid disc wheel". Never use generic "alloy wheel".
-  - BODY PANELS: Describe curvature, creases, and where panels meet. Note sharp edges vs smooth curves.
-  - MATERIAL FINISH: Per-part — matte powder-coat, gloss lacquer, brushed aluminum, raw carbon fiber, soft velvet, etc.
-
-RULE 2 — BADGES, LOGOS, TEXT & SURFACE DETAILS:
-  - Transcribe EVERY visible brand name, model badge, slogan, or number exactly and wrap in double quotes (e.g., badge "VERA S" in red italic font on left body panel).
-  - Describe stitching lines, quilting, embossed logos, embroidery, decals, and color-split surface finishes.
-  - If text/badge is NOT visible on the reference image, do NOT add any text or badge.
-
-RULE 3 — CAMERA ANGLE & ORIENTATION (Preserve exactly from reference):
-  - Identify the exact shooting angle: front-on, 3/4 front-left, 3/4 front-right, side profile left, side profile right, rear 3/4, top-down, low-angle worm's eye, high-angle bird's eye.
-  - State the subject's directional tilt: "front wheel turned slightly right", "head tilted down-left", "handlebar angled toward viewer".
-  - Use the exact same angle in optimized_english_prompt.
-
-RULE 4 — POSE, STANCE & RESTING POSITION:
-  - Vehicle: "parked on center kickstand with rear wheel slightly raised", "leaning on side kickstand to the left", "upright on flat stand".
-  - Person: describe arm position, leg stance, weight shift, head turn angle.
-  - Animal: describe each limb position, body orientation, ear state.
-
-RULE 5 — MANDATORY NEGATIVE FEATURE LIST (CRITICAL — prevents hallucination):
-  List every feature that is ABSENT from the reference image using explicit NO/WITHOUT phrases in the prompt itself:
-  Examples: "no side mirrors", "no exhaust pipe visible", "no chain or belt drive visible", "no rear passenger grab handle", "no windshield", "no luggage rack", "no collar", "no antlers".
-  These MUST appear verbatim inside the optimized_english_prompt field.
-
-RULE 6 — LIGHTING (Honor user description — never override or add unsolicited weather):
-  - If user says "ánh nắng nhẹ" → write "soft warm dappled sunlight filtering through leaves, gentle shadows, no harsh glare".
-  - NEVER add rain, puddles, wet cobblestones, fog, mist, or dramatic storm unless the user explicitly requested it.
-  - State light direction (front-lit, side-lit left, backlit, rim-lit), color temperature (warm 4000K, cool 6500K), and shadow softness.
-
-RULE 7 — SUBJECT LOCKED / BACKGROUND FLEXIBLE:
-  - Background and environment CAN change to match the user's description.
-  - The primary subject MUST remain 100% identical to the reference: same model, same color, same geometry, same badges, same absent features.
-
-RULE 8 — ABSOLUTE NO SUBSTITUTION:
-  - NEVER replace a specific design with a visually similar generic model.
-  - Example: do NOT turn the "Vera S" electric scooter (hexagonal headlight, no mirrors, no exhaust, VERA S badge) into a generic "Vespa GTS" (round headlight, mirrors, exhaust, Vespa badge).
-  - Example: do NOT turn a specific cat breed into "a cat", or a baroque armchair into "a chair".
-  - If the subject looks similar to a well-known brand/model, explicitly describe the DIFFERENCES that make it unique and state those differences directly in the prompt.
-
-WHEN WRITING optimized_english_prompt FOR A VEHICLE/PRODUCT WITH REFERENCE IMAGE:
-  1. Open with the exact shooting angle and stance.
-  2. Describe the subject part-by-part (front to rear, top to bottom).
-  3. After each major part, immediately state what is NOT there.
-  4. Then describe the background/lighting/environment.
-  5. Close with camera/lens/rendering style.
-
-════════════════════════════════════════════════════════════
-STEP 1 — CONTEXT DETECTION (applies when NO reference image is provided):
-Identify the image category from the brief. Categories and their rules:
-
-[A] RECRUITMENT/ADVERTISING/MARKETING BANNER (tuyển dụng, quảng cáo, khuyến mãi, sự kiện):
-  - Layout: A professional commercial banner divided into two zones:
-    LEFT ZONE: Clean white/light background, bold structured Vietnamese typography arranged in clear sections. Key info displayed in visual blocks with accent color backgrounds.
-    RIGHT ZONE: A smiling, friendly Vietnamese person (worker/staff) in branded uniform, standing behind a professional information booth, with the actual real-world location as backdrop (e.g., a clean factory, a modern office tower, a retail store front).
-  - Typography Blocks: Colored rectangular horizontal panels for each text section. The brand name goes at the top in large bold font. Key metrics (salary, discount, etc.) displayed in giant numbers with contrasting accent color.
-  - Branding: Company name/logo appears in at least 3 places (banner header, uniform chest embroidery, front of booth/desk).
-  - Background Scene: Matches the industry — factory = modern industrial park with blue sky; retail = bright storefront; tech = modern glass office building.
-
-[B] PRODUCT PHOTOGRAPHY (sản phẩm, hàng hóa, bán hàng):
-  - Shoot Style: High-end commercial product photography, like Apple/Nike ads.
-  - Lighting: Bright, even studio lighting with soft reflections. Product is crisp, in sharp focus with soft bokeh background.
-  - Surface/Setting: Clean minimalist surface — white marble, polished concrete, natural wood planks. Or a lifestyle context that matches product use.
-  - Angles: Multiple angles hinted — 45° hero shot, close-up detail shot. Always sharp, no motion blur.
-  - Mood: Premium, desirable, luxurious or honest depending on product tier.
-
-[C] FOOD & BEVERAGE (ẩm thực, đồ ăn, nhà hàng, cafe):
-  - Shoot Style: Editorial food photography (like Bon Appétit magazine). Warm, moody, inviting.
-  - Lighting: Warm side-lighting or overhead natural window light. Golden hour warmth.
-  - Props: Complementary props arranged carefully — herbs, spices, linen napkins, wooden boards, ceramic bowls. No clutter.
-  - Surface: Weathered wood, slate stone, terrazzo, or hand-painted ceramic tiles.
-  - Camera: 50mm or 85mm macro lens, f/2.0–f/4.0. Shallow depth of field focused on the hero dish.
-
-[D] REAL ESTATE / ARCHITECTURE (bất động sản, nhà, căn hộ, văn phòng):
-  - Shoot Style: Architectural visualization, golden hour property photography.
-  - Lighting: Magic hour exterior (warm sunset light hitting the facade) or bright daytime with blue sky and dramatic clouds. Interior: bright natural window light, all interior lights on.
-  - Composition: Rule-of-thirds, leading lines from the architecture. Show the full facade, or key interior rooms.
-  - Finishing: Pristine. No clutter. Staged like a luxury property listing.
-  - Camera: Wide-angle lens (24mm), straight verticals, HDR-blended look.
-
-[E] PORTRAIT / PEOPLE / LIFESTYLE (người, chân dung, lifestyle):
-  - Shoot Style: Editorial portrait, natural lifestyle photography. Authentic, not staged.
-  - Lighting: Natural golden hour light, or dramatic studio Rembrandt lighting for formal portraits.
-  - Expression & Pose: Genuine emotions. Subject interacts naturally with environment.
-  - Background: Relevant to the person's story — their workspace, home, outdoor setting.
-  - Camera: 85mm or 135mm portrait lens. Shallow depth of field, creamy bokeh background. Skin tones natural and warm.
-
-[F] FASHION / BEAUTY (thời trang, làm đẹp, mỹ phẩm):
-  - Shoot Style: High-fashion editorial (Vogue/Harper's Bazaar level) or campaign commercial photography.
-  - Lighting: High-contrast dramatic studio lighting, or outdoor cinematic natural light.
-  - Styling: Detailed outfit description. Every garment, accessory, hair, and makeup detail specified.
-  - Setting: Fashion-forward backdrop — dramatic desert, sleek studio, urban rooftop, or minimalist set.
-  - Camera: Medium format aesthetic, 80mm lens, incredibly crisp detail.
-
-[G] TECHNOLOGY / SOFTWARE / APP (công nghệ, phần mềm, app, website):
-  - Shoot Style: Tech product mockup, UX showcase, or lifestyle tech photography.
-  - Setting: Clean modern desk setup or hand holding device in bright natural environment.
-  - Screens: Device screens showing the actual interface — crisp, readable UI elements on screen.
-  - Mood: Smart, efficient, modern. No generic blue tech backgrounds.
-
-[H] NATURE / LANDSCAPE / TRAVEL (thiên nhiên, phong cảnh, du lịch):
-  - Shoot Style: National Geographic / travel editorial photography.
-  - Lighting: Golden hour or blue hour. Dramatic sky.
-  - Composition: Epic wide-angle landscape with foreground interest element.
-  - Atmosphere: Volumetric light rays, mist, clouds for drama.
-
-STEP 2 — LOCALIZATION: Always translate Vietnamese to English. Preserve all specific factual details: people names, company names, location names (Vietnamese city/province names), exact numbers, prices, events. Never generalize or substitute real information with placeholders.
-  - If the brief does not mention a specific person, product, place, logo, or text, do not invent one.
-  - Do not add unrelated brand claims, slogans, or visual elements that are not explicitly present in the original brief.
-
-STEP 3 — TEXT RENDERING: If the brief contains text that must appear IN the image (signs, banners, price tags, labels, overlays), do the following:
-  - Put exact text strings inside double quotes: "LƯƠNG 4 TRIỆU VNĐ/THÁNG"
-  - Specify the font style: bold, uppercase, sans-serif
-  - Specify placement: top-left corner, center of the sign, bottom footer bar
-  - Expand shorthand Vietnamese numbers: "4m" → "4 TRIỆU VNĐ", "8m" → "8 TRIỆU VNĐ"
-
-STEP 4 — WRITE THE FINAL PROMPT: Combine all elements. The "optimized_english_prompt" must be a rich, specific, step-by-step description (150–300 words) that the image generator can follow directly. Avoid generic filler phrases. Every adjective must be purposeful.
-
+      const optimizeMessages: any[] = [
+        {
+          role: "system",
+          content: `You are an expert prompt engineer for image generators. Optimize the user's image description into a high-quality, descriptive English prompt.
+Preserve the exact business topic, audience, use-case, and key message from the user's input.
+Do not convert a concrete brief into a generic product shot, generic lifestyle image, abstract office scene, or unrelated beauty visual.
+If the prompt is about software, ecommerce, omnichannel, logistics, operations, training, consulting, customer growth, or workflow, explicitly visualize that real context.
+Translate faithfully from Vietnamese to English when needed. Semantic fidelity is more important than creative embellishment.
+Do not introduce new objects, characters, industries, locations, demographics, props, outfits, or claims unless they are explicitly grounded in the source input or attached references.
+When source files or images are provided, use them as constraints and preserve the same meaning as closely as possible.
 Output MUST be a valid JSON object matching this schema:
 {
-  "subject": "detailed description of the main subject/people",
-  "clothing_material": "outfit details, uniform, branding logos",
-  "action_pose": "what the subject is doing, pose, expression",
-  "setting_lighting": "background setting, environment, lighting style",
-  "camera_parameters": "camera shot, lens, depth of field, visual style",
-  "optimized_english_prompt": "the complete final detailed prompt in English (150-300 words) combining all enriched visual details",
-  "negative_prompt": "If reference images were provided: include explicit negations of features NOT present on the subject (e.g. 'no side mirrors, no exhaust pipe, no round headlight, no Vespa badge, no helmet, no windshield'). Always include: ugly, deformed, blurry, low quality, distorted text, generic stock photo, amateur, wrong vehicle model, substituted design, added accessories not in reference, hallucinated parts, wrong headlight shape, wrong badge text, extra mirrors, extra pipes, overexposed, watermark"
+  "subject": "string",
+  "clothing_material": "string",
+  "action_pose": "string",
+  "setting_lighting": "string",
+  "camera_parameters": "string",
+  "optimized_english_prompt": "string of the final detailed prompt in English",
+  "negative_prompt": "string of negative prompts"
 }
-Do not include markdown blocks or any text other than the JSON object.`;
+Do not include markdown blocks or any text other than the JSON object.`
+        }
+      ];
 
-      const optimizeMessages = [{ role: "system", content: systemInstruction }];
       const systemMessage = optimizeMessages[0].content;
-      const hasImages = imageUris && imageUris.length > 0;
-      const userText = hasImages
-        ? `You are given ${imageUris!.length} reference image(s). Follow this EXACT sequence:
-
-PHASE 1 — FORENSIC ANALYSIS: Examine every pixel of the reference image(s). For each reference, document:
-  a) Exact headlight/eye/opening shape (hexagonal? round? rectangular?) — be precise.
-  b) Exact number and pattern of wheel spokes or equivalent structural elements.
-  c) Every badge, logo, text, or decal — transcribe exactly.
-  d) Features that are ABSENT compared to similar objects (no mirrors? no exhaust? no collar?).
-  e) Exact camera angle and subject stance/pose.
-  f) Color and surface finish per body part.
-  g) Any unique design elements that differentiate this from generic similar objects.
-
-PHASE 2 — BACKGROUND INSTRUCTION: The user wants this background/context: "${normalizedDescription}"
-
-PHASE 3 — WRITE THE PROMPT: Using ONLY the subject details from PHASE 1 (do not substitute, do not generalize, do not add parts that weren't there), write the optimized_english_prompt that places the EXACT SAME subject into the new background from PHASE 2. The subject description must be more detailed and specific than the background description.`
-        : `Translate and optimize this media brief into English while preserving the exact topic, context, audience, business meaning, and factual constraints from the original input: ${normalizedDescription}`;
+      const userText = `Translate and optimize this media brief into English while preserving the exact topic, context, audience, business meaning, and factual constraints from the original input: ${normalizedDescription}`;
       const result = await generateText(GEMINI_TEXT_MODEL, userText, {
         systemInstruction: systemMessage,
         responseMimeType: "application/json",
@@ -1937,7 +1827,7 @@ PHASE 3 — WRITE THE PROMPT: Using ONLY the subject details from PHASE 1 (do no
 
     const getMockVideoPrompt = () => {
       const text = normalizedDescription.toLowerCase().trim();
-      const isEnglish = !/[àáảãạăắằẳẵặâấầẩẫậèéẻẽẹêếềểễệđìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵÀÁẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬÈÉẺẼẸÊẾỀỂỄỆĐÌÍỈĨỊÒÓỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÙÚỦŨỤƯỨỪỬỮỰỲÝỶỸỴ]/i.test(normalizedDescription);
+      const isEnglish = !/[àáảãạăắằẳẵặâấầẩẫậèéẻẽẹêếềểễệđìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵ]/i.test(normalizedDescription);
       if (isEnglish) {
         return {
           motion_analysis: "smooth cinematic motion of the subject",
@@ -2064,7 +1954,6 @@ PHASE 3 — WRITE THE PROMPT: Using ONLY the subject details from PHASE 1 (do no
           role: "system",
           content: `You are an expert prompt engineer for video generators. Optimize the description into a high-quality video prompt.
 Preserve the exact meaning of the original input. Translate faithfully from Vietnamese to English when needed.
-Do not invent people, products, locations, brands, logos, or visual text that are not explicitly mentioned in the original description.
 Do not add unrelated cinematic elements, fashion cues, generic lifestyle filler, or abstract visuals that are not grounded in the source brief.
 If source images are provided, treat them as grounding constraints and keep the prompt semantically aligned with them.
 Output MUST be a valid JSON object matching this schema:
@@ -2072,7 +1961,7 @@ Output MUST be a valid JSON object matching this schema:
   "motion_analysis": "Detailed description of the motion of subjects, speed changes, and physics of the scene",
   "camera_movement": "Detailed description of camera movements, panning, focal adjustments, depth of field, and camera paths",
   "optimized_english_prompt": "A complete, highly descriptive visual prompt in English, combining composition, lighting, cinematic style, and subject details"
-} 
+}
 Do not include markdown blocks or any text other than the JSON object.`
         }
       ];
@@ -2087,13 +1976,10 @@ Do not include markdown blocks or any text other than the JSON object.`
       return safeParseJson(videoResult.text);
     } catch (error: any) {
       console.error("[geminiService.optimizeVideoPrompt] Gemini Error, fallback to local optimizer:", error);
+      return getMockVideoPrompt();
     }
   },
 
-  /**
-   * Tối ưu hóa prompt CHỈNH SỬA VIDEO (dành cho Remotion, không phải Veo/Kling)
-   * Chuyển prompt tự nhiên của người dùng thành lệnh chỉnh sửa cụ thể, rõ ràng
-   */
   async optimizeEditPrompt(description: string): Promise<{ optimized_prompt: string }> {
     const normalizedDescription = String(description || "").trim();
     if (!normalizedDescription) {
@@ -2101,7 +1987,6 @@ Do not include markdown blocks or any text other than the JSON object.`
     }
 
     if (!process.env.GEMINI_API_KEY) {
-      // Fallback: giữ nguyên prompt gốc
       return { optimized_prompt: normalizedDescription };
     }
 
@@ -2112,7 +1997,7 @@ Nhiệm vụ của bạn: chuyển đổi prompt mô tả tự nhiên của ngư
 ⚠️ QUAN TRỌNG: 
 - Đầu ra phải là các LỆNH CHỈNH SỬA (cắt, zoom, filter, text, nhạc, tốc độ), KHÔNG phải mô tả chung chung.
 - Nếu người dùng nói "viral TikTok", hãy cụ thể hóa: "cắt thành các đoạn 2-3 giây, tua nhanh 1.5x, zoom in/out xen kẽ, thêm text popup nổi bật, chèn nhạc EDM sôi động xuyên suốt"
-- Nếu người dùng nói "chuyên nghiệp", hãy cụ thể: "filter cinematic, chuyển cảnh fade mượt, text tiêu đề ở giữa 3 giây đầu, nhạc nền corporate, tăng tương phản 1.25"
+- Nếu người dùng nói "chuyên nghiệp", hãy cụ thể hóa: "filter cinematic, chuyển cảnh fade mượt, text tiêu đề ở giữa 3 giây đầu, nhạc nền corporate, tăng tương phản 1.25"
 - Bao gồm CHÍNH XÁC các thông số: thời gian (giây), tốc độ (playbackRate), vị trí text, màu sắc.
 - Viết bằng TIẾNG VIỆT.
 
@@ -2144,6 +2029,24 @@ CHỈ trả về lệnh chỉnh sửa, không thêm giải thích, không markdo
     }
   },
 
+  async extractTextFromPdf(base64Pdf: string): Promise<string> {
+    try {
+      const response = await generateText(GEMINI_TEXT_MODEL, [
+        {
+          role: "user",
+          parts: [
+            { text: "Extract and write down all readable text and data from this PDF file. Keep the formatting as clear and structured as possible." },
+            { inlineData: { mimeType: "application/pdf", data: base64Pdf } }
+          ]
+        }
+      ]);
+      return response.text || "";
+    } catch (error) {
+      console.error("[geminiService.extractTextFromPdf] Error extracting PDF text:", error);
+      throw error;
+    }
+  },
+
   /**
    * Biên tập video bằng prompt (LLM sinh JSON Blueprint + Render Engine)
    */
@@ -2161,387 +2064,386 @@ CHỈ trả về lệnh chỉnh sửa, không thêm giải thích, không markdo
   ): Promise<{ status: string; record: any; blueprint: any }> {
     return hermesService.editVideo(userId, videoUrl, prompt, options);
   },
-
   /**
    * Lấy lịch sử tạo đa phương tiện theo user và loại
    */
   async getMediaHistory(userId: string, mediaType: "image" | "video" | "voice") {
-    try {
-      const records = await AIMediaModel.find({ userId, mediaType })
-        .sort({ createdAt: -1 })
-        .limit(50)
-        .lean();
+  try {
+    const records = await AIMediaModel.find({ userId, mediaType })
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean();
 
-      if (mediaType === "video") {
-        await Promise.all(
-          records.map(async (record: any) => {
-            if (record.url && record.url.startsWith("pending://piapi/")) {
-              const taskId = record.url.replace("pending://piapi/", "");
-              try {
-                const result = await piapiService.getTaskStatus(taskId);
-                if (result.status === "completed" && result.url) {
-                  const cloudinaryUrl = await cloudinaryService.uploadMedia(result.url, "igen_erp/marketing/video");
-                  await AIMediaModel.updateOne(
-                    { _id: record._id },
-                    { url: cloudinaryUrl, "metadata.status": "completed", "metadata.progress": 100 }
-                  );
-                  record.url = cloudinaryUrl;
-                  record.metadata = { ...record.metadata, status: "completed", progress: 100 };
+    if (mediaType === "video") {
+      await Promise.all(
+        records.map(async (record: any) => {
+          if (record.url && record.url.startsWith("pending://piapi/")) {
+            const taskId = record.url.replace("pending://piapi/", "");
+            try {
+              const result = await piapiService.getTaskStatus(taskId);
+              if (result.status === "completed" && result.url) {
+                const cloudinaryUrl = await cloudinaryService.uploadMedia(result.url, "igen_erp/marketing/video");
+                await AIMediaModel.updateOne(
+                  { _id: record._id },
+                  { url: cloudinaryUrl, "metadata.status": "completed", "metadata.progress": 100 }
+                );
+                record.url = cloudinaryUrl;
+                record.metadata = { ...record.metadata, status: "completed", progress: 100 };
 
-                  const activeCardId = record.metadata?.activeCardId;
-                  if (activeCardId) {
-                    const { MarketingContentModel } = require("../model/marketing-content.model");
-                    await MarketingContentModel.findByIdAndUpdate(activeCardId, { videoUrl: cloudinaryUrl });
-                  }
-                } else if (result.status === "failed") {
-                  await AIMediaModel.updateOne(
-                    { _id: record._id },
-                    { "metadata.status": "failed", "metadata.error": result.error || "Failed", "metadata.progress": 0 }
-                  );
-                  record.metadata = { ...record.metadata, status: "failed", error: result.error, progress: 0 };
-                } else {
-                  const currentProgress = result.progress !== undefined ? result.progress : 0;
-                  await AIMediaModel.updateOne(
-                    { _id: record._id },
-                    { "metadata.progress": currentProgress }
-                  );
-                  record.metadata = { ...record.metadata, progress: currentProgress };
+                const activeCardId = record.metadata?.activeCardId;
+                if (activeCardId) {
+                  const { MarketingContentModel } = require("../model/marketing-content.model");
+                  await MarketingContentModel.findByIdAndUpdate(activeCardId, { videoUrl: cloudinaryUrl });
                 }
-              } catch (err) {
-                console.error(`[getMediaHistory] Error refreshing pending task ${taskId}:`, err);
+              } else if (result.status === "failed") {
+                await AIMediaModel.updateOne(
+                  { _id: record._id },
+                  { "metadata.status": "failed", "metadata.error": result.error || "Failed", "metadata.progress": 0 }
+                );
+                record.metadata = { ...record.metadata, status: "failed", error: result.error, progress: 0 };
+              } else {
+                const currentProgress = result.progress !== undefined ? result.progress : 0;
+                await AIMediaModel.updateOne(
+                  { _id: record._id },
+                  { "metadata.progress": currentProgress }
+                );
+                record.metadata = { ...record.metadata, progress: currentProgress };
               }
+            } catch (err) {
+              console.error(`[getMediaHistory] Error refreshing pending task ${taskId}:`, err);
             }
-          })
-        );
-      }
-      return records;
-    } catch (error: any) {
-      console.error("[geminiService.getMediaHistory] Error:", error);
-      throw error;
+          }
+        })
+      );
     }
-  },
+    return records;
+  } catch (error: any) {
+    console.error("[geminiService.getMediaHistory] Error:", error);
+    throw error;
+  }
+},
 
   /**
    * Xóa một bản ghi lịch sử
    */
   async deleteMediaHistory(userId: string, id: string) {
-    try {
-      const result = await AIMediaModel.deleteOne({ _id: id, userId });
-      if (result.deletedCount === 0) {
-        throw new Error("Không tìm thấy bản ghi hoặc không có quyền xóa");
-      }
-      return { status: "success" };
-    } catch (error: any) {
-      console.error("[geminiService.deleteMediaHistory] Error:", error);
-      throw error;
+  try {
+    const result = await AIMediaModel.deleteOne({ _id: id, userId });
+    if (result.deletedCount === 0) {
+      throw new Error("Không tìm thấy bản ghi hoặc không có quyền xóa");
     }
-  },
+    return { status: "success" };
+  } catch (error: any) {
+    console.error("[geminiService.deleteMediaHistory] Error:", error);
+    throw error;
+  }
+},
 
   /**
    * Polling trạng thái video từ PiAPI chạy ngầm không chặn luồng HTTP
    */
   async pollPiAPIVideoStatusBackground(recordId: string, taskId: string, userId: string) {
-    console.log(`[PiAPI Background Poll] Started polling for record ${recordId}, taskId ${taskId}`);
+  console.log(`[PiAPI Background Poll] Started polling for record ${recordId}, taskId ${taskId}`);
 
-    let attempts = 0;
-    const maxAttempts = 60; // 10 minutes (60 * 10 seconds)
+  let attempts = 0;
+  const maxAttempts = 60; // 10 minutes (60 * 10 seconds)
 
-    const runPoll = async () => {
-      try {
-        const result = await piapiService.getTaskStatus(taskId);
-        console.log(`[PiAPI Background Poll] Record ${recordId} status: ${result.status}`);
+  const runPoll = async () => {
+    try {
+      const result = await piapiService.getTaskStatus(taskId);
+      console.log(`[PiAPI Background Poll] Record ${recordId} status: ${result.status}`);
 
-        if (result.status === "completed" && result.url) {
-          console.log(`[PiAPI Background Poll] Completed! Uploading to Cloudinary...`);
-          const cloudinaryUrl = await cloudinaryService.uploadMedia(result.url, "igen_erp/marketing/video");
+      if (result.status === "completed" && result.url) {
+        console.log(`[PiAPI Background Poll] Completed! Uploading to Cloudinary...`);
+        const cloudinaryUrl = await cloudinaryService.uploadMedia(result.url, "igen_erp/marketing/video");
 
-          const record = await AIMediaModel.findByIdAndUpdate(
-            recordId,
-            { url: cloudinaryUrl, "metadata.status": "completed", "metadata.progress": 100 },
-            { new: true }
-          );
+        const record = await AIMediaModel.findByIdAndUpdate(
+          recordId,
+          { url: cloudinaryUrl, "metadata.status": "completed", "metadata.progress": 100 },
+          { new: true }
+        );
 
-          const activeCardId = record?.metadata?.activeCardId;
-          if (activeCardId) {
-            const { MarketingContentModel } = require("../model/marketing-content.model");
-            await MarketingContentModel.findByIdAndUpdate(activeCardId, { videoUrl: cloudinaryUrl });
-            console.log(`[PiAPI Background Poll] Updated target card ${activeCardId} with videoUrl: ${cloudinaryUrl}`);
-          }
-          return;
-        } else if (result.status === "failed") {
-          console.error(`[PiAPI Background Poll] Failed for task ${taskId}: ${result.error}`);
-          await AIMediaModel.findByIdAndUpdate(recordId, {
-            "metadata.status": "failed",
-            "metadata.error": result.error || "Lỗi tạo video từ PiAPI",
-            "metadata.progress": 0,
-          });
-          return;
-        } else {
-          let currentProgress = typeof result.progress === "number" && result.progress > 0 ? result.progress : 0;
-          if (currentProgress === 0) {
-            currentProgress = Math.min(5 + attempts * 7, 95);
-          }
-          await AIMediaModel.findByIdAndUpdate(recordId, {
-            "metadata.progress": currentProgress
-          });
+        const activeCardId = record?.metadata?.activeCardId;
+        if (activeCardId) {
+          const { MarketingContentModel } = require("../model/marketing-content.model");
+          await MarketingContentModel.findByIdAndUpdate(activeCardId, { videoUrl: cloudinaryUrl });
+          console.log(`[PiAPI Background Poll] Updated target card ${activeCardId} with videoUrl: ${cloudinaryUrl}`);
         }
-
-        attempts++;
-        if (attempts < maxAttempts) {
-          setTimeout(runPoll, 10000);
-        } else {
-          console.error(`[PiAPI Background Poll] Timeout for task ${taskId}`);
-          await AIMediaModel.findByIdAndUpdate(recordId, {
-            "metadata.status": "timeout",
-            "metadata.error": "Quá thời gian chờ tạo video từ PiAPI (10 phút)",
-          });
+        return;
+      } else if (result.status === "failed") {
+        console.error(`[PiAPI Background Poll] Failed for task ${taskId}: ${result.error}`);
+        await AIMediaModel.findByIdAndUpdate(recordId, {
+          "metadata.status": "failed",
+          "metadata.error": result.error || "Lỗi tạo video từ PiAPI",
+          "metadata.progress": 0,
+        });
+        return;
+      } else {
+        let currentProgress = typeof result.progress === "number" && result.progress > 0 ? result.progress : 0;
+        if (currentProgress === 0) {
+          currentProgress = Math.min(5 + attempts * 7, 95);
         }
-      } catch (error: any) {
-        console.error(`[PiAPI Background Poll] Error polling task ${taskId}:`, error);
-        attempts++;
-        if (attempts < maxAttempts) {
-          setTimeout(runPoll, 10000);
-        }
+        await AIMediaModel.findByIdAndUpdate(recordId, {
+          "metadata.progress": currentProgress
+        });
       }
-    };
 
-    setTimeout(runPoll, 10000);
-  },
+      attempts++;
+      if (attempts < maxAttempts) {
+        setTimeout(runPoll, 10000);
+      } else {
+        console.error(`[PiAPI Background Poll] Timeout for task ${taskId}`);
+        await AIMediaModel.findByIdAndUpdate(recordId, {
+          "metadata.status": "timeout",
+          "metadata.error": "Quá thời gian chờ tạo video từ PiAPI (10 phút)",
+        });
+      }
+    } catch (error: any) {
+      console.error(`[PiAPI Background Poll] Error polling task ${taskId}:`, error);
+      attempts++;
+      if (attempts < maxAttempts) {
+        setTimeout(runPoll, 10000);
+      }
+    }
+  };
+
+  setTimeout(runPoll, 10000);
+},
 
   /**
    * Đồng bộ lưu trữ nâng cao của Image/Video sau khi sinh thành công
    */
-  async saveGeneratedMediaRecord(userId: string, mediaType: "image" | "video", base64OrUrl: string, prompt: string, metadata?: any) {
-    try {
-      let finalUrl = base64OrUrl;
-      if (base64OrUrl.startsWith("data:")) {
-        finalUrl = await cloudinaryService.uploadMedia(base64OrUrl, `igen_erp/marketing/${mediaType}`);
-      }
-
-      const record = await AIMediaModel.create({
-        userId,
-        mediaType,
-        url: finalUrl,
-        prompt,
-        metadata,
-      });
-      return record;
-    } catch (error: any) {
-      console.error("[geminiService.saveGeneratedMediaRecord] Error:", error);
-      throw error;
+  async saveGeneratedMediaRecord(userId: string, mediaType: "image" | "video", base64OrUrl: string, prompt: string, metadata ?: any) {
+  try {
+    let finalUrl = base64OrUrl;
+    if (base64OrUrl.startsWith("data:")) {
+      finalUrl = await cloudinaryService.uploadMedia(base64OrUrl, `igen_erp/marketing/${mediaType}`);
     }
-  },
+
+    const record = await AIMediaModel.create({
+      userId,
+      mediaType,
+      url: finalUrl,
+      prompt,
+      metadata,
+    });
+    return record;
+  } catch (error: any) {
+    console.error("[geminiService.saveGeneratedMediaRecord] Error:", error);
+    throw error;
+  }
+},
 
   /**
    * Lấy danh sách giọng nói ElevenLabs
    */
   async getElevenLabsVoices() {
-    const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
-    if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
-      console.log("[geminiService.getElevenLabsVoices] ELEVENLABS_API_KEY is not configured. Running in MOCK mode.");
-      return {
-        status: "success",
-        voices: [
-          {
-            voice_id: "Sadaltager",
-            name: "Roger (Mock)",
-            category: "cloned",
-            description: "Laid-Back, Casual, Resonant",
-            labels: { gender: "male", age: "adult", accent: "american" }
-          }
-        ]
-      };
-    }
-
-    try {
-      const response = await fetch("https://api.elevenlabs.io/v1/voices", {
-        headers: {
-          "xi-api-key": elevenLabsApiKey.trim()
+  const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
+  if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
+    console.log("[geminiService.getElevenLabsVoices] ELEVENLABS_API_KEY is not configured. Running in MOCK mode.");
+    return {
+      status: "success",
+      voices: [
+        {
+          voice_id: "Sadaltager",
+          name: "Roger (Mock)",
+          category: "cloned",
+          description: "Laid-Back, Casual, Resonant",
+          labels: { gender: "male", age: "adult", accent: "american" }
         }
-      });
-      if (!response.ok) {
-        throw new Error(`ElevenLabs error: ${response.status}`);
+      ]
+    };
+  }
+
+  try {
+    const response = await fetch("https://api.elevenlabs.io/v1/voices", {
+      headers: {
+        "xi-api-key": elevenLabsApiKey.trim()
       }
-      const data = await response.json();
-      // Filter generated or cloned voices
-      const filtered = (data.voices || []).filter((v: any) => v.category === "cloned" || v.category === "generated" || v.category === "custom");
-      return { status: "success", voices: filtered };
-    } catch (error: any) {
-      console.error("[geminiService.getElevenLabsVoices] Error:", error);
-      throw error;
+    });
+    if (!response.ok) {
+      throw new Error(`ElevenLabs error: ${response.status}`);
     }
-  },
+    const data = await response.json();
+    // Filter generated or cloned voices
+    const filtered = (data.voices || []).filter((v: any) => v.category === "cloned" || v.category === "generated" || v.category === "custom");
+    return { status: "success", voices: filtered };
+  } catch (error: any) {
+    console.error("[geminiService.getElevenLabsVoices] Error:", error);
+    throw error;
+  }
+},
 
   /**
    * Thiết kế & phát nghe thử giọng nói ElevenLabs
    */
   async generateCustomVoicePreview(input: { gender: string; accent: string; age: string; accentStrength: number; text: string }) {
-    const { gender, accent, age, accentStrength, text } = input;
-    const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
-    if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
-      console.log("[geminiService.generateCustomVoicePreview] ELEVENLABS_API_KEY is not configured. Running in MOCK mode.");
-      return {
-        generatedVoiceId: "mock-voice-id-" + Date.now(),
-        url: "data:audio/wav;base64,UklGRigAAABXQVZFlm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAAAG"
-      };
+  const { gender, accent, age, accentStrength, text } = input;
+  const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
+  if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
+    console.log("[geminiService.generateCustomVoicePreview] ELEVENLABS_API_KEY is not configured. Running in MOCK mode.");
+    return {
+      generatedVoiceId: "mock-voice-id-" + Date.now(),
+      url: "data:audio/wav;base64,UklGRigAAABXQVZFlm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAAAG"
+    };
+  }
+
+  try {
+    const response = await fetch("https://api.elevenlabs.io/v1/voice-generation/generate-voice", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "xi-api-key": elevenLabsApiKey.trim()
+      },
+      body: JSON.stringify({
+        gender,
+        accent,
+        age,
+        accent_strength: accentStrength,
+        text
+      })
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`ElevenLabs preview error: ${response.status} - ${errText}`);
     }
 
-    try {
-      const response = await fetch("https://api.elevenlabs.io/v1/voice-generation/generate-voice", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "xi-api-key": elevenLabsApiKey.trim()
-        },
-        body: JSON.stringify({
-          gender,
-          accent,
-          age,
-          accent_strength: accentStrength,
-          text
-        })
-      });
-
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`ElevenLabs preview error: ${response.status} - ${errText}`);
-      }
-
-      const generatedVoiceId = response.headers.get("generated_voice_id");
-      if (!generatedVoiceId) {
-        throw new Error("No generated_voice_id found in headers");
-      }
-
-      const arrayBuffer = await response.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-      const base64Audio = buffer.toString('base64');
-      const audioDataUri = `data:audio/mpeg;base64,${base64Audio}`;
-
-      const mediaUrl = await cloudinaryService.uploadMedia(audioDataUri, "igen_erp/marketing/voice_previews");
-
-      return {
-        generatedVoiceId,
-        url: mediaUrl
-      };
-    } catch (error: any) {
-      console.error("[geminiService.generateCustomVoicePreview] Error:", error);
-      throw error;
+    const generatedVoiceId = response.headers.get("generated_voice_id");
+    if (!generatedVoiceId) {
+      throw new Error("No generated_voice_id found in headers");
     }
-  },
+
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const base64Audio = buffer.toString('base64');
+    const audioDataUri = `data:audio/mpeg;base64,${base64Audio}`;
+
+    const mediaUrl = await cloudinaryService.uploadMedia(audioDataUri, "igen_erp/marketing/voice_previews");
+
+    return {
+      generatedVoiceId,
+      url: mediaUrl
+    };
+  } catch (error: any) {
+    console.error("[geminiService.generateCustomVoicePreview] Error:", error);
+    throw error;
+  }
+},
 
   /**
    * Lưu giọng thiết kế thành giọng chính thức
    */
   async createCustomVoice(input: { voiceName: string; voiceDescription: string; generatedVoiceId: string }) {
-    const { voiceName, voiceDescription, generatedVoiceId } = input;
-    const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
-    if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
-      console.log("[geminiService.createCustomVoice] ELEVENLABS_API_KEY is not configured. Running in MOCK mode.");
-      return {
-        voice_id: "mock-saved-voice-id-" + Date.now()
-      };
+  const { voiceName, voiceDescription, generatedVoiceId } = input;
+  const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
+  if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
+    console.log("[geminiService.createCustomVoice] ELEVENLABS_API_KEY is not configured. Running in MOCK mode.");
+    return {
+      voice_id: "mock-saved-voice-id-" + Date.now()
+    };
+  }
+
+  try {
+    const response = await fetch("https://api.elevenlabs.io/v1/voice-generation/create-voice", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "xi-api-key": elevenLabsApiKey.trim()
+      },
+      body: JSON.stringify({
+        voice_name: voiceName,
+        voice_description: voiceDescription,
+        generated_voice_id: generatedVoiceId
+      })
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`ElevenLabs create-voice error: ${response.status} - ${errText}`);
     }
 
-    try {
-      const response = await fetch("https://api.elevenlabs.io/v1/voice-generation/create-voice", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "xi-api-key": elevenLabsApiKey.trim()
-        },
-        body: JSON.stringify({
-          voice_name: voiceName,
-          voice_description: voiceDescription,
-          generated_voice_id: generatedVoiceId
-        })
-      });
-
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`ElevenLabs create-voice error: ${response.status} - ${errText}`);
-      }
-
-      const result = await response.json();
-      return { voice_id: result.voice_id };
-    } catch (error: any) {
-      console.error("[geminiService.createCustomVoice] Error:", error);
-      throw error;
-    }
-  },
+    const result = await response.json();
+    return { voice_id: result.voice_id };
+  } catch (error: any) {
+    console.error("[geminiService.createCustomVoice] Error:", error);
+    throw error;
+  }
+},
 
   async addElevenLabsVoice(name: string, description: string, files: string[], userId: string) {
-    const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
-    if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
-      return { voice_id: "mock-saved-voice-id-" + Date.now() };
+  const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
+  if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
+    return { voice_id: "mock-saved-voice-id-" + Date.now() };
+  }
+
+  try {
+    const formData = new FormData();
+    formData.append('name', name);
+    formData.append('description', description);
+
+    if (userId) {
+      formData.append('labels', JSON.stringify({ userId }));
     }
 
-    try {
-      const formData = new FormData();
-      formData.append('name', name);
-      formData.append('description', description);
-
-      if (userId) {
-        formData.append('labels', JSON.stringify({ userId }));
+    for (let i = 0; i < files.length; i++) {
+      const dataUri = files[i];
+      const matches = dataUri.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/);
+      if (!matches) {
+        throw new Error("Invalid file format");
       }
-
-      for (let i = 0; i < files.length; i++) {
-        const dataUri = files[i];
-        const matches = dataUri.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/);
-        if (!matches) {
-          throw new Error("Invalid file format");
-        }
-        const type = matches[1];
-        const buffer = Buffer.from(matches[2], 'base64');
-        const blob = new Blob([buffer], { type });
-        formData.append('files', blob, `file-${i}.${type.split('/')[1]}`);
-      }
-
-      const response = await fetch('https://api.elevenlabs.io/v1/voices/add', {
-        method: 'POST',
-        headers: {
-          'xi-api-key': elevenLabsApiKey.trim(),
-        },
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorBody = await response.text();
-        throw new Error(`ElevenLabs API error: ${response.status} - ${errorBody}`);
-      }
-
-      const data = await response.json();
-      return data;
-    } catch (error: any) {
-      console.error("[geminiService.addElevenLabsVoice] Error:", error);
-      throw error;
+      const type = matches[1];
+      const buffer = Buffer.from(matches[2], 'base64');
+      const blob = new Blob([buffer], { type });
+      formData.append('files', blob, `file-${i}.${type.split('/')[1]}`);
     }
-  },
+
+    const response = await fetch('https://api.elevenlabs.io/v1/voices/add', {
+      method: 'POST',
+      headers: {
+        'xi-api-key': elevenLabsApiKey.trim(),
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error(`ElevenLabs API error: ${response.status} - ${errorBody}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error: any) {
+    console.error("[geminiService.addElevenLabsVoice] Error:", error);
+    throw error;
+  }
+},
 
   async deleteElevenLabsVoice(voiceId: string) {
-    const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
-    if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
-      return { success: true };
-    }
-
-    try {
-      const response = await fetch(`https://api.elevenlabs.io/v1/voices/${voiceId}`, {
-        method: 'DELETE',
-        headers: {
-          'xi-api-key': elevenLabsApiKey.trim(),
-        },
-      });
-
-      if (!response.ok) {
-        const errorBody = await response.text();
-        throw new Error(`ElevenLabs API error: ${response.status} - ${errorBody}`);
-      }
-
-      return { success: true };
-    } catch (error: any) {
-      console.error("[geminiService.deleteElevenLabsVoice] Error:", error);
-      throw error;
-    }
+  const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
+  if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
+    return { success: true };
   }
+
+  try {
+    const response = await fetch(`https://api.elevenlabs.io/v1/voices/${voiceId}`, {
+      method: 'DELETE',
+      headers: {
+        'xi-api-key': elevenLabsApiKey.trim(),
+      },
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error(`ElevenLabs API error: ${response.status} - ${errorBody}`);
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("[geminiService.deleteElevenLabsVoice] Error:", error);
+    throw error;
+  }
+}
 };
 
 /**

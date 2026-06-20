@@ -5,6 +5,7 @@ import { AIReplyLogModel } from "../model/ai-reply-log.model";
 const EMBEDDING_DIMENSIONS = 96;
 const DEFAULT_TOP_K = 5;
 const MAX_CONTEXT_CHARS = 4500;
+const MAX_CHUNKS_TO_RANK = 1000;
 
 type ChannelScope = "facebook" | "zalo" | "all";
 
@@ -205,7 +206,7 @@ export const aiKnowledgeService = {
       channelScope: { $in: ["all", channel] },
     })
       .sort({ updatedAt: -1 })
-      .limit(300)
+      .limit(MAX_CHUNKS_TO_RANK)
       .lean();
 
     const documentIds = Array.from(new Set(chunks.map((chunk) => String(chunk.documentId))));

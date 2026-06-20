@@ -209,7 +209,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
   const [mediaType, setMediaType] = useState<string>("image"); // "none" | "image" | "video"
 
   // Image Options
-  const [imageModel, setImageModel] = useState("nano-banana-pro");
+  const [imageModel, setImageModel] = useState("gemini-banana-pro");
   const [imageResolution, setImageResolution] = useState("1K");
   const [imageAspectRatio, setImageAspectRatio] = useState("1:1");
 
@@ -1555,8 +1555,9 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                         onChange={(e) => setImageModel(e.target.value)}
                         className="w-full text-xs p-2 border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 font-sans"
                       >
-                        <option value="nano-banana-pro">iGen Image Pro</option>
-                        <option value="nano-banana-2">iGen Image Flash</option>
+                        <option value="nano-banana-pro">iGen Image Pro (PiAPI)</option>
+                        <option value="nano-banana-2">iGen Image Flash (PiAPI)</option>
+                        <option value="gemini-banana-pro">iGen Gemini Image Pro (Google)</option>
                       </select>
                     </div>
 
