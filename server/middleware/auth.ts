@@ -84,7 +84,7 @@ export function requireAuth(req: AuthenticatedRequest, res: Response, next: Next
       companyCode: decoded.companyCode,
     };
 
-    console.log(`[requireAuth] Xác thực thành công: ${req.method} ${req.originalUrl} - User: ${decoded.email} (${decoded.role}), ID: ${decoded.id}`);
+    // console.log(`[requireAuth] Xác thực thành công: ${req.method} ${req.originalUrl} - User: ${decoded.email} (${decoded.role}), ID: ${decoded.id}`);
     return next();
   } catch (error) {
     console.warn(`[requireAuth] JWT không hợp lệ hoặc hết hạn cho ${req.method} ${req.originalUrl}:`, (error as Error).message);
