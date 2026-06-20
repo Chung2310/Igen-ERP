@@ -1,5 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { AIMediaModel } from "../model/ai-media.model";
+import { CompanyModel } from "../model/company.model";
 import { cloudinaryService } from "./cloudinary.service";
 import { remotionService } from "./remotion.service";
 import { piapiService } from "./piapi.service";
@@ -465,6 +466,24 @@ export const geminiService = {
     const hasCompanyKnowledge = !!ragContext?.contextText;
     const assistantMode = hasCompanyKnowledge ? "COMPANY_TRAINED_MODE" : "DEFAULT_ASSISTANT_MODE";
 
+    // Resolve companyName dynamically
+    const companyCode = ragContext?.companyCode || aiConfig?.companyCode;
+    let companyName = aiConfig?.companyName || "";
+
+    if (!companyName && companyCode) {
+      try {
+        const company = await CompanyModel.findOne({ code: companyCode.toUpperCase() }).lean();
+        if (company) {
+          companyName = company.name;
+        }
+      } catch (err) {
+        console.warn("[geminiService.chat] Error fetching company from DB:", err);
+      }
+    }
+    if (!companyName) {
+      companyName = "doanh nghiệp";
+    }
+
     const systemInstruction = `
 Bạn là một Trợ lý Chăm sóc Khách hàng AI đỉnh cao cho hệ thống iGen ERP doanh nghiệp.
 Bạn đang hỗ trợ khách hàng trong khung chat Omni-Inbox.
@@ -601,8 +620,6 @@ ${docText}
       console.error("[geminiService.convertDocToFAQ] Error, fallback to mock FAQ:", error);
       return getMockFAQ();
     }
-
-    throw lastError;
   },
 
   async getMarketingSuggestions(): Promise<string[]> {

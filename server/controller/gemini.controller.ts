@@ -308,8 +308,9 @@ export const geminiController = {
 
       const cost = getTextModelCost(aiConfig);
       await walletService.checkBalance(userId, cost);
-      const result = await geminiService.chat(message, history, aiConfig);
-      await walletService.deductBalance(userId, cost, "Chi phí sử dụng Trợ lý AI Chatbot");
+      const companyCode = (req as any).user?.companyCode;
+      const result = await geminiService.chat(message, history, aiConfig, { companyCode });
+      await walletService.deductBalance(userId    , cost, "Chi phí sử dụng Trợ lý AI Chatbot");
       return res.status(200).json(result);
     } catch (error: any) {
       console.error("[geminiController.chat] Error:", error);
