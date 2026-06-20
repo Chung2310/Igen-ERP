@@ -28,6 +28,93 @@ function normalizeIncomingText(text: string) {
   return String(text || "").trim();
 }
 
+function splitReplyIntoMessageBubbles(text: string) {
+  const normalized = String(text || "")
+    .replace(/\r/g, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  if (!normalized) return [];
+
+  const rawBlocks = normalized
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const bubbles: string[] = [];
+  let currentBubble = "";
+
+  const shouldStartNewBubble = (current: string, next: string) => {
+    const currentTrimmed = current.trim();
+    const nextTrimmed = next.trim();
+
+    if (!currentTrimmed || !nextTrimmed) return false;
+    if (currentTrimmed.length >= 210) return true;
+    if (`${currentTrimmed} ${nextTrimmed}`.length > 260) return true;
+    if (/^dạ[,.! ]/i.test(nextTrimmed)) return true;
+
+    if (currentTrimmed.length <= 55 && nextTrimmed.length <= 170) {
+      return false;
+    }
+
+    if (/^(ngoài ra|bên cạnh đó|đồng thời|tiếp theo|còn với|trường hợp|nếu|tuy nhiên)\b/i.test(nextTrimmed)) {
+      return true;
+    }
+
+    if (/^(với|về|đối với)\b/i.test(nextTrimmed) && currentTrimmed.length >= 85) {
+      return true;
+    }
+
+    return false;
+  };
+
+  const pushSegment = (segment: string) => {
+    const cleanSegment = segment.trim();
+    if (!cleanSegment) return;
+
+    if (!currentBubble) {
+      currentBubble = cleanSegment;
+      return;
+    }
+
+    if (shouldStartNewBubble(currentBubble, cleanSegment)) {
+      bubbles.push(currentBubble);
+      currentBubble = cleanSegment;
+      return;
+    }
+
+    const shouldKeepSeparated = false; /* legacy split rule disabled
+      /^dạ[,.! ]/i.test(cleanSegment) ||
+      /^(với|còn|ngoài ra|về|nếu|trường hợp)/i.test(cleanSegment);
+
+    */
+    if (shouldKeepSeparated || `${currentBubble} ${cleanSegment}`.length > 180) {
+      bubbles.push(currentBubble);
+      currentBubble = cleanSegment;
+      return;
+    }
+
+    currentBubble = `${currentBubble} ${cleanSegment}`.trim();
+  };
+
+  for (const block of rawBlocks) {
+    const sentences = block
+      .split(/(?<=[.!?])\s+/)
+      .map((sentence) => sentence.trim())
+      .filter(Boolean);
+
+    for (const sentence of sentences) {
+      pushSegment(sentence);
+    }
+  }
+
+  if (currentBubble) {
+    bubbles.push(currentBubble);
+  }
+
+  return bubbles.slice(0, 6);
+}
+
 function splitHistoryAndPendingInboundMessages(messages: any[]) {
   const pendingInboundMessages: any[] = [];
 
@@ -605,11 +692,27 @@ export const aiAutoReplyService = {
 
             console.log(`[AI AutoReply] Gemini ok: conversationId=${conversationId}, channel=${channel}, replyLength=${aiResponse.text.length}`);
             try {
-              // Send response using existing sendReply helper
-              if (channel === "zalo") {
-                await zaloMessengerService.sendReply(resolvedPlatformId, conversationId, aiResponse.text);
-              } else {
-                await fbMessengerService.sendReply(resolvedPlatformId, conversationId, aiResponse.text);
+              const replyBubbles = splitReplyIntoMessageBubbles(aiResponse.text);
+              const fallbackReply = aiResponse.text.trim();
+              const messagesToSend = replyBubbles.length > 0 ? replyBubbles : [fallbackReply];
+
+              console.log(
+                `[AI AutoReply] Reply bubbles prepared: conversationId=${conversationId}, channel=${channel}, bubbleCount=${messagesToSend.length}`
+              );
+
+              for (let index = 0; index < messagesToSend.length; index += 1) {
+                const bubbleText = messagesToSend[index];
+                if (!bubbleText) continue;
+
+                if (channel === "zalo") {
+                  await zaloMessengerService.sendReply(resolvedPlatformId, conversationId, bubbleText);
+                } else {
+                  await fbMessengerService.sendReply(resolvedPlatformId, conversationId, bubbleText);
+                }
+
+                if (index < messagesToSend.length - 1) {
+                  await new Promise((resolve) => setTimeout(resolve, 450));
+                }
               }
 
               await aiKnowledgeService.createReplyLog({
