@@ -113,7 +113,8 @@ Yêu cầu chỉnh sửa của người dùng: "${prompt}"
 ${cloudinaryPrompt}
 `;
 
-      const hermesUrl = `${process.env.HERMES_API_URL || "https://agent.igentechsolutions.com"}/api/chat`;
+      const hermesBaseUrl = String(process.env.HERMES_API_URL || "https://agent.igentechsolutions.com").replace(/\/$/, "");
+      const hermesUrl = `${hermesBaseUrl}/v1/chat/completions`;
       const hermesKey = process.env.HERMES_API_KEY || "";
       const webhookUrl = getHermesWebhookUrl(recordId);
 
@@ -124,7 +125,10 @@ ${cloudinaryPrompt}
           "Authorization": `Bearer ${hermesKey}`
         },
         body: JSON.stringify({
-          message: userPrompt,
+          model: "hermes",
+          messages: [
+            { role: "user", content: userPrompt }
+          ],
           stream: false,
           webhook_url: webhookUrl
         })
@@ -136,23 +140,46 @@ ${cloudinaryPrompt}
       }
 
       const result = await response.json();
-      const sessionId = result.session_id;
+      // OpenAI-compatible: id + choices[0].message.content
+      const sessionId = result.id || result.session_id;
+      const assistantContent: string = result.choices?.[0]?.message?.content || result.content || "";
 
-      if (!sessionId) {
-        throw new Error("Không nhận được session_id từ Hermes Agent");
+      console.log(`[Hermes Job] Got response. Session: ${sessionId}. Content length: ${assistantContent.length}`);
+
+      // Extract Cloudinary URL from the assistant response
+      const cloudinaryMatch = assistantContent.match(/https:\/\/res\.cloudinary\.com\/[^\s"'\]>)]+/);
+      const videoResultUrl = cloudinaryMatch ? cloudinaryMatch[0] : "";
+
+      if (videoResultUrl) {
+        // Video is done — update record to completed
+        await AIMediaModel.findByIdAndUpdate(recordId, {
+          "metadata.status": "completed",
+          "metadata.progress": 100,
+          url: videoResultUrl,
+          ...(sessionId ? { "metadata.hermesSessionId": sessionId } : {}),
+          "metadata.renderLogs": [
+            ...logs,
+            `[Hermes] Xử lý hoàn tất. Session: ${sessionId || "N/A"}`,
+            `[Hermes] Video đã được upload lên Cloudinary: ${videoResultUrl}`
+          ],
+          "metadata.description": "Video đã được biên tập và upload thành công!"
+        });
+        console.log(`[Hermes Job] Completed. Video URL: ${videoResultUrl}`);
+      } else {
+        // No Cloudinary URL found — mark as waiting for webhook (fallback)
+        await AIMediaModel.findByIdAndUpdate(recordId, {
+          "metadata.progress": 30,
+          ...(sessionId ? { "metadata.hermesSessionId": sessionId } : {}),
+          "metadata.renderLogs": [
+            ...logs,
+            `[Hermes] Gửi yêu cầu thành công.${sessionId ? ` Session ID: ${sessionId}` : ""}`,
+            `[Hermes] Đang đợi Hermes Agent hoàn thành chỉnh sửa...`,
+            assistantContent ? `[Hermes] Phản hồi: ${assistantContent.slice(0, 300)}` : ""
+          ].filter(Boolean),
+          "metadata.description": "Yêu cầu đã được tiếp nhận. Đang xử lý..."
+        });
       }
 
-      // Update record log with session_id
-      await AIMediaModel.findByIdAndUpdate(recordId, {
-        "metadata.progress": 30,
-        "metadata.hermesSessionId": sessionId,
-        "metadata.renderLogs": [
-          ...logs,
-          `[Hermes] Gửi yêu cầu thành công. Session ID: ${sessionId}`,
-          `[Hermes] Đang đợi Hermes Agent hoàn thành chỉnh sửa và gọi Webhook...`
-        ],
-        "metadata.description": "Yêu cầu đã được tiếp nhận. Đang đợi xử lý..."
-      });
     } catch (error: any) {
       console.error("[Hermes Job] Failed:", error);
       await AIMediaModel.findByIdAndUpdate(recordId, {
