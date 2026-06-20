@@ -724,36 +724,6 @@ export function EditVideoWorkspace({
                       placeholder="Prompt chỉnh sửa đã được AI tối ưu hóa..."
                     />
                   </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="flex flex-col gap-1">
-                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Chuyển động (Motion)</span>
-                      <input
-                        type="text"
-                        className="w-full text-xs px-3 py-2 border border-cyan-200/50 rounded-xl focus:outline-none focus:ring-1 focus:ring-cyan-400 bg-white font-medium text-slate-700"
-                        value={optimizedData.motion_analysis || ''}
-                        onChange={(e) => setOptimizedData({
-                          ...optimizedData,
-                          motion_analysis: e.target.value
-                        })}
-                        placeholder="Không có phân tích chuyển động"
-                      />
-                    </div>
-
-                    <div className="flex flex-col gap-1">
-                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Camera (Movement)</span>
-                      <input
-                        type="text"
-                        className="w-full text-xs px-3 py-2 border border-cyan-200/50 rounded-xl focus:outline-none focus:ring-1 focus:ring-cyan-400 bg-white font-medium text-slate-700"
-                        value={optimizedData.camera_movement || ''}
-                        onChange={(e) => setOptimizedData({
-                          ...optimizedData,
-                          camera_movement: e.target.value
-                        })}
-                        placeholder="Không có chuyển động camera"
-                      />
-                    </div>
-                  </div>
                 </div>
               )}
             </div>
