@@ -89,17 +89,21 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
     fetchCompanyIntegrations();
   }, []);
 
-  // Mở popup OAuth để đăng nhập Facebook trực tiếp
+  // Mở popup OAuth để đăng nhập Facebook
   const handleFacebookOAuth = async () => {
     try {
-      const response = await fetch("/api/v1/facebook/config", {
-        headers: {
-          "Authorization": `Bearer ${getAccessToken()}`
-        }
+      // Lấy App ID từ server (lưu trong .env của VPS, không cần user nhập)
+      const configRes = await fetch("/api/v1/facebook/config", {
+        headers: { "Authorization": `Bearer ${getAccessToken()}` }
       });
-      const data = await response.json().catch(() => ({}));
-      const appId = data.appId || "1022427163587456"; 
-      
+      const configData = await configRes.json().catch(() => ({}));
+      const appId = configData.appId;
+
+      if (!appId) {
+        toast.error("Hệ thống chưa cấu hình Facebook App ID. Liên hệ quản trị viên.");
+        return;
+      }
+
       const redirectUri = `${window.location.origin}/api/v1/facebook/oauth-callback`;
       const oauthUrl = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=pages_manage_posts,pages_read_engagement,pages_show_list`;
 
@@ -107,15 +111,15 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
       const height = 650;
       const left = window.screen.width / 2 - width / 2;
       const top = window.screen.height / 2 - height / 2;
-      
+
       window.open(
         oauthUrl,
         "FacebookOAuthPopup",
         `width=${width},height=${height},left=${left},top=${top},status=no,resizable=yes,scrollbars=yes`
       );
     } catch (err: any) {
-      console.error("Lỗi lấy cấu hình Facebook:", err);
-      toast.error("Không thể lấy cấu hình App ID từ server.");
+      console.error("Lỗi mở Facebook OAuth:", err);
+      toast.error("Không thể mở cửa sổ đăng nhập Facebook.");
     }
   };
 
@@ -131,8 +135,6 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
           return;
         }
 
-        // Tự động lưu vào DB ngay khi user chọn page trong popup
-        const toastId = `fb-saving-${Date.now()}`;
         toast.success(`Đang lưu Fanpage "${page.name}"...`);
         try {
           await socialIntegrationService.createIntegration({
@@ -497,36 +499,11 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
                     className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#1877F2] hover:bg-[#166FE5] text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer"
                   >
                     <Globe className="h-4 w-4" />
-                    <span>Đăng nhập qua Facebook (OAuth)</span>
+                    <span>Đăng nhập bằng Facebook</span>
                   </button>
                   <p className="text-[9px] text-gray-400 text-center leading-normal">
-                    Bấm để mở popup đăng nhập và ủy quyền Facebook. Hệ thống sẽ tự động tải danh sách Fanpage và thiết lập liên kết dài hạn không hết hạn.
+                    Bấm để mở popup đăng nhập Facebook. Hệ thống sẽ tự động lấy danh sách Fanpage và Page Token — bạn chỉ cần chọn Fanpage muốn kết nối.
                   </p>
-
-                  {fbPagesList.length > 0 && (
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Chọn Fanpage của bạn *</label>
-                      <select
-                        value={compUsername}
-                        onChange={(e) => {
-                          const selectedId = e.target.value;
-                          const page = fbPagesList.find((p) => String(p.id) === String(selectedId));
-                          if (page) {
-                            setCompUsername(page.id);
-                            setCompAccessToken(page.access_token);
-                            setCompDisplayName(page.name);
-                          }
-                        }}
-                        className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs text-gray-800 focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all"
-                      >
-                        {fbPagesList.map((page) => (
-                          <option key={page.id} value={page.id}>
-                            {page.name} (ID: {page.id})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
                 </div>
               )}
 

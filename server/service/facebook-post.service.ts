@@ -198,15 +198,9 @@ export const facebookPostService = {
 
   /**
    * Đổi mã Code từ Facebook Login thành danh sách các Trang (Page) của người dùng
+   * Dùng App credentials từ tham số (multi-tenant) thay vì process.env
    */
-  async exchangeCodeForPages(code: string, redirectUri: string) {
-    const appId = process.env.FB_APP_ID;
-    const appSecret = process.env.FB_APP_SECRET;
-
-    if (!appId || !appSecret) {
-      throw new Error("FB_APP_ID hoặc FB_APP_SECRET chưa được cấu hình.");
-    }
-
+  async exchangeCodeForPagesWithCreds(code: string, redirectUri: string, appId: string, appSecret: string) {
     // 1. Đổi code lấy User Access Token ngắn hạn
     const tokenUrl = `https://graph.facebook.com/v19.0/oauth/access_token?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&client_secret=${appSecret}&code=${code}`;
     const tokenRes = await (globalThis as any).fetch(tokenUrl);
@@ -236,6 +230,21 @@ export const facebookPostService = {
     }
     const pagesData = await pagesRes.json();
     return pagesData.data || [];
+  },
+
+  /**
+   * Đổi mã Code từ Facebook Login thành danh sách các Trang (Page) của người dùng
+   * (Legacy - dùng process.env, giữ lại để backward compatibility)
+   */
+  async exchangeCodeForPages(code: string, redirectUri: string) {
+    const appId = process.env.FB_APP_ID;
+    const appSecret = process.env.FB_APP_SECRET;
+
+    if (!appId || !appSecret) {
+      throw new Error("FB_APP_ID hoặc FB_APP_SECRET chưa được cấu hình.");
+    }
+
+    return this.exchangeCodeForPagesWithCreds(code, redirectUri, appId, appSecret);
   },
 
   /**
