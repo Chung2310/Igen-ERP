@@ -31,6 +31,7 @@ export interface IAIMedia extends Document {
     error?: string;
     renderLogs?: string[];
     blueprint?: string;
+    hermesSessionId?: string;
   };
   createdAt: Date;
 }

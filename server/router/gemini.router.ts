@@ -196,3 +196,21 @@ const optimizeEditPromptSchema = {
   geminiRouter.post("/optimize-edit-prompt", requireAuth as any, validateRequest(optimizeEditPromptSchema), geminiController.optimizeEditPrompt);
 geminiRouter.get("/media-history", requireAuth as any, validateRequest(getHistorySchema), geminiController.getMediaHistory);
 geminiRouter.delete("/media-history/:id", requireAuth as any, validateRequest(deleteHistorySchema), geminiController.deleteMediaHistory);
+
+const hermesWebhookSchema = {
+  query: Joi.object({
+    recordId: Joi.string().regex(/^[0-9a-fA-F]{24}$/).optional().messages({
+      "string.pattern.base": "Mã ID bản ghi phải là định dạng MongoDB ObjectId hợp lệ."
+    })
+  }),
+  body: Joi.object({
+    session_id: Joi.string().allow("").optional(),
+    message: Joi.string().allow("").optional(),
+    response: Joi.string().allow("").optional(),
+    output: Joi.string().allow("").optional(),
+    status: Joi.string().allow("").optional(),
+    error: Joi.string().allow("").optional()
+  }).unknown(true)
+};
+
+geminiRouter.post("/hermes-webhook", validateRequest(hermesWebhookSchema), geminiController.hermesWebhook);

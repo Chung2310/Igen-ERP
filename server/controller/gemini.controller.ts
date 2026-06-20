@@ -1,8 +1,11 @@
 import { Request, Response } from "express";
+import mongoose from "mongoose";
 import { geminiService } from "../service/gemini.service";
 import { AuthenticatedRequest } from "../middleware/auth";
 import { aiKnowledgeService } from "../service/ai-knowledge.service";
 import { walletService, API_COSTS } from "../service/wallet.service";
+import { AIMediaModel } from "../model/ai-media.model";
+import { broadcastEvent } from "../socket";
 import * as XLSX from "xlsx";
 
 function handleGeminiError(res: Response, error: any, defaultMessage: string) {
@@ -1079,6 +1082,132 @@ export const geminiController = {
       return res.status(500).json({
         status: "error",
         message: "Không thể xóa giọng nói ElevenLabs",
+        details: error.message
+      });
+    }
+  },
+
+  /**
+   * POST /api/v1/gemini/hermes-webhook
+   */
+  async hermesWebhook(req: Request, res: Response) {
+    try {
+      const recordId = req.query.recordId as string;
+      const { session_id, response, message, content, output, status, error } = req.body;
+
+      console.log("[Hermes Webhook] Received payload:", {
+        recordId,
+        session_id,
+        status,
+        hasResponse: Boolean(response || message || content || output),
+        error
+      });
+
+      let record = null;
+      if (recordId && mongoose.Types.ObjectId.isValid(recordId)) {
+        record = await AIMediaModel.findById(recordId);
+      }
+
+      if (!record && session_id) {
+        record = await AIMediaModel.findOne({ "metadata.hermesSessionId": session_id });
+      }
+
+      if (!record) {
+        console.error(`[Hermes Webhook] Record not found. recordId: ${recordId}, session_id: ${session_id}`);
+        return res.status(404).json({ status: "error", message: "Không tìm thấy bản ghi video tương ứng." });
+      }
+
+      const fullText = response || message || content || output || "";
+
+      if (status === "failed" || error) {
+        const errorMsg = error || "Hermes Agent báo lỗi xử lý.";
+        record.metadata = {
+          ...(record.metadata || {}),
+          status: "failed",
+          progress: 100,
+          error: errorMsg,
+          description: `Thất bại: ${errorMsg}`,
+          renderLogs: [
+            ...(record.metadata?.renderLogs || []),
+            `[Webhook] Nhận thông báo thất bại: ${errorMsg}`
+          ]
+        };
+        await record.save();
+
+        broadcastEvent("video_status_updated", {
+          videoId: record.metadata.heygenVideoId || record._id.toString(),
+          status: "failed",
+          updates: [record.toObject()]
+        });
+
+        return res.status(200).json({ status: "success", message: "Đã cập nhật trạng thái lỗi thành công." });
+      }
+
+      const cloudinaryRegex = /(https:\/\/res\.cloudinary\.com\/[^\s\)\"\`\'\>]+)/i;
+      const match = String(fullText).match(cloudinaryRegex);
+      const extractedUrl = match ? match[1] : null;
+
+      if (extractedUrl) {
+        record.url = extractedUrl;
+        record.metadata = {
+          ...(record.metadata || {}),
+          status: "completed",
+          progress: 100,
+          description: "Biên tập video hoàn tất.",
+          renderLogs: [
+            ...(record.metadata?.renderLogs || []),
+            `[Webhook] Nhận kết quả hoàn thành.`,
+            `[Webhook] Tìm thấy URL video đã upload: ${extractedUrl}`
+          ]
+        };
+        await record.save();
+      } else {
+        const anyUrlRegex = /(https?:\/\/[^\s\)\"\`\'\>]+)/i;
+        const fallbackMatch = String(fullText).match(anyUrlRegex);
+        const fallbackUrl = fallbackMatch ? fallbackMatch[1] : null;
+
+        if (fallbackUrl) {
+          record.url = fallbackUrl;
+          record.metadata = {
+            ...(record.metadata || {}),
+            status: "completed",
+            progress: 100,
+            description: "Biên tập video hoàn tất (URL fallback).",
+            renderLogs: [
+              ...(record.metadata?.renderLogs || []),
+              `[Webhook] Không tìm thấy URL Cloudinary nhưng phát hiện URL thay thế: ${fallbackUrl}`
+            ]
+          };
+          await record.save();
+        } else {
+          record.metadata = {
+            ...(record.metadata || {}),
+            status: "failed",
+            progress: 100,
+            error: "Không tìm thấy URL video trong phản hồi của Hermes Agent.",
+            description: "Thất bại: Không tìm thấy URL video trong phản hồi.",
+            renderLogs: [
+              ...(record.metadata?.renderLogs || []),
+              `[Webhook] Lỗi: Không trích xuất được URL video từ phản hồi.`,
+              `[Webhook] Phản hồi thô: ${fullText}`
+            ]
+          };
+          await record.save();
+        }
+      }
+
+      broadcastEvent("video_status_updated", {
+        videoId: record.metadata.heygenVideoId || record._id.toString(),
+        status: record.metadata.status,
+        updates: [record.toObject()]
+      });
+
+      return res.status(200).json({ status: "success", message: "Đã xử lý webhook thành công." });
+    } catch (error: any) {
+      console.error("[Hermes Webhook] Error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Lỗi nội bộ server khi xử lý webhook",
         details: error.message
       });
     }
