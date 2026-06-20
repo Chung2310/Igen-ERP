@@ -16,6 +16,25 @@ dotenv.config();
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
+function shouldSkipRoutineApiLog(method: string, url: string) {
+  const normalizedMethod = String(method || "").toUpperCase();
+  const normalizedUrl = String(url || "");
+
+  if (normalizedMethod !== "GET" && normalizedMethod !== "POST") {
+    return false;
+  }
+
+  const noisyPrefixes = [
+    "/api/v1/crud/marketing-contents",
+    "/api/v1/crud/crm-tickets",
+    "/api/v1/crud/products",
+    "/api/v1/wallet/balance",
+    "/api/v1/gemini/media-history",
+  ];
+
+  return noisyPrefixes.some((prefix) => normalizedUrl.startsWith(prefix));
+}
+
 function injectSeoMeta(html: string, requestPath: string): string {
   try {
     const seo = getSeoForPath(requestPath);
@@ -210,6 +229,9 @@ async function startServer() {
 
   // Global Request Logger - Log tất cả API requests để dễ debug
   app.use("/api", (req, res, next) => {
+    if (shouldSkipRoutineApiLog(req.method, req.originalUrl)) {
+      return next();
+    }
     const timestamp = new Date().toLocaleTimeString("vi-VN");
     console.log(`[Server ${timestamp}] ${req.method} ${req.originalUrl} - IP: ${req.ip}`);
     next();

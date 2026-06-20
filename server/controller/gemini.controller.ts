@@ -480,17 +480,17 @@ export const geminiController = {
         topK: 5,
       });
 
-      let effectiveRagContext = { ...ragContext, companyCode };
-      if (!ragContext.contextText && aiConfig?.trainingKnowledge) {
-        effectiveRagContext = {
-          contextText: String(aiConfig.trainingKnowledge).slice(0, 4500),
-          matches: 0,
-          bestScore: 0,
-          productCandidateNames: [],
-          shouldAskProductConfirmation: false,
-          companyCode,
-        };
-      }
+      const effectiveRagContext = aiKnowledgeService.buildEffectiveRagContext({
+        companyCode,
+        ragContext,
+        trainingKnowledge: aiConfig?.trainingKnowledge,
+      });
+      const effectiveRagContextDebug = aiKnowledgeService.describeEffectiveRagContext(effectiveRagContext as any);
+      console.log("[geminiController.testReply] Context diagnostics:", JSON.stringify({
+        companyCode,
+        messageLength: String(message || "").length,
+        ...effectiveRagContextDebug,
+      }));
 
       const result = await geminiService.chat(message, [], aiConfig || {}, effectiveRagContext);
       const log = await aiKnowledgeService.createReplyLog({

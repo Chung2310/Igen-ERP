@@ -14,6 +14,25 @@ export interface AuthenticatedRequest extends Request {
   resource?: any; // Để đính kèm tài nguyên sau khi qua requireCompanyAccess
 }
 
+function shouldSkipRoutineAuthLog(method: string, url: string) {
+  const normalizedMethod = String(method || "").toUpperCase();
+  const normalizedUrl = String(url || "");
+
+  if (normalizedMethod !== "GET" && normalizedMethod !== "POST") {
+    return false;
+  }
+
+  const noisyPrefixes = [
+    "/api/v1/crud/marketing-contents",
+    "/api/v1/crud/crm-tickets",
+    "/api/v1/crud/products",
+    "/api/v1/wallet/balance",
+    "/api/v1/gemini/media-history",
+  ];
+
+  return noisyPrefixes.some((prefix) => normalizedUrl.startsWith(prefix));
+}
+
 /**
  * Danh sách mã quyền mặc định của hệ thống cho từng vai trò
  */
