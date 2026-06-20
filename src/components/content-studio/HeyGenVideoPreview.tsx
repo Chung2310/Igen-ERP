@@ -23,6 +23,7 @@ interface HeyGenVideoPreviewProps {
   avatarBackground: "customize" | "remove" | "color";
   backgroundColor: string;
   previewVideoUrl?: string;
+  aspectRatio?: "16:9" | "9:16" | "1:1";
 }
 
 const MOCK_DURATION = 15;
@@ -58,6 +59,7 @@ export function HeyGenVideoPreview({
   avatarBackground,
   backgroundColor,
   previewVideoUrl,
+  aspectRatio = "16:9",
 }: HeyGenVideoPreviewProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const renderablePreviewVideoUrl = isRenderableVideoUrl(previewVideoUrl) ? previewVideoUrl : "";
@@ -216,6 +218,13 @@ export function HeyGenVideoPreview({
     });
   }
 
+  const aspectClass =
+    aspectRatio === "9:16"
+      ? "aspect-[9/16] max-w-[280px]"
+      : aspectRatio === "1:1"
+      ? "aspect-square max-w-[420px]"
+      : "aspect-[16/9] max-w-[920px]";
+
   return (
     <div className={`flex min-h-0 flex-1 flex-col ${HEYGEN_THEME.surface} text-slate-900`}>
       <div className="relative flex min-h-0 flex-1 items-center justify-center bg-slate-50/70 px-4 py-3">
@@ -223,13 +232,13 @@ export function HeyGenVideoPreview({
           ref={stageRef}
           onDragOver={handlePreviewDragOver}
           onDrop={handlePreviewDrop}
-          className={`relative aspect-[16/9] h-full max-h-[420px] w-full max-w-[920px] overflow-hidden rounded-[22px] border ${HEYGEN_THEME.border} bg-white shadow-sm transition-all duration-300`}
+          className={`relative ${aspectClass} h-full max-h-[420px] w-full overflow-hidden rounded-[22px] border ${HEYGEN_THEME.border} bg-slate-950 shadow-sm transition-all duration-300`}
         >
           {renderablePreviewVideoUrl ? (
             <video
               ref={videoRef}
               src={renderablePreviewVideoUrl}
-              className={`h-full w-full ${mediaFitClass} bg-white`}
+              className={`h-full w-full ${mediaFitClass} bg-transparent`}
               style={{ objectPosition: "center top" }}
               onClick={togglePlayback}
               playsInline
@@ -239,7 +248,7 @@ export function HeyGenVideoPreview({
             <div className={`absolute inset-0 flex items-center justify-center transition-all duration-300 ${backgroundClass}`} style={{ backgroundColor: avatarBackground === "color" ? backgroundColor : undefined }}>
               {avatarImage ? (
                 <div className={`relative overflow-hidden transition-all duration-300 ${avatarLayout === "circle" ? "h-36 w-36 rounded-full border-4 border-cyan-400/50 shadow-md" : "h-full w-full"}`}>
-                  <img src={avatarImage} alt={avatarName} loading="eager" decoding="async" className={`h-full w-full ${mediaFitClass} bg-white`} style={{ objectPosition: "center top" }} />
+                  <img src={avatarImage} alt={avatarName} loading="eager" decoding="async" className={`h-full w-full ${mediaFitClass} bg-transparent`} style={{ objectPosition: "center top" }} />
                 </div>
               ) : (
                 <div className="text-xs font-semibold text-slate-400">Chọn Avatar để bắt đầu xem trước</div>

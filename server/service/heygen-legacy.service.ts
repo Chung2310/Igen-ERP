@@ -35,7 +35,17 @@ export const heygenLegacyService = {
       throw new Error("Chưa cấu hình khóa API HeyGen");
     }
 
-    const { avatarId, voiceId, inputText, aspectRatio, title, description } = input;
+    const {
+      avatarId,
+      voiceId,
+      inputText,
+      aspectRatio,
+      title,
+      description,
+      avatarBackground,
+      backgroundColor,
+      avatarLayout,
+    } = input;
 
     if (!avatarId?.trim()) {
       throw new HeyGenApiError("Vui lòng chọn avatar HeyGen trước khi tạo video.", 400);
@@ -59,18 +69,33 @@ export const heygenLegacyService = {
       height = 720;
     }
 
+    let finalBgColor = "#161d27";
+    if (avatarBackground === "color" && backgroundColor) {
+      finalBgColor = backgroundColor;
+    } else if (avatarBackground === "remove") {
+      finalBgColor = "#00FF00";
+    } else if (avatarBackground === "customize") {
+      finalBgColor = "#161d27";
+    } else if (backgroundColor) {
+      finalBgColor = backgroundColor;
+    }
+
     const requestBody: Record<string, any> = {
       video_inputs: [
         {
           character: {
             type: "avatar",
             avatar_id: avatarId,
-            avatar_style: "normal",
+            avatar_style: avatarLayout === "circle" ? "circle" : "normal",
           },
           voice: {
             type: "text",
             input_text: inputText.trim(),
             voice_id: voiceId.trim(),
+          },
+          background: {
+            type: "color",
+            value: finalBgColor,
           },
         },
       ],

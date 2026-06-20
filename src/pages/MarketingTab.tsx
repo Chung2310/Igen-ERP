@@ -532,7 +532,7 @@ export default function MarketingTab() {
           <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-3xl shadow-2xl w-full max-w-4xl overflow-hidden text-left flex flex-col md:flex-row max-h-[85vh]">
 
             {/* Left side: Media preview */}
-            <div className="flex-1 bg-black/40 flex items-center justify-center p-4 relative min-h-[300px]">
+            <div className="flex-1 bg-slate-950 flex items-center justify-center p-4 relative min-h-[300px]">
               {activeLightboxType === "image" ? (
                 <img
                   src={activeLightboxUrl}
@@ -544,7 +544,7 @@ export default function MarketingTab() {
                   src={activeLightboxUrl}
                   controls
                   autoPlay
-                  className="max-w-full max-h-[70vh] rounded-lg shadow-lg"
+                  className="max-w-full max-h-[70vh] rounded-lg shadow-lg bg-transparent"
                 />
               )}
             </div>

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { CheckCircle, Facebook, RefreshCw, Trash2, User, MessageCircleMore } from "lucide-react";
+import { CheckCircle, Facebook, RefreshCw, Trash2, User, MessageCircleMore, Film } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { socialIntegrationService, SocialIntegration } from "../../services/socialIntegrationService";
 import { toast } from "../../pages/Toast";
@@ -11,12 +11,15 @@ export default function PersonalIntegrationsTab() {
     removeFacebookIntegration,
     saveZaloIntegration,
     removeZaloIntegration,
+    saveTikTokIntegration,
+    removeTikTokIntegration,
   } = useAuth();
 
   const [companyIntegrations, setCompanyIntegrations] = useState<SocialIntegration[]>([]);
   const [loadingCompanyIntegrations, setLoadingCompanyIntegrations] = useState(false);
   const [savingFacebook, setSavingFacebook] = useState(false);
   const [savingZalo, setSavingZalo] = useState(false);
+  const [savingTikTok, setSavingTikTok] = useState(false);
 
   const [facebookForm, setFacebookForm] = useState({
     pageId: "",
@@ -30,6 +33,15 @@ export default function PersonalIntegrationsTab() {
     oaName: "",
     accessToken: "",
     refreshToken: "",
+  });
+  const [tiktokForm, setTiktokForm] = useState({
+    username: "",
+    displayName: "",
+    accessToken: "",
+    refreshToken: "",
+    clientKey: "",
+    clientSecret: "",
+    tokenExpiredAt: "",
   });
 
   useEffect(() => {
@@ -45,6 +57,17 @@ export default function PersonalIntegrationsTab() {
       oaName: userProfile?.zaloIntegration?.oaName || "",
       accessToken: userProfile?.zaloIntegration?.accessToken || "",
       refreshToken: userProfile?.zaloIntegration?.refreshToken || "",
+    });
+    setTiktokForm({
+      username: userProfile?.tiktokIntegration?.username || "",
+      displayName: userProfile?.tiktokIntegration?.displayName || "",
+      accessToken: userProfile?.tiktokIntegration?.accessToken || "",
+      refreshToken: userProfile?.tiktokIntegration?.refreshToken || "",
+      clientKey: userProfile?.tiktokIntegration?.clientKey || "",
+      clientSecret: userProfile?.tiktokIntegration?.clientSecret || "",
+      tokenExpiredAt: userProfile?.tiktokIntegration?.tokenExpiredAt
+        ? new Date(userProfile.tiktokIntegration.tokenExpiredAt).toISOString().slice(0, 16)
+        : "",
     });
   }, [userProfile]);
 
@@ -82,6 +105,10 @@ export default function PersonalIntegrationsTab() {
   );
   const companyZaloIntegration = useMemo(
     () => companyIntegrations.find((item) => item.platform === "Zalo" && item.isConnected) || null,
+    [companyIntegrations]
+  );
+  const companyTikTokIntegration = useMemo(
+    () => companyIntegrations.find((item) => item.platform === "TikTok" && item.isConnected) || null,
     [companyIntegrations]
   );
 
@@ -128,6 +155,38 @@ export default function PersonalIntegrationsTab() {
     } finally {
       setSavingZalo(false);
     }
+  };
+
+  const handleSaveTikTok = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tiktokForm.accessToken.trim()) {
+      toast.error("Vui lòng nhập Access Token TikTok.");
+      return;
+    }
+
+    setSavingTikTok(true);
+    try {
+      await saveTikTokIntegration({
+        isConnected: true,
+        username: tiktokForm.username.trim() || "@igen_tech",
+        displayName: tiktokForm.displayName.trim() || "TikTok Personal",
+        accessToken: tiktokForm.accessToken.trim(),
+        refreshToken: tiktokForm.refreshToken.trim() || undefined,
+        clientKey: tiktokForm.clientKey.trim() || undefined,
+        clientSecret: tiktokForm.clientSecret.trim() || undefined,
+        tokenExpiredAt: tiktokForm.tokenExpiredAt ? new Date(tiktokForm.tokenExpiredAt).toISOString() : undefined,
+        connectedAt: new Date().toISOString(),
+      });
+    } finally {
+      setSavingTikTok(false);
+    }
+  };
+
+  const handleRemoveTikTok = async () => {
+    if (!window.confirm("Gỡ bỏ TikTok cá nhân chỉ ảnh hưởng tài khoản hiện tại. Bạn có chắc chắn muốn tiếp tục không?")) {
+      return;
+    }
+    await removeTikTokIntegration();
   };
 
   const renderSourceSummary = (
@@ -251,10 +310,26 @@ export default function PersonalIntegrationsTab() {
                 }
               : null
           )}
+
+          {renderSourceSummary(
+            "TikTok",
+            userProfile?.tiktokIntegration?.isConnected
+              ? {
+                  name: userProfile.tiktokIntegration.displayName || "TikTok cá nhân",
+                  identifier: userProfile.tiktokIntegration.username || "",
+                }
+              : null,
+            companyTikTokIntegration
+              ? {
+                  name: companyTikTokIntegration.displayName || "TikTok doanh nghiệp",
+                  identifier: companyTikTokIntegration.username || "",
+                }
+              : null
+          )}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <div className="rounded-2xl border border-blue-200 bg-white p-5 shadow-xs">
           <div className="flex items-center gap-2 text-left">
             <Facebook className="h-5 w-5 text-blue-600" />
@@ -381,6 +456,88 @@ export default function PersonalIntegrationsTab() {
                   }
                   void removeZaloIntegration();
                 }}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-xs font-bold text-red-700"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Go bo
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <div className="rounded-2xl border border-red-200 bg-white p-5 shadow-xs">
+          <div className="flex items-center gap-2 text-left">
+            <Film className="h-5 w-5 text-red-600" />
+            <div>
+              <h4 className="text-sm font-bold text-slate-800">TikTok Cá Nhân</h4>
+              <p className="text-[11px] text-slate-500">Tài khoản riêng của tài khoản đang đăng nhập.</p>
+            </div>
+          </div>
+
+          <form onSubmit={handleSaveTikTok} className="mt-4 space-y-3 text-left">
+            <input
+              type="text"
+              value={tiktokForm.username}
+              onChange={(e) => setTiktokForm((prev) => ({ ...prev, username: e.target.value }))}
+              placeholder="Username TikTok (e.g. @username)"
+              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs"
+            />
+            <input
+              type="text"
+              value={tiktokForm.displayName}
+              onChange={(e) => setTiktokForm((prev) => ({ ...prev, displayName: e.target.value }))}
+              placeholder="Tên hiển thị"
+              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs"
+            />
+            <input
+              type="text"
+              value={tiktokForm.accessToken}
+              onChange={(e) => setTiktokForm((prev) => ({ ...prev, accessToken: e.target.value }))}
+              placeholder="Access Token"
+              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs"
+            />
+            <input
+              type="text"
+              value={tiktokForm.refreshToken}
+              onChange={(e) => setTiktokForm((prev) => ({ ...prev, refreshToken: e.target.value }))}
+              placeholder="Refresh Token (tùy chọn)"
+              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs"
+            />
+            <input
+              type="text"
+              value={tiktokForm.clientKey}
+              onChange={(e) => setTiktokForm((prev) => ({ ...prev, clientKey: e.target.value }))}
+              placeholder="Client Key (tùy chọn)"
+              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs"
+            />
+            <input
+              type="password"
+              value={tiktokForm.clientSecret}
+              onChange={(e) => setTiktokForm((prev) => ({ ...prev, clientSecret: e.target.value }))}
+              placeholder="Client Secret (tùy chọn)"
+              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs"
+            />
+            <div className="space-y-1">
+              <label className="text-[10px] font-semibold text-gray-500">Hạn dùng Access Token (tùy chọn)</label>
+              <input
+                type="datetime-local"
+                value={tiktokForm.tokenExpiredAt}
+                onChange={(e) => setTiktokForm((prev) => ({ ...prev, tokenExpiredAt: e.target.value }))}
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs text-gray-800"
+              />
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="submit"
+                disabled={savingTikTok}
+                className="flex-1 rounded-xl bg-red-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-60"
+              >
+                {savingTikTok ? "Dang luu..." : "Luu TikTok ca nhan"}
+              </button>
+              <button
+                type="button"
+                onClick={handleRemoveTikTok}
                 className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-xs font-bold text-red-700"
               >
                 <Trash2 className="h-3.5 w-3.5" />
