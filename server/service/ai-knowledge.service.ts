@@ -9,6 +9,13 @@ const MAX_CHUNKS_TO_RANK = 1000;
 
 type ChannelScope = "facebook" | "zalo" | "all";
 
+const CANDIDATE_STOPWORDS = new Set([
+  "toi", "muon", "dat", "mua", "ban", "cai", "cho", "cua", "co", "shop", 
+  "khong", "nay", "la", "gi", "de", "va", "them", "bot", "tu", "van", 
+  "lam", "sao", "nao", "lien", "he", "anh", "chi", "em", "quy", "khach",
+  "khao", "sat", "tim", "kiem", "xem", "lay", "nhan", "co", "ha", "nha", "a"
+]);
+
 function normalizeCompanyCode(companyCode?: string) {
   return (companyCode || "SYSTEM").trim().toUpperCase();
 }
@@ -43,7 +50,7 @@ function normalizeForLookup(text: string) {
 
 function isProductSearchQuery(text: string) {
   const normalized = normalizeForLookup(text);
-  return /\b(san pham|mua|xem hang|xem san pham|danh sach|catalog|bang gia|bao gia|gia|bao nhieu|co gi|con gi|loai nao|mau nao|size nao|model nao)\b/.test(normalized);
+  return /\b(san pham|mua|ban|xem hang|xem san pham|danh sach|catalog|bang gia|bao gia|gia|bao nhieu|co gi|con gi|loai nao|mau nao|size nao|model nao)\b/.test(normalized);
 }
 
 function computeLooseSubstringScore(queryTokens: string[], title: string, text: string) {
@@ -60,6 +67,58 @@ function computeLooseSubstringScore(queryTokens: string[], title: string, text: 
   return hits / Math.max(queryTokens.length, 1);
 }
 
+function cleanCandidateLine(line: string) {
+  return String(line || "")
+    .replace(/^\s*[-*•]+\s*/g, "")
+    .replace(/^\s*\d+[.)]\s*/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function extractProductCandidateNames(queryTokens: string[], rankedItems: Array<{ title: string; text: string; score: number }>) {
+  const genericPattern = /\b(tai lieu|noi bo|bang gia|bao gia|catalog|danh sach|san pham|sku|model|price|gia ban|don gia)\b/i;
+  const candidates: Array<{ name: string; score: number }> = [];
+
+  const filteredQueryTokens = queryTokens.filter((t) => !CANDIDATE_STOPWORDS.has(t));
+  if (filteredQueryTokens.length === 0) return [];
+
+  for (const item of rankedItems.slice(0, 5)) {
+    const rawLines = [
+      item.title,
+      ...String(item.text || "")
+        .split(/[\n;•*|:\t]|\.\s+/)
+        .map((s) => s.trim())
+        .filter(Boolean),
+    ];
+    for (const rawLine of rawLines) {
+      const line = cleanCandidateLine(rawLine);
+      if (!line || line.length < 4 || line.length > 150) continue;
+      if (genericPattern.test(line) && line.split(" ").length <= 3) continue;
+
+      const score = computeLooseSubstringScore(filteredQueryTokens, "", line);
+      if (score <= 0) continue;
+
+      candidates.push({
+        name: line,
+        score: score + item.score * 0.2,
+      });
+    }
+  }
+
+  const unique = new Map<string, number>();
+  for (const item of candidates.sort((a, b) => b.score - a.score)) {
+    const normalized = normalizeForLookup(item.name);
+    if (!normalized || unique.has(normalized)) continue;
+    unique.set(normalized, item.score);
+    if (unique.size >= 3) break;
+  }
+
+  return Array.from(unique.keys()).map((key) => {
+    const original = candidates.find((item) => normalizeForLookup(item.name) === key)?.name || key;
+    return original;
+  });
+}
+
 function buildRankedContextItems(params: {
   chunks: any[];
   documentMap: Map<string, any>;
@@ -69,7 +128,7 @@ function buildRankedContextItems(params: {
 }) {
   const { chunks, documentMap, normalizedQuery, queryVector, queryTokens } = params;
 
-  const items = chunks.map((chunk) => {
+  return chunks.map((chunk) => {
     const doc = documentMap.get(String(chunk.documentId));
     const title = normalizeText(doc?.sourceTitle || "");
     const titleTokens = tokenize(title);
@@ -102,10 +161,6 @@ function buildRankedContextItems(params: {
       sourceUrl: doc?.sourceUrl || "",
     };
   });
-
-  return {
-    map: (_callback?: any) => items,
-  };
 }
 
 function buildTokenFrequency(tokens: string[]) {
@@ -301,37 +356,6 @@ export const aiKnowledgeService = {
       queryVector,
       queryTokens,
     })
-      .map((chunk) => {
-        const doc = documentMap.get(String(chunk.documentId));
-        const title = normalizeText(doc?.sourceTitle || "");
-        const titleTokens = tokenize(title);
-        const bodyTokens = tokenize(chunk.text);
-        const semanticScore = cosineSimilarity(queryVector, chunk.embedding || []);
-        const lexicalScore = computeTokenOverlapScore(queryTokens, [...titleTokens, ...bodyTokens]);
-        const titleBoost = computeTokenOverlapScore(queryTokens, titleTokens);
-        const looseMatchScore = computeLooseSubstringScore(queryTokens, title, chunk.text);
-        const productDocBoost =
-          isProductSearchQuery(normalizedQuery) && /san pham|danh sach|catalog|bang gia|bao gia|sku|model|gia/i.test(title)
-            ? 0.25
-            : 0;
-        const pricingBoost =
-          /\b(gia|bao nhieu|bang gia|bao gia)\b/.test(normalizeForLookup(normalizedQuery)) &&
-          /\b(gia|gia ban|don gia|bao gia|price|vnd|vnđ)\b/.test(normalizeForLookup(`${title} ${chunk.text}`))
-            ? 0.35
-            : 0;
-        const score =
-          semanticScore + lexicalScore * 0.9 + titleBoost * 0.6 + looseMatchScore * 0.7 + productDocBoost + pricingBoost;
-
-        return {
-          text: chunk.text,
-          score,
-          semanticScore,
-          lexicalScore,
-          looseMatchScore,
-          title: doc?.sourceTitle || "Tai lieu noi bo",
-          sourceUrl: doc?.sourceUrl || "",
-        };
-      })
       .filter((item) => item.score > 0.12)
       .sort((a, b) => b.score - a.score)
       .slice(0, topK);
@@ -345,7 +369,6 @@ export const aiKnowledgeService = {
             queryVector,
             queryTokens,
           })
-            .map(() => [])
             .filter((item) => item.score > 0.04)
             .sort((a, b) => b.score - a.score)
             .slice(0, topK)
@@ -363,9 +386,29 @@ export const aiKnowledgeService = {
       usedChars += labeledText.length;
     }
 
+    const bestScore = finalRanked[0]?.score || 0;
+    const productCandidateNames =
+      isProductSearchQuery(normalizedQuery) && queryTokens.length > 0
+        ? extractProductCandidateNames(
+            queryTokens,
+            finalRanked.map((item) => ({
+              title: item.title,
+              text: item.text,
+              score: item.score,
+            }))
+          )
+        : [];
+    const shouldAskProductConfirmation =
+      isProductSearchQuery(normalizedQuery) &&
+      productCandidateNames.length > 0 &&
+      bestScore < 1.2;
+
     return {
       contextText: selected.map((text, index) => `[Nguon ${index + 1}]\n${text}`).join("\n\n---\n\n"),
       matches: finalRanked.length,
+      bestScore,
+      productCandidateNames,
+      shouldAskProductConfirmation,
     };
   },
 

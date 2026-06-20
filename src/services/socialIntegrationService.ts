@@ -100,4 +100,39 @@ export const socialIntegrationService = {
       throw new Error(data.message || "Không thể xóa tài khoản liên kết.");
     }
   }
+  ,
+
+  async validateFacebookIntegration(data: { pageId: string; accessToken: string }): Promise<any> {
+    const res = await fetch("/api/v1/facebook/validate-token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${getAccessToken()}`,
+      },
+      body: JSON.stringify(data),
+    });
+
+    const result = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(result.message || result.details || "Khong the xac thuc Facebook Page.");
+    }
+    return result;
+  },
+
+  async validateZaloIntegration(data: { oaId: string; oaName?: string; accessToken: string }): Promise<any> {
+    const res = await fetch("/api/v1/zalo/validate-integration", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${getAccessToken()}`,
+      },
+      body: JSON.stringify(data),
+    });
+
+    const result = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(result.message || "Khong the xac thuc Zalo OA.");
+    }
+    return result;
+  }
 };

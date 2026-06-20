@@ -104,6 +104,23 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
 
     setSubmittingIntegration(true);
     try {
+      if (compPlatform === "Facebook") {
+        toast.info("Dang xac thuc Facebook Page voi ben thu 3...");
+        await socialIntegrationService.validateFacebookIntegration({
+          pageId: compUsername.trim(),
+          accessToken: compAccessToken.trim(),
+        });
+      }
+
+      if (compPlatform === "Zalo") {
+        toast.info("Dang xac thuc Zalo OA voi ben thu 3...");
+        await socialIntegrationService.validateZaloIntegration({
+          oaId: compUsername.trim(),
+          oaName: compDisplayName.trim(),
+          accessToken: compAccessToken.trim(),
+        });
+      }
+
       const payload: Partial<SocialIntegration> = {
         platform: compPlatform,
         displayName: compDisplayName.trim(),
@@ -249,6 +266,9 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
             </h3>
             <p className="text-xs text-gray-500 mt-1">
               Quản lý các tài khoản mạng xã hội dùng chung của công ty. Các bài viết tự động đăng tải sẽ lấy cấu hình tại đây.
+            </p>
+            <p className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-700">
+              Đây là khu vực dùng chung theo doanh nghiệp. Nếu sửa hoặc xóa tại đây, mọi tài khoản cùng company sẽ bị ảnh hưởng.
             </p>
           </div>
           {editingIntegrationId && (

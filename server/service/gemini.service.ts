@@ -226,6 +226,59 @@ function detectChatIntent(message: string, history: any[] = []): ChatIntent {
   return "company_faq";
 }
 
+function formatHumanLikeChatReply(rawText: string) {
+  const cleaned = String(rawText || "")
+    .replace(/\r/g, "")
+    .replace(/```[\s\S]*?```/g, "")
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/^\s*[*-]\s+/gm, "")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  if (!cleaned) {
+    return "Mình kiểm tra lại rồi nhắn bạn ngay nhé.";
+  }
+
+  const normalized = cleaned
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join("\n");
+
+  const shortLineCandidates = normalized
+    .split("\n")
+    .flatMap((line) => line.split(/(?<=[.!?])\s+/))
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const compactLines: string[] = [];
+  let currentLine = "";
+
+  for (const piece of shortLineCandidates) {
+    const next = currentLine ? `${currentLine} ${piece}` : piece;
+    if (next.length <= 120) {
+      currentLine = next;
+    } else {
+      if (currentLine) compactLines.push(currentLine);
+      currentLine = piece;
+    }
+  }
+
+  if (currentLine) compactLines.push(currentLine);
+
+  const trimmedLines = compactLines.slice(0, 5).map((line) => line.trim());
+  let result = trimmedLines.join("\n");
+
+  result = result
+    .replace(/\b(Dạ,?\s*em chào anh\/chị.*?[\n]?)/i, "")
+    .replace(/\b(Dạ,?\s*[A-Za-zÀ-ỹ0-9\s]+ xin chào anh\/chị.*?[\n]?)/i, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  return result || normalized;
+}
+
 function buildFaithfulVisualGuardrail(input: {
   sourceBrief?: string;
   title?: string;
@@ -433,7 +486,14 @@ export const geminiService = {
     message: string,
     history: any[],
     aiConfig: any,
-    ragContext?: { contextText?: string; companyCode?: string; matches?: number }
+    ragContext?: {
+      contextText?: string;
+      companyCode?: string;
+      matches?: number;
+      bestScore?: number;
+      productCandidateNames?: string[];
+      shouldAskProductConfirmation?: boolean;
+    }
   ): Promise<{ text: string; isMock: boolean }> {
     const getMockResponse = () => {
       return new Promise<{ text: string; isMock: boolean }>((resolve) => {
@@ -540,6 +600,13 @@ Dữ liệu vận hành hiện tại:
 Dữ liệu tri thức đã truy xuất riêng cho doanh nghiệp ${ragContext?.companyCode || "hiện tại"}:
 ${ragContext?.contextText ? ragContext.contextText : "- Không tìm thấy tri thức phù hợp trong kho dữ liệu."}
 
+Gợi ý xác nhận sản phẩm gần đúng:
+${ragContext?.shouldAskProductConfirmation && ragContext?.productCandidateNames?.length
+  ? `- Khách có thể đang nói chưa chính xác tên sản phẩm. Nếu chưa chắc chắn, hay hỏi xác nhận ngắn gọn theo kiểu: "Dạ, anh/chị đang nhắc tới sản phẩm ${ragContext.productCandidateNames[0]} bên em đúng không ạ?".
+- Nêu có nhiều hơn 1 lựa chọn gần đúng, chỉ đưa tối đa 2-3 tên sản phẩm để khách chọn.
+- Không khẳng định là đúng 100% khi độ khớp chưa cao.`
+  : "- Không cần hỏi xác nhận tên sản phẩm ở lượt này."}
+
 Quy tắc an toàn bắt buộc:
 - Khi ở DEFAULT_ASSISTANT_MODE, vẫn được chào hỏi, xác nhận nhu cầu, hỏi thêm thông tin, hướng dẫn khách để lại số điện thoại/nhu cầu và nói sẽ có nhân viên hỗ trợ.
 - Chỉ trả lời các thông tin cụ thể về giá, bảo hành, giao hàng, đổi trả, khuyến mãi nếu có trong dữ liệu tri thức ở trên hoặc trong lịch sử hội thoại.
@@ -552,6 +619,28 @@ Thông tin cấu hình hiện tại của bạn:
 - Tự động xin feedback cuối hội thoại: ${aiConfig.autoFeedback ? "Đang BẬT. Nếu cuộc đối thoại đi đến hồi kết, hãy lịch sự xin ý kiến đánh giá chất lượng dịch vụ." : "Đang TẮT"}
 - Với Nguyễn Thị Mai (khách VIP): hãy đối xử cực kỳ chu đáo, tặng voucher riêng VIP-10 nếu có ý than phiền hoặc hỏi giá.
 `;
+
+    const humanStyleOverride = `
+STYLE OVERRIDE - ƯU TIÊN CAO NHẤT:
+- Hãy trả lời như nhân viên đang chat với khách, không nói giống bot.
+- Vẫn phải xưng hô chuẩn doanh nghiệp: ưu tiên "Dạ", "em", "anh/chị", "quý khách" khi phù hợp.
+- Luôn cần có lời cảm ơn khi khách đã chia sẻ thông tin, xác nhận đơn, hoặc hợp tác; nhưng cảm ơn ngắn gọn, tự nhiên.
+- Không dùng markdown, không dùng dấu *, **, -, bullet list, tiêu đề hay danh sách kiểu tài liệu.
+- Mỗi phản hồi phải gọn, tự nhiên, dễ đọc trên giao diện chat.
+- Thường chỉ 1-4 dòng, mỗi dòng ngắn. Tránh một đoạn văn dài.
+- Chỉ chào ở đầu cuộc hội thoại nếu cần. Các lượt sau vào thẳng nội dung.
+- Không lặp lại câu chào hoặc "dạ em" lặp đi lặp lại ở mỗi tin nhắn.
+- Nếu cần tóm tắt đơn hàng, tách từng ý thành từng dòng ngắn, vẫn viết như người chat thật.
+- Nếu có thể trả lời trực tiếp thì trả lời trực tiếp. Không giải thích dài dòng.
+- Nếu cần hỏi thêm, chỉ hỏi 1 câu quan trọng nhất.
+- Mẫu giống mong muốn:
+  "Dạ, em cảm ơn anh."
+  "Sản phẩm này bên em đang có anh nha."
+  "Giá hiện tại là 320.000đ anh nhé."
+  "Nếu anh lấy 2 chai em gợi ý thêm bản 500ml sẽ tiết kiệm hơn."
+`;
+
+    const finalSystemInstruction = `${systemInstruction}\n${humanStyleOverride}`;
 
     const contents = history.map((h: any) => ({
       role: h.sender === "user" ? "user" : "model",
@@ -572,14 +661,14 @@ Thông tin cấu hình hiện tại của bạn:
 
       if (detectedIntent === "out_of_scope") {
         return {
-          text: `Dạ, em đang hỗ trợ thông tin về sản phẩm, dịch vụ và chính sách của ${companyName}. Anh/chị cứ gửi giúp em câu hỏi liên quan đến doanh nghiệp để em hỗ trợ đúng hơn ạ.`,
+          text: formatHumanLikeChatReply(`Dạ, em đang hỗ trợ thông tin về sản phẩm, dịch vụ và chính sách của ${companyName}. Anh/chị cứ gửi giúp em câu hỏi liên quan đến doanh nghiệp để em hỗ trợ đúng hơn ạ.`),
           isMock: false,
         };
       }
 
       if (fallbackNoKnowledgeReply) {
         return {
-          text: fallbackNoKnowledgeReply,
+          text: formatHumanLikeChatReply(fallbackNoKnowledgeReply),
           isMock: false,
         };
       }
@@ -588,10 +677,12 @@ Thông tin cấu hình hiện tại của bạn:
         selectedModel,
         contents,
         {
-          systemInstruction,
+          systemInstruction: finalSystemInstruction,
           temperature: detectedIntent === "small_talk" ? 0.75 : 0.35,
         }
       );
+
+      response.text = formatHumanLikeChatReply(response.text || "Minh kiem tra lai roi nhan ban ngay nhe.");
 
       return {
         text: response.text || "Xin lỗi, tôi chưa thể xử lý yêu cầu lúc này. Vui lòng thử lại.",

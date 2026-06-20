@@ -11,6 +11,8 @@ import { UserModel } from "../model/user.model";
 import { SocialIntegrationModel } from "../model/social-integration.model";
 import { SupportedModelName, ICRUDQueryOptions } from "../interface/crud.interface";
 import mongoose from "mongoose";
+import { facebookPostService } from "./facebook-post.service";
+import { zaloMessengerService } from "./zalo-messenger.service";
 
 const DEMO_VIDEO_URL_PATTERNS = [
   "w3schools.com/html/mov_bbb.mp4",
@@ -78,6 +80,35 @@ async function handlePendingVideoUrl(item: any, modelName: string) {
     } catch (err) {
       console.error("[crudService] Failed to register pending video poll:", err);
     }
+  }
+}
+
+async function validateSocialIntegrationPayload(payload: any) {
+  if (!payload || typeof payload !== "object" || payload.isConnected === false) {
+    return;
+  }
+
+  const platform = String(payload.platform || "").trim();
+  const username = String(payload.username || "").trim();
+  const accessToken = String(payload.accessToken || "").trim();
+
+  if (platform === "Facebook") {
+    if (!username || !accessToken) {
+      throw new Error("Facebook company integration yeu cau Page ID va Page Access Token.");
+    }
+    await facebookPostService.validateToken(username, accessToken);
+    return;
+  }
+
+  if (platform === "Zalo") {
+    if (!username || !accessToken) {
+      throw new Error("Zalo company integration yeu cau OA ID va Access Token.");
+    }
+    await zaloMessengerService.validateIntegrationToken({
+      oaId: username,
+      oaName: payload.displayName,
+      accessToken,
+    });
   }
 }
 
@@ -194,6 +225,10 @@ export const crudService = {
       companyCode,
     });
 
+    if (modelName === "social-integrations") {
+      await validateSocialIntegrationPayload(payload);
+    }
+
     const newItem = new model(payload);
     await newItem.save();
 
@@ -227,6 +262,17 @@ export const crudService = {
     // Loại bỏ các trường nhạy cảm không cho phép đè trực tiếp
     const { companyCode: _cCode, _id: _itemId, id: _plainId, ...rawUpdatePayload } = data;
     const updatePayload = sanitizeMarketingPayload(modelName, rawUpdatePayload);
+
+    if (modelName === "social-integrations") {
+      const existingItem = await model.findOne(query).lean();
+      if (!existingItem) {
+        throw new Error("Khong tim thay tai nguyen hoac ban khong co quyen chinh sua.");
+      }
+      await validateSocialIntegrationPayload({
+        ...existingItem,
+        ...updatePayload,
+      });
+    }
 
     const updatedItem = await model.findOneAndUpdate(query, updatePayload, { new: true });
     if (!updatedItem) {
