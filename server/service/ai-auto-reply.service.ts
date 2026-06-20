@@ -60,6 +60,16 @@ function splitHistoryAndPendingInboundMessages(messages: any[]) {
   };
 }
 
+type ResolvedAutoReplyOwner = {
+  companyCode: string;
+  selectedUser: any | null;
+  aiConfig: any | null;
+  source: "personal_enabled" | "personal_fallback" | "company_enabled" | "company_fallback" | "cross_company_fallback" | "none";
+  userLevelOwners: any[];
+  companyIntegrations: any[];
+  uniqueCandidates: any[];
+};
+
 async function collectCandidateUsers(
   channel: "facebook" | "zalo",
   resolvedPlatformId: string
@@ -114,6 +124,109 @@ async function collectCandidateUsers(
   );
 
   return {
+    userLevelOwners,
+    companyIntegrations,
+    uniqueCandidates,
+  };
+}
+
+async function resolveAutoReplyOwner(
+  channel: "facebook" | "zalo",
+  resolvedPlatformId: string
+): Promise<ResolvedAutoReplyOwner> {
+  const {
+    userLevelOwners,
+    companyIntegrations,
+    uniqueCandidates,
+  } = await collectCandidateUsers(channel, resolvedPlatformId);
+
+  const directEnabledUser =
+    userLevelOwners.find((candidate: any) => candidate?.aiAutoReplyConfig?.enabled === true) || null;
+  const directUserFallback = userLevelOwners[0] || null;
+  const companyCodeFromIntegration = companyIntegrations[0]?.companyCode || null;
+
+  if (directEnabledUser) {
+    return {
+      companyCode: directEnabledUser.companyCode || companyCodeFromIntegration || "SYSTEM",
+      selectedUser: directEnabledUser,
+      aiConfig: directEnabledUser.aiAutoReplyConfig || null,
+      source: "personal_enabled",
+      userLevelOwners,
+      companyIntegrations,
+      uniqueCandidates,
+    };
+  }
+
+  const companyEnabledUser = companyCodeFromIntegration
+    ? uniqueCandidates.find(
+        (candidate: any) =>
+          candidate?.companyCode === companyCodeFromIntegration &&
+          candidate?.aiAutoReplyConfig?.enabled === true
+      ) || null
+    : null;
+
+  if (companyEnabledUser) {
+    return {
+      companyCode: companyCodeFromIntegration || companyEnabledUser.companyCode || "SYSTEM",
+      selectedUser: companyEnabledUser,
+      aiConfig: companyEnabledUser.aiAutoReplyConfig || null,
+      source: "company_enabled",
+      userLevelOwners,
+      companyIntegrations,
+      uniqueCandidates,
+    };
+  }
+
+  if (directUserFallback) {
+    return {
+      companyCode: directUserFallback.companyCode || companyCodeFromIntegration || "SYSTEM",
+      selectedUser: directUserFallback,
+      aiConfig: directUserFallback.aiAutoReplyConfig || null,
+      source: "personal_fallback",
+      userLevelOwners,
+      companyIntegrations,
+      uniqueCandidates,
+    };
+  }
+
+  const companyFallbackUser = companyCodeFromIntegration
+    ? uniqueCandidates.find((candidate: any) => candidate?.companyCode === companyCodeFromIntegration) || null
+    : null;
+
+  if (companyFallbackUser) {
+    return {
+      companyCode: companyCodeFromIntegration || companyFallbackUser.companyCode || "SYSTEM",
+      selectedUser: companyFallbackUser,
+      aiConfig: companyFallbackUser.aiAutoReplyConfig || null,
+      source: "company_fallback",
+      userLevelOwners,
+      companyIntegrations,
+      uniqueCandidates,
+    };
+  }
+
+  const crossCompanyFallback =
+    uniqueCandidates.find((candidate: any) => candidate?.aiAutoReplyConfig?.enabled === true) ||
+    uniqueCandidates[0] ||
+    null;
+
+  if (crossCompanyFallback) {
+    return {
+      companyCode: crossCompanyFallback.companyCode || companyCodeFromIntegration || "SYSTEM",
+      selectedUser: crossCompanyFallback,
+      aiConfig: crossCompanyFallback.aiAutoReplyConfig || null,
+      source: "cross_company_fallback",
+      userLevelOwners,
+      companyIntegrations,
+      uniqueCandidates,
+    };
+  }
+
+  return {
+    companyCode: companyCodeFromIntegration || directUserFallback?.companyCode || "SYSTEM",
+    selectedUser: null,
+    aiConfig: null,
+    source: "none",
     userLevelOwners,
     companyIntegrations,
     uniqueCandidates,
@@ -185,32 +298,21 @@ export const aiAutoReplyService = {
       let aiConfig = null;
 
       const {
+        companyCode: targetCompanyCode,
+        selectedUser,
+        aiConfig: resolvedAiConfig,
+        source: ownerResolutionSource,
         userLevelOwners,
         companyIntegrations,
         uniqueCandidates,
-      } = await collectCandidateUsers(channel, resolvedPlatformId);
+      } = await resolveAutoReplyOwner(channel, resolvedPlatformId);
 
-      // A. Xác định targetCompanyCode từ tích hợp hoặc chủ sở hữu cấp cá nhân
-      const targetCompanyCode = companyIntegrations[0]?.companyCode || userLevelOwners[0]?.companyCode || "SYSTEM";
       console.log(`[AI AutoReply] Xác định targetCompanyCode cho hội thoại: ${targetCompanyCode}`);
-
-      // B. Chọn user phù hợp nhất thuộc công ty này
-      let selectedUser = uniqueCandidates.find(
-        u => u.companyCode === targetCompanyCode && u.aiAutoReplyConfig?.enabled === true
-      );
+      console.log(`[AI AutoReply] Ket qua resolve owner: source=${ownerResolutionSource}, selectedUser=${selectedUser?.email || "none"}`);
 
       if (selectedUser) {
+        console.log(`[AI AutoReply] Owner resolve ok: ${selectedUser.email}`);
         console.log(`[AI AutoReply] Chọn được user thuộc công ty ${targetCompanyCode} đang BẬT AI: ${selectedUser.email}`);
-      } else {
-        selectedUser = uniqueCandidates.find(u => u.companyCode === targetCompanyCode);
-        if (selectedUser) {
-          console.log(`[AI AutoReply] Tìm thấy user thuộc công ty ${targetCompanyCode} nhưng chưa bật AI (dùng làm fallback): ${selectedUser.email}`);
-        } else {
-          selectedUser = uniqueCandidates.find(u => u.aiAutoReplyConfig?.enabled === true) || uniqueCandidates[0];
-          if (selectedUser) {
-            console.log(`[AI AutoReply] Fallback chọn user ngoài công ty: ${selectedUser.email}`);
-          }
-        }
       }
 
       if (!selectedUser) {
@@ -230,10 +332,10 @@ export const aiAutoReplyService = {
       }
 
       user = selectedUser;
-      aiConfig = selectedUser.aiAutoReplyConfig;
+      aiConfig = resolvedAiConfig || selectedUser.aiAutoReplyConfig;
       console.log(
         `[AI AutoReply] Owner selected: channel=${channel}, platformId=${resolvedPlatformId}, ` +
-        `conversationId=${conversationId}, user=${user.email}, company=${targetCompanyCode} (userCompany=${user.companyCode || "SYSTEM"}), enabled=${!!aiConfig?.enabled}`
+        `conversationId=${conversationId}, user=${user.email}, company=${targetCompanyCode} (userCompany=${user.companyCode || "SYSTEM"}), enabled=${!!aiConfig?.enabled}, source=${ownerResolutionSource}`
       );
 
       if (!aiConfig || !aiConfig.enabled) {
