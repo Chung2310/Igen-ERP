@@ -38,6 +38,8 @@ interface HeyGenOptionsDrawerProps {
   setCaptionPosition: (position: "top" | "middle" | "bottom") => void;
   isGenerating: boolean;
   onRender: () => void;
+  aspectRatio: "16:9" | "9:16" | "1:1";
+  onAspectRatioChange: (ratio: "16:9" | "9:16" | "1:1") => void;
 }
 
 export function HeyGenOptionsDrawer(props: HeyGenOptionsDrawerProps) {
@@ -75,6 +77,8 @@ export function HeyGenOptionsDrawer(props: HeyGenOptionsDrawerProps) {
     setCaptionPosition,
     isGenerating,
     onRender,
+    aspectRatio,
+    onAspectRatioChange,
   } = props;
 
   return (
@@ -163,6 +167,15 @@ export function HeyGenOptionsDrawer(props: HeyGenOptionsDrawerProps) {
               <div className={`grid grid-cols-2 gap-2 rounded-2xl border ${HEYGEN_THEME.border} bg-white/[0.02] p-1`}>
                 <SegmentButton active={avatarLayout === "original"} onClick={() => setAvatarLayout("original")} label="Mặc định" />
                 <SegmentButton active={avatarLayout === "circle"} onClick={() => setAvatarLayout("circle")} label="Hình tròn" />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-sm font-bold text-slate-900">Tỷ lệ khung hình</p>
+              <div className={`grid grid-cols-3 gap-2 rounded-2xl border ${HEYGEN_THEME.border} bg-white/[0.02] p-1`}>
+                <SegmentButton active={aspectRatio === "16:9"} onClick={() => onAspectRatioChange("16:9")} label="16:9 (Ngang)" />
+                <SegmentButton active={aspectRatio === "9:16"} onClick={() => onAspectRatioChange("9:16")} label="9:16 (Dọc)" />
+                <SegmentButton active={aspectRatio === "1:1"} onClick={() => onAspectRatioChange("1:1")} label="1:1 (Vuông)" />
               </div>
             </div>
           </>

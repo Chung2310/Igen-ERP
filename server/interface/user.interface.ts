@@ -17,6 +17,11 @@ export interface ITikTokIntegration {
   displayName: string;
   avatarUrl?: string;
   accessToken?: string;
+  refreshToken?: string;
+  tokenExpiredAt?: Date;
+  clientKey?: string;
+  clientSecret?: string;
+  scopes?: string[];
   connectedAt?: Date;
   privacyLevel?: "PUBLIC_TO_EVERYONE" | "MUTUAL_FOLLOW_FRIENDS" | "SELF_ONLY";
   isMock?: boolean;

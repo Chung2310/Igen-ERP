@@ -253,10 +253,10 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
         username: finalUsername || undefined,
         blotatoAccountId: undefined,
         accessToken: finalAccessToken,
-        refreshToken: compPlatform === "Zalo" ? compRefreshToken.trim() || undefined : undefined,
-        tokenExpiredAt: compPlatform === "Zalo" && compTokenExpiredAt ? new Date(compTokenExpiredAt).toISOString() : undefined,
-        appSecret: compPlatform === "Facebook" ? compAppSecret.trim() : undefined,
-        verifyToken: compPlatform === "Facebook" ? compVerifyToken.trim() : undefined,
+        refreshToken: (compPlatform === "Zalo" || compPlatform === "TikTok") ? compRefreshToken.trim() || undefined : undefined,
+        tokenExpiredAt: (compPlatform === "Zalo" || compPlatform === "TikTok") && compTokenExpiredAt ? new Date(compTokenExpiredAt).toISOString() : undefined,
+        appSecret: (compPlatform === "Facebook" || compPlatform === "TikTok") ? compAppSecret.trim() : undefined,
+        verifyToken: (compPlatform === "Facebook" || compPlatform === "TikTok") ? compVerifyToken.trim() : undefined,
         isConnected: true,
         createdBy: userProfile?.email || "system",
       };
@@ -596,7 +596,7 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
                       </button>
                     </div>
                     <p className="text-[9px] text-gray-400 leading-normal">{currentPlatformMeta.tokenHelp}</p>
-                    {compPlatform === "Zalo" && (
+                    {(compPlatform === "Zalo" || compPlatform === "TikTok") && (
                       <div className="mt-3 space-y-1">
                         <label className="text-[11px] font-semibold text-gray-700">Refresh Token (tùy chọn)</label>
                         <input
@@ -616,6 +616,30 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
                             className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-[11px] text-gray-800 shadow-sm focus:border-[#0068ff] focus:outline-none focus:ring-1 focus:ring-[#0068ff]"
                           />
                           <p className="text-[9px] text-gray-400 leading-normal">Nếu bạn biết thời điểm hết hạn của access token hiện tại, hãy lưu để backend chủ động refresh sớm hơn.</p>
+                        </div>
+                      </div>
+                    )}
+                    {compPlatform === "TikTok" && (
+                      <div className="mt-3 space-y-3 border-t border-slate-150 pt-3">
+                        <div className="space-y-1">
+                          <label className="text-[11px] font-semibold text-gray-700">TikTok Client Key (tùy chọn)</label>
+                          <input
+                            type="text"
+                            value={compVerifyToken}
+                            onChange={(e) => setCompVerifyToken(e.target.value)}
+                            placeholder="Nhập TikTok Client Key"
+                            className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-[11px] text-gray-800 shadow-sm focus:border-black focus:outline-none focus:ring-1 focus:ring-black"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[11px] font-semibold text-gray-700">TikTok Client Secret (tùy chọn)</label>
+                          <input
+                            type={showCompToken ? "text" : "password"}
+                            value={compAppSecret}
+                            onChange={(e) => setCompAppSecret(e.target.value)}
+                            placeholder="Nhập TikTok Client Secret"
+                            className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-[11px] text-gray-800 shadow-sm focus:border-black focus:outline-none focus:ring-1 focus:ring-black"
+                          />
                         </div>
                       </div>
                     )}

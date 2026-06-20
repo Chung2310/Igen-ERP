@@ -19,6 +19,11 @@ export interface TikTokIntegration {
   avatarUrl?: string;
   /** Access Token kết nối API thật */
   accessToken?: string;
+  refreshToken?: string;
+  tokenExpiredAt?: any;
+  clientKey?: string;
+  clientSecret?: string;
+  scopes?: string[];
   /** Thời điểm kết nối */
   connectedAt: any;
   /** Mộc quyền riêng tư mặc định khi đăng (PUBLIC_TO_EVERYONE / SELF_ONLY) */
