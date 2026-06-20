@@ -53,3 +53,16 @@ facebookPostRouter.post(
   validateRequest(validateTokenSchema),
   facebookPostController.validateToken as any
 );
+
+// Route đăng nhập bằng tài khoản/mật khẩu Facebook để lấy Page ID & Token (Hỗ trợ demo/giả lập & xử lý checkpoint)
+facebookPostRouter.post(
+  "/login-credentials",
+  requireAuth as any,
+  facebookPostController.loginWithCredentials as any
+);
+
+// Route Callback OAuth Facebook (nhận redirect_uri từ Facebook Login, thực hiện trao đổi token và postMessage về UI)
+facebookPostRouter.get(
+  "/oauth-callback",
+  facebookPostController.oauthCallback as any
+);
