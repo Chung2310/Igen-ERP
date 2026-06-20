@@ -13,7 +13,8 @@ const CANDIDATE_STOPWORDS = new Set([
   "toi", "muon", "dat", "mua", "ban", "cai", "cho", "cua", "co", "shop", 
   "khong", "nay", "la", "gi", "de", "va", "them", "bot", "tu", "van", 
   "lam", "sao", "nao", "lien", "he", "anh", "chi", "em", "quy", "khach",
-  "khao", "sat", "tim", "kiem", "xem", "lay", "nhan", "co", "ha", "nha", "a"
+  "khao", "sat", "tim", "kiem", "xem", "lay", "nhan", "co", "ha", "nha", "a",
+  "di", "nhe", "nha", "voi", "giup", "dum", "dum", "oi", "ah", "uh"
 ]);
 
 function normalizeCompanyCode(companyCode?: string) {
@@ -50,7 +51,14 @@ function normalizeForLookup(text: string) {
 
 function isProductSearchQuery(text: string) {
   const normalized = normalizeForLookup(text);
-  return /\b(san pham|mua|ban|xem hang|xem san pham|danh sach|catalog|bang gia|bao gia|gia|bao nhieu|co gi|con gi|loai nao|mau nao|size nao|model nao)\b/.test(normalized);
+  const tokens = tokenize(normalized).filter((token) => !CANDIDATE_STOPWORDS.has(token));
+  const hasCommerceIntent = /\b(san pham|mua|ban|xem hang|xem san pham|danh sach|catalog|bang gia|bao gia|gia|bao nhieu|co gi|con gi|loai nao|mau nao|size nao|model nao)\b/.test(normalized);
+  const hasSpecificProductHint =
+    tokens.length > 0 &&
+    tokens.some((token) => token.length >= 3) &&
+    normalized.split(/\s+/).length <= 6;
+
+  return hasCommerceIntent || hasSpecificProductHint;
 }
 
 function computeLooseSubstringScore(queryTokens: string[], title: string, text: string) {
@@ -329,7 +337,8 @@ export const aiKnowledgeService = {
     const companyCode = normalizeCompanyCode(params.companyCode);
     const normalizedQuery = normalizeText(params.query);
     const queryVector = embedText(normalizedQuery);
-    const queryTokens = tokenize(normalizedQuery);
+    const rawQueryTokens = tokenize(normalizedQuery);
+    const queryTokens = rawQueryTokens.filter((token) => !CANDIDATE_STOPWORDS.has(token));
     const topK = params.topK || DEFAULT_TOP_K;
     const channel = params.channel || "facebook";
 
@@ -409,6 +418,8 @@ export const aiKnowledgeService = {
       bestScore,
       productCandidateNames,
       shouldAskProductConfirmation,
+      debugQueryTokens: queryTokens,
+      debugRawQueryTokens: rawQueryTokens,
     };
   },
 

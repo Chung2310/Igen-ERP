@@ -206,8 +206,49 @@ function extractWorkbookText(buffer: Buffer) {
               return cell ? `${header}: ${cell}` : "";
             })
             .filter(Boolean);
+          if (pairs.length === 0) return "";
 
-          return pairs.length > 0 ? `Dong ${rowIndex + 1}: ${pairs.join(" | ")}` : "";
+          const rowMap = new Map<string, string>();
+          row.forEach((cell, index) => {
+            const header = String(headers[index] || `Cot ${index + 1}`).trim();
+            const value = String(cell || "").trim();
+            if (header && value) {
+              rowMap.set(header.toLowerCase(), value);
+            }
+          });
+
+          const productName =
+            rowMap.get("tên sản phẩm") ||
+            rowMap.get("ten san pham") ||
+            rowMap.get("sản phẩm") ||
+            rowMap.get("san pham") ||
+            rowMap.get("product") ||
+            "";
+
+          const category =
+            rowMap.get("danh mục") ||
+            rowMap.get("danh muc") ||
+            rowMap.get("category") ||
+            "";
+
+          const price =
+            rowMap.get("giá tham khảo (vnđ)") ||
+            rowMap.get("gia tham khao (vnd)") ||
+            rowMap.get("giá") ||
+            rowMap.get("gia") ||
+            rowMap.get("price") ||
+            "";
+
+          if (productName) {
+            return [
+              `San pham ${rowIndex + 1}: ${productName}`,
+              category ? `Danh muc: ${category}` : "",
+              pairs.join(" | "),
+              price ? `Gia tham khao: ${price}` : "",
+            ].filter(Boolean).join("\n");
+          }
+
+          return `Dong ${rowIndex + 1}: ${pairs.join(" | ")}`;
         })
         .filter(Boolean);
 
@@ -224,6 +265,16 @@ function extractWorkbookText(buffer: Buffer) {
   } catch (error) {
     console.warn("[AI AutoReply] Khong the doc file bang xlsx:", error);
     return "";
+  }
+}
+
+function extractStructuredSheetTextFromString(rawText: string, fileLabel: string) {
+  try {
+    const workbook = XLSX.read(rawText, { type: "string" });
+    return extractWorkbookText(Buffer.from(XLSX.write(workbook, { type: "buffer", bookType: "xlsx" })));
+  } catch (error) {
+    console.warn(`[AI AutoReply] Khong the parse bang du lieu dang chuoi cho ${fileLabel}:`, error);
+    return rawText;
   }
 }
 
@@ -284,7 +335,10 @@ async function fetchDriveFileContent(fileId: string): Promise<{ text: string; ti
     if (res.ok) {
       const text = await res.text();
       if (text && !isProbablyHtml(text) && text.length > 50) {
-        return { text, title: `Google Sheet (${fileId})` };
+        return {
+          text: extractStructuredSheetTextFromString(text, `Google Sheet (${fileId})`),
+          title: `Google Sheet (${fileId})`
+        };
       }
     }
   } catch (e) {
