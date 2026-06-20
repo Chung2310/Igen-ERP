@@ -177,8 +177,49 @@ function extractWorkbookText(buffer: Buffer) {
     const workbook = XLSX.read(buffer, { type: "buffer" });
     return workbook.SheetNames.map((sheetName) => {
       const worksheet = workbook.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json<(string | number | boolean | null)[]>(worksheet, {
+        header: 1,
+        raw: false,
+        defval: "",
+      });
+
+      if (!rows.length) return "";
+
+      const normalizedRows = rows
+        .map((row) => row.map((cell) => String(cell ?? "").trim()))
+        .filter((row) => row.some((cell) => cell.length > 0));
+
+      if (!normalizedRows.length) return "";
+
+      const headerKeywords = /(ten|tên|san pham|sản phẩm|sku|ma|mã|gia|giá|don gia|đơn giá|price|model|size|mau|màu|so luong|số lượng)/i;
+      const headerIndex = normalizedRows.findIndex((row) => row.filter(Boolean).some((cell) => headerKeywords.test(cell)));
+      const safeHeaderIndex = headerIndex >= 0 ? headerIndex : 0;
+
+      const headers = normalizedRows[safeHeaderIndex];
+      const bodyRows = normalizedRows.slice(safeHeaderIndex + 1);
+
+      const structuredLines = bodyRows
+        .map((row, rowIndex) => {
+          const pairs = row
+            .map((cell, index) => {
+              const header = headers[index] || `Cot ${index + 1}`;
+              return cell ? `${header}: ${cell}` : "";
+            })
+            .filter(Boolean);
+
+          return pairs.length > 0 ? `Dong ${rowIndex + 1}: ${pairs.join(" | ")}` : "";
+        })
+        .filter(Boolean);
+
       const csv = XLSX.utils.sheet_to_csv(worksheet).trim();
-      return csv ? `Sheet: ${sheetName}\n${csv}` : "";
+      const sections = [
+        `Sheet: ${sheetName}`,
+        headers.filter(Boolean).length > 0 ? `Tieu de cot: ${headers.filter(Boolean).join(" | ")}` : "",
+        structuredLines.join("\n"),
+        csv ? `CSV:\n${csv}` : "",
+      ].filter(Boolean);
+
+      return sections.join("\n");
     }).filter(Boolean).join("\n\n");
   } catch (error) {
     console.warn("[AI AutoReply] Khong the doc file bang xlsx:", error);

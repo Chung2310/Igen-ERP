@@ -31,6 +31,83 @@ function tokenize(text: string) {
     .filter((token) => token.length >= 2);
 }
 
+function normalizeForLookup(text: string) {
+  return normalizeText(text)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isProductSearchQuery(text: string) {
+  const normalized = normalizeForLookup(text);
+  return /\b(san pham|mua|xem hang|xem san pham|danh sach|catalog|bang gia|bao gia|gia|bao nhieu|co gi|con gi|loai nao|mau nao|size nao|model nao)\b/.test(normalized);
+}
+
+function computeLooseSubstringScore(queryTokens: string[], title: string, text: string) {
+  if (queryTokens.length === 0) return 0;
+
+  const haystack = `${normalizeForLookup(title)} ${normalizeForLookup(text)}`;
+  let hits = 0;
+  for (const token of queryTokens) {
+    if (token.length >= 3 && haystack.includes(token)) {
+      hits += 1;
+    }
+  }
+
+  return hits / Math.max(queryTokens.length, 1);
+}
+
+function buildRankedContextItems(params: {
+  chunks: any[];
+  documentMap: Map<string, any>;
+  normalizedQuery: string;
+  queryVector: number[];
+  queryTokens: string[];
+}) {
+  const { chunks, documentMap, normalizedQuery, queryVector, queryTokens } = params;
+
+  const items = chunks.map((chunk) => {
+    const doc = documentMap.get(String(chunk.documentId));
+    const title = normalizeText(doc?.sourceTitle || "");
+    const titleTokens = tokenize(title);
+    const bodyTokens = tokenize(chunk.text);
+    const semanticScore = cosineSimilarity(queryVector, chunk.embedding || []);
+    const lexicalScore = computeTokenOverlapScore(queryTokens, [...titleTokens, ...bodyTokens]);
+    const titleBoost = computeTokenOverlapScore(queryTokens, titleTokens);
+    const looseMatchScore = computeLooseSubstringScore(queryTokens, title, chunk.text);
+    const productDocBoost =
+      isProductSearchQuery(normalizedQuery) && /san pham|danh sach|catalog|bang gia|bao gia|sku|model|gia/i.test(title)
+        ? 0.25
+        : 0;
+    const pricingBoost =
+      /\b(gia|bao nhieu|bang gia|bao gia)\b/.test(normalizeForLookup(normalizedQuery)) &&
+      /\b(gia|gia ban|don gia|bao gia|price|vnd|vnđ)\b/.test(normalizeForLookup(`${title} ${chunk.text}`))
+        ? 0.35
+        : 0;
+    const score =
+      semanticScore + lexicalScore * 0.9 + titleBoost * 0.6 + looseMatchScore * 0.7 + productDocBoost + pricingBoost;
+
+    return {
+      documentId: chunk.documentId,
+      embedding: chunk.embedding,
+      text: chunk.text,
+      score,
+      semanticScore,
+      lexicalScore,
+      looseMatchScore,
+      title: doc?.sourceTitle || "Tai lieu noi bo",
+      sourceUrl: doc?.sourceUrl || "",
+    };
+  });
+
+  return {
+    map: (_callback?: any) => items,
+  };
+}
+
 function buildTokenFrequency(tokens: string[]) {
   const frequency = new Map<string, number>();
   for (const token of tokens) {
@@ -217,7 +294,13 @@ export const aiKnowledgeService = {
       .lean();
     const documentMap = new Map(documents.map((doc) => [String(doc._id), doc]));
 
-    const ranked = chunks
+    const ranked = buildRankedContextItems({
+      chunks,
+      documentMap,
+      normalizedQuery,
+      queryVector,
+      queryTokens,
+    })
       .map((chunk) => {
         const doc = documentMap.get(String(chunk.documentId));
         const title = normalizeText(doc?.sourceTitle || "");
@@ -226,13 +309,25 @@ export const aiKnowledgeService = {
         const semanticScore = cosineSimilarity(queryVector, chunk.embedding || []);
         const lexicalScore = computeTokenOverlapScore(queryTokens, [...titleTokens, ...bodyTokens]);
         const titleBoost = computeTokenOverlapScore(queryTokens, titleTokens);
-        const score = semanticScore + lexicalScore * 0.9 + titleBoost * 0.6;
+        const looseMatchScore = computeLooseSubstringScore(queryTokens, title, chunk.text);
+        const productDocBoost =
+          isProductSearchQuery(normalizedQuery) && /san pham|danh sach|catalog|bang gia|bao gia|sku|model|gia/i.test(title)
+            ? 0.25
+            : 0;
+        const pricingBoost =
+          /\b(gia|bao nhieu|bang gia|bao gia)\b/.test(normalizeForLookup(normalizedQuery)) &&
+          /\b(gia|gia ban|don gia|bao gia|price|vnd|vnđ)\b/.test(normalizeForLookup(`${title} ${chunk.text}`))
+            ? 0.35
+            : 0;
+        const score =
+          semanticScore + lexicalScore * 0.9 + titleBoost * 0.6 + looseMatchScore * 0.7 + productDocBoost + pricingBoost;
 
         return {
           text: chunk.text,
           score,
           semanticScore,
           lexicalScore,
+          looseMatchScore,
           title: doc?.sourceTitle || "Tai lieu noi bo",
           sourceUrl: doc?.sourceUrl || "",
         };
@@ -241,9 +336,26 @@ export const aiKnowledgeService = {
       .sort((a, b) => b.score - a.score)
       .slice(0, topK);
 
+    const fallbackRanked =
+      ranked.length === 0 && isProductSearchQuery(normalizedQuery)
+        ? buildRankedContextItems({
+            chunks,
+            documentMap,
+            normalizedQuery,
+            queryVector,
+            queryTokens,
+          })
+            .map(() => [])
+            .filter((item) => item.score > 0.04)
+            .sort((a, b) => b.score - a.score)
+            .slice(0, topK)
+        : [];
+
+    const finalRanked = ranked.length > 0 ? ranked : fallbackRanked;
+
     let usedChars = 0;
     const selected: string[] = [];
-    for (const item of ranked) {
+    for (const item of finalRanked) {
       if (usedChars + item.text.length > MAX_CONTEXT_CHARS) break;
       const labeledText = `[Tai lieu] ${item.title}${item.sourceUrl ? `\n[Link] ${item.sourceUrl}` : ""}\n${item.text}`;
       if (usedChars + labeledText.length > MAX_CONTEXT_CHARS) break;
@@ -253,7 +365,7 @@ export const aiKnowledgeService = {
 
     return {
       contextText: selected.map((text, index) => `[Nguon ${index + 1}]\n${text}`).join("\n\n---\n\n"),
-      matches: ranked.length,
+      matches: finalRanked.length,
     };
   },
 
