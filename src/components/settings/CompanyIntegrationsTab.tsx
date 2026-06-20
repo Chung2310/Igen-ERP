@@ -90,21 +90,33 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
   }, []);
 
   // Mở popup OAuth để đăng nhập Facebook trực tiếp
-  const handleFacebookOAuth = () => {
-    const appId = "1022427163587456"; 
-    const redirectUri = `${window.location.origin}/api/v1/facebook/oauth-callback`;
-    const oauthUrl = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=pages_manage_posts,pages_read_engagement,pages_show_list`;
+  const handleFacebookOAuth = async () => {
+    try {
+      const response = await fetch("/api/v1/facebook/config", {
+        headers: {
+          "Authorization": `Bearer ${getAccessToken()}`
+        }
+      });
+      const data = await response.json().catch(() => ({}));
+      const appId = data.appId || "1022427163587456"; 
+      
+      const redirectUri = `${window.location.origin}/api/v1/facebook/oauth-callback`;
+      const oauthUrl = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=pages_manage_posts,pages_read_engagement,pages_show_list`;
 
-    const width = 600;
-    const height = 650;
-    const left = window.screen.width / 2 - width / 2;
-    const top = window.screen.height / 2 - height / 2;
-    
-    window.open(
-      oauthUrl,
-      "FacebookOAuthPopup",
-      `width=${width},height=${height},left=${left},top=${top},status=no,resizable=yes,scrollbars=yes`
-    );
+      const width = 600;
+      const height = 650;
+      const left = window.screen.width / 2 - width / 2;
+      const top = window.screen.height / 2 - height / 2;
+      
+      window.open(
+        oauthUrl,
+        "FacebookOAuthPopup",
+        `width=${width},height=${height},left=${left},top=${top},status=no,resizable=yes,scrollbars=yes`
+      );
+    } catch (err: any) {
+      console.error("Lỗi lấy cấu hình Facebook:", err);
+      toast.error("Không thể lấy cấu hình App ID từ server.");
+    }
   };
 
   // Lắng nghe sự kiện callback từ cửa sổ popup gửi về

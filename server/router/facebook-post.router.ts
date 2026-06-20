@@ -66,3 +66,11 @@ facebookPostRouter.get(
   "/oauth-callback",
   facebookPostController.oauthCallback as any
 );
+
+// Route lấy cấu hình App ID từ Backend để binding động client_id ở Frontend
+facebookPostRouter.get(
+  "/config",
+  requireAuth as any,
+  facebookPostController.getConfig as any
+);
+

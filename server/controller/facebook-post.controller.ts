@@ -161,4 +161,14 @@ export const facebookPostController = {
       `);
     }
   },
+
+  /**
+   * GET /api/v1/facebook/config
+   */
+  async getConfig(req: Request, res: Response) {
+    return res.status(200).json({
+      status: "success",
+      appId: process.env.FB_APP_ID || "1022427163587456"
+    });
+  },
 };
