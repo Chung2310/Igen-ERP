@@ -7,6 +7,7 @@ import { walletService, API_COSTS } from "../service/wallet.service";
 import { AIMediaModel } from "../model/ai-media.model";
 import { broadcastEvent } from "../socket";
 import * as XLSX from "xlsx";
+import { GoogleGenAI } from "@google/genai";
 
 function handleGeminiError(res: Response, error: any, defaultMessage: string) {
   const isPiApiError = String(error.message || "").toUpperCase().includes("PIAPI");
@@ -86,6 +87,63 @@ function handleGeminiError(res: Response, error: any, defaultMessage: string) {
     message: errMsg,
     details: details,
   });
+}
+
+const DRIVE_PDF_PRIMARY_MODEL = process.env.GEMINI_MODEL || "gemini-3.5-flash";
+const DRIVE_PDF_FALLBACK_MODEL = "gemini-2.5-flash";
+
+function isGeminiModelNotFound(error: any): boolean {
+  const errorMsg = error?.message || String(error);
+  return error?.status === 404 || errorMsg.includes("is not found for API version") || errorMsg.includes("\"status\":\"NOT_FOUND\"");
+}
+
+async function extractPdfTextWithModelFallback(pdfBase64: string): Promise<string> {
+  if (!process.env.GEMINI_API_KEY) {
+    throw new Error("GEMINI_API_KEY is not configured");
+  }
+
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  const modelsToTry = DRIVE_PDF_PRIMARY_MODEL === DRIVE_PDF_FALLBACK_MODEL
+    ? [DRIVE_PDF_PRIMARY_MODEL]
+    : [DRIVE_PDF_PRIMARY_MODEL, DRIVE_PDF_FALLBACK_MODEL];
+  let lastError: any;
+
+  for (const model of modelsToTry) {
+    try {
+      console.log(`[AI AutoReply] Dang goi Gemini trich xuat van ban tu PDF (model: ${model})...`);
+      const response = await ai.models.generateContent({
+        model,
+        contents: [
+          {
+            role: "user",
+            parts: [
+              {
+                inlineData: {
+                  mimeType: "application/pdf",
+                  data: pdfBase64,
+                },
+              },
+              {
+                text: "Bạn là trợ lý trích xuất văn bản. Hãy trích xuất và trả về toàn bộ nội dung văn bản có trong file PDF này theo đúng thứ tự đọc. Chỉ trả về văn bản thuần, không thêm giải thích hay markdown.",
+              },
+            ],
+          },
+        ],
+      });
+
+      return response.text || "";
+    } catch (error: any) {
+      lastError = error;
+      const retryable = isGeminiModelNotFound(error) || error?.status === 429 || error?.status === 503;
+      if (retryable && model !== DRIVE_PDF_FALLBACK_MODEL) {
+        console.warn(`[extractPdfTextWithModelFallback] Model ${model} failed. Falling back to ${DRIVE_PDF_FALLBACK_MODEL}.`);
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  throw lastError;
 }
 
 function getTextModelCost(aiConfig: any): number {
@@ -217,7 +275,7 @@ async function fetchDriveFileContent(fileId: string): Promise<{ text: string; ti
     if (isPdf) {
       console.log(`[AI AutoReply] Phát hiện file PDF (${fileId}). Tiến hành trích xuất văn bản qua Gemini...`);
       const base64 = buffer.toString("base64");
-      const extractedText = await geminiService.extractTextFromPdf(base64);
+      const extractedText = await extractPdfTextWithModelFallback(base64);
       if (extractedText && extractedText.trim().length > 0) {
         return { text: extractedText, title: `PDF File (${fileId})` };
       }
