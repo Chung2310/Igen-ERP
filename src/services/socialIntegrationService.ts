@@ -10,7 +10,6 @@ export interface SocialIntegration {
   isConnected: boolean;
   connectedAt?: string;
   createdBy: string;
-  blotatoAccountId?: string;
   accessToken?: string;
   refreshToken?: string;
   tokenExpiredAt?: string;
@@ -132,6 +131,23 @@ export const socialIntegrationService = {
     const result = await res.json().catch(() => ({}));
     if (!res.ok) {
       throw new Error(result.message || "Khong the xac thuc Zalo OA.");
+    }
+    return result;
+  },
+
+  async validateTikTokIntegration(data: { username?: string; accessToken: string }): Promise<any> {
+    const res = await fetch("/api/v1/tiktok/validate-token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${getAccessToken()}`,
+      },
+      body: JSON.stringify(data),
+    });
+
+    const result = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(result.message || result.details || "Khong the xac thuc TikTok.");
     }
     return result;
   }

@@ -14,6 +14,16 @@ const pendingReplies = new Map<string, { timeout: NodeJS.Timeout; messageKey: st
 const generatingReplies = new Set<string>();
 const HUMAN_INTERVENTION_GUARD_ENABLED = false;
 const DEFAULT_MESSAGE_GROUPING_DELAY_MS = 7000;
+const DEFAULT_BUBBLE_DELAY_MS = 2000;
+
+function getBubbleDelayMs() {
+  const configuredDelaySeconds = Number(process.env.AI_REPLY_BUBBLE_DELAY_SECONDS);
+  if (Number.isFinite(configuredDelaySeconds) && configuredDelaySeconds >= 0) {
+    return configuredDelaySeconds * 1000;
+  }
+
+  return DEFAULT_BUBBLE_DELAY_MS;
+}
 
 function getMessageGroupingDelayMs() {
   const configuredDelaySeconds = Number(process.env.AI_REPLY_GROUPING_DELAY_SECONDS);
@@ -711,7 +721,7 @@ export const aiAutoReplyService = {
                 }
 
                 if (index < messagesToSend.length - 1) {
-                  await new Promise((resolve) => setTimeout(resolve, 450));
+                  await new Promise((resolve) => setTimeout(resolve, getBubbleDelayMs()));
                 }
               }
 

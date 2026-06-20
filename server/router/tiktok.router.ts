@@ -21,8 +21,6 @@ const publishSchema = {
     username: Joi.string().optional().allow(""),
     scheduledTime: Joi.string().isoDate().optional().allow(""),
     integrationId: Joi.string().regex(/^[0-9a-fA-F]{24}$/).optional().allow(""),
-    blotatoAccountId: Joi.string().optional().allow(""),
-    blotatoApiKey: Joi.string().optional().allow(""),
   }),
 };
 
@@ -30,7 +28,6 @@ const validateTokenSchema = {
   body: Joi.object({
     username: Joi.string().optional().allow(""),
     accessToken: Joi.string().required(),
-    blotatoApiKey: Joi.string().optional().allow(""),
   }),
 };
 
@@ -38,10 +35,6 @@ const creatorInfoSchema = {
   body: Joi.object({
     accessToken: Joi.string().required(),
   }),
-};
-
-const disabledSchema = {
-  query: Joi.object({}).optional(),
 };
 
 tiktokRouter.post(
@@ -66,12 +59,4 @@ tiktokRouter.post(
   requirePermission("marketing:post") as any,
   validateRequest(creatorInfoSchema),
   tiktokController.getCreatorInfo as any
-);
-
-tiktokRouter.get(
-  "/blotato-accounts",
-  requireAuth as any,
-  requirePermission("marketing:post") as any,
-  validateRequest(disabledSchema),
-  tiktokController.getBlotatoAccounts as any
 );
