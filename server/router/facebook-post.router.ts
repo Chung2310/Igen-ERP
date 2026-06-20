@@ -61,16 +61,23 @@ facebookPostRouter.post(
   facebookPostController.loginWithCredentials as any
 );
 
+// Route khởi tạo OAuth Session: Lưu App ID + App Secret của công ty vào DB,
+// trả về integrationId để dùng làm state trong OAuth URL (Multi-tenant support)
+facebookPostRouter.post(
+  "/init-oauth",
+  requireAuth as any,
+  facebookPostController.initOAuth as any
+);
+
 // Route Callback OAuth Facebook (nhận redirect_uri từ Facebook Login, thực hiện trao đổi token và postMessage về UI)
 facebookPostRouter.get(
   "/oauth-callback",
   facebookPostController.oauthCallback as any
 );
 
-// Route lấy cấu hình App ID từ Backend để binding động client_id ở Frontend
+// Route lấy cấu hình App ID từ Backend (ưu tiên từ DB của công ty, fallback về .env)
 facebookPostRouter.get(
   "/config",
   requireAuth as any,
   facebookPostController.getConfig as any
 );
-

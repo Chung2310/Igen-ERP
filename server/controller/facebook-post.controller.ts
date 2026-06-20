@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { facebookPostService } from "../service/facebook-post.service";
+import { SocialIntegrationModel } from "../model/social-integration.model";
 
 export const facebookPostController = {
   /**
@@ -68,42 +69,156 @@ export const facebookPostController = {
   },
 
   /**
+   * POST /api/v1/facebook/init-oauth
+   * Lưu App ID + App Secret vào DB cho công ty này,
+   * trả về integrationId để dùng làm state trong OAuth URL.
+   * Kiến trúc multi-tenant: mỗi công ty có App riêng.
+   */
+  async initOAuth(req: Request, res: Response) {
+    try {
+      const user = (req as any).user;
+      const { fbAppId, appSecret, displayName } = req.body;
+
+      if (!fbAppId || !appSecret) {
+        return res.status(400).json({
+          status: "error",
+          message: "Vui lòng nhập đầy đủ App ID và App Secret từ Meta Developer."
+        });
+      }
+
+      const companyCode = user?.companyCode;
+      if (!companyCode) {
+        return res.status(401).json({ status: "error", message: "Không xác định được công ty." });
+      }
+
+      // Tìm hoặc tạo mới bản ghi "pending" để lưu App credentials
+      // Sau khi OAuth xong, page token sẽ được cập nhật vào cùng bản ghi này
+      let integration = await SocialIntegrationModel.findOne({
+        companyCode,
+        platform: "Facebook",
+        fbAppId,
+        username: { $exists: false }, // chưa có page token
+      });
+
+      if (!integration) {
+        integration = await SocialIntegrationModel.create({
+          companyCode,
+          platform: "Facebook",
+          displayName: displayName || `Facebook App (${fbAppId})`,
+          fbAppId,
+          appSecret,
+          isConnected: false,
+          createdBy: user?.email || "system",
+          isMock: false,
+        });
+      } else {
+        // Cập nhật secret nếu đã có bản ghi cũ
+        integration.appSecret = appSecret;
+        integration.fbAppId = fbAppId;
+        if (displayName) integration.displayName = displayName;
+        await integration.save();
+      }
+
+      return res.status(200).json({
+        status: "success",
+        integrationId: integration._id.toString(),
+        fbAppId,
+      });
+    } catch (error: any) {
+      console.error("[facebookPostController.initOAuth] Error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: error.message || "Lỗi khi khởi tạo OAuth session.",
+      });
+    }
+  },
+
+  /**
    * GET /api/v1/facebook/oauth-callback
+   * Facebook redirect về đây sau khi user đăng nhập.
+   * state = integrationId để biết dùng App credentials nào từ DB.
    */
   async oauthCallback(req: Request, res: Response) {
+    const sendErrorHtml = (message: string) => {
+      return res.status(500).send(`
+        <!DOCTYPE html>
+        <html lang="vi">
+        <head><meta charset="UTF-8"/><title>Facebook Login Error</title>
+        <style>
+          body { font-family: sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; background: #fee2e2; }
+          .box { background: white; border-radius: 12px; padding: 30px; max-width: 400px; text-align: center; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+          h2 { color: #dc2626; margin-bottom: 12px; }
+          p { color: #6b7280; font-size: 13px; line-height: 1.5; }
+        </style>
+        </head>
+        <body>
+          <div class="box">
+            <h2>❌ Lỗi kết nối Facebook</h2>
+            <p>${message}</p>
+          </div>
+          <script>
+            if (window.opener) {
+              window.opener.postMessage({ type: 'FACEBOOK_OAUTH_FAILED', error: ${JSON.stringify(message)} }, '*');
+            }
+            setTimeout(() => window.close(), 5000);
+          </script>
+        </body>
+        </html>
+      `);
+    };
+
     try {
-      const { code, error, error_description } = req.query;
+      const { code, error, error_description, state } = req.query;
+
       if (error) {
-        return res.send(`
-          <!DOCTYPE html>
-          <html>
-          <head><title>Facebook Login Failed</title></head>
-          <body>
-            <h2>Kết nối Facebook thất bại</h2>
-            <p>Chi tiết lỗi: ${error_description || error}</p>
-            <script>
-              window.opener.postMessage({
-                type: 'FACEBOOK_OAUTH_FAILED',
-                error: '${error_description || error}'
-              }, '*');
-              setTimeout(() => window.close(), 5000);
-            </script>
-          </body>
-          </html>
-        `);
+        return sendErrorHtml(String(error_description || error));
       }
 
       if (!code) {
-        return res.status(400).send("Không tìm thấy mã authorization code từ Facebook.");
+        return sendErrorHtml("Không tìm thấy mã authorization code từ Facebook.");
       }
 
-      // Lấy URI tự động dựa trên giao thức và host hiện tại của server
-      // Nếu host không phải localhost/127.0.0.1, bắt buộc dùng https vì Facebook chỉ hỗ trợ HTTPS cho production
+      // Lấy App credentials từ DB theo integrationId (state)
+      let appId: string;
+      let appSecret: string;
+      let integrationId: string | null = null;
+
+      if (state && String(state).length === 24) {
+        // state là integrationId → lấy credentials từ DB (multi-tenant)
+        integrationId = String(state);
+        const integration = await SocialIntegrationModel.findById(integrationId);
+
+        if (!integration || !integration.fbAppId || !integration.appSecret) {
+          return sendErrorHtml("Không tìm thấy thông tin App Facebook trong hệ thống. Vui lòng thử lại.");
+        }
+
+        appId = integration.fbAppId;
+        appSecret = integration.appSecret;
+        console.log(`[FB OAuth] Dùng App ID từ DB: ${appId} (integration: ${integrationId})`);
+      } else {
+        // Fallback: dùng .env nếu không có state (backward compatibility)
+        appId = process.env.FB_APP_ID || "";
+        appSecret = process.env.FB_APP_SECRET || "";
+
+        if (!appId || !appSecret) {
+          return sendErrorHtml("App Facebook chưa được cấu hình. Vui lòng nhập App ID và App Secret.");
+        }
+        console.log(`[FB OAuth] Fallback dùng App ID từ .env: ${appId}`);
+      }
+
+      // Build redirect URI
       const host = req.get("host") || "";
       const isLocal = host.includes("localhost") || host.includes("127.0.0.1") || host.includes("192.168.");
       const protocol = isLocal ? req.protocol : "https";
       const redirectUri = `${protocol}://${host}/api/v1/facebook/oauth-callback`;
-      const pages = await facebookPostService.exchangeCodeForPages(String(code), redirectUri);
+
+      // Đổi code lấy danh sách pages
+      const pages = await facebookPostService.exchangeCodeForPagesWithCreds(
+        String(code),
+        redirectUri,
+        appId,
+        appSecret
+      );
 
       // Trả về HTML hiển thị danh sách page để user chọn
       return res.send(`
@@ -140,67 +255,39 @@ export const facebookPostController = {
             }
             .fb-logo {
               width: 48px; height: 48px;
-              background: white;
-              border-radius: 50%;
-              display: inline-flex;
-              align-items: center;
-              justify-content: center;
-              margin-bottom: 12px;
-              font-size: 28px;
-              font-weight: 900;
-              color: #1877F2;
+              background: white; border-radius: 50%;
+              display: inline-flex; align-items: center; justify-content: center;
+              margin-bottom: 12px; font-size: 28px; font-weight: 900; color: #1877F2;
             }
             .header h2 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
             .header p { font-size: 13px; opacity: 0.85; }
             .pages-list { padding: 20px; display: flex; flex-direction: column; gap: 12px; }
             .page-card {
-              display: flex;
-              align-items: center;
-              gap: 14px;
-              padding: 14px 16px;
-              border: 2px solid #e5e7eb;
-              border-radius: 12px;
-              cursor: pointer;
-              transition: all 0.2s ease;
-              background: white;
-              text-align: left;
-              width: 100%;
+              display: flex; align-items: center; gap: 14px;
+              padding: 14px 16px; border: 2px solid #e5e7eb;
+              border-radius: 12px; cursor: pointer;
+              transition: all 0.2s ease; background: white;
+              text-align: left; width: 100%;
             }
             .page-card:hover {
-              border-color: #1877F2;
-              background: #f0f4ff;
+              border-color: #1877F2; background: #f0f4ff;
               transform: translateY(-1px);
               box-shadow: 0 4px 12px rgba(24,119,242,0.2);
             }
             .page-avatar {
-              width: 48px; height: 48px;
-              border-radius: 50%;
+              width: 48px; height: 48px; border-radius: 50%;
               background: linear-gradient(135deg, #1877F2, #42a5f5);
               display: flex; align-items: center; justify-content: center;
-              color: white; font-size: 22px; font-weight: 700;
-              flex-shrink: 0;
+              color: white; font-size: 22px; font-weight: 700; flex-shrink: 0;
             }
             .page-info { flex: 1; overflow: hidden; }
-            .page-name {
-              font-size: 15px; font-weight: 600;
-              color: #111827;
-              white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-            }
+            .page-name { font-size: 15px; font-weight: 600; color: #111827; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
             .page-id { font-size: 12px; color: #6b7280; margin-top: 2px; }
             .page-category { font-size: 12px; color: #1877F2; margin-top: 2px; }
             .arrow { color: #9ca3af; font-size: 18px; }
-            .empty {
-              text-align: center; padding: 40px 20px; color: #6b7280;
-            }
+            .empty { text-align: center; padding: 40px 20px; color: #6b7280; }
             .empty-icon { font-size: 48px; margin-bottom: 12px; }
-            .footer {
-              padding: 16px 20px;
-              border-top: 1px solid #f3f4f6;
-              text-align: center;
-              font-size: 12px;
-              color: #9ca3af;
-            }
-            .loading { text-align: center; padding: 40px; color: #6b7280; }
+            .footer { padding: 16px 20px; border-top: 1px solid #f3f4f6; text-align: center; font-size: 12px; color: #9ca3af; }
           </style>
         </head>
         <body>
@@ -210,7 +297,7 @@ export const facebookPostController = {
               <h2>Chọn Fanpage để kết nối</h2>
               <p>Chọn một Fanpage bạn muốn tích hợp vào iGen ERP</p>
             </div>
-            <div class="pages-list" id="pagesList">
+            <div class="pages-list">
               ${(pages as any[]).length === 0 ? `
                 <div class="empty">
                   <div class="empty-icon">📭</div>
@@ -218,26 +305,28 @@ export const facebookPostController = {
                 </div>
               ` : (pages as any[]).map((p: any) => `
                 <button class="page-card" onclick="selectPage(${JSON.stringify(JSON.stringify(p))})">
-                  <div class="page-avatar">${(p.name || 'P')[0].toUpperCase()}</div>
+                  <div class="page-avatar">${(p.name || "P")[0].toUpperCase()}</div>
                   <div class="page-info">
-                    <div class="page-name">${p.name || 'Facebook Page'}</div>
+                    <div class="page-name">${p.name || "Facebook Page"}</div>
                     <div class="page-id">ID: ${p.id}</div>
-                    ${p.category ? `<div class="page-category">${p.category}</div>` : ''}
+                    ${p.category ? `<div class="page-category">${p.category}</div>` : ""}
                   </div>
                   <span class="arrow">›</span>
                 </button>
-              `).join('')}
+              `).join("")}
             </div>
-            <div class="footer">Dữ liệu được mã hóa và lưu trữ an toàn</div>
+            <div class="footer">Dữ liệu được mã hóa và lưu trữ an toàn · iGen ERP</div>
           </div>
           <script>
+            const integrationId = ${JSON.stringify(integrationId)};
             function selectPage(pageJsonStr) {
               try {
                 const page = JSON.parse(pageJsonStr);
                 if (window.opener) {
                   window.opener.postMessage({
                     type: 'FACEBOOK_PAGE_SELECTED',
-                    page: page
+                    page: page,
+                    integrationId: integrationId
                   }, '*');
                 }
                 setTimeout(() => window.close(), 300);
@@ -253,17 +342,23 @@ export const facebookPostController = {
       console.error("[facebookPostController.oauthCallback] Error:", err);
       return res.status(500).send(`
         <!DOCTYPE html>
-        <html>
-        <head><title>Facebook Login Error</title></head>
+        <html lang="vi">
+        <head><meta charset="UTF-8"/><title>Facebook Login Error</title>
+        <style>
+          body { font-family: sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; background: #fee2e2; }
+          .box { background: white; border-radius: 12px; padding: 30px; max-width: 400px; text-align: center; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+          h2 { color: #dc2626; margin-bottom: 12px; }
+          p { color: #6b7280; font-size: 13px; line-height: 1.5; }
+        </style>
+        </head>
         <body>
-          <h2>Lỗi hệ thống khi xử lý kết nối Facebook</h2>
-          <p>${err.message}</p>
+          <div class="box">
+            <h2>❌ Lỗi hệ thống</h2>
+            <p>${err.message}</p>
+          </div>
           <script>
             if (window.opener) {
-              window.opener.postMessage({
-                type: 'FACEBOOK_OAUTH_FAILED',
-                error: '${err.message.replace(/'/g, "\\'")}'
-              }, '*');
+              window.opener.postMessage({ type: 'FACEBOOK_OAUTH_FAILED', error: ${JSON.stringify(err.message)} }, '*');
             }
             setTimeout(() => window.close(), 5000);
           </script>
@@ -275,11 +370,40 @@ export const facebookPostController = {
 
   /**
    * GET /api/v1/facebook/config
+   * Trả về App ID của công ty từ DB (multi-tenant).
+   * Fallback về .env nếu chưa có cấu hình trong DB.
    */
   async getConfig(req: Request, res: Response) {
-    return res.status(200).json({
-      status: "success",
-      appId: process.env.FB_APP_ID || "1022427163587456"
-    });
+    try {
+      const user = (req as any).user;
+      const companyCode = user?.companyCode;
+
+      let appId = process.env.FB_APP_ID || "";
+
+      if (companyCode) {
+        // Tìm integration Facebook đang có App ID (chưa cần có page token)
+        const integration = await SocialIntegrationModel.findOne({
+          companyCode,
+          platform: "Facebook",
+          fbAppId: { $exists: true, $ne: "" },
+        }).sort({ connectedAt: -1 });
+
+        if (integration?.fbAppId) {
+          appId = integration.fbAppId;
+        }
+      }
+
+      return res.status(200).json({
+        status: "success",
+        appId,
+        source: appId === process.env.FB_APP_ID ? "env" : "database",
+      });
+    } catch (error: any) {
+      return res.status(200).json({
+        status: "success",
+        appId: process.env.FB_APP_ID || "",
+        source: "env",
+      });
+    }
   },
 };

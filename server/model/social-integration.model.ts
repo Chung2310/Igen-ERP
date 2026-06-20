@@ -11,10 +11,11 @@ const SocialIntegrationSchema = new Schema<ISocialIntegration>({
   connectedAt: { type: Date, default: Date.now },
   createdBy: { type: String, required: true },
   blotatoAccountId: { type: String, index: true },
+  fbAppId: { type: String },      // Facebook App ID (từ Meta Developer, mỗi công ty có riêng)
   accessToken: { type: String },
   refreshToken: { type: String },
   tokenExpiredAt: { type: Date },
-  appSecret: { type: String },
+  appSecret: { type: String },    // Facebook App Secret (từ Meta Developer, mỗi công ty có riêng)
   verifyToken: { type: String },
   isMock: { type: Boolean, default: false },
 });
