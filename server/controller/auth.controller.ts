@@ -120,7 +120,7 @@ export const authController = {
   async getMe(req: AuthenticatedRequest, res: Response) {
     try {
       const userId = req.user?.id;
-      console.log(`[Auth getMe] Request từ User ID: ${userId}, Email: ${req.user?.email}, Role: ${req.user?.role}`);
+      // console.log(`[Auth getMe] Request từ User ID: ${userId}, Email: ${req.user?.email}, Role: ${req.user?.role}`);
       if (!userId) {
         console.warn("[Auth getMe] Từ chối: Không tìm thấy User ID trong JWT.");
         return res.status(401).json({
@@ -138,7 +138,7 @@ export const authController = {
         });
       }
 
-      console.log(`[Auth getMe] Trả về profile cho user ${user.email}. FBConnected=${user.facebookIntegration?.isConnected}, FBPageId=${user.facebookIntegration?.pageId}`);
+      // console.log(`[Auth getMe] Trả về profile cho user ${user.email}. FBConnected=${user.facebookIntegration?.isConnected}, FBPageId=${user.facebookIntegration?.pageId}`);
       return res.status(200).json({
         status: "success",
         user,
@@ -159,7 +159,7 @@ export const authController = {
   async updateProfile(req: AuthenticatedRequest, res: Response) {
     try {
       const userId = req.user?.id;
-      console.log(`[Auth updateProfile] Request từ User ID: ${userId}. Body:`, JSON.stringify(req.body));
+      // console.log(`[Auth updateProfile] Request từ User ID: ${userId}. Body:`, JSON.stringify(req.body));
       if (!userId) {
         return res.status(401).json({
           status: "error",
@@ -168,10 +168,10 @@ export const authController = {
       }
 
       if (req.body.facebookIntegration) {
-        console.log(`[Auth updateProfile] Đang cập nhật Facebook Integration cho User ${userId}:`, JSON.stringify(req.body.facebookIntegration));
+        // console.log(`[Auth updateProfile] Đang cập nhật Facebook Integration cho User ${userId}:`, JSON.stringify(req.body.facebookIntegration));
       }
       if (req.body.tiktokIntegration) {
-        console.log(`[Auth updateProfile] Đang cập nhật TikTok Integration cho User ${userId}:`, JSON.stringify(req.body.tiktokIntegration));
+        // console.log(`[Auth updateProfile] Đang cập nhật TikTok Integration cho User ${userId}:`, JSON.stringify(req.body.tiktokIntegration));
       }
 
       const updatedUser = await authService.updateProfile(userId, req.body);
@@ -199,7 +199,7 @@ export const authController = {
         }
       }
 
-      console.log(`[Auth updateProfile] Cập nhật thành công cho user ${updatedUser.email}. FBConnected=${updatedUser.facebookIntegration?.isConnected}, FBPageId=${updatedUser.facebookIntegration?.pageId}`);
+      // console.log(`[Auth updateProfile] Cập nhật thành công cho user ${updatedUser.email}. FBConnected=${updatedUser.facebookIntegration?.isConnected}, FBPageId=${updatedUser.facebookIntegration?.pageId}`);
       return res.status(200).json({
         status: "success",
         message: "Cập nhật hồ sơ người dùng thành công",
