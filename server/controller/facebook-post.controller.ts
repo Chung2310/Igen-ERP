@@ -98,7 +98,11 @@ export const facebookPostController = {
       }
 
       // Lấy URI tự động dựa trên giao thức và host hiện tại của server
-      const redirectUri = `${req.protocol}://${req.get("host")}/api/v1/facebook/oauth-callback`;
+      // Nếu host không phải localhost/127.0.0.1, bắt buộc dùng https vì Facebook chỉ hỗ trợ HTTPS cho production
+      const host = req.get("host") || "";
+      const isLocal = host.includes("localhost") || host.includes("127.0.0.1") || host.includes("192.168.");
+      const protocol = isLocal ? req.protocol : "https";
+      const redirectUri = `${protocol}://${host}/api/v1/facebook/oauth-callback`;
       const pages = await facebookPostService.exchangeCodeForPages(String(code), redirectUri);
 
       // Trả về HTML chứa script postMessage gửi dữ liệu về cho cửa sổ cha (parent window)
