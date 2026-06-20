@@ -401,20 +401,29 @@ export const fbMessengerService = {
     const senderId = event.sender.id; // PSID của khách hàng
     const recipientId = event.recipient.id; // ID của Fanpage mình (pageId)
     const message = event.message;
-    const messageId = message.mid;
+    const messageId = String(message?.mid || `fb_in_${recipientId}_${senderId}_${Date.now()}`).trim();
     const timestamp = new Date(event.timestamp);
 
-    const text = message.text || "";
-    const attachments = (message.attachments || []).map((att: any) => ({
-      type: att.type,
-      url: att.payload?.url || "",
+    const text = String(message?.text || "").trim();
+    const rawAttachments = Array.isArray(message?.attachments) ? message.attachments : [];
+    const attachments = rawAttachments.map((att: any) => ({
+      type: att?.type || "attachment",
+      url: att?.payload?.url || "",
     }));
-    const quickReplyPayload = String(message.quick_reply?.payload || "").trim();
+    const quickReplyPayload = String(message?.quick_reply?.payload || "").trim();
 
     console.log(
       `[FB Service processIncomingMessage] 📥 NHẬN TIN: senderId(khách)=${senderId}, recipientId(pageId)=${recipientId}, ` +
-      `messageId=${messageId}, textLength=${text.length}, attachments=${attachments.length}, quickReply=${quickReplyPayload ? "yes" : "no"}`
+      `messageId=${messageId}, hasOriginalMid=${message?.mid ? "true" : "false"}, textLength=${text.length}, attachments=${attachments.length}, quickReply=${quickReplyPayload ? "yes" : "no"}`
     );
+
+    if (!text && attachments.length === 0 && !quickReplyPayload) {
+      console.warn(
+        `[FB Service processIncomingMessage] Bỏ qua event vì không có text, attachment hoặc quick reply hợp lệ. ` +
+        `senderId=${senderId}, recipientId=${recipientId}, messageId=${messageId}, payload=${JSON.stringify(message)}`
+      );
+      return;
+    }
 
     const token = await this.getPageAccessTokenByPageId(recipientId);
     console.log(`[FB Service processIncomingMessage] 🔑 TOKEN: Kết quả tra cứu token cho pageId=${recipientId}: ${token ? `CÓ TOKEN (...${token.slice(-6)})` : "KHÔNG CÓ TOKEN"}`);
