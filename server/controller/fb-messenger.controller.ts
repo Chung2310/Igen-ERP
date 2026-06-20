@@ -10,8 +10,11 @@ async function getFacebookPageConfig(userId: string): Promise<{ isConnected: boo
     return { isConnected: false };
   }
 
-  // Prefer company integration first so CRM follows the page configured in
-  // Settings > Company Integrations instead of a stale personal page mapping.
+  if (dbUser.facebookIntegration?.isConnected && dbUser.facebookIntegration.pageId) {
+    console.log(`[FB Config] Dung Facebook integration ca nhan cua user=${dbUser.email}, pageId=${dbUser.facebookIntegration.pageId}`);
+    return { isConnected: true, pageId: dbUser.facebookIntegration.pageId };
+  }
+
   const { SocialIntegrationModel } = require("../model/social-integration.model");
   const companyIntegration = await SocialIntegrationModel.findOne({
     companyCode: dbUser.companyCode,
@@ -20,13 +23,8 @@ async function getFacebookPageConfig(userId: string): Promise<{ isConnected: boo
   }).lean();
 
   if (companyIntegration && companyIntegration.username) {
-    console.log(`[FB Config] Dung Facebook company integration cua company=${dbUser.companyCode}, pageId=${companyIntegration.username}, displayName=${companyIntegration.displayName}`);
+    console.log(`[FB Config] Fallback Facebook company integration cua company=${dbUser.companyCode}, pageId=${companyIntegration.username}, displayName=${companyIntegration.displayName}`);
     return { isConnected: true, pageId: companyIntegration.username };
-  }
-
-  if (dbUser.facebookIntegration?.isConnected && dbUser.facebookIntegration.pageId) {
-    console.log(`[FB Config] Fallback Facebook integration ca nhan cua user=${dbUser.email}, pageId=${dbUser.facebookIntegration.pageId}`);
-    return { isConnected: true, pageId: dbUser.facebookIntegration.pageId };
   }
 
   console.warn(`[FB Config] Khong tim thay Facebook integration hoat dong cho user=${dbUser.email}, company=${dbUser.companyCode}`);

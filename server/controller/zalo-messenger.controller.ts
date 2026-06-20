@@ -218,6 +218,33 @@ export const zaloMessengerController = {
     }
   },
 
+  async validateIntegration(req: any, res: Response): Promise<any> {
+    try {
+      const { oaId, oaName, accessToken } = req.body;
+      if (!oaId || !accessToken) {
+        return res.status(400).json({ success: false, message: "Vui long nhap OA ID va Access Token." });
+      }
+
+      const result = await zaloMessengerService.validateIntegrationToken({
+        oaId,
+        oaName,
+        accessToken,
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: "Xac thuc Zalo OA voi ben thu 3 thanh cong.",
+        data: result,
+      });
+    } catch (error: any) {
+      console.error("[Zalo Controller validateIntegration] That bai:", error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || "Khong the xac thuc Zalo OA.",
+      });
+    }
+  },
+
   /**
    * DELETE /api/v1/zalo/integration
    * API hủy tích hợp Zalo OA

@@ -485,6 +485,9 @@ export const geminiController = {
         effectiveRagContext = {
           contextText: String(aiConfig.trainingKnowledge).slice(0, 4500),
           matches: 0,
+          bestScore: 0,
+          productCandidateNames: [],
+          shouldAskProductConfirmation: false,
           companyCode,
         };
       }
