@@ -14,6 +14,16 @@ const pendingReplies = new Map<string, { timeout: NodeJS.Timeout; messageKey: st
 const generatingReplies = new Set<string>();
 const HUMAN_INTERVENTION_GUARD_ENABLED = false;
 const DEFAULT_MESSAGE_GROUPING_DELAY_MS = 7000;
+const DEFAULT_BUBBLE_DELAY_MS = 2000;
+
+function getBubbleDelayMs() {
+  const configuredDelaySeconds = Number(process.env.AI_REPLY_BUBBLE_DELAY_SECONDS);
+  if (Number.isFinite(configuredDelaySeconds) && configuredDelaySeconds >= 0) {
+    return configuredDelaySeconds * 1000;
+  }
+
+  return DEFAULT_BUBBLE_DELAY_MS;
+}
 
 function getMessageGroupingDelayMs() {
   const configuredDelaySeconds = Number(process.env.AI_REPLY_GROUPING_DELAY_SECONDS);
@@ -26,6 +36,93 @@ function getMessageGroupingDelayMs() {
 
 function normalizeIncomingText(text: string) {
   return String(text || "").trim();
+}
+
+function splitReplyIntoMessageBubbles(text: string) {
+  const normalized = String(text || "")
+    .replace(/\r/g, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  if (!normalized) return [];
+
+  const rawBlocks = normalized
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const bubbles: string[] = [];
+  let currentBubble = "";
+
+  const shouldStartNewBubble = (current: string, next: string) => {
+    const currentTrimmed = current.trim();
+    const nextTrimmed = next.trim();
+
+    if (!currentTrimmed || !nextTrimmed) return false;
+    if (currentTrimmed.length >= 210) return true;
+    if (`${currentTrimmed} ${nextTrimmed}`.length > 260) return true;
+    if (/^dạ[,.! ]/i.test(nextTrimmed)) return true;
+
+    if (currentTrimmed.length <= 55 && nextTrimmed.length <= 170) {
+      return false;
+    }
+
+    if (/^(ngoài ra|bên cạnh đó|đồng thời|tiếp theo|còn với|trường hợp|nếu|tuy nhiên)\b/i.test(nextTrimmed)) {
+      return true;
+    }
+
+    if (/^(với|về|đối với)\b/i.test(nextTrimmed) && currentTrimmed.length >= 85) {
+      return true;
+    }
+
+    return false;
+  };
+
+  const pushSegment = (segment: string) => {
+    const cleanSegment = segment.trim();
+    if (!cleanSegment) return;
+
+    if (!currentBubble) {
+      currentBubble = cleanSegment;
+      return;
+    }
+
+    if (shouldStartNewBubble(currentBubble, cleanSegment)) {
+      bubbles.push(currentBubble);
+      currentBubble = cleanSegment;
+      return;
+    }
+
+    const shouldKeepSeparated = false; /* legacy split rule disabled
+      /^dạ[,.! ]/i.test(cleanSegment) ||
+      /^(với|còn|ngoài ra|về|nếu|trường hợp)/i.test(cleanSegment);
+
+    */
+    if (shouldKeepSeparated || `${currentBubble} ${cleanSegment}`.length > 180) {
+      bubbles.push(currentBubble);
+      currentBubble = cleanSegment;
+      return;
+    }
+
+    currentBubble = `${currentBubble} ${cleanSegment}`.trim();
+  };
+
+  for (const block of rawBlocks) {
+    const sentences = block
+      .split(/(?<=[.!?])\s+/)
+      .map((sentence) => sentence.trim())
+      .filter(Boolean);
+
+    for (const sentence of sentences) {
+      pushSegment(sentence);
+    }
+  }
+
+  if (currentBubble) {
+    bubbles.push(currentBubble);
+  }
+
+  return bubbles.slice(0, 6);
 }
 
 function splitHistoryAndPendingInboundMessages(messages: any[]) {
@@ -59,6 +156,16 @@ function splitHistoryAndPendingInboundMessages(messages: any[]) {
     latestPendingMessage: pendingInboundMessages[pendingInboundMessages.length - 1] || null,
   };
 }
+
+type ResolvedAutoReplyOwner = {
+  companyCode: string;
+  selectedUser: any | null;
+  aiConfig: any | null;
+  source: "personal_enabled" | "personal_fallback" | "company_enabled" | "company_fallback" | "cross_company_fallback" | "none";
+  userLevelOwners: any[];
+  companyIntegrations: any[];
+  uniqueCandidates: any[];
+};
 
 async function collectCandidateUsers(
   channel: "facebook" | "zalo",
@@ -114,6 +221,109 @@ async function collectCandidateUsers(
   );
 
   return {
+    userLevelOwners,
+    companyIntegrations,
+    uniqueCandidates,
+  };
+}
+
+async function resolveAutoReplyOwner(
+  channel: "facebook" | "zalo",
+  resolvedPlatformId: string
+): Promise<ResolvedAutoReplyOwner> {
+  const {
+    userLevelOwners,
+    companyIntegrations,
+    uniqueCandidates,
+  } = await collectCandidateUsers(channel, resolvedPlatformId);
+
+  const directEnabledUser =
+    userLevelOwners.find((candidate: any) => candidate?.aiAutoReplyConfig?.enabled === true) || null;
+  const directUserFallback = userLevelOwners[0] || null;
+  const companyCodeFromIntegration = companyIntegrations[0]?.companyCode || null;
+
+  if (directEnabledUser) {
+    return {
+      companyCode: directEnabledUser.companyCode || companyCodeFromIntegration || "SYSTEM",
+      selectedUser: directEnabledUser,
+      aiConfig: directEnabledUser.aiAutoReplyConfig || null,
+      source: "personal_enabled",
+      userLevelOwners,
+      companyIntegrations,
+      uniqueCandidates,
+    };
+  }
+
+  const companyEnabledUser = companyCodeFromIntegration
+    ? uniqueCandidates.find(
+        (candidate: any) =>
+          candidate?.companyCode === companyCodeFromIntegration &&
+          candidate?.aiAutoReplyConfig?.enabled === true
+      ) || null
+    : null;
+
+  if (companyEnabledUser) {
+    return {
+      companyCode: companyCodeFromIntegration || companyEnabledUser.companyCode || "SYSTEM",
+      selectedUser: companyEnabledUser,
+      aiConfig: companyEnabledUser.aiAutoReplyConfig || null,
+      source: "company_enabled",
+      userLevelOwners,
+      companyIntegrations,
+      uniqueCandidates,
+    };
+  }
+
+  if (directUserFallback) {
+    return {
+      companyCode: directUserFallback.companyCode || companyCodeFromIntegration || "SYSTEM",
+      selectedUser: directUserFallback,
+      aiConfig: directUserFallback.aiAutoReplyConfig || null,
+      source: "personal_fallback",
+      userLevelOwners,
+      companyIntegrations,
+      uniqueCandidates,
+    };
+  }
+
+  const companyFallbackUser = companyCodeFromIntegration
+    ? uniqueCandidates.find((candidate: any) => candidate?.companyCode === companyCodeFromIntegration) || null
+    : null;
+
+  if (companyFallbackUser) {
+    return {
+      companyCode: companyCodeFromIntegration || companyFallbackUser.companyCode || "SYSTEM",
+      selectedUser: companyFallbackUser,
+      aiConfig: companyFallbackUser.aiAutoReplyConfig || null,
+      source: "company_fallback",
+      userLevelOwners,
+      companyIntegrations,
+      uniqueCandidates,
+    };
+  }
+
+  const crossCompanyFallback =
+    uniqueCandidates.find((candidate: any) => candidate?.aiAutoReplyConfig?.enabled === true) ||
+    uniqueCandidates[0] ||
+    null;
+
+  if (crossCompanyFallback) {
+    return {
+      companyCode: crossCompanyFallback.companyCode || companyCodeFromIntegration || "SYSTEM",
+      selectedUser: crossCompanyFallback,
+      aiConfig: crossCompanyFallback.aiAutoReplyConfig || null,
+      source: "cross_company_fallback",
+      userLevelOwners,
+      companyIntegrations,
+      uniqueCandidates,
+    };
+  }
+
+  return {
+    companyCode: companyCodeFromIntegration || directUserFallback?.companyCode || "SYSTEM",
+    selectedUser: null,
+    aiConfig: null,
+    source: "none",
     userLevelOwners,
     companyIntegrations,
     uniqueCandidates,
@@ -185,32 +395,21 @@ export const aiAutoReplyService = {
       let aiConfig = null;
 
       const {
+        companyCode: targetCompanyCode,
+        selectedUser,
+        aiConfig: resolvedAiConfig,
+        source: ownerResolutionSource,
         userLevelOwners,
         companyIntegrations,
         uniqueCandidates,
-      } = await collectCandidateUsers(channel, resolvedPlatformId);
+      } = await resolveAutoReplyOwner(channel, resolvedPlatformId);
 
-      // A. Xác định targetCompanyCode từ tích hợp hoặc chủ sở hữu cấp cá nhân
-      const targetCompanyCode = companyIntegrations[0]?.companyCode || userLevelOwners[0]?.companyCode || "SYSTEM";
       console.log(`[AI AutoReply] Xác định targetCompanyCode cho hội thoại: ${targetCompanyCode}`);
-
-      // B. Chọn user phù hợp nhất thuộc công ty này
-      let selectedUser = uniqueCandidates.find(
-        u => u.companyCode === targetCompanyCode && u.aiAutoReplyConfig?.enabled === true
-      );
+      console.log(`[AI AutoReply] Ket qua resolve owner: source=${ownerResolutionSource}, selectedUser=${selectedUser?.email || "none"}`);
 
       if (selectedUser) {
+        console.log(`[AI AutoReply] Owner resolve ok: ${selectedUser.email}`);
         console.log(`[AI AutoReply] Chọn được user thuộc công ty ${targetCompanyCode} đang BẬT AI: ${selectedUser.email}`);
-      } else {
-        selectedUser = uniqueCandidates.find(u => u.companyCode === targetCompanyCode);
-        if (selectedUser) {
-          console.log(`[AI AutoReply] Tìm thấy user thuộc công ty ${targetCompanyCode} nhưng chưa bật AI (dùng làm fallback): ${selectedUser.email}`);
-        } else {
-          selectedUser = uniqueCandidates.find(u => u.aiAutoReplyConfig?.enabled === true) || uniqueCandidates[0];
-          if (selectedUser) {
-            console.log(`[AI AutoReply] Fallback chọn user ngoài công ty: ${selectedUser.email}`);
-          }
-        }
       }
 
       if (!selectedUser) {
@@ -230,10 +429,10 @@ export const aiAutoReplyService = {
       }
 
       user = selectedUser;
-      aiConfig = selectedUser.aiAutoReplyConfig;
+      aiConfig = resolvedAiConfig || selectedUser.aiAutoReplyConfig;
       console.log(
         `[AI AutoReply] Owner selected: channel=${channel}, platformId=${resolvedPlatformId}, ` +
-        `conversationId=${conversationId}, user=${user.email}, company=${targetCompanyCode} (userCompany=${user.companyCode || "SYSTEM"}), enabled=${!!aiConfig?.enabled}`
+        `conversationId=${conversationId}, user=${user.email}, company=${targetCompanyCode} (userCompany=${user.companyCode || "SYSTEM"}), enabled=${!!aiConfig?.enabled}, source=${ownerResolutionSource}`
       );
 
       if (!aiConfig || !aiConfig.enabled) {
@@ -419,6 +618,10 @@ export const aiAutoReplyService = {
           console.log(`[AI AutoReply] Gemini start: conversationId=${conversationId}, channel=${channel}, historyCount=${history.length}, groupedMessageCount=${groupedMessageCount}, groupedTextLength=${groupedCustomerMessage.length}`);
           generatingReplies.add(conversationId);
 
+          if (channel === "facebook") {
+            await fbMessengerService.sendSenderAction(resolvedPlatformId, conversationId, "typing_on").catch(() => {});
+          }
+
           try {
             const startedAt = Date.now();
             const companyCode = targetCompanyCode;
@@ -430,24 +633,31 @@ export const aiAutoReplyService = {
               topK: 5,
             });
 
-            let effectiveRagContext = { ...ragContext, companyCode };
-            if (!ragContext.contextText && aiConfig.trainingKnowledge) {
-              effectiveRagContext = {
-                contextText: String(aiConfig.trainingKnowledge).slice(0, 4500),
-                matches: 0,
-                companyCode,
-              };
-            }
+            const effectiveRagContext = aiKnowledgeService.buildEffectiveRagContext({
+              companyCode,
+              ragContext,
+              trainingKnowledge: aiConfig.trainingKnowledge,
+            });
+            const effectiveRagContextDebug = aiKnowledgeService.describeEffectiveRagContext(effectiveRagContext as any);
 
             console.log(
               `[AI AutoReply] Context ready: conversationId=${conversationId}, channel=${channel}, ` +
-              `matches=${effectiveRagContext.matches}, contextLength=${effectiveRagContext.contextText?.length || 0}`
+              `matches=${effectiveRagContext.matches}, contextLength=${effectiveRagContext.contextText?.length || 0}, ` +
+              `source=${(effectiveRagContext as any).source || "unknown"}`
             );
 
             console.log(
               `[AI AutoReply] 📚 TRUY XUẤT RAG: Context ready cho conversation=${conversationId}, matches=${effectiveRagContext.matches}, ` +
               `contextLength=${effectiveRagContext.contextText?.length || 0}`
             );
+
+            console.log("[AI AutoReply] Context diagnostics:", JSON.stringify({
+              conversationId,
+              channel,
+              ownerEmail: user?.email || null,
+              ownerCompanyCode: companyCode,
+              ...effectiveRagContextDebug,
+            }));
 
             // Call Gemini Service
             console.log(`[AI AutoReply] 🧠 GEMINI CALL: Đang gửi request tới Gemini cho conversation=${conversationId}...`);
@@ -496,11 +706,30 @@ export const aiAutoReplyService = {
 
             console.log(`[AI AutoReply] Gemini ok: conversationId=${conversationId}, channel=${channel}, replyLength=${aiResponse.text.length}`);
             try {
-              // Send response using existing sendReply helper
-              if (channel === "zalo") {
-                await zaloMessengerService.sendReply(resolvedPlatformId, conversationId, aiResponse.text);
-              } else {
-                await fbMessengerService.sendReply(resolvedPlatformId, conversationId, aiResponse.text);
+              const replyBubbles = splitReplyIntoMessageBubbles(aiResponse.text);
+              const fallbackReply = aiResponse.text.trim();
+              const messagesToSend = replyBubbles.length > 0 ? replyBubbles : [fallbackReply];
+
+              console.log(
+                `[AI AutoReply] Reply bubbles prepared: conversationId=${conversationId}, channel=${channel}, bubbleCount=${messagesToSend.length}`
+              );
+
+              for (let index = 0; index < messagesToSend.length; index += 1) {
+                const bubbleText = messagesToSend[index];
+                if (!bubbleText) continue;
+
+                if (channel === "zalo") {
+                  await zaloMessengerService.sendReply(resolvedPlatformId, conversationId, bubbleText);
+                } else {
+                  await fbMessengerService.sendReply(resolvedPlatformId, conversationId, bubbleText);
+                }
+
+                if (index < messagesToSend.length - 1) {
+                  if (channel === "facebook") {
+                    await fbMessengerService.sendSenderAction(resolvedPlatformId, conversationId, "typing_on").catch(() => {});
+                  }
+                  await new Promise((resolve) => setTimeout(resolve, getBubbleDelayMs()));
+                }
               }
 
               await aiKnowledgeService.createReplyLog({

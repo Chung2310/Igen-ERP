@@ -1,4 +1,119 @@
 import { AIMediaModel } from "../model/ai-media.model";
+import { broadcastEvent } from "../socket";
+
+/**
+ * Base URL của Hermes Worker Pool API (port 8643)
+ * POST /submit  → { task_id, status: "queued" }
+ * POST /status  → { id, status, result_url, error, ... }
+ */
+function getWorkerUrl(): string {
+  return String(process.env.HERMES_WORKER_URL || "http://103.90.224.34:8643").replace(/\/$/, "");
+}
+
+/**
+ * Tạo Webhook URL để Worker Pool gọi lại ERP khi task xong
+ * Format: {APP_URL}/api/v1/gemini/hermes-webhook?recordId={recordId}
+ */
+function getWebhookUrl(recordId: string): string {
+  const baseUrl = String(process.env.APP_URL || "").trim().replace(/\/$/, "");
+  if (!baseUrl) return "";
+  try {
+    const url = new URL("/api/v1/gemini/hermes-webhook", baseUrl);
+    url.searchParams.set("recordId", recordId);
+    return url.toString();
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Tạo Cloudinary prompt để Hermes tự upload kết quả
+ */
+function buildCloudinaryPrompt(): string {
+  return `
+Sau khi hoàn thành chỉnh sửa video, bạn PHẢI tải kết quả lên Cloudinary với thông tin:
+- CLOUDINARY_CLOUD_NAME: "${process.env.CLOUDINARY_CLOUD_NAME || ""}"
+- CLOUDINARY_API_KEY: "${process.env.CLOUDINARY_API_KEY || ""}"
+- CLOUDINARY_API_SECRET: "${process.env.CLOUDINARY_API_SECRET || ""}"
+
+Trả về URL Cloudinary hợp lệ dạng: https://res.cloudinary.com/...
+`.trim();
+}
+
+/**
+ * Poll trạng thái task từ Worker Pool mỗi POLL_INTERVAL ms,
+ * tối đa MAX_POLL_ATTEMPTS lần (~10 phút).
+ */
+const POLL_INTERVAL_MS = 10_000;   // 10 giây
+const MAX_POLL_ATTEMPTS = 120;     // 120 × 10s = 20 phút
+
+async function pollTaskStatus(
+  taskId: string,
+  recordId: string
+): Promise<{ status: string; result_url?: string; error?: string }> {
+  const workerUrl = getWorkerUrl();
+  for (let i = 0; i < MAX_POLL_ATTEMPTS; i++) {
+    await new Promise(r => setTimeout(r, POLL_INTERVAL_MS));
+
+    // Fast-exit: nếu webhook đã cập nhật record thành completed/failed thì dừng poll
+    try {
+      const current = await AIMediaModel.findById(recordId, { "metadata.status": 1, url: 1 }).lean();
+      const currentStatus = (current as any)?.metadata?.status;
+      if (currentStatus === "completed" || currentStatus === "failed") {
+        console.log(`[Hermes Poll] Record ${recordId} already ${currentStatus} (webhook fired). Stopping poll.`);
+        return {
+          status: currentStatus === "completed" ? "done" : "failed",
+          result_url: (current as any)?.url
+        };
+      }
+    } catch { /* ignore DB errors, continue polling */ }
+
+    // Poll Worker Pool status
+    try {
+      const res = await fetch(`${workerUrl}/status`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ task_id: taskId }),
+      });
+      if (!res.ok) {
+        console.warn(`[Hermes Poll] /status HTTP ${res.status}, retry ${i + 1}/${MAX_POLL_ATTEMPTS}`);
+        continue;
+      }
+      const data = await res.json() as { status?: string; result_url?: string; error?: string };
+      const status = data.status || "";
+      console.log(`[Hermes Poll] task=${taskId} status=${status} attempt=${i + 1}`);
+      if (status === "done" || status === "failed") {
+        return { status, result_url: data.result_url, error: data.error };
+      }
+
+      // Tăng tiến độ giả định từ 25% lên tối đa 95% trong lúc chờ đợi
+      const currentProgress = Math.min(25 + Math.floor((i / MAX_POLL_ATTEMPTS) * 70), 95);
+      try {
+        const updated = await AIMediaModel.findByIdAndUpdate(
+          recordId,
+          {
+            "metadata.progress": currentProgress,
+            "metadata.description": `Hermes Worker đang xử lý video. Đang chờ kết quả... (Tiến độ: ${currentProgress}%)`
+          },
+          { new: true }
+        ).lean();
+
+        if (updated) {
+          broadcastEvent("video_status_updated", {
+            videoId: recordId,
+            status: "processing",
+            updates: [updated]
+          });
+        }
+      } catch (dbErr) {
+        console.warn(`[Hermes Poll] Không thể cập nhật tiến độ giả định cho record ${recordId}:`, dbErr);
+      }
+    } catch (err) {
+      console.warn(`[Hermes Poll] Lỗi kết nối /status attempt ${i + 1}:`, err);
+    }
+  }
+  return { status: "failed", error: "Timeout: Hermes Worker không hoàn thành sau 10 phút" };
+}
 
 export const hermesService = {
   async editVideo(
@@ -13,240 +128,132 @@ export const hermesService = {
       videoDurations?: number[];
     }
   ): Promise<{ status: string; record: any; blueprint: any }> {
-    // Save record to database with status processing
+    // Tạo record ban đầu với trạng thái processing
     const record = await AIMediaModel.create({
       userId,
       mediaType: "video",
-      url: `pending://hermes-agent/${userId}-${Date.now()}`,
+      url: `pending://hermes-worker/${userId}-${Date.now()}`,
       prompt,
       metadata: {
         status: "processing",
         progress: 5,
-        provider: "hermes-agent",
-        title: `Biên tập bằng Hermes Agent: ${prompt}`,
-        description: `Đang kết nối tới Hermes Agent để xử lý video...`,
+        provider: "hermes-worker",
+        title: `Biên tập bằng Hermes Worker: ${prompt}`,
+        description: "Đang gửi yêu cầu đến Hermes Worker Pool...",
         blueprint: "{}",
         renderLogs: [
           "[Hermes] Khởi tạo yêu cầu biên tập video...",
           `[Hermes] Video đầu vào: ${videoUrl}`,
-          `[Hermes] Yêu cầu: ${prompt}`
+          `[Hermes] Yêu cầu: ${prompt}`,
         ],
         aspectRatio: options?.aspectRatio || "16:9",
         resolution: options?.resolution || "720p",
-      }
+      },
     });
 
-    // Run the background task to call Hermes Agent API with streaming
-    void this.executeHermesEditVideoJob(record._id.toString(), userId, videoUrl, prompt, {
-      aspectRatio: options?.aspectRatio,
-      resolution: options?.resolution
-    });
+    // Chạy background job — không await để trả về ngay cho client
+    void this.executeHermesWorkerJob(record._id.toString(), userId, videoUrl, prompt);
 
-    return {
-      status: "success",
-      record,
-      blueprint: null
-    };
+    return { status: "success", record, blueprint: null };
   },
 
-  async executeHermesEditVideoJob(
+  async executeHermesWorkerJob(
     recordId: string,
     userId: string,
     videoUrl: string,
-    prompt: string,
-    options?: {
-      aspectRatio?: string;
-      resolution?: string;
-    }
-  ) {
-    console.log(`[Hermes Job] Starting task for record ${recordId}`);
-    const logs = [
-      "[Hermes] Khởi tạo kết nối với Hermes Agent...",
+    prompt: string
+  ): Promise<void> {
+    const workerUrl = getWorkerUrl();
+    console.log(`[Hermes Job] Starting for record=${recordId} workerUrl=${workerUrl}`);
+
+    const logs: string[] = [
+      "[Hermes] Khởi tạo kết nối với Hermes Worker Pool...",
       `[Hermes] Video đầu vào: ${videoUrl}`,
-      `[Hermes] Yêu cầu: ${prompt}`
+      `[Hermes] Yêu cầu: ${prompt}`,
     ];
 
-    const updateLogs = async (progress: number, newLog?: string) => {
+    const updateLogs = async (progress: number, description: string, newLog?: string) => {
       if (newLog) {
         console.log(`[Hermes Job] [${progress}%] ${newLog}`);
         logs.push(newLog);
       }
       await AIMediaModel.findByIdAndUpdate(recordId, {
         "metadata.progress": progress,
-        "metadata.renderLogs": logs,
-        "metadata.description": `Đang kết xuất video qua Hermes Agent. Tiến trình: ${progress}%`
+        "metadata.description": description,
+        "metadata.renderLogs": [...logs],
       });
     };
 
     try {
-      await updateLogs(10, "[Hermes] Đang gửi yêu cầu và khởi tạo stream...");
+      // ── Bước 1: Submit task ───────────────────────────────────────────────
+      await updateLogs(10, "Đang gửi yêu cầu đến Hermes Worker Pool...", "[Hermes] Đang gọi POST /submit...");
 
-      const cloudinaryPrompt = `
-Sau khi đã hoàn thành việc chỉnh sửa video theo yêu cầu, bạn PHẢI tải (upload) video kết quả lên Cloudinary sử dụng thông tin tài khoản Cloudinary sau:
-- CLOUDINARY_CLOUD_NAME: "${process.env.CLOUDINARY_CLOUD_NAME || ""}"
-- CLOUDINARY_API_KEY: "${process.env.CLOUDINARY_API_KEY || ""}"
-- CLOUDINARY_API_SECRET: "${process.env.CLOUDINARY_API_SECRET || ""}"
+      const fullPrompt = `Hãy thực hiện chỉnh sửa video sau theo yêu cầu của người dùng.\n\nVideo nguồn: ${videoUrl}\nYêu cầu: "${prompt}"\n\n${buildCloudinaryPrompt()}`;
 
-Yêu cầu đầu ra:
-Bạn BẮT BUỘC phải trả về đường dẫn URL của video sau khi đã upload lên Cloudinary trong nội dung phản hồi của bạn. Đường dẫn này phải là một URL hợp lệ có định dạng của Cloudinary (ví dụ: https://res.cloudinary.com/...).
-`;
+      // Tạo webhook URL để Worker Pool gọi callback ngay khi xong
+      const webhookUrl = getWebhookUrl(recordId);
+      if (webhookUrl) {
+        console.log(`[Hermes Job] Webhook URL: ${webhookUrl}`);
+      } else {
+        console.warn("[Hermes Job] APP_URL chưa cấu hình — webhook bị tắt, chỉ dùng polling");
+      }
 
-      const systemPrompt = `Bạn là một trợ lý ảo hỗ trợ chỉnh sửa và biên tập video chuyên nghiệp. Bạn có khả năng gọi các MCP tools/skills để xử lý video và tải lên Cloudinary.`;
-      const userPrompt = `Hãy thực hiện chỉnh sửa video sau theo yêu cầu của người dùng.
-
-Video nguồn cần chỉnh sửa: ${videoUrl}
-Yêu cầu chỉnh sửa của người dùng: "${prompt}"
-
-${cloudinaryPrompt}
-`;
-      const hermesUrl = `${process.env.HERMES_API_URL || "https://agent.igentechsolutions.com"}/v1/chat/completions`;
-      const hermesKey = process.env.HERMES_API_KEY || "";
-
-      const response = await fetch(hermesUrl, {
+      const submitRes = await fetch(`${workerUrl}/submit`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${hermesKey}`
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "hermes",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt }
-          ],
-          temperature: 0.7,
-          stream: true
-        })
+          video_url: videoUrl,
+          prompt: fullPrompt,
+          user_id: userId,
+          ...(webhookUrl ? { webhook_url: webhookUrl } : {}),
+        }),
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Hermes API error: ${response.status} - ${errorText}`);
+      if (!submitRes.ok) {
+        const errText = await submitRes.text();
+        throw new Error(`Hermes Worker /submit lỗi ${submitRes.status}: ${errText}`);
       }
 
-      const reader = response.body;
-      if (!reader) {
-        throw new Error("No response body from Hermes Agent");
+      const submitData = await submitRes.json() as { task_id?: string; status?: string };
+      const taskId = submitData.task_id;
+
+      if (!taskId) {
+        throw new Error("Hermes Worker không trả về task_id");
       }
 
-      await updateLogs(20, "[Hermes] Đang nhận phản hồi từ Hermes Agent...");
+      console.log(`[Hermes Job] Submitted. task_id=${taskId}`);
+      await AIMediaModel.findByIdAndUpdate(recordId, {
+        "metadata.hermesTaskId": taskId,
+      });
 
-      let fullText = "";
-      const decoder = new TextDecoder();
-      let buffer = "";
-      let lastProgressUpdate = Date.now();
-      let chunkCount = 0;
+      await updateLogs(
+        20,
+        `Task đã vào hàng đợi (ID: ${taskId}). Đang xử lý...`,
+        `[Hermes] Submit thành công. Task ID: ${taskId}`
+      );
 
-      if (typeof (reader as any)[Symbol.asyncIterator] === "function") {
-        for await (const chunk of reader as any) {
-          chunkCount++;
-          buffer += typeof chunk === "string" ? chunk : decoder.decode(chunk, { stream: true });
+      // ── Bước 2: Poll trạng thái ─────────────────────────────────────────
+      await updateLogs(25, "Hermes Worker đang xử lý video. Đang chờ kết quả...", "[Hermes] Bắt đầu polling trạng thái task...");
 
-          let lineEnd;
-          while ((lineEnd = buffer.indexOf("\n")) !== -1) {
-            const line = buffer.slice(0, lineEnd).trim();
-            buffer = buffer.slice(lineEnd + 1);
+      const pollResult = await pollTaskStatus(taskId, recordId);
 
-            if (line.startsWith("data:")) {
-              const dataStr = line.slice(5).trim();
-              if (dataStr === "[DONE]") {
-                break;
-              }
-              try {
-                const parsed = JSON.parse(dataStr);
-                const content = parsed.choices?.[0]?.delta?.content || "";
-                if (content) {
-                  fullText += content;
-                }
-              } catch (e) {
-                // Ignore partial/invalid JSON chunks
-              }
-            }
-          }
-
-          if (Date.now() - lastProgressUpdate > 3000) {
-            const progressPercent = Math.min(85, 20 + Math.floor(chunkCount / 10));
-            const previewText = fullText.slice(-100);
-            await updateLogs(progressPercent, `[Hermes Streaming] ...${previewText}`);
-            lastProgressUpdate = Date.now();
-          }
-        }
-      } else {
-        const streamReader = (reader as any).getReader();
-        let done = false;
-        while (!done) {
-          const { value, done: isDone } = await streamReader.read();
-          done = isDone;
-          if (value) {
-            chunkCount++;
-            buffer += decoder.decode(value, { stream: true });
-
-            let lineEnd;
-            while ((lineEnd = buffer.indexOf("\n")) !== -1) {
-              const line = buffer.slice(0, lineEnd).trim();
-              buffer = buffer.slice(lineEnd + 1);
-
-              if (line.startsWith("data:")) {
-                const dataStr = line.slice(5).trim();
-                if (dataStr === "[DONE]") {
-                  break;
-                }
-                try {
-                  const parsed = JSON.parse(dataStr);
-                  const content = parsed.choices?.[0]?.delta?.content || "";
-                  if (content) {
-                    fullText += content;
-                  }
-                } catch (e) {
-                  // Ignore partial/invalid JSON chunks
-                }
-              }
-            }
-          }
-
-          if (Date.now() - lastProgressUpdate > 3000) {
-            const progressPercent = Math.min(85, 20 + Math.floor(chunkCount / 10));
-            const previewText = fullText.slice(-100);
-            await updateLogs(progressPercent, `[Hermes Streaming] ...${previewText}`);
-            lastProgressUpdate = Date.now();
-          }
-        }
-      }
-
-      await updateLogs(90, `[Hermes Completed] Nhận phản hồi hoàn tất. Đang trích xuất URL video...`);
-      console.log("[Hermes Job] Full response:", fullText);
-
-      // Search for Cloudinary URL inside fullText
-      const cloudinaryRegex = /(https:\/\/res\.cloudinary\.com\/[^\s\)\"\`\'\>]+)/i;
-      const match = fullText.match(cloudinaryRegex);
-      const extractedUrl = match ? match[1] : null;
-
-      if (extractedUrl) {
-        await updateLogs(95, `[Hermes] Tìm thấy URL video đã upload: ${extractedUrl}`);
-
+      // ── Bước 3: Xử lý kết quả ───────────────────────────────────────────
+      if (pollResult.status === "done" && pollResult.result_url) {
         await AIMediaModel.findByIdAndUpdate(recordId, {
-          url: extractedUrl,
+          url: pollResult.result_url,
           "metadata.status": "completed",
           "metadata.progress": 100,
-          "metadata.description": "Biên tập video hoàn tất."
+          "metadata.description": "Video đã được biên tập và upload thành công!",
+          "metadata.renderLogs": [
+            ...logs,
+            `[Hermes] Xử lý hoàn tất!`,
+            `[Hermes] Video đã upload lên Cloudinary: ${pollResult.result_url}`,
+          ],
         });
+        console.log(`[Hermes Job] Completed. URL=${pollResult.result_url}`);
       } else {
-        // Try searching for any valid http/https URL that might be a video URL as fallback
-        const anyUrlRegex = /(https?:\/\/[^\s\)\"\`\'\>]+)/i;
-        const fallbackMatch = fullText.match(anyUrlRegex);
-        const fallbackUrl = fallbackMatch ? fallbackMatch[1] : null;
-
-        if (fallbackUrl) {
-          await updateLogs(95, `[Hermes] Không tìm thấy URL Cloudinary nhưng phát hiện URL thay thế: ${fallbackUrl}`);
-          await AIMediaModel.findByIdAndUpdate(recordId, {
-            url: fallbackUrl,
-            "metadata.status": "completed",
-            "metadata.progress": 100,
-            "metadata.description": "Biên tập video hoàn tất (URL fallback)."
-          });
-        } else {
-          throw new Error("Hermes Agent không trả về URL video hợp lệ trong nội dung phản hồi.");
-        }
+        const errMsg = pollResult.error || "Worker không trả về kết quả";
+        throw new Error(errMsg);
       }
     } catch (error: any) {
       console.error("[Hermes Job] Failed:", error);
@@ -254,8 +261,12 @@ ${cloudinaryPrompt}
         "metadata.status": "failed",
         "metadata.progress": 100,
         "metadata.error": error.message || String(error),
-        "metadata.description": `Lỗi: ${error.message || String(error)}`
+        "metadata.description": `Lỗi: ${error.message || String(error)}`,
+        "metadata.renderLogs": [
+          ...logs,
+          `[Hermes] ❌ Lỗi: ${error.message || String(error)}`,
+        ],
       });
     }
-  }
+  },
 };

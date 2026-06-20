@@ -69,12 +69,14 @@ export default function CRMTab() {
   // 2. Omni-Inbox States
   const { userProfile, updateAiAutoReplyConfig } = useAuth();
   const [companySocialIntegrations, setCompanySocialIntegrations] = useState<SocialIntegration[]>([]);
+  const companyFacebookIntegration =
+    companySocialIntegrations.find((item) => item.platform === "Facebook" && item.isConnected) || null;
+  const companyZaloIntegration =
+    companySocialIntegrations.find((item) => item.platform === "Zalo" && item.isConnected) || null;
   const isFbConnected =
-    (userProfile?.facebookIntegration?.isConnected ?? false) ||
-    companySocialIntegrations.some((item) => item.platform === "Facebook" && item.isConnected);
+    (userProfile?.facebookIntegration?.isConnected ?? false) || !!companyFacebookIntegration;
   const isZaloConnected =
-    (userProfile?.zaloIntegration?.isConnected ?? false) ||
-    companySocialIntegrations.some((item) => item.platform === "Zalo" && item.isConnected);
+    (userProfile?.zaloIntegration?.isConnected ?? false) || !!companyZaloIntegration;
 
   useEffect(() => {
     let cancelled = false;

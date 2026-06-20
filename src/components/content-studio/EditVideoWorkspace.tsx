@@ -2,8 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { geminiApi } from '../../api/gemini';
 import { toast } from '../../pages/Toast';
 import { Film, Loader2, Play, Sparkles, Video, X, Wand2, UploadCloud } from 'lucide-react';
-import { Player } from '@remotion/player';
-import { VideoComposition } from './video-composition';
+import { socketService } from '../../services/socketService';
 
 const MODEL_OPTIONS = [
   { value: 'piapi-veo31-video-fast-audio', label: 'iGen video 3.1 Fast' },
@@ -149,9 +148,9 @@ export function EditVideoWorkspace({
         toast.warning(`Video "${file.name}" vượt quá giới hạn 200MB và bị bỏ qua.`);
         continue;
       }
-      
+
       const previewUrl = URL.createObjectURL(file);
-      
+
       const tempVideo = document.createElement('video');
       tempVideo.preload = 'metadata';
       tempVideo.muted = true;
@@ -213,12 +212,12 @@ export function EditVideoWorkspace({
         folder: 'igen_erp/marketing'
       })
     });
-    
+
     if (!response.ok) {
       const errText = await response.text();
       throw new Error(`Upload video failed: ${response.status} - ${errText}`);
     }
-    
+
     const json = await response.json();
     return json.url;
   };
@@ -226,6 +225,28 @@ export function EditVideoWorkspace({
   useEffect(() => {
     loadVideoHistory();
   }, []);
+
+  useEffect(() => {
+    const unsubscribe = socketService.onVideoStatusUpdated((data) => {
+      console.log("[EditVideoWorkspace] Real-time video update received:", data);
+      loadVideoHistory();
+      
+      const matchedUpdate = data.updates?.find(u => u._id === currentRecordId || u.id === currentRecordId);
+      if (matchedUpdate) {
+        const status = matchedUpdate?.metadata?.status;
+        if (status === 'completed') {
+          toast.success('🎉 Video đã được biên tập và xuất bản thành công!');
+        } else if (status === 'failed') {
+          const errorMsg = matchedUpdate?.metadata?.error || 'Lỗi không xác định';
+          toast.error(`❌ Biên tập video thất bại: ${errorMsg}`);
+        }
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [currentRecordId]);
 
   useEffect(() => {
     const hasPending = (outputUrl && outputUrl.startsWith('pending://')) || history.some(item => item.url && item.url.startsWith('pending://'));
@@ -292,7 +313,7 @@ export function EditVideoWorkspace({
 
   useEffect(() => {
     if (!outputUrl || !outputUrl.startsWith('pending://')) return;
-    
+
     const matched = history.find(h => h._id === currentRecordId || h.id === currentRecordId);
     if (matched && matched.url && !matched.url.startsWith('pending://')) {
       if (displayProgress >= 100) {
@@ -324,9 +345,9 @@ export function EditVideoWorkspace({
         toast.warning(`Video "${file.name}" vượt quá giới hạn 200MB và bị bỏ qua.`);
         continue;
       }
-      
+
       const previewUrl = URL.createObjectURL(file);
-      
+
       const tempVideo = document.createElement('video');
       tempVideo.preload = 'metadata';
       tempVideo.muted = true;
@@ -357,14 +378,14 @@ export function EditVideoWorkspace({
     setPromptHistory(prev => {
       const filtered = prev.filter(p => p !== promptText);
       const updated = [promptText, ...filtered].slice(0, 20);
-      try { localStorage.setItem('igen_edit_prompt_history', JSON.stringify(updated)); } catch {}
+      try { localStorage.setItem('igen_edit_prompt_history', JSON.stringify(updated)); } catch { }
       return updated;
     });
   };
 
   const clearPromptHistory = () => {
     setPromptHistory([]);
-    try { localStorage.removeItem('igen_edit_prompt_history'); } catch {}
+    try { localStorage.removeItem('igen_edit_prompt_history'); } catch { }
   };
 
   const handleSelectPreset = (presetPrompt: string) => {
@@ -491,13 +512,13 @@ export function EditVideoWorkspace({
       <div className="rounded-[28px] border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-6 shadow-sm">
         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-           
+
             <h1 className="mt-3 text-3xl font-bold text-slate-900">Chỉnh sửa Video </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
               Chỉnh sửa video gốc bằng prompt AI, thêm style, tự động cắt ghép, và xem preview nhanh.
             </p>
           </div>
-        
+
         </div>
 
         <div className="grid gap-6 xl:grid-cols-[1.02fr_0.98fr]">
@@ -511,21 +532,20 @@ export function EditVideoWorkspace({
                   className="text-[11px] font-semibold text-cyan-600 hover:text-cyan-700 flex items-center gap-1 bg-cyan-50 px-2.5 py-1 rounded-lg transition-all"
                 >
                   <Video className="h-3.5 w-3.5" />
-                 Thư viện video
+                  Thư viện video
                 </button>
               </div>
               <div
                 onDragOver={handleDrag}
                 onDragLeave={handleDrag}
                 onDrop={handleDrop}
-                className={`border-2 border-dashed rounded-2xl p-4 flex flex-col transition-all bg-slate-50/50 ${
-                  isDragging ? 'border-cyan-500 bg-cyan-50/50' : 'border-slate-250 hover:border-cyan-400'
-                }`}
+                className={`border-2 border-dashed rounded-2xl p-4 flex flex-col transition-all bg-slate-50/50 ${isDragging ? 'border-cyan-500 bg-cyan-50/50' : 'border-slate-250 hover:border-cyan-400'
+                  }`}
               >
                 {videoInputs.length > 0 ? (
                   <div className="flex flex-wrap gap-2 w-full">
                     {videoInputs.map((video, idx) => (
-                      <div 
+                      <div
                         key={idx}
                         onClick={() => {
                           setSelectedPreviewUrl(video.url);
@@ -724,44 +744,9 @@ export function EditVideoWorkspace({
                       placeholder="Prompt chỉnh sửa đã được AI tối ưu hóa..."
                     />
                   </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="flex flex-col gap-1">
-                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Chuyển động (Motion)</span>
-                      <input
-                        type="text"
-                        className="w-full text-xs px-3 py-2 border border-cyan-200/50 rounded-xl focus:outline-none focus:ring-1 focus:ring-cyan-400 bg-white font-medium text-slate-700"
-                        value={optimizedData.motion_analysis || ''}
-                        onChange={(e) => setOptimizedData({
-                          ...optimizedData,
-                          motion_analysis: e.target.value
-                        })}
-                        placeholder="Không có phân tích chuyển động"
-                      />
-                    </div>
-
-                    <div className="flex flex-col gap-1">
-                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Camera (Movement)</span>
-                      <input
-                        type="text"
-                        className="w-full text-xs px-3 py-2 border border-cyan-200/50 rounded-xl focus:outline-none focus:ring-1 focus:ring-cyan-400 bg-white font-medium text-slate-700"
-                        value={optimizedData.camera_movement || ''}
-                        onChange={(e) => setOptimizedData({
-                          ...optimizedData,
-                          camera_movement: e.target.value
-                        })}
-                        placeholder="Không có chuyển động camera"
-                      />
-                    </div>
-                  </div>
                 </div>
               )}
             </div>
-
-        
-
-        
-
             <div className="mt-2">
               <button
                 type="button"
@@ -793,16 +778,15 @@ export function EditVideoWorkspace({
                 </div>
                 <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">Preview</div>
               </div>
-              <div className={`mt-6 rounded-[28px] border bg-slate-50 p-6 text-center text-slate-500 ${
-                (outputUrl || isGenerating)
-                  ? 'border-solid border-slate-250' 
+              <div className={`mt-6 rounded-[28px] border bg-slate-50 p-6 text-center text-slate-500 ${(outputUrl || isGenerating)
+                  ? 'border-solid border-slate-250'
                   : 'border-dashed border-slate-300 flex h-[380px] items-center justify-center'
-              }`}>
+                }`}>
                 {(outputUrl || isGenerating) ? (
                   (isGenerating || (outputUrl && outputUrl.startsWith('pending://'))) ? (() => {
                     const matchedRecord = history.find(h => h.url === outputUrl || h._id === currentRecordId || h.id === currentRecordId);
                     const isLocalRender = (matchedRecord?.metadata?.provider === 'local-render') || (outputUrl ? outputUrl.includes('local-render') : true);
-                    
+
                     const progressVal = displayProgress;
                     const statusVal = matchedRecord?.metadata?.status ?? (isGenerating ? 'processing' : 'queued');
                     const errorVal = matchedRecord?.metadata?.error;
@@ -889,12 +873,12 @@ export function EditVideoWorkspace({
 
                         <div className="max-w-md space-y-2">
                           <p className={`text-sm font-bold uppercase tracking-wider ${statusVal === 'failed' ? 'text-rose-600' : 'text-slate-900'}`}>
-                            {statusVal === 'failed' 
-                              ? 'TIẾN TRÌNH DỰNG VIDEO THẤT BẠI' 
-                              : statusVal === 'queued' 
-                                ? 'ĐANG CHỜ TRONG HÀNG ĐỢI...' 
-                                : isLocalRender 
-                                  ? 'ĐANG TIẾN HÀNH DỰNG VIDEO...' 
+                            {statusVal === 'failed'
+                              ? 'TIẾN TRÌNH DỰNG VIDEO THẤT BẠI'
+                              : statusVal === 'queued'
+                                ? 'ĐANG CHỜ TRONG HÀNG ĐỢI...'
+                                : isLocalRender
+                                  ? 'ĐANG TIẾN HÀNH DỰNG VIDEO...'
                                   : 'ĐANG TẠO VIDEO TRÊN CLOUD...'}
                           </p>
                           <p className="text-xs text-slate-500 leading-relaxed">
@@ -1105,11 +1089,11 @@ export function EditVideoWorkspace({
           </div>
         )}
         {showPreviewModal && selectedPreviewUrl && (
-          <div 
+          <div
             className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm px-4 py-6"
             onClick={() => setShowPreviewModal(false)}
           >
-            <div 
+            <div
               className="w-full max-w-3xl overflow-hidden rounded-[28px] border border-slate-800 bg-slate-900 shadow-2xl animate-in fade-in zoom-in-95 duration-200"
               onClick={(e) => e.stopPropagation()}
             >
@@ -1128,9 +1112,9 @@ export function EditVideoWorkspace({
               </div>
               <div className="p-6 bg-black flex items-center justify-center">
                 {isInlinePreviewSafe(selectedPreviewUrl) ? (
-                  <video 
-                    src={selectedPreviewUrl} 
-                    controls 
+                  <video
+                    src={selectedPreviewUrl}
+                    controls
                     autoPlay
                     className="max-h-[500px] w-full rounded-2xl object-contain"
                     playsInline

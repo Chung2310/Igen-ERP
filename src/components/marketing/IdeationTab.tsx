@@ -1266,7 +1266,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                   {[
                     { id: "Facebook", icon: <Facebook className="h-3.5 w-3.5" />, disabled: false },
                     { id: "Zalo", icon: <span className="font-bold text-[10px] font-mono leading-none">ZL</span>, disabled: true },
-                    { id: "TikTok", icon: <span className="font-bold text-[10px] font-mono leading-none">TT</span>, disabled: true }
+                    { id: "TikTok", icon: <span className="font-bold text-[10px] font-mono leading-none">TT</span>, disabled: false }
                   ].map((chan) => {
                     const isSelected = selectedChannels.includes(chan.id);
                     return (

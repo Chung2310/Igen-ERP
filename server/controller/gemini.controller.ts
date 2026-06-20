@@ -1,9 +1,13 @@
 import { Request, Response } from "express";
+import mongoose from "mongoose";
 import { geminiService } from "../service/gemini.service";
 import { AuthenticatedRequest } from "../middleware/auth";
 import { aiKnowledgeService } from "../service/ai-knowledge.service";
 import { walletService, API_COSTS } from "../service/wallet.service";
+import { AIMediaModel } from "../model/ai-media.model";
+import { broadcastEvent } from "../socket";
 import * as XLSX from "xlsx";
+import { GoogleGenAI } from "@google/genai";
 
 function handleGeminiError(res: Response, error: any, defaultMessage: string) {
   const isPiApiError = String(error.message || "").toUpperCase().includes("PIAPI");
@@ -85,6 +89,63 @@ function handleGeminiError(res: Response, error: any, defaultMessage: string) {
   });
 }
 
+const DRIVE_PDF_PRIMARY_MODEL = process.env.GEMINI_MODEL || "gemini-3.5-flash";
+const DRIVE_PDF_FALLBACK_MODEL = "gemini-2.5-flash";
+
+function isGeminiModelNotFound(error: any): boolean {
+  const errorMsg = error?.message || String(error);
+  return error?.status === 404 || errorMsg.includes("is not found for API version") || errorMsg.includes("\"status\":\"NOT_FOUND\"");
+}
+
+async function extractPdfTextWithModelFallback(pdfBase64: string): Promise<string> {
+  if (!process.env.GEMINI_API_KEY) {
+    throw new Error("GEMINI_API_KEY is not configured");
+  }
+
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  const modelsToTry = DRIVE_PDF_PRIMARY_MODEL === DRIVE_PDF_FALLBACK_MODEL
+    ? [DRIVE_PDF_PRIMARY_MODEL]
+    : [DRIVE_PDF_PRIMARY_MODEL, DRIVE_PDF_FALLBACK_MODEL];
+  let lastError: any;
+
+  for (const model of modelsToTry) {
+    try {
+      console.log(`[AI AutoReply] Dang goi Gemini trich xuat van ban tu PDF (model: ${model})...`);
+      const response = await ai.models.generateContent({
+        model,
+        contents: [
+          {
+            role: "user",
+            parts: [
+              {
+                inlineData: {
+                  mimeType: "application/pdf",
+                  data: pdfBase64,
+                },
+              },
+              {
+                text: "Bạn là trợ lý trích xuất văn bản. Hãy trích xuất và trả về toàn bộ nội dung văn bản có trong file PDF này theo đúng thứ tự đọc. Chỉ trả về văn bản thuần, không thêm giải thích hay markdown.",
+              },
+            ],
+          },
+        ],
+      });
+
+      return response.text || "";
+    } catch (error: any) {
+      lastError = error;
+      const retryable = isGeminiModelNotFound(error) || error?.status === 429 || error?.status === 503;
+      if (retryable && model !== DRIVE_PDF_FALLBACK_MODEL) {
+        console.warn(`[extractPdfTextWithModelFallback] Model ${model} failed. Falling back to ${DRIVE_PDF_FALLBACK_MODEL}.`);
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  throw lastError;
+}
+
 function getTextModelCost(aiConfig: any): number {
   const model = String(aiConfig?.model || "").toLowerCase();
   if (model.includes("pro")) return 10;
@@ -116,12 +177,104 @@ function extractWorkbookText(buffer: Buffer) {
     const workbook = XLSX.read(buffer, { type: "buffer" });
     return workbook.SheetNames.map((sheetName) => {
       const worksheet = workbook.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json<(string | number | boolean | null)[]>(worksheet, {
+        header: 1,
+        raw: false,
+        defval: "",
+      });
+
+      if (!rows.length) return "";
+
+      const normalizedRows = rows
+        .map((row) => row.map((cell) => String(cell ?? "").trim()))
+        .filter((row) => row.some((cell) => cell.length > 0));
+
+      if (!normalizedRows.length) return "";
+
+      const headerKeywords = /(ten|tên|san pham|sản phẩm|sku|ma|mã|gia|giá|don gia|đơn giá|price|model|size|mau|màu|so luong|số lượng)/i;
+      const headerIndex = normalizedRows.findIndex((row) => row.filter(Boolean).some((cell) => headerKeywords.test(cell)));
+      const safeHeaderIndex = headerIndex >= 0 ? headerIndex : 0;
+
+      const headers = normalizedRows[safeHeaderIndex];
+      const bodyRows = normalizedRows.slice(safeHeaderIndex + 1);
+
+      const structuredLines = bodyRows
+        .map((row, rowIndex) => {
+          const pairs = row
+            .map((cell, index) => {
+              const header = headers[index] || `Cot ${index + 1}`;
+              return cell ? `${header}: ${cell}` : "";
+            })
+            .filter(Boolean);
+          if (pairs.length === 0) return "";
+
+          const rowMap = new Map<string, string>();
+          row.forEach((cell, index) => {
+            const header = String(headers[index] || `Cot ${index + 1}`).trim();
+            const value = String(cell || "").trim();
+            if (header && value) {
+              rowMap.set(header.toLowerCase(), value);
+            }
+          });
+
+          const productName =
+            rowMap.get("tên sản phẩm") ||
+            rowMap.get("ten san pham") ||
+            rowMap.get("sản phẩm") ||
+            rowMap.get("san pham") ||
+            rowMap.get("product") ||
+            "";
+
+          const category =
+            rowMap.get("danh mục") ||
+            rowMap.get("danh muc") ||
+            rowMap.get("category") ||
+            "";
+
+          const price =
+            rowMap.get("giá tham khảo (vnđ)") ||
+            rowMap.get("gia tham khao (vnd)") ||
+            rowMap.get("giá") ||
+            rowMap.get("gia") ||
+            rowMap.get("price") ||
+            "";
+
+          if (productName) {
+            return [
+              `San pham ${rowIndex + 1}: ${productName}`,
+              category ? `Danh muc: ${category}` : "",
+              pairs.join(" | "),
+              price ? `Gia tham khao: ${price}` : "",
+            ].filter(Boolean).join("\n");
+          }
+
+          return `Dong ${rowIndex + 1}: ${pairs.join(" | ")}`;
+        })
+        .filter(Boolean);
+
       const csv = XLSX.utils.sheet_to_csv(worksheet).trim();
-      return csv ? `Sheet: ${sheetName}\n${csv}` : "";
+      const sections = [
+        `Sheet: ${sheetName}`,
+        headers.filter(Boolean).length > 0 ? `Tieu de cot: ${headers.filter(Boolean).join(" | ")}` : "",
+        structuredLines.join("\n"),
+        csv ? `CSV:\n${csv}` : "",
+      ].filter(Boolean);
+
+      return sections.join("\n");
     }).filter(Boolean).join("\n\n");
   } catch (error) {
     console.warn("[AI AutoReply] Khong the doc file bang xlsx:", error);
     return "";
+  }
+}
+
+function extractStructuredSheetTextFromString(rawText: string, fileLabel: string) {
+  try {
+    const workbook = XLSX.read(rawText, { type: "string" });
+    return extractWorkbookText(Buffer.from(XLSX.write(workbook, { type: "buffer", bookType: "xlsx" })));
+  } catch (error) {
+    console.warn(`[AI AutoReply] Khong the parse bang du lieu dang chuoi cho ${fileLabel}:`, error);
+    return rawText;
   }
 }
 
@@ -182,7 +335,10 @@ async function fetchDriveFileContent(fileId: string): Promise<{ text: string; ti
     if (res.ok) {
       const text = await res.text();
       if (text && !isProbablyHtml(text) && text.length > 50) {
-        return { text, title: `Google Sheet (${fileId})` };
+        return {
+          text: extractStructuredSheetTextFromString(text, `Google Sheet (${fileId})`),
+          title: `Google Sheet (${fileId})`
+        };
       }
     }
   } catch (e) {
@@ -214,7 +370,7 @@ async function fetchDriveFileContent(fileId: string): Promise<{ text: string; ti
     if (isPdf) {
       console.log(`[AI AutoReply] Phát hiện file PDF (${fileId}). Tiến hành trích xuất văn bản qua Gemini...`);
       const base64 = buffer.toString("base64");
-      const extractedText = await geminiService.extractTextFromPdf(base64);
+      const extractedText = await extractPdfTextWithModelFallback(base64);
       if (extractedText && extractedText.trim().length > 0) {
         return { text: extractedText, title: `PDF File (${fileId})` };
       }
@@ -378,14 +534,17 @@ export const geminiController = {
         topK: 5,
       });
 
-      let effectiveRagContext = { ...ragContext, companyCode };
-      if (!ragContext.contextText && aiConfig?.trainingKnowledge) {
-        effectiveRagContext = {
-          contextText: String(aiConfig.trainingKnowledge).slice(0, 4500),
-          matches: 0,
-          companyCode,
-        };
-      }
+      const effectiveRagContext = aiKnowledgeService.buildEffectiveRagContext({
+        companyCode,
+        ragContext,
+        trainingKnowledge: aiConfig?.trainingKnowledge,
+      });
+      const effectiveRagContextDebug = aiKnowledgeService.describeEffectiveRagContext(effectiveRagContext as any);
+      console.log("[geminiController.testReply] Context diagnostics:", JSON.stringify({
+        companyCode,
+        messageLength: String(message || "").length,
+        ...effectiveRagContextDebug,
+      }));
 
       const result = await geminiService.chat(message, [], aiConfig || {}, effectiveRagContext);
       const log = await aiKnowledgeService.createReplyLog({
@@ -1080,6 +1239,132 @@ export const geminiController = {
       return res.status(500).json({
         status: "error",
         message: "Không thể xóa giọng nói ElevenLabs",
+        details: error.message
+      });
+    }
+  },
+
+  /**
+   * POST /api/v1/gemini/hermes-webhook
+   */
+  async hermesWebhook(req: Request, res: Response) {
+    try {
+      const recordId = req.query.recordId as string;
+      const { session_id, response, message, content, output, status, error } = req.body;
+
+      console.log("[Hermes Webhook] Received payload:", {
+        recordId,
+        session_id,
+        status,
+        hasResponse: Boolean(response || message || content || output),
+        error
+      });
+
+      let record = null;
+      if (recordId && mongoose.Types.ObjectId.isValid(recordId)) {
+        record = await AIMediaModel.findById(recordId);
+      }
+
+      if (!record && session_id) {
+        record = await AIMediaModel.findOne({ "metadata.hermesSessionId": session_id });
+      }
+
+      if (!record) {
+        console.error(`[Hermes Webhook] Record not found. recordId: ${recordId}, session_id: ${session_id}`);
+        return res.status(404).json({ status: "error", message: "Không tìm thấy bản ghi video tương ứng." });
+      }
+
+      const fullText = response || message || content || output || "";
+
+      if (status === "failed" || error) {
+        const errorMsg = error || "Hermes Agent báo lỗi xử lý.";
+        record.metadata = {
+          ...(record.metadata || {}),
+          status: "failed",
+          progress: 100,
+          error: errorMsg,
+          description: `Thất bại: ${errorMsg}`,
+          renderLogs: [
+            ...(record.metadata?.renderLogs || []),
+            `[Webhook] Nhận thông báo thất bại: ${errorMsg}`
+          ]
+        };
+        await record.save();
+
+        broadcastEvent("video_status_updated", {
+          videoId: record.metadata.heygenVideoId || record._id.toString(),
+          status: "failed",
+          updates: [record.toObject()]
+        });
+
+        return res.status(200).json({ status: "success", message: "Đã cập nhật trạng thái lỗi thành công." });
+      }
+
+      const cloudinaryRegex = /(https:\/\/res\.cloudinary\.com\/[^\s\)\"\`\'\>]+)/i;
+      const match = String(fullText).match(cloudinaryRegex);
+      const extractedUrl = match ? match[1] : null;
+
+      if (extractedUrl) {
+        record.url = extractedUrl;
+        record.metadata = {
+          ...(record.metadata || {}),
+          status: "completed",
+          progress: 100,
+          description: "Biên tập video hoàn tất.",
+          renderLogs: [
+            ...(record.metadata?.renderLogs || []),
+            `[Webhook] Nhận kết quả hoàn thành.`,
+            `[Webhook] Tìm thấy URL video đã upload: ${extractedUrl}`
+          ]
+        };
+        await record.save();
+      } else {
+        const anyUrlRegex = /(https?:\/\/[^\s\)\"\`\'\>]+)/i;
+        const fallbackMatch = String(fullText).match(anyUrlRegex);
+        const fallbackUrl = fallbackMatch ? fallbackMatch[1] : null;
+
+        if (fallbackUrl) {
+          record.url = fallbackUrl;
+          record.metadata = {
+            ...(record.metadata || {}),
+            status: "completed",
+            progress: 100,
+            description: "Biên tập video hoàn tất (URL fallback).",
+            renderLogs: [
+              ...(record.metadata?.renderLogs || []),
+              `[Webhook] Không tìm thấy URL Cloudinary nhưng phát hiện URL thay thế: ${fallbackUrl}`
+            ]
+          };
+          await record.save();
+        } else {
+          record.metadata = {
+            ...(record.metadata || {}),
+            status: "failed",
+            progress: 100,
+            error: "Không tìm thấy URL video trong phản hồi của Hermes Agent.",
+            description: "Thất bại: Không tìm thấy URL video trong phản hồi.",
+            renderLogs: [
+              ...(record.metadata?.renderLogs || []),
+              `[Webhook] Lỗi: Không trích xuất được URL video từ phản hồi.`,
+              `[Webhook] Phản hồi thô: ${fullText}`
+            ]
+          };
+          await record.save();
+        }
+      }
+
+      broadcastEvent("video_status_updated", {
+        videoId: record.metadata.heygenVideoId || record._id.toString(),
+        status: record.metadata.status,
+        updates: [record.toObject()]
+      });
+
+      return res.status(200).json({ status: "success", message: "Đã xử lý webhook thành công." });
+    } catch (error: any) {
+      console.error("[Hermes Webhook] Error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Lỗi nội bộ server khi xử lý webhook",
         details: error.message
       });
     }

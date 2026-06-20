@@ -32,6 +32,7 @@ const AIMediaSchema = new Schema<IAIMedia>({
     error: { type: String },
     renderLogs: { type: [String] },
     blueprint: { type: String },
+    hermesSessionId: { type: String, index: true },
   },
   createdAt: { type: Date, default: Date.now, index: true },
 });

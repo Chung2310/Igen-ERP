@@ -2,9 +2,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { AIMediaModel } from "../model/ai-media.model";
 import { CompanyModel } from "../model/company.model";
 import { cloudinaryService } from "./cloudinary.service";
-import { remotionService } from "./remotion.service";
 import { piapiService } from "./piapi.service";
-import { remotionQueueService } from "./remotion-queue.service";
 import { videoBlueprintService } from "./video-blueprint.service";
 import { hermesService } from "./hermes.service";
 import { exec } from "child_process";
@@ -187,15 +185,6 @@ function detectChatIntent(message: string, history: any[] = []): ChatIntent {
     .join(" ");
   const combinedText = `${recentHistoryText} ${currentText}`.trim();
 
-  const smallTalkPatterns = [
-    /\b(xin chao|chao shop|chao ban|hello|hi|alo|ad oi|shop oi)\b/,
-    /\b(cam on|thank you|ok nha|ok em|vang|dạ|da roi)\b/,
-    /\b(tu van giup|minh can tu van|hoi ti|cho hoi)\b/,
-  ];
-  if (smallTalkPatterns.some((pattern) => pattern.test(currentText)) && currentText.length <= 120) {
-    return "small_talk";
-  }
-
   const factualPatterns = [
     /\b(gia|bao nhieu tien|bao nhieu|bang gia|bao gia|chi phi|phi ship|freeship|uu dai|khuyen mai)\b/,
     /\b(bao hanh|doi tra|hoan tien|giao hang|van chuyen|thanh toan|thoi gian giao)\b/,
@@ -204,6 +193,15 @@ function detectChatIntent(message: string, history: any[] = []): ChatIntent {
   ];
   if (factualPatterns.some((pattern) => pattern.test(combinedText))) {
     return "product_pricing_policy";
+  }
+
+  const smallTalkPatterns = [
+    /\b(xin chao|chao shop|chao ban|hello|hi|alo|ad oi|shop oi)\b/,
+    /\b(cam on|thank you|ok nha|ok em|vang|dạ|da roi)\b/,
+    /\b(tu van giup|minh can tu van|hoi ti|cho hoi)\b/,
+  ];
+  if (smallTalkPatterns.some((pattern) => pattern.test(currentText)) && currentText.length <= 120) {
+    return "small_talk";
   }
 
   const companyPatterns = [
@@ -224,6 +222,72 @@ function detectChatIntent(message: string, history: any[] = []): ChatIntent {
   }
 
   return "company_faq";
+}
+
+function formatHumanLikeChatReply(rawText: string) {
+  const cleaned = String(rawText || "")
+    .replace(/\r/g, "")
+    .replace(/```[\s\S]*?```/g, "")
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/^\s*[*-]\s+/gm, "")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  if (!cleaned) {
+    return "Mình kiểm tra lại rồi nhắn bạn ngay nhé.";
+  }
+
+  const normalized = cleaned
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join("\n");
+
+  const shortLineCandidates = normalized
+    .split("\n")
+    .flatMap((line) => line.split(/(?<=[.!?])\s+/))
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const compactLines: string[] = [];
+  let currentLine = "";
+
+  for (const piece of shortLineCandidates) {
+    const next = currentLine ? `${currentLine} ${piece}` : piece;
+    if (next.length <= 120) {
+      currentLine = next;
+    } else {
+      if (currentLine) compactLines.push(currentLine);
+      currentLine = piece;
+    }
+  }
+
+  if (currentLine) compactLines.push(currentLine);
+
+  const finalLines = compactLines
+    .slice(0, 5)
+    .map((line) => line.trim())
+    .filter((line, index) => {
+      if (index !== 0) return true;
+
+      return !/^Dạ,?\s*(?:em\s+chào|[A-Za-zÀ-ỹ0-9\s]+ xin chào)\s+anh\/chị[^\n]*$/i.test(line);
+    });
+
+  const finalResult = finalLines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+
+  return finalResult || normalized;
+
+  const trimmedLines = compactLines.slice(0, 5).map((line) => line.trim());
+  let result = trimmedLines.join("\n");
+
+  result = result
+    .replace(/\b(Dạ,?\s*em chào anh\/chị.*?[\n]?)/i, "")
+    .replace(/\b(Dạ,?\s*[A-Za-zÀ-ỹ0-9\s]+ xin chào anh\/chị.*?[\n]?)/i, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  return result || normalized;
 }
 
 function buildFaithfulVisualGuardrail(input: {
@@ -433,7 +497,14 @@ export const geminiService = {
     message: string,
     history: any[],
     aiConfig: any,
-    ragContext?: { contextText?: string; companyCode?: string; matches?: number }
+    ragContext?: {
+      contextText?: string;
+      companyCode?: string;
+      matches?: number;
+      bestScore?: number;
+      productCandidateNames?: string[];
+      shouldAskProductConfirmation?: boolean;
+    }
   ): Promise<{ text: string; isMock: boolean }> {
     const getMockResponse = () => {
       return new Promise<{ text: string; isMock: boolean }>((resolve) => {
@@ -484,19 +555,58 @@ export const geminiService = {
       companyName = "doanh nghiệp";
     }
 
+    const conversationPlaybook = `
+QUY TẮC CHĂM SÓC KHÁCH HÀNG THÔNG MINH VÀ KHÉO LÉO:
+- Chỉ chào đầy đủ ở đầu hội thoại. Ở các lượt sau, trả lời tự nhiên, ngắn gọn và đi thẳng vào nhu cầu của khách.
+- Mỗi câu trả lời nên ưu tiên theo thứ tự: xác nhận nhu cầu, đưa gợi ý phù hợp từ knowledge, rồi kết bằng 1 câu hỏi ngắn để dẫn dắt bước tiếp theo.
+- Không hỏi dồn quá nhiều câu trong một lượt. Chỉ hỏi 1-2 câu thật sự cần thiết.
+- Nếu khách đã cung cấp đủ thông tin, không hỏi lại điều khách vừa nói. Hãy chuyển sang gợi ý hoặc chốt bước tiếp theo.
+- Khi khách vừa cung cấp thêm thông tin, làm rõ nhu cầu, xác nhận lựa chọn, hoặc phản hồi tích cực, hãy cảm ơn ngắn gọn một cách tự nhiên trước khi tư vấn tiếp, ví dụ như "Dạ em cảm ơn Anh/Chị đã chia sẻ ạ".
+- Khi knowledge có nhiều lựa chọn, chỉ chọn ra 1-3 phương án phù hợp nhất và giải thích rất ngắn vì sao phù hợp.
+- Nếu thiếu dữ liệu về giá, tồn kho, màu, size, phiên bản hoặc khuyến mãi, hãy nói rõ phần nào chưa đủ dữ liệu nhưng vẫn hỗ trợ tối đa bằng thông tin hiện có.
+- Chỉ đề nghị chuyển nhân viên khi thực sự cần xác nhận thông tin ngoài knowledge hoặc cần thao tác mà AI không làm được.
+
+QUY TẮC UPSELL VÀ CROSS-SELL:
+- Upsell phải khéo, đúng ngữ cảnh và chỉ dựa trên knowledge của doanh nghiệp.
+- Chỉ upsell khi khách đã thể hiện nhu cầu tương đối rõ hoặc đang quan tâm tới một sản phẩm/dịch vụ cụ thể.
+- Ưu tiên upsell theo hướng giá trị: phiên bản phù hợp hơn, gói đầy đủ hơn, dung tích lớn hơn, giải pháp tiết kiệm hơn, hoặc sản phẩm bổ trợ hợp lý.
+- Không ép bán, không upsell quá sớm ngay ở lượt đầu.
+- Nếu cross-sell, chỉ gợi ý thêm tối đa 1-2 sản phẩm bổ trợ thực sự liên quan trực tiếp.
+- Không tự bịa combo, quà tặng hay ưu đãi nếu knowledge không có.
+
+QUY TẮC CHỐT ĐƠN MỀM:
+- Khi khách đã có ý định mua rõ, hãy chuyển từ tư vấn sang chốt nhẹ nhàng: xác nhận nhu cầu, tóm tắt lựa chọn phù hợp, rồi hỏi bước hành động tiếp theo.
+- Bước hành động tiếp theo phải ngắn và cụ thể, ví dụ: xác nhận phiên bản, số lượng, biến thể, hoặc xin thông tin để nhân viên lên đơn.
+- Không lặp lại câu xin chuyển nhân viên qua nhiều lượt liên tiếp. Nếu cần chuyển, hãy nêu rõ lý do và giá trị của bước chuyển đó.
+
+QUY TẮC TƯ VẤN SẢN PHẨM KHI ĐÃ CÓ KNOWLEDGE:
+- Nếu khách hỏi chung như "bên mình có gì" hoặc "shop có sản phẩm gì", hãy ưu tiên liệt kê các nhóm sản phẩm hoặc 3-5 sản phẩm tiêu biểu có trong knowledge thay vì mô tả ngành hàng chung chung.
+- Nếu khách hỏi một sản phẩm cụ thể và knowledge có đúng tên đó, hãy xác nhận ngay và tóm tắt ngắn những điểm quan trọng có trong knowledge.
+- Nếu khách yêu cầu xem sản phẩm, hãy ưu tiên mô tả hoặc liệt kê sản phẩm theo knowledge trước; chỉ nêu hạn chế về ảnh/video khi thật sự cần.
+- Nếu đã có context phù hợp về sản phẩm, ưu tiên trả lời theo cấu trúc: xác nhận nhu cầu, nêu 1-3 lựa chọn phù hợp, tóm tắt ngắn lý do phù hợp, rồi mới hỏi thêm 1 câu ngắn nếu cần.
+- Không lặp lại nguyên văn cùng một mẫu câu chào hỏi, xin chuyển nhân viên hoặc giải thích dài dòng ở nhiều lượt liên tiếp. Mỗi lượt phải có tiến triển mới.
+`;
+
     const systemInstruction = `
-Bạn là một Trợ lý Chăm sóc Khách hàng AI đỉnh cao cho hệ thống iGen ERP doanh nghiệp.
-Bạn đang hỗ trợ khách hàng trong khung chat Omni-Inbox.
+Bạn là trợ lý chăm sóc khách hàng của ${companyName}.
+Bạn đang hỗ trợ khách hàng trong khung chat của chính doanh nghiệp này, không phải trợ lý chung của nền tảng.
+
+NGUYÊN TẮC NHẬN DIỆN DOANH NGHIỆP:
+- Chỉ trả lời như đại diện của ${companyName}.
+- Không tự giới thiệu, chào bán, hay mô tả iGen ERP, nền tảng quản trị, phần mềm CRM/ERP hoặc hệ thống vận hành, trừ khi dữ liệu tri thức của ${companyName} thật sự nói rõ về các nội dung đó.
+- Nếu knowledge của doanh nghiệp là về mỹ phẩm, spa, cửa hàng, thực phẩm, dịch vụ hoặc lĩnh vực cụ thể khác, hãy bám đúng lĩnh vực đó.
+- Nếu không có đủ dữ liệu để xác nhận, hãy trả lời trung tính theo doanh nghiệp hiện tại thay vì suy diễn sang sản phẩm/dịch vụ mặc định của hệ thống.
 
 QUY CHUẨN XƯNG HÔ VÀ CHÀO HỎI CHUYÊN NGHIỆP:
 - Luôn mở đầu câu trả lời bằng lời chào lịch sự như: "Dạ, [Tên doanh nghiệp] xin chào anh/chị ạ!" hoặc "Dạ, em chào anh/chị ạ!" hoặc "Dạ xin kính chào Quý khách!".
 - Luôn xưng hô là "Dạ, bên em..." hoặc "Dạ, [Tên doanh nghiệp]..." hoặc "Dạ, em..." và gọi khách hàng là "Quý khách" hoặc "Anh/Chị".
 - Luôn sử dụng kính ngữ "Dạ" ở đầu câu và "ạ" ở cuối câu để đảm bảo sự lịch thiệp, tôn trọng và chuyên nghiệp tuyệt đối.
 - Tuyệt đối KHÔNG sử dụng các từ xưng hô quá thân mật hoặc thiếu trang trọng như "cậu", "tớ", "bạn", "mày", "tao".
-- Trả lời bằng ngôn phong tiếng Việt chuẩn mực, tinh tế, tích cực, không dùng ngôn ngữ teen, từ lóng hoặc icon quá đà.
+- Trả lời bằng ngôn phong tiếng Việt chuẩn mực, tinh tế, tích cực, không dùng ngôn ngữ teen, từ lóng. Có thể chèn thêm tối đa 1-2 icon/emoji phù hợp một cách tự nhiên và chừng mực để tăng sự thân thiện, tránh lạm dụng quá nhiều.
 
 Quy tắc và chỉ dẫn hành xử từ doanh nghiệp:
 ${aiConfig.advancedInstructions ? `- ${aiConfig.advancedInstructions}` : "- Không có chỉ dẫn đặc biệt."}
+${conversationPlaybook}
 
 Dữ liệu vận hành hiện tại:
 - Chế độ trả lời: ${assistantMode}
@@ -504,8 +614,21 @@ Dữ liệu vận hành hiện tại:
 - COMPANY_TRAINED_MODE: đã có tài liệu/chính sách riêng của công ty, hãy bám sát tài liệu và nói theo chỉ dẫn doanh nghiệp.
 - DEFAULT_ASSISTANT_MODE: chưa có tài liệu riêng, vẫn trả lời khách mặc định một cách lịch sự, hỗ trợ hỏi thêm nhu cầu và chuyển nhân viên khi cần.
 
+THỨ TỰ ƯU TIÊN NGUỒN TRI THỨC:
+- Ưu tiên số 1 là dữ liệu tri thức đã truy xuất cho đúng doanh nghiệp ở bên dưới.
+- Nếu dữ liệu tri thức bên dưới có nội dung rõ ràng, phải trả lời theo đó.
+- Chỉ dùng trainingKnowledge hoặc suy luận trung tính khi dữ liệu truy xuất không có hoặc không đủ chắc chắn.
+- Không được để prompt mặc định của hệ thống lấn át dữ liệu tri thức của doanh nghiệp.
+
 Dữ liệu tri thức đã truy xuất riêng cho doanh nghiệp ${ragContext?.companyCode || "hiện tại"}:
 ${ragContext?.contextText ? ragContext.contextText : "- Không tìm thấy tri thức phù hợp trong kho dữ liệu."}
+
+Gợi ý xác nhận sản phẩm gần đúng:
+${ragContext?.shouldAskProductConfirmation && ragContext?.productCandidateNames?.length
+        ? `- Khách có thể đang nói chưa chính xác tên sản phẩm. Nếu chưa chắc chắn, hay hỏi xác nhận ngắn gọn theo kiểu: "Dạ, anh/chị đang nhắc tới sản phẩm ${ragContext.productCandidateNames[0]} bên em đúng không ạ?".
+- Nêu có nhiều hơn 1 lựa chọn gần đúng, chỉ đưa tối đa 2-3 tên sản phẩm để khách chọn.
+- Không khẳng định là đúng 100% khi độ khớp chưa cao.`
+        : "- Không cần hỏi xác nhận tên sản phẩm ở lượt này."}
 
 Quy tắc an toàn bắt buộc:
 - Khi ở DEFAULT_ASSISTANT_MODE, vẫn được chào hỏi, xác nhận nhu cầu, hỏi thêm thông tin, hướng dẫn khách để lại số điện thoại/nhu cầu và nói sẽ có nhân viên hỗ trợ.
@@ -517,8 +640,30 @@ Thông tin cấu hình hiện tại của bạn:
 - Tự động phân loại khách hàng: ${aiConfig.autoClassify ? "Đang BẬT. Hãy phân loại khách dựa trên xu hướng hội thoại và thông báo khéo léo." : "Đang TẮT"}
 - Tự động chốt đơn hàng: ${aiConfig.autoCloseDeal ? "Đang BẬT. Hãy tìm cơ hội khéo léo hướng khách hàng chốt mua sản phẩm một cách nhanh gọn, gửi thông tin tạo đơn." : "Đang TẮT"}
 - Tự động xin feedback cuối hội thoại: ${aiConfig.autoFeedback ? "Đang BẬT. Nếu cuộc đối thoại đi đến hồi kết, hãy lịch sự xin ý kiến đánh giá chất lượng dịch vụ." : "Đang TẮT"}
-- Với Nguyễn Thị Mai (khách VIP): hãy đối xử cực kỳ chu đáo, tặng voucher riêng VIP-10 nếu có ý than phiền hoặc hỏi giá.
 `;
+
+    const humanStyleOverride = `
+STYLE OVERRIDE - ƯU TIÊN CAO NHẤT:
+- Hãy trả lời như nhân viên đang chat với khách, không nói giống bot.
+- Có thể sử dụng tối đa 1-2 icon/emoji thân thiện (như 😊, Dạ,...) một cách tự nhiên và chừng mực, tránh lạm dụng làm tin nhắn rối mắt hoặc mang lại cảm giác bot tự động.
+- Vẫn phải xưng hô chuẩn doanh nghiệp: ưu tiên "Dạ", "em", "anh/chị", "quý khách" khi phù hợp.
+- Luôn cần có lời cảm ơn khi khách đã chia sẻ thông tin, xác nhận đơn, hoặc hợp tác; nhưng cảm ơn ngắn gọn, tự nhiên.
+- Không dùng markdown, không dùng dấu *, **, -, bullet list, tiêu đề hay danh sách kiểu tài liệu.
+- Mỗi phản hồi phải gọn, tự nhiên, dễ đọc trên giao diện chat.
+- Thường chỉ 1-4 dòng, mỗi dòng ngắn. Tránh một đoạn văn dài.
+- Chỉ chào ở đầu cuộc hội thoại nếu cần. Các lượt sau vào thẳng nội dung.
+- Không lặp lại câu chào hoặc "dạ em" lặp đi lặp lại ở mỗi tin nhắn.
+- Nếu cần tóm tắt đơn hàng, tách từng ý thành từng dòng ngắn, vẫn viết như người chat thật.
+- Nếu có thể trả lời trực tiếp thì trả lời trực tiếp. Không giải thích dài dòng.
+- Nếu cần hỏi thêm, chỉ hỏi 1 câu quan trọng nhất.
+- Mẫu giống mong muốn:
+  "Dạ, em cảm ơn anh."
+  "Sản phẩm này bên em đang có anh nha."
+  "Giá hiện tại là 320.000đ anh nhé."
+  "Nếu anh lấy 2 chai em gợi ý thêm bản 500ml sẽ tiết kiệm hơn."
+`;
+
+    const finalSystemInstruction = `${systemInstruction}\n${humanStyleOverride}`;
 
     const contents = history.map((h: any) => ({
       role: h.sender === "user" ? "user" : "model",
@@ -539,14 +684,14 @@ Thông tin cấu hình hiện tại của bạn:
 
       if (detectedIntent === "out_of_scope") {
         return {
-          text: `Dạ, em đang hỗ trợ thông tin về sản phẩm, dịch vụ và chính sách của ${companyName}. Anh/chị cứ gửi giúp em câu hỏi liên quan đến doanh nghiệp để em hỗ trợ đúng hơn ạ.`,
+          text: formatHumanLikeChatReply(`Dạ, em đang hỗ trợ thông tin về sản phẩm, dịch vụ và chính sách của ${companyName}. Anh/chị cứ gửi giúp em câu hỏi liên quan đến doanh nghiệp để em hỗ trợ đúng hơn ạ.`),
           isMock: false,
         };
       }
 
       if (fallbackNoKnowledgeReply) {
         return {
-          text: fallbackNoKnowledgeReply,
+          text: formatHumanLikeChatReply(fallbackNoKnowledgeReply),
           isMock: false,
         };
       }
@@ -555,10 +700,12 @@ Thông tin cấu hình hiện tại của bạn:
         selectedModel,
         contents,
         {
-          systemInstruction,
+          systemInstruction: finalSystemInstruction,
           temperature: detectedIntent === "small_talk" ? 0.75 : 0.35,
         }
       );
+
+      response.text = formatHumanLikeChatReply(response.text || "Minh kiem tra lai roi nhan ban ngay nhe.");
 
       return {
         text: response.text || "Xin lỗi, tôi chưa thể xử lý yêu cầu lúc này. Vui lòng thử lại.",
@@ -882,9 +1029,9 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
       const existingPillarsStr = currentPillars
         .map(p => `- ID: "${p.id}", Tiêu đề: "${p.title}", Mô tả: "${p.description}"`)
         .join("\n");
-      
+
       const toReplace = currentPillars.find(p => p.id === pillarIdToReplace);
-      const replaceStr = toReplace 
+      const replaceStr = toReplace
         ? `ID: "${toReplace.id}", Tiêu đề: "${toReplace.title}" (Tỷ lệ phân bổ: ${toReplace.ratio})`
         : pillarIdToReplace;
 
@@ -1014,9 +1161,9 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
             ? "\nYêu cầu về phương tiện: Các ý tưởng phải thiết kế đi kèm video làm chủ đạo."
             : mediaType === "human-video"
               ? "\nYÃªu cáº§u vá» phÆ°Æ¡ng tiá»‡n: CÃ¡c Ã½ tÆ°á»Ÿng pháº£i phÃ¹ há»£p cho video ngÆ°á»i tháº­t/avatar nÃ³i trÆ°á»›c camera, Æ°u tiÃªn hook máº¡nh, lá»i thoáº¡i tá»± nhiÃªn, cáº£nh quay Ä‘Æ¡n giáº£n vÃ  cÃ³ thá»ƒ chuyá»ƒn thÃ nh voice script trá»±c tiáº¿p."
-            : mediaType === "none"
-              ? "\nYêu cầu về phương tiện: Các bài đăng không đi kèm hình ảnh hoặc video (chỉ văn bản/caption)."
-              : "";
+              : mediaType === "none"
+                ? "\nYêu cầu về phương tiện: Các bài đăng không đi kèm hình ảnh hoặc video (chỉ văn bản/caption)."
+                : "";
 
       const prompt = `Bạn là một chuyên gia marketing xuất sắc.
 Hãy tạo đúng 3 ý tưởng/bản nháp chiến dịch marketing chi tiết cho chủ đề/chiến dịch này: "${campaignTopic}".${pillarsContext}${channelsContext}${mediaContext}
@@ -1461,9 +1608,9 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
       return { url: `https://picsum.photos/seed/${seed}/800/600`, isMock: true };
     }
 
-    return piapiService.generateImage(prompt, modelToUse, { 
+    return piapiService.generateImage(prompt, modelToUse, {
       aspectRatio: options?.aspectRatio,
-      existingImageUris: options?.existingImageUris 
+      existingImageUris: options?.existingImageUris
     });
   },
 
@@ -2032,1309 +2179,388 @@ CHỈ trả về lệnh chỉnh sửa, không thêm giải thích, không markdo
       videoDurations?: number[];
     }
   ): Promise<{ status: string; record: any; blueprint: any }> {
-    const urls = videoUrl.split(/,\s*(?=https?:\/\/)/).map(u => u.trim()).filter(Boolean);
-    const isMultiple = urls.length > 1;
-    const clientDurations = options?.videoDurations || [];
-
-    const urlDurations: { [url: string]: number } = {};
-    let totalComputedDuration = 0;
-    for (let i = 0; i < urls.length; i++) {
-      const url = urls[i];
-      let dur = clientDurations[i] ? Number(clientDurations[i]) : 0;
-      if (dur <= 0) {
-        dur = await getVideoDuration(url);
-      }
-      urlDurations[url] = dur;
-      totalComputedDuration += dur;
-    }
-
-    let originalDuration = options?.duration || totalComputedDuration;
-
-    const getFallbackBlueprint = () => {
-      let currentOffset = 0;
-      const timeline: any[] = [];
-      for (const url of urls) {
-        const dur = urlDurations[url] || 5;
-        timeline.push({
-          type: "video",
-          src: url,
-          start: 0,
-          end: dur,
-          playbackRate: 1.0
-        });
-        currentOffset += dur;
-      }
-      timeline.push({
-        type: "text",
-        content: "Bản ghép Video",
-        start: 0,
-        end: Math.min(3, currentOffset),
-        style: {
-          position: "bottom-center",
-          color: "#FFFFFF",
-          fontSize: "32px"
-        }
-      });
-      return { timeline };
-    };
-
-    let blueprint = getFallbackBlueprint();
-
-    try {
-      const isCopyPrompt = videoBlueprintService.isCopyPrompt(prompt);
-
-      if (isCopyPrompt) {
-        blueprint = await videoBlueprintService.copyAndScaleBlueprint(
-          userId,
-          urls,
-          urlDurations,
-          getVideoDuration
-        );
-      } else if (process.env.GEMINI_API_KEY) {
-        const systemPrompt = `You are a professional video editing assistant. Your job is to translate a user's natural language video editing instructions (supporting both English and Vietnamese) into a precise Remotion video editing JSON blueprint.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-⚠️ CRITICAL DURATION PRESERVATION RULE (MANDATORY)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- Unless the user explicitly requests to cut, crop, skip, trim, or remove segments of the video (using words like "cắt", "bỏ", "skip", "remove", "trim"), you MUST keep the ENTIRE duration of the video.
-- NEVER default to shortening the video.
-- If you split a video to apply an effect (such as a zoom, speed, or filter) to a specific part, the sum of the split segments MUST equal the EXACT duration of the original source video.
-- HANDLING GAPS: If the user describes edits for specific segments (e.g. 0-5s and 20-30s) but doesn't mention the middle segment (5-20s), you MUST still include the middle segment (5-20s) as a normal video clip (playbackRate: 1.0, no effects/filters) to keep the timeline continuous and preserve the entire video.
-- EXACT END TIME MATCHING: The final clip in the timeline must end exactly at the video's originalDuration (or the end of the last source video). If the last split segment ends at X and the video duration is D (where X < D), you MUST add a final clip from X to D.
-- For example, if a video is exactly 30 seconds long:
-  - If the user asks to "zoom 5 seconds at the beginning", you MUST output:
-    1. Clip 1 (0s to 5s) with zoom
-    2. Clip 2 (5s to 30s) without zoom
-    Total duration = 30 seconds.
-  - If the user asks to "zoom in/out every 3s", you must partition the full 30s into chunks of 3s: [0-3s], [3-6s], [6-9s], ..., [27-30s]. All parts must sum up to exactly 30s.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🎵 CRITICAL AUDIO & SFX POSITIONING RULES
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- "start" and "end" for all elements (text, image, audio) are specified relative to the FINAL COMPILED video timeline.
-- Background music (nhạc nền) or songs should span the exact requested range. If the user requests "10s cuối cho nhạc" (last 10 seconds for music) in a 30s video, the audio start MUST be 20, and end MUST be 30.
-- If the user wants background music throughout the video, start MUST be 0 and end MUST be total_final_duration.
-- Sound effects (SFX like "ting", "whoosh") should start exactly at the highlighted transition and last only 1-2 seconds (e.g., if a zoom happens at 5s, the ting SFX should start at 5 and end at 6.5).
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📽️ SOURCE VIDEOS INFO
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${isMultiple 
-  ? `The user has provided MULTIPLE input videos. Here is the list of source videos available:
-${urls.map((url, idx) => `▸ Video ${idx + 1}: URL: "${url}", Duration: ${urlDurations[url]} seconds.`).join("\n")}
-
-You MUST map each video clip segment to its correct source URL by setting the "src" property of the video clip to the exact URL of that video from the list above. 
-CRITICAL MULTI-VIDEO RULES:
-- Join them in the logical order requested (e.g. Video 1, then Video 2).
-- The total target duration of the compiled video MUST be the EXACT sum of all source video durations: (Duration of Video 1 + Duration of Video 2 + ... + Duration of Video N) unless there is a specific instruction to trim or cut a video.
-- For each source video, you MUST generate segments that cover its ENTIRE original duration. For example, if Video 1 is 10s and Video 2 is 15s, you must create video clips for Video 1 covering [0s to 10s] and video clips for Video 2 covering [0s to 15s]. The final video length must be exactly 25s.
-- The "start" and "end" timestamps inside each video segment must be relative to that source video's original timeline (from 0 to its specific duration).
-- Keep the timeline continuous. Calculate the cumulative duration of all preceding clips (taking playbackRate into account) to know the start/end offsets for text overlays, audio tracks, and logos.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🇻🇳 QUY TẮC GHÉP VIDEO TIẾNG VIỆT (VIETNAMESE CONCATENATION RULES)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- Khi người dùng yêu cầu ghép video (sử dụng các từ như "ghép video", "nối video", "ghép lại", "nối lại", "gộp video", "ghép các clip", "nối các clip lại với nhau"):
-  - Bạn MUST sắp xếp tất cả các video được cung cấp theo đúng thứ tự (Video 1, Video 2,... Video N).
-  - Trừ khi có yêu cầu cắt/trim cụ thể, mỗi video phải chạy trọn vẹn thời lượng gốc của nó (start: 0, end: duration).
-  - Tổng thời lượng của video đầu ra phải bằng tổng thời lượng của các video gốc cộng lại.
-  - Vẫn giữ nguyên các layer text, nhạc nền hay logo chạy song song trong final timeline nếu được yêu cầu.` 
-  : `The original video URL is "${urls[0]}".
-The original video duration is exactly ${originalDuration || 5} seconds.`}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-✂️ SECTION 1: CUTTING & TRIMMING
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- "cắt bỏ X giây đầu" / "bỏ đầu X giây" / "skip first X seconds" -> start video clip at X.
-- "cắt bỏ X giây cuối" / "bỏ cuối X giây" / "remove last X seconds" -> end video clip at (originalDuration - X).
-- "lấy đoạn từ X đến Y giây" / "keep from X to Y" -> start=X, end=Y.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-⏩ SECTION 2: PACING & PLAYBACK RATE
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- "tua nhanh gấp N lần" -> set playbackRate to N (e.g. 2.0).
-- "tua chậm N lần" -> set playbackRate to 1/N (e.g. 0.5).
-* SPEED MATH RULE:
-If a segment from source time S to E is speed-ramped by rate R:
-Its final duration in the compiled video = (E - S) / R.
-You MUST split the video clip into multiple sequential clips whenever the playback rate changes.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🔍 SECTION 3: ZOOM EFFECTS (TIMING & FREQUENCY)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Zoom is applied per clip. Split the video track at the exact second of the zoom and apply "effects.zoom": "in" or "out".
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🎨 SECTION 4: VISUAL COLOR FILTERS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- "tăng sáng" / "brighten" -> filters.brightness: 1.35
-- "làm tối" / "darken" -> filters.brightness: 0.65
-- "đen trắng" / "grayscale" -> filters.grayscale: 1.0
-- "cinematic" / "màu phim điện ảnh" -> filters.contrast: 1.25, filters.saturate: 1.3, filters.brightness: 0.95
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🎵 SECTION 5: MUSIC & SOUND DESIGN (CRITICAL)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-You MUST choose the exact URL from the preloaded library below. NEVER make up URLs.
-Background Music:
-▸ Upbeat/EDM/Sôi động: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
-▸ Tech/Rhythmic/Công nghệ nhịp nhàng: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3"
-▸ Corporate/Doanh nghiệp/Quảng cáo: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3"
-▸ Lofi Chill/Thư giãn: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3"
-▸ Acoustic/Piano/Nhẹ nhàng: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3"
-
-Sound Effects (SFX):
-▸ Success/Ting sound/Thành công: "https://assets.mixkit.co/active_storage/sfx/2019/2019-84.wav"
-▸ Transition/Whoosh sound/Lướt qua: "https://assets.mixkit.co/active_storage/sfx/2013/2013-84.wav"
-▸ Laughter/Tiếng cười: "https://assets.mixkit.co/active_storage/sfx/2568/2568-84.wav"
-▸ Explosion/Tiếng nổ: "https://assets.mixkit.co/active_storage/sfx/2798/2798-84.wav"
-▸ Censor Beep/Tiếng tít: "https://assets.mixkit.co/active_storage/sfx/1076/1076-84.wav"
-
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📝 SECTION 6: TEXT OVERLAYS & TITLES
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- "chèn chữ" / "hiển thị phụ đề" / "add text" -> type: "text".
-- Placement: bottom-center (for captions/lyrics), center (for main titles), top-left/top-right (for logos/branding).
-- Style: high-contrast colors (white '#FFFFFF', yellow '#FFD700', red '#FF3333', cyan '#00FFFF').
-- Font size: title="56px", subtitle="32px", caption="24px".
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🎬 SECTION 7: TRANSITIONS & ROTATION
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- "chuyển cảnh mờ dần" / "fade transition" -> set effects.transition to "fade" on the clip that ends the scene.
-- "xoay góc" / "quay nghiêng" -> set effects.rotate to degrees (e.g. 90, 180, -45).
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📐 SECTION 8: TIMELINE INTEGRITY & MATH
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- Visual timeline must be continuous (no gaps, no overlaps between sequential video clips).
-- Unless instructed to cut/trim, keep the entire original video source duration.
-- All overlay elements (text, image, audio) are placed relative to the FINAL timeline, not the source video time.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📋 SECTION 9: JSON OUTPUT SCHEMA
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Return ONLY valid JSON. No markdown backticks, no comments, no conversational text.
-{
-  "timeline": [
-    {
-      "type": "video",
-      "src": "string (source video url exactly)",
-      "start": number (seconds),
-      "end": number (seconds),
-      "playbackRate": number (default 1.0),
-      "filters": {
-        "brightness": number (optional),
-        "grayscale": number (optional),
-        "blur": number (optional),
-        "sepia": number (optional),
-        "contrast": number (optional),
-        "saturate": number (optional),
-        "hueRotate": number (optional)
-      },
-      "effects": {
-        "zoom": "in" | "out" | "none",
-        "rotate": number (degrees),
-        "transition": "fade" | "none"
-      }
-    },
-    {
-      "type": "text",
-      "content": "string",
-      "start": number (seconds in final timeline),
-      "end": number (seconds in final timeline),
-      "style": {
-        "position": "top-left" | "top-center" | "top-right" | "center" | "bottom-left" | "bottom-center" | "bottom-right",
-        "color": "#HEX",
-        "fontSize": "32px"
-      }
-    },
-    {
-      "type": "audio",
-      "src": "string (exact URL from library)",
-      "start": number (seconds in final timeline),
-      "end": number (seconds in final timeline),
-      "volume": number (0 to 1)
-    }
-  ]
-}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🏆 WORKED EXAMPLES FOR COMPLEX PROMPTS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-▸ Example A: "Nối Video 1 (10s) và Video 2 (15s). Chèn nhạc lofi thư giãn xuyên suốt."
-- IMPORTANT: "start" and "end" inside each video clip are the timestamp range WITHIN THAT SOURCE VIDEO, always starting from 0 for each new source.
-- The total output duration = 10 + 15 = 25s. Audio spans 0 to 25s of the final output.
-{
-  "timeline": [
-    { "type": "video", "src": "URL_VIDEO_1", "start": 0, "end": 10, "playbackRate": 1.0 },
-    { "type": "video", "src": "URL_VIDEO_2", "start": 0, "end": 15, "playbackRate": 1.0 },
-    { "type": "audio", "src": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3", "start": 0, "end": 25, "volume": 0.7 }
-  ]
-}
-
-▸ Example B: "Nối 3 video (V1=5s, V2=7s, V3=10s). Không có hiệu ứng gì."
-- Total output = 5 + 7 + 10 = 22s. Each source video is fully used from 0 to its duration.
-{
-  "timeline": [
-    { "type": "video", "src": "URL_VIDEO_1", "start": 0, "end": 5, "playbackRate": 1.0 },
-    { "type": "video", "src": "URL_VIDEO_2", "start": 0, "end": 7, "playbackRate": 1.0 },
-    { "type": "video", "src": "URL_VIDEO_3", "start": 0, "end": 10, "playbackRate": 1.0 }
-  ]
-}
-
-▸ Example C: "Cắt bỏ 3 giây đầu của video. Đoạn 5s tiếp theo zoom vào và làm đen trắng. Phần còn lại bình thường." (Duration: 15s)
-{
-  "timeline": [
-    { "type": "video", "src": "URL_VIDEO", "start": 3, "end": 8, "playbackRate": 1.0, "filters": { "grayscale": 1.0 }, "effects": { "zoom": "in" } },
-    { "type": "video", "src": "URL_VIDEO", "start": 8, "end": 15, "playbackRate": 1.0 }
-  ]
-}
-
-▸ Example D: "Tua nhanh 4s đầu gấp 2 lần, zoom vào giây thứ 2. Thêm phụ đề 'Bắt đầu' từ 0 đến 2s." (Duration: 8s)
-- Original 0-4s at 2x becomes 2s final. Zoom-in starts at original 2s (which is final 1s).
-{
-  "timeline": [
-    { "type": "video", "src": "URL_VIDEO", "start": 0, "end": 2, "playbackRate": 2.0 },
-    { "type": "video", "src": "URL_VIDEO", "start": 2, "end": 4, "playbackRate": 2.0, "effects": { "zoom": "in" } },
-    { "type": "video", "src": "URL_VIDEO", "start": 4, "end": 8, "playbackRate": 1.0 },
-    { "type": "text", "content": "Bắt đầu", "start": 0, "end": 2, "style": { "position": "bottom-center", "color": "#FFFFFF", "fontSize": "32px" } }
-  ]
-}
-
-▸ Example E: "Nối 2 video (V1=6s, V2=8s). Làm đen trắng V1. Zoom vào lúc giây thứ 3 của V1. Chèn tiếng cười sfx lúc bắt đầu V2."
-- V1 is 6s (split into 0-3s and 3-6s to apply zoom at second 3). V2 is 8s starting fresh from 0.
-- IMPORTANT: For each source video, start/end are timestamps within THAT video, not the final output timeline.
-- SFX "start" 6 = lúc V2 bắt đầu trong final timeline (sau V1=6s). SFX "end" 8 = 6s(V1) + 2s(SFX duration).
-{
-  "timeline": [
-    { "type": "video", "src": "URL_VIDEO_1", "start": 0, "end": 3, "playbackRate": 1.0, "filters": { "grayscale": 1.0 } },
-    { "type": "video", "src": "URL_VIDEO_1", "start": 3, "end": 6, "playbackRate": 1.0, "filters": { "grayscale": 1.0 }, "effects": { "zoom": "in" } },
-    { "type": "video", "src": "URL_VIDEO_2", "start": 0, "end": 8, "playbackRate": 1.0 },
-    { "type": "audio", "src": "https://assets.mixkit.co/active_storage/sfx/2568/2568-84.wav", "start": 6, "end": 8, "volume": 0.9 }
-  ]
-}
-
-▸ Example F: "Ghép các video này lại với nhau, thêm nhạc lofi thư giãn" (V1=8s, V2=12s)
-- Total output = 8 + 12 = 20s. Both videos are played sequentially in full.
-{
-  "timeline": [
-    { "type": "video", "src": "URL_VIDEO_1", "start": 0, "end": 8, "playbackRate": 1.0 },
-    { "type": "video", "src": "URL_VIDEO_2", "start": 0, "end": 12, "playbackRate": 1.0 },
-    { "type": "audio", "src": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3", "start": 0, "end": 20, "volume": 0.7 }
-  ]
-}
-
-▸ Example G: "Ghép video 1 và video 2 lại, chèn chữ 'Kết quả' ở giây thứ 5 đến 8" (V1=6s, V2=10s)
-- Total output = 6 + 10 = 16s.
-{
-  "timeline": [
-    { "type": "video", "src": "URL_VIDEO_1", "start": 0, "end": 6, "playbackRate": 1.0 },
-    { "type": "video", "src": "URL_VIDEO_2", "start": 0, "end": 10, "playbackRate": 1.0 },
-    { "type": "text", "content": "Kết quả", "start": 5, "end": 8, "style": { "position": "bottom-center", "color": "#FFFFFF", "fontSize": "32px" } }
-  ]
-}
-`;
-
-        const messages = [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: `Generate the video editing JSON blueprint for: "${prompt}"` }
-        ];
-
-        const editResult = await generateText(GEMINI_TEXT_MODEL, `Generate JSON blueprint for: "${prompt}"`, {
-          systemInstruction: systemPrompt,
-          responseMimeType: "application/json",
-        });
-        blueprint = safeParseJson(editResult.text);
-      }
-    } catch (error) {
-      console.error("[geminiService.editVideo] Failed to get LLM blueprint:", error);
-      throw error;
-    }
-
-    // Save record to database with status processing (queued state description)
-    const record = await AIMediaModel.create({
-      userId,
-      mediaType: "video",
-      url: `pending://local-render/${userId}-${Date.now()}`,
-      prompt,
-      metadata: {
-        status: "processing",
-        progress: 5,
-        provider: "local-render",
-        title: `Biên tập: ${prompt}`,
-        description: `Đang xếp hàng chờ kết xuất video bằng FFMPEG / Cloud Render.`,
-        blueprint: JSON.stringify(blueprint),
-        renderLogs: [
-          "[LLM] Đang phân tích prompt...",
-          `[LLM] Đã phân tích thành công JSON Blueprint: ${JSON.stringify(blueprint, null, 2)}`,
-          "[Hàng đợi] Đã thêm yêu cầu render vào hàng đợi Redis."
-        ],
-        aspectRatio: options?.aspectRatio || "16:9",
-        resolution: options?.resolution || "720p",
-      }
-    });
-
-    // Add render task to Redis queue
-    try {
-      await remotionQueueService.addRenderJob(record._id.toString(), videoUrl, blueprint, userId);
-    } catch (queueErr: any) {
-      console.warn(`[Remotion Queue] Không thể dùng hàng đợi Redis (lỗi: ${queueErr.message || queueErr}). Đang tự động xử lý render trực tiếp.`);
-      // Run the rendering task in the background directly without queue
-      void geminiService.executeLocalRenderJob(record._id.toString(), videoUrl, blueprint, userId);
-    }
-
-    return {
-      status: "success",
-      record,
-      blueprint
-    };
+    return hermesService.editVideo(userId, videoUrl, prompt, options);
   },
-
-  async executeLocalRenderJob(recordId: string, videoUrl: string, blueprint: any, userId: string) {
-    console.log(`[Remotion Queue Worker] Starting task for record ${recordId}`);
-    const timeline = blueprint.timeline || [];
-    
-    const currentRecord = await AIMediaModel.findById(recordId);
-    const logs = currentRecord?.metadata?.renderLogs || [
-      "[LLM] Đang phân tích prompt...",
-      `[LLM] Đã phân tích thành công JSON Blueprint: ${JSON.stringify(blueprint, null, 2)}`,
-      "[Hàng đợi] Đã thêm yêu cầu render vào hàng đợi Redis."
-    ];
-    
-    logs.push("[Render Engine] Bắt đầu xử lý tác vụ từ hàng đợi...");
-    
-    const updateLogs = async (progress: number, newLog?: string) => {
-      if (newLog) {
-        console.log(`[Remotion Queue Worker] [${progress}%] ${newLog}`);
-        logs.push(newLog);
-      }
-      await AIMediaModel.findByIdAndUpdate(recordId, {
-        "metadata.progress": progress,
-        "metadata.renderLogs": logs,
-        "metadata.description": `Đang kết xuất video tự động bằng FFMPEG / Cloud Render. Tiến trình: ${progress}%`
-      });
-    };
-
-    try {
-      const record = await AIMediaModel.findById(recordId);
-      const aspect = record?.metadata?.aspectRatio || "16:9";
-      const resolution = record?.metadata?.resolution || "720p";
-
-      let targetWidth = 1280;
-      let targetHeight = 720;
-
-      if (aspect === "9:16") {
-        if (resolution === "1080p") {
-          targetWidth = 1080;
-          targetHeight = 1920;
-        } else {
-          targetWidth = 720;
-          targetHeight = 1280;
-        }
-      } else if (aspect === "1:1") {
-        if (resolution === "1080p") {
-          targetWidth = 1080;
-          targetHeight = 1080;
-        } else {
-          targetWidth = 720;
-          targetHeight = 720;
-        }
-      } else { // default 16:9
-        if (resolution === "1080p") {
-          targetWidth = 1920;
-          targetHeight = 1080;
-        } else {
-          targetWidth = 1280;
-          targetHeight = 720;
-        }
-      }
-
-      let finalVideoUrl = "";
-      let renderSuccess = false;
-
-      try {
-        await updateLogs(25, "[Render Engine] Bắt đầu kết xuất video bằng Remotion...");
-        
-        finalVideoUrl = await remotionService.renderVideo(
-          blueprint,
-          { aspectRatio: aspect, resolution },
-          async (progress, msg) => {
-            await updateLogs(progress, msg);
-          }
-        );
-        renderSuccess = true;
-      } catch (remotionError: any) {
-        await updateLogs(
-          35,
-          `[Render Engine Warning] Remotion Engine không thể kết xuất (có thể do thiếu Chromium): ${remotionError.message || String(remotionError)}. Đang tự động chuyển sang công cụ Render Fallback...`
-        );
-      }
-
-      if (!renderSuccess) {
-        finalVideoUrl = videoUrl;
-
-        await updateLogs(40, "[Render Engine Fallback] Đang kiểm tra môi trường FFMPEG...");
-        
-        const hasFfmpeg = await new Promise<boolean>((resolve) => {
-          exec("ffmpeg -version", (error) => {
-            resolve(!error);
-          });
-        });
-
-        await updateLogs(45, `[Render Engine Fallback] Kết quả FFMPEG: ${hasFfmpeg ? "Đã cài đặt" : "Chưa cài đặt"}`);
-        if (hasFfmpeg) {
-          const cacheDir = path.join(process.cwd(), "server/cache/videos");
-          if (!fs.existsSync(cacheDir)) {
-            fs.mkdirSync(cacheDir, { recursive: true });
-          }
-
-          const videoClips = timeline.filter((item: any) => item.type === "video");
-          const textElements = timeline.filter((item: any) => item.type === "text");
-          const imageElements = timeline.filter((item: any) => item.type === "image");
-          const audioElements = timeline.filter((item: any) => item.type === "audio");
-
-          // Extract all unique source video URLs from timeline video clips
-          let uniqueVideoUrls: string[] = Array.from(new Set(videoClips.map((clip: any) => clip.src).filter(Boolean))) as string[];
-          
-          // If the timeline didn't specify any source URLs (fallback case), extract them from the request videoUrl
-          if (uniqueVideoUrls.length === 0) {
-            uniqueVideoUrls = videoUrl.split(/,\s*(?=https?:\/\/)/).map(u => u.trim()).filter(Boolean);
-          }
-
-          const videoTempPaths: string[] = [];
-          const urlToInputIdx: { [url: string]: number } = {};
-
-          for (let i = 0; i < uniqueVideoUrls.length; i++) {
-            const url = uniqueVideoUrls[i];
-            const tempInput = path.join(os.tmpdir(), `input_${ recordId }_${ i }.mp4`);
-            
-            const urlParts = url.split("/");
-            const filename = urlParts[urlParts.length - 1];
-            const localCachePath = path.join(cacheDir, filename);
-
-            if (filename && filename.match(/^[a-zA-Z0-9_-]+\.[a-zA-Z0-9]+$/) && fs.existsSync(localCachePath)) {
-              await updateLogs(50, `[Render Engine Cache]Phát hiện video nguồn ${ i + 1} trong cache cục bộ(${ filename }).Sao chép...`);
-              fs.copyFileSync(localCachePath, tempInput);
-            } else {
-              await updateLogs(50, `[Render Engine Fallback] Đang tải video gốc ${ i + 1 }/${uniqueVideoUrls.length} xuống server tạm...`);
-const response = await fetchWithRetry(url);
-if (!response.ok) {
-  throw new Error(`Tải video gốc ${i + 1} thất bại: HTTP ${response.status}`);
-}
-const buffer = Buffer.from(await response.arrayBuffer());
-fs.writeFileSync(tempInput, buffer);
-            }
-videoTempPaths.push(tempInput);
-urlToInputIdx[url] = i;
-          }
-
-await updateLogs(55, "[Render Engine Fallback] Đang phát hiện luồng âm thanh...");
-const hasAudioMap: { [idx: number]: boolean } = {};
-for (let i = 0; i < videoTempPaths.length; i++) {
-  const tempInputPath = videoTempPaths[i];
-  const hasAudio = await new Promise<boolean>((resolve) => {
-    exec(`ffmpeg -i "${tempInputPath}"`, (error, stdout, stderr) => {
-      const info = stderr || stdout || "";
-      resolve(info.includes("Audio:"));
-    });
-  });
-  hasAudioMap[i] = hasAudio;
-}
-
-await updateLogs(60, `[Render Engine Fallback] Âm thanh nguồn các video: ${videoTempPaths.map((_, i) => `Video ${i + 1}: ${hasAudioMap[i] ? "Có" : "Không"}`).join(", ")}`);
-await updateLogs(65, "[Render Engine Fallback] Đang xử lý các tài nguyên lớp phủ (overlay)...");
-
-// 1. Download image overlays to temp files
-const imageTempPaths: string[] = [];
-for (let i = 0; i < imageElements.length; i++) {
-  const img = imageElements[i];
-  const tempImgPath = path.join(os.tmpdir(), `overlay_img_${recordId}_${i}${path.extname(img.src || '.png')}`);
-  try {
-    const imgRes = await fetchWithRetry(img.src);
-    if (imgRes.ok) {
-      fs.writeFileSync(tempImgPath, Buffer.from(await imgRes.arrayBuffer()));
-      imageTempPaths.push(tempImgPath);
-    } else {
-      imageTempPaths.push("");
-    }
-  } catch (err) {
-    imageTempPaths.push("");
-  }
-}
-
-// 2. Download audio overlays to temp files
-const audioTempPaths: string[] = [];
-for (let i = 0; i < audioElements.length; i++) {
-  const aud = audioElements[i];
-  const tempAudPath = path.join(os.tmpdir(), `overlay_aud_${recordId}_${i}${path.extname(aud.src || '.mp3')}`);
-  try {
-    const audRes = await fetchWithRetry(aud.src);
-    if (audRes.ok) {
-      fs.writeFileSync(tempAudPath, Buffer.from(await audRes.arrayBuffer()));
-      audioTempPaths.push(tempAudPath);
-    } else {
-      audioTempPaths.push("");
-    }
-  } catch (err) {
-    audioTempPaths.push("");
-  }
-}
-
-// 3. Build FFMPEG filter graph
-let filterComplex = "";
-let inputArgs: string[] = [];
-
-// Image and audio inputs start after the video inputs
-let currentInputIdx = videoTempPaths.length;
-const imageInputMappings: { [key: number]: number } = {};
-const audioInputMappings: { [key: number]: number } = {};
-
-imageElements.forEach((img: any, idx: number) => {
-  const localPath = imageTempPaths[idx];
-  if (localPath) {
-    inputArgs.push(`-i "${localPath}"`);
-    imageInputMappings[idx] = currentInputIdx;
-    currentInputIdx++;
-  }
-});
-
-audioElements.forEach((aud: any, idx: number) => {
-  const localPath = audioTempPaths[idx];
-  if (localPath) {
-    inputArgs.push(`-i "${localPath}"`);
-    audioInputMappings[idx] = currentInputIdx;
-    currentInputIdx++;
-  }
-});
-
-// PRE-SPLIT: Each video input may be referenced by multiple clips (e.g. applying different
-// effects to different time ranges of the same source video). FFMPEG does NOT allow reading
-// the same input stream [N:v] or [N:a] multiple times in a filter_complex. We must pre-split
-// each unique video input into as many copies as needed using the `split` filter.
-const inputClipCounts: { [inputIdx: number]: number } = {};
-const inputSplitCounters: { [inputIdx: number]: number } = {};
-videoClips.forEach((clip: any) => {
-  const inputIdx = urlToInputIdx[clip.src] ?? 0;
-  inputClipCounts[inputIdx] = (inputClipCounts[inputIdx] || 0) + 1;
-});
-
-// Build split filters for video streams that are referenced more than once
-Object.keys(inputClipCounts).forEach((idxStr) => {
-  const inputIdx = parseInt(idxStr);
-  const count = inputClipCounts[inputIdx];
-  inputSplitCounters[inputIdx] = 0;
-  if (count > 1) {
-    const splitOutputs = Array.from({ length: count }, (_, i) => `[vsplit_${inputIdx}_${i}]`).join("");
-    filterComplex += `[${inputIdx}:v]split=${count}${splitOutputs};`;
-  }
-});
-
-// Build split filters for audio streams that are referenced more than once
-const inputAudioSplitCounters: { [inputIdx: number]: number } = {};
-Object.keys(inputClipCounts).forEach((idxStr) => {
-  const inputIdx = parseInt(idxStr);
-  const count = inputClipCounts[inputIdx];
-  inputAudioSplitCounters[inputIdx] = 0;
-  const hasAudioForInput = hasAudioMap[inputIdx] ?? false;
-  if (count > 1 && hasAudioForInput) {
-    const splitOutputs = Array.from({ length: count }, (_, i) => `[asplit_${inputIdx}_${i}]`).join("");
-    filterComplex += `[${inputIdx}:a]asplit=${count}${splitOutputs};`;
-  }
-});
-
-// Track silence inputs that will be added as extra ffmpeg inputs
-const silenceInputIdxMap: { [clipIdx: number]: number } = {};
-let silenceCount = 0;
-
-let concatInputs = "";
-videoClips.forEach((clip: any, idx: number) => {
-  const start = clip.start ?? 0;
-  const end = clip.end ?? 5;
-  const rate = clip.playbackRate ?? 1;
-  const clipDuration = (end - start) / rate;
-  const inputIdx = urlToInputIdx[clip.src] ?? 0;
-  const hasAudio = hasAudioMap[inputIdx] ?? false;
-  const usesSplit = inputClipCounts[inputIdx] > 1;
-
-  // Determine the video source label (split or direct)
-  let vSrcLabel: string;
-  if (usesSplit) {
-    const splitI = inputSplitCounters[inputIdx];
-    vSrcLabel = `[vsplit_${inputIdx}_${splitI}]`;
-    inputSplitCounters[inputIdx] = splitI + 1;
-  } else {
-    vSrcLabel = `[${inputIdx}:v]`;
-  }
-
-  // Video stream processing
-  let vFilter = `${vSrcLabel}trim=start=${start}:end=${end},setpts=PTS-STARTPTS`;
-  if (clip.filters?.grayscale !== undefined && clip.filters.grayscale > 0) {
-    vFilter += `,hue=s=${1 - clip.filters.grayscale}`;
-  }
-  if (clip.filters?.brightness !== undefined && clip.filters.brightness !== 1) {
-    vFilter += `,eq=brightness=${clip.filters.brightness - 1}`;
-  }
-  if (clip.effects?.rotate !== undefined && clip.effects.rotate !== 0) {
-    const rad = (clip.effects.rotate * Math.PI) / 180;
-    vFilter += `,rotate=${rad}`;
-  }
-  if (clip.effects?.transition === "fade") {
-    const fadeDur = Math.min(0.5, clipDuration / 2);
-    vFilter += `,fade=in:st=0:d=${fadeDur},fade=out:st=${clipDuration - fadeDur}:d=${fadeDur}`;
-  }
-  if (rate !== 1) {
-    vFilter += `,setpts=${1 / rate}*(PTS-STARTPTS)`;
-  }
-  vFilter += `,scale=w='min(${targetWidth},iw*${targetHeight}/ih)':h='min(${targetHeight},ih*${targetWidth}/iw)',pad=w=${targetWidth}:h=${targetHeight}:x='(${targetWidth}-iw)/2':y='(${targetHeight}-ih)/2':color=black,setsar=1`;
-  vFilter += `,fps=fps=30`;
-  vFilter += `[v_proc_${idx}];`;
-  filterComplex += vFilter;
-  concatInputs += `[v_proc_${idx}]`;
-
-  // Audio stream processing
-  if (hasAudio) {
-    const usesSplitA = inputClipCounts[inputIdx] > 1;
-    let aSrcLabel: string;
-    if (usesSplitA) {
-      const splitAi = inputAudioSplitCounters[inputIdx];
-      aSrcLabel = `[asplit_${inputIdx}_${splitAi}]`;
-      inputAudioSplitCounters[inputIdx] = splitAi + 1;
-    } else {
-      aSrcLabel = `[${inputIdx}:a]`;
-    }
-    let aFilter = `${aSrcLabel}atrim=start=${start}:end=${end},asetpts=PTS-STARTPTS`;
-    if (rate !== 1) {
-      const clampedRate = Math.max(0.5, Math.min(2.0, rate));
-      aFilter += `,atempo=${clampedRate}`;
-    }
-    aFilter += `[a_proc_${idx}];`;
-    filterComplex += aFilter;
-    concatInputs += `[a_proc_${idx}]`;
-  } else {
-    // For videos without audio: we use a silence input added via -f lavfi -i anullsrc
-    // Track which extra input index this silence clip will be
-    silenceInputIdxMap[idx] = currentInputIdx + silenceCount;
-    silenceCount++;
-    concatInputs += `[a_proc_${idx}]`; // will be resolved after building silence inputs
-  }
-});
-
-// Add silence inputs for clips without audio (as -f lavfi -i anullsrc before filter_complex)
-// We'll inject them at the correct positions using inputArgs prefix
-const silenceInputArgs: string[] = [];
-videoClips.forEach((clip: any, idx: number) => {
-  const inputIdx = urlToInputIdx[clip.src] ?? 0;
-  const hasAudio = hasAudioMap[inputIdx] ?? false;
-  if (!hasAudio) {
-    const start = clip.start ?? 0;
-    const end = clip.end ?? 5;
-    const rate = clip.playbackRate ?? 1;
-    const clipDuration = (end - start) / rate;
-    const silenceInputIdx = silenceInputIdxMap[idx];
-    silenceInputArgs.push(`-f lavfi -i anullsrc=sample_rate=44100:channel_layout=stereo`);
-    // Add filter to trim silence to exact clip duration
-    filterComplex = filterComplex + `[${silenceInputIdx}:a]atrim=duration=${clipDuration}[a_proc_${idx}];`;
-  }
-});
-
-// Insert silence inputs before the overlay inputs in the correct order
-if (silenceInputArgs.length > 0) {
-  inputArgs = [...silenceInputArgs, ...inputArgs];
-  // Remap overlay input indices (they shifted by silenceCount)
-  const remappedImageMappings: { [k: number]: number } = {};
-  const remappedAudioMappings: { [k: number]: number } = {};
-  Object.keys(imageInputMappings).forEach(k => {
-    remappedImageMappings[parseInt(k)] = imageInputMappings[parseInt(k)] + silenceCount;
-  });
-  Object.keys(audioInputMappings).forEach(k => {
-    remappedAudioMappings[parseInt(k)] = audioInputMappings[parseInt(k)] + silenceCount;
-  });
-  // Remap references in filterComplex for image/audio overlays
-  Object.keys(imageInputMappings).forEach(k => {
-    const oldIdx = imageInputMappings[parseInt(k)];
-    const newIdx = remappedImageMappings[parseInt(k)];
-    filterComplex = filterComplex.replaceAll(`[${oldIdx}:v]`, `[${newIdx}:v]`);
-  });
-  Object.keys(audioInputMappings).forEach(k => {
-    const oldIdx = audioInputMappings[parseInt(k)];
-    const newIdx = remappedAudioMappings[parseInt(k)];
-    filterComplex = filterComplex.replaceAll(`[${oldIdx}:a]`, `[${newIdx}:a]`);
-  });
-  Object.assign(imageInputMappings, remappedImageMappings);
-  Object.assign(audioInputMappings, remappedAudioMappings);
-}
-
-const numClips = videoClips.length;
-filterComplex += `${concatInputs}concat=n=${numClips}:v=1:a=1[concatv][concata];`;
-
-let currentVideoOut = "[concatv]";
-const isWin = os.platform() === "win32";
-const fontfileArg = isWin ? "fontfile='C\\:/Windows/Fonts/arial.ttf':" : "";
-
-textElements.forEach((textItem: any, idx: number) => {
-  const start = textItem.start ?? 0;
-  const end = textItem.end ?? 5;
-  const content = (textItem.content || "").replace(/'/g, "'\\\\''").replace(/:/g, "\\:");
-  const style = textItem.style || {};
-  const color = style.color || "white";
-
-  let fontSizeNum = 32;
-  if (style.fontSize) {
-    const matched = String(style.fontSize).match(/(\d+)/);
-    if (matched) {
-      fontSizeNum = parseInt(matched[1]);
-    }
-  }
-
-  let x = "(w-text_w)/2";
-  let y = "h-text_h-80";
-
-  // Vertical position mapping
-  if (style.position?.startsWith("top-")) {
-    y = "40";
-  } else if (style.position === "center") {
-    y = "(h-text_h)/2";
-  } else if (style.position?.startsWith("bottom-")) {
-    y = "h-text_h-80";
-  }
-
-  // Horizontal position mapping
-  if (style.position?.endsWith("-left")) {
-    x = "40";
-  } else if (style.position?.endsWith("-right")) {
-    x = "w-text_w-40";
-  } else if (style.position?.endsWith("-center") || style.position === "center") {
-    x = "(w-text_w)/2";
-  }
-
-  const nextVideoOut = `[textv_${idx}]`;
-  filterComplex += `${currentVideoOut}drawtext=${fontfileArg}text='${content}':x=${x}:y=${y}:fontsize=${fontSizeNum}:fontcolor=${color}:enable='between(t,${start},${end})'${nextVideoOut};`;
-  currentVideoOut = nextVideoOut;
-});
-
-imageElements.forEach((imgItem: any, idx: number) => {
-  const start = imgItem.start ?? 0;
-  const end = imgItem.end ?? 5;
-  const style = imgItem.style || {};
-  const mappedInputIdx = imageInputMappings[idx];
-  if (mappedInputIdx === undefined) return;
-
-  let x = "w-overlay_w-20";
-  let y = "20";
-  if (style.position === "top-left") {
-    x = "20";
-    y = "20";
-  } else if (style.position === "bottom-left") {
-    x = "20";
-    y = "h-overlay_h-20";
-  } else if (style.position === "bottom-right") {
-    x = "w-overlay_w-20";
-    y = "h-overlay_h-20";
-  }
-
-  const nextVideoOut = `[imgv_${idx}]`;
-  filterComplex += `${currentVideoOut}[${mappedInputIdx}:v]overlay=x=${x}:y=${y}:enable='between(t,${start},${end})'${nextVideoOut};`;
-  currentVideoOut = nextVideoOut;
-});
-
-// Final video stream is ready. Check if we need to mix background audio
-filterComplex = filterComplex.replace(/;$/, "");
-
-let currentAudioOut = "[concata]";
-const activeAudioOverlays = audioElements.filter((_, idx) => audioInputMappings[idx] !== undefined);
-if (activeAudioOverlays.length > 0) {
-  let mixInputs = "[concata]";
-  let audioMixFilter = "";
-  audioElements.forEach((aud: any, idx: number) => {
-    const mappedInputIdx = audioInputMappings[idx];
-    if (mappedInputIdx === undefined) return;
-    const start = aud.start ?? 0;
-    const volume = aud.volume ?? 1;
-
-    audioMixFilter += `[${mappedInputIdx}:a]adelay=${Math.round(start * 1000)}|${Math.round(start * 1000)},volume=${volume}[aud_delay_${idx}];`;
-    mixInputs += `[aud_delay_${idx}]`;
-  });
-  audioMixFilter += `${mixInputs}amix=inputs=${activeAudioOverlays.length + 1}:duration=first[outa]`;
-  filterComplex += `;${audioMixFilter}`;
-  currentAudioOut = "[outa]";
-}
-
-const videoInputsStr = videoTempPaths.map(p => `-i "${p}"`).join(" ");
-const inputsStr = `${videoInputsStr} ` + inputArgs.join(" ");
-const tempOutput = path.join(os.tmpdir(), `output_${recordId}.mp4`);
-const ffmpegCmd = `ffmpeg -y ${inputsStr} -filter_complex "${filterComplex}" -map "${currentVideoOut}" -map "${currentAudioOut}" -c:v libx264 -c:a aac -pix_fmt yuv420p -r 30 -vsync cfr "${tempOutput}"`;
-
-await updateLogs(70, "[Render Engine Fallback] Đang thực thi lệnh FFMPEG chi tiết...");
-
-await new Promise<void>((resolve, reject) => {
-  exec(ffmpegCmd, (error, stdout, stderr) => {
-    if (error) {
-      console.error("FFMPEG execution failed detail:", stderr || stdout || error.message);
-      reject(new Error(`FFMPEG render failed: ${error.message}`));
-    } else {
-      resolve();
-    }
-  });
-});
-
-await updateLogs(85, "[Render Engine Fallback] Đang tải video thành phẩm lên Cloudinary...");
-const outputBuffer = fs.readFileSync(tempOutput);
-finalVideoUrl = await cloudinaryService.uploadMediaBuffer(outputBuffer, "igen_erp/marketing/video");
-
-// Save output to local cache folder
-try {
-  const cacheDir = path.join(process.cwd(), "server/cache/videos");
-  const outUrlParts = finalVideoUrl.split("/");
-  const outFilename = outUrlParts[outUrlParts.length - 1];
-  if (outFilename && outFilename.match(/^[a-zA-Z0-9_-]+\.[a-zA-Z0-9]+$/)) {
-    const outCachePath = path.join(cacheDir, outFilename);
-    fs.copyFileSync(tempOutput, outCachePath);
-    console.log(`[Render Engine Cache] Saved rendered video to local cache: ${outCachePath}`);
-  }
-} catch (cacheErr) {
-  console.error("[Render Engine Cache Warning] Failed to save rendered video to cache:", cacheErr);
-}
-
-// Cleanup all temp files
-try {
-  videoTempPaths.forEach(p => { if (p) fs.unlinkSync(p); });
-  fs.unlinkSync(tempOutput);
-  imageTempPaths.forEach(p => { if (p) fs.unlinkSync(p); });
-  audioTempPaths.forEach(p => { if (p) fs.unlinkSync(p); });
-} catch (e) { }
-        } else if (videoUrl.includes("res.cloudinary.com")) {
-          await updateLogs(60, "[Render Engine Fallback] Không có FFMPEG. Sử dụng Cloud Render Engine...");
-
-  const firstUrl = videoUrl.split(/,\s*(?=https?:\/\/)/)[0];
-  const parts = firstUrl.split("/upload/");
-  let transformString = "";
-
-  const videoClips = timeline.filter((item: any) => item.type === "video");
-  if (videoClips.length > 0) {
-    const minStart = Math.min(...videoClips.map((item: any) => item.start ?? 0));
-    const maxEnd = Math.max(...videoClips.map((item: any) => item.end ?? 5));
-    transformString += `so_${minStart},eo_${maxEnd}/`;
-  }
-
-  const textElements = timeline.filter((item: any) => item.type === "text");
-  for (const textItem of textElements) {
-    const contentEscaped = encodeURIComponent(textItem.content).replace(/%/g, "%25");
-    transformString += `l_text:Arial_36_bold:${contentEscaped},g_center,so_${textItem.start},eo_${textItem.end}/`;
-  }
-
-  finalVideoUrl = `${parts[0]}/upload/${transformString}${parts[1]}`;
-  await updateLogs(80, `[Render Engine Fallback] Liên kết Cloud Render đã tạo: ${finalVideoUrl}`);
-} else {
-  await updateLogs(70, "[Render Engine Fallback] Không phát hiện FFMPEG. Chạy mô phỏng quá trình render...");
-  await new Promise((resolve) => setTimeout(resolve, 2000));
-  await updateLogs(85, "[Render Engine Fallback] Mô phỏng render hoàn tất.");
-}
-      }
-
-await updateLogs(95, "[Cloudinary] Đồng bộ hóa tài nguyên biên tập...");
-
-await AIMediaModel.findByIdAndUpdate(recordId, {
-  url: finalVideoUrl,
-  "metadata.status": "completed",
-  "metadata.progress": 100,
-  "metadata.renderLogs": [...logs, "[Render Engine] Hoàn thành kết xuất video!"]
-});
-
-console.log(`[Remotion Queue Worker] Successfully completed. Final URL: ${finalVideoUrl}`);
-
-    } catch (error: any) {
-  console.error("[Remotion Queue Worker Error]", error);
-  await AIMediaModel.findByIdAndUpdate(recordId, {
-    "metadata.status": "failed",
-    "metadata.error": error.message || String(error),
-    "metadata.progress": 0,
-    "metadata.renderLogs": [...logs, `[Render Engine Lỗi] ${error.message || String(error)}`]
-  });
-}
-  },
-
   /**
    * Lấy lịch sử tạo đa phương tiện theo user và loại
    */
   async getMediaHistory(userId: string, mediaType: "image" | "video" | "voice") {
-  try {
-    const records = await AIMediaModel.find({ userId, mediaType })
-      .sort({ createdAt: -1 })
-      .limit(50)
-      .lean();
+    try {
+      const records = await AIMediaModel.find({ userId, mediaType })
+        .sort({ createdAt: -1 })
+        .limit(50)
+        .lean();
 
-    if (mediaType === "video") {
-      await Promise.all(
-        records.map(async (record: any) => {
-          if (record.url && record.url.startsWith("pending://piapi/")) {
-            const taskId = record.url.replace("pending://piapi/", "");
-            try {
-              const result = await piapiService.getTaskStatus(taskId);
-              if (result.status === "completed" && result.url) {
-                const cloudinaryUrl = await cloudinaryService.uploadMedia(result.url, "igen_erp/marketing/video");
-                await AIMediaModel.updateOne(
-                  { _id: record._id },
-                  { url: cloudinaryUrl, "metadata.status": "completed", "metadata.progress": 100 }
-                );
-                record.url = cloudinaryUrl;
-                record.metadata = { ...record.metadata, status: "completed", progress: 100 };
+      if (mediaType === "video") {
+        await Promise.all(
+          records.map(async (record: any) => {
+            if (record.url && record.url.startsWith("pending://piapi/")) {
+              const taskId = record.url.replace("pending://piapi/", "");
+              try {
+                const result = await piapiService.getTaskStatus(taskId);
+                if (result.status === "completed" && result.url) {
+                  const cloudinaryUrl = await cloudinaryService.uploadMedia(result.url, "igen_erp/marketing/video");
+                  await AIMediaModel.updateOne(
+                    { _id: record._id },
+                    { url: cloudinaryUrl, "metadata.status": "completed", "metadata.progress": 100 }
+                  );
+                  record.url = cloudinaryUrl;
+                  record.metadata = { ...record.metadata, status: "completed", progress: 100 };
 
-                const activeCardId = record.metadata?.activeCardId;
-                if (activeCardId) {
-                  const { MarketingContentModel } = require("../model/marketing-content.model");
-                  await MarketingContentModel.findByIdAndUpdate(activeCardId, { videoUrl: cloudinaryUrl });
+                  const activeCardId = record.metadata?.activeCardId;
+                  if (activeCardId) {
+                    const { MarketingContentModel } = require("../model/marketing-content.model");
+                    await MarketingContentModel.findByIdAndUpdate(activeCardId, { videoUrl: cloudinaryUrl });
+                  }
+                } else if (result.status === "failed") {
+                  await AIMediaModel.updateOne(
+                    { _id: record._id },
+                    { "metadata.status": "failed", "metadata.error": result.error || "Failed", "metadata.progress": 0 }
+                  );
+                  record.metadata = { ...record.metadata, status: "failed", error: result.error, progress: 0 };
+                } else {
+                  const currentProgress = result.progress !== undefined ? result.progress : 0;
+                  await AIMediaModel.updateOne(
+                    { _id: record._id },
+                    { "metadata.progress": currentProgress }
+                  );
+                  record.metadata = { ...record.metadata, progress: currentProgress };
                 }
-              } else if (result.status === "failed") {
-                await AIMediaModel.updateOne(
-                  { _id: record._id },
-                  { "metadata.status": "failed", "metadata.error": result.error || "Failed", "metadata.progress": 0 }
-                );
-                record.metadata = { ...record.metadata, status: "failed", error: result.error, progress: 0 };
-              } else {
-                const currentProgress = result.progress !== undefined ? result.progress : 0;
-                await AIMediaModel.updateOne(
-                  { _id: record._id },
-                  { "metadata.progress": currentProgress }
-                );
-                record.metadata = { ...record.metadata, progress: currentProgress };
+              } catch (err) {
+                console.error(`[getMediaHistory] Error refreshing pending task ${taskId}:`, err);
               }
-            } catch (err) {
-              console.error(`[getMediaHistory] Error refreshing pending task ${taskId}:`, err);
             }
-          }
-        })
-      );
+          })
+        );
+      }
+      return records;
+    } catch (error: any) {
+      console.error("[geminiService.getMediaHistory] Error:", error);
+      throw error;
     }
-    return records;
-  } catch (error: any) {
-    console.error("[geminiService.getMediaHistory] Error:", error);
-    throw error;
-  }
-},
+  },
 
   /**
    * Xóa một bản ghi lịch sử
    */
   async deleteMediaHistory(userId: string, id: string) {
-  try {
-    const result = await AIMediaModel.deleteOne({ _id: id, userId });
-    if (result.deletedCount === 0) {
-      throw new Error("Không tìm thấy bản ghi hoặc không có quyền xóa");
+    try {
+      const result = await AIMediaModel.deleteOne({ _id: id, userId });
+      if (result.deletedCount === 0) {
+        throw new Error("Không tìm thấy bản ghi hoặc không có quyền xóa");
+      }
+      return { status: "success" };
+    } catch (error: any) {
+      console.error("[geminiService.deleteMediaHistory] Error:", error);
+      throw error;
     }
-    return { status: "success" };
-  } catch (error: any) {
-    console.error("[geminiService.deleteMediaHistory] Error:", error);
-    throw error;
-  }
-},
+  },
 
   /**
    * Polling trạng thái video từ PiAPI chạy ngầm không chặn luồng HTTP
    */
   async pollPiAPIVideoStatusBackground(recordId: string, taskId: string, userId: string) {
-  console.log(`[PiAPI Background Poll] Started polling for record ${recordId}, taskId ${taskId}`);
+    console.log(`[PiAPI Background Poll] Started polling for record ${recordId}, taskId ${taskId}`);
 
-  let attempts = 0;
-  const maxAttempts = 60; // 10 minutes (60 * 10 seconds)
+    let attempts = 0;
+    const maxAttempts = 60; // 10 minutes (60 * 10 seconds)
 
-  const runPoll = async () => {
-    try {
-      const result = await piapiService.getTaskStatus(taskId);
-      console.log(`[PiAPI Background Poll] Record ${recordId} status: ${result.status}`);
+    const runPoll = async () => {
+      try {
+        const result = await piapiService.getTaskStatus(taskId);
+        console.log(`[PiAPI Background Poll] Record ${recordId} status: ${result.status}`);
 
-      if (result.status === "completed" && result.url) {
-        console.log(`[PiAPI Background Poll] Completed! Uploading to Cloudinary...`);
-        const cloudinaryUrl = await cloudinaryService.uploadMedia(result.url, "igen_erp/marketing/video");
+        if (result.status === "completed" && result.url) {
+          console.log(`[PiAPI Background Poll] Completed! Uploading to Cloudinary...`);
+          const cloudinaryUrl = await cloudinaryService.uploadMedia(result.url, "igen_erp/marketing/video");
 
-        const record = await AIMediaModel.findByIdAndUpdate(
-          recordId,
-          { url: cloudinaryUrl, "metadata.status": "completed", "metadata.progress": 100 },
-          { new: true }
-        );
+          const record = await AIMediaModel.findByIdAndUpdate(
+            recordId,
+            { url: cloudinaryUrl, "metadata.status": "completed", "metadata.progress": 100 },
+            { new: true }
+          );
 
-        const activeCardId = record?.metadata?.activeCardId;
-        if (activeCardId) {
-          const { MarketingContentModel } = require("../model/marketing-content.model");
-          await MarketingContentModel.findByIdAndUpdate(activeCardId, { videoUrl: cloudinaryUrl });
-          console.log(`[PiAPI Background Poll] Updated target card ${activeCardId} with videoUrl: ${cloudinaryUrl}`);
+          const activeCardId = record?.metadata?.activeCardId;
+          if (activeCardId) {
+            const { MarketingContentModel } = require("../model/marketing-content.model");
+            await MarketingContentModel.findByIdAndUpdate(activeCardId, { videoUrl: cloudinaryUrl });
+            console.log(`[PiAPI Background Poll] Updated target card ${activeCardId} with videoUrl: ${cloudinaryUrl}`);
+          }
+          return;
+        } else if (result.status === "failed") {
+          console.error(`[PiAPI Background Poll] Failed for task ${taskId}: ${result.error}`);
+          await AIMediaModel.findByIdAndUpdate(recordId, {
+            "metadata.status": "failed",
+            "metadata.error": result.error || "Lỗi tạo video từ PiAPI",
+            "metadata.progress": 0,
+          });
+          return;
+        } else {
+          let currentProgress = typeof result.progress === "number" && result.progress > 0 ? result.progress : 0;
+          if (currentProgress === 0) {
+            currentProgress = Math.min(5 + attempts * 7, 95);
+          }
+          await AIMediaModel.findByIdAndUpdate(recordId, {
+            "metadata.progress": currentProgress
+          });
         }
-        return;
-      } else if (result.status === "failed") {
-        console.error(`[PiAPI Background Poll] Failed for task ${taskId}: ${result.error}`);
-        await AIMediaModel.findByIdAndUpdate(recordId, {
-          "metadata.status": "failed",
-          "metadata.error": result.error || "Lỗi tạo video từ PiAPI",
-          "metadata.progress": 0,
-        });
-        return;
-      } else {
-        let currentProgress = typeof result.progress === "number" && result.progress > 0 ? result.progress : 0;
-        if (currentProgress === 0) {
-          currentProgress = Math.min(5 + attempts * 7, 95);
+
+        attempts++;
+        if (attempts < maxAttempts) {
+          setTimeout(runPoll, 10000);
+        } else {
+          console.error(`[PiAPI Background Poll] Timeout for task ${taskId}`);
+          await AIMediaModel.findByIdAndUpdate(recordId, {
+            "metadata.status": "timeout",
+            "metadata.error": "Quá thời gian chờ tạo video từ PiAPI (10 phút)",
+          });
         }
-        await AIMediaModel.findByIdAndUpdate(recordId, {
-          "metadata.progress": currentProgress
-        });
+      } catch (error: any) {
+        console.error(`[PiAPI Background Poll] Error polling task ${taskId}:`, error);
+        attempts++;
+        if (attempts < maxAttempts) {
+          setTimeout(runPoll, 10000);
+        }
       }
+    };
 
-      attempts++;
-      if (attempts < maxAttempts) {
-        setTimeout(runPoll, 10000);
-      } else {
-        console.error(`[PiAPI Background Poll] Timeout for task ${taskId}`);
-        await AIMediaModel.findByIdAndUpdate(recordId, {
-          "metadata.status": "timeout",
-          "metadata.error": "Quá thời gian chờ tạo video từ PiAPI (10 phút)",
-        });
-      }
-    } catch (error: any) {
-      console.error(`[PiAPI Background Poll] Error polling task ${taskId}:`, error);
-      attempts++;
-      if (attempts < maxAttempts) {
-        setTimeout(runPoll, 10000);
-      }
-    }
-  };
-
-  setTimeout(runPoll, 10000);
-},
+    setTimeout(runPoll, 10000);
+  },
 
   /**
    * Đồng bộ lưu trữ nâng cao của Image/Video sau khi sinh thành công
    */
-  async saveGeneratedMediaRecord(userId: string, mediaType: "image" | "video", base64OrUrl: string, prompt: string, metadata ?: any) {
-  try {
-    let finalUrl = base64OrUrl;
-    if (base64OrUrl.startsWith("data:")) {
-      finalUrl = await cloudinaryService.uploadMedia(base64OrUrl, `igen_erp/marketing/${mediaType}`);
-    }
+  async saveGeneratedMediaRecord(userId: string, mediaType: "image" | "video", base64OrUrl: string, prompt: string, metadata?: any) {
+    try {
+      let finalUrl = base64OrUrl;
+      if (base64OrUrl.startsWith("data:")) {
+        finalUrl = await cloudinaryService.uploadMedia(base64OrUrl, `igen_erp/marketing/${mediaType}`);
+      }
 
-    const record = await AIMediaModel.create({
-      userId,
-      mediaType,
-      url: finalUrl,
-      prompt,
-      metadata,
-    });
-    return record;
-  } catch (error: any) {
-    console.error("[geminiService.saveGeneratedMediaRecord] Error:", error);
-    throw error;
-  }
-},
+      const record = await AIMediaModel.create({
+        userId,
+        mediaType,
+        url: finalUrl,
+        prompt,
+        metadata,
+      });
+      return record;
+    } catch (error: any) {
+      console.error("[geminiService.saveGeneratedMediaRecord] Error:", error);
+      throw error;
+    }
+  },
 
   /**
    * Lấy danh sách giọng nói ElevenLabs
    */
   async getElevenLabsVoices() {
-  const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
-  if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
-    console.log("[geminiService.getElevenLabsVoices] ELEVENLABS_API_KEY is not configured. Running in MOCK mode.");
-    return {
-      status: "success",
-      voices: [
-        {
-          voice_id: "Sadaltager",
-          name: "Roger (Mock)",
-          category: "cloned",
-          description: "Laid-Back, Casual, Resonant",
-          labels: { gender: "male", age: "adult", accent: "american" }
-        }
-      ]
-    };
-  }
-
-  try {
-    const response = await fetch("https://api.elevenlabs.io/v1/voices", {
-      headers: {
-        "xi-api-key": elevenLabsApiKey.trim()
-      }
-    });
-    if (!response.ok) {
-      throw new Error(`ElevenLabs error: ${response.status}`);
+    const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
+    if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
+      console.log("[geminiService.getElevenLabsVoices] ELEVENLABS_API_KEY is not configured. Running in MOCK mode.");
+      return {
+        status: "success",
+        voices: [
+          {
+            voice_id: "Sadaltager",
+            name: "Roger (Mock)",
+            category: "cloned",
+            description: "Laid-Back, Casual, Resonant",
+            labels: { gender: "male", age: "adult", accent: "american" }
+          }
+        ]
+      };
     }
-    const data = await response.json();
-    // Filter generated or cloned voices
-    const filtered = (data.voices || []).filter((v: any) => v.category === "cloned" || v.category === "generated" || v.category === "custom");
-    return { status: "success", voices: filtered };
-  } catch (error: any) {
-    console.error("[geminiService.getElevenLabsVoices] Error:", error);
-    throw error;
-  }
-},
+
+    try {
+      const response = await fetch("https://api.elevenlabs.io/v1/voices", {
+        headers: {
+          "xi-api-key": elevenLabsApiKey.trim()
+        }
+      });
+      if (!response.ok) {
+        throw new Error(`ElevenLabs error: ${response.status}`);
+      }
+      const data = await response.json();
+      // Filter generated or cloned voices
+      const filtered = (data.voices || []).filter((v: any) => v.category === "cloned" || v.category === "generated" || v.category === "custom");
+      return { status: "success", voices: filtered };
+    } catch (error: any) {
+      console.error("[geminiService.getElevenLabsVoices] Error:", error);
+      throw error;
+    }
+  },
 
   /**
    * Thiết kế & phát nghe thử giọng nói ElevenLabs
    */
   async generateCustomVoicePreview(input: { gender: string; accent: string; age: string; accentStrength: number; text: string }) {
-  const { gender, accent, age, accentStrength, text } = input;
-  const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
-  if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
-    console.log("[geminiService.generateCustomVoicePreview] ELEVENLABS_API_KEY is not configured. Running in MOCK mode.");
-    return {
-      generatedVoiceId: "mock-voice-id-" + Date.now(),
-      url: "data:audio/wav;base64,UklGRigAAABXQVZFlm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAAAG"
-    };
-  }
-
-  try {
-    const response = await fetch("https://api.elevenlabs.io/v1/voice-generation/generate-voice", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "xi-api-key": elevenLabsApiKey.trim()
-      },
-      body: JSON.stringify({
-        gender,
-        accent,
-        age,
-        accent_strength: accentStrength,
-        text
-      })
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`ElevenLabs preview error: ${response.status} - ${errText}`);
+    const { gender, accent, age, accentStrength, text } = input;
+    const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
+    if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
+      console.log("[geminiService.generateCustomVoicePreview] ELEVENLABS_API_KEY is not configured. Running in MOCK mode.");
+      return {
+        generatedVoiceId: "mock-voice-id-" + Date.now(),
+        url: "data:audio/wav;base64,UklGRigAAABXQVZFlm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAAAG"
+      };
     }
 
-    const generatedVoiceId = response.headers.get("generated_voice_id");
-    if (!generatedVoiceId) {
-      throw new Error("No generated_voice_id found in headers");
+    try {
+      const response = await fetch("https://api.elevenlabs.io/v1/voice-generation/generate-voice", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "xi-api-key": elevenLabsApiKey.trim()
+        },
+        body: JSON.stringify({
+          gender,
+          accent,
+          age,
+          accent_strength: accentStrength,
+          text
+        })
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`ElevenLabs preview error: ${response.status} - ${errText}`);
+      }
+
+      const generatedVoiceId = response.headers.get("generated_voice_id");
+      if (!generatedVoiceId) {
+        throw new Error("No generated_voice_id found in headers");
+      }
+
+      const arrayBuffer = await response.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      const base64Audio = buffer.toString('base64');
+      const audioDataUri = `data:audio/mpeg;base64,${base64Audio}`;
+
+      const mediaUrl = await cloudinaryService.uploadMedia(audioDataUri, "igen_erp/marketing/voice_previews");
+
+      return {
+        generatedVoiceId,
+        url: mediaUrl
+      };
+    } catch (error: any) {
+      console.error("[geminiService.generateCustomVoicePreview] Error:", error);
+      throw error;
     }
-
-    const arrayBuffer = await response.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    const base64Audio = buffer.toString('base64');
-    const audioDataUri = `data:audio/mpeg;base64,${base64Audio}`;
-
-    const mediaUrl = await cloudinaryService.uploadMedia(audioDataUri, "igen_erp/marketing/voice_previews");
-
-    return {
-      generatedVoiceId,
-      url: mediaUrl
-    };
-  } catch (error: any) {
-    console.error("[geminiService.generateCustomVoicePreview] Error:", error);
-    throw error;
-  }
-},
+  },
 
   /**
    * Lưu giọng thiết kế thành giọng chính thức
    */
   async createCustomVoice(input: { voiceName: string; voiceDescription: string; generatedVoiceId: string }) {
-  const { voiceName, voiceDescription, generatedVoiceId } = input;
-  const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
-  if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
-    console.log("[geminiService.createCustomVoice] ELEVENLABS_API_KEY is not configured. Running in MOCK mode.");
-    return {
-      voice_id: "mock-saved-voice-id-" + Date.now()
-    };
-  }
-
-  try {
-    const response = await fetch("https://api.elevenlabs.io/v1/voice-generation/create-voice", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "xi-api-key": elevenLabsApiKey.trim()
-      },
-      body: JSON.stringify({
-        voice_name: voiceName,
-        voice_description: voiceDescription,
-        generated_voice_id: generatedVoiceId
-      })
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`ElevenLabs create-voice error: ${response.status} - ${errText}`);
+    const { voiceName, voiceDescription, generatedVoiceId } = input;
+    const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
+    if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
+      console.log("[geminiService.createCustomVoice] ELEVENLABS_API_KEY is not configured. Running in MOCK mode.");
+      return {
+        voice_id: "mock-saved-voice-id-" + Date.now()
+      };
     }
 
-    const result = await response.json();
-    return { voice_id: result.voice_id };
-  } catch (error: any) {
-    console.error("[geminiService.createCustomVoice] Error:", error);
-    throw error;
-  }
-},
+    try {
+      const response = await fetch("https://api.elevenlabs.io/v1/voice-generation/create-voice", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "xi-api-key": elevenLabsApiKey.trim()
+        },
+        body: JSON.stringify({
+          voice_name: voiceName,
+          voice_description: voiceDescription,
+          generated_voice_id: generatedVoiceId
+        })
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`ElevenLabs create-voice error: ${response.status} - ${errText}`);
+      }
+
+      const result = await response.json();
+      return { voice_id: result.voice_id };
+    } catch (error: any) {
+      console.error("[geminiService.createCustomVoice] Error:", error);
+      throw error;
+    }
+  },
 
   async addElevenLabsVoice(name: string, description: string, files: string[], userId: string) {
-  const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
-  if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
-    return { voice_id: "mock-saved-voice-id-" + Date.now() };
-  }
-
-  try {
-    const formData = new FormData();
-    formData.append('name', name);
-    formData.append('description', description);
-
-    if (userId) {
-      formData.append('labels', JSON.stringify({ userId }));
+    const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
+    if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
+      return { voice_id: "mock-saved-voice-id-" + Date.now() };
     }
 
-    for (let i = 0; i < files.length; i++) {
-      const dataUri = files[i];
-      const matches = dataUri.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/);
-      if (!matches) {
-        throw new Error("Invalid file format");
+    try {
+      const formData = new FormData();
+      formData.append('name', name);
+      formData.append('description', description);
+
+      if (userId) {
+        formData.append('labels', JSON.stringify({ userId }));
       }
-      const type = matches[1];
-      const buffer = Buffer.from(matches[2], 'base64');
-      const blob = new Blob([buffer], { type });
-      formData.append('files', blob, `file-${i}.${type.split('/')[1]}`);
+
+      for (let i = 0; i < files.length; i++) {
+        const dataUri = files[i];
+        const matches = dataUri.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/);
+        if (!matches) {
+          throw new Error("Invalid file format");
+        }
+        const type = matches[1];
+        const buffer = Buffer.from(matches[2], 'base64');
+        const blob = new Blob([buffer], { type });
+        formData.append('files', blob, `file-${i}.${type.split('/')[1]}`);
+      }
+
+      const response = await fetch('https://api.elevenlabs.io/v1/voices/add', {
+        method: 'POST',
+        headers: {
+          'xi-api-key': elevenLabsApiKey.trim(),
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(`ElevenLabs API error: ${response.status} - ${errorBody}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error: any) {
+      console.error("[geminiService.addElevenLabsVoice] Error:", error);
+      throw error;
     }
-
-    const response = await fetch('https://api.elevenlabs.io/v1/voices/add', {
-      method: 'POST',
-      headers: {
-        'xi-api-key': elevenLabsApiKey.trim(),
-      },
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const errorBody = await response.text();
-      throw new Error(`ElevenLabs API error: ${response.status} - ${errorBody}`);
-    }
-
-    const data = await response.json();
-    return data;
-  } catch (error: any) {
-    console.error("[geminiService.addElevenLabsVoice] Error:", error);
-    throw error;
-  }
-},
+  },
 
   async deleteElevenLabsVoice(voiceId: string) {
-  const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
-  if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
-    return { success: true };
-  }
-
-  try {
-    const response = await fetch(`https://api.elevenlabs.io/v1/voices/${voiceId}`, {
-      method: 'DELETE',
-      headers: {
-        'xi-api-key': elevenLabsApiKey.trim(),
-      },
-    });
-
-    if (!response.ok) {
-      const errorBody = await response.text();
-      throw new Error(`ElevenLabs API error: ${response.status} - ${errorBody}`);
+    const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
+    if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
+      return { success: true };
     }
 
-    return { success: true };
-  } catch (error: any) {
-    console.error("[geminiService.deleteElevenLabsVoice] Error:", error);
-    throw error;
+    try {
+      const response = await fetch(`https://api.elevenlabs.io/v1/voices/${voiceId}`, {
+        method: 'DELETE',
+        headers: {
+          'xi-api-key': elevenLabsApiKey.trim(),
+        },
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(`ElevenLabs API error: ${response.status} - ${errorBody}`);
+      }
+
+      return { success: true };
+    } catch (error: any) {
+      console.error("[geminiService.deleteElevenLabsVoice] Error:", error);
+      throw error;
+    }
   }
-}
 };
 
 /**

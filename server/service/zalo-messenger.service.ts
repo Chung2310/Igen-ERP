@@ -104,6 +104,65 @@ export const zaloMessengerService = {
     return zaloIntegration;
   },
 
+  async validateIntegrationToken(integrationData: { oaId: string; oaName?: string; accessToken: string }) {
+    const normalizedOaId = String(integrationData.oaId || "").trim();
+    const normalizedToken = String(integrationData.accessToken || "").trim();
+
+    if (!normalizedOaId || !normalizedToken) {
+      throw new Error("Thieu OA ID hoac Access Token de xac thuc Zalo OA.");
+    }
+
+    const candidateUrls = [
+      "https://openapi.zalo.me/v2.0/oa/getoa",
+      "https://openapi.zalo.me/v3.0/oa/getoa",
+    ];
+
+    let lastError = "";
+
+    for (const url of candidateUrls) {
+      try {
+        const response = await (globalThis as any).fetch(url, {
+          method: "GET",
+          headers: {
+            access_token: normalizedToken,
+          },
+        });
+
+        const rawText = await response.text();
+        let data: any = null;
+        try {
+          data = rawText ? JSON.parse(rawText) : {};
+        } catch {
+          data = { raw: rawText };
+        }
+
+        if (!response.ok) {
+          lastError = `${response.status} - ${typeof data === "string" ? data : JSON.stringify(data)}`;
+          continue;
+        }
+
+        const oaData = data?.data || data;
+        const resolvedOaId = String(oaData?.oa_id || oaData?.oaid || oaData?.id || "").trim();
+        const resolvedOaName = String(oaData?.name || oaData?.oa_name || integrationData.oaName || "").trim();
+
+        if (resolvedOaId && resolvedOaId !== normalizedOaId) {
+          throw new Error(`Token Zalo hop le nhung dang tro toi OA ID ${resolvedOaId}, khong khop voi OA ID ${normalizedOaId}.`);
+        }
+
+        return {
+          valid: true,
+          oaId: resolvedOaId || normalizedOaId,
+          oaName: resolvedOaName || integrationData.oaName || "Zalo OA",
+          source: url,
+        };
+      } catch (error: any) {
+        lastError = error.message || String(error);
+      }
+    }
+
+    throw new Error(`Khong the xac thuc Zalo OA voi ben thu 3. Chi tiet: ${lastError || "unknown_error"}`);
+  },
+
   /**
    * Hủy liên kết Zalo OA
    */

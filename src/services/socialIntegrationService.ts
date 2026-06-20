@@ -10,13 +10,13 @@ export interface SocialIntegration {
   isConnected: boolean;
   connectedAt?: string;
   createdBy: string;
-  blotatoAccountId?: string;
   accessToken?: string;
   refreshToken?: string;
   tokenExpiredAt?: string;
   appSecret?: string;
   verifyToken?: string;
   isMock?: boolean;
+  blotatoAccountId?: string;
 }
 
 export const socialIntegrationService = {
@@ -99,5 +99,57 @@ export const socialIntegrationService = {
       const data = await res.json().catch(() => ({}));
       throw new Error(data.message || "Không thể xóa tài khoản liên kết.");
     }
+  }
+  ,
+
+  async validateFacebookIntegration(data: { pageId: string; accessToken: string }): Promise<any> {
+    const res = await fetch("/api/v1/facebook/validate-token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${getAccessToken()}`,
+      },
+      body: JSON.stringify(data),
+    });
+
+    const result = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(result.message || result.details || "Khong the xac thuc Facebook Page.");
+    }
+    return result;
+  },
+
+  async validateZaloIntegration(data: { oaId: string; oaName?: string; accessToken: string }): Promise<any> {
+    const res = await fetch("/api/v1/zalo/validate-integration", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${getAccessToken()}`,
+      },
+      body: JSON.stringify(data),
+    });
+
+    const result = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(result.message || "Khong the xac thuc Zalo OA.");
+    }
+    return result;
+  },
+
+  async validateTikTokIntegration(data: { username?: string; accessToken: string }): Promise<any> {
+    const res = await fetch("/api/v1/tiktok/validate-token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${getAccessToken()}`,
+      },
+      body: JSON.stringify(data),
+    });
+
+    const result = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(result.message || result.details || "Khong the xac thuc TikTok.");
+    }
+    return result;
   }
 };

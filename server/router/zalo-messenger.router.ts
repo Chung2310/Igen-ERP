@@ -8,6 +8,7 @@ export const zaloMessengerRouter = Router();
 zaloMessengerRouter.post("/webhook", zaloMessengerController.receiveWebhookEvent);
 
 // Routes phục vụ Client Igen-ERP - Yêu cầu xác thực đăng nhập (requireAuth)
+zaloMessengerRouter.post("/validate-integration", requireAuth as any, zaloMessengerController.validateIntegration);
 zaloMessengerRouter.post("/save-integration", requireAuth as any, zaloMessengerController.saveIntegration);
 zaloMessengerRouter.delete("/integration", requireAuth as any, zaloMessengerController.removeIntegration);
 zaloMessengerRouter.get("/diagnostics/oa", requireAuth as any, zaloMessengerController.diagnoseOaConfig);

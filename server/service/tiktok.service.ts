@@ -150,14 +150,10 @@ export const tiktokService = {
     accessToken?: string,
     username?: string,
     scheduledTime?: string,
-    blotatoAccountId?: string,
-    blotatoApiKey?: string,
     integrationId?: string,
     companyCode?: string
   ) {
     void scheduledTime;
-    void blotatoAccountId;
-    void blotatoApiKey;
 
     const credentials = await resolveDirectCredentials(integrationId, companyCode, accessToken, username);
 
@@ -386,14 +382,6 @@ export const tiktokService = {
       cardId: String(matchedCard._id),
       eventType: parsed.eventType,
       publishStatus: parsed.status,
-    };
-  },
-
-  async getBlotatoAccounts() {
-    return {
-      status: "disabled",
-      message: "Blotato da duoc tat. He thong hien chi dung TikTok Direct sandbox.",
-      data: [],
     };
   },
 
