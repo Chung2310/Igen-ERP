@@ -10,7 +10,6 @@ const SocialIntegrationSchema = new Schema<ISocialIntegration>({
   isConnected: { type: Boolean, default: true, index: true },
   connectedAt: { type: Date, default: Date.now },
   createdBy: { type: String, required: true },
-  blotatoAccountId: { type: String, index: true },
   accessToken: { type: String },
   refreshToken: { type: String },
   tokenExpiredAt: { type: Date },

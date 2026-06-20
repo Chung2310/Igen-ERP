@@ -602,7 +602,7 @@ QUY CHUẨN XƯNG HÔ VÀ CHÀO HỎI CHUYÊN NGHIỆP:
 - Luôn xưng hô là "Dạ, bên em..." hoặc "Dạ, [Tên doanh nghiệp]..." hoặc "Dạ, em..." và gọi khách hàng là "Quý khách" hoặc "Anh/Chị".
 - Luôn sử dụng kính ngữ "Dạ" ở đầu câu và "ạ" ở cuối câu để đảm bảo sự lịch thiệp, tôn trọng và chuyên nghiệp tuyệt đối.
 - Tuyệt đối KHÔNG sử dụng các từ xưng hô quá thân mật hoặc thiếu trang trọng như "cậu", "tớ", "bạn", "mày", "tao".
-- Trả lời bằng ngôn phong tiếng Việt chuẩn mực, tinh tế, tích cực, không dùng ngôn ngữ teen, từ lóng hoặc icon quá đà.
+- Trả lời bằng ngôn phong tiếng Việt chuẩn mực, tinh tế, tích cực, không dùng ngôn ngữ teen, từ lóng. Có thể chèn thêm tối đa 1-2 icon/emoji phù hợp một cách tự nhiên và chừng mực để tăng sự thân thiện, tránh lạm dụng quá nhiều.
 
 Quy tắc và chỉ dẫn hành xử từ doanh nghiệp:
 ${aiConfig.advancedInstructions ? `- ${aiConfig.advancedInstructions}` : "- Không có chỉ dẫn đặc biệt."}
@@ -625,10 +625,10 @@ ${ragContext?.contextText ? ragContext.contextText : "- Không tìm thấy tri t
 
 Gợi ý xác nhận sản phẩm gần đúng:
 ${ragContext?.shouldAskProductConfirmation && ragContext?.productCandidateNames?.length
-  ? `- Khách có thể đang nói chưa chính xác tên sản phẩm. Nếu chưa chắc chắn, hay hỏi xác nhận ngắn gọn theo kiểu: "Dạ, anh/chị đang nhắc tới sản phẩm ${ragContext.productCandidateNames[0]} bên em đúng không ạ?".
+        ? `- Khách có thể đang nói chưa chính xác tên sản phẩm. Nếu chưa chắc chắn, hay hỏi xác nhận ngắn gọn theo kiểu: "Dạ, anh/chị đang nhắc tới sản phẩm ${ragContext.productCandidateNames[0]} bên em đúng không ạ?".
 - Nêu có nhiều hơn 1 lựa chọn gần đúng, chỉ đưa tối đa 2-3 tên sản phẩm để khách chọn.
 - Không khẳng định là đúng 100% khi độ khớp chưa cao.`
-  : "- Không cần hỏi xác nhận tên sản phẩm ở lượt này."}
+        : "- Không cần hỏi xác nhận tên sản phẩm ở lượt này."}
 
 Quy tắc an toàn bắt buộc:
 - Khi ở DEFAULT_ASSISTANT_MODE, vẫn được chào hỏi, xác nhận nhu cầu, hỏi thêm thông tin, hướng dẫn khách để lại số điện thoại/nhu cầu và nói sẽ có nhân viên hỗ trợ.
@@ -645,6 +645,7 @@ Thông tin cấu hình hiện tại của bạn:
     const humanStyleOverride = `
 STYLE OVERRIDE - ƯU TIÊN CAO NHẤT:
 - Hãy trả lời như nhân viên đang chat với khách, không nói giống bot.
+- Có thể sử dụng tối đa 1-2 icon/emoji thân thiện (như 😊, Dạ,...) một cách tự nhiên và chừng mực, tránh lạm dụng làm tin nhắn rối mắt hoặc mang lại cảm giác bot tự động.
 - Vẫn phải xưng hô chuẩn doanh nghiệp: ưu tiên "Dạ", "em", "anh/chị", "quý khách" khi phù hợp.
 - Luôn cần có lời cảm ơn khi khách đã chia sẻ thông tin, xác nhận đơn, hoặc hợp tác; nhưng cảm ơn ngắn gọn, tự nhiên.
 - Không dùng markdown, không dùng dấu *, **, -, bullet list, tiêu đề hay danh sách kiểu tài liệu.
@@ -1028,9 +1029,9 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
       const existingPillarsStr = currentPillars
         .map(p => `- ID: "${p.id}", Tiêu đề: "${p.title}", Mô tả: "${p.description}"`)
         .join("\n");
-      
+
       const toReplace = currentPillars.find(p => p.id === pillarIdToReplace);
-      const replaceStr = toReplace 
+      const replaceStr = toReplace
         ? `ID: "${toReplace.id}", Tiêu đề: "${toReplace.title}" (Tỷ lệ phân bổ: ${toReplace.ratio})`
         : pillarIdToReplace;
 
@@ -1160,9 +1161,9 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
             ? "\nYêu cầu về phương tiện: Các ý tưởng phải thiết kế đi kèm video làm chủ đạo."
             : mediaType === "human-video"
               ? "\nYÃªu cáº§u vá» phÆ°Æ¡ng tiá»‡n: CÃ¡c Ã½ tÆ°á»Ÿng pháº£i phÃ¹ há»£p cho video ngÆ°á»i tháº­t/avatar nÃ³i trÆ°á»›c camera, Æ°u tiÃªn hook máº¡nh, lá»i thoáº¡i tá»± nhiÃªn, cáº£nh quay Ä‘Æ¡n giáº£n vÃ  cÃ³ thá»ƒ chuyá»ƒn thÃ nh voice script trá»±c tiáº¿p."
-            : mediaType === "none"
-              ? "\nYêu cầu về phương tiện: Các bài đăng không đi kèm hình ảnh hoặc video (chỉ văn bản/caption)."
-              : "";
+              : mediaType === "none"
+                ? "\nYêu cầu về phương tiện: Các bài đăng không đi kèm hình ảnh hoặc video (chỉ văn bản/caption)."
+                : "";
 
       const prompt = `Bạn là một chuyên gia marketing xuất sắc.
 Hãy tạo đúng 3 ý tưởng/bản nháp chiến dịch marketing chi tiết cho chủ đề/chiến dịch này: "${campaignTopic}".${pillarsContext}${channelsContext}${mediaContext}
@@ -1607,9 +1608,9 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
       return { url: `https://picsum.photos/seed/${seed}/800/600`, isMock: true };
     }
 
-    return piapiService.generateImage(prompt, modelToUse, { 
+    return piapiService.generateImage(prompt, modelToUse, {
       aspectRatio: options?.aspectRatio,
-      existingImageUris: options?.existingImageUris 
+      existingImageUris: options?.existingImageUris
     });
   },
 
@@ -2184,382 +2185,382 @@ CHỈ trả về lệnh chỉnh sửa, không thêm giải thích, không markdo
    * Lấy lịch sử tạo đa phương tiện theo user và loại
    */
   async getMediaHistory(userId: string, mediaType: "image" | "video" | "voice") {
-  try {
-    const records = await AIMediaModel.find({ userId, mediaType })
-      .sort({ createdAt: -1 })
-      .limit(50)
-      .lean();
+    try {
+      const records = await AIMediaModel.find({ userId, mediaType })
+        .sort({ createdAt: -1 })
+        .limit(50)
+        .lean();
 
-    if (mediaType === "video") {
-      await Promise.all(
-        records.map(async (record: any) => {
-          if (record.url && record.url.startsWith("pending://piapi/")) {
-            const taskId = record.url.replace("pending://piapi/", "");
-            try {
-              const result = await piapiService.getTaskStatus(taskId);
-              if (result.status === "completed" && result.url) {
-                const cloudinaryUrl = await cloudinaryService.uploadMedia(result.url, "igen_erp/marketing/video");
-                await AIMediaModel.updateOne(
-                  { _id: record._id },
-                  { url: cloudinaryUrl, "metadata.status": "completed", "metadata.progress": 100 }
-                );
-                record.url = cloudinaryUrl;
-                record.metadata = { ...record.metadata, status: "completed", progress: 100 };
+      if (mediaType === "video") {
+        await Promise.all(
+          records.map(async (record: any) => {
+            if (record.url && record.url.startsWith("pending://piapi/")) {
+              const taskId = record.url.replace("pending://piapi/", "");
+              try {
+                const result = await piapiService.getTaskStatus(taskId);
+                if (result.status === "completed" && result.url) {
+                  const cloudinaryUrl = await cloudinaryService.uploadMedia(result.url, "igen_erp/marketing/video");
+                  await AIMediaModel.updateOne(
+                    { _id: record._id },
+                    { url: cloudinaryUrl, "metadata.status": "completed", "metadata.progress": 100 }
+                  );
+                  record.url = cloudinaryUrl;
+                  record.metadata = { ...record.metadata, status: "completed", progress: 100 };
 
-                const activeCardId = record.metadata?.activeCardId;
-                if (activeCardId) {
-                  const { MarketingContentModel } = require("../model/marketing-content.model");
-                  await MarketingContentModel.findByIdAndUpdate(activeCardId, { videoUrl: cloudinaryUrl });
+                  const activeCardId = record.metadata?.activeCardId;
+                  if (activeCardId) {
+                    const { MarketingContentModel } = require("../model/marketing-content.model");
+                    await MarketingContentModel.findByIdAndUpdate(activeCardId, { videoUrl: cloudinaryUrl });
+                  }
+                } else if (result.status === "failed") {
+                  await AIMediaModel.updateOne(
+                    { _id: record._id },
+                    { "metadata.status": "failed", "metadata.error": result.error || "Failed", "metadata.progress": 0 }
+                  );
+                  record.metadata = { ...record.metadata, status: "failed", error: result.error, progress: 0 };
+                } else {
+                  const currentProgress = result.progress !== undefined ? result.progress : 0;
+                  await AIMediaModel.updateOne(
+                    { _id: record._id },
+                    { "metadata.progress": currentProgress }
+                  );
+                  record.metadata = { ...record.metadata, progress: currentProgress };
                 }
-              } else if (result.status === "failed") {
-                await AIMediaModel.updateOne(
-                  { _id: record._id },
-                  { "metadata.status": "failed", "metadata.error": result.error || "Failed", "metadata.progress": 0 }
-                );
-                record.metadata = { ...record.metadata, status: "failed", error: result.error, progress: 0 };
-              } else {
-                const currentProgress = result.progress !== undefined ? result.progress : 0;
-                await AIMediaModel.updateOne(
-                  { _id: record._id },
-                  { "metadata.progress": currentProgress }
-                );
-                record.metadata = { ...record.metadata, progress: currentProgress };
+              } catch (err) {
+                console.error(`[getMediaHistory] Error refreshing pending task ${taskId}:`, err);
               }
-            } catch (err) {
-              console.error(`[getMediaHistory] Error refreshing pending task ${taskId}:`, err);
             }
-          }
-        })
-      );
+          })
+        );
+      }
+      return records;
+    } catch (error: any) {
+      console.error("[geminiService.getMediaHistory] Error:", error);
+      throw error;
     }
-    return records;
-  } catch (error: any) {
-    console.error("[geminiService.getMediaHistory] Error:", error);
-    throw error;
-  }
-},
+  },
 
   /**
    * Xóa một bản ghi lịch sử
    */
   async deleteMediaHistory(userId: string, id: string) {
-  try {
-    const result = await AIMediaModel.deleteOne({ _id: id, userId });
-    if (result.deletedCount === 0) {
-      throw new Error("Không tìm thấy bản ghi hoặc không có quyền xóa");
+    try {
+      const result = await AIMediaModel.deleteOne({ _id: id, userId });
+      if (result.deletedCount === 0) {
+        throw new Error("Không tìm thấy bản ghi hoặc không có quyền xóa");
+      }
+      return { status: "success" };
+    } catch (error: any) {
+      console.error("[geminiService.deleteMediaHistory] Error:", error);
+      throw error;
     }
-    return { status: "success" };
-  } catch (error: any) {
-    console.error("[geminiService.deleteMediaHistory] Error:", error);
-    throw error;
-  }
-},
+  },
 
   /**
    * Polling trạng thái video từ PiAPI chạy ngầm không chặn luồng HTTP
    */
   async pollPiAPIVideoStatusBackground(recordId: string, taskId: string, userId: string) {
-  console.log(`[PiAPI Background Poll] Started polling for record ${recordId}, taskId ${taskId}`);
+    console.log(`[PiAPI Background Poll] Started polling for record ${recordId}, taskId ${taskId}`);
 
-  let attempts = 0;
-  const maxAttempts = 60; // 10 minutes (60 * 10 seconds)
+    let attempts = 0;
+    const maxAttempts = 60; // 10 minutes (60 * 10 seconds)
 
-  const runPoll = async () => {
-    try {
-      const result = await piapiService.getTaskStatus(taskId);
-      console.log(`[PiAPI Background Poll] Record ${recordId} status: ${result.status}`);
+    const runPoll = async () => {
+      try {
+        const result = await piapiService.getTaskStatus(taskId);
+        console.log(`[PiAPI Background Poll] Record ${recordId} status: ${result.status}`);
 
-      if (result.status === "completed" && result.url) {
-        console.log(`[PiAPI Background Poll] Completed! Uploading to Cloudinary...`);
-        const cloudinaryUrl = await cloudinaryService.uploadMedia(result.url, "igen_erp/marketing/video");
+        if (result.status === "completed" && result.url) {
+          console.log(`[PiAPI Background Poll] Completed! Uploading to Cloudinary...`);
+          const cloudinaryUrl = await cloudinaryService.uploadMedia(result.url, "igen_erp/marketing/video");
 
-        const record = await AIMediaModel.findByIdAndUpdate(
-          recordId,
-          { url: cloudinaryUrl, "metadata.status": "completed", "metadata.progress": 100 },
-          { new: true }
-        );
+          const record = await AIMediaModel.findByIdAndUpdate(
+            recordId,
+            { url: cloudinaryUrl, "metadata.status": "completed", "metadata.progress": 100 },
+            { new: true }
+          );
 
-        const activeCardId = record?.metadata?.activeCardId;
-        if (activeCardId) {
-          const { MarketingContentModel } = require("../model/marketing-content.model");
-          await MarketingContentModel.findByIdAndUpdate(activeCardId, { videoUrl: cloudinaryUrl });
-          console.log(`[PiAPI Background Poll] Updated target card ${activeCardId} with videoUrl: ${cloudinaryUrl}`);
+          const activeCardId = record?.metadata?.activeCardId;
+          if (activeCardId) {
+            const { MarketingContentModel } = require("../model/marketing-content.model");
+            await MarketingContentModel.findByIdAndUpdate(activeCardId, { videoUrl: cloudinaryUrl });
+            console.log(`[PiAPI Background Poll] Updated target card ${activeCardId} with videoUrl: ${cloudinaryUrl}`);
+          }
+          return;
+        } else if (result.status === "failed") {
+          console.error(`[PiAPI Background Poll] Failed for task ${taskId}: ${result.error}`);
+          await AIMediaModel.findByIdAndUpdate(recordId, {
+            "metadata.status": "failed",
+            "metadata.error": result.error || "Lỗi tạo video từ PiAPI",
+            "metadata.progress": 0,
+          });
+          return;
+        } else {
+          let currentProgress = typeof result.progress === "number" && result.progress > 0 ? result.progress : 0;
+          if (currentProgress === 0) {
+            currentProgress = Math.min(5 + attempts * 7, 95);
+          }
+          await AIMediaModel.findByIdAndUpdate(recordId, {
+            "metadata.progress": currentProgress
+          });
         }
-        return;
-      } else if (result.status === "failed") {
-        console.error(`[PiAPI Background Poll] Failed for task ${taskId}: ${result.error}`);
-        await AIMediaModel.findByIdAndUpdate(recordId, {
-          "metadata.status": "failed",
-          "metadata.error": result.error || "Lỗi tạo video từ PiAPI",
-          "metadata.progress": 0,
-        });
-        return;
-      } else {
-        let currentProgress = typeof result.progress === "number" && result.progress > 0 ? result.progress : 0;
-        if (currentProgress === 0) {
-          currentProgress = Math.min(5 + attempts * 7, 95);
+
+        attempts++;
+        if (attempts < maxAttempts) {
+          setTimeout(runPoll, 10000);
+        } else {
+          console.error(`[PiAPI Background Poll] Timeout for task ${taskId}`);
+          await AIMediaModel.findByIdAndUpdate(recordId, {
+            "metadata.status": "timeout",
+            "metadata.error": "Quá thời gian chờ tạo video từ PiAPI (10 phút)",
+          });
         }
-        await AIMediaModel.findByIdAndUpdate(recordId, {
-          "metadata.progress": currentProgress
-        });
+      } catch (error: any) {
+        console.error(`[PiAPI Background Poll] Error polling task ${taskId}:`, error);
+        attempts++;
+        if (attempts < maxAttempts) {
+          setTimeout(runPoll, 10000);
+        }
       }
+    };
 
-      attempts++;
-      if (attempts < maxAttempts) {
-        setTimeout(runPoll, 10000);
-      } else {
-        console.error(`[PiAPI Background Poll] Timeout for task ${taskId}`);
-        await AIMediaModel.findByIdAndUpdate(recordId, {
-          "metadata.status": "timeout",
-          "metadata.error": "Quá thời gian chờ tạo video từ PiAPI (10 phút)",
-        });
-      }
-    } catch (error: any) {
-      console.error(`[PiAPI Background Poll] Error polling task ${taskId}:`, error);
-      attempts++;
-      if (attempts < maxAttempts) {
-        setTimeout(runPoll, 10000);
-      }
-    }
-  };
-
-  setTimeout(runPoll, 10000);
-},
+    setTimeout(runPoll, 10000);
+  },
 
   /**
    * Đồng bộ lưu trữ nâng cao của Image/Video sau khi sinh thành công
    */
-  async saveGeneratedMediaRecord(userId: string, mediaType: "image" | "video", base64OrUrl: string, prompt: string, metadata ?: any) {
-  try {
-    let finalUrl = base64OrUrl;
-    if (base64OrUrl.startsWith("data:")) {
-      finalUrl = await cloudinaryService.uploadMedia(base64OrUrl, `igen_erp/marketing/${mediaType}`);
-    }
+  async saveGeneratedMediaRecord(userId: string, mediaType: "image" | "video", base64OrUrl: string, prompt: string, metadata?: any) {
+    try {
+      let finalUrl = base64OrUrl;
+      if (base64OrUrl.startsWith("data:")) {
+        finalUrl = await cloudinaryService.uploadMedia(base64OrUrl, `igen_erp/marketing/${mediaType}`);
+      }
 
-    const record = await AIMediaModel.create({
-      userId,
-      mediaType,
-      url: finalUrl,
-      prompt,
-      metadata,
-    });
-    return record;
-  } catch (error: any) {
-    console.error("[geminiService.saveGeneratedMediaRecord] Error:", error);
-    throw error;
-  }
-},
+      const record = await AIMediaModel.create({
+        userId,
+        mediaType,
+        url: finalUrl,
+        prompt,
+        metadata,
+      });
+      return record;
+    } catch (error: any) {
+      console.error("[geminiService.saveGeneratedMediaRecord] Error:", error);
+      throw error;
+    }
+  },
 
   /**
    * Lấy danh sách giọng nói ElevenLabs
    */
   async getElevenLabsVoices() {
-  const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
-  if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
-    console.log("[geminiService.getElevenLabsVoices] ELEVENLABS_API_KEY is not configured. Running in MOCK mode.");
-    return {
-      status: "success",
-      voices: [
-        {
-          voice_id: "Sadaltager",
-          name: "Roger (Mock)",
-          category: "cloned",
-          description: "Laid-Back, Casual, Resonant",
-          labels: { gender: "male", age: "adult", accent: "american" }
-        }
-      ]
-    };
-  }
-
-  try {
-    const response = await fetch("https://api.elevenlabs.io/v1/voices", {
-      headers: {
-        "xi-api-key": elevenLabsApiKey.trim()
-      }
-    });
-    if (!response.ok) {
-      throw new Error(`ElevenLabs error: ${response.status}`);
+    const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
+    if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
+      console.log("[geminiService.getElevenLabsVoices] ELEVENLABS_API_KEY is not configured. Running in MOCK mode.");
+      return {
+        status: "success",
+        voices: [
+          {
+            voice_id: "Sadaltager",
+            name: "Roger (Mock)",
+            category: "cloned",
+            description: "Laid-Back, Casual, Resonant",
+            labels: { gender: "male", age: "adult", accent: "american" }
+          }
+        ]
+      };
     }
-    const data = await response.json();
-    // Filter generated or cloned voices
-    const filtered = (data.voices || []).filter((v: any) => v.category === "cloned" || v.category === "generated" || v.category === "custom");
-    return { status: "success", voices: filtered };
-  } catch (error: any) {
-    console.error("[geminiService.getElevenLabsVoices] Error:", error);
-    throw error;
-  }
-},
+
+    try {
+      const response = await fetch("https://api.elevenlabs.io/v1/voices", {
+        headers: {
+          "xi-api-key": elevenLabsApiKey.trim()
+        }
+      });
+      if (!response.ok) {
+        throw new Error(`ElevenLabs error: ${response.status}`);
+      }
+      const data = await response.json();
+      // Filter generated or cloned voices
+      const filtered = (data.voices || []).filter((v: any) => v.category === "cloned" || v.category === "generated" || v.category === "custom");
+      return { status: "success", voices: filtered };
+    } catch (error: any) {
+      console.error("[geminiService.getElevenLabsVoices] Error:", error);
+      throw error;
+    }
+  },
 
   /**
    * Thiết kế & phát nghe thử giọng nói ElevenLabs
    */
   async generateCustomVoicePreview(input: { gender: string; accent: string; age: string; accentStrength: number; text: string }) {
-  const { gender, accent, age, accentStrength, text } = input;
-  const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
-  if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
-    console.log("[geminiService.generateCustomVoicePreview] ELEVENLABS_API_KEY is not configured. Running in MOCK mode.");
-    return {
-      generatedVoiceId: "mock-voice-id-" + Date.now(),
-      url: "data:audio/wav;base64,UklGRigAAABXQVZFlm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAAAG"
-    };
-  }
-
-  try {
-    const response = await fetch("https://api.elevenlabs.io/v1/voice-generation/generate-voice", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "xi-api-key": elevenLabsApiKey.trim()
-      },
-      body: JSON.stringify({
-        gender,
-        accent,
-        age,
-        accent_strength: accentStrength,
-        text
-      })
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`ElevenLabs preview error: ${response.status} - ${errText}`);
+    const { gender, accent, age, accentStrength, text } = input;
+    const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
+    if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
+      console.log("[geminiService.generateCustomVoicePreview] ELEVENLABS_API_KEY is not configured. Running in MOCK mode.");
+      return {
+        generatedVoiceId: "mock-voice-id-" + Date.now(),
+        url: "data:audio/wav;base64,UklGRigAAABXQVZFlm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAAAG"
+      };
     }
 
-    const generatedVoiceId = response.headers.get("generated_voice_id");
-    if (!generatedVoiceId) {
-      throw new Error("No generated_voice_id found in headers");
+    try {
+      const response = await fetch("https://api.elevenlabs.io/v1/voice-generation/generate-voice", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "xi-api-key": elevenLabsApiKey.trim()
+        },
+        body: JSON.stringify({
+          gender,
+          accent,
+          age,
+          accent_strength: accentStrength,
+          text
+        })
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`ElevenLabs preview error: ${response.status} - ${errText}`);
+      }
+
+      const generatedVoiceId = response.headers.get("generated_voice_id");
+      if (!generatedVoiceId) {
+        throw new Error("No generated_voice_id found in headers");
+      }
+
+      const arrayBuffer = await response.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      const base64Audio = buffer.toString('base64');
+      const audioDataUri = `data:audio/mpeg;base64,${base64Audio}`;
+
+      const mediaUrl = await cloudinaryService.uploadMedia(audioDataUri, "igen_erp/marketing/voice_previews");
+
+      return {
+        generatedVoiceId,
+        url: mediaUrl
+      };
+    } catch (error: any) {
+      console.error("[geminiService.generateCustomVoicePreview] Error:", error);
+      throw error;
     }
-
-    const arrayBuffer = await response.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    const base64Audio = buffer.toString('base64');
-    const audioDataUri = `data:audio/mpeg;base64,${base64Audio}`;
-
-    const mediaUrl = await cloudinaryService.uploadMedia(audioDataUri, "igen_erp/marketing/voice_previews");
-
-    return {
-      generatedVoiceId,
-      url: mediaUrl
-    };
-  } catch (error: any) {
-    console.error("[geminiService.generateCustomVoicePreview] Error:", error);
-    throw error;
-  }
-},
+  },
 
   /**
    * Lưu giọng thiết kế thành giọng chính thức
    */
   async createCustomVoice(input: { voiceName: string; voiceDescription: string; generatedVoiceId: string }) {
-  const { voiceName, voiceDescription, generatedVoiceId } = input;
-  const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
-  if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
-    console.log("[geminiService.createCustomVoice] ELEVENLABS_API_KEY is not configured. Running in MOCK mode.");
-    return {
-      voice_id: "mock-saved-voice-id-" + Date.now()
-    };
-  }
-
-  try {
-    const response = await fetch("https://api.elevenlabs.io/v1/voice-generation/create-voice", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "xi-api-key": elevenLabsApiKey.trim()
-      },
-      body: JSON.stringify({
-        voice_name: voiceName,
-        voice_description: voiceDescription,
-        generated_voice_id: generatedVoiceId
-      })
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`ElevenLabs create-voice error: ${response.status} - ${errText}`);
+    const { voiceName, voiceDescription, generatedVoiceId } = input;
+    const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
+    if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
+      console.log("[geminiService.createCustomVoice] ELEVENLABS_API_KEY is not configured. Running in MOCK mode.");
+      return {
+        voice_id: "mock-saved-voice-id-" + Date.now()
+      };
     }
 
-    const result = await response.json();
-    return { voice_id: result.voice_id };
-  } catch (error: any) {
-    console.error("[geminiService.createCustomVoice] Error:", error);
-    throw error;
-  }
-},
+    try {
+      const response = await fetch("https://api.elevenlabs.io/v1/voice-generation/create-voice", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "xi-api-key": elevenLabsApiKey.trim()
+        },
+        body: JSON.stringify({
+          voice_name: voiceName,
+          voice_description: voiceDescription,
+          generated_voice_id: generatedVoiceId
+        })
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`ElevenLabs create-voice error: ${response.status} - ${errText}`);
+      }
+
+      const result = await response.json();
+      return { voice_id: result.voice_id };
+    } catch (error: any) {
+      console.error("[geminiService.createCustomVoice] Error:", error);
+      throw error;
+    }
+  },
 
   async addElevenLabsVoice(name: string, description: string, files: string[], userId: string) {
-  const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
-  if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
-    return { voice_id: "mock-saved-voice-id-" + Date.now() };
-  }
-
-  try {
-    const formData = new FormData();
-    formData.append('name', name);
-    formData.append('description', description);
-
-    if (userId) {
-      formData.append('labels', JSON.stringify({ userId }));
+    const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
+    if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
+      return { voice_id: "mock-saved-voice-id-" + Date.now() };
     }
 
-    for (let i = 0; i < files.length; i++) {
-      const dataUri = files[i];
-      const matches = dataUri.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/);
-      if (!matches) {
-        throw new Error("Invalid file format");
+    try {
+      const formData = new FormData();
+      formData.append('name', name);
+      formData.append('description', description);
+
+      if (userId) {
+        formData.append('labels', JSON.stringify({ userId }));
       }
-      const type = matches[1];
-      const buffer = Buffer.from(matches[2], 'base64');
-      const blob = new Blob([buffer], { type });
-      formData.append('files', blob, `file-${i}.${type.split('/')[1]}`);
+
+      for (let i = 0; i < files.length; i++) {
+        const dataUri = files[i];
+        const matches = dataUri.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/);
+        if (!matches) {
+          throw new Error("Invalid file format");
+        }
+        const type = matches[1];
+        const buffer = Buffer.from(matches[2], 'base64');
+        const blob = new Blob([buffer], { type });
+        formData.append('files', blob, `file-${i}.${type.split('/')[1]}`);
+      }
+
+      const response = await fetch('https://api.elevenlabs.io/v1/voices/add', {
+        method: 'POST',
+        headers: {
+          'xi-api-key': elevenLabsApiKey.trim(),
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(`ElevenLabs API error: ${response.status} - ${errorBody}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error: any) {
+      console.error("[geminiService.addElevenLabsVoice] Error:", error);
+      throw error;
     }
-
-    const response = await fetch('https://api.elevenlabs.io/v1/voices/add', {
-      method: 'POST',
-      headers: {
-        'xi-api-key': elevenLabsApiKey.trim(),
-      },
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const errorBody = await response.text();
-      throw new Error(`ElevenLabs API error: ${response.status} - ${errorBody}`);
-    }
-
-    const data = await response.json();
-    return data;
-  } catch (error: any) {
-    console.error("[geminiService.addElevenLabsVoice] Error:", error);
-    throw error;
-  }
-},
+  },
 
   async deleteElevenLabsVoice(voiceId: string) {
-  const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
-  if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
-    return { success: true };
-  }
-
-  try {
-    const response = await fetch(`https://api.elevenlabs.io/v1/voices/${voiceId}`, {
-      method: 'DELETE',
-      headers: {
-        'xi-api-key': elevenLabsApiKey.trim(),
-      },
-    });
-
-    if (!response.ok) {
-      const errorBody = await response.text();
-      throw new Error(`ElevenLabs API error: ${response.status} - ${errorBody}`);
+    const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
+    if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
+      return { success: true };
     }
 
-    return { success: true };
-  } catch (error: any) {
-    console.error("[geminiService.deleteElevenLabsVoice] Error:", error);
-    throw error;
+    try {
+      const response = await fetch(`https://api.elevenlabs.io/v1/voices/${voiceId}`, {
+        method: 'DELETE',
+        headers: {
+          'xi-api-key': elevenLabsApiKey.trim(),
+        },
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(`ElevenLabs API error: ${response.status} - ${errorBody}`);
+      }
+
+      return { success: true };
+    } catch (error: any) {
+      console.error("[geminiService.deleteElevenLabsVoice] Error:", error);
+      throw error;
+    }
   }
-}
 };
 
 /**

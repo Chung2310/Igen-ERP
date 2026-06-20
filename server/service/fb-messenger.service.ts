@@ -667,6 +667,35 @@ export const fbMessengerService = {
   },
 
   /**
+   * Gửi sender_action (ví dụ: typing_on, typing_off, mark_seen) tới khách hàng qua Facebook Graph API
+   */
+  async sendSenderAction(pageId: string, conversationId: string, action: "typing_on" | "typing_off" | "mark_seen") {
+    const conversation = await FBConversationModel.findOne({ _id: conversationId, pageId });
+    if (!conversation) return;
+
+    const recipientPsid = conversation.recipientId;
+    const resolvedPageId = conversation.pageId || pageId || "";
+    const token = await this.getPageAccessTokenByPageId(resolvedPageId);
+    if (!token) return;
+
+    const url = `https://graph.facebook.com/v19.0/me/messages?access_token=${token}`;
+    const body = {
+      recipient: { id: recipientPsid },
+      sender_action: action
+    };
+
+    try {
+      await (globalThis as any).fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    } catch (error) {
+      console.error(`[FB Service sendSenderAction] Thất bại khi gửi sender_action ${action}:`, error);
+    }
+  },
+
+  /**
    * Lấy danh sách cuộc hội thoại thuộc Page mà người dùng hiện tại có quyền truy cập
    */
   async getConversations(pageId?: string, options?: { sync?: boolean }) {

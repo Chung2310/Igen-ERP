@@ -16,8 +16,6 @@ export const tiktokController = {
         accessToken,
         username,
         scheduledTime,
-        blotatoAccountId,
-        blotatoApiKey,
         integrationId,
       } = req.body;
 
@@ -29,8 +27,6 @@ export const tiktokController = {
         accessToken,
         username,
         scheduledTime,
-        blotatoAccountId,
-        blotatoApiKey,
         integrationId,
         companyCode
       );
@@ -72,21 +68,6 @@ export const tiktokController = {
       return res.status(500).json({
         status: "error",
         message: "Loi lay thong tin creator TikTok",
-        details: error.message,
-      });
-    }
-  },
-
-  async getBlotatoAccounts(req: Request, res: Response) {
-    try {
-      void req;
-      const result = await tiktokService.getBlotatoAccounts();
-      return res.status(200).json(result);
-    } catch (error: any) {
-      console.error("[tiktokController.getBlotatoAccounts] Error:", error);
-      return res.status(500).json({
-        status: "error",
-        message: "Loi truy van thong tin TikTok",
         details: error.message,
       });
     }

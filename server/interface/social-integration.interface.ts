@@ -9,7 +9,6 @@ export interface ISocialIntegration extends Document {
   isConnected: boolean;
   connectedAt: Date;
   createdBy: string;
-  blotatoAccountId?: string;
   accessToken?: string;
   refreshToken?: string;
   tokenExpiredAt?: Date;

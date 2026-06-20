@@ -45,9 +45,9 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
       displayPlaceholder: "Vi du: TikTok Cong ty",
       usernameLabel: "Ten tai khoan (Username)",
       usernamePlaceholder: "igen_business",
-      tokenLabel: "Blotato API Key *",
-      tokenPlaceholder: "Nhap Blotato API Key",
-      tokenHelp: "Khoa API dung de dang bai qua trung gian Blotato.",
+      tokenLabel: "TikTok Access Token *",
+      tokenPlaceholder: "Nhap TikTok Access Token",
+      tokenHelp: "Access Token TikTok Direct dung de xac thuc va dang video truc tiep.",
       activeClass: "border-black bg-black text-white shadow-sm",
     },
     Facebook: {
@@ -216,13 +216,18 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
       }
     }
 
-    if (compPlatform === "TikTok" && !compBlotatoAccountId.trim()) {
-      toast.error("TikTok yêu cầu Blotato Account ID!");
-      return;
-    }
-
     setSubmittingIntegration(true);
     try {
+      if (compPlatform === "TikTok") {
+        toast.info("Dang xac thuc TikTok voi ben thu 3...");
+        const result = await socialIntegrationService.validateTikTokIntegration({
+          username: compUsername.trim() || undefined,
+          accessToken: finalAccessToken,
+        });
+
+        finalDisplayName = result.displayName || finalDisplayName;
+      }
+
       if (compPlatform === "Facebook") {
         toast.info("Dang xac thuc Facebook Page voi ben thu 3...");
         await socialIntegrationService.validateFacebookIntegration({
@@ -244,7 +249,7 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
         platform: compPlatform,
         displayName: finalDisplayName,
         username: finalUsername || undefined,
-        blotatoAccountId: compPlatform === "TikTok" ? compBlotatoAccountId.trim() : undefined,
+        blotatoAccountId: undefined,
         accessToken: finalAccessToken,
         refreshToken: compPlatform === "Zalo" ? compRefreshToken.trim() || undefined : undefined,
         tokenExpiredAt: compPlatform === "Zalo" && compTokenExpiredAt ? new Date(compTokenExpiredAt).toISOString() : undefined,
@@ -860,8 +865,8 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
                     <div className="bg-gray-50/70 border border-gray-150/60 rounded-xl p-2.5 text-left text-[10px] space-y-1.5 font-mono text-gray-600">
                       {item.platform === "TikTok" && (
                         <div className="flex justify-between gap-2">
-                          <span className="text-gray-400">Blotato ID:</span>
-                          <span className="font-semibold truncate max-w-[130px]">{item.blotatoAccountId}</span>
+                          <span className="text-gray-400">Che do:</span>
+                          <span className="font-semibold truncate max-w-[130px]">TikTok Direct</span>
                         </div>
                       )}
                       <div className="flex justify-between gap-2">
