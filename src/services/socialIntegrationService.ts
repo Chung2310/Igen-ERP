@@ -16,6 +16,7 @@ export interface SocialIntegration {
   appSecret?: string;
   verifyToken?: string;
   isMock?: boolean;
+  blotatoAccountId?: string;
 }
 
 export const socialIntegrationService = {
