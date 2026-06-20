@@ -2,8 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { geminiApi } from '../../api/gemini';
 import { toast } from '../../pages/Toast';
 import { Film, Loader2, Play, Sparkles, Video, X, Wand2, UploadCloud } from 'lucide-react';
-import { Player } from '@remotion/player';
-import { VideoComposition } from './video-composition';
 
 const MODEL_OPTIONS = [
   { value: 'piapi-veo31-video-fast-audio', label: 'iGen video 3.1 Fast' },
