@@ -437,8 +437,13 @@ export const marketingService = {
     caption: string,
     videoUrl: string,
     isMock: boolean,
-    privacyLevel: string = 'SELF_ONLY'
-  ): Promise<string> {
+    privacyLevel: string = 'SELF_ONLY',
+    options?: {
+      integrationId?: string;
+      accessToken?: string;
+      username?: string;
+    }
+  ): Promise<{ postId: string; status: "success" | "pending"; shareUrl?: string }> {
     if (isMock) {
       await new Promise(resolve => setTimeout(resolve, 1500));
       const mockPostId = `tiktok_mock_${Date.now()}`;
@@ -449,7 +454,11 @@ export const marketingService = {
         tiktokShareUrl: `https://www.tiktok.com/@demo/video/${mockPostId}`
       });
       console.log(`[iGen ERP TikTok (MOCK)]: Đã đăng video thành công. ID: ${mockPostId}`);
-      return mockPostId;
+      return {
+        postId: mockPostId,
+        status: "success",
+        shareUrl: `https://www.tiktok.com/@demo/video/${mockPostId}`
+      };
     }
 
     const response = await fetch('/api/v1/tiktok/publish', {
@@ -463,6 +472,9 @@ export const marketingService = {
         caption,
         videoUrl,
         privacyLevel,
+        integrationId: options?.integrationId,
+        accessToken: options?.accessToken,
+        username: options?.username,
       }),
     });
 
@@ -472,21 +484,37 @@ export const marketingService = {
     }
 
     const resData = await response.json();
-    if (resData.status !== 'success') {
+    if (resData.status !== 'success' && resData.status !== 'pending') {
       throw new Error(resData.message || 'Lỗi không xác định từ máy chủ khi đăng TikTok.');
     }
 
-    const { postId, shareUrl } = resData.data;
+    const { postId, shareUrl, publishId } = resData.data || {};
+    const normalizedStatus = resData.status === "pending" ? "pending" : "success";
 
-    await this.updateCard(id, {
-      status: 'published',
-      publishedAt: new Date().toISOString(),
-      tiktokPostId: postId,
-      tiktokShareUrl: shareUrl
-    });
+    if (normalizedStatus === "success") {
+      await this.updateCard(id, {
+        status: 'published',
+        publishedAt: new Date().toISOString(),
+        tiktokPostId: postId,
+        tiktokShareUrl: shareUrl
+      });
 
-    console.log(`[iGen ERP TikTok]: Đã đăng video thành công. Post ID: ${postId}`);
-    return postId;
+      console.log(`[iGen ERP TikTok]: Đã đăng video thành công. Post ID: ${postId}`);
+    } else {
+      await this.updateCard(id, {
+        status: 'processing',
+        tiktokPostId: postId || publishId || '',
+        tiktokShareUrl: shareUrl || ''
+      });
+
+      console.log(`[iGen ERP TikTok]: Video đang được TikTok xử lý. Publish ID: ${publishId || postId || "n/a"}`);
+    }
+
+    return {
+      postId: String(postId || publishId || ""),
+      status: normalizedStatus,
+      shareUrl: shareUrl || "",
+    };
   },
   async resolveHeyGenVideoUrl(videoId: string, context: {
     avatarId: string;

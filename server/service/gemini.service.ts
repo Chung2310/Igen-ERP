@@ -265,6 +265,19 @@ function formatHumanLikeChatReply(rawText: string) {
 
   if (currentLine) compactLines.push(currentLine);
 
+  const finalLines = compactLines
+    .slice(0, 5)
+    .map((line) => line.trim())
+    .filter((line, index) => {
+      if (index !== 0) return true;
+
+      return !/^Dạ,?\s*(?:em\s+chào|[A-Za-zÀ-ỹ0-9\s]+ xin chào)\s+anh\/chị[^\n]*$/i.test(line);
+    });
+
+  const finalResult = finalLines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+
+  return finalResult || normalized;
+
   const trimmedLines = compactLines.slice(0, 5).map((line) => line.trim());
   let result = trimmedLines.join("\n");
 
