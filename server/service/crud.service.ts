@@ -67,7 +67,87 @@ function sanitizeInventoryPayload(modelName: string, payload: any) {
     };
   }
 
+  if (modelName === "stock-logs") {
+    const normalizedCreatedAt =
+      payload.createdAt instanceof Date
+        ? payload.createdAt
+        : typeof payload.createdAt === "string" || typeof payload.createdAt === "number"
+          ? new Date(payload.createdAt)
+          : undefined;
+
+    const hasValidCreatedAt = normalizedCreatedAt instanceof Date && !Number.isNaN(normalizedCreatedAt.getTime());
+
+    return {
+      ...payload,
+      createdAt: hasValidCreatedAt ? normalizedCreatedAt : undefined,
+    };
+  }
+
   return payload;
+}
+
+function sanitizeInventoryResult(modelName: string, item: any) {
+  if (!item) {
+    return item;
+  }
+
+  const plainItem = typeof item.toObject === "function" ? item.toObject() : item;
+
+  if (modelName === "products") {
+    return {
+      ...plainItem,
+      sku: typeof plainItem.sku === "string" ? plainItem.sku.trim().toUpperCase() : plainItem.sku,
+      name: typeof plainItem.name === "string" ? plainItem.name.trim() : plainItem.name,
+      category: typeof plainItem.category === "string" ? plainItem.category.trim() : plainItem.category,
+      brand: typeof plainItem.brand === "string" ? plainItem.brand.trim() : "",
+      unit: typeof plainItem.unit === "string" ? plainItem.unit.trim() : plainItem.unit,
+      description: typeof plainItem.description === "string" ? plainItem.description.trim() : "",
+      imageUrl: typeof plainItem.imageUrl === "string" ? plainItem.imageUrl.trim() : "",
+    };
+  }
+
+  if (modelName === "categories") {
+    return {
+      ...plainItem,
+      name: typeof plainItem.name === "string" ? plainItem.name.trim() : plainItem.name,
+      code: typeof plainItem.code === "string" ? plainItem.code.trim().toUpperCase() : plainItem.code,
+      description: typeof plainItem.description === "string" ? plainItem.description.trim() : "",
+      colorClass: typeof plainItem.colorClass === "string" ? plainItem.colorClass.trim() : "bg-blue-50 text-blue-700 border-blue-100",
+      status: typeof plainItem.status === "string" ? plainItem.status.trim() : "Đang dùng",
+    };
+  }
+
+  if (modelName === "stock-logs") {
+    const normalizedCreatedAt =
+      plainItem.createdAt instanceof Date
+        ? plainItem.createdAt
+        : typeof plainItem.createdAt === "string" || typeof plainItem.createdAt === "number"
+          ? new Date(plainItem.createdAt)
+          : null;
+
+    return {
+      ...plainItem,
+      title: typeof plainItem.title === "string" ? plainItem.title.trim() : "",
+      items: Array.isArray(plainItem.items)
+        ? plainItem.items.map((entry: any) => ({
+            productId: typeof entry?.productId === "string" ? entry.productId : "",
+            sku: typeof entry?.sku === "string" ? entry.sku.trim().toUpperCase() : "",
+            productName: typeof entry?.productName === "string" ? entry.productName.trim() : "",
+            quantity: typeof entry?.quantity === "number" ? entry.quantity : Number(entry?.quantity || 0),
+          }))
+        : [],
+      operatorName: typeof plainItem.operatorName === "string" ? plainItem.operatorName.trim() : "",
+      notes: typeof plainItem.notes === "string" ? plainItem.notes.trim() : "",
+      sku: typeof plainItem.sku === "string" ? plainItem.sku.trim().toUpperCase() : plainItem.sku,
+      productName: typeof plainItem.productName === "string" ? plainItem.productName.trim() : plainItem.productName,
+      createdAt:
+        normalizedCreatedAt instanceof Date && !Number.isNaN(normalizedCreatedAt.getTime())
+          ? normalizedCreatedAt.toISOString()
+          : new Date().toISOString(),
+    };
+  }
+
+  return plainItem;
 }
 
 function sanitizeMarketingResult(modelName: string, item: any) {
@@ -76,6 +156,11 @@ function sanitizeMarketingResult(modelName: string, item: any) {
   }
   const plainItem = typeof item.toObject === "function" ? item.toObject() : item;
   return sanitizeMarketingPayload(modelName, plainItem);
+}
+
+function sanitizeCrudResult(modelName: string, item: any) {
+  const inventoryItem = sanitizeInventoryResult(modelName, item);
+  return sanitizeMarketingResult(modelName, inventoryItem);
 }
 
 async function handlePendingVideoUrl(item: any, modelName: string) {
@@ -197,13 +282,13 @@ export const crudService = {
     const page = options.page || 1;
     const limit = options.limit || 1000;
     const skip = (page - 1) * limit;
-    const sort = options.sort || "-createdAt";
+    const sort = options.sort || "-_id";
 
     const items = await model.find(query).sort(sort).skip(skip).limit(limit).lean();
     const total = await model.countDocuments(query);
 
     return {
-      items: items.map((item) => sanitizeMarketingResult(modelName, item)),
+      items: items.map((item) => sanitizeCrudResult(modelName, item)),
       total,
       page,
       limit,
@@ -233,7 +318,7 @@ export const crudService = {
     if (!item) {
       throw new Error("Không tìm thấy tài nguyên hoặc bạn không có quyền truy cập.");
     }
-    return sanitizeMarketingResult(modelName, item);
+    return sanitizeCrudResult(modelName, item);
   },
 
   /**
@@ -266,7 +351,7 @@ export const crudService = {
       console.error("[crudService.create] error in handlePendingVideoUrl:", err);
     });
 
-    return sanitizeMarketingResult(modelName, newItem);
+    return sanitizeCrudResult(modelName, newItem);
   },
 
   /**
@@ -316,7 +401,7 @@ export const crudService = {
       console.error("[crudService.update] error in handlePendingVideoUrl:", err);
     });
 
-    return sanitizeMarketingResult(modelName, updatedItem);
+    return sanitizeCrudResult(modelName, updatedItem);
   },
 
   /**

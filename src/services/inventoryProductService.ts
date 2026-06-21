@@ -63,7 +63,7 @@ export const inventoryProductService = {
   subscribe(callback: (products: ProductItem[]) => void, onError?: (error: unknown) => void) {
     const fetchProducts = async () => {
       try {
-        const res = await fetch("/api/v1/crud/products?sort=name", {
+        const res = await fetch("/api/v1/crud/products?sort=-_id", {
           headers: {
             "Authorization": `Bearer ${getAccessToken()}`,
           },
@@ -75,6 +75,8 @@ export const inventoryProductService = {
         const products = (json.data || []).map((item: any) => ({
           ...item,
           id: item._id,
+          brand: typeof item.brand === "string" ? item.brand : "",
+          description: typeof item.description === "string" ? item.description : "",
         }));
         callback(products);
       } catch (err) {
