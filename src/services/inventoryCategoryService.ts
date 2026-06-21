@@ -13,7 +13,7 @@ export const inventoryCategoryService = {
   subscribe(callback: (categories: ProductCategory[]) => void, onError?: (error: unknown) => void) {
     const fetchCategories = async () => {
       try {
-        const res = await fetch("/api/v1/crud/categories?sort=name", {
+        const res = await fetch("/api/v1/crud/categories?sort=-_id", {
           headers: {
             "Authorization": `Bearer ${getAccessToken()}`,
           },
@@ -25,6 +25,10 @@ export const inventoryCategoryService = {
         const categories = (json.data || []).map((item: any) => ({
           ...item,
           id: item._id,
+          code: typeof item.code === "string" ? item.code : "",
+          description: typeof item.description === "string" ? item.description : "",
+          colorClass: typeof item.colorClass === "string" ? item.colorClass : "bg-blue-50 text-blue-700 border-blue-100",
+          status: typeof item.status === "string" ? item.status : "Đang dùng",
         }));
         callback(categories);
       } catch (err) {
