@@ -203,6 +203,14 @@ export default function AuthPage() {
             >
               Terms of Service
             </a>
+            <a
+              href="/user-data-deletion"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-semibold text-slate-600 underline underline-offset-2 hover:text-blue-700"
+            >
+              Data Deletion
+            </a>
           </div>
         </div>
       </div>

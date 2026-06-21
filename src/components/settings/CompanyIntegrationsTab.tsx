@@ -493,13 +493,32 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
               {/* Conditional Facebook Inputs */}
               {compPlatform === "Facebook" && fbConnectMode === "oauth" && (
                 <div className="space-y-4 pt-2">
+                  {companyIntegrations.filter(item => item.platform === "Facebook" && item.isConnected).map((item) => (
+                    <div key={item._id} className="flex items-center gap-3 p-3 bg-green-50 border border-green-200 rounded-xl">
+                      <div className="w-8 h-8 rounded-full bg-[#1877F2] flex items-center justify-center text-white text-xs font-bold font-sans">
+                        f
+                      </div>
+                      <div className="text-left min-w-0 flex-1">
+                        <p className="text-xs font-bold text-gray-800 truncate">{item.displayName}</p>
+                        <p className="text-[10px] text-gray-500 font-mono truncate">ID: {item.username}</p>
+                      </div>
+                      <span className="text-[10px] font-bold text-green-700 bg-green-100/50 px-2 py-0.5 rounded-full shrink-0">
+                        Đã kết nối
+                      </span>
+                    </div>
+                  ))}
+
                   <button
                     type="button"
                     onClick={handleFacebookOAuth}
                     className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#1877F2] hover:bg-[#166FE5] text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer"
                   >
                     <Globe className="h-4 w-4" />
-                    <span>Đăng nhập bằng Facebook</span>
+                    <span>
+                      {companyIntegrations.some(item => item.platform === "Facebook" && item.isConnected)
+                        ? "Liên kết Fanpage khác"
+                        : "Đăng nhập bằng Facebook"}
+                    </span>
                   </button>
                   <p className="text-[9px] text-gray-400 text-center leading-normal">
                     Bấm để mở popup đăng nhập Facebook. Hệ thống sẽ tự động lấy danh sách Fanpage và Page Token — bạn chỉ cần chọn Fanpage muốn kết nối.
@@ -681,25 +700,27 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
               )}
 
               {/* Action Buttons */}
-              <div className="pt-2 flex gap-2">
-                <button
-                  type="submit"
-                  disabled={submittingIntegration}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer"
-                >
-                  <Save className="h-4 w-4" />
-                  <span>{submittingIntegration ? "Đang lưu..." : editingIntegrationId ? "Cập nhật" : "Lưu liên kết"}</span>
-                </button>
-                {editingIntegrationId && (
+              {!(compPlatform === "Facebook" && fbConnectMode === "oauth" && !editingIntegrationId) && (
+                <div className="pt-2 flex gap-2">
                   <button
-                    type="button"
-                    onClick={resetCompForm}
-                    className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition-all border border-gray-200 cursor-pointer"
+                    type="submit"
+                    disabled={submittingIntegration}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer"
                   >
-                    Hủy
+                    <Save className="h-4 w-4" />
+                    <span>{submittingIntegration ? "Đang lưu..." : editingIntegrationId ? "Cập nhật" : "Lưu liên kết"}</span>
                   </button>
-                )}
-              </div>
+                  {editingIntegrationId && (
+                    <button
+                      type="button"
+                      onClick={resetCompForm}
+                      className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition-all border border-gray-200 cursor-pointer"
+                    >
+                      Hủy
+                    </button>
+                  )}
+                </div>
+              )}
             </form>
           </div>
 
