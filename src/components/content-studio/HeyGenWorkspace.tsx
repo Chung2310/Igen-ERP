@@ -88,6 +88,7 @@ export function HeyGenWorkspace({
   const [isLoadingAudioHistory, setIsLoadingAudioHistory] = useState(false);
   const [hasLoadedAudioHistory, setHasLoadedAudioHistory] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [aspectRatio, setAspectRatio] = useState<"16:9" | "9:16" | "1:1">("16:9");
   const [jobStatus, setJobStatus] = useState("");
   const [jobVideoUrl, setJobVideoUrl] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
@@ -141,6 +142,10 @@ export function HeyGenWorkspace({
         try {
           const card = await marketingService.getCardById(cardId);
           if (card) {
+            const cardRatio = (card as any).videoAspectRatio || (card as any).aspectRatio || (card.channel === "TikTok" ? "9:16" : "16:9");
+            if (cardRatio === "9:16" || cardRatio === "1:1" || cardRatio === "16:9") {
+              setAspectRatio(cardRatio as any);
+            }
             if (card.engineType === 'avatar_iii') {
               setSelectedAvatarModel("Avatar III");
               if (card.avatarId) {
@@ -427,11 +432,14 @@ export function HeyGenWorkspace({
       const payload: any = {
         avatarId: selectedAvatarId,
         enableCaption,
-        aspectRatio: "16:9",
+        aspectRatio,
         resolution: "720p" as const,
         engineType: selectedModel.engineType,
         title: selectedModel.engineType === "avatar_iii" ? "Video Avatar III" : "Video người nói",
         description: selectedModel.engineType === "avatar_iii" ? "Tạo từ kịch bản văn bản" : "Video avatar với HeyGen Studio",
+        avatarBackground,
+        backgroundColor,
+        avatarLayout,
       };
 
       if (selectedModel.engineType === "avatar_iii") {
@@ -563,6 +571,7 @@ export function HeyGenWorkspace({
           avatarBackground={avatarBackground}
           backgroundColor={backgroundColor}
           previewVideoUrl={previewVideoUrl || jobVideoUrl}
+          aspectRatio={aspectRatio}
         />
 
         {isDrawerOpen ? (
@@ -604,6 +613,8 @@ export function HeyGenWorkspace({
               }}
               isGenerating={isGenerating}
               onRender={handleGenerate}
+              aspectRatio={aspectRatio}
+              onAspectRatioChange={setAspectRatio}
             />
           </Suspense>
         ) : null}
@@ -794,18 +805,18 @@ export function HeyGenWorkspace({
             </button>
 
             {/* Left Column: Video Player */}
-            <div className="flex-1 rounded-[24px] bg-slate-50 overflow-hidden flex items-center justify-center md:h-[440px] w-full relative border border-slate-100">
+            <div className="flex-1 rounded-[24px] bg-slate-950 overflow-hidden flex items-center justify-center md:h-[440px] w-full relative border border-slate-900">
               {String(previewItem.status || "").toLowerCase() === "completed" && isPlayableVideoUrl(previewItem.url || previewItem.captionedVideoUrl || previewItem.videoPageUrl) ? (
                 <video
                   src={previewItem.url || previewItem.captionedVideoUrl || previewItem.videoPageUrl || ""}
                   controls
                   autoPlay
                   playsInline
-                  className="max-h-full max-w-full object-contain"
+                  className="max-h-full max-w-full object-contain bg-transparent"
                 />
               ) : (
-                <div className="flex flex-col items-center justify-center p-6 text-center text-slate-400 h-full w-full bg-slate-50">
-                  <span className="text-rose-455 text-sm font-bold mb-2">Video này render bị lỗi</span>
+                <div className="flex flex-col items-center justify-center p-6 text-center text-slate-400 h-full w-full bg-slate-950">
+                  <span className="text-rose-400 text-sm font-bold mb-2">Video này render bị lỗi</span>
                   <p className="text-xs text-slate-500 max-w-xs">
                     {previewItem.error || "Không thể phát video này do lỗi hệ thống HeyGen."}
                   </p>

@@ -1,6 +1,7 @@
 import { broadcastEvent } from "../socket";
 import { MarketingContentModel } from "../model/marketing-content.model";
 import { SocialIntegrationModel } from "../model/social-integration.model";
+import { UserModel } from "../model/user.model";
 
 const TIKTOK_API_BASE = "https://open.tiktokapis.com";
 
@@ -96,12 +97,223 @@ async function savePublishTracking(
   await MarketingContentModel.findByIdAndUpdate(cardId, { $set: updateData });
 }
 
+async function refreshCompanyTikTokToken(integrationId: string, integration: any): Promise<string> {
+  const clientKey = integration.verifyToken || process.env.TIKTOK_CLIENT_KEY || "";
+  const clientSecret = integration.appSecret || process.env.TIKTOK_CLIENT_SECRET || "";
+  const refreshToken = integration.refreshToken;
+
+  if (!refreshToken) {
+    throw new Error("No refresh token found for TikTok integration.");
+  }
+
+  console.log(`[TikTok Service] Refreshing company token for integration ID: ${integrationId}`);
+
+  if (integration.isMock) {
+    const mockAccessToken = `mock_access_token_refreshed_${Date.now()}`;
+    const mockRefreshToken = `mock_refresh_token_refreshed_${Date.now()}`;
+    const expiresAt = new Date(Date.now() + 86400 * 1000); // 24h
+    await SocialIntegrationModel.findByIdAndUpdate(integrationId, {
+      $set: {
+        accessToken: mockAccessToken,
+        refreshToken: mockRefreshToken,
+        tokenExpiredAt: expiresAt,
+      }
+    });
+    return mockAccessToken;
+  }
+
+  const bodyParams = new URLSearchParams();
+  bodyParams.set("client_key", clientKey);
+  bodyParams.set("client_secret", clientSecret);
+  bodyParams.set("grant_type", "refresh_token");
+  bodyParams.set("refresh_token", refreshToken);
+
+  const response = await (globalThis as any).fetch(`${TIKTOK_API_BASE}/v2/oauth/token/`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: bodyParams.toString(),
+  });
+
+  const text = await response.text();
+  let data: any = {};
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error(`TikTok token refresh response is not JSON: ${text}`);
+  }
+
+  if (!response.ok || (data.error?.code !== "ok" && !data.access_token)) {
+    const errCode = data.error?.code || response.status;
+    const errMsg = data.error?.message || "Unknown TikTok refresh token error";
+    throw new Error(`TikTok token refresh failed [${errCode}]: ${errMsg}`);
+  }
+
+  const newAccessToken = data.access_token;
+  const newRefreshToken = data.refresh_token || refreshToken;
+  const expiresIn = data.expires_in || 86400; // in seconds
+  const expiresAt = new Date(Date.now() + expiresIn * 1000);
+
+  await SocialIntegrationModel.findByIdAndUpdate(integrationId, {
+    $set: {
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
+      tokenExpiredAt: expiresAt,
+    }
+  });
+
+  return newAccessToken;
+}
+
+async function refreshUserTikTokToken(userId: string, integration: any): Promise<string> {
+  const clientKey = integration.clientKey || integration.verifyToken || process.env.TIKTOK_CLIENT_KEY || "";
+  const clientSecret = integration.clientSecret || integration.appSecret || process.env.TIKTOK_CLIENT_SECRET || "";
+  const refreshToken = integration.refreshToken;
+
+  if (!refreshToken) {
+    throw new Error("No refresh token found for user TikTok integration.");
+  }
+
+  console.log(`[TikTok Service] Refreshing user token for user ID: ${userId}`);
+
+  if (integration.isMock) {
+    const mockAccessToken = `mock_access_token_refreshed_${Date.now()}`;
+    const mockRefreshToken = `mock_refresh_token_refreshed_${Date.now()}`;
+    const expiresAt = new Date(Date.now() + 86400 * 1000); // 24h
+    await UserModel.findByIdAndUpdate(userId, {
+      $set: {
+        "tiktokIntegration.accessToken": mockAccessToken,
+        "tiktokIntegration.refreshToken": mockRefreshToken,
+        "tiktokIntegration.tokenExpiredAt": expiresAt,
+      }
+    });
+    return mockAccessToken;
+  }
+
+  const bodyParams = new URLSearchParams();
+  bodyParams.set("client_key", clientKey);
+  bodyParams.set("client_secret", clientSecret);
+  bodyParams.set("grant_type", "refresh_token");
+  bodyParams.set("refresh_token", refreshToken);
+
+  const response = await (globalThis as any).fetch(`${TIKTOK_API_BASE}/v2/oauth/token/`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: bodyParams.toString(),
+  });
+
+  const text = await response.text();
+  let data: any = {};
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error(`TikTok token refresh response is not JSON: ${text}`);
+  }
+
+  if (!response.ok || (data.error?.code !== "ok" && !data.access_token)) {
+    const errCode = data.error?.code || response.status;
+    const errMsg = data.error?.message || "Unknown TikTok refresh token error";
+    throw new Error(`TikTok token refresh failed [${errCode}]: ${errMsg}`);
+  }
+
+  const newAccessToken = data.access_token;
+  const newRefreshToken = data.refresh_token || refreshToken;
+  const expiresIn = data.expires_in || 86400; // in seconds
+  const expiresAt = new Date(Date.now() + expiresIn * 1000);
+
+  await UserModel.findByIdAndUpdate(userId, {
+    $set: {
+      "tiktokIntegration.accessToken": newAccessToken,
+      "tiktokIntegration.refreshToken": newRefreshToken,
+      "tiktokIntegration.tokenExpiredAt": expiresAt,
+    }
+  });
+
+  return newAccessToken;
+}
+
 async function resolveDirectCredentials(
   integrationId?: string,
   companyCode?: string,
   accessToken?: string,
-  username?: string
+  username?: string,
+  userId?: string
 ) {
+  let resolvedAccessToken = accessToken;
+  let resolvedUsername = username;
+
+  if (integrationId) {
+    console.log(`[TikTok Service] Loading TikTok integration from DB: ${integrationId}`);
+    const integration = await SocialIntegrationModel.findById(integrationId);
+
+    if (!integration) {
+      throw new Error("Khong tim thay tai khoan ket noi TikTok tren he thong.");
+    }
+    if (companyCode && integration.companyCode !== companyCode) {
+      throw new Error("Tai khoan ket noi khong thuoc pham vi cong ty cua ban.");
+    }
+    if (!integration.isConnected) {
+      throw new Error("Tai khoan ket noi TikTok dang bi vo hieu hoa.");
+    }
+    if (integration.platform !== "TikTok") {
+      throw new Error("Tai khoan ket noi duoc chon khong phai TikTok.");
+    }
+    if (!integration.accessToken) {
+      throw new Error("Tai khoan TikTok nay chua co access token de dang bai.");
+    }
+
+    const expiryTime = integration.tokenExpiredAt ? new Date(integration.tokenExpiredAt).getTime() : 0;
+    const now = Date.now();
+    if (integration.refreshToken && (expiryTime === 0 || expiryTime <= now || expiryTime - now < 10 * 60 * 1000)) {
+      try {
+        resolvedAccessToken = await refreshCompanyTikTokToken(integrationId, integration);
+      } catch (err: any) {
+        console.warn(`[TikTok Service] Tu dong refresh company token gap loi: ${err.message}. Su dung token cu.`);
+        resolvedAccessToken = integration.accessToken;
+      }
+    } else {
+      resolvedAccessToken = integration.accessToken;
+    }
+    resolvedUsername = integration.username || resolvedUsername;
+  } else if (userId) {
+    const user = await UserModel.findById(userId);
+    const integration = user?.tiktokIntegration;
+    if (integration && integration.isConnected) {
+      const expiryTime = integration.tokenExpiredAt ? new Date(integration.tokenExpiredAt).getTime() : 0;
+      const now = Date.now();
+      if (integration.refreshToken && (expiryTime === 0 || expiryTime <= now || expiryTime - now < 10 * 60 * 1000)) {
+        try {
+          resolvedAccessToken = await refreshUserTikTokToken(userId, integration);
+        } catch (err: any) {
+          console.warn(`[TikTok Service] Tu dong refresh user token gap loi: ${err.message}. Su dung token cu.`);
+          resolvedAccessToken = integration.accessToken || accessToken;
+        }
+      } else {
+        resolvedAccessToken = integration.accessToken || accessToken;
+      }
+      resolvedUsername = integration.username || username;
+    }
+  }
+
+  if (!resolvedAccessToken) {
+    throw new Error("Thieu accessToken TikTok. Hay ket noi TikTok sandbox hoac truyen integrationId hop le.");
+  }
+
+  return {
+    accessToken: resolvedAccessToken,
+    username: resolvedUsername || "",
+  };
+}
+
+async function oldResolveDirectCredentials(integrationId?: any, companyCode?: any, accessToken?: any, username?: any) {
+
+
+
+
+
   let resolvedAccessToken = accessToken;
   let resolvedUsername = username;
 
@@ -155,7 +367,15 @@ export const tiktokService = {
   ) {
     void scheduledTime;
 
-    const credentials = await resolveDirectCredentials(integrationId, companyCode, accessToken, username);
+    let userId: string | undefined = undefined;
+    if (cardId) {
+      const card = await MarketingContentModel.findById(cardId);
+      if (card?.authorUid) {
+        userId = card.authorUid;
+      }
+    }
+
+    const credentials = await resolveDirectCredentials(integrationId, companyCode, accessToken, username, userId);
 
     console.log(
       `[TikTok Service -> Direct API] Publishing card ${cardId} for ${credentials.username || "unknown"} with privacy ${privacyLevel}`
@@ -455,4 +675,6 @@ export const tiktokService = {
       throw new Error(`Xac thuc token TikTok that bai: ${error.message}`);
     }
   },
+  refreshCompanyTikTokToken,
+  refreshUserTikTokToken,
 };

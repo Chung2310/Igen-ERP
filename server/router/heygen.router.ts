@@ -20,6 +20,9 @@ const createAvatarVideoSchema = {
     title: Joi.string().allow("").optional(),
     description: Joi.string().allow("").optional(),
     enableCaption: Joi.boolean().optional(),
+    avatarBackground: Joi.string().valid("customize", "remove", "color").optional(),
+    backgroundColor: Joi.string().allow("").optional(),
+    avatarLayout: Joi.string().valid("original", "circle").optional(),
   }).custom((value, helpers) => {
     if (value.engineType === "avatar_iii") {
       if (!String(value.inputText || "").trim()) {

@@ -60,6 +60,9 @@ export type CreateAvatarVideoInput = {
   description?: string;
   enableCaption?: boolean;
   inputText?: string;
+  avatarBackground?: "customize" | "remove" | "color";
+  backgroundColor?: string;
+  avatarLayout?: "original" | "circle";
 };
 
 type HeyGenWebhookPayload = {
@@ -645,7 +648,19 @@ export const heygenService = {
 
     const accessContext = await getHeyGenAccessContext(userId);
     const apiKey = requireApiKey(accessContext.apiKey);
-    const { avatarId, voiceId, motionText, aspectRatio, resolution, engineType, title, description } = input;
+    const {
+      avatarId,
+      voiceId,
+      motionText,
+      aspectRatio,
+      resolution,
+      engineType,
+      title,
+      description,
+      avatarBackground,
+      backgroundColor,
+      avatarLayout,
+    } = input;
     const { audioUrl, audioRecordId } = await resolveAudioSource(userId, input);
     const normalizedVoiceId = String(voiceId || "").trim();
     const hasAudioSource = Boolean(audioUrl);
@@ -670,13 +685,32 @@ export const heygenService = {
       throw new HeyGenApiError("Giọng đọc này không được cấp cho tài khoản hiện tại.", 403);
     }
 
+    let finalBgColor = "#161d27";
+    if (avatarBackground === "color" && backgroundColor) {
+      finalBgColor = backgroundColor;
+    } else if (avatarBackground === "remove") {
+      finalBgColor = "#00FF00";
+    } else if (avatarBackground === "customize") {
+      finalBgColor = "#161d27";
+    } else if (backgroundColor) {
+      finalBgColor = backgroundColor;
+    }
+
     const requestBody: Record<string, any> = {
       type: "avatar",
       avatar_id: avatarId,
       aspect_ratio: aspectRatio || "16:9",
       resolution: resolution || "720p",
       output_format: "mp4",
+      background: {
+        type: "color",
+        value: finalBgColor,
+      },
     };
+
+    if (avatarLayout) {
+      requestBody.avatar_style = avatarLayout === "circle" ? "circle" : "normal";
+    }
 
     const webhookUrl = getHeyGenWebhookUrl();
     if (webhookUrl) {
