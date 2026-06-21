@@ -254,6 +254,14 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
             >
               Terms
             </a>
+            <a
+              href="/user-data-deletion"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium underline underline-offset-2 hover:text-blue-700"
+            >
+              Deletion
+            </a>
           </div>
         ) : null}
       </div>

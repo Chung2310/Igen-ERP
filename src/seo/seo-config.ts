@@ -45,6 +45,42 @@ export const AUTH_SEO: SeoMeta = {
   changeFrequency: "monthly",
 };
 
+export const PRIVACY_SEO: SeoMeta = {
+  title: "Chính sách bảo mật | iGen ERP",
+  description: "Chính sách bảo mật thông tin người dùng và dữ liệu của iGen ERP.",
+  keywords: "chính sách bảo mật, bảo mật dữ liệu, igen erp",
+  path: "/privacy-policy",
+  image: SEO_DEFAULT_IMAGE,
+  robots: "index, follow",
+  type: "website",
+  priority: "0.5",
+  changeFrequency: "monthly",
+};
+
+export const TERMS_SEO: SeoMeta = {
+  title: "Điều khoản dịch vụ | iGen ERP",
+  description: "Điều khoản dịch vụ và thỏa thuận sử dụng phần mềm quản trị doanh nghiệp iGen ERP.",
+  keywords: "điều khoản dịch vụ, thoả thuận sử dụng, igen erp",
+  path: "/terms-of-service",
+  image: SEO_DEFAULT_IMAGE,
+  robots: "index, follow",
+  type: "website",
+  priority: "0.5",
+  changeFrequency: "monthly",
+};
+
+export const DELETION_SEO: SeoMeta = {
+  title: "Yêu cầu xóa dữ liệu người dùng | iGen ERP",
+  description: "Hướng dẫn xóa dữ liệu người dùng và tra cứu trạng thái yêu cầu xóa thông tin trên hệ thống iGen ERP.",
+  keywords: "xóa dữ liệu người dùng, bảo mật dữ liệu, user data deletion, igen erp",
+  path: "/user-data-deletion",
+  image: SEO_DEFAULT_IMAGE,
+  robots: "index, follow",
+  type: "website",
+  priority: "0.5",
+  changeFrequency: "monthly",
+};
+
 export const TAB_SEO_MAP: Record<TabType, SeoMeta> = {
   "TỔNG QUAN": {
     title: "Tổng quan doanh nghiệp - Dashboard điều hành thông minh | iGen ERP",
@@ -161,9 +197,18 @@ export function getSeoForTab(tab: TabType): SeoMeta {
 }
 
 export function getSeoForPath(requestPath: string): SeoMeta {
-  const normalized = requestPath.startsWith("/") ? requestPath : `/${requestPath}`;
-  if (normalized.toLowerCase() === AUTH_SEO.path.toLowerCase()) {
+  const normalized = requestPath.startsWith("/") ? requestPath.toLowerCase() : `/${requestPath.toLowerCase()}`;
+  if (normalized === AUTH_SEO.path.toLowerCase()) {
     return AUTH_SEO;
+  }
+  if (normalized === "/privacy-policy" || normalized === "/privacy-policy.html") {
+    return PRIVACY_SEO;
+  }
+  if (normalized === "/terms-of-service" || normalized === "/terms-of-service.html") {
+    return TERMS_SEO;
+  }
+  if (normalized === "/user-data-deletion" || normalized === "/user-data-deletion.html") {
+    return DELETION_SEO;
   }
   const tab = pathToTab(normalized);
   return tab ? getSeoForTab(tab) : DEFAULT_SEO;

@@ -81,3 +81,15 @@ facebookPostRouter.get(
   requireAuth as any,
   facebookPostController.getConfig as any
 );
+
+// Route Webhook tiếp nhận yêu cầu xóa dữ liệu tự động từ Facebook (Meta Platform requirement)
+facebookPostRouter.post(
+  "/data-deletion-callback",
+  facebookPostController.dataDeletionCallback as any
+);
+
+// Route truy vấn trạng thái yêu cầu xóa dữ liệu của người dùng
+facebookPostRouter.get(
+  "/data-deletion-status/:code",
+  facebookPostController.getDataDeletionStatus as any
+);

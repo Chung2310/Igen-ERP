@@ -1,6 +1,44 @@
 import { Request, Response } from "express";
 import { facebookPostService } from "../service/facebook-post.service";
 import { SocialIntegrationModel } from "../model/social-integration.model";
+import { UserDataDeletionModel } from "../model/user-data-deletion.model";
+import crypto from "crypto";
+
+function base64UrlDecode(str: string) {
+  let base64 = str.replace(/-/g, "+").replace(/_/g, "/");
+  while (base64.length % 4) {
+    base64 += "=";
+  }
+  return Buffer.from(base64, "base64");
+}
+
+function parseSignedRequest(signedRequest: string, appSecret: string) {
+  const parts = signedRequest.split(".");
+  if (parts.length !== 2) {
+    throw new Error("Invalid signed request format.");
+  }
+  const encodedSig = parts[0];
+  const payload = parts[1];
+
+  const sig = base64UrlDecode(encodedSig);
+  const payloadStr = base64UrlDecode(payload).toString("utf-8");
+  const data = JSON.parse(payloadStr);
+
+  if (!data.algorithm || data.algorithm.toUpperCase() !== "HMAC-SHA256") {
+    throw new Error("Unknown algorithm. Expected HMAC-SHA256");
+  }
+
+  const expectedSig = crypto
+    .createHmac("sha256", appSecret)
+    .update(payload)
+    .digest();
+
+  if (!crypto.timingSafeEqual(sig, expectedSig)) {
+    throw new Error("Invalid signature.");
+  }
+
+  return data;
+}
 
 export const facebookPostController = {
   /**
@@ -370,6 +408,148 @@ export const facebookPostController = {
         </body>
         </html>
       `);
+    }
+  },
+
+  /**
+   * POST /api/v1/facebook/data-deletion-callback
+   * Facebook gọi webhook này khi user yêu cầu xóa dữ liệu hoặc gỡ ứng dụng.
+   */
+  async dataDeletionCallback(req: Request, res: Response) {
+    try {
+      const { signed_request } = req.body;
+      if (!signed_request) {
+        return res.status(400).json({
+          status: "error",
+          message: "Thiếu tham số signed_request trong yêu cầu."
+        });
+      }
+
+      // Lấy danh sách tất cả các App Secrets của Facebook trong DB và .env
+      const integrations = await SocialIntegrationModel.find({ platform: "Facebook" });
+      const secrets = Array.from(new Set(
+        integrations
+          .map((i) => i.appSecret)
+          .filter((s): s is string => !!s)
+          .concat(process.env.FB_APP_SECRET || "")
+      ));
+
+      if (secrets.length === 0) {
+        return res.status(400).json({
+          status: "error",
+          message: "Hệ thống chưa cấu hình Facebook App Secret nào."
+        });
+      }
+
+      let decodedData: any = null;
+      let matchingSecret: string | null = null;
+
+      for (const secret of secrets) {
+        try {
+          decodedData = parseSignedRequest(signed_request, secret);
+          matchingSecret = secret;
+          break;
+        } catch (err) {
+          // Thử tiếp secret khác
+        }
+      }
+
+      if (!decodedData || !matchingSecret) {
+        return res.status(400).json({
+          status: "error",
+          message: "Chữ ký signed_request không hợp lệ hoặc không khớp với App Secret nào."
+        });
+      }
+
+      const facebookUserId = decodedData.user_id;
+      if (!facebookUserId) {
+        return res.status(400).json({
+          status: "error",
+          message: "Không tìm thấy Facebook User ID trong payload."
+        });
+      }
+
+      console.log(`[FB Data Deletion] Nhận yêu cầu xóa dữ liệu cho FB User ID: ${facebookUserId}`);
+
+      // Tạo mã xác nhận duy nhất
+      const confirmationCode = "DEL-" + crypto.randomBytes(8).toString("hex").toUpperCase();
+
+      // Cập nhật trạng thái hủy kết nối (isConnected = false) của các tài khoản Facebook
+      // liên quan nếu có (để giải phóng tài nguyên và hủy liên kết tự động)
+      await SocialIntegrationModel.updateMany(
+        { platform: "Facebook", appSecret: matchingSecret },
+        { $set: { isConnected: false } }
+      );
+
+      // Ghi nhận yêu cầu vào bảng UserDataDeletionModel
+      await UserDataDeletionModel.create({
+        facebookUserId,
+        confirmationCode,
+        status: "completed",
+        details: `Đã tự động ngắt kết nối các kênh Facebook cho FB User ID ${facebookUserId}.`
+      });
+
+      // Trả về kết quả JSON đúng cấu trúc chuẩn của Meta
+      const host = req.get("host") || "";
+      const isLocal = host.includes("localhost") || host.includes("127.0.0.1") || host.includes("192.168.");
+      const protocol = isLocal ? req.protocol : "https";
+      
+      const statusUrl = `${protocol}://${host}/user-data-deletion?code=${confirmationCode}`;
+
+      return res.status(200).json({
+        url: statusUrl,
+        confirmation_code: confirmationCode
+      });
+    } catch (error: any) {
+      console.error("[facebookPostController.dataDeletionCallback] Error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Lỗi xử lý yêu cầu xóa dữ liệu người dùng từ Facebook.",
+        details: error.message
+      });
+    }
+  },
+
+  /**
+   * GET /api/v1/facebook/data-deletion-status/:code
+   * Kiểm tra trạng thái xóa dữ liệu qua mã xác nhận
+   */
+  async getDataDeletionStatus(req: Request, res: Response) {
+    try {
+      const { code } = req.params;
+      if (!code) {
+        return res.status(400).json({
+          status: "error",
+          message: "Vui lòng cung cấp mã xác nhận."
+        });
+      }
+
+      const deletionRecord = await UserDataDeletionModel.findOne({ confirmationCode: code });
+      if (!deletionRecord) {
+        return res.status(404).json({
+          status: "error",
+          message: "Không tìm thấy yêu cầu xóa dữ liệu với mã xác nhận đã cung cấp."
+        });
+      }
+
+      return res.status(200).json({
+        status: "success",
+        data: {
+          code: deletionRecord.confirmationCode,
+          facebookUserId: deletionRecord.facebookUserId,
+          status: deletionRecord.status,
+          requestedAt: deletionRecord.requestedAt,
+          completedAt: deletionRecord.completedAt,
+          details: deletionRecord.details
+        }
+      });
+    } catch (error: any) {
+      console.error("[facebookPostController.getDataDeletionStatus] Error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Lỗi truy vấn trạng thái yêu cầu xóa dữ liệu.",
+        details: error.message
+      });
     }
   },
 
