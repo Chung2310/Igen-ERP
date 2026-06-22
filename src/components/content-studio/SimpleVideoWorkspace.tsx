@@ -256,8 +256,7 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved, onEd
     setGeneratedVideoUrl(null);
 
     try {
-      const modelLabel = videoModel.startsWith('piapi-') ? 'PiAPI' : 'Video AI';
-      toast.success(`Đang gửi lệnh tạo video lên ${modelLabel}. Quá trình này có thể mất vài phút...`);
+      toast.success('Đang gửi lệnh tạo video. Quá trình này có thể mất vài phút...');
 
       const inputImageUris = activeMode === 'standard'
         ? (standardImage ? [standardImage] : undefined)

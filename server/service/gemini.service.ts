@@ -1592,17 +1592,28 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
   ): Promise<{ url: string; isMock: boolean }> {
     let modelToUse = options?.modelName || GEMINI_IMAGE_MODEL;
 
-    // Gemini Banana Pro / Nano-Banana-Pro: Ưu tiên tạo ảnh trực tiếp qua Google Gemini API
-    if (modelToUse === "gemini-banana-pro" || modelToUse === "nano-banana-pro" || modelToUse === "igen-image-pro") {
+    // Gemini Banana Pro / Flash: Ưu tiên tạo ảnh trực tiếp qua Google Gemini API
+    if (
+      modelToUse === "gemini-banana-pro" ||
+      modelToUse === "gemini-banana-flash" ||
+      modelToUse === "nano-banana-pro" ||
+      modelToUse === "igen-image-pro" ||
+      modelToUse === "nano-banana-2" ||
+      modelToUse === "igen-image-flash"
+    ) {
       if (process.env.GEMINI_API_KEY) {
-        return this._generateImageWithGemini(prompt, options);
+        return this._generateImageWithGemini(prompt, { ...options, modelName: modelToUse });
       }
     }
 
     // Route các model PiAPI
     if (modelToUse === "igen-image-pro" || modelToUse === "nano-banana-pro") {
       modelToUse = "nano-banana-pro";
-    } else if (modelToUse === "igen-image-flash" || modelToUse === "nano-banana-2") {
+    } else if (
+      modelToUse === "igen-image-flash" ||
+      modelToUse === "nano-banana-2" ||
+      modelToUse === "gemini-banana-flash"
+    ) {
       modelToUse = "nano-banana-2";
     } else {
       modelToUse = "nano-banana-pro";
@@ -1620,18 +1631,29 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
   },
 
   /**
-   * Tạo ảnh bằng Google Gemini Image Model (gemini-banana-pro)
-   * Sử dụng gemini-3-pro-image-preview qua generateContent với responseModalities IMAGE
+   * Tạo ảnh bằng Google Gemini Image Model (gemini-banana-pro / gemini-banana-flash)
+   * Sử dụng gemini-3-pro-image hoặc gemini-3.1-flash-image qua generateContent
    */
   async _generateImageWithGemini(
     prompt: string,
-    options?: { aspectRatio?: string; resolution?: string; existingImageUris?: string[] }
+    options?: { aspectRatio?: string; resolution?: string; existingImageUris?: string[]; modelName?: string }
   ): Promise<{ url: string; isMock: boolean }> {
     const ai = getGeminiClient();
     const inputImageUris = options?.existingImageUris || [];
 
+    // Chọn model Google tương ứng dựa trên modelName đầu vào
+    let model = "gemini-3-pro-image";
+    const selectedModel = options?.modelName || "";
+    if (
+      selectedModel === "gemini-banana-flash" ||
+      selectedModel === "nano-banana-2" ||
+      selectedModel === "igen-image-flash"
+    ) {
+      model = "gemini-3.1-flash-image";
+    }
+
     try {
-      console.log(`[Gemini Banana Pro] Generating image via gemini-3-pro-image | hasRefImages=${inputImageUris.length > 0}`);
+      console.log(`[Gemini Banana] Generating image via ${model} | hasRefImages=${inputImageUris.length > 0}`);
 
       // Build parts: text prompt + optional reference images
       const parts: any[] = [{ text: prompt }];
@@ -1651,7 +1673,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
       }
 
       const response = await ai.models.generateContent({
-        model: "gemini-3-pro-image",
+        model: model,
         contents: [{ role: "user", parts }],
         config: {
           responseModalities: ["IMAGE", "TEXT"],

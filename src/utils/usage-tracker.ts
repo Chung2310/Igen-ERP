@@ -125,6 +125,13 @@ export const PRICING_TABLE: Record<string, {
     category: 'image',
     note: 'Google Gemini Imagen API',
   },
+  'gemini-banana-flash': {
+    costPerUnitCredit: 27.5,
+    unit: 'count',
+    label: 'iGen Gemini Image Flash',
+    category: 'image',
+    note: 'Google Gemini Imagen API',
+  },
 };
 
 export function formatAiModelName(name: string): string {

@@ -296,8 +296,7 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, 
     setGeneratedImageUrl(null);
 
     try {
-      const modelLabel = imageModel.startsWith('igen-') ? 'iGen Image' : 'PiAPI';
-      toast.success(`Bắt đầu gửi lệnh sinh ảnh lên ${modelLabel}...`);
+      toast.success('Bắt đầu gửi lệnh sinh ảnh...');
       const response = await geminiApi.generateImage(finalPrompt, {
         aspectRatio,
         modelName: imageModel,
@@ -554,6 +553,7 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, 
               <option value="nano-banana-pro">iGen Image Pro (PiAPI)</option>
               <option value="nano-banana-2">iGen Image Flash (PiAPI)</option>
               <option value="gemini-banana-pro">iGen Gemini Image Pro (Google)</option>
+              <option value="gemini-banana-flash">iGen Gemini Image Flash (Google)</option>
             </select>
           </div>
 
