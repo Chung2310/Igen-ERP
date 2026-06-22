@@ -1559,6 +1559,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                         <option value="nano-banana-pro">iGen Image Pro (PiAPI)</option>
                         <option value="nano-banana-2">iGen Image Flash (PiAPI)</option>
                         <option value="gemini-banana-pro">iGen Gemini Image Pro (Google)</option>
+                        <option value="gemini-banana-flash">iGen Gemini Image Flash (Google)</option>
                       </select>
                     </div>
 
