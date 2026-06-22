@@ -89,9 +89,37 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
     fetchCompanyIntegrations();
   }, []);
 
+  // Lưu Fanpage Facebook sau khi lấy được token từ OAuth
+  const handleFacebookPageSelected = async (page: any) => {
+    if (!page || !page.id || !page.access_token) {
+      toast.error("Dữ liệu Fanpage trả về không hợp lệ.");
+      return;
+    }
+
+    toast.success(`Đang lưu Fanpage "${page.name}"...`);
+    try {
+      await socialIntegrationService.createIntegration({
+        platform: "Facebook",
+        displayName: page.name || `Fanpage ${page.id}`,
+        username: page.id,
+        accessToken: page.access_token,
+        isConnected: true,
+        createdBy: userProfile?.email || "system",
+      });
+      toast.success(`✅ Đã kết nối Fanpage "${page.name}" thành công!`);
+      fetchCompanyIntegrations();
+    } catch (err: any) {
+      console.error("Lỗi lưu Fanpage Facebook:", err);
+      toast.error(`Lỗi khi lưu Fanpage: ${err.message || "Không xác định"}`);
+    }
+  };
+
   // Mở popup OAuth để đăng nhập Facebook
   const handleFacebookOAuth = async () => {
     try {
+      // Xóa kết quả cũ trong localStorage
+      localStorage.removeItem("fb_oauth_result");
+
       // Lấy App ID từ server (lưu trong .env của VPS, không cần user nhập)
       const configRes = await fetch("/api/v1/facebook/config", {
         headers: { "Authorization": `Bearer ${getAccessToken()}` }
@@ -112,11 +140,34 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
       const left = window.screen.width / 2 - width / 2;
       const top = window.screen.height / 2 - height / 2;
 
-      window.open(
+      const oauthWindow = window.open(
         oauthUrl,
         "FacebookOAuthPopup",
         `width=${width},height=${height},left=${left},top=${top},status=no,resizable=yes,scrollbars=yes`
       );
+
+      // Định kỳ kiểm tra localStorage phòng trường hợp cửa sổ popup bị mất liên kết window.opener
+      const checkInterval = setInterval(() => {
+        const rawResult = localStorage.getItem("fb_oauth_result");
+        if (rawResult) {
+          clearInterval(checkInterval);
+          localStorage.removeItem("fb_oauth_result");
+          try {
+            const result = JSON.parse(rawResult);
+            if (result.type === "FACEBOOK_PAGE_SELECTED" && result.page) {
+              handleFacebookPageSelected(result.page);
+            } else if (result.type === "FACEBOOK_OAUTH_FAILED") {
+              toast.error(`Kết nối Facebook thất bại: ${result.error || "Lỗi không xác định"}`);
+            }
+          } catch (err) {
+            console.error("Lỗi đọc kết quả đăng nhập Facebook:", err);
+          }
+        }
+
+        if (oauthWindow && oauthWindow.closed) {
+          clearInterval(checkInterval);
+        }
+      }, 800);
     } catch (err: any) {
       console.error("Lỗi mở Facebook OAuth:", err);
       toast.error("Không thể mở cửa sổ đăng nhập Facebook.");
@@ -130,27 +181,7 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
 
       if (event.data && event.data.type === "FACEBOOK_PAGE_SELECTED") {
         const page = event.data.page;
-        if (!page || !page.id || !page.access_token) {
-          toast.error("Dữ liệu Fanpage trả về không hợp lệ.");
-          return;
-        }
-
-        toast.success(`Đang lưu Fanpage "${page.name}"...`);
-        try {
-          await socialIntegrationService.createIntegration({
-            platform: "Facebook",
-            displayName: page.name || `Fanpage ${page.id}`,
-            username: page.id,
-            accessToken: page.access_token,
-            isConnected: true,
-            createdBy: userProfile?.email || "system",
-          });
-          toast.success(`✅ Đã kết nối Fanpage "${page.name}" thành công!`);
-          fetchCompanyIntegrations();
-        } catch (err: any) {
-          console.error("Lỗi lưu Fanpage Facebook:", err);
-          toast.error(`Lỗi khi lưu Fanpage: ${err.message || "Không xác định"}`);
-        }
+        handleFacebookPageSelected(page);
       } else if (event.data && event.data.type === "FACEBOOK_OAUTH_FAILED") {
         toast.error(`Kết nối Facebook thất bại: ${event.data.error || "Lỗi không xác định"}`);
       }
