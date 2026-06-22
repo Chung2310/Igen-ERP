@@ -342,7 +342,7 @@ export const facebookPostController = {
                   <p>Tài khoản của bạn chưa quản lý Fanpage nào.</p>
                 </div>
               ` : (pages as any[]).map((p: any) => `
-                <button class="page-card" onclick="selectPage('${p.id}')">
+                <button type="button" class="page-card" onclick="selectPage('${p.id}'); return false;">
                   <div class="page-avatar">${(p.name || "P")[0].toUpperCase()}</div>
                   <div class="page-info">
                     <div class="page-name">${p.name || "Facebook Page"}</div>
