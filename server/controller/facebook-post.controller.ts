@@ -195,6 +195,7 @@ export const facebookPostController = {
             <p>${message}</p>
           </div>
           <script>
+            localStorage.setItem('fb_oauth_result', JSON.stringify({ type: 'FACEBOOK_OAUTH_FAILED', error: ${JSON.stringify(message)} }));
             if (window.opener) {
               window.opener.postMessage({ type: 'FACEBOOK_OAUTH_FAILED', error: ${JSON.stringify(message)} }, '*');
             }
@@ -300,6 +301,11 @@ export const facebookPostController = {
           <script>
             const page = ${JSON.stringify(page)};
             const integrationId = ${JSON.stringify(integrationId)};
+            localStorage.setItem('fb_oauth_result', JSON.stringify({
+              type: 'FACEBOOK_PAGE_SELECTED',
+              page: page,
+              integrationId: integrationId
+            }));
             if (window.opener) {
               window.opener.postMessage({
                 type: 'FACEBOOK_PAGE_SELECTED',
@@ -331,6 +337,7 @@ export const facebookPostController = {
             <p>${err.message}</p>
           </div>
           <script>
+            localStorage.setItem('fb_oauth_result', JSON.stringify({ type: 'FACEBOOK_OAUTH_FAILED', error: ${JSON.stringify(err.message)} }));
             if (window.opener) {
               window.opener.postMessage({ type: 'FACEBOOK_OAUTH_FAILED', error: ${JSON.stringify(err.message)} }, '*');
             }
