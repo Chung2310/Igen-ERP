@@ -497,8 +497,7 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
               {/* Facebook Connection Mode Selector */}
               {compPlatform === "Facebook" && (
                 <div className="space-y-1.5">
-                  <div className="flex justify-between items-center mb-1">
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Hình thức liên kết Facebook</label>
+                  <div className="flex justify-end items-center mb-1">
                     {companyIntegrations.some(item => item.platform === "Facebook" && item.isConnected) && (
                       <button
                         type="button"
