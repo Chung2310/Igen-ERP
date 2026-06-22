@@ -105,6 +105,15 @@ const editVideoSchema = {
   }),
 };
 
+const analyzeVideoStyleSchema = {
+  body: Joi.object({
+    videoUrl: Joi.string().uri().required().messages({
+      "any.required": "Đường dẫn video cần phân tích là bắt buộc.",
+      "string.uri": "Đường dẫn video phải là URL hợp lệ."
+    }),
+  }),
+};
+
 const optimizeScriptSchema = {
   body: Joi.object({
     text: Joi.string().required(),
@@ -183,6 +192,7 @@ geminiRouter.post("/sync-drive", requireAuth as any, validateRequest(syncDriveSc
 geminiRouter.post("/generate-image", requireAuth as any, validateRequest(generateImageSchema), geminiController.generateImage);
 geminiRouter.post("/generate-video", requireAuth as any, validateRequest(generateVideoSchema), geminiController.generateVideo);
 geminiRouter.post("/edit-video", requireAuth as any, validateRequest(editVideoSchema), geminiController.editVideo);
+geminiRouter.post("/analyze-video-style", requireAuth as any, validateRequest(analyzeVideoStyleSchema), geminiController.analyzeVideoStyle);
 geminiRouter.post("/optimize-script", requireAuth as any, validateRequest(optimizeScriptSchema), geminiController.optimizeScript);
 geminiRouter.post("/optimize-prompt", requireAuth as any, validateRequest(optimizePromptSchema), geminiController.optimizeImagePrompt);
 geminiRouter.post("/optimize-video-prompt", requireAuth as any, validateRequest(optimizeVideoPromptSchema), geminiController.optimizeVideoPrompt);

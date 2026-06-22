@@ -199,6 +199,102 @@ export const videoBlueprintService = {
   },
 
   /**
+   * Phân tích video mẫu để trích xuất phong cách dựng phim thành Prompt mô tả chi tiết bằng tiếng Việt
+   */
+  async extractVideoStyle(videoUrl: string): Promise<string> {
+    const tempVideoPath = path.join(os.tmpdir(), `temp_style_extraction_${Date.now()}.mp4`);
+    let analysisText = "";
+
+    try {
+      console.log(`[videoBlueprintService] Downloading video for style extraction: ${videoUrl}`);
+      await downloadFile(videoUrl, tempVideoPath);
+      console.log(`[videoBlueprintService] Downloaded successfully. Uploading to Gemini File API...`);
+
+      const uploadResult = await ai.files.upload({
+        file: tempVideoPath,
+        config: {
+          mimeType: "video/mp4",
+        }
+      });
+      console.log(`[videoBlueprintService] Uploaded successfully. Name: ${uploadResult.name}. Waiting for status ACTIVE...`);
+
+      // Chờ cho file xử lý xong trên Gemini
+      let fileState = await ai.files.get({ name: uploadResult.name });
+      while (fileState.state === "PROCESSING") {
+        console.log("[videoBlueprintService] Video is processing by Gemini, waiting 2 seconds...");
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        fileState = await ai.files.get({ name: uploadResult.name });
+      }
+
+      if (fileState.state !== "ACTIVE") {
+        throw new Error(`Gemini File API processing failed: ${fileState.state}`);
+      }
+
+      console.log("[videoBlueprintService] File is ACTIVE. Calling Gemini model to analyze editing style...");
+
+      const analysisPrompt = `Hãy phân tích chi tiết kịch bản chỉnh sửa và phong cách dựng của video này. 
+Hãy mô tả chi tiết các hoạt động biên tập phim:
+1. Cách cắt ghép và nhịp độ (Pacing/Transitions): Các đoạn cắt dài bao nhiêu giây, có nhịp độ nhanh hay chậm, các hiệu ứng chuyển cảnh (fade, zoom, rotate) nằm ở thời điểm nào.
+2. Các hiệu ứng hình ảnh (Visual filters/effects): Có lọc màu đen trắng, tăng sáng, làm tối, hay zoom cận cảnh ở các khoảng thời gian nào.
+3. Chữ lớp phủ (Text overlays): Nội dung chữ là gì, xuất hiện từ giây thứ mấy đến giây thứ mấy, vị trí ở đâu, màu sắc thế nào.
+4. Âm thanh (Audio/Music): Có chèn nhạc nền gì, hiệu ứng âm thanh (sfx) nào xuất hiện ở đâu.
+
+Mục tiêu là mô tả thật chi tiết và chính xác dưới dạng các LỆNH CHỈNH SỬA bằng tiếng Việt để từ bản mô tả này, hệ thống AI biên tập (như Hermes) có thể dựng lại một video khác có phong cách y hệt.
+Trả lời bằng Tiếng Việt, ngắn gọn, súc tích và tập trung vào các hành động dựng phim thực tế. Không thêm lời chào, không giải thích dài dòng.`;
+
+      const analysisResponse = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: [
+          {
+            role: "user",
+            parts: [
+              {
+                fileData: {
+                  fileUri: uploadResult.uri,
+                  mimeType: uploadResult.mimeType,
+                },
+              },
+              { text: analysisPrompt },
+            ],
+          },
+        ],
+      });
+
+      analysisText = analysisResponse.text || "";
+      console.log("[videoBlueprintService] Video style extraction completed. Description length:", analysisText.length);
+
+      // Xóa file trên Gemini để dọn dẹp
+      try {
+        await ai.files.delete({ name: uploadResult.name });
+        console.log(`[videoBlueprintService] Deleted file from Gemini: ${uploadResult.name}`);
+      } catch (delErr) {
+        console.warn("[videoBlueprintService] Failed to delete file from Gemini:", delErr);
+      }
+    } catch (err) {
+      console.error("[videoBlueprintService] Error during multimodal analysis of video:", err);
+      if (isOverloadError(err)) {
+        throw new Error("Mô hình AI quá tải, vui lòng thử lại sau.");
+      }
+      throw new Error(`Lỗi khi phân tích video mẫu: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      // Dọn dẹp local temp file
+      if (fs.existsSync(tempVideoPath)) {
+        try {
+          fs.unlinkSync(tempVideoPath);
+        } catch (delErr) {
+          console.warn("[videoBlueprintService] Failed to delete local temp file:", delErr);
+        }
+      }
+    }
+
+    if (!analysisText) {
+      throw new Error("Không nhận diện được nội dung kịch bản phân tích từ video mẫu.");
+    }
+
+    return analysisText.trim();
+  },
+
+  /**
    * Sử dụng Gemini để phân tích video cũ, sau đó tạo Blueprint mới cho video mới
    */
   async copyAndScaleBlueprint(

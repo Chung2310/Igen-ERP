@@ -1,5 +1,4 @@
 import { AIMediaModel } from "../model/ai-media.model";
-import { broadcastEvent } from "../socket";
 
 /**
  * Base URL của Hermes Worker Pool API (port 8643)
@@ -8,22 +7,6 @@ import { broadcastEvent } from "../socket";
  */
 function getWorkerUrl(): string {
   return String(process.env.HERMES_WORKER_URL || "http://103.90.224.34:8643").replace(/\/$/, "");
-}
-
-/**
- * Tạo Webhook URL để Worker Pool gọi lại ERP khi task xong
- * Format: {APP_URL}/api/v1/gemini/hermes-webhook?recordId={recordId}
- */
-function getWebhookUrl(recordId: string): string {
-  const baseUrl = String(process.env.APP_URL || "").trim().replace(/\/$/, "");
-  if (!baseUrl) return "";
-  try {
-    const url = new URL("/api/v1/gemini/hermes-webhook", baseUrl);
-    url.searchParams.set("recordId", recordId);
-    return url.toString();
-  } catch {
-    return "";
-  }
 }
 
 /**
@@ -45,30 +28,12 @@ Trả về URL Cloudinary hợp lệ dạng: https://res.cloudinary.com/...
  * tối đa MAX_POLL_ATTEMPTS lần (~10 phút).
  */
 const POLL_INTERVAL_MS = 10_000;   // 10 giây
-const MAX_POLL_ATTEMPTS = 120;     // 120 × 10s = 20 phút
+const MAX_POLL_ATTEMPTS = 60;      // 60 × 10s = 10 phút
 
-async function pollTaskStatus(
-  taskId: string,
-  recordId: string
-): Promise<{ status: string; result_url?: string; error?: string }> {
+async function pollTaskStatus(taskId: string): Promise<{ status: string; result_url?: string; error?: string }> {
   const workerUrl = getWorkerUrl();
   for (let i = 0; i < MAX_POLL_ATTEMPTS; i++) {
     await new Promise(r => setTimeout(r, POLL_INTERVAL_MS));
-
-    // Fast-exit: nếu webhook đã cập nhật record thành completed/failed thì dừng poll
-    try {
-      const current = await AIMediaModel.findById(recordId, { "metadata.status": 1, url: 1 }).lean();
-      const currentStatus = (current as any)?.metadata?.status;
-      if (currentStatus === "completed" || currentStatus === "failed") {
-        console.log(`[Hermes Poll] Record ${recordId} already ${currentStatus} (webhook fired). Stopping poll.`);
-        return {
-          status: currentStatus === "completed" ? "done" : "failed",
-          result_url: (current as any)?.url
-        };
-      }
-    } catch { /* ignore DB errors, continue polling */ }
-
-    // Poll Worker Pool status
     try {
       const res = await fetch(`${workerUrl}/status`, {
         method: "POST",
@@ -84,29 +49,6 @@ async function pollTaskStatus(
       console.log(`[Hermes Poll] task=${taskId} status=${status} attempt=${i + 1}`);
       if (status === "done" || status === "failed") {
         return { status, result_url: data.result_url, error: data.error };
-      }
-
-      // Tăng tiến độ giả định từ 25% lên tối đa 95% trong lúc chờ đợi
-      const currentProgress = Math.min(25 + Math.floor((i / MAX_POLL_ATTEMPTS) * 70), 95);
-      try {
-        const updated = await AIMediaModel.findByIdAndUpdate(
-          recordId,
-          {
-            "metadata.progress": currentProgress,
-            "metadata.description": `Hermes Worker đang xử lý video. Đang chờ kết quả... (Tiến độ: ${currentProgress}%)`
-          },
-          { new: true }
-        ).lean();
-
-        if (updated) {
-          broadcastEvent("video_status_updated", {
-            videoId: recordId,
-            status: "processing",
-            updates: [updated]
-          });
-        }
-      } catch (dbErr) {
-        console.warn(`[Hermes Poll] Không thể cập nhật tiến độ giả định cho record ${recordId}:`, dbErr);
       }
     } catch (err) {
       console.warn(`[Hermes Poll] Lỗi kết nối /status attempt ${i + 1}:`, err);
@@ -190,14 +132,6 @@ export const hermesService = {
 
       const fullPrompt = `Hãy thực hiện chỉnh sửa video sau theo yêu cầu của người dùng.\n\nVideo nguồn: ${videoUrl}\nYêu cầu: "${prompt}"\n\n${buildCloudinaryPrompt()}`;
 
-      // Tạo webhook URL để Worker Pool gọi callback ngay khi xong
-      const webhookUrl = getWebhookUrl(recordId);
-      if (webhookUrl) {
-        console.log(`[Hermes Job] Webhook URL: ${webhookUrl}`);
-      } else {
-        console.warn("[Hermes Job] APP_URL chưa cấu hình — webhook bị tắt, chỉ dùng polling");
-      }
-
       const submitRes = await fetch(`${workerUrl}/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -205,7 +139,6 @@ export const hermesService = {
           video_url: videoUrl,
           prompt: fullPrompt,
           user_id: userId,
-          ...(webhookUrl ? { webhook_url: webhookUrl } : {}),
         }),
       });
 
@@ -235,7 +168,7 @@ export const hermesService = {
       // ── Bước 2: Poll trạng thái ─────────────────────────────────────────
       await updateLogs(25, "Hermes Worker đang xử lý video. Đang chờ kết quả...", "[Hermes] Bắt đầu polling trạng thái task...");
 
-      const pollResult = await pollTaskStatus(taskId, recordId);
+      const pollResult = await pollTaskStatus(taskId);
 
       // ── Bước 3: Xử lý kết quả ───────────────────────────────────────────
       if (pollResult.status === "done" && pollResult.result_url) {

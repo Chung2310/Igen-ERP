@@ -118,6 +118,7 @@ export function EditVideoWorkspace({
   const [showLibraryModal, setShowLibraryModal] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isExtractingStyle, setIsExtractingStyle] = useState(false);
   const [outputUrl, setOutputUrl] = useState<string | null>(null);
   const [displayProgress, setDisplayProgress] = useState(0);
   const [blueprint, setBlueprint] = useState<any | null>(null);
@@ -415,6 +416,47 @@ export function EditVideoWorkspace({
     }
   };
 
+  const handleExtractVideoStyle = async () => {
+    if (videoInputs.length === 0) {
+      toast.warning('Vui lòng chọn hoặc tải lên một video mẫu.');
+      return;
+    }
+
+    setIsExtractingStyle(true);
+    try {
+      let targetUrl = videoInputs[0].url;
+
+      // Nếu video là file local, upload lên Cloudinary trước
+      if (videoInputs[0].file) {
+        toast.info('Đang tải video mẫu lên Cloudinary...');
+        targetUrl = await uploadVideoFile(videoInputs[0].file);
+        // Cập nhật lại danh sách videoInputs (xóa file, cập nhật url)
+        setVideoInputs(prev => {
+          const updated = [...prev];
+          updated[0] = { ...updated[0], url: targetUrl, file: undefined };
+          return updated;
+        });
+        toast.success('Tải video mẫu lên thành công.');
+      }
+
+      toast.info('Đang phân tích kịch bản và phong cách dựng của video...');
+      const response = await geminiApi.analyzeVideoStyle(targetUrl);
+      
+      if (response.extractedPrompt) {
+        setPrompt(response.extractedPrompt);
+        setOptimizedData(null);
+        toast.success('🎉 Đã trích xuất phong cách dựng video mẫu vào ô ý tưởng!');
+      } else {
+        toast.error('Không nhận diện được phong cách dựng của video.');
+      }
+    } catch (error: any) {
+      console.error("[EditVideoWorkspace] Style extraction failed:", error);
+      toast.error(`Lỗi phân tích phong cách video: ${error?.message || 'Không xác định'}`);
+    } finally {
+      setIsExtractingStyle(false);
+    }
+  };
+
   const handleGenerateVideo = async () => {
     if (!prompt.trim()) {
       toast.warning('Vui lòng nhập prompt ý tưởng biên tập video.');
@@ -526,14 +568,36 @@ export function EditVideoWorkspace({
             <div className="space-y-3">
               <div className="flex justify-between items-center">
                 <label className="text-xs font-bold text-slate-800 uppercase tracking-wide">Video đầu vào</label>
-                <button
-                  type="button"
-                  onClick={() => setShowLibraryModal(true)}
-                  className="text-[11px] font-semibold text-cyan-600 hover:text-cyan-700 flex items-center gap-1 bg-cyan-50 px-2.5 py-1 rounded-lg transition-all"
-                >
-                  <Video className="h-3.5 w-3.5" />
-                  Thư viện video
-                </button>
+                <div className="flex items-center gap-2">
+                  {videoInputs.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleExtractVideoStyle}
+                      disabled={isExtractingStyle}
+                      className="text-[11px] font-semibold text-purple-600 hover:text-purple-700 disabled:opacity-50 flex items-center gap-1 bg-purple-50 px-2.5 py-1 rounded-lg transition-all cursor-pointer"
+                    >
+                      {isExtractingStyle ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          Đang phân tích...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="h-3.5 w-3.5" />
+                          Phân tích kịch bản edit
+                        </>
+                      )}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setShowLibraryModal(true)}
+                    className="text-[11px] font-semibold text-cyan-600 hover:text-cyan-700 flex items-center gap-1 bg-cyan-50 px-2.5 py-1 rounded-lg transition-all cursor-pointer"
+                  >
+                    <Video className="h-3.5 w-3.5" />
+                    Thư viện video
+                  </button>
+                </div>
               </div>
               <div
                 onDragOver={handleDrag}

@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import mongoose from "mongoose";
 import { geminiService } from "../service/gemini.service";
+import { videoBlueprintService } from "../service/video-blueprint.service";
 import { AuthenticatedRequest } from "../middleware/auth";
 import { aiKnowledgeService } from "../service/ai-knowledge.service";
 import { walletService, API_COSTS } from "../service/wallet.service";
@@ -884,6 +885,37 @@ export const geminiController = {
     } catch (error: any) {
       console.error("[geminiController.editVideo] Error:", error);
       return handleGeminiError(res, error, "Lỗi biên tập video bằng AI");
+    }
+  },
+
+  /**
+   * POST /api/v1/gemini/analyze-video-style
+   */
+  async analyzeVideoStyle(req: Request, res: Response) {
+    try {
+      const { videoUrl } = req.body;
+      const userId = (req as any).user?.id;
+
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
+      }
+
+      console.log(`[geminiController.analyzeVideoStyle] Starting style extraction for videoUrl: ${videoUrl}`);
+      
+      // Kiểm tra số dư ví
+      await walletService.checkBalance(userId, API_COSTS.GEMINI_OPTIMIZE);
+
+      const promptResult = await videoBlueprintService.extractVideoStyle(videoUrl);
+
+      await walletService.deductBalance(userId, API_COSTS.GEMINI_OPTIMIZE, "Chi phí phân tích và trích xuất kịch bản video AI");
+
+      return res.status(200).json({
+        status: "success",
+        extractedPrompt: promptResult
+      });
+    } catch (error: any) {
+      console.error("[geminiController.analyzeVideoStyle] Error:", error);
+      return handleGeminiError(res, error, "Lỗi phân tích phong cách video");
     }
   },
 
