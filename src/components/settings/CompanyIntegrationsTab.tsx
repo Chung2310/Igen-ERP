@@ -466,7 +466,18 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
               {/* Facebook Connection Mode Selector */}
               {compPlatform === "Facebook" && (
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Hình thức liên kết Facebook</label>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Hình thức liên kết Facebook</label>
+                    {companyIntegrations.some(item => item.platform === "Facebook" && item.isConnected) && (
+                      <button
+                        type="button"
+                        onClick={handleFacebookOAuth}
+                        className="text-[10px] font-bold text-indigo-600 hover:text-indigo-855 hover:underline flex items-center gap-1 cursor-pointer"
+                      >
+                        Đổi tài khoản / Trang
+                      </button>
+                    )}
+                  </div>
                   <div className="grid grid-cols-3 gap-1">
                     {[
                       { value: "oauth", label: "Facebook Login" },
@@ -508,21 +519,21 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
                     </div>
                   ))}
 
-                  <button
-                    type="button"
-                    onClick={handleFacebookOAuth}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#1877F2] hover:bg-[#166FE5] text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer"
-                  >
-                    <Globe className="h-4 w-4" />
-                    <span>
-                      {companyIntegrations.some(item => item.platform === "Facebook" && item.isConnected)
-                        ? "Liên kết Fanpage khác"
-                        : "Đăng nhập bằng Facebook"}
-                    </span>
-                  </button>
-                  <p className="text-[9px] text-gray-400 text-center leading-normal">
-                    Bấm để mở popup đăng nhập Facebook. Hệ thống sẽ tự động lấy danh sách Fanpage và Page Token — bạn chỉ cần chọn Fanpage muốn kết nối.
-                  </p>
+                  {!companyIntegrations.some(item => item.platform === "Facebook" && item.isConnected) && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={handleFacebookOAuth}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#1877F2] hover:bg-[#166FE5] text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer"
+                      >
+                        <Globe className="h-4 w-4" />
+                        <span>Đăng nhập bằng Facebook</span>
+                      </button>
+                      <p className="text-[9px] text-gray-400 text-center leading-normal">
+                        Bấm để mở popup đăng nhập Facebook. Hệ thống sẽ tự động lấy danh sách Fanpage và Page Token — bạn chỉ cần chọn Fanpage muốn kết nối.
+                      </p>
+                    </>
+                  )}
                 </div>
               )}
 
