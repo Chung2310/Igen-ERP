@@ -4,8 +4,9 @@ import { ITrainingCourse } from "../interface/training-course.interface";
 const LessonSchema = new Schema(
   {
     title: { type: String, required: true },
-    url: { type: String, required: true },
-    type: { type: String, enum: ["youtube", "document", "other"], required: true },
+    url: { type: String, required: false },
+    type: { type: String, enum: ["youtube", "document", "other", "text", "video"], required: true },
+    content: { type: String },
   },
   { _id: false }
 );
