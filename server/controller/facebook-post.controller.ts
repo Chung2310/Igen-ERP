@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { facebookPostService } from "../service/facebook-post.service";
 import { SocialIntegrationModel } from "../model/social-integration.model";
 import { UserDataDeletionModel } from "../model/user-data-deletion.model";
+import { MarketingContentModel } from "../model/marketing-content.model";
 import crypto from "crypto";
 
 function base64UrlDecode(str: string) {
@@ -46,13 +47,26 @@ export const facebookPostController = {
    */
   async publish(req: Request, res: Response) {
     try {
-      const { content, imageUrl, videoUrl, pageId, accessToken } = req.body;
+      const { content, imageUrl, videoUrl, pageId, accessToken, cardId, title } = req.body;
+
+      let finalTitle = title || "";
+      if (cardId && !finalTitle) {
+        const card = await MarketingContentModel.findById(cardId);
+        if (card) {
+          finalTitle = card.title;
+        }
+      }
+
       const result = await facebookPostService.publishToPage(
         content,
         imageUrl,
         videoUrl,
         pageId,
-        accessToken
+        accessToken,
+        cardId,
+        "immediate",
+        undefined,
+        finalTitle
       );
       return res.status(200).json(result);
     } catch (error: any) {
@@ -526,6 +540,57 @@ export const facebookPostController = {
         status: "success",
         appId: process.env.FB_APP_ID || "",
         source: "env",
+      });
+    }
+  },
+
+  /**
+   * POST /api/v1/facebook/n8n-callback
+   * Tiếp nhận callback tự động từ n8n sau khi đăng bài thành công lên Facebook Page
+   */
+  async receiveN8nCallback(req: Request, res: Response) {
+    try {
+      const secretToken = process.env.N8N_WEBHOOK_SECRET;
+      const requestToken = req.headers["x-webhook-token"];
+
+      if (secretToken && requestToken !== secretToken) {
+        return res.status(401).json({
+          status: "error",
+          message: "Không có quyền truy cập endpoint này (Token xác thực callback không chính xác).",
+        });
+      }
+
+      const { cardId, postId, postUrl } = req.body;
+
+      // Tìm và cập nhật trạng thái bài đăng trong MongoDB
+      const card = await MarketingContentModel.findById(cardId);
+      if (!card) {
+        return res.status(404).json({
+          status: "error",
+          message: "Không tìm thấy bài viết tương ứng với cardId được cung cấp.",
+        });
+      }
+
+      card.status = "published";
+      card.publishedAt = new Date();
+      card.facebookPostId = postId;
+      card.postUrl = postUrl;
+      card.publishError = undefined;
+
+      await card.save();
+
+      console.log(`[Facebook Webhook Callback] Cập nhật bài viết ${cardId} đăng thành công lên Facebook. Post ID: ${postId}`);
+
+      return res.status(200).json({
+        status: "success",
+        message: "Cập nhật trạng thái bài viết từ n8n callback thành công",
+      });
+    } catch (error: any) {
+      console.error("[facebookPostController.receiveN8nCallback] Error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Lỗi xử lý callback cập nhật trạng thái bài đăng Facebook từ n8n",
+        details: error.message,
       });
     }
   },

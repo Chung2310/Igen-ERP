@@ -24,6 +24,8 @@ const MarketingContentSchema = new Schema<IMarketingContent>(
     authorUid: { type: String, index: true },
     publishedAt: { type: Date },
     facebookPostId: { type: String },
+    postUrl: { type: String },
+    publishError: { type: String },
     tiktokPostId: { type: String },
     tiktokPublishId: { type: String, index: true },
     tiktokShareUrl: { type: String },

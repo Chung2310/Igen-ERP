@@ -338,6 +338,7 @@ export const marketingService = {
         'Authorization': `Bearer ${getAccessToken()}`,
       },
       body: JSON.stringify({
+        cardId: id,
         pageId,
         accessToken: pageAccessToken,
         content: extractDraftContent(bodyText),
