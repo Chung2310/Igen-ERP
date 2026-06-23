@@ -7,6 +7,7 @@ import { toast } from "../../pages/Toast";
 export default function PersonalIntegrationsTab() {
   const {
     userProfile,
+    refreshProfile,
     saveFacebookIntegration,
     removeFacebookIntegration,
     saveZaloIntegration,
@@ -20,6 +21,7 @@ export default function PersonalIntegrationsTab() {
   const [savingFacebook, setSavingFacebook] = useState(false);
   const [savingZalo, setSavingZalo] = useState(false);
   const [savingTikTok, setSavingTikTok] = useState(false);
+  const [connectingTikTokOAuth, setConnectingTikTokOAuth] = useState(false);
 
   const [facebookForm, setFacebookForm] = useState({
     pageId: "",
@@ -99,6 +101,87 @@ export default function PersonalIntegrationsTab() {
     };
   }, []);
 
+  useEffect(() => {
+    const handleTikTokOAuthPayload = async (payload: any) => {
+      if (!payload) return;
+      if (!payload.ok) {
+        toast.error(payload.error || "Ket noi TikTok that bai.");
+        return;
+      }
+      if (payload.target !== "personal") {
+        return;
+      }
+
+      await refreshProfile();
+      toast.success(`Da ket noi TikTok ca nhan: ${payload.profile?.displayName || payload.profile?.username || "TikTok"}`);
+    };
+
+    const handleTikTokOAuthMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type === "TIKTOK_OAUTH_RESULT") {
+        void handleTikTokOAuthPayload(event.data.payload);
+      }
+    };
+
+    window.addEventListener("message", handleTikTokOAuthMessage);
+    return () => window.removeEventListener("message", handleTikTokOAuthMessage);
+  }, [refreshProfile]);
+
+  const handleTikTokOAuth = async () => {
+    setConnectingTikTokOAuth(true);
+    try {
+      localStorage.removeItem("tt_oauth_result");
+      const authUrl = await socialIntegrationService.getTikTokOAuthUrl("personal");
+      if (!authUrl) {
+        throw new Error("Khong tao duoc link dang nhap TikTok.");
+      }
+
+      const width = 620;
+      const height = 760;
+      const left = window.screen.width / 2 - width / 2;
+      const top = window.screen.height / 2 - height / 2;
+      const oauthWindow = window.open(
+        authUrl,
+        "TikTokOAuthPopup",
+        `width=${width},height=${height},left=${left},top=${top},status=no,resizable=yes,scrollbars=yes`
+      );
+
+      if (!oauthWindow) {
+        throw new Error("Trinh duyet dang chan popup TikTok.");
+      }
+
+      const checkInterval = setInterval(() => {
+        const rawResult = localStorage.getItem("tt_oauth_result");
+        if (rawResult) {
+          clearInterval(checkInterval);
+          localStorage.removeItem("tt_oauth_result");
+          try {
+            const payload = JSON.parse(rawResult);
+            void refreshProfile();
+            if (payload?.target === "personal" && payload?.ok) {
+              toast.success(`Da ket noi TikTok ca nhan: ${payload.profile?.displayName || payload.profile?.username || "TikTok"}`);
+            } else if (payload?.ok === false) {
+              toast.error(payload.error || "Ket noi TikTok that bai.");
+            }
+          } catch (error) {
+            console.error("Loi doc ket qua TikTok OAuth:", error);
+          } finally {
+            setConnectingTikTokOAuth(false);
+          }
+        }
+
+        if (oauthWindow.closed) {
+          clearInterval(checkInterval);
+          setConnectingTikTokOAuth(false);
+        }
+      }, 800);
+    } catch (error: any) {
+      console.error("Loi khoi tao TikTok OAuth:", error);
+      toast.error(error.message || "Khong the mo cua so ket noi TikTok.");
+      setConnectingTikTokOAuth(false);
+    }
+  };
+
   const companyFacebookIntegration = useMemo(
     () => companyIntegrations.find((item) => item.platform === "Facebook" && item.isConnected) || null,
     [companyIntegrations]
@@ -111,6 +194,7 @@ export default function PersonalIntegrationsTab() {
     () => companyIntegrations.find((item) => item.platform === "TikTok" && item.isConnected) || null,
     [companyIntegrations]
   );
+  const canStartPersonalTikTokOAuth = !!tiktokForm.clientKey.trim() && !!tiktokForm.clientSecret.trim();
 
   const handleSaveFacebook = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -159,7 +243,9 @@ export default function PersonalIntegrationsTab() {
 
   const handleSaveTikTok = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!tiktokForm.accessToken.trim()) {
+    const hasAccessToken = !!tiktokForm.accessToken.trim();
+    const hasClientCredentials = !!tiktokForm.clientKey.trim() && !!tiktokForm.clientSecret.trim();
+    if (!hasAccessToken && !hasClientCredentials) {
       toast.error("Vui lòng nhập Access Token TikTok.");
       return;
     }
@@ -474,7 +560,38 @@ export default function PersonalIntegrationsTab() {
             </div>
           </div>
 
+          <div className="mt-4 rounded-2xl border border-red-100 bg-red-50/70 p-3 text-left">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-bold text-red-900">Ket noi nhanh bang TikTok OAuth</p>
+                <p className="mt-1 text-[10px] leading-relaxed text-red-800/80">
+                  Bam mot lan de lay access token va refresh token tu TikTok. He thong se tu luu vao tai khoan hien tai.
+                </p>
+                <p className="mt-1 text-[10px] leading-relaxed text-red-700/75">
+                  Luu Client Key va Client Secret cua tai khoan truoc. Sau do bam Ket noi TikTok de he thong tu dong lay token.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleTikTokOAuth}
+                disabled={connectingTikTokOAuth || !canStartPersonalTikTokOAuth}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-black px-3 py-2 text-[11px] font-bold text-white transition-all hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Film className="h-3.5 w-3.5" />
+                {connectingTikTokOAuth ? "Dang ket noi..." : userProfile?.tiktokIntegration?.isConnected ? "Ket noi lai" : "Ket noi TikTok"}
+              </button>
+            </div>
+          </div>
+
           <form onSubmit={handleSaveTikTok} className="mt-4 space-y-3 text-left">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Cau hinh app TikTok</p>
+              <p className="mt-1 text-[10px] leading-relaxed text-slate-500">
+                Luu Client Key va Client Secret truoc. Sau do bam Ket noi TikTok de he thong tu dong lay token.
+              </p>
+            </div>
+            {false && (
+              <>
             <input
               type="text"
               value={tiktokForm.username}
@@ -503,6 +620,8 @@ export default function PersonalIntegrationsTab() {
               placeholder="Refresh Token (tùy chọn)"
               className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs"
             />
+              </>
+            )}
             <input
               type="text"
               value={tiktokForm.clientKey}

@@ -151,5 +151,25 @@ export const socialIntegrationService = {
       throw new Error(result.message || result.details || "Khong the xac thuc TikTok.");
     }
     return result;
+  },
+
+  async getTikTokOAuthUrl(target: "personal" | "company", integrationId?: string): Promise<string> {
+    const query = new URLSearchParams({ target });
+    if (integrationId) {
+      query.set("integrationId", integrationId);
+    }
+
+    const res = await fetch(`/api/v1/tiktok/oauth/start?${query.toString()}`, {
+      headers: {
+        "Authorization": `Bearer ${getAccessToken()}`,
+      },
+    });
+
+    const result = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(result.message || "Khong the khoi tao ket noi TikTok OAuth.");
+    }
+
+    return result.data?.authUrl || "";
   }
 };
