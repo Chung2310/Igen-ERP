@@ -784,7 +784,7 @@ export const tiktokService = {
       },
       source_info: {
         source: "PULL_FROM_URL",
-        video_url: videoUrl,
+        video_url: (videoUrl && process.env.APP_URL && !videoUrl.startsWith(String(process.env.APP_URL).replace(/\/$/, ""))) ? `${String(process.env.APP_URL).replace(/\/$/, "")}/api/v1/media/video-proxy?url=${encodeURIComponent(videoUrl)}` : videoUrl,
       },
     };
 
