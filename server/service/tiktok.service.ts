@@ -103,6 +103,53 @@ function mapWebhookStatusToCardStatus(status: string) {
   return null;
 }
 
+function translateTikTokError(errorMsg: string, errorCode?: string): string {
+  const code = String(errorCode || "").trim().toLowerCase();
+  const msg = String(errorMsg || "").toLowerCase();
+
+  if (code === "unaudited_client_can_only_post_to_private_accounts" || msg.includes("unaudited_client_can_only_post_to_private_accounts") || msg.includes("private accounts")) {
+    return "Ứng dụng TikTok hiện đang ở chế độ thử nghiệm (Staging). TikTok chỉ cho phép đăng video lên tài khoản thỏa mãn 2 điều kiện sau:\n" +
+           "1. Tài khoản đó đã được thêm vào mục 'Sandbox Accounts' trong trang cấu hình ứng dụng trên TikTok Developer Console.\n" +
+           "2. Bạn PHẢI chuyển tài khoản TikTok đó sang chế độ 'Tài khoản riêng tư' (vào ứng dụng TikTok trên điện thoại -> Cài đặt & Quyền riêng tư -> Quyền riêng tư -> bật chế độ 'Tài khoản riêng tư').";
+  }
+
+  if (code === "url_ownership_unverified" || msg.includes("url_ownership_unverified") || msg.includes("url ownership")) {
+    return "Đường dẫn video chưa được xác minh quyền sở hữu tên miền trên TikTok Developer Portal. Hãy đảm bảo biến môi trường `APP_URL` trong file `.env` đã trỏ chính xác về tên miền ERP của bạn (domain này phải trùng với tên miền của Redirect URI được cấu hình trên ứng dụng TikTok Developer).";
+  }
+
+  if (code === "access_token_invalid" || code === "invalid_access_token" || msg.includes("access_token") || msg.includes("token is invalid")) {
+    return "Liên kết kết nối với tài khoản TikTok của bạn đã hết hạn, bị thu hồi hoặc không hợp lệ. Vui lòng truy cập Cài đặt -> Liên kết MXH trên hệ thống ERP để hủy kết nối cũ và liên kết lại tài khoản TikTok của bạn.";
+  }
+
+  if (code === "scope_not_authorized" || msg.includes("scope_not_authorized") || msg.includes("scope")) {
+    return "Tài khoản TikTok của bạn chưa cấp quyền đăng video (thiếu scope video.publish). Vui lòng truy cập Cài đặt -> Liên kết MXH, hủy liên kết cũ và thực hiện liên kết lại tài khoản TikTok, đồng thời tích chọn đầy đủ các quyền yêu cầu trên màn hình ủy quyền của TikTok.";
+  }
+
+  if (code === "rate_limit_exceeded" || msg.includes("rate_limit") || msg.includes("too many requests")) {
+    return "Tần suất gửi yêu cầu lên TikTok quá nhanh hoặc ứng dụng đã vượt quá giới hạn lượt gọi API trong ngày. Vui lòng đợi ít phút và thử lại sau.";
+  }
+
+  if (code === "spam_risk" || msg.includes("spam") || msg.includes("spam_risk")) {
+    return "Bài viết bị TikTok đánh giá có nguy cơ spam hoặc tài khoản của bạn đã đạt giới hạn đăng bài trong ngày của TikTok API. Để khắc phục:\n" +
+           "1. Đổi lại nội dung tiêu đề/caption của bài viết để tránh trùng lặp.\n" +
+           "2. Chỉnh sửa nhẹ video (thêm bộ lọc, thay đổi độ dài) để tránh bị hệ thống quét trùng lặp.\n" +
+           "3. Chờ 24 giờ rồi thử đăng lại.";
+  }
+
+  if (code === "invalid_params" || msg.includes("invalid_params") || msg.includes("parameter")) {
+    return "Tham số gửi lên TikTok không hợp lệ. Vui lòng kiểm tra lại caption (không chứa ký tự lạ bị cấm), cấu hình video hoặc kích thước file gửi đi.";
+  }
+
+  if (code === "invalid_file_upload" || msg.includes("file specification") || msg.includes("video format")) {
+    return "Tệp video không đáp ứng đúng tiêu chuẩn kỹ thuật yêu cầu của TikTok. Vui lòng đảm bảo:\n" +
+           "- Video có thời lượng tối thiểu là 3 giây và tối đa là 10 phút.\n" +
+           "- Định dạng video là MP4 hoặc WebM.\n" +
+           "- Kích thước tệp không quá lớn (khuyên dùng dưới 50MB).";
+  }
+
+  return errorMsg;
+}
+
 async function savePublishTracking(
   cardId: string,
   payload: { publishId?: string; provider?: string; status?: string; shareUrl?: string; postId?: string }
@@ -808,7 +855,8 @@ export const tiktokService = {
       if (!initResponse.ok || initData.error?.code !== "ok") {
         const errCode = initData.error?.code || initResponse.status;
         const errMsg = initData.error?.message || "Unknown TikTok API error";
-        throw new Error(`TikTok init failed [${errCode}]: ${errMsg}`);
+        const translatedMsg = translateTikTokError(errMsg, String(errCode));
+        throw new Error(`Khoi tao bai dang TikTok that bai: ${translatedMsg}`);
       }
 
       publishId = String(initData.data?.publish_id || "").trim();
@@ -817,7 +865,11 @@ export const tiktokService = {
       }
     } catch (error: any) {
       console.error("[tiktokService.publishVideo] Direct init error:", error);
-      throw new Error(`Khoi tao bai dang TikTok that bai: ${error.message}`);
+      if (error.message.startsWith("Khoi tao bai dang TikTok that bai:")) {
+        throw error;
+      }
+      const translatedMsg = translateTikTokError(error.message);
+      throw new Error(`Khoi tao bai dang TikTok that bai: ${translatedMsg}`);
     }
 
     const maxPolls = 10;
@@ -845,7 +897,8 @@ export const tiktokService = {
         if (!statusResponse.ok || statusData.error?.code !== "ok") {
           const errCode = statusData.error?.code || statusResponse.status;
           const errMsg = statusData.error?.message || "Unknown TikTok API error";
-          throw new Error(`TikTok status failed [${errCode}]: ${errMsg}`);
+          const translatedMsg = translateTikTokError(errMsg, String(errCode));
+          throw new Error(`Lay trang thai TikTok that bai: ${translatedMsg}`);
         }
 
         const publishStatus = String(statusData.data?.status || "").trim();
@@ -871,7 +924,8 @@ export const tiktokService = {
 
         if (publishStatus === "FAILED") {
           const failReason = statusData.data?.fail_reason || "Khong ro ly do";
-          throw new Error(`TikTok tu choi dang video: ${failReason}`);
+          const translatedMsg = translateTikTokError(failReason);
+          throw new Error(`TikTok tu choi dang video: ${translatedMsg}`);
         }
       } catch (error: any) {
         if (String(error.message || "").includes("TikTok")) {

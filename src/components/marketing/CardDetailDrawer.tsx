@@ -425,7 +425,7 @@ export default function CardDetailDrawer({
               {(card.status === 'approved' || card.status === 'scheduled' || card.status === 'failed') && onPublishToPlatform && (
                 <button 
                   onClick={() => onPublishToPlatform(card)}
-                  disabled={isPublishing || (card.channel === 'TikTok' && !card.videoUrl)}
+                  disabled={isPublishing || isPublishingTikTok || (card.channel === 'TikTok' && !card.videoUrl)}
                   className={`flex items-center gap-1.5 px-4.5 py-2.5 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm ${
                     card.channel === 'TikTok' && !card.videoUrl
                       ? 'bg-gray-300 text-gray-400 cursor-not-allowed shadow-none'
@@ -433,7 +433,7 @@ export default function CardDetailDrawer({
                   }`}
                   title={card.channel === 'TikTok' && !card.videoUrl ? "Bài đăng TikTok cần có video" : "Đăng lên nền tảng ngay lập tức"}
                 >
-                  {isPublishing ? (
+                  {(isPublishing || isPublishingTikTok) ? (
                     <>
                       <RefreshCw className="h-3.5 w-3.5 animate-spin" />
                       <span>Đang đăng...</span>
