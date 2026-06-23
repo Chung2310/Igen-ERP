@@ -26,6 +26,10 @@ const publishSchema = {
       "any.required": "Access Token không được để trống.",
       "string.empty": "Access Token không được để trống.",
     }),
+    cardId: Joi.string().regex(/^[0-9a-fA-F]{24}$/).optional().allow("").messages({
+      "string.pattern.base": "cardId phải là định dạng MongoDB ObjectId hợp lệ.",
+    }),
+    title: Joi.string().optional().allow(""),
   }),
 };
 
@@ -33,6 +37,22 @@ const validateTokenSchema = {
   body: Joi.object({
     pageId: Joi.string().required(),
     accessToken: Joi.string().required(),
+  }),
+};
+
+const n8nCallbackSchema = {
+  body: Joi.object({
+    cardId: Joi.string().regex(/^[0-9a-fA-F]{24}$/).required().messages({
+      "any.required": "Card ID là tham số bắt buộc.",
+      "string.pattern.base": "Card ID phải là định dạng MongoDB ObjectId hợp lệ.",
+    }),
+    postId: Joi.string().required().messages({
+      "any.required": "Post ID là tham số bắt buộc.",
+    }),
+    postUrl: Joi.string().uri().required().messages({
+      "any.required": "Post URL là tham số bắt buộc.",
+      "string.uri": "Post URL phải là một đường dẫn URL hợp lệ.",
+    }),
   }),
 };
 
@@ -92,4 +112,11 @@ facebookPostRouter.post(
 facebookPostRouter.get(
   "/data-deletion-status/:code",
   facebookPostController.getDataDeletionStatus as any
+);
+
+// Route Webhook tiếp nhận callback từ n8n sau khi đăng bài thành công lên Facebook Page (không áp dụng requireAuth để n8n gọi từ ngoài)
+facebookPostRouter.post(
+  "/n8n-callback",
+  validateRequest(n8nCallbackSchema),
+  facebookPostController.receiveN8nCallback as any
 );

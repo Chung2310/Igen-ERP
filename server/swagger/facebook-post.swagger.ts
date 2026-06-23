@@ -156,5 +156,76 @@ export const facebookPostSwagger = {
         },
       },
     },
+    "/api/v1/facebook/n8n-callback": {
+      post: {
+        summary: "Tiếp nhận callback từ n8n sau khi đăng bài thành công lên Facebook Page",
+        tags: ["Facebook"],
+        parameters: [
+          {
+            in: "header",
+            name: "X-Webhook-Token",
+            schema: { type: "string" },
+            required: false,
+            description: "Khóa bảo mật webhook được cấu hình trong biến môi trường N8N_WEBHOOK_SECRET",
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  cardId: {
+                    type: "string",
+                    description: "ID của bài đăng trong hệ thống (MongoDB ObjectId)",
+                    example: "6a28d41f81a842356b329269",
+                  },
+                  postId: {
+                    type: "string",
+                    description: "ID của bài đăng nhận được từ Facebook",
+                    example: "123456789012345_67890",
+                  },
+                  postUrl: {
+                    type: "string",
+                    description: "Đường dẫn URL bài viết thật (permalink_url)",
+                    example: "https://www.facebook.com/123456789012345/posts/67890",
+                  },
+                },
+                required: ["cardId", "postId", "postUrl"],
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Cập nhật trạng thái bài đăng thành công",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    status: { type: "string", example: "success" },
+                    message: {
+                      type: "string",
+                      example: "Cập nhật trạng thái bài viết từ n8n callback thành công",
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: {
+            description: "Không có quyền truy cập endpoint (Token xác thực không hợp lệ)",
+          },
+          404: {
+            description: "Không tìm thấy bài viết tương ứng",
+          },
+          500: {
+            description: "Lỗi hệ thống khi cập nhật trạng thái bài viết",
+          },
+        },
+      },
+    },
   },
 };
