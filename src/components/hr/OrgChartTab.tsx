@@ -925,7 +925,7 @@ export default function OrgChartTab({
           onDragStart={(e) => handleDragStart(e, node.id)}
           onDragOver={handleDragOver}
           onDrop={(e) => handleDrop(e, node.id)}
-          onClick={() => setSelectedEmp(node)}
+          onClick={() => toggleCollapse(node.id)}
           className={`p-3 bg-white text-gray-800 rounded-2xl shadow-xs w-56 text-left cursor-pointer relative hover:scale-104 active:scale-95 transition-all duration-300 border border-gray-200 ${category.border} ${isSelected
               ? "ring-4 ring-indigo-500 shadow-indigo-100 border-transparent z-10"
               : "hover:border-indigo-300 hover:shadow-md"
@@ -933,13 +933,26 @@ export default function OrgChartTab({
             }`}
           id={`org_node_${node.id}`}
         >
-          {/* Online/Offline Dot Indicator */}
-          <div className="absolute top-2.5 right-2.5 flex items-center justify-center">
-            {node.status === "online" ? (
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 block border border-white animate-pulse" title="Đang hoạt động" />
-            ) : (
-              <span className="w-1.5 h-1.5 rounded-full bg-gray-300 block border border-white" title="Ngoại tuyến" />
-            )}
+          {/* Online/Offline Dot & Edit pen button */}
+          <div className="absolute top-2 right-2 flex items-center gap-1.5 z-10">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedEmp(node);
+              }}
+              title="Xem chi tiết nhân sự"
+              className="p-1 hover:bg-slate-100 rounded-md text-slate-400 hover:text-indigo-600 transition-colors cursor-pointer flex items-center justify-center"
+            >
+              <Edit className="w-3.5 h-3.5" />
+            </button>
+            <div className="flex items-center justify-center">
+              {node.status === "online" ? (
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 block border border-white animate-pulse" title="Đang hoạt động" />
+              ) : (
+                <span className="w-1.5 h-1.5 rounded-full bg-gray-300 block border border-white" title="Ngoại tuyến" />
+              )}
+            </div>
           </div>
 
           <div className="space-y-2">

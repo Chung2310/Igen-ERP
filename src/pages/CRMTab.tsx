@@ -810,10 +810,7 @@ export default function CRMTab() {
             </button>
           ))}
         </div>
-        <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 rounded-full border border-emerald-200 text-emerald-800 font-mono text-[9px] font-bold">
-          <Activity className="h-3.5 w-3.5 text-emerald-500 animate-pulse" />
-          <span>Omni-Channel Lead Routing Active</span>
-        </div>
+       
       </div>
 
       <div className="flex-1 overflow-hidden" id="crm_tab_main_content">

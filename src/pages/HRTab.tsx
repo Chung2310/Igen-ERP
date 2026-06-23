@@ -171,10 +171,6 @@ export default function HRTab() {
             </div>
           )}
 
-          <div className="hidden md:flex items-center gap-1.5 px-3 py-1 bg-emerald-50 rounded-full border border-emerald-200 text-emerald-800 font-mono text-[10px]">
-            <Activity className="w-3.5 h-3.5 text-emerald-600 animate-pulse" />
-            <span>Lưu tự động vào iGen ERP</span>
-          </div>
         </div>
       </div>
 

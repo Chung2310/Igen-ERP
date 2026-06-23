@@ -917,41 +917,47 @@ export default function TrainingTab({
                   </button>
                 </div>
 
-                <div className="space-y-3 max-h-[200px] overflow-y-auto border p-3.5 rounded-2xl bg-slate-50/50">
+                <div className="space-y-3.5 max-h-[320px] overflow-y-auto p-4 rounded-2xl bg-slate-50/60 border border-slate-100 pr-2">
                   {courseFormLessons.length === 0 ? (
                     <p className="text-[11px] text-gray-400 italic text-center py-2 select-none">Khóa học chưa có bài giảng nào. Vui lòng thêm bài giảng bằng nút phía trên.</p>
                   ) : (
                     courseFormLessons.map((les, index) => (
-                      <div key={index} className="bg-white border rounded-xl p-3 space-y-2.5 shadow-3xs relative text-left">
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveLessonForm(index)}
-                          className="absolute top-2 right-2 text-gray-400 hover:text-rose-600 transition-colors cursor-pointer"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                      <div key={index} className="bg-white border-l-4 border-l-indigo-500 rounded-xl p-4.5 space-y-3 shadow-2xs relative text-left">
+                        <div className="flex items-center justify-between pr-8 select-none">
+                          <span className="text-[10px] font-bold text-indigo-650 bg-indigo-50 px-2 py-0.5 rounded-md uppercase font-mono">
+                            Bài học {index + 1}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveLessonForm(index)}
+                            className="absolute top-4 right-4 text-slate-400 hover:text-rose-600 transition-colors p-1 hover:bg-slate-50 rounded-lg cursor-pointer"
+                            title="Xóa bài học"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
 
-                        <div className="grid grid-cols-3 gap-2 pr-6">
+                        <div className="grid grid-cols-3 gap-3">
                           <div className="col-span-2">
-                            <label className="block text-[9px] font-bold text-gray-400 uppercase select-none">Tên bài học {index + 1} *</label>
+                            <label className="block text-[9px] font-bold text-slate-450 uppercase mb-1 select-none">Tên bài học *</label>
                             <input
                               type="text"
                               required
                               placeholder="Bài giảng chính..."
                               value={les.title}
                               onChange={(e) => handleLessonFormChange(index, "title", e.target.value)}
-                              className="w-full p-1 border rounded-md text-[11px] outline-none"
+                              className="w-full px-3 py-1.5 bg-slate-50 border border-transparent hover:border-slate-200 focus:bg-white focus:border-indigo-500 rounded-lg text-xs outline-none transition-all"
                             />
                           </div>
                           <div>
-                            <label className="block text-[9px] font-bold text-gray-400 uppercase select-none">Loại</label>
+                            <label className="block text-[9px] font-bold text-slate-450 uppercase mb-1 select-none">Loại bài giảng</label>
                             <select
                               value={les.type}
                               onChange={(e) => handleLessonFormChange(index, "type", e.target.value)}
-                              className="w-full p-1 border rounded-md text-[11px] bg-white outline-none cursor-pointer"
+                              className="w-full px-3 py-1.5 bg-slate-50 border border-transparent hover:border-slate-200 focus:bg-white focus:border-indigo-500 rounded-lg text-xs outline-none cursor-pointer transition-all"
                             >
-                              <option value="text">Văn bản / Doc</option>
-                              <option value="video">Bài giảng Video</option>
+                              <option value="text">📄 Văn bản / Doc</option>
+                              <option value="video">🎥 Video</option>
                             </select>
                           </div>
                         </div>
@@ -959,25 +965,25 @@ export default function TrainingTab({
                         <div className="grid grid-cols-1 gap-2">
                           {les.type === "video" ? (
                             <div>
-                              <label className="block text-[9px] font-bold text-gray-400 uppercase select-none">Đường dẫn Video YouTube / Vimeo *</label>
+                              <label className="block text-[9px] font-bold text-slate-450 uppercase mb-1 select-none">Đường dẫn Video YouTube / Vimeo *</label>
                               <input
                                 type="text"
                                 required
                                 placeholder="http://youtube.com/watch?v=..."
                                 value={les.url}
                                 onChange={(e) => handleLessonFormChange(index, "url", e.target.value)}
-                                className="w-full p-1 border rounded-md text-[11px] outline-none"
+                                className="w-full px-3 py-1.5 bg-slate-50 border border-transparent hover:border-slate-200 focus:bg-white focus:border-indigo-500 rounded-lg text-xs outline-none transition-all"
                               />
                             </div>
                           ) : (
                             <div>
-                              <label className="block text-[9px] font-bold text-gray-400 uppercase select-none">Nội dung bài viết giáo trình *</label>
+                              <label className="block text-[9px] font-bold text-slate-450 uppercase mb-1 select-none">Nội dung giáo trình bài viết *</label>
                               <textarea
                                 required
                                 placeholder="Nhập giáo trình lý thuyết chi tiết..."
                                 value={les.content}
                                 onChange={(e) => handleLessonFormChange(index, "content", e.target.value)}
-                                className="w-full p-1.5 border rounded-md text-[11px] outline-none min-h-[50px]"
+                                className="w-full p-3 bg-slate-50 border border-transparent hover:border-slate-200 focus:bg-white focus:border-indigo-500 rounded-lg text-xs outline-none min-h-[60px] transition-all resize-y"
                               />
                             </div>
                           )}
@@ -1002,70 +1008,72 @@ export default function TrainingTab({
                   </button>
                 </div>
 
-                <div className="space-y-3.5 max-h-[200px] overflow-y-auto border p-3.5 rounded-2xl bg-slate-50/50">
+                <div className="space-y-3.5 max-h-[320px] overflow-y-auto p-4 rounded-2xl bg-slate-50/60 border border-slate-100 pr-2">
                   {courseFormQuizzes.length === 0 ? (
                     <p className="text-[11px] text-gray-400 italic text-center py-2 select-none">Khóa học chưa có bộ đề thi sát hạch nào. Không thi sát hạch sau khi học xong.</p>
                   ) : (
                     courseFormQuizzes.map((quiz, qIdx) => (
-                      <div key={qIdx} className="bg-white border rounded-xl p-3 space-y-2.5 shadow-3xs relative text-left">
+                      <div key={qIdx} className="bg-white border-l-4 border-l-emerald-500 rounded-xl p-4.5 space-y-3.5 shadow-2xs relative text-left">
                         <button
                           type="button"
                           onClick={() => handleRemoveQuizForm(qIdx)}
-                          className="absolute top-2 right-2 text-gray-450 hover:text-rose-600 transition-colors cursor-pointer"
+                          className="absolute top-4 right-4 text-slate-400 hover:text-rose-600 transition-colors p-1 hover:bg-slate-50 rounded-lg cursor-pointer"
+                          title="Xóa câu hỏi"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
 
                         <div>
-                          <label className="block text-[9px] font-bold text-gray-400 uppercase select-none">Câu hỏi {qIdx + 1} *</label>
+                          <label className="block text-[9px] font-bold text-slate-450 uppercase mb-1 select-none">Câu hỏi {qIdx + 1} *</label>
                           <input
                             type="text"
                             required
                             placeholder="Ví dụ: Đâu là định nghĩa đúng về bảo mật thông tin?"
                             value={quiz.question}
                             onChange={(e) => handleQuizQuestionChange(qIdx, e.target.value)}
-                            className="w-full p-1 border rounded-md text-[11px] outline-none pr-6 font-semibold"
+                            className="w-full px-3 py-1.5 bg-slate-50 border border-transparent hover:border-slate-200 focus:bg-white focus:border-indigo-500 rounded-lg text-xs outline-none transition-all font-semibold text-slate-800"
                           />
                         </div>
 
-                        <div className="space-y-1.5">
-                          <div className="flex justify-between items-center select-none">
-                            <span className="text-[9px] font-bold text-gray-400 uppercase">Các đáp án lựa chọn:</span>
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center select-none border-b border-slate-100 pb-1.5">
+                            <span className="text-[9px] font-extrabold text-slate-450 uppercase">Đáp án lựa chọn (Tích chọn đáp án đúng):</span>
                             <button
                               type="button"
                               onClick={() => handleAddQuizOption(qIdx)}
-                              className="text-[9px] text-indigo-650 font-bold hover:underline cursor-pointer"
+                              className="text-[9px] text-indigo-650 font-bold hover:text-indigo-800 hover:underline cursor-pointer"
                             >
                               + Thêm đáp án
                             </button>
                           </div>
 
-                          <div className="space-y-1.5">
+                          <div className="space-y-2">
                             {quiz.options.map((opt, optIdx) => (
-                              <div key={optIdx} className="flex items-center gap-2">
+                              <div key={optIdx} className="flex items-center gap-3 group">
                                 <input
                                   type="radio"
                                   name={`quiz_${qIdx}_correct`}
                                   checked={quiz.correctOptionIndex === optIdx}
                                   onChange={() => handleQuizCorrectIndexChange(qIdx, optIdx)}
-                                  className="text-emerald-500 focus:ring-emerald-500 cursor-pointer w-3 h-3"
+                                  className="text-emerald-500 focus:ring-emerald-500 cursor-pointer w-4 h-4 shrink-0 border-gray-300"
                                   title="Đánh dấu đáp án ĐÚNG"
                                 />
                                 <input
                                   type="text"
                                   required
-                                  placeholder={`Đáp án ${optIdx + 1}`}
+                                  placeholder={`Đáp án số ${optIdx + 1}`}
                                   value={opt}
                                   onChange={(e) => handleQuizOptionChange(qIdx, optIdx, e.target.value)}
-                                  className="flex-1 p-1 border rounded text-[10px] outline-none"
+                                  className="flex-1 px-3 py-1.5 bg-slate-50 border border-transparent hover:border-slate-200 focus:bg-white focus:border-indigo-500 rounded-lg text-[11px] outline-none transition-all"
                                 />
                                 {quiz.options.length > 2 && (
                                   <button
                                     type="button"
                                     onClick={() => handleRemoveQuizOption(qIdx, optIdx)}
-                                    className="text-gray-400 hover:text-rose-600 cursor-pointer"
+                                    className="text-gray-400 hover:text-rose-600 transition-colors p-1 hover:bg-slate-50 rounded-lg cursor-pointer text-base leading-none"
+                                    title="Xóa đáp án này"
                                   >
-                                    ×
+                                    &times;
                                   </button>
                                 )}
                               </div>

@@ -473,10 +473,6 @@ export default function DashboardTab() {
             </h1>
             <p className="mt-2 text-sm text-gray-600">Hôm nay, {todayLabel}</p>
           </div>
-          <div className="flex w-fit items-center gap-2 rounded-full border border-green-200 bg-green-50 px-3 py-1.5 text-xs font-medium text-green-700">
-            <CheckCircle className="h-4 w-4" />
-            <span>Hệ thống hoạt động bình thường</span>
-          </div>
         </div>
 
         <div className="flex flex-col gap-4 border-b border-slate-100 pb-3 md:flex-row md:items-center md:justify-between">
