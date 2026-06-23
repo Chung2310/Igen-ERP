@@ -34,6 +34,10 @@ type ProductCatalogSectionProps = {
   newProdPrice: string;
   newProdSKU: string;
   newProdStock: string;
+  newProdBrand: string;
+  newProdUnit: string;
+  newProdDescription: string;
+  newProdStatus: string;
   onCloseProductModal: () => void;
   onCreateCategory: () => void;
   onImageChange: (file: File | null) => void;
@@ -43,6 +47,10 @@ type ProductCatalogSectionProps = {
   setNewProdPrice: (value: string) => void;
   setNewProdSKU: (value: string) => void;
   setNewProdStock: (value: string) => void;
+  setNewProdBrand: (value: string) => void;
+  setNewProdUnit: (value: string) => void;
+  setNewProdDescription: (value: string) => void;
+  setNewProdStatus: (value: string) => void;
 };
 
 export function ProductCatalogSection({
@@ -74,6 +82,10 @@ export function ProductCatalogSection({
   newProdPrice,
   newProdSKU,
   newProdStock,
+  newProdBrand,
+  newProdUnit,
+  newProdDescription,
+  newProdStatus,
   onCloseProductModal,
   onCreateCategory,
   onImageChange,
@@ -83,6 +95,10 @@ export function ProductCatalogSection({
   setNewProdPrice,
   setNewProdSKU,
   setNewProdStock,
+  setNewProdBrand,
+  setNewProdUnit,
+  setNewProdDescription,
+  setNewProdStatus,
 }: ProductCatalogSectionProps) {
   return (
     <div className="space-y-6" id="product_catalog_menu">
@@ -184,6 +200,10 @@ export function ProductCatalogSection({
           newProdPrice={newProdPrice}
           newProdSKU={newProdSKU}
           newProdStock={newProdStock}
+          newProdBrand={newProdBrand}
+          newProdUnit={newProdUnit}
+          newProdDescription={newProdDescription}
+          newProdStatus={newProdStatus}
           onClose={onCloseProductModal}
           onCreateCategory={onCreateCategory}
           onImageChange={onImageChange}
@@ -193,6 +213,10 @@ export function ProductCatalogSection({
           setNewProdPrice={setNewProdPrice}
           setNewProdSKU={setNewProdSKU}
           setNewProdStock={setNewProdStock}
+          setNewProdBrand={setNewProdBrand}
+          setNewProdUnit={setNewProdUnit}
+          setNewProdDescription={setNewProdDescription}
+          setNewProdStatus={setNewProdStatus}
         />
       ) : null}
     </div>

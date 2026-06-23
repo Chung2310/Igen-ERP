@@ -82,6 +82,8 @@ export const crudController = {
       const modelName = req.params.modelName as SupportedModelName;
       const companyCode = req.user?.companyCode || "SYSTEM";
 
+      console.log(`[crudController.create] modelName=${modelName} body:`, req.body);
+
       const item = await crudService.create(modelName, req.body, companyCode);
       return res.status(201).json({
         status: "success",
@@ -105,6 +107,8 @@ export const crudController = {
       const { modelName, id } = req.params;
       const companyCode = req.user?.companyCode || "SYSTEM";
       const userRole = req.user?.role || "user";
+
+      console.log(`[crudController.update] modelName=${modelName} id=${id} body:`, req.body);
 
       const item = await crudService.update(modelName as SupportedModelName, id, req.body, companyCode, userRole);
       return res.status(200).json({

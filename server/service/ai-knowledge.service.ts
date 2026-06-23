@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { AIKnowledgeChunkModel, AIKnowledgeDocumentModel } from "../model/ai-knowledge.model";
 import { AIReplyLogModel } from "../model/ai-reply-log.model";
+import { ProductModel } from "../model/product.model";
 
 const EMBEDDING_DIMENSIONS = 96;
 const DEFAULT_TOP_K = 5;
@@ -10,8 +11,8 @@ const MAX_CHUNKS_TO_RANK = 1000;
 type ChannelScope = "facebook" | "zalo" | "all";
 
 const CANDIDATE_STOPWORDS = new Set([
-  "toi", "muon", "dat", "mua", "ban", "cai", "cho", "cua", "co", "shop", 
-  "khong", "nay", "la", "gi", "de", "va", "them", "bot", "tu", "van", 
+  "toi", "muon", "dat", "mua", "ban", "cai", "cho", "cua", "co", "shop",
+  "khong", "nay", "la", "gi", "de", "va", "them", "bot", "tu", "van",
   "lam", "sao", "nao", "lien", "he", "anh", "chi", "em", "quy", "khach",
   "khao", "sat", "tim", "kiem", "xem", "lay", "nhan", "co", "ha", "nha", "a",
   "di", "nhe", "nha", "voi", "giup", "dum", "dum", "oi", "ah", "uh",
@@ -152,7 +153,7 @@ function buildRankedContextItems(params: {
         : 0;
     const pricingBoost =
       /\b(gia|bao nhieu|bang gia|bao gia)\b/.test(normalizeForLookup(normalizedQuery)) &&
-      /\b(gia|gia ban|don gia|bao gia|price|vnd|vnđ)\b/.test(normalizeForLookup(`${title} ${chunk.text}`))
+        /\b(gia|gia ban|don gia|bao gia|price|vnd|vnđ)\b/.test(normalizeForLookup(`${title} ${chunk.text}`))
         ? 0.35
         : 0;
     const score =
@@ -343,31 +344,93 @@ export const aiKnowledgeService = {
     const topK = params.topK || DEFAULT_TOP_K;
     const channel = params.channel || "facebook";
 
-    const filter: any = {
-      companyCode,
-      channelScope: { $in: ["all", channel] },
-    };
-
+    // 1. Tìm các sản phẩm khớp từ database thực tế của công ty
+    let matchedProducts: any[] = [];
     if (queryTokens.length > 0) {
-      filter.$or = queryTokens.map((token) => ({
-        text: { $regex: token, $options: "i" },
-      }));
+      try {
+        const allProducts = await ProductModel.find({ companyCode, status: "Active" }).lean();
+        const productScores = allProducts.map((p) => {
+          const productText = `${p.name} ${p.sku} ${p.brand || ""} ${p.category} ${p.description || ""}`.toLowerCase();
+          let matches = 0;
+          for (const token of queryTokens) {
+            if (productText.includes(token.toLowerCase())) {
+              matches += 1;
+            }
+          }
+          const score = matches / queryTokens.length;
+          return { product: p, score };
+        });
+
+        matchedProducts = productScores
+          .filter((ps) => ps.score > 0)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 8)
+          .map((ps) => ps.product);
+      } catch (err) {
+        console.error("[AI Knowledge Service] Loi khi tim kiem san pham tu DB:", err);
+      }
     }
 
-    let chunks = await AIKnowledgeChunkModel.find(filter as any)
-      .sort({ updatedAt: -1 })
-      .limit(MAX_CHUNKS_TO_RANK)
-      .lean();
+    const hasCommerceIntent = /\b(san pham|mua|ban|xem hang|xem san pham|danh sach|catalog|bang gia|bao gia|gia|bao nhieu|co gi|con gi|loai nao|mau nao|size nao|model nao|con hang|het hang|lay|dat hang|ship|gui)\b/.test(normalizedQuery);
+    const isProductQuery = hasCommerceIntent || matchedProducts.length > 0;
 
-    if (chunks.length === 0 && queryTokens.length > 0) {
-      const fallbackFilter = {
+    if (matchedProducts.length === 0 && isProductQuery) {
+      try {
+        matchedProducts = await ProductModel.find({ companyCode, status: "Active" })
+          .sort({ stock: -1 })
+          .limit(10)
+          .lean();
+      } catch (err) {
+        console.error("[AI Knowledge Service] Loi khi tai danh sach san pham mac dinh tu DB:", err);
+      }
+    }
+
+    const productStrings: string[] = [];
+    if (matchedProducts.length > 0) {
+      productStrings.push("[DANH SÁCH SẢN PHẨM THỰC TẾ TRONG KHO HÀNG CỦA CÔNG TY]");
+      for (const p of matchedProducts) {
+        productStrings.push(
+          `- Tên sản phẩm: ${p.name}\n` +
+          `  SKU: ${p.sku}\n` +
+          `  Danh mục: ${p.category}\n` +
+          `  Thương hiệu: ${p.brand || "N/A"}\n` +
+          `  Đơn vị tính: ${p.unit || "Cái"}\n` +
+          `  Giá bán: ${p.price.toLocaleString("vi-VN")} VND\n` +
+          `  Tồn kho thực tế: ${p.stock}\n` +
+          `  Mô tả: ${p.description || "Chưa có mô tả"}`
+        );
+      }
+    }
+
+    let chunks: any[] = [];
+
+    if (!isProductQuery) {
+      const filter: any = {
         companyCode,
         channelScope: { $in: ["all", channel] },
       };
-      chunks = await AIKnowledgeChunkModel.find(fallbackFilter as any)
+
+      if (queryTokens.length > 0) {
+        filter.$or = queryTokens.map((token) => ({
+          text: { $regex: token, $options: "i" },
+        }));
+      }
+
+      chunks = await AIKnowledgeChunkModel.find(filter as any)
         .sort({ updatedAt: -1 })
         .limit(MAX_CHUNKS_TO_RANK)
         .lean();
+
+      if (chunks.length === 0 && queryTokens.length > 0) {
+        const fallbackFilter = {
+          companyCode,
+          channelScope: { $in: ["all", channel] },
+        };
+        chunks = await AIKnowledgeChunkModel.find(fallbackFilter as any)
+          .sort({ updatedAt: -1 })
+          .limit(MAX_CHUNKS_TO_RANK)
+          .lean();
+      }
     }
 
     const documentIds = Array.from(new Set(chunks.map((chunk) => String(chunk.documentId))));
@@ -390,7 +453,7 @@ export const aiKnowledgeService = {
       .slice(0, topK);
 
     const fallbackRanked =
-      ranked.length === 0 && isProductSearchQuery(normalizedQuery)
+      ranked.length === 0 && isProductQuery
         ? buildRankedContextItems({
             chunks,
             documentMap,
@@ -407,6 +470,13 @@ export const aiKnowledgeService = {
 
     let usedChars = 0;
     const selected: string[] = [];
+
+    if (productStrings.length > 0) {
+      const dbProductContext = productStrings.join("\n\n");
+      selected.push(dbProductContext);
+      usedChars += dbProductContext.length;
+    }
+
     for (const item of finalRanked) {
       if (usedChars + item.text.length > MAX_CONTEXT_CHARS) break;
       const labeledText = `[Tai lieu] ${item.title}${item.sourceUrl ? `\n[Link] ${item.sourceUrl}` : ""}\n${item.text}`;
@@ -417,7 +487,7 @@ export const aiKnowledgeService = {
 
     const bestScore = finalRanked[0]?.score || 0;
     const productCandidateNames =
-      isProductSearchQuery(normalizedQuery) && queryTokens.length > 0
+      isProductQuery && queryTokens.length > 0
         ? extractProductCandidateNames(
             queryTokens,
             finalRanked.map((item) => ({
@@ -427,16 +497,26 @@ export const aiKnowledgeService = {
             }))
           )
         : [];
+
+    const dbProductNames = matchedProducts.map((p) => p.name);
+    const combinedProductCandidateNames = Array.from(new Set([...productCandidateNames, ...dbProductNames])).slice(0, 5);
+
     const shouldAskProductConfirmation =
-      isProductSearchQuery(normalizedQuery) &&
-      productCandidateNames.length > 0 &&
-      bestScore < 1.2;
+      isProductQuery &&
+      combinedProductCandidateNames.length > 0 &&
+      bestScore < 1.2 &&
+      matchedProducts.length === 0;
 
     return {
-      contextText: selected.map((text, index) => `[Nguon ${index + 1}]\n${text}`).join("\n\n---\n\n"),
+      contextText: selected.map((text, index) => {
+        if (text.startsWith("[DANH SÁCH SẢN PHẨM")) {
+          return text;
+        }
+        return `[Nguon ${index}]\n${text}`;
+      }).join("\n\n---\n\n"),
       matches: finalRanked.length,
       bestScore,
-      productCandidateNames,
+      productCandidateNames: combinedProductCandidateNames,
       shouldAskProductConfirmation,
       debugQueryTokens: queryTokens,
       debugRawQueryTokens: rawQueryTokens,
