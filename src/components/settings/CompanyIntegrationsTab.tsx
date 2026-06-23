@@ -22,6 +22,7 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
   const [facebookDiagnostics, setFacebookDiagnostics] = useState<any | null>(null);
   const [loadingZaloDiagnostics, setLoadingZaloDiagnostics] = useState(false);
   const [zaloDiagnostics, setZaloDiagnostics] = useState<any | null>(null);
+  const [connectingTikTokOAuth, setConnectingTikTokOAuth] = useState(false);
 
   // Form states for Facebook credentials login
   const [fbConnectMode, setFbConnectMode] = useState<"oauth" | "token" | "credentials">("oauth");
@@ -70,6 +71,7 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
     },
   } as const;
   const currentPlatformMeta = platformMeta[compPlatform];
+  const canStartCompanyTikTokOAuth = compPlatform === "TikTok" && !!compVerifyToken.trim() && !!compAppSecret.trim();
 
   // Fetch company integrations
   const fetchCompanyIntegrations = async () => {
@@ -88,6 +90,90 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
   useEffect(() => {
     fetchCompanyIntegrations();
   }, []);
+
+  useEffect(() => {
+    const handleTikTokOAuthPayload = async (payload: any) => {
+      if (!payload) return;
+      if (!payload.ok) {
+        toast.error(payload.error || "Ket noi TikTok that bai.");
+        return;
+      }
+      if (payload.target !== "company") {
+        return;
+      }
+
+      await fetchCompanyIntegrations();
+      toast.success(`Da ket noi TikTok doanh nghiep: ${payload.profile?.displayName || payload.profile?.username || "TikTok"}`);
+    };
+
+    const handleTikTokOAuthMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type === "TIKTOK_OAUTH_RESULT") {
+        void handleTikTokOAuthPayload(event.data.payload);
+      }
+    };
+
+    window.addEventListener("message", handleTikTokOAuthMessage);
+    return () => window.removeEventListener("message", handleTikTokOAuthMessage);
+  }, []);
+
+  const handleTikTokOAuth = async () => {
+    setConnectingTikTokOAuth(true);
+    try {
+      localStorage.removeItem("tt_oauth_result");
+      const authUrl = await socialIntegrationService.getTikTokOAuthUrl(
+        "company",
+        compPlatform === "TikTok" && editingIntegrationId ? editingIntegrationId : undefined
+      );
+      if (!authUrl) {
+        throw new Error("Khong tao duoc link dang nhap TikTok.");
+      }
+
+      const width = 620;
+      const height = 760;
+      const left = window.screen.width / 2 - width / 2;
+      const top = window.screen.height / 2 - height / 2;
+      const oauthWindow = window.open(
+        authUrl,
+        "TikTokOAuthPopupCompany",
+        `width=${width},height=${height},left=${left},top=${top},status=no,resizable=yes,scrollbars=yes`
+      );
+
+      if (!oauthWindow) {
+        throw new Error("Trinh duyet dang chan popup TikTok.");
+      }
+
+      const checkInterval = setInterval(() => {
+        const rawResult = localStorage.getItem("tt_oauth_result");
+        if (rawResult) {
+          clearInterval(checkInterval);
+          localStorage.removeItem("tt_oauth_result");
+          try {
+            const payload = JSON.parse(rawResult);
+            if (payload?.target === "company" && payload?.ok) {
+              void fetchCompanyIntegrations();
+              toast.success(`Da ket noi TikTok doanh nghiep: ${payload.profile?.displayName || payload.profile?.username || "TikTok"}`);
+            } else if (payload?.ok === false) {
+              toast.error(payload.error || "Ket noi TikTok that bai.");
+            }
+          } catch (error) {
+            console.error("Loi doc ket qua TikTok OAuth company:", error);
+          } finally {
+            setConnectingTikTokOAuth(false);
+          }
+        }
+
+        if (oauthWindow.closed) {
+          clearInterval(checkInterval);
+          setConnectingTikTokOAuth(false);
+        }
+      }, 800);
+    } catch (error: any) {
+      console.error("Loi khoi tao TikTok OAuth company:", error);
+      toast.error(error.message || "Khong the mo cua so ket noi TikTok.");
+      setConnectingTikTokOAuth(false);
+    }
+  };
 
   // Lưu Fanpage Facebook sau khi lấy được token từ OAuth
   const handleFacebookPageSelected = async (page: any) => {
@@ -201,6 +287,7 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
     let finalAccessToken = compAccessToken.trim();
     let finalUsername = compUsername.trim();
     let finalDisplayName = compDisplayName.trim();
+    const hasTikTokClientCredentials = !!compVerifyToken.trim() && !!compAppSecret.trim();
 
     // Nếu chọn kết nối Facebook bằng tài khoản/mật khẩu, gọi backend lấy token trước
     if (compPlatform === "Facebook" && fbConnectMode === "credentials") {
@@ -239,7 +326,7 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
         return;
       }
     } else {
-      if (!finalAccessToken) {
+      if (compPlatform === "TikTok" ? (!finalAccessToken && !hasTikTokClientCredentials) : !finalAccessToken) {
         toast.error("Vui lòng nhập Access Token hoặc API Key!");
         return;
       }
@@ -251,7 +338,7 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
 
     setSubmittingIntegration(true);
     try {
-      if (compPlatform === "TikTok") {
+      if (compPlatform === "TikTok" && finalAccessToken) {
         toast.info("Dang xac thuc TikTok voi ben thu 3...");
         const result = await socialIntegrationService.validateTikTokIntegration({
           username: compUsername.trim() || undefined,
@@ -615,7 +702,64 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
               {/* Standard Platform Fields (Visible when NOT in Facebook OAuth/Credentials mode) */}
               {!(compPlatform === "Facebook" && (fbConnectMode === "oauth" || fbConnectMode === "credentials")) && (
                 <>
+                  {compPlatform === "TikTok" && (
+                    <div className="rounded-2xl border border-slate-200 bg-slate-950 p-4 text-left text-white">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-200">TikTok OAuth</p>
+                          <p className="mt-1 text-[10px] leading-relaxed text-slate-300">
+                            Ket noi truc tiep voi TikTok de he thong tu lay access token va refresh token cho kenh doanh nghiep.
+                          </p>
+                          <p className="mt-1 text-[10px] leading-relaxed text-slate-400">
+                            Luu Client Key va Client Secret cua kenh truoc, sau do bam Ket noi TikTok de hoan tat dang nhap.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleTikTokOAuth}
+                          disabled={connectingTikTokOAuth || !canStartCompanyTikTokOAuth}
+                          className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-white px-3 py-2 text-[11px] font-bold text-slate-900 transition-all hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          <Globe className="h-3.5 w-3.5" />
+                          <span>{connectingTikTokOAuth ? "Dang ket noi..." : editingIntegrationId ? "Ket noi lai" : "Ket noi TikTok"}</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {compPlatform === "TikTok" && (
+                    <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Cau hinh app TikTok</p>
+                        <p className="mt-1 text-[10px] leading-relaxed text-slate-500">
+                          Moi kenh doanh nghiep dung bo Client Key va Client Secret rieng. Khong can nhap access token thu cong o day.
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-semibold text-gray-700">TikTok Client Key *</label>
+                        <input
+                          type="text"
+                          value={compVerifyToken}
+                          onChange={(e) => setCompVerifyToken(e.target.value)}
+                          placeholder="Nhap TikTok Client Key"
+                          className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-[11px] text-gray-800 shadow-sm focus:border-black focus:outline-none focus:ring-1 focus:ring-black"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-semibold text-gray-700">TikTok Client Secret *</label>
+                        <input
+                          type={showCompToken ? "text" : "password"}
+                          value={compAppSecret}
+                          onChange={(e) => setCompAppSecret(e.target.value)}
+                          placeholder="Nhap TikTok Client Secret"
+                          className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-[11px] text-gray-800 shadow-sm focus:border-black focus:outline-none focus:ring-1 focus:ring-black"
+                        />
+                      </div>
+                    </div>
+                  )}
+
                   {/* Username (Page ID / Account Username) */}
+                  {compPlatform !== "TikTok" && (
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">{currentPlatformMeta.usernameLabel}</label>
                     <div className="relative">
@@ -634,8 +778,10 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
                       </p>
                     )}
                   </div>
+                  )}
 
                   {/* Access Token / API Key / Zalo Configs */}
+                  {compPlatform !== "TikTok" && (
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">{currentPlatformMeta.tokenLabel}</label>
                     <div className="relative flex items-center">
@@ -704,6 +850,7 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
                       </div>
                     )}
                   </div>
+                  )}
                 </>
               )}
 
