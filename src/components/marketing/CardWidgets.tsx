@@ -51,6 +51,7 @@ interface ModerationPipCardProps {
   onOpenDetail?: () => void;
   onPublishToPlatform?: (card: ContentApprovalCard) => Promise<void>;
   isPublishing?: boolean;
+  isPublishingTikTok?: boolean;
 }
 
 export function ModerationPipCard({ 
@@ -63,6 +64,7 @@ export function ModerationPipCard({
   onOpenDetail,
   onPublishToPlatform,
   isPublishing = false,
+  isPublishingTikTok = false,
 }: ModerationPipCardProps) {
   const isProcessing = card.status === 'processing';
   const isFailed = card.status === 'failed';
@@ -239,15 +241,15 @@ export function ModerationPipCard({
                 e.stopPropagation();
                 onPublishToPlatform(card);
               }}
-              disabled={isPublishing || (card.channel === 'TikTok' && !card.videoUrl)}
+              disabled={isPublishing || isPublishingTikTok || (card.channel === 'TikTok' && !card.videoUrl)}
               className={`p-1.5 px-3 text-white rounded-lg font-bold transition-all flex items-center gap-1 text-[10px] cursor-pointer shadow-3xs ${
-                card.channel === 'TikTok' && !card.videoUrl
+                (card.channel === 'TikTok' && !card.videoUrl)
                   ? 'bg-gray-300 text-gray-400 cursor-not-allowed'
                   : 'bg-green-600 hover:bg-green-700'
               }`}
               title={card.channel === 'TikTok' && !card.videoUrl ? "Bài đăng TikTok cần có video" : "Đăng lên nền tảng ngay lập tức"}
             >
-              {isPublishing ? (
+              {(isPublishing || isPublishingTikTok) ? (
                 <RefreshCw className="h-2.5 w-2.5 animate-spin" />
               ) : (
                 <span>Đăng ngay</span>

@@ -161,6 +161,7 @@ export default function ApprovalTab({
                   onGenerateMedia={(c, type) => handleInitAIGeneration(c, type)}
                   onOpenDetail={() => setSelectedDetailCard(card)}
                   onPublishToPlatform={onPublishToPlatform}
+                  isPublishingTikTok={publishingTikTokId === card.id}
                   isPublishing={isPublishing}
                 />
               ))
