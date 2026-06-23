@@ -115,7 +115,7 @@ export default function HRTab() {
   const employees: EmployeeNode[] = usersList.map((usr) => ({
     id: usr.uid,
     name: usr.displayName,
-    role: usr.jobTitle || (usr.role === "superadmin" ? "Chief Executive Officer (CEO)" : "Nhân viên"),
+    role: usr.jobTitle || (usr.role === "superadmin" ? "CEO" : "Nhân viên"),
     department: usr.department || "Ban Giám Đốc",
     email: usr.email,
     phone: usr.phone || "Chưa cập nhật",

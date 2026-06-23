@@ -53,7 +53,82 @@ const renderAvatar = (avatar: string, sizeClasses: string = "w-8 h-8", textClass
   );
 };
 
+const FUNCTIONAL_CATEGORIES = [
+  { key: "governance", label: "Quản trị", badge: "GOVERNANCE", color: "bg-slate-900", border: "border-t-4 border-slate-900", dot: "#0f172a" },
+  { key: "finance", label: "Tài chính - Pháp lý", badge: "FINANCE", color: "bg-emerald-500", border: "border-t-4 border-emerald-500", dot: "#10b981" },
+  { key: "tech", label: "Hệ thống & Công nghệ", badge: "TECH", color: "bg-indigo-655", border: "border-t-4 border-indigo-650", dot: "#4f46e5" },
+  { key: "operations", label: "Vận hành - Sản xuất", badge: "OPERATIONS", color: "bg-cyan-500", border: "border-t-4 border-cyan-500", dot: "#06b6d4" },
+  { key: "sales", label: "Kinh doanh & Tiếp thị", badge: "SALES", color: "bg-amber-500", border: "border-t-4 border-amber-500", dot: "#f59e0b" },
+];
+
+const getCategoryByDivision = (division: string) => {
+  const divLower = (division || "").toLowerCase();
+  if (
+    divLower.includes("quản trị") ||
+    divLower.includes("giám đốc") ||
+    divLower.includes("governance") ||
+    divLower.includes("ceo") ||
+    divLower.includes("coo") ||
+    divLower.includes("hội đồng") ||
+    divLower.includes("kiểm soát")
+  ) {
+    return FUNCTIONAL_CATEGORIES[0];
+  }
+  if (
+    divLower.includes("tài chính") ||
+    divLower.includes("kế toán") ||
+    divLower.includes("pháp lý") ||
+    divLower.includes("finance") ||
+    divLower.includes("legal")
+  ) {
+    return FUNCTIONAL_CATEGORIES[1];
+  }
+  if (
+    divLower.includes("kỹ thuật") ||
+    divLower.includes("công nghệ") ||
+    divLower.includes("hệ thống") ||
+    divLower.includes("tech") ||
+    divLower.includes("it") ||
+    divLower.includes("phần mềm") ||
+    divLower.includes("software")
+  ) {
+    return FUNCTIONAL_CATEGORIES[2];
+  }
+  if (
+    divLower.includes("vận hành") ||
+    divLower.includes("sản xuất") ||
+    divLower.includes("kho") ||
+    divLower.includes("operations") ||
+    divLower.includes("logistics")
+  ) {
+    return FUNCTIONAL_CATEGORIES[3];
+  }
+  if (
+    divLower.includes("kinh doanh") ||
+    divLower.includes("tiếp thị") ||
+    divLower.includes("sales") ||
+    divLower.includes("marketing") ||
+    divLower.includes("csm") ||
+    divLower.includes("cso") ||
+    divLower.includes("thương mại")
+  ) {
+    return FUNCTIONAL_CATEGORIES[4];
+  }
+  if (
+    divLower.includes("nhân sự") ||
+    divLower.includes("hành chính") ||
+    divLower.includes("hr") ||
+    divLower.includes("admin") ||
+    divLower.includes("tuyển dụng") ||
+    divLower.includes("đào tạo")
+  ) {
+    return FUNCTIONAL_CATEGORIES[5];
+  }
+  return FUNCTIONAL_CATEGORIES[6];
+};
+
 export default function OrgChartTab({
+
   userProfile,
   selectedCompanyCode,
   usersList,
@@ -122,8 +197,24 @@ export default function OrgChartTab({
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [collapsedNodes, setCollapsedNodes] = useState<Set<string>>(new Set());
   const [selectedEmp, setSelectedEmp] = useState<EmployeeNode | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (selectedEmp) {
+      setIsDetailModalOpen(true);
+    } else {
+      setIsDetailModalOpen(false);
+    }
+  }, [selectedEmp?.id]);
+
+  const closeDetailModal = () => {
+    setIsDetailModalOpen(false);
+    setSelectedEmp(null);
+    setIsEditing(false);
+  };
 
   // Add Employee Modal States
+
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isAddingEmployee, setIsAddingEmployee] = useState(false);
   const [addName, setAddName] = useState("");
@@ -367,13 +458,7 @@ export default function OrgChartTab({
     }
   }, [isAddModalOpen]);
 
-  // Auto select root node on load
-  useEffect(() => {
-    if (employees.length > 0 && !selectedEmp) {
-      const root = employees.find(e => e.level === 1) || employees[0];
-      setSelectedEmp(root);
-    }
-  }, [usersList, employees, selectedEmp]);
+
 
   // Tự động gán khóa học Onboarding / Bắt buộc + tạo Kanban task khi thêm nhân viên mới
   const autoAssignCourseOnNewEmployee = async (newEmpUid: string, newEmpName: string, companyCode: string) => {
@@ -702,21 +787,30 @@ export default function OrgChartTab({
     }
   };
 
-  // Division Tag color schemes
+  // Division Tag color schemes — dynamic, using FUNCTIONAL_CATEGORIES
   const getDivisionBadgeStyles = (division: string) => {
-    switch (division) {
-      case "Khối Kỹ Thuật":
-        return "bg-indigo-50 text-indigo-700 border-indigo-200";
-      case "Khối Vận Hành":
-        return "bg-amber-50 text-amber-700 border-amber-200";
-      case "Khối Marketing":
-        return "bg-rose-50 text-rose-700 border-rose-200";
-      case "Khối Sales":
-        return "bg-emerald-50 text-emerald-700 border-emerald-200";
-      default:
-        return "bg-slate-50 text-slate-700 border-slate-200";
+    const cat = getCategoryByDivision(division);
+    switch (cat.key) {
+      case "governance": return "bg-slate-100 text-slate-800 border-slate-300";
+      case "finance":    return "bg-emerald-50 text-emerald-700 border-emerald-200";
+      case "tech":       return "bg-indigo-50 text-indigo-700 border-indigo-200";
+      case "operations": return "bg-cyan-50 text-cyan-700 border-cyan-200";
+      case "sales":      return "bg-amber-50 text-amber-700 border-amber-200";
+      case "hr":         return "bg-rose-50 text-rose-700 border-rose-200";
+      default:           return "bg-slate-50 text-slate-700 border-slate-200";
     }
   };
+
+  // Danh sách phân khối động lấy từ dữ liệu nhân sự kết hợp các khối mặc định
+  const uniqueDivisions = Array.from(
+    new Set([
+      "Khối Kỹ Thuật",
+      "Khối Vận Hành",
+      "Khối Marketing",
+      "Khối Sales",
+      ...employees.map(e => e.division).filter(Boolean)
+    ])
+  ).sort();
 
   // Filtering matching logic
   const isMatchingFilter = (emp: EmployeeNode): boolean => {
@@ -739,8 +833,32 @@ export default function OrgChartTab({
     const isMatch = isMatchingFilter(node);
     const isFilteredOut = (searchQuery.trim() !== "" || filterDivision !== "Tất cả") && !isMatch;
     const isCollapsed = collapsedNodes.has(node.id);
-
     const directReportsCount = employees.filter(e => e.parentId === node.id).length;
+
+    const category = getCategoryByDivision(node.division);
+
+    const getCategoryBadgeStyles = (key: string) => {
+      switch (key) {
+        case "governance": return "bg-slate-100 text-slate-800 border-slate-200";
+        case "finance": return "bg-emerald-50 text-emerald-700 border-emerald-200";
+        case "tech": return "bg-indigo-50 text-indigo-700 border-indigo-200";
+        case "operations": return "bg-cyan-50 text-cyan-700 border-cyan-200";
+        case "sales": return "bg-amber-50 text-amber-700 border-amber-200";
+        case "hr": return "bg-rose-50 text-rose-700 border-rose-200";
+        default: return "bg-slate-50 text-slate-655 border-slate-200";
+      }
+    };
+
+    const renderCardIcon = (role: string) => {
+      const rLower = (role || "").toLowerCase();
+      if (rLower.includes("ceo") || rLower.includes("chủ tịch") || rLower.includes("coo") || rLower.includes("cfo") || rLower.includes("cmo") || rLower.includes("cso") || rLower.includes("director") || rLower.includes("giám đốc")) {
+        return "👑";
+      }
+      if (rLower.includes("trưởng phòng") || rLower.includes("manager") || rLower.includes("leader") || rLower.includes("trưởng nhóm")) {
+        return "💼";
+      }
+      return "👤";
+    };
 
     return (
       <div className="flex flex-col items-center" key={node.id}>
@@ -751,32 +869,49 @@ export default function OrgChartTab({
           onDragOver={handleDragOver}
           onDrop={(e) => handleDrop(e, node.id)}
           onClick={() => setSelectedEmp(node)}
-          className={`p-3 bg-white text-gray-800 border rounded-2xl shadow-xs w-52 text-center cursor-pointer relative hover:scale-104 active:scale-95 transition-all duration-300 ${isSelected
-              ? "ring-4 ring-indigo-500 shadow-indigo-200 border-transparent z-10"
-              : "border-gray-250 hover:border-indigo-300 hover:shadow-md"
+          className={`p-3 bg-white text-gray-800 rounded-2xl shadow-xs w-56 text-left cursor-pointer relative hover:scale-104 active:scale-95 transition-all duration-300 border border-gray-200 ${category.border} ${isSelected
+              ? "ring-4 ring-indigo-500 shadow-indigo-100 border-transparent z-10"
+              : "hover:border-indigo-300 hover:shadow-md"
             } ${isFilteredOut ? "opacity-30 blur-[0.5px] scale-98" : "opacity-100"
             }`}
           id={`org_node_${node.id}`}
         >
           {/* Online/Offline Dot Indicator */}
-          <div className="absolute top-2 left-2 flex items-center justify-center">
+          <div className="absolute top-2.5 right-2.5 flex items-center justify-center">
             {node.status === "online" ? (
-              <span className="w-2 h-2 rounded-full bg-emerald-500 block border-2 border-white animate-pulse" title="Đang hoạt động" />
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 block border border-white animate-pulse" title="Đang hoạt động" />
             ) : (
-              <span className="w-2 h-2 rounded-full bg-gray-300 block border-2 border-white" title="Ngoại tuyến" />
+              <span className="w-1.5 h-1.5 rounded-full bg-gray-300 block border border-white" title="Ngoại tuyến" />
             )}
           </div>
 
-          <div className="mb-1 mx-auto flex items-center justify-center">
-            {renderAvatar(node.avatar, "w-12 h-12", "text-2xl")}
-          </div>
-          <h4 className="font-bold text-xs leading-tight text-slate-800 font-sans truncate px-1">{node.name}</h4>
-          <p className="text-[9px] text-indigo-650 font-bold font-mono mt-0.5 uppercase tracking-wide truncate px-1">{node.role}</p>
+          <div className="space-y-2">
+            {/* Top row: Category Badge */}
+            <div className="flex items-center justify-between">
+              <span className={`text-[8px] font-extrabold border px-1.5 py-0.5 rounded-md uppercase tracking-wider font-mono ${getCategoryBadgeStyles(category.key)}`}>
+                {category.badge}
+              </span>
+            </div>
 
-          <div className="mt-2 pt-1.5 border-t border-gray-100 flex items-center justify-center gap-1 flex-wrap">
-            <span className={`text-[8px] font-bold border px-1 rounded-sm uppercase tracking-wider font-mono ${getDivisionBadgeStyles(node.division)}`}>
-              {node.division}
-            </span>
+            {/* Middle row: Department (Main Title) */}
+            <div className="min-h-[32px] flex items-center">
+              <h4 className="font-bold text-xs text-slate-800 leading-snug font-sans line-clamp-2">
+                {node.department}
+              </h4>
+            </div>
+
+            {/* Bottom row: Manager Info */}
+            <div className="pt-2 border-t border-slate-100 flex items-center gap-2">
+              {renderAvatar(node.avatar, "w-6 h-6", "text-xs")}
+              <div className="min-w-0 flex-1">
+                <span className="block text-[8px] font-bold text-gray-400 uppercase tracking-wider truncate font-mono">
+                  {renderCardIcon(node.role)} {node.role}
+                </span>
+                <span className="block text-[10px] font-bold text-indigo-950 truncate">
+                  {node.name}
+                </span>
+              </div>
+            </div>
           </div>
 
           {/* Collapse/Expand toggle badge */}
@@ -785,11 +920,11 @@ export default function OrgChartTab({
               type="button"
               onClick={(e) => { e.stopPropagation(); toggleCollapse(node.id); }}
               title={isCollapsed ? `Mở rộng ${directReportsCount} nhân viên cấp dưới` : `Thu gọn ${directReportsCount} nhân viên cấp dưới`}
-              className={`absolute -bottom-2 -right-2 text-white text-[9px] font-extrabold w-5 h-5 rounded-full flex items-center justify-center shadow-sm border-2 border-white select-none transition-colors cursor-pointer ${
-                isCollapsed ? "bg-indigo-500 hover:bg-indigo-600" : "bg-emerald-500 hover:bg-emerald-600"
+              className={`absolute -bottom-2.5 left-1/2 -translate-x-1/2 text-white text-[9px] font-extrabold w-5 h-5 rounded-full flex items-center justify-center shadow-xs border-2 border-white select-none transition-all cursor-pointer ${
+                isCollapsed ? "bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white" : "bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white"
               }`}
             >
-              {isCollapsed ? `+${directReportsCount}` : directReportsCount}
+              {isCollapsed ? `+${directReportsCount}` : "^"}
             </button>
           )}
         </div>
@@ -846,13 +981,12 @@ export default function OrgChartTab({
             <select
               value={filterDivision}
               onChange={(e) => setFilterDivision(e.target.value)}
-              className="border border-gray-205 border-gray-200 p-1.5 rounded-xl text-xs bg-white outline-none cursor-pointer"
+              className="border border-gray-200 p-1.5 rounded-xl text-xs bg-white outline-none cursor-pointer"
             >
               <option value="Tất cả">Tất cả Khối</option>
-              <option value="Khối Kỹ Thuật">Khối Kỹ Thuật</option>
-              <option value="Khối Vận Hành">Khối Vận Hành</option>
-              <option value="Khối Marketing">Khối Marketing</option>
-              <option value="Khối Sales">Khối Sales</option>
+              {uniqueDivisions.map(div => (
+                <option key={div} value={div}>{div}</option>
+              ))}
             </select>
           </div>
         </div>
@@ -903,228 +1037,43 @@ export default function OrgChartTab({
       {/* Primary Sub Tab Layout View */}
       <div className="flex-1 p-6 overflow-y-auto" id="hr_tab_content">
         <div className="grid grid-cols-1 xl:grid-cols-4 gap-6 h-full min-h-[500px]" id="org_chart_block">
-          {/* Sidebar View employee card detail panel */}
-          <div className="xl:col-span-1 bg-slate-50 p-5 rounded-2xl border border-gray-200 max-h-[70vh] overflow-y-auto flex flex-col justify-between" id="employee_detail_card">
-            {loading ? (
-              <div className="h-full flex flex-col items-center justify-center py-20 text-center">
-                <Activity className="h-8 w-8 text-indigo-600 animate-spin mb-3" />
-                <span className="text-xs font-bold font-mono text-indigo-800 uppercase tracking-wider">Đang kết nối database...</span>
-              </div>
-            ) : selectedEmp ? (
-              isEditing ? (
-                <div className="space-y-4 text-left">
-                  <div className="text-center pb-4 border-b border-gray-200">
-                    <div className="mb-2 mx-auto flex justify-center">{renderAvatar(selectedEmp.avatar, "w-20 h-20", "text-4xl")}</div>
-                    <div className="space-y-2 text-left">
-                      <div>
-                        <label className="block text-[8px] font-bold text-gray-400 uppercase tracking-wider mb-1">Họ tên *</label>
-                        <input
-                          type="text"
-                          value={editName}
-                          onChange={(e) => setEditName(e.target.value)}
-                          className="w-full px-3 py-1.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[8px] font-bold text-gray-400 uppercase tracking-wider mb-1">Chức danh</label>
-                        <input
-                          type="text"
-                          value={editRoleText}
-                          onChange={(e) => setEditRoleText(e.target.value)}
-                          className="w-full px-3 py-1.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[8px] font-bold text-gray-400 uppercase tracking-wider mb-1">Phân khối</label>
-                        <select
-                          value={editDivision}
-                          onChange={(e) => setEditDivision(e.target.value)}
-                          className="w-full p-1.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer"
-                        >
-                          <option value="Khối Kỹ Thuật">Khối Kỹ Thuật</option>
-                          <option value="Khối Vận Hành">Khối Vận Hành</option>
-                          <option value="Khối Marketing">Khối Marketing</option>
-                          <option value="Khối Sales">Khối Sales</option>
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3.5 text-xs text-slate-650">
-                    <div>
-                      <label className="block text-[8px] font-bold text-gray-400 uppercase tracking-wider mb-1">Phòng ban</label>
-                      <input
-                        type="text"
-                        value={editDepartment}
-                        onChange={(e) => setEditDepartment(e.target.value)}
-                        className="w-full px-3 py-1.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[8px] font-bold text-gray-400 uppercase tracking-wider mb-1">Email liên lạc (Cố định)</label>
-                      <input
-                        type="email"
-                        value={editEmail}
-                        disabled
-                        className="w-full px-3 py-1.5 border border-gray-200 rounded-xl text-xs outline-none bg-gray-100 text-gray-400 cursor-not-allowed select-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[8px] font-bold text-gray-400 uppercase tracking-wider mb-1">Số điện thoại</label>
-                      <input
-                        type="text"
-                        value={editPhone}
-                        onChange={(e) => setEditPhone(e.target.value)}
-                        className="w-full px-3 py-1.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[8px] font-bold text-gray-400 uppercase tracking-wider mb-1">Quản lý trực tiếp</label>
-                      <select
-                        value={editParentId}
-                        onChange={(e) => setEditParentId(e.target.value)}
-                        className="w-full p-1.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer"
-                      >
-                        <option value="">Không phân công</option>
-                        {employees
-                          .filter(emp => {
-                            const checkIsDescendant = (pId: string, cId: string): boolean => {
-                              const child = employees.find(e => e.id === cId);
-                              if (!child || !child.parentId) return false;
-                              if (child.parentId === pId) return true;
-                              return checkIsDescendant(pId, child.parentId);
-                            };
-                            return emp.id !== selectedEmp.id && !checkIsDescendant(selectedEmp.id, emp.id);
-                          })
-                          .map(emp => (
-                            <option key={emp.id} value={emp.id}>{emp.name} ({emp.role})</option>
-                          ))
-                        }
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="pt-4 border-t border-gray-200 flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setIsEditing(false)}
-                      disabled={isSaving}
-                      className="flex-1 py-2 border border-gray-200 hover:bg-slate-100 text-gray-700 rounded-xl text-xs font-bold transition-colors cursor-pointer text-center"
-                    >
-                      Hủy
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleEditEmployeeSave}
-                      disabled={isSaving}
-                      className="flex-1 py-2 bg-indigo-650 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer text-center flex items-center justify-center gap-1.5"
-                    >
-                      {isSaving ? (
-                        <>
-                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                          Đang lưu...
-                        </>
-                      ) : "Lưu"}
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-4 text-left">
-                  <div className="text-center pb-4 border-b border-gray-200">
-                    <div className="mb-2 mx-auto flex justify-center">{renderAvatar(selectedEmp.avatar, "w-20 h-20", "text-4xl")}</div>
-                    <h3 className="font-bold text-base text-slate-800 font-sans leading-snug">{selectedEmp.name}</h3>
-                    <p className="text-[10px] text-indigo-650 font-bold font-mono uppercase tracking-wide mt-1">{selectedEmp.role}</p>
-                    <span className={`inline-block text-[9px] font-bold border px-2 py-0.5 rounded-md uppercase tracking-wider font-mono mt-2 ${getDivisionBadgeStyles(selectedEmp.division)}`}>
-                      {selectedEmp.division}
-                    </span>
-                  </div>
-
-                  <div className="space-y-3.5 text-xs text-slate-650">
-                    <div className="flex items-center gap-2.5">
-                      <Building2 className="w-4 h-4 text-gray-400 shrink-0" />
-                      <div>
-                        <span className="block text-[8px] font-bold text-gray-400 uppercase tracking-wider">Phòng ban</span>
-                        <strong className="text-slate-800">{selectedEmp.department}</strong>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2.5">
-                      <Mail className="w-4 h-4 text-gray-400 shrink-0" />
-                      <div>
-                        <span className="block text-[8px] font-bold text-gray-400 uppercase tracking-wider">Email liên lạc</span>
-                        <strong className="text-slate-800">{selectedEmp.email}</strong>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2.5">
-                      <Phone className="w-4 h-4 text-gray-400 shrink-0" />
-                      <div>
-                        <span className="block text-[8px] font-bold text-gray-400 uppercase tracking-wider">Số điện thoại</span>
-                        <strong className="text-slate-800">{selectedEmp.phone}</strong>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2.5">
-                      <Briefcase className="w-4 h-4 text-gray-400 shrink-0" />
-                      <div>
-                        <span className="block text-[8px] font-bold text-gray-400 uppercase tracking-wider">Cấp bậc sơ đồ</span>
-                        <strong className="text-slate-800">Cấp {selectedEmp.level} (Tier {selectedEmp.level})</strong>
-                      </div>
-                    </div>
-                    {selectedEmp.parentId && (
+          {/* Functional categories and operating instructions sidebar */}
+          <div className="xl:col-span-1 bg-white p-5 rounded-2xl border border-gray-200 flex flex-col justify-between h-full space-y-6" id="employee_detail_card">
+            <div className="space-y-4">
+              <h3 className="text-xs font-extrabold uppercase text-slate-400 tracking-wider font-mono">
+                MÀU SẮC CHỨC NĂNG
+              </h3>
+              <div className="space-y-2">
+                {FUNCTIONAL_CATEGORIES.map(cat => {
+                  const count = employees.filter(emp => getCategoryByDivision(emp.division).key === cat.key).length;
+                  return (
+                    <div key={cat.key} className="flex items-center justify-between p-2.5 bg-slate-50 hover:bg-slate-100 rounded-xl transition-all duration-200">
                       <div className="flex items-center gap-2.5">
-                        <Users className="w-4 h-4 text-gray-400 shrink-0" />
-                        <div>
-                          <span className="block text-[8px] font-bold text-gray-400 uppercase tracking-wider">Quản lý trực tiếp</span>
-                          <strong className="text-slate-850 text-indigo-700">{employees.find(e => e.id === selectedEmp.parentId)?.name || 'Quản lý cấp trên'}</strong>
-                        </div>
+                        <span className="w-3.5 h-3.5 rounded-full border border-white shadow-xs shrink-0" style={{ backgroundColor: cat.dot }} />
+                        <span className="text-xs font-bold text-slate-700">{cat.label}</span>
                       </div>
-                    )}
-
-                    {employees.some(e => e.parentId === selectedEmp.id) && (
-                      <div className="border-t pt-3 mt-1">
-                        <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 font-mono">Tổng nhân sự ({employees.filter(e => e.parentId === selectedEmp.id).length}):</span>
-                        <div className="flex flex-col gap-1.5 max-h-[160px] overflow-y-auto pr-1">
-                          {employees.filter(e => e.parentId === selectedEmp.id).map(sub => (
-                            <div key={sub.id} className="flex items-center gap-2 p-1.5 bg-white border border-gray-150 rounded-lg text-[11px] hover:border-indigo-200 transition-colors">
-                              {renderAvatar(sub.avatar, "w-6 h-6", "text-xs")}
-                              <div className="min-w-0 flex-1">
-                                <span className="block font-bold text-slate-850 truncate">{sub.name}</span>
-                                <span className="block text-[8px] text-slate-400 truncate">{sub.role}</span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="pt-4 border-t border-gray-200 space-y-2">
-                    {canEditEmployee(selectedEmp.id) && (
-                      <button
-                        onClick={startEditing}
-                        className="w-full py-2 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                      >
-                        <Edit className="w-3.5 h-3.5" />
-                        Chỉnh Sửa Thông Tin
-                      </button>
-                    )}
-                    {isManager && canDeleteEmployee(selectedEmp.id) && (
-                      <button
-                        onClick={() => handleDeleteEmployeeSubmit(selectedEmp.id)}
-                        className="w-full py-2 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        Xóa Khỏi Hệ Thống
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )
-            ) : (
-              <div className="h-full flex flex-col items-center justify-center py-20 text-center select-none text-gray-400">
-                <Users className="h-10 w-10 text-gray-300 mb-3" />
-                <span className="text-xs font-bold">Chưa chọn nhân sự</span>
-                <span className="text-[10px] text-gray-400 mt-1 max-w-[160px]">Nhấp vào một thẻ nhân sự trên sơ đồ để xem thông tin chi tiết</span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white border border-gray-200 text-slate-600 min-w-[20px] text-center shadow-2xs font-mono">
+                        {count}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
-            )}
+            </div>
+
+            {/* Interactive guidelines bottom banner */}
+            <div className="p-4 bg-indigo-50/70 border border-indigo-100 rounded-2xl space-y-2.5">
+              <div className="flex items-center gap-1.5 text-indigo-850 text-xs font-bold">
+                <span className="text-sm">💡</span>
+                <h4 className="uppercase tracking-wide font-sans text-indigo-900">HƯỚNG DẪN THAO TÁC</h4>
+              </div>
+              <ul className="text-[10px] text-indigo-700 space-y-2 font-medium leading-relaxed list-disc list-inside">
+                <li className="pl-0.5">Kéo thả chuột trái lên nền để di chuyển sơ đồ.</li>
+                <li className="pl-0.5">Sử dụng con lăn chuột hoặc thanh zoom để thu phóng.</li>
+                <li className="pl-0.5">Kéo thả thẻ nhân sự để thay đổi cấp quản lý.</li>
+                <li className="pl-0.5">Nhấp vào thẻ nhân sự để xem chi tiết / chỉnh sửa.</li>
+              </ul>
+            </div>
           </div>
 
           {/* Interactive Tree viewport diagram */}
@@ -1166,8 +1115,231 @@ export default function OrgChartTab({
         </div>
       </div>
 
+      {/* EMPLOYEE DETAIL & EDIT MODAL */}
+      {isDetailModalOpen && selectedEmp && (
+        <div className="fixed inset-0 bg-black/55 backdrop-blur-2xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-200" id="employee_detail_modal">
+          {isEditing ? (
+            <div className="bg-white border border-slate-100 rounded-2xl shadow-xl w-full max-w-md p-6 relative text-left space-y-4 animate-in fade-in zoom-in-95 duration-200">
+              <div className="flex justify-between items-center pb-2 border-b">
+                <h4 className="font-bold text-slate-800 text-sm font-sans uppercase">Chỉnh Sửa Nhân Sự</h4>
+                <button type="button" onClick={() => setIsEditing(false)} className="text-gray-400 hover:text-gray-600 cursor-pointer">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="space-y-3.5 text-xs text-left">
+                <div className="flex justify-center pb-2">
+                  {renderAvatar(selectedEmp.avatar, "w-16 h-16", "text-3xl")}
+                </div>
+
+                <div>
+                  <label className="block font-bold text-gray-500 mb-1">Họ tên *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="w-full px-3.5 py-2 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 bg-white"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-gray-500 mb-1">Chức danh</label>
+                    <input
+                      type="text"
+                      value={editRoleText}
+                      onChange={(e) => setEditRoleText(e.target.value)}
+                      className="w-full px-3.5 py-2 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-gray-500 mb-1">Phân khối</label>
+                    <select
+                      value={editDivision}
+                      onChange={(e) => setEditDivision(e.target.value)}
+                      className="w-full p-2.5 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer text-slate-700"
+                    >
+                      {uniqueDivisions.map(div => (
+                        <option key={div} value={div}>{div}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-gray-500 mb-1">Phòng ban</label>
+                    <input
+                      type="text"
+                      value={editDepartment}
+                      onChange={(e) => setEditDepartment(e.target.value)}
+                      className="w-full px-3.5 py-2 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-gray-500 mb-1">Số điện thoại</label>
+                    <input
+                      type="text"
+                      value={editPhone}
+                      onChange={(e) => setEditPhone(e.target.value)}
+                      className="w-full px-3.5 py-2 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-gray-500 mb-1">Email liên lạc (Cố định)</label>
+                  <input
+                    type="email"
+                    value={editEmail}
+                    disabled
+                    className="w-full px-3.5 py-2 border border-gray-200 rounded-xl outline-none bg-gray-100 text-gray-400 cursor-not-allowed select-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-gray-500 mb-1">Quản lý trực tiếp</label>
+                  <select
+                    value={editParentId}
+                    onChange={(e) => setEditParentId(e.target.value)}
+                    className="w-full p-2 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer text-slate-700"
+                  >
+                    <option value="">Không phân công</option>
+                    {employees
+                      .filter(emp => {
+                        const checkIsDescendant = (pId: string, cId: string): boolean => {
+                          const child = employees.find(e => e.id === cId);
+                          if (!child || !child.parentId) return false;
+                          if (child.parentId === pId) return true;
+                          return checkIsDescendant(pId, child.parentId);
+                        };
+                        return emp.id !== selectedEmp.id && !checkIsDescendant(selectedEmp.id, emp.id);
+                      })
+                      .map(emp => (
+                        <option key={emp.id} value={emp.id}>{emp.name} ({emp.role})</option>
+                      ))
+                    }
+                  </select>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t flex justify-end gap-3 text-xs font-bold">
+                <button
+                  type="button"
+                  disabled={isSaving}
+                  onClick={() => setIsEditing(false)}
+                  className="px-4 py-2 border rounded-xl hover:bg-slate-50 cursor-pointer disabled:opacity-50"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="button"
+                  disabled={isSaving}
+                  onClick={handleEditEmployeeSave}
+                  className="px-5 py-2 bg-indigo-650 hover:bg-indigo-700 text-white rounded-xl cursor-pointer transition-all active:scale-95 disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {isSaving ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      Đang lưu...
+                    </>
+                  ) : (
+                    "Lưu thay đổi"
+                  )}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white border border-slate-100 rounded-2xl shadow-xl w-full max-w-sm p-6 relative text-left space-y-4 animate-in fade-in zoom-in-95 duration-200">
+              <div className="flex justify-between items-center pb-2 border-b">
+                <h4 className="font-bold text-slate-800 text-sm font-sans uppercase">Chi Tiết Nhân Sự</h4>
+                <button type="button" onClick={closeDetailModal} className="text-gray-400 hover:text-gray-650 cursor-pointer">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="text-center pb-4 border-b border-gray-200">
+                <div className="mb-2 mx-auto flex justify-center">{renderAvatar(selectedEmp.avatar, "w-20 h-20", "text-4xl")}</div>
+                <h3 className="font-bold text-base text-slate-800 font-sans leading-snug">{selectedEmp.name}</h3>
+                <p className="text-[10.5px] font-bold font-mono uppercase tracking-wide mt-1 text-indigo-600">{selectedEmp.role}</p>
+                <span className={`inline-block text-[9px] font-bold border px-2 py-0.5 rounded-md uppercase tracking-wider font-mono mt-2 ${getDivisionBadgeStyles(selectedEmp.division)}`}>
+                  {selectedEmp.division}
+                </span>
+              </div>
+
+              <div className="space-y-3.5 text-xs text-slate-655 text-slate-600">
+                <div className="flex items-center gap-2.5">
+                  <Building2 className="w-4 h-4 text-gray-400 shrink-0" />
+                  <div>
+                    <span className="block text-[8px] font-bold text-gray-400 uppercase tracking-wider">Phòng ban</span>
+                    <strong className="text-slate-800">{selectedEmp.department}</strong>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <Mail className="w-4 h-4 text-gray-400 shrink-0" />
+                  <div>
+                    <span className="block text-[8px] font-bold text-gray-400 uppercase tracking-wider">Email liên lạc</span>
+                    <strong className="text-slate-800">{selectedEmp.email}</strong>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <Phone className="w-4 h-4 text-gray-400 shrink-0" />
+                  <div>
+                    <span className="block text-[8px] font-bold text-gray-400 uppercase tracking-wider">Số điện thoại</span>
+                    <strong className="text-slate-800">{selectedEmp.phone}</strong>
+                  </div>
+                </div>
+                {selectedEmp.parentId && (
+                  <div className="flex items-center gap-2.5">
+                    <Users className="w-4 h-4 text-gray-400 shrink-0" />
+                    <div>
+                      <span className="block text-[8px] font-bold text-gray-400 uppercase tracking-wider">Quản lý trực tiếp</span>
+                      <strong className="text-slate-855 text-indigo-705">{employees.find(e => e.id === selectedEmp.parentId)?.name || 'Quản lý cấp trên'}</strong>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-4 border-t flex flex-col gap-2 font-sans font-bold">
+                {canEditEmployee(selectedEmp.id) && (
+                  <button
+                    type="button"
+                    onClick={startEditing}
+                    className="w-full py-2.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Edit className="w-3.5 h-3.5" />
+                    Chỉnh Sửa Thông Tin
+                  </button>
+                )}
+                {isManager && canDeleteEmployee(selectedEmp.id) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleDeleteEmployeeSubmit(selectedEmp.id);
+                      closeDetailModal();
+                    }}
+                    className="w-full py-2.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Xóa Khỏi Hệ Thống
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={closeDetailModal}
+                  className="w-full py-2 border rounded-xl hover:bg-slate-50 text-gray-500 text-xs font-bold cursor-pointer text-center"
+                >
+                  Đóng
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
       {/* ADD EMPLOYEE MODAL */}
       {isAddModalOpen && (
+
         <div className="fixed inset-0 bg-black/50 backdrop-blur-2xs flex items-center justify-center z-50 p-4">
           <form onSubmit={handleAddEmployee} className="bg-white border rounded-2xl shadow-xl w-full max-w-md p-6 relative text-left space-y-4">
             <div className="flex justify-between items-center pb-2 border-b">
