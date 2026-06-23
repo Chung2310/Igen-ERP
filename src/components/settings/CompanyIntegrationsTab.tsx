@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { 
-  Building2, Plus, Save, Terminal, Key, Eye, EyeOff, Lock, 
-  Trash2, FileEdit, CheckCircle, Copy, Globe, RefreshCw 
+import {
+  Building2, Plus, Save, Terminal, Key, Eye, EyeOff, Lock,
+  Trash2, FileEdit, CheckCircle, Copy, Globe, RefreshCw
 } from "lucide-react";
 import { toast } from "../../pages/Toast";
 import { socialIntegrationService, SocialIntegration } from "../../services/socialIntegrationService";
@@ -71,7 +71,7 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
     },
   } as const;
   const currentPlatformMeta = platformMeta[compPlatform];
-  const canStartCompanyTikTokOAuth = compPlatform === "TikTok" && !!compVerifyToken.trim() && !!compAppSecret.trim();
+  const canStartCompanyTikTokOAuth = compPlatform === "TikTok";
 
   // Fetch company integrations
   const fetchCompanyIntegrations = async () => {
@@ -95,7 +95,7 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
     const handleTikTokOAuthPayload = async (payload: any) => {
       if (!payload) return;
       if (!payload.ok) {
-        toast.error(payload.error || "Ket noi TikTok that bai.");
+        toast.error(payload.error || "Kết nối TikTok thất bại.");
         return;
       }
       if (payload.target !== "company") {
@@ -103,7 +103,7 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
       }
 
       await fetchCompanyIntegrations();
-      toast.success(`Da ket noi TikTok doanh nghiep: ${payload.profile?.displayName || payload.profile?.username || "TikTok"}`);
+      toast.success(`Đã kết nối TikTok doanh nghiệp: ${payload.profile?.displayName || payload.profile?.username || "TikTok"}`);
     };
 
     const handleTikTokOAuthMessage = (event: MessageEvent) => {
@@ -152,12 +152,12 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
             const payload = JSON.parse(rawResult);
             if (payload?.target === "company" && payload?.ok) {
               void fetchCompanyIntegrations();
-              toast.success(`Da ket noi TikTok doanh nghiep: ${payload.profile?.displayName || payload.profile?.username || "TikTok"}`);
+              toast.success(`Đã kết nối TikTok doanh nghiệp: ${payload.profile?.displayName || payload.profile?.username || "TikTok"}`);
             } else if (payload?.ok === false) {
-              toast.error(payload.error || "Ket noi TikTok that bai.");
+              toast.error(payload.error || "Kết nối TikTok thất bại.");
             }
           } catch (error) {
-            console.error("Loi doc ket qua TikTok OAuth company:", error);
+            console.error("Lỗi đọc kết quả TikTok OAuth company:", error);
           } finally {
             setConnectingTikTokOAuth(false);
           }
@@ -170,7 +170,7 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
       }, 800);
     } catch (error: any) {
       console.error("Loi khoi tao TikTok OAuth company:", error);
-      toast.error(error.message || "Khong the mo cua so ket noi TikTok.");
+      toast.error(error.message || "Không thể mở cửa sổ kết nối TikTok.");
       setConnectingTikTokOAuth(false);
     }
   };
@@ -531,7 +531,7 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
             <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider text-left">
               {editingIntegrationId ? "Chỉnh sửa tài khoản" : "Thêm tài khoản liên kết"}
             </h4>
-            
+
             <form onSubmit={handleSaveCompanyIntegration} className="space-y-4 text-left">
               {/* Platform Select */}
               <div className="space-y-1.5">
@@ -556,11 +556,10 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
                         disabled={!!editingIntegrationId}
                         className="sr-only peer"
                       />
-                      <div className={`py-2 text-center rounded-xl border text-xs font-semibold transition-all ${
-                        compPlatform === p.value
-                          ? platformMeta[p.value as keyof typeof platformMeta].activeClass
-                          : "border-gray-250 bg-white text-gray-500"
-                      } ${editingIntegrationId ? "opacity-60 cursor-not-allowed" : "hover:border-gray-300"}`}>
+                      <div className={`py-2 text-center rounded-xl border text-xs font-semibold transition-all ${compPlatform === p.value
+                        ? platformMeta[p.value as keyof typeof platformMeta].activeClass
+                        : "border-gray-250 bg-white text-gray-500"
+                        } ${editingIntegrationId ? "opacity-60 cursor-not-allowed" : "hover:border-gray-300"}`}>
                         {p.label}
                       </div>
                     </label>
@@ -605,11 +604,10 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
                         key={mode.value}
                         type="button"
                         onClick={() => setFbConnectMode(mode.value as any)}
-                        className={`py-2 text-[10px] font-bold text-center rounded-xl border transition-all cursor-pointer ${
-                          fbConnectMode === mode.value
-                            ? "bg-indigo-650 border-indigo-650 text-white shadow-sm"
-                            : "border-gray-250 bg-white text-gray-500 hover:border-gray-300"
-                        }`}
+                        className={`py-2 text-[10px] font-bold text-center rounded-xl border transition-all cursor-pointer ${fbConnectMode === mode.value
+                          ? "bg-indigo-650 border-indigo-650 text-white shadow-sm"
+                          : "border-gray-250 bg-white text-gray-500 hover:border-gray-300"
+                          }`}
                       >
                         {mode.label}
                       </button>
@@ -708,10 +706,10 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
                         <div>
                           <p className="text-[11px] font-bold uppercase tracking-wider text-slate-200">TikTok OAuth</p>
                           <p className="mt-1 text-[10px] leading-relaxed text-slate-300">
-                            Ket noi truc tiep voi TikTok de he thong tu lay access token va refresh token cho kenh doanh nghiep.
+                            Kết nối trực tiếp với TikTok để hệ thống tự lấy access token và refresh token cho kênh doanh nghiệp.
                           </p>
-                          <p className="mt-1 text-[10px] leading-relaxed text-slate-400">
-                            Luu Client Key va Client Secret cua kenh truoc, sau do bam Ket noi TikTok de hoan tat dang nhap.
+                          <p className="mt-1 text-[10px] leading-relaxed text-slate-450">
+                            Bấm kết nối trực tiếp bằng tài khoản hệ thống (hoặc điền Client Key và Client Secret riêng bên dưới nếu muốn dùng ứng dụng riêng).
                           </p>
                         </div>
                         <button
@@ -721,7 +719,7 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
                           className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-white px-3 py-2 text-[11px] font-bold text-slate-900 transition-all hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           <Globe className="h-3.5 w-3.5" />
-                          <span>{connectingTikTokOAuth ? "Dang ket noi..." : editingIntegrationId ? "Ket noi lai" : "Ket noi TikTok"}</span>
+                          <span>{connectingTikTokOAuth ? "Đang kết nối..." : editingIntegrationId ? "Kết nối lại" : "Kết nối TikTok"}</span>
                         </button>
                       </div>
                     </div>
@@ -730,28 +728,28 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
                   {compPlatform === "TikTok" && (
                     <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
                       <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Cau hinh app TikTok</p>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Cấu hình app TikTok</p>
                         <p className="mt-1 text-[10px] leading-relaxed text-slate-500">
-                          Moi kenh doanh nghiep dung bo Client Key va Client Secret rieng. Khong can nhap access token thu cong o day.
+                          Chỉ cần điền nếu doanh nghiệp muốn dùng Client Key và Client Secret của ứng dụng riêng. Bỏ trống để dùng mặc định hệ thống.
                         </p>
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[11px] font-semibold text-gray-700">TikTok Client Key *</label>
+                        <label className="text-[11px] font-semibold text-gray-700">TikTok Client Key (tùy chọn)</label>
                         <input
                           type="text"
                           value={compVerifyToken}
                           onChange={(e) => setCompVerifyToken(e.target.value)}
-                          placeholder="Nhap TikTok Client Key"
+                          placeholder="Nhap TikTok Client Key (Bỏ trống để dùng mặc định)"
                           className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-[11px] text-gray-800 shadow-sm focus:border-black focus:outline-none focus:ring-1 focus:ring-black"
                         />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[11px] font-semibold text-gray-700">TikTok Client Secret *</label>
+                        <label className="text-[11px] font-semibold text-gray-700">TikTok Client Secret (tùy chọn)</label>
                         <input
                           type={showCompToken ? "text" : "password"}
                           value={compAppSecret}
                           onChange={(e) => setCompAppSecret(e.target.value)}
-                          placeholder="Nhap TikTok Client Secret"
+                          placeholder="Nhap TikTok Client Secret (Bỏ trống để dùng mặc định)"
                           className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-[11px] text-gray-800 shadow-sm focus:border-black focus:outline-none focus:ring-1 focus:ring-black"
                         />
                       </div>
@@ -760,96 +758,96 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
 
                   {/* Username (Page ID / Account Username) */}
                   {compPlatform !== "TikTok" && (
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">{currentPlatformMeta.usernameLabel}</label>
-                    <div className="relative">
-                      {compPlatform === "TikTok" && <span className="absolute left-3.5 top-2.5 text-xs text-gray-400 font-bold select-none">@</span>}
-                      <input
-                        type="text"
-                        value={compUsername}
-                        onChange={(e) => setCompUsername(e.target.value)}
-                        placeholder={currentPlatformMeta.usernamePlaceholder}
-                        className={`w-full ${compPlatform === "TikTok" ? "pl-8" : "px-3.5"} py-2.5 bg-white border border-gray-200 rounded-xl text-xs text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all`}
-                      />
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">{currentPlatformMeta.usernameLabel}</label>
+                      <div className="relative">
+                        {compPlatform === "TikTok" && <span className="absolute left-3.5 top-2.5 text-xs text-gray-400 font-bold select-none">@</span>}
+                        <input
+                          type="text"
+                          value={compUsername}
+                          onChange={(e) => setCompUsername(e.target.value)}
+                          placeholder={currentPlatformMeta.usernamePlaceholder}
+                          className={`w-full ${compPlatform === "TikTok" ? "pl-8" : "px-3.5"} py-2.5 bg-white border border-gray-200 rounded-xl text-xs text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all`}
+                        />
+                      </div>
+                      {compPlatform === "Facebook" && (
+                        <p className="text-[9px] text-gray-400 leading-normal">
+                          Ưu tiên nhập Page ID thật của fanpage. Đây là trường backend đang dùng để gọi lại các luồng Facebook.
+                        </p>
+                      )}
                     </div>
-                    {compPlatform === "Facebook" && (
-                      <p className="text-[9px] text-gray-400 leading-normal">
-                        Ưu tiên nhập Page ID thật của fanpage. Đây là trường backend đang dùng để gọi lại các luồng Facebook.
-                      </p>
-                    )}
-                  </div>
                   )}
 
                   {/* Access Token / API Key / Zalo Configs */}
                   {compPlatform !== "TikTok" && (
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">{currentPlatformMeta.tokenLabel}</label>
-                    <div className="relative flex items-center">
-                      <input
-                        type={showCompToken ? "text" : "password"}
-                        required={fbConnectMode === "token" || compPlatform !== "Facebook"}
-                        value={compAccessToken}
-                        onChange={(e) => setCompAccessToken(e.target.value)}
-                        placeholder={currentPlatformMeta.tokenPlaceholder}
-                        className="w-full pl-3.5 pr-10 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-mono text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowCompToken(!showCompToken)}
-                        className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600 cursor-pointer"
-                      >
-                        {showCompToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    </div>
-                    <p className="text-[9px] text-gray-400 leading-normal">{currentPlatformMeta.tokenHelp}</p>
-                    {(compPlatform === "Zalo" || compPlatform === "TikTok") && (
-                      <div className="mt-3 space-y-1">
-                        <label className="text-[11px] font-semibold text-gray-700">Refresh Token (tùy chọn)</label>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">{currentPlatformMeta.tokenLabel}</label>
+                      <div className="relative flex items-center">
                         <input
                           type={showCompToken ? "text" : "password"}
-                          value={compRefreshToken}
-                          onChange={(e) => setCompRefreshToken(e.target.value)}
-                          placeholder="Dán Refresh Token nếu có"
-                          className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-[11px] text-gray-800 shadow-sm focus:border-[#0068ff] focus:outline-none focus:ring-1 focus:ring-[#0068ff]"
+                          required={fbConnectMode === "token" || compPlatform !== "Facebook"}
+                          value={compAccessToken}
+                          onChange={(e) => setCompAccessToken(e.target.value)}
+                          placeholder={currentPlatformMeta.tokenPlaceholder}
+                          className="w-full pl-3.5 pr-10 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-mono text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all"
                         />
-                        <p className="text-[9px] text-gray-400 leading-normal">Nếu Zalo OA của bạn có Refresh Token, hãy nhập để hệ thống tự làm mới token khi sắp hết hạn.</p>
-                        <div className="pt-2 space-y-1">
-                          <label className="text-[11px] font-semibold text-gray-700">Token hết hạn lúc (tùy chọn)</label>
-                          <input
-                            type="datetime-local"
-                            value={compTokenExpiredAt}
-                            onChange={(e) => setCompTokenExpiredAt(e.target.value)}
-                            className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-[11px] text-gray-800 shadow-sm focus:border-[#0068ff] focus:outline-none focus:ring-1 focus:ring-[#0068ff]"
-                          />
-                          <p className="text-[9px] text-gray-400 leading-normal">Nếu bạn biết thời điểm hết hạn của access token hiện tại, hãy lưu để backend chủ động refresh sớm hơn.</p>
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setShowCompToken(!showCompToken)}
+                          className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600 cursor-pointer"
+                        >
+                          {showCompToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
                       </div>
-                    )}
-                    {compPlatform === "TikTok" && (
-                      <div className="mt-3 space-y-3 border-t border-slate-150 pt-3">
-                        <div className="space-y-1">
-                          <label className="text-[11px] font-semibold text-gray-700">TikTok Client Key (tùy chọn)</label>
-                          <input
-                            type="text"
-                            value={compVerifyToken}
-                            onChange={(e) => setCompVerifyToken(e.target.value)}
-                            placeholder="Nhập TikTok Client Key"
-                            className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-[11px] text-gray-800 shadow-sm focus:border-black focus:outline-none focus:ring-1 focus:ring-black"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-[11px] font-semibold text-gray-700">TikTok Client Secret (tùy chọn)</label>
+                      <p className="text-[9px] text-gray-400 leading-normal">{currentPlatformMeta.tokenHelp}</p>
+                      {(compPlatform === "Zalo" || compPlatform === "TikTok") && (
+                        <div className="mt-3 space-y-1">
+                          <label className="text-[11px] font-semibold text-gray-700">Refresh Token (tùy chọn)</label>
                           <input
                             type={showCompToken ? "text" : "password"}
-                            value={compAppSecret}
-                            onChange={(e) => setCompAppSecret(e.target.value)}
-                            placeholder="Nhập TikTok Client Secret"
-                            className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-[11px] text-gray-800 shadow-sm focus:border-black focus:outline-none focus:ring-1 focus:ring-black"
+                            value={compRefreshToken}
+                            onChange={(e) => setCompRefreshToken(e.target.value)}
+                            placeholder="Dán Refresh Token nếu có"
+                            className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-[11px] text-gray-800 shadow-sm focus:border-[#0068ff] focus:outline-none focus:ring-1 focus:ring-[#0068ff]"
                           />
+                          <p className="text-[9px] text-gray-400 leading-normal">Nếu Zalo OA của bạn có Refresh Token, hãy nhập để hệ thống tự làm mới token khi sắp hết hạn.</p>
+                          <div className="pt-2 space-y-1">
+                            <label className="text-[11px] font-semibold text-gray-700">Token hết hạn lúc (tùy chọn)</label>
+                            <input
+                              type="datetime-local"
+                              value={compTokenExpiredAt}
+                              onChange={(e) => setCompTokenExpiredAt(e.target.value)}
+                              className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-[11px] text-gray-800 shadow-sm focus:border-[#0068ff] focus:outline-none focus:ring-1 focus:ring-[#0068ff]"
+                            />
+                            <p className="text-[9px] text-gray-400 leading-normal">Nếu bạn biết thời điểm hết hạn của access token hiện tại, hãy lưu để backend chủ động refresh sớm hơn.</p>
+                          </div>
                         </div>
-                      </div>
-                    )}
-                  </div>
+                      )}
+                      {compPlatform === "TikTok" && (
+                        <div className="mt-3 space-y-3 border-t border-slate-150 pt-3">
+                          <div className="space-y-1">
+                            <label className="text-[11px] font-semibold text-gray-700">TikTok Client Key (tùy chọn)</label>
+                            <input
+                              type="text"
+                              value={compVerifyToken}
+                              onChange={(e) => setCompVerifyToken(e.target.value)}
+                              placeholder="Nhập TikTok Client Key"
+                              className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-[11px] text-gray-800 shadow-sm focus:border-black focus:outline-none focus:ring-1 focus:ring-black"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[11px] font-semibold text-gray-700">TikTok Client Secret (tùy chọn)</label>
+                            <input
+                              type={showCompToken ? "text" : "password"}
+                              value={compAppSecret}
+                              onChange={(e) => setCompAppSecret(e.target.value)}
+                              placeholder="Nhập TikTok Client Secret"
+                              className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-[11px] text-gray-800 shadow-sm focus:border-black focus:outline-none focus:ring-1 focus:ring-black"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </>
               )}
@@ -1051,9 +1049,8 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex gap-3">
                         {/* Platform Icon */}
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0 font-bold ${
-                          item.platform === "TikTok" ? "bg-black" : item.platform === "Facebook" ? "bg-blue-600" : "bg-[#0068ff]"
-                        }`}>
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0 font-bold ${item.platform === "TikTok" ? "bg-black" : item.platform === "Facebook" ? "bg-blue-600" : "bg-[#0068ff]"
+                          }`}>
                           {item.platform === "TikTok" ? "♪" : item.platform === "Facebook" ? "F" : "Z"}
                         </div>
                         <div className="text-left min-w-0">
