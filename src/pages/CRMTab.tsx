@@ -226,8 +226,8 @@ export default function CRMTab() {
           // Kiểm tra xem tin nhắn mới lấy về có thuộc cùng một cuộc hội thoại đang tải không
           const isSameConversation = prev.length > 0 && mappedMsgs.length > 0 &&
             (prev[0].conversationId === mappedMsgs[0].conversationId ||
-             prev[0].id.startsWith("user_") ||
-             prev.some(m => mappedMsgs.some(nm => nm.id === m.id)));
+              prev[0].id.startsWith("user_") ||
+              prev.some(m => mappedMsgs.some(nm => nm.id === m.id)));
 
           if (isSameConversation) {
             // Gộp tin nhắn mới/cập nhật mà không làm mất lịch sử cũ đã cuộn để tải lên
@@ -383,17 +383,17 @@ export default function CRMTab() {
         });
 
         const isMatch = (activeId && msgConvId && activeId === msgConvId) ||
-                        (activeRecipientId && msgSenderId && activeRecipientId === msgSenderId) ||
-                        (activeRecipientId && msgRecipientId && activeRecipientId === msgRecipientId);
+          (activeRecipientId && msgSenderId && activeRecipientId === msgSenderId) ||
+          (activeRecipientId && msgRecipientId && activeRecipientId === msgRecipientId);
 
         if (isMatch) {
           console.log("[FE CRMTab] Match found! Appending message to current chat view.");
-          
+
           // Gửi request ngầm lên server để reset unreadCount về 0 trong DB
           if (activeCust.channel === "zalo") {
-            zaloMessengerService.markRead(activeId).catch(() => {});
+            zaloMessengerService.markRead(activeId).catch(() => { });
           } else {
-            fbMessengerService.markRead(activeId).catch(() => {});
+            fbMessengerService.markRead(activeId).catch(() => { });
           }
 
           const mapped = mapFbMessages([message])[0];
@@ -511,7 +511,7 @@ export default function CRMTab() {
     console.log("[FE CRMTab] Nhân viên chọn khách hàng từ danh sách:", cust);
     setActiveCustomer(cust);
     setChatHistory([]); // Xóa sạch lịch sử chat cũ ngay lập tức để tránh hiển thị nhầm lẫn
-    
+
     // Đặt unreadCount của khách hàng này về 0 ngay lập tức trong local state
     setInboxCustomers((prev) =>
       prev.map((c) => (c.id === cust.id ? { ...c, unreadCount: 0 } : c))
@@ -567,7 +567,7 @@ export default function CRMTab() {
   const triggerAutoCloseWorkflow = (lead: ExtendedLeadCard) => {
     const mockContract = `https://igen-erp.vn/contracts/HD-2026-${lead.id.substring(0, 8) || "X1"}.pdf`;
     const mockPayment = `https://pay.igen-erp.vn/invoice/INV-2026-${lead.id.substring(0, 8) || "X1"}`;
-    
+
     setAutomationModal({
       isOpen: true,
       leadName: lead.customerName,
@@ -598,13 +598,13 @@ export default function CRMTab() {
   const handleCreateLead = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newLeadName.trim()) return;
-    
+
     const val = parseFloat(newLeadValue) || 0;
     const selectedCust = inboxCustomers.find(c => c.id === selectedInboxCustId);
-    const avatarIcon = selectedCust 
+    const avatarIcon = selectedCust
       ? (selectedCust.name.split(" ").filter(Boolean).slice(0, 1).map(part => part[0]?.toUpperCase() || "").join("") || "👤")
       : ["👤", "👨‍💼", "👩‍💼", "👨‍💻", "👩‍💻", "🧘"][Math.floor(Math.random() * 6)];
-    
+
     const newLead: Omit<ExtendedLeadCard, "id"> = {
       customerName: newLeadName.trim(),
       company: newLeadCompany.trim() || "Liên hệ cá nhân mới",
@@ -650,11 +650,11 @@ export default function CRMTab() {
     try {
       await crmService.updateLead(id, { status: newStatus });
       const updatedLead = { ...lead, status: newStatus };
-      
+
       if (newStatus === "hot" && lead.lastInteraction === "Sắp chốt HD") {
         triggerAutoCloseWorkflow(updatedLead);
       }
-      
+
       syncLeadTagToInbox(lead.customerName, newStatus, lead.lastInteraction);
     } catch (err) {
       toast.error("Không thể cập nhật trạng thái khách hàng.");
@@ -792,7 +792,7 @@ export default function CRMTab() {
   return (
     <div className="flex flex-col h-full bg-white overflow-hidden rounded-3xl border border-slate-100 shadow-xl shadow-slate-100/50" id="crm_tab_wrapper">
       <h1 className="sr-only">Hệ thống Sales CRM - {subTab}</h1>
-      
+
       {/* Sub tabs selector bar */}
       <div className="border-b border-slate-100 bg-[#f8fafc] p-2.5 text-xs flex justify-between shrink-0" id="crm_sub_tabs_switch">
         <div className="flex gap-2">
@@ -800,19 +800,14 @@ export default function CRMTab() {
             <button
               key={tab}
               onClick={() => setSubTab(tab as CRMSubTabType)}
-              className={`px-3.5 py-2 rounded-xl border font-bold uppercase transition-all tracking-wide text-[10px] cursor-pointer ${
-                subTab === tab 
-                  ? "bg-slate-900 text-white border-slate-900 shadow-sm" 
+              className={`px-3.5 py-2 rounded-xl border font-bold uppercase transition-all tracking-wide text-[10px] cursor-pointer ${subTab === tab
+                  ? "bg-slate-900 text-white border-slate-900 shadow-sm"
                   : "bg-white text-slate-500 border-slate-200 hover:bg-slate-50"
-              }`}
+                }`}
             >
               {tab}
             </button>
           ))}
-        </div>
-        <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 rounded-full border border-emerald-200 text-emerald-800 font-mono text-[9px] font-bold">
-          <Activity className="h-3.5 w-3.5 text-emerald-500 animate-pulse" />
-          <span>Omni-Channel Lead Routing Active</span>
         </div>
       </div>
 
@@ -857,10 +852,10 @@ export default function CRMTab() {
       {showCreateLeadModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-100 flex flex-col gap-5 text-left animate-fade-in-up">
-            
+
             <div className="flex justify-between items-center pb-2 border-b border-slate-100 shrink-0">
               <h4 className="font-extrabold text-slate-800 text-sm uppercase tracking-wide">Thêm Cơ Hội Bán Hàng Mới</h4>
-              <button 
+              <button
                 onClick={() => {
                   setShowCreateLeadModal(false);
                   setSelectedInboxCustId("");
@@ -874,7 +869,7 @@ export default function CRMTab() {
             </div>
 
             <form onSubmit={handleCreateLead} className="space-y-4">
-              
+
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Liên kết với khách hàng từ Inbox (Tùy chọn)</label>
                 <select
@@ -904,9 +899,9 @@ export default function CRMTab() {
 
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Tên khách hàng tiềm năng *</label>
-                <input 
-                  type="text" 
-                  placeholder="Ví dụ: Lê Thị B..." 
+                <input
+                  type="text"
+                  placeholder="Ví dụ: Lê Thị B..."
                   required
                   className="w-full px-3.5 py-2.5 border border-slate-200 bg-slate-50/50 rounded-xl text-xs focus:bg-white outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all duration-200"
                   value={newLeadName}
@@ -916,9 +911,9 @@ export default function CRMTab() {
 
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Tên doanh nghiệp / Công ty</label>
-                <input 
-                  type="text" 
-                  placeholder="Ví dụ: Công ty TNHH ABC..." 
+                <input
+                  type="text"
+                  placeholder="Ví dụ: Công ty TNHH ABC..."
                   className="w-full px-3.5 py-2.5 border border-slate-200 bg-slate-50/50 rounded-xl text-xs focus:bg-white outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all duration-200"
                   value={newLeadCompany}
                   onChange={(e) => setNewLeadCompany(e.target.value)}
@@ -927,9 +922,9 @@ export default function CRMTab() {
 
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Dự toán giá trị (đ)</label>
-                <input 
-                  type="number" 
-                  placeholder="Ví dụ: 15000000" 
+                <input
+                  type="number"
+                  placeholder="Ví dụ: 15000000"
                   className="w-full px-3.5 py-2.5 border border-slate-200 bg-slate-50/50 rounded-xl text-xs font-mono focus:bg-white outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all duration-200"
                   value={newLeadValue}
                   onChange={(e) => setNewLeadValue(e.target.value)}
@@ -965,13 +960,13 @@ export default function CRMTab() {
               </div>
 
               <div className="flex gap-3 pt-3 border-t border-slate-100">
-                <button 
+                <button
                   type="submit"
                   className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-md hover:shadow-lg active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   Lưu cơ hội
                 </button>
-                <button 
+                <button
                   type="button"
                   onClick={() => setShowCreateLeadModal(false)}
                   className="px-5 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
@@ -1028,7 +1023,7 @@ export default function CRMTab() {
             </p>
 
             <div className="flex gap-2.5 mt-2">
-              <button 
+              <button
                 onClick={() => {
                   setAutomationModal(null);
                   setSubTab("OMNI-INBOX CHAT");
@@ -1038,7 +1033,7 @@ export default function CRMTab() {
                 <MessageSquare className="h-4 w-4" />
                 Xem chat
               </button>
-              <button 
+              <button
                 onClick={() => setAutomationModal(null)}
                 className="px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
               >
