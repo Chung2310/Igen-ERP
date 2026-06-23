@@ -15,7 +15,8 @@ import {
   Mail,
   UserPlus,
   Maximize2,
-  Minimize2
+  Minimize2,
+  Edit
 } from "lucide-react";
 import { EmployeeNode, UserProfile, TrainingCourse } from "../../types";
 import { authService, getAccessToken } from "../../services/authService";
@@ -167,7 +168,7 @@ export default function OrgChartTab({
     }
   };
 
-  const [filterDivision, setFilterDivision] = useState<string>("Tất cả");
+   const [filterDivision, setFilterDivision] = useState<string>("Tất cả");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [collapsedNodes, setCollapsedNodes] = useState<Set<string>>(new Set());
   const [selectedEmp, setSelectedEmp] = useState<EmployeeNode | null>(null);
@@ -182,6 +183,123 @@ export default function OrgChartTab({
   const [addDepartment, setAddDepartment] = useState("Phòng Kỹ Thuật");
   const [addParentId, setAddParentId] = useState("");
   const [addRole, setAddRole] = useState<"user" | "manager">("user");
+
+  // Edit Employee States
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editRoleText, setEditRoleText] = useState("");
+  const [editDivision, setEditDivision] = useState("");
+  const [editDepartment, setEditDepartment] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editLevel, setEditLevel] = useState<number>(4);
+  const [editParentId, setEditParentId] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Reset editing state when selected employee changes
+  useEffect(() => {
+    setIsEditing(false);
+  }, [selectedEmp?.id]);
+
+  const startEditing = () => {
+    if (!selectedEmp) return;
+    setEditName(selectedEmp.name || "");
+    setEditRoleText(selectedEmp.role || "");
+    setEditDivision(selectedEmp.division || "Khối Vận Hành");
+    setEditDepartment(selectedEmp.department || "");
+    setEditEmail(selectedEmp.email || "");
+    setEditPhone(selectedEmp.phone && selectedEmp.phone !== "Chưa cập nhật" ? selectedEmp.phone : "");
+    setEditLevel(selectedEmp.level || 4);
+    setEditParentId(selectedEmp.parentId || "");
+    setIsEditing(true);
+  };
+
+  const handleEditEmployeeSave = async () => {
+    if (!selectedEmp) return;
+
+    if (!editName.trim()) {
+      toast.warning("Vui lòng nhập đầy đủ Họ tên!");
+      return;
+    }
+
+    // Kiểm tra định dạng Số điện thoại Việt Nam (nếu nhập)
+    if (editPhone.trim()) {
+      const vnPhoneRegex = /^(0|\+84|84)(3|5|7|8|9)[0-9]{8}$/;
+      if (!vnPhoneRegex.test(editPhone.trim().replace(/\s+/g, ""))) {
+        toast.warning("Số điện thoại Việt Nam không đúng định dạng (ví dụ: 0987654321)!");
+        return;
+      }
+    }
+
+    // Kiểm tra trùng số điện thoại
+    if (editPhone.trim()) {
+      const phoneNormalized = editPhone.trim().replace(/\s+/g, "");
+      const duplicatePhone = usersList.find(u => u.uid !== selectedEmp.id && u.phone && u.phone.replace(/\s+/g, "") === phoneNormalized);
+      if (duplicatePhone) {
+        toast.error(`❌ Số điện thoại "${editPhone.trim()}" đã được sử dụng bởi nhân sự khác!`);
+        return;
+      }
+    }
+
+    setIsSaving(true);
+    try {
+      const updateData = {
+        displayName: editName.trim(),
+        jobTitle: editRoleText.trim(),
+        division: editDivision,
+        department: editDepartment.trim(),
+        phone: editPhone.trim() || "",
+        parentId: editParentId || null,
+      };
+
+      await authService.updateUser(selectedEmp.id, updateData);
+      toast.success("Cập nhật thông tin nhân sự thành công!");
+      setIsEditing(false);
+      await fetchUsers();
+      
+      // Cập nhật selectedEmp cục bộ
+      const updatedNode = {
+        ...selectedEmp,
+        name: updateData.displayName,
+        role: updateData.jobTitle,
+        division: updateData.division,
+        department: updateData.department,
+        phone: updateData.phone || "Chưa cập nhật",
+        parentId: updateData.parentId || undefined,
+      };
+      setSelectedEmp(updatedNode);
+    } catch (err) {
+      console.error(err);
+      toast.error("Lỗi khi cập nhật thông tin nhân sự.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const canEditEmployee = (selectedEmpId: string): boolean => {
+    if (!userProfile) return false;
+    if (selectedEmpId === userProfile.uid) return false; // Không tự chỉnh sửa chính mình ở đây
+
+    const selectedUserRaw = usersList.find(u => u.uid === selectedEmpId);
+    if (!selectedUserRaw) return false;
+
+    if (userProfile.role === "superadmin") return true;
+    if (selectedUserRaw.role === "superadmin") return false;
+
+    if (selectedUserRaw.companyCode !== userProfile.companyCode) return false;
+
+    const rolesHierarchy = {
+      superadmin: 4,
+      admin: 3,
+      manager: 2,
+      user: 1
+    };
+
+    const currentUserWeight = rolesHierarchy[userProfile.role as keyof typeof rolesHierarchy] || 0;
+    const selectedUserWeight = rolesHierarchy[selectedUserRaw.role as keyof typeof rolesHierarchy] || 0;
+
+    return currentUserWeight >= selectedUserWeight;
+  };
 
   const toggleCollapse = (nodeId: string) => {
     setCollapsedNodes(prev => {
@@ -863,85 +981,213 @@ export default function OrgChartTab({
                 <span className="text-xs font-bold font-mono text-indigo-800 uppercase tracking-wider">Đang kết nối database...</span>
               </div>
             ) : selectedEmp ? (
-              <div className="space-y-4 text-left">
-                <div className="text-center pb-4 border-b border-gray-200">
-                  <div className="mb-2 mx-auto flex justify-center">{renderAvatar(selectedEmp.avatar, "w-20 h-20", "text-4xl")}</div>
-                  <h3 className="font-bold text-base text-slate-800 font-sans leading-snug">{selectedEmp.name}</h3>
-                  <p className="text-[10px] text-indigo-650 font-bold font-mono uppercase tracking-wide mt-1">{selectedEmp.role}</p>
-                  <span className={`inline-block text-[9px] font-bold border px-2 py-0.5 rounded-md uppercase tracking-wider font-mono mt-2 ${getDivisionBadgeStyles(selectedEmp.division)}`}>
-                    {selectedEmp.division}
-                  </span>
-                </div>
-
-                <div className="space-y-3.5 text-xs text-slate-650">
-                  <div className="flex items-center gap-2.5">
-                    <Building2 className="w-4 h-4 text-gray-400 shrink-0" />
-                    <div>
-                      <span className="block text-[8px] font-bold text-gray-400 uppercase tracking-wider">Phòng ban</span>
-                      <strong className="text-slate-800">{selectedEmp.department}</strong>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2.5">
-                    <Mail className="w-4 h-4 text-gray-400 shrink-0" />
-                    <div>
-                      <span className="block text-[8px] font-bold text-gray-400 uppercase tracking-wider">Email liên lạc</span>
-                      <strong className="text-slate-800">{selectedEmp.email}</strong>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2.5">
-                    <Phone className="w-4 h-4 text-gray-400 shrink-0" />
-                    <div>
-                      <span className="block text-[8px] font-bold text-gray-400 uppercase tracking-wider">Số điện thoại</span>
-                      <strong className="text-slate-800">{selectedEmp.phone}</strong>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2.5">
-                    <Briefcase className="w-4 h-4 text-gray-400 shrink-0" />
-                    <div>
-                      <span className="block text-[8px] font-bold text-gray-400 uppercase tracking-wider">Cấp bậc sơ đồ</span>
-                      <strong className="text-slate-800">Cấp {selectedEmp.level} (Tier {selectedEmp.level})</strong>
-                    </div>
-                  </div>
-                  {selectedEmp.parentId && (
-                    <div className="flex items-center gap-2.5">
-                      <Users className="w-4 h-4 text-gray-400 shrink-0" />
+              isEditing ? (
+                <div className="space-y-4 text-left">
+                  <div className="text-center pb-4 border-b border-gray-200">
+                    <div className="mb-2 mx-auto flex justify-center">{renderAvatar(selectedEmp.avatar, "w-20 h-20", "text-4xl")}</div>
+                    <div className="space-y-2 text-left">
                       <div>
-                        <span className="block text-[8px] font-bold text-gray-400 uppercase tracking-wider">Quản lý trực tiếp</span>
-                        <strong className="text-slate-850 text-indigo-700">{employees.find(e => e.id === selectedEmp.parentId)?.name || 'Quản lý cấp trên'}</strong>
+                        <label className="block text-[8px] font-bold text-gray-400 uppercase tracking-wider mb-1">Họ tên *</label>
+                        <input
+                          type="text"
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          className="w-full px-3 py-1.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[8px] font-bold text-gray-400 uppercase tracking-wider mb-1">Chức danh</label>
+                        <input
+                          type="text"
+                          value={editRoleText}
+                          onChange={(e) => setEditRoleText(e.target.value)}
+                          className="w-full px-3 py-1.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[8px] font-bold text-gray-400 uppercase tracking-wider mb-1">Phân khối</label>
+                        <select
+                          value={editDivision}
+                          onChange={(e) => setEditDivision(e.target.value)}
+                          className="w-full p-1.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer"
+                        >
+                          <option value="Khối Kỹ Thuật">Khối Kỹ Thuật</option>
+                          <option value="Khối Vận Hành">Khối Vận Hành</option>
+                          <option value="Khối Marketing">Khối Marketing</option>
+                          <option value="Khối Sales">Khối Sales</option>
+                        </select>
                       </div>
                     </div>
-                  )}
+                  </div>
 
-                  {employees.some(e => e.parentId === selectedEmp.id) && (
-                    <div className="border-t pt-3 mt-1">
-                      <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 font-mono">Tổng nhân sự ({employees.filter(e => e.parentId === selectedEmp.id).length}):</span>
-                      <div className="flex flex-col gap-1.5 max-h-[160px] overflow-y-auto pr-1">
-                        {employees.filter(e => e.parentId === selectedEmp.id).map(sub => (
-                          <div key={sub.id} className="flex items-center gap-2 p-1.5 bg-white border border-gray-150 rounded-lg text-[11px] hover:border-indigo-200 transition-colors">
-                            {renderAvatar(sub.avatar, "w-6 h-6", "text-xs")}
-                            <div className="min-w-0 flex-1">
-                              <span className="block font-bold text-slate-850 truncate">{sub.name}</span>
-                              <span className="block text-[8px] text-slate-400 truncate">{sub.role}</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                  <div className="space-y-3.5 text-xs text-slate-650">
+                    <div>
+                      <label className="block text-[8px] font-bold text-gray-400 uppercase tracking-wider mb-1">Phòng ban</label>
+                      <input
+                        type="text"
+                        value={editDepartment}
+                        onChange={(e) => setEditDepartment(e.target.value)}
+                        className="w-full px-3 py-1.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                      />
                     </div>
-                  )}
-                </div>
+                    <div>
+                      <label className="block text-[8px] font-bold text-gray-400 uppercase tracking-wider mb-1">Email liên lạc (Cố định)</label>
+                      <input
+                        type="email"
+                        value={editEmail}
+                        disabled
+                        className="w-full px-3 py-1.5 border border-gray-200 rounded-xl text-xs outline-none bg-gray-100 text-gray-400 cursor-not-allowed select-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[8px] font-bold text-gray-400 uppercase tracking-wider mb-1">Số điện thoại</label>
+                      <input
+                        type="text"
+                        value={editPhone}
+                        onChange={(e) => setEditPhone(e.target.value)}
+                        className="w-full px-3 py-1.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[8px] font-bold text-gray-400 uppercase tracking-wider mb-1">Quản lý trực tiếp</label>
+                      <select
+                        value={editParentId}
+                        onChange={(e) => setEditParentId(e.target.value)}
+                        className="w-full p-1.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer"
+                      >
+                        <option value="">Không phân công</option>
+                        {employees
+                          .filter(emp => {
+                            const checkIsDescendant = (pId: string, cId: string): boolean => {
+                              const child = employees.find(e => e.id === cId);
+                              if (!child || !child.parentId) return false;
+                              if (child.parentId === pId) return true;
+                              return checkIsDescendant(pId, child.parentId);
+                            };
+                            return emp.id !== selectedEmp.id && !checkIsDescendant(selectedEmp.id, emp.id);
+                          })
+                          .map(emp => (
+                            <option key={emp.id} value={emp.id}>{emp.name} ({emp.role})</option>
+                          ))
+                        }
+                      </select>
+                    </div>
+                  </div>
 
-                {isManager && canDeleteEmployee(selectedEmp.id) && (
-                  <div className="pt-4 border-t border-gray-200">
+                  <div className="pt-4 border-t border-gray-200 flex gap-2">
                     <button
-                      onClick={() => handleDeleteEmployeeSubmit(selectedEmp.id)}
-                      className="w-full py-2 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                      type="button"
+                      onClick={() => setIsEditing(false)}
+                      disabled={isSaving}
+                      className="flex-1 py-2 border border-gray-200 hover:bg-slate-100 text-gray-700 rounded-xl text-xs font-bold transition-colors cursor-pointer text-center"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      Xóa Khỏi Hệ Thống
+                      Hủy
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleEditEmployeeSave}
+                      disabled={isSaving}
+                      className="flex-1 py-2 bg-indigo-650 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer text-center flex items-center justify-center gap-1.5"
+                    >
+                      {isSaving ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          Đang lưu...
+                        </>
+                      ) : "Lưu"}
                     </button>
                   </div>
-                )}
-              </div>
+                </div>
+              ) : (
+                <div className="space-y-4 text-left">
+                  <div className="text-center pb-4 border-b border-gray-200">
+                    <div className="mb-2 mx-auto flex justify-center">{renderAvatar(selectedEmp.avatar, "w-20 h-20", "text-4xl")}</div>
+                    <h3 className="font-bold text-base text-slate-800 font-sans leading-snug">{selectedEmp.name}</h3>
+                    <p className="text-[10px] text-indigo-650 font-bold font-mono uppercase tracking-wide mt-1">{selectedEmp.role}</p>
+                    <span className={`inline-block text-[9px] font-bold border px-2 py-0.5 rounded-md uppercase tracking-wider font-mono mt-2 ${getDivisionBadgeStyles(selectedEmp.division)}`}>
+                      {selectedEmp.division}
+                    </span>
+                  </div>
+
+                  <div className="space-y-3.5 text-xs text-slate-650">
+                    <div className="flex items-center gap-2.5">
+                      <Building2 className="w-4 h-4 text-gray-400 shrink-0" />
+                      <div>
+                        <span className="block text-[8px] font-bold text-gray-400 uppercase tracking-wider">Phòng ban</span>
+                        <strong className="text-slate-800">{selectedEmp.department}</strong>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2.5">
+                      <Mail className="w-4 h-4 text-gray-400 shrink-0" />
+                      <div>
+                        <span className="block text-[8px] font-bold text-gray-400 uppercase tracking-wider">Email liên lạc</span>
+                        <strong className="text-slate-800">{selectedEmp.email}</strong>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2.5">
+                      <Phone className="w-4 h-4 text-gray-400 shrink-0" />
+                      <div>
+                        <span className="block text-[8px] font-bold text-gray-400 uppercase tracking-wider">Số điện thoại</span>
+                        <strong className="text-slate-800">{selectedEmp.phone}</strong>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2.5">
+                      <Briefcase className="w-4 h-4 text-gray-400 shrink-0" />
+                      <div>
+                        <span className="block text-[8px] font-bold text-gray-400 uppercase tracking-wider">Cấp bậc sơ đồ</span>
+                        <strong className="text-slate-800">Cấp {selectedEmp.level} (Tier {selectedEmp.level})</strong>
+                      </div>
+                    </div>
+                    {selectedEmp.parentId && (
+                      <div className="flex items-center gap-2.5">
+                        <Users className="w-4 h-4 text-gray-400 shrink-0" />
+                        <div>
+                          <span className="block text-[8px] font-bold text-gray-400 uppercase tracking-wider">Quản lý trực tiếp</span>
+                          <strong className="text-slate-850 text-indigo-700">{employees.find(e => e.id === selectedEmp.parentId)?.name || 'Quản lý cấp trên'}</strong>
+                        </div>
+                      </div>
+                    )}
+
+                    {employees.some(e => e.parentId === selectedEmp.id) && (
+                      <div className="border-t pt-3 mt-1">
+                        <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 font-mono">Tổng nhân sự ({employees.filter(e => e.parentId === selectedEmp.id).length}):</span>
+                        <div className="flex flex-col gap-1.5 max-h-[160px] overflow-y-auto pr-1">
+                          {employees.filter(e => e.parentId === selectedEmp.id).map(sub => (
+                            <div key={sub.id} className="flex items-center gap-2 p-1.5 bg-white border border-gray-150 rounded-lg text-[11px] hover:border-indigo-200 transition-colors">
+                              {renderAvatar(sub.avatar, "w-6 h-6", "text-xs")}
+                              <div className="min-w-0 flex-1">
+                                <span className="block font-bold text-slate-850 truncate">{sub.name}</span>
+                                <span className="block text-[8px] text-slate-400 truncate">{sub.role}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="pt-4 border-t border-gray-200 space-y-2">
+                    {canEditEmployee(selectedEmp.id) && (
+                      <button
+                        onClick={startEditing}
+                        className="w-full py-2 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                      >
+                        <Edit className="w-3.5 h-3.5" />
+                        Chỉnh Sửa Thông Tin
+                      </button>
+                    )}
+                    {isManager && canDeleteEmployee(selectedEmp.id) && (
+                      <button
+                        onClick={() => handleDeleteEmployeeSubmit(selectedEmp.id)}
+                        className="w-full py-2 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Xóa Khỏi Hệ Thống
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )
             ) : (
               <div className="h-full flex flex-col items-center justify-center py-20 text-center select-none text-gray-400">
                 <Users className="h-10 w-10 text-gray-300 mb-3" />

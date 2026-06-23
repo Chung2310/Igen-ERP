@@ -229,18 +229,23 @@ export const schedulerService = {
 
               const tiktokPostId = publishResult.data?.postId || publishResult.data?.publishId || `tiktok_post_${Date.now()}`;
               const tiktokShareUrl = publishResult.data?.shareUrl || "";
+              const isPendingTikTok = publishResult.status === "pending";
 
               await MarketingContentModel.findByIdAndUpdate(cardId, {
-                status: "published",
-                publishedAt: new Date(),
+                status: isPendingTikTok ? "processing" : "published",
+                publishedAt: isPendingTikTok ? null : new Date(),
                 tiktokPostId,
                 tiktokShareUrl,
                 publishError: null,
               });
 
               console.log(`[Scheduler Service] Đăng bài TikTok thành công cho Card: ${cardId}`);
-              successCount++;
-              details.push({ cardId, title: card.title, channel, status: "success" });
+              if (isPendingTikTok) {
+                details.push({ cardId, title: card.title, channel, status: "pending" });
+              } else {
+                successCount++;
+                details.push({ cardId, title: card.title, channel, status: "success" });
+              }
 
             } else {
               throw new Error(`Kênh đăng tải "${channel}" chưa được hỗ trợ đăng tự động.`);

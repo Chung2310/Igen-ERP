@@ -178,7 +178,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const finalIntegration = { ...integration };
 
     try {
-      if (!integration.isMock) {
+      const hasAccessToken = !!String(integration.pageAccessToken || "").trim();
+      if (!integration.isMock && hasAccessToken) {
         console.log("[iGen FB Connect] Xác thực kết nối qua Express Backend...", {
           pageId: integration.pageId,
         });
@@ -239,7 +240,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const finalIntegration = { ...integration };
 
     try {
-      if (!integration.isMock) {
+      const hasAccessToken = !!String(integration.accessToken || "").trim();
+      if (!integration.isMock && hasAccessToken) {
         console.log("[iGen TikTok Connect] Đang xác thực với n8n...");
         const response = await fetch("/api/v1/tiktok/validate-token", {
           method: "POST",
@@ -264,12 +266,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         finalIntegration.avatarUrl = result.avatarUrl;
       }
 
+      if (!hasAccessToken) {
+        finalIntegration.isConnected = false;
+      }
+
       const updatedProfile = await authService.updateProfile({
         tiktokIntegration: finalIntegration
       });
       setUser(updatedProfile as any);
       setUserProfile(updatedProfile);
-      toast.success("Kết nối TikTok thành công!");
+      toast.success(hasAccessToken ? "Kết nối TikTok thành công!" : "Đã lưu cấu hình app TikTok.");
     } catch (error: any) {
       console.error("[iGen TikTok Connect] Lỗi kết nối:", error);
       toast.error(error.message || "Không thể kết nối TikTok. Vui lòng kiểm tra lại.");

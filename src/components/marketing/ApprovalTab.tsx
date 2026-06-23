@@ -8,6 +8,7 @@ import CardDetailDrawer from "./CardDetailDrawer";
 
 interface ApprovalTabProps {
   userProfile: any;
+  tiktokIntegration?: any;
   isUserRole: boolean;
   approvalCards: ContentApprovalCard[];
   setApprovalCards: React.Dispatch<React.SetStateAction<ContentApprovalCard[]>>;
@@ -26,6 +27,7 @@ interface ApprovalTabProps {
 
 export default function ApprovalTab({
   userProfile,
+  tiktokIntegration,
   isUserRole,
   approvalCards,
   setApprovalCards,
@@ -159,6 +161,7 @@ export default function ApprovalTab({
                   onGenerateMedia={(c, type) => handleInitAIGeneration(c, type)}
                   onOpenDetail={() => setSelectedDetailCard(card)}
                   onPublishToPlatform={onPublishToPlatform}
+                  isPublishingTikTok={publishingTikTokId === card.id}
                   isPublishing={isPublishing}
                 />
               ))
@@ -185,7 +188,7 @@ export default function ApprovalTab({
                   onPrevStatus={() => updateCardStatus(card.id, "approved")}
                   onDelete={() => handleDeleteCard(card.id)}
                   fbIntegration={userProfile?.facebookIntegration}
-                  tiktokIntegration={userProfile?.tiktokIntegration}
+                  tiktokIntegration={tiktokIntegration}
                   onPreviewMedia={(type, url) => handleOpenLightbox(card, type, url)}
                   onGenerateMedia={(c, type) => handleInitAIGeneration(c, type)}
                   onPublishToTikTok={() => handlePublishToTikTok(card)}
@@ -236,7 +239,7 @@ export default function ApprovalTab({
         onPreviewMedia={(type, url) => handleOpenLightbox(activeDrawerCard!, type, url)}
         onGenerateMedia={handleInitAIGeneration}
         fbIntegration={userProfile?.facebookIntegration}
-        tiktokIntegration={userProfile?.tiktokIntegration}
+        tiktokIntegration={tiktokIntegration}
         onPublishToTikTok={handlePublishToTikTok}
         isPublishingTikTok={publishingTikTokId === activeDrawerCard?.id}
         setSchedulingCard={setSchedulingCard}
