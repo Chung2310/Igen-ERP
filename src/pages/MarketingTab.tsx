@@ -68,6 +68,7 @@ export default function MarketingTab() {
   const [availableIntegrations, setAvailableIntegrations] = useState<SocialIntegration[]>([]);
   const [scheduleIntegrationId, setScheduleIntegrationId] = useState("");
   const [loadingIntegrationsForSchedule, setLoadingIntegrationsForSchedule] = useState(false);
+  const [companySocialIntegrations, setCompanySocialIntegrations] = useState<SocialIntegration[]>([]);
 
   // Shared Approval Cards State
   const [approvalCards, setApprovalCards] = useState<ContentApprovalCard[]>([]);
@@ -87,6 +88,52 @@ export default function MarketingTab() {
 
     return () => unsubscribe();
   }, [userProfile?.uid, userProfile?.role]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadCompanySocialIntegrations = async () => {
+      try {
+        const list = await socialIntegrationService.getIntegrations();
+        if (!cancelled) {
+          setCompanySocialIntegrations(list.filter((item) => item.isConnected));
+        }
+      } catch (error) {
+        console.error("Khong the tai kenh doanh nghiep cho marketing publish:", error);
+      }
+    };
+
+    void loadCompanySocialIntegrations();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const companyTikTokIntegration =
+    companySocialIntegrations.find((item) => item.platform === "TikTok" && item.isConnected) || null;
+  const effectiveTikTokIntegration = userProfile?.tiktokIntegration?.isConnected
+    ? {
+        isConnected: true,
+        username: userProfile.tiktokIntegration.username,
+        displayName: userProfile.tiktokIntegration.displayName,
+        accessToken: userProfile.tiktokIntegration.accessToken,
+        privacyLevel: userProfile.tiktokIntegration.privacyLevel,
+        isMock: userProfile.tiktokIntegration.isMock,
+        source: "personal" as const,
+      }
+    : companyTikTokIntegration
+      ? {
+          isConnected: true,
+          username: companyTikTokIntegration.username || "",
+          displayName: companyTikTokIntegration.displayName,
+          accessToken: companyTikTokIntegration.accessToken,
+          privacyLevel: "SELF_ONLY",
+          isMock: companyTikTokIntegration.isMock,
+          integrationId: companyTikTokIntegration._id,
+          source: "company" as const,
+        }
+      : null;
 
   // Load integrations dynamically when a card is selected for scheduling
   useEffect(() => {
@@ -231,7 +278,7 @@ export default function MarketingTab() {
   };
 
   const handlePublishToTikTok = async (card: ContentApprovalCard) => {
-    const tiktok = userProfile?.tiktokIntegration;
+    const tiktok = effectiveTikTokIntegration;
     if (!tiktok?.isConnected) {
       toast.error("Chưa kết nối TikTok. Vui lòng vào Cài đặt → Liên kết MXH để kết nối.");
       return;
@@ -241,7 +288,7 @@ export default function MarketingTab() {
       return;
     }
     setPublishingTikTokId(card.id);
-    const integrationId = card.integrationId;
+    const integrationId = card.integrationId || tiktok.integrationId;
     const accessToken = tiktok.accessToken;
     const username = tiktok.username;
     try {
@@ -490,6 +537,7 @@ export default function MarketingTab() {
           {subTab === "DUYỆT NỘI DUNG" && (
             <ApprovalTab
               userProfile={userProfile}
+              tiktokIntegration={effectiveTikTokIntegration}
               isUserRole={isUserRole}
               approvalCards={approvalCards}
               setApprovalCards={setApprovalCards}

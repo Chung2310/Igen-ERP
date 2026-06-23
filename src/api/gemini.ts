@@ -377,6 +377,19 @@ export const geminiApi = {
     return response.json();
   },
 
+  async analyzeVideoStyle(videoUrl: string): Promise<{ status: string; extractedPrompt: string }> {
+    const headers = await getHeaders(true);
+    const response = await fetch('/api/v1/gemini/analyze-video-style', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ videoUrl }),
+    });
+    if (!response.ok) {
+      await handleErrorResponse(response, 'Lỗi khi phân tích phong cách video mẫu');
+    }
+    return response.json();
+  },
+
   async getMediaHistory(type: "image" | "video" | "voice"): Promise<{ status: string; history: any[] }> {
     const headers = await getHeaders(false);
     const response = await fetch(`/api/v1/gemini/media-history?type=${type}`, {

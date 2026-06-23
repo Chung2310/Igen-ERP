@@ -7,6 +7,7 @@ import { requireAuth, requirePermission } from "../middleware/auth";
 export const tiktokRouter = Router();
 
 tiktokRouter.post("/webhook", tiktokController.receiveWebhook as any);
+tiktokRouter.get("/oauth/callback", tiktokController.oauthCallback as any);
 
 const publishSchema = {
   body: Joi.object({
@@ -36,6 +37,13 @@ const creatorInfoSchema = {
     accessToken: Joi.string().required(),
   }),
 };
+
+tiktokRouter.get(
+  "/oauth/start",
+  requireAuth as any,
+  requirePermission("marketing:post") as any,
+  tiktokController.startOAuth as any
+);
 
 tiktokRouter.post(
   "/publish",

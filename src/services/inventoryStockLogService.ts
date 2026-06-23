@@ -18,6 +18,15 @@ export type StockLogCreateInput = {
 
 export type StockLogUpdateInput = StockLogCreateInput & { id: string };
 
+function toIsoDateString(value?: string) {
+  if (!value) {
+    return new Date().toISOString();
+  }
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString();
+}
+
 export const inventoryStockLogService = {
   subscribe(callback: (logs: StockLog[]) => void, onError?: (error: unknown) => void) {
     const fetchLogs = async () => {
@@ -34,6 +43,13 @@ export const inventoryStockLogService = {
         const logs = (json.data || []).map((item: any) => ({
           ...item,
           id: item._id,
+          title: typeof item.title === "string" ? item.title : "",
+          notes: typeof item.notes === "string" ? item.notes : "",
+          operatorName: typeof item.operatorName === "string" ? item.operatorName : "",
+          createdAt:
+            typeof item.createdAt === "string"
+              ? item.createdAt
+              : new Date(item.createdAt || Date.now()).toISOString(),
         }));
         callback(logs);
       } catch (err) {
@@ -68,7 +84,7 @@ export const inventoryStockLogService = {
           operatorName: input.operatorName,
           notes: input.notes,
           status: input.status,
-          createdAt: input.createdAt || new Date().toLocaleString("vi-VN"),
+          createdAt: toIsoDateString(input.createdAt),
         }),
       });
 
@@ -135,7 +151,7 @@ export const inventoryStockLogService = {
         operatorName: input.operatorName,
         notes: input.notes,
         status: input.status,
-        createdAt: input.createdAt || new Date().toLocaleString("vi-VN"),
+        createdAt: toIsoDateString(input.createdAt),
       };
 
       let res;

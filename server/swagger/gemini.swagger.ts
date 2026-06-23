@@ -224,6 +224,42 @@ export const geminiSwagger = {
           }
         }
       }
+    },
+    "/api/v1/gemini/analyze-video-style": {
+      post: {
+        summary: "Phân tích phong cách dựng và trích xuất kịch bản từ video mẫu",
+        tags: ["Gemini"],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  videoUrl: { type: "string", example: "https://res.cloudinary.com/.../video.mp4" }
+                },
+                required: ["videoUrl"]
+              }
+            }
+          }
+        },
+        responses: {
+          200: {
+            description: "Thành công",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    status: { type: "string" },
+                    extractedPrompt: { type: "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
 };

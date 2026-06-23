@@ -3,7 +3,8 @@ import { Document } from "mongoose";
 export interface ILesson {
   title: string;
   url: string;
-  type: "youtube" | "document" | "other";
+  type: "youtube" | "document" | "other" | "text" | "video";
+  content?: string;
 }
 
 export interface IQuizQuestion {
