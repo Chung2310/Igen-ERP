@@ -498,22 +498,25 @@ async function resolveOAuthClientCredentials(params: {
   integrationId?: string;
 }) {
   if (params.target === "company") {
-    if (!params.integrationId) {
-      throw new Error("Hay luu cau hinh app TikTok doanh nghiep truoc khi ket noi.");
+    let clientKey = "";
+    let clientSecret = "";
+
+    if (params.integrationId) {
+      const integration = await SocialIntegrationModel.findById(params.integrationId).lean();
+      if (integration) {
+        if (integration.companyCode !== params.companyCode) {
+          throw new Error("Ban khong co quyen ket noi kenh TikTok cua doanh nghiep khac.");
+        }
+        clientKey = String(integration.verifyToken || "").trim();
+        clientSecret = String(integration.appSecret || "").trim();
+      }
     }
 
-    const integration = await SocialIntegrationModel.findById(params.integrationId).lean();
-    if (!integration) {
-      throw new Error("Khong tim thay kenh TikTok doanh nghiep.");
-    }
-    if (integration.companyCode !== params.companyCode) {
-      throw new Error("Ban khong co quyen ket noi kenh TikTok cua doanh nghiep khac.");
-    }
+    if (!clientKey) clientKey = getTikTokClientKey();
+    if (!clientSecret) clientSecret = getTikTokClientSecret();
 
-    const clientKey = String(integration.verifyToken || "").trim();
-    const clientSecret = String(integration.appSecret || "").trim();
     if (!clientKey || !clientSecret) {
-      throw new Error("Kenh TikTok doanh nghiep chua luu Client Key va Client Secret.");
+      throw new Error("Kenh TikTok doanh nghiep va he thong deu chua cau hinh Client Key va Client Secret.");
     }
 
     return { clientKey, clientSecret };
@@ -521,11 +524,11 @@ async function resolveOAuthClientCredentials(params: {
 
   const user = await UserModel.findById(params.userId).lean();
   const integration = user?.tiktokIntegration;
-  const clientKey = String(integration?.clientKey || "").trim();
-  const clientSecret = String(integration?.clientSecret || "").trim();
+  const clientKey = String(integration?.clientKey || getTikTokClientKey() || "").trim();
+  const clientSecret = String(integration?.clientSecret || getTikTokClientSecret() || "").trim();
 
   if (!clientKey || !clientSecret) {
-    throw new Error("Tai khoan TikTok ca nhan chua luu Client Key va Client Secret.");
+    throw new Error("Tai khoan TikTok ca nhan va he thong deu chua cau hinh Client Key va Client Secret.");
   }
 
   return { clientKey, clientSecret };
