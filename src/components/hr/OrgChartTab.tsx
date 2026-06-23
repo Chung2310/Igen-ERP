@@ -14,6 +14,8 @@ import {
   Phone,
   Mail,
   UserPlus,
+  Maximize2,
+  Minimize2,
   Edit
 } from "lucide-react";
 import { EmployeeNode, UserProfile, TrainingCourse } from "../../types";
@@ -66,12 +68,59 @@ export default function OrgChartTab({
   loading
 }: OrgChartTabProps) {
   const [zoomLevel, setZoomLevel] = useState<number>(1);
+  const [isFitted, setIsFitted] = useState<boolean>(false);
+  const [preFitZoom, setPreFitZoom] = useState<number>(1);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
   const [startY, setStartY] = useState(0);
   const [scrollLeftState, setScrollLeftState] = useState(0);
   const [scrollTopState, setScrollTopState] = useState(0);
+
+  const toggleFitScreen = () => {
+    if (!containerRef.current) return;
+    const child = containerRef.current.firstElementChild as HTMLElement;
+    if (!child) return;
+
+    if (isFitted) {
+      setZoomLevel(preFitZoom);
+      setIsFitted(false);
+
+      setTimeout(() => {
+        if (containerRef.current) {
+          containerRef.current.scrollLeft = (containerRef.current.scrollWidth - containerRef.current.clientWidth) / 2;
+          containerRef.current.scrollTop = (containerRef.current.scrollHeight - containerRef.current.clientHeight) / 2;
+        }
+      }, 50);
+    } else {
+      setPreFitZoom(zoomLevel);
+      
+      const rect = child.getBoundingClientRect();
+      const unscaledWidth = rect.width / zoomLevel;
+      const unscaledHeight = rect.height / zoomLevel;
+
+      const padding = 40;
+      const viewWidth = containerRef.current.clientWidth - padding;
+      const viewHeight = containerRef.current.clientHeight - padding;
+
+      const fitWidthScale = viewWidth / unscaledWidth;
+      const fitHeightScale = viewHeight / unscaledHeight;
+      let targetZoom = Math.min(fitWidthScale, fitHeightScale);
+
+      targetZoom = Math.max(0.2, Math.min(1.5, targetZoom));
+      targetZoom = Number(targetZoom.toFixed(2));
+
+      setZoomLevel(targetZoom);
+      setIsFitted(true);
+
+      setTimeout(() => {
+        if (containerRef.current) {
+          containerRef.current.scrollLeft = (containerRef.current.scrollWidth - containerRef.current.clientWidth) / 2;
+          containerRef.current.scrollTop = (containerRef.current.scrollHeight - containerRef.current.clientHeight) / 2;
+        }
+      }, 50);
+    }
+  };
 
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;
@@ -111,6 +160,7 @@ export default function OrgChartTab({
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     e.preventDefault();
     const zoomFactor = 0.05;
+    setIsFitted(false);
     if (e.deltaY < 0) {
       setZoomLevel(prev => Math.min(1.5, Number((prev + zoomFactor).toFixed(2))));
     } else {
@@ -879,10 +929,30 @@ export default function OrgChartTab({
               max="1.5"
               step="0.1"
               value={zoomLevel}
-              onChange={(e) => setZoomLevel(parseFloat(e.target.value))}
+              onChange={(e) => {
+                setZoomLevel(parseFloat(e.target.value));
+                setIsFitted(false);
+              }}
               className="w-20 accent-indigo-600 cursor-pointer"
             />
-            <span className="w-10 text-right text-[10px] font-bold text-slate-650">{Math.round(zoomLevel * 100)}%</span>
+            <span className="w-10 text-right text-[10px] font-bold text-slate-650 mr-1">{Math.round(zoomLevel * 100)}%</span>
+            <button
+              onClick={toggleFitScreen}
+              className="flex items-center gap-1 px-2.5 py-1.5 border border-indigo-200 hover:bg-indigo-50 text-indigo-705 text-indigo-700 hover:text-indigo-800 rounded-xl text-xs font-bold transition-all shadow-3xs cursor-pointer active:scale-95 select-none font-sans"
+              title={isFitted ? "Phóng to (Mặc định)" : "Thu nhỏ vừa khung hình"}
+            >
+              {isFitted ? (
+                <>
+                  <Maximize2 className="h-3.5 w-3.5" />
+                  <span>Phóng to</span>
+                </>
+              ) : (
+                <>
+                  <Minimize2 className="h-3.5 w-3.5" />
+                  <span>Vừa khung hình</span>
+                </>
+              )}
+            </button>
           </div>
           {isManager && (
             <>
