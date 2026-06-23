@@ -411,7 +411,7 @@ export default function UserAdminTab() {
           if (u.uid === targetUid) {
             const dept = newRole === "admin" || newRole === "superadmin" ? "Ban Giám đốc" : (newRole === "manager" ? "Quản lý" : "Nhân viên");
             const div = newRole === "admin" || newRole === "superadmin" ? "Ban Giám đốc" : (newRole === "manager" ? "Quản lý" : "Nhân viên");
-            const title = newRole === "admin" ? "Chief Executive Officer (CEO)" : (newRole === "manager" ? "Quản lý phòng ban" : "Nhân viên");
+            const title = newRole === "admin" ? "CEO" : (newRole === "manager" ? "Quản lý phòng ban" : "Nhân viên");
             return { ...u, role: newRole, department: dept, division: div, jobTitle: title };
           }
           return u;

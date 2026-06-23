@@ -181,7 +181,7 @@ export const authService = {
       createdAt: new Date(),
       companyCode: normalizedCode,
       companyName: companyName.trim(),
-      jobTitle: "Chief Executive Officer (CEO)",
+      jobTitle: "CEO",
       department: "Ban Giám Đốc",
       division: "Ban Giám Đốc",
       level: 1,
@@ -213,7 +213,7 @@ export const authService = {
         // 1. Cập nhật CEO gốc
         await UserModel.findByIdAndUpdate(ceo._id, {
           $set: {
-            jobTitle: "Chief Executive Officer (CEO)",
+            jobTitle: "CEO",
             department: "Ban Giám Đốc",
             division: "Ban Giám Đốc",
             phone: ceo.phone || "0901234567",
@@ -471,7 +471,7 @@ export const authService = {
       level: level || (role === "admin" ? 1 : (role === "manager" ? 3 : targetRoleLevel)),
       department: department || (role === "admin" ? "Ban Giám Đốc" : (role === "manager" ? "Quản lý" : "Nhân sự")),
       division: division || (role === "admin" ? "Ban Giám Đốc" : (role === "manager" ? "Quản lý" : "Nhân sự")),
-      jobTitle: role === "admin" ? "Chief Executive Officer (CEO)" : (role === "manager" ? "Quản lý phòng ban" : "Nhân viên"),
+      jobTitle: role === "admin" ? "CEO" : (role === "manager" ? "Quản lý phòng ban" : "Nhân viên"),
       phone: phone || "Chưa cập nhật",
       heygenAccess: this.normalizeHeyGenAccess(heygenAccess),
       createdAt: new Date(),
