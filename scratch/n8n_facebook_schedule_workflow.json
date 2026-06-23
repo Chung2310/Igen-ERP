@@ -1,0 +1,114 @@
+{
+  "name": "iGen ERP - Facebook Scheduled Post",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "schedule-post",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1cb383cf-8a71-46bd-89b9-dcd5c05c088f",
+      "name": "Webhook - Receive from ERP",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        380,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nfor (const item of items) {\n  const body = item.json.body || item.json;\n  \n  const cardId = body.cardId;\n  const title = body.title;\n  const bodyText = body.bodyText || \"\";\n  const imageUrl = body.imageUrl || \"\";\n  const videoUrl = body.videoUrl || \"\";\n  const scheduledDate = body.scheduledDate; // YYYY-MM-DD\n  const scheduledTime = body.scheduledTime; // HH:MM\n  \n  const integration = body.integration || {};\n  const pageId = integration.pageId || body.pageId;\n  const accessToken = integration.pageAccessToken || body.accessToken;\n  \n  if (!pageId || !accessToken) {\n    throw new Error(\"Missing Facebook Page ID or Access Token in integration data.\");\n  }\n  \n  // 1. Kiểm tra xem có phải là bài đăng lên lịch hay đăng ngay lập tức\n  const isScheduled = scheduledDate && scheduledTime;\n  let scheduledPublishTime = null;\n  \n  if (isScheduled) {\n    // Chuyển đổi ngày giờ Việt Nam sang UNIX timestamp\n    const dateStr = `${scheduledDate}T${scheduledTime}:00+07:00`;\n    const dateObj = new Date(dateStr);\n    if (isNaN(dateObj.getTime())) {\n      throw new Error(`Invalid scheduled date or time: ${scheduledDate} ${scheduledTime}`);\n    }\n    scheduledPublishTime = Math.floor(dateObj.getTime() / 1000);\n  }\n  \n  // 2. Xác định Endpoint và Body của Facebook Graph API dựa trên loại media và hình thức đăng\n  let facebookApiUrl = \"\";\n  let requestBody = {};\n  let postType = \"text\";\n  \n  if (videoUrl && videoUrl.trim().startsWith(\"http\")) {\n    postType = \"video\";\n    facebookApiUrl = `https://graph.facebook.com/v19.0/${pageId}/videos`;\n    requestBody = {\n      description: bodyText,\n      file_url: videoUrl,\n      access_token: accessToken\n    };\n    if (isScheduled) {\n      requestBody.published = false;\n      requestBody.scheduled_publish_time = scheduledPublishTime;\n    } else {\n      requestBody.published = true;\n    }\n  } else if (imageUrl && imageUrl.trim().startsWith(\"http\")) {\n    postType = \"image\";\n    facebookApiUrl = `https://graph.facebook.com/v19.0/${pageId}/photos`;\n    requestBody = {\n      caption: bodyText,\n      url: imageUrl,\n      access_token: accessToken\n    };\n    if (isScheduled) {\n      requestBody.published = false;\n      requestBody.scheduled_publish_time = scheduledPublishTime;\n    } else {\n      requestBody.published = true;\n    }\n  } else {\n    postType = \"text\";\n    facebookApiUrl = `https://graph.facebook.com/v19.0/${pageId}/feed`;\n    requestBody = {\n      message: bodyText,\n      access_token: accessToken\n    };\n    if (isScheduled) {\n      requestBody.published = false;\n      requestBody.scheduled_publish_time = scheduledPublishTime;\n    }\n  }\n  \n  item.json.preparedData = {\n    cardId,\n    postType,\n    apiUrl: facebookApiUrl,\n    body: requestBody\n  };\n}\n\nreturn items;"
+      },
+      "id": "e6dd0508-bdf3-4eb7-a7eb-bfd17e75bc7b",
+      "name": "JavaScript - Parse & Format Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        600,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.preparedData.apiUrl }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.preparedData.body) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverThrow": false,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "3be9a25b-de7b-402a-bf36-58c0677579f1",
+      "name": "HTTP Request - Facebook Graph API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        820,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"success\",\n  \"message\": \"Lên lịch đăng bài trên Facebook Page thành công qua n8n\",\n  \"data\": {\n    \"id\": \"{{ $json.id || $json.post_id }}\",\n    \"cardId\": \"{{ $node['JavaScript - Parse & Format Data'].json.preparedData.cardId }}\",\n    \"postType\": \"{{ $node['JavaScript - Parse & Format Data'].json.preparedData.postType }}\"\n  }\n}"
+      },
+      "id": "eaef0614-2c70-4f51-b0db-bcf5268c27e8",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1040,
+        240
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook - Receive from ERP": {
+      "main": [
+        [
+          {
+            "node": "JavaScript - Parse & Format Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "JavaScript - Parse & Format Data": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request - Facebook Graph API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request - Facebook Graph API": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1cb383cf-8a71-46bd-89b9-dcd5c05c088f",
+  "id": "facebook-schedule-post-workflow"
+}

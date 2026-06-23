@@ -140,11 +140,10 @@ export default function HRTab() {
             <button
               key={tab}
               onClick={() => setSubTab(tab as HRSubTabType)}
-              className={`px-4 py-2 rounded-lg border font-bold uppercase transition-all tracking-wide cursor-pointer ${
-                subTab === tab
+              className={`px-4 py-2 rounded-lg border font-bold uppercase transition-all tracking-wide cursor-pointer ${subTab === tab
                   ? "bg-slate-800 text-white border-slate-800 shadow-xs"
                   : "bg-white text-gray-500 border-gray-200 hover:bg-gray-100"
-              }`}
+                }`}
             >
               {tab}
             </button>
@@ -171,10 +170,6 @@ export default function HRTab() {
             </div>
           )}
 
-          <div className="hidden md:flex items-center gap-1.5 px-3 py-1 bg-emerald-50 rounded-full border border-emerald-200 text-emerald-800 font-mono text-[10px]">
-            <Activity className="w-3.5 h-3.5 text-emerald-600 animate-pulse" />
-            <span>Lưu tự động vào iGen ERP</span>
-          </div>
         </div>
       </div>
 
