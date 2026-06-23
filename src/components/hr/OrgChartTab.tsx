@@ -70,6 +70,7 @@ export default function OrgChartTab({
   const [zoomLevel, setZoomLevel] = useState<number>(1);
   const [isFitted, setIsFitted] = useState<boolean>(false);
   const [preFitZoom, setPreFitZoom] = useState<number>(1);
+  const [isSafari, setIsSafari] = useState<boolean>(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
@@ -359,6 +360,12 @@ export default function OrgChartTab({
       toast.error("Không thể xóa nhân sự. Vui lòng kiểm tra quyền hạn.");
     }
   };
+
+  useEffect(() => {
+    const ua = navigator.userAgent.toLowerCase();
+    const isSaf = ua.includes("safari") && !ua.includes("chrome") && !ua.includes("chromium");
+    setIsSafari(isSaf);
+  }, []);
 
   // Set default parentId when add employee modal is opened
   useEffect(() => {
@@ -1215,7 +1222,21 @@ export default function OrgChartTab({
               }`}
               id="interactive_org_chart"
             >
-              <div style={{ zoom: zoomLevel, transition: "zoom 0.2s ease-out" }} className="flex flex-col items-center mx-auto min-w-max">
+              <div
+                style={
+                  isSafari
+                    ? {
+                        transform: `scale(${zoomLevel})`,
+                        transformOrigin: "top center",
+                        transition: "transform 0.2s ease-out",
+                      }
+                    : {
+                        zoom: zoomLevel,
+                        transition: "zoom 0.2s ease-out",
+                      }
+                }
+                className="flex flex-col items-center mx-auto min-w-max"
+              >
                 {employees.length === 0 ? (
                   <div className="text-center py-20 text-gray-400">
                     <Users className="h-12 w-12 text-gray-300 mx-auto mb-3" />
