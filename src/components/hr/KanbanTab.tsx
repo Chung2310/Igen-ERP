@@ -1110,11 +1110,18 @@ export default function KanbanTab({
                   <span className="w-24 text-gray-400 font-semibold select-none flex items-center gap-1.5"><Tag className="w-3.5 h-3.5" /> Phân loại</span>
                   <input
                     type="text"
+                    list="task-category-options"
                     value={editCategory}
                     onChange={(e) => setEditCategory(e.target.value)}
                     placeholder="Ví dụ: Onboarding, Marketing, Kỹ thuật..."
                     className="flex-1 p-1 px-2 bg-slate-50 border border-transparent hover:border-gray-200 focus:bg-white focus:border-indigo-500 rounded-lg outline-none font-semibold text-xs transition-all"
                   />
+                  <datalist id="task-category-options">
+                    <option value="Onboarding" />
+                    <option value="Đào tạo" />
+                    <option value="Tuyển dụng" />
+                    <option value="Văn hóa" />
+                  </datalist>
                 </div>
               </div>
 
