@@ -7,7 +7,12 @@ export const facebookPostService = {
     imageUrl: string,
     videoUrl: string,
     pageId: string,
-    accessToken: string
+    accessToken: string,
+    cardId?: string,
+    publishType: "immediate" | "scheduled" = "immediate",
+    scheduledTime?: string,
+    title?: string,
+    callbackUrl?: string
   ) {
     const webhookUrl = process.env.N8N_FB_WEBHOOK_URL;
     if (!webhookUrl) {
@@ -25,16 +30,35 @@ export const facebookPostService = {
       headers["X-Webhook-Token"] = secretToken;
     }
 
+    let mediaType: "none" | "image" | "video" = "none";
+    let mediaUrl = "";
+    if (videoUrl) {
+      mediaType = "video";
+      mediaUrl = videoUrl;
+    } else if (imageUrl) {
+      mediaType = "image";
+      mediaUrl = imageUrl;
+    }
+
+    const appUrl = process.env.APP_URL || "https://api.igentechsolutions.com";
+    const finalCallbackUrl = callbackUrl || `${appUrl.replace(/\/$/, "")}/api/v1/facebook/n8n-callback`;
+
     try {
       const response = await (globalThis as any).fetch(webhookUrl, {
         method: "POST",
         headers,
         body: JSON.stringify({
+          cardId: cardId || "",
+          platform: "facebook",
+          publishType,
+          scheduledTime: scheduledTime || "",
+          title: title || "",
           content,
-          imageUrl,
-          videoUrl,
+          mediaType,
+          mediaUrl,
           pageId,
           accessToken,
+          callbackUrl: finalCallbackUrl,
         }),
       });
 

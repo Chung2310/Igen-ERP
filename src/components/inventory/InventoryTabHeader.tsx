@@ -16,18 +16,14 @@ export function InventoryTabHeader({ subTab, onChangeTab }: InventoryTabHeaderPr
           <button
             key={tab}
             onClick={() => onChangeTab(tab)}
-            className={`rounded-lg border px-4 py-2 font-bold uppercase tracking-wide transition-all ${
-              subTab === tab ? "border-slate-800 bg-slate-800 text-white shadow-xs" : "border-gray-200 bg-white text-gray-500 hover:bg-gray-100"
-            }`}
+            className={`rounded-lg border px-4 py-2 font-bold uppercase tracking-wide transition-all ${subTab === tab ? "border-slate-800 bg-slate-800 text-white shadow-xs" : "border-gray-200 bg-white text-gray-500 hover:bg-gray-100"
+              }`}
           >
             {tab}
           </button>
         ))}
       </div>
-      <div className="hidden items-center gap-2 rounded-lg border border-indigo-150 bg-indigo-50 px-3 py-1 font-mono text-[10px] font-bold text-indigo-700 md:flex">
-        <Cpu className="h-3.5 w-3.5 text-indigo-500" />
-        <span>Thuật toán dự đoán iGen-Forecast active</span>
-      </div>
+      
     </div>
   );
 }

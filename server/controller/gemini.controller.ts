@@ -664,6 +664,27 @@ export const geminiController = {
   },
 
   /**
+   * POST /api/v1/gemini/marketing-pillars/swap
+   */
+  async swapMarketingPillar(req: Request, res: Response) {
+    try {
+      const { campaignTopic, currentPillars, pillarIdToReplace, images } = req.body;
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
+      }
+
+      await walletService.checkBalance(userId, API_COSTS.GEMINI_MARKETING);
+      const result = await geminiService.swapMarketingPillar(campaignTopic, currentPillars, pillarIdToReplace, images);
+      await walletService.deductBalance(userId, API_COSTS.GEMINI_MARKETING, "Chi phí thay đổi Content Pillar bằng AI");
+      return res.status(200).json(result);
+    } catch (error: any) {
+      console.error("[geminiController.swapMarketingPillar] Error:", error);
+      return handleGeminiError(res, error, "Lỗi thay đổi Content Pillar");
+    }
+  },
+
+  /**
    * POST /api/v1/gemini/marketing-ideas
    */
   async generateMarketingIdeas(req: Request, res: Response) {

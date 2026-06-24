@@ -302,11 +302,47 @@ export const schedulerService = {
       headers["X-Webhook-Token"] = secretToken;
     }
 
+    let n8nPayload = payload;
+
+    if (payload.channel === "Facebook" && payload.integration) {
+      let scheduledTimeISO = "";
+      if (payload.scheduledDate && payload.scheduledTime) {
+        scheduledTimeISO = `${payload.scheduledDate}T${payload.scheduledTime}:00+07:00`;
+      }
+
+      let mediaType: "none" | "image" | "video" = "none";
+      let mediaUrl = "";
+      if (payload.videoUrl) {
+        mediaType = "video";
+        mediaUrl = payload.videoUrl;
+      } else if (payload.imageUrl) {
+        mediaType = "image";
+        mediaUrl = payload.imageUrl;
+      }
+
+      const appUrl = process.env.APP_URL || "https://api.igentechsolutions.com";
+      const callbackUrl = `${appUrl.replace(/\/$/, "")}/api/v1/facebook/n8n-callback`;
+
+      n8nPayload = {
+        cardId: payload.cardId,
+        platform: "facebook",
+        publishType: "scheduled",
+        scheduledTime: scheduledTimeISO,
+        title: payload.title || "",
+        content: payload.bodyText || "",
+        mediaType,
+        mediaUrl,
+        pageId: payload.integration.pageId,
+        accessToken: payload.integration.pageAccessToken,
+        callbackUrl,
+      };
+    }
+
     try {
       const response = await fetch(webhookUrl, {
         method: "POST",
         headers,
-        body: JSON.stringify(payload),
+        body: JSON.stringify(n8nPayload),
       });
 
       if (!response.ok) {

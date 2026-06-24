@@ -301,7 +301,7 @@ export default function DashboardTab() {
           }
           return new Date(year, month, day);
         }
-      } catch (e) {}
+      } catch (e) { }
       return null;
     };
 
@@ -340,10 +340,10 @@ export default function DashboardTab() {
       });
 
     const total = filteredMarketing.length;
-    const approved = filteredMarketing.filter((card) => 
-      card.status === "approved" || 
-      card.status === "scheduled" || 
-      card.status === "published" || 
+    const approved = filteredMarketing.filter((card) =>
+      card.status === "approved" ||
+      card.status === "scheduled" ||
+      card.status === "published" ||
       card.status === "failed"
     ).length;
     const approvalRate = total > 0 ? Math.round((approved / total) * 100) : 0;
@@ -391,7 +391,7 @@ export default function DashboardTab() {
           }
           return new Date(year, month, day);
         }
-      } catch (e) {}
+      } catch (e) { }
       return null;
     };
 
@@ -473,10 +473,6 @@ export default function DashboardTab() {
             </h1>
             <p className="mt-2 text-sm text-gray-600">Hôm nay, {todayLabel}</p>
           </div>
-          <div className="flex w-fit items-center gap-2 rounded-full border border-green-200 bg-green-50 px-3 py-1.5 text-xs font-medium text-green-700">
-            <CheckCircle className="h-4 w-4" />
-            <span>Hệ thống hoạt động bình thường</span>
-          </div>
         </div>
 
         <div className="flex flex-col gap-4 border-b border-slate-100 pb-3 md:flex-row md:items-center md:justify-between">
@@ -487,11 +483,10 @@ export default function DashboardTab() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveView(tab.id)}
-                  className={`rounded-lg px-5 py-2 text-xs font-bold uppercase tracking-wider transition-all duration-200 ${
-                    isActive
-                      ? "bg-white text-slate-900 shadow-xs"
-                      : "text-gray-500 hover:bg-white/50 hover:text-gray-800"
-                  }`}
+                  className={`rounded-lg px-5 py-2 text-xs font-bold uppercase tracking-wider transition-all duration-200 ${isActive
+                    ? "bg-white text-slate-900 shadow-xs"
+                    : "text-gray-500 hover:bg-white/50 hover:text-gray-800"
+                    }`}
                 >
                   {tab.label}
                 </button>
@@ -512,11 +507,10 @@ export default function DashboardTab() {
                   <button
                     key={f.id}
                     onClick={() => setDateFilter(f.id as DateFilterType)}
-                    className={`rounded-lg px-4 py-1.5 text-xs font-bold transition-all duration-200 ${
-                      isActive
-                        ? "bg-white text-slate-800 shadow-xs"
-                        : "text-gray-500 hover:text-gray-800"
-                    }`}
+                    className={`rounded-lg px-4 py-1.5 text-xs font-bold transition-all duration-200 ${isActive
+                      ? "bg-white text-slate-800 shadow-xs"
+                      : "text-gray-500 hover:text-gray-800"
+                      }`}
                   >
                     {f.label}
                   </button>
@@ -1009,7 +1003,7 @@ function ModuleCard({ icon: Icon, tone, title, value, label, footer, footerValue
   const color = toneClass[(tone as Tone) || "blue"];
   const showCount = alert && lowCount && lowCount !== "0" && lowCount !== "...";
   return (
-    <div 
+    <div
       onClick={onClick}
       className={`rounded-3xl border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 ${onClick ? "cursor-pointer active:scale-[0.99]" : ""}`}
     >
@@ -1038,7 +1032,7 @@ function ModuleCard({ icon: Icon, tone, title, value, label, footer, footerValue
 
 function SalesCard({ value, leadsCount }: { value: string; leadsCount: string }) {
   const goToTab = (tab: string) => {
-    const pathMap: Record<string, string> = { 
+    const pathMap: Record<string, string> = {
       "SALES CRM": "/sales-crm",
       "KHO & SẢN PHẨM": "/kho-san-pham"
     };
@@ -1087,7 +1081,7 @@ function LineChartCard({ monthlyRevenue }: { monthlyRevenue: number[] }) {
   const points = monthlyRevenue.map((val, i) => {
     const x = 32 + i * 33;
     const y = maxVal === 0 ? 240 : 240 - (val / maxVal) * 210;
-    
+
     let formatted = "0";
     if (val > 0) {
       if (val >= 1e9) {
@@ -1172,10 +1166,10 @@ function DonutCard({ compact = false, cards = [] }: { compact?: boolean; cards?:
   const circumference = 2 * Math.PI * radius;
 
   // Chỉ tính toán phân bổ phần trăm cho những bài viết ĐÃ ĐƯỢC DUYỆT (hoặc đã lên lịch/đăng)
-  const approvedCards = cards.filter(c => 
-    c.status === "approved" || 
-    c.status === "scheduled" || 
-    c.status === "published" || 
+  const approvedCards = cards.filter(c =>
+    c.status === "approved" ||
+    c.status === "scheduled" ||
+    c.status === "published" ||
     c.status === "failed"
   );
   const total = approvedCards.length;
@@ -1260,13 +1254,12 @@ function BarChart() {
       <div className="absolute bottom-0 left-12 right-4 top-6 flex items-end justify-between gap-4">
         {bars.map((h, i) => (
           <div key={i} className="flex flex-1 flex-col items-center gap-2 h-full justify-end">
-            <div 
-              className={`w-full max-w-16 rounded-t-lg transition-all duration-500 ${
-                i === 5 
-                  ? "bg-gradient-to-t from-blue-600 to-indigo-500 shadow-md shadow-blue-500/20" 
-                  : "bg-gradient-to-t from-slate-200 to-slate-100 hover:from-blue-300 hover:to-blue-200"
-              }`} 
-              style={{ height: `${h}%` }} 
+            <div
+              className={`w-full max-w-16 rounded-t-lg transition-all duration-500 ${i === 5
+                ? "bg-gradient-to-t from-blue-600 to-indigo-500 shadow-md shadow-blue-500/20"
+                : "bg-gradient-to-t from-slate-200 to-slate-100 hover:from-blue-300 hover:to-blue-200"
+                }`}
+              style={{ height: `${h}%` }}
             />
             <span className={`text-xs font-bold mt-1 ${i === 5 ? "text-blue-600" : "text-gray-450"}`}>Tháng {i + 1}</span>
           </div>

@@ -178,33 +178,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const finalIntegration = { ...integration };
 
     try {
-      if (!integration.isMock) {
-        console.log("[iGen FB Connect] Xác thực kết nối qua Express Backend...", {
-          pageId: integration.pageId,
-        });
-        
-        const response = await fetch('/api/v1/facebook/validate-token', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem("accessToken")}`
-          },
-          body: JSON.stringify({
-            pageId: integration.pageId,
-            accessToken: integration.pageAccessToken
-          })
-        });
-
-        if (!response.ok) {
-          const errData = await response.json().catch(() => ({}));
-          throw new Error(errData.message || errData.details || "Không thể kết nối và xác thực với Facebook Page.");
-        }
-
-        const result = await response.json();
-        console.log("[iGen FB Connect] Xác thực thành công:", result);
-        finalIntegration.pageName = result.pageName;
-      }
-
       const updatedProfile = await authService.updateProfile({
         facebookIntegration: finalIntegration
       });
@@ -239,29 +212,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const finalIntegration = { ...integration };
 
     try {
-      if (!integration.isMock) {
-        console.log("[iGen TikTok Connect] Đang xác thực với n8n...");
-        const response = await fetch("/api/v1/tiktok/validate-token", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${localStorage.getItem("accessToken")}`
-          },
-          body: JSON.stringify({
-            username: integration.username,
-            accessToken: integration.accessToken,
-          }),
-        });
-
-        if (!response.ok) {
-          const errText = await response.text();
-          throw new Error(`Xác thực kết nối TikTok thất bại: ${response.status} - ${errText}`);
-        }
-
-        const result = await response.json();
-        console.log("[iGen TikTok Connect] Xác thực thành công:", result);
-        finalIntegration.displayName = result.displayName;
-        finalIntegration.avatarUrl = result.avatarUrl;
+      if (!integration.accessToken) {
+        finalIntegration.isConnected = false;
       }
 
       const updatedProfile = await authService.updateProfile({
@@ -269,7 +221,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       setUser(updatedProfile as any);
       setUserProfile(updatedProfile);
-      toast.success("Kết nối TikTok thành công!");
+      toast.success(integration.accessToken ? "Kết nối TikTok thành công!" : "Đã lưu cấu hình app TikTok.");
     } catch (error: any) {
       console.error("[iGen TikTok Connect] Lỗi kết nối:", error);
       toast.error(error.message || "Không thể kết nối TikTok. Vui lòng kiểm tra lại.");
@@ -298,51 +250,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const finalIntegration = { ...integration };
 
     try {
-      if (!integration.isMock) {
-        console.log("[iGen Zalo Connect] Xác thực kết nối qua Express Backend...", {
-          oaId: integration.oaId,
-        });
-        
-        const response = await fetch('/api/v1/zalo/save-integration', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem("accessToken")}`
-          },
-          body: JSON.stringify({
-            oaId: integration.oaId,
-            oaName: integration.oaName,
-            accessToken: integration.accessToken,
-            refreshToken: integration.refreshToken,
-            isMock: false
-          })
-        });
-
-        if (!response.ok) {
-          const errData = await response.json().catch(() => ({}));
-          throw new Error(errData.message || "Không thể kết nối và xác thực với Zalo OA.");
-        }
-
-        const result = await response.json();
-        console.log("[iGen Zalo Connect] Xác thực thành công:", result);
-        finalIntegration.oaName = result.data.oaName;
-      } else {
-        await fetch('/api/v1/zalo/save-integration', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem("accessToken")}`
-          },
-          body: JSON.stringify({
-            oaId: integration.oaId,
-            oaName: integration.oaName,
-            accessToken: integration.accessToken,
-            refreshToken: integration.refreshToken,
-            isMock: true
-          })
-        });
-      }
-
       const updatedProfile = await authService.updateProfile({
         zaloIntegration: finalIntegration
       });

@@ -38,6 +38,7 @@ export interface ContentApprovalCard {
   authorUid?: string;
   publishedAt?: string;
   facebookPostId?: string;
+  postUrl?: string;
   tiktokPostId?: string;
   tiktokShareUrl?: string;
   integrationId?: string;

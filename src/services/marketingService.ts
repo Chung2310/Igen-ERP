@@ -338,6 +338,7 @@ export const marketingService = {
         'Authorization': `Bearer ${getAccessToken()}`,
       },
       body: JSON.stringify({
+        cardId: id,
         pageId,
         accessToken: pageAccessToken,
         content: extractDraftContent(bodyText),
@@ -479,8 +480,14 @@ export const marketingService = {
     });
 
     if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`Đăng TikTok thất bại: ${response.status} - ${errText}`);
+      let errMsg = "";
+      try {
+        const errData = await response.json();
+        errMsg = errData.details || errData.message || `Lỗi máy chủ HTTP ${response.status}`;
+      } catch {
+        errMsg = `Lỗi máy chủ HTTP ${response.status}`;
+      }
+      throw new Error(errMsg);
     }
 
     const resData = await response.json();

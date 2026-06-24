@@ -894,10 +894,7 @@ export default function InventoryTab() {
             </button>
           ))}
         </div>
-        <div className="hidden items-center gap-2 rounded-lg border border-indigo-150 bg-indigo-50 px-3 py-1 font-mono text-[10px] font-bold text-indigo-700 md:flex">
-          <Cpu className="h-3.5 w-3.5 text-indigo-500" />
-          <span>Thuật toán dự đoán iGen-Forecast active</span>
-        </div>
+        
       </div>
 
       <div className="flex-1 overflow-y-auto p-6" id="inventory_tab_content">

@@ -51,6 +51,7 @@ interface ModerationPipCardProps {
   onOpenDetail?: () => void;
   onPublishToPlatform?: (card: ContentApprovalCard) => Promise<void>;
   isPublishing?: boolean;
+  isPublishingTikTok?: boolean;
 }
 
 export function ModerationPipCard({ 
@@ -63,6 +64,7 @@ export function ModerationPipCard({
   onOpenDetail,
   onPublishToPlatform,
   isPublishing = false,
+  isPublishingTikTok = false,
 }: ModerationPipCardProps) {
   const isProcessing = card.status === 'processing';
   const isFailed = card.status === 'failed';
@@ -239,15 +241,15 @@ export function ModerationPipCard({
                 e.stopPropagation();
                 onPublishToPlatform(card);
               }}
-              disabled={isPublishing || (card.channel === 'TikTok' && !card.videoUrl)}
+              disabled={isPublishing || isPublishingTikTok || (card.channel === 'TikTok' && !card.videoUrl)}
               className={`p-1.5 px-3 text-white rounded-lg font-bold transition-all flex items-center gap-1 text-[10px] cursor-pointer shadow-3xs ${
-                card.channel === 'TikTok' && !card.videoUrl
+                (card.channel === 'TikTok' && !card.videoUrl)
                   ? 'bg-gray-300 text-gray-400 cursor-not-allowed'
                   : 'bg-green-600 hover:bg-green-700'
               }`}
               title={card.channel === 'TikTok' && !card.videoUrl ? "Bài đăng TikTok cần có video" : "Đăng lên nền tảng ngay lập tức"}
             >
-              {isPublishing ? (
+              {(isPublishing || isPublishingTikTok) ? (
                 <RefreshCw className="h-2.5 w-2.5 animate-spin" />
               ) : (
                 <span>Đăng ngay</span>
@@ -608,24 +610,43 @@ export function PublishedCard({ card, onDelete, isUserRole, onPreviewMedia, onOp
         </div>
       )}
 
-      {card.facebookPostId && (
-        <div
-          title={`Facebook Post ID: ${card.facebookPostId}`}
-          className="text-[10px] text-blue-600 font-mono bg-blue-50 border border-blue-200/70 px-2.5 py-1.5 rounded-xl flex items-center justify-between gap-1.5 cursor-pointer hover:bg-blue-100 transition-colors"
-          onClick={(e) => {
-            e.stopPropagation();
-            if (card.facebookPostId?.includes('mock')) {
-              alert(`[Demo] Bài đăng Facebook ID: ${card.facebookPostId}`);
-            }
-          }}
-        >
-          <span className="flex items-center gap-1.5">
-            <Facebook className="h-3.5 w-3.5" />
-            <span>Post ID: {card.facebookPostId?.slice(0, 15)}...</span>
-          </span>
-          <ExternalLink className="h-3.5 w-3.5 shrink-0" />
-        </div>
-      )}
+      {card.postUrl || card.facebookPostId ? (
+        card.postUrl ? (
+          <a
+            href={card.postUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            title="Xem bài viết thật trên Facebook"
+            className="text-[10px] text-blue-600 font-mono bg-blue-50 border border-blue-200/70 px-2.5 py-1.5 rounded-xl flex items-center justify-between gap-1.5 hover:bg-blue-100 transition-colors"
+          >
+            <span className="flex items-center gap-1.5">
+              <Facebook className="h-3.5 w-3.5" />
+              <span>Xem bài viết Facebook</span>
+            </span>
+            <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+          </a>
+        ) : (
+          <div
+            title={`Facebook Post ID: ${card.facebookPostId}`}
+            className="text-[10px] text-blue-600 font-mono bg-blue-50 border border-blue-200/70 px-2.5 py-1.5 rounded-xl flex items-center justify-between gap-1.5 cursor-pointer hover:bg-blue-100 transition-colors"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (card.facebookPostId?.includes('mock')) {
+                alert(`[Demo] Bài đăng Facebook ID: ${card.facebookPostId}`);
+              } else {
+                window.open(`https://facebook.com/${card.facebookPostId}`, '_blank');
+              }
+            }}
+          >
+            <span className="flex items-center gap-1.5">
+              <Facebook className="h-3.5 w-3.5" />
+              <span>Post ID: {card.facebookPostId?.slice(0, 15)}...</span>
+            </span>
+            <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+          </div>
+        )
+      ) : null}
 
       <div className="flex flex-col gap-2 border-t border-slate-100 pt-2.5 mt-auto">
         <div className="flex items-center justify-between text-gray-400 font-mono text-[8px] select-none">

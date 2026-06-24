@@ -330,7 +330,7 @@ export const fbMessengerController = {
         ? { companyCode: String(req.query.companyCode).trim().toUpperCase() }
         : { companyCode: String(user.companyCode || "SYSTEM").trim().toUpperCase() };
       const rawChannel = typeof req.query.channel === "string" ? req.query.channel.trim() : "";
-      const channelFilter = rawChannel === "facebook" || rawChannel === "zalo" || rawChannel === "test"
+      const channelFilter = rawChannel === "facebook" || rawChannel === "zalo" || rawChannel === "test" || rawChannel === "facebook_comment"
         ? rawChannel
         : undefined;
       const filter = {
@@ -351,6 +351,8 @@ export const fbMessengerController = {
           companyCode: l.companyCode,
           channel: l.channel,
           conversationId: l.conversationId,
+          commentId: l.commentId,
+          postId: l.postId,
           status: l.status,
           customerMessage: String(l.customerMessage || "").slice(0, 100),
           aiResponse: String(l.aiResponse || "").slice(0, 200),
