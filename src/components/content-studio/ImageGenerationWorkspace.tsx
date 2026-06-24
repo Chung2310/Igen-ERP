@@ -30,7 +30,7 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, 
   const [prompt, setPrompt] = useState(initialPrompt || '');
   const [negativePrompt, setNegativePrompt] = useState('');
   const [aspectRatio, setAspectRatio] = useState('3:4');
-  const [imageModel, setImageModel] = useState('gemini-banana-pro');
+  const [imageModel, setImageModel] = useState('gemini-banana-flash');
   const [resolution, setResolution] = useState('1K');
   const [optimizeModel, setOptimizeModel] = useState('gemini-3.5-flash');
 
