@@ -19,7 +19,7 @@ const KanbanTaskSchema = new Schema<IKanbanTask>({
   dueDate: { type: String, required: true },
   priority: { type: String, enum: ["High", "Medium", "Low", "Cao", "Trung bình", "Thấp"], default: "Medium" },
   status: { type: String, required: true, index: true },
-  category: { type: String, enum: ["Onboarding", "Đào tạo", "Tuyển dụng", "Văn hóa"] },
+  category: { type: String },
   companyCode: { type: String, required: true, index: true },
   creatorUid: { type: String, required: true, index: true },
   createdAt: { type: Date, default: Date.now, index: true },
