@@ -84,6 +84,171 @@ const renderAvatar = (avatar: string, sizeClasses: string = "w-8 h-8", textClass
   );
 };
 
+const formatDatetime = (dtStr?: string) => {
+  if (!dtStr) return "-";
+  try {
+    const d = new Date(dtStr);
+    if (isNaN(d.getTime())) return dtStr;
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${hours}:${minutes} ${day}/${month}/${year}`;
+  } catch {
+    return dtStr;
+  }
+};
+
+function TaskTable({
+  tasks,
+  showProjectColumn = false,
+  projects,
+  onSelectTask
+}: {
+  tasks: HRTask[];
+  showProjectColumn?: boolean;
+  projects: Project[];
+  onSelectTask: (task: HRTask) => void;
+}) {
+  return (
+    <div className="overflow-x-auto border border-gray-200 rounded-2xl shadow-2xs bg-white">
+      <table className="w-full text-left border-collapse text-xs min-w-[1200px]">
+        <thead>
+          <tr className="bg-slate-50 border-b border-gray-200 select-none font-bold text-gray-500 font-sans text-[10px] uppercase tracking-wider">
+            <th className="px-4 py-3 w-[200px]">Công việc</th>
+            {showProjectColumn && <th className="px-4 py-3 w-[120px]">Dự án</th>}
+            <th className="px-4 py-3 w-[100px]">Phân loại</th>
+            <th className="px-4 py-3 w-[80px]">Ưu tiên</th>
+            <th className="px-4 py-3 w-[100px]">Trạng thái</th>
+            <th className="px-4 py-3 w-[120px]">Giao cho</th>
+            <th className="px-4 py-3 w-[100px]">Hạn chót</th>
+            <th className="px-4 py-3 w-[120px]">Bắt đầu</th>
+            <th className="px-4 py-3 w-[120px]">Kết thúc</th>
+            <th className="px-4 py-3 w-[70px] text-center">Dự tính</th>
+            <th className="px-4 py-3 w-[70px] text-center">Thực tế</th>
+            <th className="px-4 py-3 w-[130px]">Đánh giá KPI</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100 bg-white">
+          {tasks.length === 0 ? (
+            <tr>
+              <td colSpan={showProjectColumn ? 12 : 11} className="text-center py-8 text-gray-450 italic bg-white">
+                Không có công việc nào.
+              </td>
+            </tr>
+          ) : (
+            tasks.map((task) => {
+              const kpi = calculateKPI(task);
+              return (
+                <tr
+                  key={task.id}
+                  onClick={() => onSelectTask(task)}
+                  className="hover:bg-slate-50/70 cursor-pointer transition-colors bg-white"
+                >
+                  {/* Công việc */}
+                  <td className="px-4 py-3 font-semibold text-slate-800">
+                    <div className="flex items-start gap-2 max-w-[190px]">
+                      <div className="mt-0.5 shrink-0">
+                        {task.status === "Done" || task.status === "done" ? (
+                          <CheckCircle className="h-3.5 w-3.5 text-emerald-500" />
+                        ) : (
+                          <Clock className="h-3.5 w-3.5 text-slate-400" />
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="font-semibold text-xs text-slate-850 truncate" title={task.title}>
+                          {task.title}
+                        </div>
+                        <div className="text-[10px] text-gray-400 truncate mt-0.5" title={task.description}>
+                          {task.description || "Không có mô tả chi tiết."}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  
+                  {/* Dự án (Optional) */}
+                  {showProjectColumn && (
+                    <td className="px-4 py-3 text-slate-500 truncate max-w-[110px]" title={projects.find(p => p.id === task.projectId)?.name || "Không có dự án"}>
+                      {projects.find(p => p.id === task.projectId)?.name || "-"}
+                    </td>
+                  )}
+
+                  {/* Phân loại */}
+                  <td className="px-4 py-3 text-indigo-750 font-medium font-sans whitespace-nowrap">
+                    {task.category || "Onboarding"}
+                  </td>
+
+                  {/* Ưu tiên */}
+                  <td className="px-4 py-3 select-none">
+                    <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold border uppercase tracking-wider font-mono whitespace-nowrap ${
+                      task.priority === "High" ? "bg-rose-50 text-rose-700 border-rose-200" :
+                      task.priority === "Low" ? "bg-slate-100 text-slate-500 border-gray-250" : "bg-amber-50 text-amber-700 border-amber-200"
+                    }`}>
+                      {task.priority === "High" ? "Cao" : task.priority === "Low" ? "Thấp" : "Trung bình"}
+                    </span>
+                  </td>
+
+                  {/* Trạng thái */}
+                  <td className="px-4 py-3 select-none">
+                    <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold border whitespace-nowrap ${
+                      task.status === "Done" || task.status === "done" ? "bg-emerald-50 text-emerald-700 border-emerald-250" :
+                      task.status === "Review/Testing" ? "bg-indigo-50 text-indigo-700 border-indigo-200" :
+                      task.status === "In Progress" || task.status === "doing" ? "bg-sky-50 text-sky-700 border-sky-200" : "bg-slate-100 text-slate-500 border-gray-250"
+                    }`}>
+                      {task.status === "Done" || task.status === "done" ? "Đã xong" :
+                      task.status === "Review/Testing" ? "Kiểm tra" :
+                      task.status === "In Progress" || task.status === "doing" ? "Đang làm" : "Chưa làm"}
+                    </span>
+                  </td>
+
+                  {/* Giao cho */}
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1.5 max-w-[110px]">
+                      {renderAvatar(task.assigneeAvatar || "👨‍💻", "w-5 h-5", "text-[10px]")}
+                      <span className="font-semibold text-slate-700 truncate" title={task.assignee}>{task.assignee}</span>
+                    </div>
+                  </td>
+
+                  {/* Hạn chót */}
+                  <td className="px-4 py-3 text-gray-400 font-mono">{task.dueDate || "-"}</td>
+
+                  {/* Bắt đầu */}
+                  <td className="px-4 py-3 text-gray-650 font-mono text-[10px]">{formatDatetime(task.startTime)}</td>
+
+                  {/* Kết thúc */}
+                  <td className="px-4 py-3 text-gray-650 font-mono text-[10px]">{formatDatetime(task.endTime)}</td>
+
+                  {/* Dự tính */}
+                  <td className="px-4 py-3 font-semibold text-slate-700 font-mono text-center">{task.estTime ?? 0}h</td>
+
+                  {/* Thực tế */}
+                  <td className="px-4 py-3 font-semibold text-slate-700 font-mono text-center">{task.actualTime ?? 0}h</td>
+
+                  {/* Đánh giá KPI */}
+                  <td className="px-4 py-3 select-none">
+                    {!kpi ? (
+                      <span className="text-gray-400 italic text-[10px]">-</span>
+                    ) : kpi.status === "ontime" ? (
+                      <span className="inline-flex items-center gap-0.5 px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold rounded text-[10px]" title={kpi.text}>
+                        ✓ Đúng hạn
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-0.5 px-2 py-0.5 bg-rose-50 text-rose-700 border border-rose-200 rounded font-bold text-[10px]" title={kpi.text}>
+                        ⚠️ Trễ {kpi.diff}h
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default function KanbanTab({
   userProfile,
   selectedCompanyCode,
@@ -116,7 +281,7 @@ export default function KanbanTab({
   const [editTags, setEditTags] = useState("");
   const [editLinkNote, setEditLinkNote] = useState("");
   const [taskHistory, setTaskHistory] = useState<TaskHistoryEntry[]>([]);
-  const [editCategory, setEditCategory] = useState<"Onboarding" | "Đào tạo" | "Tuyển dụng" | "Văn hóa">("Onboarding");
+  const [editCategory, setEditCategory] = useState<string>("Onboarding");
 
   const [kanbanFilter, setKanbanFilter] = useState<string | null>(null);
 
@@ -543,7 +708,7 @@ export default function KanbanTab({
   };
 
   const deleteTask = async (id: string) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa công việc này?")) return;
+    if (!window.confirm("Bạn có chắc chắn muốn xóa công việc này?")) return false;
     try {
       const res = await fetch(`/api/v1/crud/kanban-tasks/${id}`, {
         method: "DELETE",
@@ -559,9 +724,11 @@ export default function KanbanTab({
 
       setTasks(prev => prev.filter(t => t.id !== id));
       toast.success("Đã xóa công việc thành công!");
+      return true;
     } catch (error) {
       console.error("Lỗi khi xóa công việc:", error);
       toast.error("Không thể xóa công việc. Chỉ quản lý mới có quyền.");
+      return false;
     }
   };
 
@@ -698,62 +865,13 @@ export default function KanbanTab({
 
                         {/* Project Tasks Body */}
                         {isExpanded && (
-                          <div className="p-4 bg-white border-t border-gray-150 divide-y divide-gray-100 max-h-[400px] overflow-y-auto">
-                            {projTasks.length === 0 ? (
-                              <p className="text-xs text-gray-450 italic py-3 text-center">Chưa có công việc nào gán vào dự án này.</p>
-                            ) : (
-                              projTasks.map((task) => (
-                                <div
-                                  key={task.id}
-                                  onClick={() => setSelectedKanbanTask(task)}
-                                  className="py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 hover:bg-slate-50/70 px-2 rounded-xl transition-all cursor-pointer group"
-                                >
-                                  <div className="flex items-start gap-3 min-w-0">
-                                    <div className="mt-0.5 shrink-0">
-                                      {task.status === "Done" || task.status === "done" ? (
-                                        <CheckCircle className="h-4 w-4 text-emerald-500" />
-                                      ) : (
-                                        <Clock className="h-4 w-4 text-slate-400" />
-                                      )}
-                                    </div>
-                                    <div className="min-w-0">
-                                      <h4 className="font-semibold text-slate-800 text-xs truncate group-hover:text-indigo-650 transition-colors">{task.title}</h4>
-                                      <p className="text-[10px] text-gray-400 truncate mt-0.5">{task.description || "Không có mô tả chi tiết."}</p>
-                                    </div>
-                                  </div>
-
-                                  <div className="flex items-center gap-4 text-xs shrink-0 self-end sm:self-auto select-none">
-                                    {/* Priority badge */}
-                                    <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider font-mono border ${
-                                      task.priority === "High" ? "bg-rose-50 text-rose-700 border-rose-200" :
-                                      task.priority === "Low" ? "bg-slate-100 text-slate-500 border-gray-250" : "bg-amber-50 text-amber-705 text-amber-700 border-amber-200"
-                                    }`}>
-                                      {task.priority === "High" ? "Cao" : task.priority === "Low" ? "Thấp" : "Trung bình"}
-                                    </span>
-
-                                    {/* Status Badge */}
-                                    <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold border ${
-                                      task.status === "Done" || task.status === "done" ? "bg-emerald-50 text-emerald-700 border-emerald-250" :
-                                      task.status === "Review/Testing" ? "bg-indigo-50 text-indigo-700 border-indigo-200" :
-                                      task.status === "In Progress" || task.status === "doing" ? "bg-sky-50 text-sky-700 border-sky-200 animate-pulse" : "bg-slate-100 text-slate-500 border-gray-250"
-                                    }`}>
-                                      {task.status === "Done" || task.status === "done" ? "Đã xong" :
-                                      task.status === "Review/Testing" ? "Kiểm tra" :
-                                      task.status === "In Progress" || task.status === "doing" ? "Đang làm" : "Chưa làm"}
-                                    </span>
-
-                                    {/* Assignee */}
-                                    <div className="flex items-center gap-1.5 w-24">
-                                      {renderAvatar(task.assigneeAvatar || "👨‍💻", "w-5 h-5", "text-[10px]")}
-                                      <span className="text-slate-650 font-bold truncate text-[10px]">{task.assignee}</span>
-                                    </div>
-
-                                    {/* Due date */}
-                                    <span className="text-[10px] font-mono text-gray-400 w-16 text-right">Hạn: {task.dueDate}</span>
-                                  </div>
-                                </div>
-                              ))
-                            )}
+                          <div className="p-4 bg-white border-t border-gray-150 max-h-[400px] overflow-y-auto">
+                            <TaskTable
+                              tasks={projTasks}
+                              showProjectColumn={false}
+                              projects={projects}
+                              onSelectTask={setSelectedKanbanTask}
+                            />
                           </div>
                         )}
                       </div>
@@ -776,58 +894,13 @@ export default function KanbanTab({
                       </div>
                     </div>
                     {expandedProjects.unassigned && (
-                      <div className="p-4 bg-white border-t border-gray-150 divide-y divide-gray-100 max-h-[400px] overflow-y-auto">
-                        {visibleTasks.filter(t => !t.projectId).length === 0 ? (
-                          <p className="text-xs text-gray-450 italic py-3 text-center">Tất cả công việc đã được phân vào dự án.</p>
-                        ) : (
-                          visibleTasks.filter(t => !t.projectId).map((task) => (
-                            <div
-                              key={task.id}
-                              onClick={() => setSelectedKanbanTask(task)}
-                              className="py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 hover:bg-slate-55/40 hover:bg-slate-50 px-2 rounded-xl transition-all cursor-pointer group"
-                            >
-                              <div className="flex items-start gap-3 min-w-0">
-                                <div className="mt-0.5 shrink-0">
-                                  {task.status === "Done" || task.status === "done" ? (
-                                    <CheckCircle className="h-4 w-4 text-emerald-500" />
-                                  ) : (
-                                    <Clock className="h-4 w-4 text-slate-400" />
-                                  )}
-                                </div>
-                                <div className="min-w-0">
-                                  <h4 className="font-semibold text-slate-800 text-xs truncate group-hover:text-indigo-650 transition-colors">{task.title}</h4>
-                                  <p className="text-[10px] text-gray-400 truncate mt-0.5">{task.description || "Không có mô tả chi tiết."}</p>
-                                </div>
-                              </div>
-
-                              <div className="flex items-center gap-4 text-xs shrink-0 self-end sm:self-auto select-none">
-                                <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider font-mono border ${
-                                  task.priority === "High" ? "bg-rose-50 text-rose-700 border-rose-200" :
-                                  task.priority === "Low" ? "bg-slate-100 text-slate-500 border-gray-250" : "bg-amber-50 text-amber-705 text-amber-700 border-amber-200"
-                                }`}>
-                                  {task.priority === "High" ? "Cao" : task.priority === "Low" ? "Thấp" : "Trung bình"}
-                                </span>
-
-                                <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold border ${
-                                  task.status === "Done" || task.status === "done" ? "bg-emerald-50 text-emerald-700 border-emerald-250" :
-                                  task.status === "Review/Testing" ? "bg-indigo-50 text-indigo-700 border-indigo-200" :
-                                  task.status === "In Progress" || task.status === "doing" ? "bg-sky-50 text-sky-700 border-sky-200 animate-pulse" : "bg-slate-100 text-slate-500 border-gray-250"
-                                }`}>
-                                  {task.status === "Done" || task.status === "done" ? "Đã xong" :
-                                  task.status === "Review/Testing" ? "Kiểm tra" :
-                                  task.status === "In Progress" || task.status === "doing" ? "Đang làm" : "Chưa làm"}
-                                </span>
-
-                                <div className="flex items-center gap-1.5 w-24">
-                                  {renderAvatar(task.assigneeAvatar || "👨‍💻", "w-5 h-5", "text-[10px]")}
-                                  <span className="text-slate-650 font-bold truncate text-[10px]">{task.assignee}</span>
-                                </div>
-
-                                <span className="text-[10px] font-mono text-gray-400 w-16 text-right">Hạn: {task.dueDate}</span>
-                              </div>
-                            </div>
-                          ))
-                        )}
+                      <div className="p-4 bg-white border-t border-gray-150 max-h-[400px] overflow-y-auto">
+                        <TaskTable
+                          tasks={visibleTasks.filter(t => !t.projectId)}
+                          showProjectColumn={false}
+                          projects={projects}
+                          onSelectTask={setSelectedKanbanTask}
+                        />
                       </div>
                     )}
                   </div>
@@ -857,7 +930,7 @@ export default function KanbanTab({
                       task={task}
                       onMove={(newSt) => moveTaskStatus(task.id, newSt)}
                       onDelete={() => deleteTask(task.id)}
-                      canDelete={isManager}
+                      canDelete={isManager || task.creatorUid === userProfile?.uid}
                       onClick={() => setSelectedKanbanTask(task)}
                       projects={projects}
                     />
@@ -883,7 +956,7 @@ export default function KanbanTab({
                       task={task}
                       onMove={(newSt) => moveTaskStatus(task.id, newSt)}
                       onDelete={() => deleteTask(task.id)}
-                      canDelete={isManager}
+                      canDelete={isManager || task.creatorUid === userProfile?.uid}
                       onClick={() => setSelectedKanbanTask(task)}
                       projects={projects}
                     />
@@ -909,7 +982,7 @@ export default function KanbanTab({
                       task={task}
                       onMove={(newSt) => moveTaskStatus(task.id, newSt)}
                       onDelete={() => deleteTask(task.id)}
-                      canDelete={isManager}
+                      canDelete={isManager || task.creatorUid === userProfile?.uid}
                       onClick={() => setSelectedKanbanTask(task)}
                       projects={projects}
                     />
@@ -935,7 +1008,7 @@ export default function KanbanTab({
                       task={task}
                       onMove={(newSt) => moveTaskStatus(task.id, newSt)}
                       onDelete={() => deleteTask(task.id)}
-                      canDelete={isManager}
+                      canDelete={isManager || task.creatorUid === userProfile?.uid}
                       onClick={() => setSelectedKanbanTask(task)}
                       projects={projects}
                     />
@@ -947,74 +1020,12 @@ export default function KanbanTab({
 
           {/* Tab 3: Detailed Tasks List View */}
           {kanbanViewTab === "All tasks" && (
-            <div className="border border-gray-250 rounded-2xl overflow-hidden shadow-2xs">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="bg-slate-50 border-b border-gray-200 select-none font-bold text-gray-500 font-sans">
-                      <th className="px-5 py-3">Công việc</th>
-                      <th className="px-5 py-3">Dự án</th>
-                      <th className="px-5 py-3">Phân loại</th>
-                      <th className="px-5 py-3">Giao cho</th>
-                      <th className="px-5 py-3">Ưu tiên</th>
-                      <th className="px-5 py-3">Trạng thái</th>
-                      <th className="px-5 py-3">Hạn chót</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {visibleTasks.length === 0 ? (
-                      <tr>
-                        <td colSpan={7} className="text-center py-8 text-gray-400 italic">Không có công việc nào trùng khớp bộ lọc.</td>
-                      </tr>
-                    ) : (
-                      visibleTasks.map((task) => (
-                        <tr
-                          key={task.id}
-                          onClick={() => setSelectedKanbanTask(task)}
-                          className="hover:bg-slate-55/40 hover:bg-slate-50 cursor-pointer transition-colors"
-                        >
-                          <td className="px-5 py-3">
-                            <span className="font-bold text-slate-800">{task.title}</span>
-                          </td>
-                          <td className="px-5 py-3 text-slate-500">
-                            {projects.find(p => p.id === task.projectId)?.name || "Không có dự án"}
-                          </td>
-                          <td className="px-5 py-3 text-indigo-750 font-medium">
-                            {task.category || "Onboarding"}
-                          </td>
-                          <td className="px-5 py-3">
-                            <div className="flex items-center gap-1.5">
-                              {renderAvatar(task.assigneeAvatar || "👨‍💻", "w-5 h-5", "text-[10px]")}
-                              <span className="font-semibold text-slate-700">{task.assignee}</span>
-                            </div>
-                          </td>
-                          <td className="px-5 py-3 select-none">
-                            <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold border uppercase tracking-wider font-mono ${
-                              task.priority === "High" ? "bg-rose-50 text-rose-700 border-rose-200" :
-                              task.priority === "Low" ? "bg-slate-100 text-slate-500 border-gray-250" : "bg-amber-50 text-amber-705 text-amber-700 border-amber-200"
-                            }`}>
-                              {task.priority === "High" ? "Cao" : task.priority === "Low" ? "Thấp" : "Trung bình"}
-                            </span>
-                          </td>
-                          <td className="px-5 py-3 select-none">
-                            <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold border ${
-                              task.status === "Done" || task.status === "done" ? "bg-emerald-50 text-emerald-700 border-emerald-250" :
-                              task.status === "Review/Testing" ? "bg-indigo-50 text-indigo-700 border-indigo-200" :
-                              task.status === "In Progress" || task.status === "doing" ? "bg-sky-50 text-sky-700 border-sky-200 animate-pulse" : "bg-slate-100 text-slate-500 border-gray-250"
-                            }`}>
-                              {task.status === "Done" || task.status === "done" ? "Đã xong" :
-                              task.status === "Review/Testing" ? "Kiểm tra" :
-                              task.status === "In Progress" || task.status === "doing" ? "Đang làm" : "Chưa làm"}
-                            </span>
-                          </td>
-                          <td className="px-5 py-3 text-gray-400 font-mono">{task.dueDate}</td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            <TaskTable
+              tasks={visibleTasks}
+              showProjectColumn={true}
+              projects={projects}
+              onSelectTask={setSelectedKanbanTask}
+            />
           )}
         </div>
       </div>
@@ -1097,16 +1108,13 @@ export default function KanbanTab({
 
                 <div className="flex items-center gap-4">
                   <span className="w-24 text-gray-400 font-semibold select-none flex items-center gap-1.5"><Tag className="w-3.5 h-3.5" /> Phân loại</span>
-                  <select
+                  <input
+                    type="text"
                     value={editCategory}
-                    onChange={(e) => setEditCategory(e.target.value as any)}
-                    className="flex-1 p-1 bg-slate-50 border border-transparent hover:border-gray-200 rounded-lg outline-none cursor-pointer font-semibold"
-                  >
-                    <option value="Onboarding">Onboarding</option>
-                    <option value="Đào tạo">Đào tạo trực tuyến</option>
-                    <option value="Tuyển dụng">Tuyển dụng</option>
-                    <option value="Văn hóa">Văn hóa nội bộ</option>
-                  </select>
+                    onChange={(e) => setEditCategory(e.target.value)}
+                    placeholder="Ví dụ: Onboarding, Marketing, Kỹ thuật..."
+                    className="flex-1 p-1 px-2 bg-slate-50 border border-transparent hover:border-gray-200 focus:bg-white focus:border-indigo-500 rounded-lg outline-none font-semibold text-xs transition-all"
+                  />
                 </div>
               </div>
 
@@ -1137,23 +1145,23 @@ export default function KanbanTab({
                 </div>
 
                 <div className="flex items-center gap-4">
-                  <span className="w-24 text-gray-400 font-semibold select-none flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> Thời gian</span>
-                  <div className="flex-1 flex gap-2">
-                    <input
-                      type="datetime-local"
-                      placeholder="Bắt đầu"
-                      value={editStartTime}
-                      onChange={(e) => setEditStartTime(e.target.value)}
-                      className="w-1/2 p-1 bg-slate-50 border border-transparent hover:border-gray-200 rounded-lg outline-none text-[10px]"
-                    />
-                    <input
-                      type="datetime-local"
-                      placeholder="Kết thúc"
-                      value={editEndTime}
-                      onChange={(e) => setEditEndTime(e.target.value)}
-                      className="w-1/2 p-1 bg-slate-50 border border-transparent hover:border-gray-200 rounded-lg outline-none text-[10px]"
-                    />
-                  </div>
+                  <span className="w-24 text-gray-400 font-semibold select-none flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> Bắt đầu</span>
+                  <input
+                    type="datetime-local"
+                    value={editStartTime}
+                    onChange={(e) => setEditStartTime(e.target.value)}
+                    className="flex-1 p-1 bg-slate-50 border border-transparent hover:border-gray-200 rounded-lg outline-none text-[10px] font-semibold"
+                  />
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <span className="w-24 text-gray-400 font-semibold select-none flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> Kết thúc</span>
+                  <input
+                    type="datetime-local"
+                    value={editEndTime}
+                    onChange={(e) => setEditEndTime(e.target.value)}
+                    className="flex-1 p-1 bg-slate-50 border border-transparent hover:border-gray-200 rounded-lg outline-none text-[10px] font-semibold"
+                  />
                 </div>
 
                 <div className="flex items-center gap-4">
@@ -1265,21 +1273,40 @@ export default function KanbanTab({
             )}
 
             {/* Action buttons */}
-            <div className="pt-6 border-t flex justify-end gap-3 text-xs font-bold shrink-0">
-              <button
-                type="button"
-                onClick={() => setSelectedKanbanTask(null)}
-                className="px-4 py-2 border border-gray-200 text-slate-500 hover:text-slate-800 rounded-xl bg-white hover:bg-slate-50 cursor-pointer transition-all active:scale-95 font-sans"
-              >
-                Hủy bỏ
-              </button>
-              <button
-                type="button"
-                onClick={(e) => handleSaveTask(e)}
-                className="px-5 py-2 bg-indigo-650 hover:bg-indigo-700 text-white rounded-xl shadow-xs cursor-pointer transition-all active:scale-95 font-sans"
-              >
-                {selectedKanbanTask.id === "new" ? "Tạo công việc" : "Lưu thay đổi"}
-              </button>
+            <div className="pt-6 border-t flex justify-between items-center text-xs font-bold shrink-0">
+              <div>
+                {selectedKanbanTask.id !== "new" && (isManager || selectedKanbanTask.creatorUid === userProfile?.uid) && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const success = await deleteTask(selectedKanbanTask.id);
+                      if (success) {
+                        setSelectedKanbanTask(null);
+                      }
+                    }}
+                    className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl cursor-pointer transition-all active:scale-95 flex items-center gap-1.5 font-sans"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Xóa công việc
+                  </button>
+                )}
+              </div>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setSelectedKanbanTask(null)}
+                  className="px-4 py-2 border border-gray-200 text-slate-500 hover:text-slate-800 rounded-xl bg-white hover:bg-slate-50 cursor-pointer transition-all active:scale-95 font-sans"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => handleSaveTask(e)}
+                  className="px-5 py-2 bg-indigo-650 hover:bg-indigo-700 text-white rounded-xl shadow-xs cursor-pointer transition-all active:scale-95 font-sans"
+                >
+                  {selectedKanbanTask.id === "new" ? "Tạo công việc" : "Lưu thay đổi"}
+                </button>
+              </div>
             </div>
           </div>
         </div>

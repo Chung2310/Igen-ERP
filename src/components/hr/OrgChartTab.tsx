@@ -588,44 +588,6 @@ export default function OrgChartTab({
             enrolledCount: (course.enrolledCount || 0) + 1
           }),
         });
-
-        // Tạo Kanban task tương ứng
-        const taskDueDate = new Date();
-        taskDueDate.setDate(taskDueDate.getDate() + 7);
-        const durationHours = parseDurationToHours(course.duration);
-
-        await fetch("/api/v1/crud/kanban-tasks", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${getAccessToken()}`,
-          },
-          body: JSON.stringify({
-            title: `[Đào tạo] ${course.title}`,
-            description: course.isRequired
-              ? `Khóa học bắt buộc của công ty. Hoàn thành trong vòng 7 ngày kể từ ngày vào công ty.`
-              : `Khóa học Onboarding. Hoàn thành trong vòng 7 ngày kể từ ngày vào công ty.`,
-            assigneeUid: newEmpUid,
-            assignee: newEmpName,
-            assigneeAvatar: "👤",
-            dueDate: taskDueDate.toLocaleDateString("vi-VN"),
-            priority: course.isRequired ? "High" : "Medium",
-            status: "Not Started",
-            category: "Đào tạo",
-            companyCode,
-            creatorUid: userProfile?.uid || "system",
-            createdAt: new Date().toISOString(),
-            projectId: "",
-            estTime: durationHours,
-            tags: course.tags,
-            linkNote: "",
-            history: [{
-              time: new Date().toLocaleString("vi-VN"),
-              user: "Hệ thống",
-              action: `Tự động tạo từ khóa học ${course.isRequired ? "Bắt buộc" : "Onboarding"}: "${course.title}"`
-            }]
-          }),
-        });
       } catch (err) {
         console.error(`Lỗi auto-assign course ${course.id}:`, err);
       }
@@ -1147,7 +1109,7 @@ export default function OrgChartTab({
                 className="px-4 py-2 bg-indigo-650 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 active:scale-95 cursor-pointer"
               >
                 <Plus className="h-4 w-4" />
-                Thêm Nhân Sự
+                Thêm Nhân Sự hoặc Phòng ban
               </button>
             </>
           )}
