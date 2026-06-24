@@ -1385,15 +1385,20 @@ export default function OrgChartTab({
                     <strong className="text-slate-800 text-xs font-bold">{selectedEmp.phone}</strong>
                   </div>
                 </div>
-                {selectedEmp.parentId && (
-                  <div className="flex items-center gap-3">
-                    <Users className="w-4.5 h-4.5 text-gray-400 shrink-0" />
-                    <div>
-                      <span className="block text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider">Quản lý trực tiếp</span>
-                      <strong className="text-indigo-700 text-xs font-bold">{employees.find(e => e.id === selectedEmp.parentId)?.name || 'Quản lý cấp trên'}</strong>
+                {selectedEmp.parentId && (() => {
+                  const manager = employees.find(e => e.id === selectedEmp.parentId);
+                  return (
+                    <div className="flex items-center gap-3">
+                      <Users className="w-4.5 h-4.5 text-gray-400 shrink-0" />
+                      <div>
+                        <span className="block text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider">Quản lý trực tiếp</span>
+                        <strong className="text-indigo-700 text-xs font-bold">
+                          {manager ? `${manager.name} (${manager.department})` : 'Quản lý cấp trên'}
+                        </strong>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
                 {(() => {
                   const directSubs = getDirectSubordinates(selectedEmp.id);
                   if (directSubs.length > 0) {
@@ -1405,21 +1410,21 @@ export default function OrgChartTab({
                             <span className="block text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider mb-2">
                               Nhân sự cấp dưới trực tiếp ({directSubs.length})
                             </span>
-                            <div className="flex gap-2.5 overflow-x-auto pb-2 pt-1 pr-1 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
+                            <div className="flex flex-col gap-2 max-h-[220px] overflow-y-auto pb-1 pt-1 pr-1 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
                               {directSubs.map((sub) => (
                                 <button
                                   type="button"
                                   key={sub.id}
                                   onClick={() => setSelectedEmp(sub)}
-                                  className="flex items-center gap-2 bg-slate-50 hover:bg-indigo-50 border border-slate-100 hover:border-indigo-200 px-3 py-2 rounded-xl cursor-pointer transition-all duration-200 text-left shrink-0 active:scale-95 outline-none font-sans w-[145px]"
+                                  className="flex items-center gap-3 bg-slate-50 hover:bg-indigo-50 border border-slate-100 hover:border-indigo-200 px-3.5 py-2.5 rounded-xl cursor-pointer transition-all duration-200 text-left active:scale-95 outline-none font-sans w-full"
                                   title={`Bấm để xem chi tiết ${sub.name}`}
                                 >
-                                  {renderAvatar(sub.avatar, "w-7 h-7", "text-[10px]")}
+                                  {renderAvatar(sub.avatar, "w-8 h-8", "text-xs")}
                                   <div className="min-w-0">
                                     <span className="block text-xs font-bold text-slate-800 truncate">
                                       {sub.name}
                                     </span>
-                                    <span className="block text-[9px] text-slate-500 truncate">
+                                    <span className="block text-[10px] text-slate-500 truncate mt-0.5">
                                       {sub.role}
                                     </span>
                                   </div>
