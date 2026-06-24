@@ -249,6 +249,7 @@ export default function OrgChartTab({
   const [collapsedNodes, setCollapsedNodes] = useState<Set<string>>(new Set());
   const [selectedEmp, setSelectedEmp] = useState<EmployeeNode | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [activeDropdownCardId, setActiveDropdownCardId] = useState<string | null>(null);
 
   useEffect(() => {
     if (selectedEmp) {
@@ -262,6 +263,22 @@ export default function OrgChartTab({
     setIsDetailModalOpen(false);
     setSelectedEmp(null);
     setIsEditing(false);
+  };
+
+  const getLowestSubordinates = (nodeId: string): EmployeeNode[] => {
+    const descendants: EmployeeNode[] = [];
+    const queue = [nodeId];
+    while (queue.length > 0) {
+      const currentId = queue.shift()!;
+      const children = employees.filter(e => e.parentId === currentId);
+      for (const child of children) {
+        descendants.push(child);
+        queue.push(child.id);
+      }
+    }
+    if (descendants.length === 0) return [];
+    const maxLevel = Math.max(...descendants.map(d => d.level));
+    return descendants.filter(d => d.level === maxLevel);
   };
 
   // Add Employee Modal States
@@ -928,7 +945,8 @@ export default function OrgChartTab({
           onDragStart={(e) => handleDragStart(e, node.id)}
           onDragOver={handleDragOver}
           onDrop={(e) => handleDrop(e, node.id)}
-          onClick={() => toggleCollapse(node.id)}
+          onClick={() => setSelectedEmp(node)}
+          onMouseLeave={() => setActiveDropdownCardId(null)}
           className={`p-3 bg-white text-gray-800 rounded-2xl shadow-xs w-56 text-left cursor-pointer relative hover:scale-104 active:scale-95 transition-all duration-300 border border-gray-200 ${category.border} ${isSelected
               ? "ring-4 ring-indigo-500 shadow-indigo-100 border-transparent z-10"
               : "hover:border-indigo-300 hover:shadow-md"
@@ -936,26 +954,13 @@ export default function OrgChartTab({
             }`}
           id={`org_node_${node.id}`}
         >
-          {/* Online/Offline Dot & Edit pen button */}
-          <div className="absolute top-2 right-2 flex items-center gap-1.5 z-10">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setSelectedEmp(node);
-              }}
-              title="Xem chi tiết nhân sự"
-              className="p-1 hover:bg-slate-100 rounded-md text-slate-400 hover:text-indigo-600 transition-colors cursor-pointer flex items-center justify-center"
-            >
-              <Edit className="w-3.5 h-3.5" />
-            </button>
-            <div className="flex items-center justify-center">
-              {node.status === "online" ? (
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 block border border-white animate-pulse" title="Đang hoạt động" />
-              ) : (
-                <span className="w-1.5 h-1.5 rounded-full bg-gray-300 block border border-white" title="Ngoại tuyến" />
-              )}
-            </div>
+          {/* Online/Offline Dot */}
+          <div className="absolute top-2 right-2 z-10 flex items-center justify-center">
+            {node.status === "online" ? (
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 block border border-white animate-pulse" title="Đang hoạt động" />
+            ) : (
+              <span className="w-1.5 h-1.5 rounded-full bg-gray-300 block border border-white" title="Ngoại tuyến" />
+            )}
           </div>
 
           <div className="space-y-2">
@@ -1358,54 +1363,104 @@ export default function OrgChartTab({
               </div>
             </div>
           ) : (
-            <div className="bg-white border border-slate-100 rounded-2xl shadow-xl w-full max-w-sm p-6 relative text-left space-y-4 animate-in fade-in zoom-in-95 duration-200">
+            <div className="bg-white border border-slate-100 rounded-2xl shadow-xl w-full max-w-lg p-6 relative text-left space-y-4 animate-in fade-in zoom-in-95 duration-200 animate-out duration-150">
               <div className="flex justify-between items-center pb-2 border-b">
-                <h4 className="font-bold text-slate-800 text-sm font-sans uppercase">Chi Tiết Nhân Sự</h4>
+                <h4 className="font-extrabold text-slate-850 text-sm font-sans uppercase tracking-wide">Chi Tiết Nhân Sự</h4>
                 <button type="button" onClick={closeDetailModal} className="text-gray-400 hover:text-gray-650 cursor-pointer">
-                  <X className="h-4 w-4" />
+                  <X className="h-4.5 w-4.5" />
                 </button>
               </div>
 
               <div className="text-center pb-4 border-b border-gray-200">
-                <div className="mb-2 mx-auto flex justify-center">{renderAvatar(selectedEmp.avatar, "w-20 h-20", "text-4xl")}</div>
-                <h3 className="font-bold text-base text-slate-800 font-sans leading-snug">{selectedEmp.name}</h3>
-                <p className="text-[10.5px] font-bold font-mono uppercase tracking-wide mt-1 text-indigo-600">{selectedEmp.role}</p>
-                <span className={`inline-block text-[9px] font-bold border px-2 py-0.5 rounded-md uppercase tracking-wider font-mono mt-2 ${getDivisionBadgeStyles(selectedEmp.division)}`}>
+                <div className="mb-2.5 mx-auto flex justify-center">{renderAvatar(selectedEmp.avatar, "w-24 h-24", "text-5xl")}</div>
+                <h3 className="font-extrabold text-lg text-slate-900 font-sans leading-snug">{selectedEmp.name}</h3>
+                <p className="text-xs font-extrabold font-mono uppercase tracking-wide mt-1 text-indigo-600">{selectedEmp.role}</p>
+                <span className={`inline-block text-[10px] font-bold border px-2.5 py-0.5 rounded-lg uppercase tracking-wider font-mono mt-2 ${getDivisionBadgeStyles(selectedEmp.division)}`}>
                   {selectedEmp.division}
                 </span>
               </div>
 
-              <div className="space-y-3.5 text-xs text-slate-655 text-slate-600">
-                <div className="flex items-center gap-2.5">
-                  <Building2 className="w-4 h-4 text-gray-400 shrink-0" />
+              <div className="space-y-4 text-xs text-slate-655 text-slate-600">
+                <div className="flex items-center gap-3">
+                  <Building2 className="w-4.5 h-4.5 text-gray-400 shrink-0" />
                   <div>
-                    <span className="block text-[8px] font-bold text-gray-400 uppercase tracking-wider">Phòng ban</span>
-                    <strong className="text-slate-800">{selectedEmp.department}</strong>
+                    <span className="block text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider">Phòng ban</span>
+                    <strong className="text-slate-800 text-xs font-bold">{selectedEmp.department}</strong>
                   </div>
                 </div>
-                <div className="flex items-center gap-2.5">
-                  <Mail className="w-4 h-4 text-gray-400 shrink-0" />
+                <div className="flex items-center gap-3">
+                  <Mail className="w-4.5 h-4.5 text-gray-400 shrink-0" />
                   <div>
-                    <span className="block text-[8px] font-bold text-gray-400 uppercase tracking-wider">Email liên lạc</span>
-                    <strong className="text-slate-800">{selectedEmp.email}</strong>
+                    <span className="block text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider">Email liên lạc</span>
+                    <strong className="text-slate-800 text-xs font-bold">{selectedEmp.email}</strong>
                   </div>
                 </div>
-                <div className="flex items-center gap-2.5">
-                  <Phone className="w-4 h-4 text-gray-400 shrink-0" />
+                <div className="flex items-center gap-3">
+                  <Phone className="w-4.5 h-4.5 text-gray-400 shrink-0" />
                   <div>
-                    <span className="block text-[8px] font-bold text-gray-400 uppercase tracking-wider">Số điện thoại</span>
-                    <strong className="text-slate-800">{selectedEmp.phone}</strong>
+                    <span className="block text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider">Số điện thoại</span>
+                    <strong className="text-slate-800 text-xs font-bold">{selectedEmp.phone}</strong>
                   </div>
                 </div>
                 {selectedEmp.parentId && (
-                  <div className="flex items-center gap-2.5">
-                    <Users className="w-4 h-4 text-gray-400 shrink-0" />
+                  <div className="flex items-center gap-3">
+                    <Users className="w-4.5 h-4.5 text-gray-400 shrink-0" />
                     <div>
-                      <span className="block text-[8px] font-bold text-gray-400 uppercase tracking-wider">Quản lý trực tiếp</span>
-                      <strong className="text-slate-855 text-indigo-705">{employees.find(e => e.id === selectedEmp.parentId)?.name || 'Quản lý cấp trên'}</strong>
+                      <span className="block text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider">Quản lý trực tiếp</span>
+                      <strong className="text-indigo-700 text-xs font-bold">{employees.find(e => e.id === selectedEmp.parentId)?.name || 'Quản lý cấp trên'}</strong>
                     </div>
                   </div>
                 )}
+                {(() => {
+                  const lowestSubs = getLowestSubordinates(selectedEmp.id);
+                  if (lowestSubs.length > 0) {
+                    return (
+                      <div className="flex flex-col gap-1.5 pt-1">
+                        <div className="flex items-start gap-3">
+                          <Users className="w-4.5 h-4.5 text-gray-400 shrink-0 mt-0.5" />
+                          <div className="flex-1 min-w-0">
+                            <span className="block text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider mb-2">
+                              Nhân sự cấp dưới cùng ({lowestSubs.length})
+                            </span>
+                            <div className="flex gap-2.5 overflow-x-auto pb-2 pt-1 pr-1 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
+                              {lowestSubs.map((sub) => (
+                                <button
+                                  type="button"
+                                  key={sub.id}
+                                  onClick={() => setSelectedEmp(sub)}
+                                  className="flex items-center gap-2 bg-slate-50 hover:bg-indigo-50 border border-slate-100 hover:border-indigo-200 px-3 py-2 rounded-xl cursor-pointer transition-all duration-200 text-left shrink-0 active:scale-95 outline-none font-sans w-[145px]"
+                                  title={`Bấm để xem chi tiết ${sub.name}`}
+                                >
+                                  {renderAvatar(sub.avatar, "w-7 h-7", "text-[10px]")}
+                                  <div className="min-w-0">
+                                    <span className="block text-xs font-bold text-slate-800 truncate">
+                                      {sub.name}
+                                    </span>
+                                    <span className="block text-[9px] text-slate-500 truncate">
+                                      {sub.role}
+                                    </span>
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  } else {
+                    return (
+                      <div className="flex items-center gap-2.5">
+                        <Users className="w-4 h-4 text-gray-400 shrink-0" />
+                        <div>
+                          <span className="block text-[8px] font-bold text-gray-400 uppercase tracking-wider">
+                            Nhân sự cấp dưới cùng
+                          </span>
+                          <span className="text-[10px] text-gray-400 italic font-medium">Không có cấp dưới (Cấp thấp nhất)</span>
+                        </div>
+                      </div>
+                    );
+                  }
+                })()}
               </div>
 
               <div className="pt-4 border-t flex flex-col gap-2 font-sans font-bold">
