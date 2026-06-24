@@ -1,4 +1,4 @@
-export type CRMSubTabType = "PHỄU KHÁCH HÀNG" | "OMNI-INBOX CHAT";
+export type CRMSubTabType = "PHỄU KHÁCH HÀNG" | "OMNI-INBOX CHAT" | "AI COMMENT AUTO-REPLY";
 
 export interface ChatMessage {
   id: string;
@@ -37,6 +37,7 @@ export interface CustomerInbox {
 
 export interface AIChatConfig {
   enabled: boolean;
+  commentReplyEnabled?: boolean;
   autoClassify: boolean;
   autoCloseDeal: boolean;
   autoFeedback: boolean;

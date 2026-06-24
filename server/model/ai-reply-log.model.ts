@@ -2,8 +2,10 @@ import mongoose, { Schema, Document } from "mongoose";
 
 export interface IAIReplyLog extends Document {
   companyCode: string;
-  channel: "facebook" | "zalo" | "test";
+  channel: "facebook" | "zalo" | "test" | "facebook_comment";
   conversationId?: string;
+  commentId?: string;
+  postId?: string;
   customerMessage: string;
   aiResponse: string;
   contextPreview: string;
@@ -20,8 +22,10 @@ export interface IAIReplyLog extends Document {
 const AIReplyLogSchema = new Schema<IAIReplyLog>(
   {
     companyCode: { type: String, required: true, index: true },
-    channel: { type: String, enum: ["facebook", "zalo", "test"], required: true, index: true },
+    channel: { type: String, enum: ["facebook", "zalo", "test", "facebook_comment"], required: true, index: true },
     conversationId: { type: String, default: "", index: true },
+    commentId: { type: String, default: "", index: true },
+    postId: { type: String, default: "", index: true },
     customerMessage: { type: String, required: true },
     aiResponse: { type: String, required: true },
     contextPreview: { type: String, default: "" },
