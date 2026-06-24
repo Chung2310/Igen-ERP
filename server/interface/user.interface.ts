@@ -40,6 +40,7 @@ export interface IZaloIntegration {
 
 export interface IAiAutoReplyConfig {
   enabled: boolean;
+  commentReplyEnabled?: boolean;
   autoClassify: boolean;
   autoCloseDeal: boolean;
   autoFeedback: boolean;

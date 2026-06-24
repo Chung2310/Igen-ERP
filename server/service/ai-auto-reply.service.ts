@@ -227,7 +227,7 @@ async function collectCandidateUsers(
   };
 }
 
-async function resolveAutoReplyOwner(
+export async function resolveAutoReplyOwner(
   channel: "facebook" | "zalo",
   resolvedPlatformId: string
 ): Promise<ResolvedAutoReplyOwner> {

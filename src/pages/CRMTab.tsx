@@ -23,11 +23,17 @@ const OmniChatTab = lazy(() =>
     default: module.OmniChatTab,
   }))
 );
+const AiCommentReplyManager = lazy(() =>
+  import("../components/crm/AiCommentReplyManager").then((module) => ({
+    default: module.AiCommentReplyManager,
+  }))
+);
 
 export default function CRMTab() {
   const CRM_SUB_TAB_ROUTES = [
     { slug: "pipeline", value: "PHỄU KHÁCH HÀNG" as CRMSubTabType },
     { slug: "omni-chat", value: "OMNI-INBOX CHAT" as CRMSubTabType },
+    { slug: "comment-reply", value: "AI COMMENT AUTO-REPLY" as CRMSubTabType },
   ] as const;
   const [subTab, setSubTab] = useSubTabRouter<CRMSubTabType>(CRM_SUB_TAB_ROUTES as any, "PHỄU KHÁCH HÀNG");
 
@@ -126,6 +132,7 @@ export default function CRMTab() {
   // AI assistant configurations
   const [aiConfig, setAIConfig] = useState<AIChatConfig>({
     enabled: false,
+    commentReplyEnabled: false,
     autoClassify: true,
     autoCloseDeal: false,
     autoFeedback: false,
@@ -140,6 +147,7 @@ export default function CRMTab() {
     if (userProfile?.aiAutoReplyConfig) {
       setAIConfig({
         enabled: userProfile.aiAutoReplyConfig.enabled ?? false,
+        commentReplyEnabled: userProfile.aiAutoReplyConfig.commentReplyEnabled ?? false,
         autoClassify: userProfile.aiAutoReplyConfig.autoClassify ?? true,
         autoCloseDeal: userProfile.aiAutoReplyConfig.autoCloseDeal ?? false,
         autoFeedback: userProfile.aiAutoReplyConfig.autoFeedback ?? false,
@@ -796,7 +804,7 @@ export default function CRMTab() {
       {/* Sub tabs selector bar */}
       <div className="border-b border-slate-100 bg-[#f8fafc] p-2.5 text-xs flex justify-between shrink-0" id="crm_sub_tabs_switch">
         <div className="flex gap-2">
-          {["PHỄU KHÁCH HÀNG", "OMNI-INBOX CHAT"].map((tab) => (
+          {["PHỄU KHÁCH HÀNG", "OMNI-INBOX CHAT", "AI COMMENT AUTO-REPLY"].map((tab) => (
             <button
               key={tab}
               onClick={() => setSubTab(tab as CRMSubTabType)}
@@ -845,6 +853,12 @@ export default function CRMTab() {
               onCreateLeadFromChat={handleCreateLeadFromChat}
               onUpdateLeadStatus={moveLeadPipeline}
             />
+          )}
+
+          {subTab === "AI COMMENT AUTO-REPLY" && (
+            <div className="p-6 h-full overflow-y-auto">
+              <AiCommentReplyManager />
+            </div>
           )}
         </Suspense>
       </div>
