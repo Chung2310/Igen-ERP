@@ -2204,6 +2204,7 @@ CHỈ trả về lệnh chỉnh sửa, không thêm giải thích, không markdo
       resolution?: string;
       duration?: number;
       videoDurations?: number[];
+      blueprint?: any;
     }
   ): Promise<{ status: string; record: any; blueprint: any }> {
     return hermesService.editVideo(userId, videoUrl, prompt, options);

@@ -450,5 +450,61 @@ Chú ý: Hãy điều chỉnh tỉ xích thời gian (scale) của các hiệu �
       }
       throw new Error(`Lỗi khi sinh kịch bản JSON từ kịch bản phân tích: ${err instanceof Error ? err.message : String(err)}`);
     }
+  },
+
+  /**
+   * Sinh cấu trúc JSON Blueprint trực tiếp từ Prompt chỉnh sửa của người dùng
+   */
+  async generateBlueprintFromPrompt(
+    videoUrl: string,
+    duration: number,
+    prompt: string
+  ): Promise<any> {
+    const systemPrompt = buildSystemPrompt(videoUrl, duration);
+    const userPrompt = `Hãy tạo kịch bản chỉnh sửa video JSON Blueprint cho Video có URL "${videoUrl}" và thời lượng ${duration} giây.\nYêu cầu chỉnh sửa: "${prompt}"\n\nĐảm bảo kết quả đầu ra CHỈ là JSON thô, không chứa thẻ markdown hay lời nói thừa.`;
+
+    console.log("[videoBlueprintService] Calling Gemini model to generate blueprint from prompt...");
+    try {
+      const blueprintResponse = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: userPrompt,
+        config: {
+          systemInstruction: systemPrompt,
+          responseMimeType: "application/json",
+        }
+      });
+
+      const blueprintJsonText = blueprintResponse.text || "";
+      const blueprint = safeParseJson(blueprintJsonText);
+
+      // Sanity check: Ensure there is at least one video track
+      if (!blueprint.timeline || !Array.isArray(blueprint.timeline) || blueprint.timeline.filter((item: any) => item.type === "video").length === 0) {
+        if (!blueprint.timeline || !Array.isArray(blueprint.timeline)) {
+          blueprint.timeline = [];
+        }
+        blueprint.timeline.unshift({
+          type: "video",
+          src: videoUrl,
+          start: 0,
+          end: duration,
+          playbackRate: 1.0
+        });
+      }
+
+      return blueprint;
+    } catch (err) {
+      console.error("[videoBlueprintService] Error generating blueprint from prompt:", err);
+      return {
+        timeline: [
+          {
+            type: "video",
+            src: videoUrl,
+            start: 0,
+            end: duration,
+            playbackRate: 1.0
+          }
+        ]
+      };
+    }
   }
 };
