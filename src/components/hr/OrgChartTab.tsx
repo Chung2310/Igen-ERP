@@ -61,6 +61,7 @@ const FUNCTIONAL_CATEGORIES = [
   { key: "tech", label: "Hệ thống & Công nghệ", badge: "TECH", color: "bg-indigo-655", border: "border-t-4 border-indigo-650", dot: "#4f46e5" },
   { key: "operations", label: "Vận hành - Sản xuất", badge: "OPERATIONS", color: "bg-cyan-500", border: "border-t-4 border-cyan-500", dot: "#06b6d4" },
   { key: "sales", label: "Kinh doanh & Tiếp thị", badge: "SALES", color: "bg-amber-500", border: "border-t-4 border-amber-500", dot: "#f59e0b" },
+  { key: "other", label: "Khác", badge: "OTHER", color: "bg-slate-500", border: "border-t-4 border-slate-500", dot: "#64748b" },
 ];
 
 const getCategoryByDivision = (division: string) => {
@@ -126,7 +127,7 @@ const getCategoryByDivision = (division: string) => {
   ) {
     return FUNCTIONAL_CATEGORIES[5];
   }
-  return FUNCTIONAL_CATEGORIES[6];
+  return FUNCTIONAL_CATEGORIES[5];
 };
 
 export default function OrgChartTab({
@@ -265,20 +266,8 @@ export default function OrgChartTab({
     setIsEditing(false);
   };
 
-  const getLowestSubordinates = (nodeId: string): EmployeeNode[] => {
-    const descendants: EmployeeNode[] = [];
-    const queue = [nodeId];
-    while (queue.length > 0) {
-      const currentId = queue.shift()!;
-      const children = employees.filter(e => e.parentId === currentId);
-      for (const child of children) {
-        descendants.push(child);
-        queue.push(child.id);
-      }
-    }
-    if (descendants.length === 0) return [];
-    const maxLevel = Math.max(...descendants.map(d => d.level));
-    return descendants.filter(d => d.level === maxLevel);
+  const getDirectSubordinates = (nodeId: string): EmployeeNode[] => {
+    return employees.filter(e => e.parentId === nodeId);
   };
 
   // Add Employee Modal States
@@ -1412,18 +1401,18 @@ export default function OrgChartTab({
                   </div>
                 )}
                 {(() => {
-                  const lowestSubs = getLowestSubordinates(selectedEmp.id);
-                  if (lowestSubs.length > 0) {
+                  const directSubs = getDirectSubordinates(selectedEmp.id);
+                  if (directSubs.length > 0) {
                     return (
                       <div className="flex flex-col gap-1.5 pt-1">
                         <div className="flex items-start gap-3">
                           <Users className="w-4.5 h-4.5 text-gray-400 shrink-0 mt-0.5" />
                           <div className="flex-1 min-w-0">
                             <span className="block text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider mb-2">
-                              Nhân sự cấp dưới cùng ({lowestSubs.length})
+                              Nhân sự cấp dưới trực tiếp ({directSubs.length})
                             </span>
                             <div className="flex gap-2.5 overflow-x-auto pb-2 pt-1 pr-1 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
-                              {lowestSubs.map((sub) => (
+                              {directSubs.map((sub) => (
                                 <button
                                   type="button"
                                   key={sub.id}
@@ -1449,13 +1438,13 @@ export default function OrgChartTab({
                     );
                   } else {
                     return (
-                      <div className="flex items-center gap-2.5">
-                        <Users className="w-4 h-4 text-gray-400 shrink-0" />
+                      <div className="flex items-center gap-3">
+                        <Users className="w-4.5 h-4.5 text-gray-400 shrink-0" />
                         <div>
-                          <span className="block text-[8px] font-bold text-gray-400 uppercase tracking-wider">
-                            Nhân sự cấp dưới cùng
+                          <span className="block text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider">
+                            Nhân sự cấp dưới trực tiếp
                           </span>
-                          <span className="text-[10px] text-gray-400 italic font-medium">Không có cấp dưới (Cấp thấp nhất)</span>
+                          <span className="text-[11px] text-gray-400 italic font-medium">Không có nhân sự cấp dưới trực tiếp</span>
                         </div>
                       </div>
                     );
