@@ -151,7 +151,7 @@ const getCategoryByDivision = (division: string) => {
   ) {
     return FUNCTIONAL_CATEGORIES[5];
   }
-  return FUNCTIONAL_CATEGORIES[6];
+  return FUNCTIONAL_CATEGORIES[5];
 };
 
 export default function OrgChartTab({
@@ -195,7 +195,7 @@ export default function OrgChartTab({
       }, 50);
     } else {
       setPreFitZoom(zoomLevel);
-      
+
       const rect = child.getBoundingClientRect();
       const unscaledWidth = rect.width / zoomLevel;
       const unscaledHeight = rect.height / zoomLevel;
@@ -269,7 +269,7 @@ export default function OrgChartTab({
     }
   };
 
-   const [filterDepartment, setFilterDepartment] = useState<string>("Tất cả");
+  const [filterDepartment, setFilterDepartment] = useState<string>("Tất cả");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [collapsedNodes, setCollapsedNodes] = useState<Set<string>>(new Set());
   const [selectedEmp, setSelectedEmp] = useState<EmployeeNode | null>(null);
@@ -290,20 +290,8 @@ export default function OrgChartTab({
     setIsEditing(false);
   };
 
-  const getLowestSubordinates = (nodeId: string): EmployeeNode[] => {
-    const descendants: EmployeeNode[] = [];
-    const queue = [nodeId];
-    while (queue.length > 0) {
-      const currentId = queue.shift()!;
-      const children = employees.filter(e => e.parentId === currentId);
-      for (const child of children) {
-        descendants.push(child);
-        queue.push(child.id);
-      }
-    }
-    if (descendants.length === 0) return [];
-    const maxLevel = Math.max(...descendants.map(d => d.level));
-    return descendants.filter(d => d.level === maxLevel);
+  const getDirectSubordinates = (nodeId: string): EmployeeNode[] => {
+    return employees.filter(e => e.parentId === nodeId);
   };
 
   // Add Employee Modal States
@@ -390,7 +378,7 @@ export default function OrgChartTab({
       toast.success("Cập nhật thông tin nhân sự thành công!");
       setIsEditing(false);
       await fetchUsers();
-      
+
       // Cập nhật selectedEmp cục bộ
       const updatedNode = {
         ...selectedEmp,
@@ -897,12 +885,12 @@ export default function OrgChartTab({
     const cat = getCategoryByDivision(division);
     switch (cat.key) {
       case "governance": return "bg-slate-100 text-slate-800 border-slate-300";
-      case "finance":    return "bg-emerald-50 text-emerald-700 border-emerald-200";
-      case "tech":       return "bg-indigo-50 text-indigo-700 border-indigo-200";
+      case "finance": return "bg-emerald-50 text-emerald-700 border-emerald-200";
+      case "tech": return "bg-indigo-50 text-indigo-700 border-indigo-200";
       case "operations": return "bg-cyan-50 text-cyan-700 border-cyan-200";
-      case "sales":      return "bg-amber-50 text-amber-700 border-amber-200";
-      case "hr":         return "bg-rose-50 text-rose-700 border-rose-200";
-      default:           return "bg-slate-50 text-slate-700 border-slate-200";
+      case "sales": return "bg-amber-50 text-amber-700 border-amber-200";
+      case "hr": return "bg-rose-50 text-rose-700 border-rose-200";
+      default: return "bg-slate-50 text-slate-700 border-slate-200";
     }
   };
 
@@ -983,8 +971,8 @@ export default function OrgChartTab({
           onClick={() => setSelectedEmp(node)}
           onMouseLeave={() => setActiveDropdownCardId(null)}
           className={`p-3 bg-white text-gray-800 rounded-2xl shadow-xs w-56 text-left cursor-pointer relative hover:scale-104 active:scale-95 transition-all duration-300 border border-gray-200 ${category.border} ${isSelected
-              ? "ring-4 ring-indigo-500 shadow-indigo-100 border-transparent z-10"
-              : "hover:border-indigo-300 hover:shadow-md"
+            ? "ring-4 ring-indigo-500 shadow-indigo-100 border-transparent z-10"
+            : "hover:border-indigo-300 hover:shadow-md"
             } ${isFilteredOut ? "opacity-30 blur-[0.5px] scale-98" : "opacity-100"
             }`}
           id={`org_node_${node.id}`}
@@ -1033,9 +1021,8 @@ export default function OrgChartTab({
               type="button"
               onClick={(e) => { e.stopPropagation(); toggleCollapse(node.id); }}
               title={isCollapsed ? `Mở rộng ${directReportsCount} nhân viên cấp dưới` : `Thu gọn ${directReportsCount} nhân viên cấp dưới`}
-              className={`absolute -bottom-2.5 left-1/2 -translate-x-1/2 text-white text-[9px] font-extrabold w-5 h-5 rounded-full flex items-center justify-center shadow-xs border-2 border-white select-none transition-all cursor-pointer ${
-                isCollapsed ? "bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white" : "bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white"
-              }`}
+              className={`absolute -bottom-2.5 left-1/2 -translate-x-1/2 text-white text-[9px] font-extrabold w-5 h-5 rounded-full flex items-center justify-center shadow-xs border-2 border-white select-none transition-all cursor-pointer ${isCollapsed ? "bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white" : "bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white"
+                }`}
             >
               {isCollapsed ? `+${directReportsCount}` : "^"}
             </button>
@@ -1222,23 +1209,22 @@ export default function OrgChartTab({
               onMouseUp={handleMouseLeaveOrUp}
               onMouseMove={handleMouseMove}
               onWheel={handleWheel}
-              className={`flex-1 overflow-auto p-12 flex items-start justify-start min-h-[440px] select-none ${
-                isDragging ? "cursor-grabbing" : "cursor-grab"
-              }`}
+              className={`flex-1 overflow-auto p-12 flex items-start justify-start min-h-[440px] select-none ${isDragging ? "cursor-grabbing" : "cursor-grab"
+                }`}
               id="interactive_org_chart"
             >
               <div
                 style={
                   isSafari
                     ? {
-                        transform: `scale(${zoomLevel})`,
-                        transformOrigin: "top center",
-                        transition: "transform 0.2s ease-out",
-                      }
+                      transform: `scale(${zoomLevel})`,
+                      transformOrigin: "top center",
+                      transition: "transform 0.2s ease-out",
+                    }
                     : {
-                        zoom: zoomLevel,
-                        transition: "zoom 0.2s ease-out",
-                      }
+                      zoom: zoomLevel,
+                      transition: "zoom 0.2s ease-out",
+                    }
                 }
                 className="flex flex-col items-center mx-auto min-w-max"
               >
@@ -1447,18 +1433,18 @@ export default function OrgChartTab({
                   </div>
                 )}
                 {(() => {
-                  const lowestSubs = getLowestSubordinates(selectedEmp.id);
-                  if (lowestSubs.length > 0) {
+                  const directSubs = getDirectSubordinates(selectedEmp.id);
+                  if (directSubs.length > 0) {
                     return (
                       <div className="flex flex-col gap-1.5 pt-1">
                         <div className="flex items-start gap-3">
                           <Users className="w-4.5 h-4.5 text-gray-400 shrink-0 mt-0.5" />
                           <div className="flex-1 min-w-0">
                             <span className="block text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider mb-2">
-                              Nhân sự cấp dưới cùng ({lowestSubs.length})
+                              Nhân sự cấp dưới trực tiếp ({directSubs.length})
                             </span>
                             <div className="flex gap-2.5 overflow-x-auto pb-2 pt-1 pr-1 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
-                              {lowestSubs.map((sub) => (
+                              {directSubs.map((sub) => (
                                 <button
                                   type="button"
                                   key={sub.id}
@@ -1484,13 +1470,13 @@ export default function OrgChartTab({
                     );
                   } else {
                     return (
-                      <div className="flex items-center gap-2.5">
-                        <Users className="w-4 h-4 text-gray-400 shrink-0" />
+                      <div className="flex items-center gap-3">
+                        <Users className="w-4.5 h-4.5 text-gray-400 shrink-0" />
                         <div>
-                          <span className="block text-[8px] font-bold text-gray-400 uppercase tracking-wider">
-                            Nhân sự cấp dưới cùng
+                          <span className="block text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider">
+                            Nhân sự cấp dưới trực tiếp
                           </span>
-                          <span className="text-[10px] text-gray-400 italic font-medium">Không có cấp dưới (Cấp thấp nhất)</span>
+                          <span className="text-[11px] text-gray-400 italic font-medium">Không có nhân sự cấp dưới trực tiếp</span>
                         </div>
                       </div>
                     );
