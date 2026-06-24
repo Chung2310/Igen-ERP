@@ -23,6 +23,7 @@ export function InventoryTabHeader({ subTab, onChangeTab }: InventoryTabHeaderPr
           </button>
         ))}
       </div>
+      
     </div>
   );
 }

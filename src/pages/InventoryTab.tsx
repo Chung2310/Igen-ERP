@@ -894,6 +894,7 @@ export default function InventoryTab() {
             </button>
           ))}
         </div>
+        
       </div>
 
       <div className="flex-1 overflow-y-auto p-6" id="inventory_tab_content">
