@@ -39,6 +39,36 @@ const isUrl = (str?: string): boolean => {
   return str.startsWith("http://") || str.startsWith("https://") || str.startsWith("data:image/") || str.startsWith("/");
 };
 
+const getLocalDatetimeString = (date = new Date()) => {
+  const tzOffset = date.getTimezoneOffset() * 60000; // in ms
+  const localISOTime = (new Date(date.getTime() - tzOffset)).toISOString().slice(0, 16);
+  return localISOTime;
+};
+
+const calculateKPI = (task: HRTask) => {
+  if (!task.startTime || !task.endTime || !task.estTime) return null;
+  const start = new Date(task.startTime).getTime();
+  const end = new Date(task.endTime).getTime();
+  if (isNaN(start) || isNaN(end) || end < start) return null;
+
+  const actualHours = (end - start) / (1000 * 60 * 60);
+  const estHours = task.estTime;
+
+  if (actualHours <= estHours) {
+    return {
+      status: "ontime",
+      text: "Đúng tiến độ (Đạt KPI)",
+      diff: Number((estHours - actualHours).toFixed(1)),
+    };
+  } else {
+    return {
+      status: "late",
+      text: `Trễ tiến độ (Trễ ${(actualHours - estHours).toFixed(1)}h)`,
+      diff: Number((actualHours - estHours).toFixed(1)),
+    };
+  }
+};
+
 const renderAvatar = (avatar: string, sizeClasses: string = "w-8 h-8", textClass: string = "text-base") => {
   if (isUrl(avatar)) {
     return (
@@ -180,6 +210,51 @@ export default function KanbanTab({
     }
   }, [selectedKanbanTask]);
 
+  // Tự động gán thời gian hoàn thành khi chuyển trạng thái sang Done
+  useEffect(() => {
+    if (editStatus === "Done" && editStartTime && !editEndTime) {
+      setEditEndTime(getLocalDatetimeString());
+    }
+  }, [editStatus, editStartTime]);
+
+  // Tự động tính số giờ thực tế khi có ngày giờ Bắt đầu và Kết thúc
+  useEffect(() => {
+    if (editStartTime && editEndTime) {
+      const start = new Date(editStartTime).getTime();
+      const end = new Date(editEndTime).getTime();
+      if (!isNaN(start) && !isNaN(end) && end >= start) {
+        const diffHours = Number(((end - start) / (1000 * 60 * 60)).toFixed(1));
+        setEditActualTime(diffHours);
+      } else {
+        setEditActualTime("");
+      }
+    }
+  }, [editStartTime, editEndTime]);
+
+  const getDynamicKPI = () => {
+    if (!editStartTime || !editEndTime || !editEstTime) return null;
+    const start = new Date(editStartTime).getTime();
+    const end = new Date(editEndTime).getTime();
+    if (isNaN(start) || isNaN(end) || end < start) return null;
+
+    const actualHours = (end - start) / (1000 * 60 * 60);
+    const estHours = Number(editEstTime);
+
+    if (actualHours <= estHours) {
+      return {
+        status: "ontime",
+        text: "Đúng tiến độ (Đạt KPI)",
+        diff: Number((estHours - actualHours).toFixed(1)),
+      };
+    } else {
+      return {
+        status: "late",
+        text: `Trễ tiến độ (Trễ ${(actualHours - estHours).toFixed(1)} giờ)`,
+        diff: Number((actualHours - estHours).toFixed(1)),
+      };
+    }
+  };
+
   const handleSaveTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedKanbanTask) return;
@@ -207,6 +282,17 @@ export default function KanbanTab({
       const estNum = editEstTime === "" ? 0 : Number(editEstTime);
       const actNum = editActualTime === "" ? 0 : Number(editActualTime);
 
+      let finalEndTime = editEndTime;
+      let finalActualTime = actNum;
+      if (editStatus === "Done" && editStartTime && !editEndTime) {
+        finalEndTime = getLocalDatetimeString();
+        const start = new Date(editStartTime).getTime();
+        const end = new Date(finalEndTime).getTime();
+        if (!isNaN(start) && !isNaN(end) && end >= start) {
+          finalActualTime = Number(((end - start) / (1000 * 60 * 60)).toFixed(1));
+        }
+      }
+
       if (selectedKanbanTask.id === "new") {
         const initialHistory = [
           {
@@ -231,9 +317,9 @@ export default function KanbanTab({
 
           projectId: editProjectId,
           startTime: editStartTime,
-          endTime: editEndTime,
+          endTime: finalEndTime,
           estTime: estNum,
-          actualTime: actNum,
+          actualTime: finalActualTime,
           tags: parsedTags,
           linkNote: editLinkNote.trim(),
           history: initialHistory,
@@ -320,9 +406,9 @@ export default function KanbanTab({
           status: editStatus,
           projectId: editProjectId,
           startTime: editStartTime,
-          endTime: editEndTime,
+          endTime: finalEndTime,
           estTime: estNum,
-          actualTime: actNum,
+          actualTime: finalActualTime,
           tags: parsedTags,
           linkNote: editLinkNote.trim(),
           history: updatedHistory,
@@ -413,16 +499,34 @@ export default function KanbanTab({
         }
       ];
 
+      let endTimeUpdate = undefined;
+      let actualTimeUpdate = undefined;
+
+      if (newStatus === "Done" && taskObj) {
+        if (taskObj.startTime && !taskObj.endTime) {
+          endTimeUpdate = getLocalDatetimeString();
+          const start = new Date(taskObj.startTime).getTime();
+          const end = new Date(endTimeUpdate).getTime();
+          if (!isNaN(start) && !isNaN(end) && end >= start) {
+            actualTimeUpdate = Number(((end - start) / (1000 * 60 * 60)).toFixed(1));
+          }
+        }
+      }
+
+      const updateData: any = {
+        status: newStatus,
+        history: updatedHistory
+      };
+      if (endTimeUpdate !== undefined) updateData.endTime = endTimeUpdate;
+      if (actualTimeUpdate !== undefined) updateData.actualTime = actualTimeUpdate;
+
       const res = await fetch(`/api/v1/crud/kanban-tasks/${id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${getAccessToken()}`,
         },
-        body: JSON.stringify({
-          status: newStatus,
-          history: updatedHistory
-        }),
+        body: JSON.stringify(updateData),
       });
 
       if (!res.ok) {
@@ -430,7 +534,7 @@ export default function KanbanTab({
         throw new Error(err.message || "Cập nhật trạng thái thất bại");
       }
 
-      setTasks(prev => prev.map(t => t.id === id ? { ...t, status: newStatus, history: updatedHistory } : t));
+      setTasks(prev => prev.map(t => t.id === id ? { ...t, ...updateData } : t));
       toast.success("Đã cập nhật trạng thái công việc!");
     } catch (error) {
       console.error("Lỗi khi cập nhật trạng thái công việc:", error);
@@ -1036,14 +1140,14 @@ export default function KanbanTab({
                   <span className="w-24 text-gray-400 font-semibold select-none flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> Thời gian</span>
                   <div className="flex-1 flex gap-2">
                     <input
-                      type="text"
+                      type="datetime-local"
                       placeholder="Bắt đầu"
                       value={editStartTime}
                       onChange={(e) => setEditStartTime(e.target.value)}
                       className="w-1/2 p-1 bg-slate-50 border border-transparent hover:border-gray-200 rounded-lg outline-none text-[10px]"
                     />
                     <input
-                      type="text"
+                      type="datetime-local"
                       placeholder="Kết thúc"
                       value={editEndTime}
                       onChange={(e) => setEditEndTime(e.target.value)}
@@ -1057,7 +1161,7 @@ export default function KanbanTab({
                   <div className="flex-1 flex gap-2">
                     <input
                       type="number"
-                      placeholder="Dự tính"
+                      placeholder="Số giờ phải làm"
                       value={editEstTime}
                       onChange={(e) => setEditEstTime(e.target.value === "" ? "" : Number(e.target.value))}
                       className="w-1/2 p-1 bg-slate-50 border border-transparent hover:border-gray-200 rounded-lg outline-none text-[10px]"
@@ -1069,6 +1173,27 @@ export default function KanbanTab({
                       onChange={(e) => setEditActualTime(e.target.value === "" ? "" : Number(e.target.value))}
                       className="w-1/2 p-1 bg-slate-50 border border-transparent hover:border-gray-200 rounded-lg outline-none text-[10px]"
                     />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <span className="w-24 text-gray-400 font-semibold select-none flex items-center gap-1.5"><Activity className="w-3.5 h-3.5" /> Đánh giá KPI</span>
+                  <div className="flex-1">
+                    {(() => {
+                      const kpi = getDynamicKPI();
+                      if (!kpi) return <span className="text-gray-450 italic text-[10px]">Chưa đủ dữ liệu tính KPI</span>;
+                      return kpi.status === "ontime" ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-250 font-bold rounded-lg text-[10px]">
+                          <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                          {kpi.text}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-rose-50 text-rose-700 border border-rose-250 font-bold rounded-lg text-[10px]">
+                          <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
+                          {kpi.text}
+                        </span>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
@@ -1268,6 +1393,26 @@ function KanbanCard({
         </div>
         <span className="text-gray-400 font-mono font-medium">Hạn: {task.dueDate}</span>
       </div>
+
+      {/* Show KPI Badge on Card if available */}
+      {(() => {
+        const kpi = calculateKPI(task);
+        if (!kpi) return null;
+        return (
+          <div className="pt-2 border-t border-gray-100 flex items-center justify-between text-[10px]">
+            <span className="text-gray-400 font-medium">Đánh giá KPI:</span>
+            {kpi.status === "ontime" ? (
+              <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-205 border-emerald-200 rounded font-bold text-[9px] flex items-center gap-0.5">
+                ✓ Đúng hạn
+              </span>
+            ) : (
+              <span className="px-1.5 py-0.5 bg-rose-50 text-rose-700 border border-rose-250 rounded font-bold text-[9px] flex items-center gap-0.5">
+                ⚠️ Trễ {kpi.diff}h
+              </span>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Interactive transition buttons - visible on hover */}
       <div className="mt-2 pt-2 border-t border-gray-100 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity duration-200">

@@ -40,6 +40,29 @@ const isUrl = (str?: string): boolean => {
   return str.startsWith("http://") || str.startsWith("https://") || str.startsWith("data:image/") || str.startsWith("/");
 };
 
+const normalizeString = (str: string): string => {
+  return String(str ?? "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "d");
+};
+
+const parseDurationToHours = (durationStr: string): number => {
+  if (!durationStr) return 0;
+  const cleanStr = durationStr.toLowerCase().trim();
+  const match = cleanStr.match(/(\d+(\.\d+)?)/);
+  if (!match) return 0;
+  const value = parseFloat(match[1]);
+
+  if (cleanStr.includes("phut") || cleanStr.includes("m") || cleanStr.includes("minutes") || cleanStr.includes("minute")) {
+    return Number((value / 60).toFixed(1));
+  }
+  return value;
+};
+
 const renderAvatar = (avatar: string, sizeClasses: string = "w-8 h-8", textClass: string = "text-base") => {
   if (isUrl(avatar)) {
     return (
@@ -61,6 +84,8 @@ const FUNCTIONAL_CATEGORIES = [
   { key: "tech", label: "Hệ thống & Công nghệ", badge: "TECH", color: "bg-indigo-655", border: "border-t-4 border-indigo-650", dot: "#4f46e5" },
   { key: "operations", label: "Vận hành - Sản xuất", badge: "OPERATIONS", color: "bg-cyan-500", border: "border-t-4 border-cyan-500", dot: "#06b6d4" },
   { key: "sales", label: "Kinh doanh & Tiếp thị", badge: "SALES", color: "bg-amber-500", border: "border-t-4 border-amber-500", dot: "#f59e0b" },
+  { key: "hr", label: "Hành chính & Nhân sự", badge: "HR", color: "bg-rose-500", border: "border-t-4 border-rose-500", dot: "#f43f5e" },
+  { key: "other", label: "Khác", badge: "OTHER", color: "bg-slate-500", border: "border-t-4 border-slate-500", dot: "#64748b" }
 ];
 
 const getCategoryByDivision = (division: string) => {
@@ -579,6 +604,8 @@ export default function OrgChartTab({
         // Tạo Kanban task tương ứng
         const taskDueDate = new Date();
         taskDueDate.setDate(taskDueDate.getDate() + 7);
+        const durationHours = parseDurationToHours(course.duration);
+
         await fetch("/api/v1/crud/kanban-tasks", {
           method: "POST",
           headers: {
@@ -601,6 +628,7 @@ export default function OrgChartTab({
             creatorUid: userProfile?.uid || "system",
             createdAt: new Date().toISOString(),
             projectId: "",
+            estTime: durationHours,
             tags: course.tags,
             linkNote: "",
             history: [{
@@ -896,9 +924,11 @@ export default function OrgChartTab({
 
   // Filtering matching logic
   const isMatchingFilter = (emp: EmployeeNode): boolean => {
-    const matchSearch = searchQuery.trim() === "" ||
-      emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      emp.role.toLowerCase().includes(searchQuery.toLowerCase());
+    const query = normalizeString(searchQuery);
+    const matchSearch = query === "" ||
+      normalizeString(emp.name).includes(query) ||
+      normalizeString(emp.role).includes(query) ||
+      normalizeString(emp.department).includes(query);
 
     const matchDepartment = filterDepartment === "Tất cả" || emp.department === filterDepartment;
 

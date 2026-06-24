@@ -798,11 +798,10 @@ export default function TrainingTab({
                           type="button"
                           disabled={!!trainingFilter}
                           onClick={() => handleEnrollAndStart(course)}
-                          className={`px-5 py-2 rounded-xl text-xs font-bold transition-all shadow-3xs cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${
-                            isCompleted
+                          className={`px-5 py-2 rounded-xl text-xs font-bold transition-all shadow-3xs cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${isCompleted
                               ? "bg-emerald-50 hover:bg-emerald-100 border border-emerald-250 text-emerald-705 text-emerald-700"
                               : "bg-indigo-650 hover:bg-indigo-700 text-white"
-                          }`}
+                            }`}
                         >
                           {!myEnrollment ? 'Bắt đầu học' : isCompleted ? 'Xem văn bằng' : 'Học tiếp bài sau'}
                         </button>
@@ -1159,9 +1158,8 @@ export default function TrainingTab({
                           setActiveLessonIndex(-1);
                           setQuizSubmitted(false);
                         }}
-                        className={`w-full p-2.5 rounded-xl text-left font-semibold transition-all flex items-center gap-2 cursor-pointer ${
-                          activeLessonIndex === -1 ? "bg-indigo-50 text-indigo-705 text-indigo-700 shadow-3xs" : "hover:bg-slate-200/50 text-slate-650"
-                        }`}
+                        className={`w-full p-2.5 rounded-xl text-left font-semibold transition-all flex items-center gap-2 cursor-pointer ${activeLessonIndex === -1 ? "bg-indigo-50 text-indigo-705 text-indigo-700 shadow-3xs" : "hover:bg-slate-200/50 text-slate-650"
+                          }`}
                       >
                         <BookOpen className="w-4 h-4 text-indigo-500 shrink-0" />
                         <span>Giới thiệu khóa học</span>
@@ -1179,9 +1177,8 @@ export default function TrainingTab({
                               setActiveLessonIndex(index);
                               setQuizSubmitted(false);
                             }}
-                            className={`w-full p-2.5 rounded-xl text-left font-semibold transition-all flex items-center justify-between gap-2 cursor-pointer ${
-                              isActive ? "bg-indigo-50 text-indigo-705 text-indigo-700 shadow-3xs" : "hover:bg-slate-200/50 text-slate-650"
-                            }`}
+                            className={`w-full p-2.5 rounded-xl text-left font-semibold transition-all flex items-center justify-between gap-2 cursor-pointer ${isActive ? "bg-indigo-50 text-indigo-705 text-indigo-700 shadow-3xs" : "hover:bg-slate-200/50 text-slate-650"
+                              }`}
                           >
                             <div className="flex items-center gap-2 min-w-0">
                               {les.type === "video" ? (
@@ -1213,11 +1210,10 @@ export default function TrainingTab({
                               setActiveLessonIndex((activeStudyCourse.lessons || []).length);
                             }}
                             disabled={!isLessonsDone}
-                            className={`w-full p-2.5 rounded-xl text-left font-semibold transition-all flex items-center justify-between gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
-                              activeLessonIndex === (activeStudyCourse.lessons || []).length
+                            className={`w-full p-2.5 rounded-xl text-left font-semibold transition-all flex items-center justify-between gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${activeLessonIndex === (activeStudyCourse.lessons || []).length
                                 ? "bg-indigo-50 text-indigo-750 shadow-3xs border border-indigo-200"
                                 : "hover:bg-slate-200/50 text-slate-650"
-                            }`}
+                              }`}
                           >
                             <div className="flex items-center gap-2 min-w-0">
                               <HelpCircle className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -1365,11 +1361,10 @@ export default function TrainingTab({
                         <button
                           type="button"
                           onClick={() => handleMarkLessonComplete(les, activeLessonIndex)}
-                          className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer active:scale-95 flex items-center gap-1.5 font-sans ${
-                            isCompleted
+                          className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer active:scale-95 flex items-center gap-1.5 font-sans ${isCompleted
                               ? "bg-slate-100 border border-gray-200 text-slate-450 hover:bg-slate-200"
                               : "bg-indigo-650 hover:bg-indigo-700 text-white"
-                          }`}
+                            }`}
                         >
                           <CheckCircle className="h-4 w-4" />
                           {activeLessonIndex === (activeStudyCourse.lessons?.length ?? 0) - 1 ? "Hoàn thành" : "Hoàn thành bài & Tiếp tục →"}
@@ -1404,9 +1399,8 @@ export default function TrainingTab({
                             return (
                               <div
                                 key={idx}
-                                className={`p-5 rounded-2xl border transition-all ${
-                                  isError ? "bg-rose-50/50 border-rose-200 shadow-rose-50" : "bg-white border-gray-150 shadow-3xs"
-                                }`}
+                                className={`p-5 rounded-2xl border transition-all ${isError ? "bg-rose-50/50 border-rose-200 shadow-rose-50" : "bg-white border-gray-150 shadow-3xs"
+                                  }`}
                               >
                                 <h4 className="font-bold text-xs text-slate-800 leading-snug flex gap-2">
                                   <span className="font-mono text-indigo-650 shrink-0">Q{idx + 1}:</span>
@@ -1420,11 +1414,10 @@ export default function TrainingTab({
                                     return (
                                       <label
                                         key={oIdx}
-                                        className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer select-none transition-all ${
-                                          isSelected
+                                        className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer select-none transition-all ${isSelected
                                             ? "bg-indigo-50/60 border-indigo-300 ring-2 ring-indigo-500/10 text-indigo-850 font-semibold"
                                             : "hover:bg-slate-50 border-gray-150 text-slate-650 font-medium"
-                                        }`}
+                                          }`}
                                       >
                                         <input
                                           type="radio"
@@ -1501,7 +1494,7 @@ export default function TrainingTab({
                             onClick={handleFinishCourse}
                             className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold rounded-xl text-xs shadow-md transition-all cursor-pointer font-sans"
                           >
-                            🎉 Hoàn thành & Nhận Tokens!
+                            Hoàn thành
                           </button>
                         )}
                       </div>
