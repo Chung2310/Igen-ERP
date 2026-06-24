@@ -244,7 +244,7 @@ export default function OrgChartTab({
     }
   };
 
-   const [filterDivision, setFilterDivision] = useState<string>("Tất cả");
+   const [filterDepartment, setFilterDepartment] = useState<string>("Tất cả");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [collapsedNodes, setCollapsedNodes] = useState<Set<string>>(new Set());
   const [selectedEmp, setSelectedEmp] = useState<EmployeeNode | null>(null);
@@ -872,15 +872,20 @@ export default function OrgChartTab({
     ])
   ).sort();
 
+  // Danh sách phòng ban động lấy từ dữ liệu nhân sự hiện có của công ty (không fix cứng)
+  const uniqueDepartments = Array.from(
+    new Set(employees.map(e => e.department).filter(Boolean))
+  ).sort();
+
   // Filtering matching logic
   const isMatchingFilter = (emp: EmployeeNode): boolean => {
     const matchSearch = searchQuery.trim() === "" ||
       emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       emp.role.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchDivision = filterDivision === "Tất cả" || emp.division === filterDivision;
+    const matchDepartment = filterDepartment === "Tất cả" || emp.department === filterDepartment;
 
-    return matchSearch && matchDivision;
+    return matchSearch && matchDepartment;
   };
 
   // Identify root employees (level 1 or nodes with no parent in the displayed tree)
@@ -891,7 +896,7 @@ export default function OrgChartTab({
     const children = employees.filter(e => e.parentId === node.id);
     const isSelected = selectedEmp?.id === node.id;
     const isMatch = isMatchingFilter(node);
-    const isFilteredOut = (searchQuery.trim() !== "" || filterDivision !== "Tất cả") && !isMatch;
+    const isFilteredOut = (searchQuery.trim() !== "" || filterDepartment !== "Tất cả") && !isMatch;
     const isCollapsed = collapsedNodes.has(node.id);
     const directReportsCount = employees.filter(e => e.parentId === node.id).length;
 
@@ -1052,13 +1057,13 @@ export default function OrgChartTab({
           <div className="flex items-center gap-1.5">
             <Filter className="h-4 w-4 text-gray-400" />
             <select
-              value={filterDivision}
-              onChange={(e) => setFilterDivision(e.target.value)}
+              value={filterDepartment}
+              onChange={(e) => setFilterDepartment(e.target.value)}
               className="border border-gray-200 p-1.5 rounded-xl text-xs bg-white outline-none cursor-pointer"
             >
-              <option value="Tất cả">Tất cả Khối</option>
-              {uniqueDivisions.map(div => (
-                <option key={div} value={div}>{div}</option>
+              <option value="Tất cả">Tất cả Phòng ban</option>
+              {uniqueDepartments.map(dept => (
+                <option key={dept} value={dept}>{dept}</option>
               ))}
             </select>
           </div>
