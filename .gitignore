@@ -9,5 +9,4 @@ coverage/
 firebase-applet-config
 .agent
 temp_key
-scratch/
 package-lock.json

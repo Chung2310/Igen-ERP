@@ -140,11 +140,10 @@ export default function HRTab() {
             <button
               key={tab}
               onClick={() => setSubTab(tab as HRSubTabType)}
-              className={`px-4 py-2 rounded-lg border font-bold uppercase transition-all tracking-wide cursor-pointer ${
-                subTab === tab
+              className={`px-4 py-2 rounded-lg border font-bold uppercase transition-all tracking-wide cursor-pointer ${subTab === tab
                   ? "bg-slate-800 text-white border-slate-800 shadow-xs"
                   : "bg-white text-gray-500 border-gray-200 hover:bg-gray-100"
-              }`}
+                }`}
             >
               {tab}
             </button>

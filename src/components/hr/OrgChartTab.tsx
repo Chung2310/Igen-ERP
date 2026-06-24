@@ -370,7 +370,10 @@ export default function OrgChartTab({
 
   const canEditEmployee = (selectedEmpId: string): boolean => {
     if (!userProfile) return false;
-    if (selectedEmpId === userProfile.uid) return false; // Không tự chỉnh sửa chính mình ở đây
+    if (selectedEmpId === userProfile.uid) {
+      // Cho phép admin, superadmin và manager tự chỉnh sửa thông tin của chính mình
+      return ["superadmin", "admin", "manager"].includes(userProfile.role);
+    }
 
     const selectedUserRaw = usersList.find(u => u.uid === selectedEmpId);
     if (!selectedUserRaw) return false;

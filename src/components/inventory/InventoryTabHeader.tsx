@@ -16,9 +16,8 @@ export function InventoryTabHeader({ subTab, onChangeTab }: InventoryTabHeaderPr
           <button
             key={tab}
             onClick={() => onChangeTab(tab)}
-            className={`rounded-lg border px-4 py-2 font-bold uppercase tracking-wide transition-all ${
-              subTab === tab ? "border-slate-800 bg-slate-800 text-white shadow-xs" : "border-gray-200 bg-white text-gray-500 hover:bg-gray-100"
-            }`}
+            className={`rounded-lg border px-4 py-2 font-bold uppercase tracking-wide transition-all ${subTab === tab ? "border-slate-800 bg-slate-800 text-white shadow-xs" : "border-gray-200 bg-white text-gray-500 hover:bg-gray-100"
+              }`}
           >
             {tab}
           </button>
