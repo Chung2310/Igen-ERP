@@ -882,6 +882,18 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
                       Mã xác minh cấu hình trên Facebook Webhook dashboard.
                     </p>
                   </div>
+
+                  <div className="mt-3 p-3.5 bg-indigo-50/50 border border-indigo-100 rounded-xl text-left">
+                    <p className="text-[10px] font-bold text-indigo-750 uppercase tracking-wider mb-1 flex items-center gap-1">
+                      <Terminal className="h-3.5 w-3.5 text-indigo-650" />
+                      Hướng dẫn Webhook Facebook
+                    </p>
+                    <ul className="text-[9px] text-gray-500 list-disc pl-3.5 space-y-1 leading-normal">
+                      <li><strong>Tin nhắn (Chat):</strong> Đăng ký sự kiện <code>messages</code> và <code>messaging_postbacks</code>.</li>
+                      <li><strong>Bình luận (Auto Comment):</strong> Đăng ký sự kiện <code>feed</code> (bắt buộc để nhận bình luận bài viết).</li>
+                      <li><strong>Verify Token:</strong> Điền mã xác minh trùng khớp với Verify Token cấu hình trên Meta Developer.</li>
+                    </ul>
+                  </div>
                 </>
               )}
 
