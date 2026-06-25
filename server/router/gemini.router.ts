@@ -111,6 +111,7 @@ const editVideoSchema = {
     resolution: Joi.string().optional().allow(""),
     duration: Joi.number().optional(),
     videoDurations: Joi.array().items(Joi.number()).optional(),
+    blueprint: Joi.object().optional(),
   }),
 };
 
