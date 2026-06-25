@@ -25,6 +25,8 @@ type OmniChatTabProps = {
   facebookPages: Array<{ _id: string; displayName: string; username: string; isMock?: boolean }>;
   selectedFacebookPageId: string;
   setSelectedFacebookPageId: (val: string) => void;
+  handleApplyToAllPages?: () => void;
+  copyingConfig?: boolean;
 };
 
 export const OmniChatTab: React.FC<OmniChatTabProps> = ({
@@ -46,6 +48,8 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
   facebookPages,
   selectedFacebookPageId,
   setSelectedFacebookPageId,
+  handleApplyToAllPages,
+  copyingConfig,
 }) => {
   const [filterInbox, setFilterInbox] = useState("");
   const [activeChannel, setActiveChannel] = useState<"all" | "facebook" | "zalo">("all");
@@ -799,6 +803,8 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
           handleTestAIReply={handleTestAIReply}
           aiReplyLogs={aiReplyLogs}
           handleFeedback={handleFeedback}
+          handleApplyToAll={handleApplyToAllPages}
+          copyingConfig={copyingConfig}
         />
       )}
 

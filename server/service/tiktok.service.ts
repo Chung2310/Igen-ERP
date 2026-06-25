@@ -525,10 +525,6 @@ async function resolveOAuthClientCredentials(params: {
     if (!clientKey) clientKey = getTikTokClientKey();
     if (!clientSecret) clientSecret = getTikTokClientSecret();
 
-    if (!clientKey || !clientSecret) {
-      throw new Error("Kenh TikTok doanh nghiep va he thong deu chua cau hinh Client Key va Client Secret.");
-    }
-
     return { clientKey, clientSecret };
   }
 
@@ -536,10 +532,6 @@ async function resolveOAuthClientCredentials(params: {
   const integration = user?.tiktokIntegration;
   const clientKey = String(integration?.clientKey || getTikTokClientKey() || "").trim();
   const clientSecret = String(integration?.clientSecret || getTikTokClientSecret() || "").trim();
-
-  if (!clientKey || !clientSecret) {
-    throw new Error("Tai khoan TikTok ca nhan va he thong deu chua cau hinh Client Key va Client Secret.");
-  }
 
   return { clientKey, clientSecret };
 }

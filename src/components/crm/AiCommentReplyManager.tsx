@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { 
   MessageSquare, Zap, RefreshCw, Terminal, Send, CheckCircle, 
   HelpCircle, Save, Sliders, Play, ExternalLink, ChevronDown, ChevronUp,
-  Facebook
+  Facebook, Copy
 } from "lucide-react";
 import { toast } from "../../pages/Toast";
 import { getAccessToken } from "../../services/authService";
@@ -52,22 +52,61 @@ export function AiCommentReplyManager({
   // Expanded post card states
   const [expandedPosts, setExpandedPosts] = useState<{ [key: string]: boolean }>({});
 
-  // Sync settings from userProfile
+  // Sync settings from selectedFacebookPageId (per-page config) or fallback to userProfile
   useEffect(() => {
-    if (userProfile?.aiAutoReplyConfig) {
-      setLocalConfig({
-        enabled: userProfile.aiAutoReplyConfig.enabled ?? false,
-        commentReplyEnabled: userProfile.aiAutoReplyConfig.commentReplyEnabled ?? false,
-        autoClassify: userProfile.aiAutoReplyConfig.autoClassify ?? true,
-        autoCloseDeal: userProfile.aiAutoReplyConfig.autoCloseDeal ?? false,
-        autoFeedback: userProfile.aiAutoReplyConfig.autoFeedback ?? false,
-        replyDelay: userProfile.aiAutoReplyConfig.replyDelay ?? 15,
-        advancedInstructions: userProfile.aiAutoReplyConfig.advancedInstructions ?? "",
-        trainingKnowledge: userProfile.aiAutoReplyConfig.trainingKnowledge ?? "",
-        model: userProfile.aiAutoReplyConfig.model || "gemini-3.5-flash"
-      });
-    }
-  }, [userProfile]);
+    let active = true;
+    const loadPageConfig = async () => {
+      const selectedPage = facebookPages.find(p => p.username === selectedFacebookPageId);
+      if (selectedPage && selectedPage._id !== "personal") {
+        try {
+          const res = await fetch(`/api/v1/crud/social-integrations/${selectedPage._id}`, {
+            headers: {
+              Authorization: `Bearer ${getAccessToken()}`,
+            },
+          });
+          const result = await res.json().catch(() => ({}));
+          if (active && res.ok && result.status === "success" && result.data?.aiAutoReplyConfig) {
+            const config = result.data.aiAutoReplyConfig;
+            setLocalConfig({
+              enabled: config.enabled ?? false,
+              commentReplyEnabled: config.commentReplyEnabled ?? false,
+              autoClassify: config.autoClassify ?? true,
+              autoCloseDeal: config.autoCloseDeal ?? false,
+              autoFeedback: config.autoFeedback ?? false,
+              replyDelay: config.replyDelay ?? 15,
+              advancedInstructions: config.advancedInstructions ?? "",
+              trainingKnowledge: config.trainingKnowledge ?? "",
+              model: config.model || "gemini-3.5-flash"
+            });
+            return;
+          }
+        } catch (err) {
+          console.error("[AiCommentReplyManager] Failed to load per-page AI config:", err);
+        }
+      }
+
+      // Fallback to userProfile
+      if (active && userProfile?.aiAutoReplyConfig) {
+        setLocalConfig({
+          enabled: userProfile.aiAutoReplyConfig.enabled ?? false,
+          commentReplyEnabled: userProfile.aiAutoReplyConfig.commentReplyEnabled ?? false,
+          autoClassify: userProfile.aiAutoReplyConfig.autoClassify ?? true,
+          autoCloseDeal: userProfile.aiAutoReplyConfig.autoCloseDeal ?? false,
+          autoFeedback: userProfile.aiAutoReplyConfig.autoFeedback ?? false,
+          replyDelay: userProfile.aiAutoReplyConfig.replyDelay ?? 15,
+          advancedInstructions: userProfile.aiAutoReplyConfig.advancedInstructions ?? "",
+          trainingKnowledge: userProfile.aiAutoReplyConfig.trainingKnowledge ?? "",
+          model: userProfile.aiAutoReplyConfig.model || "gemini-3.5-flash"
+        });
+      }
+    };
+
+    void loadPageConfig();
+
+    return () => {
+      active = false;
+    };
+  }, [selectedFacebookPageId, facebookPages, userProfile]);
 
   // Fetch AI Reply Logs specifically for facebook_comment
   const fetchLogs = async () => {
@@ -148,13 +187,74 @@ export function AiCommentReplyManager({
   const handleSaveConfig = async () => {
     setSavingConfig(true);
     try {
-      await updateAiAutoReplyConfig(localConfig);
+      const selectedPage = facebookPages.find(p => p.username === selectedFacebookPageId);
+      if (selectedPage && selectedPage._id !== "personal") {
+        const res = await fetch(`/api/v1/crud/social-integrations/${selectedPage._id}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${getAccessToken()}`,
+          },
+          body: JSON.stringify({ aiAutoReplyConfig: localConfig }),
+        });
+        const result = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(result.message || "Không thể lưu cấu hình cho Fanpage.");
+        }
+      } else {
+        await updateAiAutoReplyConfig(localConfig);
+      }
       toast.success("Đã cập nhật cấu hình tự động trả lời bình luận Facebook!");
     } catch (err: any) {
       console.error(err);
       toast.error(err.message || "Lỗi khi lưu cấu hình.");
     } finally {
       setSavingConfig(false);
+    }
+  };
+
+  const [copyingConfig, setCopyingConfig] = useState(false);
+
+  const handleApplyToAllPages = async () => {
+    const selectedPage = facebookPages.find(p => p.username === selectedFacebookPageId);
+    if (!selectedPage || selectedPage._id === "personal") {
+      toast.warning("Chỉ hỗ trợ đồng bộ cấu hình giữa các Fanpage doanh nghiệp.");
+      return;
+    }
+
+    const otherPages = facebookPages.filter(p => p._id !== "personal" && p.username !== selectedFacebookPageId);
+    if (otherPages.length === 0) {
+      toast.info("Không có Fanpage doanh nghiệp nào khác để đồng bộ.");
+      return;
+    }
+
+    const confirmSync = window.confirm(
+      `Bạn có chắc chắn muốn áp dụng cấu hình AI hiện tại cho tất cả ${otherPages.length} Fanpage doanh nghiệp khác không?`
+    );
+    if (!confirmSync) return;
+
+    setCopyingConfig(true);
+    let successCount = 0;
+    try {
+      for (const page of otherPages) {
+        const res = await fetch(`/api/v1/crud/social-integrations/${page._id}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${getAccessToken()}`,
+          },
+          body: JSON.stringify({ aiAutoReplyConfig: localConfig }),
+        });
+        if (res.ok) {
+          successCount++;
+        }
+      }
+      toast.success(`Đã sao chép cấu hình thành công sang ${successCount}/${otherPages.length} Fanpage doanh nghiệp khác!`);
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Lỗi xảy ra trong quá trình đồng bộ cấu hình.");
+    } finally {
+      setCopyingConfig(false);
     }
   };
 
@@ -395,6 +495,16 @@ export function AiCommentReplyManager({
                 {savingConfig ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                 Lưu cấu hình auto-reply
               </button>
+              {facebookPages && facebookPages.filter(p => p._id !== "personal" && p.username !== selectedFacebookPageId).length > 0 && (
+                <button
+                  onClick={handleApplyToAllPages}
+                  disabled={savingConfig || copyingConfig}
+                  className="w-full py-2.5 border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                >
+                  {copyingConfig ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Copy className="h-3.5 w-3.5" />}
+                  Đồng bộ cho Fanpage khác
+                </button>
+              )}
             </div>
 
             {/* Tri thuc RAG health status */}

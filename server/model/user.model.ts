@@ -48,7 +48,7 @@ const ZaloIntegrationSchema = new Schema(
   { _id: false }
 );
 
-const AiAutoReplyConfigSchema = new Schema(
+export const AiAutoReplyConfigSchema = new Schema(
   {
     enabled: { type: Boolean, default: false },
     commentReplyEnabled: { type: Boolean, default: false },

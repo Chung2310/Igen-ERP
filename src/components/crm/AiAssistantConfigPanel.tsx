@@ -23,6 +23,8 @@ interface AiAssistantConfigPanelProps {
   handleTestAIReply: () => void;
   aiReplyLogs: any[];
   handleFeedback: (logId: string, feedback: "good" | "bad" | "needs_fix") => void;
+  handleApplyToAll?: () => void;
+  copyingConfig?: boolean;
 }
 
 export const AiAssistantConfigPanel: React.FC<AiAssistantConfigPanelProps> = ({
@@ -46,6 +48,8 @@ export const AiAssistantConfigPanel: React.FC<AiAssistantConfigPanelProps> = ({
   handleTestAIReply,
   aiReplyLogs,
   handleFeedback,
+  handleApplyToAll,
+  copyingConfig,
 }) => {
   const knowledgeDocuments = Array.isArray(knowledgeHealth?.documents) ? knowledgeHealth.documents : [];
   const detectedTopics = Array.isArray(knowledgeHealth?.detectedTopics) ? knowledgeHealth.detectedTopics : [];
@@ -399,6 +403,16 @@ export const AiAssistantConfigPanel: React.FC<AiAssistantConfigPanelProps> = ({
             <>Lưu cấu hình trợ lý AI</>
           )}
         </button>
+        {handleApplyToAll && (
+          <button
+            type="button"
+            onClick={handleApplyToAll}
+            disabled={savingConfig || copyingConfig}
+            className="w-full py-2 border border-slate-200 hover:bg-slate-50 text-slate-700 active:scale-[0.98] rounded-xl font-bold text-[11px] transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+          >
+            {copyingConfig ? "Đang đồng bộ..." : "Đồng bộ cho Fanpage khác"}
+          </button>
+        )}
         <div className="font-mono text-center text-[9px] text-slate-400 select-none">
           Cấu hình trợ lý AI
         </div>

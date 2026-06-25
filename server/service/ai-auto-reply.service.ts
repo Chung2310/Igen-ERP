@@ -161,7 +161,7 @@ type ResolvedAutoReplyOwner = {
   companyCode: string;
   selectedUser: any | null;
   aiConfig: any | null;
-  source: "personal_enabled" | "personal_fallback" | "company_enabled" | "company_fallback" | "cross_company_fallback" | "none";
+  source: "personal_enabled" | "personal_fallback" | "company_enabled" | "company_fallback" | "cross_company_fallback" | "company_integration_enabled" | "none";
   userLevelOwners: any[];
   companyIntegrations: any[];
   uniqueCandidates: any[];
@@ -237,10 +237,30 @@ export async function resolveAutoReplyOwner(
     uniqueCandidates,
   } = await collectCandidateUsers(channel, resolvedPlatformId);
 
+  const companyIntegration = companyIntegrations[0] || null;
+  const companyCodeFromIntegration = companyIntegration?.companyCode || null;
+
+  // 1. Prioritize page-specific integration custom configurations if enabled
+  if (companyIntegration && companyIntegration.aiAutoReplyConfig?.enabled === true) {
+    const representativeUser =
+      uniqueCandidates.find((candidate: any) => candidate?.companyCode === companyCodeFromIntegration) ||
+      uniqueCandidates[0] ||
+      null;
+
+    return {
+      companyCode: companyCodeFromIntegration || "SYSTEM",
+      selectedUser: representativeUser,
+      aiConfig: companyIntegration.aiAutoReplyConfig || null,
+      source: "company_integration_enabled",
+      userLevelOwners,
+      companyIntegrations,
+      uniqueCandidates,
+    };
+  }
+
   const directEnabledUser =
     userLevelOwners.find((candidate: any) => candidate?.aiAutoReplyConfig?.enabled === true) || null;
   const directUserFallback = userLevelOwners[0] || null;
-  const companyCodeFromIntegration = companyIntegrations[0]?.companyCode || null;
 
   if (directEnabledUser) {
     return {
