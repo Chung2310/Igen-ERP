@@ -169,6 +169,7 @@ export const VideoComposition: React.FC<VideoCompositionProps> = ({ blueprint })
               preload="auto"
               crossOrigin="anonymous"
               volume={clipVolume}
+              delayRenderTimeoutInMilliseconds={120000}
               style={{
                 width: '100%',
                 height: '100%',
@@ -304,6 +305,7 @@ export const VideoComposition: React.FC<VideoCompositionProps> = ({ blueprint })
                 src={audioItem.src}
                 crossOrigin="anonymous"
                 volume={audioItem.volume ?? 1}
+                delayRenderTimeoutInMilliseconds={120000}
               />
             </Sequence>
           );
