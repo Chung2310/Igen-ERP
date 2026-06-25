@@ -187,8 +187,42 @@ export default function CRMTab() {
     model: localStorage.getItem("selected_ai_model") || "gemini-3.5-flash"
   });
 
-  // Sync AI config when userProfile is loaded
+  // Synchronize AI Config based on selected page/channel or fallback to userProfile
   useEffect(() => {
+    let targetIntegration: SocialIntegration | null = null;
+    
+    if (activeCustomer?.channel === "zalo") {
+      const zaloIntegration = companySocialIntegrations.find(item => item.platform === "Zalo" && item.isConnected);
+      if (zaloIntegration) {
+        targetIntegration = zaloIntegration;
+      }
+    } else {
+      const selectedPage = facebookPages.find(p => p.username === selectedFacebookPageId);
+      if (selectedPage && selectedPage._id !== "personal") {
+        const integration = companySocialIntegrations.find(item => item._id === selectedPage._id);
+        if (integration) {
+          targetIntegration = integration;
+        }
+      }
+    }
+
+    if (targetIntegration?.aiAutoReplyConfig) {
+      const config = targetIntegration.aiAutoReplyConfig;
+      setAIConfig({
+        enabled: config.enabled ?? false,
+        commentReplyEnabled: config.commentReplyEnabled ?? false,
+        autoClassify: config.autoClassify ?? true,
+        autoCloseDeal: config.autoCloseDeal ?? false,
+        autoFeedback: config.autoFeedback ?? false,
+        replyDelay: config.replyDelay ?? 15,
+        advancedInstructions: config.advancedInstructions ?? "",
+        trainingKnowledge: config.trainingKnowledge ?? "",
+        model: config.model || localStorage.getItem("selected_ai_model") || "gemini-3.5-flash"
+      });
+      return;
+    }
+
+    // fallback
     if (userProfile?.aiAutoReplyConfig) {
       setAIConfig({
         enabled: userProfile.aiAutoReplyConfig.enabled ?? false,
@@ -202,14 +236,109 @@ export default function CRMTab() {
         model: userProfile.aiAutoReplyConfig.model || localStorage.getItem("selected_ai_model") || "gemini-3.5-flash"
       });
     }
-  }, [userProfile]);
+  }, [selectedFacebookPageId, facebookPages, companySocialIntegrations, userProfile, activeCustomer]);
 
   const handleUpdateAIConfig = async (newConfig: AIChatConfig) => {
     setAIConfig(newConfig);
     try {
-      await updateAiAutoReplyConfig(newConfig);
-    } catch (err) {
+      let targetIntegrationId: string | null = null;
+
+      if (activeCustomer?.channel === "zalo") {
+        const zaloIntegration = companySocialIntegrations.find(item => item.platform === "Zalo" && item.isConnected);
+        if (zaloIntegration) {
+          targetIntegrationId = zaloIntegration._id;
+        }
+      } else {
+        const selectedPage = facebookPages.find(p => p.username === selectedFacebookPageId);
+        if (selectedPage && selectedPage._id !== "personal") {
+          targetIntegrationId = selectedPage._id;
+        }
+      }
+
+      if (targetIntegrationId) {
+        const res = await fetch(`/api/v1/crud/social-integrations/${targetIntegrationId}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${getAccessToken()}`,
+          },
+          body: JSON.stringify({ aiAutoReplyConfig: newConfig }),
+        });
+        const result = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(result.message || "Không thể lưu cấu hình AI cho tài khoản liên kết.");
+        }
+        // Update local state in memory
+        setCompanySocialIntegrations(prev =>
+          prev.map(item => item._id === targetIntegrationId ? { ...item, aiAutoReplyConfig: newConfig } : item)
+        );
+      } else {
+        await updateAiAutoReplyConfig(newConfig);
+      }
+    } catch (err: any) {
       console.error("[CRMTab] Lỗi lưu cấu hình AI:", err);
+      toast.error(err.message || "Lỗi lưu cấu hình AI");
+    }
+  };
+
+  const [copyingConfig, setCopyingConfig] = useState(false);
+
+  const handleApplyToAllPages = async () => {
+    let activeId: string | null = null;
+
+    if (activeCustomer?.channel === "zalo") {
+      const zaloIntegration = companySocialIntegrations.find(item => item.platform === "Zalo" && item.isConnected);
+      if (zaloIntegration) {
+        activeId = zaloIntegration._id || null;
+      }
+    } else {
+      const selectedPage = facebookPages.find(p => p.username === selectedFacebookPageId);
+      if (selectedPage && selectedPage._id !== "personal") {
+        activeId = selectedPage._id;
+      }
+    }
+
+    if (!activeId) {
+      toast.warning("Chỉ hỗ trợ đồng bộ cấu hình giữa các tài khoản liên kết doanh nghiệp.");
+      return;
+    }
+
+    const otherIntegrations = companySocialIntegrations.filter(item => item.isConnected && item._id !== activeId);
+    if (otherIntegrations.length === 0) {
+      toast.info("Không có tài khoản doanh nghiệp liên kết nào khác để đồng bộ.");
+      return;
+    }
+
+    const confirmSync = window.confirm(
+      `Bạn có chắc chắn muốn áp dụng cấu hình AI hiện tại cho tất cả ${otherIntegrations.length} tài khoản doanh nghiệp liên kết khác không?`
+    );
+    if (!confirmSync) return;
+
+    setCopyingConfig(true);
+    let successCount = 0;
+    try {
+      for (const integration of otherIntegrations) {
+        const res = await fetch(`/api/v1/crud/social-integrations/${integration._id}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${getAccessToken()}`,
+          },
+          body: JSON.stringify({ aiAutoReplyConfig: aiConfig }),
+        });
+        if (res.ok) {
+          successCount++;
+          setCompanySocialIntegrations(prev =>
+            prev.map(item => item._id === integration._id ? { ...item, aiAutoReplyConfig: aiConfig } : item)
+          );
+        }
+      }
+      toast.success(`Đã sao chép cấu hình thành công sang ${successCount}/${otherIntegrations.length} tài khoản khác!`);
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Lỗi xảy ra trong quá trình đồng bộ cấu hình.");
+    } finally {
+      setCopyingConfig(false);
     }
   };
 
@@ -900,6 +1029,8 @@ export default function CRMTab() {
               facebookPages={facebookPages}
               selectedFacebookPageId={selectedFacebookPageId}
               setSelectedFacebookPageId={setSelectedFacebookPageId}
+              handleApplyToAllPages={handleApplyToAllPages}
+              copyingConfig={copyingConfig}
             />
           )}
 

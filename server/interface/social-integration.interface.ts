@@ -1,4 +1,5 @@
 import { Document } from "mongoose";
+import { IAiAutoReplyConfig } from "./user.interface";
 
 export interface ISocialIntegration extends Document {
   companyCode: string;
@@ -17,4 +18,6 @@ export interface ISocialIntegration extends Document {
   appSecret?: string;      // Facebook App Secret (Khóa bí mật từ Meta Developer)
   verifyToken?: string;
   isMock: boolean;
+  aiAutoReplyConfig?: IAiAutoReplyConfig;
 }
+
