@@ -3,13 +3,41 @@ import { fbMessengerService } from "../service/fb-messenger.service";
 import { UserModel } from "../model/user.model";
 import { AIReplyLogModel } from "../model/ai-reply-log.model";
 
-async function getFacebookPageConfig(userId: string): Promise<{ isConnected: boolean; pageId?: string }> {
+async function getFacebookPageConfig(userId: string, requestedPageId?: string): Promise<{ isConnected: boolean; pageId?: string }> {
   const dbUser = await UserModel.findById(userId).lean();
   if (!dbUser) {
     console.warn(`[FB Config] Khong tim thay user voi userId=${userId}`);
     return { isConnected: false };
   }
 
+  const cleanRequestedPageId = requestedPageId ? String(requestedPageId).trim() : "";
+
+  if (cleanRequestedPageId) {
+    // 1. Check user's personal integration
+    if (
+      dbUser.facebookIntegration?.isConnected &&
+      dbUser.facebookIntegration.pageId === cleanRequestedPageId
+    ) {
+      console.log(`[FB Config] Dung Facebook integration ca nhan theo yeu cau cua user=${dbUser.email}, pageId=${cleanRequestedPageId}`);
+      return { isConnected: true, pageId: cleanRequestedPageId };
+    }
+
+    // 2. Check company integrations
+    const { SocialIntegrationModel } = require("../model/social-integration.model");
+    const companyIntegration = await SocialIntegrationModel.findOne({
+      companyCode: dbUser.companyCode,
+      platform: "Facebook",
+      username: cleanRequestedPageId,
+      isConnected: true
+    }).lean();
+
+    if (companyIntegration) {
+      console.log(`[FB Config] Dung Facebook integration doanh nghiep theo yeu cau cua company=${dbUser.companyCode}, pageId=${cleanRequestedPageId}`);
+      return { isConnected: true, pageId: cleanRequestedPageId };
+    }
+  }
+
+  // Fallback: original logic
   if (dbUser.facebookIntegration?.isConnected && dbUser.facebookIntegration.pageId) {
     console.log(`[FB Config] Dung Facebook integration ca nhan cua user=${dbUser.email}, pageId=${dbUser.facebookIntegration.pageId}`);
     return { isConnected: true, pageId: dbUser.facebookIntegration.pageId };
@@ -85,6 +113,7 @@ export const fbMessengerController = {
   async getConversations(req: any, res: Response): Promise<any> {
     try {
       const userId = req.user?.id;
+      const requestedPageId = typeof req.query.pageId === "string" ? req.query.pageId : undefined;
 
       if (!userId) {
         return res.status(401).json({
@@ -93,7 +122,7 @@ export const fbMessengerController = {
         });
       }
 
-      const { isConnected, pageId } = await getFacebookPageConfig(userId);
+      const { isConnected, pageId } = await getFacebookPageConfig(userId, requestedPageId);
 
       // Nếu người dùng hiện tại chưa kết nối Facebook Page, trả về mảng rỗng ngay lập tức
       if (!isConnected || !pageId) {
@@ -130,6 +159,7 @@ export const fbMessengerController = {
       const limit = Number(req.query.limit || 20);
       const before = typeof req.query.before === "string" ? req.query.before : undefined;
       const shouldSync = req.query.sync === "1" || req.query.sync === "true";
+      const requestedPageId = typeof req.query.pageId === "string" ? req.query.pageId : undefined;
 
       if (!userId) {
         return res.status(401).json({
@@ -138,7 +168,7 @@ export const fbMessengerController = {
         });
       }
 
-      const { isConnected, pageId } = await getFacebookPageConfig(userId);
+      const { isConnected, pageId } = await getFacebookPageConfig(userId, requestedPageId);
 
       // Bảo vệ: Đảm bảo khách hàng này thuộc về Page ID của người dùng hiện tại
       if (!isConnected || !pageId) {
@@ -172,6 +202,7 @@ export const fbMessengerController = {
     try {
       const { recipientId: conversationId } = req.params;
       const userId = req.user?.id;
+      const requestedPageId = typeof req.query.pageId === "string" ? req.query.pageId : undefined;
 
       if (!userId) {
         return res.status(401).json({
@@ -180,7 +211,7 @@ export const fbMessengerController = {
         });
       }
 
-      const { isConnected, pageId } = await getFacebookPageConfig(userId);
+      const { isConnected, pageId } = await getFacebookPageConfig(userId, requestedPageId);
 
       if (!isConnected || !pageId) {
         return res.status(403).json({
@@ -207,7 +238,7 @@ export const fbMessengerController = {
 
   async sendReply(req: any, res: Response): Promise<any> {
     try {
-      const { recipientId: conversationId, text } = req.body;
+      const { recipientId: conversationId, text, pageId: requestedPageId } = req.body;
       const userId = req.user?.id;
 
       if (!userId) {
@@ -217,7 +248,7 @@ export const fbMessengerController = {
         });
       }
 
-      const { isConnected, pageId } = await getFacebookPageConfig(userId);
+      const { isConnected, pageId } = await getFacebookPageConfig(userId, requestedPageId);
 
       if (!isConnected || !pageId) {
         return res.status(403).json({
@@ -257,11 +288,12 @@ export const fbMessengerController = {
     try {
       const userId = req.user?.id;
       const { conversationId } = req.params;
+      const requestedPageId = typeof req.query.pageId === "string" ? req.query.pageId : undefined;
       if (!userId) {
         return res.status(401).json({ success: false, message: "Người dùng chưa đăng nhập." });
       }
 
-      const { isConnected, pageId } = await getFacebookPageConfig(userId);
+      const { isConnected, pageId } = await getFacebookPageConfig(userId, requestedPageId);
       if (!isConnected || !pageId) {
         return res.status(403).json({ success: false, message: "Bạn chưa cấu hình tích hợp Facebook." });
       }
@@ -286,11 +318,12 @@ export const fbMessengerController = {
   async diagnosePageConfig(req: any, res: Response): Promise<any> {
     try {
       const userId = req.user?.id;
+      const requestedPageId = typeof req.query.pageId === "string" ? req.query.pageId : undefined;
       if (!userId) {
         return res.status(401).json({ success: false, message: "Người dùng chưa đăng nhập." });
       }
 
-      const { isConnected, pageId } = await getFacebookPageConfig(userId);
+      const { isConnected, pageId } = await getFacebookPageConfig(userId, requestedPageId);
       const diagnostic = await fbMessengerService.diagnosePageConfig(userId, pageId);
       return res.status(200).json({
         success: true,

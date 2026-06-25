@@ -3,7 +3,9 @@ import {
   Zap,
   Trash2,
   Calendar,
-  RefreshCw
+  RefreshCw,
+  Facebook,
+  ChevronDown
 } from "lucide-react";
 import { MarketingSubTabType, ContentApprovalCard } from "../types";
 import { marketingService, extractDraftContent, sanitizeHumanVideoVoiceScript, stripHumanVideoOutlineSections } from "../services/marketingService";
@@ -69,6 +71,86 @@ export default function MarketingTab() {
   const [scheduleIntegrationId, setScheduleIntegrationId] = useState("");
   const [loadingIntegrationsForSchedule, setLoadingIntegrationsForSchedule] = useState(false);
   const [companySocialIntegrations, setCompanySocialIntegrations] = useState<SocialIntegration[]>([]);
+  const [publishMode, setPublishMode] = useState<"instant" | "scheduled">("instant");
+
+  const getPublishingAccounts = () => {
+    const list: Array<{
+      id: string;
+      displayName: string;
+      username: string;
+      accessToken?: string;
+      isMock?: boolean;
+      platform: string;
+    }> = [];
+
+    const platform = schedulingCard?.channel || "";
+    
+    if (platform === "Facebook") {
+      if (userProfile?.facebookIntegration?.isConnected && userProfile.facebookIntegration.pageId) {
+        list.push({
+          id: "personal",
+          displayName: userProfile.facebookIntegration.pageName || "Fanpage cá nhân",
+          username: userProfile.facebookIntegration.pageId,
+          accessToken: userProfile.facebookIntegration.pageAccessToken,
+          isMock: !!userProfile.facebookIntegration.isMock,
+          platform: "Facebook",
+        });
+      }
+    } else if (platform === "TikTok") {
+      if (userProfile?.tiktokIntegration?.isConnected && userProfile.tiktokIntegration.username) {
+        list.push({
+          id: "personal",
+          displayName: userProfile.tiktokIntegration.displayName || "Kênh TikTok cá nhân",
+          username: userProfile.tiktokIntegration.username,
+          accessToken: userProfile.tiktokIntegration.accessToken,
+          isMock: !!userProfile.tiktokIntegration.isMock,
+          platform: "TikTok",
+        });
+      }
+    } else if (platform === "Zalo") {
+      if (userProfile?.zaloIntegration?.isConnected && userProfile.zaloIntegration.username) {
+        list.push({
+          id: "personal",
+          displayName: userProfile.zaloIntegration.displayName || "Zalo OA cá nhân",
+          username: userProfile.zaloIntegration.username,
+          accessToken: userProfile.zaloIntegration.accessToken,
+          isMock: !!userProfile.zaloIntegration.isMock,
+          platform: "Zalo",
+        });
+      }
+    }
+
+    availableIntegrations.forEach(item => {
+      if (item.platform === platform && item.isConnected && item.username) {
+        if (!list.some(p => p.username === item.username)) {
+          list.push({
+            id: item._id || "company_" + item.username,
+            displayName: item.displayName || `${platform} OA/Page ${item.username}`,
+            username: item.username,
+            accessToken: item.accessToken,
+            isMock: !!item.isMock,
+            platform: platform,
+          });
+        }
+      }
+    });
+
+    return list;
+  };
+
+  // Synchronize integration selection when integrations list loads
+  useEffect(() => {
+    if (schedulingCard) {
+      const options = getPublishingAccounts();
+      if (options.length > 0) {
+        if (!options.some(opt => opt.id === scheduleIntegrationId)) {
+          setScheduleIntegrationId(options[0].id);
+        }
+      } else {
+        setScheduleIntegrationId("");
+      }
+    }
+  }, [availableIntegrations, userProfile, schedulingCard]);
 
   // Shared Approval Cards State
   const [approvalCards, setApprovalCards] = useState<ContentApprovalCard[]>([]);
@@ -156,20 +238,13 @@ export default function MarketingTab() {
           const list = await socialIntegrationService.getIntegrations(platform);
           const connectedList = list.filter(item => item.isConnected);
           setAvailableIntegrations(connectedList);
-          if (connectedList.length > 0) {
-            setScheduleIntegrationId(connectedList[0]._id || "");
-          } else {
-            setScheduleIntegrationId("");
-          }
         } else {
           setAvailableIntegrations([]);
-          setScheduleIntegrationId("");
         }
       } catch (err) {
         console.error("Lỗi khi tải tài khoản liên kết để lên lịch:", err);
         toast.error("Không thể tải danh sách tài khoản liên kết.");
         setAvailableIntegrations([]);
-        setScheduleIntegrationId("");
       } finally {
         setLoadingIntegrationsForSchedule(false);
       }
@@ -188,34 +263,112 @@ export default function MarketingTab() {
     }
   };
 
-  const handleConfirmSchedule = async () => {
+  const handleConfirmPublishOrSchedule = async () => {
     if (!schedulingCard) return;
 
-    if (availableIntegrations.length === 0) {
-      toast.error("Không thể lên lịch: Chưa có tài khoản liên kết nào cho kênh này. Vui lòng kết nối tài khoản ở mục Cài đặt -> MXH Doanh nghiệp.");
+    const selectedAcc = getPublishingAccounts().find(a => a.id === scheduleIntegrationId);
+    if (!selectedAcc) {
+      toast.error("Vui lòng chọn tài khoản liên kết hợp lệ.");
       return;
     }
 
     setIsScheduling(true);
     try {
-      await marketingService.scheduleCard(
-        schedulingCard.id,
-        scheduleDate,
-        scheduleTime,
-        scheduleIntegrationId || undefined
-      );
-      toast.success(`Đã lên lịch đăng bài "${schedulingCard.title}" thành công!`);
-      setApprovalCards(prev => prev.map(c => c.id === schedulingCard.id ? {
-        ...c,
-        status: "scheduled",
-        scheduledDate: scheduleDate,
-        scheduledTime: scheduleTime,
-        integrationId: scheduleIntegrationId
-      } : c));
+      if (publishMode === "instant") {
+        if (schedulingCard.channel === "Facebook") {
+          const pageToken = selectedAcc.accessToken;
+          const pageId = selectedAcc.username;
+          if (!pageToken || !pageId) {
+            throw new Error("Không lấy được Page Token hoặc Page ID.");
+          }
+          const postId = await marketingService.publishToFacebook(
+            schedulingCard.id,
+            pageToken,
+            pageId,
+            schedulingCard.bodyText,
+            selectedAcc.isMock ?? false,
+            schedulingCard.imageUrl || undefined,
+            schedulingCard.videoUrl || undefined
+          );
+          
+          setApprovalCards(prev => prev.map(c => c.id === schedulingCard.id ? {
+            ...c,
+            status: "published",
+            publishedAt: new Date().toISOString(),
+            facebookPostId: postId
+          } : c));
+          toast.success(`Đã đăng bài lên Facebook thành công! ${selectedAcc.isMock ? '(Demo)' : ''} ID: ${postId.slice(-8)}`);
+        } else if (schedulingCard.channel === "TikTok") {
+          if (!schedulingCard.videoUrl) {
+            throw new Error("Bài đăng TikTok cần có video. Hãy tạo video AI trước.");
+          }
+          const caption = extractDraftContent(schedulingCard.bodyText).slice(0, 2200);
+          const publishResult = await marketingService.publishToTikTok(
+            schedulingCard.id,
+            caption,
+            schedulingCard.videoUrl,
+            selectedAcc.isMock ?? false,
+            "SELF_ONLY",
+            {
+              integrationId: selectedAcc.id === "personal" ? undefined : selectedAcc.id,
+              accessToken: selectedAcc.accessToken,
+              username: selectedAcc.username,
+            }
+          );
+          
+          if (publishResult.status === "pending") {
+            setApprovalCards((prev) =>
+              prev.map((item) =>
+                item.id === schedulingCard.id
+                  ? {
+                      ...item,
+                      status: "processing",
+                      tiktokPostId: publishResult.postId || item.tiktokPostId,
+                      tiktokShareUrl: publishResult.shareUrl || item.tiktokShareUrl,
+                    }
+                  : item
+              )
+            );
+            toast.success("Đã gửi video sang TikTok. Hệ thống đang chờ TikTok xử lý.");
+          } else {
+            setApprovalCards((prev) =>
+              prev.map((item) =>
+                item.id === schedulingCard.id
+                  ? {
+                      ...item,
+                      status: "published",
+                      publishedAt: new Date().toISOString(),
+                      tiktokPostId: publishResult.postId || item.tiktokPostId,
+                      tiktokShareUrl: publishResult.shareUrl || item.tiktokShareUrl,
+                    }
+                  : item
+              )
+            );
+            toast.success(`Đã đăng video lên TikTok thành công! ${selectedAcc.isMock ? '(Demo)' : ''} ID: ${String(publishResult.postId || "").slice(-8)}`);
+          }
+        } else {
+          toast.error(`Kênh "${schedulingCard.channel}" chưa hỗ trợ đăng tải trực tiếp.`);
+        }
+      } else {
+        await marketingService.scheduleCard(
+          schedulingCard.id,
+          scheduleDate,
+          scheduleTime,
+          selectedAcc.id === "personal" ? undefined : selectedAcc.id
+        );
+        toast.success(`Đã lên lịch đăng bài "${schedulingCard.title}" thành công!`);
+        setApprovalCards(prev => prev.map(c => c.id === schedulingCard.id ? {
+          ...c,
+          status: "scheduled",
+          scheduledDate: scheduleDate,
+          scheduledTime: scheduleTime,
+          integrationId: selectedAcc.id === "personal" ? undefined : selectedAcc.id
+        } : c));
+      }
       setSchedulingCard(null);
-    } catch (e) {
-      console.error("Lỗi khi lên lịch bài đăng:", e);
-      toast.error("Lỗi khi lên lịch bài đăng.");
+    } catch (e: any) {
+      console.error("Lỗi khi xử lý bài đăng:", e);
+      toast.error(e.message || "Lỗi khi xử lý bài đăng.");
     } finally {
       setIsScheduling(false);
     }
@@ -547,10 +700,20 @@ export default function MarketingTab() {
               handleOpenLightbox={handleOpenLightbox}
               handlePublishToTikTok={handlePublishToTikTok}
               publishingTikTokId={publishingTikTokId}
-              setSchedulingCard={setSchedulingCard}
+              setSchedulingCard={(card) => {
+                setSchedulingCard(card);
+                setPublishMode("scheduled");
+                if (card) {
+                  setScheduleDate(new Date().toISOString().split("T")[0]);
+                  setScheduleTime("09:00");
+                }
+              }}
               setScheduleDate={setScheduleDate}
               setScheduleTime={setScheduleTime}
-              onPublishToPlatform={handlePublishCard}
+              onPublishToPlatform={async (card) => {
+                setSchedulingCard(card);
+                setPublishMode("instant");
+              }}
               isPublishing={isPublishing}
             />
           )}
@@ -671,127 +834,185 @@ export default function MarketingTab() {
         </div>
       )}
 
+      {/* Unified Publishing/Scheduling Modal */}
       {schedulingCard && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fadeIn" id="schedule_modal_backdrop">
-          <div className="bg-white rounded-3xl border border-gray-200/50 shadow-2xl w-full max-w-md overflow-hidden font-sans">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-100 max-w-2xl w-full overflow-hidden text-left flex flex-col md:flex-row max-h-[85vh] animate-fade-in-up">
+            
+            {/* Left side: Content Social Preview */}
+            <div className="md:w-5/12 bg-slate-50 border-r border-slate-100 p-5 flex flex-col gap-4 overflow-y-auto max-h-[40vh] md:max-h-none">
+              <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Xem trước nội dung</h4>
+              <div className="bg-white border border-slate-150 rounded-2xl p-4 shadow-3xs flex flex-col gap-3 font-sans">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-550 font-bold text-xs border border-slate-200">
+                    {schedulingCard.channel[0]}
+                  </div>
+                  <div>
+                    <h5 className="text-[11px] font-bold text-slate-800 leading-tight">iGen Brand Hub</h5>
+                    <span className="text-[9px] text-slate-400">Vừa xong • Kênh {schedulingCard.channel}</span>
+                  </div>
+                </div>
 
-            <div className="p-6 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
-              <div>
-                <h4 className="font-bold text-gray-800 text-base flex items-center gap-2">
-                  <Calendar className="h-5 w-5 text-indigo-600 animate-pulse" />
-                  Lên lịch đăng bài viết
-                </h4>
-                <p className="text-xs text-gray-400 mt-1">Chọn ngày và giờ đăng bài lên kênh truyền thông</p>
+                <p className="text-[10.5px] text-slate-650 leading-relaxed whitespace-pre-wrap line-clamp-6">
+                  {schedulingCard.bodyText}
+                </p>
+
+                {schedulingCard.imageUrl && (
+                  <div className="rounded-xl overflow-hidden aspect-video border border-slate-100 bg-slate-950 flex items-center justify-center">
+                    <img src={schedulingCard.imageUrl} alt="Preview" className="w-full h-full object-contain" />
+                  </div>
+                )}
+                {schedulingCard.videoUrl && (
+                  <div className="rounded-xl overflow-hidden aspect-video border border-slate-100 bg-slate-950 flex items-center justify-center">
+                    <video src={schedulingCard.videoUrl} className="w-full h-full object-cover" muted />
+                  </div>
+                )}
               </div>
-              <button
-                onClick={() => setSchedulingCard(null)}
-                className="p-1 px-3 text-sm text-slate-400 hover:text-slate-655 hover:bg-slate-100 rounded-md font-bold transition-all cursor-pointer"
-              >
-                ✕
-              </button>
             </div>
 
-            <div className="p-6 space-y-4 text-xs text-left">
-              <div className="bg-slate-50 p-3.5 rounded-xl border border-dashed border-gray-200">
-                <p className="text-[10px] text-gray-400 font-mono uppercase tracking-wider">Bài viết được chọn:</p>
-                <h5 className="font-bold text-gray-800 text-xs mt-1 leading-snug">{schedulingCard.title}</h5>
-                <span className="inline-block mt-1.5 px-2 py-0.5 bg-indigo-50 border border-indigo-150 rounded text-[9px] font-mono text-indigo-700">
-                  Kênh: {schedulingCard.channel}
-                </span>
+            {/* Right side: Configuration & actions */}
+            <div className="flex-1 p-6 flex flex-col gap-4 overflow-y-auto max-h-[50vh] md:max-h-none">
+              <div className="flex justify-between items-center pb-2 border-b border-slate-150">
+                <h3 className="font-extrabold text-slate-800 text-sm uppercase tracking-wide">
+                  Đăng tải & Lên lịch
+                </h3>
+                <button 
+                  onClick={() => setSchedulingCard(null)}
+                  className="text-slate-400 hover:text-slate-700 font-extrabold text-base focus:outline-none cursor-pointer"
+                >
+                  ×
+                </button>
               </div>
 
               {/* Account Selection */}
-              <div>
-                <label className="block text-gray-500 font-bold mb-1.5 uppercase tracking-wide text-[10px]">
-                  Chọn tài khoản đăng *
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                  Chọn tài khoản đăng tải *
                 </label>
                 {loadingIntegrationsForSchedule ? (
-                  <div className="w-full p-2.5 border border-gray-200 rounded-lg bg-gray-50 flex items-center justify-center gap-2 text-gray-400">
+                  <div className="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50 flex items-center justify-center gap-2 text-slate-400 text-xs">
                     <RefreshCw className="h-4 w-4 animate-spin text-indigo-650" />
                     <span>Đang tải danh sách tài khoản...</span>
                   </div>
-                ) : availableIntegrations.length > 0 ? (
+                ) : getPublishingAccounts().length > 0 ? (
                   <select
                     disabled={isScheduling}
-                    className={`w-full p-2.5 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white font-medium text-gray-750 ${isScheduling ? "bg-gray-50 text-gray-400 cursor-not-allowed" : ""
-                      }`}
+                    className="w-full p-2.5 border border-slate-200 rounded-xl text-xs outline-none bg-white font-medium text-slate-750 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all duration-200 cursor-pointer disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
                     value={scheduleIntegrationId}
                     onChange={(e) => setScheduleIntegrationId(e.target.value)}
                   >
-                    {availableIntegrations.map((integration) => (
-                      <option key={integration._id} value={integration._id}>
-                        {integration.displayName} ({integration.username || "Chưa có username"})
+                    {getPublishingAccounts().map((acc) => (
+                      <option key={acc.id} value={acc.id}>
+                        {acc.displayName} ({acc.username || "Chưa có username"}) {acc.isMock ? "(Demo)" : ""}
                       </option>
                     ))}
                   </select>
                 ) : (
-                  <div className="p-3 border border-amber-250 bg-amber-50 text-amber-800 rounded-xl space-y-1.5">
-                    <p className="font-semibold leading-normal">
+                  <div className="p-3.5 border border-amber-250 bg-amber-50 text-amber-800 rounded-2xl space-y-1.5 text-xs text-left">
+                    <p className="font-bold">
                       Chưa có tài khoản liên kết nào cho kênh này.
                     </p>
-                    <p className="text-[10px] text-amber-700 leading-normal font-sans">
-                      Vui lòng vào mục <strong>Cài đặt -&gt; MXH Doanh nghiệp</strong> để kết nối tài khoản {schedulingCard.channel} trước.
+                    <p className="text-[10px] text-amber-700 leading-relaxed font-sans">
+                      Vui lòng vào mục <strong>Cài đặt -&gt; MXH Doanh nghiệp</strong> hoặc <strong>Cá nhân</strong> để kết nối tài khoản {schedulingCard.channel} trước.
                     </p>
                   </div>
                 )}
               </div>
 
-              <div>
-                <label className="block text-gray-500 font-bold mb-1.5 uppercase tracking-wide text-[10px]">Ngày đăng bài *</label>
-                <input
-                  type="date"
-                  required
-                  disabled={isScheduling}
-                  className={`w-full p-2.5 border border-gray-200 rounded-lg text-xs font-mono focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none ${isScheduling ? "bg-gray-50 text-gray-400 cursor-not-allowed" : ""
-                    }`}
-                  value={scheduleDate}
-                  onChange={(e) => setScheduleDate(e.target.value)}
-                />
+              {/* Mode selection (Instant vs Scheduled) */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                  Chế độ đăng tải
+                </label>
+                <div className="flex gap-3">
+                  <label className="flex-1 flex items-center justify-between p-3 border border-slate-200 rounded-xl bg-white hover:bg-slate-50 cursor-pointer transition-all duration-200">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="publishMode"
+                        checked={publishMode === "instant"}
+                        onChange={() => setPublishMode("instant")}
+                        className="text-blue-600 focus:ring-blue-500 cursor-pointer"
+                        disabled={isScheduling}
+                      />
+                      <span className="text-xs font-bold text-slate-750 font-sans">Đăng ngay</span>
+                    </div>
+                  </label>
+                  <label className="flex-1 flex items-center justify-between p-3 border border-slate-200 rounded-xl bg-white hover:bg-slate-50 cursor-pointer transition-all duration-200">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="publishMode"
+                        checked={publishMode === "scheduled"}
+                        onChange={() => setPublishMode("scheduled")}
+                        className="text-blue-600 focus:ring-blue-500 cursor-pointer"
+                        disabled={isScheduling}
+                      />
+                      <span className="text-xs font-bold text-slate-750 font-sans">Lên lịch đăng</span>
+                    </div>
+                  </label>
+                </div>
               </div>
 
-              <div>
-                <label className="block text-gray-500 font-bold mb-1.5 uppercase tracking-wide text-[10px]">Giờ đăng bài *</label>
-                <input
-                  type="time"
-                  required
-                  disabled={isScheduling}
-                  className={`w-full p-2.5 border border-gray-200 rounded-lg text-xs font-mono focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none ${isScheduling ? "bg-gray-50 text-gray-400 cursor-not-allowed" : ""
-                    }`}
-                  value={scheduleTime}
-                  onChange={(e) => setScheduleTime(e.target.value)}
-                />
-              </div>
+              {/* Scheduled fields */}
+              {publishMode === "scheduled" && (
+                <div className="grid grid-cols-2 gap-4 animate-fade-in">
+                  <div className="flex flex-col gap-1.5 text-left">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Ngày đăng *</label>
+                    <input
+                      type="date"
+                      required
+                      disabled={isScheduling}
+                      className="w-full p-2.5 border border-slate-200 rounded-xl text-xs font-mono outline-none bg-white font-medium text-slate-750 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all duration-200 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
+                      value={scheduleDate}
+                      onChange={(e) => setScheduleDate(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5 text-left">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Giờ đăng *</label>
+                    <input
+                      type="time"
+                      required
+                      disabled={isScheduling}
+                      className="w-full p-2.5 border border-slate-200 rounded-xl text-xs font-mono outline-none bg-white font-medium text-slate-750 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all duration-200 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
+                      value={scheduleTime}
+                      onChange={(e) => setScheduleTime(e.target.value)}
+                    />
+                  </div>
+                </div>
+              )}
 
-              <div className="pt-4 border-t border-gray-100 flex gap-2 justify-end">
+              {/* Actions */}
+              <div className="flex gap-3 pt-3 border-t border-slate-150 mt-auto shrink-0">
                 <button
                   type="button"
                   disabled={isScheduling}
                   onClick={() => setSchedulingCard(null)}
-                  className={`px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-bold transition-all text-xs ${isScheduling ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
-                    }`}
+                  className="px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all duration-250 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Bỏ qua
+                  Hủy
                 </button>
                 <button
                   type="button"
-                  disabled={isScheduling || availableIntegrations.length === 0}
-                  onClick={handleConfirmSchedule}
-                  className={`px-5 py-2 text-white rounded-lg font-bold transition-colors text-xs shadow-sm flex items-center gap-1.5 ${isScheduling || availableIntegrations.length === 0
-                      ? "bg-gray-300 text-gray-400 cursor-not-allowed shadow-none"
-                      : "bg-indigo-600 hover:bg-indigo-700 cursor-pointer shadow-sm shadow-indigo-200"
-                    }`}
+                  disabled={isScheduling || getPublishingAccounts().length === 0}
+                  onClick={handleConfirmPublishOrSchedule}
+                  className="flex-1 py-3 bg-blue-650 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all duration-250 shadow-md hover:shadow-lg active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer disabled:bg-slate-300 disabled:text-slate-400 disabled:cursor-not-allowed disabled:shadow-none"
                 >
                   {isScheduling ? (
                     <>
                       <RefreshCw className="h-3.5 w-3.5 animate-spin" />
                       Đang xử lý...
                     </>
+                  ) : publishMode === "instant" ? (
+                    "Đăng ngay lập tức"
                   ) : (
                     "Xác nhận lên lịch"
                   )}
                 </button>
               </div>
+
             </div>
+
           </div>
         </div>
       )}
