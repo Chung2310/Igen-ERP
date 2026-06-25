@@ -495,8 +495,9 @@ export function EditVideoWorkspace({
         toast.success('Tải video mẫu lên thành công.');
       }
 
+      const duration = videoInputs[0].duration || 0;
       toast.info('Đang phân tích kịch bản và phong cách dựng của video...');
-      const response = await geminiApi.analyzeVideoStyle(targetUrl);
+      const response = await geminiApi.analyzeVideoStyle(targetUrl, duration);
       
       if (response.extractedPrompt) {
         setPrompt(response.extractedPrompt);
@@ -1379,12 +1380,21 @@ export function EditVideoWorkspace({
                           <button
                             type="button"
                             onClick={() => {
-                              setVideoInputs(prev => {
-                                if (prev.some(item => item.url === finalVideoUrl)) {
-                                  return prev;
-                                }
-                                return [...prev, { url: finalVideoUrl, duration: 0 }];
-                              });
+                              // Replace the video inputs with the newly rendered video
+                              setVideoInputs([{ url: finalVideoUrl, duration: 0 }]);
+                              
+                              // Load the duration of the new video dynamically
+                              const tempVideo = document.createElement('video');
+                              tempVideo.preload = 'metadata';
+                              tempVideo.muted = true;
+                              tempVideo.playsInline = true;
+                              tempVideo.src = finalVideoUrl;
+                              tempVideo.onloadedmetadata = () => {
+                                const duration = tempVideo.duration || 0;
+                                setVideoInputs([{ url: finalVideoUrl, duration }]);
+                              };
+                              tempVideo.load();
+
                               setPrompt('');
                               setOptimizedData(null);
                               setBlueprint(null);
@@ -1395,7 +1405,7 @@ export function EditVideoWorkspace({
                             className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-cyan-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-cyan-700 cursor-pointer shadow-sm shadow-cyan-155 mt-2"
                           >
                             <Wand2 className="h-4 w-4" />
-                            Chỉnh sửa tiếp
+                            Tiếp tục sửa
                           </button>
                         </div>
                       );

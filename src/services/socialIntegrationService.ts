@@ -17,6 +17,7 @@ export interface SocialIntegration {
   verifyToken?: string;
   isMock?: boolean;
   blotatoAccountId?: string;
+  aiAutoReplyConfig?: any;
 }
 
 export const socialIntegrationService = {
