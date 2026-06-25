@@ -29,6 +29,12 @@ type OmniChatTabProps = {
   copyingConfig?: boolean;
   onLoadMoreConversations?: () => void;
   hasMoreConversations?: boolean;
+  activeChannel: "facebook" | "zalo";
+  setActiveChannel: (val: "facebook" | "zalo") => void;
+  isFbConnected: boolean;
+  isZaloConnected: boolean;
+  isInboxLoading: boolean;
+  onResumeAI?: (conversationId: string, channel: "facebook" | "zalo") => Promise<void>;
 };
 
 export const OmniChatTab: React.FC<OmniChatTabProps> = ({
@@ -54,12 +60,58 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
   copyingConfig,
   onLoadMoreConversations,
   hasMoreConversations,
+  activeChannel,
+  setActiveChannel,
+  isFbConnected,
+  isZaloConnected,
+  isInboxLoading,
+  onResumeAI,
 }) => {
   const [filterInbox, setFilterInbox] = useState("");
-  const [activeChannel, setActiveChannel] = useState<"all" | "facebook" | "zalo">("all");
+
+
   const [showConfig, setShowConfig] = useState(false);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const [showScrollBottom, setShowScrollBottom] = useState(false);
+  const [aiCountdownText, setAICountdownText] = useState("");
+
+  useEffect(() => {
+    if (!activeCustomer?.aiPausedUntil) {
+      setAICountdownText("");
+      return;
+    }
+
+    const interval = setInterval(() => {
+      const pausedUntil = new Date(activeCustomer.aiPausedUntil!);
+      const now = new Date();
+      const diffMs = pausedUntil.getTime() - now.getTime();
+
+      if (diffMs <= 0) {
+        setAICountdownText("");
+        clearInterval(interval);
+        activeCustomer.aiPausedUntil = null;
+      } else {
+        const totalSecs = Math.ceil(diffMs / 1000);
+        const mins = Math.floor(totalSecs / 60);
+        const secs = totalSecs % 60;
+        setAICountdownText(`${mins}:${secs < 10 ? "0" : ""}${secs}`);
+      }
+    }, 1000);
+
+    const pausedUntil = new Date(activeCustomer.aiPausedUntil!);
+    const now = new Date();
+    const diffMs = pausedUntil.getTime() - now.getTime();
+    if (diffMs > 0) {
+      const totalSecs = Math.ceil(diffMs / 1000);
+      const mins = Math.floor(totalSecs / 60);
+      const secs = totalSecs % 60;
+      setAICountdownText(`${mins}:${secs < 10 ? "0" : ""}${secs}`);
+    } else {
+      setAICountdownText("");
+    }
+
+    return () => clearInterval(interval);
+  }, [activeCustomer?.id, activeCustomer?.aiPausedUntil]);
 
   const handleSidebarScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const target = e.currentTarget;
@@ -168,10 +220,12 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
       });
       const data = await res.json();
       if (res.ok && data.status === "success") {
-        setAIConfig({
-          ...aiConfig,
+        const nextConfig = {
+          ...localConfig,
           trainingKnowledge: data.text
-        });
+        };
+        setLocalConfig(nextConfig);
+        await setAIConfig(nextConfig);
         toast.success(`Đồng bộ thành công từ ${data.title}!`);
         refreshAIHealth();
       } else {
@@ -182,6 +236,52 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
       toast.error("Không thể kết nối tới máy chủ.");
     } finally {
       setSyncingDrive(false);
+    }
+  };
+
+  const [uploadingDoc, setUploadingDoc] = useState(false);
+
+  const handleUploadLocalDoc = async (file: File) => {
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Tệp tin vượt quá dung lượng tối đa cho phép (10MB).");
+      return;
+    }
+
+    setUploadingDoc(true);
+    try {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = async () => {
+        try {
+          const base64String = reader.result as string;
+          const base64Data = base64String.split(",")[1];
+          
+          const data = await geminiApi.uploadLocalDocument(file.name, base64Data, file.type);
+          
+          const nextConfig = {
+            ...localConfig,
+            trainingKnowledge: data.text
+          };
+          setLocalConfig(nextConfig);
+          await setAIConfig(nextConfig);
+          toast.success(`Đã trích xuất & nạp tài liệu: ${file.name} thành công!`);
+          refreshAIHealth();
+        } catch (err: any) {
+          console.error(err);
+          toast.error(err.message || "Lỗi trích xuất và nạp tài liệu.");
+        } finally {
+          setUploadingDoc(false);
+        }
+      };
+      reader.onerror = () => {
+        toast.error("Không thể đọc tệp tin.");
+        setUploadingDoc(false);
+      };
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Lỗi khi tải tài liệu lên.");
+      setUploadingDoc(false);
     }
   };
 
@@ -290,12 +390,7 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
     }
   }, [showConfig]);
 
-  // Bộ đếm hội thoại theo từng kênh
-  const counts = {
-    all: inboxCustomers.length,
-    facebook: inboxCustomers.filter((c) => c.channel === "facebook").length,
-    zalo: inboxCustomers.filter((c) => c.channel === "zalo").length,
-  };
+
 
   const renderCustomerAvatar = (customer: CustomerInbox, sizeClass: string) => {
     const hasImage = typeof customer.avatarUrl === "string" && customer.avatarUrl.startsWith("http");
@@ -347,65 +442,9 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
             />
           </div>
 
-          {/* Premium Channel Segmented Controls */}
-          <div className="flex bg-slate-100 p-1 rounded-xl text-[10px] font-bold" id="inbox_channel_filters">
-            {[
-              { id: "all", label: "Tất cả", count: counts.all },
-              { id: "facebook", label: "Facebook", count: counts.facebook },
-              { id: "zalo", label: "Zalo", count: counts.zalo },
-            ].map((btn) => {
-              const isActive = activeChannel === btn.id;
-              return (
-                <button
-                  key={btn.id}
-                  onClick={() => setActiveChannel(btn.id as any)}
-                  className={`flex-1 py-2 px-1 rounded-lg font-bold transition-all duration-250 cursor-pointer flex items-center justify-center gap-1.5 ${isActive
-                      ? "bg-white text-slate-900 shadow-sm border border-slate-200/20"
-                      : "text-slate-500 hover:text-slate-800 hover:bg-white/40"
-                    }`}
-                >
-                  {btn.id === "facebook" && (
-                    <svg className="h-3 w-3 fill-current text-blue-600 shrink-0" viewBox="0 0 24 24">
-                      <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-                    </svg>
-                  )}
-                  {btn.id === "zalo" && (
-                    <span className="w-3.5 h-3.5 bg-blue-500 text-white text-[8px] font-extrabold rounded-full flex items-center justify-center leading-none shrink-0 font-sans shadow-xxs">Z</span>
-                  )}
-                  <span>{btn.label}</span>
-                  <span className={`px-1.5 py-0.2 rounded-full text-[8px] ${isActive ? "bg-slate-900 text-white" : "bg-slate-200 text-slate-500"
-                    }`}>{btn.count}</span>
-                </button>
-              );
-            })}
-          </div>
 
-          {/* Facebook Page Switcher */}
-          {activeChannel === "facebook" && facebookPages && facebookPages.length > 0 && (
-            <div className="flex flex-col gap-1 mt-1 animate-fade-in" id="fb_page_switcher_container">
-              <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block text-left">Trang Fanpage hiển thị</label>
-              <div className="relative">
-                <select
-                  value={selectedFacebookPageId}
-                  onChange={(e) => setSelectedFacebookPageId(e.target.value)}
-                  className="w-full pl-8 pr-8 py-2 border border-slate-200 bg-slate-50 hover:bg-slate-100 rounded-xl text-[11px] font-bold text-slate-700 outline-none cursor-pointer focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all duration-200 appearance-none"
-                  id="fb_page_switcher_select"
-                >
-                  {facebookPages.map((page) => (
-                    <option key={page.username} value={page.username}>
-                      {page.displayName} {page.isMock ? "(Demo)" : ""}
-                    </option>
-                  ))}
-                </select>
-                <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-blue-650">
-                  <Facebook className="h-3.5 w-3.5" />
-                </div>
-                <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none text-slate-400">
-                  <ChevronDown className="h-3 w-3" />
-                </div>
-              </div>
-            </div>
-          )}
+
+
         </div>
 
         {/* Thread list scroll content */}
@@ -414,98 +453,120 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
           id="inbox_thread_list"
           onScroll={handleSidebarScroll}
         >
-          {inboxCustomers
-            .filter((c) => {
-              const matchesSearch = c.name.toLowerCase().includes(filterInbox.toLowerCase());
-              const matchesChannel = activeChannel === "all" || c.channel === activeChannel;
-              return matchesSearch && matchesChannel;
-            })
-            .map((cust) => {
-              const isActive = activeCustomer?.id === cust.id;
-              const hasHotTag = cust.tags.includes("Khách Nóng");
-
-              return (
-                <div
-                  key={cust.id}
-                  onClick={() => handleSelectCustomer(cust)}
-                  className={`p-4 flex items-start gap-3.5 cursor-pointer transition-all duration-250 text-left relative group border-b border-slate-100/50 ${isActive
-                      ? "bg-blue-50/40 border-l-4 border-blue-600 shadow-xs"
-                      : "hover:bg-slate-50/60 hover:translate-x-1"
-                    }`}
-                  id={`inbox_thread_${cust.id}`}
-                >
-                  {/* Avatar with dynamic channel source badge */}
-                  <div className="p-1.5 bg-white border border-slate-100 rounded-full select-none relative shadow-sm shrink-0 group-hover:scale-105 transition-transform duration-200">
-                    {renderCustomerAvatar(cust, "h-10 w-10")}
-                    {/* Channel source badge in top-right */}
-                    {cust.channel === "facebook" ? (
-                      <span className="absolute -top-1 -right-1 p-0.5 bg-blue-600 text-white rounded-full border border-white shadow-sm flex items-center justify-center">
-                        <svg className="h-2.5 w-2.5 fill-current" viewBox="0 0 24 24">
-                          <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-                        </svg>
-                      </span>
-                    ) : cust.channel === "zalo" ? (
-                      <span className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 text-white text-[7px] font-extrabold rounded-full border border-white shadow-sm flex items-center justify-center leading-none font-sans">
-                        Z
-                      </span>
-                    ) : null}
+          {isInboxLoading ? (
+            Array.from({ length: 6 }).map((_, idx) => (
+              <div key={idx} className="p-4 flex items-center gap-3 animate-pulse border-b border-slate-50/50">
+                <div className="w-10 h-10 bg-slate-100 rounded-full shrink-0" />
+                <div className="flex-1 flex flex-col gap-2 py-0.5">
+                  <div className="flex justify-between items-center">
+                    <div className="h-3 bg-slate-100 rounded w-24" />
+                    <div className="h-2 bg-slate-50 rounded w-8" />
                   </div>
+                  <div className="h-2.5 bg-slate-100 rounded w-40" />
+                </div>
+              </div>
+            ))
+          ) : (
+            <>
+              {inboxCustomers
+                .filter((c) => {
+                  const matchesSearch = c.name.toLowerCase().includes(filterInbox.toLowerCase());
+                  const matchesChannel = c.channel === activeChannel;
+                  return matchesSearch && matchesChannel;
+                })
+                .map((cust) => {
+                  const isActive = activeCustomer?.id === cust.id;
+                  const hasHotTag = cust.tags.includes("Khách Nóng");
 
-                  <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-center">
-                      <span className="font-bold text-xs text-slate-800 group-hover:text-blue-600 transition-colors duration-200 truncate">{cust.name}</span>
-                      <span className="text-[9px] text-slate-400 font-mono">{cust.time}</span>
-                    </div>
+                  return (
+                    <div
+                      key={cust.id}
+                      onClick={() => handleSelectCustomer(cust)}
+                      className={`p-4 flex items-start gap-3.5 cursor-pointer transition-all duration-250 text-left relative group border-b border-slate-100/50 ${isActive
+                        ? "bg-blue-50/40 border-l-4 border-blue-600 shadow-xs"
+                        : "hover:bg-slate-50/60 hover:translate-x-1"
+                        }`}
+                      id={`inbox_thread_${cust.id}`}
+                    >
+                      {/* Avatar with dynamic channel source badge */}
+                      <div className="p-1.5 bg-white border border-slate-100 rounded-full select-none relative shadow-sm shrink-0 group-hover:scale-105 transition-transform duration-200">
+                        {renderCustomerAvatar(cust, "h-10 w-10")}
+                        {/* Channel source badge in top-right */}
+                        {cust.channel === "facebook" ? (
+                          <span className="absolute -top-1 -right-1 p-0.5 bg-blue-600 text-white rounded-full border border-white shadow-sm flex items-center justify-center">
+                            <svg className="h-2.5 w-2.5 fill-current" viewBox="0 0 24 24">
+                              <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+                            </svg>
+                          </span>
+                        ) : cust.channel === "zalo" ? (
+                          <span className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 text-white text-[7px] font-extrabold rounded-full border border-white shadow-sm flex items-center justify-center leading-none font-sans">
+                            Z
+                          </span>
+                        ) : null}
+                      </div>
 
-                    <p className="text-[10px] text-slate-500 truncate mt-1 leading-normal select-none">{cust.lastMessage}</p>
-                    <p className="text-[9px] text-slate-400 mt-1">
-                      {cust.channel === "zalo" ? "Khách Zalo • UID: " : "Khách Facebook • PSID: "}
-                      {cust.recipientId || cust.id}
-                    </p>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-center">
+                          <span className="font-bold text-xs text-slate-800 group-hover:text-blue-600 transition-colors duration-200 truncate">{cust.name}</span>
+                          <span className="text-[9px] text-slate-400 font-mono">{cust.time}</span>
+                        </div>
 
-                    <div className="flex flex-wrap items-center gap-1 mt-2.5">
-                      {hasHotTag && (
-                        <span className="animate-pulse px-1.5 py-0.5 bg-red-500 text-white text-[8px] font-extrabold rounded-md shadow-sm flex items-center gap-0.5">
-                          <span className="w-1.5 h-1.5 bg-white rounded-full animate-ping shrink-0" />
-                          ƯU TIÊN GIỜ VÀNG
+                        <p className="text-[10px] text-slate-500 truncate mt-1 leading-normal select-none">{cust.lastMessage}</p>
+                        <p className="text-[9px] text-slate-400 mt-1">
+                          {cust.channel === "zalo" ? "Khách Zalo  " : "Khách Facebook "}
+                        </p>
+
+                        <div className="flex flex-wrap items-center gap-1 mt-2.5">
+                          {hasHotTag && (
+                            <span className="animate-pulse px-1.5 py-0.5 bg-red-500 text-white text-[8px] font-extrabold rounded-md shadow-sm flex items-center gap-0.5">
+                              <span className="w-1.5 h-1.5 bg-white rounded-full animate-ping shrink-0" />
+                              ƯU TIÊN GIỜ VÀNG
+                            </span>
+                          )}
+                          {cust.tags.map((tag, tIdx) => {
+                            if (tag === "Khách Nóng") return null;
+                            return (
+                              <span key={tIdx} className={`px-1.5 py-0.5 text-[8px] font-bold border rounded-md uppercase ${tag === "Khách Ấm"
+                                ? "bg-orange-50 text-orange-600 border-orange-100"
+                                : tag === "Khách VIP"
+                                  ? "bg-purple-50 text-purple-600 border-purple-100"
+                                  : "bg-slate-55 bg-slate-50 text-slate-500 border-slate-150"
+                                }`}>
+                                {tag}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {cust.unreadCount > 0 && (
+                        <span className="absolute right-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 bg-rose-500 text-white text-[9px] font-extrabold rounded-full flex items-center justify-center shadow-md animate-scale-in">
+                          {cust.unreadCount}
                         </span>
                       )}
-                      {cust.tags.map((tag, tIdx) => {
-                        if (tag === "Khách Nóng") return null;
-                        return (
-                          <span key={tIdx} className={`px-1.5 py-0.5 text-[8px] font-bold border rounded-md uppercase ${tag === "Khách Ấm"
-                              ? "bg-orange-50 text-orange-600 border-orange-100"
-                              : tag === "Khách VIP"
-                                ? "bg-purple-50 text-purple-600 border-purple-100"
-                                : "bg-slate-55 bg-slate-50 text-slate-500 border-slate-150"
-                            }`}>
-                            {tag}
-                          </span>
-                        );
-                      })}
                     </div>
-                  </div>
+                  );
+                })}
 
-                  {cust.unreadCount > 0 && (
-                    <span className="absolute right-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 bg-rose-500 text-white text-[9px] font-extrabold rounded-full flex items-center justify-center shadow-md animate-scale-in">
-                      {cust.unreadCount}
-                    </span>
-                  )}
+              {inboxCustomers.length === 0 && (
+                <div className="p-8 text-center text-slate-400 text-xs italic">
+                  Chưa có cuộc hội thoại nào.
                 </div>
-              );
-            })}
-
-          {inboxCustomers.length === 0 && (
-            <div className="p-8 text-center text-slate-400 text-xs italic">
-              Chưa có cuộc hội thoại nào.
-            </div>
+              )}
+            </>
           )}
         </div>
       </div>
 
       {/* M-Col: Active Conversation details */}
       <div className="flex-1 bg-[radial-gradient(circle_at_top,_rgba(191,219,254,0.22),_transparent_32%),linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] flex flex-col justify-between h-full overflow-hidden" id="chat_conversation_area">
-        {!activeCustomer ? (
+        {isInboxLoading ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-400 bg-white">
+            <div className="animate-spin rounded-full h-8 w-8 border-2 border-slate-200 border-t-blue-600 mb-3" />
+            <h4 className="font-extrabold text-slate-655 text-xs font-sans mb-1">Đang tải cuộc hội thoại...</h4>
+            <p className="text-[10px] text-slate-400 max-w-xs font-sans">Hệ thống đang đồng bộ dữ liệu tin nhắn từ trang của bạn.</p>
+          </div>
+        ) : !activeCustomer ? (
           <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-400 bg-white">
             <MessageSquare className="w-12 h-12 text-slate-200 mb-3 animate-pulse" />
             <h4 className="font-extrabold text-slate-700 text-sm font-sans mb-1">Chưa chọn cuộc hội thoại</h4>
@@ -535,10 +596,10 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                         {linkedLead ? (
                           <div className="flex items-center gap-1.5">
                             <span className={`px-2 py-0.5 rounded-md text-[9px] font-extrabold uppercase border ${linkedLead.status === 'cold' ? 'bg-slate-100 text-slate-655 border-slate-200' :
-                                linkedLead.status === 'warm' ? 'bg-orange-50 text-orange-655 border-orange-200' :
-                                  linkedLead.status === 'hot' ? 'bg-rose-50 text-rose-655 border-rose-200 animate-pulse' :
-                                    linkedLead.status === 'won' ? 'bg-emerald-500 text-white border-emerald-500 shadow-sm' :
-                                      'bg-purple-50 text-purple-655 border-purple-200'
+                              linkedLead.status === 'warm' ? 'bg-orange-50 text-orange-655 border-orange-200' :
+                                linkedLead.status === 'hot' ? 'bg-rose-50 text-rose-655 border-rose-200 animate-pulse' :
+                                  linkedLead.status === 'won' ? 'bg-emerald-500 text-white border-emerald-500 shadow-sm' :
+                                    'bg-purple-50 text-purple-655 border-purple-200'
                               }`}>
                               CRM: {
                                 linkedLead.status === 'cold' ? 'Khách Lạnh' :
@@ -607,8 +668,7 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                       </div>
                       <p className="text-[10px] text-slate-500 font-mono mt-1 flex items-center gap-1.5">
                         <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${activeCustomer.channel === "zalo" ? "bg-cyan-400 animate-pulse" : "bg-blue-500"}`} />
-                        {activeCustomer.channel === "zalo" ? "Khách Zalo • UID: " : "Khách Facebook • PSID: "}
-                        {activeCustomer.recipientId || activeCustomer.id}
+                        {activeCustomer.channel === "zalo" ? "Khách Zalo " : "Khách Facebook  "}
                       </p>
                     </div>
                   </div>
@@ -621,8 +681,8 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                 <button
                   onClick={() => setShowConfig(!showConfig)}
                   className={`px-3 py-1.5 rounded-xl text-[10px] font-extrabold transition-all border flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95 ${showConfig
-                      ? "bg-slate-900 text-white border-slate-900"
-                      : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                    ? "bg-slate-900 text-white border-slate-900"
+                    : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
                     }`}
                 >
                   <Sliders className="h-3.5 w-3.5" />
@@ -631,8 +691,8 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
 
                 {/* Source logo info */}
                 <span className={`px-3 py-1.5 rounded-full text-[10px] font-bold font-sans flex items-center gap-1.5 border shadow-sm ${activeCustomer.channel === "facebook"
-                    ? "bg-blue-50 text-blue-700 border-blue-150"
-                    : "bg-indigo-50 text-indigo-700 border-indigo-150"
+                  ? "bg-blue-50 text-blue-700 border-blue-150"
+                  : "bg-indigo-50 text-indigo-700 border-indigo-150"
                   }`}>
                   {activeCustomer.channel === "facebook" ? (
                     <>
@@ -665,8 +725,8 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                       onClick={handleLoadOlderMessages}
                       disabled={chatPagination.loadingMore}
                       className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-[11px] font-bold shadow-sm backdrop-blur transition-all ${chatPagination.loadingMore
-                          ? "cursor-wait border-slate-200 bg-white/85 text-slate-400"
-                          : "border-blue-200 bg-white/90 text-blue-700 hover:border-blue-300 hover:bg-blue-50"
+                        ? "cursor-wait border-slate-200 bg-white/85 text-slate-400"
+                        : "border-blue-200 bg-white/90 text-blue-700 hover:border-blue-300 hover:bg-blue-50"
                         }`}
                     >
                       {chatPagination.loadingMore ? <Clock3 className="h-3.5 w-3.5 animate-spin" /> : <ChevronDown className="h-3.5 w-3.5 rotate-180" />}
@@ -706,12 +766,12 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                         )}
 
                         <div className={`p-3.5 rounded-3xl relative shadow-xs transition-all duration-200 ${isMe
-                            ? "bg-gradient-to-tr from-blue-600 via-indigo-600 to-indigo-700 text-white rounded-br-none text-left font-sans text-xs hover:shadow-md"
-                            : isSystem
-                              ? "bg-emerald-50/90 border border-emerald-200 text-emerald-950 rounded-bl-none text-left font-mono text-[10.5px] shadow-sm shadow-emerald-500/5"
-                              : isAI
-                                ? "bg-gradient-to-tr from-indigo-50 to-purple-50/70 border border-indigo-100 text-indigo-950 rounded-bl-none text-left font-sans text-xs shadow-sm shadow-indigo-500/5"
-                                : "bg-white border border-slate-100 hover:border-slate-200 text-slate-800 rounded-bl-none text-left font-sans text-xs hover:shadow-sm"
+                          ? "bg-gradient-to-tr from-blue-600 via-indigo-600 to-indigo-700 text-white rounded-br-none text-left font-sans text-xs hover:shadow-md"
+                          : isSystem
+                            ? "bg-emerald-50/90 border border-emerald-200 text-emerald-950 rounded-bl-none text-left font-mono text-[10.5px] shadow-sm shadow-emerald-500/5"
+                            : isAI
+                              ? "bg-gradient-to-tr from-indigo-50 to-purple-50/70 border border-indigo-100 text-indigo-950 rounded-bl-none text-left font-sans text-xs shadow-sm shadow-indigo-500/5"
+                              : "bg-white border border-slate-100 hover:border-slate-200 text-slate-800 rounded-bl-none text-left font-sans text-xs hover:shadow-sm"
                           }`}>
                           {isAI && (
                             <span className={`text-[8px] font-mono block font-bold tracking-wider mb-1 uppercase ${isSystem ? "text-emerald-600" : "text-indigo-500"
@@ -737,7 +797,7 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
 
                       <span className="text-[8.5px] text-slate-400 font-mono mt-1.5 select-none font-sans">
                         {isMe ? "CRM Operator • " : isAI ? "Trợ lý AI • " : `${activeCustomer.name} • `}
-                        {new Date(h.timestamp).toLocaleTimeString("vi-VN", { hour: "numeric", minute: "numeric" })}
+                        {new Date(h.timestamp).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })} • {new Date(h.timestamp).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" })}
                       </span>
                     </div>
                   );
@@ -774,6 +834,30 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
               )}
             </div>
 
+            {/* Inline warning banner if AI auto-reply is paused */}
+            {aiConfig.enabled && aiCountdownText && (
+              <div className="mx-4 mb-2 px-4 py-2 bg-indigo-50 border border-indigo-100 rounded-xl flex items-center justify-between shadow-xxs animate-fade-in-up shrink-0">
+                <div className="flex items-center gap-2 text-indigo-900">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+                  </span>
+                  <span className="text-[10px] font-medium font-sans">
+                    🤖 Trợ lý AI đang tạm dừng phản hồi để bạn chat (tự động bật lại sau <strong>{aiCountdownText}</strong>)
+                  </span>
+                </div>
+                {onResumeAI && (
+                  <button
+                    type="button"
+                    onClick={() => onResumeAI(activeCustomer.id, activeCustomer.channel || "facebook")}
+                    className="text-[9.5px] font-extrabold text-indigo-700 hover:text-indigo-900 hover:underline transition-colors duration-200 cursor-pointer"
+                  >
+                    Bật lại AI ngay
+                  </button>
+                )}
+              </div>
+            )}
+
             {/* Chat Send Input Box area */}
             <form onSubmit={handleSendChatMessage} className="p-4 border-t border-slate-100 bg-white shrink-0" id="chat_input_section">
               <div className="flex gap-3">
@@ -789,8 +873,8 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                   type="submit"
                   disabled={aiWaiting || !typeMessage.trim()}
                   className={`p-3 rounded-xl transition-all shadow-sm flex items-center justify-center shrink-0 ${aiWaiting || !typeMessage.trim()
-                      ? "bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200"
-                      : "bg-blue-600 hover:bg-blue-700 text-white cursor-pointer active:scale-95 shadow-md shadow-blue-500/10"
+                    ? "bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200"
+                    : "bg-blue-600 hover:bg-blue-700 text-white cursor-pointer active:scale-95 shadow-md shadow-blue-500/10"
                     }`}
                 >
                   <Send className="w-4 h-4" />
@@ -804,6 +888,7 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
       {/* R-Col: Config side-panel sidebar for custom AI assistant parameters (Collapsible) */}
       {showConfig && (
         <AiAssistantConfigPanel
+          onClose={() => setShowConfig(false)}
           localConfig={localConfig}
           setLocalConfig={setLocalConfig}
           savingConfig={savingConfig}
@@ -825,7 +910,8 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
           aiReplyLogs={aiReplyLogs}
           handleFeedback={handleFeedback}
           handleApplyToAll={handleApplyToAllPages}
-          copyingConfig={copyingConfig}
+          uploadingDoc={uploadingDoc}
+          handleUploadLocalDoc={handleUploadLocalDoc}
         />
       )}
 

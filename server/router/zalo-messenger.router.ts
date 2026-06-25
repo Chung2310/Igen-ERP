@@ -16,4 +16,5 @@ zaloMessengerRouter.get("/diagnostics/:conversationId", requireAuth as any, zalo
 zaloMessengerRouter.get("/conversations", requireAuth as any, zaloMessengerController.getConversations);
 zaloMessengerRouter.get("/conversations/:recipientId/messages", requireAuth as any, zaloMessengerController.getMessages);
 zaloMessengerRouter.post("/conversations/:recipientId/mark-read", requireAuth as any, zaloMessengerController.markRead);
+zaloMessengerRouter.post("/conversations/:recipientId/resume-ai", requireAuth as any, zaloMessengerController.resumeAI);
 zaloMessengerRouter.post("/reply", requireAuth as any, zaloMessengerController.sendReply);

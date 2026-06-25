@@ -36,6 +36,10 @@ export default function CRMTab() {
     { slug: "comment-reply", value: "AI COMMENT AUTO-REPLY" as CRMSubTabType },
   ] as const;
   const [subTab, setSubTab] = useSubTabRouter<CRMSubTabType>(CRM_SUB_TAB_ROUTES as any, "PHỄU KHÁCH HÀNG");
+  const [activeChannel, setActiveChannel] = useState<"facebook" | "zalo">("facebook");
+  const [showPageDropdown, setShowPageDropdown] = useState(false);
+
+
 
   // 1. Leads Kanban Pipeline States loaded from Firebase
   const [leads, setLeads] = useState<ExtendedLeadCard[]>([]);
@@ -152,8 +156,9 @@ export default function CRMTab() {
   }, []);
 
   const [inboxCustomers, setInboxCustomers] = useState<CustomerInbox[]>([]);
-
   const [activeCustomer, setActiveCustomer] = useState<CustomerInbox | null>(null);
+  const [isInboxLoading, setIsInboxLoading] = useState(false);
+
 
   // Keep activeCustomer in a ref to avoid stale closures in socket handlers
   const activeCustomerRef = useRef<CustomerInbox | null>(null);
@@ -189,11 +194,11 @@ export default function CRMTab() {
 
   // AI assistant configurations
   const [aiConfig, setAIConfig] = useState<AIChatConfig>({
-    enabled: false,
-    commentReplyEnabled: false,
+    enabled: true,
+    commentReplyEnabled: true,
     autoClassify: true,
-    autoCloseDeal: false,
-    autoFeedback: false,
+    autoCloseDeal: true,
+    autoFeedback: true,
     replyDelay: 15,
     advancedInstructions: "Luôn ưu tiên xưng hô lịch thiệp. Hỏi thăm nhu cầu chăm sóc sức khỏe của doanh nghiệp.",
     trainingKnowledge: "",
@@ -222,11 +227,11 @@ export default function CRMTab() {
     if (targetIntegration?.aiAutoReplyConfig) {
       const config = targetIntegration.aiAutoReplyConfig;
       setAIConfig({
-        enabled: config.enabled ?? false,
-        commentReplyEnabled: config.commentReplyEnabled ?? false,
+        enabled: config.enabled ?? true,
+        commentReplyEnabled: config.commentReplyEnabled ?? true,
         autoClassify: config.autoClassify ?? true,
-        autoCloseDeal: config.autoCloseDeal ?? false,
-        autoFeedback: config.autoFeedback ?? false,
+        autoCloseDeal: config.autoCloseDeal ?? true,
+        autoFeedback: config.autoFeedback ?? true,
         replyDelay: config.replyDelay ?? 15,
         advancedInstructions: config.advancedInstructions ?? "",
         trainingKnowledge: config.trainingKnowledge ?? "",
@@ -238,11 +243,11 @@ export default function CRMTab() {
     // fallback
     if (userProfile?.aiAutoReplyConfig) {
       setAIConfig({
-        enabled: userProfile.aiAutoReplyConfig.enabled ?? false,
-        commentReplyEnabled: userProfile.aiAutoReplyConfig.commentReplyEnabled ?? false,
+        enabled: userProfile.aiAutoReplyConfig.enabled ?? true,
+        commentReplyEnabled: userProfile.aiAutoReplyConfig.commentReplyEnabled ?? true,
         autoClassify: userProfile.aiAutoReplyConfig.autoClassify ?? true,
-        autoCloseDeal: userProfile.aiAutoReplyConfig.autoCloseDeal ?? false,
-        autoFeedback: userProfile.aiAutoReplyConfig.autoFeedback ?? false,
+        autoCloseDeal: userProfile.aiAutoReplyConfig.autoCloseDeal ?? true,
+        autoFeedback: userProfile.aiAutoReplyConfig.autoFeedback ?? true,
         replyDelay: userProfile.aiAutoReplyConfig.replyDelay ?? 15,
         advancedInstructions: userProfile.aiAutoReplyConfig.advancedInstructions ?? "",
         trainingKnowledge: userProfile.aiAutoReplyConfig.trainingKnowledge ?? "",
@@ -252,7 +257,12 @@ export default function CRMTab() {
   }, [selectedFacebookPageId, facebookPages, companySocialIntegrations, userProfile, activeCustomer]);
 
   const handleUpdateAIConfig = async (newConfig: AIChatConfig) => {
-    setAIConfig(newConfig);
+    const configWithTimestamp = {
+      ...newConfig,
+      disabledAt: newConfig.enabled === false ? new Date().toISOString() : null,
+    };
+    
+    setAIConfig(configWithTimestamp);
     try {
       let targetIntegrationId: string | null = null;
 
@@ -275,7 +285,7 @@ export default function CRMTab() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${getAccessToken()}`,
           },
-          body: JSON.stringify({ aiAutoReplyConfig: newConfig }),
+          body: JSON.stringify({ aiAutoReplyConfig: configWithTimestamp }),
         });
         const result = await res.json().catch(() => ({}));
         if (!res.ok) {
@@ -283,10 +293,10 @@ export default function CRMTab() {
         }
         // Update local state in memory
         setCompanySocialIntegrations(prev =>
-          prev.map(item => item._id === targetIntegrationId ? { ...item, aiAutoReplyConfig: newConfig } : item)
+          prev.map(item => item._id === targetIntegrationId ? { ...item, aiAutoReplyConfig: configWithTimestamp } : item)
         );
       } else {
-        await updateAiAutoReplyConfig(newConfig);
+        await updateAiAutoReplyConfig(configWithTimestamp);
       }
     } catch (err: any) {
       console.error("[CRMTab] Lỗi lưu cấu hình AI:", err);
@@ -471,6 +481,11 @@ export default function CRMTab() {
         setConvsPagination(prev => ({ ...prev, isLoadingMore: true }));
       }
 
+      if (isReset) {
+        setIsInboxLoading(true);
+      }
+
+
       const currentSkip = isReset 
         ? 0 
         : (isLoadMore ? convsPaginationRef.current.skip + convsPaginationRef.current.limit : 0);
@@ -519,7 +534,8 @@ export default function CRMTab() {
         status: "offline",
         tags: c.tags || [],
         channel: "facebook",
-        lastMessageAt: new Date(c.lastMessageAt)
+        lastMessageAt: new Date(c.lastMessageAt),
+        aiPausedUntil: c.aiPausedUntil || null
       } as any));
 
       const mappedZalo: CustomerInbox[] = zaloConvs.map((c: any) => ({
@@ -535,7 +551,8 @@ export default function CRMTab() {
         status: "offline",
         tags: c.tags || [],
         channel: "zalo",
-        lastMessageAt: new Date(c.lastMessageAt)
+        lastMessageAt: new Date(c.lastMessageAt),
+        aiPausedUntil: c.aiPausedUntil || null
       } as any));
 
       const fetchedList = [...mappedFb, ...mappedZalo];
@@ -579,6 +596,8 @@ export default function CRMTab() {
     } catch (err) {
       console.error("[FE CRMTab] Lỗi khi tải danh sách hội thoại:", err);
       setConvsPagination(prev => ({ ...prev, isLoadingMore: false }));
+    } finally {
+      setIsInboxLoading(false);
     }
   };
 
@@ -606,10 +625,39 @@ export default function CRMTab() {
   useEffect(() => {
     if (subTab !== "OMNI-INBOX CHAT" || (!isFbConnected && !isZaloConnected)) return;
 
-    const handleNewMessage = async (data: { message: any; conversation: any }) => {
+    const handleNewMessage = async (data: { message: any; conversation?: any }) => {
       console.log("[FE CRMTab] socket new_message event received:", data);
-      const { message } = data;
+      const { message, conversation } = data;
       const activeCust = activeCustomerRef.current;
+
+      if (conversation) {
+        setInboxCustomers((prev) =>
+          prev.map((c) =>
+            c.id === conversation._id
+              ? {
+                  ...c,
+                  aiPausedUntil: conversation.aiPausedUntil || null,
+                  lastMessage: conversation.lastMessageText || c.lastMessage,
+                  time: new Date(conversation.lastMessageAt || Date.now()).toLocaleTimeString("vi-VN", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  }),
+                }
+              : c
+          )
+        );
+
+        if (activeCust && activeCust.id === conversation._id) {
+          setActiveCustomer((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  aiPausedUntil: conversation.aiPausedUntil || null,
+                }
+              : null
+          );
+        }
+      }
 
       if (activeCust) {
         const activeId = activeCust.id?.toString();
@@ -665,6 +713,35 @@ export default function CRMTab() {
 
     const handleConversationUpdated = async (conversation: any) => {
       console.log("[FE CRMTab] socket conversation_updated event received:", conversation);
+      if (conversation) {
+        setInboxCustomers((prev) =>
+          prev.map((c) =>
+            c.id === conversation._id
+              ? {
+                  ...c,
+                  aiPausedUntil: conversation.aiPausedUntil || null,
+                  lastMessage: conversation.lastMessageText || c.lastMessage,
+                  time: new Date(conversation.lastMessageAt || Date.now()).toLocaleTimeString("vi-VN", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  }),
+                }
+              : c
+          )
+        );
+
+        const activeCust = activeCustomerRef.current;
+        if (activeCust && activeCust.id === conversation._id) {
+          setActiveCustomer((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  aiPausedUntil: conversation.aiPausedUntil || null,
+                }
+              : null
+          );
+        }
+      }
       scheduleConversationRefresh();
     };
 
@@ -973,6 +1050,26 @@ export default function CRMTab() {
     }
   };
 
+  const handleResumeAI = async (conversationId: string, channel: "facebook" | "zalo") => {
+    try {
+      if (channel === "zalo") {
+        await zaloMessengerService.resumeAI(conversationId);
+      } else {
+        await fbMessengerService.resumeAI(conversationId, selectedFacebookPageId);
+      }
+
+      setActiveCustomer((prev) => prev && prev.id === conversationId ? { ...prev, aiPausedUntil: null } : prev);
+      setInboxCustomers((prev) =>
+        prev.map((c) => (c.id === conversationId ? { ...c, aiPausedUntil: null } : c))
+      );
+
+      toast.success("🤖 Đã kích hoạt lại AI phản hồi cuộc hội thoại này thành công!");
+    } catch (err: any) {
+      console.error("[CRMTab] Lỗi kích hoạt lại AI:", err);
+      toast.error(err.message || "Không thể kích hoạt lại AI.");
+    }
+  };
+
   const handleSendChatMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     const msgText = typeMessage.trim();
@@ -988,6 +1085,13 @@ export default function CRMTab() {
     setChatHistory((prev) => [...prev, userMsg]);
     setTypeMessage("");
 
+    // Cập nhật trạng thái tạm dừng AI 5 phút cho cuộc hội thoại này trên giao diện lập tức
+    const pausedUntil = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+    setActiveCustomer((prev) => prev ? { ...prev, aiPausedUntil: pausedUntil } : null);
+    setInboxCustomers((prev) =>
+      prev.map((c) => (c.id === activeCustomer.id ? { ...c, aiPausedUntil: pausedUntil } : c))
+    );
+
     try {
       if (activeCustomer.channel === "zalo") {
         await zaloMessengerService.sendReply(activeCustomer.id, msgText);
@@ -997,7 +1101,12 @@ export default function CRMTab() {
     } catch (err: any) {
       console.error(err);
       toast.error(err.message || "Không thể gửi tin nhắn phản hồi.");
+      // Revert optimistic updates
       setChatHistory((prev) => prev.filter((h) => h.id !== userMsg.id));
+      setActiveCustomer((prev) => prev ? { ...prev, aiPausedUntil: activeCustomer.aiPausedUntil } : null);
+      setInboxCustomers((prev) =>
+        prev.map((c) => (c.id === activeCustomer.id ? { ...c, aiPausedUntil: activeCustomer.aiPausedUntil } : c))
+      );
       loadConversationMessages(activeCustomer.id, "replace", activeCustomer.channel, { syncChannel: true }).catch((reloadErr) => {
         console.error("[FE CRMTab] Lỗi đồng bộ lại lịch sử sau khi gửi thất bại:", reloadErr);
       });
@@ -1046,12 +1155,16 @@ export default function CRMTab() {
     }
   }, [activeCustomer, inboxCustomers]);
 
+  const activeFbPage = facebookPages.find((p) => p._id === selectedFacebookPageId);
+  const activeFbPageName = activeFbPage?.displayName || "Chọn trang FB";
+
   return (
+
     <div className="flex flex-col h-full bg-white overflow-hidden rounded-3xl border border-slate-100 shadow-xl shadow-slate-100/50" id="crm_tab_wrapper">
       <h1 className="sr-only">Hệ thống Sales CRM - {subTab}</h1>
 
       {/* Sub tabs selector bar */}
-      <div className="border-b border-slate-100 bg-[#f8fafc] p-2.5 text-xs flex justify-between shrink-0" id="crm_sub_tabs_switch">
+      <div className="border-b border-slate-100 bg-[#f8fafc] p-2.5 text-xs flex justify-between items-center shrink-0" id="crm_sub_tabs_switch">
         <div className="flex gap-2">
           {["PHỄU KHÁCH HÀNG", "OMNI-INBOX CHAT", "AI COMMENT AUTO-REPLY"].map((tab) => (
             <button
@@ -1067,6 +1180,105 @@ export default function CRMTab() {
           ))}
         </div>
 
+        {/* Global Social Media Channel Filters */}
+        <div className="flex items-center gap-2 relative">
+          <div className="flex bg-slate-200/50 p-1 rounded-xl text-[10px] font-bold shadow-inner" id="inbox_channel_filters">
+            {/* Facebook Dropdown Button */}
+            {isFbConnected && (
+              <div className="relative">
+                <button
+                  onClick={() => {
+                    if (activeChannel !== "facebook") {
+                      setActiveChannel("facebook");
+                      setShowPageDropdown(false);
+                    } else {
+                      setShowPageDropdown(!showPageDropdown);
+                    }
+                  }}
+                  className={`py-1.5 px-3 rounded-lg font-bold transition-all duration-200 cursor-pointer flex items-center justify-center gap-1.5 ${
+                    activeChannel === "facebook"
+                      ? "bg-white text-slate-900 shadow-sm border border-slate-200/20"
+                      : "text-slate-500 hover:text-slate-800 hover:bg-white/40"
+                  }`}
+                >
+                  <svg className="h-3.5 w-3.5 fill-current text-blue-600 shrink-0" viewBox="0 0 24 24">
+                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+                  </svg>
+                  <span className="max-w-[120px] truncate">{activeFbPageName}</span>
+                  <span className={`px-1.5 py-0.2 rounded-full text-[8.5px] font-semibold transition-colors duration-200 ${
+                    activeChannel === "facebook" ? "bg-slate-900 text-white" : "bg-slate-300/60 text-slate-600"
+                  }`}>
+                    {inboxCustomers.filter((c) => c.channel === "facebook").length}
+                  </span>
+                  <svg className={`h-3 w-3 text-slate-400 transition-transform duration-200 shrink-0 ${showPageDropdown ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {/* Dropdown Menu */}
+                {showPageDropdown && (
+                  <>
+                    <div className="fixed inset-0 z-40 cursor-default" onClick={() => setShowPageDropdown(false)} />
+                    <div className="absolute right-0 mt-1.5 w-60 bg-white border border-slate-200/80 rounded-xl shadow-xl z-50 py-1.5 animate-in fade-in slide-in-from-top-1 duration-150">
+                      <div className="px-3 py-1 text-[9px] text-slate-400 font-bold uppercase tracking-wider border-b border-slate-50 mb-1">
+                        Chọn trang Facebook
+                      </div>
+                      <div className="max-h-60 overflow-y-auto">
+                        {facebookPages.map((page) => {
+                          const isSelected = page._id === selectedFacebookPageId;
+                          return (
+                            <button
+                              key={page._id}
+                              onClick={() => {
+                                setSelectedFacebookPageId(page._id);
+                                setShowPageDropdown(false);
+                              }}
+                              className={`w-full text-left px-3 py-2 text-[10px] transition-colors flex items-center justify-between font-medium cursor-pointer ${
+                                isSelected
+                                  ? "bg-blue-50 text-blue-600 font-bold"
+                                  : "text-slate-600 hover:bg-slate-50"
+                              }`}
+                            >
+                              <span className="truncate pr-2">{page.displayName}</span>
+                              {isSelected && (
+                                <svg className="h-3 w-3 text-blue-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                                </svg>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Zalo Button */}
+            {isZaloConnected && (
+              <button
+                onClick={() => {
+                  setActiveChannel("zalo");
+                  setShowPageDropdown(false);
+                }}
+                className={`py-1.5 px-3 rounded-lg font-bold transition-all duration-200 cursor-pointer flex items-center justify-center gap-1.5 ${
+                  activeChannel === "zalo"
+                    ? "bg-white text-slate-900 shadow-sm border border-slate-200/20"
+                    : "text-slate-500 hover:text-slate-800 hover:bg-white/40"
+                }`}
+              >
+                <span className="w-3.5 h-3.5 bg-blue-500 text-white text-[8px] font-extrabold rounded-full flex items-center justify-center leading-none shrink-0 font-sans shadow-xxs">Z</span>
+                <span>Zalo</span>
+                <span className={`px-1.5 py-0.2 rounded-full text-[8.5px] font-semibold transition-colors duration-200 ${
+                  activeChannel === "zalo" ? "bg-slate-900 text-white" : "bg-slate-300/60 text-slate-600"
+                }`}>
+                  {inboxCustomers.filter((c) => c.channel === "zalo").length}
+                </span>
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
       <div className="flex-1 overflow-hidden" id="crm_tab_main_content">
@@ -1081,6 +1293,10 @@ export default function CRMTab() {
               moveLeadPipeline={moveLeadPipeline}
               deleteLead={deleteLead}
               handleGoToChat={handleGoToChat}
+              activeChannel={activeChannel}
+              inboxCustomers={inboxCustomers}
+              isFbConnected={isFbConnected}
+              isZaloConnected={isZaloConnected}
             />
           )}
 
@@ -1108,6 +1324,12 @@ export default function CRMTab() {
               copyingConfig={copyingConfig}
               onLoadMoreConversations={() => fetchOmniConversations(false, { loadMore: true })}
               hasMoreConversations={convsPagination.hasMore}
+              activeChannel={activeChannel}
+              setActiveChannel={setActiveChannel}
+              isFbConnected={isFbConnected}
+              isZaloConnected={isZaloConnected}
+              isInboxLoading={isInboxLoading}
+              onResumeAI={handleResumeAI}
             />
           )}
 

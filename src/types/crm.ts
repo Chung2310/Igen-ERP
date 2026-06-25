@@ -33,6 +33,7 @@ export interface CustomerInbox {
   status: "online" | "offline";
   tags: string[];
   channel?: "facebook" | "zalo";
+  aiPausedUntil?: string | null;
 }
 
 export interface AIChatConfig {
@@ -45,6 +46,7 @@ export interface AIChatConfig {
   advancedInstructions: string;
   trainingKnowledge: string;
   model?: string;
+  disabledAt?: string | null;
 }
 
 export interface LeadCard {
