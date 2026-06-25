@@ -164,6 +164,197 @@ Return ONLY valid JSON. No markdown backticks, no comments.
 `;
 }
 
+/**
+ * Represents a single editing segment in the structured style JSON.
+ * All timestamps are expressed as fractions (0.0 to 1.0) of the source video duration.
+ * This avoids asking the LLM to do arithmetic scaling.
+ */
+interface StyleSegment {
+  /** Relative start position in source video, 0.0 = beginning, 1.0 = end */
+  startFraction: number;
+  /** Relative end position in source video, 0.0 = beginning, 1.0 = end */
+  endFraction: number;
+  playbackRate?: number;
+  filters?: {
+    brightness?: number;
+    contrast?: number;
+    saturate?: number;
+    grayscale?: number;
+  };
+  effects?: {
+    zoom?: "in" | "out" | "none";
+    transition?: "fade" | "none";
+  };
+}
+
+interface StyleTextOverlay {
+  content: string;
+  /** Relative start position as fraction of source video duration */
+  startFraction: number;
+  /** Relative end position as fraction of source video duration */
+  endFraction: number;
+  style?: {
+    position?: string;
+    color?: string;
+    fontSize?: string;
+  };
+}
+
+interface VideoStyleSchema {
+  /** Overall editing tone / summary */
+  editingStyle: string;
+  /** Recommended music genre */
+  musicGenre: "upbeat" | "tech" | "corporate" | "lofi" | "acoustic" | "none";
+  /** Whether SFX whoosh transitions are used */
+  useSFXTransitions: boolean;
+  /** Video segments describing per-segment edits. ALL fractions are in [0.0, 1.0] range */
+  segments: StyleSegment[];
+  /** Text overlays. ALL fractions are in [0.0, 1.0] range */
+  textOverlays: StyleTextOverlay[];
+}
+
+const MUSIC_URL_MAP: Record<string, string> = {
+  upbeat: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+  tech: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
+  corporate: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3",
+  lofi: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3",
+  acoustic: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3",
+};
+
+/**
+ * Converts a VideoStyleSchema (with relative fractions) into a full Blueprint JSON
+ * for a target video. All timestamp math is done here in code – not by the LLM.
+ */
+function buildBlueprintFromStyle(
+  targetVideoUrl: string,
+  targetDuration: number,
+  style: VideoStyleSchema,
+  userHint?: string
+): any {
+  const timeline: any[] = [];
+
+  // ── Video segments ───────────────────────────────────────────────────────
+  if (style.segments && style.segments.length > 0) {
+    for (const seg of style.segments) {
+      const start = parseFloat((seg.startFraction * targetDuration).toFixed(3));
+      const end = parseFloat((seg.endFraction * targetDuration).toFixed(3));
+      if (end <= start) continue;
+      const entry: any = {
+        type: "video",
+        src: targetVideoUrl,
+        start,
+        end,
+        playbackRate: seg.playbackRate ?? 1.0,
+      };
+      if (seg.filters && Object.keys(seg.filters).length > 0) {
+        entry.filters = seg.filters;
+      }
+      if (seg.effects && Object.keys(seg.effects).length > 0) {
+        entry.effects = seg.effects;
+      }
+      timeline.push(entry);
+    }
+  } else {
+    // Fallback: single full-duration video clip
+    timeline.push({
+      type: "video",
+      src: targetVideoUrl,
+      start: 0,
+      end: targetDuration,
+      playbackRate: 1.0,
+    });
+  }
+
+  // ── Ensure video timeline is continuous with no gaps ──────────────────────
+  const videoEntries = timeline.filter((e) => e.type === "video");
+  if (videoEntries.length > 0) {
+    // Sort by start time
+    videoEntries.sort((a, b) => a.start - b.start);
+
+    // Fill gaps
+    const filledEntries: any[] = [];
+    let cursor = 0;
+    for (const entry of videoEntries) {
+      if (entry.start > cursor + 0.01) {
+        // Gap detected – fill with plain video clip
+        filledEntries.push({
+          type: "video",
+          src: targetVideoUrl,
+          start: parseFloat(cursor.toFixed(3)),
+          end: parseFloat(entry.start.toFixed(3)),
+          playbackRate: 1.0,
+        });
+      }
+      filledEntries.push(entry);
+      cursor = entry.end;
+    }
+    // Fill tail gap
+    if (cursor < targetDuration - 0.01) {
+      filledEntries.push({
+        type: "video",
+        src: targetVideoUrl,
+        start: parseFloat(cursor.toFixed(3)),
+        end: parseFloat(targetDuration.toFixed(3)),
+        playbackRate: 1.0,
+      });
+    }
+
+    // Replace video entries in timeline
+    const nonVideoEntries = timeline.filter((e) => e.type !== "video");
+    timeline.splice(0, timeline.length, ...filledEntries, ...nonVideoEntries);
+  }
+
+  // ── Text overlays ────────────────────────────────────────────────────────
+  if (style.textOverlays && style.textOverlays.length > 0) {
+    for (const overlay of style.textOverlays) {
+      const start = parseFloat((overlay.startFraction * targetDuration).toFixed(3));
+      const end = parseFloat((overlay.endFraction * targetDuration).toFixed(3));
+      if (end <= start) continue;
+      timeline.push({
+        type: "text",
+        content: overlay.content,
+        start,
+        end,
+        style: overlay.style ?? { position: "bottom-center", color: "#FFD700", fontSize: "32px" },
+      });
+    }
+  }
+
+  // ── Background music ─────────────────────────────────────────────────────
+  if (style.musicGenre && style.musicGenre !== "none") {
+    const musicUrl = MUSIC_URL_MAP[style.musicGenre];
+    if (musicUrl) {
+      timeline.push({
+        type: "audio",
+        src: musicUrl,
+        start: 0,
+        end: targetDuration,
+        volume: 0.4,
+      });
+    }
+  }
+
+  // ── SFX transitions ──────────────────────────────────────────────────────
+  if (style.useSFXTransitions) {
+    const videoSegs = timeline.filter((e) => e.type === "video");
+    for (let i = 0; i < videoSegs.length - 1; i++) {
+      const transitionStart = videoSegs[i].end - 0.3;
+      const transitionEnd = videoSegs[i].end + 0.3;
+      if (transitionStart >= 0 && transitionEnd <= targetDuration) {
+        timeline.push({
+          type: "audio",
+          src: "https://assets.mixkit.co/active_storage/sfx/2013/2013-84.wav",
+          start: parseFloat(transitionStart.toFixed(3)),
+          end: parseFloat(transitionEnd.toFixed(3)),
+          volume: 0.6,
+        });
+      }
+    }
+  }
+
+  return { timeline };
+}
+
 export const videoBlueprintService = {
   /**
    * Kiểm tra xem prompt có yêu cầu sao chép kịch bản từ video trước hay không
@@ -199,11 +390,25 @@ export const videoBlueprintService = {
   },
 
   /**
-   * Phân tích video mẫu để trích xuất phong cách dựng phim thành Prompt mô tả chi tiết bằng tiếng Việt
+   * Phân tích video mẫu để trích xuất phong cách dựng phim.
+   *
+   * PHƯƠNG PHÁP MỚI (chính xác):
+   *   1. Gemini phân tích video mẫu và trả về JSON có timestamp dạng PHÂN SỐ (0.0–1.0).
+   *   2. Backend tự nhân phân số với targetDuration để ra giây chính xác.
+   *   => Tránh hoàn toàn việc để LLM tính toán số học.
+   *
+   * Kết quả trả về là prompt mô tả kịch bản dựa trên style đã scale sang target duration.
    */
-  async extractVideoStyle(videoUrl: string, durationSeconds?: number): Promise<string> {
+  async extractVideoStyle(
+    videoUrl: string,
+    durationSeconds?: number,
+    targetVideoUrl?: string,
+    targetDuration?: number,
+    userPrompt?: string
+  ): Promise<string> {
     const tempVideoPath = path.join(os.tmpdir(), `temp_style_extraction_${Date.now()}.mp4`);
-    let analysisText = "";
+
+    let style: VideoStyleSchema | null = null;
 
     try {
       console.log(`[videoBlueprintService] Downloading video for style extraction: ${videoUrl}`);
@@ -230,15 +435,66 @@ export const videoBlueprintService = {
         throw new Error(`Gemini File API processing failed: ${fileState.state}`);
       }
 
-      console.log("[videoBlueprintService] File is ACTIVE. Calling Gemini model to analyze editing style...");
+      console.log("[videoBlueprintService] File is ACTIVE. Calling Gemini model to extract structured style JSON...");
 
-      const analysisPrompt = `Hãy phân tích phong cách dựng và các hiệu ứng của video mẫu này để tạo ra một kịch bản hướng dẫn biên tập bằng tiếng Việt.${durationSeconds ? `\nLưu ý quan trọng: Video mẫu này có tổng thời lượng chính xác là ${durationSeconds} giây. Hãy định vị rõ mốc thời gian (ví dụ: ở giây thứ mấy, hoặc từ giây thứ mấy đến giây thứ mấy) xảy ra các hiệu ứng hình ảnh/chữ/chuyển cảnh dựa trên tổng thời lượng ${durationSeconds} giây này.` : ""}
+      const sourceDuration = durationSeconds || 60;
 
-⚠️ QUY TẮC QUAN TRỌNG (MANDATORY):
-- TẬP TRUNG HOÀN TOÀN VÀO HIỆU ỨNG VÀ KỸ THUẬT DỰNG: Chỉ trích xuất các hiệu ứng hình ảnh (zoom in/out, xoay, bộ lọc màu, độ sáng/tương phản), hiệu ứng chuyển cảnh (fade transition), nhịp độ cắt ghép (cuts & pacing), vị trí/màu sắc/kích thước hiển thị chữ (text overlays) và thể loại nhạc nền/SFX.
-- TUYỆT ĐỐI KHÔNG TRÍCH XUẤT NỘI DUNG CỤ THỂ: Không mô tả các đối tượng, nhân vật, phong cảnh, hay hoạt động cụ thể xuất hiện trong video mẫu (Ví dụ: KHÔNG viết về "con rùa", "biển cả", "bàn phím", v.v.). Không lấy nội dung văn bản cụ thể của chữ nếu nó gắn liền với chủ đề video cũ; hãy thay thế bằng các chữ giả định tổng quát (như "Chèn chữ tiêu đề", "Hiển thị phụ đề mẫu").
-- ĐẦU RA LÀ HƯỚNG DẪN HÀNH ĐỘNG CHỦ ĐỘNG: Viết dưới dạng danh sách các lệnh biên tập bắt đầu bằng động từ hành động (Ví dụ: "Cắt...", "Áp dụng bộ lọc...", "Thực hiện hiệu ứng zoom...", "Chèn chữ ở vị trí...").
-- KHÔNG thêm lời chào, không giải thích dài dòng.`;
+      const userHintSection = (userPrompt && userPrompt.trim())
+        ? `\n\nNgoài ra, hãy kết hợp thêm ý tưởng/yêu cầu chỉnh sửa cụ thể này từ người dùng vào khi xây dựng kịch bản: "${userPrompt.trim()}"`
+        : "";
+
+      const analysisPrompt = `Hãy phân tích phong cách biên tập và kỹ thuật dựng hình của video này (tổng thời lượng ${sourceDuration} giây).
+
+⚠️ YÊU CẦU ĐẦU RA (MANDATORY - CRITICAL):
+Trả về CHÍNH XÁC một đối tượng JSON hợp lệ theo schema sau. KHÔNG thêm bất kỳ văn bản nào ngoài JSON.
+
+{
+  "editingStyle": "mô tả ngắn về phong cách dựng tổng thể (vd: fast-cut cinematic, slow narrative, upbeat social media)",
+  "musicGenre": "upbeat | tech | corporate | lofi | acoustic | none",
+  "useSFXTransitions": true | false,
+  "segments": [
+    {
+      "startFraction": <số thập phân từ 0.0 đến 1.0 = vị trí tương đối trong video>,
+      "endFraction": <số thập phân từ 0.0 đến 1.0>,
+      "playbackRate": <1.0 là tốc độ thường, 2.0 là gấp đôi, 0.5 là chậm gấp đôi>,
+      "filters": {
+        "brightness": <0.5 đến 2.0, 1.0 là bình thường>,
+        "contrast": <0.5 đến 2.0, 1.0 là bình thường>,
+        "saturate": <0.0 đến 3.0>,
+        "grayscale": <0.0 hoặc 1.0>
+      },
+      "effects": {
+        "zoom": "in | out | none",
+        "transition": "fade | none"
+      }
+    }
+  ],
+  "textOverlays": [
+    {
+      "content": "Chèn chữ tiêu đề mẫu",
+      "startFraction": <0.0 đến 1.0>,
+      "endFraction": <0.0 đến 1.0>,
+      "style": {
+        "position": "bottom-center | center | top-center",
+        "color": "#FFFFFF | #FFD700 | #FF3333 | #00FFFF",
+        "fontSize": "56px | 32px | 24px"
+      }
+    }
+  ]
+}
+
+QUY TẮC BẮT BUỘC VỀ PHÂN SỐ THỜI GIAN:
+- startFraction và endFraction là PHÂN SỐ TƯƠNG ĐỐI trong khoảng [0.0, 1.0].
+- 0.0 = đầu video, 1.0 = cuối video.
+- Ví dụ: nếu một hiệu ứng xảy ra ở giây thứ 15 trong video 60 giây, thì startFraction = 15/60 = 0.25.
+- KHÔNG dùng giây thực, KHÔNG dùng millisecond.
+- Tổng các phân đoạn (segments) phải bao phủ từ 0.0 đến 1.0 không có khoảng trống.
+
+QUY TẮC VỀ NỘI DUNG:
+- TUYỆT ĐỐI KHÔNG mô tả nội dung cụ thể (nhân vật, đồ vật, cảnh vật) của video.
+- CHỈ trích xuất kỹ thuật dựng: nhịp cắt ghép, bộ lọc màu, hiệu ứng zoom/fade, text overlay chung, nhạc.
+- Nội dung text overlay phải là chung chung (ví dụ: "Chèn tiêu đề ở đây", "Phụ đề mẫu").
+${userHintSection}`;
 
       const analysisResponse = await ai.models.generateContent({
         model: "gemini-2.5-flash",
@@ -256,10 +512,15 @@ export const videoBlueprintService = {
             ],
           },
         ],
+        config: {
+          responseMimeType: "application/json",
+        }
       });
 
-      analysisText = analysisResponse.text || "";
-      console.log("[videoBlueprintService] Video style extraction completed. Description length:", analysisText.length);
+      const rawJson = analysisResponse.text || "";
+      console.log("[videoBlueprintService] Raw style JSON from Gemini (first 500 chars):", rawJson.substring(0, 500));
+
+      style = safeParseJson(rawJson) as VideoStyleSchema;
 
       // Xóa file trên Gemini để dọn dẹp
       try {
@@ -285,15 +546,73 @@ export const videoBlueprintService = {
       }
     }
 
-    if (!analysisText) {
+    if (!style) {
       throw new Error("Không nhận diện được nội dung kịch bản phân tích từ video mẫu.");
     }
 
-    return analysisText.trim();
+    // ── Code-side scaling: convert fractions to actual seconds for the target ──
+    const effectiveDuration = durationSeconds || 60;
+    const scaledDuration = targetDuration || effectiveDuration;
+
+    // Build a human-readable prompt from the structured style JSON so the rest of
+    // the pipeline (prompt field in UI, generateBlueprintFromPrompt) works correctly.
+    const lines: string[] = [
+      `Đây là hướng dẫn biên tập video được trích xuất từ video mẫu (tổng thời lượng gốc: ${effectiveDuration}s) và được điều chỉnh cho video đích (${scaledDuration}s).`,
+      ``,
+      `**Phong cách dựng tổng thể:** ${style.editingStyle}`,
+      ``,
+      `**Nhạc nền:** ${style.musicGenre !== "none" ? style.musicGenre : "Không dùng nhạc"}`,
+      `**Hiệu ứng SFX chuyển cảnh:** ${style.useSFXTransitions ? "Có" : "Không"}`,
+      ``,
+      `**Các phân đoạn (đã scale sang video đích ${scaledDuration}s):**`,
+    ];
+
+    if (style.segments && style.segments.length > 0) {
+      for (const seg of style.segments) {
+        const startSec = parseFloat((seg.startFraction * scaledDuration).toFixed(2));
+        const endSec = parseFloat((seg.endFraction * scaledDuration).toFixed(2));
+        const rate = seg.playbackRate ?? 1.0;
+        const filterDesc = seg.filters
+          ? Object.entries(seg.filters).map(([k, v]) => `${k}=${v}`).join(", ")
+          : "none";
+        const effectDesc = seg.effects
+          ? `zoom=${seg.effects.zoom ?? "none"}, transition=${seg.effects.transition ?? "none"}`
+          : "none";
+        lines.push(
+          `- Từ ${startSec}s đến ${endSec}s: playbackRate=${rate}, filters=[${filterDesc}], effects=[${effectDesc}]`
+        );
+      }
+    }
+
+    if (style.textOverlays && style.textOverlays.length > 0) {
+      lines.push(``, `**Text Overlays (đã scale sang video đích ${scaledDuration}s):**`);
+      for (const overlay of style.textOverlays) {
+        const startSec = parseFloat((overlay.startFraction * scaledDuration).toFixed(2));
+        const endSec = parseFloat((overlay.endFraction * scaledDuration).toFixed(2));
+        const pos = overlay.style?.position ?? "bottom-center";
+        const color = overlay.style?.color ?? "#FFD700";
+        const size = overlay.style?.fontSize ?? "32px";
+        lines.push(
+          `- Chèn chữ "${overlay.content}" từ ${startSec}s đến ${endSec}s, vị trí: ${pos}, màu: ${color}, cỡ chữ: ${size}`
+        );
+      }
+    }
+
+    if (userPrompt && userPrompt.trim()) {
+      lines.push(``, `**Ý tưởng bổ sung từ người dùng:** ${userPrompt.trim()}`);
+    }
+
+    const result = lines.join("\n");
+    console.log("[videoBlueprintService] Style extraction completed. Result length:", result.length);
+
+    // Also attach the raw style JSON as metadata comment for downstream use
+    const jsonMeta = `\n\n<!-- STYLE_JSON:${JSON.stringify({ style, targetDuration: scaledDuration, targetVideoUrl })} -->`;
+    return result + jsonMeta;
   },
 
   /**
-   * Sử dụng Gemini để phân tích video cũ, sau đó tạo Blueprint mới cho video mới
+   * Sử dụng Gemini để phân tích video cũ, sau đó tạo Blueprint mới cho video mới.
+   * Được gọi khi có 2+ video trong danh sách (video[0] = mẫu, video[1] = đích).
    */
   async copyAndScaleBlueprint(
     userId: string,
@@ -312,7 +631,7 @@ export const videoBlueprintService = {
     const d2 = urlDurations[video2Url] || 0;
 
     const tempVideoPath = path.join(os.tmpdir(), `temp_copy_template_${Date.now()}.mp4`);
-    let analysisText = "";
+    let style: VideoStyleSchema | null = null;
 
     try {
       console.log(`[videoBlueprintService] Downloading template video 1 for LLM analysis: ${video1Url}`);
@@ -339,17 +658,44 @@ export const videoBlueprintService = {
         throw new Error(`Gemini File API processing failed: ${fileState.state}`);
       }
 
-      console.log("[videoBlueprintService] File is ACTIVE. Calling Gemini model to analyze editing style...");
+      console.log("[videoBlueprintService] File is ACTIVE. Calling Gemini model to extract structured style JSON...");
 
-      const analysisPrompt = `Hãy phân tích chi tiết phong cách biên tập, nhịp độ và các hiệu ứng dựng hình của video này.
+      const analysisPrompt = `Phân tích kỹ thuật dựng hình và phong cách biên tập của video này (tổng thời lượng ${d1} giây).
 
-⚠️ QUY TẮC QUAN TRỌNG (MANDATORY):
-- TẬP TRUNG HOÀN TOÀN VÀO HIỆU ỨNG VÀ KỸ THUẬT DỰNG: Chỉ phân tích nhịp điệu cắt ghép, tốc độ phát (playback rate), bộ lọc màu (contrast, brightness, grayscale), các hiệu ứng chuyển cảnh (transitions), chuyển động thu phóng (zoom in, zoom out, rotate), vị trí/màu sắc/kích thước hiển thị chữ (text overlays) và thể loại nhạc nền/SFX.
-- TUYỆT ĐỐI KHÔNG LẤY NỘI DUNG CỤ THỂ: Không mô tả các đối tượng, nhân vật, phong cảnh, hay hoạt động cụ thể trong video cũ (ví dụ: KHÔNG viết về "con rùa", "xe cộ", v.v.). Tổng quát hóa các lớp chữ thành chữ giả định (ví dụ: "Chèn chữ tiêu đề", "Hiển thị phụ đề mẫu").
-- Trả lời bằng Tiếng Việt.`;
+⚠️ YÊU CẦU ĐẦU RA (MANDATORY):
+Trả về MỘT đối tượng JSON hợp lệ theo schema sau. KHÔNG thêm văn bản nào khác.
+
+{
+  "editingStyle": "mô tả ngắn về phong cách dựng tổng thể",
+  "musicGenre": "upbeat | tech | corporate | lofi | acoustic | none",
+  "useSFXTransitions": true | false,
+  "segments": [
+    {
+      "startFraction": <số từ 0.0 đến 1.0 — vị trí tương đối trong video>,
+      "endFraction": <số từ 0.0 đến 1.0>,
+      "playbackRate": <1.0 bình thường>,
+      "filters": { "brightness": 1.0, "contrast": 1.0, "saturate": 1.0, "grayscale": 0.0 },
+      "effects": { "zoom": "none | in | out", "transition": "none | fade" }
+    }
+  ],
+  "textOverlays": [
+    {
+      "content": "Chèn chữ tiêu đề",
+      "startFraction": <0.0 đến 1.0>,
+      "endFraction": <0.0 đến 1.0>,
+      "style": { "position": "bottom-center", "color": "#FFD700", "fontSize": "32px" }
+    }
+  ]
+}
+
+QUY TẮC PHÂN SỐ THỜI GIAN:
+- startFraction và endFraction là PHÂN SỐ TƯƠNG ĐỐI [0.0, 1.0]. Ví dụ: giây 15 trong video 60s → fraction = 0.25.
+- KHÔNG dùng giây thực. KHÔNG dùng millisecond.
+- Các phân đoạn phải bao phủ toàn bộ từ 0.0 đến 1.0.
+- KHÔNG mô tả nội dung cụ thể (nhân vật, đồ vật), chỉ mô tả kỹ thuật dựng.`;
 
       const analysisResponse = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+        model: "gemini-2.5-flash",
         contents: [
           {
             role: "user",
@@ -364,10 +710,14 @@ export const videoBlueprintService = {
             ],
           },
         ],
+        config: {
+          responseMimeType: "application/json",
+        }
       });
 
-      analysisText = analysisResponse.text || "";
-      console.log("[videoBlueprintService] Video analysis completed. Description length:", analysisText.length);
+      const rawJson = analysisResponse.text || "";
+      console.log("[videoBlueprintService] copyAndScale: Raw style JSON (first 500):", rawJson.substring(0, 500));
+      style = safeParseJson(rawJson) as VideoStyleSchema;
 
       // Xóa file trên Gemini để dọn dẹp
       try {
@@ -393,77 +743,92 @@ export const videoBlueprintService = {
       }
     }
 
-    if (!analysisText) {
+    if (!style) {
       throw new Error("Không nhận diện được nội dung kịch bản phân tích từ video mẫu.");
     }
 
-    // Bước 2: Gọi Gemini tiếp để tạo kịch bản Blueprint JSON cho video mới
-    const systemPrompt = buildSystemPrompt(video2Url, d2);
-    const userPrompt = `Hãy tạo kịch bản chỉnh sửa video JSON Blueprint cho Video mới có URL "${video2Url}" và thời lượng ${d2} giây.
-Hãy áp dụng phong cách biên tập, cắt ghép, các hiệu ứng hình ảnh, chữ lớp phủ, và âm thanh giống hệt như video mẫu đã được phân tích dưới đây:
+    // ── Code-side scaling: multiply fractions by target duration ──────────────
+    console.log(`[videoBlueprintService] Building blueprint for target video (${d2}s) from style (source ${d1}s)...`);
+    const blueprint = buildBlueprintFromStyle(video2Url, d2, style);
 
-[PHÂN TÍCH PHONG CÁCH VIDEO MẪU]
-${analysisText}
-
-Chú ý: Hãy điều chỉnh tỉ xích thời gian (scale) của các hiệu ứng, chữ và nhạc nền cho phù hợp với thời lượng ${d2} giây của video mới này (so với video mẫu có thời lượng gốc là ${d1} giây).
-Đảm bảo kết quả đầu ra CHỈ là JSON thô, không chứa thẻ markdown hay lời nói thừa.`;
-
-    console.log("[videoBlueprintService] Calling Gemini model to generate final blueprint...");
-    try {
-      const blueprintResponse = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: userPrompt,
-        config: {
-          systemInstruction: systemPrompt,
-          responseMimeType: "application/json",
-        }
+    // Sanity check
+    if (!blueprint.timeline || !Array.isArray(blueprint.timeline) || blueprint.timeline.filter((item: any) => item.type === "video").length === 0) {
+      console.warn("[videoBlueprintService] Blueprint has no video track, adding fallback.");
+      if (!blueprint.timeline || !Array.isArray(blueprint.timeline)) {
+        blueprint.timeline = [];
+      }
+      blueprint.timeline.unshift({
+        type: "video",
+        src: video2Url,
+        start: 0,
+        end: d2,
+        playbackRate: 1.0
       });
-
-      const blueprintJsonText = blueprintResponse.text || "";
-      const blueprint = safeParseJson(blueprintJsonText);
-
-      // Sanity check: Ensure there is at least one video track in the timeline so we don't render a black video
-      if (!blueprint.timeline || !Array.isArray(blueprint.timeline) || blueprint.timeline.filter((item: any) => item.type === "video").length === 0) {
-        console.warn("[videoBlueprintService] Gemini returned blueprint without video track, adding fallback target video track.");
-        if (!blueprint.timeline || !Array.isArray(blueprint.timeline)) {
-          blueprint.timeline = [];
-        }
-        blueprint.timeline.unshift({
-          type: "video",
-          src: video2Url,
-          start: 0,
-          end: d2,
-          playbackRate: 1.0
-        });
-      }
-
-      console.log("[videoBlueprintService] Blueprint generated and parsed successfully.");
-      return blueprint;
-    } catch (err) {
-      console.error("[videoBlueprintService] Error generating JSON blueprint from scenario:", err);
-      if (isOverloadError(err)) {
-        throw new Error("Mô hình AI quá tải, vui lòng thử lại sau.");
-      }
-      throw new Error(`Lỗi khi sinh kịch bản JSON từ kịch bản phân tích: ${err instanceof Error ? err.message : String(err)}`);
     }
+
+    console.log("[videoBlueprintService] Blueprint generated successfully via code-side scaling.");
+    return blueprint;
   },
 
   /**
-   * Sinh cấu trúc JSON Blueprint trực tiếp từ Prompt chỉnh sửa của người dùng
+   * Sinh cấu trúc JSON Blueprint trực tiếp từ Prompt chỉnh sửa của người dùng.
+   * Nếu prompt có chứa metadata STYLE_JSON, tạo blueprint từ structured style.
+   * Ngược lại, dùng LLM để sinh blueprint từ văn bản mô tả.
    */
   async generateBlueprintFromPrompt(
     videoUrl: string,
     duration: number,
     prompt: string
   ): Promise<any> {
+    if (!prompt || !prompt.trim()) {
+      console.log("[videoBlueprintService] Prompt is empty, returning default unedited timeline blueprint.");
+      return {
+        timeline: [
+          {
+            type: "video",
+            src: videoUrl,
+            start: 0,
+            end: duration,
+            playbackRate: 1.0
+          }
+        ]
+      };
+    }
+
+    // ── Fast path: if prompt contains embedded STYLE_JSON, use code-side builder ──
+    const styleJsonMatch = prompt.match(/<!--\s*STYLE_JSON:(.*?)\s*-->/s);
+    if (styleJsonMatch) {
+      try {
+        const meta = JSON.parse(styleJsonMatch[1]);
+        const style = meta.style as VideoStyleSchema;
+        const targetDuration = meta.targetDuration ?? duration;
+        const targetVideoUrl = meta.targetVideoUrl ?? videoUrl;
+
+        // Extract user hints from the text (before the JSON comment)
+        const textPart = prompt.replace(/<!--\s*STYLE_JSON:.*?-->/s, "").trim();
+
+        console.log(`[videoBlueprintService] Using code-side blueprint builder from embedded STYLE_JSON (targetDuration=${targetDuration}s)`);
+        const blueprint = buildBlueprintFromStyle(targetVideoUrl || videoUrl, targetDuration, style, textPart);
+
+        if (!blueprint.timeline || blueprint.timeline.filter((e: any) => e.type === "video").length === 0) {
+          blueprint.timeline = [{ type: "video", src: videoUrl, start: 0, end: duration, playbackRate: 1.0 }];
+        }
+
+        return blueprint;
+      } catch (parseErr) {
+        console.warn("[videoBlueprintService] Failed to parse embedded STYLE_JSON, falling back to LLM:", parseErr);
+      }
+    }
+
+    // ── Standard LLM path ─────────────────────────────────────────────────────
     const systemPrompt = buildSystemPrompt(videoUrl, duration);
-    const userPrompt = `Hãy tạo kịch bản chỉnh sửa video JSON Blueprint cho Video có URL "${videoUrl}" và thời lượng ${duration} giây.\nYêu cầu chỉnh sửa: "${prompt}"\n\nĐảm bảo kết quả đầu ra CHỈ là JSON thô, không chứa thẻ markdown hay lời nói thừa.`;
+    const userPromptText = `Hãy tạo kịch bản chỉnh sửa video JSON Blueprint cho Video có URL "${videoUrl}" và thời lượng ${duration} giây.\nYêu cầu chỉnh sửa: "${prompt}"\n\nĐảm bảo kết quả đầu ra CHỈ là JSON thô, không chứa thẻ markdown hay lời nói thừa.`;
 
     console.log("[videoBlueprintService] Calling Gemini model to generate blueprint from prompt...");
     try {
       const blueprintResponse = await ai.models.generateContent({
         model: "gemini-2.5-flash",
-        contents: userPrompt,
+        contents: userPromptText,
         config: {
           systemInstruction: systemPrompt,
           responseMimeType: "application/json",

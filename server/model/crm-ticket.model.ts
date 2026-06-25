@@ -12,6 +12,15 @@ const CRMTicketSchema = new Schema<ICRMTicket>({
   status: { type: String, enum: ["cold", "warm", "hot", "won", "upsell"], default: "cold", index: true },
   lastInteraction: { type: String },
   companyCode: { type: String, required: true, index: true },
+  selectedProducts: {
+    type: [{
+      productId: { type: String },
+      name: { type: String },
+      price: { type: Number },
+      quantity: { type: Number },
+    }],
+    default: [],
+  },
 });
 
 export const CRMTicketModel = model<ICRMTicket>("CRMTicket", CRMTicketSchema);

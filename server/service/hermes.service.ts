@@ -116,23 +116,24 @@ export const hermesService = {
       }
     }
 
+    const safePrompt = prompt || "";
     // Tạo record ban đầu với trạng thái processing
     const record = await AIMediaModel.create({
       userId,
       mediaType: "video",
       url: `pending://hermes-worker/${userId}-${Date.now()}`,
-      prompt,
+      prompt: safePrompt,
       metadata: {
         status: "processing",
         progress: 5,
         provider: "hermes-worker",
-        title: `Biên tập bằng Hermes Worker: ${prompt}`,
+        title: `Biên tập bằng Hermes Worker: ${safePrompt}`,
         description: "Đang gửi yêu cầu đến Hermes Worker Pool...",
         blueprint: blueprint ? JSON.stringify(blueprint) : "{}",
         renderLogs: [
           "[Hermes] Khởi tạo yêu cầu biên tập video...",
           `[Hermes] Video đầu vào: ${videoUrl}`,
-          `[Hermes] Yêu cầu: ${prompt}`,
+          `[Hermes] Yêu cầu: ${safePrompt}`,
         ],
         aspectRatio: options?.aspectRatio || "16:9",
         resolution: options?.resolution || "720p",

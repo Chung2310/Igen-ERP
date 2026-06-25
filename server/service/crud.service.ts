@@ -13,6 +13,7 @@ import { SupportedModelName, ICRUDQueryOptions } from "../interface/crud.interfa
 import mongoose from "mongoose";
 import { facebookPostService } from "./facebook-post.service";
 import { zaloMessengerService } from "./zalo-messenger.service";
+import { telegramService } from "./telegram.service";
 
 const DEMO_VIDEO_URL_PATTERNS = [
   "w3schools.com/html/mov_bbb.mp4",
@@ -347,6 +348,12 @@ export const crudService = {
     const newItem = new model(payload);
     await newItem.save();
 
+    if (modelName === "crm-tickets" && newItem.status === "won") {
+      telegramService.sendLeadWonNotification(newItem).catch((err) => {
+        console.error("[crudService.create] Error sending Telegram notification:", err);
+      });
+    }
+
     handlePendingVideoUrl(newItem, modelName).catch((err) => {
       console.error("[crudService.create] error in handlePendingVideoUrl:", err);
     });
@@ -392,9 +399,23 @@ export const crudService = {
       });
     }
 
+    let oldStatus = "";
+    if (modelName === "crm-tickets" && updatePayload.status === "won") {
+      const oldItem = await model.findOne(query).select("status").lean();
+      if (oldItem) {
+        oldStatus = oldItem.status;
+      }
+    }
+
     const updatedItem = await model.findOneAndUpdate(query, updatePayload, { new: true });
     if (!updatedItem) {
       throw new Error("Không tìm thấy tài nguyên hoặc bạn không có quyền chỉnh sửa.");
+    }
+
+    if (modelName === "crm-tickets" && updatePayload.status === "won" && oldStatus !== "won") {
+      telegramService.sendLeadWonNotification(updatedItem).catch((err) => {
+        console.error("[crudService.update] Error sending Telegram notification:", err);
+      });
     }
 
     handlePendingVideoUrl(updatedItem, modelName).catch((err) => {
