@@ -309,7 +309,7 @@ export const geminiApi = {
   async editVideo(
     videoUrl: string,
     prompt: string,
-    options?: { modelName?: string; aspectRatio?: string; resolution?: string; duration?: number; videoDurations?: number[]; blueprint?: any }
+    options?: { modelName?: string; aspectRatio?: string; resolution?: string; duration?: number; videoDurations?: number[]; blueprint?: any; renderMode?: string }
   ): Promise<{ status: string; record: any; blueprint: any }> {
     const headers = await getHeaders(true);
     const response = await fetch('/api/v1/gemini/edit-video', {
@@ -521,4 +521,78 @@ export const geminiApi = {
     }
     return response.json();
   },
+
+  // ─── FreeLLM API — LLM miễn phí ────────────────────────────────────────────
+
+  /** Kiểm tra trạng thái cấu hình FreeLLM API */
+  async freeLLMStatus(): Promise<{ configured: boolean; model: string; url: string | null; message: string }> {
+    const headers = await getHeaders(false);
+    const response = await fetch('/api/v1/gemini/freellm-status', { headers });
+    if (!response.ok) await handleErrorResponse(response, 'Lỗi kiểm tra FreeLLM API');
+    return response.json().then((r: any) => r);
+  },
+
+  /** Chat multi-turn hoặc single prompt với FreeLLM */
+  async freeLLMChat(input: {
+    messages?: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>;
+    prompt?: string;
+    systemPrompt?: string;
+    temperature?: number;
+    maxTokens?: number;
+    jsonMode?: boolean;
+  }): Promise<{ content: string; model: string; usage?: any }> {
+    const headers = await getHeaders(true);
+    const response = await fetch('/api/v1/gemini/freellm-chat', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ action: 'chat', ...input }),
+    });
+    if (!response.ok) await handleErrorResponse(response, 'Lỗi khi gọi FreeLLM API');
+    return response.json().then((r: any) => ({ content: r.content, model: r.model, usage: r.usage }));
+  },
+
+  /** Tối ưu prompt tiếng Việt → tiếng Anh chuyên nghiệp */
+  async freeLLMOptimizePrompt(prompt: string): Promise<string> {
+    const headers = await getHeaders(true);
+    const response = await fetch('/api/v1/gemini/freellm-chat', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ action: 'optimize-prompt', prompt }),
+    });
+    if (!response.ok) await handleErrorResponse(response, 'Lỗi tối ưu prompt FreeLLM');
+    const data = await response.json();
+    return data.result || '';
+  },
+
+  /** Tóm tắt văn bản bằng FreeLLM */
+  async freeLLMSummarize(text: string, maxWords?: number): Promise<string> {
+    const headers = await getHeaders(true);
+    const response = await fetch('/api/v1/gemini/freellm-chat', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ action: 'summarize', prompt: text, maxTokens: maxWords }),
+    });
+    if (!response.ok) await handleErrorResponse(response, 'Lỗi tóm tắt FreeLLM');
+    const data = await response.json();
+    return data.result || '';
+  },
+
+  /** Sinh nội dung marketing với FreeLLM */
+  async freeLLMMarketing(params: {
+    topic: string;
+    platform?: 'facebook' | 'instagram' | 'tiktok' | 'zalo' | 'general';
+    tone?: 'professional' | 'friendly' | 'humorous' | 'inspirational';
+    language?: 'vi' | 'en';
+  }): Promise<{ title: string; content: string; hashtags: string[] }> {
+    const headers = await getHeaders(true);
+    const response = await fetch('/api/v1/gemini/freellm-chat', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ action: 'marketing', prompt: params.topic, ...params }),
+    });
+    if (!response.ok) await handleErrorResponse(response, 'Lỗi sinh marketing content FreeLLM');
+    const data = await response.json();
+    return data.result || { title: '', content: '', hashtags: [] };
+  },
 };
+

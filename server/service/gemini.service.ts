@@ -5,6 +5,7 @@ import { cloudinaryService } from "./cloudinary.service";
 import { piapiService } from "./piapi.service";
 import { videoBlueprintService } from "./video-blueprint.service";
 import { hermesService } from "./hermes.service";
+import { freeLLMService, freeLLMChat, isFreeLLMConfigured } from "./freellm.service";
 import { exec } from "child_process";
 import { remotionQueueService } from "./remotion-queue.service";
 import { remotionService } from "./remotion.service";
@@ -342,6 +343,50 @@ async function fetchImageAsBase64(url: string): Promise<{ mimeType: string; data
   }
 }
 
+/**
+ * Chuyển đổi Gemini "contents" format → OpenAI messages format để dùng với FreeLLM fallback.
+ */
+function buildFreeLLMMessages(
+  contents: any,
+  systemInstruction?: string
+): Array<{ role: "system" | "user" | "assistant"; content: string }> {
+  const msgs: Array<{ role: "system" | "user" | "assistant"; content: string }> = [];
+
+  if (systemInstruction) {
+    msgs.push({ role: "system", content: systemInstruction });
+  }
+
+  if (typeof contents === "string") {
+    msgs.push({ role: "user", content: contents });
+  } else if (Array.isArray(contents)) {
+    for (const item of contents) {
+      if (typeof item === "string") {
+        msgs.push({ role: "user", content: item });
+      } else if (item.role && item.parts) {
+        const textParts = (item.parts as any[])
+          .filter((p: any) => typeof p?.text === "string")
+          .map((p: any) => p.text)
+          .join("\n");
+        if (textParts) {
+          msgs.push({
+            role: item.role === "model" ? "assistant" : "user",
+            content: textParts,
+          });
+        }
+      } else if (item.text) {
+        msgs.push({ role: "user", content: item.text });
+      }
+    }
+  }
+
+  // Đảm bảo có ít nhất 1 user message
+  if (!msgs.some((m) => m.role === "user")) {
+    msgs.push({ role: "user", content: String(contents) });
+  }
+
+  return msgs;
+}
+
 async function generateText(
   model: string,
   contents: any,
@@ -449,6 +494,29 @@ async function generateText(
       }
     }
   }
+
+  // ── FreeLLM Fallback ──────────────────────────────────────────────────────
+  // Sau khi hết tất cả lần retry với Gemini, thử gọi FreeLLM nếu được cấu hình
+  // Không fallback khi: có images (FreeLLM không hỗ trợ vision)
+  const hasImages = config?.images && config.images.length > 0;
+  if (isFreeLLMConfigured() && !hasImages) {
+    const lastErrorMsg = lastError?.message || String(lastError);
+    console.warn(`[generateText] Gemini failed after ${maxRetries} attempts (${lastErrorMsg}). Falling back to FreeLLM API...`);
+    try {
+      const freeLLMMessages = buildFreeLLMMessages(contents, config?.systemInstruction);
+      const needsJson = !!config?.responseMimeType?.includes("json") || !!config?.responseSchema;
+      const freeLLMResult = await freeLLMChat(freeLLMMessages, {
+        temperature: config?.temperature,
+        jsonMode: needsJson,
+      });
+      console.log(`[generateText] FreeLLM fallback succeeded | model=${freeLLMResult.model} | responseLen=${freeLLMResult.content.length}`);
+      return { text: freeLLMResult.content };
+    } catch (freeLLMError: any) {
+      console.error(`[generateText] FreeLLM fallback also failed: ${freeLLMError?.message || freeLLMError}`);
+      // Ném lỗi gốc của Gemini, không ném lỗi FreeLLM
+    }
+  }
+  // ─────────────────────────────────────────────────────────────────────────
 
   // Final check: if last error was an overload error, return friendly message
   const lastErrorMsg = lastError?.message || String(lastError);
@@ -2171,8 +2239,13 @@ CHỈ trả về lệnh chỉnh sửa, không thêm giải thích, không markdo
       duration?: number;
       videoDurations?: number[];
       blueprint?: any;
+      renderMode?: "local" | "hermes";
     }
   ): Promise<{ status: string; record: any; blueprint: any }> {
+    if (options?.renderMode === "hermes") {
+      return hermesService.editVideo(userId, videoUrl, prompt, options);
+    }
+
     let blueprint = options?.blueprint;
     if (!blueprint) {
       const videoDuration = options?.duration || 10;

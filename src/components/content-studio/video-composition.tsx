@@ -51,19 +51,26 @@ export const VideoComposition: React.FC<VideoCompositionProps> = ({ blueprint })
 
   // 2. Tính toán thời gian bắt đầu luỹ kế cho các phân đoạn video
   let currentTimelineOffset = 0;
-  const videoClips = rawVideoClips.map((item) => {
-    const start = item.start ?? 0;
-    const end = item.end ?? 5;
-    const rate = item.playbackRate ?? 1;
-    const clipDuration = (end - start) / rate;
-    const startInTimeline = currentTimelineOffset;
-    currentTimelineOffset += clipDuration;
-    return {
-      ...item,
-      startInTimeline,
-      duration: clipDuration
-    };
-  });
+  const videoClips = rawVideoClips
+    .filter(item => {
+      // BUG-11 fix: bỏ clip không có src hoặc có duration = 0
+      if (!item.src) return false;
+      const dur = ((item.end ?? 5) - (item.start ?? 0)) / (item.playbackRate ?? 1);
+      return dur > 0;
+    })
+    .map((item) => {
+      const start = item.start ?? 0;
+      const end = item.end ?? 5;
+      const rate = item.playbackRate ?? 1;
+      const clipDuration = (end - start) / rate;
+      const startInTimeline = currentTimelineOffset;
+      currentTimelineOffset += clipDuration;
+      return {
+        ...item,
+        startInTimeline,
+        duration: clipDuration
+      };
+    });
 
   return (
     <AbsoluteFill style={{ backgroundColor: 'black', justifyContent: 'center', alignItems: 'center' }}>
@@ -162,6 +169,7 @@ export const VideoComposition: React.FC<VideoCompositionProps> = ({ blueprint })
               preload="auto"
               crossOrigin="anonymous"
               volume={clipVolume}
+              delayRenderTimeoutInMilliseconds={120000}
               style={{
                 width: '100%',
                 height: '100%',
@@ -297,6 +305,7 @@ export const VideoComposition: React.FC<VideoCompositionProps> = ({ blueprint })
                 src={audioItem.src}
                 crossOrigin="anonymous"
                 volume={audioItem.volume ?? 1}
+                delayRenderTimeoutInMilliseconds={120000}
               />
             </Sequence>
           );

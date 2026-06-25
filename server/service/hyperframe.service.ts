@@ -166,6 +166,7 @@ export const hyperframeService = {
 
       // Render thẻ video có track tăng dần và class hoạt họa CSS
       // LƯU Ý: KHÔNG dùng muted — cần giữ âm thanh gốc của video đầu vào
+      // BUG-03 fix: thêm oncanplay để đảm bảo volume được set ngay cả khi Hyperframe không tự đọc data-volume
       elementsHtml += `
     <video
       src="${clip.src}"
@@ -176,6 +177,7 @@ export const hyperframeService = {
       data-track-index="${idx}"
       class="clip-anim-${idx}"
       onplay="this.playbackRate=${speed}"
+      oncanplay="this.volume=${clipVolume}"
       style="width: 100%; height: 100%; object-fit: contain; position: absolute; top: 0; left: 0;"
       playsinline
     ></video>`;
@@ -187,6 +189,14 @@ export const hyperframeService = {
       const color = style.color || "white";
       const duration = (textItem.end ?? 5) - (textItem.start ?? 0);
       const fontSize = style.fontSize || "36px";
+
+      // BUG-12 fix: escape HTML entities to prevent XSS injection
+      const safeContent = String(textItem.content || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 
       let positionStyles = "";
       if (style.position?.startsWith("top-")) {
@@ -228,7 +238,7 @@ export const hyperframeService = {
           text-align: center;
         "
       >
-        ${textItem.content || ""}
+        ${safeContent}
       </span>
     </div>`;
     });
