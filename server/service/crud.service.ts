@@ -354,6 +354,16 @@ export const crudService = {
       });
     }
 
+    if (modelName === "products" && newItem) {
+      const stock = Number(newItem.stock || 0);
+      const minStockAlert = Number(newItem.minStockAlert || 15);
+      if (stock <= minStockAlert) {
+        telegramService.sendLowStockAlert(newItem).catch((err) => {
+          console.error("[crudService.create] Error sending low stock alert:", err);
+        });
+      }
+    }
+
     handlePendingVideoUrl(newItem, modelName).catch((err) => {
       console.error("[crudService.create] error in handlePendingVideoUrl:", err);
     });
@@ -416,6 +426,16 @@ export const crudService = {
       telegramService.sendLeadWonNotification(updatedItem).catch((err) => {
         console.error("[crudService.update] Error sending Telegram notification:", err);
       });
+    }
+
+    if (modelName === "products" && updatedItem) {
+      const stock = Number(updatedItem.stock || 0);
+      const minStockAlert = Number(updatedItem.minStockAlert || 15);
+      if (stock <= minStockAlert) {
+        telegramService.sendLowStockAlert(updatedItem).catch((err) => {
+          console.error("[crudService.update] Error sending low stock alert:", err);
+        });
+      }
     }
 
     handlePendingVideoUrl(updatedItem, modelName).catch((err) => {

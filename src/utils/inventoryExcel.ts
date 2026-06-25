@@ -45,6 +45,7 @@ function normalizeHeader(value: unknown) {
   return String(value ?? "")
     .trim()
     .toLowerCase()
+    .replace(/[đĐ]/g, "d")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
 }
