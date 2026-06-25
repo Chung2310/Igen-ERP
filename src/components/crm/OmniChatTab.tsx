@@ -27,6 +27,8 @@ type OmniChatTabProps = {
   setSelectedFacebookPageId: (val: string) => void;
   handleApplyToAllPages?: () => void;
   copyingConfig?: boolean;
+  onLoadMoreConversations?: () => void;
+  hasMoreConversations?: boolean;
 };
 
 export const OmniChatTab: React.FC<OmniChatTabProps> = ({
@@ -50,12 +52,23 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
   setSelectedFacebookPageId,
   handleApplyToAllPages,
   copyingConfig,
+  onLoadMoreConversations,
+  hasMoreConversations,
 }) => {
   const [filterInbox, setFilterInbox] = useState("");
   const [activeChannel, setActiveChannel] = useState<"all" | "facebook" | "zalo">("all");
   const [showConfig, setShowConfig] = useState(false);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const [showScrollBottom, setShowScrollBottom] = useState(false);
+
+  const handleSidebarScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.currentTarget;
+    if (target.scrollHeight - target.scrollTop - target.clientHeight < 50) {
+      if (hasMoreConversations && onLoadMoreConversations) {
+        onLoadMoreConversations();
+      }
+    }
+  };
 
   const [localConfig, setLocalConfig] = useState<AIChatConfig>(aiConfig);
   const [savingConfig, setSavingConfig] = useState(false);
@@ -175,7 +188,7 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
   const handleClearKnowledge = async () => {
     if (clearingKnowledge) return;
 
-    const confirmed = window.confirm("Xoa toan bo tai lieu AI da feed va reset du lieu huan luyen hien tai?");
+    const confirmed = window.confirm("Xóa toàn bộ tài liệu AI đã feed và reset dữ liệu huấn luyện hiện tại?");
     if (!confirmed) return;
 
     setClearingKnowledge(true);
@@ -233,10 +246,10 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
     const previousFirstId = previousFirstMessageIdRef.current;
     const currentFirstId = chatHistory[0]?.id || null;
     const prependedOlderMessages = previousFirstId !== null && currentFirstId !== null && previousFirstId !== currentFirstId;
-    
+
     // Increased bottom threshold to 300px for a better scroll trigger
     const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 300;
-    
+
     const lastMessage = chatHistory[chatHistory.length - 1];
     const isAgentMessage = lastMessage?.sender === "agent";
 
@@ -313,20 +326,20 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
   };
 
   return (
-      <div className="flex h-full overflow-hidden bg-[linear-gradient(180deg,#f8fbff_0%,#f4f7fb_100%)]" id="omni_inbox_layout">
-      
+    <div className="flex h-full overflow-hidden bg-[linear-gradient(180deg,#f8fbff_0%,#f4f7fb_100%)]" id="omni_inbox_layout">
+
       {/* L-Col: Inbox Customers list */}
       <div className="w-80 border-r border-slate-100 bg-white flex flex-col justify-between shrink-0 h-full shadow-sm" id="inbox_sidebar">
-        
+
         {/* Search & Channel Filters Group */}
         <div className="flex flex-col gap-3 p-4 border-b border-slate-100 shrink-0">
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <Search className="h-3.5 w-3.5 text-slate-400" />
             </div>
-            <input 
-              type="text" 
-              placeholder="Tìm tên khách hàng..." 
+            <input
+              type="text"
+              placeholder="Tìm tên khách hàng..."
               value={filterInbox}
               onChange={(e) => setFilterInbox(e.target.value)}
               className="w-full pl-9 pr-3 py-2 border border-slate-200 bg-slate-50/60 focus:bg-white rounded-xl text-xs outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all duration-200"
@@ -346,24 +359,22 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                 <button
                   key={btn.id}
                   onClick={() => setActiveChannel(btn.id as any)}
-                  className={`flex-1 py-2 px-1 rounded-lg font-bold transition-all duration-250 cursor-pointer flex items-center justify-center gap-1.5 ${
-                    isActive
+                  className={`flex-1 py-2 px-1 rounded-lg font-bold transition-all duration-250 cursor-pointer flex items-center justify-center gap-1.5 ${isActive
                       ? "bg-white text-slate-900 shadow-sm border border-slate-200/20"
                       : "text-slate-500 hover:text-slate-800 hover:bg-white/40"
-                  }`}
+                    }`}
                 >
                   {btn.id === "facebook" && (
                     <svg className="h-3 w-3 fill-current text-blue-600 shrink-0" viewBox="0 0 24 24">
-                      <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                      <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
                     </svg>
                   )}
                   {btn.id === "zalo" && (
                     <span className="w-3.5 h-3.5 bg-blue-500 text-white text-[8px] font-extrabold rounded-full flex items-center justify-center leading-none shrink-0 font-sans shadow-xxs">Z</span>
                   )}
                   <span>{btn.label}</span>
-                  <span className={`px-1.5 py-0.2 rounded-full text-[8px] ${
-                    isActive ? "bg-slate-900 text-white" : "bg-slate-200 text-slate-500"
-                  }`}>{btn.count}</span>
+                  <span className={`px-1.5 py-0.2 rounded-full text-[8px] ${isActive ? "bg-slate-900 text-white" : "bg-slate-200 text-slate-500"
+                    }`}>{btn.count}</span>
                 </button>
               );
             })}
@@ -398,7 +409,11 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
         </div>
 
         {/* Thread list scroll content */}
-        <div className="flex-1 overflow-y-auto divide-y divide-slate-100/60" id="inbox_thread_list">
+        <div
+          className="flex-1 overflow-y-auto divide-y divide-slate-100/60"
+          id="inbox_thread_list"
+          onScroll={handleSidebarScroll}
+        >
           {inboxCustomers
             .filter((c) => {
               const matchesSearch = c.name.toLowerCase().includes(filterInbox.toLowerCase());
@@ -408,16 +423,15 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
             .map((cust) => {
               const isActive = activeCustomer?.id === cust.id;
               const hasHotTag = cust.tags.includes("Khách Nóng");
-              
+
               return (
-                <div 
-                  key={cust.id} 
+                <div
+                  key={cust.id}
                   onClick={() => handleSelectCustomer(cust)}
-                  className={`p-4 flex items-start gap-3.5 cursor-pointer transition-all duration-250 text-left relative group border-b border-slate-100/50 ${
-                    isActive 
-                      ? "bg-blue-50/40 border-l-4 border-blue-600 shadow-xs" 
+                  className={`p-4 flex items-start gap-3.5 cursor-pointer transition-all duration-250 text-left relative group border-b border-slate-100/50 ${isActive
+                      ? "bg-blue-50/40 border-l-4 border-blue-600 shadow-xs"
                       : "hover:bg-slate-50/60 hover:translate-x-1"
-                  }`}
+                    }`}
                   id={`inbox_thread_${cust.id}`}
                 >
                   {/* Avatar with dynamic channel source badge */}
@@ -427,7 +441,7 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                     {cust.channel === "facebook" ? (
                       <span className="absolute -top-1 -right-1 p-0.5 bg-blue-600 text-white rounded-full border border-white shadow-sm flex items-center justify-center">
                         <svg className="h-2.5 w-2.5 fill-current" viewBox="0 0 24 24">
-                          <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                          <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
                         </svg>
                       </span>
                     ) : cust.channel === "zalo" ? (
@@ -442,13 +456,13 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                       <span className="font-bold text-xs text-slate-800 group-hover:text-blue-600 transition-colors duration-200 truncate">{cust.name}</span>
                       <span className="text-[9px] text-slate-400 font-mono">{cust.time}</span>
                     </div>
-                    
+
                     <p className="text-[10px] text-slate-500 truncate mt-1 leading-normal select-none">{cust.lastMessage}</p>
                     <p className="text-[9px] text-slate-400 mt-1">
                       {cust.channel === "zalo" ? "Khách Zalo • UID: " : "Khách Facebook • PSID: "}
                       {cust.recipientId || cust.id}
                     </p>
-                    
+
                     <div className="flex flex-wrap items-center gap-1 mt-2.5">
                       {hasHotTag && (
                         <span className="animate-pulse px-1.5 py-0.5 bg-red-500 text-white text-[8px] font-extrabold rounded-md shadow-sm flex items-center gap-0.5">
@@ -459,13 +473,12 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                       {cust.tags.map((tag, tIdx) => {
                         if (tag === "Khách Nóng") return null;
                         return (
-                          <span key={tIdx} className={`px-1.5 py-0.5 text-[8px] font-bold border rounded-md uppercase ${
-                            tag === "Khách Ấm"
+                          <span key={tIdx} className={`px-1.5 py-0.5 text-[8px] font-bold border rounded-md uppercase ${tag === "Khách Ấm"
                               ? "bg-orange-50 text-orange-600 border-orange-100"
                               : tag === "Khách VIP"
                                 ? "bg-purple-50 text-purple-600 border-purple-100"
                                 : "bg-slate-55 bg-slate-50 text-slate-500 border-slate-150"
-                          }`}>
+                            }`}>
                             {tag}
                           </span>
                         );
@@ -517,25 +530,24 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                         {activeCustomer.isVip && (
                           <span className="px-1.5 py-0.5 bg-amber-500 text-white text-[8px] font-extrabold rounded-md shadow-sm">VIP</span>
                         )}
-                        
+
                         {/* CRM Pipeline Status Indicator and Actions */}
                         {linkedLead ? (
                           <div className="flex items-center gap-1.5">
-                            <span className={`px-2 py-0.5 rounded-md text-[9px] font-extrabold uppercase border ${
-                              linkedLead.status === 'cold' ? 'bg-slate-100 text-slate-655 border-slate-200' :
-                              linkedLead.status === 'warm' ? 'bg-orange-50 text-orange-655 border-orange-200' :
-                              linkedLead.status === 'hot' ? 'bg-rose-50 text-rose-655 border-rose-200 animate-pulse' :
-                              linkedLead.status === 'won' ? 'bg-emerald-500 text-white border-emerald-500 shadow-sm' :
-                              'bg-purple-50 text-purple-655 border-purple-200'
-                            }`}>
+                            <span className={`px-2 py-0.5 rounded-md text-[9px] font-extrabold uppercase border ${linkedLead.status === 'cold' ? 'bg-slate-100 text-slate-655 border-slate-200' :
+                                linkedLead.status === 'warm' ? 'bg-orange-50 text-orange-655 border-orange-200' :
+                                  linkedLead.status === 'hot' ? 'bg-rose-50 text-rose-655 border-rose-200 animate-pulse' :
+                                    linkedLead.status === 'won' ? 'bg-emerald-500 text-white border-emerald-500 shadow-sm' :
+                                      'bg-purple-50 text-purple-655 border-purple-200'
+                              }`}>
                               CRM: {
                                 linkedLead.status === 'cold' ? 'Khách Lạnh' :
-                                linkedLead.status === 'warm' ? 'Khách Ấm' :
-                                linkedLead.status === 'hot' ? 'Khách Nóng' :
-                                linkedLead.status === 'won' ? 'Đã Chốt Đơn' : 'Up-sell'
+                                  linkedLead.status === 'warm' ? 'Khách Ấm' :
+                                    linkedLead.status === 'hot' ? 'Khách Nóng' :
+                                      linkedLead.status === 'won' ? 'Đã Chốt Đơn' : 'Up-sell'
                               }
                             </span>
-                            
+
                             {linkedLead.status === "cold" && (
                               <button
                                 type="button"
@@ -602,28 +614,26 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                   </div>
                 );
               })()}
-              
+
               {/* Header Actions: Collapsible config and channel badge */}
               <div className="flex items-center gap-2">
                 {/* Collapsible toggle button */}
                 <button
                   onClick={() => setShowConfig(!showConfig)}
-                  className={`px-3 py-1.5 rounded-xl text-[10px] font-extrabold transition-all border flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95 ${
-                    showConfig
+                  className={`px-3 py-1.5 rounded-xl text-[10px] font-extrabold transition-all border flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95 ${showConfig
                       ? "bg-slate-900 text-white border-slate-900"
                       : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
-                  }`}
+                    }`}
                 >
                   <Sliders className="h-3.5 w-3.5" />
                   <span>{showConfig ? "Ẩn cấu hình AI" : "Cấu hình trợ lý AI"}</span>
                 </button>
 
                 {/* Source logo info */}
-                <span className={`px-3 py-1.5 rounded-full text-[10px] font-bold font-sans flex items-center gap-1.5 border shadow-sm ${
-                  activeCustomer.channel === "facebook" 
-                    ? "bg-blue-50 text-blue-700 border-blue-150" 
+                <span className={`px-3 py-1.5 rounded-full text-[10px] font-bold font-sans flex items-center gap-1.5 border shadow-sm ${activeCustomer.channel === "facebook"
+                    ? "bg-blue-50 text-blue-700 border-blue-150"
                     : "bg-indigo-50 text-indigo-700 border-indigo-150"
-                }`}>
+                  }`}>
                   {activeCustomer.channel === "facebook" ? (
                     <>
                       <Facebook className="h-3 w-3" />
@@ -641,11 +651,11 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
 
             {/* Messages dialogue stream feed container */}
             <div className="flex-1 relative overflow-hidden flex flex-col justify-between">
-              <div 
-                ref={chatStreamRef} 
+              <div
+                ref={chatStreamRef}
                 onScroll={handleScroll}
-                className="flex-1 overflow-y-auto px-6 py-4 space-y-4" 
-                id="chat_messages_stream" 
+                className="flex-1 overflow-y-auto px-6 py-4 space-y-4"
+                id="chat_messages_stream"
                 style={{ maxHeight: "calc(85vh - 200px)" }}
               >
                 <div className="sticky top-0 z-10 flex justify-center pb-2">
@@ -654,11 +664,10 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                       type="button"
                       onClick={handleLoadOlderMessages}
                       disabled={chatPagination.loadingMore}
-                      className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-[11px] font-bold shadow-sm backdrop-blur transition-all ${
-                        chatPagination.loadingMore
+                      className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-[11px] font-bold shadow-sm backdrop-blur transition-all ${chatPagination.loadingMore
                           ? "cursor-wait border-slate-200 bg-white/85 text-slate-400"
                           : "border-blue-200 bg-white/90 text-blue-700 hover:border-blue-300 hover:bg-blue-50"
-                      }`}
+                        }`}
                     >
                       {chatPagination.loadingMore ? <Clock3 className="h-3.5 w-3.5 animate-spin" /> : <ChevronDown className="h-3.5 w-3.5 rotate-180" />}
                       <span>{chatPagination.loadingMore ? "Đang tải cuộc trò chuyện cũ..." : "Tải cuộc trò chuyện cũ hơn"}</span>
@@ -677,9 +686,9 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                   const primaryAttachment = attachments[0];
                   const hasImageAttachment = primaryAttachment?.url && ["image", "sticker"].includes(primaryAttachment.type);
                   const displayText = h.text || (attachments.length > 0 ? (primaryAttachment?.type === "sticker" ? "[Biểu tượng]" : "[Đính kèm]") : "");
-                  
+
                   return (
-                    <div 
+                    <div
                       key={h.id}
                       className={`flex flex-col ${isMe ? "items-end" : "items-start"} animate-fade-in-up`}
                     >
@@ -696,19 +705,17 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                           </div>
                         )}
 
-                        <div className={`p-3.5 rounded-3xl relative shadow-xs transition-all duration-200 ${
-                          isMe 
-                            ? "bg-gradient-to-tr from-blue-600 via-indigo-600 to-indigo-700 text-white rounded-br-none text-left font-sans text-xs hover:shadow-md" 
+                        <div className={`p-3.5 rounded-3xl relative shadow-xs transition-all duration-200 ${isMe
+                            ? "bg-gradient-to-tr from-blue-600 via-indigo-600 to-indigo-700 text-white rounded-br-none text-left font-sans text-xs hover:shadow-md"
                             : isSystem
                               ? "bg-emerald-50/90 border border-emerald-200 text-emerald-950 rounded-bl-none text-left font-mono text-[10.5px] shadow-sm shadow-emerald-500/5"
                               : isAI
                                 ? "bg-gradient-to-tr from-indigo-50 to-purple-50/70 border border-indigo-100 text-indigo-950 rounded-bl-none text-left font-sans text-xs shadow-sm shadow-indigo-500/5"
                                 : "bg-white border border-slate-100 hover:border-slate-200 text-slate-800 rounded-bl-none text-left font-sans text-xs hover:shadow-sm"
-                        }`}>
+                          }`}>
                           {isAI && (
-                            <span className={`text-[8px] font-mono block font-bold tracking-wider mb-1 uppercase ${
-                              isSystem ? "text-emerald-600" : "text-indigo-500"
-                            }`}>
+                            <span className={`text-[8px] font-mono block font-bold tracking-wider mb-1 uppercase ${isSystem ? "text-emerald-600" : "text-indigo-500"
+                              }`}>
                               {isSystem ? "✦ HỆ THỐNG AI TỰ ĐỘNG CHỐT SALES" : "✦ iGen AI Assistant (Trả lời tự động)"}
                             </span>
                           )}
@@ -727,7 +734,7 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                           ) : null}
                         </div>
                       </div>
-                      
+
                       <span className="text-[8.5px] text-slate-400 font-mono mt-1.5 select-none font-sans">
                         {isMe ? "CRM Operator • " : isAI ? "Trợ lý AI • " : `${activeCustomer.name} • `}
                         {new Date(h.timestamp).toLocaleTimeString("vi-VN", { hour: "numeric", minute: "numeric" })}
@@ -750,7 +757,7 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                     </div>
                   </div>
                 )}
-                
+
                 <div ref={chatBottomRef} />
               </div>
 
@@ -770,22 +777,21 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
             {/* Chat Send Input Box area */}
             <form onSubmit={handleSendChatMessage} className="p-4 border-t border-slate-100 bg-white shrink-0" id="chat_input_section">
               <div className="flex gap-3">
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   placeholder={`Gửi phản hồi cho ${activeCustomer.name}...`}
                   className="flex-1 text-left px-4 py-3 border border-slate-200 bg-slate-50/40 rounded-xl text-xs focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none font-sans"
                   value={typeMessage}
                   onChange={(e) => setTypeMessage(e.target.value)}
                   disabled={aiWaiting}
                 />
-                <button 
+                <button
                   type="submit"
                   disabled={aiWaiting || !typeMessage.trim()}
-                  className={`p-3 rounded-xl transition-all shadow-sm flex items-center justify-center shrink-0 ${
-                    aiWaiting || !typeMessage.trim()
+                  className={`p-3 rounded-xl transition-all shadow-sm flex items-center justify-center shrink-0 ${aiWaiting || !typeMessage.trim()
                       ? "bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200"
                       : "bg-blue-600 hover:bg-blue-700 text-white cursor-pointer active:scale-95 shadow-md shadow-blue-500/10"
-                  }`}
+                    }`}
                 >
                   <Send className="w-4 h-4" />
                 </button>
@@ -825,20 +831,20 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
 
       {/* Premium Lightbox Modal */}
       {lightboxImage && (
-        <div 
+        <div
           className="fixed inset-0 bg-slate-950/85 backdrop-blur-md flex items-center justify-center z-[9999] animate-fade-in"
           onClick={() => setLightboxImage(null)}
         >
-          <button 
+          <button
             type="button"
             className="absolute top-6 right-6 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 px-4 py-2 rounded-full transition-all text-xs font-bold font-sans"
             onClick={() => setLightboxImage(null)}
           >
             Đóng [ESC]
           </button>
-          <img 
-            src={lightboxImage} 
-            alt="Fullsize attachment" 
+          <img
+            src={lightboxImage}
+            alt="Fullsize attachment"
             className="max-w-[90vw] max-h-[85vh] object-contain rounded-2xl shadow-2xl border border-white/10 animate-scale-in"
             onClick={(e) => e.stopPropagation()}
           />

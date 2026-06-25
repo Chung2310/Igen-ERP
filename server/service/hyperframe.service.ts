@@ -162,20 +162,21 @@ export const hyperframeService = {
   }\n`;
 
       const speed = clip.playbackRate ?? 1.0;
+      const clipVolume = clip.volume ?? 1.0;
 
       // Render thẻ video có track tăng dần và class hoạt họa CSS
+      // LƯU Ý: KHÔNG dùng muted — cần giữ âm thanh gốc của video đầu vào
       elementsHtml += `
     <video
       src="${clip.src}"
       data-start="${clip.startInTimeline}"
       data-duration="${clip.renderDuration}"
       data-media-start="${clip.start}"
-      data-volume="1.0"
+      data-volume="${clipVolume}"
       data-track-index="${idx}"
       class="clip-anim-${idx}"
       onplay="this.playbackRate=${speed}"
       style="width: 100%; height: 100%; object-fit: contain; position: absolute; top: 0; left: 0;"
-      muted
       playsinline
     ></video>`;
     });

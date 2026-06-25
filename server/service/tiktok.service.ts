@@ -357,6 +357,20 @@ async function resolveDirectCredentials(
       } catch (err: any) {
         console.warn(`[TikTok Service] Tu dong refresh company token gap loi: ${err.message}. Su dung token cu.`);
         resolvedAccessToken = integration.accessToken;
+
+        // Gửi cảnh báo về Telegram và đánh dấu ngắt kết nối
+        const errMsg = String(err.message || "").toLowerCase();
+        if (errMsg.includes("refresh_token") || errMsg.includes("token refresh failed") || errMsg.includes("invalid_grant") || errMsg.includes("expired")) {
+          await SocialIntegrationModel.findByIdAndUpdate(integrationId, { isConnected: false });
+          const { telegramService } = require("./telegram.service");
+          await telegramService.sendIntegrationDisconnectAlert(
+            "TikTok",
+            integration.displayName || "TikTok Account",
+            integration.username || "unknown",
+            integration.companyCode || "SYSTEM",
+            `Không thể tự động làm mới Refresh Token TikTok. Chi tiết: ${err.message || err}`
+          ).catch((e: any) => console.error("[TikTok Service] Không thể gửi cảnh báo lỗi Token về Telegram:", e));
+        }
       }
     } else {
       resolvedAccessToken = integration.accessToken;
@@ -374,6 +388,19 @@ async function resolveDirectCredentials(
         } catch (err: any) {
           console.warn(`[TikTok Service] Tu dong refresh user token gap loi: ${err.message}. Su dung token cu.`);
           resolvedAccessToken = integration.accessToken || accessToken;
+
+          const errMsg = String(err.message || "").toLowerCase();
+          if (errMsg.includes("refresh_token") || errMsg.includes("token refresh failed") || errMsg.includes("invalid_grant") || errMsg.includes("expired")) {
+            await UserModel.findByIdAndUpdate(userId, { "tiktokIntegration.isConnected": false });
+            const { telegramService } = require("./telegram.service");
+            await telegramService.sendIntegrationDisconnectAlert(
+              "TikTok",
+              `TikTok Account (User: ${user?.email || "unknown"})`,
+              integration.username || "unknown",
+              user?.companyCode || "SYSTEM",
+              `Không thể tự động làm mới Refresh Token TikTok cá nhân. Chi tiết: ${err.message || err}`
+            ).catch((e: any) => console.error("[TikTok Service] Không thể gửi cảnh báo lỗi Token về Telegram:", e));
+          }
         }
       } else {
         resolvedAccessToken = integration.accessToken || accessToken;
@@ -894,6 +921,36 @@ export const tiktokService = {
       }
     } catch (error: any) {
       console.error("[tiktokService.publishVideo] Direct init error:", error);
+
+      const errMsg = String(error.message || "").toLowerCase();
+      const isTokenError = errMsg.includes("access_token") || errMsg.includes("token is invalid") || errMsg.includes("hết hạn, bị thu hồi") || errMsg.includes("unauthorized");
+      if (isTokenError) {
+        if (integrationId) {
+          await SocialIntegrationModel.findByIdAndUpdate(integrationId, { isConnected: false });
+          const integration = await SocialIntegrationModel.findById(integrationId);
+          const { telegramService } = require("./telegram.service");
+          await telegramService.sendIntegrationDisconnectAlert(
+            "TikTok",
+            integration?.displayName || "TikTok Account",
+            integration?.username || "unknown",
+            integration?.companyCode || "SYSTEM",
+            `Mất kết nối Token TikTok khi đang đăng video. Chi tiết: ${error.message}`
+          ).catch((e: any) => console.error("[TikTok Service] Không thể gửi cảnh báo lỗi Token về Telegram:", e));
+        } else if (userId) {
+          await UserModel.findByIdAndUpdate(userId, { "tiktokIntegration.isConnected": false });
+          const user = await UserModel.findById(userId);
+          const integration = user?.tiktokIntegration;
+          const { telegramService } = require("./telegram.service");
+          await telegramService.sendIntegrationDisconnectAlert(
+            "TikTok",
+            `TikTok Account (User: ${user?.email || "unknown"})`,
+            integration?.username || "unknown",
+            user?.companyCode || "SYSTEM",
+            `Mất kết nối Token TikTok cá nhân khi đang đăng video. Chi tiết: ${error.message}`
+          ).catch((e: any) => console.error("[TikTok Service] Không thể gửi cảnh báo lỗi Token về Telegram:", e));
+        }
+      }
+
       if (error.message.startsWith("Khoi tao bai dang TikTok that bai:")) {
         throw error;
       }

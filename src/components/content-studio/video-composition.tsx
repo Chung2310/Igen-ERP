@@ -144,6 +144,11 @@ export const VideoComposition: React.FC<VideoCompositionProps> = ({ blueprint })
           hueRotate ? `hue-rotate(${hueRotate}deg)` : ''
         ].filter(Boolean).join(' ');
 
+        // Volume: dùng volume từ blueprint của clip (mặc định 1.0).
+        // KHÔNG gán theo transitionOpacity vì opacity chỉ là hiệu ứng visual fade,
+        // không nên ảnh hưởng đến âm thanh gốc của video.
+        const clipVolume = clip.volume ?? 1.0;
+
         return (
           <Sequence
             key={`video-seq-${idx}`}
@@ -156,7 +161,7 @@ export const VideoComposition: React.FC<VideoCompositionProps> = ({ blueprint })
               playbackRate={clip.playbackRate ?? 1}
               preload="auto"
               crossOrigin="anonymous"
-              volume={transitionOpacity}
+              volume={clipVolume}
               style={{
                 width: '100%',
                 height: '100%',

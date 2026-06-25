@@ -86,7 +86,7 @@ export default function PersonalIntegrationsTab() {
       } catch (error: any) {
         console.error(error);
         if (!cancelled) {
-          toast.error(error.message || "Khong the tai kenh doanh nghiep.");
+          toast.error(error.message || "Không thể tải kênh doanh nghiệp.");
         }
       } finally {
         if (!cancelled) {
@@ -105,7 +105,7 @@ export default function PersonalIntegrationsTab() {
     const handleTikTokOAuthPayload = async (payload: any) => {
       if (!payload) return;
       if (!payload.ok) {
-        toast.error(payload.error || "Ket noi TikTok that bai.");
+        toast.error(payload.error || "Kết nối TikTok thất bại.");
         return;
       }
       if (payload.target !== "personal") {
@@ -113,7 +113,7 @@ export default function PersonalIntegrationsTab() {
       }
 
       await refreshProfile();
-      toast.success(`Da ket noi TikTok ca nhan: ${payload.profile?.displayName || payload.profile?.username || "TikTok"}`);
+      toast.success(`Đã kết nối TikTok cá nhân: ${payload.profile?.displayName || payload.profile?.username || "TikTok"}`);
     };
 
     const handleTikTokOAuthMessage = (event: MessageEvent) => {
@@ -138,7 +138,7 @@ export default function PersonalIntegrationsTab() {
         tiktokForm.clientSecret.trim() || undefined
       );
       if (!authUrl) {
-        throw new Error("Khong tao duoc link dang nhap TikTok.");
+        throw new Error("Không tạo được link đăng nhập TikTok.");
       }
 
       const width = 620;
@@ -152,7 +152,7 @@ export default function PersonalIntegrationsTab() {
       );
 
       if (!oauthWindow) {
-        throw new Error("Trinh duyet dang chan popup TikTok.");
+        throw new Error("Trình duyệt đang chặn popup TikTok.");
       }
 
       const checkInterval = setInterval(() => {
@@ -164,12 +164,12 @@ export default function PersonalIntegrationsTab() {
             const payload = JSON.parse(rawResult);
             void refreshProfile();
             if (payload?.target === "personal" && payload?.ok) {
-              toast.success(`Da ket noi TikTok ca nhan: ${payload.profile?.displayName || payload.profile?.username || "TikTok"}`);
+              toast.success(`Đã kết nối TikTok cá nhân: ${payload.profile?.displayName || payload.profile?.username || "TikTok"}`);
             } else if (payload?.ok === false) {
-              toast.error(payload.error || "Ket noi TikTok that bai.");
+              toast.error(payload.error || "Kết nối TikTok thất bại.");
             }
           } catch (error) {
-            console.error("Loi doc ket qua TikTok OAuth:", error);
+            console.error("Lỗi đọc kết quả TikTok OAuth:", error);
           } finally {
             setConnectingTikTokOAuth(false);
           }
@@ -181,8 +181,8 @@ export default function PersonalIntegrationsTab() {
         }
       }, 800);
     } catch (error: any) {
-      console.error("Loi khoi tao TikTok OAuth:", error);
-      toast.error(error.message || "Khong the mo cua so ket noi TikTok.");
+      console.error("Lỗi khởi tạo TikTok OAuth:", error);
+      toast.error(error.message || "Không thể mở cửa sổ kết nối TikTok.");
       setConnectingTikTokOAuth(false);
     }
   };
@@ -204,7 +204,7 @@ export default function PersonalIntegrationsTab() {
   const handleSaveFacebook = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!facebookForm.pageId.trim() || !facebookForm.pageAccessToken.trim()) {
-      toast.error("Vui long nhap Page ID va Page Access Token.");
+      toast.error("Vui lòng nhập Page ID và Page Access Token.");
       return;
     }
 
@@ -227,7 +227,7 @@ export default function PersonalIntegrationsTab() {
   const handleSaveZalo = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!zaloForm.oaId.trim() || !zaloForm.oaName.trim() || !zaloForm.accessToken.trim()) {
-      toast.error("Vui long nhap OA ID, ten OA va Access Token.");
+      toast.error("Vui lòng nhập OA ID, tên OA và Access Token.");
       return;
     }
 
@@ -566,12 +566,12 @@ export default function PersonalIntegrationsTab() {
                 disabled={savingFacebook}
                 className="flex-1 rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-60"
               >
-                {savingFacebook ? "Dang luu..." : "Luu Facebook ca nhan"}
+                {savingFacebook ? "Đang lưu..." : "Lưu Facebook Cá Nhân"}
               </button>
               <button
                 type="button"
                 onClick={() => {
-                  if (!window.confirm("Go bo Facebook ca nhan chi anh huong tai khoan hien tai. Ban co chac chan muon tiep tuc khong?")) {
+                  if (!window.confirm("Gỡ bỏ Facebook Cá Nhân chỉ ảnh hưởng tài khoản hiện tại. Bạn có chắc chắn muốn tiếp tục không?")) {
                     return;
                   }
                   void removeFacebookIntegration();
@@ -579,7 +579,7 @@ export default function PersonalIntegrationsTab() {
                 className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-xs font-bold text-red-700"
               >
                 <Trash2 className="h-3.5 w-3.5" />
-                Go bo
+                Gỡ bỏ FaceBook
               </button>
             </div>
           </form>
@@ -630,12 +630,12 @@ export default function PersonalIntegrationsTab() {
                 disabled={savingZalo}
                 className="flex-1 rounded-xl bg-sky-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-60"
               >
-                {savingZalo ? "Dang luu..." : "Luu Zalo ca nhan"}
+                {savingZalo ? "Đang lưu..." : "Lưu Zalo Cá Nhân"}
               </button>
               <button
                 type="button"
                 onClick={() => {
-                  if (!window.confirm("Go bo Zalo ca nhan chi anh huong tai khoan hien tai. Ban co chac chan muon tiep tuc khong?")) {
+                  if (!window.confirm("Gỡ bỏ Zalo Cá Nhân chỉ ảnh hưởng tài khoản hiện tại. Bạn có chắc chắn muốn tiếp tục không?")) {
                     return;
                   }
                   void removeZaloIntegration();
@@ -750,7 +750,7 @@ export default function PersonalIntegrationsTab() {
                 disabled={savingTikTok}
                 className="flex-1 rounded-xl bg-red-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-60"
               >
-                {savingTikTok ? "Dang luu..." : "Luu TikTok ca nhan"}
+                {savingTikTok ? "Đang lưu..." : "Luu TikTok cá nhân"}
               </button>
               <button
                 type="button"

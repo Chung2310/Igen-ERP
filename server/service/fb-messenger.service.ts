@@ -75,16 +75,6 @@ export const fbMessengerService = {
         continue;
       }
 
-      let avatarUrl = "";
-      if (recipientId) {
-        try {
-          const profile = await this.getSenderProfile(recipientId, token);
-          avatarUrl = profile?.profile_pic || "";
-        } catch (error) {
-          console.warn(`[FB Service syncConversations] Không lấy được avatar cho PSID ${recipientId}:`, error);
-        }
-      }
-
       let conversation = await FBConversationModel.findOne({
         pageId,
         $or: [
@@ -93,10 +83,28 @@ export const fbMessengerService = {
         ]
       });
 
+      let avatarUrl = "";
+      let senderName = nonPageSender?.name || "";
+
+      // Chỉ fetch profile của khách hàng nếu hội thoại chưa có trong DB hoặc chưa có đủ Tên/Avatar
+      if (!conversation || !conversation.avatarUrl || !conversation.senderName || conversation.senderName === "Khách hàng Facebook") {
+        if (recipientId) {
+          try {
+            const profile = await this.getSenderProfile(recipientId, token);
+            avatarUrl = profile?.profile_pic || "";
+            if (profile?.first_name || profile?.last_name) {
+              senderName = `${profile.first_name || ""} ${profile.last_name || ""}`.trim();
+            }
+          } catch (error) {
+            console.warn(`[FB Service syncConversations] Không lấy được avatar/profile cho PSID ${recipientId}:`, error);
+          }
+        }
+      }
+
       if (conversation) {
         conversation.facebookConversationId = fbConversation.id;
         conversation.recipientId = recipientId;
-        conversation.senderName = nonPageSender?.name || conversation.senderName || "Khách hàng Facebook";
+        conversation.senderName = senderName || conversation.senderName || "Khách hàng Facebook";
         if (avatarUrl) {
           conversation.avatarUrl = avatarUrl;
         }
@@ -111,7 +119,7 @@ export const fbMessengerService = {
           recipientId,
           pageId,
           facebookConversationId: fbConversation.id,
-          senderName: nonPageSender?.name || "Khách hàng Facebook",
+          senderName: senderName || "Khách hàng Facebook",
           avatarUrl,
           lastMessageText: latestMessage?.message || "[Đính kèm]",
           lastMessageAt: latestMessage?.created_time
@@ -640,6 +648,37 @@ export const fbMessengerService = {
       if (!response.ok) {
         const textErr = await response.text();
         console.error(`[FB Service sendReply] Send API phản hồi lỗi: ${response.status} - ${textErr}`);
+        
+        let isTokenError = false;
+        let facebookErrCode = 0;
+        try {
+          const errObj = JSON.parse(textErr);
+          facebookErrCode = errObj.error?.code;
+          const msgLower = String(errObj.error?.message || "").toLowerCase();
+          if (facebookErrCode === 190 || facebookErrCode === 102 || facebookErrCode === 100 || msgLower.includes("token") || msgLower.includes("session")) {
+            isTokenError = true;
+          }
+        } catch (e) {
+          if (textErr.includes("token") || textErr.includes("OAuth") || response.status === 401 || response.status === 400) {
+            isTokenError = true;
+          }
+        }
+
+        if (isTokenError) {
+          const integration = await SocialIntegrationModel.findOne({
+            platform: "Facebook",
+            username: resolvedPageId,
+          });
+          const { telegramService } = require("./telegram.service");
+          await telegramService.sendIntegrationDisconnectAlert(
+            "Facebook",
+            integration?.displayName || "Facebook Page",
+            resolvedPageId,
+            integration?.companyCode || "SYSTEM",
+            `Mã lỗi Facebook: ${facebookErrCode || response.status}. Chi tiết: ${textErr.slice(0, 150)}`
+          ).catch((e: any) => console.error("[FB Service] Không thể gửi cảnh báo lỗi Token về Telegram:", e));
+        }
+
         throw new Error(`Facebook Send API phản hồi lỗi: ${response.status} - ${textErr}`);
       }
 
@@ -713,13 +752,13 @@ export const fbMessengerService = {
     }
   },
 
-  /**
-   * Lấy danh sách cuộc hội thoại thuộc Page mà người dùng hiện tại có quyền truy cập
-   */
-  async getConversations(pageId?: string, options?: { sync?: boolean }) {
-    console.log(`[FB Service getConversations] Lọc hội thoại theo Page ID: ${pageId || "Tất cả"}`);
+  async getConversations(pageId?: string, options?: { sync?: boolean; limit?: number; skip?: number }) {
+    console.log(`[FB Service getConversations] Lọc hội thoại theo Page ID: ${pageId || "Tất cả"}, limit: ${options?.limit || 20}, skip: ${options?.skip || 0}`);
     const filter = pageId ? { pageId } : {};
-    if (pageId && options?.sync && this.shouldSync(`conversations:${pageId}`, CONVERSATION_SYNC_TTL_MS)) {
+    const skip = options?.skip || 0;
+    const limit = options?.limit || 20;
+
+    if (pageId && options?.sync && skip === 0 && this.shouldSync(`conversations:${pageId}`, CONVERSATION_SYNC_TTL_MS)) {
       try {
         await this.syncConversationsFromFacebook(pageId);
       } catch (error) {
@@ -727,7 +766,10 @@ export const fbMessengerService = {
       }
     }
 
-    return FBConversationModel.find(filter).sort({ lastMessageAt: -1 });
+    return FBConversationModel.find(filter)
+      .sort({ lastMessageAt: -1 })
+      .skip(skip)
+      .limit(limit);
   },
 
   /**

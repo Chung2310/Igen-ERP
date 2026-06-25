@@ -4,7 +4,7 @@ export const fbMessengerService = {
   /**
    * Lay danh sach cuoc hoi thoai cua Page Facebook da lien ket
    */
-  async getConversations(options?: { sync?: boolean; pageId?: string }): Promise<any[]> {
+  async getConversations(options?: { sync?: boolean; pageId?: string; limit?: number; skip?: number }): Promise<any[]> {
     console.log("[FE FB Service] Bat dau goi API getConversations...");
     const params = new URLSearchParams();
     if (options?.sync) {
@@ -12,6 +12,12 @@ export const fbMessengerService = {
     }
     if (options?.pageId) {
       params.set("pageId", options.pageId);
+    }
+    if (options?.limit !== undefined) {
+      params.set("limit", String(options.limit));
+    }
+    if (options?.skip !== undefined) {
+      params.set("skip", String(options.skip));
     }
     const query = params.toString() ? `?${params.toString()}` : "";
     const res = await fetch(`/api/v1/facebook/messenger/conversations${query}`, {
