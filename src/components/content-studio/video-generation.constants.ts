@@ -5,9 +5,10 @@ export const VIDEO_MODEL_OPTIONS = [
 ] as const;
 
 export const VIDEO_DURATION_OPTIONS = [
-  { value: '4', label: '4 giây' },
-  { value: '6', label: '6 giây' },
   { value: '8', label: '8 giây' },
+  { value: '16', label: '16 giây' },
+  { value: '24', label: '24 giây' },
+  { value: '32', label: '32 giây' },
 ] as const;
 
 export const VIDEO_QUALITY_OPTIONS = [
