@@ -7,7 +7,13 @@ import jwt from "jsonwebtoken";
 const TIKTOK_API_BASE = "https://open.tiktokapis.com";
 const TIKTOK_OAUTH_AUTHORIZE_URL = "https://www.tiktok.com/v2/auth/authorize/";
 
-function getTikTokRedirectUri() {
+function getTikTokRedirectUri(target?: string) {
+  if (target === "company") {
+    return String(
+      process.env.TIKTOK_BUSINESS_REDIRECT_URI ||
+        `${String(process.env.APP_URL || "").replace(/\/$/, "")}/api/v1/tiktok-business/oauth/callback`
+    ).trim();
+  }
   return String(
     process.env.TIKTOK_REDIRECT_URI ||
       `${String(process.env.APP_URL || "").replace(/\/$/, "")}/api/v1/tiktok/oauth/callback`
@@ -436,6 +442,8 @@ function signOAuthState(payload: {
   email?: string;
   target: TikTokOAuthTarget;
   integrationId?: string;
+  clientKey?: string;
+  clientSecret?: string;
 }) {
   return jwt.sign(payload, getOAuthStateSecret(), { expiresIn: "10m" });
 }
@@ -447,13 +455,15 @@ function verifyOAuthState(state: string) {
     email?: string;
     target: TikTokOAuthTarget;
     integrationId?: string;
+    clientKey?: string;
+    clientSecret?: string;
   };
 }
 
-async function exchangeCodeForOAuthToken(code: string, credentials?: { clientKey: string; clientSecret: string }) {
+async function exchangeCodeForOAuthToken(code: string, credentials?: { clientKey: string; clientSecret: string }, target?: string) {
   const clientKey = String(credentials?.clientKey || getTikTokClientKey()).trim();
   const clientSecret = String(credentials?.clientSecret || getTikTokClientSecret()).trim();
-  const redirectUri = getTikTokRedirectUri();
+  const redirectUri = getTikTokRedirectUri(target);
 
   if (!clientKey || !clientSecret || !redirectUri) {
     throw new Error("TikTok OAuth chua du cau hinh client key, client secret hoac redirect uri.");
@@ -577,6 +587,8 @@ async function saveCompanyTikTokOAuthIntegration(params: {
   integrationId?: string;
   tokenData: any;
   creatorInfo: any;
+  clientKey?: string;
+  clientSecret?: string;
 }) {
   if (!params.companyCode) {
     throw new Error("Tai khoan hien tai chua co companyCode de luu kenh TikTok doanh nghiep.");
@@ -610,8 +622,8 @@ async function saveCompanyTikTokOAuthIntegration(params: {
     accessToken: params.tokenData.access_token,
     refreshToken: params.tokenData.refresh_token || "",
     tokenExpiredAt: expiresAt,
-    appSecret: existingAppSecret || getTikTokClientSecret(),
-    verifyToken: existingVerifyToken || getTikTokClientKey(),
+    appSecret: params.clientSecret || existingAppSecret || getTikTokClientSecret(),
+    verifyToken: params.clientKey || existingVerifyToken || getTikTokClientKey(),
     isConnected: true,
     createdBy: params.email || params.userId,
     isMock: false,
@@ -651,6 +663,8 @@ export const tiktokService = {
     email?: string;
     target: string;
     integrationId?: string;
+    clientKey?: string;
+    clientSecret?: string;
   }) {
     const target = params.target === "company" ? "company" : "personal";
     const credentials = await resolveOAuthClientCredentials({
@@ -659,10 +673,17 @@ export const tiktokService = {
       target,
       integrationId: params.integrationId || undefined,
     });
-    const redirectUri = getTikTokRedirectUri();
 
-    if (!credentials.clientKey || !redirectUri) {
-      throw new Error("He thong chua co cau hinh app TikTok hop le cho tai khoan nay.");
+    const clientKey = params.clientKey?.trim() || credentials.clientKey;
+    const clientSecret = params.clientSecret?.trim() || credentials.clientSecret;
+    const redirectUri = getTikTokRedirectUri(target);
+
+    if (!clientKey || !clientSecret || !redirectUri) {
+      throw new Error(
+        target === "company"
+          ? "Kenh TikTok doanh nghiep va he thong deu chua cau hinh Client Key va Client Secret."
+          : "Tai khoan TikTok ca nhan va he thong deu chua cau hinh Client Key va Client Secret."
+      );
     }
 
     const state = signOAuthState({
@@ -671,10 +692,12 @@ export const tiktokService = {
       email: params.email,
       target,
       integrationId: params.integrationId || undefined,
+      clientKey,
+      clientSecret,
     });
 
     const query = new URLSearchParams({
-      client_key: credentials.clientKey,
+      client_key: clientKey,
       response_type: "code",
       scope: "user.info.basic,video.publish",
       redirect_uri: redirectUri,
@@ -705,13 +728,23 @@ export const tiktokService = {
     }
 
     const statePayload = verifyOAuthState(params.state);
-    const credentials = await resolveOAuthClientCredentials({
-      userId: statePayload.userId,
-      companyCode: statePayload.companyCode,
-      target: statePayload.target,
-      integrationId: statePayload.integrationId,
-    });
-    const tokenData = await exchangeCodeForOAuthToken(params.code, credentials);
+    
+    let clientKey = statePayload.clientKey || "";
+    let clientSecret = statePayload.clientSecret || "";
+
+    if (!clientKey || !clientSecret) {
+      const resolved = await resolveOAuthClientCredentials({
+        userId: statePayload.userId,
+        companyCode: statePayload.companyCode,
+        target: statePayload.target,
+        integrationId: statePayload.integrationId,
+      });
+      clientKey = resolved.clientKey;
+      clientSecret = resolved.clientSecret;
+    }
+
+    const credentials = { clientKey, clientSecret };
+    const tokenData = await exchangeCodeForOAuthToken(params.code, credentials, statePayload.target);
     const creatorInfo = await this.getCreatorInfo(tokenData.access_token);
 
     if (statePayload.target === "company") {
@@ -722,6 +755,8 @@ export const tiktokService = {
         integrationId: statePayload.integrationId,
         tokenData,
         creatorInfo,
+        clientKey: credentials.clientKey,
+        clientSecret: credentials.clientSecret,
       });
     } else {
       await savePersonalTikTokOAuthIntegration({
