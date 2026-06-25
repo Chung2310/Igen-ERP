@@ -326,22 +326,40 @@ export default function CardDetailDrawer({
           )}
 
           {/* Platform specific links */}
-          {card.facebookPostId && (
-            <div
-              className="text-[10px] text-blue-600 font-mono bg-blue-50 border border-blue-200 px-3 py-2 rounded-xl flex items-center justify-between gap-1 cursor-pointer hover:bg-blue-100 transition-colors"
-              onClick={() => {
-                if (card.facebookPostId?.includes('mock')) {
-                  alert(`[Demo] Bài đăng Facebook ID: ${card.facebookPostId}`);
-                }
-              }}
-            >
-              <span className="flex items-center gap-1.5">
-                <Facebook className="h-3.5 w-3.5" />
-                Post ID: {card.facebookPostId}
-              </span>
-              <ExternalLink className="h-3.5 w-3.5 shrink-0" />
-            </div>
-          )}
+          {card.postUrl || card.facebookPostId ? (
+            card.postUrl ? (
+              <a
+                href={card.postUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Xem bài viết thật trên Facebook"
+                className="text-[10px] text-blue-600 font-mono bg-blue-50 border border-blue-200 px-3 py-2 rounded-xl flex items-center justify-between gap-1 hover:bg-blue-100 transition-colors"
+              >
+                <span className="flex items-center gap-1.5">
+                  <Facebook className="h-3.5 w-3.5" />
+                  <span>Xem bài viết Facebook</span>
+                </span>
+                <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+              </a>
+            ) : (
+              <div
+                className="text-[10px] text-blue-600 font-mono bg-blue-50 border border-blue-200 px-3 py-2 rounded-xl flex items-center justify-between gap-1 cursor-pointer hover:bg-blue-100 transition-colors"
+                onClick={() => {
+                  if (card.facebookPostId?.includes('mock')) {
+                    alert(`[Demo] Bài đăng Facebook ID: ${card.facebookPostId}`);
+                  } else {
+                    window.open(`https://facebook.com/${card.facebookPostId}`, '_blank');
+                  }
+                }}
+              >
+                <span className="flex items-center gap-1.5">
+                  <Facebook className="h-3.5 w-3.5" />
+                  Post ID: {card.facebookPostId}
+                </span>
+                <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+              </div>
+            )
+          ) : null}
 
           {/* TikTok Publish Button */}
           {card.channel === 'TikTok' && tiktokIntegration?.isConnected && onPublishToTikTok && card.status === 'scheduled' && (

@@ -610,24 +610,43 @@ export function PublishedCard({ card, onDelete, isUserRole, onPreviewMedia, onOp
         </div>
       )}
 
-      {card.facebookPostId && (
-        <div
-          title={`Facebook Post ID: ${card.facebookPostId}`}
-          className="text-[10px] text-blue-600 font-mono bg-blue-50 border border-blue-200/70 px-2.5 py-1.5 rounded-xl flex items-center justify-between gap-1.5 cursor-pointer hover:bg-blue-100 transition-colors"
-          onClick={(e) => {
-            e.stopPropagation();
-            if (card.facebookPostId?.includes('mock')) {
-              alert(`[Demo] Bài đăng Facebook ID: ${card.facebookPostId}`);
-            }
-          }}
-        >
-          <span className="flex items-center gap-1.5">
-            <Facebook className="h-3.5 w-3.5" />
-            <span>Post ID: {card.facebookPostId?.slice(0, 15)}...</span>
-          </span>
-          <ExternalLink className="h-3.5 w-3.5 shrink-0" />
-        </div>
-      )}
+      {card.postUrl || card.facebookPostId ? (
+        card.postUrl ? (
+          <a
+            href={card.postUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            title="Xem bài viết thật trên Facebook"
+            className="text-[10px] text-blue-600 font-mono bg-blue-50 border border-blue-200/70 px-2.5 py-1.5 rounded-xl flex items-center justify-between gap-1.5 hover:bg-blue-100 transition-colors"
+          >
+            <span className="flex items-center gap-1.5">
+              <Facebook className="h-3.5 w-3.5" />
+              <span>Xem bài viết Facebook</span>
+            </span>
+            <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+          </a>
+        ) : (
+          <div
+            title={`Facebook Post ID: ${card.facebookPostId}`}
+            className="text-[10px] text-blue-600 font-mono bg-blue-50 border border-blue-200/70 px-2.5 py-1.5 rounded-xl flex items-center justify-between gap-1.5 cursor-pointer hover:bg-blue-100 transition-colors"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (card.facebookPostId?.includes('mock')) {
+                alert(`[Demo] Bài đăng Facebook ID: ${card.facebookPostId}`);
+              } else {
+                window.open(`https://facebook.com/${card.facebookPostId}`, '_blank');
+              }
+            }}
+          >
+            <span className="flex items-center gap-1.5">
+              <Facebook className="h-3.5 w-3.5" />
+              <span>Post ID: {card.facebookPostId?.slice(0, 15)}...</span>
+            </span>
+            <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+          </div>
+        )
+      ) : null}
 
       <div className="flex flex-col gap-2 border-t border-slate-100 pt-2.5 mt-auto">
         <div className="flex items-center justify-between text-gray-400 font-mono text-[8px] select-none">

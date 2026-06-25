@@ -256,6 +256,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
   ]);
 
   const [loadingPillars, setLoadingPillars] = useState(false);
+  const [swappingPillarId, setSwappingPillarId] = useState<string | null>(null);
   const [pillars, setPillars] = useState([
     {
       id: "Pillar A: Educate & Guides",
@@ -738,6 +739,75 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
       toast.error(err.message || "Lỗi phân tích Content Pillars.");
     } finally {
       setLoadingPillars(false);
+    }
+  };
+
+  const handleSwapPillar = async (pillarIdToReplace: string) => {
+    const topic = campaignInput.trim();
+    if (!topic) {
+      toast.warning("Vui lòng nhập mục tiêu chiến dịch trước khi đổi trụ cột.");
+      return;
+    }
+    setSwappingPillarId(pillarIdToReplace);
+    try {
+      const originalPillar = pillars.find(p => p.id === pillarIdToReplace);
+      const pillarIndex = pillars.findIndex(p => p.id === pillarIdToReplace);
+
+      // Gọi analyzeMarketingPillars với variation hint để lấy bộ pillars mới
+      // Dùng biến thể ngẫu nhiên để AI trả về nội dung khác nhau mỗi lần
+      const variants = [
+        "góc độ khác biệt",
+        "hướng tiếp cận mới",
+        "phương án thay thế sáng tạo",
+        "quan điểm độc đáo hơn",
+        "chiến lược nội dung khác"
+      ];
+      const randomVariant = variants[Math.floor(Math.random() * variants.length)];
+
+      let apiTopic = `${topic} - tập trung vào ${randomVariant}`;
+      if (uploadedDocText) {
+        apiTopic = `${apiTopic}\n\nTÀI LIỆU ĐÍNH KÈM:\nTên tài liệu: ${uploadedDocName}\nNội dung tài liệu:\n${uploadedDocText}`;
+      }
+
+      const data = await geminiApi.analyzeMarketingPillars(
+        apiTopic,
+        uploadedImageBase64 ? [uploadedImageBase64] : undefined
+      );
+
+      if (data.pillars && Array.isArray(data.pillars) && data.pillars.length > 0) {
+        // Lấy pillar ở cùng vị trí index, fallback sang pillar đầu tiên
+        const targetIdx = pillarIndex >= 0 && pillarIndex < data.pillars.length
+          ? pillarIndex
+          : 0;
+        const rawPillar = data.pillars[targetIdx];
+
+        const newPillar = {
+          id: rawPillar.id || `pillar-swap-${Date.now()}`,
+          title: rawPillar.title,
+          ratio: rawPillar.ratio || (originalPillar ? originalPillar.ratio : "33% tỉ trọng"),
+          description: rawPillar.description,
+          // Giữ nguyên màu sắc của pillar cũ để UI nhất quán
+          colorClass: originalPillar?.colorClass || "border-gray-200 bg-white text-gray-500",
+          selectedColorClass: originalPillar?.selectedColorClass || "border-indigo-500 bg-indigo-50 text-indigo-700",
+          bulletColor: originalPillar?.bulletColor || "bg-indigo-500",
+        };
+
+        setPillars(prev => prev.map(p => p.id === pillarIdToReplace ? newPillar : p));
+        setSelectedPillars(prev => {
+          if (prev.includes(pillarIdToReplace)) {
+            return prev.map(id => id === pillarIdToReplace ? newPillar.id : id);
+          }
+          return prev;
+        });
+        toast.success(`Đã đổi sang trụ cột: ${newPillar.title}`);
+      } else {
+        toast.error("Không thể thay thế trụ cột nội dung.");
+      }
+    } catch (err: any) {
+      console.error("Lỗi thay đổi content pillar:", err);
+      toast.error(err.message || "Lỗi khi thay đổi Content Pillar.");
+    } finally {
+      setSwappingPillarId(null);
     }
   };
 
@@ -1750,17 +1820,27 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                 </div>
               )}
 
-              {pillars.map((pillar) => {
+               {pillars.map((pillar) => {
                 const isSelected = selectedPillars.includes(pillar.id);
+                const isSwapping = swappingPillarId === pillar.id;
                 return (
                   <div
                     key={pillar.id}
-                    onClick={() => togglePillar(pillar.id)}
-                    className={`p-3.5 border rounded-xl cursor-pointer transition-all ${isSelected
+                    onClick={() => {
+                      if (isSwapping) return;
+                      togglePillar(pillar.id);
+                    }}
+                    className={`relative p-3.5 border rounded-xl cursor-pointer transition-all ${isSelected
                       ? pillar.selectedColorClass
                       : `${pillar.colorClass} opacity-50 hover:opacity-85`
-                      }`}
+                      } ${isSwapping ? "pointer-events-none" : ""}`}
                   >
+                    {isSwapping && (
+                      <div className="absolute inset-0 bg-white/70 backdrop-blur-3xs flex flex-col items-center justify-center text-center p-2 z-10 rounded-xl">
+                        <RefreshCw className="h-4 w-4 text-indigo-600 animate-spin" />
+                        <span className="text-[9px] text-indigo-850 font-bold mt-1 font-mono uppercase tracking-wide">ĐANG ĐỔI...</span>
+                      </div>
+                    )}
                     <div className="flex justify-between items-start gap-2 font-bold">
                       <span className="flex items-start gap-1.5 text-xs text-slate-800 min-w-0">
                         <span className={`w-2.5 h-2.5 rounded-full shrink-0 mt-0.5 ${pillar.bulletColor}`} />
@@ -1775,7 +1855,16 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                       <span className={isSelected ? "text-indigo-650 font-semibold" : "text-gray-400"}>
                         {isSelected ? "● Đang tuyển chọn" : "○ Tạm tắt"}
                       </span>
-                      <span className="text-slate-400">Click để đổi</span>
+                      <span
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (isSwapping) return;
+                          handleSwapPillar(pillar.id);
+                        }}
+                        className="text-slate-400 hover:text-indigo-600 hover:font-bold transition-all cursor-pointer"
+                      >
+                        Click để đổi
+                      </span>
                     </div>
                   </div>
                 );

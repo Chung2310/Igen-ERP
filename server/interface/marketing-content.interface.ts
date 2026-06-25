@@ -22,6 +22,8 @@ export interface IMarketingContent extends Document {
   authorUid?: string;
   publishedAt?: Date;
   facebookPostId?: string;
+  postUrl?: string;
+  publishError?: string | null;
   tiktokPostId?: string;
   tiktokPublishId?: string;
   tiktokShareUrl?: string;

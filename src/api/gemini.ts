@@ -101,6 +101,32 @@ export const geminiApi = {
   },
 
   /**
+   * Thay thế 1 Content Pillar bằng 1 Trụ cột khác mới hoàn toàn.
+   */
+  async swapMarketingPillar(
+    campaignTopic: string,
+    currentPillars: any[],
+    pillarIdToReplace: string,
+    images?: string[]
+  ): Promise<{ pillar: any; isMock?: boolean }> {
+    const headers = await getHeaders(true);
+    const response = await fetchWithTimeout(
+      '/api/v1/gemini/marketing-pillars/swap',
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ campaignTopic, currentPillars, pillarIdToReplace, images }),
+      },
+      90000,
+      'Hết thời gian thay đổi Content Pillar. Vui lòng thử lại.'
+    );
+    if (!response.ok) {
+      await handleErrorResponse(response, 'Lỗi thay đổi Content Pillar');
+    }
+    return response.json();
+  },
+
+  /**
    * Phát sinh các bản nháp ý tưởng chiến dịch marketing từ các pillars được chọn.
    */
   async generateMarketingIdeas(
@@ -283,7 +309,7 @@ export const geminiApi = {
   async editVideo(
     videoUrl: string,
     prompt: string,
-    options?: { modelName?: string; aspectRatio?: string; resolution?: string; duration?: number; videoDurations?: number[] }
+    options?: { modelName?: string; aspectRatio?: string; resolution?: string; duration?: number; videoDurations?: number[]; blueprint?: any }
   ): Promise<{ status: string; record: any; blueprint: any }> {
     const headers = await getHeaders(true);
     const response = await fetch('/api/v1/gemini/edit-video', {

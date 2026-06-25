@@ -8,6 +8,7 @@ import { connectDB } from "./server/config/database";
 import { apiRouter } from "./server/router";
 import { swaggerRouter } from "./server/swagger";
 import { initSocketServer } from "./server/socket";
+import { remotionQueueService } from "./server/service/remotion-queue.service";
 import { tiktokController } from "./server/controller/tiktok.controller";
 import { getSeoForPath, resolveSeoUrl } from "./src/seo/seo-config";
 import { BRAND_NAME, BRAND_TAGLINE, BRAND_LOGO_URL } from "./src/config/brand";
@@ -183,6 +184,9 @@ function injectSeoMeta(html: string, requestPath: string): string {
 async function startServer() {
   // Kết nối cơ sở dữ liệu MongoDB
   await connectDB();
+
+  // Khởi động hàng đợi xử lý Remotion
+  remotionQueueService.initWorker();
 
 
 

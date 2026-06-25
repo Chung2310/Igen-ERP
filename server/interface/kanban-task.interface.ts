@@ -15,7 +15,7 @@ export interface IKanbanTask extends Document {
   dueDate: string;
   priority: "High" | "Medium" | "Low" | "Cao" | "Trung bình" | "Thấp";
   status: "Not Started" | "In Progress" | "Review/Testing" | "Done" | "Archived" | "todo" | "doing" | "done";
-  category?: "Onboarding" | "Đào tạo" | "Tuyển dụng" | "Văn hóa";
+  category?: string;
   companyCode: string;
   creatorUid: string;
   createdAt: Date;

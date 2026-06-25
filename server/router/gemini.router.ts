@@ -38,6 +38,15 @@ const pillarsSchema = {
   }),
 };
 
+const swapPillarSchema = {
+  body: Joi.object({
+    campaignTopic: Joi.string().required(),
+    currentPillars: Joi.array().items(Joi.any()).required(),
+    pillarIdToReplace: Joi.string().required(),
+    images: Joi.array().items(Joi.string()).optional(),
+  }),
+};
+
 const ideasSchema = {
   body: Joi.object({
     campaignTopic: Joi.string().required(),
@@ -102,6 +111,7 @@ const editVideoSchema = {
     resolution: Joi.string().optional().allow(""),
     duration: Joi.number().optional(),
     videoDurations: Joi.array().items(Joi.number()).optional(),
+    blueprint: Joi.object().optional(),
   }),
 };
 
@@ -177,6 +187,7 @@ const feedbackSchema = {
 geminiRouter.post("/chat", requireAuth as any, validateRequest(chatSchema), geminiController.chat as any);
 geminiRouter.get("/marketing-suggestions", requireAuth as any, geminiController.getMarketingSuggestions as any);
 geminiRouter.post("/marketing-pillars", requireAuth as any, validateRequest(pillarsSchema), geminiController.analyzeMarketingPillars as any);
+geminiRouter.post("/marketing-pillars/swap", requireAuth as any, validateRequest(swapPillarSchema), geminiController.swapMarketingPillar as any);
 geminiRouter.post("/marketing-ideas", requireAuth as any, validateRequest(ideasSchema), geminiController.generateMarketingIdeas as any);
 geminiRouter.post("/marketing-develop", requireAuth as any, validateRequest(developSchema), geminiController.developMarketingIdea as any);
 
