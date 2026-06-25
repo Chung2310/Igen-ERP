@@ -59,10 +59,10 @@ Trả về URL Cloudinary hợp lệ dạng: https://res.cloudinary.com/...
 
 /**
  * Poll trạng thái task từ Worker Pool mỗi POLL_INTERVAL ms,
- * tối đa MAX_POLL_ATTEMPTS lần (~10 phút).
+ * tối đa MAX_POLL_ATTEMPTS lần (~20 phút).
  */
 const POLL_INTERVAL_MS = 10_000;   // 10 giây
-const MAX_POLL_ATTEMPTS = 60;      // 60 × 10s = 10 phút
+const MAX_POLL_ATTEMPTS = 120;     // 120 × 10s = 20 phút
 
 async function pollTaskStatus(taskId: string): Promise<{ status: string; result_url?: string; error?: string }> {
   const workerUrl = getWorkerUrl();
@@ -88,7 +88,7 @@ async function pollTaskStatus(taskId: string): Promise<{ status: string; result_
       console.warn(`[Hermes Poll] Lỗi kết nối /status attempt ${i + 1}:`, err);
     }
   }
-  return { status: "failed", error: "Timeout: Hermes Worker không hoàn thành sau 10 phút" };
+  return { status: "failed", error: "Timeout: Hermes Worker không hoàn thành sau 20 phút" };
 }
 
 export const hermesService = {
@@ -108,7 +108,10 @@ export const hermesService = {
     let blueprint = options?.blueprint;
     if (!blueprint) {
       try {
-        const videoDuration = options?.duration || 10;
+        // BUG-06 fix: tính tổng duration từ mảng videoDurations nếu có
+        const videoDuration = (options?.videoDurations && options.videoDurations.length > 0)
+          ? options.videoDurations.reduce((a, b) => a + b, 0)
+          : (options?.duration || 10);
         console.log(`[Hermes] Tự động sinh blueprint cho videoUrl=${videoUrl} duration=${videoDuration}`);
         blueprint = await videoBlueprintService.generateBlueprintFromPrompt(videoUrl, videoDuration, prompt);
       } catch (err) {
@@ -214,7 +217,7 @@ ${buildCloudinaryPrompt()}
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           video_url: videoUrl,
-          prompt: fullPrompt,
+          prompt: fullPrompt + (blueprint ? compileBlueprintToPrompt(blueprint) : ""),
           user_id: userId,
           blueprint: blueprint || {},
         }),

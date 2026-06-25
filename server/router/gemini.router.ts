@@ -112,6 +112,7 @@ const editVideoSchema = {
     duration: Joi.number().optional(),
     videoDurations: Joi.array().items(Joi.number()).optional(),
     blueprint: Joi.object().optional(),
+    renderMode: Joi.string().valid("local", "hermes").optional().allow(""),
   }),
 };
 
@@ -172,6 +173,14 @@ const deleteHistorySchema = {
   }),
 };
 
+const uploadDocumentSchema = {
+  body: Joi.object({
+    fileName: Joi.string().required(),
+    fileBase64: Joi.string().required(),
+    mimeType: Joi.string().required(),
+  }),
+};
+
 const syncDriveSchema = {
   body: Joi.object({
     docLink: Joi.string().required(),
@@ -210,6 +219,7 @@ geminiRouter.post("/test-reply", requireAuth as any, validateRequest(testReplySc
 geminiRouter.get("/ai-reply-logs", requireAuth as any, geminiController.listAIReplyLogs as any);
 geminiRouter.patch("/ai-reply-logs/:id/feedback", requireAuth as any, validateRequest(feedbackSchema), geminiController.updateAIReplyFeedback as any);
 geminiRouter.post("/sync-drive", requireAuth as any, validateRequest(syncDriveSchema), geminiController.syncGoogleDrive as any);
+geminiRouter.post("/upload-document", requireAuth as any, validateRequest(uploadDocumentSchema), geminiController.uploadLocalDocument as any);
 
 // Xưởng nội dung APIs (requireAuth bảo vệ tài khoản lưu lịch sử)
 geminiRouter.post("/generate-image", requireAuth as any, validateRequest(generateImageSchema), geminiController.generateImage);
@@ -247,3 +257,29 @@ const hermesWebhookSchema = {
 };
 
 geminiRouter.post("/hermes-webhook", validateRequest(hermesWebhookSchema), geminiController.hermesWebhook);
+
+// ──────────────────────────────────────────────────────────────────────────────
+// FreeLLM API — LLM miễn phí (OpenAI-compatible)
+// ──────────────────────────────────────────────────────────────────────────────
+const freeLLMChatSchema = {
+  body: Joi.object({
+    prompt: Joi.string().allow("").optional(),
+    messages: Joi.array().items(
+      Joi.object({
+        role: Joi.string().valid("system", "user", "assistant").required(),
+        content: Joi.string().required(),
+      })
+    ).optional(),
+    systemPrompt: Joi.string().allow("").optional(),
+    temperature: Joi.number().min(0).max(2).optional(),
+    maxTokens: Joi.number().integer().min(1).max(8192).optional(),
+    jsonMode: Joi.boolean().optional(),
+    action: Joi.string().valid("optimize-prompt", "summarize", "marketing", "chat").optional().allow(""),
+    platform: Joi.string().valid("facebook", "instagram", "tiktok", "zalo", "general").optional(),
+    tone: Joi.string().valid("professional", "friendly", "humorous", "inspirational").optional(),
+    language: Joi.string().valid("vi", "en").optional(),
+  }),
+};
+
+geminiRouter.get("/freellm-status", requireAuth as any, geminiController.freeLLMStatus);
+geminiRouter.post("/freellm-chat", requireAuth as any, validateRequest(freeLLMChatSchema), geminiController.freeLLMChatHandler);

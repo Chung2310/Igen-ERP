@@ -1,8 +1,9 @@
 import React from "react";
-import { Sliders, Zap, MessageSquare, Clock3 } from "lucide-react";
+import { Sliders, Zap, Clock3 } from "lucide-react";
 import { AIChatConfig } from "../../types";
 
 interface AiAssistantConfigPanelProps {
+  onClose?: () => void;
   localConfig: AIChatConfig;
   setLocalConfig: (config: AIChatConfig) => void;
   savingConfig: boolean;
@@ -25,9 +26,12 @@ interface AiAssistantConfigPanelProps {
   handleFeedback: (logId: string, feedback: "good" | "bad" | "needs_fix") => void;
   handleApplyToAll?: () => void;
   copyingConfig?: boolean;
+  uploadingDoc: boolean;
+  handleUploadLocalDoc: (file: File) => void;
 }
 
 export const AiAssistantConfigPanel: React.FC<AiAssistantConfigPanelProps> = ({
+  onClose,
   localConfig,
   setLocalConfig,
   savingConfig,
@@ -50,6 +54,8 @@ export const AiAssistantConfigPanel: React.FC<AiAssistantConfigPanelProps> = ({
   handleFeedback,
   handleApplyToAll,
   copyingConfig,
+  uploadingDoc,
+  handleUploadLocalDoc,
 }) => {
   const knowledgeDocuments = Array.isArray(knowledgeHealth?.documents) ? knowledgeHealth.documents : [];
   const detectedTopics = Array.isArray(knowledgeHealth?.detectedTopics) ? knowledgeHealth.detectedTopics : [];
@@ -58,10 +64,23 @@ export const AiAssistantConfigPanel: React.FC<AiAssistantConfigPanelProps> = ({
   return (
     <div className="w-80 border-l border-slate-100 bg-white p-5 text-xs text-left overflow-y-auto shrink-0 h-full flex flex-col justify-between shadow-sm animate-slide-in-right" id="ai_assistant_config_side_panel">
       <div className="space-y-5">
-        <h4 className="font-extrabold text-slate-800 text-sm font-sans tracking-tight flex items-center gap-2 uppercase">
-          <Sliders className="h-4 w-4 text-blue-600" />
-          Cấu hình trợ lý AI
-        </h4>
+        <div className="flex justify-between items-center">
+          <h4 className="font-extrabold text-slate-800 text-sm font-sans tracking-tight flex items-center gap-2 uppercase">
+            <Sliders className="h-4 w-4 text-blue-600" />
+            Cấu hình trợ lý AI
+          </h4>
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="text-slate-400 hover:text-slate-600 transition-colors p-1.5 hover:bg-slate-100 rounded-lg cursor-pointer flex items-center justify-center shrink-0"
+              title="Ẩn cấu hình"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
         <p className="text-slate-400 text-[10px] leading-relaxed font-sans">
           Tham số hóa hành vi tự động trả lời tin nhắn & bình luận, phân tích tâm lý khách hàng đồng bộ thời gian trễ.
         </p>
@@ -89,29 +108,6 @@ export const AiAssistantConfigPanel: React.FC<AiAssistantConfigPanelProps> = ({
               <div className="w-8 h-4 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3.5 after:transition-all peer-checked:bg-blue-600" />
             </label>
           </div>
-
-          {/* comment reply status */}
-          <div className="flex justify-between items-start gap-4 pb-3 border-b border-slate-100/50">
-            <div>
-              <h5 className="font-extrabold text-blue-600 font-sans tracking-tight text-xs flex items-center gap-1">
-                <MessageSquare className="h-3.5 w-3.5 fill-blue-600/20 text-blue-600" />
-                Tự động trả lời Bình luận FB
-              </h5>
-              <p className="text-[9.5px] text-slate-400 mt-0.5 leading-normal">
-                Cho phép bot AI tự trả lời bình luận trên các bài viết Facebook.
-              </p>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer select-none shrink-0 mt-0.5">
-              <input
-                type="checkbox"
-                checked={localConfig.commentReplyEnabled || false}
-                onChange={(e) => setLocalConfig({ ...localConfig, commentReplyEnabled: e.target.checked })}
-                className="sr-only peer"
-              />
-              <div className="w-8 h-4 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3.5 after:transition-all peer-checked:bg-blue-600" />
-            </label>
-          </div>
-
           {/* auto classify */}
           <div className="flex justify-between items-start gap-4">
             <div>
@@ -234,6 +230,63 @@ export const AiAssistantConfigPanel: React.FC<AiAssistantConfigPanelProps> = ({
           </div>
         </div>
 
+        {/* Upload File Trực Tiếp */}
+        <div className="pt-4 border-t border-slate-100 space-y-2">
+          <label className="block font-extrabold text-slate-700 flex items-center gap-1.5">
+            <svg className="h-3.5 w-3.5 text-blue-600 fill-blue-600/10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" />
+            </svg>
+            Tải tệp tài liệu trực tiếp
+          </label>
+          <p className="text-[9px] text-slate-400 leading-normal">
+            Tự động trích xuất nội dung và học RAG từ tệp: <b>PDF, Word (DOCX), Excel (XLSX), Văn bản (TXT, MD)</b>.
+          </p>
+          <label className={`flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-all ${uploadingDoc
+              ? "border-blue-400 bg-blue-50/30"
+              : "border-slate-200 bg-slate-50/50 hover:bg-slate-100 hover:border-blue-500"
+            }`}>
+            <input
+              type="file"
+              accept=".pdf,.docx,.doc,.xlsx,.xls,.txt,.md"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleUploadLocalDoc(file);
+              }}
+              disabled={uploadingDoc || syncingDrive}
+              className="hidden"
+            />
+            {uploadingDoc ? (
+              <div className="space-y-2 flex flex-col items-center">
+                <svg className="h-5 w-5 animate-spin text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                  <circle cx="12" cy="12" r="10" strokeDasharray="32" strokeDashoffset="12" />
+                </svg>
+                <span className="text-[10px] font-bold text-blue-600 animate-pulse">Đang trích xuất & học RAG...</span>
+              </div>
+            ) : (
+              <div className="space-y-1">
+                <svg className="mx-auto h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+                <div>
+                  <span className="text-[10px] font-bold text-blue-600 hover:text-blue-700">Chọn tài liệu từ máy</span>
+                  <span className="text-[8px] text-slate-400 block mt-0.5">PDF, DOCX, XLSX, TXT (Tối đa 10MB)</span>
+                </div>
+              </div>
+            )}
+          </label>
+          <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-2.5 space-y-1">
+            <span className="text-[9.5px] font-bold text-blue-800 flex items-center gap-1">
+              💡 Gợi ý tài liệu huấn luyện tốt nhất:
+            </span>
+            <ul className="list-disc list-inside text-[8.5px] text-slate-600 space-y-0.5 leading-relaxed">
+              <li><b>Tài liệu FAQ</b> (Bộ câu hỏi & đáp án thường gặp)</li>
+              <li><b>Bảng giá & catalog sản phẩm</b> chi tiết</li>
+              <li><b>Chính sách bán hàng, giao nhận, đổi trả</b></li>
+              <li><b>Kịch bản trả lời mẫu</b> của cửa hàng</li>
+            </ul>
+          </div>
+        </div>
+
         {/* AI QA and Knowledge Health */}
         <div className="pt-4 border-t border-slate-100 space-y-3">
           <div className="flex items-center justify-between gap-2">
@@ -251,9 +304,8 @@ export const AiAssistantConfigPanel: React.FC<AiAssistantConfigPanelProps> = ({
           <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-[9px] text-slate-500 font-bold uppercase">Chế độ hiện tại</span>
-              <span className={`text-[8px] font-extrabold px-2 py-0.5 rounded-full uppercase ${
-                knowledgeHealth?.mode === "trained" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
-              }`}>
+              <span className={`text-[8px] font-extrabold px-2 py-0.5 rounded-full uppercase ${knowledgeHealth?.mode === "trained" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
+                }`}>
                 {knowledgeHealth?.mode === "trained" ? "Đã học tài liệu" : "Trả lời mặc định"}
               </span>
             </div>
@@ -276,26 +328,7 @@ export const AiAssistantConfigPanel: React.FC<AiAssistantConfigPanelProps> = ({
                 ))}
               </div>
             )}
-            {knowledgeDocuments.length > 0 && (
-              <div className="space-y-1.5">
-                <p className="text-[8px] font-extrabold uppercase text-slate-400">Nguồn tài liệu đang học</p>
-                <div className="space-y-1.5">
-                  {knowledgeDocuments.map((doc: any, idx: number) => (
-                    <div key={`${doc.title}-${idx}`} className="rounded-lg border border-slate-100 bg-white px-2 py-1.5">
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="text-[9px] font-bold text-slate-700 leading-snug line-clamp-2">{doc.title}</p>
-                        <span className="shrink-0 rounded-md bg-slate-100 px-1.5 py-0.5 text-[8px] font-bold text-slate-500">
-                          v{doc.version ?? 1}
-                        </span>
-                      </div>
-                      <p className="mt-1 text-[8px] text-slate-400">
-                        {doc.sourceType === "google_doc" ? "Google Drive" : "Tài liệu nhập tay"}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+
             {knowledgeWarnings.map((warning: string, idx: number) => (
               <p key={idx} className="text-[9px] text-amber-700 bg-amber-50 border border-amber-100 rounded-lg p-2 leading-normal">
                 {warning}
@@ -333,21 +366,36 @@ export const AiAssistantConfigPanel: React.FC<AiAssistantConfigPanelProps> = ({
           {aiReplyLogs.length > 0 && (
             <div className="space-y-2">
               <p className="text-[9px] font-extrabold text-slate-500 uppercase">Log phản hồi gần nhất</p>
-              {aiReplyLogs.map((log) => (
-                <div key={log._id} className="rounded-xl border border-slate-150 bg-white p-2.5 text-[9px] space-y-1.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-bold text-slate-700 truncate">{log.channel} • {log.mode}</span>
-                    <span className="text-slate-400 font-mono">{log.latencyMs}ms</span>
-                  </div>
-                  <p className="text-slate-500 line-clamp-2">{log.customerMessage}</p>
-                  <p className="text-slate-700 line-clamp-2">{log.aiResponse}</p>
-                  <div className="flex gap-1 pt-1">
-                    <button type="button" onClick={() => handleFeedback(log._id, "good")} className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold">Đúng</button>
-                    <button type="button" onClick={() => handleFeedback(log._id, "needs_fix")} className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 font-bold">Cần sửa</button>
-                    <button type="button" onClick={() => handleFeedback(log._id, "bad")} className="px-1.5 py-0.5 rounded bg-rose-50 text-rose-700 font-bold">Sai</button>
-                  </div>
-                </div>
-              ))}
+              <div className="space-y-1.5 max-h-80 overflow-y-auto pr-0.5">
+                {aiReplyLogs.slice(0, 3).map((log) => {
+                  const isError = log.aiResponse.startsWith("[ERROR]");
+                  return (
+                    <div key={log._id} className="rounded-lg border border-slate-100 bg-white p-2 text-[8.5px] space-y-1 shadow-xxs">
+                      <div className="flex items-center justify-between gap-2 border-b border-slate-50 pb-1">
+                        <span className="font-extrabold text-slate-700 capitalize">
+                          {log.channel} • {log.mode}
+                        </span>
+                        <span className="text-slate-400 font-mono text-[8px]">{log.latencyMs}ms</span>
+                      </div>
+                      <div className="space-y-0.5 mt-1">
+                        <p className="text-slate-500 truncate"><span className="font-bold">Khách:</span> {log.customerMessage}</p>
+                        {isError ? (
+                          <div className="p-1 rounded bg-rose-50 text-rose-600 font-mono text-[8px] leading-relaxed break-words border border-rose-100 max-h-12 overflow-y-auto">
+                            <span className="font-bold">Lỗi AI:</span> {log.aiResponse.replace("[ERROR] ", "")}
+                          </div>
+                        ) : (
+                          <p className="text-slate-700 line-clamp-2"><span className="font-bold text-indigo-600">AI:</span> {log.aiResponse}</p>
+                        )}
+                      </div>
+                      <div className="flex justify-end gap-1 mt-1 pt-1 border-t border-slate-50">
+                        <button type="button" onClick={() => handleFeedback(log._id, "good")} className="px-1.5 py-0.5 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-extrabold text-[8px] transition-colors cursor-pointer">Đúng</button>
+                        <button type="button" onClick={() => handleFeedback(log._id, "needs_fix")} className="px-1.5 py-0.5 rounded-md bg-amber-50 hover:bg-amber-100 text-amber-700 font-extrabold text-[8px] transition-colors cursor-pointer">Cần sửa</button>
+                        <button type="button" onClick={() => handleFeedback(log._id, "bad")} className="px-1.5 py-0.5 rounded-md bg-rose-50 hover:bg-rose-100 text-rose-700 font-extrabold text-[8px] transition-colors cursor-pointer">Sai</button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>

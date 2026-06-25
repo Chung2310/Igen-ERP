@@ -108,6 +108,7 @@ const updateProfileSchema = {
       advancedInstructions: Joi.string().allow(""),
       trainingKnowledge: Joi.string().allow(""),
       model: Joi.string().allow("").optional(),
+      disabledAt: Joi.string().isoDate().allow(null).optional(),
     }).optional().allow(null),
   }),
 };

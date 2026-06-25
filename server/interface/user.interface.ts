@@ -48,6 +48,7 @@ export interface IAiAutoReplyConfig {
   advancedInstructions: string;
   trainingKnowledge: string;
   model?: string;
+  disabledAt?: string | null;
 }
 
 export interface IHeyGenAccessConfig {

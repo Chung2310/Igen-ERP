@@ -9,6 +9,7 @@ import { AIMediaModel } from "../model/ai-media.model";
 import { broadcastEvent } from "../socket";
 import * as XLSX from "xlsx";
 import { GoogleGenAI } from "@google/genai";
+import { freeLLMService, freeLLMChat } from "../service/freellm.service";
 
 function handleGeminiError(res: Response, error: any, defaultMessage: string) {
   const isPiApiError = String(error.message || "").toUpperCase().includes("PIAPI");
@@ -320,6 +321,95 @@ async function fetchDirectDriveFile(fileId: string): Promise<{ buffer: Buffer; c
   }
   
   return { buffer, contentType };
+}
+
+async function parseUploadedDocument(base64Data: string, mimeType: string, fileName: string): Promise<string> {
+  const normMime = mimeType.toLowerCase();
+
+  // 1. Text files (.txt, .md, .csv)
+  if (
+    normMime.includes("text/plain") ||
+    normMime.includes("text/markdown") ||
+    normMime.includes("text/csv") ||
+    fileName.endsWith(".txt") ||
+    fileName.endsWith(".md")
+  ) {
+    return Buffer.from(base64Data, "base64").toString("utf-8");
+  }
+
+  // 2. Spreadsheets (XLS, XLSX, CSV)
+  const isSpreadsheet =
+    normMime.includes("spreadsheetml") ||
+    normMime.includes("ms-excel") ||
+    normMime.includes("officedocument.spreadsheetml") ||
+    fileName.endsWith(".xlsx") ||
+    fileName.endsWith(".xls") ||
+    fileName.endsWith(".csv");
+
+  if (isSpreadsheet) {
+    const buffer = Buffer.from(base64Data, "base64");
+    const workbookText = extractWorkbookText(buffer);
+    if (workbookText) {
+      return workbookText;
+    }
+  }
+
+  // 3. PDFs, DOCX, PPTX using Gemini
+  const isPdf = normMime.includes("pdf") || fileName.endsWith(".pdf");
+  const isDocx =
+    normMime.includes("wordprocessingml") ||
+    normMime.includes("msword") ||
+    fileName.endsWith(".docx") ||
+    fileName.endsWith(".doc");
+  const isPptx =
+    normMime.includes("presentationml") ||
+    normMime.includes("powerpoint") ||
+    fileName.endsWith(".pptx") ||
+    fileName.endsWith(".ppt");
+
+  if (isPdf || isDocx || isPptx) {
+    if (!process.env.GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY is not configured");
+    }
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+
+    console.log(`[AI AutoReply] Đang gọi Gemini trích xuất văn bản từ file upload (${fileName})...`);
+
+    let cleanMime = mimeType;
+    if (isPdf) cleanMime = "application/pdf";
+    else if (isDocx) cleanMime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    else if (isPptx) cleanMime = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+
+    const response = await ai.models.generateContent({
+      model,
+      contents: [
+        {
+          role: "user",
+          parts: [
+            {
+              inlineData: {
+                mimeType: cleanMime,
+                data: base64Data,
+              },
+            },
+            {
+              text: "Bạn là trợ lý trích xuất văn bản. Hãy trích xuất và trả về toàn bộ nội dung văn bản có trong tài liệu này theo đúng thứ tự đọc. Chỉ trả về văn bản thuần của tài liệu, không thêm giải thích hay định dạng markdown.",
+            },
+          ],
+        },
+      ],
+    });
+
+    return response.text || "";
+  }
+
+  // Fallback to text
+  try {
+    return Buffer.from(base64Data, "base64").toString("utf-8");
+  } catch (e) {
+    throw new Error("Định dạng file không được hỗ trợ để trích xuất văn bản.");
+  }
 }
 
 async function fetchDriveFileContent(fileId: string): Promise<{ text: string; title: string }> {
@@ -887,7 +977,7 @@ export const geminiController = {
    */
   async editVideo(req: Request, res: Response) {
     try {
-      const { videoUrl, prompt, modelName, aspectRatio, resolution, duration, videoDurations, blueprint } = req.body;
+      const { videoUrl, prompt, modelName, aspectRatio, resolution, duration, videoDurations, blueprint, renderMode } = req.body;
       const userId = (req as any).user?.id;
 
       if (!userId) {
@@ -901,6 +991,7 @@ export const geminiController = {
         duration,
         videoDurations,
         blueprint,
+        renderMode,
       });
 
       return res.status(200).json(result);
@@ -938,6 +1029,64 @@ export const geminiController = {
     } catch (error: any) {
       console.error("[geminiController.analyzeVideoStyle] Error:", error);
       return handleGeminiError(res, error, "Lỗi phân tích phong cách video");
+    }
+  },
+
+  /**
+   * POST /api/v1/gemini/upload-document
+   */
+  async uploadLocalDocument(req: AuthenticatedRequest, res: Response) {
+    try {
+      const { fileName, fileBase64, mimeType } = req.body;
+      if (!fileName || !fileBase64 || !mimeType) {
+        return res.status(400).json({
+          status: "error",
+          message: "Thiếu thông tin file (tên, dữ liệu base64, mimeType)."
+        });
+      }
+
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
+      }
+
+      await walletService.checkBalance(userId, API_COSTS.GEMINI_FAQ);
+      console.log(`[AI AutoReply] Bắt đầu xử lý file upload: ${fileName} (${mimeType})`);
+
+      const extractedText = await parseUploadedDocument(fileBase64, mimeType, fileName);
+
+      if (!extractedText || extractedText.trim().length === 0) {
+        return res.status(400).json({
+          status: "error",
+          message: "Không thể trích xuất văn bản từ tài liệu này. Vui lòng kiểm tra lại định dạng file."
+        });
+      }
+
+      const companyCode = req.user?.companyCode || "SYSTEM";
+      const sourceUrl = `uploaded://${fileName}_${Date.now()}`;
+
+      const syncResult = await aiKnowledgeService.upsertKnowledgeFromText({
+        companyCode,
+        sourceType: "manual",
+        sourceTitle: fileName,
+        sourceUrl,
+        text: extractedText,
+        createdBy: req.user?.id,
+        channelScope: ["all"],
+      });
+
+      await walletService.deductBalance(userId, API_COSTS.GEMINI_FAQ, `Chi phí trích xuất & nạp tài liệu upload (${fileName})`);
+
+      return res.status(200).json({
+        status: "success",
+        title: fileName,
+        text: extractedText,
+        companyCode,
+        chunksCount: syncResult.chunksCount,
+      });
+    } catch (error: any) {
+      console.error("[geminiController.uploadLocalDocument] Error:", error);
+      return handleGeminiError(res, error, "Lỗi xử lý file tài liệu tải lên");
     }
   },
 
@@ -1430,5 +1579,91 @@ export const geminiController = {
         details: error.message
       });
     }
-  }
+  },
+
+  /**
+   * GET /api/v1/gemini/freellm-status
+   * Kiểm tra xem FreeLLM API đã cấu hình chưa
+   */
+  async freeLLMStatus(req: Request, res: Response) {
+    const configured = freeLLMService.isConfigured();
+    return res.status(200).json({
+      status: "success",
+      configured,
+      model: process.env.FREELLM_API_MODEL || "auto",
+      url: process.env.FREELLM_API_URL || null,
+      message: configured
+        ? "FreeLLM API đã được cấu hình và sẵn sàng sử dụng."
+        : "FreeLLM API chưa cấu hình (FREELLM_API_KEY còn trống)."
+    });
+  },
+
+  /**
+   * POST /api/v1/gemini/freellm-chat
+   * Gửi tin nhắn trực tiếp đến FreeLLM API
+   */
+  async freeLLMChatHandler(req: Request, res: Response) {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
+      }
+
+      const { messages, prompt, systemPrompt, temperature, maxTokens, jsonMode, action } = req.body;
+
+      if (!freeLLMService.isConfigured()) {
+        return res.status(503).json({
+          status: "error",
+          message: "FreeLLM API chưa được cấu hình. Vui lòng thêm FREELLM_API_KEY vào .env."
+        });
+      }
+
+      // Hành động tiện ích đặc biệt
+      if (action === "optimize-prompt" && prompt) {
+        const optimized = await freeLLMService.optimizePrompt(prompt);
+        return res.status(200).json({ status: "success", result: optimized });
+      }
+
+      if (action === "summarize" && prompt) {
+        const summary = await freeLLMService.summarize(prompt, maxTokens || 150);
+        return res.status(200).json({ status: "success", result: summary });
+      }
+
+      if (action === "marketing" && prompt) {
+        const { platform = "general", tone, language } = req.body;
+        const content = await freeLLMService.generateMarketingContent({ topic: prompt, platform, tone, language });
+        return res.status(200).json({ status: "success", result: content });
+      }
+
+      // Chat thông thường (multi-turn hoặc single prompt)
+      const chatMessages = messages || (prompt ? [{ role: "user", content: prompt }] : null);
+      if (!chatMessages || chatMessages.length === 0) {
+        return res.status(400).json({
+          status: "error",
+          message: "Thiếu nội dung tin nhắn. Vui lòng cung cấp 'messages' hoặc 'prompt'."
+        });
+      }
+
+      const result = await freeLLMChat(chatMessages, {
+        systemPrompt,
+        temperature,
+        maxTokens,
+        jsonMode,
+      });
+
+      return res.status(200).json({
+        status: "success",
+        content: result.content,
+        model: result.model,
+        usage: result.usage,
+      });
+    } catch (error: any) {
+      console.error("[geminiController.freeLLMChat] Error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Lỗi kết nối FreeLLM API",
+        details: error.message
+      });
+    }
+  },
 };
