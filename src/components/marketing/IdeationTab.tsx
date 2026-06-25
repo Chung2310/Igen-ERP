@@ -1557,7 +1557,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                       <div className="flex items-center gap-1.5 ml-2">
                         <input
                           type="number"
-                          min="8"
+                          min="0"
                           step="8"
                           value={videoDuration}
                           onChange={(e) => {
@@ -1567,18 +1567,15 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                               return;
                             }
                             let num = parseInt(val, 10);
-                            if (num < 8) {
-                              num = 8;
+                            if (num < 1) {
+                              num = 1;
                             }
                             setVideoDuration(String(num));
                           }}
                           onBlur={(e) => {
                             let num = parseInt(videoDuration, 10);
-                            if (isNaN(num) || num < 8) {
+                            if (isNaN(num) || num < 1) {
                               setVideoDuration("8");
-                            } else {
-                              const rounded = Math.round(num / 8) * 8;
-                              setVideoDuration(String(rounded));
                             }
                           }}
                           placeholder="Thời lượng"
