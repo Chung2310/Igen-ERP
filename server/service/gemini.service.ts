@@ -2277,9 +2277,10 @@ CHỈ trả về lệnh chỉnh sửa, không thêm giải thích, không markdo
       videoDurations?: number[];
       blueprint?: any;
       renderMode?: "local" | "hermes";
+      renderEngine?: "remotion" | "hyperframe" | "hermes";
     }
   ): Promise<{ status: string; record: any; blueprint: any }> {
-    if (options?.renderMode === "hermes") {
+    if (options?.renderMode === "hermes" || options?.renderEngine === "hermes") {
       return hermesService.editVideo(userId, videoUrl, prompt, options);
     }
 
@@ -2289,7 +2290,7 @@ CHỈ trả về lệnh chỉnh sửa, không thêm giải thích, không markdo
       blueprint = await videoBlueprintService.generateBlueprintFromPrompt(videoUrl, videoDuration, prompt);
     }
 
-    const renderEngine = options?.modelName === "hyperframe" || process.env.VIDEO_RENDER_ENGINE === "hyperframe" ? "hyperframe" : "remotion";
+    const renderEngine = options?.renderEngine || (options?.modelName === "hyperframe" || process.env.VIDEO_RENDER_ENGINE === "hyperframe" ? "hyperframe" : "remotion");
 
     // Tạo record ban đầu với trạng thái processing
     const record = await AIMediaModel.create({
@@ -2380,7 +2381,7 @@ CHỈ trả về lệnh chỉnh sửa, không thêm giải thích, không markdo
 
       let finalVideoUrl = "";
       let renderSuccess = false;
-      const renderEngine = process.env.VIDEO_RENDER_ENGINE || "remotion";
+      const renderEngine = record?.metadata?.provider || process.env.VIDEO_RENDER_ENGINE || "remotion";
 
       try {
         if (renderEngine === "hyperframe") {

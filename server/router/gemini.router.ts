@@ -113,6 +113,7 @@ const editVideoSchema = {
     videoDurations: Joi.array().items(Joi.number()).optional(),
     blueprint: Joi.object().optional(),
     renderMode: Joi.string().valid("local", "hermes").optional().allow(""),
+    renderEngine: Joi.string().valid("remotion", "hyperframe", "hermes").optional().allow(""),
   }),
 };
 

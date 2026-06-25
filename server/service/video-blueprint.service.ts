@@ -97,8 +97,8 @@ Background Music:
 ▸ Acoustic/Piano/Nhẹ nhàng: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3"
 
 Sound Effects (SFX):
-▸ Success/Ting sound: "https://assets.mixkit.co/active_storage/sfx/2019/2019-84.wav"
-▸ Transition/Whoosh sound: "https://assets.mixkit.co/active_storage/sfx/2013/2013-84.wav"
+▸ Success/Ting sound: "/sfx/ting.wav"
+▸ Transition/Whoosh sound: "/sfx/whoosh.wav"
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📝 SECTION 6: TEXT OVERLAYS & TITLES
@@ -235,25 +235,62 @@ function buildBlueprintFromStyle(
   const timeline: any[] = [];
 
   // ── Video segments ───────────────────────────────────────────────────────
-  if (style.segments && style.segments.length > 0) {
-    for (const seg of style.segments) {
-      const start = parseFloat((seg.startFraction * targetDuration).toFixed(3));
-      const end = parseFloat((seg.endFraction * targetDuration).toFixed(3));
+  const segments = style.segments ? [...style.segments] : [];
+  if (segments.length > 0) {
+    // Sắp xếp các phân đoạn theo tỷ lệ phần trăm bắt đầu
+    segments.sort((a, b) => a.startFraction - b.startFraction);
+
+    // Điền các khoảng trống (gap) trong danh sách phân đoạn tỷ lệ
+    const filledSegments: StyleSegment[] = [];
+    let currentFraction = 0.0;
+    for (const seg of segments) {
+      if (seg.startFraction > currentFraction + 0.001) {
+        filledSegments.push({
+          startFraction: currentFraction,
+          endFraction: seg.startFraction,
+          playbackRate: 1.0,
+        });
+      }
+      filledSegments.push(seg);
+      currentFraction = seg.endFraction;
+    }
+    if (currentFraction < 0.999) {
+      filledSegments.push({
+        startFraction: currentFraction,
+        endFraction: 1.0,
+        playbackRate: 1.0,
+      });
+    }
+
+    // Đổi tỷ lệ phân đoạn sang giây thực tế trên video gốc (source video)
+    let cumulativeSourceOffset = 0;
+    for (const seg of filledSegments) {
+      const outputDuration = (seg.endFraction - seg.startFraction) * targetDuration;
+      const rate = seg.playbackRate ?? 1.0;
+      const sourceDuration = outputDuration * rate;
+
+      const start = parseFloat(cumulativeSourceOffset.toFixed(3));
+      const end = parseFloat((cumulativeSourceOffset + sourceDuration).toFixed(3));
+
       if (end <= start) continue;
+
       const entry: any = {
         type: "video",
         src: targetVideoUrl,
         start,
         end,
-        playbackRate: seg.playbackRate ?? 1.0,
+        playbackRate: rate,
       };
+
       if (seg.filters && Object.keys(seg.filters).length > 0) {
         entry.filters = seg.filters;
       }
       if (seg.effects && Object.keys(seg.effects).length > 0) {
         entry.effects = seg.effects;
       }
+
       timeline.push(entry);
+      cumulativeSourceOffset += sourceDuration;
     }
   } else {
     // Fallback: single full-duration video clip
@@ -264,45 +301,6 @@ function buildBlueprintFromStyle(
       end: targetDuration,
       playbackRate: 1.0,
     });
-  }
-
-  // ── Ensure video timeline is continuous with no gaps ──────────────────────
-  const videoEntries = timeline.filter((e) => e.type === "video");
-  if (videoEntries.length > 0) {
-    // Sort by start time
-    videoEntries.sort((a, b) => a.start - b.start);
-
-    // Fill gaps
-    const filledEntries: any[] = [];
-    let cursor = 0;
-    for (const entry of videoEntries) {
-      if (entry.start > cursor + 0.01) {
-        // Gap detected – fill with plain video clip
-        filledEntries.push({
-          type: "video",
-          src: targetVideoUrl,
-          start: parseFloat(cursor.toFixed(3)),
-          end: parseFloat(entry.start.toFixed(3)),
-          playbackRate: 1.0,
-        });
-      }
-      filledEntries.push(entry);
-      cursor = entry.end;
-    }
-    // Fill tail gap
-    if (cursor < targetDuration - 0.01) {
-      filledEntries.push({
-        type: "video",
-        src: targetVideoUrl,
-        start: parseFloat(cursor.toFixed(3)),
-        end: parseFloat(targetDuration.toFixed(3)),
-        playbackRate: 1.0,
-      });
-    }
-
-    // Replace video entries in timeline
-    const nonVideoEntries = timeline.filter((e) => e.type !== "video");
-    timeline.splice(0, timeline.length, ...filledEntries, ...nonVideoEntries);
   }
 
   // ── Text overlays ────────────────────────────────────────────────────────
@@ -338,13 +336,18 @@ function buildBlueprintFromStyle(
   // ── SFX transitions ──────────────────────────────────────────────────────
   if (style.useSFXTransitions) {
     const videoSegs = timeline.filter((e) => e.type === "video");
+    let accumulatedTimelineTime = 0;
     for (let i = 0; i < videoSegs.length - 1; i++) {
-      const transitionStart = videoSegs[i].end - 0.3;
-      const transitionEnd = videoSegs[i].end + 0.3;
+      const clip = videoSegs[i];
+      const clipTimelineDuration = (clip.end - clip.start) / (clip.playbackRate ?? 1.0);
+      accumulatedTimelineTime += clipTimelineDuration;
+
+      const transitionStart = accumulatedTimelineTime - 0.3;
+      const transitionEnd = accumulatedTimelineTime + 0.3;
       if (transitionStart >= 0 && transitionEnd <= targetDuration) {
         timeline.push({
           type: "audio",
-          src: "https://assets.mixkit.co/active_storage/sfx/2013/2013-84.wav",
+          src: "/sfx/whoosh.wav",
           start: parseFloat(transitionStart.toFixed(3)),
           end: parseFloat(transitionEnd.toFixed(3)),
           volume: 0.6,
