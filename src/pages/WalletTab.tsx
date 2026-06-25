@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { walletService, TransactionInfo } from "../services/walletService";
 import { toast } from "./Toast";
+import { Pagination } from "../components/common/Pagination";
 
 const formatNumberWithDots = (val: string) => {
   const clean = val.replace(/\D/g, "");
@@ -32,6 +33,8 @@ export default function WalletTab() {
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [depositAmount, setDepositAmount] = useState<string>("");
   const [submitting, setSubmitting] = useState<boolean>(false);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const PAGE_SIZE = 10;
 
   // Tham số URL để xử lý callback PayOS & Mock Mode
   const [urlParams, setUrlParams] = useState<URLSearchParams>(new URLSearchParams());
@@ -55,6 +58,7 @@ export default function WalletTab() {
       ]);
       setBalance(bal);
       setTransactions(txs);
+      setCurrentPage(1);
     } catch (err: any) {
       toast.error(err.message || "Không thể tải thông tin ví.");
     } finally {
@@ -171,6 +175,11 @@ export default function WalletTab() {
         );
     }
   };
+
+  const totalPages = Math.ceil(transactions.length / PAGE_SIZE);
+  const activePage = Math.min(Math.max(1, currentPage), totalPages || 1);
+  const startIndex = (activePage - 1) * PAGE_SIZE;
+  const paginatedTransactions = transactions.slice(startIndex, startIndex + PAGE_SIZE);
 
   // 1. GIAO DIỆN GIẢ LẬP THANH TOÁN (MOCK CHECKOUT SCREEN)
   if (isMockPayment) {
@@ -411,68 +420,79 @@ export default function WalletTab() {
                   <p className="text-[11px] text-gray-400 mt-1 max-w-[250px] leading-relaxed">Khi bạn thực hiện nạp tiền, thông tin giao dịch sẽ hiển thị chi tiết tại đây.</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto flex-1">
-                  <table className="w-full border-collapse text-left font-sans text-xs">
-                    <thead>
-                      <tr className="border-b border-gray-100 text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                        <th className="pb-3.5 font-medium">Mã đơn hàng</th>
-                        <th className="pb-3.5 font-medium">Thời gian</th>
-                        <th className="pb-3.5 font-medium">Loại</th>
-                        <th className="pb-3.5 font-medium">Mô tả / Mục đích</th>
-                        <th className="pb-3.5 font-medium text-right">Số tiền</th>
-                        <th className="pb-3.5 font-medium">Trạng thái</th>
-                        <th className="pb-3.5 font-medium text-center">Liên kết</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50 text-gray-700">
-                      {transactions.map((tx) => (
-                        <tr key={tx._id} className="hover:bg-slate-50/40 transition-colors">
-                          <td className="py-3.5 font-mono font-bold text-slate-800">#{tx.orderCode}</td>
-                          <td className="py-3.5 text-gray-400">
-                            {new Date(tx.createdAt).toLocaleString("vi-VN", {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                              day: "2-digit",
-                              month: "2-digit"
-                            })}
-                          </td>
-                          <td className="py-3.5 font-semibold">
-                            {tx.type === "deposit" ? (
-                              <span className="flex items-center gap-1 text-emerald-600">
-                                <ArrowDownLeft className="h-3.5 w-3.5" /> Nạp tiền
-                              </span>
-                            ) : (
-                              <span className="flex items-center gap-1 text-blue-600">
-                                <ArrowUpRight className="h-3.5 w-3.5" /> Trừ phí API
-                              </span>
-                            )}
-                          </td>
-                          <td className="py-3.5 text-slate-600 font-medium max-w-[220px] truncate" title={tx.description}>
-                            {tx.description || "-"}
-                          </td>
-                          <td className={`py-3.5 text-right font-bold text-sm ${tx.type === "deposit" ? "text-emerald-600" : "text-slate-850"}`}>
-                            {tx.type === "deposit" ? "+" : "-"}
-                            {formatCredit(tx.amount)}
-                          </td>
-                          <td className="py-3.5">{getStatusBadge(tx.status)}</td>
-                          <td className="py-3.5 text-center">
-                            {tx.status === "pending" && tx.checkoutUrl ? (
-                              <a
-                                href={tx.checkoutUrl}
-                                target="_self"
-                                className="inline-flex h-8 items-center gap-1 rounded-lg border border-blue-100 bg-blue-50 px-2.5 text-[10px] font-bold text-blue-700 transition-colors hover:bg-blue-100/70"
-                              >
-                                <span>Thanh toán</span> <ExternalLink className="h-3 w-3" />
-                              </a>
-                            ) : (
-                              <span className="text-gray-300">-</span>
-                            )}
-                          </td>
+                <>
+                  <div className="overflow-x-auto flex-1">
+                    <table className="w-full border-collapse text-left font-sans text-xs">
+                      <thead>
+                        <tr className="border-b border-gray-100 text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                          <th className="pb-3.5 font-medium">Mã đơn hàng</th>
+                          <th className="pb-3.5 font-medium">Thời gian</th>
+                          <th className="pb-3.5 font-medium">Loại</th>
+                          <th className="pb-3.5 font-medium">Mô tả / Mục đích</th>
+                          <th className="pb-3.5 font-medium text-right">Số tiền</th>
+                          <th className="pb-3.5 font-medium">Trạng thái</th>
+                          <th className="pb-3.5 font-medium text-center">Liên kết</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50 text-gray-700">
+                        {paginatedTransactions.map((tx) => (
+                          <tr key={tx._id} className="hover:bg-slate-50/40 transition-colors">
+                            <td className="py-3.5 font-mono font-bold text-slate-800">#{tx.orderCode}</td>
+                            <td className="py-3.5 text-gray-400">
+                              {new Date(tx.createdAt).toLocaleString("vi-VN", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                day: "2-digit",
+                                month: "2-digit"
+                              })}
+                            </td>
+                            <td className="py-3.5 font-semibold">
+                              {tx.type === "deposit" ? (
+                                <span className="flex items-center gap-1 text-emerald-600">
+                                  <ArrowDownLeft className="h-3.5 w-3.5" /> Nạp tiền
+                                </span>
+                              ) : (
+                                <span className="flex items-center gap-1 text-blue-600">
+                                  <ArrowUpRight className="h-3.5 w-3.5" /> Trừ phí API
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-3.5 text-slate-600 font-medium max-w-[220px] truncate" title={tx.description}>
+                              {tx.description || "-"}
+                            </td>
+                            <td className={`py-3.5 text-right font-bold text-sm ${tx.type === "deposit" ? "text-emerald-600" : "text-slate-850"}`}>
+                              {tx.type === "deposit" ? "+" : "-"}
+                              {formatCredit(tx.amount)}
+                            </td>
+                            <td className="py-3.5">{getStatusBadge(tx.status)}</td>
+                            <td className="py-3.5 text-center">
+                              {tx.status === "pending" && tx.checkoutUrl ? (
+                                <a
+                                  href={tx.checkoutUrl}
+                                  target="_self"
+                                  className="inline-flex h-8 items-center gap-1 rounded-lg border border-blue-100 bg-blue-50 px-2.5 text-[10px] font-bold text-blue-700 transition-colors hover:bg-blue-100/70"
+                                >
+                                  <span>Thanh toán</span> <ExternalLink className="h-3 w-3" />
+                                </a>
+                              ) : (
+                                <span className="text-gray-300">-</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {totalPages > 1 && (
+                    <div className="mt-4 pt-4 border-t border-gray-100">
+                      <Pagination
+                        currentPage={activePage}
+                        totalPages={totalPages}
+                        onPageChange={(page) => setCurrentPage(page)}
+                      />
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
