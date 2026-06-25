@@ -403,12 +403,12 @@ export const geminiApi = {
     return response.json();
   },
 
-  async analyzeVideoStyle(videoUrl: string): Promise<{ status: string; extractedPrompt: string }> {
+  async analyzeVideoStyle(videoUrl: string, duration?: number): Promise<{ status: string; extractedPrompt: string }> {
     const headers = await getHeaders(true);
     const response = await fetch('/api/v1/gemini/analyze-video-style', {
       method: 'POST',
       headers,
-      body: JSON.stringify({ videoUrl }),
+      body: JSON.stringify({ videoUrl, duration }),
     });
     if (!response.ok) {
       await handleErrorResponse(response, 'Lỗi khi phân tích phong cách video mẫu');

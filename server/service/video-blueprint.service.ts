@@ -201,7 +201,7 @@ export const videoBlueprintService = {
   /**
    * Phân tích video mẫu để trích xuất phong cách dựng phim thành Prompt mô tả chi tiết bằng tiếng Việt
    */
-  async extractVideoStyle(videoUrl: string): Promise<string> {
+  async extractVideoStyle(videoUrl: string, durationSeconds?: number): Promise<string> {
     const tempVideoPath = path.join(os.tmpdir(), `temp_style_extraction_${Date.now()}.mp4`);
     let analysisText = "";
 
@@ -232,20 +232,13 @@ export const videoBlueprintService = {
 
       console.log("[videoBlueprintService] File is ACTIVE. Calling Gemini model to analyze editing style...");
 
-      const analysisPrompt = `Hãy phân tích kịch bản chỉnh sửa và phong cách dựng của video mẫu này và chuyển đổi thành một kịch bản hướng dẫn dựng phim bằng tiếng Việt.
+      const analysisPrompt = `Hãy phân tích phong cách dựng và các hiệu ứng của video mẫu này để tạo ra một kịch bản hướng dẫn biên tập bằng tiếng Việt.${durationSeconds ? `\nLưu ý quan trọng: Video mẫu này có tổng thời lượng chính xác là ${durationSeconds} giây. Hãy định vị rõ mốc thời gian (ví dụ: ở giây thứ mấy, hoặc từ giây thứ mấy đến giây thứ mấy) xảy ra các hiệu ứng hình ảnh/chữ/chuyển cảnh dựa trên tổng thời lượng ${durationSeconds} giây này.` : ""}
 
-⚠️ QUY TẮC ĐẦU RA (MANDATORY):
-- Viết kịch bản dưới dạng danh sách các HƯỚNG DẪN HÀNH ĐỘNG/LỆNH BIÊN TẬP CHỦ ĐỘNG, bắt đầu bằng động từ hành động (Ví dụ: "Cắt...", "Chèn...", "Áp dụng bộ lọc...", "Tua nhanh...").
-- Tránh viết kiểu mô tả thụ động (Ví dụ: KHÔNG viết "Video này có nhạc...", mà PHẢI viết "Chèn nhạc nền lofi nhẹ nhàng xuyên suốt...").
-- Điều này rất quan trọng để mô hình AI biên tập khác (như Hermes) có thể đọc hiểu và thực thi chính xác như một chuỗi chỉ thị.
-
-Hãy liệt kê đầy đủ các khía cạnh sau:
-1. Cắt ghép & Nhịp độ (Cuts & Pacing): Cắt video thành mấy phân đoạn, thời lượng bao nhiêu giây, có nhịp nhanh hay chậm, chuyển cảnh ở giây thứ mấy, tốc độ tua nhanh/chậm bao nhiêu.
-2. Bộ lọc màu & Hiệu ứng hình ảnh (Filters & Effects): Áp dụng lọc màu gì (đen trắng, cinematic...), độ sáng/tương phản ra sao, zoom cận cảnh (zoom-in/zoom-out) tại thời điểm nào.
-3. Chữ lớp phủ (Text Overlays): Chèn chữ gì, nội dung chữ là gì, xuất hiện từ giây nào đến giây nào, font chữ màu gì (nếu rõ màu HEX hoặc tiếng Việt), vị trí hiển thị ở đâu.
-4. Nhạc nền & Hiệu ứng âm thanh (Audio & SFX): Chèn nhạc nền phong cách gì, hiệu ứng âm thanh (SFX) nào xuất hiện ở đâu.
-
-Đầu ra trả về CHỈ bao gồm danh sách các lệnh biên tập bằng Tiếng Việt, ngắn gọn, súc tích và tập trung hoàn toàn vào hành động dựng phim thực tế. Không thêm lời chào, không giải thích dài dòng.`;
+⚠️ QUY TẮC QUAN TRỌNG (MANDATORY):
+- TẬP TRUNG HOÀN TOÀN VÀO HIỆU ỨNG VÀ KỸ THUẬT DỰNG: Chỉ trích xuất các hiệu ứng hình ảnh (zoom in/out, xoay, bộ lọc màu, độ sáng/tương phản), hiệu ứng chuyển cảnh (fade transition), nhịp độ cắt ghép (cuts & pacing), vị trí/màu sắc/kích thước hiển thị chữ (text overlays) và thể loại nhạc nền/SFX.
+- TUYỆT ĐỐI KHÔNG TRÍCH XUẤT NỘI DUNG CỤ THỂ: Không mô tả các đối tượng, nhân vật, phong cảnh, hay hoạt động cụ thể xuất hiện trong video mẫu (Ví dụ: KHÔNG viết về "con rùa", "biển cả", "bàn phím", v.v.). Không lấy nội dung văn bản cụ thể của chữ nếu nó gắn liền với chủ đề video cũ; hãy thay thế bằng các chữ giả định tổng quát (như "Chèn chữ tiêu đề", "Hiển thị phụ đề mẫu").
+- ĐẦU RA LÀ HƯỚNG DẪN HÀNH ĐỘNG CHỦ ĐỘNG: Viết dưới dạng danh sách các lệnh biên tập bắt đầu bằng động từ hành động (Ví dụ: "Cắt...", "Áp dụng bộ lọc...", "Thực hiện hiệu ứng zoom...", "Chèn chữ ở vị trí...").
+- KHÔNG thêm lời chào, không giải thích dài dòng.`;
 
       const analysisResponse = await ai.models.generateContent({
         model: "gemini-2.5-flash",
@@ -348,14 +341,12 @@ Hãy liệt kê đầy đủ các khía cạnh sau:
 
       console.log("[videoBlueprintService] File is ACTIVE. Calling Gemini model to analyze editing style...");
 
-      const analysisPrompt = `Hãy phân tích chi tiết kịch bản chỉnh sửa và phong cách dựng của video này. 
-Hãy mô tả chi tiết:
-1. Cách cắt ghép và nhịp độ (Pacing/Transitions): Video có bị cắt ngắn không, chuyển cảnh ở giây thứ mấy, tốc độ tua nhanh/chậm như thế nào.
-2. Các hiệu ứng hình ảnh (Visual filters/effects): Có lọc màu đen trắng, tăng sáng, làm tối, hay zoom cận cảnh ở các khoảng thời gian nào.
-3. Chữ lớp phủ (Text overlays): Nội dung chữ là gì, xuất hiện từ giây thứ mấy đến giây thứ mấy, vị trí ở đâu.
-4. Âm thanh (Audio/Music): Có chèn nhạc nền gì, hiệu ứng âm thanh (sfx) nào xuất hiện ở đâu.
+      const analysisPrompt = `Hãy phân tích chi tiết phong cách biên tập, nhịp độ và các hiệu ứng dựng hình của video này.
 
-Mục tiêu là mô tả thật chi tiết và chính xác để từ bản mô tả này, chúng ta có thể dựng lại một video tương tự với cùng phong cách. Trả lời bằng Tiếng Việt.`;
+⚠️ QUY TẮC QUAN TRỌNG (MANDATORY):
+- TẬP TRUNG HOÀN TOÀN VÀO HIỆU ỨNG VÀ KỸ THUẬT DỰNG: Chỉ phân tích nhịp điệu cắt ghép, tốc độ phát (playback rate), bộ lọc màu (contrast, brightness, grayscale), các hiệu ứng chuyển cảnh (transitions), chuyển động thu phóng (zoom in, zoom out, rotate), vị trí/màu sắc/kích thước hiển thị chữ (text overlays) và thể loại nhạc nền/SFX.
+- TUYỆT ĐỐI KHÔNG LẤY NỘI DUNG CỤ THỂ: Không mô tả các đối tượng, nhân vật, phong cảnh, hay hoạt động cụ thể trong video cũ (ví dụ: KHÔNG viết về "con rùa", "xe cộ", v.v.). Tổng quát hóa các lớp chữ thành chữ giả định (ví dụ: "Chèn chữ tiêu đề", "Hiển thị phụ đề mẫu").
+- Trả lời bằng Tiếng Việt.`;
 
       const analysisResponse = await ai.models.generateContent({
         model: "gemini-3.5-flash",
