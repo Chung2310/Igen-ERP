@@ -210,7 +210,7 @@ export default function UserDataDeletion() {
                 <strong className="text-slate-800">Yêu cầu từ trang Quản trị:</strong> Đăng nhập hệ thống, truy cập <strong className="text-slate-800">Cài đặt hệ thống</strong> &gt; <strong className="text-slate-800">Liên kết MXH</strong> và bấm nút <strong className="text-red-500">Xóa liên kết</strong>.
               </li>
               <li>
-                <strong className="text-slate-800">Gửi yêu cầu qua Email hỗ trợ:</strong> Gửi thư yêu cầu đến hòm thư hỗ trợ của chúng tôi tại địa chỉ <a href="mailto:tiennt231@gmail.com" className="text-indigo-600 font-bold hover:underline">tiennt231@gmail.com</a> kèm theo thông tin tài khoản (Email, số điện thoại đăng ký, hoặc mã Fanpage cần xóa).
+                <strong className="text-slate-800">Gửi yêu cầu qua Email hỗ trợ:</strong> Gửi thư yêu cầu đến hòm thư hỗ trợ của chúng tôi tại địa chỉ <a href="mailto:igen.work99@gmail.com" className="text-indigo-600 font-bold hover:underline">igen.work99@gmail.com</a> kèm theo thông tin tài khoản (Email, số điện thoại đăng ký, hoặc mã Fanpage cần xóa).
               </li>
             </ul>
             <p className="text-slate-500 text-[11px] leading-relaxed">

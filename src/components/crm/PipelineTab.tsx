@@ -14,7 +14,7 @@ type PipelineTabProps = {
   moveLeadPipeline: (id: string, newStatus: "cold" | "warm" | "hot") => void;
   deleteLead: (id: string) => void;
   handleGoToChat: (customerName: string) => void;
-  activeChannel: "facebook" | "zalo";
+  activeChannel: "all" | "facebook" | "zalo";
   inboxCustomers: CustomerInbox[];
   isFbConnected: boolean;
   isZaloConnected: boolean;
@@ -83,10 +83,9 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
       l.company.toLowerCase().includes("zalo") ||
       inboxCustomers.some(c => c.name.toLowerCase() === l.customerName.toLowerCase() && c.channel === "zalo");
 
+    if (activeChannel === "all") return true;
     if (activeChannel === "facebook") return isFbLead;
     if (activeChannel === "zalo") return isZaloLead;
-    
-    return false;
   });
 
   const groupedLeads = {
