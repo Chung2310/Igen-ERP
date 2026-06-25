@@ -4,9 +4,17 @@ export const zaloMessengerService = {
   /**
    * Lay danh sach cuoc hoi thoai cua Zalo OA da lien ket
    */
-  async getConversations(): Promise<any[]> {
+  async getConversations(options?: { limit?: number; skip?: number }): Promise<any[]> {
     console.log("[FE Zalo Service] Bat dau goi API getConversations...");
-    const res = await fetch("/api/v1/zalo/conversations", {
+    const params = new URLSearchParams();
+    if (options?.limit !== undefined) {
+      params.set("limit", String(options.limit));
+    }
+    if (options?.skip !== undefined) {
+      params.set("skip", String(options.skip));
+    }
+    const query = params.toString() ? `?${params.toString()}` : "";
+    const res = await fetch(`/api/v1/zalo/conversations${query}`, {
       headers: {
         Authorization: `Bearer ${getAccessToken()}`,
       },

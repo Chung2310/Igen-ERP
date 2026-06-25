@@ -487,12 +487,14 @@ export const zaloMessengerService = {
     });
   },
 
-  /**
-   * Lấy danh sách hội thoại Zalo OA
-   */
-  async getConversations(oaId: string) {
-    console.log(`[Zalo Service] Lấy danh sách hội thoại cho OA ID: ${oaId}`);
-    return ZaloConversationModel.find({ oaId }).sort({ lastMessageAt: -1 });
+  async getConversations(oaId: string, options?: { limit?: number; skip?: number }) {
+    console.log(`[Zalo Service] Lấy danh sách hội thoại cho OA ID: ${oaId}, limit: ${options?.limit || 20}, skip: ${options?.skip || 0}`);
+    const limit = options?.limit || 20;
+    const skip = options?.skip || 0;
+    return ZaloConversationModel.find({ oaId })
+      .sort({ lastMessageAt: -1 })
+      .skip(skip)
+      .limit(limit);
   },
 
   /**

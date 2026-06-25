@@ -132,8 +132,15 @@ export const fbMessengerController = {
         });
       }
 
+      const limit = req.query.limit !== undefined ? Number(req.query.limit) : 20;
+      const skip = req.query.skip !== undefined ? Number(req.query.skip) : 0;
       const shouldSync = req.query.sync === "1" || req.query.sync === "true";
-      const conversations = await fbMessengerService.getConversations(pageId, { sync: shouldSync });
+      
+      const conversations = await fbMessengerService.getConversations(pageId, { 
+        sync: shouldSync,
+        limit,
+        skip
+      });
       
       res.status(200).json({
         success: true,

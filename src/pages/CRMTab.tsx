@@ -161,6 +161,19 @@ export default function CRMTab() {
     activeCustomerRef.current = activeCustomer;
   }, [activeCustomer]);
 
+  // Conversations list pagination state for infinite scroll
+  const [convsPagination, setConvsPagination] = useState({
+    limit: 20,
+    skip: 0,
+    hasMore: true,
+    isLoadingMore: false,
+  });
+
+  const convsPaginationRef = useRef(convsPagination);
+  useEffect(() => {
+    convsPaginationRef.current = convsPagination;
+  }, [convsPagination]);
+
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [chatPagination, setChatPagination] = useState<ChatPagination>({
     limit: 20,
@@ -442,15 +455,41 @@ export default function CRMTab() {
     }
   };
 
-  const fetchOmniConversations = async (forceSelectFirst = false, options?: { syncFacebook?: boolean }) => {
-    console.log("[FE CRMTab] fetchOmniConversations: Đang lấy dữ liệu hội thoại (FB & Zalo)...");
+  const fetchOmniConversations = async (
+    forceSelectFirst = false, 
+    options?: { syncFacebook?: boolean; loadMore?: boolean; reset?: boolean }
+  ) => {
+    console.log(`[FE CRMTab] fetchOmniConversations: Đang lấy dữ liệu hội thoại. loadMore=${!!options?.loadMore}, reset=${!!options?.reset}`);
     try {
+      const isLoadMore = !!options?.loadMore;
+      const isReset = !!options?.reset;
+
+      if (isLoadMore && !convsPaginationRef.current.hasMore) return;
+      if (convsPaginationRef.current.isLoadingMore) return;
+
+      if (isLoadMore) {
+        setConvsPagination(prev => ({ ...prev, isLoadingMore: true }));
+      }
+
+      const currentSkip = isReset 
+        ? 0 
+        : (isLoadMore ? convsPaginationRef.current.skip + convsPaginationRef.current.limit : 0);
+      
+      const limit = isReset
+        ? 20
+        : (isLoadMore ? convsPaginationRef.current.limit : (convsPaginationRef.current.skip + convsPaginationRef.current.limit || 20));
+
       let fbConvs: any[] = [];
       let zaloConvs: any[] = [];
 
       if (isFbConnected) {
         try {
-          fbConvs = await fbMessengerService.getConversations({ sync: !!options?.syncFacebook, pageId: selectedFacebookPageId });
+          fbConvs = await fbMessengerService.getConversations({ 
+            sync: !!options?.syncFacebook, 
+            pageId: selectedFacebookPageId,
+            limit,
+            skip: currentSkip
+          });
         } catch (err) {
           console.error("Lỗi lấy hội thoại Facebook:", err);
         }
@@ -458,7 +497,10 @@ export default function CRMTab() {
 
       if (isZaloConnected) {
         try {
-          zaloConvs = await zaloMessengerService.getConversations();
+          zaloConvs = await zaloMessengerService.getConversations({
+            limit,
+            skip: currentSkip
+          });
         } catch (err) {
           console.error("Lỗi lấy hội thoại Zalo:", err);
         }
@@ -496,32 +538,47 @@ export default function CRMTab() {
         lastMessageAt: new Date(c.lastMessageAt)
       } as any));
 
-      const combined = [...mappedFb, ...mappedZalo].map((c) => {
-        // Nếu là khách hàng đang chat, đảm bảo unreadCount = 0 để không hiện thông báo đỏ
-        if (activeCustomerRef.current && c.id === activeCustomerRef.current.id) {
-          return { ...c, unreadCount: 0 };
-        }
-        return c;
-      }).sort(
-        (a: any, b: any) => b.lastMessageAt.getTime() - a.lastMessageAt.getTime()
-      );
+      const fetchedList = [...mappedFb, ...mappedZalo];
+      const hasMoreFetched = fetchedList.length >= limit;
 
-      setInboxCustomers(combined);
-
-      // Tự động chọn hoặc cập nhật cuộc hội thoại đang hoạt động
-      if (combined.length > 0) {
-        setActiveCustomer((prev) => {
-          if (prev && !forceSelectFirst) {
-            const found = combined.find((x) => x.id === prev.id);
-            return found || combined[0];
+      setInboxCustomers((prev) => {
+        const baseList = (isLoadMore && !isReset) ? prev : [];
+        const existingIds = new Set(baseList.map((x) => x.id));
+        const filteredNew = fetchedList.filter((x) => !existingIds.has(x.id));
+        
+        const combined = [...baseList, ...filteredNew].map((c) => {
+          if (activeCustomerRef.current && c.id === activeCustomerRef.current.id) {
+            return { ...c, unreadCount: 0 };
           }
-          return combined[0];
-        });
-      } else {
-        setActiveCustomer(null);
-      }
+          return c;
+        }).sort(
+          (a: any, b: any) => b.lastMessageAt.getTime() - a.lastMessageAt.getTime()
+        );
+
+        if (combined.length > 0) {
+          setActiveCustomer((prevActive) => {
+            if (prevActive && !forceSelectFirst) {
+              const found = combined.find((x) => x.id === prevActive.id);
+              return found || combined[0];
+            }
+            return combined[0];
+          });
+        } else {
+          setActiveCustomer(null);
+        }
+
+        return combined;
+      });
+
+      setConvsPagination({
+        limit: 20,
+        skip: currentSkip,
+        hasMore: hasMoreFetched,
+        isLoadingMore: false,
+      });
     } catch (err) {
       console.error("[FE CRMTab] Lỗi khi tải danh sách hội thoại:", err);
+      setConvsPagination(prev => ({ ...prev, isLoadingMore: false }));
     }
   };
 
@@ -633,7 +690,7 @@ export default function CRMTab() {
     if (subTab !== "OMNI-INBOX CHAT" || (!isFbConnected && !isZaloConnected)) return;
 
     // Tải và tự động chọn cuộc hội thoại đầu tiên khi mount, đổi page FB, hoặc đổi kết nối
-    fetchOmniConversations(true, { syncFacebook: true });
+    fetchOmniConversations(true, { syncFacebook: true, reset: true });
 
     const runFetch = () => {
       if (!document.hidden) {
@@ -1049,6 +1106,8 @@ export default function CRMTab() {
               setSelectedFacebookPageId={setSelectedFacebookPageId}
               handleApplyToAllPages={handleApplyToAllPages}
               copyingConfig={copyingConfig}
+              onLoadMoreConversations={() => fetchOmniConversations(false, { loadMore: true })}
+              hasMoreConversations={convsPagination.hasMore}
             />
           )}
 
