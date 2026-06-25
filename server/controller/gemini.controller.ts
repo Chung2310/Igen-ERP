@@ -894,7 +894,7 @@ export const geminiController = {
         return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
       }
 
-      const result = await geminiService.editVideo(userId, videoUrl, prompt, {
+      const result = await geminiService.editVideo(userId, videoUrl, prompt || "", {
         modelName,
         aspectRatio,
         resolution,
@@ -915,19 +915,19 @@ export const geminiController = {
    */
   async analyzeVideoStyle(req: Request, res: Response) {
     try {
-      const { videoUrl, duration } = req.body;
+      const { videoUrl, duration, targetVideoUrl, targetDuration, prompt } = req.body;
       const userId = (req as any).user?.id;
 
       if (!userId) {
         return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
       }
 
-      console.log(`[geminiController.analyzeVideoStyle] Starting style extraction for videoUrl: ${videoUrl}, duration: ${duration}`);
+      console.log(`[geminiController.analyzeVideoStyle] Starting style extraction for videoUrl: ${videoUrl}, duration: ${duration}, targetVideoUrl: ${targetVideoUrl}, targetDuration: ${targetDuration}, userPrompt: ${prompt}`);
       
       // Kiểm tra số dư ví
       await walletService.checkBalance(userId, API_COSTS.GEMINI_OPTIMIZE);
 
-      const promptResult = await videoBlueprintService.extractVideoStyle(videoUrl, duration);
+      const promptResult = await videoBlueprintService.extractVideoStyle(videoUrl, duration, targetVideoUrl, targetDuration, prompt);
 
       await walletService.deductBalance(userId, API_COSTS.GEMINI_OPTIMIZE, "Chi phí phân tích và trích xuất kịch bản video AI");
 

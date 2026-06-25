@@ -201,7 +201,13 @@ export const videoBlueprintService = {
   /**
    * Phân tích video mẫu để trích xuất phong cách dựng phim thành Prompt mô tả chi tiết bằng tiếng Việt
    */
-  async extractVideoStyle(videoUrl: string, durationSeconds?: number): Promise<string> {
+  async extractVideoStyle(
+    videoUrl: string,
+    durationSeconds?: number,
+    targetVideoUrl?: string,
+    targetDuration?: number,
+    userPrompt?: string
+  ): Promise<string> {
     const tempVideoPath = path.join(os.tmpdir(), `temp_style_extraction_${Date.now()}.mp4`);
     let analysisText = "";
 
@@ -232,7 +238,19 @@ export const videoBlueprintService = {
 
       console.log("[videoBlueprintService] File is ACTIVE. Calling Gemini model to analyze editing style...");
 
-      const analysisPrompt = `Hãy phân tích phong cách dựng và các hiệu ứng của video mẫu này để tạo ra một kịch bản hướng dẫn biên tập bằng tiếng Việt.${durationSeconds ? `\nLưu ý quan trọng: Video mẫu này có tổng thời lượng chính xác là ${durationSeconds} giây. Hãy định vị rõ mốc thời gian (ví dụ: ở giây thứ mấy, hoặc từ giây thứ mấy đến giây thứ mấy) xảy ra các hiệu ứng hình ảnh/chữ/chuyển cảnh dựa trên tổng thời lượng ${durationSeconds} giây này.` : ""}
+      let durationPromptText = "";
+      if (durationSeconds) {
+        durationPromptText = `\nLưu ý quan trọng: Video mẫu này có tổng thời lượng chính xác là ${durationSeconds} giây. Hãy định vị rõ mốc thời gian (ví dụ: ở giây thứ mấy, hoặc từ giây thứ mấy đến giây thứ mấy) xảy ra các hiệu ứng hình ảnh/chữ/chuyển cảnh dựa trên tổng thời lượng ${durationSeconds} giây này.`;
+        if (targetDuration) {
+          durationPromptText += `\nĐặc biệt: Hãy tính toán điều chỉnh tỉ lệ (scale) thời gian của các hiệu ứng này để áp dụng phù hợp lên Video đầu vào (đích) có thời lượng là ${targetDuration} giây. Hãy hướng dẫn cụ thể cách ánh xạ thời gian từ video mẫu sang video đầu vào.`;
+        }
+      }
+
+      if (userPrompt && userPrompt.trim()) {
+        durationPromptText += `\nĐặc biệt kết hợp thêm ý tưởng/yêu cầu chỉnh sửa cụ thể này từ người dùng: "${userPrompt.trim()}". Hãy lồng ghép và phối hợp yêu cầu này của người dùng vào cùng với phong cách của video mẫu để tạo ra hướng dẫn chỉnh sửa cuối cùng, đảm bảo hài hòa và phù hợp với tổng thời lượng video đích.`;
+      }
+
+      const analysisPrompt = `Hãy phân tích phong cách dựng và các hiệu ứng của video mẫu này để tạo ra một kịch bản hướng dẫn biên tập bằng tiếng Việt.${durationPromptText}
 
 ⚠️ QUY TẮC QUAN TRỌNG (MANDATORY):
 - TẬP TRUNG HOÀN TOÀN VÀO HIỆU ỨNG VÀ KỸ THUẬT DỰNG: Chỉ trích xuất các hiệu ứng hình ảnh (zoom in/out, xoay, bộ lọc màu, độ sáng/tương phản), hiệu ứng chuyển cảnh (fade transition), nhịp độ cắt ghép (cuts & pacing), vị trí/màu sắc/kích thước hiển thị chữ (text overlays) và thể loại nhạc nền/SFX.
@@ -456,6 +474,21 @@ Chú ý: Hãy điều chỉnh tỉ xích thời gian (scale) của các hiệu �
     duration: number,
     prompt: string
   ): Promise<any> {
+    if (!prompt || !prompt.trim()) {
+      console.log("[videoBlueprintService] Prompt is empty, returning default unedited timeline blueprint.");
+      return {
+        timeline: [
+          {
+            type: "video",
+            src: videoUrl,
+            start: 0,
+            end: duration,
+            playbackRate: 1.0
+          }
+        ]
+      };
+    }
+
     const systemPrompt = buildSystemPrompt(videoUrl, duration);
     const userPrompt = `Hãy tạo kịch bản chỉnh sửa video JSON Blueprint cho Video có URL "${videoUrl}" và thời lượng ${duration} giây.\nYêu cầu chỉnh sửa: "${prompt}"\n\nĐảm bảo kết quả đầu ra CHỈ là JSON thô, không chứa thẻ markdown hay lời nói thừa.`;
 

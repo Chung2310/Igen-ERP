@@ -105,7 +105,7 @@ const generateVideoSchema = {
 const editVideoSchema = {
   body: Joi.object({
     videoUrl: Joi.string().required(),
-    prompt: Joi.string().required(),
+    prompt: Joi.string().allow("").optional(),
     modelName: Joi.string().optional().allow(""),
     aspectRatio: Joi.string().optional().allow(""),
     resolution: Joi.string().optional().allow(""),
@@ -123,6 +123,15 @@ const analyzeVideoStyleSchema = {
     }),
     duration: Joi.number().optional().messages({
       "number.base": "Thời lượng video phải là số."
+    }),
+    targetVideoUrl: Joi.string().uri().optional().allow("").messages({
+      "string.uri": "Đường dẫn video đầu vào phải là URL hợp lệ."
+    }),
+    targetDuration: Joi.number().optional().messages({
+      "number.base": "Thời lượng video đầu vào phải là số."
+    }),
+    prompt: Joi.string().optional().allow("").messages({
+      "string.base": "Ý tưởng của người dùng phải là chuỗi."
     }),
   }),
 };
