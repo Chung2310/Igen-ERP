@@ -1,5 +1,6 @@
 import { Schema, model } from "mongoose";
 import { ISocialIntegration } from "../interface/social-integration.interface";
+import { AiAutoReplyConfigSchema } from "./user.model";
 
 const SocialIntegrationSchema = new Schema<ISocialIntegration>({
   companyCode: { type: String, required: true, index: true },
@@ -18,7 +19,9 @@ const SocialIntegrationSchema = new Schema<ISocialIntegration>({
   appSecret: { type: String },    // Facebook App Secret (từ Meta Developer, mỗi công ty có riêng)
   verifyToken: { type: String },
   isMock: { type: Boolean, default: false },
+  aiAutoReplyConfig: { type: AiAutoReplyConfigSchema, default: () => ({}) },
 });
+
 
 SocialIntegrationSchema.index({ platform: 1, username: 1, isConnected: 1 });
 SocialIntegrationSchema.index({ companyCode: 1, platform: 1, isConnected: 1 });

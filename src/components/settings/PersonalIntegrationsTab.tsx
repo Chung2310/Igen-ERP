@@ -131,7 +131,12 @@ export default function PersonalIntegrationsTab() {
     setConnectingTikTokOAuth(true);
     try {
       localStorage.removeItem("tt_oauth_result");
-      const authUrl = await socialIntegrationService.getTikTokOAuthUrl("personal");
+      const authUrl = await socialIntegrationService.getTikTokOAuthUrl(
+        "personal",
+        undefined,
+        tiktokForm.clientKey.trim() || undefined,
+        tiktokForm.clientSecret.trim() || undefined
+      );
       if (!authUrl) {
         throw new Error("Khong tao duoc link dang nhap TikTok.");
       }
@@ -412,6 +417,100 @@ export default function PersonalIntegrationsTab() {
               : null
           )}
         </div>
+      </div>
+
+      {/* Connected personal accounts list */}
+      <div className="rounded-2xl border border-gray-200 bg-white/80 p-6 shadow-xs">
+        <h3 className="text-sm font-bold text-gray-800 border-b border-gray-100 pb-3 text-left flex items-center gap-2">
+          <CheckCircle className="h-4 w-4 text-emerald-600" />
+          Danh Sách Tài Khoản Cá Nhân Đã Kết Nối
+        </h3>
+        
+        {!(userProfile?.facebookIntegration?.isConnected || userProfile?.zaloIntegration?.isConnected || userProfile?.tiktokIntegration?.isConnected) ? (
+          <div className="text-center py-6 text-gray-400 text-xs italic">
+            Chưa có tài khoản mạng xã hội cá nhân nào được thêm. Hãy cấu hình ở các biểu mẫu bên dưới.
+          </div>
+        ) : (
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+            {userProfile?.facebookIntegration?.isConnected && (
+              <div className="flex items-center justify-between p-4 border border-blue-100 bg-blue-50/30 rounded-2xl">
+                <div className="flex items-center gap-3 text-left">
+                  <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white shrink-0 shadow-xs">
+                    <Facebook className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-slate-800 truncate">{userProfile.facebookIntegration.pageName || "Facebook Page"}</p>
+                    <p className="text-[10px] text-gray-500 font-mono truncate">ID: {userProfile.facebookIntegration.pageId}</p>
+                    <span className="inline-block mt-1 px-2 py-0.5 bg-blue-100 text-blue-700 text-[9px] font-bold rounded-full">Facebook</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    if (window.confirm("Bạn có chắc chắn muốn gỡ liên kết Facebook cá nhân không?")) {
+                      void removeFacebookIntegration();
+                    }
+                  }}
+                  className="p-2 text-rose-600 hover:bg-rose-50 rounded-xl transition-all cursor-pointer"
+                  title="Gỡ liên kết"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            )}
+
+            {userProfile?.zaloIntegration?.isConnected && (
+              <div className="flex items-center justify-between p-4 border border-sky-100 bg-sky-50/30 rounded-2xl">
+                <div className="flex items-center gap-3 text-left">
+                  <div className="w-10 h-10 rounded-full bg-sky-600 flex items-center justify-center text-white shrink-0 shadow-xs">
+                    <MessageCircleMore className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-slate-800 truncate">{userProfile.zaloIntegration.oaName || "Zalo OA"}</p>
+                    <p className="text-[10px] text-gray-500 font-mono truncate">ID: {userProfile.zaloIntegration.oaId}</p>
+                    <span className="inline-block mt-1 px-2 py-0.5 bg-sky-100 text-sky-700 text-[9px] font-bold rounded-full">Zalo OA</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    if (window.confirm("Bạn có chắc chắn muốn gỡ liên kết Zalo cá nhân không?")) {
+                      void removeZaloIntegration();
+                    }
+                  }}
+                  className="p-2 text-rose-600 hover:bg-rose-50 rounded-xl transition-all cursor-pointer"
+                  title="Gỡ liên kết"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            )}
+
+            {userProfile?.tiktokIntegration?.isConnected && (
+              <div className="flex items-center justify-between p-4 border border-red-100 bg-red-50/30 rounded-2xl">
+                <div className="flex items-center gap-3 text-left">
+                  <div className="w-10 h-10 rounded-full bg-black flex items-center justify-center text-white shrink-0 shadow-xs">
+                    <Film className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-slate-800 truncate">{userProfile.tiktokIntegration.displayName || "TikTok Account"}</p>
+                    <p className="text-[10px] text-gray-500 font-mono truncate">User: {userProfile.tiktokIntegration.username}</p>
+                    <span className="inline-block mt-1 px-2 py-0.5 bg-red-100 text-red-700 text-[9px] font-bold rounded-full">TikTok</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    if (window.confirm("Bạn có chắc chắn muốn gỡ liên kết TikTok cá nhân không?")) {
+                      void removeTikTokIntegration();
+                    }
+                  }}
+                  className="p-2 text-rose-600 hover:bg-rose-50 rounded-xl transition-all cursor-pointer"
+                  title="Gỡ liên kết"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">

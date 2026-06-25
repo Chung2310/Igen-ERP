@@ -16,7 +16,8 @@ import {
   RefreshCw,
   Video,
   Eye,
-  AlertCircle
+  AlertCircle,
+  Edit2
 } from "lucide-react";
 import { EmployeeNode, TrainingCourse, TrainingEnrollment, Lesson, QuizQuestion } from "../../types";
 import { getAccessToken, authService } from "../../services/authService";
@@ -61,7 +62,9 @@ export default function TrainingTab({
   fetchCourses,
   employees
 }: TrainingTabProps) {
+  const isSupervisor = isManager || (userProfile?.level !== undefined && userProfile?.level <= 3);
   const [enrollments, setEnrollments] = useState<TrainingEnrollment[]>([]);
+  const [editingCourse, setEditingCourse] = useState<TrainingCourse | null>(null);
   const [isAddCourseModalOpen, setIsAddCourseModalOpen] = useState(false);
   const [courseFormTitle, setCourseFormTitle] = useState("");
   const [courseFormDesc, setCourseFormDesc] = useState("");
@@ -109,7 +112,7 @@ export default function TrainingTab({
 
   const fetchSupervisorEnrollments = async (companyCode: string) => {
     try {
-      const res = await fetch(`/api/v1/crud/training-enrollments`, {
+      const res = await fetch(`/api/v1/crud/training-enrollments?companyCode=${encodeURIComponent(companyCode)}`, {
         headers: {
           "Authorization": `Bearer ${getAccessToken()}`,
         },
@@ -129,11 +132,37 @@ export default function TrainingTab({
   useEffect(() => {
     if (selectedCompanyCode && userProfile) {
       fetchMyEnrollments(userProfile.uid, selectedCompanyCode);
-      if (isManager) {
+      if (isSupervisor) {
         fetchSupervisorEnrollments(selectedCompanyCode);
       }
     }
-  }, [selectedCompanyCode, userProfile, isManager]);
+  }, [selectedCompanyCode, userProfile, isSupervisor]);
+
+  const handleOpenEditCourse = (course: TrainingCourse) => {
+    setEditingCourse(course);
+    setCourseFormTitle(course.title);
+    setCourseFormDesc(course.description || "");
+    setCourseFormCategory(course.category || "Văn hóa");
+    setCourseFormDuration(course.duration || "");
+    setCourseFormIsRequired(course.isRequired || false);
+    setCourseFormAutoOnboarding(course.autoAssignOnboarding || false);
+    setCourseFormLessons(course.lessons || []);
+    setCourseFormQuizzes(course.quizzes || []);
+    setIsAddCourseModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsAddCourseModalOpen(false);
+    setEditingCourse(null);
+    setCourseFormTitle("");
+    setCourseFormDesc("");
+    setCourseFormCategory("Văn hóa");
+    setCourseFormDuration("");
+    setCourseFormIsRequired(false);
+    setCourseFormAutoOnboarding(false);
+    setCourseFormLessons([]);
+    setCourseFormQuizzes([]);
+  };
 
   const handleCreateCourse = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -145,6 +174,55 @@ export default function TrainingTab({
     }
     const creatorName = userProfile.displayName || userProfile.email || "iGen Academy";
     try {
+      if (editingCourse) {
+        // Edit Mode
+        const courseData = {
+          title: courseFormTitle.trim(),
+          description: courseFormDesc.trim(),
+          category: courseFormCategory,
+          tags: courseFormIsRequired ? ["Bắt buộc"] : [courseFormCategory],
+          isRequired: courseFormIsRequired,
+          duration: courseFormDuration.trim() || "Chưa xác định",
+          instructor: creatorName,
+          companyCode: companyCode,
+          autoAssignOnboarding: courseFormAutoOnboarding,
+          lessons: courseFormLessons,
+          quizzes: courseFormQuizzes,
+        };
+
+        const res = await fetch(`/api/v1/crud/training-courses/${editingCourse.id}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${getAccessToken()}`,
+          },
+          body: JSON.stringify(courseData),
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.message || "Cập nhật khóa học thất bại");
+        }
+
+        toast.success("Đã cập nhật khóa học thành công!");
+        handleCloseModal();
+
+        // Update local state
+        setCourses(prev => prev.map(c => c.id === editingCourse.id
+          ? { ...c, ...courseData }
+          : c
+        ));
+
+        if (courseFormIsRequired) {
+          await fetchMyEnrollments(userProfile.uid, companyCode);
+        }
+        if (isSupervisor) {
+          await fetchSupervisorEnrollments(companyCode);
+        }
+        return;
+      }
+
+      // Create Mode
       const courseData = {
         title: courseFormTitle.trim(),
         description: courseFormDesc.trim(),
@@ -232,12 +310,7 @@ export default function TrainingTab({
       }
 
       toast.success("Đã tạo khóa học thành công!");
-      setIsAddCourseModalOpen(false);
-      setCourseFormTitle(""); setCourseFormDesc("");
-      setCourseFormDuration("");
-      setCourseFormIsRequired(false); setCourseFormAutoOnboarding(false);
-      setCourseFormLessons([]);
-      setCourseFormQuizzes([]);
+      handleCloseModal();
 
       // Thêm vào local state ngay không cần reload
       setCourses(prev => [...prev, {
@@ -249,7 +322,7 @@ export default function TrainingTab({
       if (courseFormIsRequired) {
         await fetchMyEnrollments(userProfile.uid, companyCode);
       }
-      if (isManager) {
+      if (isSupervisor) {
         await fetchSupervisorEnrollments(companyCode);
       }
     } catch (err) {
@@ -655,7 +728,7 @@ export default function TrainingTab({
             <div className="bg-emerald-50 border border-emerald-200 text-emerald-850 p-5 rounded-2xl mb-6 relative text-left">
               <h5 className="font-bold text-xs uppercase tracking-wider text-emerald-900 flex items-center gap-1.5 mb-2">
                 <Award className="h-4.5 w-4.5 text-emerald-700 animate-bounce" />
-                Tiến trình Đào tạo của: {trainingFilter}
+                Tiến trình Đào tạo của: {employees.find(e => e.id === trainingFilter)?.name || "Nhân sự"}
               </h5>
               <p className="text-xs text-emerald-700 mb-4">Các khóa học chuyên môn nhân sự này đã hoàn thành hoặc đang nghiên cứu phục vụ đánh giá thăng cấp và KPI.</p>
               <div className="mt-4 pt-4 border-t border-emerald-150 flex justify-end items-center text-xs">
@@ -677,7 +750,7 @@ export default function TrainingTab({
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
-              {isManager && (
+              {isSupervisor && (
                 <>
                   <div className="flex items-center gap-1.5">
                     <Eye className="h-4 w-4 text-gray-400" />
@@ -688,7 +761,7 @@ export default function TrainingTab({
                     >
                       <option value="">Giám sát tiến độ học nhân viên</option>
                       {employees.map(emp => (
-                        <option key={emp.id} value={emp.name}>
+                        <option key={emp.id} value={emp.id}>
                           {emp.name} ({emp.role})
                         </option>
                       ))}
@@ -698,14 +771,7 @@ export default function TrainingTab({
                   <button
                     type="button"
                     onClick={() => {
-                      setCourseFormTitle("");
-                      setCourseFormDesc("");
-                      setCourseFormCategory("Văn hóa");
-                      setCourseFormDuration("");
-                      setCourseFormIsRequired(false);
-                      setCourseFormAutoOnboarding(false);
-                      setCourseFormLessons([]);
-                      setCourseFormQuizzes([]);
+                      handleCloseModal();
                       setIsAddCourseModalOpen(true);
                     }}
                     className="px-4 py-2 bg-indigo-650 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 active:scale-95 cursor-pointer font-sans"
@@ -726,9 +792,7 @@ export default function TrainingTab({
               </div>
             ) : (
               courses.map((course) => {
-                const targetUid = trainingFilter
-                  ? (employees.find(e => e.name.toLowerCase() === trainingFilter.toLowerCase())?.id || "not-found")
-                  : (userProfile?.uid || "");
+                const targetUid = trainingFilter || userProfile?.uid || "";
 
                 const enrollList = trainingFilter ? supervisorEnrollments : enrollments;
                 const myEnrollment = enrollList.find(e => e.courseId === course.id && e.uid === targetUid);
@@ -780,15 +844,25 @@ export default function TrainingTab({
                     </div>
 
                     <div className="pt-5 mt-5 border-t border-gray-100 flex justify-between items-center gap-3">
-                      {isManager && course.creatorUid === userProfile?.uid && !trainingFilter ? (
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteCourse(course.id)}
-                          className="p-2 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 rounded-xl hover:scale-105 transition-all cursor-pointer"
-                          title="Xóa khóa học"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                      {isSupervisor && course.creatorUid === userProfile?.uid && !trainingFilter ? (
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditCourse(course)}
+                            className="p-2 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 rounded-xl hover:scale-105 transition-all cursor-pointer flex items-center justify-center"
+                            title="Sửa khóa học"
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteCourse(course.id)}
+                            className="p-2 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 rounded-xl hover:scale-105 transition-all cursor-pointer flex items-center justify-center"
+                            title="Xóa khóa học"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
                       ) : (
                         <div />
                       )}
@@ -798,11 +872,10 @@ export default function TrainingTab({
                           type="button"
                           disabled={!!trainingFilter}
                           onClick={() => handleEnrollAndStart(course)}
-                          className={`px-5 py-2 rounded-xl text-xs font-bold transition-all shadow-3xs cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${
-                            isCompleted
+                          className={`px-5 py-2 rounded-xl text-xs font-bold transition-all shadow-3xs cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${isCompleted
                               ? "bg-emerald-50 hover:bg-emerald-100 border border-emerald-250 text-emerald-705 text-emerald-700"
                               : "bg-indigo-650 hover:bg-indigo-700 text-white"
-                          }`}
+                            }`}
                         >
                           {!myEnrollment ? 'Bắt đầu học' : isCompleted ? 'Xem văn bằng' : 'Học tiếp bài sau'}
                         </button>
@@ -824,9 +897,9 @@ export default function TrainingTab({
             <div className="flex justify-between items-center pb-3 border-b border-gray-150">
               <h4 className="font-bold text-slate-800 text-sm font-sans uppercase flex items-center gap-2">
                 <Award className="h-4 w-4 text-indigo-655" />
-                Tạo Khóa Học Mới
+                {editingCourse ? "Cập Nhật Khóa Học" : "Tạo Khóa Học Mới"}
               </h4>
-              <button type="button" onClick={() => setIsAddCourseModalOpen(false)} className="text-gray-400 hover:text-slate-800 cursor-pointer">
+              <button type="button" onClick={handleCloseModal} className="text-gray-400 hover:text-slate-800 cursor-pointer">
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -1090,7 +1163,7 @@ export default function TrainingTab({
             <div className="pt-4 border-t flex justify-end gap-3 text-xs font-bold shrink-0">
               <button
                 type="button"
-                onClick={() => setIsAddCourseModalOpen(false)}
+                onClick={handleCloseModal}
                 className="px-4 py-2 border rounded-xl hover:bg-slate-50 cursor-pointer font-sans"
               >
                 Hủy bỏ
@@ -1099,7 +1172,7 @@ export default function TrainingTab({
                 type="submit"
                 className="px-5 py-2 bg-indigo-650 hover:bg-indigo-700 text-white rounded-xl cursor-pointer transition-all active:scale-95 font-sans"
               >
-                Đăng tải khóa học
+                {editingCourse ? "Cập nhật khóa học" : "Đăng tải khóa học"}
               </button>
             </div>
           </form>
@@ -1159,9 +1232,8 @@ export default function TrainingTab({
                           setActiveLessonIndex(-1);
                           setQuizSubmitted(false);
                         }}
-                        className={`w-full p-2.5 rounded-xl text-left font-semibold transition-all flex items-center gap-2 cursor-pointer ${
-                          activeLessonIndex === -1 ? "bg-indigo-50 text-indigo-705 text-indigo-700 shadow-3xs" : "hover:bg-slate-200/50 text-slate-650"
-                        }`}
+                        className={`w-full p-2.5 rounded-xl text-left font-semibold transition-all flex items-center gap-2 cursor-pointer ${activeLessonIndex === -1 ? "bg-indigo-50 text-indigo-705 text-indigo-700 shadow-3xs" : "hover:bg-slate-200/50 text-slate-650"
+                          }`}
                       >
                         <BookOpen className="w-4 h-4 text-indigo-500 shrink-0" />
                         <span>Giới thiệu khóa học</span>
@@ -1179,9 +1251,8 @@ export default function TrainingTab({
                               setActiveLessonIndex(index);
                               setQuizSubmitted(false);
                             }}
-                            className={`w-full p-2.5 rounded-xl text-left font-semibold transition-all flex items-center justify-between gap-2 cursor-pointer ${
-                              isActive ? "bg-indigo-50 text-indigo-705 text-indigo-700 shadow-3xs" : "hover:bg-slate-200/50 text-slate-650"
-                            }`}
+                            className={`w-full p-2.5 rounded-xl text-left font-semibold transition-all flex items-center justify-between gap-2 cursor-pointer ${isActive ? "bg-indigo-50 text-indigo-705 text-indigo-700 shadow-3xs" : "hover:bg-slate-200/50 text-slate-650"
+                              }`}
                           >
                             <div className="flex items-center gap-2 min-w-0">
                               {les.type === "video" ? (
@@ -1213,11 +1284,10 @@ export default function TrainingTab({
                               setActiveLessonIndex((activeStudyCourse.lessons || []).length);
                             }}
                             disabled={!isLessonsDone}
-                            className={`w-full p-2.5 rounded-xl text-left font-semibold transition-all flex items-center justify-between gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
-                              activeLessonIndex === (activeStudyCourse.lessons || []).length
+                            className={`w-full p-2.5 rounded-xl text-left font-semibold transition-all flex items-center justify-between gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${activeLessonIndex === (activeStudyCourse.lessons || []).length
                                 ? "bg-indigo-50 text-indigo-750 shadow-3xs border border-indigo-200"
                                 : "hover:bg-slate-200/50 text-slate-650"
-                            }`}
+                              }`}
                           >
                             <div className="flex items-center gap-2 min-w-0">
                               <HelpCircle className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -1232,7 +1302,7 @@ export default function TrainingTab({
                 </div>
 
                 {/* Supervisor fast finish bypass */}
-                {isManager && (
+                {isSupervisor && (
                   <div className="border-t pt-3 mt-4 text-[10px] space-y-2 select-none text-left">
                     <span className="block font-bold text-gray-400 uppercase tracking-wider">Đặc quyền Quản lý:</span>
                     <button
@@ -1365,11 +1435,10 @@ export default function TrainingTab({
                         <button
                           type="button"
                           onClick={() => handleMarkLessonComplete(les, activeLessonIndex)}
-                          className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer active:scale-95 flex items-center gap-1.5 font-sans ${
-                            isCompleted
+                          className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer active:scale-95 flex items-center gap-1.5 font-sans ${isCompleted
                               ? "bg-slate-100 border border-gray-200 text-slate-450 hover:bg-slate-200"
                               : "bg-indigo-650 hover:bg-indigo-700 text-white"
-                          }`}
+                            }`}
                         >
                           <CheckCircle className="h-4 w-4" />
                           {activeLessonIndex === (activeStudyCourse.lessons?.length ?? 0) - 1 ? "Hoàn thành" : "Hoàn thành bài & Tiếp tục →"}
@@ -1404,9 +1473,8 @@ export default function TrainingTab({
                             return (
                               <div
                                 key={idx}
-                                className={`p-5 rounded-2xl border transition-all ${
-                                  isError ? "bg-rose-50/50 border-rose-200 shadow-rose-50" : "bg-white border-gray-150 shadow-3xs"
-                                }`}
+                                className={`p-5 rounded-2xl border transition-all ${isError ? "bg-rose-50/50 border-rose-200 shadow-rose-50" : "bg-white border-gray-150 shadow-3xs"
+                                  }`}
                               >
                                 <h4 className="font-bold text-xs text-slate-800 leading-snug flex gap-2">
                                   <span className="font-mono text-indigo-650 shrink-0">Q{idx + 1}:</span>
@@ -1420,11 +1488,10 @@ export default function TrainingTab({
                                     return (
                                       <label
                                         key={oIdx}
-                                        className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer select-none transition-all ${
-                                          isSelected
+                                        className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer select-none transition-all ${isSelected
                                             ? "bg-indigo-50/60 border-indigo-300 ring-2 ring-indigo-500/10 text-indigo-850 font-semibold"
                                             : "hover:bg-slate-50 border-gray-150 text-slate-650 font-medium"
-                                        }`}
+                                          }`}
                                       >
                                         <input
                                           type="radio"
@@ -1501,7 +1568,7 @@ export default function TrainingTab({
                             onClick={handleFinishCourse}
                             className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold rounded-xl text-xs shadow-md transition-all cursor-pointer font-sans"
                           >
-                            🎉 Hoàn thành & Nhận Tokens!
+                            Hoàn thành
                           </button>
                         )}
                       </div>

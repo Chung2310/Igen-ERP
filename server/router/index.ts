@@ -56,6 +56,7 @@ apiRouter.get("/webhooks/tiktok", (req, res) => {
 });
 apiRouter.post("/webhooks/tiktok", tiktokController.receiveWebhook as any);
 apiRouter.use("/tiktok", tiktokRouter);
+apiRouter.use("/tiktok-business", tiktokRouter);
 
 // Gắn kết router phụ của Scheduler
 apiRouter.use("/scheduler", schedulerRouter);

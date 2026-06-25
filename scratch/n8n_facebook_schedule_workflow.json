@@ -19,7 +19,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const items = $input.all();\n\nfor (const item of items) {\n  const body = item.json.body || item.json;\n  \n  const cardId = body.cardId;\n  const title = body.title;\n  const bodyText = body.bodyText || \"\";\n  const imageUrl = body.imageUrl || \"\";\n  const videoUrl = body.videoUrl || \"\";\n  const scheduledDate = body.scheduledDate; // YYYY-MM-DD\n  const scheduledTime = body.scheduledTime; // HH:MM\n  \n  const integration = body.integration || {};\n  const pageId = integration.pageId || body.pageId;\n  const accessToken = integration.pageAccessToken || body.accessToken;\n  \n  if (!pageId || !accessToken) {\n    throw new Error(\"Missing Facebook Page ID or Access Token in integration data.\");\n  }\n  \n  // 1. Kiểm tra xem có phải là bài đăng lên lịch hay đăng ngay lập tức\n  const isScheduled = scheduledDate && scheduledTime;\n  let scheduledPublishTime = null;\n  \n  if (isScheduled) {\n    // Chuyển đổi ngày giờ Việt Nam sang UNIX timestamp\n    const dateStr = `${scheduledDate}T${scheduledTime}:00+07:00`;\n    const dateObj = new Date(dateStr);\n    if (isNaN(dateObj.getTime())) {\n      throw new Error(`Invalid scheduled date or time: ${scheduledDate} ${scheduledTime}`);\n    }\n    scheduledPublishTime = Math.floor(dateObj.getTime() / 1000);\n  }\n  \n  // 2. Xác định Endpoint và Body của Facebook Graph API dựa trên loại media và hình thức đăng\n  let facebookApiUrl = \"\";\n  let requestBody = {};\n  let postType = \"text\";\n  \n  if (videoUrl && videoUrl.trim().startsWith(\"http\")) {\n    postType = \"video\";\n    facebookApiUrl = `https://graph.facebook.com/v19.0/${pageId}/videos`;\n    requestBody = {\n      description: bodyText,\n      file_url: videoUrl,\n      access_token: accessToken\n    };\n    if (isScheduled) {\n      requestBody.published = false;\n      requestBody.scheduled_publish_time = scheduledPublishTime;\n    } else {\n      requestBody.published = true;\n    }\n  } else if (imageUrl && imageUrl.trim().startsWith(\"http\")) {\n    postType = \"image\";\n    facebookApiUrl = `https://graph.facebook.com/v19.0/${pageId}/photos`;\n    requestBody = {\n      caption: bodyText,\n      url: imageUrl,\n      access_token: accessToken\n    };\n    if (isScheduled) {\n      requestBody.published = false;\n      requestBody.scheduled_publish_time = scheduledPublishTime;\n    } else {\n      requestBody.published = true;\n    }\n  } else {\n    postType = \"text\";\n    facebookApiUrl = `https://graph.facebook.com/v19.0/${pageId}/feed`;\n    requestBody = {\n      message: bodyText,\n      access_token: accessToken\n    };\n    if (isScheduled) {\n      requestBody.published = false;\n      requestBody.scheduled_publish_time = scheduledPublishTime;\n    }\n  }\n  \n  item.json.preparedData = {\n    cardId,\n    postType,\n    apiUrl: facebookApiUrl,\n    body: requestBody\n  };\n}\n\nreturn items;"
+        "jsCode": "const items = $input.all();\n\nfor (const item of items) {\n  const body = item.json.body || item.json;\n  \n  const cardId = body.cardId;\n  const title = body.title;\n  \n  const bodyText = body.content || body.bodyText || \"\";\n  \n  const mediaType = body.mediaType || \"none\";\n  const mediaUrl = body.mediaUrl || \"\";\n  \n  let imageUrl = \"\";\n  let videoUrl = \"\";\n  if (mediaType === \"image\") {\n    imageUrl = mediaUrl;\n  } else if (mediaType === \"video\") {\n    videoUrl = mediaUrl;\n  }\n  \n  if (!imageUrl && !videoUrl) {\n    imageUrl = body.imageUrl || \"\";\n    videoUrl = body.videoUrl || \"\";\n  }\n  \n  const publishType = body.publishType || \"immediate\";\n  let isScheduled = publishType === \"scheduled\";\n  let scheduledPublishTime = null;\n  \n  const scheduledTimeStr = body.scheduledTime;\n  if (scheduledTimeStr) {\n    const dateObj = new Date(scheduledTimeStr);\n    if (!isNaN(dateObj.getTime())) {\n      scheduledPublishTime = Math.floor(dateObj.getTime() / 1000);\n      isScheduled = true;\n    }\n  } else if (body.scheduledDate && body.scheduledTime) {\n    const dateStr = `${body.scheduledDate}T${body.scheduledTime}:00+07:00`;\n    const dateObj = new Date(dateStr);\n    if (!isNaN(dateObj.getTime())) {\n      scheduledPublishTime = Math.floor(dateObj.getTime() / 1000);\n      isScheduled = true;\n    }\n  }\n  \n  const integration = body.integration || {};\n  const pageId = body.pageId || integration.pageId;\n  const accessToken = body.accessToken || integration.pageAccessToken;\n  \n  if (!pageId || !accessToken) {\n    throw new Error(\"Missing Facebook Page ID or Access Token in integration data.\");\n  }\n  \n  let facebookApiUrl = \"\";\n  let requestBody = {};\n  let postType = \"text\";\n  \n  if (videoUrl && videoUrl.trim().startsWith(\"http\")) {\n    postType = \"video\";\n    facebookApiUrl = `https://graph.facebook.com/v19.0/${pageId}/videos`;\n    requestBody = {\n      description: bodyText,\n      file_url: videoUrl,\n      access_token: accessToken\n    };\n    if (isScheduled && scheduledPublishTime) {\n      requestBody.published = false;\n      requestBody.scheduled_publish_time = scheduledPublishTime;\n    } else {\n      requestBody.published = true;\n    }\n  } else if (imageUrl && imageUrl.trim().startsWith(\"http\")) {\n    postType = \"image\";\n    facebookApiUrl = `https://graph.facebook.com/v19.0/${pageId}/photos`;\n    requestBody = {\n      caption: bodyText,\n      url: imageUrl,\n      access_token: accessToken\n    };\n    if (isScheduled && scheduledPublishTime) {\n      requestBody.published = false;\n      requestBody.scheduled_publish_time = scheduledPublishTime;\n    } else {\n      requestBody.published = true;\n    }\n  } else {\n    postType = \"text\";\n    facebookApiUrl = `https://graph.facebook.com/v19.0/${pageId}/feed`;\n    requestBody = {\n      message: bodyText,\n      access_token: accessToken\n    };\n    if (isScheduled && scheduledPublishTime) {\n      requestBody.published = false;\n      requestBody.scheduled_publish_time = scheduledPublishTime;\n    }\n  }\n  \n  item.json.preparedData = {\n    cardId,\n    postType,\n    apiUrl: facebookApiUrl,\n    body: requestBody\n  };\n}\n\nreturn items;"
       },
       "id": "e6dd0508-bdf3-4eb7-a7eb-bfd17e75bc7b",
       "name": "JavaScript - Parse & Format Data",
@@ -36,11 +36,11 @@
         "url": "={{ $json.preparedData.apiUrl }}",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($json.preparedData.body) }}",
+        "jsonBody": "={{ $json.preparedData.body }}",
         "options": {
           "response": {
             "response": {
-              "neverThrow": false,
+              "neverThrow": true,
               "responseFormat": "json"
             }
           }
@@ -72,7 +72,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://igen-erp:3000/api/v1/facebook/n8n-callback",
+        "url": "={{ $node['Webhook - Receive from ERP'].json.body?.callbackUrl || $node['Webhook - Receive from ERP'].json.callbackUrl || 'https://erp.igentechsolutions.com/api/v1/facebook/n8n-callback' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -88,7 +88,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"cardId\": \"{{ $node['JavaScript - Parse & Format Data'].json.preparedData.cardId }}\",\n  \"postId\": \"{{ $json.id || $json.post_id }}\",\n  \"postUrl\": \"https://www.facebook.com/{{ $node['JavaScript - Parse & Format Data'].json.body?.pageId || $node['JavaScript - Parse & Format Data'].json.pageId }}/posts/{{ $json.id || $json.post_id }}\"\n}",
+        "jsonBody": "{\n  \"cardId\": \"{{ $node['JavaScript - Parse & Format Data'].json.preparedData.cardId }}\",\n  \"postId\": \"{{ $json.id || $json.post_id }}\",\n  \"postUrl\": \"https://www.facebook.com/{{ $node['JavaScript - Parse & Format Data'].json.body?.pageId || $node['JavaScript - Parse & Format Data'].json.pageId }}/posts/{{ $json.id || $json.post_id }}\"\n}",
         "options": {}
       },
       "id": "callback-to-erp-node-id",

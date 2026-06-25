@@ -11,6 +11,8 @@ export const tiktokController = {
       const email = authReq.user?.email;
       const target = String(req.query.target || "personal");
       const integrationId = String(req.query.integrationId || "").trim();
+      const clientKey = String(req.query.clientKey || "").trim();
+      const clientSecret = String(req.query.clientSecret || "").trim();
 
       if (!userId) {
         return res.status(401).json({
@@ -25,6 +27,8 @@ export const tiktokController = {
         email,
         target,
         integrationId,
+        clientKey: clientKey || undefined,
+        clientSecret: clientSecret || undefined,
       });
 
       return res.status(200).json(result);

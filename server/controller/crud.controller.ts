@@ -2,6 +2,8 @@ import { Response } from "express";
 import { AuthenticatedRequest } from "../middleware/auth";
 import { crudService } from "../service/crud.service";
 import { SupportedModelName } from "../interface/crud.interface";
+import { UserModel } from "../model/user.model";
+import { TrainingCourseModel } from "../model/training-course.model";
 
 export const crudController = {
   /**
@@ -20,10 +22,23 @@ export const crudController = {
 
       // Trích xuất các tham số còn lại làm bộ lọc động (filters)
       const { page: _p, limit: _l, sort: _s, search: _sh, filters: queryFilters, ...otherParams } = req.query;
-      const filters = {
+      const filters: any = {
         ...(typeof queryFilters === "object" && queryFilters !== null ? queryFilters : {}),
         ...otherParams,
       };
+
+      if (modelName === "training-enrollments") {
+        let isSupervisor = ["superadmin", "admin", "manager"].includes(userRole);
+        if (!isSupervisor && req.user?.id) {
+          const userDoc = await UserModel.findById(req.user.id).select("level").lean();
+          if (userDoc && typeof userDoc.level === "number" && userDoc.level <= 3) {
+            isSupervisor = true;
+          }
+        }
+        if (!isSupervisor) {
+          filters.uid = req.user?.id;
+        }
+      }
 
       const result = await crudService.getList(modelName, companyCode, {
         page,
@@ -110,6 +125,16 @@ export const crudController = {
 
       console.log(`[crudController.update] modelName=${modelName} id=${id} body:`, req.body);
 
+      if (modelName === "training-courses") {
+        const course = await TrainingCourseModel.findById(id).lean();
+        if (course && course.creatorUid !== req.user?.id && userRole !== "superadmin" && userRole !== "admin") {
+          return res.status(403).json({
+            status: "error",
+            message: "Bạn không có quyền sửa đổi khóa học này vì không phải là người tạo.",
+          });
+        }
+      }
+
       const item = await crudService.update(modelName as SupportedModelName, id, req.body, companyCode, userRole);
       return res.status(200).json({
         status: "success",
@@ -133,6 +158,16 @@ export const crudController = {
       const { modelName, id } = req.params;
       const companyCode = req.user?.companyCode || "SYSTEM";
       const userRole = req.user?.role || "user";
+
+      if (modelName === "training-courses") {
+        const course = await TrainingCourseModel.findById(id).lean();
+        if (course && course.creatorUid !== req.user?.id && userRole !== "superadmin" && userRole !== "admin") {
+          return res.status(403).json({
+            status: "error",
+            message: "Bạn không có quyền xóa khóa học này vì không phải là người tạo.",
+          });
+        }
+      }
 
       const item = await crudService.delete(modelName as SupportedModelName, id, companyCode, userRole);
       return res.status(200).json({

@@ -111,6 +111,7 @@ const editVideoSchema = {
     resolution: Joi.string().optional().allow(""),
     duration: Joi.number().optional(),
     videoDurations: Joi.array().items(Joi.number()).optional(),
+    blueprint: Joi.object().optional(),
   }),
 };
 
@@ -119,6 +120,9 @@ const analyzeVideoStyleSchema = {
     videoUrl: Joi.string().uri().required().messages({
       "any.required": "Đường dẫn video cần phân tích là bắt buộc.",
       "string.uri": "Đường dẫn video phải là URL hợp lệ."
+    }),
+    duration: Joi.number().optional().messages({
+      "number.base": "Thời lượng video phải là số."
     }),
   }),
 };

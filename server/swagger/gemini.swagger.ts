@@ -236,7 +236,8 @@ export const geminiSwagger = {
               schema: {
                 type: "object",
                 properties: {
-                  videoUrl: { type: "string", example: "https://res.cloudinary.com/.../video.mp4" }
+                  videoUrl: { type: "string", example: "https://res.cloudinary.com/.../video.mp4" },
+                  duration: { type: "number", example: 15, description: "Thời lượng của video mẫu tính bằng giây" }
                 },
                 required: ["videoUrl"]
               }

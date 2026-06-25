@@ -1,4 +1,38 @@
 import { AIMediaModel } from "../model/ai-media.model";
+import { videoBlueprintService } from "./video-blueprint.service";
+
+/**
+ * Chuyển đổi đối tượng JSON blueprint thành mô tả văn bản để hướng dẫn chi tiết cho Hermes Agent
+ */
+function compileBlueprintToPrompt(blueprint: any): string {
+  if (!blueprint || !blueprint.timeline || !Array.isArray(blueprint.timeline)) {
+    return "";
+  }
+  let desc = "\nHãy biên tập video theo kịch bản chính xác sau:\n";
+  blueprint.timeline.forEach((item: any, idx: number) => {
+    if (item.type === "video") {
+      desc += `- Đoạn video nguồn: từ ${item.start}s đến ${item.end}s, tốc độ phát ${item.playbackRate || 1.0}x`;
+      if (item.filters) {
+        if (item.filters.brightness !== undefined) desc += `, độ sáng: ${item.filters.brightness}`;
+        if (item.filters.grayscale !== undefined) desc += `, đen trắng: ${item.filters.grayscale}`;
+      }
+      if (item.effects) {
+        if (item.effects.zoom) desc += `, hiệu ứng zoom: ${item.effects.zoom}`;
+        if (item.effects.transition) desc += `, hiệu ứng chuyển cảnh kết thúc: ${item.effects.transition}`;
+      }
+      desc += "\n";
+    } else if (item.type === "text") {
+      desc += `- Lớp chữ: hiển thị nội dung "${item.content}" từ giây ${item.start} đến giây ${item.end}`;
+      if (item.style) {
+        desc += ` tại vị trí ${item.style.position || "bottom-center"} với màu sắc ${item.style.color || "#FFFFFF"} và kích thước ${item.style.fontSize || "32px"}`;
+      }
+      desc += "\n";
+    } else if (item.type === "audio") {
+      desc += `- Nhạc/Âm thanh nền: tải từ nguồn "${item.src}" phát từ giây ${item.start} đến giây ${item.end} với âm lượng ${item.volume || 0.5}\n`;
+    }
+  });
+  return desc;
+}
 
 /**
  * Base URL của Hermes Worker Pool API (port 8643)
@@ -68,8 +102,20 @@ export const hermesService = {
       resolution?: string;
       duration?: number;
       videoDurations?: number[];
+      blueprint?: any;
     }
   ): Promise<{ status: string; record: any; blueprint: any }> {
+    let blueprint = options?.blueprint;
+    if (!blueprint) {
+      try {
+        const videoDuration = options?.duration || 10;
+        console.log(`[Hermes] Tự động sinh blueprint cho videoUrl=${videoUrl} duration=${videoDuration}`);
+        blueprint = await videoBlueprintService.generateBlueprintFromPrompt(videoUrl, videoDuration, prompt);
+      } catch (err) {
+        console.warn("[Hermes] Failed to generate blueprint, using empty blueprint fallback:", err);
+      }
+    }
+
     // Tạo record ban đầu với trạng thái processing
     const record = await AIMediaModel.create({
       userId,
@@ -82,7 +128,7 @@ export const hermesService = {
         provider: "hermes-worker",
         title: `Biên tập bằng Hermes Worker: ${prompt}`,
         description: "Đang gửi yêu cầu đến Hermes Worker Pool...",
-        blueprint: "{}",
+        blueprint: blueprint ? JSON.stringify(blueprint) : "{}",
         renderLogs: [
           "[Hermes] Khởi tạo yêu cầu biên tập video...",
           `[Hermes] Video đầu vào: ${videoUrl}`,
@@ -94,16 +140,17 @@ export const hermesService = {
     });
 
     // Chạy background job — không await để trả về ngay cho client
-    void this.executeHermesWorkerJob(record._id.toString(), userId, videoUrl, prompt);
+    void this.executeHermesWorkerJob(record._id.toString(), userId, videoUrl, prompt, blueprint);
 
-    return { status: "success", record, blueprint: null };
+    return { status: "success", record, blueprint };
   },
 
   async executeHermesWorkerJob(
     recordId: string,
     userId: string,
     videoUrl: string,
-    prompt: string
+    prompt: string,
+    blueprint?: any
   ): Promise<void> {
     const workerUrl = getWorkerUrl();
     console.log(`[Hermes Job] Starting for record=${recordId} workerUrl=${workerUrl}`);
@@ -113,6 +160,10 @@ export const hermesService = {
       `[Hermes] Video đầu vào: ${videoUrl}`,
       `[Hermes] Yêu cầu: ${prompt}`,
     ];
+
+    if (blueprint) {
+      logs.push("[Hermes] Đã nhận kịch bản cấu hình JSON Blueprint biên tập.");
+    }
 
     const updateLogs = async (progress: number, description: string, newLog?: string) => {
       if (newLog) {
@@ -164,6 +215,7 @@ ${buildCloudinaryPrompt()}
           video_url: videoUrl,
           prompt: fullPrompt,
           user_id: userId,
+          blueprint: blueprint || {},
         }),
       });
 

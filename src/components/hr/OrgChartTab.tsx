@@ -40,6 +40,29 @@ const isUrl = (str?: string): boolean => {
   return str.startsWith("http://") || str.startsWith("https://") || str.startsWith("data:image/") || str.startsWith("/");
 };
 
+const normalizeString = (str: string): string => {
+  return String(str ?? "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "d");
+};
+
+const parseDurationToHours = (durationStr: string): number => {
+  if (!durationStr) return 0;
+  const cleanStr = durationStr.toLowerCase().trim();
+  const match = cleanStr.match(/(\d+(\.\d+)?)/);
+  if (!match) return 0;
+  const value = parseFloat(match[1]);
+
+  if (cleanStr.includes("phut") || cleanStr.includes("m") || cleanStr.includes("minutes") || cleanStr.includes("minute")) {
+    return Number((value / 60).toFixed(1));
+  }
+  return value;
+};
+
 const renderAvatar = (avatar: string, sizeClasses: string = "w-8 h-8", textClass: string = "text-base") => {
   if (isUrl(avatar)) {
     return (
@@ -61,7 +84,8 @@ const FUNCTIONAL_CATEGORIES = [
   { key: "tech", label: "Hệ thống & Công nghệ", badge: "TECH", color: "bg-indigo-655", border: "border-t-4 border-indigo-650", dot: "#4f46e5" },
   { key: "operations", label: "Vận hành - Sản xuất", badge: "OPERATIONS", color: "bg-cyan-500", border: "border-t-4 border-cyan-500", dot: "#06b6d4" },
   { key: "sales", label: "Kinh doanh & Tiếp thị", badge: "SALES", color: "bg-amber-500", border: "border-t-4 border-amber-500", dot: "#f59e0b" },
-  { key: "other", label: "Khác", badge: "OTHER", color: "bg-slate-500", border: "border-t-4 border-slate-500", dot: "#64748b" },
+  { key: "hr", label: "Hành chính & Nhân sự", badge: "HR", color: "bg-rose-500", border: "border-t-4 border-rose-500", dot: "#f43f5e" },
+  { key: "other", label: "Khác", badge: "OTHER", color: "bg-slate-500", border: "border-t-4 border-slate-500", dot: "#64748b" }
 ];
 
 const getCategoryByDivision = (division: string) => {
@@ -171,7 +195,7 @@ export default function OrgChartTab({
       }, 50);
     } else {
       setPreFitZoom(zoomLevel);
-      
+
       const rect = child.getBoundingClientRect();
       const unscaledWidth = rect.width / zoomLevel;
       const unscaledHeight = rect.height / zoomLevel;
@@ -245,7 +269,7 @@ export default function OrgChartTab({
     }
   };
 
-   const [filterDivision, setFilterDivision] = useState<string>("Tất cả");
+  const [filterDepartment, setFilterDepartment] = useState<string>("Tất cả");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [collapsedNodes, setCollapsedNodes] = useState<Set<string>>(new Set());
   const [selectedEmp, setSelectedEmp] = useState<EmployeeNode | null>(null);
@@ -354,7 +378,7 @@ export default function OrgChartTab({
       toast.success("Cập nhật thông tin nhân sự thành công!");
       setIsEditing(false);
       await fetchUsers();
-      
+
       // Cập nhật selectedEmp cục bộ
       const updatedNode = {
         ...selectedEmp,
@@ -562,41 +586,6 @@ export default function OrgChartTab({
           },
           body: JSON.stringify({
             enrolledCount: (course.enrolledCount || 0) + 1
-          }),
-        });
-
-        // Tạo Kanban task tương ứng
-        const taskDueDate = new Date();
-        taskDueDate.setDate(taskDueDate.getDate() + 7);
-        await fetch("/api/v1/crud/kanban-tasks", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${getAccessToken()}`,
-          },
-          body: JSON.stringify({
-            title: `[Đào tạo] ${course.title}`,
-            description: course.isRequired
-              ? `Khóa học bắt buộc của công ty. Hoàn thành trong vòng 7 ngày kể từ ngày vào công ty.`
-              : `Khóa học Onboarding. Hoàn thành trong vòng 7 ngày kể từ ngày vào công ty.`,
-            assigneeUid: newEmpUid,
-            assignee: newEmpName,
-            assigneeAvatar: "👤",
-            dueDate: taskDueDate.toLocaleDateString("vi-VN"),
-            priority: course.isRequired ? "High" : "Medium",
-            status: "Not Started",
-            category: "Đào tạo",
-            companyCode,
-            creatorUid: userProfile?.uid || "system",
-            createdAt: new Date().toISOString(),
-            projectId: "",
-            tags: course.tags,
-            linkNote: "",
-            history: [{
-              time: new Date().toLocaleString("vi-VN"),
-              user: "Hệ thống",
-              action: `Tự động tạo từ khóa học ${course.isRequired ? "Bắt buộc" : "Onboarding"}: "${course.title}"`
-            }]
           }),
         });
       } catch (err) {
@@ -858,12 +847,12 @@ export default function OrgChartTab({
     const cat = getCategoryByDivision(division);
     switch (cat.key) {
       case "governance": return "bg-slate-100 text-slate-800 border-slate-300";
-      case "finance":    return "bg-emerald-50 text-emerald-700 border-emerald-200";
-      case "tech":       return "bg-indigo-50 text-indigo-700 border-indigo-200";
+      case "finance": return "bg-emerald-50 text-emerald-700 border-emerald-200";
+      case "tech": return "bg-indigo-50 text-indigo-700 border-indigo-200";
       case "operations": return "bg-cyan-50 text-cyan-700 border-cyan-200";
-      case "sales":      return "bg-amber-50 text-amber-700 border-amber-200";
-      case "hr":         return "bg-rose-50 text-rose-700 border-rose-200";
-      default:           return "bg-slate-50 text-slate-700 border-slate-200";
+      case "sales": return "bg-amber-50 text-amber-700 border-amber-200";
+      case "hr": return "bg-rose-50 text-rose-700 border-rose-200";
+      default: return "bg-slate-50 text-slate-700 border-slate-200";
     }
   };
 
@@ -878,15 +867,22 @@ export default function OrgChartTab({
     ])
   ).sort();
 
+  // Danh sách phòng ban động lấy từ dữ liệu nhân sự hiện có của công ty (không fix cứng)
+  const uniqueDepartments = Array.from(
+    new Set(employees.map(e => e.department).filter(Boolean))
+  ).sort();
+
   // Filtering matching logic
   const isMatchingFilter = (emp: EmployeeNode): boolean => {
-    const matchSearch = searchQuery.trim() === "" ||
-      emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      emp.role.toLowerCase().includes(searchQuery.toLowerCase());
+    const query = normalizeString(searchQuery);
+    const matchSearch = query === "" ||
+      normalizeString(emp.name).includes(query) ||
+      normalizeString(emp.role).includes(query) ||
+      normalizeString(emp.department).includes(query);
 
-    const matchDivision = filterDivision === "Tất cả" || emp.division === filterDivision;
+    const matchDepartment = filterDepartment === "Tất cả" || emp.department === filterDepartment;
 
-    return matchSearch && matchDivision;
+    return matchSearch && matchDepartment;
   };
 
   // Identify root employees (level 1 or nodes with no parent in the displayed tree)
@@ -897,7 +893,7 @@ export default function OrgChartTab({
     const children = employees.filter(e => e.parentId === node.id);
     const isSelected = selectedEmp?.id === node.id;
     const isMatch = isMatchingFilter(node);
-    const isFilteredOut = (searchQuery.trim() !== "" || filterDivision !== "Tất cả") && !isMatch;
+    const isFilteredOut = (searchQuery.trim() !== "" || filterDepartment !== "Tất cả") && !isMatch;
     const isCollapsed = collapsedNodes.has(node.id);
     const directReportsCount = employees.filter(e => e.parentId === node.id).length;
 
@@ -937,8 +933,8 @@ export default function OrgChartTab({
           onClick={() => setSelectedEmp(node)}
           onMouseLeave={() => setActiveDropdownCardId(null)}
           className={`p-3 bg-white text-gray-800 rounded-2xl shadow-xs w-56 text-left cursor-pointer relative hover:scale-104 active:scale-95 transition-all duration-300 border border-gray-200 ${category.border} ${isSelected
-              ? "ring-4 ring-indigo-500 shadow-indigo-100 border-transparent z-10"
-              : "hover:border-indigo-300 hover:shadow-md"
+            ? "ring-4 ring-indigo-500 shadow-indigo-100 border-transparent z-10"
+            : "hover:border-indigo-300 hover:shadow-md"
             } ${isFilteredOut ? "opacity-30 blur-[0.5px] scale-98" : "opacity-100"
             }`}
           id={`org_node_${node.id}`}
@@ -987,9 +983,8 @@ export default function OrgChartTab({
               type="button"
               onClick={(e) => { e.stopPropagation(); toggleCollapse(node.id); }}
               title={isCollapsed ? `Mở rộng ${directReportsCount} nhân viên cấp dưới` : `Thu gọn ${directReportsCount} nhân viên cấp dưới`}
-              className={`absolute -bottom-2.5 left-1/2 -translate-x-1/2 text-white text-[9px] font-extrabold w-5 h-5 rounded-full flex items-center justify-center shadow-xs border-2 border-white select-none transition-all cursor-pointer ${
-                isCollapsed ? "bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white" : "bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white"
-              }`}
+              className={`absolute -bottom-2.5 left-1/2 -translate-x-1/2 text-white text-[9px] font-extrabold w-5 h-5 rounded-full flex items-center justify-center shadow-xs border-2 border-white select-none transition-all cursor-pointer ${isCollapsed ? "bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white" : "bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white"
+                }`}
             >
               {isCollapsed ? `+${directReportsCount}` : "^"}
             </button>
@@ -1046,13 +1041,13 @@ export default function OrgChartTab({
           <div className="flex items-center gap-1.5">
             <Filter className="h-4 w-4 text-gray-400" />
             <select
-              value={filterDivision}
-              onChange={(e) => setFilterDivision(e.target.value)}
+              value={filterDepartment}
+              onChange={(e) => setFilterDepartment(e.target.value)}
               className="border border-gray-200 p-1.5 rounded-xl text-xs bg-white outline-none cursor-pointer"
             >
-              <option value="Tất cả">Tất cả Khối</option>
-              {uniqueDivisions.map(div => (
-                <option key={div} value={div}>{div}</option>
+              <option value="Tất cả">Tất cả Phòng ban</option>
+              {uniqueDepartments.map(dept => (
+                <option key={dept} value={dept}>{dept}</option>
               ))}
             </select>
           </div>
@@ -1114,7 +1109,7 @@ export default function OrgChartTab({
                 className="px-4 py-2 bg-indigo-650 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 active:scale-95 cursor-pointer"
               >
                 <Plus className="h-4 w-4" />
-                Thêm Nhân Sự
+                Thêm Nhân Sự hoặc Phòng ban
               </button>
             </>
           )}
@@ -1176,23 +1171,22 @@ export default function OrgChartTab({
               onMouseUp={handleMouseLeaveOrUp}
               onMouseMove={handleMouseMove}
               onWheel={handleWheel}
-              className={`flex-1 overflow-auto p-12 flex items-start justify-start min-h-[440px] select-none ${
-                isDragging ? "cursor-grabbing" : "cursor-grab"
-              }`}
+              className={`flex-1 overflow-auto p-12 flex items-start justify-start min-h-[440px] select-none ${isDragging ? "cursor-grabbing" : "cursor-grab"
+                }`}
               id="interactive_org_chart"
             >
               <div
                 style={
                   isSafari
                     ? {
-                        transform: `scale(${zoomLevel})`,
-                        transformOrigin: "top center",
-                        transition: "transform 0.2s ease-out",
-                      }
+                      transform: `scale(${zoomLevel})`,
+                      transformOrigin: "top center",
+                      transition: "transform 0.2s ease-out",
+                    }
                     : {
-                        zoom: zoomLevel,
-                        transition: "zoom 0.2s ease-out",
-                      }
+                      zoom: zoomLevel,
+                      transition: "zoom 0.2s ease-out",
+                    }
                 }
                 className="flex flex-col items-center mx-auto min-w-max"
               >
@@ -1391,15 +1385,20 @@ export default function OrgChartTab({
                     <strong className="text-slate-800 text-xs font-bold">{selectedEmp.phone}</strong>
                   </div>
                 </div>
-                {selectedEmp.parentId && (
-                  <div className="flex items-center gap-3">
-                    <Users className="w-4.5 h-4.5 text-gray-400 shrink-0" />
-                    <div>
-                      <span className="block text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider">Quản lý trực tiếp</span>
-                      <strong className="text-indigo-700 text-xs font-bold">{employees.find(e => e.id === selectedEmp.parentId)?.name || 'Quản lý cấp trên'}</strong>
+                {selectedEmp.parentId && (() => {
+                  const manager = employees.find(e => e.id === selectedEmp.parentId);
+                  return (
+                    <div className="flex items-center gap-3">
+                      <Users className="w-4.5 h-4.5 text-gray-400 shrink-0" />
+                      <div>
+                        <span className="block text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider">Quản lý trực tiếp</span>
+                        <strong className="text-indigo-700 text-xs font-bold">
+                          {manager ? `${manager.name} (${manager.department})` : 'Quản lý cấp trên'}
+                        </strong>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
                 {(() => {
                   const directSubs = getDirectSubordinates(selectedEmp.id);
                   if (directSubs.length > 0) {
@@ -1411,21 +1410,21 @@ export default function OrgChartTab({
                             <span className="block text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider mb-2">
                               Nhân sự cấp dưới trực tiếp ({directSubs.length})
                             </span>
-                            <div className="flex gap-2.5 overflow-x-auto pb-2 pt-1 pr-1 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
+                            <div className="flex flex-col gap-2 max-h-[220px] overflow-y-auto pb-1 pt-1 pr-1 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
                               {directSubs.map((sub) => (
                                 <button
                                   type="button"
                                   key={sub.id}
                                   onClick={() => setSelectedEmp(sub)}
-                                  className="flex items-center gap-2 bg-slate-50 hover:bg-indigo-50 border border-slate-100 hover:border-indigo-200 px-3 py-2 rounded-xl cursor-pointer transition-all duration-200 text-left shrink-0 active:scale-95 outline-none font-sans w-[145px]"
+                                  className="flex items-center gap-3 bg-slate-50 hover:bg-indigo-50 border border-slate-100 hover:border-indigo-200 px-3.5 py-2.5 rounded-xl cursor-pointer transition-all duration-200 text-left active:scale-95 outline-none font-sans w-full"
                                   title={`Bấm để xem chi tiết ${sub.name}`}
                                 >
-                                  {renderAvatar(sub.avatar, "w-7 h-7", "text-[10px]")}
+                                  {renderAvatar(sub.avatar, "w-8 h-8", "text-xs")}
                                   <div className="min-w-0">
                                     <span className="block text-xs font-bold text-slate-800 truncate">
                                       {sub.name}
                                     </span>
-                                    <span className="block text-[9px] text-slate-500 truncate">
+                                    <span className="block text-[10px] text-slate-500 truncate mt-0.5">
                                       {sub.role}
                                     </span>
                                   </div>

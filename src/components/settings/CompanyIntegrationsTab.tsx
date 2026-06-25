@@ -24,6 +24,10 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
   const [zaloDiagnostics, setZaloDiagnostics] = useState<any | null>(null);
   const [connectingTikTokOAuth, setConnectingTikTokOAuth] = useState(false);
 
+  // Company members integrations state
+  const [companyUsers, setCompanyUsers] = useState<any[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+
   // Form states for Facebook credentials login
   const [fbConnectMode, setFbConnectMode] = useState<"oauth" | "token" | "credentials">("oauth");
   const [fbEmail, setFbEmail] = useState("");
@@ -87,8 +91,29 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
     }
   };
 
+  const fetchCompanyUsers = async () => {
+    setLoadingUsers(true);
+    try {
+      const res = await fetch("/api/v1/auth/users", {
+        headers: {
+          "Authorization": `Bearer ${getAccessToken()}`,
+        },
+      });
+      if (!res.ok) {
+        throw new Error("Không thể tải danh sách nhân sự");
+      }
+      const result = await res.json();
+      setCompanyUsers(result.data || []);
+    } catch (err: any) {
+      console.error("Lỗi khi tải danh sách nhân sự:", err);
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
   useEffect(() => {
     fetchCompanyIntegrations();
+    fetchCompanyUsers();
   }, []);
 
   useEffect(() => {
@@ -117,13 +142,63 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
     return () => window.removeEventListener("message", handleTikTokOAuthMessage);
   }, []);
 
+  const memberIntegrations = React.useMemo(() => {
+    const list: Array<{
+      userId: string;
+      userName: string;
+      email: string;
+      platform: "Facebook" | "TikTok" | "Zalo";
+      displayName: string;
+      username: string;
+    }> = [];
+
+    companyUsers.forEach((u) => {
+      const name = u.displayName || u.email || "Thành viên";
+      
+      if (u.facebookIntegration?.isConnected) {
+        list.push({
+          userId: u._id || u.uid,
+          userName: name,
+          email: u.email,
+          platform: "Facebook",
+          displayName: u.facebookIntegration.pageName || "Facebook Page",
+          username: u.facebookIntegration.pageId || "",
+        });
+      }
+      if (u.zaloIntegration?.isConnected) {
+        list.push({
+          userId: u._id || u.uid,
+          userName: name,
+          email: u.email,
+          platform: "Zalo",
+          displayName: u.zaloIntegration.oaName || "Zalo OA",
+          username: u.zaloIntegration.oaId || "",
+        });
+      }
+      if (u.tiktokIntegration?.isConnected) {
+        list.push({
+          userId: u._id || u.uid,
+          userName: name,
+          email: u.email,
+          platform: "TikTok",
+          displayName: u.tiktokIntegration.displayName || "TikTok Account",
+          username: u.tiktokIntegration.username || "",
+        });
+      }
+    });
+
+    return list;
+  }, [companyUsers]);
+
   const handleTikTokOAuth = async () => {
     setConnectingTikTokOAuth(true);
     try {
       localStorage.removeItem("tt_oauth_result");
       const authUrl = await socialIntegrationService.getTikTokOAuthUrl(
         "company",
-        compPlatform === "TikTok" && editingIntegrationId ? editingIntegrationId : undefined
+        compPlatform === "TikTok" && editingIntegrationId ? editingIntegrationId : undefined,
+        compVerifyToken.trim() || undefined,
+        compAppSecret.trim() || undefined
       );
       if (!authUrl) {
         throw new Error("Khong tao duoc link dang nhap TikTok.");
@@ -1029,8 +1104,11 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
                 Danh sách tài khoản ({companyIntegrations.length})
               </h4>
               <button
-                onClick={fetchCompanyIntegrations}
-                disabled={loadingIntegrations}
+                onClick={() => {
+                  fetchCompanyIntegrations();
+                  fetchCompanyUsers();
+                }}
+                disabled={loadingIntegrations || loadingUsers}
                 className="p-1.5 hover:bg-gray-100 text-gray-500 hover:text-gray-700 rounded-lg transition-all cursor-pointer border border-transparent hover:border-gray-200"
                 title="Tải lại danh sách"
               >
@@ -1160,6 +1238,79 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
                 ))}
               </div>
             )}
+
+            {/* Personal Integrations of Members */}
+            <div className="mt-8 pt-6 border-t border-gray-200 text-left">
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1.5">
+                  Tài khoản cá nhân của các thành viên ({memberIntegrations.length})
+                </h4>
+                <button
+                  onClick={fetchCompanyUsers}
+                  disabled={loadingUsers}
+                  className="p-1.5 hover:bg-gray-100 text-gray-500 hover:text-gray-700 rounded-lg transition-all cursor-pointer border border-transparent hover:border-gray-200"
+                  title="Tải lại danh sách thành viên"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${loadingUsers ? "animate-spin" : ""}`} />
+                </button>
+              </div>
+
+              {loadingUsers ? (
+                <div className="py-6 flex flex-col items-center justify-center gap-2 bg-gray-50/20 border border-gray-150 rounded-2xl">
+                  <div className="w-5 h-5 border-2 border-indigo-650 border-t-transparent rounded-full animate-spin" />
+                  <p className="text-xs text-gray-500">Đang tải danh sách tài khoản thành viên...</p>
+                </div>
+              ) : memberIntegrations.length === 0 ? (
+                <div className="py-8 flex flex-col items-center justify-center gap-2 bg-gray-50/20 border border-gray-150 rounded-2xl text-center px-4">
+                  <Globe className="h-6 w-6 text-gray-300 mb-1" />
+                  <p className="text-xs font-bold text-gray-500">Chưa có liên kết cá nhân nào</p>
+                  <p className="text-[10px] text-gray-400 max-w-xs">
+                    Thành viên công ty chưa thêm liên kết cá nhân ở tab MXH Cá Nhân.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[400px] overflow-y-auto pr-1">
+                  {memberIntegrations.map((item, idx) => (
+                    <div
+                      key={`${item.userId}-${item.platform}-${idx}`}
+                      className="border border-gray-200 rounded-2xl p-4 bg-white shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between gap-3"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex gap-2.5">
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white shrink-0 font-bold text-xs ${
+                            item.platform === "TikTok" ? "bg-black" : item.platform === "Facebook" ? "bg-blue-600" : "bg-[#0068ff]"
+                          }`}>
+                            {item.platform === "TikTok" ? "♪" : item.platform === "Facebook" ? "F" : "Z"}
+                          </div>
+                          <div className="text-left min-w-0">
+                            <h5 className="text-xs font-bold text-gray-800 truncate" title={item.displayName}>
+                              {item.displayName}
+                            </h5>
+                            <p className="text-[10px] text-gray-500 truncate">
+                              {item.platform === "TikTok" ? `@${item.username || "n/a"}` : item.username || "n/a"}
+                            </p>
+                          </div>
+                        </div>
+                        <span className="px-2 py-0.5 bg-gray-100 border border-gray-200 text-gray-600 rounded-full text-[9px] font-bold shrink-0">
+                          Cá nhân
+                        </span>
+                      </div>
+
+                      <div className="bg-slate-50/50 border border-gray-150 rounded-xl p-2.5 text-left text-[10px] space-y-1 font-mono text-gray-500">
+                        <div className="flex justify-between gap-2">
+                          <span className="text-gray-400">Thành viên:</span>
+                          <span className="font-bold text-slate-700 truncate max-w-[130px]">{item.userName}</span>
+                        </div>
+                        <div className="flex justify-between gap-2">
+                          <span className="text-gray-400">Email:</span>
+                          <span className="text-slate-600 truncate max-w-[150px]" title={item.email}>{item.email}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

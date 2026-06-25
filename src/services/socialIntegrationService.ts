@@ -17,6 +17,7 @@ export interface SocialIntegration {
   verifyToken?: string;
   isMock?: boolean;
   blotatoAccountId?: string;
+  aiAutoReplyConfig?: any;
 }
 
 export const socialIntegrationService = {
@@ -153,10 +154,21 @@ export const socialIntegrationService = {
     return result;
   },
 
-  async getTikTokOAuthUrl(target: "personal" | "company", integrationId?: string): Promise<string> {
+  async getTikTokOAuthUrl(
+    target: "personal" | "company",
+    integrationId?: string,
+    clientKey?: string,
+    clientSecret?: string
+  ): Promise<string> {
     const query = new URLSearchParams({ target });
     if (integrationId) {
       query.set("integrationId", integrationId);
+    }
+    if (clientKey) {
+      query.set("clientKey", clientKey);
+    }
+    if (clientSecret) {
+      query.set("clientSecret", clientSecret);
     }
 
     const res = await fetch(`/api/v1/tiktok/oauth/start?${query.toString()}`, {
