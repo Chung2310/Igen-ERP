@@ -423,12 +423,18 @@ export const videoBlueprintService = {
       });
       console.log(`[videoBlueprintService] Uploaded successfully. Name: ${uploadResult.name}. Waiting for status ACTIVE...`);
 
-      // Chờ cho file xử lý xong trên Gemini
+      // Chờ cho file xử lý xong trên Gemini (tối đa 2 phút = 60 lần × 2s)
       let fileState = await ai.files.get({ name: uploadResult.name });
+      let pollAttempts = 0;
+      const MAX_POLL = 60;
       while (fileState.state === "PROCESSING") {
-        console.log("[videoBlueprintService] Video is processing by Gemini, waiting 2 seconds...");
+        if (pollAttempts >= MAX_POLL) {
+          throw new Error("Gemini File API timeout: video đang xử lý quá lâu (> 2 phút).");
+        }
+        console.log(`[videoBlueprintService] Video is processing by Gemini, waiting 2 seconds... (attempt ${pollAttempts + 1}/${MAX_POLL})`);
         await new Promise((resolve) => setTimeout(resolve, 2000));
         fileState = await ai.files.get({ name: uploadResult.name });
+        pollAttempts++;
       }
 
       if (fileState.state !== "ACTIVE") {
@@ -605,8 +611,10 @@ ${userHintSection}`;
     const result = lines.join("\n");
     console.log("[videoBlueprintService] Style extraction completed. Result length:", result.length);
 
-    // Also attach the raw style JSON as metadata comment for downstream use
-    const jsonMeta = `\n\n<!-- STYLE_JSON:${JSON.stringify({ style, targetDuration: scaledDuration, targetVideoUrl })} -->`;
+    // Attach raw style JSON as metadata comment for downstream fast-path use.
+    // Guard: targetDuration must be > 0 to produce valid blueprint later.
+    const effectiveTargetDuration = scaledDuration > 0 ? scaledDuration : effectiveDuration;
+    const jsonMeta = `\n\n<!-- STYLE_JSON:${JSON.stringify({ style, targetDuration: effectiveTargetDuration, targetVideoUrl: targetVideoUrl || null })} -->`;
     return result + jsonMeta;
   },
 
@@ -617,8 +625,7 @@ ${userHintSection}`;
   async copyAndScaleBlueprint(
     userId: string,
     urls: string[],
-    urlDurations: { [url: string]: number },
-    getVideoDurationFn: (url: string) => Promise<number>
+    urlDurations: { [url: string]: number }
   ): Promise<any> {
     if (urls.length < 2) {
       throw new Error("Vui lòng tải lên ít nhất 2 video (video đầu tiên là video mẫu đã sửa, video thứ hai là video mới cần áp dụng chỉnh sửa).");
@@ -646,12 +653,18 @@ ${userHintSection}`;
       });
       console.log(`[videoBlueprintService] Uploaded successfully. Name: ${uploadResult.name}. Waiting for status ACTIVE...`);
 
-      // Chờ cho file xử lý xong trên Gemini
+      // Chờ cho file xử lý xong trên Gemini (tối đa 2 phút = 60 lần × 2s)
       let fileState = await ai.files.get({ name: uploadResult.name });
+      let pollAttempts = 0;
+      const MAX_POLL = 60;
       while (fileState.state === "PROCESSING") {
-        console.log("[videoBlueprintService] Video is processing by Gemini, waiting 2 seconds...");
+        if (pollAttempts >= MAX_POLL) {
+          throw new Error("Gemini File API timeout: video đang xử lý quá lâu (> 2 phút).");
+        }
+        console.log(`[videoBlueprintService] Video is processing by Gemini, waiting 2 seconds... (attempt ${pollAttempts + 1}/${MAX_POLL})`);
         await new Promise((resolve) => setTimeout(resolve, 2000));
         fileState = await ai.files.get({ name: uploadResult.name });
+        pollAttempts++;
       }
 
       if (fileState.state !== "ACTIVE") {
@@ -745,6 +758,11 @@ QUY TẮC PHÂN SỐ THỜI GIAN:
 
     if (!style) {
       throw new Error("Không nhận diện được nội dung kịch bản phân tích từ video mẫu.");
+    }
+
+    // BUG-13 guard: d2 must be > 0 or all timestamps will be 0
+    if (d2 <= 0) {
+      throw new Error("Không xác định được thời lượng video đích. Vui lòng kiểm tra lại video đầu vào.");
     }
 
     // ── Code-side scaling: multiply fractions by target duration ──────────────

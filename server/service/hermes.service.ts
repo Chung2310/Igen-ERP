@@ -108,7 +108,10 @@ export const hermesService = {
     let blueprint = options?.blueprint;
     if (!blueprint) {
       try {
-        const videoDuration = options?.duration || 10;
+        // BUG-06 fix: tính tổng duration từ mảng videoDurations nếu có
+        const videoDuration = (options?.videoDurations && options.videoDurations.length > 0)
+          ? options.videoDurations.reduce((a, b) => a + b, 0)
+          : (options?.duration || 10);
         console.log(`[Hermes] Tự động sinh blueprint cho videoUrl=${videoUrl} duration=${videoDuration}`);
         blueprint = await videoBlueprintService.generateBlueprintFromPrompt(videoUrl, videoDuration, prompt);
       } catch (err) {
@@ -214,7 +217,7 @@ ${buildCloudinaryPrompt()}
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           video_url: videoUrl,
-          prompt: fullPrompt,
+          prompt: fullPrompt + (blueprint ? compileBlueprintToPrompt(blueprint) : ""),
           user_id: userId,
           blueprint: blueprint || {},
         }),
