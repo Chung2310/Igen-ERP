@@ -36,10 +36,7 @@ export default function CRMTab() {
     { slug: "comment-reply", value: "AI COMMENT AUTO-REPLY" as CRMSubTabType },
   ] as const;
   const [subTab, setSubTab] = useSubTabRouter<CRMSubTabType>(CRM_SUB_TAB_ROUTES as any, "PHỄU KHÁCH HÀNG");
-  const [activeChannel, setActiveChannel] = useState<"facebook" | "zalo">("facebook");
-  const [showPageDropdown, setShowPageDropdown] = useState(false);
-
-
+  const [activeChannel, setActiveChannel] = useState<"all" | "facebook" | "zalo" | "tiktok">("all");
 
   // 1. Leads Kanban Pipeline States loaded from Firebase
   const [leads, setLeads] = useState<ExtendedLeadCard[]>([]);
@@ -79,10 +76,21 @@ export default function CRMTab() {
   // 2. Omni-Inbox States
   const { userProfile, updateAiAutoReplyConfig } = useAuth();
   const [companySocialIntegrations, setCompanySocialIntegrations] = useState<SocialIntegration[]>([]);
-  const companyZaloIntegration =
-    companySocialIntegrations.find((item) => item.platform === "Zalo" && item.isConnected) || null;
-  const isZaloConnected =
-    (userProfile?.zaloIntegration?.isConnected ?? false) || !!companyZaloIntegration;
+
+  // Derived connection status from actual integrations (removing forced true)
+  const isFbConnected = React.useMemo(() => {
+    const hasPersonal = !!(userProfile?.facebookIntegration?.isConnected && userProfile.facebookIntegration.pageId);
+    const hasCompany = companySocialIntegrations.some(item => item.platform === "Facebook" && item.isConnected);
+    return hasPersonal || hasCompany;
+  }, [userProfile, companySocialIntegrations]);
+
+  const isZaloConnected = React.useMemo(() => {
+    return companySocialIntegrations.some(item => item.platform === "Zalo" && item.isConnected);
+  }, [companySocialIntegrations]);
+
+  const isTiktokConnected = React.useMemo(() => {
+    return companySocialIntegrations.some(item => item.platform === "TikTok" && item.isConnected);
+  }, [companySocialIntegrations]);
 
   // 3. Multi-page Facebook state
   const facebookPages = React.useMemo(() => {
@@ -107,6 +115,7 @@ export default function CRMTab() {
         }
       }
     });
+
     return list;
   }, [userProfile, companySocialIntegrations]);
 
@@ -115,7 +124,48 @@ export default function CRMTab() {
     return saved || "";
   });
 
-  const isFbConnected = facebookPages.length > 0;
+  // Zalo Accounts
+  const zaloAccounts = React.useMemo(() => {
+    const list: Array<{ _id: string; displayName: string; username: string; isMock?: boolean }> = [];
+    companySocialIntegrations.forEach((item) => {
+      if (item.platform === "Zalo" && item.isConnected && item.username) {
+        list.push({
+          _id: item._id || "company_" + item.username,
+          displayName: item.displayName || `Zalo OA ${item.username}`,
+          username: item.username,
+          isMock: !!item.isMock,
+        });
+      }
+    });
+
+    return list;
+  }, [companySocialIntegrations]);
+
+  const [selectedZaloAccountId, setSelectedZaloAccountId] = useState<string>("");
+
+  // TikTok Accounts
+  const tiktokAccounts = React.useMemo(() => {
+    const list: Array<{ _id: string; displayName: string; username: string; isMock?: boolean }> = [];
+    companySocialIntegrations.forEach((item) => {
+      if (item.platform === "TikTok" && item.isConnected && item.username) {
+        list.push({
+          _id: item._id || "company_" + item.username,
+          displayName: item.displayName || `TikTok Shop ${item.username}`,
+          username: item.username,
+          isMock: !!item.isMock,
+        });
+      }
+    });
+
+    return list;
+  }, [companySocialIntegrations]);
+
+  const [selectedTiktokAccountId, setSelectedTiktokAccountId] = useState<string>("");
+
+  const [showPageDropdown, setShowPageDropdown] = useState(false);
+  const [showZaloDropdown, setShowZaloDropdown] = useState(false);
+  const [showTiktokDropdown, setShowTiktokDropdown] = useState(false);
+  const [showUnifiedDropdown, setShowUnifiedDropdown] = useState(false);
 
   // Synchronize selectedFacebookPageId when facebookPages changes
   useEffect(() => {
@@ -132,6 +182,23 @@ export default function CRMTab() {
       }
     }
   }, [facebookPages, selectedFacebookPageId]);
+
+  // Synchronize Zalo & TikTok selected accounts
+  useEffect(() => {
+    if (zaloAccounts.length > 0) {
+      if (!selectedZaloAccountId || !zaloAccounts.some(a => a.username === selectedZaloAccountId)) {
+        setSelectedZaloAccountId(zaloAccounts[0].username);
+      }
+    }
+  }, [zaloAccounts, selectedZaloAccountId]);
+
+  useEffect(() => {
+    if (tiktokAccounts.length > 0) {
+      if (!selectedTiktokAccountId || !tiktokAccounts.some(a => a.username === selectedTiktokAccountId)) {
+        setSelectedTiktokAccountId(tiktokAccounts[0].username);
+      }
+    }
+  }, [tiktokAccounts, selectedTiktokAccountId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -393,9 +460,11 @@ export default function CRMTab() {
   const loadConversationMessages = async (
     conversationId: string,
     mode: "replace" | "prepend" = "replace",
-    channel?: "facebook" | "zalo",
+    channel?: "facebook" | "zalo" | "tiktok",
     options?: { syncChannel?: boolean }
   ) => {
+
+
     const before = mode === "prepend" ? chatPagination.nextBefore || undefined : undefined;
     if (mode === "prepend") {
       setChatPagination((prev) => ({ ...prev, loadingMore: true }));
@@ -555,7 +624,10 @@ export default function CRMTab() {
         aiPausedUntil: c.aiPausedUntil || null
       } as any));
 
-      const fetchedList = [...mappedFb, ...mappedZalo];
+      let fetchedList = [...mappedFb, ...mappedZalo];
+      
+
+
       const hasMoreFetched = fetchedList.length >= limit;
 
       setInboxCustomers((prev) => {
@@ -762,9 +834,9 @@ export default function CRMTab() {
     };
   }, []);
 
-  // 1. Polling danh sách hội thoại (FB & Zalo) - Tối ưu hiệu năng Visibility
+  // 1. Polling danh sách hội thoại (FB, Zalo & TikTok) - Tối ưu hiệu năng Visibility
   useEffect(() => {
-    if (subTab !== "OMNI-INBOX CHAT" || (!isFbConnected && !isZaloConnected)) return;
+    if (subTab !== "OMNI-INBOX CHAT" || (!isFbConnected && !isZaloConnected && !isTiktokConnected)) return;
 
     // Tải và tự động chọn cuộc hội thoại đầu tiên khi mount, đổi page FB, hoặc đổi kết nối
     fetchOmniConversations(true, { syncFacebook: true, reset: true });
@@ -786,7 +858,7 @@ export default function CRMTab() {
       clearInterval(interval);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [subTab, isFbConnected, isZaloConnected, selectedFacebookPageId, socketConnected]);
+  }, [subTab, isFbConnected, isZaloConnected, isTiktokConnected, selectedFacebookPageId, selectedZaloAccountId, selectedTiktokAccountId, socketConnected]);
 
   // 2. Polling lịch sử tin nhắn của hội thoại đang chọn - Tối ưu hiệu năng Visibility
   useEffect(() => {
@@ -1086,11 +1158,13 @@ export default function CRMTab() {
     setTypeMessage("");
 
     // Cập nhật trạng thái tạm dừng AI 5 phút cho cuộc hội thoại này trên giao diện lập tức
-    const pausedUntil = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+    const pausedUntil = new Date(Date.now() + 30 * 60 * 1000).toISOString();
     setActiveCustomer((prev) => prev ? { ...prev, aiPausedUntil: pausedUntil } : null);
     setInboxCustomers((prev) =>
       prev.map((c) => (c.id === activeCustomer.id ? { ...c, aiPausedUntil: pausedUntil } : c))
     );
+
+
 
     try {
       if (activeCustomer.channel === "zalo") {
@@ -1155,11 +1229,16 @@ export default function CRMTab() {
     }
   }, [activeCustomer, inboxCustomers]);
 
-  const activeFbPage = facebookPages.find((p) => p._id === selectedFacebookPageId);
+  const activeFbPage = facebookPages.find((p) => p.username === selectedFacebookPageId);
   const activeFbPageName = activeFbPage?.displayName || "Chọn trang FB";
 
-  return (
+  const activeZaloAccount = zaloAccounts.find((a) => a.username === selectedZaloAccountId);
+  const activeZaloAccountName = activeZaloAccount?.displayName || "Chọn Zalo";
 
+  const activeTiktokAccount = tiktokAccounts.find((a) => a.username === selectedTiktokAccountId);
+  const activeTiktokAccountName = activeTiktokAccount?.displayName || "Chọn TikTok";
+
+  return (
     <div className="flex flex-col h-full bg-white overflow-hidden rounded-3xl border border-slate-100 shadow-xl shadow-slate-100/50" id="crm_tab_wrapper">
       <h1 className="sr-only">Hệ thống Sales CRM - {subTab}</h1>
 
@@ -1182,106 +1261,132 @@ export default function CRMTab() {
 
         {/* Global Social Media Channel Filters */}
         <div className="flex items-center gap-2 relative">
-          <div className="flex bg-slate-200/50 p-1 rounded-xl text-[10px] font-bold shadow-inner" id="inbox_channel_filters">
-            {/* Facebook Dropdown Button */}
-            {isFbConnected && (
-              <div className="relative">
-                <button
-                  onClick={() => {
-                    if (activeChannel !== "facebook") {
-                      setActiveChannel("facebook");
-                      setShowPageDropdown(false);
-                    } else {
-                      setShowPageDropdown(!showPageDropdown);
-                    }
-                  }}
-                  className={`py-1.5 px-3 rounded-lg font-bold transition-all duration-200 cursor-pointer flex items-center justify-center gap-1.5 ${
-                    activeChannel === "facebook"
-                      ? "bg-white text-slate-900 shadow-sm border border-slate-200/20"
-                      : "text-slate-500 hover:text-slate-800 hover:bg-white/40"
-                  }`}
-                >
-                  <svg className="h-3.5 w-3.5 fill-current text-blue-600 shrink-0" viewBox="0 0 24 24">
-                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-                  </svg>
-                  <span className="max-w-[120px] truncate">{activeFbPageName}</span>
-                  <span className={`px-1.5 py-0.2 rounded-full text-[8.5px] font-semibold transition-colors duration-200 ${
-                    activeChannel === "facebook" ? "bg-slate-900 text-white" : "bg-slate-300/60 text-slate-600"
-                  }`}>
-                    {inboxCustomers.filter((c) => c.channel === "facebook").length}
-                  </span>
-                  <svg className={`h-3 w-3 text-slate-400 transition-transform duration-200 shrink-0 ${showPageDropdown ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-
-                {/* Dropdown Menu */}
-                {showPageDropdown && (
-                  <>
-                    <div className="fixed inset-0 z-40 cursor-default" onClick={() => setShowPageDropdown(false)} />
-                    <div className="absolute right-0 mt-1.5 w-60 bg-white border border-slate-200/80 rounded-xl shadow-xl z-50 py-1.5 animate-in fade-in slide-in-from-top-1 duration-150">
-                      <div className="px-3 py-1 text-[9px] text-slate-400 font-bold uppercase tracking-wider border-b border-slate-50 mb-1">
-                        Chọn trang Facebook
-                      </div>
-                      <div className="max-h-60 overflow-y-auto">
-                        {facebookPages.map((page) => {
-                          const isSelected = page._id === selectedFacebookPageId;
-                          return (
-                            <button
-                              key={page._id}
-                              onClick={() => {
-                                setSelectedFacebookPageId(page._id);
-                                setShowPageDropdown(false);
-                              }}
-                              className={`w-full text-left px-3 py-2 text-[10px] transition-colors flex items-center justify-between font-medium cursor-pointer ${
-                                isSelected
-                                  ? "bg-blue-50 text-blue-600 font-bold"
-                                  : "text-slate-600 hover:bg-slate-50"
-                              }`}
-                            >
-                              <span className="truncate pr-2">{page.displayName}</span>
-                              {isSelected && (
-                                <svg className="h-3 w-3 text-blue-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                                </svg>
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
-
-            {/* Zalo Button */}
-            {isZaloConnected && (
+          <div className="flex items-center gap-1.5" id="inbox_channel_filters">
+            {/* Unified Account Selector Button */}
+            <div className="relative">
               <button
                 onClick={() => {
-                  setActiveChannel("zalo");
-                  setShowPageDropdown(false);
+                  setShowUnifiedDropdown(!showUnifiedDropdown);
                 }}
-                className={`py-1.5 px-3 rounded-lg font-bold transition-all duration-200 cursor-pointer flex items-center justify-center gap-1.5 ${
-                  activeChannel === "zalo"
-                    ? "bg-white text-slate-900 shadow-sm border border-slate-200/20"
-                    : "text-slate-500 hover:text-slate-800 hover:bg-white/40"
-                }`}
+                className="py-1.5 px-3 rounded-lg bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 shadow-xxs text-[10px] font-extrabold transition-all duration-200 cursor-pointer flex items-center justify-center gap-2"
               >
-                <span className="w-3.5 h-3.5 bg-blue-500 text-white text-[8px] font-extrabold rounded-full flex items-center justify-center leading-none shrink-0 font-sans shadow-xxs">Z</span>
-                <span>Zalo</span>
-                <span className={`px-1.5 py-0.2 rounded-full text-[8.5px] font-semibold transition-colors duration-200 ${
-                  activeChannel === "zalo" ? "bg-slate-900 text-white" : "bg-slate-300/60 text-slate-600"
-                }`}>
-                  {inboxCustomers.filter((c) => c.channel === "zalo").length}
+                <span className="flex items-center -space-x-1">
+                  <span className="w-3.5 h-3.5 bg-blue-600 text-white text-[8px] font-extrabold rounded-full flex items-center justify-center leading-none ring-1.5 ring-white font-sans shrink-0 shadow-xxs">f</span>
+                  <span className="w-3.5 h-3.5 bg-sky-500 text-white text-[8.5px] font-extrabold rounded-full flex items-center justify-center leading-none ring-1.5 ring-white font-sans shrink-0 shadow-xxs">Z</span>
+                  <span className="w-3.5 h-3.5 bg-black text-white text-[7px] font-extrabold rounded-full flex items-center justify-center leading-none ring-1.5 ring-white font-sans shrink-0 shadow-xxs">T</span>
                 </span>
+                <span className="text-[10px] text-slate-800 font-bold max-w-[150px] truncate">
+                  {activeChannel === "all" && "Tất cả kênh"}
+                  {activeChannel === "facebook" && `FB: ${activeFbPageName}`}
+                  {activeChannel === "zalo" && `Zalo: ${activeZaloAccountName}`}
+                  {activeChannel === "tiktok" && `TikTok: ${activeTiktokAccountName}`}
+                </span>
+                <svg className={`h-3.5 w-3.5 text-slate-400 transition-transform duration-200 shrink-0 ${showUnifiedDropdown ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
               </button>
-            )}
+
+              {/* Unified Dropdown Menu */}
+              {showUnifiedDropdown && (
+                <>
+                  <div className="fixed inset-0 z-40 cursor-default" onClick={() => setShowUnifiedDropdown(false)} />
+                  <div className="absolute right-0 mt-1.5 w-64 bg-white border border-slate-200/80 rounded-2xl shadow-xl z-50 p-3.5 animate-in fade-in slide-in-from-top-1 duration-150 text-left">
+                    
+                    <div className="flex justify-between items-center pb-2 border-b border-slate-100 mb-3">
+                      <div className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">
+                        Chọn tài khoản hiển thị
+                      </div>
+                      <button 
+                        onClick={() => {
+                          setActiveChannel("all");
+                          setShowUnifiedDropdown(false);
+                        }}
+                        className="text-[9px] font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded-md transition-colors cursor-pointer"
+                      >
+                        Hiện tất cả
+                      </button>
+                    </div>
+
+                    <div className="space-y-4">
+                      {/* Facebook Page Selection */}
+                      {isFbConnected && (
+                        <div className="space-y-1">
+                          <label className="text-[9.5px] font-bold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+                            <span className="w-3.5 h-3.5 bg-blue-600 text-white text-[8px] font-extrabold rounded-full flex items-center justify-center leading-none shrink-0 font-sans shadow-xxs">f</span>
+                            Facebook Page
+                          </label>
+                          <select
+                            value={selectedFacebookPageId}
+                            onChange={(e) => {
+                              setSelectedFacebookPageId(e.target.value);
+                              setActiveChannel("facebook");
+                              scheduleConversationRefresh();
+                            }}
+                            className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-[10px] font-medium bg-slate-50 hover:bg-slate-100/50 transition-colors outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/10 cursor-pointer"
+                          >
+                            {facebookPages.map((page) => (
+                              <option key={page._id} value={page.username}>{page.displayName}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+
+                      {/* Zalo Account Selection */}
+                      {isZaloConnected && (
+                        <div className="space-y-1">
+                          <label className="text-[9.5px] font-bold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+                            <span className="w-3.5 h-3.5 bg-sky-500 text-white text-[8px] font-extrabold rounded-full flex items-center justify-center leading-none shrink-0 font-sans shadow-xxs">Z</span>
+                            Zalo Official Account
+                          </label>
+                          <select
+                            value={selectedZaloAccountId}
+                            onChange={(e) => {
+                              setSelectedZaloAccountId(e.target.value);
+                              setActiveChannel("zalo");
+                              scheduleConversationRefresh();
+                            }}
+                            className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-[10px] font-medium bg-slate-50 hover:bg-slate-100/50 transition-colors outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/10 cursor-pointer"
+                          >
+                            {zaloAccounts.map((acc) => (
+                              <option key={acc._id} value={acc.username}>{acc.displayName}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+
+                      {/* TikTok Shop Selection */}
+                      {isTiktokConnected && (
+                        <div className="space-y-1">
+                          <label className="text-[9.5px] font-bold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+                            <span className="w-3.5 h-3.5 bg-black text-white text-[7px] font-extrabold rounded-full flex items-center justify-center leading-none shrink-0 font-sans shadow-xxs">T</span>
+                            TikTok Shop
+                          </label>
+                          <select
+                            value={selectedTiktokAccountId}
+                            onChange={(e) => {
+                              setSelectedTiktokAccountId(e.target.value);
+                              setActiveChannel("tiktok");
+                              scheduleConversationRefresh();
+                            }}
+                            className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-[10px] font-medium bg-slate-50 hover:bg-slate-100/50 transition-colors outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/10 cursor-pointer"
+                          >
+                            {tiktokAccounts.map((acc) => (
+                              <option key={acc._id} value={acc.username}>{acc.displayName}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                    </div>
+
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="flex-1 overflow-hidden" id="crm_tab_main_content">
+      <div className="flex-grow flex-1 overflow-hidden" id="crm_tab_main_content">
         <Suspense fallback={<TabLoader label="Đang tải dữ liệu CRM..." />}>
           {subTab === "PHỄU KHÁCH HÀNG" && (
             <PipelineTab

@@ -29,12 +29,13 @@ type OmniChatTabProps = {
   copyingConfig?: boolean;
   onLoadMoreConversations?: () => void;
   hasMoreConversations?: boolean;
-  activeChannel: "facebook" | "zalo";
-  setActiveChannel: (val: "facebook" | "zalo") => void;
+  activeChannel: "all" | "facebook" | "zalo" | "tiktok";
+  setActiveChannel: (val: "all" | "facebook" | "zalo" | "tiktok") => void;
   isFbConnected: boolean;
   isZaloConnected: boolean;
+  isTiktokConnected?: boolean;
   isInboxLoading: boolean;
-  onResumeAI?: (conversationId: string, channel: "facebook" | "zalo") => Promise<void>;
+  onResumeAI?: (conversationId: string, channel: "facebook" | "zalo" | "tiktok") => Promise<void>;
 };
 
 export const OmniChatTab: React.FC<OmniChatTabProps> = ({
@@ -64,14 +65,98 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
   setActiveChannel,
   isFbConnected,
   isZaloConnected,
+  isTiktokConnected,
   isInboxLoading,
   onResumeAI,
 }) => {
   const [filterInbox, setFilterInbox] = useState("");
-
-
   const [showConfig, setShowConfig] = useState(false);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+
+  // Drag to scroll refs & state for the channel selector
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [scrollLeft, setScrollLeft] = useState(0);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!scrollRef.current) return;
+    setIsDragging(true);
+    setStartX(e.pageX - scrollRef.current.offsetLeft);
+    setScrollLeft(scrollRef.current.scrollLeft);
+  };
+
+  const handleMouseLeave = () => {
+    setIsDragging(false);
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || !scrollRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - scrollRef.current.offsetLeft;
+    const walk = (x - startX) * 1.5;
+    scrollRef.current.scrollLeft = scrollLeft - walk;
+  };
+
+  // State to hold sliding indicator position and width
+  const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
+
+  // Update sliding indicator position based on active tab measurements
+  useEffect(() => {
+    const updateIndicator = () => {
+      if (scrollRef.current) {
+        const activeBtn = scrollRef.current.querySelector(
+          `[data-tab-key="${activeChannel}"]`
+        ) as HTMLElement;
+        if (activeBtn) {
+          setIndicatorStyle({
+            left: activeBtn.offsetLeft,
+            width: activeBtn.offsetWidth,
+          });
+        }
+      }
+    };
+
+    // Run initially and set up ResizeObserver to handle dynamically sized buttons
+    updateIndicator();
+    
+    // We observe the container for size changes
+    const resizeObserver = new ResizeObserver(updateIndicator);
+    if (scrollRef.current) {
+      resizeObserver.observe(scrollRef.current);
+    }
+
+    window.addEventListener("resize", updateIndicator);
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", updateIndicator);
+    };
+  }, [activeChannel, inboxCustomers]);
+
+  // Scroll active tab into view when activeChannel changes
+  useEffect(() => {
+    if (scrollRef.current) {
+      const activeTabElement = scrollRef.current.querySelector(
+        `[data-tab-key="${activeChannel}"]`
+      ) as HTMLElement;
+      if (activeTabElement) {
+        const container = scrollRef.current;
+        const containerWidth = container.clientWidth;
+        const tabLeft = activeTabElement.offsetLeft;
+        const tabWidth = activeTabElement.clientWidth;
+
+        container.scrollTo({
+          left: tabLeft - containerWidth / 2 + tabWidth / 2,
+          behavior: "smooth",
+        });
+      }
+    }
+  }, [activeChannel]);
+
   const [showScrollBottom, setShowScrollBottom] = useState(false);
   const [aiCountdownText, setAICountdownText] = useState("");
 
@@ -256,9 +341,9 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
         try {
           const base64String = reader.result as string;
           const base64Data = base64String.split(",")[1];
-          
+
           const data = await geminiApi.uploadLocalDocument(file.name, base64Data, file.type);
-          
+
           const nextConfig = {
             ...localConfig,
             trainingKnowledge: data.text
@@ -299,10 +384,10 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
       await setAIConfig(nextConfig);
       setTestReply(null);
       await refreshAIHealth();
-      toast.success("Da xoa toan bo tai lieu AI da feed.");
+      toast.success("Đã xóa toàn bộ tài liệu AI đã feed.");
     } catch (err: any) {
       console.error(err);
-      toast.error(err.message || "Khong the xoa tai lieu AI.");
+      toast.error(err.message || "Không thể xóa tài liệu AI.");
     } finally {
       setClearingKnowledge(false);
     }
@@ -442,8 +527,68 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
             />
           </div>
 
+          {/* Platform Filter Tabs with sliding scrollable design */}
+          <div className="relative w-full overflow-hidden">
+            {/* Embedded styles to hide scrollbar */}
+            <style>{`
+              .no-scrollbar::-webkit-scrollbar {
+                display: none;
+              }
+            `}</style>
+            
+            <div
+              ref={scrollRef}
+              onMouseDown={handleMouseDown}
+              onMouseLeave={handleMouseLeave}
+              onMouseUp={handleMouseUp}
+              onMouseMove={handleMouseMove}
+              className="relative flex bg-slate-100/90 p-1 rounded-xl w-full overflow-x-auto no-scrollbar scroll-smooth select-none cursor-grab active:cursor-grabbing gap-1 border border-slate-200/40"
+              id="inbox_sidebar_channel_tabs"
+              style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+            >
+              {/* Sliding Pill Background Indicator */}
+              <div
+                className="absolute top-1 bottom-1 bg-white rounded-lg shadow-sm border border-slate-200/30 transition-all duration-350 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
+                style={{
+                  width: `${indicatorStyle.width}px`,
+                  left: `${indicatorStyle.left}px`,
+                }}
+              />
 
-
+              {([
+                { key: "all", label: "Tất cả", icon: <Sliders className="h-3 w-3 shrink-0" /> },
+                { key: "facebook", label: "Facebook", icon: <svg className="h-3.5 w-3.5 fill-current text-blue-600 shrink-0" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" /></svg> },
+                { key: "zalo", label: "Zalo", icon: <span className="w-3.5 h-3.5 bg-blue-500 text-white text-[8px] font-extrabold rounded-full flex items-center justify-center leading-none shrink-0 font-sans shadow-xxs">Z</span> },
+                { key: "tiktok", label: "TikTok", icon: <span className="w-3.5 h-3.5 bg-black text-white text-[6.5px] font-extrabold rounded-full flex items-center justify-center leading-none shrink-0 font-sans shadow-xxs">T</span> },
+              ] as const).map((tab) => {
+                const isTabActive = activeChannel === tab.key;
+                const count = tab.key === "all"
+                  ? inboxCustomers.length
+                  : inboxCustomers.filter(c => c.channel === tab.key).length;
+                return (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    data-tab-key={tab.key}
+                    onClick={() => setActiveChannel(tab.key)}
+                    className={`relative z-10 shrink-0 flex items-center gap-1.5 py-1.5 px-3 rounded-lg transition-all duration-300 cursor-pointer whitespace-nowrap ${
+                      isTabActive
+                        ? "text-slate-900 font-extrabold"
+                        : "text-slate-500 hover:text-slate-800 font-bold"
+                    }`}
+                  >
+                    {tab.icon}
+                    <span className="text-[10px] leading-none">{tab.label}</span>
+                    <span className={`px-1 py-0.5 rounded-full text-[8px] font-extrabold transition-colors duration-300 leading-none ${
+                      isTabActive ? "bg-slate-900 text-white" : "bg-slate-200/80 text-slate-500"
+                    }`}>
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
         </div>
 
@@ -471,7 +616,7 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
               {inboxCustomers
                 .filter((c) => {
                   const matchesSearch = c.name.toLowerCase().includes(filterInbox.toLowerCase());
-                  const matchesChannel = c.channel === activeChannel;
+                  const matchesChannel = (activeChannel as string) === "all" || c.channel === activeChannel;
                   return matchesSearch && matchesChannel;
                 })
                 .map((cust) => {
@@ -738,7 +883,8 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                     </span>
                   )}
                 </div>
-                {chatHistory.map((h) => {
+
+                {chatHistory.map((h, index) => {
                   const isMe = h.sender === "agent";
                   const isAI = h.sender === "ai";
                   const isSystem = h.text.includes("[AI AUTOMATION]");
@@ -747,59 +893,88 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                   const hasImageAttachment = primaryAttachment?.url && ["image", "sticker"].includes(primaryAttachment.type);
                   const displayText = h.text || (attachments.length > 0 ? (primaryAttachment?.type === "sticker" ? "[Biểu tượng]" : "[Đính kèm]") : "");
 
+                  // Kiểm tra hiển thị phân cách ngày
+                  const prevMsg = index > 0 ? chatHistory[index - 1] : null;
+                  const showDateDivider = !prevMsg || new Date(h.timestamp).toDateString() !== new Date(prevMsg.timestamp).toDateString();
+
+                  // Định dạng ngày hiển thị
+                  let dateStr = "";
+                  if (showDateDivider) {
+                    const messageDate = new Date(h.timestamp);
+                    const today = new Date();
+                    const yesterday = new Date();
+                    yesterday.setDate(today.getDate() - 1);
+
+                    if (messageDate.toDateString() === today.toDateString()) {
+                      dateStr = "Hôm nay";
+                    } else if (messageDate.toDateString() === yesterday.toDateString()) {
+                      dateStr = "Hôm qua";
+                    } else {
+                      dateStr = messageDate.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
+                    }
+                  }
+
                   return (
-                    <div
-                      key={h.id}
-                      className={`flex flex-col ${isMe ? "items-end" : "items-start"} animate-fade-in-up`}
-                    >
-                      <div className={`flex items-end gap-2 max-w-[78%] relative ${isMe ? "flex-row-reverse" : ""}`}>
-                        {!isMe && (
-                          <div className="shrink-0 mr-1 rounded-full shadow-sm select-none">
-                            {isAI ? (
-                              <span className="text-lg w-8 h-8 bg-white border border-slate-200 rounded-full flex items-center justify-center">
-                                🤖
-                              </span>
-                            ) : (
-                              renderCustomerAvatar(activeCustomer, "h-8 w-8")
-                            )}
-                          </div>
-                        )}
-
-                        <div className={`p-3.5 rounded-3xl relative shadow-xs transition-all duration-200 ${isMe
-                          ? "bg-gradient-to-tr from-blue-600 via-indigo-600 to-indigo-700 text-white rounded-br-none text-left font-sans text-xs hover:shadow-md"
-                          : isSystem
-                            ? "bg-emerald-50/90 border border-emerald-200 text-emerald-950 rounded-bl-none text-left font-mono text-[10.5px] shadow-sm shadow-emerald-500/5"
-                            : isAI
-                              ? "bg-gradient-to-tr from-indigo-50 to-purple-50/70 border border-indigo-100 text-indigo-950 rounded-bl-none text-left font-sans text-xs shadow-sm shadow-indigo-500/5"
-                              : "bg-white border border-slate-100 hover:border-slate-200 text-slate-800 rounded-bl-none text-left font-sans text-xs hover:shadow-sm"
-                          }`}>
-                          {isAI && (
-                            <span className={`text-[8px] font-mono block font-bold tracking-wider mb-1 uppercase ${isSystem ? "text-emerald-600" : "text-indigo-500"
-                              }`}>
-                              {isSystem ? "✦ HỆ THỐNG AI TỰ ĐỘNG CHỐT SALES" : "✦ iGen AI Assistant (Trả lời tự động)"}
-                            </span>
-                          )}
-                          {hasImageAttachment && (
-                            <img
-                              src={primaryAttachment.url}
-                              alt={primaryAttachment.type === "sticker" ? "Facebook sticker" : "Facebook attachment"}
-                              className="max-w-[220px] max-h-[220px] rounded-2xl mb-2 object-contain bg-white/70 cursor-zoom-in hover:brightness-95 active:scale-98 transition-all duration-200 border border-slate-150/40 shadow-xs"
-                              loading="lazy"
-                              referrerPolicy="no-referrer"
-                              onClick={() => setLightboxImage(primaryAttachment.url)}
-                            />
-                          )}
-                          {displayText ? (
-                            <p className="leading-relaxed whitespace-pre-wrap select-text">{displayText}</p>
-                          ) : null}
+                    <React.Fragment key={h.id}>
+                      {showDateDivider && (
+                        <div className="flex justify-center my-3">
+                          <span className="bg-slate-100 text-slate-500 text-[9.5px] font-bold font-sans px-3 py-1 rounded-full shadow-xxs border border-slate-150/40">
+                            {dateStr}
+                          </span>
                         </div>
-                      </div>
+                      )}
+                      <div
+                        className={`flex flex-col ${isMe ? "items-end" : "items-start"} animate-fade-in-up`}
+                      >
+                        <div className={`flex items-end gap-2 max-w-[78%] relative ${isMe ? "flex-row-reverse" : ""}`}>
+                          {!isMe && (
+                            <div className="shrink-0 mr-1 rounded-full shadow-sm select-none">
+                              {isAI ? (
+                                <span className="text-lg w-8 h-8 bg-white border border-slate-200 rounded-full flex items-center justify-center">
+                                  🤖
+                                </span>
+                              ) : (
+                                renderCustomerAvatar(activeCustomer, "h-8 w-8")
+                              )}
+                            </div>
+                          )}
 
-                      <span className="text-[8.5px] text-slate-400 font-mono mt-1.5 select-none font-sans">
-                        {isMe ? "CRM Operator • " : isAI ? "Trợ lý AI • " : `${activeCustomer.name} • `}
-                        {new Date(h.timestamp).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })} • {new Date(h.timestamp).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" })}
-                      </span>
-                    </div>
+                          <div className={`p-3.5 rounded-3xl relative shadow-xs transition-all duration-200 ${isMe
+                            ? "bg-gradient-to-tr from-blue-600 via-indigo-600 to-indigo-700 text-white rounded-br-none text-left font-sans text-xs hover:shadow-md"
+                            : isSystem
+                              ? "bg-emerald-50/90 border border-emerald-200 text-emerald-950 rounded-bl-none text-left font-mono text-[10.5px] shadow-sm shadow-emerald-500/5"
+                              : isAI
+                                ? "bg-gradient-to-tr from-indigo-50 to-purple-50/70 border border-indigo-100 text-indigo-950 rounded-bl-none text-left font-sans text-xs shadow-sm shadow-indigo-500/5"
+                                : "bg-white border border-slate-100 hover:border-slate-200 text-slate-800 rounded-bl-none text-left font-sans text-xs hover:shadow-sm"
+                            }`}>
+                            {isAI && (
+                              <span className={`text-[8px] font-mono block font-bold tracking-wider mb-1 uppercase ${isSystem ? "text-emerald-600" : "text-indigo-500"
+                                }`}>
+                                {isSystem ? "✦ HỆ THỐNG AI TỰ ĐỘNG CHỐT SALES" : "✦ iGen AI Assistant (Trả lời tự động)"}
+                              </span>
+                            )}
+                            {hasImageAttachment && (
+                              <img
+                                src={primaryAttachment.url}
+                                alt={primaryAttachment.type === "sticker" ? "Facebook sticker" : "Facebook attachment"}
+                                className="max-w-[220px] max-h-[220px] rounded-2xl mb-2 object-contain bg-white/70 cursor-zoom-in hover:brightness-95 active:scale-98 transition-all duration-200 border border-slate-150/40 shadow-xs"
+                                loading="lazy"
+                                referrerPolicy="no-referrer"
+                                onClick={() => setLightboxImage(primaryAttachment.url)}
+                              />
+                            )}
+                            {displayText ? (
+                              <p className="leading-relaxed whitespace-pre-wrap select-text">{displayText}</p>
+                            ) : null}
+                          </div>
+                        </div>
+
+                        <span className="text-[8.5px] text-slate-400 font-mono mt-1.5 select-none font-sans">
+                          {isMe ? "CRM Operator • " : isAI ? "Trợ lý AI • " : `${activeCustomer.name} • `}
+                          {new Date(h.timestamp).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                      </div>
+                    </React.Fragment>
                   );
                 })}
 

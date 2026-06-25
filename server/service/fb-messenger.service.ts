@@ -702,7 +702,7 @@ export const fbMessengerService = {
       conversation.lastMessageText = text;
       conversation.lastMessageAt = new Date();
       conversation.unreadCount = 0;
-      conversation.aiPausedUntil = new Date(Date.now() + 5 * 60 * 1000); // Tạm dừng AI cho cuộc hội thoại này 5 phút
+      conversation.aiPausedUntil = new Date(Date.now() + 30 * 60 * 1000); // Tạm dừng AI cho cuộc hội thoại này 30 phút
       await conversation.save();
 
       const newMsg = new FBMessageModel({

@@ -31,7 +31,7 @@ export default function PrivacyPolicy() {
           </div>
           <div className="border border-slate-100 rounded-2xl p-4 bg-slate-50/50">
             <strong className="block text-[10px] uppercase text-slate-400 tracking-wider mb-1">Công ty</strong>
-            <span className="font-semibold text-slate-700">Cổ phần iGen</span>
+            <span className="font-semibold text-slate-700">CÔNG TY CỔ PHẦN CÔNG NGHỆ IGEN</span>
           </div>
         </div>
       </div>
