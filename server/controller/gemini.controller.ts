@@ -9,6 +9,7 @@ import { AIMediaModel } from "../model/ai-media.model";
 import { broadcastEvent } from "../socket";
 import * as XLSX from "xlsx";
 import { GoogleGenAI } from "@google/genai";
+import { freeLLMService, freeLLMChat } from "../service/freellm.service";
 
 function handleGeminiError(res: Response, error: any, defaultMessage: string) {
   const isPiApiError = String(error.message || "").toUpperCase().includes("PIAPI");
@@ -887,7 +888,7 @@ export const geminiController = {
    */
   async editVideo(req: Request, res: Response) {
     try {
-      const { videoUrl, prompt, modelName, aspectRatio, resolution, duration, videoDurations, blueprint } = req.body;
+      const { videoUrl, prompt, modelName, aspectRatio, resolution, duration, videoDurations, blueprint, renderMode } = req.body;
       const userId = (req as any).user?.id;
 
       if (!userId) {
@@ -901,6 +902,7 @@ export const geminiController = {
         duration,
         videoDurations,
         blueprint,
+        renderMode,
       });
 
       return res.status(200).json(result);
@@ -1430,5 +1432,91 @@ export const geminiController = {
         details: error.message
       });
     }
-  }
+  },
+
+  /**
+   * GET /api/v1/gemini/freellm-status
+   * Kiểm tra xem FreeLLM API đã cấu hình chưa
+   */
+  async freeLLMStatus(req: Request, res: Response) {
+    const configured = freeLLMService.isConfigured();
+    return res.status(200).json({
+      status: "success",
+      configured,
+      model: process.env.FREELLM_API_MODEL || "auto",
+      url: process.env.FREELLM_API_URL || null,
+      message: configured
+        ? "FreeLLM API đã được cấu hình và sẵn sàng sử dụng."
+        : "FreeLLM API chưa cấu hình (FREELLM_API_KEY còn trống)."
+    });
+  },
+
+  /**
+   * POST /api/v1/gemini/freellm-chat
+   * Gửi tin nhắn trực tiếp đến FreeLLM API
+   */
+  async freeLLMChatHandler(req: Request, res: Response) {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
+      }
+
+      const { messages, prompt, systemPrompt, temperature, maxTokens, jsonMode, action } = req.body;
+
+      if (!freeLLMService.isConfigured()) {
+        return res.status(503).json({
+          status: "error",
+          message: "FreeLLM API chưa được cấu hình. Vui lòng thêm FREELLM_API_KEY vào .env."
+        });
+      }
+
+      // Hành động tiện ích đặc biệt
+      if (action === "optimize-prompt" && prompt) {
+        const optimized = await freeLLMService.optimizePrompt(prompt);
+        return res.status(200).json({ status: "success", result: optimized });
+      }
+
+      if (action === "summarize" && prompt) {
+        const summary = await freeLLMService.summarize(prompt, maxTokens || 150);
+        return res.status(200).json({ status: "success", result: summary });
+      }
+
+      if (action === "marketing" && prompt) {
+        const { platform = "general", tone, language } = req.body;
+        const content = await freeLLMService.generateMarketingContent({ topic: prompt, platform, tone, language });
+        return res.status(200).json({ status: "success", result: content });
+      }
+
+      // Chat thông thường (multi-turn hoặc single prompt)
+      const chatMessages = messages || (prompt ? [{ role: "user", content: prompt }] : null);
+      if (!chatMessages || chatMessages.length === 0) {
+        return res.status(400).json({
+          status: "error",
+          message: "Thiếu nội dung tin nhắn. Vui lòng cung cấp 'messages' hoặc 'prompt'."
+        });
+      }
+
+      const result = await freeLLMChat(chatMessages, {
+        systemPrompt,
+        temperature,
+        maxTokens,
+        jsonMode,
+      });
+
+      return res.status(200).json({
+        status: "success",
+        content: result.content,
+        model: result.model,
+        usage: result.usage,
+      });
+    } catch (error: any) {
+      console.error("[geminiController.freeLLMChat] Error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Lỗi kết nối FreeLLM API",
+        details: error.message
+      });
+    }
+  },
 };

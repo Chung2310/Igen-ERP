@@ -3,6 +3,7 @@ import { AIMediaModel } from "../model/ai-media.model";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
+import { freeLLMJson, isFreeLLMConfigured } from "./freellm.service";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 
@@ -355,6 +356,180 @@ function buildBlueprintFromStyle(
   return { timeline };
 }
 
+async function generateStyleViaFreeLLM(
+  userPrompt?: string,
+  durationSeconds = 60,
+  targetDuration?: number
+): Promise<VideoStyleSchema> {
+  const userHint = (userPrompt && userPrompt.trim()) ? userPrompt.trim() : "Tạo video chất lượng, nhịp điệu sinh động và có nhạc nền phù hợp.";
+  const effectiveTargetDuration = targetDuration || durationSeconds;
+
+  const promptText = `Bạn là một chuyên gia biên tập video và kiến trúc sư kịch bản Remotion chuyên nghiệp.
+Chúng tôi cần bạn thiết kế một phong cách biên tập video (VideoStyleSchema) dạng JSON dưới đây để làm nền tảng sinh kịch bản chỉnh sửa cho video có tổng thời lượng gốc là ${durationSeconds} giây và video đích là ${effectiveTargetDuration} giây.
+
+Yêu cầu chỉnh sửa / Ý tưởng từ người dùng: "${userHint}"
+
+⚠️ YÊU CẦU ĐẦU RA (MANDATORY - CRITICAL):
+Trả về CHÍNH XÁC một đối tượng JSON hợp lệ theo schema sau. KHÔNG thêm bất kỳ văn bản nào ngoài JSON.
+
+{
+  "editingStyle": "mô tả ngắn về phong cách dựng tổng thể (vd: fast-cut cinematic, slow narrative, upbeat social media)",
+  "musicGenre": "upbeat | tech | corporate | lofi | acoustic | none",
+  "useSFXTransitions": true | false,
+  "segments": [
+    {
+      "startFraction": <số thập phân từ 0.0 đến 1.0 = vị trí tương đối trong video>,
+      "endFraction": <số thập phân từ 0.0 đến 1.0>,
+      "playbackRate": <1.0 là tốc độ thường, 2.0 là gấp đôi, 0.5 là chậm gấp đôi>,
+      "filters": {
+        "brightness": <0.5 đến 2.0, 1.0 là bình thường>,
+        "contrast": <0.5 đến 2.0, 1.0 là bình thường>,
+        "saturate": <0.0 đến 3.0>,
+        "grayscale": <0.0 hoặc 1.0>
+      },
+      "effects": {
+        "zoom": "in | out | none",
+        "transition": "fade | none"
+      }
+    }
+  ],
+  "textOverlays": [
+    {
+      "content": "Nội dung chữ hiển thị (tiếng Việt hoặc tiếng Anh dựa trên yêu cầu người dùng)",
+      "startFraction": <0.0 đến 1.0>,
+      "endFraction": <0.0 đến 1.0>,
+      "style": {
+        "position": "bottom-center | center | top-center",
+        "color": "#FFFFFF | #FFD700 | #FF3333 | #00FFFF",
+        "fontSize": "56px | 32px | 24px"
+      }
+    }
+  ]
+}
+
+QUY TẮC BẮT BUỘC VỀ PHÂN SỐ THỜI GIAN:
+- startFraction và endFraction là PHÂN SỐ TƯƠNG ĐỐI trong khoảng [0.0, 1.0].
+- 0.0 = đầu video, 1.0 = cuối video.
+- Tổng các phân đoạn (segments) phải bao phủ từ 0.0 đến 1.0 không có khoảng trống (không bị trùng lặp hay có khoảng trống ở giữa).
+- Cần tạo các textOverlays phù hợp với nội dung và thời lượng của video (để phân bổ đều từ 0.0 đến 1.0).
+- Hãy sáng tạo các phụ đề hoặc tiêu đề có ý nghĩa liên quan mật thiết đến yêu cầu của người dùng.`;
+
+  console.log(`[videoBlueprintService] Calling FreeLLM to generate fallback VideoStyleSchema...`);
+  try {
+    const style = await freeLLMJson<VideoStyleSchema>(promptText, {
+      temperature: 0.7,
+      maxTokens: 1500,
+    });
+    
+    if (!style.segments || style.segments.length === 0) {
+      style.segments = [{ startFraction: 0.0, endFraction: 1.0, playbackRate: 1.0 }];
+    }
+    
+    style.segments.sort((a, b) => a.startFraction - b.startFraction);
+    style.segments[0].startFraction = 0.0;
+    style.segments[style.segments.length - 1].endFraction = 1.0;
+    
+    return style;
+  } catch (err) {
+    console.error(`[videoBlueprintService] FreeLLM fallback failed:`, err);
+    return {
+      editingStyle: "standard cinematic",
+      musicGenre: "lofi",
+      useSFXTransitions: true,
+      segments: [
+        {
+          startFraction: 0.0,
+          endFraction: 1.0,
+          playbackRate: 1.0,
+        }
+      ],
+      textOverlays: [
+        {
+          content: userHint.slice(0, 50),
+          startFraction: 0.1,
+          endFraction: 0.5,
+          style: {
+            position: "bottom-center",
+            color: "#FFD700",
+            fontSize: "32px",
+          }
+        }
+      ]
+    };
+  }
+}
+
+async function generateStyleFallbackForCopy(d1: number, d2: number): Promise<VideoStyleSchema> {
+  const promptText = `Bạn là một chuyên gia biên tập video chuyên nghiệp.
+Do hệ thống phân tích hình ảnh đang tạm thời gián đoạn, chúng tôi cần bạn thiết kế một phong cách biên tập video (VideoStyleSchema) chất lượng cao để áp dụng từ video mẫu (thời lượng gốc ${d1} giây) sang video mới (thời lượng đích ${d2} giây).
+
+Hãy thiết kế một sơ đồ biên tập hấp dẫn, phân chia video thành các phần hợp lý bằng tỷ lệ [0.0, 1.0], thêm bộ lọc màu sắc sinh động, hiệu ứng chuyển cảnh mượt mà, và phụ đề/tiêu đề gợi ý.
+
+⚠️ YÊU CẦU ĐẦU RA (MANDATORY):
+Trả về MỘT đối tượng JSON hợp lệ theo schema sau. KHÔNG thêm văn bản nào khác.
+
+{
+  "editingStyle": "mô tả ngắn về phong cách dựng tổng thể",
+  "musicGenre": "upbeat | tech | corporate | lofi | acoustic | none",
+  "useSFXTransitions": true | false,
+  "segments": [
+    {
+      "startFraction": <số từ 0.0 đến 1.0>,
+      "endFraction": <số từ 0.0 đến 1.0>,
+      "playbackRate": <1.0 bình thường>,
+      "filters": { "brightness": 1.0, "contrast": 1.0, "saturate": 1.0, "grayscale": 0.0 },
+      "effects": { "zoom": "none | in | out", "transition": "none | fade" }
+    }
+  ],
+  "textOverlays": [
+    {
+      "content": "Tiêu đề hoặc phụ đề gợi ý",
+      "startFraction": <0.0 đến 1.0>,
+      "endFraction": <0.0 đến 1.0>,
+      "style": { "position": "bottom-center", "color": "#FFD700", "fontSize": "32px" }
+    }
+  ]
+}
+
+QUY TẮC PHÂN SỐ THỜI GIAN:
+- startFraction và endFraction là PHÂN SỐ TƯƠNG ĐỐI [0.0, 1.0].
+- Các phân đoạn phải bao phủ toàn bộ từ 0.0 đến 1.0.`;
+
+  console.log(`[videoBlueprintService] Calling FreeLLM to generate fallback VideoStyleSchema for copyAndScale...`);
+  try {
+    return await freeLLMJson<VideoStyleSchema>(promptText, {
+      temperature: 0.6,
+      maxTokens: 1200,
+    });
+  } catch (err) {
+    console.error(`[videoBlueprintService] FreeLLM copy fallback failed:`, err);
+    return {
+      editingStyle: "cinematic style transfer fallback",
+      musicGenre: "acoustic",
+      useSFXTransitions: true,
+      segments: [
+        {
+          startFraction: 0.0,
+          endFraction: 1.0,
+          playbackRate: 1.0,
+        }
+      ],
+      textOverlays: [
+        {
+          content: "Chỉnh sửa tự động",
+          startFraction: 0.1,
+          endFraction: 0.4,
+          style: {
+            position: "bottom-center",
+            color: "#FFD700",
+            fontSize: "32px",
+          }
+        }
+      ]
+    };
+  }
+}
+
 export const videoBlueprintService = {
   /**
    * Kiểm tra xem prompt có yêu cầu sao chép kịch bản từ video trước hay không
@@ -423,12 +598,18 @@ export const videoBlueprintService = {
       });
       console.log(`[videoBlueprintService] Uploaded successfully. Name: ${uploadResult.name}. Waiting for status ACTIVE...`);
 
-      // Chờ cho file xử lý xong trên Gemini
+      // Chờ cho file xử lý xong trên Gemini (tối đa 2 phút = 60 lần × 2s)
       let fileState = await ai.files.get({ name: uploadResult.name });
+      let pollAttempts = 0;
+      const MAX_POLL = 60;
       while (fileState.state === "PROCESSING") {
-        console.log("[videoBlueprintService] Video is processing by Gemini, waiting 2 seconds...");
+        if (pollAttempts >= MAX_POLL) {
+          throw new Error("Gemini File API timeout: video đang xử lý quá lâu (> 2 phút).");
+        }
+        console.log(`[videoBlueprintService] Video is processing by Gemini, waiting 2 seconds... (attempt ${pollAttempts + 1}/${MAX_POLL})`);
         await new Promise((resolve) => setTimeout(resolve, 2000));
         fileState = await ai.files.get({ name: uploadResult.name });
+        pollAttempts++;
       }
 
       if (fileState.state !== "ACTIVE") {
@@ -531,10 +712,29 @@ ${userHintSection}`;
       }
     } catch (err) {
       console.error("[videoBlueprintService] Error during multimodal analysis of video:", err);
-      if (isOverloadError(err)) {
-        throw new Error("Mô hình AI quá tải, vui lòng thử lại sau.");
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      const isQuotaOrLimitError = (err as any)?.status === 429 || 
+                                  errorMsg.includes("429") || 
+                                  errorMsg.includes("RESOURCE_EXHAUSTED") || 
+                                  errorMsg.includes("quota") ||
+                                  errorMsg.includes("prepayment credits are depleted") ||
+                                  errorMsg.includes("billing");
+
+      if ((isQuotaOrLimitError || isOverloadError(err)) && isFreeLLMConfigured()) {
+        console.warn("[videoBlueprintService] Gemini failed during style extraction. Falling back to FreeLLM...");
+        try {
+          style = await generateStyleViaFreeLLM(userPrompt, durationSeconds || 60, targetDuration);
+        } catch (fallbackErr) {
+          console.error("[videoBlueprintService] FreeLLM fallback style generation failed:", fallbackErr);
+        }
       }
-      throw new Error(`Lỗi khi phân tích video mẫu: ${err instanceof Error ? err.message : String(err)}`);
+
+      if (!style) {
+        if (isOverloadError(err)) {
+          throw new Error("Mô hình AI quá tải, vui lòng thử lại sau.");
+        }
+        throw new Error(`Lỗi khi phân tích video mẫu: ${err instanceof Error ? err.message : String(err)}`);
+      }
     } finally {
       // Dọn dẹp local temp file
       if (fs.existsSync(tempVideoPath)) {
@@ -605,8 +805,10 @@ ${userHintSection}`;
     const result = lines.join("\n");
     console.log("[videoBlueprintService] Style extraction completed. Result length:", result.length);
 
-    // Also attach the raw style JSON as metadata comment for downstream use
-    const jsonMeta = `\n\n<!-- STYLE_JSON:${JSON.stringify({ style, targetDuration: scaledDuration, targetVideoUrl })} -->`;
+    // Attach raw style JSON as metadata comment for downstream fast-path use.
+    // Guard: targetDuration must be > 0 to produce valid blueprint later.
+    const effectiveTargetDuration = scaledDuration > 0 ? scaledDuration : effectiveDuration;
+    const jsonMeta = `\n\n<!-- STYLE_JSON:${JSON.stringify({ style, targetDuration: effectiveTargetDuration, targetVideoUrl: targetVideoUrl || null })} -->`;
     return result + jsonMeta;
   },
 
@@ -617,8 +819,7 @@ ${userHintSection}`;
   async copyAndScaleBlueprint(
     userId: string,
     urls: string[],
-    urlDurations: { [url: string]: number },
-    getVideoDurationFn: (url: string) => Promise<number>
+    urlDurations: { [url: string]: number }
   ): Promise<any> {
     if (urls.length < 2) {
       throw new Error("Vui lòng tải lên ít nhất 2 video (video đầu tiên là video mẫu đã sửa, video thứ hai là video mới cần áp dụng chỉnh sửa).");
@@ -646,12 +847,18 @@ ${userHintSection}`;
       });
       console.log(`[videoBlueprintService] Uploaded successfully. Name: ${uploadResult.name}. Waiting for status ACTIVE...`);
 
-      // Chờ cho file xử lý xong trên Gemini
+      // Chờ cho file xử lý xong trên Gemini (tối đa 2 phút = 60 lần × 2s)
       let fileState = await ai.files.get({ name: uploadResult.name });
+      let pollAttempts = 0;
+      const MAX_POLL = 60;
       while (fileState.state === "PROCESSING") {
-        console.log("[videoBlueprintService] Video is processing by Gemini, waiting 2 seconds...");
+        if (pollAttempts >= MAX_POLL) {
+          throw new Error("Gemini File API timeout: video đang xử lý quá lâu (> 2 phút).");
+        }
+        console.log(`[videoBlueprintService] Video is processing by Gemini, waiting 2 seconds... (attempt ${pollAttempts + 1}/${MAX_POLL})`);
         await new Promise((resolve) => setTimeout(resolve, 2000));
         fileState = await ai.files.get({ name: uploadResult.name });
+        pollAttempts++;
       }
 
       if (fileState.state !== "ACTIVE") {
@@ -728,10 +935,29 @@ QUY TẮC PHÂN SỐ THỜI GIAN:
       }
     } catch (err) {
       console.error("[videoBlueprintService] Error during multimodal analysis of video 1:", err);
-      if (isOverloadError(err)) {
-        throw new Error("Mô hình AI quá tải, vui lòng thử lại sau.");
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      const isQuotaOrLimitError = (err as any)?.status === 429 || 
+                                  errorMsg.includes("429") || 
+                                  errorMsg.includes("RESOURCE_EXHAUSTED") || 
+                                  errorMsg.includes("quota") ||
+                                  errorMsg.includes("prepayment credits are depleted") ||
+                                  errorMsg.includes("billing");
+
+      if ((isQuotaOrLimitError || isOverloadError(err)) && isFreeLLMConfigured()) {
+        console.warn("[videoBlueprintService] Gemini failed in copyAndScale. Falling back to FreeLLM...");
+        try {
+          style = await generateStyleFallbackForCopy(d1, d2);
+        } catch (fallbackErr) {
+          console.error("[videoBlueprintService] FreeLLM copy fallback style generation failed:", fallbackErr);
+        }
       }
-      throw new Error(`Lỗi khi phân tích video gốc: ${err instanceof Error ? err.message : String(err)}`);
+
+      if (!style) {
+        if (isOverloadError(err)) {
+          throw new Error("Mô hình AI quá tải, vui lòng thử lại sau.");
+        }
+        throw new Error(`Lỗi khi phân tích video gốc: ${err instanceof Error ? err.message : String(err)}`);
+      }
     } finally {
       // Dọn dẹp local temp file
       if (fs.existsSync(tempVideoPath)) {
@@ -745,6 +971,11 @@ QUY TẮC PHÂN SỐ THỜI GIAN:
 
     if (!style) {
       throw new Error("Không nhận diện được nội dung kịch bản phân tích từ video mẫu.");
+    }
+
+    // BUG-13 guard: d2 must be > 0 or all timestamps will be 0
+    if (d2 <= 0) {
+      throw new Error("Không xác định được thời lượng video đích. Vui lòng kiểm tra lại video đầu vào.");
     }
 
     // ── Code-side scaling: multiply fractions by target duration ──────────────
@@ -855,6 +1086,42 @@ QUY TẮC PHÂN SỐ THỜI GIAN:
       return blueprint;
     } catch (err) {
       console.error("[videoBlueprintService] Error generating blueprint from prompt:", err);
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      const isQuotaOrLimitError = (err as any)?.status === 429 || 
+                                  errorMsg.includes("429") || 
+                                  errorMsg.includes("RESOURCE_EXHAUSTED") || 
+                                  errorMsg.includes("quota") ||
+                                  errorMsg.includes("prepayment credits are depleted") ||
+                                  errorMsg.includes("billing");
+
+      if ((isQuotaOrLimitError || isOverloadError(err)) && isFreeLLMConfigured()) {
+        console.warn("[videoBlueprintService] Gemini failed in generateBlueprintFromPrompt. Falling back to FreeLLM...");
+        try {
+          const systemInstruction = buildSystemPrompt(videoUrl, duration);
+          const blueprint = await freeLLMJson(userPromptText, {
+            systemPrompt: systemInstruction,
+            temperature: 0.7,
+            maxTokens: 2000,
+          });
+
+          if (blueprint && blueprint.timeline && Array.isArray(blueprint.timeline)) {
+            if (blueprint.timeline.filter((item: any) => item.type === "video").length === 0) {
+              blueprint.timeline.unshift({
+                type: "video",
+                src: videoUrl,
+                start: 0,
+                end: duration,
+                playbackRate: 1.0
+              });
+            }
+            console.log("[videoBlueprintService] Generated blueprint via FreeLLM fallback successfully.");
+            return blueprint;
+          }
+        } catch (fallbackErr) {
+          console.error("[videoBlueprintService] FreeLLM blueprint generation failed:", fallbackErr);
+        }
+      }
+
       return {
         timeline: [
           {

@@ -1,13 +1,49 @@
 import React, { useEffect, useRef, useState } from 'react';
+
+import { Player } from '@remotion/player';
+import { VideoComposition } from './video-composition';
 import { geminiApi } from '../../api/gemini';
 import { toast } from '../../pages/Toast';
-import { Film, Loader2, Play, Sparkles, Video, X, Wand2, UploadCloud } from 'lucide-react';
+import { Film, Loader2, Play, Sparkles, Video, X, Wand2, UploadCloud, Cpu, Cloud, Zap } from 'lucide-react';
+
 import { socketService } from '../../services/socketService';
 
 const MODEL_OPTIONS = [
   { value: 'piapi-veo31-video-fast-audio', label: 'iGen video 3.1 Fast' },
   { value: 'piapi-veo31-video-audio', label: 'iGen video 3.1' },
   { value: 'piapi-veo31-video-fast-no-audio', label: 'iGen video 3.1 Fast Silent' },
+];
+
+type RenderEngine = 'remotion' | 'hyperframe' | 'hermes';
+
+const ENGINE_OPTIONS: Array<{
+  value: RenderEngine;
+  label: string;
+  description: string;
+  badge: string;
+  badgeColor: string;
+}> = [
+  {
+    value: 'remotion',
+    label: 'Remotion',
+    description: 'Frame-accurate. Dùng Chromium để render từng khung hình chính xác nhất.',
+    badge: 'Chính xác',
+    badgeColor: 'bg-cyan-100 text-cyan-700',
+  },
+  {
+    value: 'hyperframe',
+    label: 'Hyperframe',
+    description: 'Nhanh hơn. Dùng CSS animation + HTML5 để render. Phù hợp hiệu ứng cơ bản.',
+    badge: 'Nhanh',
+    badgeColor: 'bg-emerald-100 text-emerald-700',
+  },
+  {
+    value: 'hermes',
+    label: 'Hermes Cloud',
+    description: 'Đám mây. Worker farm xử lý nền. Dùng khi máy cục bộ yếu hoặc cần scale.',
+    badge: 'Cloud',
+    badgeColor: 'bg-violet-100 text-violet-700',
+  },
 ];
 
 const ASPECT_OPTIONS = [
@@ -113,6 +149,7 @@ export function EditVideoWorkspace({
     camera_movement?: string;
   } | null>(null);
   const [selectedModel, setSelectedModel] = useState(MODEL_OPTIONS[0].value);
+  const [renderEngine, setRenderEngine] = useState<RenderEngine>('remotion');
   const [aspectRatio, setAspectRatio] = useState(ASPECT_OPTIONS[0].value);
   const [duration, setDuration] = useState(DURATION_OPTIONS[0].value);
   const [resolution, setResolution] = useState(QUALITY_OPTIONS[0].value);
@@ -128,11 +165,15 @@ export function EditVideoWorkspace({
   const [currentRecordId, setCurrentRecordId] = useState<string | null>(null);
   const [isUploadingVideo, setIsUploadingVideo] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [activeTimelineIdx, setActiveTimelineIdx] = useState<number | null>(null);
+  const [useRemotionPlayer, setUseRemotionPlayer] = useState(true);
+  const timelineItemRefs = useRef<Record<number, HTMLDivElement | null>>({});
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+
 
   const handleUpdateTimelineItem = (index: number, key: string, value: any) => {
     if (!blueprint) return;
@@ -682,6 +723,8 @@ export function EditVideoWorkspace({
         duration: totalDuration || undefined,
         videoDurations: videoInputs.map(v => v.duration || 0),
         blueprint: blueprint || undefined,
+        renderMode: renderEngine === 'hermes' ? 'hermes' : 'local',
+
       });
 
       if (response.record) {
@@ -699,126 +742,229 @@ export function EditVideoWorkspace({
     }
   };
 
+  // ─── Tính tổng thời lượng timeline để dùng cho Remotion Player + Timeline Bar ───
+  const computeTimelineInfo = () => {
+    if (!blueprint?.timeline) return { totalDuration: 0, fps: 30, width: 1280, height: 720 };
+    const videoClips = blueprint.timeline.filter((t: any) => t.type === 'video');
+    let totalDuration = 0;
+    videoClips.forEach((clip: any) => {
+      const dur = ((clip.end ?? 0) - (clip.start ?? 0)) / (clip.playbackRate ?? 1);
+      totalDuration += dur;
+    });
+    if (totalDuration === 0) {
+      // fallback: use max end time
+      blueprint.timeline.forEach((t: any) => {
+        if ((t.end ?? 0) > totalDuration) totalDuration = t.end;
+      });
+    }
+    const fps = 30;
+    let width = 1280, height = 720;
+    const aspect = blueprint.aspectRatio || aspectRatio;
+    if (aspect === '9:16') { width = 720; height = 1280; }
+    else if (aspect === '1:1') { width = 720; height = 720; }
+    return { totalDuration, fps, width, height };
+  };
+
   const renderInteractivePlayer = () => {
     const videoUrl = videoInputs[0]?.url;
     if (!videoUrl) return null;
 
-    // Lọc ra các text layers đang hoạt động tại thời điểm currentTime
-    const activeTexts = (blueprint?.timeline || []).filter((item: any) => {
-      return item.type === 'text' && currentTime >= item.start && currentTime <= item.end;
-    });
+    const { totalDuration, fps, width, height } = computeTimelineInfo();
+    const totalFrames = Math.max(1, Math.round(totalDuration * fps));
+    const timeline: any[] = blueprint?.timeline || [];
 
-    // Tìm nhạc nền
-    const activeAudio = (blueprint?.timeline || []).find((item: any) => item.type === 'audio');
+    // Tính timeline bar data
+    const videoTracks = timeline.filter((t: any) => t.type === 'video');
+    const audioTracks = timeline.filter((t: any) => t.type === 'audio');
+    const textTracks = timeline.filter((t: any) => t.type === 'text');
 
-    // Tìm hiệu ứng/bộ lọc video đang hoạt động tại thời điểm currentTime
-    const activeVideoTrack = (blueprint?.timeline || []).find((item: any) => {
-      return item.type === 'video' && currentTime >= item.start && currentTime <= item.end;
-    });
+    // Tính tổng thời gian cho timeline bar (dùng end time thực tế)
+    const rawTotalDuration = timeline.reduce((max: number, t: any) => Math.max(max, t.end ?? 0), 0) || totalDuration || 10;
 
-    const grayscaleVal = activeVideoTrack?.filters?.grayscale || 0;
-    const brightnessVal = activeVideoTrack?.filters?.brightness || 1.0;
-    const zoomEffect = activeVideoTrack?.effects?.zoom || 'none';
+    const activeAudio = timeline.find((t: any) => t.type === 'audio');
+
+    // Hàm tính vị trí % trên timeline bar
+    const getBarLeft = (start: number) => `${((start / rawTotalDuration) * 100).toFixed(2)}%`;
+    const getBarWidth = (start: number, end: number) => `${(((end - start) / rawTotalDuration) * 100).toFixed(2)}%`;
 
     return (
       <div className="w-full flex flex-col gap-4">
-        <div className="relative w-full rounded-[24px] overflow-hidden bg-black aspect-video flex items-center justify-center border border-slate-100 shadow-sm">
-          <video
-            ref={videoRef}
-            src={videoUrl}
-            onTimeUpdate={() => {
-              if (videoRef.current) {
-                setCurrentTime(videoRef.current.currentTime);
-              }
-            }}
-            onPlay={() => {
-              setIsPlaying(true);
-              if (audioRef.current && activeAudio && videoRef.current) {
-                audioRef.current.currentTime = videoRef.current.currentTime;
-                audioRef.current.play().catch(e => console.log('Audio autoplay blocked:', e));
-              }
-            }}
-            onPause={() => {
-              setIsPlaying(false);
-              if (audioRef.current) {
-                audioRef.current.pause();
-              }
-            }}
-            onSeeked={() => {
-              if (videoRef.current && audioRef.current) {
-                audioRef.current.currentTime = videoRef.current.currentTime;
-              }
-            }}
-            className="w-full h-full object-contain max-h-[350px] transition-all duration-200"
-            style={{
-              filter: `brightness(${brightnessVal}) grayscale(${grayscaleVal})`,
-              transform: zoomEffect === 'in' ? 'scale(1.25)' : zoomEffect === 'out' ? 'scale(0.85)' : 'scale(1)',
-            }}
-            controls
-            crossOrigin="anonymous"
-          />
 
-          {/* Lớp hiển thị chữ overlay */}
-          {activeTexts.map((textItem: any, idx: number) => {
-            const pos = textItem.style?.position || 'bottom-center';
-            let posStyle: React.CSSProperties = {
-              position: 'absolute',
-              color: textItem.style?.color || '#FFFFFF',
-              fontSize: textItem.style?.fontSize || '24px',
-              fontWeight: 'bold',
-              textShadow: '2px 2px 4px rgba(0,0,0,0.8), -1px -1px 0 rgba(0,0,0,0.8), 1px -1px 0 rgba(0,0,0,0.8), -1px 1px 0 rgba(0,0,0,0.8), 1px 1px 0 rgba(0,0,0,0.8)',
-              pointerEvents: 'none',
-              textAlign: 'center',
-              padding: '4px 8px',
-              borderRadius: '4px',
-              zIndex: 10,
-            };
-
-            if (pos === 'bottom-center') {
-              posStyle.bottom = '15%';
-              posStyle.left = '50%';
-              posStyle.transform = 'translateX(-50%)';
-            } else if (pos === 'center') {
-              posStyle.top = '50%';
-              posStyle.left = '50%';
-              posStyle.transform = 'translate(-50%, -50%)';
-            } else if (pos === 'top-center') {
-              posStyle.top = '15%';
-              posStyle.left = '50%';
-              posStyle.transform = 'translateX(-50%)';
-            } else if (pos === 'top-left') {
-              posStyle.top = '15%';
-              posStyle.left = '10%';
-            } else if (pos === 'top-right') {
-              posStyle.top = '15%';
-              posStyle.right = '10%';
-            } else if (pos === 'bottom-left') {
-              posStyle.bottom = '15%';
-              posStyle.left = '10%';
-            } else if (pos === 'bottom-right') {
-              posStyle.bottom = '15%';
-              posStyle.right = '10%';
-            }
-
-            return (
-              <div key={idx} style={posStyle}>
-                {textItem.content}
-              </div>
-            );
-          })}
+        {/* ── Remotion Player / HTML Preview Toggle ── */}
+        <div className="flex items-center justify-between px-1">
+          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Preview</span>
+          <div className="flex items-center gap-1.5 bg-slate-100 rounded-xl p-1">
+            <button
+              type="button"
+              onClick={() => setUseRemotionPlayer(true)}
+              className={`text-[11px] font-semibold px-3 py-1 rounded-lg transition-all ${useRemotionPlayer ? 'bg-white shadow-sm text-cyan-700' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              🎬 Remotion
+            </button>
+            <button
+              type="button"
+              onClick={() => setUseRemotionPlayer(false)}
+              className={`text-[11px] font-semibold px-3 py-1 rounded-lg transition-all ${!useRemotionPlayer ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              📽 HTML
+            </button>
+          </div>
         </div>
 
-        {/* Nhạc nền ẩn */}
-        {activeAudio && (
-          <audio
-            ref={audioRef}
-            src={activeAudio.src}
-            className="hidden"
-            crossOrigin="anonymous"
-          />
+        {/* ── Preview Panel ── */}
+        {useRemotionPlayer ? (
+          <div className="w-full rounded-[24px] overflow-hidden border border-slate-200 shadow-sm bg-black">
+            <Player
+              component={VideoComposition}
+              inputProps={{ blueprint: { ...blueprint, aspectRatio: blueprint?.aspectRatio || aspectRatio } }}
+              durationInFrames={totalFrames}
+              fps={fps}
+              compositionWidth={width}
+              compositionHeight={height}
+              controls
+              style={{ width: '100%', borderRadius: '0' }}
+              clickToPlay={true}
+              doubleClickToFullscreen={true}
+            />
+          </div>
+        ) : (
+          <div className="relative w-full rounded-[24px] overflow-hidden bg-black aspect-video flex items-center justify-center border border-slate-100 shadow-sm">
+            <video
+              ref={videoRef}
+              src={videoUrl}
+              onTimeUpdate={() => { if (videoRef.current) setCurrentTime(videoRef.current.currentTime); }}
+              onPlay={() => { setIsPlaying(true); }}
+              onPause={() => { setIsPlaying(false); }}
+              className="w-full h-full object-contain max-h-[350px]"
+              style={{
+                filter: `brightness(${(blueprint?.timeline || []).find((t: any) => t.type === 'video' && currentTime >= t.start && currentTime <= t.end)?.filters?.brightness || 1}) grayscale(${(blueprint?.timeline || []).find((t: any) => t.type === 'video' && currentTime >= t.start && currentTime <= t.end)?.filters?.grayscale || 0})`,
+              }}
+              controls
+              crossOrigin="anonymous"
+            />
+          </div>
         )}
 
-        <AudioSyncHook activeAudio={activeAudio} currentTime={currentTime} isPlaying={isPlaying} audioRef={audioRef} />
+        {/* ── Timeline Bar ── */}
+        {timeline.length > 0 && (
+          <div className="rounded-2xl border border-slate-200 bg-slate-900 p-3 overflow-hidden">
+            <div className="flex items-center justify-between mb-2 px-1">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Timeline</span>
+              <span className="text-[10px] text-slate-500">{rawTotalDuration.toFixed(1)}s</span>
+            </div>
+
+            {/* Ruler */}
+            <div className="relative h-5 mb-1">
+              <div className="absolute inset-0 flex">
+                {Array.from({ length: Math.ceil(rawTotalDuration) + 1 }, (_, i) => (
+                  <div
+                    key={i}
+                    className="absolute flex flex-col items-center"
+                    style={{ left: `${(i / rawTotalDuration) * 100}%` }}
+                  >
+                    <div className="w-px h-2 bg-slate-600" />
+                    <span className="text-[8px] text-slate-500 mt-0.5">{i}s</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Track: Video */}
+            {videoTracks.length > 0 && (
+              <div className="relative h-6 mb-1.5">
+                <span className="absolute -left-0 top-0.5 text-[8px] font-bold text-cyan-500 uppercase w-8">VID</span>
+                <div className="absolute inset-0 ml-8">
+                  {videoTracks.map((t: any, i: number) => {
+                    const globalIdx = timeline.indexOf(t);
+                    return (
+                      <div
+                        key={i}
+                        title={`Clip ${i + 1}: ${t.start}s → ${t.end}s | rate=${t.playbackRate || 1}x`}
+                        onClick={() => {
+                          setActiveTimelineIdx(globalIdx);
+                          const el = timelineItemRefs.current[globalIdx];
+                          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }}
+                        className={`absolute top-0 h-full rounded cursor-pointer transition-all border ${activeTimelineIdx === globalIdx ? 'border-cyan-400 brightness-125' : 'border-cyan-800/60 hover:border-cyan-500'}`}
+                        style={{
+                          left: getBarLeft(t.start),
+                          width: getBarWidth(t.start, t.end),
+                          background: t.effects?.zoom === 'in' ? 'linear-gradient(90deg,#0891b2,#06b6d4)' : t.effects?.zoom === 'out' ? 'linear-gradient(90deg,#0e7490,#0891b2)' : '#164e63',
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Track: Audio */}
+            {audioTracks.length > 0 && (
+              <div className="relative h-6 mb-1.5">
+                <span className="absolute top-0.5 text-[8px] font-bold text-purple-400 uppercase w-8">AUD</span>
+                <div className="absolute inset-0 ml-8">
+                  {audioTracks.map((t: any, i: number) => {
+                    const globalIdx = timeline.indexOf(t);
+                    return (
+                      <div
+                        key={i}
+                        title={`Audio ${i + 1}: ${t.start}s → ${t.end}s | vol=${t.volume}`}
+                        onClick={() => {
+                          setActiveTimelineIdx(globalIdx);
+                          const el = timelineItemRefs.current[globalIdx];
+                          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }}
+                        className={`absolute top-0 h-full rounded cursor-pointer transition-all border ${activeTimelineIdx === globalIdx ? 'border-purple-400 brightness-125' : 'border-purple-800/60 hover:border-purple-500'}`}
+                        style={{
+                          left: getBarLeft(t.start),
+                          width: getBarWidth(t.start, t.end),
+                          background: '#4c1d95',
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Track: Text */}
+            {textTracks.length > 0 && (
+              <div className="relative h-6">
+                <span className="absolute top-0.5 text-[8px] font-bold text-yellow-400 uppercase w-8">TXT</span>
+                <div className="absolute inset-0 ml-8">
+                  {textTracks.map((t: any, i: number) => {
+                    const globalIdx = timeline.indexOf(t);
+                    return (
+                      <div
+                        key={i}
+                        title={`Text: "${t.content}" | ${t.start}s → ${t.end}s`}
+                        onClick={() => {
+                          setActiveTimelineIdx(globalIdx);
+                          const el = timelineItemRefs.current[globalIdx];
+                          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }}
+                        className={`absolute top-0 h-full rounded cursor-pointer transition-all border text-[7px] font-bold text-yellow-100 flex items-center px-1 overflow-hidden ${activeTimelineIdx === globalIdx ? 'border-yellow-400 brightness-125' : 'border-yellow-800/60 hover:border-yellow-500'}`}
+                        style={{
+                          left: getBarLeft(t.start),
+                          width: getBarWidth(t.start, t.end),
+                          background: '#713f12',
+                          minWidth: '8px',
+                        }}
+                      >
+                        <span className="truncate">{t.content}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {!useRemotionPlayer && activeAudio && (
+              <audio ref={audioRef} src={activeAudio.src} className="hidden" crossOrigin="anonymous" />
+            )}
+            {!useRemotionPlayer && <AudioSyncHook activeAudio={activeAudio} currentTime={currentTime} isPlaying={isPlaying} audioRef={audioRef} />}
+          </div>
+        )}
 
         <div className="flex gap-2">
           <button
@@ -827,6 +973,7 @@ export function EditVideoWorkspace({
               setBlueprint(null);
               setOutputUrl(null);
               setDisplayProgress(0);
+              setActiveTimelineIdx(null);
             }}
             className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 cursor-pointer shadow-xs"
           >
@@ -856,6 +1003,8 @@ export function EditVideoWorkspace({
     );
   };
 
+
+
   return (
     <div className="mx-auto w-full max-w-[1500px] px-3 py-5">
       <div className="rounded-[28px] border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-6 shadow-sm">
@@ -870,8 +1019,8 @@ export function EditVideoWorkspace({
 
         </div>
 
-        <div className="grid gap-6 xl:grid-cols-[1.02fr_0.98fr]">
-          <div className="space-y-6 rounded-[32px] border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <div className="space-y-6 rounded-[32px] border border-slate-200 bg-white p-6 shadow-sm min-w-0 overflow-hidden">
             <div className="space-y-3">
               <div className="flex justify-between items-center">
                 <label className="text-xs font-bold text-slate-800 uppercase tracking-wide">Video đầu vào</label>
@@ -1061,6 +1210,82 @@ export function EditVideoWorkspace({
               </div>
             </div>
 
+            {/* Cấu hình xuất video */}
+            <div className="space-y-3 pt-2">
+              <label className="text-xs font-bold text-slate-800 uppercase tracking-wide">Cấu hình kết xuất</label>
+
+              {/* Engine Selector - 3 cards */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Engine xử lý</label>
+                <div className="grid grid-cols-1 gap-2">
+                  {ENGINE_OPTIONS.map((eng) => {
+                    const isActive = renderEngine === eng.value;
+                    const Icon = eng.value === 'remotion' ? Cpu : eng.value === 'hyperframe' ? Zap : Cloud;
+                    return (
+                      <button
+                        key={eng.value}
+                        type="button"
+                        onClick={() => setRenderEngine(eng.value)}
+                        className={`w-full flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-all cursor-pointer ${
+                          isActive
+                            ? 'border-cyan-400 bg-cyan-50 ring-1 ring-cyan-300/50'
+                            : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center ${isActive ? 'bg-cyan-100' : 'bg-slate-100'}`}>
+                          <Icon className={`h-4 w-4 ${isActive ? 'text-cyan-600' : 'text-slate-500'}`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-xs font-bold ${isActive ? 'text-cyan-800' : 'text-slate-700'}`}>{eng.label}</span>
+                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${eng.badgeColor}`}>{eng.badge}</span>
+                          </div>
+                          <p className="text-[10px] text-slate-500 mt-0.5 leading-tight">{eng.description}</p>
+                        </div>
+                        <div className={`flex-shrink-0 w-4 h-4 rounded-full border-2 ${isActive ? 'border-cyan-500 bg-cyan-500' : 'border-slate-300'} flex items-center justify-center`}>
+                          {isActive && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="grid gap-3 grid-cols-2 pt-1">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Tỉ lệ khung hình</label>
+                  <select
+                    value={aspectRatio}
+                    onChange={(e) => setAspectRatio(e.target.value)}
+                    className="w-full text-xs p-2.5 border border-slate-200 rounded-xl outline-none focus:border-cyan-400 bg-white font-semibold text-slate-700 cursor-pointer transition-colors"
+                  >
+                    {ASPECT_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Độ phân giải</label>
+                  <select
+                    value={resolution}
+                    onChange={(e) => setResolution(e.target.value)}
+                    className="w-full text-xs p-2.5 border border-slate-200 rounded-xl outline-none focus:border-cyan-400 bg-white font-semibold text-slate-700 cursor-pointer transition-colors"
+                  >
+                    {QUALITY_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+
+
             <div className="space-y-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
@@ -1246,7 +1471,12 @@ export function EditVideoWorkspace({
                     {blueprint.timeline.map((item: any, idx: number) => {
                       if (item.type === 'text') {
                         return (
-                          <div key={idx} className="p-4 rounded-2xl border border-slate-200 bg-white flex flex-col gap-3 shadow-xs">
+                          <div
+                            key={idx}
+                            ref={(el) => { timelineItemRefs.current[idx] = el; }}
+                            onClick={() => setActiveTimelineIdx(idx)}
+                            className={`p-4 rounded-2xl border bg-white flex flex-col gap-3 shadow-xs cursor-pointer transition-all ${activeTimelineIdx === idx ? 'border-cyan-400 ring-1 ring-cyan-300/50 bg-cyan-50/30' : 'border-slate-200 hover:border-slate-300'}`}
+                          >
                             <div className="flex justify-between items-center border-b border-slate-100 pb-2">
                               <span className="text-[10px] font-bold text-cyan-600 tracking-wider">LỚP CHỮ #{idx + 1}</span>
                               <button
@@ -1340,7 +1570,12 @@ export function EditVideoWorkspace({
                         );
                       } else if (item.type === 'audio') {
                         return (
-                          <div key={idx} className="p-4 rounded-2xl border border-slate-200 bg-white flex flex-col gap-3 shadow-xs">
+                          <div
+                            key={idx}
+                            ref={(el) => { timelineItemRefs.current[idx] = el; }}
+                            onClick={() => setActiveTimelineIdx(idx)}
+                            className={`p-4 rounded-2xl border bg-white flex flex-col gap-3 shadow-xs cursor-pointer transition-all ${activeTimelineIdx === idx ? 'border-purple-400 ring-1 ring-purple-300/50 bg-purple-50/20' : 'border-slate-200 hover:border-slate-300'}`}
+                          >
                             <div className="flex justify-between items-center border-b border-slate-100 pb-2">
                               <span className="text-[10px] font-bold text-purple-600 tracking-wider">NHẠC NỀN #{idx + 1}</span>
                               <button
@@ -1405,7 +1640,12 @@ export function EditVideoWorkspace({
                         );
                       } else if (item.type === 'video') {
                         return (
-                          <div key={idx} className="p-4 rounded-2xl border border-slate-200 bg-white flex flex-col gap-3 shadow-xs">
+                          <div
+                            key={idx}
+                            ref={(el) => { timelineItemRefs.current[idx] = el; }}
+                            onClick={() => setActiveTimelineIdx(idx)}
+                            className={`p-4 rounded-2xl border bg-white flex flex-col gap-3 shadow-xs cursor-pointer transition-all ${activeTimelineIdx === idx ? 'border-slate-500 ring-1 ring-slate-300/80 bg-slate-50/50' : 'border-slate-200 hover:border-slate-300'}`}
+                          >
                             <div className="flex justify-between items-center border-b border-slate-100 pb-2">
                               <span className="text-[10px] font-bold text-slate-600 tracking-wider">VIDEO CLIPS NGUỒN #{idx + 1}</span>
                             </div>
