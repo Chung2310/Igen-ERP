@@ -21,7 +21,7 @@ type OmniChatTabProps = {
   handleLoadOlderMessages: () => void;
   leads: ExtendedLeadCard[];
   onCreateLeadFromChat: (customer: CustomerInbox, status: "cold" | "warm" | "hot") => void;
-  onUpdateLeadStatus: (id: string, newStatus: "cold" | "warm" | "hot") => void;
+  onUpdateLeadStatus: (id: string, newStatus: "cold" | "warm" | "hot" | "won" | "upsell") => void;
   facebookPages: Array<{ _id: string; displayName: string; username: string; isMock?: boolean }>;
   selectedFacebookPageId: string;
   setSelectedFacebookPageId: (val: string) => void;
@@ -525,9 +525,15 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                               linkedLead.status === 'cold' ? 'bg-slate-100 text-slate-655 border-slate-200' :
                               linkedLead.status === 'warm' ? 'bg-orange-50 text-orange-655 border-orange-200' :
                               linkedLead.status === 'hot' ? 'bg-rose-50 text-rose-655 border-rose-200 animate-pulse' :
-                              'bg-emerald-50 text-emerald-655 border-emerald-200'
+                              linkedLead.status === 'won' ? 'bg-emerald-500 text-white border-emerald-500 shadow-sm' :
+                              'bg-purple-50 text-purple-655 border-purple-200'
                             }`}>
-                              CRM: {linkedLead.status === 'cold' ? 'Khách Lạnh' : linkedLead.status === 'warm' ? 'Khách Ấm' : linkedLead.status === 'hot' ? 'Khách Nóng' : 'Thành công'}
+                              CRM: {
+                                linkedLead.status === 'cold' ? 'Khách Lạnh' :
+                                linkedLead.status === 'warm' ? 'Khách Ấm' :
+                                linkedLead.status === 'hot' ? 'Khách Nóng' :
+                                linkedLead.status === 'won' ? 'Đã Chốt Đơn' : 'Up-sell'
+                              }
                             </span>
                             
                             {linkedLead.status === "cold" && (
@@ -564,6 +570,15 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                                 className="px-2 py-0.5 bg-orange-50 hover:bg-orange-100 text-orange-600 border border-orange-200 rounded-md text-[9px] font-bold transition-all cursor-pointer active:scale-95"
                               >
                                 ← Về Ấm
+                              </button>
+                            )}
+                            {linkedLead.status !== "won" && linkedLead.status !== "upsell" && (
+                              <button
+                                type="button"
+                                onClick={() => onUpdateLeadStatus(linkedLead.id, "won")}
+                                className="px-2 py-0.5 bg-emerald-500 hover:bg-emerald-600 text-white border border-emerald-600 rounded-md text-[9px] font-extrabold transition-all cursor-pointer active:scale-95 shadow-sm ml-1"
+                              >
+                                🎉 Chốt đơn
                               </button>
                             )}
                           </div>
