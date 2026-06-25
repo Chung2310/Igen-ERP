@@ -121,6 +121,9 @@ const analyzeVideoStyleSchema = {
       "any.required": "Đường dẫn video cần phân tích là bắt buộc.",
       "string.uri": "Đường dẫn video phải là URL hợp lệ."
     }),
+    duration: Joi.number().optional().messages({
+      "number.base": "Thời lượng video phải là số."
+    }),
   }),
 };
 

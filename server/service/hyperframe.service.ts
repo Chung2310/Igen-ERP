@@ -28,25 +28,35 @@ export const hyperframeService = {
     const imageElements = timeline.filter((item: any) => item.type === "image");
     const audioElements = timeline.filter((item: any) => item.type === "audio");
 
-    // Tính toán thời gian bắt đầu tích lũy cho các video clips
+    // Tính toán thời gian bắt đầu tích lũy cho các video clips, bao gồm cả overlap chuyển cảnh
     let currentTimelineOffset = 0;
-    const videoClips = rawVideoClips.map((item: any) => {
+    const videoClips = rawVideoClips.map((item: any, idx: number) => {
       const start = item.start ?? 0;
       const end = item.end ?? 5;
       const rate = item.playbackRate ?? 1;
       const clipDuration = (end - start) / rate;
       const startInTimeline = currentTimelineOffset;
       currentTimelineOffset += clipDuration;
+
+      const hasNextClip = idx < rawVideoClips.length - 1;
+      // 8 frames chuyển cảnh tại 30fps bằng khoảng 0.2667 giây
+      const transTime = hasNextClip ? Math.min(0.2667, clipDuration / 3) : 0;
+      const renderDuration = clipDuration + transTime;
+
       return {
         ...item,
         startInTimeline,
-        duration: clipDuration,
+        duration: clipDuration,       // Thời lượng gốc
+        renderDuration,               // Thời lượng thực tế kết xuất có overlap
+        transTime,                    // Thời gian chuyển tiếp (Exit)
+        hasNextClip,
       };
     });
 
     let elementsHtml = "";
+    let stylesHtml = "";
 
-    // 1. Render Video Elements
+    // 1. Render Video Elements với CSS Keyframes cho Chuyển Cảnh & Thu Phóng
     videoClips.forEach((clip: any, idx: number) => {
       const filters = clip.filters || {};
       const effects = clip.effects || {};
@@ -62,39 +72,109 @@ export const hyperframeService = {
       const zoom = effects.zoom ?? "none";
       const rotate = effects.rotate ?? 0;
 
-      const filterString = [
-        `brightness(${brightness})`,
-        `grayscale(${grayscale})`,
-        blur ? `blur(${blur}px)` : "",
-        sepia ? `sepia(${sepia})` : "",
-        invert ? `invert(${invert})` : "",
-        `contrast(${contrast})`,
-        `saturate(${saturate})`,
-        hueRotate ? `hue-rotate(${hueRotate}deg)` : "",
-      ]
-        .filter(Boolean)
-        .join(" ");
+      const D_render = clip.renderDuration;
+      const D_orig = clip.duration;
+      const T_exit = clip.transTime;
+      const T_entry = idx > 0 ? Math.min(0.2667, D_orig / 3) : 0;
 
-      let transformString = `rotate(${rotate}deg)`;
-      if (zoom === "in") {
-        transformString += " scale(1.2)";
-      } else if (zoom === "out") {
-        transformString += " scale(0.85)";
+      const staticFilters = `brightness(${brightness}) grayscale(${grayscale}) sepia(${sepia}) invert(${invert}) contrast(${contrast}) saturate(${saturate}) hue-rotate(${hueRotate}deg)`;
+
+      // Hàm tính toán zoom scale tại thời điểm t
+      const getZoomScale = (t: number) => {
+        if (D_orig <= 0) return 1.0;
+        const ratio = Math.min(1, Math.max(0, t / D_orig));
+        if (zoom === "in") {
+          return 1.0 + ratio * 0.25;
+        } else if (zoom === "out") {
+          return 1.25 - ratio * 0.25;
+        }
+        return 1.0;
+      };
+
+      // Tạo các điểm keyframe để đồng bộ hóa với Remotion
+      const points: Array<{ pct: number; opacity: number; blurVal: number; scaleVal: number }> = [];
+
+      // Điểm 1: Bắt đầu clip (t = 0)
+      const p1_scale_zoom = getZoomScale(0);
+      const p1_scale_trans = idx > 0 ? 1.15 : 1.0;
+      points.push({
+        pct: 0,
+        opacity: idx > 0 ? 0 : 1,
+        blurVal: blur + (idx > 0 ? 12 : 0),
+        scaleVal: p1_scale_zoom * p1_scale_trans,
+      });
+
+      // Điểm 2: Kết thúc chuyển cảnh vào (t = T_entry)
+      if (T_entry > 0) {
+        const p2_scale_zoom = getZoomScale(T_entry);
+        points.push({
+          pct: (T_entry / D_render) * 100,
+          opacity: 1.0,
+          blurVal: blur,
+          scaleVal: p2_scale_zoom * 1.0,
+        });
       }
 
-      // playbackRate set via onload/onplay inline JS
+      // Điểm 3: Bắt đầu chuyển cảnh ra (t = D_orig - T_exit)
+      if (T_exit > 0) {
+        const p3_scale_zoom = getZoomScale(D_orig - T_exit);
+        points.push({
+          pct: ((D_orig - T_exit) / D_render) * 100,
+          opacity: 1.0,
+          blurVal: blur,
+          scaleVal: p3_scale_zoom * 1.0,
+        });
+
+        // Điểm 4: Kết thúc clip gốc (t = D_orig)
+        const p4_scale_zoom = getZoomScale(D_orig);
+        points.push({
+          pct: (D_orig / D_render) * 100,
+          opacity: 0,
+          blurVal: blur + 12,
+          scaleVal: p4_scale_zoom * 1.15,
+        });
+      }
+
+      // Điểm 5: Kết thúc toàn bộ thời gian render của clip (t = D_render)
+      const p5_scale_zoom = getZoomScale(D_render);
+      const p5_scale_trans = T_exit > 0 ? 1.15 : 1.0;
+      points.push({
+        pct: 100,
+        opacity: T_exit > 0 ? 0 : 1,
+        blurVal: blur + (T_exit > 0 ? 12 : 0),
+        scaleVal: p5_scale_zoom * p5_scale_trans,
+      });
+
+      // Sắp xếp các điểm tăng dần theo phần trăm
+      points.sort((a, b) => a.pct - b.pct);
+
+      // Sinh cú pháp CSS @keyframes
+      let keyframesText = `@keyframes anim-clip-${idx} {\n`;
+      points.forEach((pt) => {
+        keyframesText += `    ${pt.pct.toFixed(2)}% { opacity: ${pt.opacity}; filter: ${staticFilters} blur(${pt.blurVal}px); transform: scale(${pt.scaleVal}) rotate(${rotate}deg); }\n`;
+      });
+      keyframesText += `  }\n`;
+
+      stylesHtml += `
+  ${keyframesText}
+  .clip-anim-${idx} {
+    animation: anim-clip-${idx} ${D_render.toFixed(4)}s linear forwards;
+  }\n`;
+
       const speed = clip.playbackRate ?? 1.0;
 
+      // Render thẻ video có track tăng dần và class hoạt họa CSS
       elementsHtml += `
     <video
       src="${clip.src}"
       data-start="${clip.startInTimeline}"
-      data-duration="${clip.duration}"
+      data-duration="${clip.renderDuration}"
       data-media-start="${clip.start}"
       data-volume="1.0"
-      data-track-index="0"
+      data-track-index="${idx}"
+      class="clip-anim-${idx}"
       onplay="this.playbackRate=${speed}"
-      style="width: 100%; height: 100%; object-fit: contain; filter: ${filterString}; transform: ${transformString}; position: absolute; top: 0; left: 0;"
+      style="width: 100%; height: 100%; object-fit: contain; position: absolute; top: 0; left: 0;"
       muted
       playsinline
     ></video>`;
@@ -111,7 +191,7 @@ export const hyperframeService = {
       if (style.position?.startsWith("top-")) {
         positionStyles += "top: 40px;";
       } else if (style.position === "center") {
-        positionStyles += "top: 50%; transform: translateY(-50%);";
+        positionStyles += "top: 0; bottom: 0; align-items: center;";
       } else {
         positionStyles += "bottom: 80px;"; // default bottom-center
       }
@@ -121,11 +201,11 @@ export const hyperframeService = {
       } else if (style.position?.endsWith("-right")) {
         positionStyles += "right: 40px;";
       } else {
-        positionStyles += "left: 50%; transform: translateX(-50%);";
+        positionStyles += "left: 0; right: 0; justify-content: center;";
       }
 
       if (style.position === "center") {
-        positionStyles = "top: 50%; left: 50%; transform: translate(-50%, -50%);";
+        positionStyles = "top: 0; bottom: 0; left: 0; right: 0; align-items: center; justify-content: center;";
       }
 
       elementsHtml += `
@@ -207,6 +287,7 @@ export const hyperframeService = {
       height: ${height}px;
       overflow: hidden;
     }
+    ${stylesHtml}
   </style>
 </head>
 <body>
@@ -244,10 +325,19 @@ export const hyperframeService = {
 
     if (onProgress) onProgress(55, "[Hyperframe Engine] Khởi chạy Hyperframe CLI...");
 
+    // Ánh xạ tỷ lệ khung hình sang các preset resolution của Hyperframe CLI
+    const aspect = options?.aspectRatio || "16:9";
+    let resolutionPreset = "landscape";
+    if (aspect === "9:16") {
+      resolutionPreset = "portrait";
+    } else if (aspect === "1:1") {
+      resolutionPreset = "square";
+    }
+
     return new Promise<string>((resolve, reject) => {
       // Chạy render bằng lệnh CLI hyperframes
-      // npx hyperframes render -c <comp_html> -o <out_mp4>
-      const args = ["hyperframes", "render", "-c", tempHtmlPath, "-o", outputPath];
+      // npx hyperframes render -c <comp_html> -o <out_mp4> --resolution <preset> --strict
+      const args = ["hyperframes", "render", "-c", tempHtmlPath, "-o", outputPath, "--resolution", resolutionPreset, "--strict"];
       console.log(`[Hyperframe] Executing: npx ${args.join(" ")}`);
       
       const child = spawn("npx", args, { shell: true });
@@ -258,7 +348,6 @@ export const hyperframeService = {
         console.log(`[Hyperframe CLI Out] ${line}`);
         
         // Cố gắng parse tiến trình render
-        // Tiến trình hiển thị qua các log như "Rendering frame X/Y" hoặc phần trăm
         if (line.includes("Rendered") || line.includes("Rendering")) {
           if (onProgress) {
             onProgress(70, `[Hyperframe CLI] ${line}`);
