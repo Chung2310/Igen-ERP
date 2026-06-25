@@ -5,7 +5,7 @@ const AIMediaSchema = new Schema<IAIMedia>({
   userId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
   mediaType: { type: String, enum: ["image", "video", "voice"], required: true, index: true },
   url: { type: String, default: "" },
-  prompt: { type: String, required: true },
+  prompt: { type: String, default: "" },
   metadata: {
     voiceName: { type: String },
     duration: { type: Schema.Types.Mixed },

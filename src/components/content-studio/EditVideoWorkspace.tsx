@@ -95,7 +95,9 @@ export function EditVideoWorkspace({
   onClearInitialVideoUrl?: () => void;
 } = {}) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const refVideoInputRef = useRef<HTMLInputElement | null>(null);
   const [videoInputs, setVideoInputs] = useState<Array<{ url: string; duration: number; file?: File }>>([]);
+  const [referenceVideo, setReferenceVideo] = useState<{ url: string; duration: number; file?: File } | null>(null);
   const [selectedPreviewUrl, setSelectedPreviewUrl] = useState<string | null>(null);
   const [prompt, setPrompt] = useState('');
   const [promptHistory, setPromptHistory] = useState<string[]>(() => {
@@ -116,6 +118,7 @@ export function EditVideoWorkspace({
   const [resolution, setResolution] = useState(QUALITY_OPTIONS[0].value);
   const [history, setHistory] = useState<any[]>([]);
   const [showLibraryModal, setShowLibraryModal] = useState(false);
+  const [libraryModalTarget, setLibraryModalTarget] = useState<'input' | 'reference'>('input');
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isExtractingStyle, setIsExtractingStyle] = useState(false);
@@ -287,7 +290,7 @@ export function EditVideoWorkspace({
     const unsubscribe = socketService.onVideoStatusUpdated((data) => {
       console.log("[EditVideoWorkspace] Real-time video update received:", data);
       loadVideoHistory();
-      
+
       const matchedUpdate = data.updates?.find(u => u._id === currentRecordId || u.id === currentRecordId);
       if (matchedUpdate) {
         const status = matchedUpdate?.metadata?.status;
@@ -430,6 +433,41 @@ export function EditVideoWorkspace({
     setVideoInputs(prev => prev.filter((_, idx) => idx !== indexToRemove));
   };
 
+  const handleReferenceVideoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    const file = files[0];
+    const maxSize = 200 * 1024 * 1024; // 200MB
+    if (file.size > maxSize) {
+      toast.warning(`Video mẫu "${file.name}" vượt quá giới hạn 200MB.`);
+      return;
+    }
+
+    const previewUrl = URL.createObjectURL(file);
+    const tempVideo = document.createElement('video');
+    tempVideo.preload = 'metadata';
+    tempVideo.muted = true;
+    tempVideo.playsInline = true;
+    tempVideo.src = previewUrl;
+    tempVideo.onloadedmetadata = () => {
+      const duration = tempVideo.duration || 0;
+      setReferenceVideo(prev => prev && prev.url === previewUrl ? { ...prev, duration } : prev);
+    };
+    tempVideo.load();
+
+    setReferenceVideo({
+      url: previewUrl,
+      duration: 0,
+      file
+    });
+    event.target.value = '';
+  };
+
+  const handleRemoveReferenceVideo = () => {
+    setReferenceVideo(null);
+  };
+
   const savePromptToHistory = (promptText: string) => {
     if (!promptText.trim()) return;
     setPromptHistory(prev => {
@@ -451,6 +489,12 @@ export function EditVideoWorkspace({
   };
 
   const handleOptimizePrompt = async () => {
+    const hasVideo = videoInputs.length > 0 || referenceVideo !== null;
+    if (hasVideo) {
+      await handleExtractVideoStyle();
+      return;
+    }
+
     const description = prompt.trim();
     if (!description) {
       toast.warning('Vui lòng nhập nội dung prompt trước khi tối ưu hóa.');
@@ -473,36 +517,85 @@ export function EditVideoWorkspace({
   };
 
   const handleExtractVideoStyle = async () => {
-    if (videoInputs.length === 0) {
-      toast.warning('Vui lòng chọn hoặc tải lên một video mẫu.');
+    // Luồng mới: Cần có cả video đầu vào và video mẫu để so sánh & phân tích phong cách dựng
+    const hasInputVideo = videoInputs.length > 0;
+    const hasRefVideo = referenceVideo !== null;
+
+    if (!hasInputVideo && !hasRefVideo) {
+      toast.warning('Vui lòng chọn hoặc tải lên ít nhất một video mẫu.');
       return;
     }
 
     setIsExtractingStyle(true);
     try {
-      let targetUrl = videoInputs[0].url;
+      let sampleUrl = "";
+      let sampleDuration = 0;
+      let inputUrl = "";
+      let inputDuration = 0;
 
-      // Nếu video là file local, upload lên Cloudinary trước
-      if (videoInputs[0].file) {
-        toast.info('Đang tải video mẫu lên Cloudinary...');
-        targetUrl = await uploadVideoFile(videoInputs[0].file);
-        // Cập nhật lại danh sách videoInputs (xóa file, cập nhật url)
-        setVideoInputs(prev => {
-          const updated = [...prev];
-          updated[0] = { ...updated[0], url: targetUrl, file: undefined };
-          return updated;
-        });
-        toast.success('Tải video mẫu lên thành công.');
+      // 1. Xử lý video mẫu (Reference Video). Nếu không có, fallback về video đầu tiên trong videoInputs
+      if (hasRefVideo && referenceVideo) {
+        let url = referenceVideo.url;
+        if (referenceVideo.file) {
+          toast.info('Đang tải video mẫu lên Cloudinary...');
+          url = await uploadVideoFile(referenceVideo.file);
+          setReferenceVideo({ ...referenceVideo, url, file: undefined });
+          toast.success('Tải video mẫu lên thành công.');
+        }
+        sampleUrl = url;
+        sampleDuration = referenceVideo.duration || 0;
+      } else {
+        let url = videoInputs[0].url;
+        if (videoInputs[0].file) {
+          toast.info('Đang tải video mẫu lên Cloudinary...');
+          url = await uploadVideoFile(videoInputs[0].file);
+          setVideoInputs(prev => {
+            const updated = [...prev];
+            updated[0] = { ...updated[0], url, file: undefined };
+            return updated;
+          });
+          toast.success('Tải video mẫu lên thành công.');
+        }
+        sampleUrl = url;
+        sampleDuration = videoInputs[0].duration || 0;
       }
 
-      const duration = videoInputs[0].duration || 0;
+      // 2. Xử lý video đầu vào (Target Video) nếu có đồng thời cả video mẫu riêng
+      if (hasRefVideo && hasInputVideo) {
+        let url = videoInputs[0].url;
+        if (videoInputs[0].file) {
+          toast.info('Đang tải video đầu vào lên Cloudinary...');
+          url = await uploadVideoFile(videoInputs[0].file);
+          setVideoInputs(prev => {
+            const updated = [...prev];
+            updated[0] = { ...updated[0], url, file: undefined };
+            return updated;
+          });
+          toast.success('Tải video đầu vào lên thành công.');
+        }
+        inputUrl = url;
+        inputDuration = videoInputs[0].duration || 0;
+      }
+
       toast.info('Đang phân tích kịch bản và phong cách dựng của video...');
-      const response = await geminiApi.analyzeVideoStyle(targetUrl, duration);
-      
+
+      // Gọi API phân tích phong cách dựng kèm theo thông tin video đầu vào để scale thời gian và kết hợp ý tưởng
+      const response = await geminiApi.analyzeVideoStyle(
+        sampleUrl,
+        sampleDuration,
+        inputUrl || undefined,
+        inputDuration || undefined,
+        prompt || undefined
+      );
+
       if (response.extractedPrompt) {
         setPrompt(response.extractedPrompt);
         setOptimizedData(null);
-        toast.success('🎉 Đã trích xuất phong cách dựng video mẫu vào ô ý tưởng!');
+        toast.success(
+          inputUrl
+            ? '🎉 Đã trích xuất phong cách dựng video mẫu và tự động scale theo thời lượng video đầu vào!'
+            : '🎉 Đã trích xuất phong cách dựng video mẫu vào ô ý tưởng!'
+        );
       } else {
         toast.error('Không nhận diện được phong cách dựng của video.');
       }
@@ -515,10 +608,6 @@ export function EditVideoWorkspace({
   };
 
   const handleGenerateVideo = async () => {
-    if (!prompt.trim()) {
-      toast.warning('Vui lòng nhập prompt ý tưởng biên tập video.');
-      return;
-    }
     if (videoInputs.length === 0) {
       toast.warning('Vui lòng chọn hoặc tải lên ít nhất một video nguồn để chỉnh sửa.');
       return;
@@ -578,10 +667,13 @@ export function EditVideoWorkspace({
       const totalDuration = videoInputs.reduce((sum, v) => sum + (v.duration || 0), 0);
 
       toast.info('Đang gửi yêu cầu biên tập video đến AI...');
-      savePromptToHistory(prompt.trim());
+      const trimmedPrompt = prompt.trim();
+      if (trimmedPrompt) {
+        savePromptToHistory(trimmedPrompt);
+      }
       const finalPrompt = optimizedData?.optimized_english_prompt
         ? optimizedData.optimized_english_prompt
-        : prompt.trim();
+        : trimmedPrompt;
 
       const response = await geminiApi.editVideo(jointVideoUrl, finalPrompt, {
         modelName: selectedModel,
@@ -725,7 +817,7 @@ export function EditVideoWorkspace({
             crossOrigin="anonymous"
           />
         )}
-        
+
         <AudioSyncHook activeAudio={activeAudio} currentTime={currentTime} isPlaying={isPlaying} audioRef={audioRef} />
 
         <div className="flex gap-2">
@@ -740,7 +832,7 @@ export function EditVideoWorkspace({
           >
             Quay lại
           </button>
-          
+
           <button
             type="button"
             onClick={handleGenerateVideo}
@@ -784,7 +876,7 @@ export function EditVideoWorkspace({
               <div className="flex justify-between items-center">
                 <label className="text-xs font-bold text-slate-800 uppercase tracking-wide">Video đầu vào</label>
                 <div className="flex items-center gap-2">
-                  {videoInputs.length > 0 && (
+                  {(videoInputs.length > 0 || referenceVideo !== null) && (
                     <button
                       type="button"
                       onClick={handleExtractVideoStyle}
@@ -799,14 +891,17 @@ export function EditVideoWorkspace({
                       ) : (
                         <>
                           <Sparkles className="h-3.5 w-3.5" />
-                          Phân tích kịch bản edit
+
                         </>
                       )}
                     </button>
                   )}
                   <button
                     type="button"
-                    onClick={() => setShowLibraryModal(true)}
+                    onClick={() => {
+                      setLibraryModalTarget('input');
+                      setShowLibraryModal(true);
+                    }}
                     className="text-[11px] font-semibold text-cyan-600 hover:text-cyan-700 flex items-center gap-1 bg-cyan-50 px-2.5 py-1 rounded-lg transition-all cursor-pointer"
                   >
                     <Video className="h-3.5 w-3.5" />
@@ -882,6 +977,83 @@ export function EditVideoWorkspace({
                       accept="video/*"
                       multiple
                       onChange={handleMultipleFilesChange}
+                      className="hidden"
+                    />
+                  </label>
+                )}
+              </div>
+            </div>
+
+            {/* Ô TẢI LÊN VIDEO MẪU (STYLE REFERENCE) */}
+            <div className="space-y-3 pt-2">
+              <div className="flex justify-between items-center">
+                <label className="text-xs font-bold text-slate-800 uppercase tracking-wide">Video mẫu (Phong cách / Style)</label>
+                <div className="flex items-center gap-2">
+                  {referenceVideo && (
+                    <button
+                      type="button"
+                      onClick={handleRemoveReferenceVideo}
+                      className="text-[11px] font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 px-2 py-0.5 rounded-lg transition-all cursor-pointer"
+                    >
+                      Xóa mẫu
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLibraryModalTarget('reference');
+                      setShowLibraryModal(true);
+                    }}
+                    className="text-[11px] font-semibold text-purple-600 hover:text-purple-700 flex items-center gap-1 bg-purple-50 px-2.5 py-1 rounded-lg transition-all cursor-pointer"
+                  >
+                    <Video className="h-3.5 w-3.5" />
+                    Thư viện video
+                  </button>
+                </div>
+              </div>
+              <div
+                className="border-2 border-dashed rounded-2xl p-4 flex flex-col transition-all bg-slate-50/50 border-slate-250 hover:border-purple-400"
+              >
+                {referenceVideo ? (
+                  <div className="flex items-center gap-4">
+                    <div
+                      onClick={() => {
+                        setSelectedPreviewUrl(referenceVideo.url);
+                        setShowPreviewModal(true);
+                      }}
+                      className="relative w-28 h-28 border border-slate-200 rounded-xl overflow-hidden bg-white shadow-xs group cursor-pointer hover:border-purple-400 hover:ring-1 hover:ring-purple-400/50 transition-all"
+                    >
+                      <video
+                        src={referenceVideo.url}
+                        className="w-full h-full object-cover"
+                        muted
+                        playsInline
+                        crossOrigin="anonymous"
+                      />
+                      <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                        <Play className="h-6 w-6 text-white fill-white" />
+                      </div>
+                      <span className="absolute bottom-1.5 left-1.5 text-[9px] font-bold text-white bg-black/50 px-1 rounded">
+                        Mẫu ({referenceVideo.duration ? `${Math.round(referenceVideo.duration)}s` : '0s'})
+                      </span>
+                    </div>
+                    <div className="flex-1 text-slate-600 text-xs">
+                      <p className="font-semibold text-slate-700">Video mẫu đã chọn</p>
+                      <p className="mt-1 text-slate-450">Tải lên video mẫu giúp AI phân tích chính xác phong cách, nhịp độ và scale các hiệu ứng khớp với thời lượng của video đầu vào.</p>
+                    </div>
+                  </div>
+                ) : (
+                  <label className="cursor-pointer flex flex-col items-center justify-center text-center w-full min-h-[90px] py-2">
+                    <div className="w-8 h-8 rounded-full bg-purple-50 flex items-center justify-center mb-1">
+                      <Sparkles className="h-4 w-4 text-purple-500" />
+                    </div>
+                    <span className="text-xs font-semibold text-slate-700">Chọn tải lên Video mẫu (Reference Style)</span>
+                    <span className="text-[10px] text-slate-400 mt-0.5">Để AI học phong cách dựng, bộ lọc và hiệu ứng</span>
+                    <input
+                      ref={refVideoInputRef}
+                      type="file"
+                      accept="video/*"
+                      onChange={handleReferenceVideoChange}
                       className="hidden"
                     />
                   </label>
@@ -980,17 +1152,17 @@ export function EditVideoWorkspace({
                 type="button"
                 onClick={handleOptimizePrompt}
                 className="inline-flex w-full items-center justify-center gap-2 rounded-3xl bg-cyan-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-70"
-                disabled={isOptimizing}
+                disabled={isOptimizing || isExtractingStyle}
               >
-                {isOptimizing ? (
+                {isOptimizing || isExtractingStyle ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Đang phân tích prompt...
+                    Đang phân tích...
                   </>
                 ) : (
                   <>
                     <Sparkles className="h-4 w-4" />
-                    Phân tích → Lệnh chỉnh sửa
+                    {videoInputs.length > 0 || referenceVideo !== null ? "Phân tích Video & Ý tưởng" : "Phân tích → Lệnh chỉnh sửa"}
                   </>
                 )}
               </button>
@@ -1045,299 +1217,299 @@ export function EditVideoWorkspace({
                   </>
                 )}
               </button>
-            {blueprint && blueprint.timeline && (
-              <div className="mt-6 rounded-3xl border border-slate-200 bg-slate-50 p-5 shadow-xs space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Cấu hình Biên tập Thủ công</h3>
-                    <p className="text-[10px] text-slate-500 mt-0.5">Tinh chỉnh các lớp chữ, nhạc và hiệu ứng video.</p>
+              {blueprint && blueprint.timeline && (
+                <div className="mt-6 rounded-3xl border border-slate-200 bg-slate-50 p-5 shadow-xs space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Cấu hình Biên tập Thủ công</h3>
+                      <p className="text-[10px] text-slate-500 mt-0.5">Tinh chỉnh các lớp chữ, nhạc và hiệu ứng video.</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={handleAddTextLayer}
+                        className="text-[11px] font-semibold text-cyan-600 hover:text-cyan-700 bg-cyan-50 px-2.5 py-1.5 rounded-lg transition-all cursor-pointer"
+                      >
+                        + Chữ
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleAddAudioLayer}
+                        className="text-[11px] font-semibold text-purple-600 hover:text-purple-700 bg-purple-50 px-2.5 py-1.5 rounded-lg transition-all cursor-pointer"
+                      >
+                        + Nhạc
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={handleAddTextLayer}
-                      className="text-[11px] font-semibold text-cyan-600 hover:text-cyan-700 bg-cyan-50 px-2.5 py-1.5 rounded-lg transition-all cursor-pointer"
-                    >
-                      + Chữ
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleAddAudioLayer}
-                      className="text-[11px] font-semibold text-purple-600 hover:text-purple-700 bg-purple-50 px-2.5 py-1.5 rounded-lg transition-all cursor-pointer"
-                    >
-                      + Nhạc
-                    </button>
-                  </div>
-                </div>
 
-                <div className="space-y-4 max-h-[450px] overflow-y-auto pr-1">
-                  {blueprint.timeline.map((item: any, idx: number) => {
-                    if (item.type === 'text') {
-                      return (
-                        <div key={idx} className="p-4 rounded-2xl border border-slate-200 bg-white flex flex-col gap-3 shadow-xs">
-                          <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-                            <span className="text-[10px] font-bold text-cyan-600 tracking-wider">LỚP CHỮ #{idx + 1}</span>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteTimelineItem(idx)}
-                              className="text-[10px] text-rose-500 hover:text-rose-700 font-bold cursor-pointer transition-colors"
-                            >
-                              XÓA
-                            </button>
-                          </div>
-                          <div className="grid gap-3 sm:grid-cols-2">
-                            <div className="flex flex-col gap-1">
-                              <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Nội dung chữ</label>
-                              <input
-                                type="text"
-                                value={item.content}
-                                onChange={(e) => handleUpdateTimelineItem(idx, 'content', e.target.value)}
-                                className="w-full text-xs p-2 border border-slate-200 rounded-lg outline-none focus:border-cyan-400"
-                              />
-                            </div>
-                            <div className="flex gap-2">
-                              <div className="flex flex-col gap-1 flex-1">
-                                <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Bắt đầu (s)</label>
-                                <input
-                                  type="number"
-                                  step="0.1"
-                                  min="0"
-                                  value={item.start}
-                                  onChange={(e) => handleUpdateTimelineItem(idx, 'start', parseFloat(e.target.value) || 0)}
-                                  className="w-full text-xs p-2 border border-slate-200 rounded-lg outline-none focus:border-cyan-400"
-                                />
-                              </div>
-                              <div className="flex flex-col gap-1 flex-1">
-                                <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Kết thúc (s)</label>
-                                <input
-                                  type="number"
-                                  step="0.1"
-                                  min="0"
-                                  value={item.end}
-                                  onChange={(e) => handleUpdateTimelineItem(idx, 'end', parseFloat(e.target.value) || 0)}
-                                  className="w-full text-xs p-2 border border-slate-200 rounded-lg outline-none focus:border-cyan-400"
-                                />
-                              </div>
-                            </div>
-                          </div>
-                          <div className="grid gap-3 sm:grid-cols-3">
-                            <div className="flex flex-col gap-1">
-                              <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Vị trí</label>
-                              <select
-                                value={item.style?.position || 'bottom-center'}
-                                onChange={(e) => handleUpdateTimelineItem(idx, 'style', { ...item.style, position: e.target.value })}
-                                className="w-full text-xs p-2 border border-slate-200 rounded-lg outline-none focus:border-cyan-400 bg-white"
+                  <div className="space-y-4 max-h-[450px] overflow-y-auto pr-1">
+                    {blueprint.timeline.map((item: any, idx: number) => {
+                      if (item.type === 'text') {
+                        return (
+                          <div key={idx} className="p-4 rounded-2xl border border-slate-200 bg-white flex flex-col gap-3 shadow-xs">
+                            <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+                              <span className="text-[10px] font-bold text-cyan-600 tracking-wider">LỚP CHỮ #{idx + 1}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteTimelineItem(idx)}
+                                className="text-[10px] text-rose-500 hover:text-rose-700 font-bold cursor-pointer transition-colors"
                               >
-                                <option value="bottom-center">Dưới - Giữa</option>
-                                <option value="center">Chính giữa</option>
-                                <option value="top-center">Trên - Giữa</option>
-                                <option value="top-left">Trên - Trái</option>
-                                <option value="top-right">Trên - Phải</option>
-                                <option value="bottom-left">Dưới - Trái</option>
-                                <option value="bottom-right">Dưới - Phải</option>
-                              </select>
+                                XÓA
+                              </button>
                             </div>
-                            <div className="flex flex-col gap-1">
-                              <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Màu chữ</label>
-                              <div className="flex gap-1.5 items-center">
-                                <input
-                                  type="color"
-                                  value={item.style?.color || '#FFFFFF'}
-                                  onChange={(e) => handleUpdateTimelineItem(idx, 'style', { ...item.style, color: e.target.value })}
-                                  className="w-7 h-7 rounded border border-slate-200 cursor-pointer overflow-hidden"
-                                />
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              <div className="flex flex-col gap-1">
+                                <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Nội dung chữ</label>
                                 <input
                                   type="text"
-                                  value={item.style?.color || '#FFFFFF'}
-                                  onChange={(e) => handleUpdateTimelineItem(idx, 'style', { ...item.style, color: e.target.value })}
-                                  className="flex-1 min-w-0 text-xs p-1.5 border border-slate-200 rounded-lg outline-none focus:border-cyan-400 text-center"
-                                />
-                              </div>
-                            </div>
-                            <div className="flex flex-col gap-1">
-                              <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Cỡ chữ (px)</label>
-                              <input
-                                type="text"
-                                value={item.style?.fontSize || '32px'}
-                                onChange={(e) => handleUpdateTimelineItem(idx, 'style', { ...item.style, fontSize: e.target.value })}
-                                className="w-full text-xs p-2 border border-slate-200 rounded-lg outline-none focus:border-cyan-400"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    } else if (item.type === 'audio') {
-                      return (
-                        <div key={idx} className="p-4 rounded-2xl border border-slate-200 bg-white flex flex-col gap-3 shadow-xs">
-                          <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-                            <span className="text-[10px] font-bold text-purple-600 tracking-wider">NHẠC NỀN #{idx + 1}</span>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteTimelineItem(idx)}
-                              className="text-[10px] text-rose-500 hover:text-rose-700 font-bold cursor-pointer transition-colors"
-                            >
-                              XÓA
-                            </button>
-                          </div>
-                          <div className="grid gap-3 sm:grid-cols-2">
-                            <div className="flex flex-col gap-1">
-                              <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Đường dẫn nhạc (URL)</label>
-                              <input
-                                type="text"
-                                value={item.src}
-                                onChange={(e) => handleUpdateTimelineItem(idx, 'src', e.target.value)}
-                                className="w-full text-xs p-2 border border-slate-200 rounded-lg outline-none focus:border-cyan-400"
-                              />
-                            </div>
-                            <div className="flex gap-2">
-                              <div className="flex flex-col gap-1 flex-1">
-                                <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Bắt đầu (s)</label>
-                                <input
-                                  type="number"
-                                  step="0.1"
-                                  min="0"
-                                  value={item.start}
-                                  onChange={(e) => handleUpdateTimelineItem(idx, 'start', parseFloat(e.target.value) || 0)}
+                                  value={item.content}
+                                  onChange={(e) => handleUpdateTimelineItem(idx, 'content', e.target.value)}
                                   className="w-full text-xs p-2 border border-slate-200 rounded-lg outline-none focus:border-cyan-400"
                                 />
                               </div>
-                              <div className="flex flex-col gap-1 flex-1">
-                                <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Kết thúc (s)</label>
-                                <input
-                                  type="number"
-                                  step="0.1"
-                                  min="0"
-                                  value={item.end}
-                                  onChange={(e) => handleUpdateTimelineItem(idx, 'end', parseFloat(e.target.value) || 0)}
-                                  className="w-full text-xs p-2 border border-slate-200 rounded-lg outline-none focus:border-cyan-400"
-                                />
+                              <div className="flex gap-2">
+                                <div className="flex flex-col gap-1 flex-1">
+                                  <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Bắt đầu (s)</label>
+                                  <input
+                                    type="number"
+                                    step="0.1"
+                                    min="0"
+                                    value={item.start}
+                                    onChange={(e) => handleUpdateTimelineItem(idx, 'start', parseFloat(e.target.value) || 0)}
+                                    className="w-full text-xs p-2 border border-slate-200 rounded-lg outline-none focus:border-cyan-400"
+                                  />
+                                </div>
+                                <div className="flex flex-col gap-1 flex-1">
+                                  <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Kết thúc (s)</label>
+                                  <input
+                                    type="number"
+                                    step="0.1"
+                                    min="0"
+                                    value={item.end}
+                                    onChange={(e) => handleUpdateTimelineItem(idx, 'end', parseFloat(e.target.value) || 0)}
+                                    className="w-full text-xs p-2 border border-slate-200 rounded-lg outline-none focus:border-cyan-400"
+                                  />
+                                </div>
                               </div>
                             </div>
-                          </div>
-                          <div className="flex flex-col gap-1">
-                            <div className="flex justify-between items-center">
-                              <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Âm lượng</label>
-                              <span className="text-xs font-semibold text-slate-700">{Math.round((item.volume || 0.5) * 100)}%</span>
-                            </div>
-                            <input
-                              type="range"
-                              min="0"
-                              max="1"
-                              step="0.05"
-                              value={item.volume !== undefined ? item.volume : 0.5}
-                              onChange={(e) => handleUpdateTimelineItem(idx, 'volume', parseFloat(e.target.value) || 0)}
-                              className="w-full h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-purple-600"
-                            />
-                          </div>
-                        </div>
-                      );
-                    } else if (item.type === 'video') {
-                      return (
-                        <div key={idx} className="p-4 rounded-2xl border border-slate-200 bg-white flex flex-col gap-3 shadow-xs">
-                          <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-                            <span className="text-[10px] font-bold text-slate-600 tracking-wider">VIDEO CLIPS NGUỒN #{idx + 1}</span>
-                          </div>
-                          <div className="grid gap-3 sm:grid-cols-2">
-                            <div className="flex gap-2">
-                              <div className="flex flex-col gap-1 flex-1">
-                                <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Cắt từ (s)</label>
-                                <input
-                                  type="number"
-                                  step="0.1"
-                                  min="0"
-                                  value={item.start}
-                                  onChange={(e) => handleUpdateTimelineItem(idx, 'start', parseFloat(e.target.value) || 0)}
-                                  className="w-full text-xs p-2 border border-slate-200 rounded-lg outline-none focus:border-cyan-400"
-                                />
+                            <div className="grid gap-3 sm:grid-cols-3">
+                              <div className="flex flex-col gap-1">
+                                <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Vị trí</label>
+                                <select
+                                  value={item.style?.position || 'bottom-center'}
+                                  onChange={(e) => handleUpdateTimelineItem(idx, 'style', { ...item.style, position: e.target.value })}
+                                  className="w-full text-xs p-2 border border-slate-200 rounded-lg outline-none focus:border-cyan-400 bg-white"
+                                >
+                                  <option value="bottom-center">Dưới - Giữa</option>
+                                  <option value="center">Chính giữa</option>
+                                  <option value="top-center">Trên - Giữa</option>
+                                  <option value="top-left">Trên - Trái</option>
+                                  <option value="top-right">Trên - Phải</option>
+                                  <option value="bottom-left">Dưới - Trái</option>
+                                  <option value="bottom-right">Dưới - Phải</option>
+                                </select>
                               </div>
-                              <div className="flex flex-col gap-1 flex-1">
-                                <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Cắt đến (s)</label>
+                              <div className="flex flex-col gap-1">
+                                <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Màu chữ</label>
+                                <div className="flex gap-1.5 items-center">
+                                  <input
+                                    type="color"
+                                    value={item.style?.color || '#FFFFFF'}
+                                    onChange={(e) => handleUpdateTimelineItem(idx, 'style', { ...item.style, color: e.target.value })}
+                                    className="w-7 h-7 rounded border border-slate-200 cursor-pointer overflow-hidden"
+                                  />
+                                  <input
+                                    type="text"
+                                    value={item.style?.color || '#FFFFFF'}
+                                    onChange={(e) => handleUpdateTimelineItem(idx, 'style', { ...item.style, color: e.target.value })}
+                                    className="flex-1 min-w-0 text-xs p-1.5 border border-slate-200 rounded-lg outline-none focus:border-cyan-400 text-center"
+                                  />
+                                </div>
+                              </div>
+                              <div className="flex flex-col gap-1">
+                                <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Cỡ chữ (px)</label>
                                 <input
-                                  type="number"
-                                  step="0.1"
-                                  min="0"
-                                  value={item.end}
-                                  onChange={(e) => handleUpdateTimelineItem(idx, 'end', parseFloat(e.target.value) || 0)}
+                                  type="text"
+                                  value={item.style?.fontSize || '32px'}
+                                  onChange={(e) => handleUpdateTimelineItem(idx, 'style', { ...item.style, fontSize: e.target.value })}
                                   className="w-full text-xs p-2 border border-slate-200 rounded-lg outline-none focus:border-cyan-400"
                                 />
                               </div>
                             </div>
-                            <div className="flex flex-col gap-1">
-                              <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Tốc độ phát</label>
-                              <select
-                                value={item.playbackRate || 1.0}
-                                onChange={(e) => handleUpdateTimelineItem(idx, 'playbackRate', parseFloat(e.target.value) || 1.0)}
-                                className="w-full text-xs p-2 border border-slate-200 rounded-lg outline-none focus:border-cyan-400 bg-white"
+                          </div>
+                        );
+                      } else if (item.type === 'audio') {
+                        return (
+                          <div key={idx} className="p-4 rounded-2xl border border-slate-200 bg-white flex flex-col gap-3 shadow-xs">
+                            <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+                              <span className="text-[10px] font-bold text-purple-600 tracking-wider">NHẠC NỀN #{idx + 1}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteTimelineItem(idx)}
+                                className="text-[10px] text-rose-500 hover:text-rose-700 font-bold cursor-pointer transition-colors"
                               >
-                                <option value="0.5">0.5x (Chậm)</option>
-                                <option value="1.0">1.0x (Thường)</option>
-                                <option value="1.5">1.5x (Nhanh)</option>
-                                <option value="2.0">2.0x (Cực nhanh)</option>
-                              </select>
+                                XÓA
+                              </button>
                             </div>
-                          </div>
-                          <div className="grid gap-3 sm:grid-cols-2">
-                            <div className="flex flex-col gap-1">
-                              <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Hiệu ứng Zoom</label>
-                              <select
-                                value={item.effects?.zoom || 'none'}
-                                onChange={(e) => handleUpdateTimelineItem(idx, 'effects', { ...item.effects, zoom: e.target.value })}
-                                className="w-full text-xs p-2 border border-slate-200 rounded-lg outline-none focus:border-cyan-400 bg-white"
-                              >
-                                <option value="none">Không zoom</option>
-                                <option value="in">Zoom In (Cận cảnh)</option>
-                                <option value="out">Zoom Out</option>
-                              </select>
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              <div className="flex flex-col gap-1">
+                                <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Đường dẫn nhạc (URL)</label>
+                                <input
+                                  type="text"
+                                  value={item.src}
+                                  onChange={(e) => handleUpdateTimelineItem(idx, 'src', e.target.value)}
+                                  className="w-full text-xs p-2 border border-slate-200 rounded-lg outline-none focus:border-cyan-400"
+                                />
+                              </div>
+                              <div className="flex gap-2">
+                                <div className="flex flex-col gap-1 flex-1">
+                                  <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Bắt đầu (s)</label>
+                                  <input
+                                    type="number"
+                                    step="0.1"
+                                    min="0"
+                                    value={item.start}
+                                    onChange={(e) => handleUpdateTimelineItem(idx, 'start', parseFloat(e.target.value) || 0)}
+                                    className="w-full text-xs p-2 border border-slate-200 rounded-lg outline-none focus:border-cyan-400"
+                                  />
+                                </div>
+                                <div className="flex flex-col gap-1 flex-1">
+                                  <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Kết thúc (s)</label>
+                                  <input
+                                    type="number"
+                                    step="0.1"
+                                    min="0"
+                                    value={item.end}
+                                    onChange={(e) => handleUpdateTimelineItem(idx, 'end', parseFloat(e.target.value) || 0)}
+                                    className="w-full text-xs p-2 border border-slate-200 rounded-lg outline-none focus:border-cyan-400"
+                                  />
+                                </div>
+                              </div>
                             </div>
-                            <div className="flex flex-col gap-1">
-                              <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Chuyển cảnh</label>
-                              <select
-                                value={item.effects?.transition || 'none'}
-                                onChange={(e) => handleUpdateTimelineItem(idx, 'effects', { ...item.effects, transition: e.target.value })}
-                                className="w-full text-xs p-2 border border-slate-200 rounded-lg outline-none focus:border-cyan-400 bg-white"
-                              >
-                                <option value="none">Không hiệu ứng</option>
-                                <option value="fade">Mờ dần (Fade out)</option>
-                              </select>
-                            </div>
-                          </div>
-                          <div className="grid gap-3 sm:grid-cols-2 border-t border-slate-100 pt-2.5">
                             <div className="flex flex-col gap-1">
                               <div className="flex justify-between items-center">
-                                <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Độ sáng</label>
-                                <span className="text-[10px] font-semibold text-slate-700">{Math.round((item.filters?.brightness || 1.0) * 100)}%</span>
+                                <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Âm lượng</label>
+                                <span className="text-xs font-semibold text-slate-700">{Math.round((item.volume || 0.5) * 100)}%</span>
                               </div>
                               <input
                                 type="range"
-                                min="0.5"
-                                max="1.5"
+                                min="0"
+                                max="1"
                                 step="0.05"
-                                value={item.filters?.brightness || 1.0}
-                                onChange={(e) => handleUpdateTimelineItem(idx, 'filters', { ...item.filters, brightness: parseFloat(e.target.value) || 1.0 })}
-                                className="w-full h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-600"
+                                value={item.volume !== undefined ? item.volume : 0.5}
+                                onChange={(e) => handleUpdateTimelineItem(idx, 'volume', parseFloat(e.target.value) || 0)}
+                                className="w-full h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-purple-600"
                               />
-                            </div>
-                            <div className="flex items-center gap-2 pt-3">
-                              <input
-                                type="checkbox"
-                                id={`gray-comp-${idx}`}
-                                checked={!!item.filters?.grayscale}
-                                onChange={(e) => handleUpdateTimelineItem(idx, 'filters', { ...item.filters, grayscale: e.target.checked ? 1.0 : 0 })}
-                                className="w-4 h-4 rounded border-slate-350 text-cyan-600 focus:ring-cyan-500 accent-cyan-600 cursor-pointer"
-                              />
-                              <label htmlFor={`gray-comp-${idx}`} className="text-[10px] font-bold text-slate-500 uppercase tracking-wide cursor-pointer select-none">Màu đen trắng</label>
                             </div>
                           </div>
-                        </div>
-                      );
-                    }
-                    return null;
-                  })}
+                        );
+                      } else if (item.type === 'video') {
+                        return (
+                          <div key={idx} className="p-4 rounded-2xl border border-slate-200 bg-white flex flex-col gap-3 shadow-xs">
+                            <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+                              <span className="text-[10px] font-bold text-slate-600 tracking-wider">VIDEO CLIPS NGUỒN #{idx + 1}</span>
+                            </div>
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              <div className="flex gap-2">
+                                <div className="flex flex-col gap-1 flex-1">
+                                  <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Cắt từ (s)</label>
+                                  <input
+                                    type="number"
+                                    step="0.1"
+                                    min="0"
+                                    value={item.start}
+                                    onChange={(e) => handleUpdateTimelineItem(idx, 'start', parseFloat(e.target.value) || 0)}
+                                    className="w-full text-xs p-2 border border-slate-200 rounded-lg outline-none focus:border-cyan-400"
+                                  />
+                                </div>
+                                <div className="flex flex-col gap-1 flex-1">
+                                  <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Cắt đến (s)</label>
+                                  <input
+                                    type="number"
+                                    step="0.1"
+                                    min="0"
+                                    value={item.end}
+                                    onChange={(e) => handleUpdateTimelineItem(idx, 'end', parseFloat(e.target.value) || 0)}
+                                    className="w-full text-xs p-2 border border-slate-200 rounded-lg outline-none focus:border-cyan-400"
+                                  />
+                                </div>
+                              </div>
+                              <div className="flex flex-col gap-1">
+                                <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Tốc độ phát</label>
+                                <select
+                                  value={item.playbackRate || 1.0}
+                                  onChange={(e) => handleUpdateTimelineItem(idx, 'playbackRate', parseFloat(e.target.value) || 1.0)}
+                                  className="w-full text-xs p-2 border border-slate-200 rounded-lg outline-none focus:border-cyan-400 bg-white"
+                                >
+                                  <option value="0.5">0.5x (Chậm)</option>
+                                  <option value="1.0">1.0x (Thường)</option>
+                                  <option value="1.5">1.5x (Nhanh)</option>
+                                  <option value="2.0">2.0x (Cực nhanh)</option>
+                                </select>
+                              </div>
+                            </div>
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              <div className="flex flex-col gap-1">
+                                <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Hiệu ứng Zoom</label>
+                                <select
+                                  value={item.effects?.zoom || 'none'}
+                                  onChange={(e) => handleUpdateTimelineItem(idx, 'effects', { ...item.effects, zoom: e.target.value })}
+                                  className="w-full text-xs p-2 border border-slate-200 rounded-lg outline-none focus:border-cyan-400 bg-white"
+                                >
+                                  <option value="none">Không zoom</option>
+                                  <option value="in">Zoom In (Cận cảnh)</option>
+                                  <option value="out">Zoom Out</option>
+                                </select>
+                              </div>
+                              <div className="flex flex-col gap-1">
+                                <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Chuyển cảnh</label>
+                                <select
+                                  value={item.effects?.transition || 'none'}
+                                  onChange={(e) => handleUpdateTimelineItem(idx, 'effects', { ...item.effects, transition: e.target.value })}
+                                  className="w-full text-xs p-2 border border-slate-200 rounded-lg outline-none focus:border-cyan-400 bg-white"
+                                >
+                                  <option value="none">Không hiệu ứng</option>
+                                  <option value="fade">Mờ dần (Fade out)</option>
+                                </select>
+                              </div>
+                            </div>
+                            <div className="grid gap-3 sm:grid-cols-2 border-t border-slate-100 pt-2.5">
+                              <div className="flex flex-col gap-1">
+                                <div className="flex justify-between items-center">
+                                  <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Độ sáng</label>
+                                  <span className="text-[10px] font-semibold text-slate-700">{Math.round((item.filters?.brightness || 1.0) * 100)}%</span>
+                                </div>
+                                <input
+                                  type="range"
+                                  min="0.5"
+                                  max="1.5"
+                                  step="0.05"
+                                  value={item.filters?.brightness || 1.0}
+                                  onChange={(e) => handleUpdateTimelineItem(idx, 'filters', { ...item.filters, brightness: parseFloat(e.target.value) || 1.0 })}
+                                  className="w-full h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-600"
+                                />
+                              </div>
+                              <div className="flex items-center gap-2 pt-3">
+                                <input
+                                  type="checkbox"
+                                  id={`gray-comp-${idx}`}
+                                  checked={!!item.filters?.grayscale}
+                                  onChange={(e) => handleUpdateTimelineItem(idx, 'filters', { ...item.filters, grayscale: e.target.checked ? 1.0 : 0 })}
+                                  className="w-4 h-4 rounded border-slate-350 text-cyan-600 focus:ring-cyan-500 accent-cyan-600 cursor-pointer"
+                                />
+                                <label htmlFor={`gray-comp-${idx}`} className="text-[10px] font-bold text-slate-500 uppercase tracking-wide cursor-pointer select-none">Màu đen trắng</label>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
-        </div>
 
           <div className="space-y-6">
             <div className="rounded-[32px] border border-slate-200 bg-white p-6 shadow-sm">
@@ -1349,8 +1521,8 @@ export function EditVideoWorkspace({
                 <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">Preview</div>
               </div>
               <div className={`mt-6 rounded-[28px] border bg-slate-50 p-6 text-center text-slate-500 ${(outputUrl || isGenerating || blueprint)
-                  ? 'border-solid border-slate-250'
-                  : 'border-dashed border-slate-300 flex h-[380px] items-center justify-center'
+                ? 'border-solid border-slate-250'
+                : 'border-dashed border-slate-300 flex h-[380px] items-center justify-center'
                 }`}>
                 {(outputUrl || isGenerating || blueprint) ? (
                   (isGenerating || (outputUrl && outputUrl.startsWith('pending://'))) ? (() => {
@@ -1382,7 +1554,7 @@ export function EditVideoWorkspace({
                             onClick={() => {
                               // Replace the video inputs with the newly rendered video
                               setVideoInputs([{ url: finalVideoUrl, duration: 0 }]);
-                              
+
                               // Load the duration of the new video dynamically
                               const tempVideo = document.createElement('video');
                               tempVideo.preload = 'metadata';
@@ -1639,7 +1811,11 @@ export function EditVideoWorkspace({
                         type="button"
                         onClick={() => {
                           const duration = item.metadata?.duration ? Number(item.metadata.duration) : 0;
-                          setVideoInputs(prev => [...prev, { url: item.url, duration }]);
+                          if (libraryModalTarget === 'reference') {
+                            setReferenceVideo({ url: item.url, duration });
+                          } else {
+                            setVideoInputs(prev => [...prev, { url: item.url, duration }]);
+                          }
                           setShowLibraryModal(false);
                         }}
                         className="group rounded-3xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:border-cyan-300 hover:bg-cyan-50"

@@ -12,6 +12,7 @@ import { remotionQueueService } from "./server/service/remotion-queue.service";
 import { tiktokController } from "./server/controller/tiktok.controller";
 import { getSeoForPath, resolveSeoUrl } from "./src/seo/seo-config";
 import { BRAND_NAME, BRAND_TAGLINE, BRAND_LOGO_URL } from "./src/config/brand";
+import { telegramService } from "./server/service/telegram.service";
 
 dotenv.config();
 
@@ -339,6 +340,11 @@ async function startServer() {
   httpServer.listen(PORT, "0.0.0.0", () => {
     console.log(`Express and Socket.IO server running on http://localhost:${PORT}`);
     console.log(`Swagger documentation available at http://localhost:${PORT}/api-docs`);
+    
+    // Khởi chạy Telegram Bot long-polling để xử lý lệnh /image, /video
+    telegramService.startPolling().catch((err) => {
+      console.error("[Telegram Bot] Khởi động polling thất bại:", err);
+    });
   });
 }
 

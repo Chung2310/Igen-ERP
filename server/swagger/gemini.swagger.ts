@@ -237,7 +237,9 @@ export const geminiSwagger = {
                 type: "object",
                 properties: {
                   videoUrl: { type: "string", example: "https://res.cloudinary.com/.../video.mp4" },
-                  duration: { type: "number", example: 15, description: "Thời lượng của video mẫu tính bằng giây" }
+                  duration: { type: "number", example: 15, description: "Thời lượng của video mẫu tính bằng giây" },
+                  targetVideoUrl: { type: "string", example: "https://res.cloudinary.com/.../video2.mp4", description: "Đường dẫn video đầu vào cần chỉnh sửa" },
+                  targetDuration: { type: "number", example: 10, description: "Thời lượng video đầu vào cần chỉnh sửa tính bằng giây" }
                 },
                 required: ["videoUrl"]
               }

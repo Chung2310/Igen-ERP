@@ -3,6 +3,7 @@ import { facebookPostService } from "../service/facebook-post.service";
 import { SocialIntegrationModel } from "../model/social-integration.model";
 import { UserDataDeletionModel } from "../model/user-data-deletion.model";
 import { MarketingContentModel } from "../model/marketing-content.model";
+import { telegramService } from "../service/telegram.service";
 import crypto from "crypto";
 
 function base64UrlDecode(str: string) {
@@ -580,6 +581,22 @@ export const facebookPostController = {
       await card.save();
 
       console.log(`[Facebook Webhook Callback] Cập nhật bài viết ${cardId} đăng thành công lên Facebook. Post ID: ${postId}`);
+
+      // Gửi thông báo tự động tới Telegram với link bài post
+      const telegramChatId = process.env.TELEGRAM_CHAT_ID;
+      if (telegramChatId) {
+        const message = [
+          "📢 <b>ĐÃ ĐĂNG BÀI VIẾT LÊN FACEBOOK!</b> 📢",
+          "=============================",
+          `📝 <b>Tiêu đề:</b> ${card.title || "Không có tiêu đề"}`,
+          `🔗 <b>Đường dẫn bài viết:</b>`,
+          `<a href="${postUrl}">${postUrl}</a>`,
+          "=============================",
+        ].join("\n");
+        telegramService.sendMessage(telegramChatId, message).catch((err) => {
+          console.error("[Telegram Bot] Lỗi gửi thông báo đăng bài Facebook:", err);
+        });
+      }
 
       return res.status(200).json({
         status: "success",

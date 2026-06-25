@@ -717,7 +717,7 @@ export default function CRMTab() {
   };
 
   // Sync classification tags to Omni-Inbox
-  const syncLeadTagToInbox = (name: string, status: "cold" | "warm" | "hot", touchpoint?: string) => {
+  const syncLeadTagToInbox = (name: string, status: "cold" | "warm" | "hot" | "won" | "upsell", touchpoint?: string) => {
     setInboxCustomers(prev => {
       let hasChanges = false;
 
@@ -726,8 +726,13 @@ export default function CRMTab() {
           return cust;
         }
 
-        const cleanTags = cust.tags.filter(t => !["Khách Lạnh", "Khách Ấm", "Khách Nóng", "Sắp chốt HD", "Đã gửi báo giá", "Mới tiếp cận"].includes(t));
-        const newTempTag = status === "cold" ? "Khách Lạnh" : status === "warm" ? "Khách Ấm" : "Khách Nóng";
+        const cleanTags = cust.tags.filter(t => !["Khách Lạnh", "Khách Ấm", "Khách Nóng", "Đã Chốt Đơn", "Khách Up-sell", "Sắp chốt HD", "Đã gửi báo giá", "Mới tiếp cận"].includes(t));
+        const newTempTag =
+          status === "cold" ? "Khách Lạnh" :
+          status === "warm" ? "Khách Ấm" :
+          status === "hot" ? "Khách Nóng" :
+          status === "won" ? "Đã Chốt Đơn" :
+          "Khách Up-sell";
         const newTags = [...cleanTags, newTempTag];
         if (touchpoint) {
           newTags.push(touchpoint);
@@ -825,7 +830,7 @@ export default function CRMTab() {
     }
   };
 
-  const moveLeadPipeline = async (id: string, newStatus: "cold" | "warm" | "hot") => {
+  const moveLeadPipeline = async (id: string, newStatus: "cold" | "warm" | "hot" | "won" | "upsell") => {
     const lead = leads.find(l => l.id === id);
     if (!lead) return;
 
@@ -835,6 +840,10 @@ export default function CRMTab() {
 
       if (newStatus === "hot" && lead.lastInteraction === "Sắp chốt HD") {
         triggerAutoCloseWorkflow(updatedLead);
+      }
+
+      if (newStatus === "won") {
+        toast.success(`🎉 Chốt đơn thành công cho khách hàng ${lead.customerName}!`);
       }
 
       syncLeadTagToInbox(lead.customerName, newStatus, lead.lastInteraction);
