@@ -487,6 +487,9 @@ export default function InventoryTab() {
 
       const existingSkus = new Set(products.map((product) => product.sku.toUpperCase()));
       const importedSkus = new Set<string>();
+      const existingCategoryNames = new Set(categories.map((c) => c.name.trim().toLowerCase()));
+      const existingCodes = new Set(categories.map((c) => c.code.toUpperCase()));
+      const createdCategoryNames = new Set<string>();
       let createdCount = 0;
       let skippedCount = 0;
 
@@ -494,6 +497,42 @@ export default function InventoryTab() {
         if (existingSkus.has(row.sku) || importedSkus.has(row.sku)) {
           skippedCount += 1;
           continue;
+        }
+
+        // Auto-create category if it does not exist
+        const catName = (row.category || "Chưa phân loại").trim();
+        const catNameLower = catName.toLowerCase();
+        if (catNameLower !== "chưa phân loại" && !existingCategoryNames.has(catNameLower) && !createdCategoryNames.has(catNameLower)) {
+          let codeBase = catName
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/[đĐ]/g, "d")
+            .split(/\s+/)
+            .map((word) => word[0])
+            .join("")
+            .toUpperCase()
+            .replace(/[^A-Z0-9]/g, "");
+          if (!codeBase) {
+            codeBase = "CAT";
+          }
+          let code = codeBase;
+          let counter = 1;
+          while (existingCodes.has(code)) {
+            code = `${codeBase}${counter}`;
+            counter++;
+          }
+
+          try {
+            await inventoryCategoryService.createCategory({
+              name: catName,
+              code: code,
+              description: `Danh mục được tạo tự động khi nhập sản phẩm từ Excel.`,
+            });
+            createdCategoryNames.add(catNameLower);
+            existingCodes.add(code);
+          } catch (err) {
+            console.error("Lỗi khi tạo danh mục tự động:", err);
+          }
         }
 
         await inventoryProductService.createProduct({

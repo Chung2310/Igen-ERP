@@ -640,6 +640,37 @@ export const fbMessengerService = {
       if (!response.ok) {
         const textErr = await response.text();
         console.error(`[FB Service sendReply] Send API phản hồi lỗi: ${response.status} - ${textErr}`);
+        
+        let isTokenError = false;
+        let facebookErrCode = 0;
+        try {
+          const errObj = JSON.parse(textErr);
+          facebookErrCode = errObj.error?.code;
+          const msgLower = String(errObj.error?.message || "").toLowerCase();
+          if (facebookErrCode === 190 || facebookErrCode === 102 || facebookErrCode === 100 || msgLower.includes("token") || msgLower.includes("session")) {
+            isTokenError = true;
+          }
+        } catch (e) {
+          if (textErr.includes("token") || textErr.includes("OAuth") || response.status === 401 || response.status === 400) {
+            isTokenError = true;
+          }
+        }
+
+        if (isTokenError) {
+          const integration = await SocialIntegrationModel.findOne({
+            platform: "Facebook",
+            username: resolvedPageId,
+          });
+          const { telegramService } = require("./telegram.service");
+          await telegramService.sendIntegrationDisconnectAlert(
+            "Facebook",
+            integration?.displayName || "Facebook Page",
+            resolvedPageId,
+            integration?.companyCode || "SYSTEM",
+            `Mã lỗi Facebook: ${facebookErrCode || response.status}. Chi tiết: ${textErr.slice(0, 150)}`
+          ).catch((e: any) => console.error("[FB Service] Không thể gửi cảnh báo lỗi Token về Telegram:", e));
+        }
+
         throw new Error(`Facebook Send API phản hồi lỗi: ${response.status} - ${textErr}`);
       }
 

@@ -190,7 +190,7 @@ export default function CRMTab() {
   // Synchronize AI Config based on selected page/channel or fallback to userProfile
   useEffect(() => {
     let targetIntegration: SocialIntegration | null = null;
-    
+
     if (activeCustomer?.channel === "zalo") {
       const zaloIntegration = companySocialIntegrations.find(item => item.platform === "Zalo" && item.isConnected);
       if (zaloIntegration) {
@@ -508,15 +508,17 @@ export default function CRMTab() {
 
       setInboxCustomers(combined);
 
-      // Tự động chọn cuộc hội thoại đầu tiên nếu chưa có
-      if (combined.length > 0 && (forceSelectFirst || !activeCustomer)) {
+      // Tự động chọn hoặc cập nhật cuộc hội thoại đang hoạt động
+      if (combined.length > 0) {
         setActiveCustomer((prev) => {
-          if (prev) {
+          if (prev && !forceSelectFirst) {
             const found = combined.find((x) => x.id === prev.id);
-            return found || prev;
+            return found || combined[0];
           }
           return combined[0];
         });
+      } else {
+        setActiveCustomer(null);
       }
     } catch (err) {
       console.error("[FE CRMTab] Lỗi khi tải danh sách hội thoại:", err);
@@ -630,13 +632,15 @@ export default function CRMTab() {
   useEffect(() => {
     if (subTab !== "OMNI-INBOX CHAT" || (!isFbConnected && !isZaloConnected)) return;
 
+    // Tải và tự động chọn cuộc hội thoại đầu tiên khi mount, đổi page FB, hoặc đổi kết nối
+    fetchOmniConversations(true, { syncFacebook: true });
+
     const runFetch = () => {
       if (!document.hidden) {
         fetchOmniConversations(false, { syncFacebook: true });
       }
     };
 
-    runFetch();
     const interval = setInterval(runFetch, 60000);
 
     const handleVisibility = () => {
@@ -648,7 +652,7 @@ export default function CRMTab() {
       clearInterval(interval);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [subTab, isFbConnected, isZaloConnected, activeCustomer?.id, socketConnected]);
+  }, [subTab, isFbConnected, isZaloConnected, selectedFacebookPageId, socketConnected]);
 
   // 2. Polling lịch sử tin nhắn của hội thoại đang chọn - Tối ưu hiệu năng Visibility
   useEffect(() => {
@@ -684,6 +688,11 @@ export default function CRMTab() {
       document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, [subTab, activeCustomer?.id, socketConnected]);
+
+  // Xóa sạch lịch sử chat cũ ngay khi chuyển khách hàng để chuyển đổi mượt mà tức thì
+  useEffect(() => {
+    setChatHistory([]);
+  }, [activeCustomer?.id]);
 
   const handleSelectCustomer = (cust: CustomerInbox) => {
     if (activeCustomerRef.current?.id === cust.id) {
@@ -729,10 +738,10 @@ export default function CRMTab() {
         const cleanTags = cust.tags.filter(t => !["Khách Lạnh", "Khách Ấm", "Khách Nóng", "Đã Chốt Đơn", "Khách Up-sell", "Sắp chốt HD", "Đã gửi báo giá", "Mới tiếp cận"].includes(t));
         const newTempTag =
           status === "cold" ? "Khách Lạnh" :
-          status === "warm" ? "Khách Ấm" :
-          status === "hot" ? "Khách Nóng" :
-          status === "won" ? "Đã Chốt Đơn" :
-          "Khách Up-sell";
+            status === "warm" ? "Khách Ấm" :
+              status === "hot" ? "Khách Nóng" :
+                status === "won" ? "Đã Chốt Đơn" :
+                  "Khách Up-sell";
         const newTags = [...cleanTags, newTempTag];
         if (touchpoint) {
           newTags.push(touchpoint);
@@ -992,15 +1001,15 @@ export default function CRMTab() {
               key={tab}
               onClick={() => setSubTab(tab as CRMSubTabType)}
               className={`px-3.5 py-2 rounded-xl border font-bold uppercase transition-all tracking-wide text-[10px] cursor-pointer ${subTab === tab
-                  ? "bg-slate-900 text-white border-slate-900 shadow-sm"
-                  : "bg-white text-slate-500 border-slate-200 hover:bg-slate-50"
+                ? "bg-slate-900 text-white border-slate-900 shadow-sm"
+                : "bg-white text-slate-500 border-slate-200 hover:bg-slate-50"
                 }`}
             >
               {tab}
             </button>
           ))}
         </div>
-       
+
       </div>
 
       <div className="flex-1 overflow-hidden" id="crm_tab_main_content">

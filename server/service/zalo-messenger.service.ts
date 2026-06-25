@@ -197,7 +197,7 @@ export const zaloMessengerService = {
         try {
           const newAccessToken = await this.refreshCompanyZaloToken(companyIntegration._id.toString(), companyIntegration);
           return newAccessToken;
-        } catch (err) {
+        } catch (err: any) {
           console.error(`[Zalo Service Token] Tự động làm mới Company Zalo token thất bại:`, err);
           await SocialIntegrationModel.findByIdAndUpdate(companyIntegration._id, {
             isConnected: false,
@@ -205,6 +205,17 @@ export const zaloMessengerService = {
             refreshToken: "",
             tokenExpiredAt: null,
           });
+
+          // Gửi cảnh báo về Telegram
+          const { telegramService } = require("./telegram.service");
+          await telegramService.sendIntegrationDisconnectAlert(
+            "Zalo",
+            companyIntegration.displayName || "Zalo OA",
+            oaId,
+            companyIntegration.companyCode || "SYSTEM",
+            `Không thể tự động làm mới Refresh Token Zalo. Chi tiết: ${err.message || err}`
+          ).catch((e: any) => console.error("[Zalo Service] Không thể gửi cảnh báo lỗi Token về Telegram:", e));
+
           return null;
         }
       }
@@ -234,7 +245,7 @@ export const zaloMessengerService = {
         try {
           const refreshedToken = await this.refreshToken(user._id.toString(), integration);
           return refreshedToken;
-        } catch (err) {
+        } catch (err: any) {
           console.error(`[Zalo Service Token] Tự động làm mới token thất bại:`, err);
           await UserModel.findByIdAndUpdate(user._id, {
             "zaloIntegration.isConnected": false,
@@ -242,6 +253,17 @@ export const zaloMessengerService = {
             "zaloIntegration.refreshToken": "",
             "zaloIntegration.tokenExpiredAt": null,
           });
+
+          // Gửi cảnh báo về Telegram
+          const { telegramService } = require("./telegram.service");
+          await telegramService.sendIntegrationDisconnectAlert(
+            "Zalo",
+            `Zalo OA (User: ${user.email})`,
+            oaId,
+            user.companyCode || "SYSTEM",
+            `Không thể tự động làm mới Refresh Token Zalo cá nhân. Chi tiết: ${err.message || err}`
+          ).catch((e: any) => console.error("[Zalo Service] Không thể gửi cảnh báo lỗi Token về Telegram:", e));
+
           return null;
         }
       }
