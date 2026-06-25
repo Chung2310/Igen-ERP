@@ -69,7 +69,10 @@ export const zaloMessengerController = {
         return res.status(200).json({ success: true, data: [] });
       }
 
-      const conversations = await zaloMessengerService.getConversations(oaId);
+      const limit = req.query.limit !== undefined ? Number(req.query.limit) : 20;
+      const skip = req.query.skip !== undefined ? Number(req.query.skip) : 0;
+
+      const conversations = await zaloMessengerService.getConversations(oaId, { limit, skip });
       res.status(200).json({ success: true, data: conversations });
     } catch (error: any) {
       console.error("[Zalo Controller getConversations] Lỗi khi xử lý:", error);

@@ -212,10 +212,12 @@ export const telegramService = {
     if (command === "/start" || command === "/help") {
       const welcome = [
         "🤖 <b>Chào mừng bạn đến với iGEN ERP Bot!</b>",
-        "Tôi có thể giúp bạn tạo ảnh và video nghệ thuật từ AI. Các lệnh được hỗ trợ:",
-        "• /help - Hiển thị hướng dẫn sử dụng bot.",
-        "• <code>/image [mô tả]</code> - Sinh ảnh nghệ thuật AI (Ví dụ: <code>/image phi hành gia cưỡi ngựa trên sao hỏa</code>).",
-        "• <code>/video [mô tả]</code> - Sinh video ngắn AI (Ví dụ: <code>/video sóng biển rì rào hoàng hôn</code>).",
+        "Tôi có thể giúp bạn tạo ảnh, video AI và quản trị doanh nghiệp. Danh sách câu lệnh:",
+        "• <code>/help</code> - Hiển thị hướng dẫn sử dụng bot.",
+        "• <code>/image [mô tả]</code> - Sinh ảnh nghệ thuật AI (Ví dụ: gửi kèm ảnh hoặc gõ <code>/image phong cảnh sơn thủy</code>).",
+        "• <code>/video [mô tả]</code> - Sinh video ngắn AI (Ví dụ: gửi kèm ảnh hoặc gõ <code>/video ngọn lửa cháy rực</code>).",
+        "• <code>/stats</code> hoặc <code>/report</code> - Báo cáo thống kê cơ hội bán hàng CRM và giao dịch.",
+        "• <code>/warning_stock</code> hoặc <code>/lowstock</code> - Kiểm tra nhanh danh sách các sản phẩm sắp hết hàng (dưới định mức).",
       ].join("\n");
       await this.sendMessage(chatId, welcome);
       return;
@@ -312,6 +314,132 @@ export const telegramService = {
       return;
     }
 
+    if (command === "/report" || command === "/stats") {
+      await this.sendMessage(chatId, "📊 <b>Đang truy vấn hệ thống để lập báo cáo, vui lòng đợi...</b>");
+      try {
+        const { CRMTicketModel } = require("../model/crm-ticket.model");
+        const { TransactionModel } = require("../model/transaction.model");
+        const { ProductModel } = require("../model/product.model");
+
+        // 1. CRM Stats
+        const tickets = await CRMTicketModel.find({}).lean();
+        const totalLeads = tickets.length;
+        let cold = 0, warm = 0, hot = 0, won = 0, upsell = 0;
+        let totalWonValue = 0;
+
+        for (const t of tickets) {
+          if (t.status === "cold") cold++;
+          else if (t.status === "warm") warm++;
+          else if (t.status === "hot") hot++;
+          else if (t.status === "won") {
+            won++;
+            totalWonValue += Number(t.value || 0);
+          } else if (t.status === "upsell") {
+            upsell++;
+            totalWonValue += Number(t.value || 0);
+          }
+        }
+
+        // 2. Transaction Stats
+        const startOfDay = new Date();
+        startOfDay.setHours(0, 0, 0, 0);
+
+        const allSuccessTransactions = await TransactionModel.find({ status: "success" }).lean();
+        const todaySuccessTransactions = await TransactionModel.find({
+          status: "success",
+          createdAt: { $gte: startOfDay }
+        }).lean();
+
+        const totalTransactedAmount = allSuccessTransactions.reduce((sum: number, tx: any) => sum + Number(tx.amount || 0), 0);
+        const todayTransactedAmount = todaySuccessTransactions.reduce((sum: number, tx: any) => sum + Number(tx.amount || 0), 0);
+
+        // 3. Low stock alert stats
+        const allProducts = await ProductModel.find({}).lean();
+        const lowStockProducts = allProducts.filter((p: any) => {
+          const stock = typeof p.stock === "number" ? p.stock : 0;
+          const minAlert = typeof p.minStockAlert === "number" ? p.minStockAlert : 15;
+          return stock <= minAlert;
+        });
+
+        const report = [
+          "📊 <b>BÁO CÁO THỐNG KÊ DOANH NGHIỆP</b> 📊",
+          "=============================",
+          "👥 <b>QUẢN LÝ CƠ HỘI CRM (LEADS):</b>",
+          `• Tổng số cơ hội: <b>${totalLeads}</b>`,
+          `• ❄️ Thụ động (Cold): <b>${cold}</b>`,
+          `• 🔥 Tiềm năng (Warm/Hot): <b>${warm + hot}</b>`,
+          `• 🎉 Đã chốt đơn (Won/Upsell): <b>${won + upsell}</b>`,
+          `• 💰 Tổng giá trị chốt đơn: <b>${totalWonValue.toLocaleString("vi-VN")} VND</b>`,
+          "",
+          "💳 <b>GIAO DỊCH & THANH TOÁN (PAYMENTS):</b>",
+          `• Hôm nay: <b>+${todayTransactedAmount.toLocaleString("vi-VN")} VND</b> (${todaySuccessTransactions.length} GD thành công)`,
+          `• Tổng tích lũy: <b>${totalTransactedAmount.toLocaleString("vi-VN")} VND</b> (${allSuccessTransactions.length} GD)`,
+          "",
+          "📦 <b>CẢNH BÁO TỒN KHO:</b>",
+          `• Số sản phẩm dưới định mức: <b>${lowStockProducts.length}</b> sản phẩm`,
+        ];
+
+        if (lowStockProducts.length > 0) {
+          report.push("");
+          report.push("⚠️ <b>Chi tiết sản phẩm sắp hết hàng:</b>");
+          lowStockProducts.slice(0, 5).forEach((p: any) => {
+            report.push(`- <b>${p.name}</b> (SKU: <code>${p.sku}</code>): Tồn <b>${p.stock}</b> (Định mức: ${p.minStockAlert})`);
+          });
+          if (lowStockProducts.length > 5) {
+            report.push(`<i>...và ${lowStockProducts.length - 5} sản phẩm khác.</i>`);
+          }
+        } else {
+          report.push("✅ Tồn kho tất cả sản phẩm đều ở mức an toàn.");
+        }
+
+        report.push("=============================");
+        report.push(`🕒 <i>Báo cáo lúc: ${new Date().toLocaleString("vi-VN")}</i>`);
+
+        await this.sendMessage(chatId, report.join("\n"));
+      } catch (err: any) {
+        console.error("[Telegram Bot] Lỗi tạo báo cáo stats:", err);
+        await this.sendMessage(chatId, `❌ Lỗi hệ thống khi lập báo cáo: ${err.message || err}`);
+      }
+      return;
+    }
+
+    if (command === "/warning_stock" || command === "/lowstock") {
+      await this.sendMessage(chatId, "🔍 <b>Đang quét danh sách tồn kho thấp...</b>");
+      try {
+        const { ProductModel } = require("../model/product.model");
+        const allProducts = await ProductModel.find({}).lean();
+        const lowStockProducts = allProducts.filter((p: any) => {
+          const stock = typeof p.stock === "number" ? p.stock : 0;
+          const minAlert = typeof p.minStockAlert === "number" ? p.minStockAlert : 15;
+          return stock <= minAlert;
+        });
+
+        if (lowStockProducts.length === 0) {
+          await this.sendMessage(chatId, "✅ <b>Tất cả sản phẩm đều có mức tồn kho an toàn!</b>");
+          return;
+        }
+
+        const msgLines = [
+          `⚠️ <b>CÓ ${lowStockProducts.length} SẢN PHẨM SẮP HẾT HÀNG:</b>`,
+          "=============================",
+        ];
+
+        lowStockProducts.forEach((p: any) => {
+          msgLines.push(`• <b>${p.name}</b> (SKU: <code>${p.sku}</code>)`);
+          msgLines.push(`  Tồn: <b>${p.stock}</b> / Định mức: ${p.minStockAlert} ${p.unit || "Cái"}`);
+        });
+
+        msgLines.push("=============================");
+        msgLines.push("👉 <i>Vui lòng lên kế hoạch nhập hàng sớm.</i>");
+
+        await this.sendMessage(chatId, msgLines.join("\n"));
+      } catch (err: any) {
+        console.error("[Telegram Bot] Lỗi quét tồn kho thấp:", err);
+        await this.sendMessage(chatId, `❌ Lỗi hệ thống: ${err.message || err}`);
+      }
+      return;
+    }
+
     await this.sendMessage(chatId, "⚠️ Câu lệnh không được hỗ trợ. Hãy gõ /help để xem các lệnh khả dụng.");
   },
 
@@ -338,5 +466,73 @@ export const telegramService = {
 
     const arrayBuffer = await fileRes.arrayBuffer();
     return Buffer.from(arrayBuffer);
+  },
+
+  /**
+   * Gửi cảnh báo khi tồn kho giảm xuống dưới ngưỡng an toàn
+   */
+  async sendLowStockAlert(product: any): Promise<void> {
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    const chatId = process.env.TELEGRAM_CHAT_ID;
+    if (!botToken || !chatId) return;
+
+    const message = [
+      "⚠️ <b>CẢNH BÁO: TỒN KHO THẤP!</b> ⚠️",
+      "=============================",
+      `📦 <b>Sản phẩm:</b> ${product.name}`,
+      `🏷️ <b>Mã SKU:</b> <code>${product.sku}</code>`,
+      `🔴 <b>Tồn kho hiện tại:</b> <b>${product.stock}</b> ${product.unit || "Cái"}`,
+      `🛡️ <b>Ngưỡng tối thiểu:</b> ${product.minStockAlert || 15} ${product.unit || "Cái"}`,
+      `🏢 <b>Mã công ty:</b> <code>${product.companyCode || "unknown"}</code>`,
+      "=============================",
+      "👉 <i>Vui lòng lên kế hoạch nhập thêm hàng để tránh gián đoạn kinh doanh.</i>"
+    ].join("\n");
+
+    await this.sendMessage(chatId, message).catch((err) => {
+      console.error("[Telegram Bot] Lỗi gửi cảnh báo tồn kho thấp:", err);
+    });
+  },
+
+  /**
+   * Gửi cảnh báo mất kết nối liên kết mạng xã hội (Token hết hạn/lỗi)
+   */
+  async sendIntegrationDisconnectAlert(
+    platform: string,
+    displayName: string,
+    username: string,
+    companyCode: string,
+    reason: string
+  ): Promise<void> {
+    // 1. Cập nhật trạng thái isConnected = false trong DB
+    try {
+      const { SocialIntegrationModel } = require("../model/social-integration.model");
+      await SocialIntegrationModel.findOneAndUpdate(
+        { platform, username },
+        { isConnected: false }
+      );
+      console.log(`[Telegram Service] Đã cập nhật trạng thái kết nối tài khoản ${platform} (${username}) thành disconnected.`);
+    } catch (dbErr) {
+      console.error("[Telegram Service] Lỗi cập nhật trạng thái liên kết trong DB:", dbErr);
+    }
+
+    // 2. Gửi tin nhắn cảnh báo tới Telegram
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    const chatId = process.env.TELEGRAM_CHAT_ID;
+    if (!botToken || !chatId) return;
+
+    const message = [
+      "⚠️ <b>CẢNH BÁO: MẤT KẾT NỐI LIÊN KẾT MẠNG XÃ HỘI!</b> ⚠️",
+      "=============================",
+      `🌐 <b>Nền tảng:</b> <b>${platform}</b>`,
+      `👤 <b>Tài khoản:</b> <b>${displayName}</b> (ID: <code>${username}</code>)`,
+      `🏢 <b>Mã công ty:</b> <code>${companyCode || "unknown"}</code>`,
+      `🔴 <b>Lý do:</b> <i>${reason}</i>`,
+      "=============================",
+      "👉 <i>Vui lòng truy cập Cấu hình ERP để kết nối lại tài khoản này, đảm bảo các tính năng tự động đăng bài và phản hồi khách hàng hoạt động bình thường.</i>"
+    ].join("\n");
+
+    await this.sendMessage(chatId, message).catch((err) => {
+      console.error("[Telegram Bot] Lỗi gửi cảnh báo mất kết nối liên kết:", err);
+    });
   },
 };
