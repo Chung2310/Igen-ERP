@@ -209,14 +209,14 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
   const [mediaType, setMediaType] = useState<string>("image"); // "none" | "image" | "video"
 
   // Image Options
-  const [imageModel, setImageModel] = useState("gemini-banana-pro");
+  const [imageModel, setImageModel] = useState("gemini-banana-flash");
   const [imageResolution, setImageResolution] = useState("1K");
   const [imageAspectRatio, setImageAspectRatio] = useState("1:1");
 
   // Video Options
   const [videoModel, setVideoModel] = useState("piapi-veo31-video-fast-audio");
   const [videoQuality, setVideoQuality] = useState("720p");
-  const [videoDuration, setVideoDuration] = useState("4");
+  const [videoDuration, setVideoDuration] = useState("8");
   const [videoAspectRatio, setVideoAspectRatio] = useState("16:9");
   const [selectedHumanAvatar, setSelectedHumanAvatar] = useState("mc-linh");
   const [selectedHumanVoice, setSelectedHumanVoice] = useState("igen-female-bright");
@@ -1502,7 +1502,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                     ⏱️ Thời lượng video (giây):
                   </span>
                   <div className="flex flex-wrap gap-2 items-center">
-                    {["4", "6", "8"].map((dur) => {
+                    {(mediaType === "video" ? ["8", "16", "24", "32"] : ["4", "6", "8"]).map((dur) => {
                       const isSelected =
                         mediaType === "video"
                           ? (videoDuration === dur)
@@ -1536,8 +1536,8 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                       type="button"
                       onClick={() => {
                         if (mediaType === "video") {
-                          if (["4", "6", "8"].includes(videoDuration)) {
-                            setVideoDuration("10"); // Default custom value for Video AI
+                          if (["8", "16", "24", "32"].includes(videoDuration)) {
+                            setVideoDuration("40"); // Default custom value for Video AI
                           }
                         } else {
                           if (["4", "6", "8"].includes(estimatedHumanVoiceDuration)) {
@@ -1545,19 +1545,20 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                           }
                         }
                       }}
-                      className={`px-4 py-2 text-xs font-bold rounded-xl border transition-all cursor-pointer ${(mediaType === "video" ? !["4", "6", "8"].includes(videoDuration) : !["4", "6", "8"].includes(estimatedHumanVoiceDuration))
-                        ? "border-indigo-500 bg-indigo-50 text-indigo-750 shadow-2xs ring-2 ring-indigo-500/10 font-extrabold"
+                      className={`px-4 py-2 text-xs font-bold rounded-xl border transition-all cursor-pointer ${(mediaType === "video" ? !["8", "16", "24", "32"].includes(videoDuration) : !["4", "6", "8"].includes(estimatedHumanVoiceDuration))
+                        ? "border-indigo-500 bg-indigo-50 text-indigo-755 shadow-2xs ring-2 ring-indigo-500/10 font-extrabold"
                         : "border-slate-200 bg-white text-gray-500 hover:bg-slate-50 hover:border-slate-350"
                         }`}
                     >
                       Khác
                     </button>
 
-                    {mediaType === "video" && !["4", "6", "8"].includes(videoDuration) && (
+                    {mediaType === "video" && !["8", "16", "24", "32"].includes(videoDuration) && (
                       <div className="flex items-center gap-1.5 ml-2">
                         <input
                           type="number"
-                          min="1"
+                          min="0"
+                          step="8"
                           value={videoDuration}
                           onChange={(e) => {
                             let val = e.target.value.replace(/[^0-9]/g, "");
@@ -1571,10 +1572,16 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                             }
                             setVideoDuration(String(num));
                           }}
+                          onBlur={(e) => {
+                            let num = parseInt(videoDuration, 10);
+                            if (isNaN(num) || num < 1) {
+                              setVideoDuration("8");
+                            }
+                          }}
                           placeholder="Thời lượng"
                           className="w-24 text-xs p-2 border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 text-center font-bold"
                         />
-                        <span className="text-xs text-gray-500 font-bold">giây</span>
+                        <span className="text-xs text-gray-500 font-bold">giây </span>
                       </div>
                     )}
 
@@ -1626,10 +1633,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                         onChange={(e) => setImageModel(e.target.value)}
                         className="w-full text-xs p-2 border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 font-sans"
                       >
-                        <option value="nano-banana-pro">iGen Image Pro (PiAPI)</option>
-                        <option value="nano-banana-2">iGen Image Flash (PiAPI)</option>
-                        <option value="gemini-banana-pro">iGen Gemini Image Pro (Google)</option>
-                        <option value="gemini-banana-flash">iGen Gemini Image Flash (Google)</option>
+                        <option value="gemini-banana-flash">iGen Gemini 3 Flash (Google)</option>
                       </select>
                     </div>
 

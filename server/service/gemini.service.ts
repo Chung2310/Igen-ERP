@@ -15,12 +15,13 @@ import * as os from "os";
 
 const GEMINI_TEXT_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 const GEMINI_HEAVY_MODEL = process.env.GEMINI_HEAVY_MODEL || "gemini-3.5-flash";
-const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || "piapi-flux";
+const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || "gemini-banana-flash";
 const GEMINI_VIDEO_MODEL = process.env.GEMINI_VIDEO_MODEL || "veo31-video-fast-audio";
 
 function getGeminiClient() {
   return new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 }
+
 
 function safeParseJson(text: string): any {
   let cleaned = text.trim();
@@ -1399,6 +1400,7 @@ Nội dung chi tiết gợi ý: ${suggestedContent}`;
       try {
         const isHumanVideo = mediaOptions?.mediaType === "human-video";
         const humanDurationSeconds = Number(mediaOptions?.humanDurationSeconds || 15);
+        const videoDurationSeconds = Number(mediaOptions?.videoDuration || 8);
         const minWords = Math.floor(humanDurationSeconds * 2.2);
         const maxWords = Math.ceil(humanDurationSeconds * 2.8);
         const humanVoiceRules = isHumanVideo
@@ -1420,7 +1422,7 @@ Hãy lập Dàn ý (Outline) và viết Bản nháp nội dung (Draft Content) c
 
 QUY TẮC PHÂN TÁCH DỮ LIỆU BẮT BUỘC CHO TỪNG KÊNH:
 1. Đối với kênh TikTok:
-   - Trường "outline" (Dàn ý): PHẢI chứa toàn bộ kịch bản quay chi tiết (Shooting Script / Storyboard), bao gồm phân đoạn visual (hình ảnh/hành động), audio (lời thoại/âm thanh/voiceover) và mốc thời gian (Timeline dạng [0:00 - 0:03], [0:03 - 0:08]...) cho từng cảnh. Tổng thời lượng kịch bản không được vượt quá 8 giây.
+   - Trường "outline" (Dàn ý): PHẢI chứa toàn bộ kịch bản quay chi tiết (Shooting Script / Storyboard), bao gồm phân đoạn visual (hình ảnh/hành động), audio (lời thoại/âm thanh/voiceover) và mốc thời gian (Timeline dạng [0:00 - 0:03], [0:03 - 0:08]...) cho từng cảnh. Tổng thời lượng kịch bản không được vượt quá ${videoDurationSeconds} giây.
    - Trường "bodyText" (Nội dung chính): PHẢI là Caption/Description giới thiệu video sạch, cuốn hút kèm hashtag để đăng tải trực tiếp lên TikTok (ví dụ: "🔥 Cứu tinh deadline của bạn đây... #iGenERP..."). TUYỆT ĐỐI không chứa bất kỳ mốc thời gian timeline, phân cảnh, Visual hay Audio nào ở trường này.
 2. Đối với các kênh khác (Facebook, LinkedIn, Instagram...):
    - Trường "outline": Lập dàn ý chi tiết, cụ thể và tối ưu của bài viết.
@@ -1456,7 +1458,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
                       contentType: { type: Type.STRING, description: "Loại nội dung" },
                       outline: {
                         type: Type.STRING,
-                        description: "Dàn ý chi tiết của bài viết. ĐẶC BIỆT với TikTok: Phải lưu KỊCH BẢN QUAY (timeline video script) chi tiết bao gồm Visual, Audio và mốc thời gian dạng [0:00 - 0:03], [0:03 - 0:08]... với tổng thời lượng tối đa không quá 8 giây."
+                        description: `Dàn ý chi tiết của bài viết. ĐẶC BIỆT với TikTok: Phải lưu KỊCH BẢN QUAY (timeline video script) chi tiết bao gồm Visual, Audio và mốc thời gian dạng [0:00 - 0:03], [0:03 - 0:08]... với tổng thời lượng tối đa không quá ${videoDurationSeconds} giây.`
                       },
                       bodyText: {
                         type: Type.STRING,
@@ -1593,44 +1595,13 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
     prompt: string,
     options?: { aspectRatio?: string; modelName?: string; resolution?: string; existingImageUris?: string[] }
   ): Promise<{ url: string; isMock: boolean }> {
-    let modelToUse = options?.modelName || GEMINI_IMAGE_MODEL;
+    const modelToUse = "gemini-banana-flash";
 
-    // Gemini Banana Pro / Flash: Ưu tiên tạo ảnh trực tiếp qua Google Gemini API
-    if (
-      modelToUse === "gemini-banana-pro" ||
-      modelToUse === "gemini-banana-flash" ||
-      modelToUse === "nano-banana-pro" ||
-      modelToUse === "igen-image-pro" ||
-      modelToUse === "nano-banana-2" ||
-      modelToUse === "igen-image-flash"
-    ) {
-      if (process.env.GEMINI_API_KEY) {
-        return this._generateImageWithGemini(prompt, { ...options, modelName: modelToUse });
-      }
+    if (!process.env.GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY chưa được cấu hình trong file .env. Vui lòng cấu hình key để sử dụng tính năng tạo ảnh bằng Gemini.");
     }
 
-    // Route các model PiAPI
-    if (modelToUse === "igen-image-pro" || modelToUse === "nano-banana-pro") {
-      modelToUse = "nano-banana-pro";
-    } else if (
-      modelToUse === "igen-image-flash" ||
-      modelToUse === "nano-banana-2" ||
-      modelToUse === "gemini-banana-flash"
-    ) {
-      modelToUse = "nano-banana-2";
-    } else {
-      modelToUse = "nano-banana-pro";
-    }
-
-    if (!process.env.PIAPI_API_KEY) {
-      const seed = Math.floor(Math.random() * 1000000);
-      return { url: `https://picsum.photos/seed/${seed}/800/600`, isMock: true };
-    }
-
-    return piapiService.generateImage(prompt, modelToUse, {
-      aspectRatio: options?.aspectRatio,
-      existingImageUris: options?.existingImageUris
-    });
+    return this._generateImageWithGemini(prompt, { ...options, modelName: modelToUse });
   },
 
   /**
@@ -1644,16 +1615,8 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
     const ai = getGeminiClient();
     const inputImageUris = options?.existingImageUris || [];
 
-    // Chọn model Google tương ứng dựa trên modelName đầu vào
-    let model = "gemini-3-pro-image";
-    const selectedModel = options?.modelName || "";
-    if (
-      selectedModel === "gemini-banana-flash" ||
-      selectedModel === "nano-banana-2" ||
-      selectedModel === "igen-image-flash"
-    ) {
-      model = "gemini-3.1-flash-image";
-    }
+    // Mặc định sử dụng model Gemini 3.1 Flash Image
+    const model = "gemini-3.1-flash-image";
 
     try {
       console.log(`[Gemini Banana] Generating image via ${model} | hasRefImages=${inputImageUris.length > 0}`);
