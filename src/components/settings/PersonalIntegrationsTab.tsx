@@ -131,7 +131,12 @@ export default function PersonalIntegrationsTab() {
     setConnectingTikTokOAuth(true);
     try {
       localStorage.removeItem("tt_oauth_result");
-      const authUrl = await socialIntegrationService.getTikTokOAuthUrl("personal");
+      const authUrl = await socialIntegrationService.getTikTokOAuthUrl(
+        "personal",
+        undefined,
+        tiktokForm.clientKey.trim() || undefined,
+        tiktokForm.clientSecret.trim() || undefined
+      );
       if (!authUrl) {
         throw new Error("Khong tao duoc link dang nhap TikTok.");
       }

@@ -1,14 +1,25 @@
 import React, { useState, useEffect } from "react";
 import { 
   MessageSquare, Zap, RefreshCw, Terminal, Send, CheckCircle, 
-  HelpCircle, Save, Sliders, Play, ExternalLink, ChevronDown, ChevronUp
+  HelpCircle, Save, Sliders, Play, ExternalLink, ChevronDown, ChevronUp,
+  Facebook
 } from "lucide-react";
 import { toast } from "../../pages/Toast";
 import { getAccessToken } from "../../services/authService";
 import { useAuth } from "../../context/AuthContext";
 import { AIChatConfig } from "../../types";
 
-export function AiCommentReplyManager() {
+interface AiCommentReplyManagerProps {
+  facebookPages?: Array<{ _id: string; displayName: string; username: string; isMock?: boolean }>;
+  selectedFacebookPageId?: string;
+  setSelectedFacebookPageId?: (val: string) => void;
+}
+
+export function AiCommentReplyManager({
+  facebookPages = [],
+  selectedFacebookPageId = "",
+  setSelectedFacebookPageId = () => {},
+}: AiCommentReplyManagerProps) {
   const { userProfile, updateAiAutoReplyConfig } = useAuth();
   
   // Local config matching database settings
@@ -112,7 +123,8 @@ export function AiCommentReplyManager() {
   // Fetch Facebook Page diagnostics
   const fetchDiagnostics = async () => {
     try {
-      const res = await fetch("/api/v1/facebook/messenger/diagnostics/page", {
+      const query = selectedFacebookPageId ? `?pageId=${encodeURIComponent(selectedFacebookPageId)}` : "";
+      const res = await fetch(`/api/v1/facebook/messenger/diagnostics/page${query}`, {
         headers: {
           Authorization: `Bearer ${getAccessToken()}`,
         },
@@ -130,7 +142,7 @@ export function AiCommentReplyManager() {
     void fetchLogs();
     void fetchAIHealth();
     void fetchDiagnostics();
-  }, []);
+  }, [selectedFacebookPageId]);
 
   // Save config
   const handleSaveConfig = async () => {
@@ -156,12 +168,8 @@ export function AiCommentReplyManager() {
       toast.error("Vui lòng nhập Post ID bài viết.");
       return;
     }
-    if (!diagnostics?.resolvedPageId) {
-      toast.warning("Chưa cấu hình Facebook Page ID của Doanh nghiệp. Hãy kết nối ở cài đặt MXH.");
-    }
-
     setSimulating(true);
-    const mockPageId = diagnostics?.resolvedPageId || "123456789012345";
+    const mockPageId = selectedFacebookPageId || diagnostics?.resolvedPageId || "123456789012345";
     const mockCommentId = `mock_comment_${Date.now()}`;
     const mockSenderId = "987654321098765";
 
@@ -291,6 +299,32 @@ export function AiCommentReplyManager() {
               Phân tách quản lý các phản hồi tự động theo từng bài viết cụ thể trên Fanpage Facebook của bạn.
             </p>
           </div>
+
+          {/* Facebook Page Switcher */}
+          {facebookPages && facebookPages.length > 0 && (
+            <div className="flex items-center gap-2 min-w-[200px]" id="comment_page_switcher">
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider whitespace-nowrap">Trang:</span>
+              <div className="relative flex-1">
+                <select
+                  value={selectedFacebookPageId}
+                  onChange={(e) => setSelectedFacebookPageId(e.target.value)}
+                  className="w-full pl-8 pr-8 py-2 border border-gray-200 bg-white hover:bg-gray-50 rounded-xl text-[11px] font-bold text-gray-700 outline-none cursor-pointer focus:ring-4 focus:ring-indigo-650/10 focus:border-indigo-650 transition-all duration-200 appearance-none"
+                >
+                  {facebookPages.map((page) => (
+                    <option key={page.username} value={page.username}>
+                      {page.displayName} {page.isMock ? "(Demo)" : ""}
+                    </option>
+                  ))}
+                </select>
+                <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-indigo-650">
+                  <Facebook className="h-3.5 w-3.5" />
+                </div>
+                <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none text-slate-400">
+                  <ChevronDown className="h-3 w-3" />
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">

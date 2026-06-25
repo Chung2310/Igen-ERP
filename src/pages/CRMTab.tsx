@@ -75,14 +75,59 @@ export default function CRMTab() {
   // 2. Omni-Inbox States
   const { userProfile, updateAiAutoReplyConfig } = useAuth();
   const [companySocialIntegrations, setCompanySocialIntegrations] = useState<SocialIntegration[]>([]);
-  const companyFacebookIntegration =
-    companySocialIntegrations.find((item) => item.platform === "Facebook" && item.isConnected) || null;
   const companyZaloIntegration =
     companySocialIntegrations.find((item) => item.platform === "Zalo" && item.isConnected) || null;
-  const isFbConnected =
-    (userProfile?.facebookIntegration?.isConnected ?? false) || !!companyFacebookIntegration;
   const isZaloConnected =
     (userProfile?.zaloIntegration?.isConnected ?? false) || !!companyZaloIntegration;
+
+  // 3. Multi-page Facebook state
+  const facebookPages = React.useMemo(() => {
+    const list: Array<{ _id: string; displayName: string; username: string; isMock?: boolean }> = [];
+    if (userProfile?.facebookIntegration?.isConnected && userProfile.facebookIntegration.pageId) {
+      list.push({
+        _id: "personal",
+        displayName: userProfile.facebookIntegration.pageName || "Fanpage cá nhân",
+        username: userProfile.facebookIntegration.pageId,
+        isMock: !!userProfile.facebookIntegration.isMock,
+      });
+    }
+    companySocialIntegrations.forEach((item) => {
+      if (item.platform === "Facebook" && item.isConnected && item.username) {
+        if (!list.some(p => p.username === item.username)) {
+          list.push({
+            _id: item._id || "company_" + item.username,
+            displayName: item.displayName || `Fanpage ${item.username}`,
+            username: item.username,
+            isMock: !!item.isMock,
+          });
+        }
+      }
+    });
+    return list;
+  }, [userProfile, companySocialIntegrations]);
+
+  const [selectedFacebookPageId, setSelectedFacebookPageId] = useState<string>(() => {
+    const saved = localStorage.getItem("crm_selected_fb_page_id");
+    return saved || "";
+  });
+
+  const isFbConnected = facebookPages.length > 0;
+
+  // Synchronize selectedFacebookPageId when facebookPages changes
+  useEffect(() => {
+    if (facebookPages.length > 0) {
+      if (!selectedFacebookPageId || !facebookPages.some(p => p.username === selectedFacebookPageId)) {
+        const firstPage = facebookPages[0].username;
+        setSelectedFacebookPageId(firstPage);
+        localStorage.setItem("crm_selected_fb_page_id", firstPage);
+      }
+    } else {
+      if (selectedFacebookPageId !== "") {
+        setSelectedFacebookPageId("");
+        localStorage.removeItem("crm_selected_fb_page_id");
+      }
+    }
+  }, [facebookPages, selectedFacebookPageId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -209,7 +254,7 @@ export default function CRMTab() {
     try {
       const result = targetChannel === "zalo"
         ? await zaloMessengerService.getMessages(conversationId, { limit: 20, before, sync: !!options?.syncChannel })
-        : await fbMessengerService.getMessages(conversationId, { limit: 20, before, sync: !!options?.syncChannel });
+        : await fbMessengerService.getMessages(conversationId, { limit: 20, before, sync: !!options?.syncChannel, pageId: selectedFacebookPageId });
 
       // Ngăn chặn race-condition khi người dùng chuyển đổi khách hàng nhanh
       // conversationId o day la Mongo _id cua conversation trong DB, khong phai PSID/UID cua khach.
@@ -276,7 +321,7 @@ export default function CRMTab() {
 
       if (isFbConnected) {
         try {
-          fbConvs = await fbMessengerService.getConversations({ sync: !!options?.syncFacebook });
+          fbConvs = await fbMessengerService.getConversations({ sync: !!options?.syncFacebook, pageId: selectedFacebookPageId });
         } catch (err) {
           console.error("Lỗi lấy hội thoại Facebook:", err);
         }
@@ -743,7 +788,7 @@ export default function CRMTab() {
       if (activeCustomer.channel === "zalo") {
         await zaloMessengerService.sendReply(activeCustomer.id, msgText);
       } else {
-        await fbMessengerService.sendReply(activeCustomer.id, msgText);
+        await fbMessengerService.sendReply(activeCustomer.id, msgText, selectedFacebookPageId);
       }
     } catch (err: any) {
       console.error(err);
@@ -856,12 +901,19 @@ export default function CRMTab() {
               leads={leads}
               onCreateLeadFromChat={handleCreateLeadFromChat}
               onUpdateLeadStatus={moveLeadPipeline}
+              facebookPages={facebookPages}
+              selectedFacebookPageId={selectedFacebookPageId}
+              setSelectedFacebookPageId={setSelectedFacebookPageId}
             />
           )}
 
           {subTab === "AI COMMENT AUTO-REPLY" && (
             <div className="p-6 h-full overflow-y-auto">
-              <AiCommentReplyManager />
+              <AiCommentReplyManager
+                facebookPages={facebookPages}
+                selectedFacebookPageId={selectedFacebookPageId}
+                setSelectedFacebookPageId={setSelectedFacebookPageId}
+              />
             </div>
           )}
         </Suspense>

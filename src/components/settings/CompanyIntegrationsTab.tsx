@@ -123,7 +123,9 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
       localStorage.removeItem("tt_oauth_result");
       const authUrl = await socialIntegrationService.getTikTokOAuthUrl(
         "company",
-        compPlatform === "TikTok" && editingIntegrationId ? editingIntegrationId : undefined
+        compPlatform === "TikTok" && editingIntegrationId ? editingIntegrationId : undefined,
+        compVerifyToken.trim() || undefined,
+        compAppSecret.trim() || undefined
       );
       if (!authUrl) {
         throw new Error("Khong tao duoc link dang nhap TikTok.");
