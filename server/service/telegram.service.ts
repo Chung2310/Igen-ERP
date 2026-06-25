@@ -1,9 +1,16 @@
 import { ICRMTicket } from "../interface/crm-ticket.interface";
 import { geminiService } from "./gemini.service";
 import { cloudinaryService } from "./cloudinary.service";
+import { TelegramProcessedUpdateModel } from "../model/telegram-processed-update.model";
+import { TelegramSessionModel } from "../model/telegram-session.model";
+import { UserModel } from "../model/user.model";
+import bcrypt from "bcryptjs";
 
 let pollingActive = false;
 let lastOffset = 0;
+
+/** Danh sách role được phép sử dụng lệnh quản trị */
+const ADMIN_ROLES = ["admin", "superadmin"];
 
 export const telegramService = {
   /**
@@ -144,6 +151,33 @@ export const telegramService = {
   },
 
   /**
+   * Helper xóa tin nhắn trên Telegram (dùng để xóa tin nhắn chứa mật khẩu)
+   */
+  async deleteMessage(chatId: string | number, messageId: number): Promise<void> {
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    if (!botToken) return;
+
+    try {
+      const url = `https://api.telegram.org/bot${botToken}/deleteMessage`;
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: chatId,
+          message_id: messageId,
+        }),
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        console.warn(`[Telegram Bot] Không thể xóa tin nhắn ${messageId}: ${errText}`);
+      }
+    } catch (err) {
+      console.warn("[Telegram Bot] Lỗi khi xóa tin nhắn:", err);
+    }
+  },
+
+  /**
    * Khởi động vòng lặp Polling chạy nền nhận và xử lý lệnh từ người dùng
    */
   async startPolling(): Promise<void> {
@@ -181,13 +215,26 @@ export const telegramService = {
         if (body.ok && Array.isArray(body.result)) {
           for (const update of body.result) {
             lastOffset = Math.max(lastOffset, update.update_id);
+
+            // === CHỐNG TRÙNG LẶP: Thử chèn update_id vào MongoDB ===
+            try {
+              await TelegramProcessedUpdateModel.create({ updateId: update.update_id });
+            } catch (dupErr: any) {
+              if (dupErr?.code === 11000) {
+                // Đã có tiến trình khác xử lý update này rồi → bỏ qua
+                continue;
+              }
+              console.error("[Telegram Bot] Lỗi ghi update_id vào DB:", dupErr);
+            }
+
             if (update.message) {
               const text = (update.message.text || update.message.caption || "").trim();
               const photo = update.message.photo;
               const chatId = update.message.chat.id;
+              const messageId = update.message.message_id;
 
               if (text.startsWith("/")) {
-                this.handleCommand(chatId, text, photo).catch((err) => {
+                this.handleCommand(chatId, text, photo, messageId).catch((err) => {
                   console.error("[Telegram Bot] Lỗi khi thực thi lệnh:", err);
                 });
               }
@@ -204,22 +251,137 @@ export const telegramService = {
   /**
    * Phân tích và điều phối các câu lệnh được nhập từ Telegram Chat
    */
-  async handleCommand(chatId: number, text: string, photo?: any[]): Promise<void> {
+  async handleCommand(chatId: number, text: string, photo?: any[], messageId?: number): Promise<void> {
     const spaceIndex = text.indexOf(" ");
     const command = spaceIndex === -1 ? text : text.substring(0, spaceIndex);
     const args = spaceIndex === -1 ? "" : text.substring(spaceIndex + 1).trim();
 
+    // === XỬ LÝ ĐĂNG NHẬP ===
+    if (command === "/login") {
+      // Luôn xóa tin nhắn chứa mật khẩu ngay lập tức
+      if (messageId) {
+        await this.deleteMessage(chatId, messageId);
+      }
+
+      const parts = args.split(/\s+/);
+      if (parts.length < 2) {
+        await this.sendMessage(chatId, "⚠️ Sử dụng: <code>/login email mật_khẩu</code>\nVí dụ: <code>/login admin@igen.com 123456</code>\n\n🔒 <i>Tin nhắn chứa mật khẩu đã được xóa tự động để bảo mật.</i>");
+        return;
+      }
+
+      const [email, password] = parts;
+      try {
+        const user = await UserModel.findOne({ email: email.toLowerCase().trim() });
+        if (!user || !user.password) {
+          await this.sendMessage(chatId, "❌ Email hoặc mật khẩu không đúng.\n🔒 <i>Tin nhắn đăng nhập đã được xóa tự động.</i>");
+          return;
+        }
+
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+          await this.sendMessage(chatId, "❌ Email hoặc mật khẩu không đúng.\n🔒 <i>Tin nhắn đăng nhập đã được xóa tự động.</i>");
+          return;
+        }
+
+        // Xóa session cũ nếu userId đã liên kết với chat khác
+        await TelegramSessionModel.deleteMany({ $or: [{ telegramChatId: chatId }, { userId: user._id }] });
+
+        await TelegramSessionModel.create({
+          telegramChatId: chatId,
+          userId: user._id,
+          email: user.email,
+          displayName: user.displayName || email,
+          role: user.role || "user",
+          companyCode: user.companyCode || "",
+        });
+
+        await this.sendMessage(chatId, [
+          "✅ <b>Đăng nhập thành công!</b>",
+          `👤 Xin chào, <b>${user.displayName}</b>`,
+          `📧 Email: <code>${user.email}</code>`,
+          `🔑 Vai trò: <b>${user.role || "user"}</b>`,
+          `🏢 Công ty: <b>${user.companyName || user.companyCode || "Chưa thiết lập"}</b>`,
+          "",
+          "🔒 <i>Tin nhắn đăng nhập đã được xóa tự động để bảo mật.</i>",
+          "Gõ /help để xem danh sách lệnh khả dụng.",
+        ].join("\n"));
+      } catch (err: any) {
+        console.error("[Telegram Bot] Lỗi xử lý đăng nhập:", err);
+        await this.sendMessage(chatId, "❌ Lỗi hệ thống khi đăng nhập. Vui lòng thử lại sau.");
+      }
+      return;
+    }
+
+    // === XỬ LÝ ĐĂNG XUẤT ===
+    if (command === "/logout") {
+      try {
+        const deleted = await TelegramSessionModel.findOneAndDelete({ telegramChatId: chatId });
+        if (deleted) {
+          await this.sendMessage(chatId, "👋 <b>Đã đăng xuất thành công.</b>\nGõ /login để đăng nhập lại.");
+        } else {
+          await this.sendMessage(chatId, "⚠️ Bạn chưa đăng nhập.");
+        }
+      } catch (err: any) {
+        console.error("[Telegram Bot] Lỗi xử lý đăng xuất:", err);
+        await this.sendMessage(chatId, "❌ Lỗi hệ thống khi đăng xuất.");
+      }
+      return;
+    }
+
+    // === TRA CỨU SESSION HIỆN TẠI ===
+    let session: any = null;
+    try {
+      session = await TelegramSessionModel.findOne({ telegramChatId: chatId }).lean();
+    } catch (err) {
+      console.error("[Telegram Bot] Lỗi tra cứu session:", err);
+    }
+
+    // === LỆNH CÔNG KHAI: /start, /help ===
     if (command === "/start" || command === "/help") {
-      const welcome = [
-        "🤖 <b>Chào mừng bạn đến với iGEN ERP Bot!</b>",
-        "Tôi có thể giúp bạn tạo ảnh, video AI và quản trị doanh nghiệp. Danh sách câu lệnh:",
-        "• <code>/help</code> - Hiển thị hướng dẫn sử dụng bot.",
-        "• <code>/image [mô tả]</code> - Sinh ảnh nghệ thuật AI (Ví dụ: gửi kèm ảnh hoặc gõ <code>/image phong cảnh sơn thủy</code>).",
-        "• <code>/video [mô tả]</code> - Sinh video ngắn AI (Ví dụ: gửi kèm ảnh hoặc gõ <code>/video ngọn lửa cháy rực</code>).",
-        "• <code>/stats</code> hoặc <code>/report</code> - Báo cáo thống kê cơ hội bán hàng CRM và giao dịch.",
-        "• <code>/warning_stock</code> hoặc <code>/lowstock</code> - Kiểm tra nhanh danh sách các sản phẩm sắp hết hàng (dưới định mức).",
-      ].join("\n");
-      await this.sendMessage(chatId, welcome);
+      if (!session) {
+        // Chưa đăng nhập → hiển thị hướng dẫn đăng nhập
+        const guestHelp = [
+          "🤖 <b>Chào mừng bạn đến với iGEN ERP Bot!</b>",
+          "Để sử dụng bot, bạn cần đăng nhập bằng tài khoản ERP.",
+          "",
+          "📌 <b>Hướng dẫn đăng nhập:</b>",
+          "<code>/login email mật_khẩu</code>",
+          "Ví dụ: <code>/login admin@igen.com 123456</code>",
+          "",
+          "🔒 <i>Tin nhắn chứa mật khẩu sẽ được xóa tự động sau khi xác thực.</i>",
+        ].join("\n");
+        await this.sendMessage(chatId, guestHelp);
+      } else {
+        const isAdmin = ADMIN_ROLES.includes(session.role);
+        const helpLines = [
+          `🤖 <b>Xin chào, ${session.displayName}!</b>`,
+          `📧 ${session.email} | 🔑 ${session.role}`,
+          "",
+          "📌 <b>Danh sách câu lệnh:</b>",
+          "• <code>/help</code> - Hiển thị hướng dẫn sử dụng bot.",
+          "• <code>/image [mô tả]</code> - Sinh ảnh nghệ thuật AI.",
+          "• <code>/video [mô tả]</code> - Sinh video ngắn AI.",
+        ];
+        if (isAdmin) {
+          helpLines.push("• <code>/stats</code> hoặc <code>/report</code> - Báo cáo thống kê CRM và giao dịch.");
+          helpLines.push("• <code>/warning_stock</code> hoặc <code>/lowstock</code> - Kiểm tra sản phẩm sắp hết hàng.");
+        }
+        helpLines.push("• <code>/logout</code> - Đăng xuất khỏi bot.");
+        await this.sendMessage(chatId, helpLines.join("\n"));
+      }
+      return;
+    }
+
+    // === CÁC LỆNH CÒN LẠI: YÊU CẦU ĐĂNG NHẬP ===
+    if (!session) {
+      await this.sendMessage(chatId, "🔒 Bạn cần đăng nhập trước khi sử dụng lệnh này.\nGõ: <code>/login email mật_khẩu</code>");
+      return;
+    }
+
+    // === KIỂM TRA QUYỀN QUẢN TRỊ CHO LỆNH NHẠY CẢM ===
+    const adminCommands = ["/stats", "/report", "/warning_stock", "/lowstock"];
+    if (adminCommands.includes(command) && !ADMIN_ROLES.includes(session.role)) {
+      await this.sendMessage(chatId, "⛔ Bạn không có quyền sử dụng lệnh này. Lệnh này chỉ dành cho quản trị viên.");
       return;
     }
 

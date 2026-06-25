@@ -14,14 +14,19 @@ const AuthPage = lazy(() => import("./pages/AuthPage"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const TermsOfService = lazy(() => import("./pages/TermsOfService"));
 const UserDataDeletion = lazy(() => import("./pages/UserDataDeletion"));
+const LandingPage = lazy(() => import("./pages/LandingPage"));
 
 function AppContent() {
   const { user, userProfile, loading } = useAuth();
   const currentPath = normalizePublicPath(window.location.pathname);
+  const isLandingPage = currentPath === "/" || currentPath === "/landing" || currentPath === "/landing.html";
+  const isLandingGuestPage = isLandingPage && !Boolean(user && userProfile);
   const isPrivacyPage = currentPath === "/privacy-policy" || currentPath === "/privacy-policy.html";
   const isTermsPage = currentPath === "/terms-of-service" || currentPath === "/terms-of-service.html";
   const isDeletionPage = currentPath === "/user-data-deletion" || currentPath === "/user-data-deletion.html";
-  const isPublicPage = isPrivacyPage || isTermsPage || isDeletionPage;
+  const isLegalPublicPage = isPrivacyPage || isTermsPage || isDeletionPage;
+  const isPublicPage = isLandingGuestPage || isLegalPublicPage;
+
   const { activeTab, setActiveTab } = useTabRouter({
     enabled: !isPublicPage && !loading && Boolean(user && userProfile),
   });
@@ -37,7 +42,15 @@ function AppContent() {
     }
   }, [user]);
 
-  if (isPublicPage) {
+  if (isLandingGuestPage) {
+    return (
+      <Suspense fallback={<AuthLoader />}>
+        <LandingPage />
+      </Suspense>
+    );
+  }
+
+  if (isLegalPublicPage) {
     return (
       <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col justify-between py-10 px-4 font-sans overflow-y-auto">
         <div className="flex-1">

@@ -625,7 +625,7 @@ export const zaloMessengerService = {
       conversation.lastMessageText = text;
       conversation.lastMessageAt = sentAt;
       conversation.unreadCount = 0;
-      conversation.aiPausedUntil = new Date(Date.now() + 5 * 60 * 1000); // Tạm dừng AI cho cuộc hội thoại này 5 phút
+      conversation.aiPausedUntil = new Date(Date.now() + 30 * 60 * 1000); // Tạm dừng AI cho cuộc hội thoại này 30 phút
       await conversation.save();
       newMsg.status = "delivered";
       await newMsg.save();
@@ -708,7 +708,7 @@ export const zaloMessengerService = {
       conversation.lastMessageText = text;
       conversation.lastMessageAt = sentAt;
       conversation.unreadCount = 0;
-      conversation.aiPausedUntil = new Date(Date.now() + 5 * 60 * 1000); // Tạm dừng AI cho cuộc hội thoại này 5 phút
+      conversation.aiPausedUntil = new Date(Date.now() + 30 * 60 * 1000); // Tạm dừng AI cho cuộc hội thoại này 30 phút
       await conversation.save();
       newMsg.messageId = resData.data?.message_id || messageId;
       newMsg.status = "delivered";
