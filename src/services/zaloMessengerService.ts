@@ -86,6 +86,25 @@ export const zaloMessengerService = {
     return result.data;
   },
 
+  async resumeAI(conversationId: string): Promise<any> {
+    console.log(`[FE Zalo Service] Bat dau goi API resumeAI cho conversation ${conversationId}...`);
+    const res = await fetch(`/api/v1/zalo/conversations/${conversationId}/resume-ai`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${getAccessToken()}`,
+      },
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      console.error(`[FE Zalo Service] API resumeAI cho conversation ${conversationId} that bai:`, res.status, data);
+      throw new Error(data.message || "Không thể kích hoạt lại AI cho cuộc hội thoại Zalo.");
+    }
+
+    const result = await res.json();
+    return result.data;
+  },
+
   async sendReply(conversationId: string, text: string): Promise<any> {
     console.log(`[FE Zalo Service] Bat dau goi API sendReply toi conversation ${conversationId}. Noi dung: "${text}"`);
     const res = await fetch("/api/v1/zalo/reply", {

@@ -243,6 +243,44 @@ export const fbMessengerController = {
     }
   },
 
+  async resumeAI(req: any, res: Response): Promise<any> {
+    try {
+      const { recipientId: conversationId } = req.params;
+      const userId = req.user?.id;
+      const requestedPageId = typeof req.query.pageId === "string" ? req.query.pageId : undefined;
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Người dùng chưa đăng nhập."
+        });
+      }
+
+      const { isConnected, pageId } = await getFacebookPageConfig(userId, requestedPageId);
+
+      if (!isConnected || !pageId) {
+        return res.status(403).json({
+          success: false,
+          message: "Quyền truy cập bị từ chối. Bạn chưa cấu hình tích hợp Facebook."
+        });
+      }
+
+      const conversation = await fbMessengerService.resumeAIAutoReply(pageId, conversationId);
+
+      res.status(200).json({
+        success: true,
+        message: "Đã kích hoạt lại AI cho cuộc hội thoại này.",
+        data: conversation
+      });
+    } catch (error: any) {
+      console.error("[FB Controller resumeAI] Lỗi:", error);
+      res.status(500).json({
+        success: false,
+        message: error.message || "Không thể kích hoạt lại AI cho cuộc hội thoại này."
+      });
+    }
+  },
+
   async sendReply(req: any, res: Response): Promise<any> {
     try {
       const { recipientId: conversationId, text, pageId: requestedPageId } = req.body;

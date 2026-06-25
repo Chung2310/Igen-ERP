@@ -96,6 +96,26 @@ export const fbMessengerService = {
     return result.data;
   },
 
+  async resumeAI(conversationId: string, pageId?: string): Promise<any> {
+    console.log(`[FE FB Service] Bat dau goi API resumeAI cho conversation: ${conversationId}...`);
+    const query = pageId ? `?pageId=${encodeURIComponent(pageId)}` : "";
+    const res = await fetch(`/api/v1/facebook/messenger/conversations/${conversationId}/resume-ai${query}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${getAccessToken()}`,
+      },
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      console.error(`[FE FB Service] API resumeAI cho conversation ${conversationId} that bai:`, res.status, data);
+      throw new Error(data.message || "Không thể kích hoạt lại AI cho cuộc hội thoại Facebook.");
+    }
+
+    const result = await res.json();
+    return result.data;
+  },
+
   async sendReply(conversationId: string, text: string, pageId?: string): Promise<any> {
     console.log(`[FE FB Service] Bat dau goi API sendReply toi conversation ${conversationId}. Noi dung: "${text}"`);
     const res = await fetch("/api/v1/facebook/messenger/reply", {

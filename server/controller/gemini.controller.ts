@@ -323,6 +323,95 @@ async function fetchDirectDriveFile(fileId: string): Promise<{ buffer: Buffer; c
   return { buffer, contentType };
 }
 
+async function parseUploadedDocument(base64Data: string, mimeType: string, fileName: string): Promise<string> {
+  const normMime = mimeType.toLowerCase();
+
+  // 1. Text files (.txt, .md, .csv)
+  if (
+    normMime.includes("text/plain") ||
+    normMime.includes("text/markdown") ||
+    normMime.includes("text/csv") ||
+    fileName.endsWith(".txt") ||
+    fileName.endsWith(".md")
+  ) {
+    return Buffer.from(base64Data, "base64").toString("utf-8");
+  }
+
+  // 2. Spreadsheets (XLS, XLSX, CSV)
+  const isSpreadsheet =
+    normMime.includes("spreadsheetml") ||
+    normMime.includes("ms-excel") ||
+    normMime.includes("officedocument.spreadsheetml") ||
+    fileName.endsWith(".xlsx") ||
+    fileName.endsWith(".xls") ||
+    fileName.endsWith(".csv");
+
+  if (isSpreadsheet) {
+    const buffer = Buffer.from(base64Data, "base64");
+    const workbookText = extractWorkbookText(buffer);
+    if (workbookText) {
+      return workbookText;
+    }
+  }
+
+  // 3. PDFs, DOCX, PPTX using Gemini
+  const isPdf = normMime.includes("pdf") || fileName.endsWith(".pdf");
+  const isDocx =
+    normMime.includes("wordprocessingml") ||
+    normMime.includes("msword") ||
+    fileName.endsWith(".docx") ||
+    fileName.endsWith(".doc");
+  const isPptx =
+    normMime.includes("presentationml") ||
+    normMime.includes("powerpoint") ||
+    fileName.endsWith(".pptx") ||
+    fileName.endsWith(".ppt");
+
+  if (isPdf || isDocx || isPptx) {
+    if (!process.env.GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY is not configured");
+    }
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+
+    console.log(`[AI AutoReply] Đang gọi Gemini trích xuất văn bản từ file upload (${fileName})...`);
+
+    let cleanMime = mimeType;
+    if (isPdf) cleanMime = "application/pdf";
+    else if (isDocx) cleanMime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    else if (isPptx) cleanMime = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+
+    const response = await ai.models.generateContent({
+      model,
+      contents: [
+        {
+          role: "user",
+          parts: [
+            {
+              inlineData: {
+                mimeType: cleanMime,
+                data: base64Data,
+              },
+            },
+            {
+              text: "Bạn là trợ lý trích xuất văn bản. Hãy trích xuất và trả về toàn bộ nội dung văn bản có trong tài liệu này theo đúng thứ tự đọc. Chỉ trả về văn bản thuần của tài liệu, không thêm giải thích hay định dạng markdown.",
+            },
+          ],
+        },
+      ],
+    });
+
+    return response.text || "";
+  }
+
+  // Fallback to text
+  try {
+    return Buffer.from(base64Data, "base64").toString("utf-8");
+  } catch (e) {
+    throw new Error("Định dạng file không được hỗ trợ để trích xuất văn bản.");
+  }
+}
+
 async function fetchDriveFileContent(fileId: string): Promise<{ text: string; title: string }> {
   // 1. Google Doc Text Export
   try {
@@ -940,6 +1029,64 @@ export const geminiController = {
     } catch (error: any) {
       console.error("[geminiController.analyzeVideoStyle] Error:", error);
       return handleGeminiError(res, error, "Lỗi phân tích phong cách video");
+    }
+  },
+
+  /**
+   * POST /api/v1/gemini/upload-document
+   */
+  async uploadLocalDocument(req: AuthenticatedRequest, res: Response) {
+    try {
+      const { fileName, fileBase64, mimeType } = req.body;
+      if (!fileName || !fileBase64 || !mimeType) {
+        return res.status(400).json({
+          status: "error",
+          message: "Thiếu thông tin file (tên, dữ liệu base64, mimeType)."
+        });
+      }
+
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
+      }
+
+      await walletService.checkBalance(userId, API_COSTS.GEMINI_FAQ);
+      console.log(`[AI AutoReply] Bắt đầu xử lý file upload: ${fileName} (${mimeType})`);
+
+      const extractedText = await parseUploadedDocument(fileBase64, mimeType, fileName);
+
+      if (!extractedText || extractedText.trim().length === 0) {
+        return res.status(400).json({
+          status: "error",
+          message: "Không thể trích xuất văn bản từ tài liệu này. Vui lòng kiểm tra lại định dạng file."
+        });
+      }
+
+      const companyCode = req.user?.companyCode || "SYSTEM";
+      const sourceUrl = `uploaded://${fileName}_${Date.now()}`;
+
+      const syncResult = await aiKnowledgeService.upsertKnowledgeFromText({
+        companyCode,
+        sourceType: "manual",
+        sourceTitle: fileName,
+        sourceUrl,
+        text: extractedText,
+        createdBy: req.user?.id,
+        channelScope: ["all"],
+      });
+
+      await walletService.deductBalance(userId, API_COSTS.GEMINI_FAQ, `Chi phí trích xuất & nạp tài liệu upload (${fileName})`);
+
+      return res.status(200).json({
+        status: "success",
+        title: fileName,
+        text: extractedText,
+        companyCode,
+        chunksCount: syncResult.chunksCount,
+      });
+    } catch (error: any) {
+      console.error("[geminiController.uploadLocalDocument] Error:", error);
+      return handleGeminiError(res, error, "Lỗi xử lý file tài liệu tải lên");
     }
   },
 

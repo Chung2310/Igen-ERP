@@ -594,5 +594,18 @@ export const geminiApi = {
     const data = await response.json();
     return data.result || { title: '', content: '', hashtags: [] };
   },
+
+  async uploadLocalDocument(fileName: string, fileBase64: string, mimeType: string): Promise<any> {
+    const headers = await getHeaders(true);
+    const response = await fetch("/api/v1/gemini/upload-document", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ fileName, fileBase64, mimeType }),
+    });
+    if (!response.ok) {
+      await handleErrorResponse(response, "Lỗi tải lên tài liệu huấn luyện AI");
+    }
+    return response.json();
+  },
 };
 

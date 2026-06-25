@@ -583,6 +583,17 @@ export const fbMessengerService = {
     return { success: true };
   },
 
+  async resumeAIAutoReply(pageId: string, conversationId: string) {
+    const conversation = await FBConversationModel.findOne({ _id: conversationId, pageId });
+    if (!conversation) {
+      throw new Error("Không tìm thấy hội thoại Facebook.");
+    }
+    conversation.aiPausedUntil = undefined;
+    await conversation.save();
+    emitToPage(pageId, "conversation_updated", conversation);
+    return conversation;
+  },
+
   /**
    * Gọi Graph API lấy Profile từ PSID bằng Token động
    */
@@ -691,6 +702,7 @@ export const fbMessengerService = {
       conversation.lastMessageText = text;
       conversation.lastMessageAt = new Date();
       conversation.unreadCount = 0;
+      conversation.aiPausedUntil = new Date(Date.now() + 5 * 60 * 1000); // Tạm dừng AI cho cuộc hội thoại này 5 phút
       await conversation.save();
 
       const newMsg = new FBMessageModel({
