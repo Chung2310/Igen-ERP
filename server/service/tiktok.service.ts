@@ -2,6 +2,7 @@ import { broadcastEvent } from "../socket";
 import { MarketingContentModel } from "../model/marketing-content.model";
 import { SocialIntegrationModel } from "../model/social-integration.model";
 import { UserModel } from "../model/user.model";
+import { telegramService } from "./telegram.service";
 import jwt from "jsonwebtoken";
 
 const TIKTOK_API_BASE = "https://open.tiktokapis.com";
@@ -832,11 +833,9 @@ export const tiktokService = {
     void scheduledTime;
 
     let userId: string | undefined = undefined;
-    if (cardId) {
-      const card = await MarketingContentModel.findById(cardId);
-      if (card?.authorUid) {
-        userId = card.authorUid;
-      }
+    const card = cardId ? await MarketingContentModel.findById(cardId) : null;
+    if (card?.authorUid) {
+      userId = card.authorUid;
     }
 
     const credentials = await resolveDirectCredentials(integrationId, companyCode, accessToken, username, userId);
@@ -938,6 +937,23 @@ export const tiktokService = {
           : "";
 
         if (publishStatus === "PUBLISH_COMPLETE") {
+          // Gửi thông báo tự động tới Telegram với link video TikTok
+          const telegramChatId = process.env.TELEGRAM_CHAT_ID;
+          if (telegramChatId && shareUrl) {
+            const cardTitle = card?.title || caption || "Không có tiêu đề";
+            const message = [
+              "📢 <b>ĐÃ ĐĂNG VIDEO LÊN TIKTOK!</b> 📢",
+              "=============================",
+              `📝 <b>Tiêu đề:</b> ${cardTitle}`,
+              `🔗 <b>Đường dẫn video:</b>`,
+              `<a href="${shareUrl}">${shareUrl}</a>`,
+              "=============================",
+            ].join("\n");
+            telegramService.sendMessage(telegramChatId, message).catch((err) => {
+              console.error("[Telegram Bot] Lỗi gửi thông báo đăng bài TikTok:", err);
+            });
+          }
+
           return {
             status: "success",
             message: "Dang video len TikTok thanh cong",
@@ -1049,7 +1065,25 @@ export const tiktokService = {
     if (parsed.postId) updateData.tiktokPostId = parsed.postId;
     if (parsed.shareUrl) updateData.tiktokShareUrl = parsed.shareUrl;
     if (mappedStatus) updateData.status = mappedStatus;
-    if (mappedStatus === "published") updateData.publishedAt = new Date();
+    if (mappedStatus === "published") {
+      updateData.publishedAt = new Date();
+      // Gửi thông báo tự động tới Telegram với link video TikTok từ webhook callback
+      const telegramChatId = process.env.TELEGRAM_CHAT_ID;
+      const shareUrl = parsed.shareUrl || matchedCard.tiktokShareUrl;
+      if (telegramChatId && shareUrl) {
+        const message = [
+          "📢 <b>ĐÃ ĐĂNG VIDEO LÊN TIKTOK (WEBHOOK)!</b> 📢",
+          "=============================",
+          `📝 <b>Tiêu đề:</b> ${matchedCard.title || "Không có tiêu đề"}`,
+          `🔗 <b>Đường dẫn video:</b>`,
+          `<a href="${shareUrl}">${shareUrl}</a>`,
+          "=============================",
+        ].join("\n");
+        telegramService.sendMessage(telegramChatId, message).catch((err) => {
+          console.error("[Telegram Bot] Lỗi gửi thông báo đăng bài TikTok webhook:", err);
+        });
+      }
+    }
 
     const updatedCard = await MarketingContentModel.findByIdAndUpdate(
       matchedCard._id,
