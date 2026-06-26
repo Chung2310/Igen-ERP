@@ -2241,6 +2241,7 @@ CHỈ trả về lệnh chỉnh sửa, không thêm giải thích, không markdo
       blueprint?: any;
       renderMode?: "local" | "hermes";
       renderEngine?: "remotion" | "hyperframe" | "hermes";
+      referenceVideoUrl?: string;
     }
   ): Promise<{ status: string; record: any; blueprint: any }> {
     if (options?.renderMode === "hermes" || options?.renderEngine === "hermes") {

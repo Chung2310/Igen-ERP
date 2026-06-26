@@ -572,10 +572,13 @@ export const facebookPostController = {
         });
       }
 
+      // postUrl có thể rỗng với bài lên lịch hoặc video (Facebook không trả về URL ngay)
+      const finalPostUrl = postUrl || (postId ? `https://www.facebook.com/permalink.php?story_fbid=${postId}` : "");
+
       card.status = "published";
       card.publishedAt = new Date();
       card.facebookPostId = postId;
-      card.postUrl = postUrl;
+      card.postUrl = finalPostUrl;
       card.publishError = undefined;
 
       await card.save();
@@ -590,7 +593,7 @@ export const facebookPostController = {
           "=============================",
           `📝 <b>Tiêu đề:</b> ${card.title || "Không có tiêu đề"}`,
           `🔗 <b>Đường dẫn bài viết:</b>`,
-          `<a href="${postUrl}">${postUrl}</a>`,
+          finalPostUrl ? `<a href="${finalPostUrl}">${finalPostUrl}</a>` : `Post ID: ${postId}`,
           "=============================",
         ].join("\n");
         telegramService.sendMessage(telegramChatId, message).catch((err) => {
