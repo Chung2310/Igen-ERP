@@ -34,43 +34,53 @@ async function loadRemotionDependencies(): Promise<{
  *   (Chỉ đổi extension không đủ: Cloudinary giữ ALAC/PCM → Chromium không phát được)
  * - Non-Cloudinary URLs: không thay đổi
  */
-function normalizeMediaUrl(url: string): string {
+export function normalizeMediaUrl(url: string): string {
   if (!url || !url.startsWith("http")) return url;
 
   const isCloudinary = url.includes("cloudinary.com");
-  const unsupportedExts = /\.(mov|mkv|avi|wmv|flv|3gp)(\?.*)?$/i;
-  const match = url.match(unsupportedExts);
 
-  if (match && isCloudinary) {
-    // Cloudinary: chèn transformation vc_h264,ac_aac trước version/path
-    // Pattern: .../video/upload/{transform}/{version}/{path}.ext
-    // Nếu đã có transformation, thêm vào. Nếu chưa, chèn mới.
+  if (isCloudinary) {
     let normalized = url;
+    
+    // Tách query parameters ra trước để xử lý đuôi mở rộng chính xác
+    const parts = url.split("?");
+    let pathPart = parts[0];
+    const queryPart = parts[1] ? `?${parts[1]}` : "";
+
     const uploadMarker = "/video/upload/";
-    const uploadIdx = url.indexOf(uploadMarker);
+    const uploadIdx = pathPart.indexOf(uploadMarker);
     if (uploadIdx !== -1) {
-      const afterUpload = url.slice(uploadIdx + uploadMarker.length);
-      // Kiểm tra xem đã có transformation chưa (có dạng key_val hoặc bắt đầu bằng 'v' theo sau là số)
+      const afterUpload = pathPart.slice(uploadIdx + uploadMarker.length);
+      // Kiểm tra xem đã có transformation chưa
       const hasTransform = !afterUpload.match(/^v\d+\//i);
       if (!hasTransform) {
         // Chưa có transform — chèn mới
-        normalized = url.slice(0, uploadIdx + uploadMarker.length) + "vc_h264,ac_aac/" + afterUpload;
+        pathPart = pathPart.slice(0, uploadIdx + uploadMarker.length) + "vc_h264,ac_aac/" + afterUpload;
       } else {
         // Đã có transform — thêm vc_h264,ac_aac nếu chưa có
-        if (!normalized.includes("vc_h264")) {
-          normalized = url.slice(0, uploadIdx + uploadMarker.length) + "vc_h264,ac_aac/" + afterUpload;
+        if (!pathPart.includes("vc_h264")) {
+          // Chèn vc_h264,ac_aac/ ngay sau uploadMarker
+          pathPart = pathPart.slice(0, uploadIdx + uploadMarker.length) + "vc_h264,ac_aac/" + afterUpload;
         }
       }
     }
-    // Đổi extension sang .mp4
-    normalized = normalized.replace(unsupportedExts, `.mp4${match[2] || ""}`);
-    console.log(`[Remotion] URL normalize (Cloudinary): ${url}`);
-    console.log(`[Remotion]                           → ${normalized}`);
+    
+    // Đảm bảo đuôi là .mp4 để Chromium giải nén được container
+    const extRegex = /\.(mov|mkv|avi|wmv|flv|3gp|mp4|webm|ogg)$/i;
+    pathPart = pathPart.replace(extRegex, ".mp4");
+    normalized = pathPart + queryPart;
+
+    if (normalized !== url) {
+      console.log(`[Remotion] URL normalize (Cloudinary H264): ${url}`);
+      console.log(`[Remotion]                           → ${normalized}`);
+    }
     return normalized;
   }
 
+  // Non-Cloudinary: Chỉ đổi đuôi các container không hỗ trợ sang .mp4
+  const unsupportedExts = /\.(mov|mkv|avi|wmv|flv|3gp)(\?.*)?$/i;
+  const match = url.match(unsupportedExts);
   if (match) {
-    // Non-Cloudinary: chỉ đổi extension, không thêm transform
     const normalized = url.replace(unsupportedExts, `.mp4${match[2] || ""}`);
     console.log(`[Remotion] URL normalize (non-Cloudinary): ${url} → ${normalized}`);
     return normalized;
@@ -136,32 +146,33 @@ export const remotionService = {
     console.log(`[Remotion] Image URLs (${imageUrls.length}):`);
     imageUrls.forEach((url: string, i: number) => console.log(`  [${i + 1}] ${url || "(EMPTY)"}`));
 
-    // Kiểm tra trước (preflight) tất cả media URLs — phát hiện 403 trước khi Chromium render
+    // Kiểm tra trước (preflight) và pre-warm tất cả media URLs — buộc Cloudinary hoàn tất transcoding và cache file
     const allMediaUrls = [...videoUrls, ...audioUrls, ...imageUrls].filter(Boolean);
     if (allMediaUrls.length > 0) {
-      console.log(`[Remotion] Kiểm tra trước (preflight) ${allMediaUrls.length} media URLs...`);
+      console.log(`[Remotion] Kiểm tra trước (preflight) và kích hoạt CDN cache cho ${allMediaUrls.length} media URLs...`);
       for (const mediaUrl of allMediaUrls) {
         if (!mediaUrl.startsWith("http")) {
           console.log(`  [SKIP] URL nội bộ/tương đối: ${mediaUrl}`);
           continue;
         }
+        if (mediaUrl.includes("localhost") || mediaUrl.includes("127.0.0.1")) {
+          console.log(`  [SKIP] URL localhost: ${mediaUrl}`);
+          continue;
+        }
         try {
-          const headRes = await fetch(mediaUrl, {
-            method: "HEAD",
-            signal: AbortSignal.timeout(8000),
+          console.log(`  [PRE-WARM] Đang tải xuống để CDN cache hoàn tất: ${mediaUrl}`);
+          const startPrewarm = Date.now();
+          const res = await fetch(mediaUrl, {
+            method: "GET",
+            signal: AbortSignal.timeout(90000), // Cho phép tối đa 90 giây để transcode và tải
           });
-          const status = headRes.status;
-          const contentType = headRes.headers.get("content-type") || "unknown";
-          const corsHeader = headRes.headers.get("access-control-allow-origin") || "(không có)";
-          const corpHeader = headRes.headers.get("cross-origin-resource-policy") || "(không có)";
-          if (status >= 400) {
-            console.error(`  [❌ HTTP ${status}] ${mediaUrl}`);
-            console.error(`    Content-Type : ${contentType}`);
-            console.error(`    CORS header  : ${corsHeader}`);
-            console.error(`    CORP header  : ${corpHeader}`);
+
+          if (!res.ok) {
+            console.error(`  [❌ HTTP ${res.status}] ${mediaUrl}`);
           } else {
-            console.log(`  [✅ HTTP ${status}] ${mediaUrl}`);
-            console.log(`    Content-Type: ${contentType} | CORS: ${corsHeader}`);
+            const buffer = await res.arrayBuffer();
+            const elapsed = Date.now() - startPrewarm;
+            console.log(`  [✅ READY] ${mediaUrl} | Size: ${(buffer.byteLength / 1024 / 1024).toFixed(2)} MB | Thời gian tải/transcode: ${elapsed}ms`);
           }
         } catch (fetchErr: any) {
           console.error(`  [❌ FETCH_ERROR] ${mediaUrl} → ${fetchErr.message}`);

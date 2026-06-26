@@ -4,7 +4,7 @@ import { Player } from '@remotion/player';
 import { VideoComposition } from './video-composition';
 import { geminiApi } from '../../api/gemini';
 import { toast } from '../../pages/Toast';
-import { Film, Loader2, Play, Sparkles, Video, X, Wand2, UploadCloud, Cpu, Cloud, Zap } from 'lucide-react';
+import { Film, Loader2, Play, Sparkles, Video, X, Wand2, UploadCloud, Cpu, Cloud, Zap, Download } from 'lucide-react';
 
 import { socketService } from '../../services/socketService';
 
@@ -190,6 +190,38 @@ export function EditVideoWorkspace({
       const timeline = prev.timeline.filter((_: any, idx: number) => idx !== index);
       return { ...prev, timeline };
     });
+  };
+
+  const handleDownloadVideo = async () => {
+    if (!outputUrl) return;
+    toast.info("Đang chuẩn bị tải video...");
+    try {
+      const token = localStorage.getItem("accessToken");
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+      
+      const downloadUrl = `/api/v1/media/download?url=${encodeURIComponent(outputUrl)}&filename=igen-video-${Date.now()}.mp4`;
+      const res = await fetch(downloadUrl, { headers });
+      if (!res.ok) {
+        throw new Error(`Tải video thất bại (HTTP ${res.status})`);
+      }
+      
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = `igen-video-${Date.now()}.mp4`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(blobUrl);
+      toast.success("Tải video thành công!");
+    } catch (err: any) {
+      console.error(err);
+      toast.error(`Lỗi khi tải video: ${err.message || String(err)}`);
+    }
   };
 
   const handleAddTextLayer = () => {
@@ -724,7 +756,7 @@ export function EditVideoWorkspace({
         videoDurations: videoInputs.map(v => v.duration || 0),
         blueprint: blueprint || undefined,
         renderMode: renderEngine === 'hermes' ? 'hermes' : 'local',
-
+        renderEngine,
       });
 
       if (response.record) {
@@ -1914,6 +1946,29 @@ export function EditVideoWorkspace({
                           </a>
                         </div>
                       )}
+                      <div className="flex gap-3 w-full">
+                        <button
+                          type="button"
+                          onClick={handleDownloadVideo}
+                          className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer shadow-sm"
+                        >
+                          <Download className="h-4 w-4 text-slate-500" />
+                          Tải video
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            // Quay lại sửa kịch bản hiện tại (bằng cách xóa outputUrl)
+                            setOutputUrl(null);
+                            toast.success('Đã quay lại trình chỉnh sửa. Bạn có thể sửa trực tiếp kịch bản trên timeline và bấm kết xuất lại!');
+                          }}
+                          className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl bg-cyan-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-cyan-700 cursor-pointer shadow-sm shadow-cyan-155"
+                        >
+                          <Wand2 className="h-4 w-4" />
+                          Sửa tiếp kịch bản
+                        </button>
+                      </div>
+
                       <button
                         type="button"
                         onClick={() => {
@@ -1932,10 +1987,9 @@ export function EditVideoWorkspace({
                           setDisplayProgress(0);
                           toast.success('Đã thêm video kết quả vào danh sách video đầu vào. Hãy nhập ý tưởng mới để tiếp tục chỉnh sửa!');
                         }}
-                        className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-cyan-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-cyan-700 cursor-pointer shadow-sm shadow-cyan-155"
+                        className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-2.5 text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition cursor-pointer"
                       >
-                        <Wand2 className="h-4 w-4" />
-                        Chỉnh sửa tiếp
+                        Dựng dự án mới từ video này
                       </button>
                     </div>
                   )
