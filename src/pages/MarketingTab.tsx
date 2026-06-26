@@ -903,7 +903,7 @@ export default function MarketingTab() {
                   >
                     {getPublishingAccounts().map((acc) => (
                       <option key={acc.id} value={acc.id}>
-                        {acc.displayName} ({acc.username || "Chưa có username"}) {acc.isMock ? "(Demo)" : ""}
+                        {acc.displayName}{acc.isMock ? " (Demo)" : ""}
                       </option>
                     ))}
                   </select>
