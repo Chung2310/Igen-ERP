@@ -42,15 +42,13 @@ const validateTokenSchema = {
 
 const n8nCallbackSchema = {
   body: Joi.object({
-    cardId: Joi.string().regex(/^[0-9a-fA-F]{24}$/).required().messages({
-      "any.required": "Card ID là tham số bắt buộc.",
+    cardId: Joi.string().optional().allow("").messages({
       "string.pattern.base": "Card ID phải là định dạng MongoDB ObjectId hợp lệ.",
     }),
-    postId: Joi.string().required().messages({
+    postId: Joi.string().optional().allow("").messages({
       "any.required": "Post ID là tham số bắt buộc.",
     }),
-    postUrl: Joi.string().uri().required().messages({
-      "any.required": "Post URL là tham số bắt buộc.",
+    postUrl: Joi.string().optional().allow("").messages({
       "string.uri": "Post URL phải là một đường dẫn URL hợp lệ.",
     }),
   }),

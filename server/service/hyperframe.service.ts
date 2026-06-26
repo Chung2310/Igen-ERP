@@ -3,13 +3,32 @@ import * as os from "os";
 import * as path from "path";
 import { spawn } from "child_process";
 import { cloudinaryService } from "./cloudinary.service";
+import { normalizeMediaUrl } from "./remotion.service";
+
+export function resolveLocalPathForRender(src: string): string {
+  if (!src) return "";
+  if (src.startsWith("http://") || src.startsWith("https://")) {
+    return src;
+  }
+  const relativePath = src.startsWith("/") ? src.slice(1) : src;
+  const absolutePath = path.join(process.cwd(), "public", relativePath);
+  const fileUrl = `file:///${absolutePath.replace(/\\/g, "/")}`;
+  console.log(`[Hyperframe] Resolving local asset: ${src} -> ${fileUrl}`);
+  return fileUrl;
+}
 
 export const hyperframeService = {
   /**
    * Biên dịch JSON Blueprint sang cấu trúc HTML tương thích với Hyperframe
    */
   compileBlueprintToHtml(blueprint: any): string {
-    const timeline = blueprint?.timeline || [];
+    const rawTimeline = blueprint?.timeline || [];
+    const timeline = rawTimeline.map((item: any) => {
+      if (item.src) {
+        return { ...item, src: normalizeMediaUrl(item.src) };
+      }
+      return item;
+    });
     const aspect = blueprint?.aspectRatio || "16:9";
 
     let width = 1280;
@@ -38,17 +57,28 @@ export const hyperframeService = {
       const startInTimeline = currentTimelineOffset;
       currentTimelineOffset += clipDuration;
 
-      const hasNextClip = idx < rawVideoClips.length - 1;
-      // 8 frames chuyển cảnh tại 30fps bằng khoảng 0.2667 giây
-      const transTime = hasNextClip ? Math.min(0.2667, clipDuration / 3) : 0;
-      const renderDuration = clipDuration + transTime;
-
       return {
         ...item,
         startInTimeline,
-        duration: clipDuration,       // Thời lượng gốc
-        renderDuration,               // Thời lượng thực tế kết xuất có overlap
-        transTime,                    // Thời gian chuyển tiếp (Exit)
+        duration: clipDuration,
+      };
+    });
+
+    const videoClipsWithTransitions = videoClips.map((clip: any, idx: number) => {
+      const hasNextClip = idx < videoClips.length - 1;
+      const nextClip = hasNextClip ? videoClips[idx + 1] : null;
+      // Không chuyển tiếp (Clean Cut) nếu là các phân đoạn liên tục của cùng một video nguồn
+      const isContinuous = nextClip && nextClip.src === clip.src && Math.abs((clip.end ?? 0) - (nextClip.start ?? 0)) < 0.1;
+
+      const hasExitTransition = hasNextClip && clip.effects?.transition === "fade" && !isContinuous;
+      const exitTransitionTime = hasExitTransition ? Math.min(0.2667, clip.duration / 3) : 0;
+      const renderDuration = clip.duration + exitTransitionTime;
+
+      return {
+        ...clip,
+        hasExitTransition,
+        transTime: exitTransitionTime,
+        renderDuration,
         hasNextClip,
       };
     });
@@ -57,7 +87,7 @@ export const hyperframeService = {
     let stylesHtml = "";
 
     // 1. Render Video Elements với CSS Keyframes cho Chuyển Cảnh & Thu Phóng
-    videoClips.forEach((clip: any, idx: number) => {
+    videoClipsWithTransitions.forEach((clip: any, idx: number) => {
       const filters = clip.filters || {};
       const effects = clip.effects || {};
       const brightness = filters.brightness ?? 1;
@@ -75,7 +105,8 @@ export const hyperframeService = {
       const D_render = clip.renderDuration;
       const D_orig = clip.duration;
       const T_exit = clip.transTime;
-      const T_entry = idx > 0 ? Math.min(0.2667, D_orig / 3) : 0;
+      const prevClip = idx > 0 ? videoClipsWithTransitions[idx - 1] : null;
+      const T_entry = prevClip ? prevClip.transTime : 0;
 
       const staticFilters = `brightness(${brightness}) grayscale(${grayscale}) sepia(${sepia}) invert(${invert}) contrast(${contrast}) saturate(${saturate}) hue-rotate(${hueRotate}deg)`;
 
@@ -96,11 +127,11 @@ export const hyperframeService = {
 
       // Điểm 1: Bắt đầu clip (t = 0)
       const p1_scale_zoom = getZoomScale(0);
-      const p1_scale_trans = idx > 0 ? 1.15 : 1.0;
+      const p1_scale_trans = T_entry > 0 ? 1.15 : 1.0;
       points.push({
         pct: 0,
-        opacity: idx > 0 ? 0 : 1,
-        blurVal: blur + (idx > 0 ? 12 : 0),
+        opacity: T_entry > 0 ? 0 : 1,
+        blurVal: blur + (T_entry > 0 ? 12 : 0),
         scaleVal: p1_scale_zoom * p1_scale_trans,
       });
 
@@ -115,34 +146,25 @@ export const hyperframeService = {
         });
       }
 
-      // Điểm 3: Bắt đầu chuyển cảnh ra (t = D_orig - T_exit)
+      // Điểm 3: Bắt đầu chuyển cảnh ra (t = D_orig)
       if (T_exit > 0) {
-        const p3_scale_zoom = getZoomScale(D_orig - T_exit);
+        const p3_scale_zoom = getZoomScale(D_orig);
         points.push({
-          pct: ((D_orig - T_exit) / D_render) * 100,
+          pct: (D_orig / D_render) * 100,
           opacity: 1.0,
           blurVal: blur,
           scaleVal: p3_scale_zoom * 1.0,
         });
-
-        // Điểm 4: Kết thúc clip gốc (t = D_orig)
-        const p4_scale_zoom = getZoomScale(D_orig);
-        points.push({
-          pct: (D_orig / D_render) * 100,
-          opacity: 0,
-          blurVal: blur + 12,
-          scaleVal: p4_scale_zoom * 1.15,
-        });
       }
 
-      // Điểm 5: Kết thúc toàn bộ thời gian render của clip (t = D_render)
-      const p5_scale_zoom = getZoomScale(D_render);
-      const p5_scale_trans = T_exit > 0 ? 1.15 : 1.0;
+      // Điểm 4: Kết thúc toàn bộ thời gian render của clip (t = D_render)
+      const p4_scale_zoom = getZoomScale(D_render);
+      const p4_scale_trans = T_exit > 0 ? 1.15 : 1.0;
       points.push({
         pct: 100,
         opacity: T_exit > 0 ? 0 : 1,
         blurVal: blur + (T_exit > 0 ? 12 : 0),
-        scaleVal: p5_scale_zoom * p5_scale_trans,
+        scaleVal: p4_scale_zoom * p4_scale_trans,
       });
 
       // Sắp xếp các điểm tăng dần theo phần trăm
@@ -159,6 +181,7 @@ export const hyperframeService = {
   ${keyframesText}
   .clip-anim-${idx} {
     animation: anim-clip-${idx} ${D_render.toFixed(4)}s linear forwards;
+    animation-delay: ${clip.startInTimeline.toFixed(4)}s;
   }\n`;
 
       const speed = clip.playbackRate ?? 1.0;
@@ -166,10 +189,9 @@ export const hyperframeService = {
 
       // Render thẻ video có track tăng dần và class hoạt họa CSS
       // LƯU Ý: KHÔNG dùng muted — cần giữ âm thanh gốc của video đầu vào
-      // BUG-03 fix: thêm oncanplay để đảm bảo volume được set ngay cả khi Hyperframe không tự đọc data-volume
       elementsHtml += `
     <video
-      src="${clip.src}"
+      src="${resolveLocalPathForRender(clip.src)}"
       data-start="${clip.startInTimeline}"
       data-duration="${clip.renderDuration}"
       data-media-start="${clip.start}"
@@ -259,7 +281,7 @@ export const hyperframeService = {
 
       elementsHtml += `
     <img
-      src="${imgItem.src}"
+      src="${resolveLocalPathForRender(imgItem.src)}"
       data-start="${imgItem.start}"
       data-duration="${duration}"
       data-track-index="20"
@@ -272,7 +294,7 @@ export const hyperframeService = {
       const duration = (audioItem.end ?? 5) - (audioItem.start ?? 0);
       elementsHtml += `
     <audio
-      src="${audioItem.src}"
+      src="${resolveLocalPathForRender(audioItem.src)}"
       data-start="${audioItem.start}"
       data-duration="${duration}"
       data-volume="${audioItem.volume ?? 0.5}"
@@ -297,6 +319,9 @@ export const hyperframeService = {
       width: ${width}px;
       height: ${height}px;
       overflow: hidden;
+    }
+    video {
+      opacity: 0;
     }
     ${stylesHtml}
   </style>
@@ -328,9 +353,56 @@ export const hyperframeService = {
     console.log(`[Hyperframe] ▶ BẤT ĐẦU RENDER | Job: ${renderJobId}`);
     console.log(`[Hyperframe] OutputPath : ${outputPath}`);
 
-    // Biên dịch blueprint sang HTML
+    // Chuẩn hóa URLs và thực hiện preflight pre-warm cho Cloudinary assets
+    const timeline = blueprint?.timeline || [];
+    const normalizedTimeline = timeline.map((item: any) => {
+      if (item.src) {
+        return { ...item, src: normalizeMediaUrl(item.src) };
+      }
+      return item;
+    });
+    const normalizedBlueprint = { ...blueprint, timeline: normalizedTimeline };
+
+    const videoUrls = normalizedTimeline.filter((t: any) => t.type === "video").map((t: any) => t.src);
+    const audioUrls = normalizedTimeline.filter((t: any) => t.type === "audio").map((t: any) => t.src);
+    const imageUrls = normalizedTimeline.filter((t: any) => t.type === "image").map((t: any) => t.src);
+
+    const allMediaUrls = [...videoUrls, ...audioUrls, ...imageUrls].filter(Boolean);
+    if (allMediaUrls.length > 0) {
+      console.log(`[Hyperframe] Kiểm tra trước (preflight) và kích hoạt CDN cache cho ${allMediaUrls.length} media URLs...`);
+      for (const mediaUrl of allMediaUrls) {
+        if (!mediaUrl.startsWith("http")) {
+          console.log(`  [SKIP] URL nội bộ/tương đối: ${mediaUrl}`);
+          continue;
+        }
+        if (mediaUrl.includes("localhost") || mediaUrl.includes("127.0.0.1")) {
+          console.log(`  [SKIP] URL localhost: ${mediaUrl}`);
+          continue;
+        }
+        try {
+          console.log(`  [PRE-WARM] Đang tải xuống để CDN cache hoàn tất: ${mediaUrl}`);
+          const startPrewarm = Date.now();
+          const res = await fetch(mediaUrl, {
+            method: "GET",
+            signal: AbortSignal.timeout(90000), // Cho phép tối đa 90 giây để transcode và tải
+          });
+
+          if (!res.ok) {
+            console.error(`  [❌ HTTP ${res.status}] ${mediaUrl}`);
+          } else {
+            const buffer = await res.arrayBuffer();
+            const elapsed = Date.now() - startPrewarm;
+            console.log(`  [✅ READY] ${mediaUrl} | Size: ${(buffer.byteLength / 1024 / 1024).toFixed(2)} MB | Thời gian tải/transcode: ${elapsed}ms`);
+          }
+        } catch (fetchErr: any) {
+          console.error(`  [❌ FETCH_ERROR] ${mediaUrl} → ${fetchErr.message}`);
+        }
+      }
+    }
+
+    // Biên dịch blueprint đã chuẩn hóa sang HTML
     if (onProgress) onProgress(45, "[Hyperframe Engine] Đang biên dịch Blueprint sang HTML...");
-    const htmlContent = this.compileBlueprintToHtml(blueprint);
+    const htmlContent = this.compileBlueprintToHtml(normalizedBlueprint);
     fs.writeFileSync(tempHtmlPath, htmlContent);
     console.log(`[Hyperframe] HTML Temp Path: ${tempHtmlPath}`);
 

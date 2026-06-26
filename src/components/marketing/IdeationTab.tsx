@@ -1982,8 +1982,8 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                 onClick={() => handleAnalyzePillars()}
                 disabled={loadingPillars || !campaignInput.trim()}
                 className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border transition-all ${loadingPillars || !campaignInput.trim()
-                    ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                    : "bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200 hover:border-indigo-300 active:scale-95 cursor-pointer shadow-xs"
+                  ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                  : "bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200 hover:border-indigo-300 active:scale-95 cursor-pointer shadow-xs"
                   }`}
                 title="Tạo lại content pillars"
               >

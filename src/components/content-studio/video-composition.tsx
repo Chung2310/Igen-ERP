@@ -1,5 +1,15 @@
 import React from 'react';
-import { AbsoluteFill, Video, Audio, Img, Sequence, useCurrentFrame, useVideoConfig } from 'remotion';
+import { AbsoluteFill, Video, Audio, Img, Sequence, useCurrentFrame, useVideoConfig, staticFile } from 'remotion';
+
+const resolveSrc = (src: string) => {
+  if (!src) return "";
+  if (src.startsWith("http://") || src.startsWith("https://")) {
+    return src;
+  }
+  // Remove leading slash if any so staticFile finds it correctly in the bundled public folder
+  const cleanPath = src.startsWith("/") ? src.slice(1) : src;
+  return staticFile(cleanPath);
+};
 
 export interface VideoCompositionProps {
   blueprint: {
@@ -72,17 +82,34 @@ export const VideoComposition: React.FC<VideoCompositionProps> = ({ blueprint })
       };
     });
 
+  // 3. Tính toán các thuộc tính chuyển cảnh đồng bộ
+  const videoClipsWithTransitions = videoClips.map((clip, idx) => {
+    const hasNextClip = idx < videoClips.length - 1;
+    const nextClip = hasNextClip ? videoClips[idx + 1] : null;
+    // Không chuyển tiếp (Clean Cut) nếu là các phân đoạn liên tục của cùng một video nguồn
+    const isContinuous = nextClip && nextClip.src === clip.src && Math.abs((clip.end ?? 0) - (nextClip.start ?? 0)) < 0.1;
+
+    const hasExitTransition = hasNextClip && clip.effects?.transition === "fade" && !isContinuous;
+    const durationFrames = Math.round(clip.duration * fps);
+    const exitTransitionFrames = hasExitTransition ? Math.min(8, Math.floor(durationFrames / 3)) : 0;
+
+    return {
+      ...clip,
+      hasExitTransition,
+      exitTransitionFrames,
+    };
+  });
+
   return (
     <AbsoluteFill style={{ backgroundColor: 'black', justifyContent: 'center', alignItems: 'center' }}>
       {/* Phát các phân đoạn video nối tiếp */}
-      {videoClips.map((clip, idx) => {
+      {videoClipsWithTransitions.map((clip, idx) => {
         const startFrame = Math.round(clip.startInTimeline * fps);
         const durationFrames = Math.round(clip.duration * fps);
         
-        // Cấu hình số khung hình chuyển cảnh (khoảng 8 frames ~ 0.27s ở 30fps) để tạo độ mượt
-        const actualTransitionFrames = Math.min(8, Math.floor(durationFrames / 3));
-        const hasNextClip = idx < videoClips.length - 1;
-        const renderDurationFrames = durationFrames + (hasNextClip ? actualTransitionFrames : 0);
+        const prevClip = idx > 0 ? videoClipsWithTransitions[idx - 1] : null;
+        const entryTransitionFrames = prevClip ? prevClip.exitTransitionFrames : 0;
+        const renderDurationFrames = durationFrames + clip.exitTransitionFrames;
 
         const brightness = clip.filters?.brightness ?? 1;
         const grayscale = clip.filters?.grayscale ?? 0;
@@ -103,18 +130,17 @@ export const VideoComposition: React.FC<VideoCompositionProps> = ({ blueprint })
 
         const localFrame = frame - startFrame;
 
-        if (durationFrames > 0 && actualTransitionFrames > 0) {
+        if (durationFrames > 0) {
           // 1. Hiệu ứng vào (Entry transition): fade-in, thu nhỏ dần về bình thường & giảm mờ
-          if (idx > 0 && localFrame < actualTransitionFrames) {
-            const progress = localFrame / actualTransitionFrames;
+          if (entryTransitionFrames > 0 && localFrame < entryTransitionFrames) {
+            const progress = localFrame / entryTransitionFrames;
             transitionOpacity = progress;
             transitionBlur = (1 - progress) * 12; // Mờ giảm dần
             transitionScaleMultiplier = 1.15 - progress * 0.15; // Thu nhỏ dần về bình thường
           }
           // 2. Hiệu ứng ra (Exit transition): fade-out, phóng to thêm một chút & tăng mờ
-          else if (hasNextClip && localFrame >= durationFrames - actualTransitionFrames) {
-            const exitStartFrame = durationFrames - actualTransitionFrames;
-            const progress = Math.min(1, Math.max(0, (localFrame - exitStartFrame) / actualTransitionFrames));
+          else if (clip.exitTransitionFrames > 0 && localFrame >= durationFrames) {
+            const progress = Math.min(1, Math.max(0, (localFrame - durationFrames) / clip.exitTransitionFrames));
             transitionOpacity = 1 - progress;
             transitionBlur = progress * 12; // Mờ tăng dần
             transitionScaleMultiplier = 1.0 + progress * 0.15; // Phóng to dần
@@ -163,7 +189,7 @@ export const VideoComposition: React.FC<VideoCompositionProps> = ({ blueprint })
             durationInFrames={renderDurationFrames}
           >
             <Video
-              src={clip.src!}
+              src={resolveSrc(clip.src!)}
               startFrom={Math.round((clip.start ?? 0) * fps)}
               playbackRate={clip.playbackRate ?? 1}
               preload="auto"
@@ -214,7 +240,7 @@ export const VideoComposition: React.FC<VideoCompositionProps> = ({ blueprint })
           return (
             <Img
               key={`image-${idx}`}
-              src={imgItem.src}
+              src={resolveSrc(imgItem.src!)}
               style={{
                 ...positionStyles,
                 width: style.width || 100,
@@ -302,7 +328,7 @@ export const VideoComposition: React.FC<VideoCompositionProps> = ({ blueprint })
               durationInFrames={durationFrames}
             >
               <Audio
-                src={audioItem.src}
+                src={resolveSrc(audioItem.src!)}
                 crossOrigin="anonymous"
                 volume={audioItem.volume ?? 1}
                 delayRenderTimeoutInMilliseconds={120000}

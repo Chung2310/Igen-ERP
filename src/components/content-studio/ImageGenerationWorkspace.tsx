@@ -136,7 +136,7 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, 
         localImages = allImages;
         try {
           localStorage.setItem('igen_uploaded_images', JSON.stringify(allImages));
-        } catch {}
+        } catch { }
       }
 
       setUploadedImages(localImages);
@@ -151,7 +151,7 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, 
     try {
       const filename = `upload_${Date.now()}.png`;
       const cloudinaryUrl = await marketingService.uploadMediaToStorage(base64Url, filename, 'image');
-      
+
       // Save to localStorage
       try {
         const stored = localStorage.getItem('igen_uploaded_images');
@@ -175,7 +175,7 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, 
   const handleUploadedFiles = async (files: File[]) => {
     setIsUploading(true);
     toast.info("Đang xử lý ảnh tải lên...");
-    
+
     try {
       const newUrls: string[] = [];
       for (const file of files) {
@@ -552,8 +552,8 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, 
             >
               <option value="nano-banana-pro">iGen Image Pro (PiAPI)</option>
               <option value="nano-banana-2">iGen Image Flash (PiAPI)</option>
-              <option value="gemini-banana-pro">iGen Gemini Image Pro (Google)</option>
-              <option value="gemini-banana-flash">iGen Gemini Image Flash (Google)</option>
+              <option value="gemini-banana-pro">iGen Gemini Image Pro</option>
+              <option value="gemini-banana-flash">iGen Gemini Image Flash</option>
             </select>
           </div>
 
@@ -577,7 +577,7 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, 
           <div className="flex flex-col gap-2 border-t border-slate-100 pt-3">
             <span className="text-[11px] font-bold text-slate-600 uppercase">Độ phân giải</span>
             <div className="grid grid-cols-2 gap-2">
-              {['1K', '2K'].map((res) => (
+              {['1K'].map((res) => (
                 <button
                   key={res}
                   type="button"
@@ -839,22 +839,20 @@ export function ImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, 
               <button
                 type="button"
                 onClick={() => setLibraryTab('uploaded')}
-                className={`py-3 px-4 text-xs font-bold border-b-2 transition-all cursor-pointer ${
-                  libraryTab === 'uploaded'
-                    ? 'border-cyan-500 text-cyan-600 font-extrabold'
-                    : 'border-transparent text-slate-400 hover:text-slate-600'
-                }`}
+                className={`py-3 px-4 text-xs font-bold border-b-2 transition-all cursor-pointer ${libraryTab === 'uploaded'
+                  ? 'border-cyan-500 text-cyan-600 font-extrabold'
+                  : 'border-transparent text-slate-400 hover:text-slate-600'
+                  }`}
               >
                 Đã tải lên
               </button>
               <button
                 type="button"
                 onClick={() => setLibraryTab('ai')}
-                className={`py-3 px-4 text-xs font-bold border-b-2 transition-all cursor-pointer ${
-                  libraryTab === 'ai'
-                    ? 'border-cyan-500 text-cyan-600 font-extrabold'
-                    : 'border-transparent text-slate-400 hover:text-slate-600'
-                }`}
+                className={`py-3 px-4 text-xs font-bold border-b-2 transition-all cursor-pointer ${libraryTab === 'ai'
+                  ? 'border-cyan-500 text-cyan-600 font-extrabold'
+                  : 'border-transparent text-slate-400 hover:text-slate-600'
+                  }`}
               >
                 Do AI tạo
               </button>

@@ -1,5 +1,6 @@
 import { AIMediaModel } from "../model/ai-media.model";
 import { videoBlueprintService } from "./video-blueprint.service";
+import { broadcastEvent } from "../socket";
 
 /**
  * Chuyển đổi đối tượng JSON blueprint thành mô tả văn bản để hướng dẫn chi tiết cho Hermes Agent
@@ -103,23 +104,12 @@ export const hermesService = {
       duration?: number;
       videoDurations?: number[];
       blueprint?: any;
+      referenceVideoUrl?: string;
     }
   ): Promise<{ status: string; record: any; blueprint: any }> {
-    let blueprint = options?.blueprint;
-    if (!blueprint) {
-      try {
-        // BUG-06 fix: tính tổng duration từ mảng videoDurations nếu có
-        const videoDuration = (options?.videoDurations && options.videoDurations.length > 0)
-          ? options.videoDurations.reduce((a, b) => a + b, 0)
-          : (options?.duration || 10);
-        console.log(`[Hermes] Tự động sinh blueprint cho videoUrl=${videoUrl} duration=${videoDuration}`);
-        blueprint = await videoBlueprintService.generateBlueprintFromPrompt(videoUrl, videoDuration, prompt);
-      } catch (err) {
-        console.warn("[Hermes] Failed to generate blueprint, using empty blueprint fallback:", err);
-      }
-    }
-
+    const blueprint = options?.blueprint || {};
     const safePrompt = prompt || "";
+
     // Tạo record ban đầu với trạng thái processing
     const record = await AIMediaModel.create({
       userId,
@@ -132,19 +122,24 @@ export const hermesService = {
         provider: "hermes-worker",
         title: `Biên tập bằng Hermes Worker: ${safePrompt}`,
         description: "Đang gửi yêu cầu đến Hermes Worker Pool...",
-        blueprint: blueprint ? JSON.stringify(blueprint) : "{}",
+        blueprint: JSON.stringify(blueprint),
         renderLogs: [
           "[Hermes] Khởi tạo yêu cầu biên tập video...",
           `[Hermes] Video đầu vào: ${videoUrl}`,
+          options?.referenceVideoUrl ? `[Hermes] Video mẫu: ${options.referenceVideoUrl}` : "",
           `[Hermes] Yêu cầu: ${safePrompt}`,
-        ],
+        ].filter(Boolean),
         aspectRatio: options?.aspectRatio || "16:9",
         resolution: options?.resolution || "720p",
+        referenceVideoUrl: options?.referenceVideoUrl,
       },
     });
 
     // Chạy background job — không await để trả về ngay cho client
-    void this.executeHermesWorkerJob(record._id.toString(), userId, videoUrl, prompt, blueprint);
+    void this.executeHermesWorkerJob(record._id.toString(), userId, videoUrl, prompt, {
+      blueprint,
+      referenceVideoUrl: options?.referenceVideoUrl,
+    });
 
     return { status: "success", record, blueprint };
   },
@@ -154,18 +149,24 @@ export const hermesService = {
     userId: string,
     videoUrl: string,
     prompt: string,
-    blueprint?: any
+    options?: {
+      blueprint?: any;
+      referenceVideoUrl?: string;
+    }
   ): Promise<void> {
+    const blueprint = options?.blueprint;
+    const referenceVideoUrl = options?.referenceVideoUrl || "";
     const workerUrl = getWorkerUrl();
     console.log(`[Hermes Job] Starting for record=${recordId} workerUrl=${workerUrl}`);
 
     const logs: string[] = [
       "[Hermes] Khởi tạo kết nối với Hermes Worker Pool...",
       `[Hermes] Video đầu vào: ${videoUrl}`,
+      referenceVideoUrl ? `[Hermes] Video mẫu: ${referenceVideoUrl}` : "",
       `[Hermes] Yêu cầu: ${prompt}`,
-    ];
+    ].filter(Boolean);
 
-    if (blueprint) {
+    if (blueprint && Object.keys(blueprint).length > 0) {
       logs.push("[Hermes] Đã nhận kịch bản cấu hình JSON Blueprint biên tập.");
     }
 
@@ -174,25 +175,42 @@ export const hermesService = {
         console.log(`[Hermes Job] [${progress}%] ${newLog}`);
         logs.push(newLog);
       }
-      await AIMediaModel.findByIdAndUpdate(recordId, {
-        "metadata.progress": progress,
-        "metadata.description": description,
-        "metadata.renderLogs": [...logs],
-      });
+      const updatedRecord = await AIMediaModel.findByIdAndUpdate(
+        recordId,
+        {
+          "metadata.progress": progress,
+          "metadata.description": description,
+          "metadata.renderLogs": [...logs],
+        },
+        { new: true }
+      );
+      if (updatedRecord) {
+        broadcastEvent("video_status_updated", {
+          videoId: recordId,
+          status: "processing",
+          updates: [updatedRecord.toObject()],
+        });
+      }
     };
 
     try {
       // ── Bước 1: Submit task ───────────────────────────────────────────────
       await updateLogs(10, "Đang gửi yêu cầu đến Hermes Worker Pool...", "[Hermes] Đang gọi POST /submit...");
 
-      const fullPrompt = `
+      let fullPrompt = `
 Bạn là một AI Video Editor chuyên nghiệp tích hợp trong hệ thống Hermes. Nhiệm vụ của bạn là thực hiện các lệnh chỉnh sửa video thô dựa theo kịch bản yêu cầu.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📽️ TÀI NGUYÊN ĐẦU VÀO
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 - Video gốc cần biên tập: ${videoUrl}
+`;
 
+      if (referenceVideoUrl) {
+        fullPrompt += `- Video mẫu (tham khảo phong cách dựng): ${referenceVideoUrl}\n`;
+      }
+
+      fullPrompt += `
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🎬 YÊU CẦU BIÊN TẬP CHI TIẾT (KỊCH BẢN CHỈNH SỬA)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -203,9 +221,18 @@ Bạn là một AI Video Editor chuyên nghiệp tích hợp trong hệ thống 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 1. HIỂU CÁC LỆNH CHỈNH SỬA: Hãy đọc kỹ danh sách các hành động cắt, ghép, phóng to/thu nhỏ (zoom), bộ lọc màu (contrast, brightness, grayscale), chèn chữ (text overlays) và chèn nhạc nền/SFX trong phần yêu cầu biên tập trên.
 2. ÁP DỤNG LÊN VIDEO GỐC: Thực thi tất cả các hành động này một cách chính xác lên Video nguồn (${videoUrl}).
-3. ĐỒNG BỘ THỜI GIAN: Đảm bảo thời gian xuất hiện (timestamps) của các hiệu ứng chữ, zoom, chuyển cảnh được tính toán và đồng bộ hợp lý theo dòng thời gian của video nguồn.
-4. KHÔNG THAY ĐỔI NỘI DUNG KHÔNG ĐƯỢC YÊU CẦU: Giữ nguyên các phần video khác nếu kịch bản không yêu cầu cắt bỏ hay sửa đổi.
+`;
 
+      if (referenceVideoUrl) {
+        fullPrompt += `3. THAM KHẢO PHONG CÁCH: Sử dụng video mẫu (${referenceVideoUrl}) để tham khảo nhịp điệu, cách chuyển cảnh, bố cục text, bộ lọc màu hoặc âm thanh, áp dụng tương tự lên video gốc theo ý tưởng yêu cầu.\n`;
+        fullPrompt += `4. ĐỒNG BỘ THỜI GIAN: Đảm bảo thời gian xuất hiện (timestamps) của các hiệu ứng chữ, zoom, chuyển cảnh được tính toán và đồng bộ hợp lý theo dòng thời gian của video nguồn.\n`;
+        fullPrompt += `5. KHÔNG THAY ĐỔI NỘI DUNG KHÔNG ĐƯỢC YÊU CẦU: Giữ nguyên các phần video khác nếu kịch bản không yêu cầu cắt bỏ hay sửa đổi.\n`;
+      } else {
+        fullPrompt += `3. ĐỒNG BỘ THỜI GIAN: Đảm bảo thời gian xuất hiện (timestamps) của các hiệu ứng chữ, zoom, chuyển cảnh được tính toán và đồng bộ hợp lý theo dòng thời gian của video nguồn.\n`;
+        fullPrompt += `4. KHÔNG THAY ĐỔI NỘI DUNG KHÔNG ĐƯỢC YÊU CẦU: Giữ nguyên các phần video khác nếu kịch bản không yêu cầu cắt bỏ hay sửa đổi.\n`;
+      }
+
+      fullPrompt += `
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ☁️ KẾT XUẤT VÀ TẢI LÊN CLOUDINARY
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -217,7 +244,9 @@ ${buildCloudinaryPrompt()}
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           video_url: videoUrl,
-          prompt: fullPrompt + (blueprint ? compileBlueprintToPrompt(blueprint) : ""),
+          ref_video_url: referenceVideoUrl,
+          reference_video_url: referenceVideoUrl,
+          prompt: fullPrompt,
           user_id: userId,
           blueprint: blueprint || {},
         }),
@@ -253,34 +282,56 @@ ${buildCloudinaryPrompt()}
 
       // ── Bước 3: Xử lý kết quả ───────────────────────────────────────────
       if (pollResult.status === "done" && pollResult.result_url) {
-        await AIMediaModel.findByIdAndUpdate(recordId, {
-          url: pollResult.result_url,
-          "metadata.status": "completed",
-          "metadata.progress": 100,
-          "metadata.description": "Video đã được biên tập và upload thành công!",
-          "metadata.renderLogs": [
-            ...logs,
-            `[Hermes] Xử lý hoàn tất!`,
-            `[Hermes] Video đã upload lên Cloudinary: ${pollResult.result_url}`,
-          ],
-        });
+        const updatedRecord = await AIMediaModel.findByIdAndUpdate(
+          recordId,
+          {
+            url: pollResult.result_url,
+            "metadata.status": "completed",
+            "metadata.progress": 100,
+            "metadata.description": "Video đã được biên tập và upload thành công!",
+            "metadata.renderLogs": [
+              ...logs,
+              `[Hermes] Xử lý hoàn tất!`,
+              `[Hermes] Video đã upload lên Cloudinary: ${pollResult.result_url}`,
+            ],
+          },
+          { new: true }
+        );
         console.log(`[Hermes Job] Completed. URL=${pollResult.result_url}`);
+        if (updatedRecord) {
+          broadcastEvent("video_status_updated", {
+            videoId: recordId,
+            status: "completed",
+            updates: [updatedRecord.toObject()],
+          });
+        }
       } else {
         const errMsg = pollResult.error || "Worker không trả về kết quả";
         throw new Error(errMsg);
       }
     } catch (error: any) {
       console.error("[Hermes Job] Failed:", error);
-      await AIMediaModel.findByIdAndUpdate(recordId, {
-        "metadata.status": "failed",
-        "metadata.progress": 100,
-        "metadata.error": error.message || String(error),
-        "metadata.description": `Lỗi: ${error.message || String(error)}`,
-        "metadata.renderLogs": [
-          ...logs,
-          `[Hermes] ❌ Lỗi: ${error.message || String(error)}`,
-        ],
-      });
+      const updatedRecord = await AIMediaModel.findByIdAndUpdate(
+        recordId,
+        {
+          "metadata.status": "failed",
+          "metadata.progress": 100,
+          "metadata.error": error.message || String(error),
+          "metadata.description": `Lỗi: ${error.message || String(error)}`,
+          "metadata.renderLogs": [
+            ...logs,
+            `[Hermes] ❌ Lỗi: ${error.message || String(error)}`,
+          ],
+        },
+        { new: true }
+      );
+      if (updatedRecord) {
+        broadcastEvent("video_status_updated", {
+          videoId: recordId,
+          status: "failed",
+          updates: [updatedRecord.toObject()],
+        });
+      }
     }
   },
 };
