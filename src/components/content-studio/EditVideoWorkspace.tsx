@@ -1,10 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 
-import { Player } from '@remotion/player';
-import { VideoComposition } from './video-composition';
+
 import { geminiApi } from '../../api/gemini';
 import { toast } from '../../pages/Toast';
-import { Film, Loader2, Play, Sparkles, Video, X, Wand2, UploadCloud, Cpu, Cloud, Zap } from 'lucide-react';
+import { Film, Loader2, Play, Sparkles, Video, X, Wand2, UploadCloud, Cpu, Cloud, Zap, Download } from 'lucide-react';
 
 import { socketService } from '../../services/socketService';
 
@@ -23,28 +22,28 @@ const ENGINE_OPTIONS: Array<{
   badge: string;
   badgeColor: string;
 }> = [
-  {
-    value: 'remotion',
-    label: 'Remotion',
-    description: 'Frame-accurate. Dùng Chromium để render từng khung hình chính xác nhất.',
-    badge: 'Chính xác',
-    badgeColor: 'bg-cyan-100 text-cyan-700',
-  },
-  {
-    value: 'hyperframe',
-    label: 'Hyperframe',
-    description: 'Nhanh hơn. Dùng CSS animation + HTML5 để render. Phù hợp hiệu ứng cơ bản.',
-    badge: 'Nhanh',
-    badgeColor: 'bg-emerald-100 text-emerald-700',
-  },
-  {
-    value: 'hermes',
-    label: 'Hermes Cloud',
-    description: 'Đám mây. Worker farm xử lý nền. Dùng khi máy cục bộ yếu hoặc cần scale.',
-    badge: 'Cloud',
-    badgeColor: 'bg-violet-100 text-violet-700',
-  },
-];
+    {
+      value: 'remotion',
+      label: 'Remotion',
+      description: 'Frame-accurate. Dùng Chromium để render từng khung hình chính xác nhất.',
+      badge: 'Chính xác',
+      badgeColor: 'bg-cyan-100 text-cyan-700',
+    },
+    {
+      value: 'hyperframe',
+      label: 'Hyperframe',
+      description: 'Nhanh hơn. Dùng CSS animation + HTML5 để render. Phù hợp hiệu ứng cơ bản.',
+      badge: 'Nhanh',
+      badgeColor: 'bg-emerald-100 text-emerald-700',
+    },
+    {
+      value: 'hermes',
+      label: 'Hermes Cloud',
+      description: 'Đám mây. Worker farm xử lý nền. Dùng khi máy cục bộ yếu hoặc cần scale.',
+      badge: 'Cloud',
+      badgeColor: 'bg-violet-100 text-violet-700',
+    },
+  ];
 
 const ASPECT_OPTIONS = [
   { value: '16:9', label: '16:9 Ngang' },
@@ -149,7 +148,7 @@ export function EditVideoWorkspace({
     camera_movement?: string;
   } | null>(null);
   const [selectedModel, setSelectedModel] = useState(MODEL_OPTIONS[0].value);
-  const [renderEngine, setRenderEngine] = useState<RenderEngine>('remotion');
+  const [renderEngine, setRenderEngine] = useState<RenderEngine>('hermes');
   const [aspectRatio, setAspectRatio] = useState(ASPECT_OPTIONS[0].value);
   const [duration, setDuration] = useState(DURATION_OPTIONS[0].value);
   const [resolution, setResolution] = useState(QUALITY_OPTIONS[0].value);
@@ -166,7 +165,7 @@ export function EditVideoWorkspace({
   const [isUploadingVideo, setIsUploadingVideo] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [activeTimelineIdx, setActiveTimelineIdx] = useState<number | null>(null);
-  const [useRemotionPlayer, setUseRemotionPlayer] = useState(true);
+
   const timelineItemRefs = useRef<Record<number, HTMLDivElement | null>>({});
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -174,6 +173,8 @@ export function EditVideoWorkspace({
   const [currentTime, setCurrentTime] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
 
+  const activeRecord = history.find(h => h.url === outputUrl || h._id === currentRecordId || h.id === currentRecordId);
+  const isHermes = (activeRecord?.metadata?.provider === 'hermes-worker') || (activeRecord ? false : (renderEngine === 'hermes'));
 
   const handleUpdateTimelineItem = (index: number, key: string, value: any) => {
     if (!blueprint) return;
@@ -190,6 +191,38 @@ export function EditVideoWorkspace({
       const timeline = prev.timeline.filter((_: any, idx: number) => idx !== index);
       return { ...prev, timeline };
     });
+  };
+
+  const handleDownloadVideo = async () => {
+    if (!outputUrl) return;
+    toast.info("Đang chuẩn bị tải video...");
+    try {
+      const token = localStorage.getItem("accessToken");
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
+      const downloadUrl = `/api/v1/media/download?url=${encodeURIComponent(outputUrl)}&filename=igen-video-${Date.now()}.mp4`;
+      const res = await fetch(downloadUrl, { headers });
+      if (!res.ok) {
+        throw new Error(`Tải video thất bại (HTTP ${res.status})`);
+      }
+
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = `igen-video-${Date.now()}.mp4`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(blobUrl);
+      toast.success("Tải video thành công!");
+    } catch (err: any) {
+      console.error(err);
+      toast.error(`Lỗi khi tải video: ${err.message || String(err)}`);
+    }
   };
 
   const handleAddTextLayer = () => {
@@ -336,6 +369,11 @@ export function EditVideoWorkspace({
       if (matchedUpdate) {
         const status = matchedUpdate?.metadata?.status;
         if (status === 'completed') {
+          const completedUrl = matchedUpdate?.url;
+          if (completedUrl && !completedUrl.startsWith('pending://')) {
+            setOutputUrl(completedUrl);
+            console.log('[EditVideoWorkspace] Socket: outputUrl updated to', completedUrl);
+          }
           toast.success('🎉 Video đã được biên tập và xuất bản thành công!');
         } else if (status === 'failed') {
           const errorMsg = matchedUpdate?.metadata?.error || 'Lỗi không xác định';
@@ -417,12 +455,10 @@ export function EditVideoWorkspace({
 
     const matched = history.find(h => h._id === currentRecordId || h.id === currentRecordId);
     if (matched && matched.url && !matched.url.startsWith('pending://')) {
-      if (displayProgress >= 100) {
-        setOutputUrl(matched.url);
-        console.log("[EditVideoWorkspace] Dynamic sync: outputUrl updated to completed URL:", matched.url);
-      }
+      setOutputUrl(matched.url);
+      console.log("[EditVideoWorkspace] Dynamic sync: outputUrl updated to completed URL:", matched.url);
     }
-  }, [history, outputUrl, currentRecordId, displayProgress]);
+  }, [history, outputUrl, currentRecordId]);
 
   const loadVideoHistory = async () => {
     try {
@@ -704,6 +740,22 @@ export function EditVideoWorkspace({
         toast.success('Tải các video gốc thành công.');
       }
 
+      // Tải video mẫu lên Cloudinary nếu có file cục bộ chưa upload
+      let uploadedRefUrl = referenceVideo?.url || '';
+      if (referenceVideo && referenceVideo.file) {
+        try {
+          toast.info('Đang tải video mẫu lên Cloudinary...');
+          uploadedRefUrl = await uploadVideoFile(referenceVideo.file);
+          setReferenceVideo({ ...referenceVideo, url: uploadedRefUrl, file: undefined });
+          toast.success('Tải video mẫu lên thành công.');
+        } catch (uploadErr: any) {
+          console.error('[Upload reference video error]', uploadErr);
+          toast.error(`Không thể tải video mẫu lên Cloudinary: ${uploadErr.message}`);
+          setIsGenerating(false);
+          return;
+        }
+      }
+
       const jointVideoUrl = uploadedUrls.join(',');
       const totalDuration = videoInputs.reduce((sum, v) => sum + (v.duration || 0), 0);
 
@@ -724,7 +776,8 @@ export function EditVideoWorkspace({
         videoDurations: videoInputs.map(v => v.duration || 0),
         blueprint: blueprint || undefined,
         renderMode: renderEngine === 'hermes' ? 'hermes' : 'local',
-
+        renderEngine,
+        referenceVideoUrl: uploadedRefUrl || undefined,
       });
 
       if (response.record) {
@@ -766,7 +819,9 @@ export function EditVideoWorkspace({
   };
 
   const renderInteractivePlayer = () => {
-    const videoUrl = videoInputs[0]?.url;
+    // Ưu tiên outputUrl (kết quả từ Hermes), fallback về video gốc
+    const resolvedOutputUrl = outputUrl && !outputUrl.startsWith('pending://') ? outputUrl : null;
+    const videoUrl = resolvedOutputUrl || videoInputs[0]?.url;
     if (!videoUrl) return null;
 
     const { totalDuration, fps, width, height } = computeTimelineInfo();
@@ -790,60 +845,24 @@ export function EditVideoWorkspace({
     return (
       <div className="w-full flex flex-col gap-4">
 
-        {/* ── Remotion Player / HTML Preview Toggle ── */}
+        {/* ── Preview Panel ── */}
         <div className="flex items-center justify-between px-1">
           <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Preview</span>
-          <div className="flex items-center gap-1.5 bg-slate-100 rounded-xl p-1">
-            <button
-              type="button"
-              onClick={() => setUseRemotionPlayer(true)}
-              className={`text-[11px] font-semibold px-3 py-1 rounded-lg transition-all ${useRemotionPlayer ? 'bg-white shadow-sm text-cyan-700' : 'text-slate-500 hover:text-slate-700'}`}
-            >
-              🎬 Remotion
-            </button>
-            <button
-              type="button"
-              onClick={() => setUseRemotionPlayer(false)}
-              className={`text-[11px] font-semibold px-3 py-1 rounded-lg transition-all ${!useRemotionPlayer ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}
-            >
-              📽 HTML
-            </button>
-          </div>
         </div>
 
-        {/* ── Preview Panel ── */}
-        {useRemotionPlayer ? (
-          <div className="w-full rounded-[24px] overflow-hidden border border-slate-200 shadow-sm bg-black">
-            <Player
-              component={VideoComposition}
-              inputProps={{ blueprint: { ...blueprint, aspectRatio: blueprint?.aspectRatio || aspectRatio } }}
-              durationInFrames={totalFrames}
-              fps={fps}
-              compositionWidth={width}
-              compositionHeight={height}
-              controls
-              style={{ width: '100%', borderRadius: '0' }}
-              clickToPlay={true}
-              doubleClickToFullscreen={true}
-            />
-          </div>
-        ) : (
-          <div className="relative w-full rounded-[24px] overflow-hidden bg-black aspect-video flex items-center justify-center border border-slate-100 shadow-sm">
-            <video
-              ref={videoRef}
-              src={videoUrl}
-              onTimeUpdate={() => { if (videoRef.current) setCurrentTime(videoRef.current.currentTime); }}
-              onPlay={() => { setIsPlaying(true); }}
-              onPause={() => { setIsPlaying(false); }}
-              className="w-full h-full object-contain max-h-[350px]"
-              style={{
-                filter: `brightness(${(blueprint?.timeline || []).find((t: any) => t.type === 'video' && currentTime >= t.start && currentTime <= t.end)?.filters?.brightness || 1}) grayscale(${(blueprint?.timeline || []).find((t: any) => t.type === 'video' && currentTime >= t.start && currentTime <= t.end)?.filters?.grayscale || 0})`,
-              }}
-              controls
-              crossOrigin="anonymous"
-            />
-          </div>
-        )}
+        <div className="relative w-full rounded-[24px] overflow-hidden bg-black aspect-video flex items-center justify-center border border-slate-100 shadow-sm">
+          <video
+            key={videoUrl}
+            ref={videoRef}
+            src={videoUrl}
+            onTimeUpdate={() => { if (videoRef.current) setCurrentTime(videoRef.current.currentTime); }}
+            onPlay={() => { setIsPlaying(true); }}
+            onPause={() => { setIsPlaying(false); }}
+            className="w-full h-full object-contain max-h-[350px]"
+            controls
+            crossOrigin="anonymous"
+          />
+        </div>
 
         {/* ── Timeline Bar ── */}
         {timeline.length > 0 && (
@@ -959,10 +978,10 @@ export function EditVideoWorkspace({
               </div>
             )}
 
-            {!useRemotionPlayer && activeAudio && (
+            {activeAudio && (
               <audio ref={audioRef} src={activeAudio.src} className="hidden" crossOrigin="anonymous" />
             )}
-            {!useRemotionPlayer && <AudioSyncHook activeAudio={activeAudio} currentTime={currentTime} isPlaying={isPlaying} audioRef={audioRef} />}
+            <AudioSyncHook activeAudio={activeAudio} currentTime={currentTime} isPlaying={isPlaying} audioRef={audioRef} />
           </div>
         )}
 
@@ -1025,26 +1044,6 @@ export function EditVideoWorkspace({
               <div className="flex justify-between items-center">
                 <label className="text-xs font-bold text-slate-800 uppercase tracking-wide">Video đầu vào</label>
                 <div className="flex items-center gap-2">
-                  {(videoInputs.length > 0 || referenceVideo !== null) && (
-                    <button
-                      type="button"
-                      onClick={handleExtractVideoStyle}
-                      disabled={isExtractingStyle}
-                      className="text-[11px] font-semibold text-purple-600 hover:text-purple-700 disabled:opacity-50 flex items-center gap-1 bg-purple-50 px-2.5 py-1 rounded-lg transition-all cursor-pointer"
-                    >
-                      {isExtractingStyle ? (
-                        <>
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          Đang phân tích...
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="h-3.5 w-3.5" />
-
-                        </>
-                      )}
-                    </button>
-                  )}
                   <button
                     type="button"
                     onClick={() => {
@@ -1214,42 +1213,7 @@ export function EditVideoWorkspace({
             <div className="space-y-3 pt-2">
               <label className="text-xs font-bold text-slate-800 uppercase tracking-wide">Cấu hình kết xuất</label>
 
-              {/* Engine Selector - 3 cards */}
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Engine xử lý</label>
-                <div className="grid grid-cols-1 gap-2">
-                  {ENGINE_OPTIONS.map((eng) => {
-                    const isActive = renderEngine === eng.value;
-                    const Icon = eng.value === 'remotion' ? Cpu : eng.value === 'hyperframe' ? Zap : Cloud;
-                    return (
-                      <button
-                        key={eng.value}
-                        type="button"
-                        onClick={() => setRenderEngine(eng.value)}
-                        className={`w-full flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-all cursor-pointer ${
-                          isActive
-                            ? 'border-cyan-400 bg-cyan-50 ring-1 ring-cyan-300/50'
-                            : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
-                        }`}
-                      >
-                        <div className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center ${isActive ? 'bg-cyan-100' : 'bg-slate-100'}`}>
-                          <Icon className={`h-4 w-4 ${isActive ? 'text-cyan-600' : 'text-slate-500'}`} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className={`text-xs font-bold ${isActive ? 'text-cyan-800' : 'text-slate-700'}`}>{eng.label}</span>
-                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${eng.badgeColor}`}>{eng.badge}</span>
-                          </div>
-                          <p className="text-[10px] text-slate-500 mt-0.5 leading-tight">{eng.description}</p>
-                        </div>
-                        <div className={`flex-shrink-0 w-4 h-4 rounded-full border-2 ${isActive ? 'border-cyan-500 bg-cyan-500' : 'border-slate-300'} flex items-center justify-center`}>
-                          {isActive && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+
 
               <div className="grid gap-3 grid-cols-2 pt-1">
                 <div className="flex flex-col gap-1.5">
@@ -1372,57 +1336,7 @@ export function EditVideoWorkspace({
               </div>
             )}
 
-            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4 flex flex-col gap-3">
-              <button
-                type="button"
-                onClick={handleOptimizePrompt}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-3xl bg-cyan-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-70"
-                disabled={isOptimizing || isExtractingStyle}
-              >
-                {isOptimizing || isExtractingStyle ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Đang phân tích...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="h-4 w-4" />
-                    {videoInputs.length > 0 || referenceVideo !== null ? "Phân tích Video & Ý tưởng" : "Phân tích → Lệnh chỉnh sửa"}
-                  </>
-                )}
-              </button>
 
-              {optimizedData && (
-                <div className="p-4 rounded-2xl border border-cyan-100 bg-cyan-50/50 flex flex-col gap-3 animate-in fade-in slide-in-from-top-2 duration-250">
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-1.5 text-cyan-800 text-sm font-bold">
-                      <Sparkles className="h-4 w-4 text-cyan-500 animate-pulse" />
-                      <span>Kịch bản tối ưu bởi AI</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setOptimizedData(null)}
-                      className="text-xs text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
-                    >
-                      Xóa tối ưu
-                    </button>
-                  </div>
-
-                  <div className="flex flex-col gap-1">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Prompt chỉnh sửa đã tối ưu</span>
-                    <textarea
-                      className="w-full text-xs p-3 border border-cyan-200/50 rounded-xl focus:outline-none focus:ring-1 focus:ring-cyan-400 bg-white resize-none font-medium text-slate-700 leading-relaxed min-h-[70px]"
-                      value={optimizedData.optimized_english_prompt}
-                      onChange={(e) => setOptimizedData({
-                        ...optimizedData,
-                        optimized_english_prompt: e.target.value
-                      })}
-                      placeholder="Prompt chỉnh sửa đã được AI tối ưu hóa..."
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
             <div className="mt-2">
               <button
                 type="button"
@@ -1766,14 +1680,15 @@ export function EditVideoWorkspace({
                 }`}>
                 {(outputUrl || isGenerating || blueprint) ? (
                   (isGenerating || (outputUrl && outputUrl.startsWith('pending://'))) ? (() => {
-                    const matchedRecord = history.find(h => h.url === outputUrl || h._id === currentRecordId || h.id === currentRecordId);
-                    const isLocalRender = (matchedRecord?.metadata?.provider === 'local-render') || (outputUrl ? outputUrl.includes('local-render') : true);
+                    const isLocalRender = activeRecord
+                      ? (activeRecord.metadata?.provider === 'local-render')
+                      : (renderEngine !== 'hermes');
 
                     const progressVal = displayProgress;
-                    const statusVal = matchedRecord?.metadata?.status ?? (isGenerating ? 'processing' : 'queued');
-                    const errorVal = matchedRecord?.metadata?.error;
-                    const finalVideoUrl = (matchedRecord && matchedRecord.url && !matchedRecord.url.startsWith('pending://'))
-                      ? matchedRecord.url
+                    const statusVal = activeRecord?.metadata?.status ?? (isGenerating ? 'processing' : 'queued');
+                    const errorVal = activeRecord?.metadata?.error;
+                    const finalVideoUrl = (activeRecord && activeRecord.url && !activeRecord.url.startsWith('pending://'))
+                      ? activeRecord.url
                       : null;
 
                     if (statusVal === 'completed' && finalVideoUrl && displayProgress >= 100) {
@@ -1900,12 +1815,10 @@ export function EditVideoWorkspace({
                         )}
                       </div>
                     );
-                  })() : blueprint ? (
-                    renderInteractivePlayer()
-                  ) : (
+                  })() : (outputUrl && !outputUrl.startsWith('pending://')) ? (
                     <div className="w-full h-full flex flex-col gap-4">
                       {isInlinePreviewSafe(outputUrl) ? (
-                        <video controls src={outputUrl} className="w-full rounded-[24px] object-contain max-h-[300px] shadow-sm border border-slate-100" playsInline />
+                        <video key={outputUrl} controls src={outputUrl} className="w-full rounded-[24px] object-contain max-h-[300px] shadow-sm border border-slate-100" playsInline />
                       ) : (
                         <div className="flex w-full flex-col items-center justify-center gap-3 rounded-[24px] border border-slate-100 bg-slate-50 px-4 py-10 text-center">
                           <p className="text-sm font-semibold text-slate-700">URL video nay khong cho phep preview inline.</p>
@@ -1914,6 +1827,29 @@ export function EditVideoWorkspace({
                           </a>
                         </div>
                       )}
+                      <div className="flex gap-3 w-full">
+                        <button
+                          type="button"
+                          onClick={handleDownloadVideo}
+                          className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer shadow-sm"
+                        >
+                          <Download className="h-4 w-4 text-slate-500" />
+                          Tải video
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            // Quay lại sửa kịch bản hiện tại (bằng cách xóa outputUrl)
+                            setOutputUrl(null);
+                            toast.success('Đã quay lại trình chỉnh sửa. Bạn có thể sửa trực tiếp kịch bản trên timeline và bấm kết xuất lại!');
+                          }}
+                          className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl bg-cyan-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-cyan-700 cursor-pointer shadow-sm shadow-cyan-155"
+                        >
+                          <Wand2 className="h-4 w-4" />
+                          Sửa tiếp kịch bản
+                        </button>
+                      </div>
+
                       <button
                         type="button"
                         onClick={() => {
@@ -1932,11 +1868,18 @@ export function EditVideoWorkspace({
                           setDisplayProgress(0);
                           toast.success('Đã thêm video kết quả vào danh sách video đầu vào. Hãy nhập ý tưởng mới để tiếp tục chỉnh sửa!');
                         }}
-                        className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-cyan-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-cyan-700 cursor-pointer shadow-sm shadow-cyan-155"
+                        className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-2.5 text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition cursor-pointer"
                       >
-                        <Wand2 className="h-4 w-4" />
-                        Chỉnh sửa tiếp
+                        Dựng dự án mới từ video này
                       </button>
+                    </div>
+                  ) : (blueprint && !isHermes) ? (
+                    renderInteractivePlayer()
+                  ) : (
+                    <div className="flex max-w-[320px] flex-col items-center gap-4">
+                      <Film className="h-12 w-12" />
+                      <p className="text-lg font-semibold text-slate-900">Sẵn sàng chỉnh sửa</p>
+                      <p className="text-sm leading-6 text-slate-500">Video preview sẽ hiện sau khi hoàn thành render.</p>
                     </div>
                   )
                 ) : (
@@ -1972,6 +1915,12 @@ export function EditVideoWorkspace({
                         onClick={() => {
                           setOutputUrl(item.url);
                           setCurrentRecordId(item._id || item.id);
+                          const provider = item.metadata?.provider;
+                          if (provider === 'hermes-worker') {
+                            setRenderEngine('hermes');
+                          } else if (provider === 'local-render') {
+                            setRenderEngine('remotion');
+                          }
                           if (item.metadata?.blueprint) {
                             try {
                               const parsed = typeof item.metadata.blueprint === 'string'

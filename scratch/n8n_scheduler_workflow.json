@@ -1,0 +1,198 @@
+{
+  "name": "iGen ERP - Scheduler: Check & Publish Posts",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      },
+      "id": "cron-trigger-node",
+      "name": "Cron - Every 5 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [240, 280]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://erp.igentechsolutions.com/api/v1/scheduler/check-and-publish",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-webhook-token",
+              "value": "igen_n8n_secret_token_2026"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": false,
+        "options": {
+          "response": {
+            "response": {
+              "neverThrow": true,
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "id": "call-check-publish-node",
+      "name": "HTTP - Check & Publish Posts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [480, 280]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const data = item.json;\n  const status = data.status;\n  const result = data.data || {};\n\n  if (status === 'success') {\n    const processed = result.processedCount || 0;\n    const success   = result.successCount   || 0;\n    const failed    = result.failedCount    || 0;\n    const details   = result.details        || [];\n\n    const lines = [\n      `✅ Scheduler chạy thành công`,\n      `📊 Tổng xử lý: ${processed} | Thành công: ${success} | Thất bại: ${failed}`,\n    ];\n\n    if (details.length > 0) {\n      lines.push(``);\n      lines.push(`📋 Chi tiết:`);\n      for (const d of details.slice(0, 10)) {\n        const icon = d.status === 'success' ? '✅' : d.status === 'failed' ? '❌' : '⏳';\n        lines.push(`  ${icon} [${d.channel || 'FB'}] ${d.title || d.cardId} → ${d.status}${ d.error ? ': ' + d.error.slice(0, 80) : '' }`);\n      }\n    } else {\n      lines.push(`ℹ️ Không có bài viết nào cần xử lý.`);\n    }\n\n    results.push({ json: { level: success > 0 ? 'success' : failed > 0 ? 'warning' : 'info', summary: lines.join('\\n'), ...result } });\n  } else {\n    results.push({ json: { level: 'error', summary: `❌ Scheduler thất bại: ${JSON.stringify(data)}`, ...data } });\n  }\n}\n\nreturn results;"
+      },
+      "id": "parse-result-node",
+      "name": "JS - Parse Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [720, 280]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-activity",
+              "leftValue": "={{ $json.level }}",
+              "rightValue": "info",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "filter-node",
+      "name": "Filter - Only Notify If Activity",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [960, 280]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.TELEGRAM_WEBHOOK_URL || 'https://erp.igentechsolutions.com/api/v1/telegram/send' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "x-webhook-token",
+              "value": "igen_n8n_secret_token_2026"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ message: $json.summary }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverThrow": true
+            }
+          }
+        }
+      },
+      "id": "telegram-notify-node",
+      "name": "Telegram - Notify Result",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1200, 160]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Ghi log nội bộ trong n8n execution history\nconst item = $input.first();\nconst summary = item.json.summary || 'No summary';\nconst level = item.json.level || 'info';\nconsole.log(`[iGen Scheduler] [${level.toUpperCase()}] ${summary}`);\nreturn [{ json: { logged: true, level, summary } }];"
+      },
+      "id": "log-node",
+      "name": "JS - Log to Execution",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 400]
+    }
+  ],
+  "connections": {
+    "Cron - Every 5 Minutes": {
+      "main": [
+        [
+          {
+            "node": "HTTP - Check & Publish Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP - Check & Publish Posts": {
+      "main": [
+        [
+          {
+            "node": "JS - Parse Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "JS - Parse Result": {
+      "main": [
+        [
+          {
+            "node": "Filter - Only Notify If Activity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter - Only Notify If Activity": {
+      "main": [
+        [
+          {
+            "node": "Telegram - Notify Result",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "JS - Log to Execution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "versionId": "scheduler-workflow-v1",
+  "id": "igen-erp-scheduler-workflow"
+}

@@ -446,7 +446,7 @@ export const facebookPostController = {
       const host = req.get("host") || "";
       const isLocal = host.includes("localhost") || host.includes("127.0.0.1") || host.includes("192.168.");
       const protocol = isLocal ? req.protocol : "https";
-      
+
       const statusUrl = `${protocol}://${host}/user-data-deletion?code=${confirmationCode}`;
 
       return res.status(200).json({
@@ -563,6 +563,13 @@ export const facebookPostController = {
 
       const { cardId, postId, postUrl } = req.body;
 
+      if (!cardId || typeof cardId !== "string" || !/^[0-9a-fA-F]{24}$/.test(cardId)) {
+        return res.status(200).json({
+          status: "success",
+          message: "Card ID không hợp lệ hoặc rỗng, bỏ qua việc cập nhật trạng thái bài viết.",
+        });
+      }
+
       // Tìm và cập nhật trạng thái bài đăng trong MongoDB
       const card = await MarketingContentModel.findById(cardId);
       if (!card) {
@@ -572,10 +579,13 @@ export const facebookPostController = {
         });
       }
 
+      // postUrl có thể rỗng với bài lên lịch hoặc video (Facebook không trả về URL ngay)
+      const finalPostUrl = postUrl || (postId ? `https://www.facebook.com/permalink.php?story_fbid=${postId}` : "");
+
       card.status = "published";
       card.publishedAt = new Date();
       card.facebookPostId = postId;
-      card.postUrl = postUrl;
+      card.postUrl = finalPostUrl;
       card.publishError = undefined;
 
       await card.save();
@@ -590,7 +600,7 @@ export const facebookPostController = {
           "=============================",
           `📝 <b>Tiêu đề:</b> ${card.title || "Không có tiêu đề"}`,
           `🔗 <b>Đường dẫn bài viết:</b>`,
-          `<a href="${postUrl}">${postUrl}</a>`,
+          finalPostUrl ? `<a href="${finalPostUrl}">${finalPostUrl}</a>` : `Post ID: ${postId}`,
           "=============================",
         ].join("\n");
         telegramService.sendMessage(telegramChatId, message).catch((err) => {

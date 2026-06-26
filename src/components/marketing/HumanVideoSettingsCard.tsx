@@ -38,7 +38,7 @@ const ENGINE_OPTIONS = [
   {
     value: "avatar_iv",
     label: "Avatar IV (Chất lượng cao)",
-    description: "Biểu cảm tự nhiên, tích hợp giọng nói ElevenLabs cao cấp."
+    description: "Biểu cảm tự nhiên, tích hợp giọng nói iGen audio cao cấp."
   },
   {
     value: "avatar_v",
@@ -48,7 +48,7 @@ const ENGINE_OPTIONS = [
   {
     value: "avatar_iii",
     label: "Avatar III (Tốc độ cao - Direct Text)",
-    description: "Nhập text trực tiếp không qua ElevenLabs, tối ưu hóa tốc độ dựng."
+    description: "Nhập text trực tiếp không qua iGen audio, tối ưu hóa tốc độ dựng."
   }
 ];
 
@@ -74,8 +74,24 @@ function getVoiceName(voice: any) {
 }
 
 function getVoiceDesc(voice: any) {
-  if (voice?.description) return voice.description;
-  const parts = [voice?.gender, voice?.language, voice?.accent].filter(Boolean);
+  if (voice?.description) {
+    const desc = String(voice.description);
+    if (!desc.toLowerCase().includes("easy")) {
+      return desc;
+    }
+  }
+  const parts = [voice?.gender, voice?.language, voice?.accent]
+    .filter(Boolean)
+    .filter((p) => {
+      if (typeof p !== "string") return false;
+      const lower = p.toLowerCase();
+      return (
+        lower !== "unknown" &&
+        lower !== "vietnamese" &&
+        lower !== "vietnam" &&
+        !lower.includes("easy")
+      );
+    });
   return parts.join(" • ") || voice?.category || "Giọng nói mặc định";
 }
 
@@ -106,6 +122,26 @@ export default function HumanVideoSettingsCard({
   const [searchQuery, setSearchQuery] = useState("");
 
   const isAvatarThree = selectedEngineType === "avatar_iii";
+  const activeVoices = isAvatarThree ? heygenVoices : voices;
+
+  const selectedAvatarItem = avatars.find((avatar) => avatar.id === selectedAvatar) || avatars[0] || null;
+  const selectedVoiceItem = activeVoices.find((voice) => getVoiceKey(voice) === selectedVoice) || activeVoices[0] || null;
+
+  const myVoices = useMemo(
+    () => isAvatarThree ? [] : (activeVoices as any[]).filter((voice) => ["cloned", "generated", "custom"].includes((voice.category || "").toLowerCase())),
+    [activeVoices, isAvatarThree]
+  );
+  const libraryVoices = useMemo(
+    () => isAvatarThree ? activeVoices : (activeVoices as any[]).filter((voice) => !["cloned", "generated", "custom"].includes((voice.category || "").toLowerCase())),
+    [activeVoices, isAvatarThree]
+  );
+  const visibleVoices = (isAvatarThree ? activeVoices : (voiceTab === "my-voices" ? myVoices : libraryVoices)).filter((voice) => {
+    const keyword = searchQuery.toLowerCase();
+    return (
+      getVoiceName(voice).toLowerCase().includes(keyword) ||
+      getVoiceDesc(voice).toLowerCase().includes(keyword)
+    );
+  });
 
   if (!isAutoPilot) {
     return (
@@ -155,27 +191,6 @@ export default function HumanVideoSettingsCard({
     );
   }
 
-  const activeVoices = isAvatarThree ? heygenVoices : voices;
-
-  const selectedAvatarItem = avatars.find((avatar) => avatar.id === selectedAvatar) || avatars[0] || null;
-  const selectedVoiceItem = activeVoices.find((voice) => getVoiceKey(voice) === selectedVoice) || activeVoices[0] || null;
-
-  const myVoices = useMemo(
-    () => isAvatarThree ? [] : (activeVoices as any[]).filter((voice) => ["cloned", "generated", "custom"].includes((voice.category || "").toLowerCase())),
-    [activeVoices, isAvatarThree]
-  );
-  const libraryVoices = useMemo(
-    () => isAvatarThree ? activeVoices : (activeVoices as any[]).filter((voice) => !["cloned", "generated", "custom"].includes((voice.category || "").toLowerCase())),
-    [activeVoices, isAvatarThree]
-  );
-  const visibleVoices = (isAvatarThree ? activeVoices : (voiceTab === "my-voices" ? myVoices : libraryVoices)).filter((voice) => {
-    const keyword = searchQuery.toLowerCase();
-    return (
-      getVoiceName(voice).toLowerCase().includes(keyword) ||
-      getVoiceDesc(voice).toLowerCase().includes(keyword)
-    );
-  });
-
   return (
     <div className="mt-4 space-y-4 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-2xs">
       <div className="flex items-center gap-1.5 border-b border-slate-200 pb-2 font-mono text-xs font-extrabold uppercase tracking-wide text-slate-800">
@@ -205,22 +220,25 @@ export default function HumanVideoSettingsCard({
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <section className="flex min-h-[188px] flex-col rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
-          <p className="font-mono text-[10px] font-bold uppercase tracking-wide text-slate-500">Avatar HeyGen</p>
-          <div className="mt-3 flex flex-1 gap-4">
+        <section className="flex min-h-[188px] flex-col justify-between rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex items-center justify-between gap-3 h-8">
+            <p className="text-sm font-bold text-slate-900">Nhân vật</p>
+          </div>
+
+          <div className="mt-3 flex gap-4 items-center flex-1">
             {selectedAvatarItem?.previewImage ? (
               <img
                 src={selectedAvatarItem.previewImage}
                 alt={selectedAvatarItem.name || "Avatar"}
-                className="h-24 w-20 shrink-0 rounded-2xl border border-slate-200 bg-white object-cover shadow-sm"
+                className="h-20 w-16 shrink-0 rounded-2xl border border-slate-200 bg-white object-cover shadow-sm"
               />
             ) : (
-              <div className="flex h-24 w-20 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-[10px] font-bold text-slate-400 shadow-sm">
+              <div className="flex h-20 w-16 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-[10px] font-bold text-slate-400 shadow-sm">
                 Avatar
               </div>
             )}
 
-            <div className="flex min-w-0 flex-1 flex-col justify-between">
+            <div className="flex-1 min-w-0">
               <div>
                 <select
                   value={selectedAvatar}
@@ -234,20 +252,19 @@ export default function HumanVideoSettingsCard({
                     </option>
                   ))}
                 </select>
-                <p className="mt-2 line-clamp-2 text-[10px] leading-relaxed text-slate-400">
-                  {isLoadingAvatars
-                    ? "Đang tải thư viện avatar..."
-                    : selectedAvatarItem
-                      ? `${selectedAvatarItem.gender || "Avatar"}${selectedAvatarItem.language ? ` • ${selectedAvatarItem.language}` : ""}${selectedAvatarItem.accent ? ` • ${selectedAvatarItem.accent}` : ""}`
-                      : "Chưa có avatar từ thư viện HeyGen."}
-                </p>
               </div>
             </div>
           </div>
+
+          <div className="mt-3 rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 px-3 py-4 text-center">
+            <p className="text-[11px] font-medium text-slate-500">
+              Chọn nhân vật đại diện AI phát ngôn cho kịch bản video của bạn.
+            </p>
+          </div>
         </section>
 
-        <section className="flex min-h-[188px] flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex items-center justify-between gap-3">
+        <section className="flex min-h-[188px] flex-col justify-between rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex items-center justify-between gap-3 h-8">
             <p className="text-sm font-bold text-slate-900">Giọng nói đã chọn</p>
             <button
               type="button"
@@ -259,16 +276,11 @@ export default function HumanVideoSettingsCard({
             </button>
           </div>
 
-          <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-3">
-            <div className="flex items-start justify-between gap-3">
+          <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-3 flex-1 flex items-center">
+            <div className="flex items-center justify-between gap-3 w-full">
               <div className="min-w-0">
                 <p className="truncate text-sm font-bold text-slate-900">
-                  {getVoiceName(selectedVoiceItem)}
-                </p>
-                <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-slate-400">
-                  {isLoadingVoices
-                    ? "Đang tải thư viện giọng đọc..."
-                    : getVoiceDesc(selectedVoiceItem)}
+                  {isLoadingVoices ? "Đang tải thư viện giọng đọc..." : getVoiceName(selectedVoiceItem)}
                 </p>
               </div>
               {!isAvatarThree && (
@@ -393,9 +405,8 @@ export default function HumanVideoSettingsCard({
                             setIsVoiceLibraryOpen(false);
                           }
                         }}
-                        className={`flex w-full cursor-pointer items-center justify-between rounded-2xl border p-4 text-left transition ${
-                          isSelected ? "border-cyan-300 bg-cyan-50/60" : "border-slate-200 hover:bg-slate-50"
-                        }`}
+                        className={`flex w-full cursor-pointer items-center justify-between rounded-2xl border p-4 text-left transition ${isSelected ? "border-cyan-300 bg-cyan-50/60" : "border-slate-200 hover:bg-slate-50"
+                          }`}
                       >
                         <div className="flex min-w-0 items-center gap-3">
                           {!isAvatarThree && (
@@ -414,9 +425,6 @@ export default function HumanVideoSettingsCard({
                           <div className="min-w-0">
                             <p className="truncate text-sm font-bold text-slate-900">
                               {getVoiceName(voice)}
-                            </p>
-                            <p className="mt-0.5 line-clamp-2 text-xs text-slate-400">
-                              {getVoiceDesc(voice)}
                             </p>
                           </div>
                         </div>
