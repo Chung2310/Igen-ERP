@@ -49,8 +49,7 @@ const n8nCallbackSchema = {
     postId: Joi.string().required().messages({
       "any.required": "Post ID là tham số bắt buộc.",
     }),
-    postUrl: Joi.string().uri().required().messages({
-      "any.required": "Post URL là tham số bắt buộc.",
+    postUrl: Joi.string().uri().optional().allow("").messages({
       "string.uri": "Post URL phải là một đường dẫn URL hợp lệ.",
     }),
   }),

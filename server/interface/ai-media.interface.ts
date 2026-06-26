@@ -32,6 +32,7 @@ export interface IAIMedia extends Document {
     renderLogs?: string[];
     blueprint?: string;
     hermesSessionId?: string;
+    referenceVideoUrl?: string;
   };
   createdAt: Date;
 }
