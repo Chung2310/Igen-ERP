@@ -22,28 +22,28 @@ const ENGINE_OPTIONS: Array<{
   badge: string;
   badgeColor: string;
 }> = [
-  {
-    value: 'remotion',
-    label: 'Remotion',
-    description: 'Frame-accurate. Dùng Chromium để render từng khung hình chính xác nhất.',
-    badge: 'Chính xác',
-    badgeColor: 'bg-cyan-100 text-cyan-700',
-  },
-  {
-    value: 'hyperframe',
-    label: 'Hyperframe',
-    description: 'Nhanh hơn. Dùng CSS animation + HTML5 để render. Phù hợp hiệu ứng cơ bản.',
-    badge: 'Nhanh',
-    badgeColor: 'bg-emerald-100 text-emerald-700',
-  },
-  {
-    value: 'hermes',
-    label: 'Hermes Cloud',
-    description: 'Đám mây. Worker farm xử lý nền. Dùng khi máy cục bộ yếu hoặc cần scale.',
-    badge: 'Cloud',
-    badgeColor: 'bg-violet-100 text-violet-700',
-  },
-];
+    {
+      value: 'remotion',
+      label: 'Remotion',
+      description: 'Frame-accurate. Dùng Chromium để render từng khung hình chính xác nhất.',
+      badge: 'Chính xác',
+      badgeColor: 'bg-cyan-100 text-cyan-700',
+    },
+    {
+      value: 'hyperframe',
+      label: 'Hyperframe',
+      description: 'Nhanh hơn. Dùng CSS animation + HTML5 để render. Phù hợp hiệu ứng cơ bản.',
+      badge: 'Nhanh',
+      badgeColor: 'bg-emerald-100 text-emerald-700',
+    },
+    {
+      value: 'hermes',
+      label: 'Hermes Cloud',
+      description: 'Đám mây. Worker farm xử lý nền. Dùng khi máy cục bộ yếu hoặc cần scale.',
+      badge: 'Cloud',
+      badgeColor: 'bg-violet-100 text-violet-700',
+    },
+  ];
 
 const ASPECT_OPTIONS = [
   { value: '16:9', label: '16:9 Ngang' },
@@ -173,6 +173,8 @@ export function EditVideoWorkspace({
   const [currentTime, setCurrentTime] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
 
+  const activeRecord = history.find(h => h.url === outputUrl || h._id === currentRecordId || h.id === currentRecordId);
+  const isHermes = (activeRecord?.metadata?.provider === 'hermes-worker') || (activeRecord ? false : (renderEngine === 'hermes'));
 
   const handleUpdateTimelineItem = (index: number, key: string, value: any) => {
     if (!blueprint) return;
@@ -200,13 +202,13 @@ export function EditVideoWorkspace({
       if (token) {
         headers["Authorization"] = `Bearer ${token}`;
       }
-      
+
       const downloadUrl = `/api/v1/media/download?url=${encodeURIComponent(outputUrl)}&filename=igen-video-${Date.now()}.mp4`;
       const res = await fetch(downloadUrl, { headers });
       if (!res.ok) {
         throw new Error(`Tải video thất bại (HTTP ${res.status})`);
       }
-      
+
       const blob = await res.blob();
       const blobUrl = URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -850,6 +852,7 @@ export function EditVideoWorkspace({
 
         <div className="relative w-full rounded-[24px] overflow-hidden bg-black aspect-video flex items-center justify-center border border-slate-100 shadow-sm">
           <video
+            key={videoUrl}
             ref={videoRef}
             src={videoUrl}
             onTimeUpdate={() => { if (videoRef.current) setCurrentTime(videoRef.current.currentTime); }}
@@ -1677,14 +1680,15 @@ export function EditVideoWorkspace({
                 }`}>
                 {(outputUrl || isGenerating || blueprint) ? (
                   (isGenerating || (outputUrl && outputUrl.startsWith('pending://'))) ? (() => {
-                    const matchedRecord = history.find(h => h.url === outputUrl || h._id === currentRecordId || h.id === currentRecordId);
-                    const isLocalRender = (matchedRecord?.metadata?.provider === 'local-render') || (outputUrl ? outputUrl.includes('local-render') : true);
+                    const isLocalRender = activeRecord
+                      ? (activeRecord.metadata?.provider === 'local-render')
+                      : (renderEngine !== 'hermes');
 
                     const progressVal = displayProgress;
-                    const statusVal = matchedRecord?.metadata?.status ?? (isGenerating ? 'processing' : 'queued');
-                    const errorVal = matchedRecord?.metadata?.error;
-                    const finalVideoUrl = (matchedRecord && matchedRecord.url && !matchedRecord.url.startsWith('pending://'))
-                      ? matchedRecord.url
+                    const statusVal = activeRecord?.metadata?.status ?? (isGenerating ? 'processing' : 'queued');
+                    const errorVal = activeRecord?.metadata?.error;
+                    const finalVideoUrl = (activeRecord && activeRecord.url && !activeRecord.url.startsWith('pending://'))
+                      ? activeRecord.url
                       : null;
 
                     if (statusVal === 'completed' && finalVideoUrl && displayProgress >= 100) {
@@ -1811,12 +1815,10 @@ export function EditVideoWorkspace({
                         )}
                       </div>
                     );
-                  })() : blueprint ? (
-                    renderInteractivePlayer()
-                  ) : (
+                  })() : (outputUrl && !outputUrl.startsWith('pending://')) ? (
                     <div className="w-full h-full flex flex-col gap-4">
                       {isInlinePreviewSafe(outputUrl) ? (
-                        <video controls src={outputUrl} className="w-full rounded-[24px] object-contain max-h-[300px] shadow-sm border border-slate-100" playsInline />
+                        <video key={outputUrl} controls src={outputUrl} className="w-full rounded-[24px] object-contain max-h-[300px] shadow-sm border border-slate-100" playsInline />
                       ) : (
                         <div className="flex w-full flex-col items-center justify-center gap-3 rounded-[24px] border border-slate-100 bg-slate-50 px-4 py-10 text-center">
                           <p className="text-sm font-semibold text-slate-700">URL video nay khong cho phep preview inline.</p>
@@ -1871,6 +1873,14 @@ export function EditVideoWorkspace({
                         Dựng dự án mới từ video này
                       </button>
                     </div>
+                  ) : (blueprint && !isHermes) ? (
+                    renderInteractivePlayer()
+                  ) : (
+                    <div className="flex max-w-[320px] flex-col items-center gap-4">
+                      <Film className="h-12 w-12" />
+                      <p className="text-lg font-semibold text-slate-900">Sẵn sàng chỉnh sửa</p>
+                      <p className="text-sm leading-6 text-slate-500">Video preview sẽ hiện sau khi hoàn thành render.</p>
+                    </div>
                   )
                 ) : (
                   <div className="flex max-w-[320px] flex-col items-center gap-4">
@@ -1905,6 +1915,12 @@ export function EditVideoWorkspace({
                         onClick={() => {
                           setOutputUrl(item.url);
                           setCurrentRecordId(item._id || item.id);
+                          const provider = item.metadata?.provider;
+                          if (provider === 'hermes-worker') {
+                            setRenderEngine('hermes');
+                          } else if (provider === 'local-render') {
+                            setRenderEngine('remotion');
+                          }
                           if (item.metadata?.blueprint) {
                             try {
                               const parsed = typeof item.metadata.blueprint === 'string'

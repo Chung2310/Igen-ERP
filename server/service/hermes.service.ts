@@ -1,5 +1,6 @@
 import { AIMediaModel } from "../model/ai-media.model";
 import { videoBlueprintService } from "./video-blueprint.service";
+import { broadcastEvent } from "../socket";
 
 /**
  * Chuyển đổi đối tượng JSON blueprint thành mô tả văn bản để hướng dẫn chi tiết cho Hermes Agent
@@ -174,11 +175,22 @@ export const hermesService = {
         console.log(`[Hermes Job] [${progress}%] ${newLog}`);
         logs.push(newLog);
       }
-      await AIMediaModel.findByIdAndUpdate(recordId, {
-        "metadata.progress": progress,
-        "metadata.description": description,
-        "metadata.renderLogs": [...logs],
-      });
+      const updatedRecord = await AIMediaModel.findByIdAndUpdate(
+        recordId,
+        {
+          "metadata.progress": progress,
+          "metadata.description": description,
+          "metadata.renderLogs": [...logs],
+        },
+        { new: true }
+      );
+      if (updatedRecord) {
+        broadcastEvent("video_status_updated", {
+          videoId: recordId,
+          status: "processing",
+          updates: [updatedRecord.toObject()],
+        });
+      }
     };
 
     try {
@@ -270,34 +282,56 @@ ${buildCloudinaryPrompt()}
 
       // ── Bước 3: Xử lý kết quả ───────────────────────────────────────────
       if (pollResult.status === "done" && pollResult.result_url) {
-        await AIMediaModel.findByIdAndUpdate(recordId, {
-          url: pollResult.result_url,
-          "metadata.status": "completed",
-          "metadata.progress": 100,
-          "metadata.description": "Video đã được biên tập và upload thành công!",
-          "metadata.renderLogs": [
-            ...logs,
-            `[Hermes] Xử lý hoàn tất!`,
-            `[Hermes] Video đã upload lên Cloudinary: ${pollResult.result_url}`,
-          ],
-        });
+        const updatedRecord = await AIMediaModel.findByIdAndUpdate(
+          recordId,
+          {
+            url: pollResult.result_url,
+            "metadata.status": "completed",
+            "metadata.progress": 100,
+            "metadata.description": "Video đã được biên tập và upload thành công!",
+            "metadata.renderLogs": [
+              ...logs,
+              `[Hermes] Xử lý hoàn tất!`,
+              `[Hermes] Video đã upload lên Cloudinary: ${pollResult.result_url}`,
+            ],
+          },
+          { new: true }
+        );
         console.log(`[Hermes Job] Completed. URL=${pollResult.result_url}`);
+        if (updatedRecord) {
+          broadcastEvent("video_status_updated", {
+            videoId: recordId,
+            status: "completed",
+            updates: [updatedRecord.toObject()],
+          });
+        }
       } else {
         const errMsg = pollResult.error || "Worker không trả về kết quả";
         throw new Error(errMsg);
       }
     } catch (error: any) {
       console.error("[Hermes Job] Failed:", error);
-      await AIMediaModel.findByIdAndUpdate(recordId, {
-        "metadata.status": "failed",
-        "metadata.progress": 100,
-        "metadata.error": error.message || String(error),
-        "metadata.description": `Lỗi: ${error.message || String(error)}`,
-        "metadata.renderLogs": [
-          ...logs,
-          `[Hermes] ❌ Lỗi: ${error.message || String(error)}`,
-        ],
-      });
+      const updatedRecord = await AIMediaModel.findByIdAndUpdate(
+        recordId,
+        {
+          "metadata.status": "failed",
+          "metadata.progress": 100,
+          "metadata.error": error.message || String(error),
+          "metadata.description": `Lỗi: ${error.message || String(error)}`,
+          "metadata.renderLogs": [
+            ...logs,
+            `[Hermes] ❌ Lỗi: ${error.message || String(error)}`,
+          ],
+        },
+        { new: true }
+      );
+      if (updatedRecord) {
+        broadcastEvent("video_status_updated", {
+          videoId: recordId,
+          status: "failed",
+          updates: [updatedRecord.toObject()],
+        });
+      }
     }
   },
 };

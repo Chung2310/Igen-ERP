@@ -1448,7 +1448,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                               >
                                 {available.map(item => (
                                   <option key={item._id} value={item._id}>
-                                    {item.displayName} ({item.username || "no-username"})
+                                    {item.displayName}
                                   </option>
                                 ))}
                               </select>
@@ -1633,14 +1633,14 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                         onChange={(e) => setImageModel(e.target.value)}
                         className="w-full text-xs p-2 border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 font-sans"
                       >
-                        <option value="gemini-banana-flash">iGen Gemini 3 Flash (Google)</option>
+                        <option value="gemini-banana-flash">iGen Gemini 3 Flash</option>
                       </select>
                     </div>
 
                     <div className="space-y-1.5">
                       <span className="text-xs font-bold text-gray-500 font-mono">Độ phân giải</span>
                       <div className="grid grid-cols-2 gap-2">
-                        {["1K", "2K"].map((res) => (
+                        {["1K"].map((res) => (
                           <button
                             key={res}
                             type="button"
@@ -1802,11 +1802,10 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                 type="button"
                 onClick={() => handleAnalyzePillars()}
                 disabled={loadingPillars || !campaignInput.trim()}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border transition-all ${
-                  loadingPillars || !campaignInput.trim()
-                    ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                    : "bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200 hover:border-indigo-300 active:scale-95 cursor-pointer shadow-xs"
-                }`}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border transition-all ${loadingPillars || !campaignInput.trim()
+                  ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                  : "bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200 hover:border-indigo-300 active:scale-95 cursor-pointer shadow-xs"
+                  }`}
                 title="Tạo lại content pillars"
               >
                 <RefreshCw className={`h-3.5 w-3.5 ${loadingPillars ? "animate-spin" : ""}`} />
@@ -1824,7 +1823,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                 </div>
               )}
 
-               {pillars.map((pillar) => {
+              {pillars.map((pillar) => {
                 const isSelected = selectedPillars.includes(pillar.id);
                 const isSwapping = swappingPillarId === pillar.id;
                 return (
