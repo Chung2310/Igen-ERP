@@ -981,7 +981,7 @@ export const geminiController = {
         videoUrl, prompt, modelName, aspectRatio, resolution, duration, videoDurations,
         blueprint, renderMode, renderEngine, referenceVideoUrl, referenceVideoDuration,
         // Professional mode
-        outline, scenes, brandName, bgMusicUrl,
+        outline, scenes, scenesContent, brandName, bgMusicUrl,
       } = req.body;
       const userId = (req as any).user?.id;
 
@@ -1002,6 +1002,7 @@ export const geminiController = {
         referenceVideoDuration,
         outline,
         scenes,
+        scenesContent,
         brandName,
         bgMusicUrl,
       });

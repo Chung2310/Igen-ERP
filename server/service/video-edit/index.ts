@@ -18,6 +18,7 @@ export interface EditVideoOptions {
   // Professional mode options
   outline?: string;
   scenes?: string[];
+  scenesContent?: import("./claude-render.service").SceneSpec[];
   brandName?: string;
   bgMusicUrl?: string;
 }
@@ -42,6 +43,7 @@ export async function editVideo(
       facecamUrl: videoUrl,
       outline: options.outline || prompt,
       scenes: options.scenes,
+      scenesContent: options.scenesContent,
       brandName: options.brandName,
       bgMusicUrl: options.bgMusicUrl,
     });

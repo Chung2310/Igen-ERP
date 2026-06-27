@@ -25,11 +25,20 @@ export const hyperframeService = {
       item.src ? { ...item, src: normalizeMediaUrl(item.src) } : item
     );
     const aspect = blueprint?.aspectRatio || "16:9";
+    const resolution = blueprint?.resolution || "720p";
+    const is1080p = resolution === "1080p";
 
     let width = 1280;
     let height = 720;
     if (aspect === "9:16") { width = 720; height = 1280; }
     else if (aspect === "1:1") { width = 720; height = 720; }
+
+    // Nâng lên 1080p nếu được yêu cầu
+    if (is1080p) {
+      if (aspect === "16:9") { width = 1920; height = 1080; }
+      else if (aspect === "9:16") { width = 1080; height = 1920; }
+      else if (aspect === "1:1") { width = 1080; height = 1080; }
+    }
 
     const rawVideoClips = timeline.filter((item: any) => item.type === "video");
     const textElements = timeline.filter((item: any) => item.type === "text");
@@ -73,6 +82,7 @@ export const hyperframeService = {
       const hueRotate = filters.hueRotate ?? 0;
       const zoom = effects.zoom ?? "none";
       const rotate = effects.rotate ?? 0;
+      const objectFit = effects.objectFit || "contain";
 
       const D_render = clip.renderDuration;
       const D_orig = clip.duration;
@@ -119,7 +129,7 @@ export const hyperframeService = {
       class="clip-anim-${idx}"
       onplay="this.playbackRate=${speed}"
       oncanplay="this.volume=${clipVolume}"
-      style="width: 100%; height: 100%; object-fit: contain; position: absolute; top: 0; left: 0;"
+      style="width: 100%; height: 100%; object-fit: ${objectFit}; position: absolute; top: 0; left: 0;"
       playsinline
     ></video>`;
     });
@@ -131,6 +141,9 @@ export const hyperframeService = {
       const duration = (textItem.end ?? 5) - (textItem.start ?? 0);
       const fontSize = style.fontSize || "36px";
       const fontWeight = style.fontWeight || "bold";
+      const fontFamily = style.fontFamily || "Arial, sans-serif";
+      const letterSpacing = style.letterSpacing || "normal";
+      const textTransform = style.textTransform || "none";
       const opacity = style.opacity !== undefined ? style.opacity : 1.0;
       const bgColor = style.background === "none" ? "transparent" : (style.background || "rgba(0,0,0,0.6)");
       const animation = style.animation || "none";
@@ -154,7 +167,7 @@ export const hyperframeService = {
 
       if (style.position === "center") positionStyles = "top: 0; bottom: 0; left: 0; right: 0; align-items: center; justify-content: center;";
 
-      // Generate CSS keyframe for animation
+      // CSS keyframes — hỗ trợ thêm: slide-up, slide-down, scale-in, typewriter
       let animCss = "";
       let animStyle = "";
       const fadeDur = Math.min(0.5, duration / 3);
@@ -167,33 +180,66 @@ export const hyperframeService = {
       } else if (animation === "fade-in-out") {
         animCss = `@keyframes ${animId} { 0% { opacity: 0; } ${Math.round(fadeDur / duration * 100)}% { opacity: ${opacity}; } ${Math.round((1 - fadeDur / duration) * 100)}% { opacity: ${opacity}; } 100% { opacity: 0; } }`;
         animStyle = `animation: ${animId} ${duration}s linear forwards;`;
+      } else if (animation === "slide-up") {
+        const slideDur = Math.min(0.5, duration / 3);
+        animCss = `@keyframes ${animId} { from { opacity: 0; transform: translateY(30px); } to { opacity: ${opacity}; transform: translateY(0); } }`;
+        animStyle = `animation: ${animId} ${slideDur}s cubic-bezier(0.25,0.46,0.45,0.94) forwards;`;
+      } else if (animation === "slide-down") {
+        const slideDur = Math.min(0.5, duration / 3);
+        animCss = `@keyframes ${animId} { from { opacity: 0; transform: translateY(-30px); } to { opacity: ${opacity}; transform: translateY(0); } }`;
+        animStyle = `animation: ${animId} ${slideDur}s cubic-bezier(0.25,0.46,0.45,0.94) forwards;`;
+      } else if (animation === "scale-in") {
+        const scaleDur = Math.min(0.4, duration / 3);
+        animCss = `@keyframes ${animId} { from { opacity: 0; transform: scale(0.6); } to { opacity: ${opacity}; transform: scale(1); } }`;
+        animStyle = `animation: ${animId} ${scaleDur}s cubic-bezier(0.34,1.56,0.64,1) forwards;`;
+      } else if (animation === "typewriter") {
+        animCss = `@keyframes ${animId} { from { width: 0; } to { width: 100%; } } @keyframes ${animId}_cursor { from, to { border-right-color: transparent; } 50% { border-right-color: ${color}; } }`;
+        animStyle = `animation: ${animId} ${Math.min(2, duration * 0.6)}s steps(${safeContent.length || 10}, end) forwards, ${animId}_cursor 0.75s step-end infinite; overflow: hidden; white-space: nowrap; border-right: 2px solid transparent;`;
       }
       if (animCss) stylesHtml += animCss + "\n";
 
-      // Initial opacity: fade-in/fade-in-out start invisible; fade-out and none start at target opacity
-      const initialOpacity = (animation === "fade-in" || animation === "fade-in-out") ? 0 : opacity;
+      const initialOpacity = ["fade-in", "fade-in-out", "slide-up", "slide-down", "scale-in"].includes(animation) ? 0 : opacity;
 
       elementsHtml += `
     <div data-start="${textItem.start}" data-duration="${duration}" data-track-index="10"
       style="position: absolute; display: flex; pointer-events: none; z-index: 10; ${positionStyles}">
-      <span style="background-color: ${bgColor}; padding: ${padding}; border-radius: ${borderRadius}; color: ${color}; font-size: ${fontSize}; font-weight: ${fontWeight}; text-shadow: ${textShadow}; text-align: center; opacity: ${initialOpacity}; ${animStyle}">
+      <span style="background-color: ${bgColor}; padding: ${padding}; border-radius: ${borderRadius}; color: ${color}; font-size: ${fontSize}; font-weight: ${fontWeight}; font-family: ${fontFamily}; letter-spacing: ${letterSpacing}; text-transform: ${textTransform}; text-shadow: ${textShadow}; text-align: center; opacity: ${initialOpacity}; ${animStyle}">
         ${safeContent}
       </span>
     </div>`;
     });
 
     // 3. Image Elements
-    imageElements.forEach((imgItem: any) => {
+    imageElements.forEach((imgItem: any, imgIdx: number) => {
       const style = imgItem.style || {};
       const duration = (imgItem.end ?? 5) - (imgItem.start ?? 0);
+      const imgOpacity = style.opacity ?? 1;
+      const imgWidth = style.width || 100;
+      const animId = `img_anim_${imgIdx}`;
+      const imgAnimation = style.animation || "none";
+      let imgAnimCss = "";
+      let imgAnimStyle = "";
+
+      if (imgAnimation === "fade-in") {
+        const fadeDur = Math.min(0.5, duration / 3);
+        imgAnimCss = `@keyframes ${animId} { from { opacity: 0; } to { opacity: ${imgOpacity}; } }`;
+        imgAnimStyle = `animation: ${animId} ${fadeDur}s ease-out forwards;`;
+      } else if (imgAnimation === "slide-up") {
+        const slideDur = Math.min(0.4, duration / 3);
+        imgAnimCss = `@keyframes ${animId} { from { opacity: 0; transform: translateY(20px); } to { opacity: ${imgOpacity}; transform: translateY(0); } }`;
+        imgAnimStyle = `animation: ${animId} ${slideDur}s ease-out forwards;`;
+      }
+      if (imgAnimCss) stylesHtml += imgAnimCss + "\n";
+
       let positionStyles = "top: 20px; right: 20px;";
       if (style.position === "top-left") positionStyles = "top: 20px; left: 20px;";
       else if (style.position === "bottom-left") positionStyles = "bottom: 20px; left: 20px;";
       else if (style.position === "bottom-right") positionStyles = "bottom: 20px; right: 20px;";
+      else if (style.position === "center") positionStyles = "top: 50%; left: 50%; transform: translate(-50%,-50%);";
 
       elementsHtml += `
     <img src="${resolveLocalPathForRender(imgItem.src)}" data-start="${imgItem.start}" data-duration="${duration}" data-track-index="20"
-      style="position: absolute; z-index: 20; width: ${style.width || 100}px; opacity: ${style.opacity ?? 1}; object-fit: contain; ${positionStyles}" />`;
+      style="position: absolute; z-index: 20; width: ${imgWidth}px; opacity: ${imgOpacity}; object-fit: contain; ${positionStyles} ${imgAnimStyle}" />`;
     });
 
     // 4. Audio Elements
@@ -216,7 +262,7 @@ export const hyperframeService = {
   </style>
 </head>
 <body>
-  <div id="root" data-composition-id="video-edit" data-width="${width}" data-height="${height}">
+  <div id="root" data-composition-id="video-edit" data-width="${width}" data-height="${height}" data-resolution="${resolution}">
     ${elementsHtml}
   </div>
 </body>
@@ -232,19 +278,27 @@ export const hyperframeService = {
     onProgress?: (progress: number, logMessage?: string) => void
   ): Promise<string> {
     const renderJobId = `hyperframe_render_${Date.now()}`;
-    const tempHtmlPath = path.join(os.tmpdir(), `hyperframe_comp_${Date.now()}.html`);
-    const outputPath = path.join(os.tmpdir(), `hyperframe_out_${Date.now()}.mp4`);
+    // HyperFrames CLI requires files inside the project directory
+    const tmpDir = path.join(process.cwd(), ".hyperframe-tmp");
+    if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
+    const tempHtmlPath = path.join(tmpDir, `hyperframe_comp_${Date.now()}.html`);
+    const outputPath = path.join(tmpDir, `hyperframe_out_${Date.now()}.mp4`);
+    const resolution = options?.resolution || "720p";
 
     console.log(`\n${"=".repeat(60)}`);
     console.log(`[Hyperframe] ▶ BẤT ĐẦU RENDER | Job: ${renderJobId}`);
-    console.log(`[Hyperframe] OutputPath: ${outputPath}`);
+    console.log(`[Hyperframe] OutputPath: ${outputPath} | Resolution: ${resolution}`);
 
     // Preflight / pre-warm CDN cache
     const timeline = blueprint?.timeline || [];
     const normalizedTimeline = timeline.map((item: any) =>
       item.src ? { ...item, src: normalizeMediaUrl(item.src) } : item
     );
-    const normalizedBlueprint = { ...blueprint, timeline: normalizedTimeline };
+    const normalizedBlueprint = {
+      ...blueprint,
+      timeline: normalizedTimeline,
+      resolution,                              // truyền resolution vào blueprint cho compileBlueprintToHtml
+    };
 
     const allMediaUrls = normalizedTimeline
       .filter((t: any) => t.src)
@@ -279,10 +333,11 @@ export const hyperframeService = {
     else if (aspect === "1:1") resolutionPreset = "square";
 
     return new Promise<string>((resolve, reject) => {
-      const args = ["hyperframes", "render", "-c", tempHtmlPath, "-o", outputPath, "--resolution", resolutionPreset, "--strict"];
-      console.log(`[Hyperframe] Executing: npx ${args.join(" ")}`);
+      // Quote paths to handle spaces on Windows (shell:true concats args without escaping)
+      const cmd = `npx hyperframes render -c "${tempHtmlPath}" -o "${outputPath}" --resolution ${resolutionPreset} --strict`;
+      console.log(`[Hyperframe] Executing: ${cmd}`);
 
-      const child = spawn("npx", args, { shell: true });
+      const child = spawn(cmd, [], { shell: true });
       let stderrAccumulator = "";
 
       child.stdout.on("data", (data) => {

@@ -67,39 +67,45 @@ export async function executeLocalRenderJob(
     let finalVideoUrl = "";
     let renderSuccess = false;
     const renderEngine = record?.metadata?.provider || process.env.VIDEO_RENDER_ENGINE || "hyperframe";
+    const renderOptions = { aspectRatio: aspect, resolution };
 
     // ── Bước 1: Hyperframe (nhanh, CSS-based) ────────────────────────────────
     if (renderEngine !== "remotion") {
       try {
-        await updateLogs(25, "[Render Engine] Bắt đầu kết xuất video bằng Hyperframe...");
+        await updateLogs(25, `[Render Engine] Bắt đầu kết xuất bằng Hyperframe (${aspect}, ${resolution})...`);
         finalVideoUrl = await hyperframeService.renderVideo(
           blueprint,
-          { aspectRatio: aspect, resolution },
+          renderOptions,
           async (progress, msg) => { await updateLogs(progress, msg); }
         );
         renderSuccess = true;
+        await updateLogs(86, "[Render Engine] ✅ Hyperframe kết xuất thành công.");
       } catch (hypErr: any) {
-        await updateLogs(30, `[Render Engine] Hyperframe không khả dụng: ${hypErr.message || String(hypErr)}. Thử Remotion...`);
+        const errMsg = hypErr.message || String(hypErr);
+        await updateLogs(30, `[Render Engine] Hyperframe thất bại (${errMsg.slice(0, 120)}). Thử Remotion...`);
       }
     }
 
     // ── Bước 2: Remotion (chính xác, Chromium-based) ─────────────────────────
     if (!renderSuccess) {
       try {
-        await updateLogs(35, "[Render Engine] Bắt đầu kết xuất video bằng Remotion...");
+        await updateLogs(35, `[Render Engine] Bắt đầu kết xuất bằng Remotion (${aspect}, ${resolution})...`);
         finalVideoUrl = await remotionService.renderVideo(
           blueprint,
-          { aspectRatio: aspect, resolution },
+          renderOptions,
           async (progress, msg) => { await updateLogs(progress, msg); }
         );
         renderSuccess = true;
+        await updateLogs(86, "[Render Engine] ✅ Remotion kết xuất thành công.");
       } catch (remErr: any) {
-        await updateLogs(40, `[Render Engine Warning] Remotion thất bại: ${remErr.message || String(remErr)}. Chuyển sang FFmpeg Fallback...`);
+        const errMsg = remErr.message || String(remErr);
+        await updateLogs(40, `[Render Engine Warning] Remotion thất bại (${errMsg.slice(0, 120)}). Chuyển sang FFmpeg Fallback...`);
       }
     }
 
     // ── Bước 3: FFmpeg fallback ───────────────────────────────────────────────
     if (!renderSuccess) {
+      await updateLogs(42, `[Render Engine] Bắt đầu FFmpeg fallback (${aspect}, ${resolution})...`);
       finalVideoUrl = await runFFmpegFallback(
         recordId,
         videoUrl,

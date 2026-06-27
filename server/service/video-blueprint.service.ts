@@ -155,6 +155,10 @@ Keyword → field mapping (MANDATORY to follow):
   "fade / xuất hiện từ từ / mờ dần hiện / fade-in" → animation: "fade-in"
   "biến mất từ từ / fade-out / mờ dần tắt"         → animation: "fade-out"
   "fade vào rồi fade ra / fade-in-out"              → animation: "fade-in-out"
+  "trượt lên / slide up / bay vào từ dưới"          → animation: "slide-up"
+  "trượt xuống / slide down / bay vào từ trên"      → animation: "slide-down"
+  "phóng to hiện / scale in / pop in"               → animation: "scale-in"
+  "đánh máy / typewriter / gõ từng chữ"             → animation: "typewriter"
   (default — tức thì)                               → animation: "none"
 
 ▸ color (STRICT — use EXACTLY these hex codes):
@@ -178,18 +182,21 @@ Text pattern examples (combine multiple fields):
 Text display timing: if user says "hiện chữ X từ giây A đến B" → start:A, end:B
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🎬 SECTION 7: TRANSITIONS & ROTATION
+🎬 SECTION 7: TRANSITIONS & VIDEO EFFECTS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- "chuyển cảnh mờ dần / fade" → effects.transition: "fade" on the clip ending the scene
-- "xoay / rotate / quay nghiêng" → effects.rotate: degrees (e.g. 90, -45, 180)
+- "chuyển cảnh mờ dần / fade"        → effects.transition: "fade" on the clip ending the scene
+- "xoay / rotate / quay nghiêng"     → effects.rotate: degrees (e.g. 90, -45, 180)
+- "lấp đầy khung / cover / fill"     → effects.objectFit: "cover"  (video fills the frame, may crop sides)
+- "giữ tỉ lệ / contain / letterbox"  → effects.objectFit: "contain" (default — black bars on sides)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🖼️ SECTION 8: IMAGE OVERLAYS (LOGO / WATERMARK)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Use type "image" to overlay a logo or watermark image.
-- Positions: "top-left" | "top-right" | "bottom-left" | "bottom-right"
+- Positions: "top-left" | "top-right" | "bottom-left" | "bottom-right" | "center"
 - "opacity": 0.0 (transparent) to 1.0 (opaque)
 - "width": pixel width of the image (e.g. 120)
+- "animation": "fade-in" | "slide-up" | "none"
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📐 SECTION 9: TIMELINE INTEGRITY

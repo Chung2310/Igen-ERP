@@ -173,6 +173,43 @@ export function EditVideoWorkspace({
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [activeTimelineIdx, setActiveTimelineIdx] = useState<number | null>(null);
 
+  // Professional mode state
+  type ProSceneType = 'hook' | 'story' | 'insight' | 'pipeline' | 'ui_mockup' | 'before_after' | 'cta';
+  type ProSceneSpec = {
+    type: ProSceneType; label?: string; title?: string; subtitle?: string;
+    titleColor?: 'gold' | 'red' | 'green' | 'white' | 'cyan';
+    items?: Array<{ icon?: string; title: string; description?: string; variant?: string }>;
+    steps?: Array<{ step?: string; icon?: string; title: string; description?: string; tag?: string }>;
+    stats?: Array<{ value: string; label: string }>;
+    code?: string;
+    before?: { label: string; duration?: string };
+    after?: { label: string; badge?: string };
+    metric?: { from: string; to: string; label?: string };
+    ctaButton?: string; ctaPrompt?: string; duration?: number;
+  };
+  const SCENE_DEFAULTS: Record<ProSceneType, Partial<ProSceneSpec>> = {
+    hook:        { title: 'AI THAY THẾ BẠN', subtitle: 'hay là không cần timeline', titleColor: 'gold', duration: 10 },
+    story:       { title: 'VẤN ĐỀ', subtitle: 'Edit video mất quá nhiều thời gian', titleColor: 'red', duration: 12, items: [{ icon: '⏰', title: 'Mất 2-3 giờ mỗi video', description: 'Timeline phức tạp, cắt ghép thủ công', variant: 'danger' }] },
+    insight:     { title: 'GIẢI PHÁP', subtitle: 'AI xử lý toàn bộ', titleColor: 'green', duration: 12, items: [{ icon: '✅', title: 'Prompt → Video trong 25 phút', description: 'Claude viết HTML+GSAP tự động', variant: 'success' }] },
+    pipeline:    { title: 'PIPELINE', subtitle: 'Cách hoạt động', titleColor: 'cyan', duration: 14, steps: [{ step: 'BƯỚC 1', icon: '💡', title: 'PROMPT', description: 'Mô tả ý tưởng', tag: 'INPUT' }, { step: 'BƯỚC 2', icon: '🤖', title: 'CLAUDE AI', description: 'Sinh HTML+GSAP', tag: 'AI ENGINE' }] },
+    ui_mockup:   { title: 'CLAUDE UI', subtitle: 'Gõ lệnh, AI làm việc', titleColor: 'gold', duration: 12, code: 'Edit video claude va hyperframe\ntheo style viral reels\nClaude UI mockup chinh xac' },
+    before_after:{ title: 'TRƯỚC & SAU', subtitle: 'Kết quả thực tế', titleColor: 'gold', duration: 12, before: { label: 'VIDEO GỐC', duration: '1:09' }, after: { label: 'VIDEO CHUYÊN NGHIỆP', badge: 'CHUYÊN NGHIỆP' }, metric: { from: '2.5h', to: '25 phút', label: 'thời gian edit' } },
+    cta:         { title: 'BẮT ĐẦU NGAY', subtitle: 'Dùng thử miễn phí', titleColor: 'gold', duration: 8, ctaButton: 'Thử ngay miễn phí', ctaPrompt: 'Link trong bio' },
+  };
+  const [proOutline, setProOutline] = useState('');
+  const [proBrandName, setProBrandName] = useState('iGen Tech');
+  const [proBgMusicUrl, setProBgMusicUrl] = useState('');
+  const [proColorScheme, setProColorScheme] = useState<'dark-gold' | 'dark-cyan' | 'dark-red'>('dark-gold');
+  const [proScenes, setProScenes] = useState<ProSceneSpec[]>([]);
+
+  const addProScene = (type: ProSceneType) => {
+    const defaults = SCENE_DEFAULTS[type] || {};
+    setProScenes(prev => [...prev, { type, ...defaults }]);
+  };
+  const removeProScene = (idx: number) => setProScenes(prev => prev.filter((_, i) => i !== idx));
+  const updateProScene = (idx: number, patch: Partial<ProSceneSpec>) =>
+    setProScenes(prev => prev.map((s, i) => i === idx ? { ...s, ...patch } : s));
+
   const timelineItemRefs = useRef<Record<number, HTMLDivElement | null>>({});
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -786,6 +823,14 @@ export function EditVideoWorkspace({
         renderEngine,
         referenceVideoUrl: uploadedRefUrl || undefined,
         referenceVideoDuration: referenceVideo?.duration || undefined,
+        // Professional mode
+        ...(renderEngine === 'professional' ? {
+          outline: proOutline || finalPrompt,
+          brandName: proBrandName || 'iGen Tech',
+          bgMusicUrl: proBgMusicUrl || undefined,
+          scenesContent: proScenes.length > 0 ? proScenes : undefined,
+          colorScheme: proColorScheme,
+        } : {}),
       });
 
       if (response.record) {
@@ -1274,7 +1319,161 @@ export function EditVideoWorkspace({
               </div>
             </div>
 
+            {/* Professional Mode Scene Builder */}
+            {renderEngine === 'professional' && (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4 space-y-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-sm font-bold text-amber-700">Professional Scene Builder</span>
+                  <span className="text-[10px] text-amber-500 bg-amber-100 px-2 py-0.5 rounded-full font-mono">Claude → HTML+GSAP</span>
+                </div>
 
+                {/* Outline + Brand */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Brand Name</label>
+                    <input
+                      type="text"
+                      value={proBrandName}
+                      onChange={e => setProBrandName(e.target.value)}
+                      placeholder="iGen Tech"
+                      className="mt-1 w-full text-xs p-2 border border-slate-200 rounded-lg outline-none focus:border-amber-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Color Scheme</label>
+                    <select
+                      value={proColorScheme}
+                      onChange={e => setProColorScheme(e.target.value as 'dark-gold' | 'dark-cyan' | 'dark-red')}
+                      className="mt-1 w-full text-xs p-2 border border-slate-200 rounded-lg outline-none focus:border-amber-400 bg-white"
+                    >
+                      <option value="dark-gold">Dark Gold (mặc định)</option>
+                      <option value="dark-cyan">Dark Cyan</option>
+                      <option value="dark-red">Dark Red</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Video Outline / Nội dung chủ đề</label>
+                  <textarea
+                    value={proOutline}
+                    onChange={e => setProOutline(e.target.value)}
+                    rows={2}
+                    placeholder="Vd: Video về cách dùng AI để edit video chuyên nghiệp với Claude + HyperFrames..."
+                    className="mt-1 w-full text-xs p-2 border border-slate-200 rounded-lg outline-none focus:border-amber-400 resize-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Background Music URL (tùy chọn)</label>
+                  <input
+                    type="text"
+                    value={proBgMusicUrl}
+                    onChange={e => setProBgMusicUrl(e.target.value)}
+                    placeholder="https://... (Cloudinary URL)"
+                    className="mt-1 w-full text-xs p-2 border border-slate-200 rounded-lg outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                {/* Scene list */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Scenes ({proScenes.length})</label>
+                    {proScenes.length === 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const defaults: ProSceneType[] = ['hook', 'story', 'insight', 'pipeline', 'ui_mockup', 'before_after', 'cta'];
+                          setProScenes(defaults.map(t => ({ type: t, ...SCENE_DEFAULTS[t] })));
+                        }}
+                        className="text-[10px] font-semibold text-amber-600 hover:text-amber-700 border border-amber-300 px-2 py-1 rounded-lg"
+                      >
+                        + Thêm template đầy đủ (7 scenes)
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    {proScenes.map((scene, idx) => (
+                      <div key={idx} className="rounded-xl border border-slate-200 bg-white p-3 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-mono text-slate-400">{String(idx + 1).padStart(2, '0')}</span>
+                          <select
+                            value={scene.type}
+                            onChange={e => updateProScene(idx, { type: e.target.value as ProSceneType, ...SCENE_DEFAULTS[e.target.value as ProSceneType] })}
+                            className="text-xs p-1.5 border border-slate-200 rounded-lg outline-none focus:border-amber-400 bg-white font-semibold"
+                          >
+                            <option value="hook">Hook</option>
+                            <option value="story">Story (Problem)</option>
+                            <option value="insight">Insight (Solution)</option>
+                            <option value="pipeline">Pipeline</option>
+                            <option value="ui_mockup">UI Mockup</option>
+                            <option value="before_after">Before / After</option>
+                            <option value="cta">CTA</option>
+                          </select>
+                          <input
+                            type="text"
+                            value={scene.title || ''}
+                            onChange={e => updateProScene(idx, { title: e.target.value })}
+                            placeholder="Title..."
+                            className="flex-1 text-xs p-1.5 border border-slate-200 rounded-lg outline-none focus:border-amber-400"
+                          />
+                          <input
+                            type="number"
+                            value={scene.duration || 12}
+                            onChange={e => updateProScene(idx, { duration: Number(e.target.value) })}
+                            className="w-14 text-xs p-1.5 border border-slate-200 rounded-lg outline-none focus:border-amber-400 text-center"
+                            min={4}
+                            max={30}
+                            title="Duration (s)"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeProScene(idx)}
+                            className="text-red-400 hover:text-red-600 text-lg font-bold leading-none px-1"
+                            title="Xóa scene"
+                          >
+                            ×
+                          </button>
+                        </div>
+                        {scene.subtitle !== undefined && (
+                          <input
+                            type="text"
+                            value={scene.subtitle || ''}
+                            onChange={e => updateProScene(idx, { subtitle: e.target.value })}
+                            placeholder="Subtitle..."
+                            className="w-full text-xs p-1.5 border border-slate-100 rounded-lg outline-none focus:border-amber-400 bg-slate-50"
+                          />
+                        )}
+                        {(scene.type === 'ui_mockup') && (
+                          <textarea
+                            value={scene.code || ''}
+                            onChange={e => updateProScene(idx, { code: e.target.value })}
+                            rows={2}
+                            placeholder="Terminal typing text..."
+                            className="w-full text-xs p-1.5 border border-slate-100 rounded-lg outline-none focus:border-amber-400 bg-slate-50 font-mono resize-none"
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Add scene buttons */}
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {(['hook', 'story', 'insight', 'pipeline', 'ui_mockup', 'before_after', 'cta'] as ProSceneType[]).map(t => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => addProScene(t)}
+                        className="text-[10px] font-semibold text-slate-500 hover:text-amber-700 border border-slate-200 hover:border-amber-300 px-2 py-1 rounded-lg"
+                      >
+                        + {t}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="space-y-4">
               {/* Badge chế độ video mẫu */}

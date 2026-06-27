@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Hyperframe Render</title>
+  <style>
+    body { margin: 0; background-color: black; overflow: hidden; font-family: Arial, sans-serif; }
+    #root { position: relative; width: 720px; height: 1280px; overflow: hidden; }
+    video { opacity: 0; }
+    
+  @keyframes anim-clip-0 {
+    0.00% { opacity: 1; filter: brightness(1) grayscale(0) sepia(0) invert(0) contrast(1) saturate(1) hue-rotate(0deg) blur(0px); transform: scale(1) rotate(0deg); }
+    100.00% { opacity: 1; filter: brightness(1) grayscale(0) sepia(0) invert(0) contrast(1) saturate(1) hue-rotate(0deg) blur(0px); transform: scale(1.25) rotate(0deg); }
+  }
+  .clip-anim-0 { animation: anim-clip-0 12.0000s linear forwards; animation-delay: 0.0000s; }
+
+  @keyframes anim-clip-1 {
+    0.00% { opacity: 1; filter: brightness(1) grayscale(0) sepia(0) invert(0) contrast(1) saturate(1) hue-rotate(0deg) blur(0px); transform: scale(1) rotate(0deg); }
+    100.00% { opacity: 1; filter: brightness(1) grayscale(0) sepia(0) invert(0) contrast(1) saturate(1) hue-rotate(0deg) blur(0px); transform: scale(1) rotate(0deg); }
+  }
+  .clip-anim-1 { animation: anim-clip-1 16.0000s linear forwards; animation-delay: 12.0000s; }
+
+  @keyframes anim-clip-2 {
+    0.00% { opacity: 1; filter: brightness(1) grayscale(0) sepia(0) invert(0) contrast(1) saturate(1) hue-rotate(0deg) blur(0px); transform: scale(1.25) rotate(0deg); }
+    100.00% { opacity: 1; filter: brightness(1) grayscale(0) sepia(0) invert(0) contrast(1) saturate(1) hue-rotate(0deg) blur(0px); transform: scale(1) rotate(0deg); }
+  }
+  .clip-anim-2 { animation: anim-clip-2 16.0000s linear forwards; animation-delay: 28.0000s; }
+
+  @keyframes anim-clip-3 {
+    0.00% { opacity: 1; filter: brightness(1) grayscale(0) sepia(0) invert(0) contrast(1) saturate(1) hue-rotate(0deg) blur(0px); transform: scale(1) rotate(0deg); }
+    100.00% { opacity: 1; filter: brightness(1) grayscale(0) sepia(0) invert(0) contrast(1) saturate(1) hue-rotate(0deg) blur(0px); transform: scale(1.25) rotate(0deg); }
+  }
+  .clip-anim-3 { animation: anim-clip-3 16.0000s linear forwards; animation-delay: 44.0000s; }
+@keyframes text_anim_0 { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes text_anim_1 { from { opacity: 0; } to { opacity: 1; } }
+@keyframes text_anim_2 { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes text_anim_3 { from { opacity: 0; } to { opacity: 1; } }
+@keyframes text_anim_4 { from { opacity: 0; } to { opacity: 1; } }
+@keyframes text_anim_5 { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes text_anim_6 { from { opacity: 0; } to { opacity: 1; } }
+@keyframes text_anim_7 { from { opacity: 0; } to { opacity: 1; } }
+@keyframes text_anim_8 { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes text_anim_9 { from { opacity: 0; } to { opacity: 1; } }
+@keyframes text_anim_10 { from { opacity: 0; transform: scale(0.6); } to { opacity: 1; transform: scale(1); } }
+@keyframes text_anim_11 { from { opacity: 0; } to { opacity: 1; } }
+
+  </style>
+</head>
+<body>
+  <div id="root" data-composition-id="video-edit" data-width="720" data-height="1280" data-resolution="720p">
+    
+    <video
+      src="https://res.cloudinary.com/dxukxjf6w/video/upload/vc_h264,ac_aac/v1782550049/igen_erp/test/wgo1no8a6ulymdumsbjs.mp4"
+      data-start="0"
+      data-duration="12"
+      data-media-start="0"
+      data-volume="0.9"
+      data-track-index="0"
+      class="clip-anim-0"
+      onplay="this.playbackRate=1"
+      oncanplay="this.volume=0.9"
+      style="width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0;"
+      playsinline
+    ></video>
+    <video
+      src="https://res.cloudinary.com/dxukxjf6w/video/upload/vc_h264,ac_aac/v1782550049/igen_erp/test/wgo1no8a6ulymdumsbjs.mp4"
+      data-start="12"
+      data-duration="16"
+      data-media-start="12"
+      data-volume="0.9"
+      data-track-index="1"
+      class="clip-anim-1"
+      onplay="this.playbackRate=1"
+      oncanplay="this.volume=0.9"
+      style="width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0;"
+      playsinline
+    ></video>
+    <video
+      src="https://res.cloudinary.com/dxukxjf6w/video/upload/vc_h264,ac_aac/v1782550049/igen_erp/test/wgo1no8a6ulymdumsbjs.mp4"
+      data-start="28"
+      data-duration="16"
+      data-media-start="28"
+      data-volume="0.9"
+      data-track-index="2"
+      class="clip-anim-2"
+      onplay="this.playbackRate=1"
+      oncanplay="this.volume=0.9"
+      style="width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0;"
+      playsinline
+    ></video>
+    <video
+      src="https://res.cloudinary.com/dxukxjf6w/video/upload/vc_h264,ac_aac/v1782550049/igen_erp/test/wgo1no8a6ulymdumsbjs.mp4"
+      data-start="44"
+      data-duration="16"
+      data-media-start="44"
+      data-volume="0.9"
+      data-track-index="3"
+      class="clip-anim-3"
+      onplay="this.playbackRate=1"
+      oncanplay="this.volume=0.9"
+      style="width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0;"
+      playsinline
+    ></video>
+    <div data-start="0" data-duration="5" data-track-index="10"
+      style="position: absolute; display: flex; pointer-events: none; z-index: 10; top: 0; bottom: 0; left: 0; right: 0; align-items: center; justify-content: center;">
+      <span style="background-color: rgba(0,0,0,0.6); padding: 8px 18px; border-radius: 12px; color: #FFD700; font-size: 52px; font-weight: 800; font-family: Arial, sans-serif; letter-spacing: normal; text-transform: none; text-shadow: none; text-align: center; opacity: 0; animation: text_anim_0 0.5s cubic-bezier(0.25,0.46,0.45,0.94) forwards;">
+        3 MÓN ĂN TẾT
+      </span>
+    </div>
+    <div data-start="1.5" data-duration="5" data-track-index="10"
+      style="position: absolute; display: flex; pointer-events: none; z-index: 10; bottom: 80px;left: 0; right: 0; justify-content: center;">
+      <span style="background-color: rgba(0,0,0,0.6); padding: 8px 18px; border-radius: 12px; color: #FFFFFF; font-size: 20px; font-weight: 600; font-family: Arial, sans-serif; letter-spacing: normal; text-transform: none; text-shadow: none; text-align: center; opacity: 0; animation: text_anim_1 0.5s ease-out forwards;">
+        mang ý nghĩa Trường Thọ - Dư Dả
+      </span>
+    </div>
+    <div data-start="12" data-duration="5" data-track-index="10"
+      style="position: absolute; display: flex; pointer-events: none; z-index: 10; top: 40px;left: 0; right: 0; justify-content: center;">
+      <span style="background-color: rgba(0,0,0,0.6); padding: 8px 18px; border-radius: 12px; color: #00CC66; font-size: 22px; font-weight: 700; font-family: Arial, sans-serif; letter-spacing: normal; text-transform: none; text-shadow: none; text-align: center; opacity: 0; animation: text_anim_2 0.5s cubic-bezier(0.25,0.46,0.45,0.94) forwards;">
+        🍃 MÓN 1: BÁNH CHƯNG / BÁNH TÉT
+      </span>
+    </div>
+    <div data-start="13.5" data-duration="6.5" data-track-index="10"
+      style="position: absolute; display: flex; pointer-events: none; z-index: 10; bottom: 80px;left: 0; right: 0; justify-content: center;">
+      <span style="background-color: rgba(0,0,0,0.6); padding: 8px 18px; border-radius: 12px; color: #FFFFFF; font-size: 18px; font-weight: 600; font-family: Arial, sans-serif; letter-spacing: normal; text-transform: none; text-shadow: none; text-align: center; opacity: 0; animation: text_anim_3 0.5s ease-out forwards;">
+        Trường Thọ — sống lâu, vuông tròn
+      </span>
+    </div>
+    <div data-start="21" data-duration="6.5" data-track-index="10"
+      style="position: absolute; display: flex; pointer-events: none; z-index: 10; bottom: 80px;left: 0; right: 0; justify-content: center;">
+      <span style="background-color: rgba(0,0,0,0.6); padding: 8px 18px; border-radius: 12px; color: rgba(255,255,255,0.85); font-size: 16px; font-weight: bold; font-family: Arial, sans-serif; letter-spacing: normal; text-transform: none; text-shadow: none; text-align: center; opacity: 0; animation: text_anim_4 0.5s ease-out forwards;">
+        Hình vuông = Đất | Hình dài = Trường thọ
+      </span>
+    </div>
+    <div data-start="28" data-duration="5" data-track-index="10"
+      style="position: absolute; display: flex; pointer-events: none; z-index: 10; top: 40px;left: 0; right: 0; justify-content: center;">
+      <span style="background-color: rgba(0,0,0,0.6); padding: 8px 18px; border-radius: 12px; color: #FF8C00; font-size: 22px; font-weight: 700; font-family: Arial, sans-serif; letter-spacing: normal; text-transform: none; text-shadow: none; text-align: center; opacity: 0; animation: text_anim_5 0.5s cubic-bezier(0.25,0.46,0.45,0.94) forwards;">
+        🥩 MÓN 2: THỊT ĐÔNG / GIÒ CHẢ
+      </span>
+    </div>
+    <div data-start="29.5" data-duration="6.5" data-track-index="10"
+      style="position: absolute; display: flex; pointer-events: none; z-index: 10; bottom: 80px;left: 0; right: 0; justify-content: center;">
+      <span style="background-color: rgba(0,0,0,0.6); padding: 8px 18px; border-radius: 12px; color: #FFFFFF; font-size: 18px; font-weight: 600; font-family: Arial, sans-serif; letter-spacing: normal; text-transform: none; text-shadow: none; text-align: center; opacity: 0; animation: text_anim_6 0.5s ease-out forwards;">
+        Dư Dả — no đủ quanh năm
+      </span>
+    </div>
+    <div data-start="37" data-duration="6.5" data-track-index="10"
+      style="position: absolute; display: flex; pointer-events: none; z-index: 10; bottom: 80px;left: 0; right: 0; justify-content: center;">
+      <span style="background-color: rgba(0,0,0,0.6); padding: 8px 18px; border-radius: 12px; color: rgba(255,255,255,0.85); font-size: 16px; font-weight: bold; font-family: Arial, sans-serif; letter-spacing: normal; text-transform: none; text-shadow: none; text-align: center; opacity: 0; animation: text_anim_7 0.5s ease-out forwards;">
+        Đông đặc = Tài lộc đông cứng 💰
+      </span>
+    </div>
+    <div data-start="44" data-duration="5" data-track-index="10"
+      style="position: absolute; display: flex; pointer-events: none; z-index: 10; top: 40px;left: 0; right: 0; justify-content: center;">
+      <span style="background-color: rgba(0,0,0,0.6); padding: 8px 18px; border-radius: 12px; color: #00D4FF; font-size: 22px; font-weight: 700; font-family: Arial, sans-serif; letter-spacing: normal; text-transform: none; text-shadow: none; text-align: center; opacity: 0; animation: text_anim_8 0.5s cubic-bezier(0.25,0.46,0.45,0.94) forwards;">
+        🌿 MÓN 3: CANH MĂNG / BÓNG BÌ
+      </span>
+    </div>
+    <div data-start="50" data-duration="6" data-track-index="10"
+      style="position: absolute; display: flex; pointer-events: none; z-index: 10; bottom: 80px;left: 0; right: 0; justify-content: center;">
+      <span style="background-color: rgba(0,0,0,0.6); padding: 8px 18px; border-radius: 12px; color: #FFFFFF; font-size: 17px; font-weight: bold; font-family: Arial, sans-serif; letter-spacing: normal; text-transform: none; text-shadow: none; text-align: center; opacity: 0; animation: text_anim_9 0.5s ease-out forwards;">
+        Mâm cỗ hoàn chỉnh — Cầu chúc sung túc
+      </span>
+    </div>
+    <div data-start="57" data-duration="3" data-track-index="10"
+      style="position: absolute; display: flex; pointer-events: none; z-index: 10; top: 0; bottom: 0; left: 0; right: 0; align-items: center; justify-content: center;">
+      <span style="background-color: rgba(0,0,0,0.6); padding: 8px 18px; border-radius: 12px; color: #FFD700; font-size: 36px; font-weight: 800; font-family: Arial, sans-serif; letter-spacing: normal; text-transform: none; text-shadow: none; text-align: center; opacity: 0; animation: text_anim_10 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards;">
+        CHÚC MỪNG NĂM MỚI 🏮
+      </span>
+    </div>
+    <div data-start="57.5" data-duration="2.5" data-track-index="10"
+      style="position: absolute; display: flex; pointer-events: none; z-index: 10; bottom: 80px;left: 0; right: 0; justify-content: center;">
+      <span style="background-color: rgba(0,0,0,0.6); padding: 8px 18px; border-radius: 12px; color: rgba(255,255,255,0.9); font-size: 15px; font-weight: bold; font-family: Arial, sans-serif; letter-spacing: normal; text-transform: none; text-shadow: none; text-align: center; opacity: 0; animation: text_anim_11 0.5s ease-out forwards;">
+        An Khang Thịnh Vượng ✨ Tag người thân cùng xem!
+      </span>
+    </div>
+  </div>
+</body>
+</html>
