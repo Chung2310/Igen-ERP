@@ -555,6 +555,17 @@ export const zaloMessengerService = {
     return { success: true };
   },
 
+  async resumeAIAutoReply(oaId: string, conversationId: string) {
+    const conversation = await ZaloConversationModel.findOne({ _id: conversationId, oaId });
+    if (!conversation) {
+      throw new Error("Không tìm thấy hội thoại Zalo.");
+    }
+    conversation.aiPausedUntil = undefined;
+    await conversation.save();
+    emitToPage(oaId, "conversation_updated", conversation);
+    return conversation;
+  },
+
   /**
    * Gửi phản hồi tin nhắn cho khách hàng qua Zalo OA
    */
@@ -614,6 +625,7 @@ export const zaloMessengerService = {
       conversation.lastMessageText = text;
       conversation.lastMessageAt = sentAt;
       conversation.unreadCount = 0;
+      conversation.aiPausedUntil = new Date(Date.now() + 30 * 60 * 1000); // Tạm dừng AI cho cuộc hội thoại này 30 phút
       await conversation.save();
       newMsg.status = "delivered";
       await newMsg.save();
@@ -696,6 +708,7 @@ export const zaloMessengerService = {
       conversation.lastMessageText = text;
       conversation.lastMessageAt = sentAt;
       conversation.unreadCount = 0;
+      conversation.aiPausedUntil = new Date(Date.now() + 30 * 60 * 1000); // Tạm dừng AI cho cuộc hội thoại này 30 phút
       await conversation.save();
       newMsg.messageId = resData.data?.message_id || messageId;
       newMsg.status = "delivered";

@@ -59,6 +59,7 @@ export const AiAutoReplyConfigSchema = new Schema(
     advancedInstructions: { type: String, default: "" },
     trainingKnowledge: { type: String, default: "" },
     model: { type: String, default: "gemini-3.5-flash" },
+    disabledAt: { type: Date, default: null },
   },
   { _id: false }
 );

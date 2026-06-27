@@ -32,7 +32,9 @@ export interface CustomerInbox {
   isVip: boolean;
   status: "online" | "offline";
   tags: string[];
-  channel?: "facebook" | "zalo";
+  channel?: "facebook" | "zalo" | "tiktok";
+  aiPausedUntil?: string | null;
+  pageId?: string;
 }
 
 export interface AIChatConfig {
@@ -45,6 +47,7 @@ export interface AIChatConfig {
   advancedInstructions: string;
   trainingKnowledge: string;
   model?: string;
+  disabledAt?: string | null;
 }
 
 export interface LeadCard {

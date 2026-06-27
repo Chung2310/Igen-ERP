@@ -12,7 +12,7 @@ import { aiKnowledgeService } from "./ai-knowledge.service";
 // messageKey prevents polling/sync from pushing the same inbound message forever.
 const pendingReplies = new Map<string, { timeout: NodeJS.Timeout; messageKey: string }>();
 const generatingReplies = new Set<string>();
-const HUMAN_INTERVENTION_GUARD_ENABLED = false;
+const HUMAN_INTERVENTION_GUARD_ENABLED = true;
 const DEFAULT_MESSAGE_GROUPING_DELAY_MS = 7000;
 const DEFAULT_BUBBLE_DELAY_MS = 2000;
 
@@ -449,7 +449,48 @@ export const aiAutoReplyService = {
       }
 
       user = selectedUser;
-      aiConfig = resolvedAiConfig || selectedUser.aiAutoReplyConfig;
+      aiConfig = resolvedAiConfig || selectedUser?.aiAutoReplyConfig;
+
+      if (aiConfig && aiConfig.enabled === false && aiConfig.disabledAt) {
+        const disabledTime = new Date(aiConfig.disabledAt).getTime();
+        const AUTO_RE_ENABLE_DELAY_MS = 30 * 60 * 1000; // 30 phút
+        if (Date.now() - disabledTime > AUTO_RE_ENABLE_DELAY_MS) {
+          console.log(`[AI AutoReply] 🤖 TỰ ĐỘNG BẬT LẠI AI: Cấu hình AI đã bị tắt quá 30 phút (từ ${new Date(disabledTime).toISOString()}). Tiến hành tự động bật lại.`);
+          
+          if (resolvedAiConfig) {
+            // Cập nhật cho Social Integration
+            const { SocialIntegrationModel } = require("../model/social-integration.model");
+            const integration = await SocialIntegrationModel.findOne({
+              platform: channel === "zalo" ? "Zalo" : "Facebook",
+              username: resolvedPlatformId,
+              isConnected: true
+            });
+            if (integration) {
+              await SocialIntegrationModel.findByIdAndUpdate(integration._id, {
+                $set: {
+                  "aiAutoReplyConfig.enabled": true,
+                  "aiAutoReplyConfig.disabledAt": null
+                }
+              });
+              console.log(`[AI AutoReply] Đã cập nhật database bật lại AI cho Integration: ${integration.displayName}`);
+            }
+          } else {
+            // Cập nhật cho User
+            await UserModel.findByIdAndUpdate(user._id, {
+              $set: {
+                "aiAutoReplyConfig.enabled": true,
+                "aiAutoReplyConfig.disabledAt": null
+              }
+            });
+            console.log(`[AI AutoReply] Đã cập nhật database bật lại AI cho User: ${user.email}`);
+          }
+
+          // Kích hoạt lại trong bộ nhớ để tin nhắn này được trả lời ngay lập tức
+          aiConfig.enabled = true;
+          aiConfig.disabledAt = null;
+        }
+      }
+
       console.log(
         `[AI AutoReply] Owner selected: channel=${channel}, platformId=${resolvedPlatformId}, ` +
         `conversationId=${conversationId}, user=${user.email}, company=${targetCompanyCode} (userCompany=${user.companyCode || "SYSTEM"}), enabled=${!!aiConfig?.enabled}, source=${ownerResolutionSource}`
@@ -538,6 +579,19 @@ export const aiAutoReplyService = {
               return;
             }
 
+            if (conv.aiPausedUntil && conv.aiPausedUntil > new Date()) {
+              console.log(`[AI AutoReply] ⚠️ BỎ QUA: Cuộc hội thoại Zalo ${conversationId} đang tạm dừng AI đến ${conv.aiPausedUntil.toISOString()} do nhân viên can thiệp.`);
+              await logAutoReplyFailure({
+                companyCode: targetCompanyCode,
+                channel,
+                conversationId,
+                customerMessage: normalizedIncomingText,
+                reason: "AI is paused for this specific conversation due to human intervention",
+                details: { aiPausedUntil: conv.aiPausedUntil },
+              });
+              return;
+            }
+
             // Fetch last 15 messages for history context
             const dbMsgs = await ZaloMessageModel.find({ conversationId })
               .sort({ timestamp: -1 })
@@ -571,6 +625,19 @@ export const aiAutoReplyService = {
                 latencyMs: 0,
                 status: "failed",
               }).catch(() => {});
+              return;
+            }
+
+            if (conv.aiPausedUntil && conv.aiPausedUntil > new Date()) {
+              console.log(`[AI AutoReply] ⚠️ BỎ QUA: Cuộc hội thoại FB ${conversationId} đang tạm dừng AI đến ${conv.aiPausedUntil.toISOString()} do nhân viên can thiệp.`);
+              await logAutoReplyFailure({
+                companyCode: targetCompanyCode,
+                channel,
+                conversationId,
+                customerMessage: normalizedIncomingText,
+                reason: "AI is paused for this specific conversation due to human intervention",
+                details: { aiPausedUntil: conv.aiPausedUntil },
+              });
               return;
             }
 

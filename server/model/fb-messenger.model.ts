@@ -13,6 +13,7 @@ export interface IFBConversation extends Document {
   status: "open" | "closed";
   tags: string[];
   isVip: boolean;
+  aiPausedUntil?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -48,6 +49,7 @@ const FBConversationSchema: Schema = new Schema(
     status: { type: String, enum: ["open", "closed"], default: "open" },
     tags: { type: [String], default: [] },
     isVip: { type: Boolean, default: false },
+    aiPausedUntil: { type: Date, default: null },
   },
   { timestamps: true }
 );

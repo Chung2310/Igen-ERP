@@ -152,6 +152,38 @@ export const zaloMessengerController = {
     }
   },
 
+  async resumeAI(req: any, res: Response): Promise<any> {
+    try {
+      const { recipientId } = req.params;
+      const conversationId = req.params.conversationId || recipientId;
+      const userId = req.user?.id;
+
+      if (!userId) {
+        return res.status(401).json({ success: false, message: "Người dùng chưa đăng nhập." });
+      }
+
+      const { isConnected, oaId } = await getZaloOaConfig(userId);
+
+      if (!isConnected || !oaId) {
+        return res.status(403).json({ success: false, message: "Bạn chưa cấu hình tích hợp Zalo OA." });
+      }
+
+      const conversation = await zaloMessengerService.resumeAIAutoReply(oaId, conversationId);
+
+      res.status(200).json({
+        success: true,
+        message: "Đã kích hoạt lại AI cho cuộc hội thoại này.",
+        data: conversation
+      });
+    } catch (error: any) {
+      console.error("[Zalo Controller resumeAI] Lỗi:", error);
+      res.status(500).json({
+        success: false,
+        message: error.message || "Không thể kích hoạt lại AI cho cuộc hội thoại Zalo."
+      });
+    }
+  },
+
   async sendReply(req: any, res: Response): Promise<any> {
     try {
       const { text } = req.body;

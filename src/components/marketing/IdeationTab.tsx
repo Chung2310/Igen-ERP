@@ -14,7 +14,7 @@ import {
   Trash2
 } from "lucide-react";
 import { MarketingConcept, ContentApprovalCard } from "../../types";
-import { marketingService } from "../../services/marketingService";
+import { marketingService, extractDraftContent } from "../../services/marketingService";
 import { socialIntegrationService } from "../../services/socialIntegrationService";
 import { geminiApi } from "../../api/gemini";
 import { toast } from "../../pages/Toast";
@@ -49,17 +49,16 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
       }
       const existingScript = document.querySelector(`script[src="${src}"]`);
       if (existingScript) {
-        const handleLoad = () => resolve((window as any)[globalVar]);
-        const handleError = (err: any) => reject(err);
-        existingScript.addEventListener("load", handleLoad);
-        existingScript.addEventListener("error", handleError);
+        existingScript.addEventListener("load", () => resolve((window as any)[globalVar]));
+        existingScript.addEventListener("error", (e) => reject(e));
         return;
       }
       const script = document.createElement("script");
       script.src = src;
+      script.async = true;
       script.onload = () => resolve((window as any)[globalVar]);
-      script.onerror = (err) => reject(err);
-      document.head.appendChild(script);
+      script.onerror = (e) => reject(e);
+      document.body.appendChild(script);
     });
   };
 
@@ -201,9 +200,35 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
   const tomorrowStr = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const [autoScheduleDate, setAutoScheduleDate] = useState(tomorrowStr);
   const [autoScheduleTime, setAutoScheduleTime] = useState("09:00");
+  const [autoPublishMode, setAutoPublishMode] = useState<"scheduled" | "instant">("scheduled");
+  const [autoPilotProgress, setAutoPilotProgress] = useState(0);
   const [integrationsList, setIntegrationsList] = useState<any[]>([]);
   const [loadingIntegrations, setLoadingIntegrations] = useState(false);
   const [selectedIntegrations, setSelectedIntegrations] = useState<Record<string, string>>({});
+
+  const autoPilotStageCapRef = useRef(10);
+
+  // Smoothly increment progress simulation during autopilot execution
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    if (loadingAI && isAutoPilot) {
+      interval = setInterval(() => {
+        setAutoPilotProgress(prev => {
+          const cap = autoPilotStageCapRef.current;
+          if (prev < cap) {
+            return prev + 1;
+          } else if (prev < 99) {
+            // Slower tick when cap is reached, to show it's still alive and moving
+            return Math.random() > 0.85 ? prev + 1 : prev;
+          }
+          return prev;
+        });
+      }, 200);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [loadingAI, isAutoPilot]);
 
   const [selectedChannels, setSelectedChannels] = useState<string[]>(["Facebook"]);
   const [mediaType, setMediaType] = useState<string>("image"); // "none" | "image" | "video"
@@ -612,38 +637,93 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
 
         const platform = updatedCard.channel;
         const integrationId = selectedIntegrations[platform] || undefined;
-        const scheduledDate = autoScheduleDate;
-        let scheduledTime = autoScheduleTime;
-        try {
-          const [hStr, mStr] = autoScheduleTime.split(":");
-          const startHour = parseInt(hStr);
-          const hour = (startHour + idx) % 24;
-          scheduledTime = `${hour.toString().padStart(2, '0')}:${mStr}`;
-        } catch (e) {
-          console.warn("Lỗi tính toán giờ đăng tự động:", e);
-        }
+        const integration = integrationsList.find(item => item._id === integrationId);
 
-        if (platform === "Facebook" || platform === "TikTok") {
-          await marketingService.scheduleCard(updatedCard.id, scheduledDate, scheduledTime, integrationId);
+        if (autoPublishMode === "instant") {
+          if (platform === "Facebook") {
+            const pageToken = integration?.accessToken;
+            const pageId = integration?.username;
+            if (!pageToken || !pageId) {
+              throw new Error("Không lấy được Page Token hoặc Page ID cho tài khoản được chọn.");
+            }
+            await marketingService.publishToFacebook(
+              updatedCard.id,
+              pageToken,
+              pageId,
+              updatedCard.bodyText,
+              !!integration?.isMock,
+              updatedCard.imageUrl || undefined,
+              updatedCard.videoUrl || undefined
+            );
+          } else if (platform === "TikTok") {
+            if (!updatedCard.videoUrl) {
+              throw new Error("Bài đăng TikTok cần có video. Hãy tạo video AI trước.");
+            }
+            const caption = extractDraftContent(updatedCard.bodyText).slice(0, 2200);
+            await marketingService.publishToTikTok(
+              updatedCard.id,
+              caption,
+              updatedCard.videoUrl,
+              !!integration?.isMock,
+              "SELF_ONLY",
+              {
+                integrationId: integration?._id,
+                accessToken: integration?.accessToken,
+                username: integration?.username,
+              }
+            );
+          } else {
+            await marketingService.updateCard(updatedCard.id, {
+              status: 'published',
+              publishedAt: new Date().toISOString(),
+              integrationId
+            });
+          }
+
+          const publishedCard = {
+            ...updatedCard,
+            status: "published" as const,
+            publishedAt: new Date().toISOString(),
+            integrationId
+          };
+
+          setApprovalCards(prev => prev.map(c => c.id === card.id ? publishedCard : c));
+          toast.success(`Đã tự động tạo và đăng bài "${card.title}" lên ${card.channel}!`);
+
         } else {
-          await marketingService.updateCard(updatedCard.id, {
-            status: 'scheduled',
+          const scheduledDate = autoScheduleDate;
+          let scheduledTime = autoScheduleTime;
+          try {
+            const [hStr, mStr] = autoScheduleTime.split(":");
+            const startHour = parseInt(hStr);
+            const hour = (startHour + idx) % 24;
+            scheduledTime = `${hour.toString().padStart(2, '0')}:${mStr}`;
+          } catch (e) {
+            console.warn("Lỗi tính toán giờ đăng tự động:", e);
+          }
+
+          if (platform === "Facebook" || platform === "TikTok") {
+            await marketingService.scheduleCard(updatedCard.id, scheduledDate, scheduledTime, integrationId);
+          } else {
+            await marketingService.updateCard(updatedCard.id, {
+              status: 'scheduled',
+              scheduledDate,
+              scheduledTime,
+              integrationId
+            });
+          }
+
+          const scheduledCard = {
+            ...updatedCard,
+            status: "scheduled" as const,
             scheduledDate,
             scheduledTime,
             integrationId
-          });
+          };
+
+          setApprovalCards(prev => prev.map(c => c.id === card.id ? scheduledCard : c));
+          toast.success(`Đã tự động tạo và lên lịch bài đăng "${card.title}" trên ${card.channel}!`);
         }
-
-        const scheduledCard = {
-          ...updatedCard,
-          status: "scheduled" as const,
-          scheduledDate,
-          scheduledTime,
-          integrationId
-        };
-
-        setApprovalCards(prev => prev.map(c => c.id === card.id ? scheduledCard : c));
-        toast.success(`Đã tự động tạo và lên lịch bài đăng "${card.title}" trên ${card.channel}!`);
 
       } catch (err: any) {
         console.error(`[Background Autopilot Error] for card ${card.id}:`, err);
@@ -823,8 +903,8 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
     }
   };
 
-  const handleGenerateIdeas = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleGenerateIdeas = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     const topic = campaignInput.trim();
     if (!topic) return;
 
@@ -843,6 +923,8 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
     }
 
     setLoadingAI(true);
+    setAutoPilotProgress(5);
+    autoPilotStageCapRef.current = 10;
     setConcepts([]);
     try {
       let apiTopic = topic;
@@ -862,6 +944,8 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
           pillarsToUse = selectedPillars;
         } else {
           setAutoPilotStatus("Đang phân tích định hướng Content Pillars...");
+          setAutoPilotProgress(12);
+          autoPilotStageCapRef.current = 25;
           try {
             const pillarsData = await geminiApi.analyzeMarketingPillars(apiTopic, uploadedImageBase64 ? [uploadedImageBase64] : undefined);
             if (pillarsData.pillars && Array.isArray(pillarsData.pillars) && pillarsData.pillars.length > 0) {
@@ -903,6 +987,8 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
       }
 
       setAutoPilotStatus("Đang lên ý tưởng chiến dịch...");
+      setAutoPilotProgress(35);
+      autoPilotStageCapRef.current = 55;
       const actualMediaType = mediaType;
       const data = await geminiApi.generateMarketingIdeas(apiTopic, pillarsToUse, selectedChannels, actualMediaType, uploadedImageBase64 ? [uploadedImageBase64] : undefined);
       if (data.isMock) {
@@ -920,13 +1006,14 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
       setConcepts(generatedConcepts);
 
       if (isAutoPilot) {
-        setLoadingAI(false);
-        setAutoPilotBackgroundRunning(true);
+        setAutoPilotProgress(55);
+        autoPilotStageCapRef.current = 90;
 
         const sortedConcepts = [...generatedConcepts].sort((a: any, b: any) => (b.matchPercent || 0) - (a.matchPercent || 0));
         const bestConcept = sortedConcepts[0];
 
         setAutoPilotStatus(`Đang tự động viết nội dung chi tiết cho ý tưởng: "${bestConcept.title}"...`);
+        setAutoPilotProgress(65);
         const result = await marketingService.developIdea({
           title: bestConcept.title,
           summary: bestConcept.summary,
@@ -992,10 +1079,18 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
           };
         });
 
+        setAutoPilotProgress(85);
+        autoPilotStageCapRef.current = 95;
         const savedCards = await marketingService.saveCards(newCards);
         setApprovalCards(prev => [...savedCards, ...prev]);
 
+        setAutoPilotProgress(95);
+        autoPilotStageCapRef.current = 100;
         void runBackgroundMediaGeneration(savedCards, result.posts, bestConcept);
+
+        setAutoPilotProgress(100);
+        // Chờ 800ms để người dùng nhìn thấy tiến trình đạt 100% trước khi chuyển tab
+        await new Promise((resolve) => setTimeout(resolve, 800));
 
         toast.success("Chiến dịch đã khởi chạy! Đang tự động tạo phương tiện truyền thông chạy nền...");
         setSubTab("DUYỆT NỘI DUNG");
@@ -1008,6 +1103,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
       setLoadingAI(false);
       setAutoPilotBackgroundRunning(false);
       setAutoPilotStatus("");
+      setAutoPilotProgress(0);
     }
   };
 
@@ -1115,16 +1211,51 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
         <div className="lg:col-span-2 bg-slate-50 border border-gray-200 p-6 rounded-2xl flex flex-col justify-between relative" id="ideation_campaign_form">
           {loadingAI && isAutoPilot && (
             <div className="absolute inset-0 bg-white/85 backdrop-blur-md flex flex-col items-center justify-center text-center p-6 z-20 rounded-2xl animate-fadeIn">
-              <div className="w-12 h-12 rounded-full bg-purple-50 flex items-center justify-center mb-4 border border-purple-100 animate-bounce">
+              <div className="w-12 h-12 rounded-full bg-purple-50 flex items-center justify-center mb-1.5 border border-purple-100 animate-bounce">
                 <Sparkles className="h-6 w-6 text-purple-600" />
               </div>
-              <h4 className="font-extrabold text-purple-800 text-sm tracking-wide uppercase font-mono">
+              <h4 className="font-extrabold text-purple-800 text-[11px] tracking-wide uppercase font-mono">
                 🤖 Chế độ Auto-pilot đang vận hành...
               </h4>
-              <div className="w-48 h-1.5 bg-gray-200 rounded-full mt-3 overflow-hidden">
-                <div className="h-full bg-purple-600 rounded-full animate-pulse" style={{ width: '65%' }}></div>
+              
+              {/* Circular Progress Ring */}
+              <div className="relative w-20 h-20 mt-4 mb-3 flex items-center justify-center">
+                {/* Background Circle */}
+                <svg className="w-full h-full transform -rotate-90">
+                  <circle
+                    cx="40"
+                    cy="40"
+                    r="32"
+                    stroke="#F3E8FF"
+                    strokeWidth="4.5"
+                    fill="transparent"
+                  />
+                  {/* Progress Circle */}
+                  <circle
+                    cx="40"
+                    cy="40"
+                    r="32"
+                    stroke="#9333EA"
+                    strokeWidth="4.5"
+                    fill="transparent"
+                    strokeDasharray={2 * Math.PI * 32}
+                    strokeDashoffset={2 * Math.PI * 32 * (1 - autoPilotProgress / 100)}
+                    strokeLinecap="round"
+                    className="transition-all duration-300 ease-out"
+                  />
+                </svg>
+                {/* Center text with percentage */}
+                <div className="absolute flex flex-col items-center justify-center">
+                  <span className="text-[15px] font-black text-purple-700 font-mono leading-none">
+                    {autoPilotProgress}%
+                  </span>
+                  <span className="text-[7px] font-extrabold text-purple-400 mt-0.5 uppercase tracking-wider font-mono">
+                    TIẾN ĐỘ
+                  </span>
+                </div>
               </div>
-              <p className="text-xs text-slate-600 font-medium mt-3.5 leading-relaxed font-sans max-w-sm">
+
+              <p className="text-xs text-slate-600 font-medium leading-relaxed font-sans max-w-sm">
                 {autoPilotStatus}
               </p>
               <p className="text-[10px] text-slate-400 mt-1 font-mono italic">
@@ -1267,20 +1398,43 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                     <div className="flex-1" />
                     <button
                       type="button"
-                      onClick={() => handleAnalyzePillars()}
-                      disabled={loadingPillars || !campaignInput.trim()}
-                      className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[10px] font-bold transition-all ${loadingPillars || !campaignInput.trim()
-                        ? "bg-gray-50 text-gray-400 border-gray-250 cursor-not-allowed"
-                        : "bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-150 cursor-pointer active:scale-98"
+                      onClick={(e) => {
+                        if (isAutoPilot) {
+                          handleGenerateIdeas(e);
+                        } else {
+                          handleAnalyzePillars();
+                        }
+                      }}
+                      disabled={isAutoPilot 
+                        ? (loadingAI || autoPilotBackgroundRunning || !campaignInput.trim())
+                        : (loadingPillars || !campaignInput.trim())
+                      }
+                      className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[10px] font-bold transition-all ${
+                        isAutoPilot
+                          ? (loadingAI || autoPilotBackgroundRunning || !campaignInput.trim()
+                            ? "bg-gray-50 text-gray-400 border-gray-250 cursor-not-allowed opacity-75"
+                            : "bg-purple-50 hover:bg-purple-100 text-purple-750 border-purple-150 cursor-pointer active:scale-98 shadow-2xs")
+                          : (loadingPillars || !campaignInput.trim()
+                            ? "bg-gray-50 text-gray-400 border-gray-250 cursor-not-allowed"
+                            : "bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-150 cursor-pointer active:scale-98")
                         }`}
                     >
-                      <Sparkles className={`h-3.5 w-3.5 text-indigo-500 ${loadingPillars ? "animate-spin" : ""}`} />
-                      {loadingPillars ? "Đang phân tích..." : "Phân tích Mục tiêu AI"}
+                      {isAutoPilot ? (
+                        <>
+                          <Zap className={`h-3.5 w-3.5 text-purple-600 ${loadingAI || autoPilotBackgroundRunning ? "animate-spin" : ""}`} />
+                          <span>{loadingAI || autoPilotBackgroundRunning ? "Đang chạy..." : "Khởi chạy Tự động 1-Click"}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className={`h-3.5 w-3.5 text-indigo-500 ${loadingPillars ? "animate-spin" : ""}`} />
+                          <span>{loadingPillars ? "Đang phân tích..." : "Phân tích Mục tiêu AI"}</span>
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>
               </div>
-              {campaignInput.trim() && campaignInput.trim() !== analyzedTopic.trim() && (
+              {!isAutoPilot && campaignInput.trim() && campaignInput.trim() !== analyzedTopic.trim() && (
                 <p className="text-[10px] text-amber-600 font-bold font-mono tracking-wide animate-pulse mt-1 select-none text-left">
                   ⚠️ Bạn đã thay đổi nội dung mục tiêu. Vui lòng bấm "Phân tích Mục tiêu & Đề xuất Trụ cột AI" ở cột bên phải trước để cập nhật định hướng trước khi phát sinh ý tưởng!
                 </p>
@@ -1393,35 +1547,60 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
 
                 {isAutoPilot && (
                   <div className="mt-2.5 border-t border-purple-200/50 pt-3.5 space-y-3.5 text-left animate-fadeIn">
-                    <span className="text-[10px] font-extrabold text-purple-800 uppercase tracking-wider block font-mono">
-                      📅 Thiết lập đặt lịch & Tài khoản đăng bài:
-                    </span>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* Scheduled Date */}
-                      <div className="space-y-1.5">
-                        <label className="block text-gray-500 font-bold text-[10px] uppercase font-mono">Ngày đăng bài *</label>
-                        <input
-                          type="date"
-                          required
-                          className="w-full p-2.5 border border-slate-200 bg-white rounded-lg text-xs font-mono focus:ring-1 focus:ring-purple-500 outline-none"
-                          value={autoScheduleDate}
-                          onChange={(e) => setAutoScheduleDate(e.target.value)}
-                        />
-                      </div>
-
-                      {/* Scheduled Time */}
-                      <div className="space-y-1.5">
-                        <label className="block text-gray-500 font-bold text-[10px] uppercase font-mono">Giờ đăng bài *</label>
-                        <input
-                          type="time"
-                          required
-                          className="w-full p-2.5 border border-slate-200 bg-white rounded-lg text-xs font-mono focus:ring-1 focus:ring-purple-500 outline-none"
-                          value={autoScheduleTime}
-                          onChange={(e) => setAutoScheduleTime(e.target.value)}
-                        />
+                    {/* Switch: Lên lịch vs Đăng ngay */}
+                    <div className="flex items-center justify-between bg-white p-2.5 rounded-xl border border-purple-100 shadow-3xs">
+                      <span className="text-xs font-bold text-gray-700 font-sans">Chế độ xuất bản:</span>
+                      <div className="flex rounded-lg bg-slate-100 p-0.5">
+                        <button
+                          type="button"
+                          onClick={() => setAutoPublishMode("scheduled")}
+                          className={`px-3.5 py-1.5 text-[10.5px] font-bold rounded-lg transition-all ${autoPublishMode === "scheduled"
+                            ? "bg-white text-purple-700 shadow-xs"
+                            : "text-slate-500 hover:text-slate-700"
+                            }`}
+                        >
+                          Lên lịch đăng
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAutoPublishMode("instant")}
+                          className={`px-3.5 py-1.5 text-[10.5px] font-bold rounded-lg transition-all ${autoPublishMode === "instant"
+                            ? "bg-white text-purple-700 shadow-xs"
+                            : "text-slate-500 hover:text-slate-700"
+                            }`}
+                        >
+                          Đăng ngay
+                        </button>
                       </div>
                     </div>
+
+                    {autoPublishMode === "scheduled" && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fadeIn">
+                        {/* Scheduled Date */}
+                        <div className="space-y-1.5">
+                          <label className="block text-gray-500 font-bold text-[10px] uppercase font-mono">Ngày đăng bài *</label>
+                          <input
+                            type="date"
+                            required
+                            className="w-full p-2.5 border border-slate-200 bg-white rounded-lg text-xs font-mono focus:ring-1 focus:ring-purple-500 outline-none"
+                            value={autoScheduleDate}
+                            onChange={(e) => setAutoScheduleDate(e.target.value)}
+                          />
+                        </div>
+
+                        {/* Scheduled Time */}
+                        <div className="space-y-1.5">
+                          <label className="block text-gray-500 font-bold text-[10px] uppercase font-mono">Giờ đăng bài *</label>
+                          <input
+                            type="time"
+                            required
+                            className="w-full p-2.5 border border-slate-200 bg-white rounded-lg text-xs font-mono focus:ring-1 focus:ring-purple-500 outline-none"
+                            value={autoScheduleTime}
+                            onChange={(e) => setAutoScheduleTime(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    )}
 
                     {/* Integrations Selectors */}
                     <div className="space-y-3">
@@ -1448,7 +1627,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                               >
                                 {available.map(item => (
                                   <option key={item._id} value={item._id}>
-                                    {item.displayName} ({item.username || "no-username"})
+                                    {item.displayName}
                                   </option>
                                 ))}
                               </select>
@@ -1633,26 +1812,19 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                         onChange={(e) => setImageModel(e.target.value)}
                         className="w-full text-xs p-2 border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 font-sans"
                       >
-                        <option value="gemini-banana-flash">iGen Gemini 3 Flash (Google)</option>
+                        <option value="gemini-banana-flash">iGen Gemini 3 Flash</option>
                       </select>
                     </div>
 
                     <div className="space-y-1.5">
                       <span className="text-xs font-bold text-gray-500 font-mono">Độ phân giải</span>
-                      <div className="grid grid-cols-2 gap-2">
-                        {["1K", "2K"].map((res) => (
-                          <button
-                            key={res}
-                            type="button"
-                            onClick={() => setImageResolution(res)}
-                            className={`py-1.5 text-xs font-bold rounded-lg border transition-all ${imageResolution === res
-                              ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                              : "border-slate-200 bg-white text-gray-500 hover:bg-slate-50"
-                              }`}
-                          >
-                            {res === "1K" ? "1K Standard" : "2K Ultra HD"}
-                          </button>
-                        ))}
+                      <div className="grid grid-cols-1 gap-2">
+                        <button
+                          type="button"
+                          className="py-1.5 text-xs font-bold rounded-lg border border-indigo-500 bg-indigo-50 text-indigo-700 cursor-default"
+                        >
+                          1K Standard
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -1776,17 +1948,24 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
             </form>
           </div>
 
-          <div className="mt-6 pt-4 border-t border-gray-200 flex justify-end">
+          <div className="mt-6 pt-4 border-t border-gray-200 flex items-center justify-between gap-4">
+            {isAutoPilot && (
+              <div className="flex-1 text-left text-[11px] text-purple-750 bg-purple-50 border border-purple-100 p-2 px-3 rounded-xl flex items-center gap-1.5 font-medium animate-fadeIn">
+                <span>💡 <b>Quy trình 1-Click:</b> AI sẽ tự động phân tích Pillar, viết nội dung, tạo ảnh/video và tự động xuất bản lên các kênh đã cấu hình.</span>
+              </div>
+            )}
             <button
               onClick={handleGenerateIdeas}
               disabled={loadingAI || autoPilotBackgroundRunning || !campaignInput.trim() || (!isAutoPilot && campaignInput.trim() !== analyzedTopic.trim())}
-              className={`px-5 py-2.5 rounded-xl text-xs font-bold font-sans flex items-center gap-2 select-none shadow-sm transition-all ${loadingAI || autoPilotBackgroundRunning || !campaignInput.trim() || (!isAutoPilot && campaignInput.trim() !== analyzedTopic.trim())
+              className={`px-5 py-2.5 rounded-xl text-xs font-bold font-sans flex items-center gap-2 select-none shadow-sm transition-all shrink-0 ${loadingAI || autoPilotBackgroundRunning || !campaignInput.trim() || (!isAutoPilot && campaignInput.trim() !== analyzedTopic.trim())
                 ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                : "bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer active:scale-95"
+                : isAutoPilot 
+                  ? "bg-purple-600 hover:bg-purple-750 text-white cursor-pointer active:scale-95 shadow-md shadow-purple-500/10"
+                  : "bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer active:scale-95"
                 }`}
             >
-              {loadingAI || autoPilotBackgroundRunning ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              {loadingAI ? "AI Đang sáng tạo..." : "Phát sinh Ý tưởng từ AI"}
+              {loadingAI || autoPilotBackgroundRunning ? <RefreshCw className="h-4 w-4 animate-spin" /> : isAutoPilot ? <Zap className="h-4 w-4" /> : <Send className="h-4 w-4" />}
+              {loadingAI ? "AI Đang sáng tạo..." : isAutoPilot ? "Khởi chạy Chiến dịch Tự động" : "Phát sinh Ý tưởng từ AI"}
             </button>
           </div>
         </div>
@@ -1802,11 +1981,10 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                 type="button"
                 onClick={() => handleAnalyzePillars()}
                 disabled={loadingPillars || !campaignInput.trim()}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border transition-all ${
-                  loadingPillars || !campaignInput.trim()
-                    ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                    : "bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200 hover:border-indigo-300 active:scale-95 cursor-pointer shadow-xs"
-                }`}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border transition-all ${loadingPillars || !campaignInput.trim()
+                  ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                  : "bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200 hover:border-indigo-300 active:scale-95 cursor-pointer shadow-xs"
+                  }`}
                 title="Tạo lại content pillars"
               >
                 <RefreshCw className={`h-3.5 w-3.5 ${loadingPillars ? "animate-spin" : ""}`} />
@@ -1824,7 +2002,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                 </div>
               )}
 
-               {pillars.map((pillar) => {
+              {pillars.map((pillar) => {
                 const isSelected = selectedPillars.includes(pillar.id);
                 const isSwapping = swappingPillarId === pillar.id;
                 return (

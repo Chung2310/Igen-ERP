@@ -3,6 +3,8 @@ import { Search, Zap, Plus } from "lucide-react";
 import { ExtendedLeadCard } from "../../services/crmService";
 import { PipelineCard } from "./PipelineCard";
 
+import { CustomerInbox } from "../../types";
+
 type PipelineTabProps = {
   leads: ExtendedLeadCard[];
   searchPipeline: string;
@@ -12,6 +14,10 @@ type PipelineTabProps = {
   moveLeadPipeline: (id: string, newStatus: "cold" | "warm" | "hot") => void;
   deleteLead: (id: string) => void;
   handleGoToChat: (customerName: string) => void;
+  activeChannel: "all" | "facebook" | "zalo";
+  inboxCustomers: CustomerInbox[];
+  isFbConnected: boolean;
+  isZaloConnected: boolean;
 };
 
 export const PipelineTab: React.FC<PipelineTabProps> = ({
@@ -23,7 +29,12 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
   moveLeadPipeline,
   deleteLead,
   handleGoToChat,
+  activeChannel,
+  inboxCustomers,
+  isFbConnected,
+  isZaloConnected,
 }) => {
+
   // HTML5 Drag and Drop states
   const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
   const [activeColumn, setActiveColumn] = useState<string | null>(null);
@@ -53,12 +64,29 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
     setActiveColumn(null);
   };
 
-  // Lọc và gom nhóm cơ hội theo trạng thái
-  const filteredLeads = leads.filter(l => 
-    l.customerName.toLowerCase().includes(searchPipeline.toLowerCase()) ||
-    l.company.toLowerCase().includes(searchPipeline.toLowerCase()) ||
-    (l.productOfChoice && l.productOfChoice.toLowerCase().includes(searchPipeline.toLowerCase()))
-  );
+  // Lọc và gom nhóm cơ hội theo trạng thái và kênh mxh
+  const filteredLeads = leads.filter(l => {
+    // 1. Tìm kiếm
+    const matchesSearch = 
+      l.customerName.toLowerCase().includes(searchPipeline.toLowerCase()) ||
+      l.company.toLowerCase().includes(searchPipeline.toLowerCase()) ||
+      (l.productOfChoice && l.productOfChoice.toLowerCase().includes(searchPipeline.toLowerCase()));
+    
+    if (!matchesSearch) return false;
+
+    // 2. Phân loại theo kênh mạng xã hội
+    const isFbLead = 
+      l.company.toLowerCase().includes("facebook") ||
+      inboxCustomers.some(c => c.name.toLowerCase() === l.customerName.toLowerCase() && c.channel === "facebook");
+    
+    const isZaloLead = 
+      l.company.toLowerCase().includes("zalo") ||
+      inboxCustomers.some(c => c.name.toLowerCase() === l.customerName.toLowerCase() && c.channel === "zalo");
+
+    if (activeChannel === "all") return true;
+    if (activeChannel === "facebook") return isFbLead;
+    if (activeChannel === "zalo") return isZaloLead;
+  });
 
   const groupedLeads = {
     cold: [] as ExtendedLeadCard[],

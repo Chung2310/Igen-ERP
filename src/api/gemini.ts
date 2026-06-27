@@ -309,7 +309,7 @@ export const geminiApi = {
   async editVideo(
     videoUrl: string,
     prompt: string,
-    options?: { modelName?: string; aspectRatio?: string; resolution?: string; duration?: number; videoDurations?: number[]; blueprint?: any; renderMode?: string }
+    options?: { modelName?: string; aspectRatio?: string; resolution?: string; duration?: number; videoDurations?: number[]; blueprint?: any; renderMode?: string; renderEngine?: string; referenceVideoUrl?: string }
   ): Promise<{ status: string; record: any; blueprint: any }> {
     const headers = await getHeaders(true);
     const response = await fetch('/api/v1/gemini/edit-video', {
@@ -593,6 +593,19 @@ export const geminiApi = {
     if (!response.ok) await handleErrorResponse(response, 'Lỗi sinh marketing content FreeLLM');
     const data = await response.json();
     return data.result || { title: '', content: '', hashtags: [] };
+  },
+
+  async uploadLocalDocument(fileName: string, fileBase64: string, mimeType: string): Promise<any> {
+    const headers = await getHeaders(true);
+    const response = await fetch("/api/v1/gemini/upload-document", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ fileName, fileBase64, mimeType }),
+    });
+    if (!response.ok) {
+      await handleErrorResponse(response, "Lỗi tải lên tài liệu huấn luyện AI");
+    }
+    return response.json();
   },
 };
 

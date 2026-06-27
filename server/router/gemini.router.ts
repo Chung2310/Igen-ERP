@@ -113,6 +113,8 @@ const editVideoSchema = {
     videoDurations: Joi.array().items(Joi.number()).optional(),
     blueprint: Joi.object().optional(),
     renderMode: Joi.string().valid("local", "hermes").optional().allow(""),
+    renderEngine: Joi.string().valid("remotion", "hyperframe", "hermes").optional().allow(""),
+    referenceVideoUrl: Joi.string().uri().optional().allow(""),
   }),
 };
 
@@ -173,6 +175,14 @@ const deleteHistorySchema = {
   }),
 };
 
+const uploadDocumentSchema = {
+  body: Joi.object({
+    fileName: Joi.string().required(),
+    fileBase64: Joi.string().required(),
+    mimeType: Joi.string().required(),
+  }),
+};
+
 const syncDriveSchema = {
   body: Joi.object({
     docLink: Joi.string().required(),
@@ -211,6 +221,7 @@ geminiRouter.post("/test-reply", requireAuth as any, validateRequest(testReplySc
 geminiRouter.get("/ai-reply-logs", requireAuth as any, geminiController.listAIReplyLogs as any);
 geminiRouter.patch("/ai-reply-logs/:id/feedback", requireAuth as any, validateRequest(feedbackSchema), geminiController.updateAIReplyFeedback as any);
 geminiRouter.post("/sync-drive", requireAuth as any, validateRequest(syncDriveSchema), geminiController.syncGoogleDrive as any);
+geminiRouter.post("/upload-document", requireAuth as any, validateRequest(uploadDocumentSchema), geminiController.uploadLocalDocument as any);
 
 // Xưởng nội dung APIs (requireAuth bảo vệ tài khoản lưu lịch sử)
 geminiRouter.post("/generate-image", requireAuth as any, validateRequest(generateImageSchema), geminiController.generateImage);
