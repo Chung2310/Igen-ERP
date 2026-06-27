@@ -37,8 +37,10 @@ export const facebookCommentService = {
       }
 
       // Tránh lặp vô hạn nếu Page tự trả lời chính mình
-      if (senderId === pageId) {
-        console.log(`[FB Comment Webhook] Bỏ qua bình luận từ chính Fanpage ID ${pageId}`);
+      const cleanSenderId = String(senderId || "").trim();
+      const cleanPageId = String(pageId || "").trim();
+      if (cleanSenderId === cleanPageId) {
+        console.log(`[FB Comment Webhook] Bỏ qua bình luận từ chính Fanpage ID ${cleanPageId}`);
         return;
       }
 
@@ -104,6 +106,26 @@ export const facebookCommentService = {
 
       replyText = aiResponse.text.trim();
       console.log(`[FB Comment Webhook] Đã sinh câu trả lời: "${replyText}"`);
+
+      // Kiểm tra comment giả lập
+      const isMockComment = commentId.startsWith("mock_") || commentId.includes("mock_") || commentId.includes("mock-") || commentId === "mock_comment";
+      if (isMockComment) {
+        console.log(`[FB Comment Webhook] Giả lập phản hồi thành công (Bỏ qua Graph API thực tế cho comment giả lập ID: ${commentId})`);
+        await AIReplyLogModel.create({
+          companyCode,
+          channel: "facebook_comment",
+          commentId,
+          postId,
+          customerMessage: message,
+          aiResponse: replyText,
+          contextPreview: effectiveRagContext.contextText || "",
+          contextMatches: effectiveRagContext.matches || 0,
+          mode: aiConfig.trainingKnowledge ? "trained" : "default",
+          latencyMs: Date.now() - startedAt,
+          status: "sent",
+        });
+        return;
+      }
 
       // Lấy page access token tương ứng
       const token = await fbMessengerService.getPageAccessTokenByPageId(pageId);

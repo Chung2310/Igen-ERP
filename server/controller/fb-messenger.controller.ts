@@ -432,8 +432,11 @@ export const fbMessengerController = {
           commentId: l.commentId,
           postId: l.postId,
           status: l.status,
-          customerMessage: String(l.customerMessage || "").slice(0, 100),
-          aiResponse: String(l.aiResponse || "").slice(0, 200),
+          customerMessage: l.customerMessage,
+          aiResponse: l.aiResponse,
+          contextPreview: l.contextPreview,
+          contextMatches: l.contextMatches,
+          feedback: l.feedback,
           latencyMs: l.latencyMs,
           createdAt: l.createdAt,
         })),
@@ -442,4 +445,86 @@ export const fbMessengerController = {
       return res.status(500).json({ success: false, message: error.message });
     }
   },
+
+  /**
+   * GET /api/v1/facebook/messenger/post-detail/:postId
+   * Fetch a Facebook post's text message, created time, and media URL
+   */
+  async getPostDetail(req: any, res: Response): Promise<any> {
+    const { postId } = req.params;
+    try {
+      const { pageId } = req.query;
+
+      if (!postId) {
+        return res.status(400).json({ success: false, message: "Thiếu Post ID." });
+      }
+
+      // Check if it's a mock post ID or starts with 123456
+      if (postId.startsWith("123456") || postId === "unknown_post" || postId.includes("mock_")) {
+        return res.status(200).json({
+          success: true,
+          data: {
+            message: "Bài viết Giả lập: Thử nghiệm trả lời tự động & Chăm sóc khách hàng",
+            created_time: new Date().toISOString(),
+          }
+        });
+      }
+
+      // Resolve the page access token
+      let token: string | null = null;
+      if (pageId) {
+        token = await fbMessengerService.getPageAccessTokenByPageId(String(pageId));
+      }
+
+      if (!token && postId.includes("_")) {
+        const extractedPageId = postId.split("_")[0];
+        token = await fbMessengerService.getPageAccessTokenByPageId(extractedPageId);
+      }
+
+      if (!token) {
+        return res.status(200).json({
+          success: true,
+          data: {
+            message: `Bài viết ID: ${postId} (Chưa cấu hình Token hoặc đang dùng Demo)`,
+            created_time: new Date().toISOString(),
+          }
+        });
+      }
+
+      // Query Facebook Graph API
+      const url = `https://graph.facebook.com/v19.0/${postId}?fields=message,story,created_time,full_picture&access_token=${token}`;
+      const response = await (globalThis as any).fetch(url);
+      
+      if (!response.ok) {
+        const errText = await response.text();
+        console.warn(`[FB Controller getPostDetail] Graph API error: ${response.status} - ${errText}`);
+        return res.status(200).json({
+          success: true,
+          data: {
+            message: `Bài viết ID: ${postId}`,
+            created_time: new Date().toISOString(),
+          }
+        });
+      }
+
+      const data = await response.json();
+      return res.status(200).json({
+        success: true,
+        data: {
+          message: data.message || data.story || `Bài viết ID: ${postId}`,
+          created_time: data.created_time || new Date().toISOString(),
+          full_picture: data.full_picture || null,
+        }
+      });
+    } catch (error: any) {
+      console.error("[FB Controller getPostDetail] Error:", error);
+      return res.status(200).json({
+        success: true,
+        data: {
+          message: `Bài viết ID: ${postId}`,
+          created_time: new Date().toISOString(),
+        }
+      });
+    }
+  }
 };

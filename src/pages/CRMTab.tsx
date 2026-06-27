@@ -29,12 +29,13 @@ const AiCommentReplyManager = lazy(() =>
   }))
 );
 
+const CRM_SUB_TAB_ROUTES = [
+  { slug: "pipeline", value: "PHỄU KHÁCH HÀNG" as CRMSubTabType },
+  { slug: "omni-chat", value: "OMNI-INBOX CHAT" as CRMSubTabType },
+  { slug: "comment-reply", value: "AI COMMENT AUTO-REPLY" as CRMSubTabType },
+] as const;
+
 export default function CRMTab() {
-  const CRM_SUB_TAB_ROUTES = [
-    { slug: "pipeline", value: "PHỄU KHÁCH HÀNG" as CRMSubTabType },
-    { slug: "omni-chat", value: "OMNI-INBOX CHAT" as CRMSubTabType },
-    { slug: "comment-reply", value: "AI COMMENT AUTO-REPLY" as CRMSubTabType },
-  ] as const;
   const [subTab, setSubTab] = useSubTabRouter<CRMSubTabType>(CRM_SUB_TAB_ROUTES as any, "PHỄU KHÁCH HÀNG");
   const [activeChannel, setActiveChannel] = useState<"all" | "facebook" | "zalo" | "tiktok">("all");
 
@@ -169,9 +170,11 @@ export default function CRMTab() {
 
   // Synchronize selectedFacebookPageId when facebookPages changes
   useEffect(() => {
-    if (facebookPages.length > 0) {
-      if (!selectedFacebookPageId || !facebookPages.some(p => p.username === selectedFacebookPageId)) {
-        const firstPage = facebookPages[0].username;
+    const validPages = facebookPages.filter(p => p.username);
+    if (validPages.length > 0) {
+      const hasMatch = validPages.some(p => p.username === selectedFacebookPageId);
+      if (!selectedFacebookPageId || !hasMatch) {
+        const firstPage = validPages[0].username;
         setSelectedFacebookPageId(firstPage);
         localStorage.setItem("crm_selected_fb_page_id", firstPage);
       }
