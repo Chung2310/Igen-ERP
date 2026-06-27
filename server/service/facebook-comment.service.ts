@@ -141,10 +141,31 @@ export const facebookCommentService = {
         latencyMs: Date.now() - startedAt,
         status: "sent",
       });
-
     } catch (error: any) {
       console.error("[FB Comment Webhook] Lỗi khi xử lý trả lời bình luận:", error.message || error);
       
+      // Gửi cảnh báo mất kết nối nếu do lỗi Token
+      const errorStr = error.message || String(error);
+      if (errorStr.includes("token") || errorStr.includes("190") || errorStr.includes("102") || errorStr.includes("OAuth")) {
+        try {
+          const { SocialIntegrationModel } = require("../model/social-integration.model");
+          const integration = await SocialIntegrationModel.findOne({
+            platform: "Facebook",
+            username: pageId,
+          });
+          const { telegramService } = require("./telegram.service");
+          await telegramService.sendIntegrationDisconnectAlert(
+            "Facebook",
+            integration?.displayName || "Facebook Page",
+            pageId,
+            companyCode,
+            `Lỗi Token khi trả lời bình luận: ${errorStr.slice(0, 150)}`
+          ).catch((e: any) => console.error("[FB Comment Webhook] Không thể gửi cảnh báo lỗi Token về Telegram:", e));
+        } catch (tgErr) {
+          console.error("[FB Comment Webhook] Lỗi khi require/gửi cảnh báo Token:", tgErr);
+        }
+      }
+
       // Ghi nhận log thất bại
       if (commentId) {
         await AIReplyLogModel.create({

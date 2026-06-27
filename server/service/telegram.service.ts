@@ -6,6 +6,8 @@ import { TelegramSessionModel } from "../model/telegram-session.model";
 import { UserModel } from "../model/user.model";
 import bcrypt from "bcryptjs";
 
+const TELEGRAM_API_BASE_URL = process.env.TELEGRAM_API_BASE_URL || "https://api.telegram.org";
+
 let pollingActive = false;
 let lastOffset = 0;
 
@@ -73,7 +75,7 @@ export const telegramService = {
     if (!botToken) return;
 
     try {
-      const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
+      const url = `${TELEGRAM_API_BASE_URL}/bot${botToken}/sendMessage`;
       const response = await fetch(url, {
         method: "POST",
         headers: {
@@ -104,7 +106,7 @@ export const telegramService = {
     if (!botToken) return;
 
     try {
-      const url = `https://api.telegram.org/bot${botToken}/sendPhoto`;
+      const url = `${TELEGRAM_API_BASE_URL}/bot${botToken}/sendPhoto`;
       const response = await fetch(url, {
         method: "POST",
         headers: {
@@ -131,7 +133,7 @@ export const telegramService = {
     if (!botToken) return;
 
     try {
-      const url = `https://api.telegram.org/bot${botToken}/sendVideo`;
+      const url = `${TELEGRAM_API_BASE_URL}/bot${botToken}/sendVideo`;
       const response = await fetch(url, {
         method: "POST",
         headers: {
@@ -158,7 +160,7 @@ export const telegramService = {
     if (!botToken) return;
 
     try {
-      const url = `https://api.telegram.org/bot${botToken}/deleteMessage`;
+      const url = `${TELEGRAM_API_BASE_URL}/bot${botToken}/deleteMessage`;
       const response = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -204,7 +206,7 @@ export const telegramService = {
     const botToken = process.env.TELEGRAM_BOT_TOKEN;
     while (pollingActive) {
       try {
-        const url = `https://api.telegram.org/bot${botToken}/getUpdates?offset=${lastOffset + 1}&timeout=30`;
+        const url = `${TELEGRAM_API_BASE_URL}/bot${botToken}/getUpdates?offset=${lastOffset + 1}&timeout=30`;
         const response = await fetch(url, { method: "GET" });
         if (!response.ok) {
           await new Promise((resolve) => setTimeout(resolve, 5000));
@@ -241,8 +243,14 @@ export const telegramService = {
             }
           }
         }
-      } catch (err) {
-        console.error("[Telegram Bot] Lỗi kết nối API getUpdates:", err);
+      } catch (err: any) {
+        const errStr = err?.message || String(err);
+        const isTimeout = errStr.includes("ETIMEDOUT") || errStr.includes("fetch failed") || errStr.includes("timeout") || err?.code === "ETIMEDOUT";
+        if (isTimeout) {
+          console.warn(`[Telegram Bot] Lỗi kết nối API getUpdates (Timeout/Network): ${errStr}. Sẽ thử lại sau 5s...`);
+        } else {
+          console.error("[Telegram Bot] Lỗi kết nối API getUpdates:", err);
+        }
         await new Promise((resolve) => setTimeout(resolve, 5000));
       }
     }
@@ -612,7 +620,7 @@ export const telegramService = {
     const botToken = process.env.TELEGRAM_BOT_TOKEN;
     if (!botToken) throw new Error("Chưa cấu hình TELEGRAM_BOT_TOKEN");
 
-    const getFileUrl = `https://api.telegram.org/bot${botToken}/getFile?file_id=${fileId}`;
+    const getFileUrl = `${TELEGRAM_API_BASE_URL}/bot${botToken}/getFile?file_id=${fileId}`;
     const res = await fetch(getFileUrl);
     if (!res.ok) throw new Error("Không thể truy vấn thông tin tệp tin từ Telegram");
 
@@ -622,7 +630,7 @@ export const telegramService = {
     }
 
     const filePath = body.result.file_path;
-    const downloadUrl = `https://api.telegram.org/file/bot${botToken}/${filePath}`;
+    const downloadUrl = `${TELEGRAM_API_BASE_URL}/file/bot${botToken}/${filePath}`;
     const fileRes = await fetch(downloadUrl);
     if (!fileRes.ok) throw new Error("Không thể tải tệp tin từ Telegram");
 
@@ -695,6 +703,37 @@ export const telegramService = {
 
     await this.sendMessage(chatId, message).catch((err) => {
       console.error("[Telegram Bot] Lỗi gửi cảnh báo mất kết nối liên kết:", err);
+    });
+  },
+
+  /**
+   * Gửi cảnh báo khi tài khoản Gemini hết số dư
+   */
+  async sendGeminiBillingAlert(errorMessage: string): Promise<void> {
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    const chatId = process.env.TELEGRAM_CHAT_ID;
+    if (!botToken || !chatId) return;
+
+    // Tránh gửi spam tin nhắn liên tục nếu có nhiều comment/chat lỗi cùng lúc
+    const now = Date.now();
+    const lastAlertTime = (this as any)._lastGeminiBillingAlertTime || 0;
+    if (now - lastAlertTime < 5 * 60 * 1000) { // 5 phút throttle
+      return;
+    }
+    (this as any)._lastGeminiBillingAlertTime = now;
+
+    const message = [
+      "⚠️ <b>CẢNH BÁO: HẾT HẠN MỨC/SỐ DƯ GEMINI API!</b> ⚠️",
+      "=============================",
+      `🔴 <b>Lỗi:</b> <code>RESOURCE_EXHAUSTED</code>`,
+      `💬 <b>Chi tiết:</b> <i>Prepayment credits are depleted. Vui lòng nạp tiền vào tài khoản Google AI Studio.</i>`,
+      `📋 <b>Nội dung lỗi gốc:</b> <code>${errorMessage.slice(0, 300)}</code>`,
+      "=============================",
+      "👉 <i>Hệ thống sẽ tự động chuyển sang cấu hình FreeLLM Fallback (nếu có cấu hình) để duy trì trả lời tin nhắn/bình luận tạm thời. Quản trị viên vui lòng kiểm tra và thanh toán hóa đơn sớm.</i>"
+    ].join("\n");
+
+    await this.sendMessage(chatId, message).catch((err) => {
+      console.error("[Telegram Bot] Lỗi gửi cảnh báo hóa đơn Gemini:", err);
     });
   },
 };
