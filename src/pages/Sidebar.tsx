@@ -133,7 +133,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
     });
   }
 
-  if (userProfile?.role === "superadmin") {
+  if (userProfile) {
     menuItems.push({
       label: "VÍ & NẠP TIỀN",
       title: "Ví & Nạp tiền",

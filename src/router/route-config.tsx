@@ -48,7 +48,6 @@ export const APP_ROUTES: AppRoute[] = [
   {
     tab: "VÍ & NẠP TIỀN",
     component: lazy(() => import("../pages/WalletTab")),
-    canAccess: (userProfile) => userProfile.role === "superadmin",
   },
 ];
 

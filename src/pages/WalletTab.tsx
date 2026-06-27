@@ -52,13 +52,24 @@ export default function WalletTab() {
   const loadData = async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const [bal, txs] = await Promise.all([
-        walletService.getWalletBalance(),
-        walletService.getTransactionHistory()
-      ]);
-      setBalance(bal);
-      setTransactions(txs);
-      setCurrentPage(1);
+      const balPromise = walletService.getWalletBalance()
+        .then(bal => setBalance(bal))
+        .catch(err => {
+          console.error("Lỗi tải số dư:", err);
+          toast.error("Không thể tải số dư ví.");
+        });
+
+      const txsPromise = walletService.getTransactionHistory()
+        .then(txs => {
+          setTransactions(txs);
+          setCurrentPage(1);
+        })
+        .catch(err => {
+          console.error("Lỗi tải lịch sử giao dịch:", err);
+          toast.error("Không thể tải lịch sử giao dịch.");
+        });
+
+      await Promise.all([balPromise, txsPromise]);
     } catch (err: any) {
       toast.error(err.message || "Không thể tải thông tin ví.");
     } finally {
