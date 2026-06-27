@@ -403,7 +403,10 @@ export const fbMessengerController = {
         return res.status(404).json({ success: false, message: "Khong tim thay user." });
       }
 
-      const limit = Math.min(Number(req.query.limit || 10), 30);
+      const limit = Math.min(Number(req.query.limit || 10), 100);
+      const page = Math.max(Number(req.query.page || 1), 1);
+      const skip = (page - 1) * limit;
+
       const baseFilter = user.role === "superadmin" && req.query.companyCode
         ? { companyCode: String(req.query.companyCode).trim().toUpperCase() }
         : { companyCode: String(user.companyCode || "SYSTEM").trim().toUpperCase() };
@@ -416,14 +419,21 @@ export const fbMessengerController = {
         ...(req.query.conversationId ? { conversationId: String(req.query.conversationId).trim() } : {}),
         ...(channelFilter ? { channel: channelFilter } : {}),
       };
+
+      const totalCount = await AIReplyLogModel.countDocuments(filter);
       const logs = await AIReplyLogModel.find(filter)
         .sort({ createdAt: -1 })
+        .skip(skip)
         .limit(limit)
         .lean();
+
       return res.status(200).json({
         success: true,
         filter,
         count: logs.length,
+        total: totalCount,
+        page,
+        hasMore: skip + logs.length < totalCount,
         logs: logs.map(l => ({
           _id: l._id,
           companyCode: l.companyCode,
@@ -432,8 +442,11 @@ export const fbMessengerController = {
           commentId: l.commentId,
           postId: l.postId,
           status: l.status,
-          customerMessage: String(l.customerMessage || "").slice(0, 100),
-          aiResponse: String(l.aiResponse || "").slice(0, 200),
+          customerMessage: l.customerMessage,
+          aiResponse: l.aiResponse,
+          contextPreview: l.contextPreview,
+          contextMatches: l.contextMatches,
+          feedback: l.feedback,
           latencyMs: l.latencyMs,
           createdAt: l.createdAt,
         })),
@@ -442,4 +455,66 @@ export const fbMessengerController = {
       return res.status(500).json({ success: false, message: error.message });
     }
   },
+
+  /**
+   * GET /api/v1/facebook/messenger/post-detail/:postId
+   * Fetch a Facebook post's text message, created time, and media URL
+   */
+  async getPostDetail(req: any, res: Response): Promise<any> {
+    const { postId } = req.params;
+    try {
+      const { pageId } = req.query;
+
+      if (!postId) {
+        return res.status(400).json({ success: false, message: "Thiếu Post ID." });
+      }
+
+      // Resolve the page access token
+      let token: string | null = null;
+      if (pageId) {
+        token = await fbMessengerService.getPageAccessTokenByPageId(String(pageId));
+      }
+
+      if (!token && postId.includes("_")) {
+        const extractedPageId = postId.split("_")[0];
+        token = await fbMessengerService.getPageAccessTokenByPageId(extractedPageId);
+      }
+
+      if (!token) {
+        return res.status(400).json({
+          success: false,
+          message: `Không tìm thấy Access Token để xem chi tiết bài viết ID: ${postId}`
+        });
+      }
+
+      // Query Facebook Graph API
+      const url = `https://graph.facebook.com/v19.0/${postId}?fields=message,story,created_time,full_picture&access_token=${token}`;
+      const response = await (globalThis as any).fetch(url);
+      
+      if (!response.ok) {
+        const errText = await response.text();
+        console.warn(`[FB Controller getPostDetail] Graph API error: ${response.status} - ${errText}`);
+        return res.status(400).json({
+          success: false,
+          message: `Lỗi Facebook Graph API khi tải chi tiết bài viết: ${errText}`
+        });
+      }
+
+      const data = await response.json();
+      return res.status(200).json({
+        success: true,
+        data: {
+          message: data.message || data.story || "Bài viết không có nội dung chữ.",
+          created_time: data.created_time || new Date().toISOString(),
+          full_picture: data.full_picture || null,
+        }
+      });
+    } catch (error: any) {
+      console.error("[FB Controller getPostDetail] Error:", error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || "Lỗi hệ thống khi tải chi tiết bài viết."
+      });
+    }
+  }
 };

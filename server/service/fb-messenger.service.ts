@@ -301,36 +301,21 @@ export const fbMessengerService = {
     }
 
     const entries = normalizedBody.entry || [];
-    console.log(`[FB Service handleWebhookEvent] Bắt đầu phân tích ${entries.length} entries gửi từ Facebook.`);
 
     for (const entry of entries) {
       // 1. Xử lý sự kiện tin nhắn (Messenger)
       const messagingEvents = entry.messaging || [];
       if (messagingEvents.length > 0) {
-        console.log(`[FB Service handleWebhookEvent] Entry ID: ${entry.id} chứa ${messagingEvents.length} messaging events.`);
         for (const event of messagingEvents) {
-          console.log(`[FB Service handleWebhookEvent] Dang xu ly event: sender=${event.sender?.id}, recipient=${event.recipient?.id}, mid=${event.message?.mid || "n/a"}, is_echo=${event.message?.is_echo ? "true" : "false"}`);
-
           if (event.message && !event.message.is_echo) {
             const attachmentCount = Array.isArray(event.message?.attachments) ? event.message.attachments.length : 0;
             const quickReplyPayload = String(event.message?.quick_reply?.payload || "").trim();
             console.log(
-              `[FB Service handleWebhookEvent] Phat hien tin nhan moi (Inbound Message). ` +
-              `textLength=${String(event.message.text || "").length}, attachments=${attachmentCount}, quickReply=${quickReplyPayload ? "yes" : "no"}`
+              `[FB Service] Nhận tin nhắn mới: sender=${event.sender?.id}, textLength=${String(event.message.text || "").length}, attachments=${attachmentCount}`
             );
             await this.processIncomingMessage(event);
-          } else if (event.message && event.message.is_echo) {
-            console.log(`[FB Service handleWebhookEvent] Bỏ qua tin nhắn dạng echo (phản hồi gửi đi từ fanpage/webhook khác).`);
-          } else if (event.postback) {
-            console.log(
-              `[FB Service handleWebhookEvent] Nhan postback nhung khong dua vao auto-reply. ` +
-              `payload="${String(event.postback?.payload || "").trim()}", title="${String(event.postback?.title || "").trim()}"`
-            );
           } else if (event.read) {
-            console.log(`[FB Service handleWebhookEvent] Phát hiện sự kiện người dùng đã đọc (Read Receipt) từ khách hàng.`);
             await this.processReadReceipt(event);
-          } else {
-            console.log(`[FB Service handleWebhookEvent] Nhận được sự kiện khác (ví dụ: delivery, referral, postback,...). Bỏ qua.`);
           }
         }
       }
@@ -338,13 +323,12 @@ export const fbMessengerService = {
       // 2. Xử lý sự kiện thay đổi trên feed bài viết (Bình luận / Post)
       const changesEvents = entry.changes || [];
       if (changesEvents.length > 0) {
-        console.log(`[FB Service handleWebhookEvent] Entry ID: ${entry.id} chứa ${changesEvents.length} changes events.`);
         for (const change of changesEvents) {
           if (change.field === "feed") {
             const value = change.value;
             if (value && value.item === "comment" && value.verb === "add") {
               facebookCommentService.handleIncomingComment(entry.id, value).catch((err) => {
-                console.error("[FB Service handleWebhookEvent] Lỗi khi xử lý bình luận tự động:", err.message || err);
+                console.error("[FB Service] Lỗi khi xử lý bình luận tự động:", err.message || err);
               });
             }
           }
@@ -389,6 +373,31 @@ export const fbMessengerService = {
     console.warn(`[FB Service Token] Khong tim thay config khop chinh xac cho Page ID=${pageId}. Cac company integration Facebook dang co: ${samePlatformIntegrations.map((item: any) => `${item.companyCode}:${item.displayName}:${item.username}`).join(" | ") || "none"}`);
     console.log(`[FB Service Token] Không tìm thấy config của user nào cho Page ID: ${pageId}. Fallback về biến môi trường FB_PAGE_ACCESS_TOKEN.`);
     return process.env.FB_PAGE_ACCESS_TOKEN || null;
+  },
+
+  async subscribePageWebhooks(pageId: string, token: string): Promise<any> {
+    const cleanPageId = normalizeFacebookId(pageId);
+    const isMockPage = cleanPageId.startsWith("mock_") || cleanPageId === "unknown_page" || cleanPageId === "123456";
+    if (isMockPage) {
+      console.log(`[FB Service subscribePageWebhooks] Bỏ qua subscribe cho Page giả lập: ${cleanPageId}`);
+      return { success: true, message: "Mock Page bypass" };
+    }
+
+    const fields = "feed,messages,messaging_postbacks,message_deliveries,message_reads";
+    const url = `https://graph.facebook.com/v19.0/${cleanPageId}/subscribed_apps?subscribed_fields=${encodeURIComponent(fields)}&access_token=${encodeURIComponent(token)}`;
+    console.log(`[FB Service subscribePageWebhooks] Đang đăng ký webhook cho Page ID: ${cleanPageId}...`);
+
+    try {
+      const response = await (globalThis as any).fetch(url, {
+        method: "POST",
+      });
+      const data = await response.json();
+      console.log(`[FB Service subscribePageWebhooks] Kết quả đăng ký từ Facebook Graph API:`, data);
+      return data;
+    } catch (error: any) {
+      console.error(`[FB Service subscribePageWebhooks] Lỗi khi đăng ký webhook cho Page ID ${cleanPageId}:`, error.message || error);
+      return { error: error.message || error };
+    }
   },
 
   async enrichConversationProfile(pageId: string, senderId: string, conversationId: string) {
@@ -438,34 +447,16 @@ export const fbMessengerService = {
     }));
     const quickReplyPayload = String(message?.quick_reply?.payload || "").trim();
 
-    console.log(
-      `[FB Service processIncomingMessage] 📥 NHẬN TIN: senderId(khách)=${senderId}, recipientId(pageId)=${recipientId}, ` +
-      `messageId=${messageId}, hasOriginalMid=${message?.mid ? "true" : "false"}, textLength=${text.length}, attachments=${attachments.length}, quickReply=${quickReplyPayload ? "yes" : "no"}`
-    );
-
     if (!text && attachments.length === 0 && !quickReplyPayload) {
-      console.warn(
-        `[FB Service processIncomingMessage] Bỏ qua event vì không có text, attachment hoặc quick reply hợp lệ. ` +
-        `senderId=${senderId}, recipientId=${recipientId}, messageId=${messageId}, payload=${JSON.stringify(message)}`
-      );
       return;
     }
 
     const token = await this.getPageAccessTokenByPageId(recipientId);
-    console.log(`[FB Service processIncomingMessage] 🔑 TOKEN: Kết quả tra cứu token cho pageId=${recipientId}: ${token ? `CÓ TOKEN (...${token.slice(-6)})` : "KHÔNG CÓ TOKEN"}`);
     const duplicateMsg = await FBMessageModel.findOne({ messageId });
     if (duplicateMsg) {
-      console.info(
-        `[FB Service processIncomingMessage] ⚠️ Webhook nhận được messageId=${messageId} đã tồn tại trong DB (do sync hoặc trùng webhook).`
-      );
-
       // Vẫn kích hoạt AI nếu tin nhắn này là inbound và chưa được xử lý phản hồi
       const conversation = await FBConversationModel.findOne({ recipientId: senderId, pageId: recipientId });
       if (conversation) {
-        console.log(
-          `[FB Service processIncomingMessage] 🚀 TRIGGER AI (Fallback): Tin nhắn đã được lưu qua sync. ` +
-          `Đang kích hoạt AI cho conversationId=${conversation._id.toString()}`
-        );
         aiAutoReplyService.triggerAutoReply("facebook", recipientId, conversation._id.toString(), text, messageId);
       }
       return;
@@ -475,7 +466,6 @@ export const fbMessengerService = {
 
     // 1. Kiểm tra xem đã có cuộc hội thoại với khách hàng này chưa
     let conversation = await FBConversationModel.findOne({ recipientId: senderId, pageId: recipientId });
-    console.log(`[FB Service processIncomingMessage] 📂 CONVERSATION: Trạng thái hội thoại (pageId=${recipientId}, senderId=${senderId}): ${conversation ? `ĐÃ CÓ (_id=${conversation._id.toString()})` : "CHƯA CÓ"}`);
 
     if (!conversation) {
       let senderName = "Khách hàng Facebook";
@@ -483,7 +473,6 @@ export const fbMessengerService = {
 
       if (token) {
         try {
-          console.log(`[FB Service processIncomingMessage] 👤 PROFILE: Đang lấy thông tin user profile từ Facebook Graph API cho PSID: ${senderId}...`);
           const profile = await Promise.race([
             this.getSenderProfile(senderId, token),
             new Promise<null>((resolve) => setTimeout(() => resolve(null), 350))
@@ -491,15 +480,10 @@ export const fbMessengerService = {
           if (profile) {
             senderName = `${profile.first_name || ""} ${profile.last_name || ""}`.trim() || "Khách hàng Facebook";
             avatarUrl = profile.profile_pic || "";
-            console.log(`[FB Service processIncomingMessage] 👤 PROFILE OK: Lấy được tên: "${senderName}"`);
-          } else {
-            console.warn(`[FB Service processIncomingMessage] 👤 PROFILE TIMEOUT: Không lấy kịp profile của PSID ${senderId} trong 350ms, dùng tên mặc định.`);
           }
         } catch (err: any) {
-          console.error("[FB Service processIncomingMessage] 👤 PROFILE ERROR: Thất bại khi lấy thông tin profile từ Graph API:", err.message || err);
+          console.error("[FB Service] Thất bại khi lấy thông tin profile từ Graph API:", err.message || err);
         }
-      } else {
-        console.warn("[FB Service processIncomingMessage] 👤 PROFILE WARNING: Không có Access Token hợp lệ để gọi Profile Graph API.");
       }
 
       conversation = new FBConversationModel({
@@ -974,8 +958,16 @@ export const fbMessengerService = {
       .lean();
 
     const token = normalizedResolvedPageId ? await this.getPageAccessTokenByPageId(normalizedResolvedPageId) : null;
+    let webhookSubscription: any = null;
+    if (normalizedResolvedPageId && token) {
+      try {
+        webhookSubscription = await this.subscribePageWebhooks(normalizedResolvedPageId, token);
+      } catch (err: any) {
+        webhookSubscription = { error: err.message || err };
+      }
+    }
 
-    console.log(`[FB Diagnose Page] user=${user?.email}, company=${user?.companyCode}, resolvedPageId=${resolvedPageId || "none"}, personalPageId=${user?.facebookIntegration?.pageId || "none"}, companyPages=${companyIntegrations.map((item: any) => item.username).join(",") || "none"}, token=${token ? `FOUND(...${token.slice(-6)})` : "NOT_FOUND"}, conversationsForResolvedPage=${conversationsForResolvedPage}`);
+    console.log(`[FB Diagnose Page] user=${user?.email}, company=${user?.companyCode}, resolvedPageId=${resolvedPageId || "none"}, personalPageId=${user?.facebookIntegration?.pageId || "none"}, companyPages=${companyIntegrations.map((item: any) => item.username).join(",") || "none"}, token=${token ? `FOUND(...${token.slice(-6)})` : "NOT_FOUND"}, conversationsForResolvedPage=${conversationsForResolvedPage}, webhookSubscription=${JSON.stringify(webhookSubscription)}`);
 
     return {
       userEmail: user?.email || null,
@@ -999,6 +991,7 @@ export const fbMessengerService = {
       resolvedPageId: normalizedResolvedPageId || null,
       hasResolvedToken: !!token,
       resolvedTokenTail: token ? token.slice(-6) : null,
+      webhookSubscription,
       directOwnerCandidateCount: directOwnerCandidates.length,
       directOwnerCandidates: directOwnerCandidates.map((item: any) => ({
         email: item.email,
