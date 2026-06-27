@@ -1239,7 +1239,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
           : mediaType === "video"
             ? "\nYêu cầu về phương tiện: Các ý tưởng phải thiết kế đi kèm video làm chủ đạo."
             : mediaType === "human-video"
-              ? "\nYÃªu cáº§u vá» phÆ°Æ¡ng tiá»‡n: CÃ¡c Ã½ tÆ°á»Ÿng pháº£i phÃ¹ há»£p cho video ngÆ°á»i tháº­t/avatar nÃ³i trÆ°á»›c camera, Æ°u tiÃªn hook máº¡nh, lá»i thoáº¡i tá»± nhiÃªn, cáº£nh quay Ä‘Æ¡n giáº£n vÃ  cÃ³ thá»ƒ chuyá»ƒn thÃ nh voice script trá»±c tiáº¿p."
+              ? "\nYêu cầu về phương tiện: Các ý tưởng phải phù hợp cho video người thật/avatar nói trước camera, ưu tiên hook mạnh, lời thoại tự nhiên, cảnh quay đơn giản và có thể chuyển thành voice script trực tiếp."
               : mediaType === "none"
                 ? "\nYêu cầu về phương tiện: Các bài đăng không đi kèm hình ảnh hoặc video (chỉ văn bản/caption)."
                 : "";
