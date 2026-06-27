@@ -10,3 +10,4 @@ firebase-applet-config
 .agent
 temp_key
 package-lock.json
+claude-render

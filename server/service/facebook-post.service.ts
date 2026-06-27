@@ -192,6 +192,11 @@ export const facebookPostService = {
       
       if (!response.ok) {
         const errText = await response.text();
+        // Nếu lỗi là do không tồn tại trường is_published, tức là bài đăng đã được đăng công khai thành công
+        if (errText.includes("Tried accessing nonexisting field (is_published)") || errText.includes("is_published")) {
+          console.log(`[Facebook Service] Phát hiện lỗi 'is_published' không tồn tại trên post ${videoId}. Điều này có nghĩa bài viết đã được đăng thành công.`);
+          return { status: "ready" };
+        }
         return { status: "failed", error: `Facebook Graph API error: ${response.status} - ${errText}` };
       }
 

@@ -15,6 +15,7 @@ import { rolePermissionRouter } from "./role-permission.router";
 import { crudRouter } from "./crud.router";
 import { heygenRouter } from "./heygen.router";
 import { walletRouter } from "./wallet.router";
+import { professionalRouter } from "./professional.router";
 export const apiRouter = Router();
 /**
  * GET /api/v1/health
@@ -78,3 +79,6 @@ apiRouter.use("/wallet", walletRouter);
 
 // Gắn kết router CRUD đa năng (MongoDB)
 apiRouter.use("/crud", crudRouter);
+
+// Public Professional Video Render API (auth bằng X-API-Key header)
+apiRouter.use("/professional", professionalRouter);
