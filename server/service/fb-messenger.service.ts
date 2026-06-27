@@ -330,7 +330,7 @@ export const fbMessengerService = {
             console.log(`[FB Service handleWebhookEvent] Phát hiện sự kiện người dùng đã đọc (Read Receipt) từ khách hàng.`);
             await this.processReadReceipt(event);
           } else {
-            console.log(`[FB Service handleWebhookEvent] Nhận được sự kiện khác (ví dụ: delivery, referral, postback,...). Bỏ qua.`);
+            console.log(`[FB Service handleWebhookEvent] Nhận được sự kiện khác (ví dụ: delivery, referral, postback,...). Bỏ qua. Event keys: ${Object.keys(event).join(", ")}, payload: ${JSON.stringify(event)}`);
           }
         }
       }
@@ -389,6 +389,31 @@ export const fbMessengerService = {
     console.warn(`[FB Service Token] Khong tim thay config khop chinh xac cho Page ID=${pageId}. Cac company integration Facebook dang co: ${samePlatformIntegrations.map((item: any) => `${item.companyCode}:${item.displayName}:${item.username}`).join(" | ") || "none"}`);
     console.log(`[FB Service Token] Không tìm thấy config của user nào cho Page ID: ${pageId}. Fallback về biến môi trường FB_PAGE_ACCESS_TOKEN.`);
     return process.env.FB_PAGE_ACCESS_TOKEN || null;
+  },
+
+  async subscribePageWebhooks(pageId: string, token: string): Promise<any> {
+    const cleanPageId = normalizeFacebookId(pageId);
+    const isMockPage = cleanPageId.startsWith("mock_") || cleanPageId === "unknown_page" || cleanPageId === "123456";
+    if (isMockPage) {
+      console.log(`[FB Service subscribePageWebhooks] Bỏ qua subscribe cho Page giả lập: ${cleanPageId}`);
+      return { success: true, message: "Mock Page bypass" };
+    }
+
+    const fields = "feed,messages,messaging_postbacks,message_deliveries,message_reads";
+    const url = `https://graph.facebook.com/v19.0/${cleanPageId}/subscribed_apps?subscribed_fields=${encodeURIComponent(fields)}&access_token=${encodeURIComponent(token)}`;
+    console.log(`[FB Service subscribePageWebhooks] Đang đăng ký webhook cho Page ID: ${cleanPageId}...`);
+
+    try {
+      const response = await (globalThis as any).fetch(url, {
+        method: "POST",
+      });
+      const data = await response.json();
+      console.log(`[FB Service subscribePageWebhooks] Kết quả đăng ký từ Facebook Graph API:`, data);
+      return data;
+    } catch (error: any) {
+      console.error(`[FB Service subscribePageWebhooks] Lỗi khi đăng ký webhook cho Page ID ${cleanPageId}:`, error.message || error);
+      return { error: error.message || error };
+    }
   },
 
   async enrichConversationProfile(pageId: string, senderId: string, conversationId: string) {
@@ -974,8 +999,16 @@ export const fbMessengerService = {
       .lean();
 
     const token = normalizedResolvedPageId ? await this.getPageAccessTokenByPageId(normalizedResolvedPageId) : null;
+    let webhookSubscription: any = null;
+    if (normalizedResolvedPageId && token) {
+      try {
+        webhookSubscription = await this.subscribePageWebhooks(normalizedResolvedPageId, token);
+      } catch (err: any) {
+        webhookSubscription = { error: err.message || err };
+      }
+    }
 
-    console.log(`[FB Diagnose Page] user=${user?.email}, company=${user?.companyCode}, resolvedPageId=${resolvedPageId || "none"}, personalPageId=${user?.facebookIntegration?.pageId || "none"}, companyPages=${companyIntegrations.map((item: any) => item.username).join(",") || "none"}, token=${token ? `FOUND(...${token.slice(-6)})` : "NOT_FOUND"}, conversationsForResolvedPage=${conversationsForResolvedPage}`);
+    console.log(`[FB Diagnose Page] user=${user?.email}, company=${user?.companyCode}, resolvedPageId=${resolvedPageId || "none"}, personalPageId=${user?.facebookIntegration?.pageId || "none"}, companyPages=${companyIntegrations.map((item: any) => item.username).join(",") || "none"}, token=${token ? `FOUND(...${token.slice(-6)})` : "NOT_FOUND"}, conversationsForResolvedPage=${conversationsForResolvedPage}, webhookSubscription=${JSON.stringify(webhookSubscription)}`);
 
     return {
       userEmail: user?.email || null,
@@ -999,6 +1032,7 @@ export const fbMessengerService = {
       resolvedPageId: normalizedResolvedPageId || null,
       hasResolvedToken: !!token,
       resolvedTokenTail: token ? token.slice(-6) : null,
+      webhookSubscription,
       directOwnerCandidateCount: directOwnerCandidates.length,
       directOwnerCandidates: directOwnerCandidates.map((item: any) => ({
         email: item.email,
