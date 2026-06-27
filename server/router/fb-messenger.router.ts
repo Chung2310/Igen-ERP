@@ -19,3 +19,4 @@ fbMessengerRouter.post("/messenger/conversations/:recipientId/resume-ai", requir
 fbMessengerRouter.get("/messenger/diagnostics/page", requireAuth as any, fbMessengerController.diagnosePageConfig);
 fbMessengerRouter.get("/messenger/diagnostics/:conversationId", requireAuth as any, fbMessengerController.diagnoseConversation);
 fbMessengerRouter.post("/messenger/reply", requireAuth as any, fbMessengerController.sendReply);
+fbMessengerRouter.get("/messenger/post-detail/:postId", requireAuth as any, fbMessengerController.getPostDetail);
