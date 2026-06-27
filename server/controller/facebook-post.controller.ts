@@ -3,7 +3,6 @@ import { facebookPostService } from "../service/facebook-post.service";
 import { SocialIntegrationModel } from "../model/social-integration.model";
 import { UserDataDeletionModel } from "../model/user-data-deletion.model";
 import { MarketingContentModel } from "../model/marketing-content.model";
-import { telegramService } from "../service/telegram.service";
 import crypto from "crypto";
 
 function base64UrlDecode(str: string) {
@@ -547,7 +546,8 @@ export const facebookPostController = {
 
   /**
    * POST /api/v1/facebook/n8n-callback
-   * Tiếp nhận callback tự động từ n8n sau khi đăng bài thành công lên Facebook Page
+   * Tiếp nhận callback từ n8n để cập nhật trạng thái bài đăng vào DB.
+   * status: "published" | "processing" | "failed"
    */
   async receiveN8nCallback(req: Request, res: Response) {
     try {
@@ -557,66 +557,59 @@ export const facebookPostController = {
       if (secretToken && requestToken !== secretToken) {
         return res.status(401).json({
           status: "error",
-          message: "Không có quyền truy cập endpoint này (Token xác thực callback không chính xác).",
+          message: "Token xác thực callback không chính xác.",
         });
       }
 
-      const { cardId, postId, postUrl } = req.body;
+      const { cardId, postId, postUrl, status, error: publishError } = req.body;
 
       if (!cardId || typeof cardId !== "string" || !/^[0-9a-fA-F]{24}$/.test(cardId)) {
         return res.status(200).json({
           status: "success",
-          message: "Card ID không hợp lệ hoặc rỗng, bỏ qua việc cập nhật trạng thái bài viết.",
+          message: "Card ID không hợp lệ hoặc rỗng, bỏ qua cập nhật.",
         });
       }
 
-      // Tìm và cập nhật trạng thái bài đăng trong MongoDB
       const card = await MarketingContentModel.findById(cardId);
       if (!card) {
         return res.status(404).json({
           status: "error",
-          message: "Không tìm thấy bài viết tương ứng với cardId được cung cấp.",
+          message: "Không tìm thấy bài viết tương ứng với cardId.",
         });
       }
 
-      // postUrl có thể rỗng với bài lên lịch hoặc video (Facebook không trả về URL ngay)
-      const finalPostUrl = postUrl || (postId ? `https://www.facebook.com/permalink.php?story_fbid=${postId}` : "");
+      const publishStatus = status || "published";
 
-      card.status = "published";
-      card.publishedAt = new Date();
-      card.facebookPostId = postId;
-      card.postUrl = finalPostUrl;
-      card.publishError = undefined;
+      if (publishStatus === "published") {
+        const finalPostUrl = postUrl || (postId ? `https://www.facebook.com/permalink.php?story_fbid=${postId}` : "");
+        card.status = "published";
+        card.publishedAt = new Date();
+        card.facebookPostId = postId || card.facebookPostId;
+        card.postUrl = finalPostUrl || card.postUrl;
+        card.publishError = undefined;
+        console.log(`[n8n Callback] Bài viết ${cardId} đã đăng thành công. Post ID: ${postId}`);
+      } else if (publishStatus === "processing") {
+        card.status = "processing";
+        if (postId) card.facebookPostId = postId;
+        card.publishError = undefined;
+        console.log(`[n8n Callback] Bài viết ${cardId} đang được Facebook xử lý. Post ID: ${postId}`);
+      } else if (publishStatus === "failed") {
+        card.status = "failed";
+        card.publishError = publishError || "Đăng bài thất bại qua n8n";
+        console.log(`[n8n Callback] Bài viết ${cardId} thất bại: ${card.publishError}`);
+      }
 
       await card.save();
 
-      console.log(`[Facebook Webhook Callback] Cập nhật bài viết ${cardId} đăng thành công lên Facebook. Post ID: ${postId}`);
-
-      // Gửi thông báo tự động tới Telegram với link bài post
-      const telegramChatId = process.env.TELEGRAM_CHAT_ID;
-      if (telegramChatId) {
-        const message = [
-          "📢 <b>ĐÃ ĐĂNG BÀI VIẾT LÊN FACEBOOK!</b> 📢",
-          "=============================",
-          `📝 <b>Tiêu đề:</b> ${card.title || "Không có tiêu đề"}`,
-          `🔗 <b>Đường dẫn bài viết:</b>`,
-          finalPostUrl ? `<a href="${finalPostUrl}">${finalPostUrl}</a>` : `Post ID: ${postId}`,
-          "=============================",
-        ].join("\n");
-        telegramService.sendMessage(telegramChatId, message).catch((err) => {
-          console.error("[Telegram Bot] Lỗi gửi thông báo đăng bài Facebook:", err);
-        });
-      }
-
       return res.status(200).json({
         status: "success",
-        message: "Cập nhật trạng thái bài viết từ n8n callback thành công",
+        message: `Cập nhật trạng thái bài viết thành công: ${publishStatus}`,
       });
     } catch (error: any) {
       console.error("[facebookPostController.receiveN8nCallback] Error:", error);
       return res.status(500).json({
         status: "error",
-        message: "Lỗi xử lý callback cập nhật trạng thái bài đăng Facebook từ n8n",
+        message: "Lỗi xử lý callback từ n8n",
         details: error.message,
       });
     }

@@ -42,15 +42,11 @@ const validateTokenSchema = {
 
 const n8nCallbackSchema = {
   body: Joi.object({
-    cardId: Joi.string().optional().allow("").messages({
-      "string.pattern.base": "Card ID phải là định dạng MongoDB ObjectId hợp lệ.",
-    }),
-    postId: Joi.string().optional().allow("").messages({
-      "any.required": "Post ID là tham số bắt buộc.",
-    }),
-    postUrl: Joi.string().optional().allow("").messages({
-      "string.uri": "Post URL phải là một đường dẫn URL hợp lệ.",
-    }),
+    cardId: Joi.string().optional().allow(""),
+    postId: Joi.string().optional().allow(""),
+    postUrl: Joi.string().optional().allow(""),
+    status: Joi.string().valid("published", "processing", "failed").optional().default("published"),
+    error: Joi.string().optional().allow(""),
   }),
 };
 
