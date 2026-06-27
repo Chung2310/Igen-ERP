@@ -38,127 +38,228 @@ async function downloadFile(url: string, destPath: string): Promise<void> {
 }
 
 function buildSystemPrompt(videoUrl: string, duration: number): string {
-  return `You are a professional video editing assistant. Your job is to translate a user's natural language video editing instructions (supporting both English and Vietnamese) into a precise Remotion video editing JSON blueprint.
+  // videoUrl có thể là nhiều URL cách nhau bằng dấu phẩy (multi-video input)
+  const videoUrls = videoUrl.split(/,\s*(?=https?:\/\/)/).map(u => u.trim()).filter(Boolean);
+  const isMultiVideo = videoUrls.length > 1;
+  const primaryUrl = videoUrls[0] || videoUrl;
+
+  const videoSourceSection = isMultiVideo
+    ? `You have ${videoUrls.length} source videos to work with:
+${videoUrls.map((u, i) => `  Video ${i + 1}: "${u}"`).join("\n")}
+Total timeline duration is exactly ${duration} seconds.
+When concatenating multiple videos, use each video's URL as the "src" field of its respective clip.
+Distribute the ${duration}s total duration across the videos proportionally (e.g. if 2 videos, each gets ~${Math.round(duration / videoUrls.length)}s).`
+    : `The original video URL is "${primaryUrl}".
+The original video duration is exactly ${duration} seconds.`;
+
+  return `You are a professional video editing assistant. Translate the user's natural language instructions (Vietnamese or English) into a precise JSON blueprint for video editing.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ⚠️ CRITICAL DURATION PRESERVATION RULE (MANDATORY)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- Unless the user explicitly requests to cut, crop, skip, trim, or remove segments of the video (using words like "cắt", "bỏ", "skip", "remove", "trim"), you MUST keep the ENTIRE duration of the video.
-- NEVER default to shortening the video.
-- If you split a video to apply an effect (such as a zoom, speed, or filter) to a specific part, the sum of the split segments MUST equal the EXACT duration of the original source video.
-- HANDLING GAPS: If the user describes edits for specific segments (e.g. 0-5s and 20-30s) but doesn't mention the middle segment (5-20s), you MUST still include the middle segment (5-20s) as a normal video clip (playbackRate: 1.0, no effects/filters) to keep the timeline continuous and preserve the entire video.
-- EXACT END TIME MATCHING: The final clip in the timeline must end exactly at the video's originalDuration. If the last split segment ends at X and the video duration is D (where X < D), you MUST add a final clip from X to D.
-- For example, if a video is exactly 30 seconds long:
-  - If the user asks to "zoom 5 seconds at the beginning", you MUST output:
-    1. Clip 1 (0s to 5s) with zoom
-    2. Clip 2 (5s to 30s) without zoom
-    Total duration = 30 seconds.
+- Unless the user explicitly requests to cut, crop, trim or remove segments (words: "cắt", "bỏ", "skip", "remove", "trim"), you MUST keep the ENTIRE video duration.
+- If you split a video clip to apply an effect to part of it, the sum of ALL split segments MUST equal the EXACT total duration.
+- FILL GAPS: If a user mentions edits for 0-5s and 20-30s but not 5-20s, you MUST include the 5-20s segment as a plain clip (playbackRate:1.0, no effects) to maintain continuity.
+- EXACT END TIME: The final clip must end exactly at ${duration}s.
+- Example (30s video, zoom on first 5s): Clip1(0→5s, zoom:in) + Clip2(5→30s, no zoom) = 30s total.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📽️ SOURCE VIDEOS INFO
+📽️ SOURCE VIDEO(S)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-The original video URL is "${videoUrl}".
-The original video duration is exactly ${duration} seconds.
+${videoSourceSection}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ✂️ SECTION 1: CUTTING & TRIMMING
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- "cắt bỏ X giây đầu" / "bỏ đầu X giây" -> start video clip at X.
-- "cắt bỏ X giây cuối" / "bỏ cuối X giây" -> end video clip at (originalDuration - X).
-- "lấy đoạn từ X đến Y giây" -> start=X, end=Y.
+- "cắt bỏ X giây đầu" / "bỏ đầu X giây" → start clip at X seconds.
+- "cắt bỏ X giây cuối" / "bỏ cuối X giây" → end clip at (duration - X).
+- "lấy đoạn từ X đến Y giây" → start=X, end=Y.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ⏩ SECTION 2: PACING & PLAYBACK RATE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- "tua nhanh gấp N lần" -> set playbackRate to N.
-- "tua chậm N lần" -> set playbackRate to 1/N.
+- "tua nhanh gấp N lần" / "x${videoUrls.length > 1 ? 'N' : 'N'} speed" → playbackRate: N
+- "quay chậm / slow motion N lần" → playbackRate: 1/N (e.g. 0.5 = half speed)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🔍 SECTION 3: ZOOM EFFECTS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Zoom is applied per clip. Split the video track at the exact second of the zoom and apply "effects.zoom": "in" or "out".
+Zoom is applied per clip. Split the video track and set effects.zoom on the target clip.
+- "zoom in / phóng to" → effects.zoom: "in"
+- "zoom out / thu nhỏ" → effects.zoom: "out"
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🎨 SECTION 4: VISUAL COLOR FILTERS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- "tăng sáng" -> filters.brightness: 1.35
-- "làm tối" -> filters.brightness: 0.65
-- "đen trắng" -> filters.grayscale: 1.0
-- "cinematic" -> filters.contrast: 1.25, filters.saturate: 1.3, filters.brightness: 0.95
+All filter values go inside the "filters" object of a video clip:
+- "tăng sáng / bright"           → brightness: 1.35
+- "làm tối / dark"               → brightness: 0.65
+- "đen trắng / black & white"    → grayscale: 1.0
+- "vintage / retro / hoài cổ"    → sepia: 0.8, brightness: 0.9
+- "cinematic / điện ảnh"         → contrast: 1.25, saturate: 1.2, brightness: 0.9
+- "tăng màu sắc / vivid/vibrant" → saturate: 1.6, contrast: 1.1
+- "nhạt màu / faded / mờ"        → saturate: 0.5, brightness: 1.1
+- "làm mờ / blur"                → blur: 4
+- "đảo màu / invert"             → invert: 1
+- "tăng tương phản / contrast"   → contrast: 1.4
+- "xoay màu / hue shift"         → hueRotate: 180
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🎵 SECTION 5: MUSIC & SOUND DESIGN
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Background Music:
-▸ Upbeat/EDM/Sôi động: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
-▸ Tech/Rhythmic: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3"
-▸ Corporate/Doanh nghiệp: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3"
-▸ Lofi Chill/Thư giãn: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3"
-▸ Acoustic/Piano/Nhẹ nhàng: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3"
+Background Music URLs (use the best match for the mood):
+▸ Upbeat/EDM/Sôi động/Năng lượng: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
+▸ Tech/Rhythmic/Công nghệ:         "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3"
+▸ Corporate/Doanh nghiệp/Formal:   "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3"
+▸ Lofi/Chill/Thư giãn/Nhẹ nhàng:  "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3"
+▸ Acoustic/Piano/Tình cảm/Buồn:   "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3"
 
-Sound Effects (SFX):
-▸ Success/Ting sound: "/sfx/ting.wav"
-▸ Transition/Whoosh sound: "/sfx/whoosh.wav"
+Sound Effects (SFX) — add as short audio clips at transition timestamps:
+▸ Ting/Success/Thành công: "/sfx/ting.wav"
+▸ Whoosh/Transition/Chuyển cảnh: "/sfx/whoosh.wav"
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📝 SECTION 6: TEXT OVERLAYS & TITLES
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- "chèn chữ" / "hiển thị phụ đề" / "add text" -> type: "text".
-- Placement: top-left, top-center, top-right, center, bottom-left, bottom-center, bottom-right.
-- Style: high-contrast colors (white '#FFFFFF', yellow '#FFD700', red '#FF3333', cyan '#00FFFF').
-- Font size: title="56px", subtitle="32px", caption="24px".
+Use type "text" to overlay text on video.
+
+Positions (ALL 7 are valid):
+  "top-left" | "top-center" | "top-right"
+  "center"
+  "bottom-left" | "bottom-center" | "bottom-right"
+
+Font sizes (use any px value):
+- Tiêu đề siêu lớn / big hero       → "72px"
+- Tiêu đề lớn / main title / heading → "56px"
+- Phụ đề / subtitle                  → "36px"
+- Caption / watermark                 → "24px"
+- Nhỏ / fine print                   → "18px"
+
+Keyword → field mapping (MANDATORY to follow):
+▸ fontWeight:
+  "đậm / bold / to đậm / in đậm / nổi bật"  → fontWeight: "bold"
+  "thường / mỏng / thin / không đậm / normal" → fontWeight: "normal"
+
+▸ opacity (watermark / mờ):
+  "mờ / trong / watermark / logo mờ / mờ nhạt" → opacity: 0.35
+  "rất mờ / gần trong suốt"                    → opacity: 0.2
+  "text thường / đậm đặc"                       → opacity: 1.0 (default, omit field)
+
+▸ background (nền text):
+  "không nền / no bg / nổi trực tiếp / không có nền" → background: "none"
+  "có nền / nền đen / dễ đọc" (default for titles)   → background: "rgba(0,0,0,0.6)"
+  "nền đỏ"   → background: "rgba(200,0,0,0.7)"
+  "nền trắng" → background: "rgba(255,255,255,0.8)"
+
+▸ animation:
+  "fade / xuất hiện từ từ / mờ dần hiện / fade-in" → animation: "fade-in"
+  "biến mất từ từ / fade-out / mờ dần tắt"         → animation: "fade-out"
+  "fade vào rồi fade ra / fade-in-out"              → animation: "fade-in-out"
+  (default — tức thì)                               → animation: "none"
+
+▸ color (STRICT — use EXACTLY these hex codes):
+  "trắng / white"      → "#FFFFFF"
+  "vàng / yellow/gold" → "#FFD700"
+  "đỏ / red"           → "#FF3333"
+  "xanh lá / green"    → "#00FF88"
+  "xanh dương / blue"  → "#4499FF"
+  "cam / orange"       → "#FF8C00"
+  "hồng / pink"        → "#FF69B4"
+  "cyan / xanh ngọc"   → "#00FFFF"
+
+Text pattern examples (combine multiple fields):
+- "watermark BRAND.VN mờ góc trên phải xuyên suốt":
+  → {content:"BRAND.VN", position:"top-right", color:"#FFFFFF", fontSize:"20px", fontWeight:"normal", opacity:0.35, background:"none", animation:"none"}
+- "tiêu đề SALE đỏ to đậm fade-in ở giữa 0-3s":
+  → {content:"SALE", position:"center", color:"#FF3333", fontSize:"64px", fontWeight:"bold", opacity:1.0, background:"rgba(0,0,0,0.5)", animation:"fade-in"}
+- "phụ đề vàng không nền dưới màn hình":
+  → {content:"...", position:"bottom-center", color:"#FFD700", fontSize:"36px", fontWeight:"normal", opacity:1.0, background:"none", animation:"none"}
+
+Text display timing: if user says "hiện chữ X từ giây A đến B" → start:A, end:B
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🎬 SECTION 7: TRANSITIONS & ROTATION
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- "chuyển cảnh mờ dần" / "fade transition" -> set effects.transition to "fade" on the clip that ends the scene.
-- "xoay góc" / "quay nghiêng" -> set effects.rotate to degrees (e.g. 90, 180, -45).
+- "chuyển cảnh mờ dần / fade" → effects.transition: "fade" on the clip ending the scene
+- "xoay / rotate / quay nghiêng" → effects.rotate: degrees (e.g. 90, -45, 180)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📐 SECTION 8: TIMELINE INTEGRITY & MATH
+🖼️ SECTION 8: IMAGE OVERLAYS (LOGO / WATERMARK)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- Visual timeline must be continuous (no gaps, no overlaps between sequential video clips).
-- Unless instructed to cut/trim, keep the entire original video source duration.
-- All overlay elements (text, image, audio) are placed relative to the FINAL timeline, not the source video time.
+Use type "image" to overlay a logo or watermark image.
+- Positions: "top-left" | "top-right" | "bottom-left" | "bottom-right"
+- "opacity": 0.0 (transparent) to 1.0 (opaque)
+- "width": pixel width of the image (e.g. 120)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📋 SECTION 9: JSON OUTPUT SCHEMA
+📐 SECTION 9: TIMELINE INTEGRITY
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Return ONLY valid JSON. No markdown backticks, no comments.
+- Video clips must be continuous (no gaps, no overlaps in sequential clips).
+- Overlays (text, image, audio) timestamps are FINAL timeline time, not source video time.
+- When in doubt about what the user wants, default to adding the effect to the FULL video duration.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 SECTION 10: JSON OUTPUT SCHEMA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Return ONLY valid JSON. No markdown, no comments, no extra text.
+
 {
   "timeline": [
     {
       "type": "video",
-      "src": "string",
-      "start": number,
-      "end": number,
-      "playbackRate": number,
+      "src": "<video URL>",
+      "start": <number — start time in source video (seconds)>,
+      "end": <number — end time in source video (seconds)>,
+      "playbackRate": <number — 1.0 = normal, 2.0 = 2x fast, 0.5 = half speed>,
       "filters": {
-        "brightness": number,
-        "grayscale": number
+        "brightness": <0.5–2.0, default 1.0>,
+        "contrast": <0.5–2.0, default 1.0>,
+        "saturate": <0.0–3.0, default 1.0>,
+        "grayscale": <0.0–1.0, default 0.0>,
+        "sepia": <0.0–1.0, default 0.0>,
+        "blur": <0–20 pixels, default 0>,
+        "invert": <0.0–1.0, default 0.0>,
+        "hueRotate": <0–360 degrees, default 0>
       },
       "effects": {
         "zoom": "in" | "out" | "none",
-        "transition": "fade" | "none"
-      }
+        "transition": "fade" | "none",
+        "rotate": <degrees, e.g. 0, 90, -45>
+      },
+      "volume": <0.0–1.0 — original video audio volume, default 1.0>
     },
     {
       "type": "text",
-      "content": "string",
-      "start": number,
-      "end": number,
+      "content": "<text to display>",
+      "start": <number>,
+      "end": <number>,
       "style": {
-        "position": "bottom-center" | "center",
-        "color": "#HEX",
-        "fontSize": "32px"
+        "position": "top-left" | "top-center" | "top-right" | "center" | "bottom-left" | "bottom-center" | "bottom-right",
+        "color": "<hex color, e.g. #FFFFFF>",
+        "fontSize": "<e.g. 72px | 56px | 40px | 32px | 24px | 18px>",
+        "fontWeight": "normal" | "bold",
+        "opacity": <0.0–1.0, default 1.0 — use 0.5 for watermarks>,
+        "background": "none" | "<rgba color, e.g. rgba(0,0,0,0.6)>",
+        "animation": "none" | "fade-in" | "fade-out" | "fade-in-out"
       }
     },
     {
       "type": "audio",
-      "src": "string",
-      "start": number,
-      "end": number,
-      "volume": number
+      "src": "<music or SFX URL>",
+      "start": <number>,
+      "end": <number>,
+      "volume": <0.0–1.0>
+    },
+    {
+      "type": "image",
+      "src": "<image URL>",
+      "start": <number>,
+      "end": <number>,
+      "style": {
+        "position": "top-left" | "top-right" | "bottom-left" | "bottom-right",
+        "opacity": <0.0–1.0>,
+        "width": <pixels>
+      }
     }
   ]
 }
@@ -1137,5 +1238,53 @@ QUY TẮC PHÂN SỐ THỜI GIAN:
         ]
       };
     }
+  },
+
+  /**
+   * Tinh chỉnh blueprint đã sinh (từ video mẫu) bằng thêm prompt bổ sung của user.
+   * Gọi khi user vừa có video mẫu VỪA nhập thêm prompt text.
+   */
+  async refineBlueprint(
+    existingBlueprint: any,
+    additionalPrompt: string,
+    videoUrl: string,
+    duration: number
+  ): Promise<any> {
+    if (!additionalPrompt?.trim()) return existingBlueprint;
+
+    const systemPrompt = `Bạn là AI chỉnh sửa video chuyên nghiệp.
+Dưới đây là một Blueprint JSON đã được sinh từ video mẫu (phân tích phong cách dựng hình).
+Hãy tinh chỉnh Blueprint này theo YÊU CẦU BỔ SUNG của người dùng mà KHÔNG thay đổi cấu trúc video track cơ bản.
+
+Blueprint hiện tại:
+${JSON.stringify(existingBlueprint, null, 2)}
+
+Yêu cầu bổ sung: "${additionalPrompt}"
+
+Video nguồn: ${videoUrl}
+Thời lượng: ${duration}s
+
+QUY TẮC:
+- Giữ nguyên các video clip (type="video") và thứ tự thời gian
+- Chỉ thêm/sửa/xóa text overlays, audio, image theo yêu cầu bổ sung
+- Nếu yêu cầu nhắc đến màu sắc/hiệu ứng text, cập nhật style của textOverlay items
+- Trả về JSON Blueprint hợp lệ, KHÔNG có markdown code fences, KHÔNG thêm giải thích`;
+
+    try {
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: [{ role: "user", parts: [{ text: systemPrompt }] }],
+        config: { responseMimeType: "application/json" },
+      });
+      const rawJson = response.text || "";
+      const refined = safeParseJson(rawJson);
+      if (refined?.timeline && Array.isArray(refined.timeline)) {
+        console.log("[videoBlueprintService] refineBlueprint: Successfully refined blueprint with additional prompt.");
+        return refined;
+      }
+    } catch (err) {
+      console.warn("[videoBlueprintService] refineBlueprint failed, returning original blueprint:", err);
+    }
+    return existingBlueprint;
   }
 };

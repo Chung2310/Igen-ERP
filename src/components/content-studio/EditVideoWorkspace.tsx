@@ -148,7 +148,7 @@ export function EditVideoWorkspace({
     camera_movement?: string;
   } | null>(null);
   const [selectedModel, setSelectedModel] = useState(MODEL_OPTIONS[0].value);
-  const [renderEngine, setRenderEngine] = useState<RenderEngine>('hermes');
+  const [renderEngine, setRenderEngine] = useState<RenderEngine>('hyperframe');
   const [aspectRatio, setAspectRatio] = useState(ASPECT_OPTIONS[0].value);
   const [duration, setDuration] = useState(DURATION_OPTIONS[0].value);
   const [resolution, setResolution] = useState(QUALITY_OPTIONS[0].value);
@@ -174,7 +174,7 @@ export function EditVideoWorkspace({
   const [isPlaying, setIsPlaying] = useState(false);
 
   const activeRecord = history.find(h => h.url === outputUrl || h._id === currentRecordId || h.id === currentRecordId);
-  const isHermes = (activeRecord?.metadata?.provider === 'hermes-worker') || (activeRecord ? false : (renderEngine === 'hermes'));
+  const isHermes = activeRecord?.metadata?.provider === 'hermes-worker';
 
   const handleUpdateTimelineItem = (index: number, key: string, value: any) => {
     if (!blueprint) return;
@@ -778,6 +778,7 @@ export function EditVideoWorkspace({
         renderMode: renderEngine === 'hermes' ? 'hermes' : 'local',
         renderEngine,
         referenceVideoUrl: uploadedRefUrl || undefined,
+        referenceVideoDuration: referenceVideo?.duration || undefined,
       });
 
       if (response.record) {
@@ -1251,10 +1252,25 @@ export function EditVideoWorkspace({
 
 
             <div className="space-y-4">
+              {/* Badge chế độ video mẫu */}
+              {referenceVideo && (
+                <div className="flex items-center gap-2 rounded-2xl bg-purple-50 border border-purple-200 px-3 py-2">
+                  <span className="inline-flex h-2 w-2 rounded-full bg-purple-500 shrink-0" />
+                  <p className="text-xs font-semibold text-purple-700">Chế độ: Áp dụng phong cách từ video mẫu</p>
+                  <span className="ml-auto text-[10px] text-purple-500">Prompt bên dưới là tùy chọn</span>
+                </div>
+              )}
+
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-sm font-semibold text-slate-900">Ý tưởng của bạn</p>
-                  <p className="mt-1 text-sm text-slate-500">Mô tả đoạn video bạn muốn AI chỉnh sửa.</p>
+                  <p className="text-sm font-semibold text-slate-900">
+                    {referenceVideo ? 'Ghi chú bổ sung (tùy chọn)' : 'Ý tưởng của bạn'}
+                  </p>
+                  <p className="mt-1 text-sm text-slate-500">
+                    {referenceVideo
+                      ? 'AI sẽ học phong cách từ video mẫu. Nhập thêm yêu cầu tinh chỉnh nếu cần.'
+                      : 'Mô tả đoạn video bạn muốn AI chỉnh sửa.'}
+                  </p>
                 </div>
                 <button
                   type="button"
@@ -1268,22 +1284,24 @@ export function EditVideoWorkspace({
                 </button>
               </div>
 
-              <div className="flex flex-wrap gap-2 pt-1 pb-2">
-                {STYLE_PRESETS.map((preset, idx) => {
-                  const isConcatPreset = preset.label.startsWith('Ghép');
-                  if (isConcatPreset && videoInputs.length < 2) return null;
-                  return (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => handleSelectPreset(preset.prompt)}
-                      className="rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-slate-950 hover:border-slate-350 shadow-xs cursor-pointer animate-in fade-in duration-200"
-                    >
-                      {preset.label}
-                    </button>
-                  );
-                })}
-              </div>
+              {!referenceVideo && (
+                <div className="flex flex-wrap gap-2 pt-1 pb-2">
+                  {STYLE_PRESETS.map((preset, idx) => {
+                    const isConcatPreset = preset.label.startsWith('Ghép');
+                    if (isConcatPreset && videoInputs.length < 2) return null;
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => handleSelectPreset(preset.prompt)}
+                        className="rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-slate-950 hover:border-slate-350 shadow-xs cursor-pointer animate-in fade-in duration-200"
+                      >
+                        {preset.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
 
               <textarea
                 value={prompt}
@@ -1291,9 +1309,11 @@ export function EditVideoWorkspace({
                   setPrompt(e.target.value);
                   setOptimizedData(null);
                 }}
-                rows={6}
-                placeholder="Nhập ý tưởng chỉnh sửa: ví dụ 'Làm video này thành clip viral TikTok', 'Thêm phụ đề và nhạc nền', 'Cắt bỏ 5 giây đầu, zoom cận cảnh đoạn giữa', 'Chuyển sang đen trắng, thêm nhạc piano', 'Ghép 2 video + text intro + nhạc EDM'"
-                className="min-h-[160px] w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-900 outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100"
+                rows={referenceVideo ? 3 : 6}
+                placeholder={referenceVideo
+                  ? 'Tùy chọn: "Thêm tiêu đề màu đỏ ở đầu", "Dùng nhạc upbeat", "Zoom cận cảnh đoạn giữa"...'
+                  : "Nhập ý tưởng chỉnh sửa: ví dụ 'Làm video này thành clip viral TikTok', 'Thêm phụ đề và nhạc nền', 'Cắt bỏ 5 giây đầu, zoom cận cảnh đoạn giữa', 'Chuyển sang đen trắng, thêm nhạc piano', 'Ghép 2 video + text intro + nhạc EDM'"}
+                className="min-h-[80px] w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-900 outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100"
               />
             </div>
 
@@ -1347,12 +1367,12 @@ export function EditVideoWorkspace({
                 {isGenerating ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Đang tạo video...
+                    {referenceVideo ? 'Đang phân tích & áp dụng phong cách...' : 'Đang tạo video...'}
                   </>
                 ) : (
                   <>
                     <Play className="h-4 w-4" />
-                    Tạo video ngay
+                    {referenceVideo ? 'Áp dụng phong cách từ video mẫu' : 'Tạo video ngay'}
                   </>
                 )}
               </button>
@@ -1681,7 +1701,7 @@ export function EditVideoWorkspace({
                 {(outputUrl || isGenerating || blueprint) ? (
                   (isGenerating || (outputUrl && outputUrl.startsWith('pending://'))) ? (() => {
                     const isLocalRender = activeRecord
-                      ? (activeRecord.metadata?.provider === 'local-render')
+                      ? (activeRecord.metadata?.provider !== 'hermes-worker')
                       : (renderEngine !== 'hermes');
 
                     const progressVal = displayProgress;
@@ -1918,7 +1938,9 @@ export function EditVideoWorkspace({
                           const provider = item.metadata?.provider;
                           if (provider === 'hermes-worker') {
                             setRenderEngine('hermes');
-                          } else if (provider === 'local-render') {
+                          } else if (provider === 'hyperframe') {
+                            setRenderEngine('hyperframe');
+                          } else if (provider === 'remotion' || provider === 'local-render') {
                             setRenderEngine('remotion');
                           }
                           if (item.metadata?.blueprint) {
@@ -1953,7 +1975,7 @@ export function EditVideoWorkspace({
                           )}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="font-semibold text-slate-900 line-clamp-2">{item.prompt || 'Video AI đã tạo'}</p>
+                          <p className="font-semibold text-slate-900 line-clamp-2 leading-relaxed">{item.prompt || 'Video AI đã tạo'}</p>
                           <p className="mt-1 text-sm text-slate-500">{new Date(item.createdAt).toLocaleString()}</p>
                           <div className="mt-3 flex flex-wrap gap-2 text-xs">
                             <span className="rounded-full bg-slate-100 px-2 py-1 text-slate-700">{item.aspectRatio || '16:9'}</span>
@@ -2023,7 +2045,7 @@ export function EditVideoWorkspace({
                           )}
                         </div>
                         <div className="mt-3">
-                          <p className="font-semibold text-slate-900 line-clamp-2">{item.prompt || 'Video đã tải lên'}</p>
+                          <p className="font-semibold text-slate-900 line-clamp-2 leading-relaxed">{item.prompt || 'Video đã tải lên'}</p>
                           <p className="mt-2 text-xs text-slate-500">{new Date(item.createdAt).toLocaleString()}</p>
                         </div>
                       </button>
