@@ -1,4 +1,4 @@
-﻿import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { AIMediaModel } from "../model/ai-media.model";
 import { CompanyModel } from "../model/company.model";
 import { cloudinaryService } from "./cloudinary.service";
@@ -483,16 +483,27 @@ async function generateText(
       const isRateLimit = error?.status === 429 || errorMsg.includes("429") || errorMsg.includes("RESOURCE_EXHAUSTED") || errorMsg.includes("quota");
       const isUnavailable = error?.status === 503 || errorMsg.includes("503") || errorMsg.includes("UNAVAILABLE") || errorMsg.includes("experiencing high demand");
       const isNetworkError = errorMsg.includes("fetch failed") || errorMsg.includes("ENOTFOUND") || errorMsg.includes("ECONNRESET") || errorMsg.includes("ETIMEDOUT") || errorMsg.includes("socket");
+      const isPrepaymentDepleted = errorMsg.includes("prepayment credits are depleted") || errorMsg.includes("prepay");
+
+      if (isPrepaymentDepleted) {
+        console.error(`[generateText] Gemini API key prepayment credits depleted. Failing fast.`);
+        try {
+          const { telegramService } = require("./telegram.service");
+          telegramService.sendGeminiBillingAlert(errorMsg).catch((err: any) => {
+            console.error("[generateText] Failed to send Gemini billing alert to Telegram:", err);
+          });
+        } catch (tgErr) {
+          console.error("[generateText] Error requiring telegramService:", tgErr);
+        }
+        break;
+      }
 
       if ((isRateLimit || isUnavailable || isNetworkError) && attempt < maxRetries) {
         console.warn(`[generateText] Attempt ${attempt} failed with API error (rate-limit/unavailable/network). Retrying in ${delay}ms... Error: ${errorMsg}`);
         await new Promise((resolve) => setTimeout(resolve, delay));
         delay *= 2;
-      } else if (isUnavailable) {
-        // Throw user-friendly message for overload errors after all retries are exhausted
-        throw new Error("Mô hình AI quá tải, vui lòng thử lại sau.");
       } else {
-        throw error;
+        break;
       }
     }
   }
@@ -503,7 +514,7 @@ async function generateText(
   const hasImages = config?.images && config.images.length > 0;
   if (isFreeLLMConfigured() && !hasImages) {
     const lastErrorMsg = lastError?.message || String(lastError);
-    console.warn(`[generateText] Gemini failed after ${maxRetries} attempts (${lastErrorMsg}). Falling back to FreeLLM API...`);
+    console.warn(`[generateText] Gemini failed. Falling back to FreeLLM API... Original Error: ${lastErrorMsg}`);
     try {
       const freeLLMMessages = buildFreeLLMMessages(contents, config?.systemInstruction);
       const needsJson = !!config?.responseMimeType?.includes("json") || !!config?.responseSchema;
@@ -520,13 +531,17 @@ async function generateText(
   }
   // ─────────────────────────────────────────────────────────────────────────
 
-  // Final check: if last error was an overload error, return friendly message
-  const lastErrorMsg = lastError?.message || String(lastError);
-  const wasOverloaded = lastError?.status === 503 || lastErrorMsg.includes("503") || lastErrorMsg.includes("UNAVAILABLE") || lastErrorMsg.includes("experiencing high demand");
-  if (wasOverloaded) {
-    throw new Error("Mô hình AI quá tải, vui lòng thử lại sau.");
+  // Nếu không có FreeLLM hoặc FreeLLM thất bại, ném lỗi gốc của Gemini
+  if (lastError) {
+    const lastErrorMsg = lastError?.message || String(lastError);
+    const wasOverloaded = lastError?.status === 503 || lastErrorMsg.includes("503") || lastErrorMsg.includes("UNAVAILABLE") || lastErrorMsg.includes("experiencing high demand");
+    if (wasOverloaded) {
+      throw new Error("Mô hình AI quá tải, vui lòng thử lại sau.");
+    }
+    throw lastError;
   }
-  throw lastError;
+
+  throw new Error("Gemini API call failed with no error details.");
 }
 
 export const geminiService = {
