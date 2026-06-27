@@ -13,7 +13,7 @@ const MODEL_OPTIONS = [
   { value: 'piapi-veo31-video-fast-no-audio', label: 'iGen video 3.1 Fast Silent' },
 ];
 
-type RenderEngine = 'remotion' | 'hyperframe' | 'hermes';
+type RenderEngine = 'remotion' | 'hyperframe' | 'hermes' | 'professional';
 
 const ENGINE_OPTIONS: Array<{
   value: RenderEngine;
@@ -42,6 +42,13 @@ const ENGINE_OPTIONS: Array<{
       description: 'Đám mây. Worker farm xử lý nền. Dùng khi máy cục bộ yếu hoặc cần scale.',
       badge: 'Cloud',
       badgeColor: 'bg-violet-100 text-violet-700',
+    },
+    {
+      value: 'professional',
+      label: 'Professional (Claude)',
+      description: 'Chuyên nghiệp. Claude viết code HTML+GSAP và kết xuất video chuyển cảnh mượt mà độc lập trên VPS.',
+      badge: 'Pro & Claude',
+      badgeColor: 'bg-amber-100 text-amber-700',
     },
   ];
 
@@ -1247,6 +1254,24 @@ export function EditVideoWorkspace({
                   </select>
                 </div>
               </div>
+
+              <div className="flex flex-col gap-1.5 pt-2">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Động cơ kết xuất (Render Engine)</label>
+                <select
+                  value={renderEngine}
+                  onChange={(e) => setRenderEngine(e.target.value as RenderEngine)}
+                  className="w-full text-xs p-2.5 border border-slate-200 rounded-xl outline-none focus:border-cyan-400 bg-white font-semibold text-slate-700 cursor-pointer transition-colors"
+                >
+                  {ENGINE_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label} ({opt.badge})
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">
+                  {ENGINE_OPTIONS.find(opt => opt.value === renderEngine)?.description}
+                </p>
+              </div>
             </div>
 
 
@@ -1942,6 +1967,8 @@ export function EditVideoWorkspace({
                             setRenderEngine('hyperframe');
                           } else if (provider === 'remotion' || provider === 'local-render') {
                             setRenderEngine('remotion');
+                          } else if (provider === 'claude-render') {
+                            setRenderEngine('professional');
                           }
                           if (item.metadata?.blueprint) {
                             try {

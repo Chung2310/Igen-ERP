@@ -5,7 +5,7 @@
  * VPS server dùng Anthropic Claude API để sinh HTML+GSAP → HyperFrames → FFmpeg → Cloudinary.
  *
  * Env vars:
- *   CLAUDE_RENDER_VPS_URL  — URL của VPS server (default: http://103.90.224.34:8644)
+ *   CLAUDE_RENDER_VPS_URL  — URL của VPS server (default: http://localhost:8644)
  *   CLAUDE_RENDER_API_KEY  — API key để xác thực (default: igen-render-2024)
  */
 
@@ -13,11 +13,11 @@ import { AIMediaModel } from "../../model/ai-media.model";
 import { broadcastEvent } from "../../socket";
 
 function getServerUrl(): string {
-  return String(process.env.CLAUDE_RENDER_VPS_URL || "http://103.90.224.34:8644").replace(/\/$/, "");
+  return String(process.env.CLAUDE_RENDER_VPS_URL || "http://localhost:8644").replace(/\/$/, "");
 }
 
 function getApiKey(): string {
-  return process.env.CLAUDE_RENDER_API_KEY || "igen-render-2024";
+  return process.env.CLAUDE_RENDER_API_KEY || "";
 }
 
 const POLL_INTERVAL_MS = 12_000;
@@ -30,6 +30,10 @@ async function pollJobStatus(taskId: string): Promise<{
 }> {
   const url = getServerUrl();
   const key = getApiKey();
+
+  console.log("task id", taskId);
+  console.log("url", url);
+  console.log("key", key);
 
   for (let i = 0; i < MAX_POLLS; i++) {
     await new Promise(r => setTimeout(r, POLL_INTERVAL_MS));
@@ -83,7 +87,7 @@ export const claudeRenderService = {
         renderLogs: [
           "[Claude Render] Khởi tạo pipeline...",
           `[Claude Render] Facecam: ${facecamUrl}`,
-          `[Claude Render] Scenes: ${(scenes || ["hook","story","insight","pipeline","before_after","cta"]).join(", ")}`,
+          `[Claude Render] Scenes: ${(scenes || ["hook", "story", "insight", "pipeline", "before_after", "cta"]).join(", ")}`,
         ],
         aspectRatio: "16:9",
         resolution: "720p",
@@ -105,13 +109,13 @@ export const claudeRenderService = {
     opts: { scenes?: string[]; brandName?: string; bgMusicUrl?: string; webhookUrl?: string }
   ): Promise<void> {
     const serverUrl = getServerUrl();
-    const apiKey    = getApiKey();
+    const apiKey = getApiKey();
 
     function addLog(progress: number, msg: string, extraStatus?: string) {
       AIMediaModel.findByIdAndUpdate(recordId, {
         $push: { "metadata.renderLogs": msg },
         $set: { "metadata.progress": progress },
-      }).catch(() => {});
+      }).catch(() => { });
       broadcastEvent("video_status_updated", {
         recordId, userId, progress, log: msg,
         status: extraStatus || (progress < 100 ? "processing" : "done"),
