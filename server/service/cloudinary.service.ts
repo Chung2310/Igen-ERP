@@ -34,6 +34,7 @@ export const cloudinaryService = {
       const response = await cloudinary.uploader.upload(fileStr, {
         folder: folder || "igen_erp",
         resource_type: "auto", // Tự động nhận diện ảnh/video
+        timeout: 600000, // Tăng timeout lên 10 phút cho video dung lượng lớn
       });
       return response.secure_url;
     } catch (error: any) {
@@ -64,6 +65,7 @@ export const cloudinaryService = {
         {
           folder: folder || "igen_erp",
           resource_type: "auto",
+          timeout: 600000, // Tăng timeout lên 10 phút cho video lớn
         },
         (error, result) => {
           if (error) {
