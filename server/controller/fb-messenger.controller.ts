@@ -403,7 +403,10 @@ export const fbMessengerController = {
         return res.status(404).json({ success: false, message: "Khong tim thay user." });
       }
 
-      const limit = Math.min(Number(req.query.limit || 10), 30);
+      const limit = Math.min(Number(req.query.limit || 10), 100);
+      const page = Math.max(Number(req.query.page || 1), 1);
+      const skip = (page - 1) * limit;
+
       const baseFilter = user.role === "superadmin" && req.query.companyCode
         ? { companyCode: String(req.query.companyCode).trim().toUpperCase() }
         : { companyCode: String(user.companyCode || "SYSTEM").trim().toUpperCase() };
@@ -416,14 +419,21 @@ export const fbMessengerController = {
         ...(req.query.conversationId ? { conversationId: String(req.query.conversationId).trim() } : {}),
         ...(channelFilter ? { channel: channelFilter } : {}),
       };
+
+      const totalCount = await AIReplyLogModel.countDocuments(filter);
       const logs = await AIReplyLogModel.find(filter)
         .sort({ createdAt: -1 })
+        .skip(skip)
         .limit(limit)
         .lean();
+
       return res.status(200).json({
         success: true,
         filter,
         count: logs.length,
+        total: totalCount,
+        page,
+        hasMore: skip + logs.length < totalCount,
         logs: logs.map(l => ({
           _id: l._id,
           companyCode: l.companyCode,

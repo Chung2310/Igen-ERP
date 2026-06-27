@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { 
-  MessageSquare, Zap, RefreshCw, Terminal, Send, CheckCircle, 
-  HelpCircle, Save, Sliders, Play, ExternalLink, ChevronDown, ChevronUp,
+  MessageSquare, Zap, RefreshCw, Terminal, CheckCircle, 
+  HelpCircle, Save, Sliders, ExternalLink, ChevronDown, ChevronUp,
   Facebook, Copy, FileText, Database, UploadCloud, Trash2, BookOpen
 } from "lucide-react";
 import { toast } from "../../pages/Toast";
@@ -41,6 +41,11 @@ export function AiCommentReplyManager({
   const [knowledgeHealth, setKnowledgeHealth] = useState<any>(null);
   const [loadingHealth, setLoadingHealth] = useState(false);
 
+  // Pagination states for Logs
+  const [logsPage, setLogsPage] = useState(1);
+  const [hasMoreLogs, setHasMoreLogs] = useState(false);
+  const [loadingMoreLogs, setLoadingMoreLogs] = useState(false);
+
   // Document sync/upload states
   const [driveLink, setDriveLink] = useState("");
   const [syncingDrive, setSyncingDrive] = useState(false);
@@ -57,10 +62,7 @@ export function AiCommentReplyManager({
     manual: false,
   });
 
-  // Simulator states
-  const [simMessage, setSimMessage] = useState("Shop ơi gói dịch vụ cơ bản có giá bao nhiêu thế? Có chính sách bảo hành không?");
-  const [simPostId, setSimPostId] = useState("123456789012345_67890");
-  const [simulating, setSimulating] = useState(false);
+
 
   // Diagnostics state
   const [diagnostics, setDiagnostics] = useState<any>(null);
@@ -69,7 +71,7 @@ export function AiCommentReplyManager({
   const [expandedPosts, setExpandedPosts] = useState<{ [key: string]: boolean }>({});
   const [expandedContexts, setExpandedContexts] = useState<{ [key: string]: boolean }>({});
   const [searchQuery, setSearchQuery] = useState("");
-  const [showSimulator, setShowSimulator] = useState(false);
+
 
   // Sync settings from selectedFacebookPageId (per-page config) or fallback to userProfile
   useEffect(() => {
@@ -128,25 +130,41 @@ export function AiCommentReplyManager({
   }, [selectedFacebookPageId, facebookPages, userProfile]);
 
   // Fetch AI Reply Logs specifically for facebook_comment
-  const fetchLogs = async () => {
-    setLoadingLogs(true);
+  const fetchLogs = async (page: number = 1) => {
+    if (page === 1) {
+      setLoadingLogs(true);
+    } else {
+      setLoadingMoreLogs(true);
+    }
     try {
-      const res = await fetch("/api/v1/facebook/debug-ai-logs?channel=facebook_comment&limit=30", {
+      const res = await fetch(`/api/v1/facebook/debug-ai-logs?channel=facebook_comment&limit=10&page=${page}`, {
         headers: {
           Authorization: `Bearer ${getAccessToken()}`,
         },
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.success) {
-        setLogs(data.logs || []);
-        
-        // Auto expand the first few posts initially
-        const uniquePostIds = Array.from(new Set((data.logs || []).map((l: any) => l.postId || "unknown_post"))) as string[];
-        const initialExpanded: { [key: string]: boolean } = {};
-        uniquePostIds.forEach((id, index) => {
-          initialExpanded[id] = index === 0; // Expand first post by default
-        });
-        setExpandedPosts(initialExpanded);
+        const newLogs = data.logs || [];
+        if (page === 1) {
+          setLogs(newLogs);
+          setLogsPage(1);
+          
+          // Auto expand the first few posts initially
+          const uniquePostIds = Array.from(new Set(newLogs.map((l: any) => l.postId || "unknown_post"))) as string[];
+          const initialExpanded: { [key: string]: boolean } = {};
+          uniquePostIds.forEach((id, index) => {
+            initialExpanded[id] = index === 0; // Expand first post by default
+          });
+          setExpandedPosts(initialExpanded);
+        } else {
+          setLogs(prev => {
+            const existingIds = new Set(prev.map(l => l._id));
+            const filteredNewLogs = newLogs.filter((l: any) => !existingIds.has(l._id));
+            return [...prev, ...filteredNewLogs];
+          });
+          setLogsPage(page);
+        }
+        setHasMoreLogs(!!data.hasMore);
       } else {
         toast.error(data.message || "Không thể tải nhật ký phản hồi.");
       }
@@ -155,6 +173,7 @@ export function AiCommentReplyManager({
       toast.error("Lỗi khi tải nhật ký phản hồi.");
     } finally {
       setLoadingLogs(false);
+      setLoadingMoreLogs(false);
     }
   };
 
@@ -198,7 +217,7 @@ export function AiCommentReplyManager({
 
   useEffect(() => {
     if (!selectedFacebookPageId) return;
-    void fetchLogs();
+    void fetchLogs(1);
     void fetchAIHealth();
     void fetchDiagnostics();
   }, [selectedFacebookPageId]);
@@ -413,71 +432,7 @@ export function AiCommentReplyManager({
     }
   };
 
-  // Send mock webhook comment event to test flow end-to-end
-  const handleSimulateComment = async () => {
-    if (!simMessage.trim()) {
-      toast.error("Vui lòng nhập nội dung bình luận giả lập.");
-      return;
-    }
-    if (!simPostId.trim()) {
-      toast.error("Vui lòng nhập Post ID bài viết.");
-      return;
-    }
-    setSimulating(true);
-    const mockPageId = selectedFacebookPageId || diagnostics?.resolvedPageId || "123456789012345";
-    const mockCommentId = `mock_comment_${Date.now()}`;
-    const mockSenderId = "987654321098765";
 
-    const payload = {
-      object: "page",
-      entry: [
-        {
-          id: mockPageId,
-          time: Math.floor(Date.now() / 1000),
-          changes: [
-            {
-              field: "feed",
-              value: {
-                item: "comment",
-                verb: "add",
-                comment_id: mockCommentId,
-                parent_id: simPostId.trim(),
-                post_id: simPostId.trim(),
-                sender_id: mockSenderId,
-                message: simMessage,
-                created_time: Math.floor(Date.now() / 1000)
-              }
-            }
-          ]
-        }
-      ]
-    };
-
-    try {
-      const res = await fetch("/api/v1/facebook/webhook", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const text = await res.text();
-      if (res.ok) {
-        toast.success("Đã gửi sự kiện bình luận giả lập thành công! Hãy tải lại Logs sau vài giây.");
-        setTimeout(() => {
-          void fetchLogs();
-        }, 1500);
-      } else {
-        toast.error(`Giả lập thất bại: ${text}`);
-      }
-    } catch (err: any) {
-      console.error(err);
-      toast.error("Lỗi khi gửi webhook giả lập.");
-    } finally {
-      setSimulating(false);
-    }
-  };
 
   // Log feedbacks
   const handleFeedback = async (logId: string, feedback: "good" | "bad" | "needs_fix") => {
@@ -837,79 +792,8 @@ export function AiCommentReplyManager({
 
           </div>
 
-          {/* Right Column: Webhook simulator & Grouped Logs */}
+          {/* Right Column: Grouped Logs */}
           <div className="xl:col-span-3 space-y-4">
-            
-            {/* Testing Mode Toggle Panel */}
-            <div className="flex justify-between items-center bg-gray-50/80 border border-gray-150 rounded-2xl px-4 py-3">
-              <div className="text-left">
-                <span className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
-                  Bộ kiểm thử giả lập comment
-                </span>
-                <p className="text-[9px] text-gray-500 mt-0.5">Giả lập gửi webhook bình luận để thử nghiệm phản hồi.</p>
-              </div>
-              <button
-                onClick={() => setShowSimulator(!showSimulator)}
-                className={`px-3 py-1.5 rounded-xl text-[10px] font-bold border transition-all cursor-pointer ${
-                  showSimulator
-                    ? "bg-slate-800 border-slate-800 text-white"
-                    : "bg-white border-gray-250 text-gray-700 hover:bg-gray-50 shadow-2xs"
-                }`}
-              >
-                {showSimulator ? "Ẩn công cụ" : "Hiện công cụ"}
-              </button>
-            </div>
-
-            {/* Simulator card */}
-            {showSimulator && (
-              <div className="bg-gray-50/50 border border-gray-150 rounded-2xl p-5 space-y-3 text-left animate-fade-in transition-all">
-                <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center gap-2 border-b border-gray-200 pb-2">
-                  <Play className="h-4 w-4 text-indigo-650" />
-                  Bộ kiểm thử giả lập comment (Webhook simulator)
-                </h4>
-                
-                <p className="text-[10px] text-gray-500 leading-normal">
-                  Gửi payload giả lập để kiểm tra trực tiếp luồng phản hồi AI theo từng ID bài đăng cụ thể.
-                </p>
-
-                <div className="space-y-2">
-                  <div className="flex gap-2">
-                    <div className="w-1/3">
-                      <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Post ID bài viết</label>
-                      <input
-                        type="text"
-                        value={simPostId}
-                        onChange={(e) => setSimPostId(e.target.value)}
-                        placeholder="Post ID..."
-                        className="w-full px-3 py-2 bg-white border border-gray-200 focus:border-indigo-650 rounded-xl text-xs outline-none transition-all font-mono"
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Nội dung bình luận</label>
-                      <input
-                        type="text"
-                        value={simMessage}
-                        onChange={(e) => setSimMessage(e.target.value)}
-                        placeholder="Nhập nội dung bình luận..."
-                        className="w-full px-3 py-2 bg-white border border-gray-200 focus:border-indigo-650 rounded-xl text-xs outline-none transition-all"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end pt-1">
-                    <button
-                      onClick={handleSimulateComment}
-                      disabled={simulating}
-                      className="px-4 py-2 bg-indigo-650 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all shadow-xs cursor-pointer disabled:opacity-50"
-                    >
-                      {simulating ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                      Gửi comment giả lập
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* Grouped Logs List */}
             <div className="space-y-4 text-left">
@@ -926,7 +810,7 @@ export function AiCommentReplyManager({
                     className="px-3 py-1.5 bg-white border border-gray-200 focus:border-indigo-650 rounded-xl text-[10px] outline-none transition-all w-full sm:w-48 focus:sm:w-60 shadow-2xs"
                   />
                   <button
-                    onClick={fetchLogs}
+                    onClick={() => fetchLogs(1)}
                     disabled={loadingLogs}
                     className="p-1.5 hover:bg-gray-100 text-gray-500 hover:text-gray-700 rounded-xl transition-all cursor-pointer border border-gray-200 shrink-0 bg-white"
                     title="Tải lại nhật ký"
@@ -946,7 +830,7 @@ export function AiCommentReplyManager({
                   <HelpCircle className="h-8 w-8 text-gray-300 mb-1" />
                   <p className="text-xs font-bold text-gray-600">Chưa có nhật ký phản hồi nào</p>
                   <p className="text-[10px] text-gray-400 max-w-xs leading-normal">
-                    {searchQuery ? "Không tìm thấy phản hồi khớp với từ khóa tìm kiếm." : "Hãy gửi bình luận giả lập bên trên hoặc bình luận thực tế trên fanpage để sinh nhật ký."}
+                    {searchQuery ? "Không tìm thấy phản hồi khớp với từ khóa tìm kiếm." : "Khi có bình luận mới trên Fanpage, AI sẽ tự động phản hồi và hiển thị nhật ký tại đây."}
                   </p>
                 </div>
               ) : (
@@ -1102,6 +986,23 @@ export function AiCommentReplyManager({
                       </div>
                     );
                   })}
+                  
+                  {hasMoreLogs && (
+                    <div className="pt-2 flex justify-center pb-4">
+                      <button
+                        onClick={() => fetchLogs(logsPage + 1)}
+                        disabled={loadingMoreLogs}
+                        className="px-4 py-2 border border-gray-250 hover:bg-gray-50 text-gray-700 bg-white rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all shadow-3xs cursor-pointer disabled:opacity-50"
+                      >
+                        {loadingMoreLogs ? (
+                          <RefreshCw className="h-3 w-3 animate-spin text-gray-500" />
+                        ) : (
+                          <ChevronDown className="h-3.5 w-3.5 text-gray-500" />
+                        )}
+                        Tải thêm bài viết & bình luận
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
