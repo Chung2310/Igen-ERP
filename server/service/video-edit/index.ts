@@ -2,6 +2,7 @@ import { AIMediaModel } from "../../model/ai-media.model";
 import { videoBlueprintService } from "../video-blueprint.service";
 import { hermesService } from "./hermes";
 import { remotionQueueService } from "./queue";
+import { claudeRenderService } from "./claude-render.service";
 
 export interface EditVideoOptions {
   modelName?: string;
@@ -11,9 +12,14 @@ export interface EditVideoOptions {
   videoDurations?: number[];
   blueprint?: any;
   renderMode?: "local" | "hermes";
-  renderEngine?: "remotion" | "hyperframe" | "hermes";
+  renderEngine?: "remotion" | "hyperframe" | "hermes" | "professional";
   referenceVideoUrl?: string;
   referenceVideoDuration?: number;
+  // Professional mode options
+  outline?: string;
+  scenes?: string[];
+  brandName?: string;
+  bgMusicUrl?: string;
 }
 
 /**
@@ -30,6 +36,18 @@ export async function editVideo(
   prompt: string,
   options?: EditVideoOptions
 ): Promise<{ status: string; record: any; blueprint: any }> {
+  // Professional: Claude API sinh HTML+GSAP → HyperFrames → FFmpeg (độc lập với Hermes)
+  if (options?.renderEngine === "professional") {
+    const result = await claudeRenderService.renderVideo(userId, {
+      facecamUrl: videoUrl,
+      outline: options.outline || prompt,
+      scenes: options.scenes,
+      brandName: options.brandName,
+      bgMusicUrl: options.bgMusicUrl,
+    });
+    return { ...result, blueprint: null };
+  }
+
   // Hermes: cloud AI worker pool (explicit request only)
   if (options?.renderMode === "hermes" || options?.renderEngine === "hermes") {
     return hermesService.editVideo(userId, videoUrl, prompt, options);

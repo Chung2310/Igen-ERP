@@ -40,6 +40,32 @@ export const isRenderableVideoUrl = (url?: string | null): boolean => {
   );
 };
 
+export const formatPublishError = (error: string | null | undefined): string => {
+  if (!error) return "";
+  const errStr = String(error);
+
+  if (
+    errStr.includes("Tried accessing nonexisting field (is_published)") ||
+    errStr.includes("is_published")
+  ) {
+    return "Lỗi kết nối Facebook (Mã 100): Không thể truy cập trạng thái lên lịch của bài đăng (is_published). Điều này thường xảy ra khi bài viết đã được đăng tải thành công trực tiếp lên Fanpage từ trước, hoặc token quản trị Trang (Page Access Token) bị thiếu quyền truy cập. Vui lòng kiểm tra lại trực tiếp Fanpage Facebook của bạn.";
+  }
+
+  if (errStr.includes("OAuthException") && (errStr.includes("token") || errStr.includes("session") || errStr.includes("auth"))) {
+    return "Lỗi xác thực Facebook: Mã Access Token quản trị trang đã hết hạn hoặc không hợp lệ. Vui lòng vào Cài đặt để ngắt kết nối và liên kết lại Fanpage.";
+  }
+
+  if (errStr.includes("Tài khoản chưa liên kết Facebook Page") || errStr.includes("chưa liên kết Facebook")) {
+    return "Lỗi cấu hình: Bạn chưa thực hiện liên kết Facebook Fanpage cho tài khoản này. Vui lòng vào Cài đặt để liên kết trước khi đăng.";
+  }
+
+  if (errStr.includes("Không tìm thấy liên kết Facebook chỉ định") || errStr.includes("không tìm thấy liên kết Facebook")) {
+    return "Lỗi cấu hình: Không tìm thấy tài khoản Facebook Page liên kết hoặc kết nối đã bị ngắt. Vui lòng kiểm tra lại cấu hình.";
+  }
+
+  return errStr;
+};
+
 interface ModerationPipCardProps {
   key?: string | number | null;
   card: ContentApprovalCard;
@@ -452,7 +478,7 @@ export function ScheduledCard({
       {card.status === "failed" && card.publishError && (
         <div className="flex flex-col gap-1 text-[10px] text-red-750 font-mono bg-red-50 border border-red-200/80 p-3 rounded-xl">
           <span className="font-extrabold flex items-center gap-1">⚠️ LỖI TỰ ĐỘNG ĐĂNG:</span>
-          <span className="leading-relaxed font-sans font-medium text-red-650 line-clamp-2">{card.publishError}</span>
+          <span className="leading-relaxed font-sans font-medium text-red-650 line-clamp-2">{formatPublishError(card.publishError)}</span>
         </div>
       )}
 

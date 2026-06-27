@@ -56,6 +56,8 @@ def submit_task(video_url, prompt, user_id="anon", webhook_url="", sample_url=""
     log(f"Task {tid} queued (sample={'yes' if sample_url else 'no'})")
     return tid
 
+
+
 def get_task(tid):
     for p in ["pending", "running", "done", "failed"]:
         f = Path(f"{QUEUE_DIR}/{p}_{tid}.json")
