@@ -469,17 +469,6 @@ export const fbMessengerController = {
         return res.status(400).json({ success: false, message: "Thiếu Post ID." });
       }
 
-      // Check if it's a mock post ID or starts with 123456
-      if (postId.startsWith("123456") || postId === "unknown_post" || postId.includes("mock_")) {
-        return res.status(200).json({
-          success: true,
-          data: {
-            message: "Bài viết Giả lập: Thử nghiệm trả lời tự động & Chăm sóc khách hàng",
-            created_time: new Date().toISOString(),
-          }
-        });
-      }
-
       // Resolve the page access token
       let token: string | null = null;
       if (pageId) {
@@ -492,12 +481,9 @@ export const fbMessengerController = {
       }
 
       if (!token) {
-        return res.status(200).json({
-          success: true,
-          data: {
-            message: `Bài viết ID: ${postId} (Chưa cấu hình Token hoặc đang dùng Demo)`,
-            created_time: new Date().toISOString(),
-          }
+        return res.status(400).json({
+          success: false,
+          message: `Không tìm thấy Access Token để xem chi tiết bài viết ID: ${postId}`
         });
       }
 
@@ -508,12 +494,9 @@ export const fbMessengerController = {
       if (!response.ok) {
         const errText = await response.text();
         console.warn(`[FB Controller getPostDetail] Graph API error: ${response.status} - ${errText}`);
-        return res.status(200).json({
-          success: true,
-          data: {
-            message: `Bài viết ID: ${postId}`,
-            created_time: new Date().toISOString(),
-          }
+        return res.status(400).json({
+          success: false,
+          message: `Lỗi Facebook Graph API khi tải chi tiết bài viết: ${errText}`
         });
       }
 
@@ -521,19 +504,16 @@ export const fbMessengerController = {
       return res.status(200).json({
         success: true,
         data: {
-          message: data.message || data.story || `Bài viết ID: ${postId}`,
+          message: data.message || data.story || "Bài viết không có nội dung chữ.",
           created_time: data.created_time || new Date().toISOString(),
           full_picture: data.full_picture || null,
         }
       });
     } catch (error: any) {
       console.error("[FB Controller getPostDetail] Error:", error);
-      return res.status(200).json({
-        success: true,
-        data: {
-          message: `Bài viết ID: ${postId}`,
-          created_time: new Date().toISOString(),
-        }
+      return res.status(500).json({
+        success: false,
+        message: error.message || "Lỗi hệ thống khi tải chi tiết bài viết."
       });
     }
   }

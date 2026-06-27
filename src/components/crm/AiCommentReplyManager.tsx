@@ -129,6 +129,39 @@ export function AiCommentReplyManager({
     };
   }, [selectedFacebookPageId, facebookPages, userProfile]);
 
+  const fetchSinglePostDetail = async (postId: string) => {
+    if (!postId || postId === "unknown_post" || postId.includes("mock")) return;
+
+    try {
+      const query = selectedFacebookPageId ? `?pageId=${encodeURIComponent(selectedFacebookPageId)}` : "";
+      const res = await fetch(`/api/v1/facebook/messenger/post-detail/${postId}${query}`, {
+        headers: {
+          Authorization: `Bearer ${getAccessToken()}`,
+        },
+      });
+      const result = await res.json().catch(() => ({}));
+      if (res.ok && result.success && result.data) {
+        setPostDetails(prev => ({
+          ...prev,
+          [postId]: {
+            message: result.data.message || `Bài viết ID: ${postId}`,
+            full_picture: result.data.full_picture
+          }
+        }));
+      } else {
+        setPostDetails(prev => ({
+          ...prev,
+          [postId]: {
+            message: `Bài viết ID: ${postId}`,
+            full_picture: null
+          }
+        }));
+      }
+    } catch (err) {
+      console.error(`Failed to load details for post ${postId}:`, err);
+    }
+  };
+
   // Fetch AI Reply Logs specifically for facebook_comment
   const fetchLogs = async (page: number = 1) => {
     if (page === 1) {
@@ -154,6 +187,9 @@ export function AiCommentReplyManager({
           const initialExpanded: { [key: string]: boolean } = {};
           uniquePostIds.forEach((id, index) => {
             initialExpanded[id] = index === 0; // Expand first post by default
+            if (index === 0 && id && id !== "unknown_post") {
+              void fetchSinglePostDetail(id);
+            }
           });
           setExpandedPosts(initialExpanded);
         } else {
@@ -217,40 +253,13 @@ export function AiCommentReplyManager({
 
   useEffect(() => {
     if (!selectedFacebookPageId) return;
+    setPostDetails({}); // Clear cache on page switch
     void fetchLogs(1);
     void fetchAIHealth();
     void fetchDiagnostics();
   }, [selectedFacebookPageId]);
 
-  // Fetch post details for all unique postIds in the log list
-  useEffect(() => {
-    if (!logs.length) return;
-    const uniquePostIds = Array.from(new Set(logs.map((l: any) => l.postId).filter(Boolean))) as string[];
-    
-    uniquePostIds.forEach(async (postId) => {
-      if (postDetails[postId]) return; // already loaded
-      try {
-        const query = selectedFacebookPageId ? `?pageId=${encodeURIComponent(selectedFacebookPageId)}` : "";
-        const res = await fetch(`/api/v1/facebook/messenger/post-detail/${postId}${query}`, {
-          headers: {
-            Authorization: `Bearer ${getAccessToken()}`,
-          },
-        });
-        const result = await res.json().catch(() => ({}));
-        if (res.ok && result.success && result.data) {
-          setPostDetails(prev => ({
-            ...prev,
-            [postId]: {
-              message: result.data.message || `Bài viết ID: ${postId}`,
-              full_picture: result.data.full_picture
-            }
-          }));
-        }
-      } catch (err) {
-        console.error(`Failed to load details for post ${postId}:`, err);
-      }
-    });
-  }, [logs, selectedFacebookPageId]);
+  // Post details are now lazy loaded on expand or auto-expand
 
   // Save config
   const handleSaveConfig = async () => {
@@ -455,6 +464,10 @@ export function AiCommentReplyManager({
   };
 
   const togglePostExpanded = (postId: string) => {
+    const isNowExpanded = !expandedPosts[postId];
+    if (isNowExpanded && !postDetails[postId]) {
+      void fetchSinglePostDetail(postId);
+    }
     setExpandedPosts(prev => ({
       ...prev,
       [postId]: !prev[postId]
@@ -563,22 +576,6 @@ export function AiCommentReplyManager({
                         type="checkbox"
                         checked={localConfig.commentReplyEnabled}
                         onChange={(e) => setLocalConfig({ ...localConfig, commentReplyEnabled: e.target.checked })}
-                        className="sr-only peer"
-                      />
-                      <div className="w-8 h-4 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3.5 after:transition-all peer-checked:bg-indigo-650" />
-                    </label>
-                  </div>
-
-                  <div className="flex justify-between items-center p-3 bg-gray-50/30 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
-                    <div className="text-left">
-                      <h4 className="text-xs font-bold text-gray-800">Trả lời Chat trực tiếp</h4>
-                      <p className="text-[10px] text-gray-500 mt-0.5">Cho phép AI phản hồi tin nhắn.</p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={localConfig.enabled}
-                        onChange={(e) => setLocalConfig({ ...localConfig, enabled: e.target.checked })}
                         className="sr-only peer"
                       />
                       <div className="w-8 h-4 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3.5 after:transition-all peer-checked:bg-indigo-650" />
@@ -862,7 +859,7 @@ export function AiCommentReplyManager({
                                 className="text-[11px] font-bold text-gray-800 line-clamp-1 block pr-4" 
                                 title={details?.message || `Bài viết ID: ${postId}`}
                               >
-                                {details?.message || `Đang tải thông tin bài viết... (${postId})`}
+                                {details?.message || `Bài viết ID: ${postId}`}
                               </span>
                               <span className="text-[9px] text-gray-400 font-semibold block mt-0.5">
                                 ID: {postId} • Tổng số {postLogs.length} phản hồi tự động
@@ -893,13 +890,20 @@ export function AiCommentReplyManager({
                             {postLogs.map((log) => (
                               <div key={log._id} className="border border-gray-150 rounded-xl p-3 bg-gray-50/20 hover:bg-gray-50/50 transition-colors space-y-2.5">
                                 <div className="flex justify-between items-center text-[10px]">
-                                  <span className={`px-1.5 py-0.5 rounded-full font-bold uppercase ${
-                                    (log.status === "sent" || log.status === "success")
-                                      ? "bg-green-50 border border-green-200 text-green-700" 
-                                      : "bg-red-50 border border-red-200 text-red-700"
-                                  }`}>
-                                    {(log.status === "sent" || log.status === "success") ? "Thành công" : "Thất bại"}
-                                  </span>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className={`px-1.5 py-0.5 rounded-full font-bold uppercase ${
+                                      (log.status === "sent" || log.status === "success")
+                                        ? "bg-green-50 border border-green-200 text-green-700" 
+                                        : "bg-red-50 border border-red-200 text-red-700"
+                                    }`}>
+                                      {(log.status === "sent" || log.status === "success") ? "Thành công" : "Thất bại"}
+                                    </span>
+                                    {log.aiResponse?.includes("Inbox Thất bại") && (
+                                      <span className="px-1.5 py-0.5 rounded-full font-bold uppercase bg-amber-50 border border-amber-200 text-amber-700" title="AI trả lời bình luận thành công nhưng gửi inbox riêng tư bị lỗi. Vui lòng nhắn tin tay.">
+                                        Lỗi gửi Inbox
+                                      </span>
+                                    )}
+                                  </div>
                                   <span className="font-mono text-gray-400">
                                     {log.latencyMs}ms | {new Date(log.createdAt).toLocaleTimeString("vi-VN")}
                                   </span>
