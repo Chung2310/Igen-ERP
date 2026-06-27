@@ -113,8 +113,14 @@ const editVideoSchema = {
     videoDurations: Joi.array().items(Joi.number()).optional(),
     blueprint: Joi.object().optional(),
     renderMode: Joi.string().valid("local", "hermes").optional().allow(""),
-    renderEngine: Joi.string().valid("remotion", "hyperframe", "hermes").optional().allow(""),
+    renderEngine: Joi.string().valid("remotion", "hyperframe", "hermes", "professional").optional().allow(""),
     referenceVideoUrl: Joi.string().uri().optional().allow(""),
+    referenceVideoDuration: Joi.number().optional(),
+    // Professional mode
+    outline: Joi.string().allow("").optional(),
+    scenes: Joi.array().items(Joi.string()).optional(),
+    brandName: Joi.string().allow("").optional(),
+    bgMusicUrl: Joi.string().uri().optional().allow(""),
   }),
 };
 
