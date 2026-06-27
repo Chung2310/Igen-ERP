@@ -811,6 +811,108 @@ STYLE OVERRIDE - ƯU TIÊN CAO NHẤT:
     }
   },
 
+  async chatComment(message: string, aiConfig: any, ragContext?: any) {
+    if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY.trim() === "") {
+      throw new Error("Không cấu hình GEMINI_API_KEY trên hệ thống.");
+    }
+
+    const companyCode = ragContext?.companyCode || aiConfig?.companyCode;
+    let companyName = aiConfig?.companyName || "";
+
+    if (!companyName && companyCode) {
+      try {
+        const company = await CompanyModel.findOne({ code: companyCode.toUpperCase() }).lean();
+        if (company) {
+          companyName = company.name;
+        }
+      } catch (err) {
+        console.warn("[geminiService.chatComment] Error fetching company from DB:", err);
+      }
+    }
+    if (!companyName) {
+      companyName = "doanh nghiệp";
+    }
+
+    const systemInstruction = `
+Bạn là trợ lý chăm sóc khách hàng của ${companyName}.
+Nhiệm vụ của bạn là phản hồi bình luận công khai (comment) của khách hàng trên bài viết Facebook bằng hai nội dung:
+1. Một câu trả lời bình luận công khai (publicComment).
+2. Một tin nhắn inbox riêng tư gửi trực tiếp cho khách hàng (privateInbox).
+
+QUY TẮC PHẢN HỒI BÌNH LUẬN CÔNG KHAI (publicComment):
+- ĐỘ DÀI: Cực kỳ ngắn gọn và súc tích, tối đa khoảng 1 đến 2 câu ngắn.
+- ĐỊNH DẠNG: Viết trên MỘT DÒNG DUY NHẤT (single line). KHÔNG được xuống dòng (không dùng ký tự xuống dòng/newline), không chia đoạn. Viết liền mạch toàn bộ nội dung từ đầu đến cuối trên một dòng. KHÔNG dùng gạch đầu dòng (bullet points), không dùng dấu * hoặc **.
+- NỘI DUNG: Kêu gọi hành động lịch sự hướng khách check tin nhắn riêng tư/inbox (ví dụ: "Dạ chào anh/chị, bên em đã inbox thông tin chi tiết cho mình rồi ạ. Anh/Chị check inbox tin nhắn giúp em nhé ạ!").
+
+QUY TẮC TIN NHẮN RIÊNG TƯ (privateInbox):
+- NỘI DUNG: Trả lời chi tiết và đầy đủ câu hỏi của khách hàng dựa trên dữ liệu tri thức của công ty ở dưới.
+- NGÔN PHONG: Lịch sự, chuyên nghiệp, tự nhiên. Sử dụng kính ngữ "Dạ" ở đầu câu và "ạ" ở cuối câu. Gọi khách là "Anh/Chị" hoặc "Quý khách" và xưng "bên em" hoặc "${companyName}".
+- SỬ DỤNG TRI THỨC (RAG): Sử dụng tri thức ở dưới để trả lời chi tiết. Nếu khách hỏi thông tin không có trong tri thức, hãy trả lời khéo léo và hướng dẫn khách nhắn lại để nhân viên trực tiếp kiểm tra.
+
+Dữ liệu tri thức đã truy xuất riêng cho doanh nghiệp ${ragContext?.companyCode || "hiện tại"}:
+${ragContext?.contextText ? ragContext.contextText : "- Không tìm thấy tri thức phù hợp."}
+
+Quy tắc cấu hình bổ sung từ doanh nghiệp:
+${aiConfig.advancedInstructions ? `- ${aiConfig.advancedInstructions}` : "- Không có chỉ dẫn đặc biệt."}
+`;
+
+    const responseSchema = {
+      type: "object",
+      properties: {
+        publicComment: {
+          type: "string",
+          description: "Câu trả lời bình luận công khai. Phải trên một dòng duy nhất, có CTA hướng dẫn khách kiểm tra inbox."
+        },
+        privateInbox: {
+          type: "string",
+          description: "Nội dung tin nhắn inbox gửi riêng tư cho khách hàng. Trả lời chi tiết dựa trên dữ liệu RAG."
+        }
+      },
+      required: ["publicComment", "privateInbox"]
+    };
+
+    try {
+      const selectedModel = aiConfig?.model || GEMINI_TEXT_MODEL;
+      const response = await generateText(
+        selectedModel,
+        `Nội dung bình luận của khách hàng:\n"${message}"`,
+        {
+          systemInstruction,
+          temperature: 0.35,
+          responseSchema,
+        }
+      );
+
+      let parsed: any;
+      try {
+        parsed = JSON.parse(response.text);
+      } catch (e) {
+        console.warn("[geminiService.chatComment] Failed to parse JSON response:", response.text);
+        parsed = {
+          publicComment: "Dạ chào anh/chị, bên em đã gửi thông tin chi tiết qua inbox cho mình rồi ạ. Anh/Chị check tin nhắn giúp em nhé!",
+          privateInbox: response.text || "Dạ chào anh/chị. Cảm ơn anh/chị đã quan tâm đến sản phẩm của bên em. Anh/Chị cần bên em hỗ trợ tư vấn thông tin gì cụ thể ạ?"
+        };
+      }
+
+      let publicComment = parsed.publicComment || "Dạ chào anh/chị, bên em đã inbox thông tin chi tiết cho mình rồi ạ. Anh/Chị check tin nhắn giúp em nhé!";
+      let privateInbox = parsed.privateInbox || "Dạ chào anh/chị. Cảm ơn anh/chị đã quan tâm đến dịch vụ bên em.";
+
+      // Clean up publicComment to guarantee single line
+      publicComment = publicComment.replace(/[*#]/g, "").replace(/[\r\n]+/g, " ").replace(/\s+/g, " ").trim();
+      // Clean up privateInbox formatting
+      privateInbox = privateInbox.replace(/[*#]/g, "").trim();
+
+      return {
+        publicComment,
+        privateInbox,
+        isMock: false,
+      };
+    } catch (error: any) {
+      console.error("[geminiService.chatComment] Error:", error);
+      throw error;
+    }
+  },
+
   /**
    * Tự động băm/chuyển đổi tài liệu dài thành danh sách FAQs rút gọn
    */

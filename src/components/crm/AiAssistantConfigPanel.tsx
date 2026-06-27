@@ -82,7 +82,7 @@ export const AiAssistantConfigPanel: React.FC<AiAssistantConfigPanelProps> = ({
           )}
         </div>
         <p className="text-slate-400 text-[10px] leading-relaxed font-sans">
-          Tham số hóa hành vi tự động trả lời tin nhắn & bình luận, phân tích tâm lý khách hàng đồng bộ thời gian trễ.
+          Tham số hóa hành vi tự động trả lời tin nhắn Chat, phân tích tâm lý khách hàng đồng bộ thời gian trễ.
         </p>
 
         {/* AI switchers */}
