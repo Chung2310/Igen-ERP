@@ -1679,4 +1679,71 @@ export const geminiController = {
       });
     }
   },
+
+  /**
+   * POST /api/v1/gemini/generate-edit-script
+   * Phân tích video và tạo kịch bản biên tập chi tiết theo từng đoạn
+   */
+  async generateEditScript(req: Request, res: Response) {
+    try {
+      const { videoUrl, duration, prompt } = req.body;
+      const userId = (req as any).user?.id;
+
+      if (!userId) return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
+      if (!videoUrl) return res.status(400).json({ status: "error", message: "Thiếu videoUrl" });
+
+      await walletService.checkBalance(userId, API_COSTS.GEMINI_OPTIMIZE);
+
+      const { generateEditScript } = await import("../service/video-edit/script.service");
+      const script = await generateEditScript(videoUrl, Number(duration || 30), prompt || "");
+
+      await walletService.deductBalance(userId, API_COSTS.GEMINI_OPTIMIZE, "Chi phí tạo kịch bản biên tập video AI");
+
+      return res.status(200).json({ status: "success", script });
+    } catch (error: any) {
+      console.error("[geminiController.generateEditScript] Error:", error);
+      return handleGeminiError(res, error, "Lỗi tạo kịch bản biên tập video");
+    }
+  },
+
+  /**
+   * POST /api/v1/gemini/render-from-edit-script
+   * Chuyển đổi kịch bản biên tập thành blueprint và xếp hàng kết xuất
+   */
+  async renderFromEditScript(req: Request, res: Response) {
+    try {
+      const { script, aspectRatio, resolution } = req.body;
+      const userId = (req as any).user?.id;
+
+      if (!userId) return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
+      if (!script?.videoUrl) return res.status(400).json({ status: "error", message: "Thiếu script hoặc videoUrl trong script" });
+
+      const { blueprintFromEditScript } = await import("../service/video-edit/script.service");
+      const { editVideo } = await import("../service/video-edit");
+
+      const finalScript = {
+        ...script,
+        globalSettings: {
+          ...script.globalSettings,
+          aspectRatio: aspectRatio || script.globalSettings?.aspectRatio || "16:9",
+          resolution: resolution || script.globalSettings?.resolution || "720p",
+        },
+      };
+
+      const blueprint = blueprintFromEditScript(finalScript);
+
+      const result = await editVideo(userId, script.videoUrl, "Kết xuất từ kịch bản biên tập", {
+        blueprint,
+        aspectRatio: finalScript.globalSettings.aspectRatio,
+        resolution: finalScript.globalSettings.resolution,
+        duration: script.totalDuration,
+        renderEngine: "hyperframe",
+      });
+
+      return res.status(200).json({ ...result, blueprint });
+    } catch (error: any) {
+      console.error("[geminiController.renderFromEditScript] Error:", error);
+      return handleGeminiError(res, error, "Lỗi kết xuất video từ kịch bản");
+    }
+  },
 };

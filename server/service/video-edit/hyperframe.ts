@@ -44,6 +44,10 @@ export const hyperframeService = {
     const textElements = timeline.filter((item: any) => item.type === "text");
     const imageElements = timeline.filter((item: any) => item.type === "image");
     const audioElements = timeline.filter((item: any) => item.type === "audio");
+    const captionElements = timeline.filter((item: any) => item.type === "caption");
+    const motionGraphicElements = timeline.filter((item: any) => item.type === "motion_graphic");
+    const gradientBgElements = timeline.filter((item: any) => item.type === "gradient_bg");
+    const animatedSceneElements = timeline.filter((item: any) => item.type === "animated_scene");
 
     let currentTimelineOffset = 0;
     const videoClips = rawVideoClips.map((item: any) => {
@@ -56,14 +60,52 @@ export const hyperframeService = {
       return { ...item, startInTimeline, duration: clipDuration };
     });
 
+    // Duration (seconds) for each transition type during the overlap period
+    const TRANS_DURATIONS: Record<string, number> = {
+      fade: 0.2667, "slide-left": 0.4, "slide-right": 0.4,
+      "slide-up": 0.4, "slide-down": 0.4,
+      "zoom-in": 0.35, "zoom-out": 0.35, flash: 0.15,
+    };
+
     const videoClipsWithTransitions = videoClips.map((clip: any, idx: number) => {
       const hasNextClip = idx < videoClips.length - 1;
       const nextClip = hasNextClip ? videoClips[idx + 1] : null;
       const isContinuous = nextClip && nextClip.src === clip.src && Math.abs((clip.end ?? 0) - (nextClip.start ?? 0)) < 0.1;
-      const hasExitTransition = hasNextClip && clip.effects?.transition === "fade" && !isContinuous;
-      const exitTransitionTime = hasExitTransition ? Math.min(0.2667, clip.duration / 3) : 0;
-      return { ...clip, hasExitTransition, transTime: exitTransitionTime, renderDuration: clip.duration + exitTransitionTime, hasNextClip };
+      const exitTransType: string = clip.effects?.transition || "none";
+      const hasExitTransition = hasNextClip && exitTransType !== "none" && !isContinuous;
+      const baseDur = TRANS_DURATIONS[exitTransType] ?? 0.2667;
+      const exitTransitionTime = hasExitTransition ? Math.min(baseDur, clip.duration / 3) : 0;
+      return { ...clip, hasExitTransition, exitTransType, transTime: exitTransitionTime, renderDuration: clip.duration + exitTransitionTime, hasNextClip };
     });
+
+    // Build entry/exit keyframe values based on transition type
+    interface AnimFrame { pct: number; opacity: number; blurVal: number; zoomScale: number; tx: number; ty: number; tScale: number; }
+
+    function entryStartFrame(type: string, blur: number, zs: number): Omit<AnimFrame, "pct"> {
+      switch (type) {
+        case "slide-left":  return { opacity: 1, blurVal: blur, zoomScale: zs, tx: 100,  ty: 0,    tScale: 1 };
+        case "slide-right": return { opacity: 1, blurVal: blur, zoomScale: zs, tx: -100, ty: 0,    tScale: 1 };
+        case "slide-up":    return { opacity: 1, blurVal: blur, zoomScale: zs, tx: 0,    ty: 100,  tScale: 1 };
+        case "slide-down":  return { opacity: 1, blurVal: blur, zoomScale: zs, tx: 0,    ty: -100, tScale: 1 };
+        case "zoom-in":     return { opacity: 0, blurVal: blur, zoomScale: zs, tx: 0,    ty: 0,    tScale: 1.3 };
+        case "zoom-out":    return { opacity: 0, blurVal: blur, zoomScale: zs, tx: 0,    ty: 0,    tScale: 0.7 };
+        case "flash":       return { opacity: 0, blurVal: blur, zoomScale: zs, tx: 0,    ty: 0,    tScale: 1 };
+        default:            return { opacity: 0, blurVal: blur + 12, zoomScale: zs * 1.15, tx: 0,  ty: 0, tScale: 1 };
+      }
+    }
+
+    function exitEndFrame(type: string, blur: number, zs: number): Omit<AnimFrame, "pct"> {
+      switch (type) {
+        case "slide-left":  return { opacity: 1, blurVal: blur, zoomScale: zs, tx: -100, ty: 0,   tScale: 1 };
+        case "slide-right": return { opacity: 1, blurVal: blur, zoomScale: zs, tx: 100,  ty: 0,   tScale: 1 };
+        case "slide-up":    return { opacity: 1, blurVal: blur, zoomScale: zs, tx: 0,    ty: -100, tScale: 1 };
+        case "slide-down":  return { opacity: 1, blurVal: blur, zoomScale: zs, tx: 0,    ty: 100, tScale: 1 };
+        case "zoom-in":     return { opacity: 0, blurVal: blur, zoomScale: zs, tx: 0,    ty: 0,   tScale: 1.3 };
+        case "zoom-out":    return { opacity: 0, blurVal: blur, zoomScale: zs, tx: 0,    ty: 0,   tScale: 0.7 };
+        case "flash":       return { opacity: 0, blurVal: blur, zoomScale: zs, tx: 0,    ty: 0,   tScale: 1 };
+        default:            return { opacity: 0, blurVal: blur + 12, zoomScale: zs * 1.15, tx: 0, ty: 0, tScale: 1 };
+      }
+    }
 
     let elementsHtml = "";
     let stylesHtml = "";
@@ -87,8 +129,10 @@ export const hyperframeService = {
       const D_render = clip.renderDuration;
       const D_orig = clip.duration;
       const T_exit = clip.transTime;
+      const exitTransType: string = clip.exitTransType || "none";
       const prevClip = idx > 0 ? videoClipsWithTransitions[idx - 1] : null;
       const T_entry = prevClip ? prevClip.transTime : 0;
+      const entryTransType: string = prevClip ? (prevClip.exitTransType || "none") : "none";
 
       const staticFilters = `brightness(${brightness}) grayscale(${grayscale}) sepia(${sepia}) invert(${invert}) contrast(${contrast}) saturate(${saturate}) hue-rotate(${hueRotate}deg)`;
 
@@ -100,16 +144,28 @@ export const hyperframeService = {
         return 1.0;
       };
 
-      const points: Array<{ pct: number; opacity: number; blurVal: number; scaleVal: number }> = [];
-      points.push({ pct: 0, opacity: T_entry > 0 ? 0 : 1, blurVal: blur + (T_entry > 0 ? 12 : 0), scaleVal: getZoomScale(0) * (T_entry > 0 ? 1.15 : 1.0) });
-      if (T_entry > 0) points.push({ pct: (T_entry / D_render) * 100, opacity: 1.0, blurVal: blur, scaleVal: getZoomScale(T_entry) });
-      if (T_exit > 0) points.push({ pct: (D_orig / D_render) * 100, opacity: 1.0, blurVal: blur, scaleVal: getZoomScale(D_orig) });
-      points.push({ pct: 100, opacity: T_exit > 0 ? 0 : 1, blurVal: blur + (T_exit > 0 ? 12 : 0), scaleVal: getZoomScale(D_render) * (T_exit > 0 ? 1.15 : 1.0) });
+      const normalFrame = (pct: number, t: number): AnimFrame =>
+        ({ pct, opacity: 1, blurVal: blur, zoomScale: getZoomScale(t), tx: 0, ty: 0, tScale: 1 });
+
+      const points: AnimFrame[] = [];
+      if (T_entry > 0) {
+        points.push({ pct: 0, ...entryStartFrame(entryTransType, blur, getZoomScale(0)) });
+        points.push(normalFrame((T_entry / D_render) * 100, T_entry));
+      } else {
+        points.push(normalFrame(0, 0));
+      }
+      if (T_exit > 0) {
+        points.push(normalFrame((D_orig / D_render) * 100, D_orig));
+        points.push({ pct: 100, ...exitEndFrame(exitTransType, blur, getZoomScale(D_render)) });
+      } else {
+        points.push(normalFrame(100, D_render));
+      }
       points.sort((a, b) => a.pct - b.pct);
 
       let keyframesText = `@keyframes anim-clip-${idx} {\n`;
       points.forEach((pt) => {
-        keyframesText += `    ${pt.pct.toFixed(2)}% { opacity: ${pt.opacity}; filter: ${staticFilters} blur(${pt.blurVal}px); transform: scale(${pt.scaleVal}) rotate(${rotate}deg); }\n`;
+        const combinedScale = (pt.zoomScale * pt.tScale).toFixed(4);
+        keyframesText += `    ${pt.pct.toFixed(2)}% { opacity: ${pt.opacity}; filter: ${staticFilters} blur(${pt.blurVal}px); transform: translateX(${pt.tx}%) translateY(${pt.ty}%) scale(${combinedScale}) rotate(${rotate}deg); }\n`;
       });
       keyframesText += `  }\n`;
 
@@ -157,15 +213,24 @@ export const hyperframeService = {
         .replace(/"/g, "&quot;").replace(/'/g, "&#039;");
 
       let positionStyles = "";
-      if (style.position?.startsWith("top-")) positionStyles += "top: 40px;";
-      else if (style.position === "center") positionStyles += "top: 0; bottom: 0; align-items: center;";
-      else positionStyles += "bottom: 80px;";
+      if (style.x !== undefined || style.y !== undefined) {
+        const xVal = style.x !== undefined ? (typeof style.x === "number" ? `${style.x}px` : style.x) : "0";
+        const yVal = style.y !== undefined ? (typeof style.y === "number" ? `${style.y}px` : style.y) : "auto";
+        positionStyles = `left: ${xVal}; top: ${yVal}; right: auto; bottom: auto; align-items: flex-start;`;
+        if (style.width) {
+          positionStyles += ` width: ${typeof style.width === "number" ? `${style.width}px` : style.width};`;
+        }
+      } else {
+        if (style.position?.startsWith("top-")) positionStyles += "top: 40px;";
+        else if (style.position === "center") positionStyles += "top: 0; bottom: 0; align-items: center;";
+        else positionStyles += "bottom: 80px;";
 
-      if (style.position?.endsWith("-left")) positionStyles += "left: 40px;";
-      else if (style.position?.endsWith("-right")) positionStyles += "right: 40px;";
-      else positionStyles += "left: 0; right: 0; justify-content: center;";
+        if (style.position?.endsWith("-left")) positionStyles += "left: 40px;";
+        else if (style.position?.endsWith("-right")) positionStyles += "right: 40px;";
+        else positionStyles += "left: 0; right: 0; justify-content: center;";
 
-      if (style.position === "center") positionStyles = "top: 0; bottom: 0; left: 0; right: 0; align-items: center; justify-content: center;";
+        if (style.position === "center") positionStyles = "top: 0; bottom: 0; left: 0; right: 0; align-items: center; justify-content: center;";
+      }
 
       // CSS keyframes — hỗ trợ thêm: slide-up, slide-down, scale-in, typewriter
       let animCss = "";
@@ -247,6 +312,177 @@ export const hyperframeService = {
       const duration = (audioItem.end ?? 5) - (audioItem.start ?? 0);
       elementsHtml += `
     <audio src="${resolveLocalPathForRender(audioItem.src)}" data-start="${audioItem.start}" data-duration="${duration}" data-volume="${audioItem.volume ?? 0.5}" data-track-index="5"></audio>`;
+    });
+
+    // 5. Gradient Background / Overlay Elements (z-index: 3, above video, below text)
+    gradientBgElements.forEach((gradItem: any) => {
+      const duration = (gradItem.end ?? 5) - (gradItem.start ?? 0);
+      const from = gradItem.from || "rgba(0,0,0,0.8)";
+      const to = gradItem.to || "transparent";
+      const direction = gradItem.direction || "to top";
+      const opacity = gradItem.opacity ?? 0.7;
+      elementsHtml += `
+    <div data-start="${gradItem.start}" data-duration="${duration}" data-track-index="3"
+      style="position:absolute; inset:0; background:linear-gradient(${direction}, ${from}, ${to}); opacity:${opacity}; z-index:3; pointer-events:none;"></div>`;
+    });
+
+    // 6. Motion Graphic Elements (z-index: 15, between text and image layers)
+    motionGraphicElements.forEach((mgItem: any, mgIdx: number) => {
+      const duration = (mgItem.end ?? 5) - (mgItem.start ?? 0);
+      const accentColor = mgItem.accentColor || "#FFD700";
+      const template = mgItem.template || "lower_third";
+      const safeTitle = String(mgItem.title || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const safeSubtitle = mgItem.subtitle ? String(mgItem.subtitle).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") : "";
+      const animId = `mg_anim_${mgIdx}`;
+
+      stylesHtml += `@keyframes ${animId} { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+  .mg-el-${mgIdx} { animation: ${animId} 0.4s cubic-bezier(0.25,0.46,0.45,0.94) forwards; }\n`;
+
+      if (template === "lower_third") {
+        elementsHtml += `
+    <div data-start="${mgItem.start}" data-duration="${duration}" data-track-index="15"
+      style="position:absolute; bottom:60px; left:0; right:0; display:flex; padding:0 40px; pointer-events:none; z-index:15;">
+      <div class="mg-el-${mgIdx}" style="background:rgba(0,0,0,0.88); border-left:4px solid ${accentColor}; padding:12px 20px; border-radius:0 8px 8px 0; max-width:65%; backdrop-filter:blur(6px);">
+        <div style="font-size:20px; font-weight:700; color:#fff; margin-bottom:${safeSubtitle ? "4px" : "0"};">${safeTitle}</div>
+        ${safeSubtitle ? `<div style="font-size:13px; color:rgba(255,255,255,0.68); line-height:1.3;">${safeSubtitle}</div>` : ""}
+      </div>
+    </div>`;
+      } else if (template === "badge") {
+        const badgePos = mgItem.position || "top-right";
+        const badgePosStyle = badgePos === "top-left" ? "top:20px; left:20px;" :
+          badgePos === "bottom-right" ? "bottom:20px; right:20px;" :
+          badgePos === "bottom-left" ? "bottom:20px; left:20px;" :
+          "top:20px; right:20px;";
+        elementsHtml += `
+    <div data-start="${mgItem.start}" data-duration="${duration}" data-track-index="15"
+      class="mg-el-${mgIdx}" style="position:absolute; ${badgePosStyle} background:${accentColor}; color:#000; padding:7px 16px; border-radius:24px; font-size:13px; font-weight:800; pointer-events:none; z-index:15; white-space:nowrap; letter-spacing:0.5px;">${safeTitle}</div>`;
+      } else if (template === "title_card") {
+        elementsHtml += `
+    <div data-start="${mgItem.start}" data-duration="${duration}" data-track-index="15"
+      style="position:absolute; bottom:0; left:0; right:0; background:linear-gradient(transparent, rgba(0,0,0,0.93)); padding:64px 40px 36px; pointer-events:none; z-index:15;">
+      <div class="mg-el-${mgIdx}">
+        <div style="font-size:36px; font-weight:800; color:${accentColor}; line-height:1.15; margin-bottom:${safeSubtitle ? "10px" : "0"};">${safeTitle}</div>
+        ${safeSubtitle ? `<div style="font-size:16px; color:rgba(255,255,255,0.72); line-height:1.4;">${safeSubtitle}</div>` : ""}
+      </div>
+    </div>`;
+      } else if (template === "highlight_box") {
+        elementsHtml += `
+    <div data-start="${mgItem.start}" data-duration="${duration}" data-track-index="15"
+      style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; z-index:15;">
+      <div class="mg-el-${mgIdx}" style="background:rgba(0,0,0,0.78); border:2px solid ${accentColor}; border-radius:16px; padding:28px 40px; text-align:center; backdrop-filter:blur(6px); max-width:70%;">
+        <div style="font-size:44px; font-weight:900; color:${accentColor}; line-height:1.1; margin-bottom:${safeSubtitle ? "12px" : "0"};">${safeTitle}</div>
+        ${safeSubtitle ? `<div style="font-size:16px; color:rgba(255,255,255,0.78); line-height:1.4;">${safeSubtitle}</div>` : ""}
+      </div>
+    </div>`;
+      }
+    });
+
+    // 7. Caption Elements — auto-styled subtitles (z-index: 11, just above regular text)
+    captionElements.forEach((captionItem: any) => {
+      const duration = (captionItem.end ?? 3) - (captionItem.start ?? 0);
+      const captionColor = captionItem.style?.color || "#FFFFFF";
+      const captionFontSize = captionItem.style?.fontSize || "22px";
+      const captionBg = captionItem.style?.background || "rgba(0,0,0,0.78)";
+      const safeContent = String(captionItem.content || "")
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+      elementsHtml += `
+    <div data-start="${captionItem.start}" data-duration="${duration}" data-track-index="11"
+      style="position:absolute; bottom:28px; left:0; right:0; display:flex; justify-content:center; padding:0 60px; pointer-events:none; z-index:11;">
+      <span style="background:${captionBg}; color:${captionColor}; font-size:${captionFontSize}; font-weight:500; padding:7px 18px; border-radius:6px; text-align:center; line-height:1.45; max-width:82%; display:inline-block;">${safeContent}</span>
+    </div>`;
+    });
+
+    // 8. Animated Scene Elements — full-screen overlays that replace video (z-index: 50)
+    animatedSceneElements.forEach((scene: any, sIdx: number) => {
+      const duration = (scene.end ?? 5) - (scene.start ?? 0);
+      const template = scene.template || "chapter_title";
+      const accentColor = scene.accentColor || "#FFD700";
+      const bgGradient = scene.bgGradient || "linear-gradient(135deg, #0a0a0a 0%, #111827 100%)";
+      const safe = (v: any) => String(v || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const p = `as_${sIdx}`;
+
+      if (template === "chapter_title") {
+        const label = safe(scene.label || "CHƯƠNG");
+        const chapter = safe(scene.chapter || "01");
+        const title = safe(scene.title || "");
+        const subtitle = safe(scene.subtitle || "");
+        stylesHtml += `
+  @keyframes ${p}_lbl { from { opacity:0; transform:translateY(-12px); } to { opacity:0.7; transform:translateY(0); } }
+  @keyframes ${p}_ttl { from { opacity:0; transform:translateY(24px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes ${p}_sub { from { opacity:0; } to { opacity:1; } }
+  @keyframes ${p}_ln  { from { width:0; } to { width:72px; } }
+  .${p}_lbl { animation: ${p}_lbl 0.4s ease-out forwards; }
+  .${p}_ttl { animation: ${p}_ttl 0.55s cubic-bezier(0.25,0.46,0.45,0.94) 0.18s both; }
+  .${p}_sub { animation: ${p}_sub 0.4s ease-out 0.38s both; }
+  .${p}_ln  { animation: ${p}_ln  0.4s ease-out 0.35s both; display:block; height:3px; background:${accentColor}; margin-top:20px; }\n`;
+        elementsHtml += `
+    <div data-start="${scene.start}" data-duration="${duration}" data-track-index="50"
+      style="position:absolute; inset:0; background:${bgGradient}; z-index:50; display:flex; flex-direction:column; align-items:center; justify-content:center; overflow:hidden;">
+      <div style="position:absolute; top:0; left:0; right:0; height:3px; background:${accentColor};"></div>
+      <div class="${p}_lbl" style="font-size:11px; letter-spacing:5px; color:${accentColor}; font-family:monospace; text-transform:uppercase; margin-bottom:14px;">${label} ${chapter}</div>
+      <div class="${p}_ttl" style="font-size:62px; font-weight:900; color:#fff; text-align:center; line-height:1.1; max-width:80%;">${title}</div>
+      ${subtitle ? `<div class="${p}_sub" style="font-size:17px; color:rgba(255,255,255,0.58); margin-top:14px; text-align:center;">${subtitle}</div>` : ""}
+      <span class="${p}_ln"></span>
+    </div>`;
+
+      } else if (template === "stat_reveal") {
+        const value = safe(scene.value || "0");
+        const label = safe(scene.label || "");
+        const sublabel = safe(scene.sublabel || "");
+        stylesHtml += `
+  @keyframes ${p}_val  { from { opacity:0; transform:scale(0.45); } to { opacity:1; transform:scale(1); } }
+  @keyframes ${p}_lbl  { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes ${p}_glow { from { opacity:0; transform:scale(0.6); } to { opacity:0.15; transform:scale(1); } }
+  .${p}_val  { animation: ${p}_val  0.55s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+  .${p}_lbl  { animation: ${p}_lbl  0.4s ease-out 0.32s both; }
+  .${p}_glow { animation: ${p}_glow 0.6s ease-out 0.1s both; }\n`;
+        elementsHtml += `
+    <div data-start="${scene.start}" data-duration="${duration}" data-track-index="50"
+      style="position:absolute; inset:0; background:${bgGradient}; z-index:50; display:flex; flex-direction:column; align-items:center; justify-content:center; overflow:hidden;">
+      <div class="${p}_glow" style="position:absolute; width:320px; height:320px; border-radius:50%; background:${accentColor}; filter:blur(60px);"></div>
+      <div class="${p}_val" style="font-size:110px; font-weight:900; color:${accentColor}; line-height:1; position:relative;">${value}</div>
+      <div class="${p}_lbl" style="font-size:18px; font-weight:700; color:#fff; letter-spacing:3px; text-transform:uppercase; margin-top:10px; position:relative;">${label}</div>
+      ${sublabel ? `<div class="${p}_lbl" style="font-size:13px; color:rgba(255,255,255,0.5); letter-spacing:2px; text-transform:uppercase; margin-top:6px; position:relative; animation-delay:0.42s;">${sublabel}</div>` : ""}
+    </div>`;
+
+      } else if (template === "kinetic_text") {
+        const rawWords: string[] = Array.isArray(scene.words) ? scene.words : String(scene.title || "").split(" ");
+        const directions = ["translateX(-80px)", "translateX(80px)", "translateY(40px)", "translateX(-60px)", "translateX(60px)"];
+        let wordCss = "";
+        let wordHtml = "";
+        rawWords.slice(0, 8).forEach((word: string, wi: number) => {
+          const dir = directions[wi % directions.length];
+          const color = wi % 3 === 1 ? accentColor : "#fff";
+          const delay = (wi * 0.12).toFixed(2);
+          wordCss += `@keyframes ${p}_w${wi} { from { opacity:0; transform:${dir}; } to { opacity:1; transform:none; } } .${p}_w${wi} { animation: ${p}_w${wi} 0.45s cubic-bezier(0.25,0.46,0.45,0.94) ${delay}s both; }\n  `;
+          wordHtml += `<span class="${p}_w${wi}" style="display:block; font-size:54px; font-weight:900; color:${color}; line-height:1.15; text-align:center;">${safe(word)}</span>`;
+        });
+        stylesHtml += `  ${wordCss}\n`;
+        elementsHtml += `
+    <div data-start="${scene.start}" data-duration="${duration}" data-track-index="50"
+      style="position:absolute; inset:0; background:${bgGradient}; z-index:50; display:flex; flex-direction:column; align-items:center; justify-content:center; overflow:hidden; padding:40px;">
+      ${wordHtml}
+    </div>`;
+
+      } else if (template === "quote_card") {
+        const quote = safe(scene.quote || scene.title || "");
+        const author = safe(scene.author || "");
+        stylesHtml += `
+  @keyframes ${p}_qm   { from { opacity:0; transform:scale(0.7); } to { opacity:0.28; transform:scale(1); } }
+  @keyframes ${p}_qt   { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes ${p}_auth { from { opacity:0; } to { opacity:1; } }
+  .${p}_qm   { animation: ${p}_qm   0.5s ease-out forwards; }
+  .${p}_qt   { animation: ${p}_qt   0.55s ease-out 0.2s both; }
+  .${p}_auth { animation: ${p}_auth 0.4s ease-out 0.45s both; }\n`;
+        elementsHtml += `
+    <div data-start="${scene.start}" data-duration="${duration}" data-track-index="50"
+      style="position:absolute; inset:0; background:${bgGradient}; z-index:50; display:flex; flex-direction:column; align-items:center; justify-content:center; overflow:hidden; padding:60px;">
+      <div class="${p}_qm" style="font-size:140px; color:${accentColor}; line-height:0.6; margin-bottom:24px; font-family:Georgia,serif;">"</div>
+      <div class="${p}_qt" style="font-size:26px; color:#fff; text-align:center; line-height:1.65; max-width:78%; font-style:italic;">${quote}</div>
+      ${author ? `<div class="${p}_auth" style="margin-top:28px; font-size:13px; color:${accentColor}; letter-spacing:3px; text-transform:uppercase;">— ${author}</div>` : ""}
+    </div>`;
+      }
     });
 
     return `<!DOCTYPE html>

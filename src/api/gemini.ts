@@ -444,6 +444,42 @@ export const geminiApi = {
     return response.json();
   },
 
+  async generateEditScript(
+    videoUrl: string,
+    duration: number,
+    prompt?: string
+  ): Promise<{ status: string; script: any }> {
+    const headers = await getHeaders(true);
+    const response = await fetchWithTimeout(
+      '/api/v1/gemini/generate-edit-script',
+      { method: 'POST', headers, body: JSON.stringify({ videoUrl, duration, prompt }) },
+      300000,
+      'Tạo kịch bản biên tập mất quá lâu. Vui lòng thử lại.'
+    );
+    if (!response.ok) {
+      await handleErrorResponse(response, 'Lỗi tạo kịch bản biên tập video');
+    }
+    return response.json();
+  },
+
+  async renderFromEditScript(
+    script: any,
+    aspectRatio?: string,
+    resolution?: string
+  ): Promise<{ status: string; record: any; blueprint: any }> {
+    const headers = await getHeaders(true);
+    const response = await fetchWithTimeout(
+      '/api/v1/gemini/render-from-edit-script',
+      { method: 'POST', headers, body: JSON.stringify({ script, aspectRatio, resolution }) },
+      60000,
+      'Xếp hàng kết xuất video mất quá lâu. Vui lòng thử lại.'
+    );
+    if (!response.ok) {
+      await handleErrorResponse(response, 'Lỗi kết xuất video từ kịch bản');
+    }
+    return response.json();
+  },
+
   async getMediaHistory(type: "image" | "video" | "voice"): Promise<{ status: string; history: any[] }> {
     const headers = await getHeaders(false);
     const response = await fetch(`/api/v1/gemini/media-history?type=${type}`, {

@@ -21,6 +21,8 @@ export interface EditVideoOptions {
   scenesContent?: import("./claude-render.service").SceneSpec[];
   brandName?: string;
   bgMusicUrl?: string;
+  /** Bỏ qua bước phân tích nội dung video (nhanh hơn nhưng blueprint ít chính xác hơn) */
+  skipContentAnalysis?: boolean;
 }
 
 /**
@@ -95,14 +97,29 @@ export async function editVideo(
         );
       }
     } else {
-      // ── STANDARD PROMPT MODE ────────────────────────────────────────────────
+      // ── STANDARD PROMPT MODE (với content-aware generation mặc định) ──────────
+      const useContentAnalysis = !options?.skipContentAnalysis;
       renderLogs = [
         "[Render] Khởi tạo yêu cầu biên tập video...",
         `[Render] Video đầu vào: ${videoUrl}`,
         `[Render] Yêu cầu: ${prompt}`,
+        useContentAnalysis
+          ? "[Render] Chế độ: Content-Aware (phân tích nội dung + sinh blueprint thông minh)"
+          : "[Render] Chế độ: Standard (sinh blueprint từ prompt)",
       ];
       recordTitle = `Biên tập video: ${prompt}`;
-      blueprint = await videoBlueprintService.generateBlueprintFromPrompt(videoUrl, videoDuration, prompt);
+
+      if (useContentAnalysis) {
+        const result = await videoBlueprintService.generateContentAwareBlueprint(videoUrl, videoDuration, prompt);
+        blueprint = result.blueprint;
+        if (result.analysis) {
+          renderLogs.push(
+            `[Content Analysis] contentType=${result.analysis.contentType}, mood=${result.analysis.mood}, transcript=${result.analysis.transcript.length} đoạn, keyMoments=${result.analysis.keyMoments.length}`
+          );
+        }
+      } else {
+        blueprint = await videoBlueprintService.generateBlueprintFromPrompt(videoUrl, videoDuration, prompt);
+      }
     }
   } else {
     renderLogs = [

@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 
-
 import { geminiApi } from '../../api/gemini';
 import { toast } from '../../pages/Toast';
-import { Film, Loader2, Play, Sparkles, Video, X, Wand2, UploadCloud, Cpu, Cloud, Zap, Download } from 'lucide-react';
+import { Film, Loader2, Play, Sparkles, Video, X, Wand2, UploadCloud, Cpu, Cloud, Zap, Download, Clapperboard } from 'lucide-react';
+import { VideoEditScriptPanel } from './VideoEditScriptPanel';
 
 import { socketService } from '../../services/socketService';
 
@@ -155,6 +155,7 @@ export function EditVideoWorkspace({
     camera_movement?: string;
   } | null>(null);
   const [selectedModel, setSelectedModel] = useState(MODEL_OPTIONS[0].value);
+  const [workspaceMode, setWorkspaceMode] = useState<'prompt' | 'script'>('prompt');
   const [renderEngine, setRenderEngine] = useState<RenderEngine>('hyperframe');
   const [aspectRatio, setAspectRatio] = useState(ASPECT_OPTIONS[0].value);
   const [duration, setDuration] = useState(DURATION_OPTIONS[0].value);
@@ -1089,8 +1090,41 @@ export function EditVideoWorkspace({
             </p>
           </div>
 
+          {/* Mode switcher */}
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+            <button
+              onClick={() => setWorkspaceMode('prompt')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${workspaceMode === 'prompt' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              <Sparkles size={15} />
+              Prompt nhanh
+            </button>
+            <button
+              onClick={() => setWorkspaceMode('script')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${workspaceMode === 'script' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              <Clapperboard size={15} />
+              Kịch bản
+            </button>
+          </div>
         </div>
 
+        {/* ── Kịch bản mode ─────────────────────────────── */}
+        {workspaceMode === 'script' && (
+          <div className="rounded-[28px] border border-slate-200 bg-white" style={{ height: 700 }}>
+            <VideoEditScriptPanel
+              initialVideoUrl={videoInputs[0]?.url}
+              initialDuration={videoInputs[0]?.duration || undefined}
+              onRenderStarted={(record) => {
+                if (record?._id) setCurrentRecordId(record._id);
+                toast.success('Video đang được kết xuất từ kịch bản...');
+              }}
+            />
+          </div>
+        )}
+
+        {/* ── Prompt mode (existing UI) ──────────────────── */}
+        {workspaceMode !== 'script' && (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <div className="space-y-6 rounded-[32px] border border-slate-200 bg-white p-6 shadow-sm min-w-0 overflow-hidden">
             <div className="space-y-3">
@@ -2216,6 +2250,8 @@ export function EditVideoWorkspace({
             </div>
           </div>
         </div>
+
+        )} {/* end workspaceMode !== 'script' */}
 
         {/* Optimized prompt is rendered contextually inside the edit form */}
 
