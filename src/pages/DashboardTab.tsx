@@ -599,7 +599,7 @@ export default function DashboardTab() {
         value: values[idx]
       }));
     } else if (dateFilter === "year") {
-      const months = ["Tháng 1", "Tháng 2", "Tháng 3", "Tháng 4", "Tháng 5", "Tháng 6", "Tháng 7", "Tháng 8", "Tháng 9", "Tháng 10", "Tháng 11", "Tháng 12"];
+      const months = ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10", "T11", "T12"];
       const values = Array(12).fill(0);
       rawStockLogs.forEach((log) => {
         const isOutbound = log.type === "xuất";
@@ -866,7 +866,7 @@ export default function DashboardTab() {
           marketingCards={marketingCards}
           leadsCount={leadsCount}
           totalInventoryValue={totalInventoryValue}
-          monthlyRevenue={monthlyRevenue}
+          trendData={revenueTrendData}
         />
       )}
       {activeView === "revenue" && (
@@ -906,7 +906,7 @@ function OverviewPanel({
   marketingCards,
   leadsCount,
   totalInventoryValue,
-  monthlyRevenue,
+  trendData,
 }: {
   employeeCount: string;
   employeeLabel: string;
@@ -928,7 +928,7 @@ function OverviewPanel({
   marketingCards: ContentApprovalCard[];
   leadsCount: string;
   totalInventoryValue: string;
-  monthlyRevenue: number[];
+  trendData: Array<{ label: string; value: number }>;
 }) {
   const [showLowStockModal, setShowLowStockModal] = useState<boolean>(false);
   const [showPendingReviewModal, setShowPendingReviewModal] = useState<boolean>(false);
@@ -972,7 +972,13 @@ function OverviewPanel({
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <LineChartCard monthlyRevenue={monthlyRevenue} />
+          <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md transition-all duration-300">
+            <div className="mb-5 flex items-center justify-between">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-gray-800">Doanh thu</h3>
+              <span className="rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-600">Đơn vị: VNĐ</span>
+            </div>
+            <BarChart data={trendData} />
+          </div>
           <DonutCard cards={marketingCards} />
         </div>
 
@@ -1595,9 +1601,12 @@ function DonutCard({
 }
 
 function BarChart({ data = [] }: { data?: Array<{ label: string; value: number }> }) {
-  const maxVal = Math.max(...data.map(d => d.value), 1); // avoid division by 0
+  const rawMax = Math.max(...data.map(d => d.value), 0);
+  const hasData = rawMax > 0;
+  const maxVal = hasData ? rawMax : 1; // only used for bar heights when hasData
 
   const formatCurrencyShort = (val: number) => {
+    if (!hasData) return "₫0";
     if (val >= 1e9) {
       return `₫${(val / 1e9).toFixed(1)}B`;
     } else if (val >= 1e6) {
@@ -1605,7 +1614,7 @@ function BarChart({ data = [] }: { data?: Array<{ label: string; value: number }
     } else if (val >= 1e3) {
       return `₫${(val / 1e3).toFixed(0)}K`;
     } else {
-      return `₫${val.toLocaleString("vi-VN")}`;
+      return `₫${Math.round(val).toLocaleString("vi-VN")}`;
     }
   };
 
@@ -1613,12 +1622,12 @@ function BarChart({ data = [] }: { data?: Array<{ label: string; value: number }
     <div className="relative h-[320px]">
       <div className="absolute inset-x-0 bottom-10 top-0 flex flex-col justify-between text-xs font-semibold text-gray-400">
         {[
-          formatCurrencyShort(maxVal),
-          formatCurrencyShort(maxVal * 2 / 3),
-          formatCurrencyShort(maxVal / 3),
+          formatCurrencyShort(rawMax),
+          formatCurrencyShort(rawMax * 2 / 3),
+          formatCurrencyShort(rawMax / 3),
           "₫0"
-        ].map((y) => (
-          <div key={y} className="flex items-center gap-3 h-0">
+        ].map((y, idx) => (
+          <div key={idx} className="flex items-center gap-3 h-0">
             <span className="w-12 shrink-0 text-left">{y}</span>
             <span className="h-px flex-1 border-t border-dashed border-slate-100" />
           </div>
@@ -1638,7 +1647,11 @@ function BarChart({ data = [] }: { data?: Array<{ label: string; value: number }
                 }`}
                 style={{ height: `${h}%` }}
               />
-              <span className={`text-[10px] font-bold mt-1 ${i === data.length - 1 ? "text-blue-600" : "text-gray-450"} truncate max-w-full`} title={item.label}>
+              <span
+                className={`text-[10px] font-bold mt-1 ${i === data.length - 1 ? "text-blue-600" : "text-gray-450"} truncate max-w-full`}
+                title={item.label}
+                style={{ visibility: data.length >= 8 && i % 2 !== 0 && i !== data.length - 1 ? "hidden" : "visible" }}
+              >
                 {item.label}
               </span>
             </div>
