@@ -2,10 +2,12 @@ import mongoose from "mongoose";
 import { UserModel } from "../model/user.model";
 import { ZaloConversationModel, ZaloMessageModel } from "../model/zalo-messenger.model";
 import { FBConversationModel, FBMessageModel } from "../model/fb-messenger.model";
+import { TikTokConversationModel, TikTokMessageModel } from "../model/tiktok-messenger.model";
 import { SocialIntegrationModel } from "../model/social-integration.model";
 import { geminiService } from "./gemini.service";
 import { zaloMessengerService } from "./zalo-messenger.service";
 import { fbMessengerService } from "./fb-messenger.service";
+import { tiktokMessengerService } from "./tiktok-messenger.service";
 import { aiKnowledgeService } from "./ai-knowledge.service";
 
 // In-memory timeouts map to manage debouncing per conversation.
@@ -168,14 +170,16 @@ type ResolvedAutoReplyOwner = {
 };
 
 async function collectCandidateUsers(
-  channel: "facebook" | "zalo",
+  channel: "facebook" | "zalo" | "tiktok",
   resolvedPlatformId: string
 ) {
   const candidateUsers: any[] = [];
 
   const userLevelQuery = channel === "zalo"
     ? { "zaloIntegration.isConnected": true, "zaloIntegration.oaId": resolvedPlatformId }
-    : { "facebookIntegration.isConnected": true, "facebookIntegration.pageId": resolvedPlatformId };
+    : channel === "tiktok"
+      ? { "tiktokIntegration.isConnected": true, "tiktokIntegration.username": resolvedPlatformId }
+      : { "facebookIntegration.isConnected": true, "facebookIntegration.pageId": resolvedPlatformId };
 
   console.log(`[AI AutoReply] Dang tim tich hop ca nhan cho ${channel} bang query:`, JSON.stringify(userLevelQuery));
   const userLevelOwners = await UserModel.find(userLevelQuery);
@@ -185,7 +189,7 @@ async function collectCandidateUsers(
   }
 
   const companyIntegrations = await SocialIntegrationModel.find({
-    platform: channel === "zalo" ? "Zalo" : "Facebook",
+    platform: channel === "zalo" ? "Zalo" : channel === "tiktok" ? "TikTok" : "Facebook",
     username: resolvedPlatformId,
     isConnected: true
   }).lean();
@@ -228,7 +232,7 @@ async function collectCandidateUsers(
 }
 
 export async function resolveAutoReplyOwner(
-  channel: "facebook" | "zalo",
+  channel: "facebook" | "zalo" | "tiktok",
   resolvedPlatformId: string
 ): Promise<ResolvedAutoReplyOwner> {
   const {
@@ -352,7 +356,7 @@ export async function resolveAutoReplyOwner(
 
 async function logAutoReplyFailure(params: {
   companyCode?: string;
-  channel: "facebook" | "zalo";
+  channel: "facebook" | "zalo" | "tiktok";
   conversationId: string;
   customerMessage: string;
   reason: string;
@@ -394,7 +398,7 @@ export const aiAutoReplyService = {
   /**
    * Triggers the AI auto-reply process. Debounces incoming messages to wait for the customer to finish typing.
    */
-  async triggerAutoReply(channel: "facebook" | "zalo", platformId: string, conversationId: string, incomingText: string, incomingMessageId?: string) {
+  async triggerAutoReply(channel: "facebook" | "zalo" | "tiktok", platformId: string, conversationId: string, incomingText: string, incomingMessageId?: string) {
     try {
       const resolvedPlatformId = String(platformId).trim();
       const normalizedIncomingText = normalizeIncomingText(incomingText);
@@ -461,7 +465,7 @@ export const aiAutoReplyService = {
             // Cập nhật cho Social Integration
             const { SocialIntegrationModel } = require("../model/social-integration.model");
             const integration = await SocialIntegrationModel.findOne({
-              platform: channel === "zalo" ? "Zalo" : "Facebook",
+              platform: channel === "zalo" ? "Zalo" : channel === "tiktok" ? "TikTok" : "Facebook",
               username: resolvedPlatformId,
               isConnected: true
             });
@@ -612,7 +616,7 @@ export const aiAutoReplyService = {
               sender: m.direction === "inbound" ? "user" : "model",
               text: m.text || ""
             }));
-          } else {
+          } else if (channel === "facebook") {
             const conv = await FBConversationModel.findById(conversationId);
             if (!conv) {
               console.error(`[AI AutoReply] ❌ LỖI: Không tìm thấy cuộc hội thoại FB ${conversationId} trong DB.`);
@@ -646,6 +650,54 @@ export const aiAutoReplyService = {
               .sort({ timestamp: -1 })
               .limit(15);
             
+            dbMsgs.reverse();
+
+            if (dbMsgs.length > 0) {
+              latestDbMessage = dbMsgs[dbMsgs.length - 1];
+              lastMessageDirection = latestDbMessage.direction;
+            }
+
+            const grouped = splitHistoryAndPendingInboundMessages(dbMsgs);
+            groupedCustomerMessage = grouped.combinedText || normalizedIncomingText;
+            groupedMessageCount = grouped.pendingMessageCount || 1;
+
+            history = grouped.historyMessages.map(m => ({
+              sender: m.direction === "inbound" ? "user" : "model",
+              text: m.text || ""
+            }));
+          } else if (channel === "tiktok") {
+            const conv = await TikTokConversationModel.findById(conversationId);
+            if (!conv) {
+              console.error(`[AI AutoReply] ❌ LỖI: Không tìm thấy cuộc hội thoại TikTok ${conversationId} trong DB.`);
+              await aiKnowledgeService.createReplyLog({
+                companyCode: targetCompanyCode,
+                channel,
+                conversationId,
+                customerMessage: normalizedIncomingText,
+                aiResponse: `[FAILED] Không tìm thấy cuộc hội thoại TikTok trong DB`,
+                latencyMs: 0,
+                status: "failed",
+              }).catch(() => {});
+              return;
+            }
+
+            if (conv.aiPausedUntil && conv.aiPausedUntil > new Date()) {
+              console.log(`[AI AutoReply] ⚠️ BỎ QUA: Cuộc hội thoại TikTok ${conversationId} đang tạm dừng AI đến ${conv.aiPausedUntil.toISOString()} do nhân viên can thiệp.`);
+              await logAutoReplyFailure({
+                companyCode: targetCompanyCode,
+                channel,
+                conversationId,
+                customerMessage: normalizedIncomingText,
+                reason: "AI is paused for this specific conversation due to human intervention",
+                details: { aiPausedUntil: conv.aiPausedUntil },
+              });
+              return;
+            }
+
+            const dbMsgs = await TikTokMessageModel.find({ conversationId })
+              .sort({ timestamp: -1 })
+              .limit(15);
+
             dbMsgs.reverse();
 
             if (dbMsgs.length > 0) {
@@ -770,6 +822,9 @@ export const aiAutoReplyService = {
             if (channel === "zalo") {
               const latestMsg = await ZaloMessageModel.findOne({ conversationId }).sort({ timestamp: -1 });
               if (latestMsg) preSendDirection = latestMsg.direction;
+            } else if (channel === "tiktok") {
+              const latestMsg = await TikTokMessageModel.findOne({ conversationId }).sort({ timestamp: -1 });
+              if (latestMsg) preSendDirection = latestMsg.direction;
             } else {
               const latestMsg = await FBMessageModel.findOne({ conversationId }).sort({ timestamp: -1 });
               if (latestMsg) preSendDirection = latestMsg.direction;
@@ -807,6 +862,8 @@ export const aiAutoReplyService = {
 
                 if (channel === "zalo") {
                   await zaloMessengerService.sendReply(resolvedPlatformId, conversationId, bubbleText, "ai");
+                } else if (channel === "tiktok") {
+                  await tiktokMessengerService.sendReply(resolvedPlatformId, conversationId, bubbleText, "ai");
                 } else {
                   await fbMessengerService.sendReply(resolvedPlatformId, conversationId, bubbleText, "ai");
                 }

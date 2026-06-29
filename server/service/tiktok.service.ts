@@ -21,11 +21,17 @@ function getTikTokRedirectUri(target?: string) {
   ).trim();
 }
 
-function getTikTokClientKey() {
+function getTikTokClientKey(target?: string) {
+  if (target === "company") {
+    return String(process.env.TIKTOK_BUSINESS_CLIENT_KEY || process.env.TIKTOK_CLIENT_KEY || "").trim();
+  }
   return String(process.env.TIKTOK_CLIENT_KEY || "").trim();
 }
 
-function getTikTokClientSecret() {
+function getTikTokClientSecret(target?: string) {
+  if (target === "company") {
+    return String(process.env.TIKTOK_BUSINESS_CLIENT_SECRET || process.env.TIKTOK_CLIENT_SECRET || "").trim();
+  }
   return String(process.env.TIKTOK_CLIENT_SECRET || "").trim();
 }
 
@@ -489,8 +495,8 @@ function verifyOAuthState(state: string) {
 }
 
 async function exchangeCodeForOAuthToken(code: string, credentials?: { clientKey: string; clientSecret: string }, target?: string) {
-  const clientKey = String(credentials?.clientKey || getTikTokClientKey()).trim();
-  const clientSecret = String(credentials?.clientSecret || getTikTokClientSecret()).trim();
+  const clientKey = String(credentials?.clientKey || getTikTokClientKey(target)).trim();
+  const clientSecret = String(credentials?.clientSecret || getTikTokClientSecret(target)).trim();
   const redirectUri = getTikTokRedirectUri(target);
 
   if (!clientKey || !clientSecret || !redirectUri) {
@@ -550,16 +556,16 @@ async function resolveOAuthClientCredentials(params: {
       }
     }
 
-    if (!clientKey) clientKey = getTikTokClientKey();
-    if (!clientSecret) clientSecret = getTikTokClientSecret();
+    if (!clientKey) clientKey = getTikTokClientKey("company");
+    if (!clientSecret) clientSecret = getTikTokClientSecret("company");
 
     return { clientKey, clientSecret };
   }
 
   const user = await UserModel.findById(params.userId).lean();
   const integration = user?.tiktokIntegration;
-  const clientKey = String(integration?.clientKey || getTikTokClientKey() || "").trim();
-  const clientSecret = String(integration?.clientSecret || getTikTokClientSecret() || "").trim();
+  const clientKey = String(integration?.clientKey || getTikTokClientKey("personal") || "").trim();
+  const clientSecret = String(integration?.clientSecret || getTikTokClientSecret("personal") || "").trim();
 
   return { clientKey, clientSecret };
 }
@@ -719,7 +725,7 @@ export const tiktokService = {
     const query = new URLSearchParams({
       client_key: clientKey,
       response_type: "code",
-      scope: "user.info.basic,video.publish",
+      scope: "user.info.basic,video.publish,business.message",
       redirect_uri: redirectUri,
       state,
     });

@@ -333,7 +333,7 @@ export const aiKnowledgeService = {
   async searchRelevantContext(params: {
     companyCode?: string;
     query: string;
-    channel?: "facebook" | "zalo";
+    channel?: "facebook" | "zalo" | "tiktok";
     topK?: number;
   }) {
     const companyCode = normalizeCompanyCode(params.companyCode);
@@ -653,7 +653,7 @@ export const aiKnowledgeService = {
 
   async createReplyLog(params: {
     companyCode?: string;
-    channel: "facebook" | "zalo" | "test";
+    channel: "facebook" | "zalo" | "tiktok" | "test";
     conversationId?: string;
     customerMessage: string;
     aiResponse: string;

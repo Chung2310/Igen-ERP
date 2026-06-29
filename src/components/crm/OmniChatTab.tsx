@@ -647,6 +647,10 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                           <span className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 text-white text-[7px] font-extrabold rounded-full border border-white shadow-sm flex items-center justify-center leading-none font-sans">
                             Z
                           </span>
+                        ) : cust.channel === "tiktok" ? (
+                          <span className="absolute -top-1 -right-1 w-4 h-4 bg-black text-white text-[7px] font-extrabold rounded-full border border-white shadow-sm flex items-center justify-center leading-none font-sans">
+                            T
+                          </span>
                         ) : null}
                       </div>
 
@@ -658,7 +662,7 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
 
                         <p className="text-[10px] text-slate-500 truncate mt-1 leading-normal select-none">{cust.lastMessage}</p>
                         <p className="text-[9px] text-slate-400 mt-1">
-                          {cust.channel === "zalo" ? "Khách Zalo  " : "Khách Facebook "}
+                          {cust.channel === "zalo" ? "Khách Zalo  " : cust.channel === "tiktok" ? "Khách TikTok " : "Khách Facebook "}
                         </p>
 
                         <div className="flex flex-wrap items-center gap-1 mt-2.5">
@@ -812,8 +816,8 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                         )}
                       </div>
                       <p className="text-[10px] text-slate-500 font-mono mt-1 flex items-center gap-1.5">
-                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${activeCustomer.channel === "zalo" ? "bg-cyan-400 animate-pulse" : "bg-blue-500"}`} />
-                        {activeCustomer.channel === "zalo" ? "Khách Zalo " : "Khách Facebook  "}
+                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${activeCustomer.channel === "zalo" ? "bg-cyan-400 animate-pulse" : activeCustomer.channel === "tiktok" ? "bg-black animate-pulse" : "bg-blue-500"}`} />
+                        {activeCustomer.channel === "zalo" ? "Khách Zalo " : activeCustomer.channel === "tiktok" ? "Khách TikTok " : "Khách Facebook  "}
                       </p>
                     </div>
                   </div>
@@ -837,12 +841,19 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                 {/* Source logo info */}
                 <span className={`px-3 py-1.5 rounded-full text-[10px] font-bold font-sans flex items-center gap-1.5 border shadow-sm ${activeCustomer.channel === "facebook"
                   ? "bg-blue-50 text-blue-700 border-blue-150"
-                  : "bg-indigo-50 text-indigo-700 border-indigo-150"
+                  : activeCustomer.channel === "tiktok"
+                    ? "bg-slate-900 text-white border-slate-900"
+                    : "bg-indigo-50 text-indigo-700 border-indigo-150"
                   }`}>
                   {activeCustomer.channel === "facebook" ? (
                     <>
                       <Facebook className="h-3 w-3" />
                       <span>FACEBOOK MESSENGER</span>
+                    </>
+                  ) : activeCustomer.channel === "tiktok" ? (
+                    <>
+                      <span className="w-3.5 h-3.5 bg-black text-white text-[6.5px] font-extrabold rounded-full flex items-center justify-center leading-none font-sans shrink-0 border border-white">T</span>
+                      <span>TIKTOK BUSINESS MESSAGING</span>
                     </>
                   ) : (
                     <>
