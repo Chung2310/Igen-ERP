@@ -5,6 +5,7 @@ import { elevenlabsRouter } from "./elevenlabs.router";
 import { facebookPostRouter } from "./facebook-post.router";
 import { fbMessengerRouter } from "./fb-messenger.router";
 import { zaloMessengerRouter } from "./zalo-messenger.router";
+import { tiktokMessengerRouter } from "./tiktok-messenger.router";
 import { tiktokRouter } from "./tiktok.router";
 import { tiktokController } from "../controller/tiktok.controller";
 import { schedulerRouter } from "./scheduler.router";
@@ -44,6 +45,7 @@ apiRouter.use("/heygen", heygenRouter);
 apiRouter.use("/facebook", facebookPostRouter);
 apiRouter.use("/facebook", fbMessengerRouter);
 apiRouter.use("/zalo", zaloMessengerRouter);
+apiRouter.use("/tiktok/messenger", tiktokMessengerRouter);
 
 
 // Gắn kết router phụ của TikTok
