@@ -107,6 +107,16 @@ export default function DashboardTab() {
   const [rawProducts, setRawProducts] = useState<any[]>([]);
   const [monthlyRevenue, setMonthlyRevenue] = useState<number[]>(Array(12).fill(0));
 
+  const [filteredTotalRevenue, setFilteredTotalRevenue] = useState<number>(0);
+  const [growthRate, setGrowthRate] = useState<number>(0);
+  const [prevRevenueShort, setPrevRevenueShort] = useState<string>("₫0");
+  const [avgOrderValue, setAvgOrderValue] = useState<number>(0);
+  const [filteredOrderCount, setFilteredOrderCount] = useState<number>(0);
+  const [conversionRate, setConversionRate] = useState<number>(0);
+  const [filteredLeadsCount, setFilteredLeadsCount] = useState<number>(0);
+  const [revenueTrendData, setRevenueTrendData] = useState<Array<{ label: string; value: number }>>([]);
+  const [productSegments, setProductSegments] = useState<Array<{ label: string; value: number; color: string }>>([]);
+
   type DateFilterType = "day" | "week" | "year" | "custom";
   const [dateFilter, setDateFilter] = useState<DateFilterType>("day");
   const [customStartDate, setCustomStartDate] = useState<string>(() => {
@@ -406,17 +416,8 @@ export default function DashboardTab() {
       if (p.id) productIdPriceMap.set(p.id, price);
     });
 
-    rawStockLogs.forEach((log) => {
-      const isOutbound = log.type === "xuất";
-      const isCompleted = log.status === "Hoàn thành" || log.status === "Thành công";
-      if (!isOutbound || !isCompleted) return;
-
-      const logDate = parseSafeDate(log.createdAt);
-      if (!logDate || logDate.getFullYear() !== currentYear) return;
-
-      const monthIndex = logDate.getMonth();
+    const getLogRevenue = (log: any) => {
       let logRevenue = 0;
-
       if (log.items && log.items.length > 0) {
         log.items.forEach((item: any) => {
           const qty = typeof item.quantity === "number" ? item.quantity : 0;
@@ -436,12 +437,316 @@ export default function DashboardTab() {
         }
         logRevenue += qty * price;
       }
+      return logRevenue;
+    };
 
-      revs[monthIndex] += logRevenue;
+    rawStockLogs.forEach((log) => {
+      const isOutbound = log.type === "xuất";
+      const isCompleted = log.status === "Hoàn thành" || log.status === "Thành công";
+      if (!isOutbound || !isCompleted) return;
+
+      const logDate = parseSafeDate(log.createdAt);
+      if (!logDate || logDate.getFullYear() !== currentYear) return;
+
+      const monthIndex = logDate.getMonth();
+      revs[monthIndex] += getLogRevenue(log);
     });
 
     setMonthlyRevenue(revs);
-  }, [rawStockLogs, rawProducts]);
+
+    // Dynamic Period Calculation
+    const now = new Date();
+    let start: Date;
+    let end: Date = now;
+    let prevStart: Date;
+    let prevEnd: Date;
+
+    if (dateFilter === "day") {
+      start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+      
+      prevStart = new Date(start);
+      prevStart.setDate(prevStart.getDate() - 1);
+      prevEnd = new Date(end);
+      prevEnd.setDate(prevEnd.getDate() - 1);
+    } else if (dateFilter === "week") {
+      start = new Date();
+      start.setDate(now.getDate() - 7);
+      start.setHours(0, 0, 0, 0);
+      
+      prevStart = new Date(start);
+      prevStart.setDate(prevStart.getDate() - 7);
+      prevEnd = new Date(start);
+      prevEnd.setMilliseconds(-1);
+    } else if (dateFilter === "year") {
+      start = new Date(now.getFullYear(), 0, 1);
+      
+      prevStart = new Date(now.getFullYear() - 1, 0, 1);
+      prevEnd = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59, 999);
+    } else { // custom
+      const s = new Date(customStartDate + "T00:00:00");
+      const e = new Date(customEndDate + "T23:59:59");
+      start = s;
+      end = e;
+      
+      const diffTime = Math.abs(e.getTime() - s.getTime());
+      prevStart = new Date(s.getTime() - diffTime);
+      prevEnd = new Date(s.getTime() - 1);
+    }
+
+    const filteredLeads = rawLeads.filter((lead) => {
+      if (!lead.createdAt) return false;
+      const d = parseSafeDate(lead.createdAt);
+      return d && d >= start && d <= end;
+    });
+    setFilteredLeadsCount(filteredLeads.length);
+
+    let currentPeriodRevenue = 0;
+    let previousPeriodRevenue = 0;
+    let currentPeriodOrders = 0;
+
+    rawStockLogs.forEach((log) => {
+      const isOutbound = log.type === "xuất";
+      const isCompleted = log.status === "Hoàn thành" || log.status === "Thành công";
+      if (!isOutbound || !isCompleted) return;
+
+      const logDate = parseSafeDate(log.createdAt);
+      if (!logDate) return;
+
+      const rev = getLogRevenue(log);
+      if (logDate >= start && logDate <= end) {
+        currentPeriodRevenue += rev;
+        currentPeriodOrders++;
+      } else if (logDate >= prevStart && logDate <= prevEnd) {
+        previousPeriodRevenue += rev;
+      }
+    });
+
+    setFilteredTotalRevenue(currentPeriodRevenue);
+    setFilteredOrderCount(currentPeriodOrders);
+
+    let rate = 0;
+    if (previousPeriodRevenue > 0) {
+      rate = ((currentPeriodRevenue - previousPeriodRevenue) / previousPeriodRevenue) * 100;
+    } else if (currentPeriodRevenue > 0) {
+      rate = 100;
+    }
+    setGrowthRate(rate);
+
+    const formatCurrencyShort = (val: number) => {
+      if (val >= 1e9) {
+        return `₫${(val / 1e9).toFixed(1)}B`;
+      } else if (val >= 1e6) {
+        return `₫${(val / 1e6).toFixed(1)}M`;
+      } else if (val >= 1e3) {
+        return `₫${(val / 1e3).toFixed(0)}K`;
+      } else {
+        return `₫${val.toLocaleString("vi-VN")}`;
+      }
+    };
+    setPrevRevenueShort(formatCurrencyShort(previousPeriodRevenue));
+
+    const avg = currentPeriodOrders > 0 ? (currentPeriodRevenue / currentPeriodOrders) : 0;
+    setAvgOrderValue(avg);
+
+    const conv = filteredLeads.length > 0 ? (currentPeriodOrders / filteredLeads.length) * 100 : 0;
+    setConversionRate(conv);
+
+    // Build trend data for BarChart
+    let trendData: Array<{ label: string; value: number }> = [];
+
+    if (dateFilter === "day") {
+      const intervals = ["0-4h", "4-8h", "8-12h", "12-16h", "16-20h", "20-24h"];
+      const values = Array(6).fill(0);
+      rawStockLogs.forEach((log) => {
+        const isOutbound = log.type === "xuất";
+        const isCompleted = log.status === "Hoàn thành" || log.status === "Thành công";
+        if (!isOutbound || !isCompleted) return;
+
+        const logDate = parseSafeDate(log.createdAt);
+        if (logDate && logDate >= start && logDate <= end) {
+          const hour = logDate.getHours();
+          const idx = Math.min(5, Math.floor(hour / 4));
+          values[idx] += getLogRevenue(log);
+        }
+      });
+      trendData = intervals.map((label, idx) => ({ label, value: values[idx] }));
+    } else if (dateFilter === "week") {
+      const datesList: Date[] = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(now.getDate() - i);
+        d.setHours(0, 0, 0, 0);
+        datesList.push(d);
+      }
+      const values = Array(7).fill(0);
+      rawStockLogs.forEach((log) => {
+        const isOutbound = log.type === "xuất";
+        const isCompleted = log.status === "Hoàn thành" || log.status === "Thành công";
+        if (!isOutbound || !isCompleted) return;
+
+        const logDate = parseSafeDate(log.createdAt);
+        if (logDate && logDate >= start && logDate <= end) {
+          const logDayStart = new Date(logDate.getFullYear(), logDate.getMonth(), logDate.getDate()).getTime();
+          const idx = datesList.findIndex(d => d.getTime() === logDayStart);
+          if (idx !== -1) {
+            values[idx] += getLogRevenue(log);
+          }
+        }
+      });
+      trendData = datesList.map((d, idx) => ({
+        label: `${d.getDate()}/${d.getMonth() + 1}`,
+        value: values[idx]
+      }));
+    } else if (dateFilter === "year") {
+      const months = ["Tháng 1", "Tháng 2", "Tháng 3", "Tháng 4", "Tháng 5", "Tháng 6", "Tháng 7", "Tháng 8", "Tháng 9", "Tháng 10", "Tháng 11", "Tháng 12"];
+      const values = Array(12).fill(0);
+      rawStockLogs.forEach((log) => {
+        const isOutbound = log.type === "xuất";
+        const isCompleted = log.status === "Hoàn thành" || log.status === "Thành công";
+        if (!isOutbound || !isCompleted) return;
+
+        const logDate = parseSafeDate(log.createdAt);
+        if (logDate && logDate >= start && logDate <= end) {
+          const m = logDate.getMonth();
+          values[m] += getLogRevenue(log);
+        }
+      });
+      trendData = months.map((m, idx) => ({ label: m, value: values[idx] }));
+    } else { // custom
+      const diffMs = Math.abs(end.getTime() - start.getTime());
+      const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+      if (diffDays <= 8) {
+        const datesList: Date[] = [];
+        for (let i = 0; i < diffDays; i++) {
+          const d = new Date(start);
+          d.setDate(d.getDate() + i);
+          d.setHours(0, 0, 0, 0);
+          datesList.push(d);
+        }
+        const values = Array(diffDays).fill(0);
+        rawStockLogs.forEach((log) => {
+          const isOutbound = log.type === "xuất";
+          const isCompleted = log.status === "Hoàn thành" || log.status === "Thành công";
+          if (!isOutbound || !isCompleted) return;
+
+          const logDate = parseSafeDate(log.createdAt);
+          if (logDate && logDate >= start && logDate <= end) {
+            const logDayStart = new Date(logDate.getFullYear(), logDate.getMonth(), logDate.getDate()).getTime();
+            const idx = datesList.findIndex(d => d.getTime() === logDayStart);
+            if (idx !== -1) {
+              values[idx] += getLogRevenue(log);
+            }
+          }
+        });
+        trendData = datesList.map((d, idx) => ({
+          label: `${d.getDate()}/${d.getMonth() + 1}`,
+          value: values[idx]
+        }));
+      } else {
+        const values = Array(6).fill(0);
+        const intervalMs = diffMs / 6;
+        rawStockLogs.forEach((log) => {
+          const isOutbound = log.type === "xuất";
+          const isCompleted = log.status === "Hoàn thành" || log.status === "Thành công";
+          if (!isOutbound || !isCompleted) return;
+
+          const logDate = parseSafeDate(log.createdAt);
+          if (logDate && logDate >= start && logDate <= end) {
+            const diff = logDate.getTime() - start.getTime();
+            const idx = Math.min(5, Math.floor(diff / intervalMs));
+            values[idx] += getLogRevenue(log);
+          }
+        });
+        trendData = Array(6).fill(0).map((_, idx) => {
+          const dStart = new Date(start.getTime() + idx * intervalMs);
+          const dEnd = new Date(start.getTime() + (idx + 1) * intervalMs);
+          return {
+            label: `${dStart.getDate()}/${dStart.getMonth() + 1}-${dEnd.getDate()}/${dEnd.getMonth() + 1}`,
+            value: values[idx]
+          };
+        });
+      }
+    }
+    setRevenueTrendData(trendData);
+
+    // Calculate product sales segments for "Cơ cấu nguồn"
+    const productNameMap = new Map<string, string>();
+    const productIdNameMap = new Map<string, string>();
+    rawProducts.forEach((p) => {
+      const name = p.name || p.sku || "Sản phẩm không tên";
+      if (p.sku) productNameMap.set(p.sku.toUpperCase(), name);
+      if (p.id) productIdNameMap.set(p.id, name);
+    });
+
+    const productQuantities = new Map<string, number>();
+    rawStockLogs.forEach((log) => {
+      const isOutbound = log.type === "xuất";
+      const isCompleted = log.status === "Hoàn thành" || log.status === "Thành công";
+      if (!isOutbound || !isCompleted) return;
+
+      const logDate = parseSafeDate(log.createdAt);
+      if (logDate && logDate >= start && logDate <= end) {
+        if (log.items && log.items.length > 0) {
+          log.items.forEach((item: any) => {
+            const qty = typeof item.quantity === "number" ? item.quantity : 0;
+            let name = "Sản phẩm khác";
+            if (item.productId && productIdNameMap.has(item.productId)) {
+              name = productIdNameMap.get(item.productId)!;
+            } else if (item.sku && productNameMap.has(item.sku.toUpperCase())) {
+              name = productNameMap.get(item.sku.toUpperCase())!;
+            } else if (item.name) {
+              name = item.name;
+            }
+            productQuantities.set(name, (productQuantities.get(name) || 0) + qty);
+          });
+        } else {
+          const qty = typeof log.quantity === "number" ? log.quantity : 0;
+          let name = "Sản phẩm khác";
+          if (log.sku && productNameMap.has(log.sku.toUpperCase())) {
+            name = productNameMap.get(log.sku.toUpperCase())!;
+          } else if (log.name) {
+            name = log.name;
+          }
+          productQuantities.set(name, (productQuantities.get(name) || 0) + qty);
+        }
+      }
+    });
+
+    const sortedProducts = Array.from(productQuantities.entries())
+      .map(([name, qty]) => ({ name, qty }))
+      .sort((a, b) => b.qty - a.qty);
+
+    const totalQty = sortedProducts.reduce((acc, p) => acc + p.qty, 0);
+    const calculatedSegments: Array<{ label: string; value: number; color: string }> = [];
+    const segmentColors = ["#06b6c7", "#60a5fa", "#e99a2c", "#a855f7", "#64748b"];
+
+    if (totalQty === 0) {
+      calculatedSegments.push({ label: "Chưa có dữ liệu", value: 100, color: "#cbd5e1" });
+    } else {
+      if (sortedProducts.length <= 3) {
+        let sumPcts = 0;
+        sortedProducts.forEach((p, idx) => {
+          let pct = Math.round((p.qty / totalQty) * 100);
+          if (idx === sortedProducts.length - 1) {
+            pct = 100 - sumPcts;
+          }
+          sumPcts += pct;
+          calculatedSegments.push({ label: p.name, value: pct, color: segmentColors[idx % segmentColors.length] });
+        });
+      } else {
+        const top1Pct = Math.round((sortedProducts[0].qty / totalQty) * 100);
+        const top2Pct = Math.round((sortedProducts[1].qty / totalQty) * 100);
+        const othersPct = 100 - top1Pct - top2Pct;
+
+        calculatedSegments.push({ label: sortedProducts[0].name, value: top1Pct, color: segmentColors[0] });
+        calculatedSegments.push({ label: sortedProducts[1].name, value: top2Pct, color: segmentColors[1] });
+        calculatedSegments.push({ label: "Sản phẩm khác", value: othersPct, color: segmentColors[2] });
+      }
+    }
+    setProductSegments(calculatedSegments);
+
+  }, [rawStockLogs, rawProducts, rawLeads, dateFilter, customStartDate, customEndDate]);
 
   const handleCreateReorder = (productName?: string) => {
     const name = productName || lowStockItems[0]?.name || "sản phẩm";
@@ -564,7 +869,18 @@ export default function DashboardTab() {
           monthlyRevenue={monthlyRevenue}
         />
       )}
-      {activeView === "revenue" && <RevenuePanel marketingCards={marketingCards} />}
+      {activeView === "revenue" && (
+        <RevenuePanel
+          marketingCards={marketingCards}
+          totalRevenue={filteredTotalRevenue}
+          growthRate={growthRate}
+          prevRevenueShort={prevRevenueShort}
+          avgOrderValue={avgOrderValue}
+          orderCount={filteredOrderCount}
+          trendData={revenueTrendData}
+          productSegments={productSegments}
+        />
+      )}
     </div>
   );
 }
@@ -919,34 +1235,60 @@ function PendingReviewModal({
   );
 }
 
-function RevenuePanel({ marketingCards }: { marketingCards: ContentApprovalCard[] }) {
+function RevenuePanel({
+  marketingCards,
+  totalRevenue,
+  growthRate,
+  prevRevenueShort,
+  avgOrderValue,
+  orderCount,
+  trendData,
+  productSegments,
+}: {
+  marketingCards: ContentApprovalCard[];
+  totalRevenue: number;
+  growthRate: number;
+  prevRevenueShort: string;
+  avgOrderValue: number;
+  orderCount: number;
+  trendData: Array<{ label: string; value: number }>;
+  productSegments: Array<{ label: string; value: number; color: string }>;
+}) {
+  const formatCurrency = (val: number) => {
+    if (val >= 1e9) {
+      return `₫${(val / 1e9).toFixed(2)}B`;
+    } else if (val >= 1e6) {
+      return `₫${(val / 1e6).toFixed(1)}M`;
+    } else {
+      return `₫${val.toLocaleString("vi-VN")}`;
+    }
+  };
+
   return (
     <div className="space-y-8">
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard icon={DollarSign} label="Tong doanh thu" value="d2.4B" delta="+12.5%" />
-        <MetricCard icon={Rocket} label="Toc do tang truong" value="18.4%" delta="+5.2%" tone="amber" />
-        <MetricCard icon={PackageCheck} label="Gia tri DH trung binh" value="d450K" delta="-1.2%" negative />
-        <MetricCard icon={Filter} label="Ti le chuyen doi" value="3.8%" delta="+2.1%" />
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+        <MetricCard icon={DollarSign} label="Tổng doanh thu" value={formatCurrency(totalRevenue)} delta={`${growthRate >= 0 ? "+" : ""}${growthRate.toFixed(1)}%`} negative={growthRate < 0} />
+        <MetricCard icon={Rocket} label="Tốc độ tăng trưởng" value={`${growthRate >= 0 ? "+" : ""}${growthRate.toFixed(1)}%`} delta={prevRevenueShort} tone="amber" negative={growthRate < 0} />
+        <MetricCard icon={PackageCheck} label="Giá trị đơn hàng trung bình" value={formatCurrency(avgOrderValue)} delta={`${orderCount} đơn`} tone="blue" />
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_380px]">
         <div className="rounded-3xl border border-gray-100 bg-white p-8 shadow-xs">
           <div className="mb-8 flex items-start justify-between">
             <div>
-              <h3 className="text-2xl font-bold text-gray-800">Xu huong doanh thu</h3>
-              <p className="mt-2 text-sm text-gray-500">So sanh voi cung ky nam truoc</p>
+              <h3 className="text-2xl font-bold text-gray-800">Xu hướng doanh thu</h3>
             </div>
             <MoreVertical className="h-5 w-5 text-gray-500" />
           </div>
-          <BarChart />
+          <BarChart data={trendData} />
         </div>
 
         <div className="rounded-3xl border border-gray-100 bg-white p-8 shadow-xs">
           <div className="mb-8 flex items-start justify-between">
-            <h3 className="text-2xl font-bold text-gray-800">Co cau nguon</h3>
+            <h3 className="text-2xl font-bold text-gray-800">Cơ cấu nguồn</h3>
             <MoreVertical className="h-5 w-5 text-gray-500" />
           </div>
-          <DonutCard compact cards={marketingCards} />
+          <DonutCard compact segments={productSegments} />
         </div>
       </div>
     </div>
@@ -1161,40 +1503,53 @@ function LineChartCard({ monthlyRevenue }: { monthlyRevenue: number[] }) {
   );
 }
 
-function DonutCard({ compact = false, cards = [] }: { compact?: boolean; cards?: ContentApprovalCard[] }) {
+function DonutCard({
+  compact = false,
+  cards = [],
+  segments: propSegments,
+  title = "Hiệu suất kênh Marketing",
+}: {
+  compact?: boolean;
+  cards?: ContentApprovalCard[];
+  segments?: Array<{ label: string; value: number; color: string }>;
+  title?: string;
+}) {
   const radius = 66;
   const circumference = 2 * Math.PI * radius;
 
-  // Chỉ tính toán phân bổ phần trăm cho những bài viết ĐÃ ĐƯỢC DUYỆT (hoặc đã lên lịch/đăng)
-  const approvedCards = cards.filter(c =>
-    c.status === "approved" ||
-    c.status === "scheduled" ||
-    c.status === "published" ||
-    c.status === "failed"
-  );
-  const total = approvedCards.length;
-  let facebookPct = 50;
-  let zaloPct = 30;
-  let tiktokPct = 20;
+  let segments = propSegments;
+  if (!segments) {
+    // Chỉ tính toán phân bổ phần trăm cho những bài viết ĐÃ ĐƯỢC DUYỆT (hoặc đã lên lịch/đăng)
+    const approvedCards = cards.filter(c =>
+      c.status === "approved" ||
+      c.status === "scheduled" ||
+      c.status === "published" ||
+      c.status === "failed"
+    );
+    const total = approvedCards.length;
+    let facebookPct = 50;
+    let zaloPct = 30;
+    let tiktokPct = 20;
 
-  if (total > 0) {
-    const facebookCount = approvedCards.filter(c => c.channel === "Facebook").length;
-    const zaloCount = approvedCards.filter(c => c.channel === "Zalo").length;
-    const tiktokCount = approvedCards.filter(c => c.channel === "TikTok").length;
+    if (total > 0) {
+      const facebookCount = approvedCards.filter(c => c.channel === "Facebook").length;
+      const zaloCount = approvedCards.filter(c => c.channel === "Zalo").length;
+      const tiktokCount = approvedCards.filter(c => c.channel === "TikTok").length;
 
-    const validTotal = facebookCount + zaloCount + tiktokCount;
-    if (validTotal > 0) {
-      facebookPct = Math.round((facebookCount / validTotal) * 100);
-      zaloPct = Math.round((zaloCount / validTotal) * 100);
-      tiktokPct = Math.max(0, 100 - facebookPct - zaloPct);
+      const validTotal = facebookCount + zaloCount + tiktokCount;
+      if (validTotal > 0) {
+        facebookPct = Math.round((facebookCount / validTotal) * 100);
+        zaloPct = Math.round((zaloCount / validTotal) * 100);
+        tiktokPct = Math.max(0, 100 - facebookPct - zaloPct);
+      }
     }
-  }
 
-  const segments = [
-    { label: "Facebook", value: facebookPct, color: "#06b6c7" },
-    { label: "Zalo", value: zaloPct, color: "#60a5fa" },
-    { label: "TikTok", value: tiktokPct, color: "#e99a2c" },
-  ];
+    segments = [
+      { label: "Facebook", value: facebookPct, color: "#06b6c7" },
+      { label: "Zalo", value: zaloPct, color: "#60a5fa" },
+      { label: "TikTok", value: tiktokPct, color: "#e99a2c" },
+    ];
+  }
   let offset = 0;
 
   return (
@@ -1239,31 +1594,56 @@ function DonutCard({ compact = false, cards = [] }: { compact?: boolean; cards?:
   );
 }
 
-function BarChart() {
-  const bars = [34, 58, 42, 72, 63, 83];
+function BarChart({ data = [] }: { data?: Array<{ label: string; value: number }> }) {
+  const maxVal = Math.max(...data.map(d => d.value), 1); // avoid division by 0
+
+  const formatCurrencyShort = (val: number) => {
+    if (val >= 1e9) {
+      return `₫${(val / 1e9).toFixed(1)}B`;
+    } else if (val >= 1e6) {
+      return `₫${(val / 1e6).toFixed(1)}M`;
+    } else if (val >= 1e3) {
+      return `₫${(val / 1e3).toFixed(0)}K`;
+    } else {
+      return `₫${val.toLocaleString("vi-VN")}`;
+    }
+  };
+
   return (
     <div className="relative h-[320px]">
       <div className="absolute inset-x-0 bottom-10 top-0 flex flex-col justify-between text-xs font-semibold text-gray-400">
-        {["₫3B", "₫2B", "₫1B", "₫0"].map((y) => (
+        {[
+          formatCurrencyShort(maxVal),
+          formatCurrencyShort(maxVal * 2 / 3),
+          formatCurrencyShort(maxVal / 3),
+          "₫0"
+        ].map((y) => (
           <div key={y} className="flex items-center gap-3 h-0">
-            <span className="w-8 shrink-0">{y}</span>
+            <span className="w-12 shrink-0 text-left">{y}</span>
             <span className="h-px flex-1 border-t border-dashed border-slate-100" />
           </div>
         ))}
       </div>
-      <div className="absolute bottom-0 left-12 right-4 top-6 flex items-end justify-between gap-4">
-        {bars.map((h, i) => (
-          <div key={i} className="flex flex-1 flex-col items-center gap-2 h-full justify-end">
-            <div
-              className={`w-full max-w-16 rounded-t-lg transition-all duration-500 ${i === 5
-                ? "bg-gradient-to-t from-blue-600 to-indigo-500 shadow-md shadow-blue-500/20"
-                : "bg-gradient-to-t from-slate-200 to-slate-100 hover:from-blue-300 hover:to-blue-200"
+      <div className="absolute bottom-0 left-16 right-4 top-6 flex items-end justify-between gap-4">
+        {data.map((item, i) => {
+          const h = (item.value / maxVal) * 80; // keep max at 80% to fit neatly
+          return (
+            <div key={i} className="flex flex-1 flex-col items-center gap-2 h-full justify-end">
+              <div
+                title={`${item.label}: ${item.value.toLocaleString("vi-VN")} ₫`}
+                className={`w-full max-w-16 rounded-t-lg transition-all duration-500 ${
+                  i === data.length - 1
+                    ? "bg-gradient-to-t from-blue-600 to-indigo-500 shadow-md shadow-blue-500/20"
+                    : "bg-gradient-to-t from-slate-200 to-slate-100 hover:from-blue-300 hover:to-blue-200"
                 }`}
-              style={{ height: `${h}%` }}
-            />
-            <span className={`text-xs font-bold mt-1 ${i === 5 ? "text-blue-600" : "text-gray-450"}`}>Tháng {i + 1}</span>
-          </div>
-        ))}
+                style={{ height: `${h}%` }}
+              />
+              <span className={`text-[10px] font-bold mt-1 ${i === data.length - 1 ? "text-blue-600" : "text-gray-450"} truncate max-w-full`} title={item.label}>
+                {item.label}
+              </span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
