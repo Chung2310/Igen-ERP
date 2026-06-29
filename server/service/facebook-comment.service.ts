@@ -4,6 +4,8 @@ import { geminiService } from "./gemini.service";
 import { fbMessengerService } from "./fb-messenger.service";
 import { AIReplyLogModel } from "../model/ai-reply-log.model";
 
+const processingComments = new Set<string>();
+
 export const facebookCommentService = {
   /**
    * Xử lý bình luận mới từ Facebook Webhook và tự động trả lời bằng AI
@@ -19,8 +21,8 @@ export const facebookCommentService = {
     const startedAt = Date.now();
 
     try {
+      const senderId = commentData.from?.id || commentData.sender_id;
       const {
-        sender_id: senderId,
         comment_id: commentIdVal,
         post_id: postIdVal,
         verb,
@@ -48,10 +50,17 @@ export const facebookCommentService = {
 
       // Tránh xử lý trùng lặp nếu bình luận này đã được phản hồi trước đó
       if (commentIdVal) {
+        if (processingComments.has(commentIdVal)) {
+          console.log(`[FB Comment Webhook] Bình luận ${commentIdVal} đang được xử lý, bỏ qua.`);
+          return;
+        }
+
         const existingLog = await AIReplyLogModel.findOne({ commentId: commentIdVal });
         if (existingLog) {
           return;
         }
+
+        processingComments.add(commentIdVal);
       }
 
       console.log(`[FB Comment Webhook] Nhận bình luận mới: pageId=${pageId}, commentId=${commentId}, message="${message}"`);
@@ -138,9 +147,10 @@ export const facebookCommentService = {
 
       // 2. Gửi tin nhắn inbox riêng tư cho khách hàng (nếu có)
       let inboxSuccessStatus = "";
+      let isInboxFailed = false;
       if (privateInbox) {
         try {
-          const inboxUrl = `https://graph.facebook.com/v19.0/${pageId}/messages?access_token=${token}`;
+          const inboxUrl = `https://graph.facebook.com/v19.0/me/messages?access_token=${token}`;
           const inboxResponse = await (globalThis as any).fetch(inboxUrl, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -151,15 +161,24 @@ export const facebookCommentService = {
           });
 
           if (!inboxResponse.ok) {
+            isInboxFailed = true;
             const errText = await inboxResponse.text();
+            let parsedError = errText;
+            try {
+              const errJson = JSON.parse(errText);
+              if (errJson.error?.message) {
+                parsedError = `(Mã ${errJson.error.code || "N/A"}) ${errJson.error.message}`;
+              }
+            } catch (e) {}
             console.error(`[FB Comment Webhook] Không thể gửi inbox riêng tư: ${inboxResponse.status} - ${errText}`);
-            inboxSuccessStatus = ` | [Inbox Thất bại: ${errText}]`;
+            inboxSuccessStatus = ` | [Inbox Thất bại: ${parsedError}]`;
           } else {
             const inboxResult = await inboxResponse.json();
             console.log(`[FB Comment Webhook] Đã gửi inbox riêng tư thành công, Message ID: ${inboxResult.message_id}`);
             inboxSuccessStatus = " | [Inbox Thành công]";
           }
         } catch (inboxErr: any) {
+          isInboxFailed = true;
           console.error(`[FB Comment Webhook] Lỗi khi gọi API gửi inbox riêng tư:`, inboxErr.message || inboxErr);
           inboxSuccessStatus = ` | [Inbox Lỗi: ${inboxErr.message || inboxErr}]`;
         }
@@ -169,7 +188,7 @@ export const facebookCommentService = {
         ? `[Bình luận] ${publicComment}\n[Inbox] ${privateInbox}${inboxSuccessStatus}`
         : publicComment;
 
-      // Ghi nhận log thành công
+      // Ghi nhận log
       await AIReplyLogModel.create({
         companyCode,
         channel: "facebook_comment",
@@ -181,7 +200,7 @@ export const facebookCommentService = {
         contextMatches: effectiveRagContext.matches || 0,
         mode: aiConfig.trainingKnowledge ? "trained" : "default",
         latencyMs: Date.now() - startedAt,
-        status: "sent",
+        status: isInboxFailed ? "failed" : "sent",
       });
     } catch (error: any) {
       console.error("[FB Comment Webhook] Lỗi khi xử lý trả lời bình luận:", error.message || error);
@@ -190,12 +209,12 @@ export const facebookCommentService = {
       const errorStr = error.message || String(error);
       if (errorStr.includes("token") || errorStr.includes("190") || errorStr.includes("102") || errorStr.includes("OAuth")) {
         try {
-          const { SocialIntegrationModel } = require("../model/social-integration.model");
+          const { SocialIntegrationModel } = await import("../model/social-integration.model");
           const integration = await SocialIntegrationModel.findOne({
             platform: "Facebook",
             username: pageId,
           });
-          const { telegramService } = require("./telegram.service");
+          const { telegramService } = await import("./telegram.service");
           await telegramService.sendIntegrationDisconnectAlert(
             "Facebook",
             integration?.displayName || "Facebook Page",
@@ -225,6 +244,10 @@ export const facebookCommentService = {
         }).catch((logErr) => {
           console.error("[FB Comment Webhook] Không thể ghi nhận log lỗi vào database:", logErr.message || logErr);
         });
+      }
+    } finally {
+      if (commentId) {
+        processingComments.delete(commentId);
       }
     }
   }

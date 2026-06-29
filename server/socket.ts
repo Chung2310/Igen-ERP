@@ -74,16 +74,20 @@ export function initSocketServer(httpServer: HTTPServer) {
       const personalOaId = user?.zaloIntegration?.isConnected && user.zaloIntegration.oaId
         ? user.zaloIntegration.oaId
         : "";
+      const personalTiktokId = user?.tiktokIntegration?.isConnected && user.tiktokIntegration.username
+        ? user.tiktokIntegration.username
+        : "";
 
       if (personalPageId) roomIds.add(personalPageId);
       if (personalOaId) roomIds.add(personalOaId);
+      if (personalTiktokId) roomIds.add(personalTiktokId);
 
       if (user?.companyCode) {
         try {
           const companyIntegrations = await SocialIntegrationModel.find({
             companyCode: user.companyCode,
             isConnected: true,
-            platform: { $in: ["Facebook", "Zalo"] },
+            platform: { $in: ["Facebook", "Zalo", "TikTok"] },
           }).select("platform username");
 
           companyIntegrations.forEach((integration: any) => {

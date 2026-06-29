@@ -200,13 +200,18 @@ async function handlePendingVideoUrl(item: any, modelName: string) {
 }
 
 async function validateSocialIntegrationPayload(payload: any) {
-  if (!payload || typeof payload !== "object" || payload.isConnected === false) {
+  if (!payload || typeof payload !== "object" || payload.isConnected === false || payload.isMock === true) {
     return;
   }
 
   const platform = String(payload.platform || "").trim();
   const username = String(payload.username || "").trim();
   const accessToken = String(payload.accessToken || "").trim();
+
+  if (accessToken.startsWith("mock_") || accessToken === "EAA...") {
+    console.log(`[validateSocialIntegrationPayload] Bỏ qua xác thực cho Access Token mock: ${accessToken}`);
+    return;
+  }
 
   if (platform === "Facebook") {
     if (!username || !accessToken) {

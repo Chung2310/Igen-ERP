@@ -486,14 +486,13 @@ async function generateText(
       const isPrepaymentDepleted = errorMsg.includes("prepayment credits are depleted") || errorMsg.includes("prepay");
 
       if (isPrepaymentDepleted) {
-        console.error(`[generateText] Gemini API key prepayment credits depleted. Failing fast.`);
         try {
-          const { telegramService } = require("./telegram.service");
+          const { telegramService } = await import("./telegram.service");
           telegramService.sendGeminiBillingAlert(errorMsg).catch((err: any) => {
             console.error("[generateText] Failed to send Gemini billing alert to Telegram:", err);
           });
         } catch (tgErr) {
-          console.error("[generateText] Error requiring telegramService:", tgErr);
+          console.error("[generateText] Error importing telegramService:", tgErr);
         }
         break;
       }

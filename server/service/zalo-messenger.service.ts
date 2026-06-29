@@ -569,14 +569,16 @@ export const zaloMessengerService = {
   /**
    * Gửi phản hồi tin nhắn cho khách hàng qua Zalo OA
    */
-  async sendReply(oaId: string, conversationId: string, text: string) {
+  async sendReply(oaId: string, conversationId: string, text: string, senderType: "human" | "ai" = "human") {
     const conversation = await ZaloConversationModel.findOne({ _id: conversationId, oaId });
     if (!conversation) {
       throw new Error("Không tìm thấy cuộc hội thoại Zalo để trả lời.");
     }
 
     // Hủy các phản hồi AI đang lên lịch do nhân viên đã can thiệp
-    aiAutoReplyService.cancelPendingReply(conversationId, "human_reply");
+    if (senderType === "human") {
+      aiAutoReplyService.cancelPendingReply(conversationId, "human_reply");
+    }
 
     const user = await UserModel.findOne({
       "zaloIntegration.isConnected": true,
@@ -625,7 +627,9 @@ export const zaloMessengerService = {
       conversation.lastMessageText = text;
       conversation.lastMessageAt = sentAt;
       conversation.unreadCount = 0;
-      conversation.aiPausedUntil = new Date(Date.now() + 30 * 60 * 1000); // Tạm dừng AI cho cuộc hội thoại này 30 phút
+      if (senderType === "human") {
+        conversation.aiPausedUntil = new Date(Date.now() + 30 * 60 * 1000); // Tạm dừng AI cho cuộc hội thoại này 30 phút
+      }
       await conversation.save();
       newMsg.status = "delivered";
       await newMsg.save();
@@ -708,7 +712,9 @@ export const zaloMessengerService = {
       conversation.lastMessageText = text;
       conversation.lastMessageAt = sentAt;
       conversation.unreadCount = 0;
-      conversation.aiPausedUntil = new Date(Date.now() + 30 * 60 * 1000); // Tạm dừng AI cho cuộc hội thoại này 30 phút
+      if (senderType === "human") {
+        conversation.aiPausedUntil = new Date(Date.now() + 30 * 60 * 1000); // Tạm dừng AI cho cuộc hội thoại này 30 phút
+      }
       await conversation.save();
       newMsg.messageId = resData.data?.message_id || messageId;
       newMsg.status = "delivered";
