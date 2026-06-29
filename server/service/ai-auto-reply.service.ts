@@ -806,9 +806,9 @@ export const aiAutoReplyService = {
                 if (!bubbleText) continue;
 
                 if (channel === "zalo") {
-                  await zaloMessengerService.sendReply(resolvedPlatformId, conversationId, bubbleText);
+                  await zaloMessengerService.sendReply(resolvedPlatformId, conversationId, bubbleText, "ai");
                 } else {
-                  await fbMessengerService.sendReply(resolvedPlatformId, conversationId, bubbleText);
+                  await fbMessengerService.sendReply(resolvedPlatformId, conversationId, bubbleText, "ai");
                 }
 
                 if (index < messagesToSend.length - 1) {
