@@ -4,6 +4,10 @@ import { cloudinaryService } from "./cloudinary.service";
 import { TelegramProcessedUpdateModel } from "../model/telegram-processed-update.model";
 import { TelegramSessionModel } from "../model/telegram-session.model";
 import { UserModel } from "../model/user.model";
+import { CRMTicketModel } from "../model/crm-ticket.model";
+import { TransactionModel } from "../model/transaction.model";
+import { ProductModel } from "../model/product.model";
+import { SocialIntegrationModel } from "../model/social-integration.model";
 import bcrypt from "bcryptjs";
 
 const TELEGRAM_API_BASE_URL = process.env.TELEGRAM_API_BASE_URL || "https://api.telegram.org";
@@ -487,10 +491,6 @@ export const telegramService = {
     if (command === "/report" || command === "/stats") {
       await this.sendMessage(chatId, "📊 <b>Đang truy vấn hệ thống để lập báo cáo, vui lòng đợi...</b>");
       try {
-        const { CRMTicketModel } = require("../model/crm-ticket.model");
-        const { TransactionModel } = require("../model/transaction.model");
-        const { ProductModel } = require("../model/product.model");
-
         // 1. CRM Stats
         const tickets = await CRMTicketModel.find({}).lean();
         const totalLeads = tickets.length;
@@ -576,7 +576,6 @@ export const telegramService = {
     if (command === "/warning_stock" || command === "/lowstock") {
       await this.sendMessage(chatId, "🔍 <b>Đang quét danh sách tồn kho thấp...</b>");
       try {
-        const { ProductModel } = require("../model/product.model");
         const allProducts = await ProductModel.find({}).lean();
         const lowStockProducts = allProducts.filter((p: any) => {
           const stock = typeof p.stock === "number" ? p.stock : 0;
@@ -675,9 +674,8 @@ export const telegramService = {
   ): Promise<void> {
     // 1. Cập nhật trạng thái isConnected = false trong DB
     try {
-      const { SocialIntegrationModel } = require("../model/social-integration.model");
       await SocialIntegrationModel.findOneAndUpdate(
-        { platform, username },
+        { platform: platform as any, username },
         { isConnected: false }
       );
       console.log(`[Telegram Service] Đã cập nhật trạng thái kết nối tài khoản ${platform} (${username}) thành disconnected.`);

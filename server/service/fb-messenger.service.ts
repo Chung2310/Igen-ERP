@@ -313,7 +313,7 @@ export const fbMessengerService = {
             console.log(
               `[FB Service] Nhận tin nhắn mới: sender=${event.sender?.id}, textLength=${String(event.message.text || "").length}, attachments=${attachmentCount}`
             );
-            await this.processIncomingMessage(event);
+            await this.processIncomingMessage(event, entry.id);
           } else if (event.read) {
             await this.processReadReceipt(event);
           }
@@ -432,12 +432,18 @@ export const fbMessengerService = {
   /**
    * Lưu tin nhắn đến vào DB và tạo cuộc hội thoại nếu chưa có
    */
-  async processIncomingMessage(event: any) {
+  async processIncomingMessage(event: any, pageId?: string) {
     const senderId = event.sender.id; // PSID của khách hàng
     const recipientId = event.recipient.id; // ID của Fanpage mình (pageId)
     const message = event.message;
     const messageId = String(message?.mid || `fb_in_${recipientId}_${senderId}_${Date.now()}`).trim();
     const timestamp = new Date(event.timestamp);
+
+    const resolvedPageId = pageId || recipientId;
+    if (senderId === resolvedPageId || event.message?.is_echo) {
+      console.log(`[FB Service processIncomingMessage] Bỏ qua tin nhắn outbound từ Page ${resolvedPageId}`);
+      return;
+    }
 
     const text = String(message?.text || "").trim();
     const rawAttachments = Array.isArray(message?.attachments) ? message.attachments : [];
@@ -601,14 +607,16 @@ export const fbMessengerService = {
   /**
    * Gửi tin nhắn phản hồi tới khách hàng qua Facebook Send API (sử dụng Token của Page tương ứng)
    */
-  async sendReply(pageId: string, conversationId: string, text: string) {
+  async sendReply(pageId: string, conversationId: string, text: string, senderType: "human" | "ai" = "human") {
     const conversation = await FBConversationModel.findOne({ _id: conversationId, pageId });
     if (!conversation) {
       throw new Error("Không tìm thấy cuộc hội thoại để gửi phản hồi.");
     }
 
     // Hủy các phản hồi AI đang lên lịch do nhân viên đã can thiệp
-    aiAutoReplyService.cancelPendingReply(conversationId, "human_reply");
+    if (senderType === "human") {
+      aiAutoReplyService.cancelPendingReply(conversationId, "human_reply");
+    }
 
     const recipientPsid = conversation.recipientId;
     const resolvedPageId = conversation.pageId || pageId || process.env.FB_PAGE_ID || "";
@@ -686,7 +694,9 @@ export const fbMessengerService = {
       conversation.lastMessageText = text;
       conversation.lastMessageAt = new Date();
       conversation.unreadCount = 0;
-      conversation.aiPausedUntil = new Date(Date.now() + 30 * 60 * 1000); // Tạm dừng AI cho cuộc hội thoại này 30 phút
+      if (senderType === "human") {
+        conversation.aiPausedUntil = new Date(Date.now() + 30 * 60 * 1000); // Tạm dừng AI cho cuộc hội thoại này 30 phút
+      }
       await conversation.save();
 
       const newMsg = new FBMessageModel({
