@@ -238,6 +238,33 @@ geminiRouter.post("/optimize-script", requireAuth as any, validateRequest(optimi
 geminiRouter.post("/optimize-prompt", requireAuth as any, validateRequest(optimizePromptSchema), geminiController.optimizeImagePrompt);
 geminiRouter.post("/optimize-video-prompt", requireAuth as any, validateRequest(optimizeVideoPromptSchema), geminiController.optimizeVideoPrompt);
 
+// Edit Script endpoints
+geminiRouter.post(
+  "/generate-edit-script",
+  requireAuth as any,
+  validateRequest({
+    body: Joi.object({
+      videoUrl: Joi.string().uri().required(),
+      duration: Joi.number().optional(),
+      prompt: Joi.string().allow("").optional(),
+    }),
+  }),
+  geminiController.generateEditScript as any
+);
+
+geminiRouter.post(
+  "/render-from-edit-script",
+  requireAuth as any,
+  validateRequest({
+    body: Joi.object({
+      script: Joi.object().required(),
+      aspectRatio: Joi.string().optional().allow(""),
+      resolution: Joi.string().optional().allow(""),
+    }),
+  }),
+  geminiController.renderFromEditScript as any
+);
+
   // Tối ưu prompt CHỈNH SỬA video (Remotion) - khác với optimize-video-prompt dành cho sinh video mới
 const optimizeEditPromptSchema = {
   body: Joi.object({

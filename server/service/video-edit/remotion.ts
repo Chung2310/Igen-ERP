@@ -6,6 +6,33 @@ import { cloudinaryService } from "../cloudinary.service";
 type RemotionRendererModule = typeof import("@remotion/renderer");
 type RemotionBundlerModule = typeof import("@remotion/bundler");
 
+// Bundle cache — reuse between renders to save 30-60s of bundling time per render
+let _bundleCache: { location: string; entryPoint: string; createdAt: number } | null = null;
+const BUNDLE_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+async function getOrCreateBundle(
+  entryPoint: string,
+  bundleModule: RemotionBundlerModule
+): Promise<{ location: string; fromCache: boolean }> {
+  const now = Date.now();
+  if (
+    _bundleCache &&
+    _bundleCache.entryPoint === entryPoint &&
+    now - _bundleCache.createdAt < BUNDLE_CACHE_TTL_MS
+  ) {
+    const bundlePath = _bundleCache.location.startsWith("file://")
+      ? _bundleCache.location.slice(7)
+      : _bundleCache.location;
+    if (fs.existsSync(bundlePath)) {
+      return { location: _bundleCache.location, fromCache: true };
+    }
+    _bundleCache = null;
+  }
+  const location = await bundleModule.bundle(entryPoint);
+  _bundleCache = { location, entryPoint, createdAt: Date.now() };
+  return { location, fromCache: false };
+}
+
 async function loadRemotionDependencies(): Promise<{
   bundler: RemotionBundlerModule;
   renderer: RemotionRendererModule;
@@ -45,17 +72,20 @@ export function normalizeMediaUrl(url: string): string {
     const uploadIdx = pathPart.indexOf(uploadMarker);
     if (uploadIdx !== -1) {
       const afterUpload = pathPart.slice(uploadIdx + uploadMarker.length);
+      // Only transcode non-mp4 files — mp4 is already H264, applying vc_h264 causes
+      // Cloudinary on-the-fly streaming which triggers ERR_HTTP2_PROTOCOL_ERROR in Chromium
+      const isAlreadyMp4 = /\.mp4(\?|$)/i.test(afterUpload);
       const hasTransform = !afterUpload.match(/^v\d+\//i);
-      if (!hasTransform) {
-        pathPart = pathPart.slice(0, uploadIdx + uploadMarker.length) + "vc_h264,ac_aac/" + afterUpload;
-      } else {
-        if (!pathPart.includes("vc_h264")) {
+      if (!isAlreadyMp4) {
+        if (!hasTransform) {
+          pathPart = pathPart.slice(0, uploadIdx + uploadMarker.length) + "vc_h264,ac_aac/" + afterUpload;
+        } else if (!pathPart.includes("vc_h264")) {
           pathPart = pathPart.slice(0, uploadIdx + uploadMarker.length) + "vc_h264,ac_aac/" + afterUpload;
         }
       }
     }
 
-    const extRegex = /\.(mov|mkv|avi|wmv|flv|3gp|mp4|webm|ogg)$/i;
+    const extRegex = /\.(mov|mkv|avi|wmv|flv|3gp|webm|ogg)$/i;
     pathPart = pathPart.replace(extRegex, ".mp4");
     const normalized = pathPart + queryPart;
     if (normalized !== url) {
@@ -95,12 +125,15 @@ export const remotionService = {
     const renderJobId = `render_${Date.now()}`;
     const entryPoint = path.join(process.cwd(), "server/remotion/entry.tsx");
     const outputPath = path.join(os.tmpdir(), `remotion_out_${Date.now()}.mp4`);
+    const resolution = options?.resolution || "720p";
+    const aspectRatio = options?.aspectRatio || "16:9";
+    const is1080p = resolution === "1080p";
 
     console.log(`\n${"=".repeat(60)}`);
     console.log(`[Remotion] ▶ BẤT ĐẦU RENDER | Job: ${renderJobId}`);
     console.log(`[Remotion] EntryPoint : ${entryPoint} | Tồn tại: ${fs.existsSync(entryPoint)}`);
     console.log(`[Remotion] OutputPath : ${outputPath}`);
-    console.log(`[Remotion] Options    : aspect=${options?.aspectRatio || "16:9"}, res=${options?.resolution || "720p"}`);
+    console.log(`[Remotion] Options    : aspect=${aspectRatio}, res=${resolution}`);
 
     const normalizedBlueprint = normalizeBlueprintUrls(blueprint);
     const timeline = normalizedBlueprint?.timeline || [];
@@ -135,17 +168,20 @@ export const remotionService = {
 
     try {
       const { bundler, renderer } = await loadRemotionDependencies();
-      const { bundle } = bundler;
       const { renderMedia, selectComposition } = renderer;
 
       const bundleStart = Date.now();
-      const bundleLocation = await bundle(entryPoint);
-      console.log(`[Remotion] ✅ Bundle hoàn tất trong ${Date.now() - bundleStart}ms`);
+      const { location: bundleLocation, fromCache } = await getOrCreateBundle(entryPoint, bundler);
+      if (fromCache) {
+        console.log(`[Remotion] ✅ Bundle từ cache (${Math.round((Date.now() - _bundleCache!.createdAt) / 1000)}s tuổi)`);
+      } else {
+        console.log(`[Remotion] ✅ Bundle hoàn tất trong ${Date.now() - bundleStart}ms`);
+      }
 
-      if (onProgress) onProgress(55, "[Remotion Engine] Khởi chạy Chromium headless...");
+      if (onProgress) onProgress(55, `[Remotion Engine] Khởi chạy Chromium headless${fromCache ? " (bundle cached)" : ""}...`);
 
       const inputProps = {
-        blueprint: { ...normalizedBlueprint, aspectRatio: options?.aspectRatio || "16:9" },
+        blueprint: { ...normalizedBlueprint, aspectRatio, resolution },
       };
 
       const composition = await selectComposition({ serveUrl: bundleLocation, id: "video-edit", inputProps });
@@ -162,8 +198,12 @@ export const remotionService = {
         audioBitrate: "320k",
         outputLocation: outputPath,
         inputProps,
-        timeoutInMilliseconds: 120000,
-        chromiumOptions: { enableMultiProcessOnLinux: true },
+        timeoutInMilliseconds: 600_000, // 10 phút — đủ cho 1080p dài
+        crf: is1080p ? 18 : 22,        // chất lượng cao hơn cho 1080p
+        chromiumOptions: {
+          enableMultiProcessOnLinux: true,
+          gl: "swiftshader",
+        },
         onBrowserLog: (log) => {
           const msg = log.text;
           const msgLower = msg.toLowerCase();

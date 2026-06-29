@@ -7,6 +7,7 @@ import { crmService, ExtendedLeadCard } from "../services/crmService";
 import { useAuth } from "../context/AuthContext";
 import { fbMessengerService } from "../services/fbMessengerService";
 import { zaloMessengerService } from "../services/zaloMessengerService";
+import { tiktokMessengerService } from "../services/tiktokMessengerService";
 import { getAccessToken } from "../services/authService";
 import { socketService } from "../services/socketService";
 import { useSubTabRouter } from "../hooks/useSubTabRouter";
@@ -478,7 +479,9 @@ export default function CRMTab() {
     try {
       const result = targetChannel === "zalo"
         ? await zaloMessengerService.getMessages(conversationId, { limit: 20, before, sync: !!options?.syncChannel })
-        : await fbMessengerService.getMessages(conversationId, { limit: 20, before, sync: !!options?.syncChannel, pageId: selectedFacebookPageId });
+        : targetChannel === "tiktok"
+          ? await tiktokMessengerService.getMessages(conversationId, { limit: 20, before, sync: !!options?.syncChannel })
+          : await fbMessengerService.getMessages(conversationId, { limit: 20, before, sync: !!options?.syncChannel, pageId: selectedFacebookPageId });
 
       // Ngăn chặn race-condition khi người dùng chuyển đổi khách hàng nhanh
       // conversationId o day la Mongo _id cua conversation trong DB, khong phai PSID/UID cua khach.
@@ -593,6 +596,18 @@ export default function CRMTab() {
         }
       }
 
+      let tiktokConvs: any[] = [];
+      if (isTiktokConnected) {
+        try {
+          tiktokConvs = await tiktokMessengerService.getConversations({
+            limit,
+            skip: currentSkip
+          });
+        } catch (err) {
+          console.error("Lỗi lấy hội thoại TikTok:", err);
+        }
+      }
+
       const mappedFb: CustomerInbox[] = fbConvs.map((c: any) => ({
         id: c._id,
         recipientId: c.recipientId,
@@ -627,7 +642,24 @@ export default function CRMTab() {
         aiPausedUntil: c.aiPausedUntil || null
       } as any));
 
-      let fetchedList = [...mappedFb, ...mappedZalo];
+      const mappedTiktok: CustomerInbox[] = tiktokConvs.map((c: any) => ({
+        id: c._id,
+        recipientId: c.openId,
+        name: c.senderName || "Khách hàng TikTok",
+        avatar: c.avatarUrl || "👤",
+        avatarUrl: c.avatarUrl || "",
+        lastMessage: c.lastMessageText || "[Đính kèm]",
+        time: new Date(c.lastMessageAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
+        unreadCount: c.unreadCount || 0,
+        isVip: c.isVip || false,
+        status: "offline",
+        tags: c.tags || [],
+        channel: "tiktok",
+        lastMessageAt: new Date(c.lastMessageAt),
+        aiPausedUntil: c.aiPausedUntil || null
+      } as any));
+
+      let fetchedList = [...mappedFb, ...mappedZalo, ...mappedTiktok];
       
 
 
@@ -698,7 +730,7 @@ export default function CRMTab() {
 
   // Handle Socket.IO realtime events
   useEffect(() => {
-    if (subTab !== "OMNI-INBOX CHAT" || (!isFbConnected && !isZaloConnected)) return;
+    if (subTab !== "OMNI-INBOX CHAT" || (!isFbConnected && !isZaloConnected && !isTiktokConnected)) return;
 
     const handleNewMessage = async (data: { message: any; conversation?: any }) => {
       console.log("[FE CRMTab] socket new_message event received:", data);
@@ -756,6 +788,8 @@ export default function CRMTab() {
           // Gửi request ngầm lên server để reset unreadCount về 0 trong DB
           if (activeCust.channel === "zalo") {
             zaloMessengerService.markRead(activeId).catch(() => { });
+          } else if (activeCust.channel === "tiktok") {
+            tiktokMessengerService.markRead(activeId).catch(() => { });
           } else {
             fbMessengerService.markRead(activeId).catch(() => { });
           }
@@ -918,7 +952,9 @@ export default function CRMTab() {
     );
     const markReadPromise = cust.channel === "zalo"
       ? zaloMessengerService.markRead(cust.id)
-      : fbMessengerService.markRead(cust.id);
+      : cust.channel === "tiktok"
+        ? tiktokMessengerService.markRead(cust.id)
+        : fbMessengerService.markRead(cust.id);
     markReadPromise.catch((err) => {
       console.error("[FE CRMTab] Khong the mark-read khi mo conversation:", err);
     });
@@ -1125,10 +1161,12 @@ export default function CRMTab() {
     }
   };
 
-  const handleResumeAI = async (conversationId: string, channel: "facebook" | "zalo") => {
+  const handleResumeAI = async (conversationId: string, channel: "facebook" | "zalo" | "tiktok") => {
     try {
       if (channel === "zalo") {
         await zaloMessengerService.resumeAI(conversationId);
+      } else if (channel === "tiktok") {
+        await tiktokMessengerService.resumeAI(conversationId);
       } else {
         await fbMessengerService.resumeAI(conversationId, selectedFacebookPageId);
       }
@@ -1172,6 +1210,8 @@ export default function CRMTab() {
     try {
       if (activeCustomer.channel === "zalo") {
         await zaloMessengerService.sendReply(activeCustomer.id, msgText);
+      } else if (activeCustomer.channel === "tiktok") {
+        await tiktokMessengerService.sendReply(activeCustomer.id, msgText);
       } else {
         await fbMessengerService.sendReply(activeCustomer.id, msgText, selectedFacebookPageId);
       }
@@ -1205,7 +1245,7 @@ export default function CRMTab() {
   const handleCreateLeadFromChat = async (customer: CustomerInbox, status: "cold" | "warm" | "hot") => {
     const newLead: Omit<ExtendedLeadCard, "id"> = {
       customerName: customer.name,
-      company: customer.channel === "zalo" ? "Khách hàng từ Zalo" : "Khách hàng từ Facebook",
+      company: customer.channel === "zalo" ? "Khách hàng từ Zalo" : customer.channel === "tiktok" ? "Khách hàng từ TikTok" : "Khách hàng từ Facebook",
       value: 0,
       phone: "Chưa bổ sung",
       avatar: customer.name.split(" ").filter(Boolean).slice(0, 1).map(part => part[0]?.toUpperCase() || "").join("") || "👤",
