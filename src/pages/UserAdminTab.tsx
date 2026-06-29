@@ -1003,9 +1003,9 @@ export default function UserAdminTab() {
               <div className="bg-white border border-gray-150 rounded-2xl shadow-xs p-5 space-y-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <h6 className="font-bold text-slate-800 text-sm">Lá»‹ch sá»­ giao dá»‹ch</h6>
+                    <h6 className="font-bold text-slate-800 text-sm">Lịch sử giao dịch</h6>
                     <p className="text-xs text-gray-500 mt-1">
-                      {balanceUsers.find((item) => item.userId === selectedBalanceUserId)?.displayName || "Chá»n ngÆ°á»i dÃ¹ng"}
+                      {balanceUsers.find((item) => item.userId === selectedBalanceUserId)?.displayName || "Chọn người dùng"}
                     </p>
                   </div>
                   <button
@@ -1047,10 +1047,10 @@ export default function UserAdminTab() {
                           {new Date(transaction.createdAt).toLocaleString("vi-VN")}
                         </div>
                         <div className="mt-2 text-xs text-slate-600 leading-5">
-                          {transaction.description || "KhÃ´ng cÃ³ mÃ´ táº£ giao dá»‹ch."}
+                          {transaction.description || "Không có mô tả giao dịch."}
                         </div>
                         <div className="mt-2 text-[10px] text-gray-400 font-mono">
-                          Order: {transaction.orderCode} Â· Status: {transaction.status}
+                          Order: {transaction.orderCode} · Status: {transaction.status}
                         </div>
                       </div>
                     ))}
