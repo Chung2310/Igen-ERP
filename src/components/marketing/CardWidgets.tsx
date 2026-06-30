@@ -13,6 +13,7 @@ import {
   ZoomIn
 } from "lucide-react";
 import { ContentApprovalCard } from "../../types";
+import { buildFacebookPostUrl } from "../../services/marketingService";
 
 export const formatCardDate = (dateStr: any): string => {
   if (!dateStr) return "";
@@ -661,7 +662,10 @@ export function PublishedCard({ card, onDelete, isUserRole, onPreviewMedia, onOp
               if (card.facebookPostId?.includes('mock')) {
                 alert(`[Demo] Bài đăng Facebook ID: ${card.facebookPostId}`);
               } else {
-                window.open(`https://facebook.com/${card.facebookPostId}`, '_blank');
+                const targetUrl = buildFacebookPostUrl(card.facebookPostId);
+                if (targetUrl) {
+                  window.open(targetUrl, '_blank');
+                }
               }
             }}
           >
