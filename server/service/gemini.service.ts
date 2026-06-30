@@ -1712,6 +1712,8 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
       const result = await openrouterGenerateImage({
         prompt,
         model,
+        aspectRatio: options?.aspectRatio,
+        resolution: options?.resolution,
         referenceImages: options?.existingImageUris,
       });
       let imageUrl = result.url;
