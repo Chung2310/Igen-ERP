@@ -229,9 +229,6 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
       ? []
       : searchIndex
           .filter((item) => {
-            if (item.tab === "VÍ & NẠP TIỀN" && userProfile?.role !== "superadmin") {
-              return false;
-            }
             if (item.tab === "HIỆU SUẤT AI" && userProfile?.role !== "superadmin") {
               return false;
             }
@@ -298,7 +295,7 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
       <div className="ml-6 flex items-center gap-3" id="header_controls">
 
         {/* Wallet Balance Pill */}
-        {userProfile?.role === "superadmin" && (
+        {userProfile && (
           <button
             onClick={() => onSearchSelect("VÍ & NẠP TIỀN" as TabType)}
             className="flex items-center gap-2 rounded-full bg-blue-50 border border-blue-100 px-4 py-2 font-sans transition-all hover:bg-blue-100/50 hover:border-blue-200 active:scale-95 shadow-xs shadow-blue-500/5 cursor-pointer"

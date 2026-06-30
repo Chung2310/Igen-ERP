@@ -255,11 +255,21 @@ export const walletController = {
         return res.status(400).json({ status: "error", message: "Chữ ký webhook không hợp lệ." });
       }
 
+      // PayOS gửi code "00" khi thanh toán thành công.
+      // Các code khác (CANCELLED, EXPIRED...) không cộng tiền.
+      const payosCode = String(webhookData.code || "");
+      if (payosCode !== "00") {
+        console.log(`[PayOS Webhook] Webhook code=${payosCode}, bo qua khong cap nhat vi.`);
+        return res.status(200).json({ status: "success", message: "Webhook received." });
+      }
+
       const { orderCode, amount } = verifiedData;
+
+      // PayOS gửi test request khi xác nhận webhook URL, orderCode=0 hoặc không có trong DB.
       const transaction = await TransactionModel.findOne({ orderCode });
       if (!transaction) {
-        console.warn(`[PayOS Webhook] Khong tim thay giao dich voi ma orderCode: ${orderCode}`);
-        return res.status(404).json({ status: "error", message: "Giao dịch không tồn tại." });
+        console.log(`[PayOS Webhook] orderCode=${orderCode} khong tim thay (co the la test request). Tra 200 OK.`);
+        return res.status(200).json({ status: "success", message: "Webhook received." });
       }
 
       if (transaction.status === "success") {

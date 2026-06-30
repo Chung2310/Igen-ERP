@@ -309,7 +309,29 @@ export const geminiApi = {
   async editVideo(
     videoUrl: string,
     prompt: string,
-    options?: { modelName?: string; aspectRatio?: string; resolution?: string; duration?: number; videoDurations?: number[]; blueprint?: any; renderMode?: string; renderEngine?: string; referenceVideoUrl?: string; referenceVideoDuration?: number }
+    options?: {
+      modelName?: string; aspectRatio?: string; resolution?: string;
+      duration?: number; videoDurations?: number[]; blueprint?: any;
+      renderMode?: string; renderEngine?: string;
+      referenceVideoUrl?: string; referenceVideoDuration?: number;
+      outline?: string; scenes?: string[]; brandName?: string; bgMusicUrl?: string;
+      scenesContent?: Array<{
+        type: 'hook' | 'story' | 'insight' | 'pipeline' | 'ui_mockup' | 'before_after' | 'cta';
+        label?: string; title?: string; subtitle?: string;
+        titleColor?: 'gold' | 'red' | 'green' | 'white' | 'cyan';
+        highlightWords?: string[];
+        items?: Array<{ icon?: string; title: string; description?: string; variant?: string }>;
+        steps?: Array<{ step?: string; icon?: string; title: string; description?: string; tag?: string; variant?: string }>;
+        stats?: Array<{ value: string; label: string }>;
+        code?: string;
+        liveStats?: Array<{ label: string; value: string }>;
+        before?: { label: string; duration?: string };
+        after?: { label: string; badge?: string };
+        metric?: { from: string; to: string; label?: string };
+        ctaButton?: string; ctaPrompt?: string; duration?: number;
+      }>;
+      colorScheme?: 'dark-gold' | 'dark-cyan' | 'dark-red';
+    }
   ): Promise<{ status: string; record: any; blueprint: any }> {
     const headers = await getHeaders(true);
     const response = await fetch('/api/v1/gemini/edit-video', {
@@ -418,6 +440,42 @@ export const geminiApi = {
     });
     if (!response.ok) {
       await handleErrorResponse(response, 'Lỗi khi phân tích phong cách video mẫu');
+    }
+    return response.json();
+  },
+
+  async generateEditScript(
+    videoUrl: string,
+    duration: number,
+    prompt?: string
+  ): Promise<{ status: string; script: any }> {
+    const headers = await getHeaders(true);
+    const response = await fetchWithTimeout(
+      '/api/v1/gemini/generate-edit-script',
+      { method: 'POST', headers, body: JSON.stringify({ videoUrl, duration, prompt }) },
+      300000,
+      'Tạo kịch bản biên tập mất quá lâu. Vui lòng thử lại.'
+    );
+    if (!response.ok) {
+      await handleErrorResponse(response, 'Lỗi tạo kịch bản biên tập video');
+    }
+    return response.json();
+  },
+
+  async renderFromEditScript(
+    script: any,
+    aspectRatio?: string,
+    resolution?: string
+  ): Promise<{ status: string; record: any; blueprint: any }> {
+    const headers = await getHeaders(true);
+    const response = await fetchWithTimeout(
+      '/api/v1/gemini/render-from-edit-script',
+      { method: 'POST', headers, body: JSON.stringify({ script, aspectRatio, resolution }) },
+      60000,
+      'Xếp hàng kết xuất video mất quá lâu. Vui lòng thử lại.'
+    );
+    if (!response.ok) {
+      await handleErrorResponse(response, 'Lỗi kết xuất video từ kịch bản');
     }
     return response.json();
   },

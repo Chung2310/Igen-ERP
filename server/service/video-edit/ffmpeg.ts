@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import { exec } from "child_process";
+import { exec, spawn as spawnProc } from "child_process";
 import { cloudinaryService } from "../cloudinary.service";
 
 export interface FFmpegRenderOptions {
@@ -294,14 +294,52 @@ export async function runFFmpegFallback(
     const isWin = os.platform() === "win32";
     const fontfileArg = isWin ? "fontfile='C\\:/Windows/Fonts/arial.ttf':" : "";
 
+    // Convert any CSS color to FFmpeg RRGGBBAA hex string
+    function cssToFfmpegColor(color: string, opacityOverride?: number): string {
+      const alpha = opacityOverride !== undefined
+        ? Math.round(opacityOverride * 255).toString(16).padStart(2, "0")
+        : "ff";
+      if (!color) return "ffffff" + alpha;
+      // #RGB or #RRGGBB
+      if (color.startsWith("#")) return color.replace("#", "").padEnd(6, "0").slice(0, 6) + alpha;
+      // rgba(r,g,b,a)
+      const rgbaMatch = color.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*([\d.]+))?\s*\)/i);
+      if (rgbaMatch) {
+        const r = parseInt(rgbaMatch[1]).toString(16).padStart(2, "0");
+        const g = parseInt(rgbaMatch[2]).toString(16).padStart(2, "0");
+        const b = parseInt(rgbaMatch[3]).toString(16).padStart(2, "0");
+        const a = rgbaMatch[4] !== undefined
+          ? Math.round(parseFloat(rgbaMatch[4]) * 255).toString(16).padStart(2, "0")
+          : alpha;
+        return r + g + b + a;
+      }
+      // Named colors FFmpeg understands — pass through directly (no 0x prefix needed)
+      const namedColors: Record<string, string> = {
+        white: "ffffff" + alpha, black: "000000" + alpha, red: "ff0000" + alpha,
+        green: "00ff00" + alpha, blue: "0000ff" + alpha, yellow: "ffff00" + alpha,
+      };
+      return namedColors[color.toLowerCase()] || "ffffff" + alpha;
+    }
+
+    // Strip emoji and non-BMP characters FFmpeg drawtext can't render
+    function stripEmoji(text: string): string {
+      return text
+        .replace(/[\u{1F000}-\u{1FFFF}]/gu, "")   // emoji block
+        .replace(/[\u{2600}-\u{27BF}]/gu, "")       // misc symbols
+        .replace(/[\u{1F300}-\u{1F9FF}]/gu, "")     // emoticons
+        .replace(/\s{2,}/g, " ")
+        .trim();
+    }
+
     textElements.forEach((textItem: any, idx: number) => {
       const start = textItem.start ?? 0;
       const end = textItem.end ?? 5;
-      const content = (textItem.content || "").replace(/'/g, "'\\\\''").replace(/:/g, "\\:");
+      const rawContent = stripEmoji(textItem.content || "");
+      const content = rawContent.replace(/'/g, "'\\\\''").replace(/:/g, "\\:");
       const style = textItem.style || {};
       const color = style.color || "white";
-      const opacity = style.opacity !== undefined ? Math.round(style.opacity * 255).toString(16).padStart(2, "0") : "ff";
-      const fontcolorArg = color.startsWith("#") ? color.replace("#", "") + opacity : color;
+      const opacity = style.opacity !== undefined ? style.opacity : undefined;
+      const fontcolorArg = cssToFfmpegColor(color, opacity);
       let fontSizeNum = 32;
       if (style.fontSize) {
         const matched = String(style.fontSize).match(/(\d+)/);
@@ -361,18 +399,56 @@ export async function runFFmpegFallback(
     const videoInputsStr = videoTempPaths.map((p) => `-i "${p}"`).join(" ");
     const inputsStr = `${videoInputsStr} ` + inputArgs.join(" ");
     const tempOutput = path.join(os.tmpdir(), `output_${recordId}.mp4`);
-    const ffmpegCmd = `ffmpeg -y ${inputsStr} -filter_complex "${filterComplex}" -map "${currentVideoOut}" -map "${currentAudioOut}" -c:v libx264 -c:a aac -pix_fmt yuv420p -r 30 -vsync cfr "${tempOutput}"`;
+
+    // Tính tổng thời lượng video để báo progress chính xác
+    const totalDuration = videoClips.reduce((sum: number, clip: any) => {
+      return sum + ((clip.end ?? 5) - (clip.start ?? 0)) / (clip.playbackRate ?? 1);
+    }, 0);
+
+    // Preset fast để encode nhanh hơn mà không mất chất lượng đáng kể
+    const ffmpegCmd = `ffmpeg -y ${inputsStr} -filter_complex "${filterComplex}" -map "${currentVideoOut}" -map "${currentAudioOut}" -c:v libx264 -preset fast -c:a aac -b:a 192k -pix_fmt yuv420p -r 30 -vsync cfr "${tempOutput}"`;
 
     await updateLogs(70, "[Render Engine Fallback] Đang thực thi lệnh FFMPEG...");
 
     await new Promise<void>((resolve, reject) => {
-      exec(ffmpegCmd, (error, _stdout, stderr) => {
-        if (error) {
-          console.error("FFMPEG execution failed:", stderr || error.message);
-          reject(new Error(`FFMPEG render failed: ${error.message}`));
+      // Dùng spawn thay exec để đọc stderr real-time và báo progress
+      const args = ffmpegCmd.split(" ").slice(1);
+      const child = spawnProc("ffmpeg", args, { shell: true });
+      let stderrBuf = "";
+      let lastProgressUpdate = Date.now();
+
+      child.stderr.on("data", (chunk: Buffer) => {
+        const line = chunk.toString();
+        stderrBuf += line;
+
+        // Parse time= từ FFmpeg progress output
+        const timeMatch = line.match(/time=(\d{2}):(\d{2}):(\d{2})\.(\d{2})/);
+        if (timeMatch && totalDuration > 0) {
+          const now = Date.now();
+          if (now - lastProgressUpdate < 2000) return; // throttle to once per 2s
+          lastProgressUpdate = now;
+          const currentSec =
+            parseInt(timeMatch[1]) * 3600 +
+            parseInt(timeMatch[2]) * 60 +
+            parseInt(timeMatch[3]) +
+            parseInt(timeMatch[4]) / 100;
+          const pct = Math.min(0.98, currentSec / totalDuration);
+          const reportProgress = Math.round(70 + pct * 12); // 70-82%
+          void updateLogs(reportProgress, `[FFmpeg] ${currentSec.toFixed(1)}s / ${totalDuration.toFixed(1)}s đã xử lý...`);
+        }
+      });
+
+      child.on("close", (code) => {
+        if (code !== 0) {
+          console.error("FFMPEG execution failed:", stderrBuf.slice(-1000));
+          reject(new Error(`FFMPEG render failed (exit ${code}): ${stderrBuf.slice(-300)}`));
         } else {
           resolve();
         }
+      });
+
+      child.on("error", (err) => {
+        reject(new Error(`FFMPEG spawn error: ${err.message}`));
       });
     });
 

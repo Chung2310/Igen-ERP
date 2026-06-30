@@ -7,6 +7,18 @@ import { freeLLMJson, isFreeLLMConfigured } from "./freellm.service";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 
+export interface VideoContentAnalysis {
+  transcript: Array<{ text: string; startFraction: number; endFraction: number }>;
+  keyMoments: Array<{ description: string; fraction: number; importance: "high" | "medium" | "low"; suggestedOverlay?: string }>;
+  mood: "upbeat" | "serious" | "emotional" | "corporate" | "educational" | "entertainment";
+  contentType: "tutorial" | "product_demo" | "vlog" | "interview" | "presentation" | "story" | "other";
+  mainTopics: string[];
+  suggestedTitle: string;
+  suggestedCTA: string;
+  musicGenre: "upbeat" | "tech" | "corporate" | "lofi" | "acoustic" | "none";
+  language: "vi" | "en" | "other";
+}
+
 function safeParseJson(text: string): any {
   let cleaned = text.trim();
   if (cleaned.startsWith("```")) {
@@ -37,7 +49,7 @@ async function downloadFile(url: string, destPath: string): Promise<void> {
   fs.writeFileSync(destPath, Buffer.from(arrayBuffer));
 }
 
-function buildSystemPrompt(videoUrl: string, duration: number): string {
+function buildSystemPrompt(videoUrl: string, duration: number, contentAnalysis?: VideoContentAnalysis): string {
   // videoUrl có thể là nhiều URL cách nhau bằng dấu phẩy (multi-video input)
   const videoUrls = videoUrl.split(/,\s*(?=https?:\/\/)/).map(u => u.trim()).filter(Boolean);
   const isMultiVideo = videoUrls.length > 1;
@@ -155,6 +167,10 @@ Keyword → field mapping (MANDATORY to follow):
   "fade / xuất hiện từ từ / mờ dần hiện / fade-in" → animation: "fade-in"
   "biến mất từ từ / fade-out / mờ dần tắt"         → animation: "fade-out"
   "fade vào rồi fade ra / fade-in-out"              → animation: "fade-in-out"
+  "trượt lên / slide up / bay vào từ dưới"          → animation: "slide-up"
+  "trượt xuống / slide down / bay vào từ trên"      → animation: "slide-down"
+  "phóng to hiện / scale in / pop in"               → animation: "scale-in"
+  "đánh máy / typewriter / gõ từng chữ"             → animation: "typewriter"
   (default — tức thì)                               → animation: "none"
 
 ▸ color (STRICT — use EXACTLY these hex codes):
@@ -178,28 +194,197 @@ Text pattern examples (combine multiple fields):
 Text display timing: if user says "hiện chữ X từ giây A đến B" → start:A, end:B
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🎬 SECTION 7: TRANSITIONS & ROTATION
+🎬 SECTION 7: TRANSITIONS & VIDEO EFFECTS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- "chuyển cảnh mờ dần / fade" → effects.transition: "fade" on the clip ending the scene
-- "xoay / rotate / quay nghiêng" → effects.rotate: degrees (e.g. 90, -45, 180)
+effects.transition được đặt trên CLIP KẾT THÚC (clip A) để xác định cách chuyển sang clip B:
+
+Transition types (đặt trong effects.transition của clip):
+▸ "fade"        → mờ dần — opacity 0→1, blur nhẹ + scale 1.15→1 (mềm mại)
+▸ "slide-left"  → clip A trượt sang trái, clip B vào từ phải (năng động)
+▸ "slide-right" → clip A trượt sang phải, clip B vào từ trái
+▸ "slide-up"    → clip A trượt lên, clip B vào từ dưới
+▸ "slide-down"  → clip A trượt xuống, clip B vào từ trên
+▸ "zoom-in"     → clip A phóng to + fade out, clip B fade in từ nhỏ
+▸ "zoom-out"    → clip A thu nhỏ + fade out, clip B fade in từ lớn
+▸ "flash"       → chuyển nhanh (flash trắng cực ngắn ~0.15s)
+▸ "none"        → cắt thẳng (hard cut, không hiệu ứng)
+
+Matching rule: transition type của clip A = cả exit của A và entry của B.
+Ví dụ slide-left: A slides ra trái đồng thời B slides vào từ phải → mượt mà.
+
+Cách dùng hiệu quả:
+- "slide-left/right" → phù hợp nội dung nhanh, TikTok, action
+- "fade" → phù hợp nội dung cảm xúc, cinematic, slow paced
+- "zoom-in" → phù hợp khoảnh khắc cao trào, reveal
+- "flash" → phù hợp giữa các cảnh mạnh, highlight moment
+- "none" → documentary style, raw cut
+
+- "xoay / rotate / quay nghiêng"    → effects.rotate: degrees (e.g. 90, -45, 180)
+- "lấp đầy khung / cover / fill"    → effects.objectFit: "cover"
+- "giữ tỉ lệ / contain / letterbox" → effects.objectFit: "contain" (default)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🖼️ SECTION 8: IMAGE OVERLAYS (LOGO / WATERMARK)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Use type "image" to overlay a logo or watermark image.
-- Positions: "top-left" | "top-right" | "bottom-left" | "bottom-right"
+- Positions: "top-left" | "top-right" | "bottom-left" | "bottom-right" | "center"
 - "opacity": 0.0 (transparent) to 1.0 (opaque)
 - "width": pixel width of the image (e.g. 120)
+- "animation": "fade-in" | "slide-up" | "none"
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📐 SECTION 9: TIMELINE INTEGRITY
+🎭 SECTION 9: ANIMATED SCENE — Thay thế đoạn video bằng animation (NEW)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dùng "animated_scene" để THAY THẾ một đoạn video bằng animation toàn màn hình phù hợp bối cảnh.
+Animated scene phủ lên toàn bộ video (z-index:50), tạo cảm giác chuyển sang cảnh mới.
+
+Khi nào dùng animated_scene:
+- Chuyển giữa các phần/chương lớn của video (topic thay đổi hoàn toàn)
+- Làm nổi bật số liệu, thống kê quan trọng
+- Tạo "nhịp thở" giữa các đoạn video dài
+- Khi nội dung video ở một đoạn không đủ hấp dẫn → thay bằng animation
+- Giới thiệu topic mới, kết thúc chủ đề cũ
+
+Templates:
+▸ "chapter_title" — Màn hình đen + tiêu đề chương, dòng accent
+  Fields: title*, subtitle, label (default "CHƯƠNG"), chapter (default "01"), accentColor
+  Dùng khi: bắt đầu section mới, giới thiệu topic
+
+▸ "stat_reveal"   — Con số lớn nổi bật với glow effect + pop animation
+  Fields: value* (e.g. "81+"), label* (e.g. "VIDEOS/THÁNG"), sublabel, accentColor
+  Dùng khi: muốn highlight số liệu, kết quả, thành tích
+
+▸ "kinetic_text"  — Từng từ bay vào từ các hướng khác nhau
+  Fields: title* (câu/cụm từ ngắn, tự tách thành words) HOẶC words (array of strings), accentColor
+  Dùng khi: reveal key message, tagline, hook
+
+▸ "quote_card"    — Quote nổi bật với dấu ngoặc lớn và author
+  Fields: quote* (nội dung trích dẫn), author (optional), accentColor
+  Dùng khi: testimonial, key insight từ video, inspirational moment
+
+Schema:
+{
+  "type": "animated_scene",
+  "template": "chapter_title" | "stat_reveal" | "kinetic_text" | "quote_card",
+  "start": <number — thời điểm bắt đầu trong timeline>,
+  "end": <number — thời điểm kết thúc, nên 2.5-5 giây>,
+  "title": "<text chính (dùng cho chapter_title, kinetic_text)>",
+  "subtitle": "<text phụ (optional)>",
+  "value": "<số liệu lớn (dùng cho stat_reveal, e.g. '81+', '3x', '$0')>",
+  "label": "<nhãn phía dưới stat (e.g. 'VIDEOS/THÁNG')>",
+  "sublabel": "<nhãn nhỏ hơn (optional)>",
+  "quote": "<nội dung trích dẫn (dùng cho quote_card)>",
+  "author": "<tên tác giả (optional)>",
+  "chapter": "<số chương (e.g. '01', '02')>",
+  "words": ["từ1", "từ2", "từ3"] (alternative cho title trong kinetic_text),
+  "accentColor": "<hex color, default #FFD700>",
+  "bgGradient": "<CSS gradient, default 'linear-gradient(135deg, #0a0a0a, #111827)'>"
+}
+
+QUAN TRỌNG về video kế tiếp:
+Khi thêm animated_scene từ giây A đến B, video clip TIẾP THEO nên bắt đầu từ giây B.
+Nên thêm transition "fade" hoặc "slide-left" trên clip trước animated_scene.
+
+Ví dụ tốt:
+{ "type": "video", "src": "...", "start": 0, "end": 15, "effects": { "transition": "fade" } }   ← fade out vào scene
+{ "type": "animated_scene", "template": "chapter_title", "start": 15, "end": 18.5, "title": "VẤN ĐỀ", "subtitle": "mỗi ngày mất 2.5 giờ chỉ để edit", "accentColor": "#FF4444" }
+{ "type": "video", "src": "...", "start": 15, "end": 30, "effects": { "transition": "slide-left" } }  ← tiếp tục sau scene
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📐 SECTION 10: TIMELINE INTEGRITY
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 - Video clips must be continuous (no gaps, no overlaps in sequential clips).
 - Overlays (text, image, audio) timestamps are FINAL timeline time, not source video time.
 - When in doubt about what the user wants, default to adding the effect to the FULL video duration.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📋 SECTION 10: JSON OUTPUT SCHEMA
+🎬 SECTION 10: MOTION GRAPHICS (NEW)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Templates:
+- "lower_third": Tên/chức danh dưới trái → giới thiệu người nói, sản phẩm
+- "badge": Nhãn pill nhỏ ở góc → "SALE", "NEW", "HOT", "TIP"
+- "title_card": Tiêu đề + gradient phủ dưới → mở đầu video
+- "highlight_box": Hộp nổi bật giữa màn hình → key insight, số liệu quan trọng
+
+Schema:
+{
+  "type": "motion_graphic",
+  "template": "lower_third" | "badge" | "title_card" | "highlight_box",
+  "title": "<text chính>",
+  "subtitle": "<text phụ (optional)>",
+  "start": <number>,
+  "end": <number>,
+  "accentColor": "<hex, mặc định #FFD700>",
+  "position": "top-right" | "top-left" | "bottom-right" | "bottom-left" (chỉ cho badge)
+}
+
+Ví dụ:
+{ "type": "motion_graphic", "template": "lower_third", "title": "Nguyễn Văn A", "subtitle": "CEO iGen Tech", "start": 1, "end": 5, "accentColor": "#FFD700" }
+{ "type": "motion_graphic", "template": "title_card", "title": "Cách tạo video viral", "subtitle": "trong 25 phút với AI", "start": 0, "end": 4 }
+{ "type": "motion_graphic", "template": "highlight_box", "title": "81 videos/tháng", "subtitle": "chi phí $0", "start": 8, "end": 12, "accentColor": "#00FF88" }
+{ "type": "motion_graphic", "template": "badge", "title": "HOT", "start": 0, "end": 10, "position": "top-right", "accentColor": "#FF4444" }
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📝 SECTION 11: CAPTIONS — Phụ đề tự động (NEW)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Dùng "caption" để chèn phụ đề transcript với timestamp chính xác
+- Auto-styled: nền tối, chữ trắng, căn giữa dưới màn hình
+- KHÁC với "text": caption dành cho lời thoại/transcript, text dành cho tiêu đề/overlay design
+
+Schema:
+{
+  "type": "caption",
+  "content": "<nội dung lời nói>",
+  "start": <number>,
+  "end": <number>,
+  "style": {
+    "color": "#FFFFFF",
+    "fontSize": "22px",
+    "background": "rgba(0,0,0,0.78)"
+  }
+}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎨 SECTION 12: GRADIENT OVERLAY (NEW)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dùng để tạo vignette, cinematic color grade, hoặc transition overlay:
+- Vignette dưới (text contrast): { "type": "gradient_bg", "from": "rgba(0,0,0,0.8)", "to": "transparent", "direction": "to top", "opacity": 0.7, "start": 0, "end": <duration> }
+- Cinematic tone lạnh: { "type": "gradient_bg", "from": "rgba(0,40,80,0.35)", "to": "transparent", "direction": "135deg", "opacity": 0.5, "start": 0, "end": <duration> }
+- Fade in từ đen: { "type": "gradient_bg", "from": "#000", "to": "transparent", "direction": "to bottom", "opacity": 1.0, "start": 0, "end": 1.5 }
+
+Schema:
+{
+  "type": "gradient_bg",
+  "from": "<color>",
+  "to": "<color>",
+  "direction": "to top" | "to bottom" | "to right" | "to left" | "135deg" | ...,
+  "opacity": <0.0-1.0>,
+  "start": <number>,
+  "end": <number>
+}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📍 SECTION 13: TEXT TỰ DO — Free Position (NEW)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Ngoài 7 vị trí cố định, text hỗ trợ đặt tự do bằng x/y:
+{
+  "type": "text",
+  "content": "...",
+  "start": X, "end": Y,
+  "style": {
+    "x": "5%",    ← % hoặc px từ lề trái
+    "y": "80%",   ← % hoặc px từ đỉnh
+    "width": "55%",
+    "color": "#FFD700",
+    "fontSize": "28px",
+    "fontWeight": "bold",
+    "background": "none",
+    "animation": "fade-in"
+  }
+}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 SECTION 14: JSON OUTPUT SCHEMA
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Return ONLY valid JSON. No markdown, no comments, no extra text.
 
@@ -260,10 +445,82 @@ Return ONLY valid JSON. No markdown, no comments, no extra text.
         "opacity": <0.0–1.0>,
         "width": <pixels>
       }
+    },
+    {
+      "type": "motion_graphic",
+      "template": "lower_third" | "badge" | "title_card" | "highlight_box",
+      "title": "<text chính>",
+      "subtitle": "<text phụ, optional>",
+      "start": <number>,
+      "end": <number>,
+      "accentColor": "<hex color, default #FFD700>",
+      "position": "top-right" | "top-left" | "bottom-right" | "bottom-left"
+    },
+    {
+      "type": "caption",
+      "content": "<nội dung phụ đề/transcript>",
+      "start": <number>,
+      "end": <number>,
+      "style": {
+        "color": "#FFFFFF",
+        "fontSize": "22px",
+        "background": "rgba(0,0,0,0.78)"
+      }
+    },
+    {
+      "type": "gradient_bg",
+      "from": "<color>",
+      "to": "<color>",
+      "direction": "to top" | "to bottom" | "to right" | "135deg",
+      "opacity": <0.0–1.0>,
+      "start": <number>,
+      "end": <number>
+    },
+    {
+      "type": "animated_scene",
+      "template": "chapter_title" | "stat_reveal" | "kinetic_text" | "quote_card",
+      "start": <number>,
+      "end": <number>,
+      "title": "<string>",
+      "subtitle": "<string, optional>",
+      "value": "<string, stat_reveal only>",
+      "label": "<string, stat_reveal only>",
+      "sublabel": "<string, optional>",
+      "quote": "<string, quote_card only>",
+      "author": "<string, optional>",
+      "chapter": "<string, optional>",
+      "words": ["<string>"],
+      "accentColor": "<hex>",
+      "bgGradient": "<CSS gradient string>"
     }
   ]
 }
-`;
+${contentAnalysis ? `
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🧠 PHÂN TÍCH NỘI DUNG VIDEO (AI DETECTED — ĐỌC KỸ TRƯỚC KHI SINH BLUEPRINT)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Loại nội dung : ${contentAnalysis.contentType}
+Tâm trạng     : ${contentAnalysis.mood}
+Ngôn ngữ      : ${contentAnalysis.language}
+Nhạc đề xuất  : ${contentAnalysis.musicGenre}
+Chủ đề chính  : ${contentAnalysis.mainTopics.join(", ")}
+Tiêu đề đề xuất : "${contentAnalysis.suggestedTitle}"
+CTA đề xuất     : "${contentAnalysis.suggestedCTA}"
+
+Transcript (timestamps chính xác — dùng để tạo "caption" elements):
+${contentAnalysis.transcript.map(t => `  [${(t.startFraction * duration).toFixed(1)}s → ${(t.endFraction * duration).toFixed(1)}s]: "${t.text}"`).join("\n")}
+
+Key Moments (dùng để tạo "motion_graphic" / "text" highlight):
+${contentAnalysis.keyMoments.map(m => `  [${(m.fraction * duration).toFixed(1)}s] (${m.importance}): ${m.description}${m.suggestedOverlay ? ` → overlay: "${m.suggestedOverlay}"` : ""}`).join("\n")}
+
+HƯỚNG DẪN SỬ DỤNG PHÂN TÍCH NÀY:
+1. Dùng transcript → tạo "caption" elements khớp CHÍNH XÁC timestamps từ transcript
+2. Key moments với importance="high" → tạo "motion_graphic" tại thời điểm đó
+3. Sử dụng "suggestedTitle" → "motion_graphic" template "title_card" ở đầu video (start:0, end:4)
+4. Sử dụng "suggestedCTA" → "motion_graphic" template "highlight_box" ở cuối video
+5. Chọn audio musicGenre="${contentAnalysis.musicGenre}" từ danh sách SECTION 5
+6. Thêm "gradient_bg" (to top, opacity 0.6) để tăng contrast cho caption/text
+` : ""}`;
 }
 
 /**
@@ -631,6 +888,91 @@ QUY TẮC PHÂN SỐ THỜI GIAN:
         }
       ]
     };
+  }
+}
+
+async function analyzeVideoContent(videoUrl: string, duration: number): Promise<VideoContentAnalysis> {
+  const tempVideoPath = path.join(os.tmpdir(), `temp_content_analysis_${Date.now()}.mp4`);
+
+  try {
+    console.log(`[videoBlueprintService] Downloading video for content analysis: ${videoUrl}`);
+    await downloadFile(videoUrl, tempVideoPath);
+
+    const uploadResult = await ai.files.upload({
+      file: tempVideoPath,
+      config: { mimeType: "video/mp4" },
+    });
+
+    let fileState = await ai.files.get({ name: uploadResult.name });
+    let pollAttempts = 0;
+    while (fileState.state === "PROCESSING" && pollAttempts < 60) {
+      await new Promise((r) => setTimeout(r, 2000));
+      fileState = await ai.files.get({ name: uploadResult.name });
+      pollAttempts++;
+    }
+    if (fileState.state !== "ACTIVE") {
+      throw new Error(`Gemini File API: video không chuyển sang ACTIVE (state: ${fileState.state})`);
+    }
+
+    const analysisPrompt = `Phân tích nội dung của video này (tổng thời lượng ${duration} giây) và trả về JSON theo schema sau.
+Tất cả timestamps phải là PHÂN SỐ TƯƠNG ĐỐI [0.0, 1.0] (0.0 = đầu video, 1.0 = cuối).
+
+⚠️ Trả về ĐÚNG một JSON object. KHÔNG thêm văn bản nào khác.
+
+{
+  "transcript": [
+    { "text": "<lời nói chính xác>", "startFraction": <0.0-1.0>, "endFraction": <0.0-1.0> }
+  ],
+  "keyMoments": [
+    { "description": "<mô tả điểm nổi bật>", "fraction": <0.0-1.0>, "importance": "high"|"medium"|"low", "suggestedOverlay": "<text đề xuất hiển thị (optional)>" }
+  ],
+  "mood": "upbeat"|"serious"|"emotional"|"corporate"|"educational"|"entertainment",
+  "contentType": "tutorial"|"product_demo"|"vlog"|"interview"|"presentation"|"story"|"other",
+  "mainTopics": ["<chủ đề 1>", "<chủ đề 2>"],
+  "suggestedTitle": "<tiêu đề hấp dẫn cho video>",
+  "suggestedCTA": "<kêu gọi hành động phù hợp nội dung>",
+  "musicGenre": "upbeat"|"tech"|"corporate"|"lofi"|"acoustic"|"none",
+  "language": "vi"|"en"|"other"
+}
+
+Quy tắc:
+- transcript: Ghi lại lời nói/tiếng chú thích chính xác theo từng câu/đoạn ngắn. Nếu video không có lời thoại, để mảng rỗng [].
+- keyMoments: 3-6 khoảnh khắc quan trọng nhất (cao trào, số liệu, điểm chuyển, kết luận).
+- suggestedTitle: Tiêu đề ngắn gọn, hấp dẫn, phù hợp social media.
+- suggestedCTA: Ví dụ: "Đăng ký để xem thêm", "Bình luận ý kiến của bạn", "Link bio để tải ngay".`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [
+        {
+          role: "user",
+          parts: [
+            { fileData: { fileUri: uploadResult.uri, mimeType: uploadResult.mimeType } },
+            { text: analysisPrompt },
+          ],
+        },
+      ],
+      config: { responseMimeType: "application/json" },
+    });
+
+    try { await ai.files.delete({ name: uploadResult.name }); } catch {}
+
+    const analysis = safeParseJson(response.text || "") as VideoContentAnalysis;
+
+    if (!Array.isArray(analysis.transcript)) analysis.transcript = [];
+    if (!Array.isArray(analysis.keyMoments)) analysis.keyMoments = [];
+    if (!Array.isArray(analysis.mainTopics)) analysis.mainTopics = [];
+    if (!analysis.suggestedTitle) analysis.suggestedTitle = "";
+    if (!analysis.suggestedCTA) analysis.suggestedCTA = "";
+    if (!analysis.musicGenre) analysis.musicGenre = "none";
+    if (!analysis.language) analysis.language = "vi";
+
+    console.log(`[videoBlueprintService] Content analysis done: contentType=${analysis.contentType}, mood=${analysis.mood}, transcript=${analysis.transcript.length} segments, keyMoments=${analysis.keyMoments.length}`);
+    return analysis;
+  } finally {
+    if (fs.existsSync(tempVideoPath)) {
+      try { fs.unlinkSync(tempVideoPath); } catch {}
+    }
   }
 }
 
@@ -1286,5 +1628,70 @@ QUY TẮC:
       console.warn("[videoBlueprintService] refineBlueprint failed, returning original blueprint:", err);
     }
     return existingBlueprint;
-  }
+  },
+
+  analyzeVideoContent,
+
+  /**
+   * Content-Aware Blueprint Generation.
+   * Bước 1: Gemini multimodal phân tích nội dung video (transcript, key moments, mood, topics).
+   * Bước 2: Gemini sinh Blueprint với full context từ phân tích.
+   * Kết quả: blueprint chính xác hơn nhiều — captions đúng timestamps, motion graphics tại key moments,
+   * nhạc nền khớp mood, CTA và title từ nội dung thực.
+   */
+  async generateContentAwareBlueprint(
+    videoUrl: string,
+    duration: number,
+    prompt: string
+  ): Promise<{ blueprint: any; analysis: VideoContentAnalysis | null }> {
+    let analysis: VideoContentAnalysis | null = null;
+
+    try {
+      console.log("[videoBlueprintService] Step 1/2: Analyzing video content...");
+      analysis = await analyzeVideoContent(videoUrl, duration);
+    } catch (err) {
+      console.warn("[videoBlueprintService] Content analysis failed, falling back to standard generation:", err);
+    }
+
+    console.log("[videoBlueprintService] Step 2/2: Generating blueprint with content context...");
+    const systemPrompt = buildSystemPrompt(videoUrl, duration, analysis ?? undefined);
+    const userPromptText = `Hãy tạo JSON Blueprint chỉnh sửa video CHUYÊN NGHIỆP cho video URL "${videoUrl}" (${duration} giây).
+Yêu cầu: "${prompt || "Tạo video chất lượng cao, chuyên nghiệp"}"
+
+${analysis ? `Hướng dẫn bổ sung dựa trên phân tích nội dung:
+- Chèn captions từ transcript với timestamps chính xác
+- Thêm motion_graphic "title_card" ở đầu với tiêu đề: "${analysis.suggestedTitle}"
+- Thêm motion_graphic "highlight_box" ở cuối với CTA: "${analysis.suggestedCTA}"
+- Tạo motion_graphic tại các key moments quan trọng
+- Chọn nhạc nền: ${analysis.musicGenre}
+- Thêm gradient_bg vignette để tăng độ tương phản cho text` : ""}
+
+Trả về CHỈ JSON thô, không markdown, không giải thích.`;
+
+    try {
+      const blueprintResponse = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: userPromptText,
+        config: {
+          systemInstruction: systemPrompt,
+          responseMimeType: "application/json",
+        },
+      });
+
+      const blueprint = safeParseJson(blueprintResponse.text || "");
+
+      if (!blueprint.timeline || !Array.isArray(blueprint.timeline)) {
+        blueprint.timeline = [];
+      }
+      if (blueprint.timeline.filter((e: any) => e.type === "video").length === 0) {
+        blueprint.timeline.unshift({ type: "video", src: videoUrl, start: 0, end: duration, playbackRate: 1.0 });
+      }
+
+      return { blueprint, analysis };
+    } catch (err) {
+      console.error("[videoBlueprintService] generateContentAwareBlueprint failed:", err);
+      const fallback = await videoBlueprintService.generateBlueprintFromPrompt(videoUrl, duration, prompt);
+      return { blueprint: fallback, analysis };
+    }
+  },
 };
