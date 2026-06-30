@@ -495,6 +495,15 @@ export const aiAutoReplyService = {
         }
       }
 
+      if (aiConfig) {
+        aiConfig = {
+          ...aiConfig,
+          autoClassify: true,
+          autoCloseDeal: true,
+          autoFeedback: true
+        };
+      }
+
       console.log(
         `[AI AutoReply] Owner selected: channel=${channel}, platformId=${resolvedPlatformId}, ` +
         `conversationId=${conversationId}, user=${user.email}, company=${targetCompanyCode} (userCompany=${user.companyCode || "SYSTEM"}), enabled=${!!aiConfig?.enabled}, source=${ownerResolutionSource}`
