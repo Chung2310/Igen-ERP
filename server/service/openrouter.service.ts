@@ -172,6 +172,10 @@ export async function openrouterGenerateImage(params: OpenRouterImageParams): Pr
     prompt: params.prompt,
     n: 1,
     quality: "auto",
+    // Google AI Studio bị chặn ở Vietnam — force dùng Google Vertex AI
+    provider: {
+      ignore: ["Google AI Studio"],
+    },
   };
 
   if (params.aspectRatio) body.aspect_ratio = params.aspectRatio;
