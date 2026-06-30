@@ -10,6 +10,71 @@ const DEMO_VIDEO_URL_PATTERNS = [
   "example.com/videos/"
 ];
 
+export function buildFacebookPostUrl(postId?: string | null): string {
+  const normalizedPostId = String(postId || "").trim();
+  if (!normalizedPostId || normalizedPostId.includes("mock")) {
+    return "";
+  }
+
+  if (normalizedPostId.includes("_")) {
+    const [pageId, storyFbid] = normalizedPostId.split("_");
+    if (pageId && storyFbid) {
+      return `https://www.facebook.com/permalink.php?story_fbid=${encodeURIComponent(storyFbid)}&id=${encodeURIComponent(pageId)}`;
+    }
+  }
+
+  return `https://www.facebook.com/${encodeURIComponent(normalizedPostId)}`;
+}
+
+function normalizePromptBlock(value?: string | null): string {
+  return String(value || "").replace(/\r/g, "").trim();
+}
+
+export function buildFaithfulMediaPrompt(
+  card: Partial<ContentApprovalCard>,
+  type: "image" | "video" = "image"
+): string {
+  const sourceBrief = normalizePromptBlock(card.sourceBrief);
+  const title = normalizePromptBlock(card.title);
+  const mediaPrompt = normalizePromptBlock(card.mediaPrompt);
+  const outline = normalizePromptBlock(card.outline);
+  const bodyText = normalizePromptBlock(card.bodyText);
+  const channel = normalizePromptBlock(card.channel);
+  const contentType = normalizePromptBlock(card.contentType);
+
+  const sourceFacts = [
+    sourceBrief ? `Original source brief: ${sourceBrief}` : "",
+    title ? `Title: ${title}` : "",
+    channel ? `Channel: ${channel}` : "",
+    contentType ? `Content type: ${contentType}` : "",
+    outline ? `Outline: ${outline}` : "",
+    bodyText ? `Body text: ${bodyText}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const strictRules = [
+    "STRICT SOURCE-OF-TRUTH REQUIREMENT:",
+    "Use only the information grounded in the title, outline, body text, and provided reference image.",
+    "Do not invent people, products, services, locations, claims, numbers, uniforms, branding details, office scenes, or props that are not explicitly present in the source.",
+    "If the source is a recruitment post, the visual must stay in a recruitment/employer-branding context only.",
+    "If the source does not mention a product, do not add a product shot.",
+    "If the source does not specify a location or character, keep the scene generic and minimal rather than making up details.",
+    type === "image"
+      ? "Generate one faithful still image that matches the brief exactly."
+      : "Generate one faithful video concept that matches the brief exactly.",
+  ].join("\n");
+
+  const visualInstruction = mediaPrompt
+    ? `Existing visual prompt to preserve and refine faithfully:\n${mediaPrompt}`
+    : "No existing visual prompt is available. Derive the visual only from the source facts above without adding new meaning.";
+
+  return [strictRules, sourceFacts ? `SOURCE FACTS:\n${sourceFacts}` : "", visualInstruction]
+    .filter(Boolean)
+    .join("\n\n")
+    .trim();
+}
+
 function stripDemoVideoUrl(videoUrl?: string | null): string | null {
   const value = String(videoUrl || "").trim();
   if (!value) return null;
@@ -355,11 +420,13 @@ export const marketingService = {
     const result = await response.json();
     const fbData = result.data?.data ?? result.data;
     const postId = fbData.id ?? fbData.post_id ?? `post-${Date.now()}`;
+    const postUrl = fbData.postUrl ?? fbData.permalink_url ?? buildFacebookPostUrl(postId);
 
     await this.updateCard(id, {
       status: 'published',
       publishedAt: new Date().toISOString(),
-      facebookPostId: postId
+      facebookPostId: postId,
+      postUrl
     });
 
     console.log(`[iGen ERP Autopost]: Đã đăng bài thành công lên Facebook Page qua n8n. Post ID: ${postId}`);

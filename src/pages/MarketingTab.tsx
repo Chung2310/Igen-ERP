@@ -8,7 +8,7 @@ import {
   ChevronDown
 } from "lucide-react";
 import { MarketingSubTabType, ContentApprovalCard } from "../types";
-import { marketingService, extractDraftContent, sanitizeHumanVideoVoiceScript, stripHumanVideoOutlineSections } from "../services/marketingService";
+import { buildFacebookPostUrl, buildFaithfulMediaPrompt, marketingService, extractDraftContent, sanitizeHumanVideoVoiceScript, stripHumanVideoOutlineSections } from "../services/marketingService";
 import { toast } from "./Toast";
 import { useAuth } from "../context/AuthContext";
 import { parseFirebaseError } from "../utils/firebaseErrorParser";
@@ -85,7 +85,7 @@ export default function MarketingTab() {
     }> = [];
 
     const platform = schedulingCard?.channel || "";
-    
+
     if (platform === "Facebook") {
       if (userProfile?.facebookIntegration?.isConnected && userProfile.facebookIntegration.pageId) {
         list.push({
@@ -197,25 +197,25 @@ export default function MarketingTab() {
     companySocialIntegrations.find((item) => item.platform === "TikTok" && item.isConnected) || null;
   const effectiveTikTokIntegration = userProfile?.tiktokIntegration?.isConnected
     ? {
-        isConnected: true,
-        username: userProfile.tiktokIntegration.username,
-        displayName: userProfile.tiktokIntegration.displayName,
-        accessToken: userProfile.tiktokIntegration.accessToken,
-        privacyLevel: userProfile.tiktokIntegration.privacyLevel,
-        isMock: userProfile.tiktokIntegration.isMock,
-        source: "personal" as const,
-      }
+      isConnected: true,
+      username: userProfile.tiktokIntegration.username,
+      displayName: userProfile.tiktokIntegration.displayName,
+      accessToken: userProfile.tiktokIntegration.accessToken,
+      privacyLevel: userProfile.tiktokIntegration.privacyLevel,
+      isMock: userProfile.tiktokIntegration.isMock,
+      source: "personal" as const,
+    }
     : companyTikTokIntegration
       ? {
-          isConnected: true,
-          username: companyTikTokIntegration.username || "",
-          displayName: companyTikTokIntegration.displayName,
-          accessToken: companyTikTokIntegration.accessToken,
-          privacyLevel: "SELF_ONLY",
-          isMock: companyTikTokIntegration.isMock,
-          integrationId: companyTikTokIntegration._id,
-          source: "company" as const,
-        }
+        isConnected: true,
+        username: companyTikTokIntegration.username || "",
+        displayName: companyTikTokIntegration.displayName,
+        accessToken: companyTikTokIntegration.accessToken,
+        privacyLevel: "SELF_ONLY",
+        isMock: companyTikTokIntegration.isMock,
+        integrationId: companyTikTokIntegration._id,
+        source: "company" as const,
+      }
       : null;
 
   // Load integrations dynamically when a card is selected for scheduling
@@ -298,7 +298,8 @@ export default function MarketingTab() {
             ...c,
             status: "published",
             publishedAt: new Date().toISOString(),
-            facebookPostId: lastPostId
+            facebookPostId: postId,
+            postUrl: buildFacebookPostUrl(postId)
           } : c));
           const countLabel = publishQuantity > 1 ? ` (x${publishQuantity})` : "";
           toast.success(`Đã đăng bài lên Facebook thành công${countLabel}! ${selectedAcc.isMock ? '(Demo)' : ''} ID: ${lastPostId.slice(-8)}`);
@@ -319,17 +320,17 @@ export default function MarketingTab() {
               username: selectedAcc.username,
             }
           );
-          
+
           if (publishResult.status === "pending") {
             setApprovalCards((prev) =>
               prev.map((item) =>
                 item.id === schedulingCard.id
                   ? {
-                      ...item,
-                      status: "processing",
-                      tiktokPostId: publishResult.postId || item.tiktokPostId,
-                      tiktokShareUrl: publishResult.shareUrl || item.tiktokShareUrl,
-                    }
+                    ...item,
+                    status: "processing",
+                    tiktokPostId: publishResult.postId || item.tiktokPostId,
+                    tiktokShareUrl: publishResult.shareUrl || item.tiktokShareUrl,
+                  }
                   : item
               )
             );
@@ -339,12 +340,12 @@ export default function MarketingTab() {
               prev.map((item) =>
                 item.id === schedulingCard.id
                   ? {
-                      ...item,
-                      status: "published",
-                      publishedAt: new Date().toISOString(),
-                      tiktokPostId: publishResult.postId || item.tiktokPostId,
-                      tiktokShareUrl: publishResult.shareUrl || item.tiktokShareUrl,
-                    }
+                    ...item,
+                    status: "published",
+                    publishedAt: new Date().toISOString(),
+                    tiktokPostId: publishResult.postId || item.tiktokPostId,
+                    tiktokShareUrl: publishResult.shareUrl || item.tiktokShareUrl,
+                  }
                   : item
               )
             );
@@ -469,11 +470,11 @@ export default function MarketingTab() {
           prev.map((item) =>
             item.id === card.id
               ? {
-                  ...item,
-                  status: "processing",
-                  tiktokPostId: publishResult.postId || item.tiktokPostId,
-                  tiktokShareUrl: publishResult.shareUrl || item.tiktokShareUrl,
-                }
+                ...item,
+                status: "processing",
+                tiktokPostId: publishResult.postId || item.tiktokPostId,
+                tiktokShareUrl: publishResult.shareUrl || item.tiktokShareUrl,
+              }
               : item
           )
         );
@@ -485,12 +486,12 @@ export default function MarketingTab() {
         prev.map((item) =>
           item.id === card.id
             ? {
-                ...item,
-                status: "published",
-                publishedAt: new Date().toISOString(),
-                tiktokPostId: publishResult.postId || item.tiktokPostId,
-                tiktokShareUrl: publishResult.shareUrl || item.tiktokShareUrl,
-              }
+              ...item,
+              status: "published",
+              publishedAt: new Date().toISOString(),
+              tiktokPostId: publishResult.postId || item.tiktokPostId,
+              tiktokShareUrl: publishResult.shareUrl || item.tiktokShareUrl,
+            }
             : item
         )
       );
@@ -571,9 +572,9 @@ export default function MarketingTab() {
     ].join(" ");
     const selectedType = type ?? (
       isHumanVideo ? 'voice' :
-      card.mediaType === 'video' ? 'video' :
-      card.mediaType === 'image' ? 'image' :
-      (card.channel === 'TikTok' ? 'video' : 'image')
+        card.mediaType === 'video' ? 'video' :
+          card.mediaType === 'image' ? 'image' :
+            (card.channel === 'TikTok' ? 'video' : 'image')
     );
 
     if (isHumanVideo) {
@@ -607,12 +608,12 @@ export default function MarketingTab() {
         prev.map((item) =>
           item.id === card.id
             ? {
-                ...item,
-                voiceScript,
-                voiceTitle,
-                voiceDescription,
-                humanDurationSeconds: DEFAULT_HUMAN_VOICE_DURATION_SECONDS,
-              }
+              ...item,
+              voiceScript,
+              voiceTitle,
+              voiceDescription,
+              humanDurationSeconds: DEFAULT_HUMAN_VOICE_DURATION_SECONDS,
+            }
             : item
         )
       );
@@ -637,7 +638,7 @@ export default function MarketingTab() {
         sanitizeHumanVideoVoiceScript(card.voiceScript || card.outline || extractDraftContent(card.bodyText) || "")
       );
     } else {
-      cleanText = card.mediaPrompt || "";
+      cleanText = buildFaithfulMediaPrompt(card, selectedType === "video" ? "video" : "image");
       if (!cleanText) {
         if (selectedType === 'video') {
           cleanText = card.outline || card.bodyText || "";
@@ -669,8 +670,8 @@ export default function MarketingTab() {
               key={tab}
               onClick={() => setSubTab(tab as MarketingSubTabType)}
               className={`px-4 py-2 rounded-lg border font-bold uppercase transition-all tracking-wide ${subTab === tab
-                  ? "bg-slate-800 text-white border-slate-800 shadow-xs"
-                  : "bg-white text-gray-500 border-gray-200 hover:bg-gray-100"
+                ? "bg-slate-800 text-white border-slate-800 shadow-xs"
+                : "bg-white text-gray-500 border-gray-200 hover:bg-gray-100"
                 }`}
             >
               {tab}
@@ -843,7 +844,7 @@ export default function MarketingTab() {
       {schedulingCard && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl shadow-2xl border border-slate-100 max-w-2xl w-full overflow-hidden text-left flex flex-col md:flex-row max-h-[85vh] animate-fade-in-up">
-            
+
             {/* Left side: Content Social Preview */}
             <div className="md:w-5/12 bg-slate-50 border-r border-slate-100 p-5 flex flex-col gap-4 overflow-y-auto max-h-[40vh] md:max-h-none">
               <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Xem trước nội dung</h4>
@@ -881,7 +882,7 @@ export default function MarketingTab() {
                 <h3 className="font-extrabold text-slate-800 text-sm uppercase tracking-wide">
                   Đăng tải & Lên lịch
                 </h3>
-                <button 
+                <button
                   onClick={() => setSchedulingCard(null)}
                   className="text-slate-400 hover:text-slate-700 font-extrabold text-base focus:outline-none cursor-pointer"
                 >
