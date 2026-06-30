@@ -156,7 +156,7 @@ export async function openrouterGenerateImage(params: OpenRouterImageParams): Pr
 
   const model = params.model
     ? mapModelName(params.model)
-    : (process.env.OPENROUTER_IMAGE_MODEL || "google/gemini-3.1-flash-image");
+    : (process.env.OPENROUTER_IMAGE_MODEL || "black-forest-labs/flux-1.1-pro");
 
   const headers = {
     "Content-Type": "application/json",
@@ -172,17 +172,10 @@ export async function openrouterGenerateImage(params: OpenRouterImageParams): Pr
     prompt: params.prompt,
     n: 1,
     quality: "auto",
-    // Google AI Studio bị chặn ở Vietnam — force dùng Google Vertex AI
-    provider: {
-      ignore: ["Google AI Studio"],
-    },
   };
 
   if (params.aspectRatio) body.aspect_ratio = params.aspectRatio;
   if (params.resolution) body.resolution = params.resolution;
-  if (params.referenceImages?.length) {
-    body.input_references = params.referenceImages.map((url) => ({ url }));
-  }
 
   const response = await fetch(`${OPENROUTER_BASE_URL}/images`, {
     method: "POST",
