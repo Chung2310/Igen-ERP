@@ -1703,7 +1703,13 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
     prompt: string,
     options?: { aspectRatio?: string; resolution?: string; existingImageUris?: string[]; modelName?: string }
   ): Promise<{ url: string; isMock: boolean }> {
-    const model = options?.modelName || process.env.OPENROUTER_IMAGE_MODEL || "google/gemini-3.1-flash-image";
+    const DEFAULT_IMAGE_MODEL = process.env.OPENROUTER_IMAGE_MODEL || "google/gemini-3.1-flash-image";
+    // Chỉ dùng modelName nếu là OpenRouter format (chứa "/" hoặc bắt đầu bằng "gemini")
+    // Bỏ qua các tên model cũ của PIAPI như "piapi-flux", "flux-1.1-pro"
+    const rawModel = options?.modelName;
+    const model = (rawModel && (rawModel.includes("/") || rawModel.startsWith("gemini")))
+      ? rawModel
+      : DEFAULT_IMAGE_MODEL;
 
     console.log(`[OpenRouter Image] Generating | model=${model} | promptLen=${prompt.length}`);
 
