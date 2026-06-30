@@ -167,8 +167,8 @@ export async function openrouterGenerateImage(params: OpenRouterImageParams): Pr
     "X-Title": "Igen ERP",
   };
 
-  // Gemini image models trả ảnh qua chat completions (text+image → text+image)
-  if (model.includes("gemini") && model.includes("image")) {
+  // Gemini models dùng chat completions (OpenRouter không expose /images/generations cho Gemini)
+  if (model.includes("gemini")) {
     return _generateImageViaChat(model, params.prompt, params.referenceImages, commonHeaders);
   }
 
