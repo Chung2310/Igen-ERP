@@ -72,6 +72,7 @@ export default function MarketingTab() {
   const [loadingIntegrationsForSchedule, setLoadingIntegrationsForSchedule] = useState(false);
   const [companySocialIntegrations, setCompanySocialIntegrations] = useState<SocialIntegration[]>([]);
   const [publishMode, setPublishMode] = useState<"instant" | "scheduled">("instant");
+  const [publishQuantity, setPublishQuantity] = useState(1);
 
   const getPublishingAccounts = () => {
     const list: Array<{
@@ -281,23 +282,26 @@ export default function MarketingTab() {
           if (!pageToken || !pageId) {
             throw new Error("Không lấy được Page Token hoặc Page ID.");
           }
-          const postId = await marketingService.publishToFacebook(
-            schedulingCard.id,
-            pageToken,
-            pageId,
-            schedulingCard.bodyText,
-            selectedAcc.isMock ?? false,
-            schedulingCard.imageUrl || undefined,
-            schedulingCard.videoUrl || undefined
-          );
-          
+          let lastPostId = "";
+          for (let i = 0; i < publishQuantity; i++) {
+            lastPostId = await marketingService.publishToFacebook(
+              schedulingCard.id,
+              pageToken,
+              pageId,
+              schedulingCard.bodyText,
+              selectedAcc.isMock ?? false,
+              schedulingCard.imageUrl || undefined,
+              schedulingCard.videoUrl || undefined
+            );
+          }
           setApprovalCards(prev => prev.map(c => c.id === schedulingCard.id ? {
             ...c,
             status: "published",
             publishedAt: new Date().toISOString(),
-            facebookPostId: postId
+            facebookPostId: lastPostId
           } : c));
-          toast.success(`Đã đăng bài lên Facebook thành công! ${selectedAcc.isMock ? '(Demo)' : ''} ID: ${postId.slice(-8)}`);
+          const countLabel = publishQuantity > 1 ? ` (x${publishQuantity})` : "";
+          toast.success(`Đã đăng bài lên Facebook thành công${countLabel}! ${selectedAcc.isMock ? '(Demo)' : ''} ID: ${lastPostId.slice(-8)}`);
         } else if (schedulingCard.channel === "TikTok") {
           if (!schedulingCard.videoUrl) {
             throw new Error("Bài đăng TikTok cần có video. Hãy tạo video AI trước.");
@@ -366,6 +370,7 @@ export default function MarketingTab() {
         } : c));
       }
       setSchedulingCard(null);
+      setPublishQuantity(1);
     } catch (e: any) {
       console.error("Lỗi khi xử lý bài đăng:", e);
       toast.error(e.message || "Lỗi khi xử lý bài đăng.");
@@ -951,6 +956,33 @@ export default function MarketingTab() {
                       <span className="text-xs font-bold text-slate-750 font-sans">Lên lịch đăng</span>
                     </div>
                   </label>
+                </div>
+              </div>
+
+              {/* Quantity — visible in both modes */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                  Số lượng đăng
+                </label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="number"
+                    min={1}
+                    max={10}
+                    disabled={isScheduling}
+                    className="w-20 p-2.5 border border-slate-200 rounded-xl text-xs font-mono outline-none bg-white font-bold text-slate-750 text-center focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all duration-200 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
+                    value={publishQuantity}
+                    onChange={(e) => setPublishQuantity(Math.max(1, Math.min(10, Number(e.target.value))))}
+                  />
+                  <span className="text-[10px] text-slate-400 font-sans leading-relaxed">
+                    {publishMode === "instant"
+                      ? publishQuantity > 1
+                        ? `Sẽ đăng ${publishQuantity} lần liên tiếp`
+                        : "Đăng 1 lần"
+                      : publishQuantity > 1
+                        ? `Lên lịch ${publishQuantity} lần`
+                        : "Lên lịch 1 lần"}
+                  </span>
                 </div>
               </div>
 
