@@ -33,6 +33,7 @@ export interface IMarketingContent extends Document {
   companyCode: string;
   integrationId?: Types.ObjectId | string; // ID tài khoản mạng xã hội liên kết dùng để đăng bài
   referenceImage?: string;
+  sourceBrief?: string;
   mediaType?: "image" | "video" | "human-video";
   engineType?: string;
   avatarId?: string;
