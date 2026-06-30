@@ -91,9 +91,9 @@ export function AiCommentReplyManager({
             setLocalConfig({
               enabled: config.enabled ?? false,
               commentReplyEnabled: config.commentReplyEnabled ?? false,
-              autoClassify: config.autoClassify ?? true,
-              autoCloseDeal: config.autoCloseDeal ?? false,
-              autoFeedback: config.autoFeedback ?? false,
+              autoClassify: true,
+              autoCloseDeal: true,
+              autoFeedback: true,
               replyDelay: config.replyDelay ?? 15,
               advancedInstructions: config.advancedInstructions ?? "",
               trainingKnowledge: config.trainingKnowledge ?? "",
@@ -111,9 +111,9 @@ export function AiCommentReplyManager({
         setLocalConfig({
           enabled: userProfile.aiAutoReplyConfig.enabled ?? false,
           commentReplyEnabled: userProfile.aiAutoReplyConfig.commentReplyEnabled ?? false,
-          autoClassify: userProfile.aiAutoReplyConfig.autoClassify ?? true,
-          autoCloseDeal: userProfile.aiAutoReplyConfig.autoCloseDeal ?? false,
-          autoFeedback: userProfile.aiAutoReplyConfig.autoFeedback ?? false,
+          autoClassify: true,
+          autoCloseDeal: true,
+          autoFeedback: true,
           replyDelay: userProfile.aiAutoReplyConfig.replyDelay ?? 15,
           advancedInstructions: userProfile.aiAutoReplyConfig.advancedInstructions ?? "",
           trainingKnowledge: userProfile.aiAutoReplyConfig.trainingKnowledge ?? "",
@@ -264,6 +264,12 @@ export function AiCommentReplyManager({
   // Save config
   const handleSaveConfig = async () => {
     setSavingConfig(true);
+    const configToSave = {
+      ...localConfig,
+      autoClassify: true,
+      autoCloseDeal: true,
+      autoFeedback: true
+    };
     try {
       const selectedPage = facebookPages.find(p => p.username === selectedFacebookPageId);
       if (selectedPage && selectedPage._id !== "personal") {
@@ -273,14 +279,14 @@ export function AiCommentReplyManager({
             "Content-Type": "application/json",
             Authorization: `Bearer ${getAccessToken()}`,
           },
-          body: JSON.stringify({ aiAutoReplyConfig: localConfig }),
+          body: JSON.stringify({ aiAutoReplyConfig: configToSave }),
         });
         const result = await res.json().catch(() => ({}));
         if (!res.ok) {
           throw new Error(result.message || "Không thể lưu cấu hình cho Fanpage.");
         }
       } else {
-        await updateAiAutoReplyConfig(localConfig);
+        await updateAiAutoReplyConfig(configToSave);
       }
       toast.success("Đã cập nhật cấu hình tự động trả lời bình luận Facebook!");
     } catch (err: any) {
@@ -312,6 +318,12 @@ export function AiCommentReplyManager({
     if (!confirmSync) return;
 
     setCopyingConfig(true);
+    const configToSave = {
+      ...localConfig,
+      autoClassify: true,
+      autoCloseDeal: true,
+      autoFeedback: true
+    };
     let successCount = 0;
     try {
       for (const page of otherPages) {
@@ -321,7 +333,7 @@ export function AiCommentReplyManager({
             "Content-Type": "application/json",
             Authorization: `Bearer ${getAccessToken()}`,
           },
-          body: JSON.stringify({ aiAutoReplyConfig: localConfig }),
+          body: JSON.stringify({ aiAutoReplyConfig: configToSave }),
         });
         if (res.ok) {
           successCount++;

@@ -501,6 +501,13 @@ export const geminiService = {
       shouldAskProductConfirmation?: boolean;
     }
   ): Promise<{ text: string; isMock: boolean }> {
+    aiConfig = {
+      ...aiConfig,
+      autoClassify: true,
+      autoCloseDeal: true,
+      autoFeedback: true
+    };
+
     const getMockResponse = () => {
       return new Promise<{ text: string; isMock: boolean }>((resolve) => {
         setTimeout(() => {

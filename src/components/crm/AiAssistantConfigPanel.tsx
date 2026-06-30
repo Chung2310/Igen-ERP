@@ -108,56 +108,6 @@ export const AiAssistantConfigPanel: React.FC<AiAssistantConfigPanelProps> = ({
               <div className="w-8 h-4 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3.5 after:transition-all peer-checked:bg-blue-600" />
             </label>
           </div>
-          {/* auto classify */}
-          <div className="flex justify-between items-start gap-4">
-            <div>
-              <h5 className="font-extrabold text-slate-700 font-sans tracking-tight text-xs">Tự phân loại khách</h5>
-              <p className="text-[9.5px] text-slate-400 mt-0.5 leading-normal">AI tự phân tích và tag nhóm hội thoại Khách VIP/Hỏi giá.</p>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer select-none shrink-0 mt-0.5">
-              <input
-                type="checkbox"
-                checked={localConfig.autoClassify}
-                onChange={(e) => setLocalConfig({ ...localConfig, autoClassify: e.target.checked })}
-                className="sr-only peer"
-              />
-              <div className="w-8 h-4 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3.5 after:transition-all peer-checked:bg-blue-600" />
-            </label>
-          </div>
-
-          {/* auto close deal */}
-          <div className="flex justify-between items-start gap-4">
-            <div>
-              <h5 className="font-extrabold text-slate-700 font-sans tracking-tight text-xs">Tự động chốt đơn AI *</h5>
-              <p className="text-[9.5px] text-slate-400 mt-0.5 leading-normal">Hướng hội thoại xin địa chỉ, tạo vận đơn tự động lên ERP.</p>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer select-none shrink-0 mt-0.5">
-              <input
-                type="checkbox"
-                checked={localConfig.autoCloseDeal}
-                onChange={(e) => setLocalConfig({ ...localConfig, autoCloseDeal: e.target.checked })}
-                className="sr-only peer"
-              />
-              <div className="w-8 h-4 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3.5 after:transition-all peer-checked:bg-blue-600" />
-            </label>
-          </div>
-
-          {/* auto request feedback */}
-          <div className="flex justify-between items-start gap-4">
-            <div>
-              <h5 className="font-extrabold text-slate-700 font-sans tracking-tight text-xs">Tự xin feedback quý</h5>
-              <p className="text-[9.5px] text-slate-400 mt-0.5 leading-normal">Lịch sự xin đánh giá sao sau khi khách hàng chào tạm biệt.</p>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer select-none shrink-0 mt-0.5">
-              <input
-                type="checkbox"
-                checked={localConfig.autoFeedback}
-                onChange={(e) => setLocalConfig({ ...localConfig, autoFeedback: e.target.checked })}
-                className="sr-only peer"
-              />
-              <div className="w-8 h-4 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3.5 after:transition-all peer-checked:bg-blue-600" />
-            </label>
-          </div>
         </div>
 
         {/* delay slider config */}
