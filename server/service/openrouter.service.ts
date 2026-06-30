@@ -207,6 +207,7 @@ async function _generateImageViaChat(
   }
 
   const data = (await response.json()) as any;
+  console.log("[OpenRouter Image Debug] Raw response:", JSON.stringify(data).slice(0, 2000));
   const messageContent = data.choices?.[0]?.message?.content;
 
   // Parse ảnh từ response — có thể là string URL, data URL, hoặc content array
