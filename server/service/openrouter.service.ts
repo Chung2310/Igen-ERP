@@ -180,41 +180,69 @@ export async function openrouterGenerateImage(params: OpenRouterImageParams): Pr
     modalities: ["image", "text"],
   };
 
-  const response = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(body),
-  });
+  let lastError: any;
+  let delay = 1000;
 
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`[OpenRouter] Image generation lỗi ${response.status}: ${errText}`);
-  }
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const response = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(body),
+      });
 
-  const data = (await response.json()) as any;
-  console.log("[OpenRouter Image Debug] Raw response:", JSON.stringify(data).slice(0, 1000));
-
-  // OpenRouter trả ảnh trong message.images (non-standard field), không phải message.content
-  const images = data.choices?.[0]?.message?.images;
-  if (Array.isArray(images) && images.length > 0) {
-    const url = images[0]?.image_url?.url;
-    if (url) return { url };
-  }
-
-  // Fallback: check content array (format cũ / model khác)
-  const messageContent = data.choices?.[0]?.message?.content;
-  if (typeof messageContent === "string") {
-    if (messageContent.startsWith("http") || messageContent.startsWith("data:")) {
-      return { url: messageContent };
-    }
-  } else if (Array.isArray(messageContent)) {
-    for (const part of messageContent) {
-      if (part?.type === "image_url" && part?.image_url?.url) return { url: part.image_url.url };
-      if (part?.type === "image" && part?.source?.data) {
-        return { url: `data:${part.source.media_type || "image/png"};base64,${part.source.data}` };
+      if (!response.ok) {
+        const errText = await response.text();
+        const err = new Error(`[OpenRouter] Image generation lỗi ${response.status}: ${errText}`) as any;
+        err.status = response.status;
+        throw err;
       }
+
+      const data = (await response.json()) as any;
+      console.log("[OpenRouter Image Debug] Raw response:", JSON.stringify(data).slice(0, 1000));
+
+      // OpenRouter trả ảnh trong message.images (non-standard field), không phải message.content
+      const images = data.choices?.[0]?.message?.images;
+      if (Array.isArray(images) && images.length > 0) {
+        const url = images[0]?.image_url?.url;
+        if (url) return { url };
+      }
+
+      // Fallback: check content array (format cũ / model khác)
+      const messageContent = data.choices?.[0]?.message?.content;
+      if (typeof messageContent === "string") {
+        if (messageContent.startsWith("http") || messageContent.startsWith("data:")) {
+          return { url: messageContent };
+        }
+      } else if (Array.isArray(messageContent)) {
+        for (const part of messageContent) {
+          if (part?.type === "image_url" && part?.image_url?.url) return { url: part.image_url.url };
+          if (part?.type === "image" && part?.source?.data) {
+            return { url: `data:${part.source.media_type || "image/png"};base64,${part.source.data}` };
+          }
+        }
+      }
+
+      throw new Error("[OpenRouter] Image response không chứa ảnh.");
+    } catch (error: any) {
+      lastError = error;
+      const status = error?.status ?? 0;
+      const msg = error?.message || String(error);
+      const isRetryable =
+        status === 429 || status === 502 || status === 503 ||
+        msg.includes("RESOURCE_EXHAUSTED") || msg.includes("fetch failed") ||
+        msg.includes("ETIMEDOUT") || msg.includes("ECONNRESET");
+
+      if (isRetryable && attempt < 3) {
+        console.warn(`[OpenRouter Image] Attempt ${attempt} failed, retrying in ${delay}ms... Error: ${msg}`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        delay *= 2;
+        continue;
+      }
+
+      break;
     }
   }
 
-  throw new Error("[OpenRouter] Image response không chứa ảnh. message.images=" + JSON.stringify(images)?.slice(0, 100) + " content=" + JSON.stringify(messageContent)?.slice(0, 100));
+  throw lastError ?? new Error("[OpenRouter] Image response không chứa ảnh sau các lần thử.");
 }
