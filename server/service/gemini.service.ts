@@ -1696,16 +1696,14 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
   },
 
   /**
-   * Tạo ảnh qua OpenRouter image generation API.
-   * Default model: black-forest-labs/flux-1.1-pro (cấu hình qua OPENROUTER_IMAGE_MODEL)
+   * Tạo ảnh qua OpenRouter chat/completions + modalities: ["image","text"]
+   * Ảnh được trả về trong message.images[0].image_url.url (field non-standard của OpenRouter)
    */
   async _generateImageWithOpenRouter(
     prompt: string,
     options?: { aspectRatio?: string; resolution?: string; existingImageUris?: string[]; modelName?: string }
   ): Promise<{ url: string; isMock: boolean }> {
-    // Luôn dùng model từ env — frontend gửi tên alias (vd: "gemini-banana-flash") không phải OpenRouter model ID
     const model = process.env.OPENROUTER_IMAGE_MODEL || "google/gemini-3.1-flash-image";
-
     console.log(`[OpenRouter Image] Generating | model=${model} | promptLen=${prompt.length}`);
 
     try {

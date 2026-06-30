@@ -147,8 +147,8 @@ export interface OpenRouterImageParams {
 }
 
 /**
- * Image generation qua OpenRouter endpoint /api/v1/images
- * Đây là endpoint riêng của OpenRouter, khác với /chat/completions và /images/generations
+ * Image generation qua OpenRouter /chat/completions với modalities: ["image", "text"]
+ * Đây là cách chính thức theo OpenRouter SDK — /images endpoint bị geo-block Vietnam
  */
 export async function openrouterGenerateImage(params: OpenRouterImageParams): Promise<{ url: string }> {
   const apiKey = getApiKey();
@@ -156,7 +156,7 @@ export async function openrouterGenerateImage(params: OpenRouterImageParams): Pr
 
   const model = params.model
     ? mapModelName(params.model)
-    : (process.env.OPENROUTER_IMAGE_MODEL || "black-forest-labs/flux-1.1-pro");
+    : (process.env.OPENROUTER_IMAGE_MODEL || "google/gemini-3.1-flash-image");
 
   const headers = {
     "Content-Type": "application/json",
@@ -165,19 +165,22 @@ export async function openrouterGenerateImage(params: OpenRouterImageParams): Pr
     "X-Title": "Igen ERP",
   };
 
-  console.log(`[OpenRouter Image] /images | model=${model} | promptLen=${params.prompt.length}`);
+  console.log(`[OpenRouter Image] chat+modalities | model=${model} | promptLen=${params.prompt.length}`);
+
+  // Build message content — text prompt + optional reference images
+  const content: any[] = [{ type: "text", text: params.prompt }];
+  for (const img of params.referenceImages || []) {
+    content.push({ type: "image_url", image_url: { url: img } });
+  }
 
   const body: Record<string, any> = {
     model,
-    prompt: params.prompt,
-    n: 1,
-    quality: "auto",
+    messages: [{ role: "user", content }],
+    // Trigger image generation theo cách chính thức của OpenRouter SDK
+    modalities: ["image", "text"],
   };
 
-  if (params.aspectRatio) body.aspect_ratio = params.aspectRatio;
-  if (params.resolution) body.resolution = params.resolution;
-
-  const response = await fetch(`${OPENROUTER_BASE_URL}/images`, {
+  const response = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
     method: "POST",
     headers,
     body: JSON.stringify(body),
@@ -189,13 +192,29 @@ export async function openrouterGenerateImage(params: OpenRouterImageParams): Pr
   }
 
   const data = (await response.json()) as any;
-  console.log("[OpenRouter Image Debug] Raw response:", JSON.stringify(data).slice(0, 500));
+  console.log("[OpenRouter Image Debug] Raw response:", JSON.stringify(data).slice(0, 1000));
 
-  const item = data.data?.[0];
-  if (!item) throw new Error("[OpenRouter] Image generation không trả về data.");
+  // OpenRouter trả ảnh trong message.images (non-standard field), không phải message.content
+  const images = data.choices?.[0]?.message?.images;
+  if (Array.isArray(images) && images.length > 0) {
+    const url = images[0]?.image_url?.url;
+    if (url) return { url };
+  }
 
-  if (item.url) return { url: item.url };
-  if (item.b64_json) return { url: `data:image/png;base64,${item.b64_json}` };
+  // Fallback: check content array (format cũ / model khác)
+  const messageContent = data.choices?.[0]?.message?.content;
+  if (typeof messageContent === "string") {
+    if (messageContent.startsWith("http") || messageContent.startsWith("data:")) {
+      return { url: messageContent };
+    }
+  } else if (Array.isArray(messageContent)) {
+    for (const part of messageContent) {
+      if (part?.type === "image_url" && part?.image_url?.url) return { url: part.image_url.url };
+      if (part?.type === "image" && part?.source?.data) {
+        return { url: `data:${part.source.media_type || "image/png"};base64,${part.source.data}` };
+      }
+    }
+  }
 
-  throw new Error("[OpenRouter] Image generation không trả về URL hoặc base64.");
+  throw new Error("[OpenRouter] Image response không chứa ảnh. message.images=" + JSON.stringify(images)?.slice(0, 100) + " content=" + JSON.stringify(messageContent)?.slice(0, 100));
 }
