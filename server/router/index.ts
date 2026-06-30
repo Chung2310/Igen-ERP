@@ -17,6 +17,7 @@ import { crudRouter } from "./crud.router";
 import { heygenRouter } from "./heygen.router";
 import { walletRouter } from "./wallet.router";
 import { professionalRouter } from "./professional.router";
+import { klingRouter } from "./kling.router";
 export const apiRouter = Router();
 /**
  * GET /api/v1/health
@@ -84,3 +85,6 @@ apiRouter.use("/crud", crudRouter);
 
 // Public Professional Video Render API (auth bằng X-API-Key header)
 apiRouter.use("/professional", professionalRouter);
+
+// Kling AI — Motion Control video generation
+apiRouter.use("/kling", klingRouter);
