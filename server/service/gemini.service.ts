@@ -1,4 +1,3 @@
-import { GoogleGenAI } from "@google/genai";
 import { AIMediaModel } from "../model/ai-media.model";
 import { CompanyModel } from "../model/company.model";
 import { cloudinaryService } from "./cloudinary.service";
@@ -1697,55 +1696,35 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
   },
 
   /**
-   * Tạo ảnh dùng Gemini SDK trực tiếp với responseModalities=IMAGE.
-   * OpenRouter không hỗ trợ image generation từ Vietnam (geo-blocked).
+   * Tạo ảnh qua OpenRouter chat/completions + modalities: ["image","text"]
+   * Ảnh được trả về trong message.images[0].image_url.url (field non-standard của OpenRouter)
    */
   async _generateImageWithOpenRouter(
     prompt: string,
     options?: { aspectRatio?: string; resolution?: string; existingImageUris?: string[]; modelName?: string }
   ): Promise<{ url: string; isMock: boolean }> {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) throw new Error("GEMINI_API_KEY chưa được cấu hình trong .env.");
-
-    // Strip "google/" prefix nếu có — Gemini SDK dùng tên không có prefix
-    const rawModel = process.env.OPENROUTER_IMAGE_MODEL || "gemini-3.1-flash-image";
-    const model = rawModel.startsWith("google/") ? rawModel.slice(7) : rawModel;
-
-    console.log(`[Gemini Image] Generating | model=${model} | promptLen=${prompt.length}`);
-
-    const ai = new GoogleGenAI({ apiKey });
-
-    // Build parts: text prompt + optional reference images
-    const parts: any[] = [{ text: prompt }];
-    for (const imgUrl of options?.existingImageUris || []) {
-      if (imgUrl.startsWith("data:")) {
-        const [header, data] = imgUrl.split(",");
-        const mimeType = header.split(":")[1].split(";")[0];
-        parts.push({ inlineData: { data, mimeType } });
-      }
-    }
+    const model = process.env.OPENROUTER_IMAGE_MODEL || "google/gemini-3.1-flash-image";
+    console.log(`[OpenRouter Image] Generating | model=${model} | promptLen=${prompt.length}`);
 
     try {
-      const response = await ai.models.generateContent({
+      const result = await openrouterGenerateImage({
+        prompt,
         model,
-        contents: [{ role: "user", parts }],
-        config: { responseModalities: ["IMAGE", "TEXT"] } as any,
+        aspectRatio: options?.aspectRatio,
+        resolution: options?.resolution,
+        referenceImages: options?.existingImageUris,
       });
+      let imageUrl = result.url;
 
-      for (const part of response.candidates?.[0]?.content?.parts ?? []) {
-        if ((part as any).inlineData) {
-          const { data, mimeType } = (part as any).inlineData;
-          const dataUrl = `data:${mimeType};base64,${data}`;
-          console.log("[Gemini Image] Got base64, uploading to Cloudinary...");
-          const imageUrl = await cloudinaryService.uploadMedia(dataUrl, "igen_erp/generated_images");
-          console.log(`[Gemini Image] Done: ${imageUrl}`);
-          return { url: imageUrl, isMock: false };
-        }
+      if (imageUrl.startsWith("data:")) {
+        console.log("[OpenRouter Image] Got base64, uploading to Cloudinary...");
+        imageUrl = await cloudinaryService.uploadMedia(imageUrl, "igen_erp/generated_images");
       }
 
-      throw new Error("Gemini không trả về ảnh trong response");
+      console.log(`[OpenRouter Image] Done: ${imageUrl}`);
+      return { url: imageUrl, isMock: false };
     } catch (error: any) {
-      console.error("[Gemini Image] Error:", error);
+      console.error("[OpenRouter Image] Error:", error);
       throw error;
     }
   },

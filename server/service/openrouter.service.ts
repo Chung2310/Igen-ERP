@@ -194,8 +194,15 @@ export async function openrouterGenerateImage(params: OpenRouterImageParams): Pr
   const data = (await response.json()) as any;
   console.log("[OpenRouter Image Debug] Raw response:", JSON.stringify(data).slice(0, 1000));
 
-  const messageContent = data.choices?.[0]?.message?.content;
+  // OpenRouter trả ảnh trong message.images (non-standard field), không phải message.content
+  const images = data.choices?.[0]?.message?.images;
+  if (Array.isArray(images) && images.length > 0) {
+    const url = images[0]?.image_url?.url;
+    if (url) return { url };
+  }
 
+  // Fallback: check content array (format cũ / model khác)
+  const messageContent = data.choices?.[0]?.message?.content;
   if (typeof messageContent === "string") {
     if (messageContent.startsWith("http") || messageContent.startsWith("data:")) {
       return { url: messageContent };
@@ -206,10 +213,8 @@ export async function openrouterGenerateImage(params: OpenRouterImageParams): Pr
       if (part?.type === "image" && part?.source?.data) {
         return { url: `data:${part.source.media_type || "image/png"};base64,${part.source.data}` };
       }
-      // Gemini inlineData format
-      if (part?.type === "image" && part?.image_url) return { url: part.image_url };
     }
   }
 
-  throw new Error("[OpenRouter] Image response không chứa ảnh. Raw: " + JSON.stringify(messageContent)?.slice(0, 300));
+  throw new Error("[OpenRouter] Image response không chứa ảnh. message.images=" + JSON.stringify(images)?.slice(0, 100) + " content=" + JSON.stringify(messageContent)?.slice(0, 100));
 }
