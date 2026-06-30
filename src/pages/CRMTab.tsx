@@ -300,9 +300,9 @@ export default function CRMTab() {
       setAIConfig({
         enabled: config.enabled ?? true,
         commentReplyEnabled: config.commentReplyEnabled ?? true,
-        autoClassify: config.autoClassify ?? true,
-        autoCloseDeal: config.autoCloseDeal ?? true,
-        autoFeedback: config.autoFeedback ?? true,
+        autoClassify: true,
+        autoCloseDeal: true,
+        autoFeedback: true,
         replyDelay: config.replyDelay ?? 15,
         advancedInstructions: config.advancedInstructions ?? "",
         trainingKnowledge: config.trainingKnowledge ?? "",
@@ -316,9 +316,9 @@ export default function CRMTab() {
       setAIConfig({
         enabled: userProfile.aiAutoReplyConfig.enabled ?? true,
         commentReplyEnabled: userProfile.aiAutoReplyConfig.commentReplyEnabled ?? true,
-        autoClassify: userProfile.aiAutoReplyConfig.autoClassify ?? true,
-        autoCloseDeal: userProfile.aiAutoReplyConfig.autoCloseDeal ?? true,
-        autoFeedback: userProfile.aiAutoReplyConfig.autoFeedback ?? true,
+        autoClassify: true,
+        autoCloseDeal: true,
+        autoFeedback: true,
         replyDelay: userProfile.aiAutoReplyConfig.replyDelay ?? 15,
         advancedInstructions: userProfile.aiAutoReplyConfig.advancedInstructions ?? "",
         trainingKnowledge: userProfile.aiAutoReplyConfig.trainingKnowledge ?? "",
@@ -330,6 +330,9 @@ export default function CRMTab() {
   const handleUpdateAIConfig = async (newConfig: AIChatConfig) => {
     const configWithTimestamp = {
       ...newConfig,
+      autoClassify: true,
+      autoCloseDeal: true,
+      autoFeedback: true,
       disabledAt: newConfig.enabled === false ? new Date().toISOString() : null,
     };
     
