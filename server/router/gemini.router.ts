@@ -293,28 +293,3 @@ const hermesWebhookSchema = {
 
 geminiRouter.post("/hermes-webhook", validateRequest(hermesWebhookSchema), geminiController.hermesWebhook);
 
-// ──────────────────────────────────────────────────────────────────────────────
-// FreeLLM API — LLM miễn phí (OpenAI-compatible)
-// ──────────────────────────────────────────────────────────────────────────────
-const freeLLMChatSchema = {
-  body: Joi.object({
-    prompt: Joi.string().allow("").optional(),
-    messages: Joi.array().items(
-      Joi.object({
-        role: Joi.string().valid("system", "user", "assistant").required(),
-        content: Joi.string().required(),
-      })
-    ).optional(),
-    systemPrompt: Joi.string().allow("").optional(),
-    temperature: Joi.number().min(0).max(2).optional(),
-    maxTokens: Joi.number().integer().min(1).max(8192).optional(),
-    jsonMode: Joi.boolean().optional(),
-    action: Joi.string().valid("optimize-prompt", "summarize", "marketing", "chat").optional().allow(""),
-    platform: Joi.string().valid("facebook", "instagram", "tiktok", "zalo", "general").optional(),
-    tone: Joi.string().valid("professional", "friendly", "humorous", "inspirational").optional(),
-    language: Joi.string().valid("vi", "en").optional(),
-  }),
-};
-
-geminiRouter.get("/freellm-status", requireAuth as any, geminiController.freeLLMStatus);
-geminiRouter.post("/freellm-chat", requireAuth as any, validateRequest(freeLLMChatSchema), geminiController.freeLLMChatHandler);
