@@ -8,8 +8,7 @@ import { walletService, API_COSTS } from "../service/wallet.service";
 import { AIMediaModel } from "../model/ai-media.model";
 import { broadcastEvent } from "../socket";
 import * as XLSX from "xlsx";
-import { GoogleGenAI } from "@google/genai";
-import { freeLLMService, freeLLMChat } from "../service/freellm.service";
+import { openrouterChat } from "../service/openrouter.service";
 
 function handleGeminiError(res: Response, error: any, defaultMessage: string) {
   const isPiApiError = String(error.message || "").toUpperCase().includes("PIAPI");
@@ -100,52 +99,28 @@ function isGeminiModelNotFound(error: any): boolean {
 }
 
 async function extractPdfTextWithModelFallback(pdfBase64: string): Promise<string> {
-  if (!process.env.GEMINI_API_KEY) {
-    throw new Error("GEMINI_API_KEY is not configured");
+  if (!process.env.OPENROUTER_API_KEY) {
+    throw new Error("OPENROUTER_API_KEY is not configured");
   }
 
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-  const modelsToTry = DRIVE_PDF_PRIMARY_MODEL === DRIVE_PDF_FALLBACK_MODEL
-    ? [DRIVE_PDF_PRIMARY_MODEL]
-    : [DRIVE_PDF_PRIMARY_MODEL, DRIVE_PDF_FALLBACK_MODEL];
-  let lastError: any;
+  const model = DRIVE_PDF_PRIMARY_MODEL;
+  console.log(`[AI AutoReply] Dang goi OpenRouter trich xuat van ban tu PDF (model: ${model})...`);
 
-  for (const model of modelsToTry) {
-    try {
-      console.log(`[AI AutoReply] Dang goi Gemini trich xuat van ban tu PDF (model: ${model})...`);
-      const response = await ai.models.generateContent({
-        model,
-        contents: [
-          {
-            role: "user",
-            parts: [
-              {
-                inlineData: {
-                  mimeType: "application/pdf",
-                  data: pdfBase64,
-                },
-              },
-              {
-                text: "Bạn là trợ lý trích xuất văn bản. Hãy trích xuất và trả về toàn bộ nội dung văn bản có trong file PDF này theo đúng thứ tự đọc. Chỉ trả về văn bản thuần, không thêm giải thích hay markdown.",
-              },
-            ],
-          },
+  const result = await openrouterChat({
+    model,
+    messages: [
+      {
+        role: "user",
+        content: [
+          { type: "image_url", image_url: { url: `data:application/pdf;base64,${pdfBase64}` } },
+          { type: "text", text: "Bạn là trợ lý trích xuất văn bản. Hãy trích xuất và trả về toàn bộ nội dung văn bản có trong file PDF này theo đúng thứ tự đọc. Chỉ trả về văn bản thuần, không thêm giải thích hay markdown." },
         ],
-      });
+      },
+    ],
+    temperature: 0.1,
+  });
 
-      return response.text || "";
-    } catch (error: any) {
-      lastError = error;
-      const retryable = isGeminiModelNotFound(error) || error?.status === 429 || error?.status === 503;
-      if (retryable && model !== DRIVE_PDF_FALLBACK_MODEL) {
-        console.warn(`[extractPdfTextWithModelFallback] Model ${model} failed. Falling back to ${DRIVE_PDF_FALLBACK_MODEL}.`);
-        continue;
-      }
-      throw error;
-    }
-  }
-
-  throw lastError;
+  return result.text;
 }
 
 function getTextModelCost(aiConfig: any): number {
@@ -368,40 +343,33 @@ async function parseUploadedDocument(base64Data: string, mimeType: string, fileN
     fileName.endsWith(".ppt");
 
   if (isPdf || isDocx || isPptx) {
-    if (!process.env.GEMINI_API_KEY) {
-      throw new Error("GEMINI_API_KEY is not configured");
+    if (!process.env.OPENROUTER_API_KEY) {
+      throw new Error("OPENROUTER_API_KEY is not configured");
     }
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
     const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
-    console.log(`[AI AutoReply] Đang gọi Gemini trích xuất văn bản từ file upload (${fileName})...`);
+    console.log(`[AI AutoReply] Đang gọi OpenRouter trích xuất văn bản từ file upload (${fileName})...`);
 
     let cleanMime = mimeType;
     if (isPdf) cleanMime = "application/pdf";
     else if (isDocx) cleanMime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
     else if (isPptx) cleanMime = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
 
-    const response = await ai.models.generateContent({
+    const result = await openrouterChat({
       model,
-      contents: [
+      messages: [
         {
           role: "user",
-          parts: [
-            {
-              inlineData: {
-                mimeType: cleanMime,
-                data: base64Data,
-              },
-            },
-            {
-              text: "Bạn là trợ lý trích xuất văn bản. Hãy trích xuất và trả về toàn bộ nội dung văn bản có trong tài liệu này theo đúng thứ tự đọc. Chỉ trả về văn bản thuần của tài liệu, không thêm giải thích hay định dạng markdown.",
-            },
+          content: [
+            { type: "image_url", image_url: { url: `data:${cleanMime};base64,${base64Data}` } },
+            { type: "text", text: "Bạn là trợ lý trích xuất văn bản. Hãy trích xuất và trả về toàn bộ nội dung văn bản có trong tài liệu này theo đúng thứ tự đọc. Chỉ trả về văn bản thuần của tài liệu, không thêm giải thích hay định dạng markdown." },
           ],
         },
       ],
+      temperature: 0.1,
     });
 
-    return response.text || "";
+    return result.text;
   }
 
   // Fallback to text
@@ -1589,92 +1557,6 @@ export const geminiController = {
       return res.status(500).json({
         status: "error",
         message: "Lỗi nội bộ server khi xử lý webhook",
-        details: error.message
-      });
-    }
-  },
-
-  /**
-   * GET /api/v1/gemini/freellm-status
-   * Kiểm tra xem FreeLLM API đã cấu hình chưa
-   */
-  async freeLLMStatus(req: Request, res: Response) {
-    const configured = freeLLMService.isConfigured();
-    return res.status(200).json({
-      status: "success",
-      configured,
-      model: process.env.FREELLM_API_MODEL || "auto",
-      url: process.env.FREELLM_API_URL || null,
-      message: configured
-        ? "FreeLLM API đã được cấu hình và sẵn sàng sử dụng."
-        : "FreeLLM API chưa cấu hình (FREELLM_API_KEY còn trống)."
-    });
-  },
-
-  /**
-   * POST /api/v1/gemini/freellm-chat
-   * Gửi tin nhắn trực tiếp đến FreeLLM API
-   */
-  async freeLLMChatHandler(req: Request, res: Response) {
-    try {
-      const userId = (req as any).user?.id;
-      if (!userId) {
-        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
-      }
-
-      const { messages, prompt, systemPrompt, temperature, maxTokens, jsonMode, action } = req.body;
-
-      if (!freeLLMService.isConfigured()) {
-        return res.status(503).json({
-          status: "error",
-          message: "FreeLLM API chưa được cấu hình. Vui lòng thêm FREELLM_API_KEY vào .env."
-        });
-      }
-
-      // Hành động tiện ích đặc biệt
-      if (action === "optimize-prompt" && prompt) {
-        const optimized = await freeLLMService.optimizePrompt(prompt);
-        return res.status(200).json({ status: "success", result: optimized });
-      }
-
-      if (action === "summarize" && prompt) {
-        const summary = await freeLLMService.summarize(prompt, maxTokens || 150);
-        return res.status(200).json({ status: "success", result: summary });
-      }
-
-      if (action === "marketing" && prompt) {
-        const { platform = "general", tone, language } = req.body;
-        const content = await freeLLMService.generateMarketingContent({ topic: prompt, platform, tone, language });
-        return res.status(200).json({ status: "success", result: content });
-      }
-
-      // Chat thông thường (multi-turn hoặc single prompt)
-      const chatMessages = messages || (prompt ? [{ role: "user", content: prompt }] : null);
-      if (!chatMessages || chatMessages.length === 0) {
-        return res.status(400).json({
-          status: "error",
-          message: "Thiếu nội dung tin nhắn. Vui lòng cung cấp 'messages' hoặc 'prompt'."
-        });
-      }
-
-      const result = await freeLLMChat(chatMessages, {
-        systemPrompt,
-        temperature,
-        maxTokens,
-        jsonMode,
-      });
-
-      return res.status(200).json({
-        status: "success",
-        content: result.content,
-        model: result.model,
-        usage: result.usage,
-      });
-    } catch (error: any) {
-      console.error("[geminiController.freeLLMChat] Error:", error);
-      return res.status(500).json({
-        status: "error",
-        message: "Lỗi kết nối FreeLLM API",
         details: error.message
       });
     }

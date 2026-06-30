@@ -2,7 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import { freeLLMJson, isFreeLLMConfigured } from "../freellm.service";
+import { openrouterChat } from "../openrouter.service";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 
@@ -347,21 +347,24 @@ async function generateEditScriptViaClaude(
 }
 
 // ─────────────────────────────────────────────
-// Fallback: FreeLLM (last resort, text-only)
+// Fallback: OpenRouter (text-only, no video upload)
 // ─────────────────────────────────────────────
 
-async function generateEditScriptViaFreeLLM(
+async function generateEditScriptViaOpenRouter(
   videoUrl: string,
   duration: number,
   userPrompt: string
 ): Promise<VideoEditScript> {
-  console.log("[EditScript][FreeLLM] Falling back to FreeLLM (text-only, no video analysis)...");
-  const parsed = await freeLLMJson(buildFreeLLMScriptPrompt(videoUrl, duration, userPrompt), {
+  console.log("[EditScript][OpenRouter] Falling back to OpenRouter (text-only, no video analysis)...");
+  const { text } = await openrouterChat({
+    model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
+    messages: [{ role: "user", content: buildFreeLLMScriptPrompt(videoUrl, duration, userPrompt) }],
     temperature: 0.5,
-    maxTokens: 4000,
+    jsonMode: true,
   });
+  const parsed = safeParseJson(text);
   const script = normalizeScript(parsed, videoUrl, duration);
-  console.log(`[EditScript][FreeLLM] Generated fallback script with ${script.segments.length} segments`);
+  console.log(`[EditScript][OpenRouter] Generated fallback script with ${script.segments.length} segments`);
   return script;
 }
 
@@ -437,34 +440,29 @@ export async function generateEditScript(
       const shouldFallback = isGeminiUnavailable(err);
       console.warn(`[EditScript] Gemini failed (fallback=${shouldFallback}):`, (err as Error).message);
 
-      if (!shouldFallback || !isFreeLLMConfigured()) {
+      if (!shouldFallback) {
         throw err;
       }
     }
 
-    // ── Fallback chain: Claude → FreeLLM ──
+    // ── Fallback chain: Claude → OpenRouter ──
     try {
       if (isClaudeConfigured()) return await generateEditScriptViaClaude(videoUrl, duration, userPrompt);
-      if (isFreeLLMConfigured()) return await generateEditScriptViaFreeLLM(videoUrl, duration, userPrompt);
-      throw geminiErr;
+      return await generateEditScriptViaOpenRouter(videoUrl, duration, userPrompt);
     } catch (fallbackErr: any) {
-      // If Claude failed, try FreeLLM before giving up
-      if (isClaudeConfigured() && isFreeLLMConfigured()) {
-        try {
-          console.warn("[EditScript] Claude fallback failed, trying FreeLLM:", fallbackErr.message);
-          return await generateEditScriptViaFreeLLM(videoUrl, duration, userPrompt);
-        } catch (freellmErr) {
-          console.error("[EditScript] All fallbacks failed:", freellmErr);
-        }
+      console.warn("[EditScript] Claude fallback failed, trying OpenRouter:", fallbackErr.message);
+      try {
+        return await generateEditScriptViaOpenRouter(videoUrl, duration, userPrompt);
+      } catch (openRouterErr) {
+        console.error("[EditScript] All fallbacks failed:", openRouterErr);
       }
       throw geminiErr; // throw original Gemini error — most informative
     }
   }
 
-  // ── No Gemini key — go directly to Claude or FreeLLM ──
+  // ── No Gemini key — go directly to Claude or OpenRouter ──
   if (isClaudeConfigured()) return generateEditScriptViaClaude(videoUrl, duration, userPrompt);
-  if (isFreeLLMConfigured()) return generateEditScriptViaFreeLLM(videoUrl, duration, userPrompt);
-  throw new Error("Chưa cấu hình AI service. Vui lòng thêm GEMINI_API_KEY, CLAUDE_API_KEY hoặc FREELLM_API_KEY vào .env");
+  return generateEditScriptViaOpenRouter(videoUrl, duration, userPrompt);
 }
 
 // ─────────────────────────────────────────────
