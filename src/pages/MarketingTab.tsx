@@ -8,7 +8,7 @@ import {
   ChevronDown
 } from "lucide-react";
 import { MarketingSubTabType, ContentApprovalCard } from "../types";
-import { marketingService, extractDraftContent, sanitizeHumanVideoVoiceScript, stripHumanVideoOutlineSections } from "../services/marketingService";
+import { buildFacebookPostUrl, marketingService, extractDraftContent, sanitizeHumanVideoVoiceScript, stripHumanVideoOutlineSections } from "../services/marketingService";
 import { toast } from "./Toast";
 import { useAuth } from "../context/AuthContext";
 import { parseFirebaseError } from "../utils/firebaseErrorParser";
@@ -295,7 +295,8 @@ export default function MarketingTab() {
             ...c,
             status: "published",
             publishedAt: new Date().toISOString(),
-            facebookPostId: postId
+            facebookPostId: postId,
+            postUrl: buildFacebookPostUrl(postId)
           } : c));
           toast.success(`Đã đăng bài lên Facebook thành công! ${selectedAcc.isMock ? '(Demo)' : ''} ID: ${postId.slice(-8)}`);
         } else if (schedulingCard.channel === "TikTok") {

@@ -1,4 +1,62 @@
 export const facebookPostService = {
+  async resolvePostUrl(
+    rawPostId: string,
+    accessToken: string,
+    pageId?: string
+  ): Promise<{ postId: string; postUrl: string }> {
+    const normalizedId = String(rawPostId || "").trim();
+    if (!normalizedId || !accessToken) {
+      return { postId: normalizedId, postUrl: "" };
+    }
+
+    const buildFallbackUrl = (postId: string) => {
+      if (!postId) return "";
+      if (postId.includes("_")) {
+        const [resolvedPageId, storyFbid] = postId.split("_");
+        if (resolvedPageId && storyFbid) {
+          return `https://www.facebook.com/permalink.php?story_fbid=${encodeURIComponent(storyFbid)}&id=${encodeURIComponent(resolvedPageId)}`;
+        }
+      }
+      if (pageId) {
+        return `https://www.facebook.com/${encodeURIComponent(pageId)}/posts/${encodeURIComponent(postId)}`;
+      }
+      return `https://www.facebook.com/${encodeURIComponent(postId)}`;
+    };
+
+    const fetchGraphFields = async (targetId: string) => {
+      const url = `https://graph.facebook.com/v19.0/${encodeURIComponent(targetId)}?fields=permalink_url,post_id&access_token=${encodeURIComponent(accessToken)}`;
+      const response = await (globalThis as any).fetch(url);
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Graph API error ${response.status}: ${errText}`);
+      }
+      return response.json();
+    };
+
+    try {
+      const primaryData = await fetchGraphFields(normalizedId);
+      const resolvedPostId = String(primaryData.post_id || normalizedId).trim();
+      const resolvedPostUrl = String(primaryData.permalink_url || "").trim();
+
+      if (resolvedPostUrl) {
+        return { postId: resolvedPostId, postUrl: resolvedPostUrl };
+      }
+
+      if (resolvedPostId && resolvedPostId !== normalizedId) {
+        const secondaryData = await fetchGraphFields(resolvedPostId);
+        const secondaryPostUrl = String(secondaryData.permalink_url || "").trim();
+        if (secondaryPostUrl) {
+          return { postId: resolvedPostId, postUrl: secondaryPostUrl };
+        }
+      }
+
+      return { postId: resolvedPostId, postUrl: buildFallbackUrl(resolvedPostId) };
+    } catch (error: any) {
+      console.warn("[facebookPostService.resolvePostUrl] Could not resolve permalink_url:", error.message);
+      return { postId: normalizedId, postUrl: buildFallbackUrl(normalizedId) };
+    }
+  },
+
   /**
    * Gửi thông tin bài đăng sang n8n Webhook để tự động đăng lên Facebook Page
    */
@@ -83,6 +141,20 @@ export const facebookPostService = {
         } else {
           responseData = { message: textData };
         }
+      }
+
+      const rawPostId = String(responseData?.id || responseData?.post_id || "").trim();
+      const resolved = rawPostId
+        ? await this.resolvePostUrl(rawPostId, accessToken, pageId)
+        : { postId: "", postUrl: "" };
+
+      if (resolved.postId) {
+        responseData.id = resolved.postId;
+        responseData.post_id = resolved.postId;
+      }
+      if (resolved.postUrl) {
+        responseData.postUrl = resolved.postUrl;
+        responseData.permalink_url = resolved.postUrl;
       }
 
       return {
