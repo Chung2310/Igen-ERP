@@ -10,6 +10,22 @@ const DEMO_VIDEO_URL_PATTERNS = [
   "example.com/videos/"
 ];
 
+export function buildFacebookPostUrl(postId?: string | null): string {
+  const normalizedPostId = String(postId || "").trim();
+  if (!normalizedPostId || normalizedPostId.includes("mock")) {
+    return "";
+  }
+
+  if (normalizedPostId.includes("_")) {
+    const [pageId, storyFbid] = normalizedPostId.split("_");
+    if (pageId && storyFbid) {
+      return `https://www.facebook.com/permalink.php?story_fbid=${encodeURIComponent(storyFbid)}&id=${encodeURIComponent(pageId)}`;
+    }
+  }
+
+  return `https://www.facebook.com/${encodeURIComponent(normalizedPostId)}`;
+}
+
 function stripDemoVideoUrl(videoUrl?: string | null): string | null {
   const value = String(videoUrl || "").trim();
   if (!value) return null;
@@ -355,11 +371,13 @@ export const marketingService = {
     const result = await response.json();
     const fbData = result.data?.data ?? result.data;
     const postId = fbData.id ?? fbData.post_id ?? `post-${Date.now()}`;
+    const postUrl = fbData.postUrl ?? fbData.permalink_url ?? buildFacebookPostUrl(postId);
 
     await this.updateCard(id, {
       status: 'published',
       publishedAt: new Date().toISOString(),
-      facebookPostId: postId
+      facebookPostId: postId,
+      postUrl
     });
 
     console.log(`[iGen ERP Autopost]: Đã đăng bài thành công lên Facebook Page qua n8n. Post ID: ${postId}`);

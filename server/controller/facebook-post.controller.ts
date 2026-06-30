@@ -41,6 +41,22 @@ function parseSignedRequest(signedRequest: string, appSecret: string) {
   return data;
 }
 
+function buildFacebookPostUrl(postId?: string) {
+  const normalizedPostId = String(postId || "").trim();
+  if (!normalizedPostId) {
+    return "";
+  }
+
+  if (normalizedPostId.includes("_")) {
+    const [pageId, storyFbid] = normalizedPostId.split("_");
+    if (pageId && storyFbid) {
+      return `https://www.facebook.com/permalink.php?story_fbid=${encodeURIComponent(storyFbid)}&id=${encodeURIComponent(pageId)}`;
+    }
+  }
+
+  return `https://www.facebook.com/${encodeURIComponent(normalizedPostId)}`;
+}
+
 export const facebookPostController = {
   /**
    * POST /api/v1/facebook/publish
@@ -581,7 +597,7 @@ export const facebookPostController = {
       const publishStatus = status || "published";
 
       if (publishStatus === "published") {
-        const finalPostUrl = postUrl || (postId ? `https://www.facebook.com/permalink.php?story_fbid=${postId}` : "");
+        const finalPostUrl = postUrl || buildFacebookPostUrl(postId);
         card.status = "published";
         card.publishedAt = new Date();
         card.facebookPostId = postId || card.facebookPostId;

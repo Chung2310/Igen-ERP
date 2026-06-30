@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { ContentApprovalCard } from "../../types";
 import { formatCardDate, isRenderableVideoUrl, formatPublishError } from "./CardWidgets";
-import { marketingService } from "../../services/marketingService";
+import { buildFacebookPostUrl, marketingService } from "../../services/marketingService";
 import { toast } from "../../pages/Toast";
 
 interface CardDetailDrawerProps {
@@ -348,7 +348,10 @@ export default function CardDetailDrawer({
                   if (card.facebookPostId?.includes('mock')) {
                     alert(`[Demo] Bài đăng Facebook ID: ${card.facebookPostId}`);
                   } else {
-                    window.open(`https://facebook.com/${card.facebookPostId}`, '_blank');
+                    const targetUrl = buildFacebookPostUrl(card.facebookPostId);
+                    if (targetUrl) {
+                      window.open(targetUrl, '_blank');
+                    }
                   }
                 }}
               >
