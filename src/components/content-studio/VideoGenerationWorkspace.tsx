@@ -1,10 +1,14 @@
 import { Suspense, lazy, useState, useEffect } from 'react';
-import { Clapperboard, Sparkles, Wand2 } from 'lucide-react';
+import { Clapperboard, Sparkles, Wand2, Film } from 'lucide-react';
 import { SimpleVideoWorkspace } from './SimpleVideoWorkspace';
 import { EditVideoWorkspace } from './EditVideoWorkspace';
 
 const HeyGenWorkspace = lazy(() =>
   import('./HeyGenWorkspace').then((module) => ({ default: module.HeyGenWorkspace }))
+);
+
+const KlingMotionWorkspace = lazy(() =>
+  import('./KlingMotionWorkspace').then((module) => ({ default: module.KlingMotionWorkspace }))
 );
 
 interface VideoGenerationWorkspaceProps {
@@ -17,7 +21,7 @@ interface VideoGenerationWorkspaceProps {
   engineType?: string;
 }
 
-type VideoToolTab = 'veo' | 'heygen' | 'edit-video';
+type VideoToolTab = 'veo' | 'heygen' | 'edit-video' | 'kling-motion';
 
 const VIDEO_TOOL_TABS: Array<{
   id: VideoToolTab;
@@ -26,6 +30,7 @@ const VIDEO_TOOL_TABS: Array<{
 }> = [
   { id: 'veo', label: 'Tạo video AI', icon: Sparkles },
   { id: 'heygen', label: 'Tạo video người thật', icon: Clapperboard },
+  { id: 'kling-motion', label: 'Motion Control', icon: Film },
   { id: 'edit-video', label: 'Chỉnh sửa video', icon: Wand2 },
 ];
 
@@ -103,6 +108,23 @@ export function VideoGenerationWorkspace({
             onMediaSaved={onMediaSaved}
             autoTrigger={autoTrigger}
             engineType={engineType}
+          />
+        </Suspense>
+      )}
+
+      {activeVideoTab === 'kling-motion' && (
+        <Suspense
+          fallback={
+            <div className="mx-auto w-full max-w-[1500px] px-2">
+              <div className="flex min-h-[420px] items-center justify-center rounded-[28px] border border-slate-200 bg-white/80 text-sm font-medium text-slate-500 shadow-sm">
+                Đang tải Motion Control workspace...
+              </div>
+            </div>
+          }
+        >
+          <KlingMotionWorkspace
+            cardId={cardId}
+            onMediaSaved={onMediaSaved}
           />
         </Suspense>
       )}
