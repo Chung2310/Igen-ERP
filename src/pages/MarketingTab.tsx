@@ -298,8 +298,8 @@ export default function MarketingTab() {
             ...c,
             status: "published",
             publishedAt: new Date().toISOString(),
-            facebookPostId: postId,
-            postUrl: buildFacebookPostUrl(postId)
+            facebookPostId: lastPostId,
+            postUrl: buildFacebookPostUrl(lastPostId)
           } : c));
           const countLabel = publishQuantity > 1 ? ` (x${publishQuantity})` : "";
           toast.success(`Đã đăng bài lên Facebook thành công${countLabel}! ${selectedAcc.isMock ? '(Demo)' : ''} ID: ${lastPostId.slice(-8)}`);
