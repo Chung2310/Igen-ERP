@@ -1777,6 +1777,10 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
     return { url: `pending://piapi/${taskId}`, isMock: false, taskId } as any;
   },
 
+  async getPiapiTaskStatus(taskId: string): Promise<{ status: string; url?: string; progress?: number; error?: string }> {
+    return piapiService.getTaskStatus(taskId);
+  },
+
   /**
    * Tạo giọng nói TTS (Gemini Voice Modality)
    */
