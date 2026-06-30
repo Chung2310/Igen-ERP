@@ -396,10 +396,16 @@ async function buildOpenRouterMessages(
             contentParts.push({ type: "image_url", image_url: { url: `data:${mimeType};base64,${p.inlineData.data}` } });
           }
         }
-        if (contentParts.length === 1 && contentParts[0].type === "text") {
-          msgs.push({ role, content: contentParts[0].text });
-        } else if (contentParts.length > 0) {
-          msgs.push({ role, content: contentParts });
+        if (contentParts.length === 0) {
+          // skip empty
+        } else if (role === "assistant") {
+          // assistant content phải là string
+          const text = contentParts.filter((p: any) => p.type === "text").map((p: any) => p.text).join("\n");
+          if (text) msgs.push({ role: "assistant", content: text });
+        } else if (contentParts.length === 1 && contentParts[0].type === "text") {
+          msgs.push({ role: "user", content: contentParts[0].text });
+        } else {
+          msgs.push({ role: "user", content: contentParts as import("./openrouter.service").OpenRouterContentPart[] });
         }
       } else if (item.text) {
         msgs.push({ role: "user", content: item.text });
