@@ -139,18 +139,16 @@ export async function openrouterChat(params: OpenRouterChatParams): Promise<{ te
 
 export interface OpenRouterImageParams {
   prompt: string;
-  /** Model ID — nếu là Gemini image model (google/gemini-*-image) sẽ dùng chat completions */
   model?: string;
-  /** Chỉ dùng cho /images/generations endpoint (non-Gemini models) */
-  size?: string;
-  /** Reference images (base64 data URL hoặc https URL) — chỉ hỗ trợ Gemini image models */
+  aspectRatio?: string;
+  resolution?: string;
+  /** Reference images (base64 data URL hoặc https URL) cho image-to-image */
   referenceImages?: string[];
 }
 
 /**
- * Image generation qua OpenRouter.
- * - Gemini image models (google/*-image): dùng chat completions, hỗ trợ reference images
- * - Các model khác (flux, dall-e...): dùng /images/generations endpoint
+ * Image generation qua OpenRouter endpoint /api/v1/images
+ * Đây là endpoint riêng của OpenRouter, khác với /chat/completions và /images/generations
  */
 export async function openrouterGenerateImage(params: OpenRouterImageParams): Promise<{ url: string }> {
   const apiKey = getApiKey();
@@ -158,91 +156,28 @@ export async function openrouterGenerateImage(params: OpenRouterImageParams): Pr
 
   const model = params.model
     ? mapModelName(params.model)
-    : (process.env.OPENROUTER_IMAGE_MODEL || "google/gemini-3.1-flash-image");
+    : (process.env.OPENROUTER_IMAGE_MODEL || "black-forest-labs/flux-1.1-pro");
 
-  const commonHeaders = {
+  const headers = {
     "Content-Type": "application/json",
     Authorization: `Bearer ${apiKey}`,
     "HTTP-Referer": process.env.APP_URL || "https://igen-erp.app",
     "X-Title": "Igen ERP",
   };
 
-  // Gemini models dùng chat completions (OpenRouter không expose /images/generations cho Gemini)
-  if (model.includes("gemini")) {
-    return _generateImageViaChat(model, params.prompt, params.referenceImages, commonHeaders);
-  }
+  console.log(`[OpenRouter Image] /images | model=${model} | promptLen=${params.prompt.length}`);
 
-  // Các model khác (FLUX, DALL-E...) dùng /images/generations
-  return _generateImageViaImagesEndpoint(model, params.prompt, params.size, commonHeaders);
-}
-
-async function _generateImageViaChat(
-  model: string,
-  prompt: string,
-  referenceImages: string[] | undefined,
-  headers: Record<string, string>
-): Promise<{ url: string }> {
-  console.log(`[OpenRouter Image] Chat completions | model=${model} | promptLen=${prompt.length}`);
-
-  // Build content array: prompt text + optional reference images
-  const content: any[] = [{ type: "text", text: prompt }];
-  for (const img of referenceImages || []) {
-    content.push({ type: "image_url", image_url: { url: img } });
-  }
-
-  const body = {
+  const body: Record<string, any> = {
     model,
-    messages: [{ role: "user", content }],
+    prompt: params.prompt,
+    n: 1,
+    quality: "auto",
   };
 
-  const response = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(body),
-  });
+  if (params.aspectRatio) body.aspect_ratio = params.aspectRatio;
+  if (params.resolution) body.resolution = params.resolution;
 
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`[OpenRouter] Image chat lỗi ${response.status}: ${errText}`);
-  }
-
-  const data = (await response.json()) as any;
-  const messageContent = data.choices?.[0]?.message?.content;
-
-  // Parse ảnh từ response — có thể là string URL, data URL, hoặc content array
-  if (typeof messageContent === "string") {
-    // Một số model trả về URL hoặc data URL thẳng trong content
-    if (messageContent.startsWith("http") || messageContent.startsWith("data:")) {
-      return { url: messageContent };
-    }
-  } else if (Array.isArray(messageContent)) {
-    for (const part of messageContent) {
-      if (part?.type === "image_url" && part?.image_url?.url) {
-        return { url: part.image_url.url };
-      }
-      // Gemini có thể trả inlineData dạng base64
-      if (part?.type === "image" && part?.source?.data) {
-        const mime = part.source.media_type || "image/png";
-        return { url: `data:${mime};base64,${part.source.data}` };
-      }
-    }
-  }
-
-  throw new Error("[OpenRouter] Image chat response không chứa ảnh. Raw: " + JSON.stringify(messageContent)?.slice(0, 300));
-}
-
-async function _generateImageViaImagesEndpoint(
-  model: string,
-  prompt: string,
-  size: string | undefined,
-  headers: Record<string, string>
-): Promise<{ url: string }> {
-  console.log(`[OpenRouter Image] /images/generations | model=${model} | promptLen=${prompt.length}`);
-
-  const body: Record<string, any> = { model, prompt, n: 1 };
-  if (size) body.size = size;
-
-  const response = await fetch(`${OPENROUTER_BASE_URL}/images/generations`, {
+  const response = await fetch(`${OPENROUTER_BASE_URL}/images`, {
     method: "POST",
     headers,
     body: JSON.stringify(body),
@@ -254,6 +189,8 @@ async function _generateImageViaImagesEndpoint(
   }
 
   const data = (await response.json()) as any;
+  console.log("[OpenRouter Image Debug] Raw response:", JSON.stringify(data).slice(0, 500));
+
   const item = data.data?.[0];
   if (!item) throw new Error("[OpenRouter] Image generation không trả về data.");
 
