@@ -35,6 +35,7 @@ const MarketingContentSchema = new Schema<IMarketingContent>(
     companyCode: { type: String, required: true, index: true },
     integrationId: { type: Schema.Types.ObjectId, ref: "SocialIntegration", index: true },
     referenceImage: { type: String },
+    sourceBrief: { type: String },
     mediaType: { type: String, enum: ["image", "video", "human-video"] },
     engineType: { type: String },
     avatarId: { type: String },

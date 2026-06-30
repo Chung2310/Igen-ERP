@@ -45,6 +45,7 @@ export interface ContentApprovalCard {
   publishError?: string;
   mediaType?: "image" | "video" | "human-video";
   referenceImage?: string;
+  sourceBrief?: string;
   engineType?: string;
   avatarId?: string;
   voiceId?: string;
