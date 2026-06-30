@@ -193,6 +193,14 @@ async function _generateImageViaChat(
   const body = {
     model,
     messages: [{ role: "user", content }],
+    // Yêu cầu Gemini trả về ảnh — không có dòng này model chỉ mô tả ảnh bằng text
+    provider: {
+      extra_body: {
+        generationConfig: {
+          responseModalities: ["IMAGE", "TEXT"],
+        },
+      },
+    },
   };
 
   const response = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
