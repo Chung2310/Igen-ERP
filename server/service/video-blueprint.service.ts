@@ -3,9 +3,23 @@ import { AIMediaModel } from "../model/ai-media.model";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import { freeLLMJson, isFreeLLMConfigured } from "./freellm.service";
+import { openrouterChat } from "./openrouter.service";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+
+/** Helper: gọi OpenRouter và parse JSON kết quả */
+async function openrouterJson<T = any>(prompt: string, opts?: { systemPrompt?: string; temperature?: number; maxTokens?: number }): Promise<T> {
+  const messages: any[] = [];
+  if (opts?.systemPrompt) messages.push({ role: "system", content: opts.systemPrompt });
+  messages.push({ role: "user", content: prompt });
+  const { text } = await openrouterChat({
+    model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
+    messages,
+    temperature: opts?.temperature ?? 0.7,
+    jsonMode: true,
+  });
+  return safeParseJson(text) as T;
+}
 
 export interface VideoContentAnalysis {
   transcript: Array<{ text: string; startFraction: number; endFraction: number }>;
@@ -717,7 +731,7 @@ function buildBlueprintFromStyle(
   return { timeline };
 }
 
-async function generateStyleViaFreeLLM(
+async function generateStyleViaOpenRouter(
   userPrompt?: string,
   durationSeconds = 60,
   targetDuration?: number
@@ -775,11 +789,10 @@ QUY TẮC BẮT BUỘC VỀ PHÂN SỐ THỜI GIAN:
 - Cần tạo các textOverlays phù hợp với nội dung và thời lượng của video (để phân bổ đều từ 0.0 đến 1.0).
 - Hãy sáng tạo các phụ đề hoặc tiêu đề có ý nghĩa liên quan mật thiết đến yêu cầu của người dùng.`;
 
-  console.log(`[videoBlueprintService] Calling FreeLLM to generate fallback VideoStyleSchema...`);
+  console.log(`[videoBlueprintService] Calling OpenRouter to generate fallback VideoStyleSchema...`);
   try {
-    const style = await freeLLMJson<VideoStyleSchema>(promptText, {
+    const style = await openrouterJson<VideoStyleSchema>(promptText, {
       temperature: 0.7,
-      maxTokens: 1500,
     });
     
     if (!style.segments || style.segments.length === 0) {
@@ -792,7 +805,7 @@ QUY TẮC BẮT BUỘC VỀ PHÂN SỐ THỜI GIAN:
     
     return style;
   } catch (err) {
-    console.error(`[videoBlueprintService] FreeLLM fallback failed:`, err);
+    console.error(`[videoBlueprintService] OpenRouter fallback failed:`, err);
     return {
       editingStyle: "standard cinematic",
       musicGenre: "lofi",
@@ -856,14 +869,11 @@ QUY TẮC PHÂN SỐ THỜI GIAN:
 - startFraction và endFraction là PHÂN SỐ TƯƠNG ĐỐI [0.0, 1.0].
 - Các phân đoạn phải bao phủ toàn bộ từ 0.0 đến 1.0.`;
 
-  console.log(`[videoBlueprintService] Calling FreeLLM to generate fallback VideoStyleSchema for copyAndScale...`);
+  console.log(`[videoBlueprintService] Calling OpenRouter to generate fallback VideoStyleSchema for copyAndScale...`);
   try {
-    return await freeLLMJson<VideoStyleSchema>(promptText, {
-      temperature: 0.6,
-      maxTokens: 1200,
-    });
+    return await openrouterJson<VideoStyleSchema>(promptText, { temperature: 0.6 });
   } catch (err) {
-    console.error(`[videoBlueprintService] FreeLLM copy fallback failed:`, err);
+    console.error(`[videoBlueprintService] OpenRouter copy fallback failed:`, err);
     return {
       editingStyle: "cinematic style transfer fallback",
       musicGenre: "acoustic",
@@ -1166,12 +1176,12 @@ ${userHintSection}`;
                                   errorMsg.includes("prepayment credits are depleted") ||
                                   errorMsg.includes("billing");
 
-      if ((isQuotaOrLimitError || isOverloadError(err)) && isFreeLLMConfigured()) {
-        console.warn("[videoBlueprintService] Gemini failed during style extraction. Falling back to FreeLLM...");
+      if ((isQuotaOrLimitError || isOverloadError(err)) && !!process.env.OPENROUTER_API_KEY) {
+        console.warn("[videoBlueprintService] Gemini failed during style extraction. Falling back to OpenRouter...");
         try {
-          style = await generateStyleViaFreeLLM(userPrompt, durationSeconds || 60, targetDuration);
+          style = await generateStyleViaOpenRouter(userPrompt, durationSeconds || 60, targetDuration);
         } catch (fallbackErr) {
-          console.error("[videoBlueprintService] FreeLLM fallback style generation failed:", fallbackErr);
+          console.error("[videoBlueprintService] OpenRouter fallback style generation failed:", fallbackErr);
         }
       }
 
@@ -1389,12 +1399,12 @@ QUY TẮC PHÂN SỐ THỜI GIAN:
                                   errorMsg.includes("prepayment credits are depleted") ||
                                   errorMsg.includes("billing");
 
-      if ((isQuotaOrLimitError || isOverloadError(err)) && isFreeLLMConfigured()) {
-        console.warn("[videoBlueprintService] Gemini failed in copyAndScale. Falling back to FreeLLM...");
+      if ((isQuotaOrLimitError || isOverloadError(err)) && !!process.env.OPENROUTER_API_KEY) {
+        console.warn("[videoBlueprintService] Gemini failed in copyAndScale. Falling back to OpenRouter...");
         try {
           style = await generateStyleFallbackForCopy(d1, d2);
         } catch (fallbackErr) {
-          console.error("[videoBlueprintService] FreeLLM copy fallback style generation failed:", fallbackErr);
+          console.error("[videoBlueprintService] OpenRouter copy fallback style generation failed:", fallbackErr);
         }
       }
 
@@ -1540,14 +1550,13 @@ QUY TẮC PHÂN SỐ THỜI GIAN:
                                   errorMsg.includes("prepayment credits are depleted") ||
                                   errorMsg.includes("billing");
 
-      if ((isQuotaOrLimitError || isOverloadError(err)) && isFreeLLMConfigured()) {
-        console.warn("[videoBlueprintService] Gemini failed in generateBlueprintFromPrompt. Falling back to FreeLLM...");
+      if ((isQuotaOrLimitError || isOverloadError(err)) && !!process.env.OPENROUTER_API_KEY) {
+        console.warn("[videoBlueprintService] Gemini failed in generateBlueprintFromPrompt. Falling back to OpenRouter...");
         try {
           const systemInstruction = buildSystemPrompt(videoUrl, duration);
-          const blueprint = await freeLLMJson(userPromptText, {
+          const blueprint = await openrouterJson(userPromptText, {
             systemPrompt: systemInstruction,
             temperature: 0.7,
-            maxTokens: 2000,
           });
 
           if (blueprint && blueprint.timeline && Array.isArray(blueprint.timeline)) {
@@ -1560,11 +1569,11 @@ QUY TẮC PHÂN SỐ THỜI GIAN:
                 playbackRate: 1.0
               });
             }
-            console.log("[videoBlueprintService] Generated blueprint via FreeLLM fallback successfully.");
+            console.log("[videoBlueprintService] Generated blueprint via OpenRouter fallback successfully.");
             return blueprint;
           }
         } catch (fallbackErr) {
-          console.error("[videoBlueprintService] FreeLLM blueprint generation failed:", fallbackErr);
+          console.error("[videoBlueprintService] OpenRouter blueprint generation failed:", fallbackErr);
         }
       }
 

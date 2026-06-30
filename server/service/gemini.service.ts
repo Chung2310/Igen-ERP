@@ -1,11 +1,10 @@
-import { GoogleGenAI, Type } from "@google/genai";
 import { AIMediaModel } from "../model/ai-media.model";
 import { CompanyModel } from "../model/company.model";
 import { cloudinaryService } from "./cloudinary.service";
 import { piapiService } from "./piapi.service";
 import { videoBlueprintService } from "./video-blueprint.service";
 import { hermesService } from "./hermes.service";
-import { freeLLMService, freeLLMChat, isFreeLLMConfigured } from "./freellm.service";
+import { openrouterChat, openrouterGenerateImage, mapModelName, type OpenRouterMessage } from "./openrouter.service";
 import { exec } from "child_process";
 import { remotionQueueService } from "./remotion-queue.service";
 import { remotionService } from "./remotion.service";
@@ -18,12 +17,17 @@ import * as os from "os";
 
 const GEMINI_TEXT_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 const GEMINI_HEAVY_MODEL = process.env.GEMINI_HEAVY_MODEL || "gemini-3.5-flash";
-const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || "gemini-banana-flash";
 const GEMINI_VIDEO_MODEL = process.env.GEMINI_VIDEO_MODEL || "veo31-video-fast-audio";
 
-function getGeminiClient() {
-  return new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
-}
+// Định nghĩa Type tương thích để các schema hiện tại không cần sửa
+const Type = {
+  OBJECT: "object",
+  ARRAY: "array",
+  STRING: "string",
+  INTEGER: "integer",
+  NUMBER: "number",
+  BOOLEAN: "boolean",
+} as const;
 
 
 function safeParseJson(text: string): any {
@@ -346,34 +350,62 @@ async function fetchImageAsBase64(url: string): Promise<{ mimeType: string; data
 }
 
 /**
- * Chuyển đổi Gemini "contents" format → OpenAI messages format để dùng với FreeLLM fallback.
+ * Chuyển đổi Gemini "contents" format → OpenAI/OpenRouter messages format.
+ * Hỗ trợ text và inline images (base64).
  */
-function buildFreeLLMMessages(
+async function buildOpenRouterMessages(
   contents: any,
-  systemInstruction?: string
-): Array<{ role: "system" | "user" | "assistant"; content: string }> {
-  const msgs: Array<{ role: "system" | "user" | "assistant"; content: string }> = [];
+  systemInstruction?: string,
+  images?: string[]
+): Promise<OpenRouterMessage[]> {
+  const msgs: OpenRouterMessage[] = [];
 
   if (systemInstruction) {
     msgs.push({ role: "system", content: systemInstruction });
   }
 
   if (typeof contents === "string") {
-    msgs.push({ role: "user", content: contents });
+    if (images && images.length > 0) {
+      const parts: any[] = [{ type: "text", text: contents }];
+      for (const img of images) {
+        if (img.startsWith("data:")) {
+          parts.push({ type: "image_url", image_url: { url: img } });
+        } else if (img.startsWith("http://") || img.startsWith("https://")) {
+          const imgData = await fetchImageAsBase64(img);
+          if (imgData) {
+            parts.push({ type: "image_url", image_url: { url: `data:${imgData.mimeType};base64,${imgData.data}` } });
+          }
+        }
+      }
+      msgs.push({ role: "user", content: parts });
+    } else {
+      msgs.push({ role: "user", content: contents });
+    }
   } else if (Array.isArray(contents)) {
     for (const item of contents) {
       if (typeof item === "string") {
         msgs.push({ role: "user", content: item });
       } else if (item.role && item.parts) {
-        const textParts = (item.parts as any[])
-          .filter((p: any) => typeof p?.text === "string")
-          .map((p: any) => p.text)
-          .join("\n");
-        if (textParts) {
-          msgs.push({
-            role: item.role === "model" ? "assistant" : "user",
-            content: textParts,
-          });
+        const role: "user" | "assistant" = item.role === "model" ? "assistant" : "user";
+        const contentParts: any[] = [];
+        for (const p of item.parts as any[]) {
+          if (typeof p?.text === "string") {
+            contentParts.push({ type: "text", text: p.text });
+          } else if (p?.inlineData?.data) {
+            const mimeType = p.inlineData.mimeType || "image/png";
+            contentParts.push({ type: "image_url", image_url: { url: `data:${mimeType};base64,${p.inlineData.data}` } });
+          }
+        }
+        if (contentParts.length === 0) {
+          // skip empty
+        } else if (role === "assistant") {
+          // assistant content phải là string
+          const text = contentParts.filter((p: any) => p.type === "text").map((p: any) => p.text).join("\n");
+          if (text) msgs.push({ role: "assistant", content: text });
+        } else if (contentParts.length === 1 && contentParts[0].type === "text") {
+          msgs.push({ role: "user", content: contentParts[0].text });
+        } else {
+          msgs.push({ role: "user", content: contentParts as import("./openrouter.service").OpenRouterContentPart[] });
         }
       } else if (item.text) {
         msgs.push({ role: "user", content: item.text });
@@ -381,7 +413,6 @@ function buildFreeLLMMessages(
     }
   }
 
-  // Đảm bảo có ít nhất 1 user message
   if (!msgs.some((m) => m.role === "user")) {
     msgs.push({ role: "user", content: String(contents) });
   }
@@ -400,147 +431,23 @@ async function generateText(
     images?: string[];
   }
 ): Promise<{ text: string }> {
-  const ai = getGeminiClient();
   let modelId = model || GEMINI_TEXT_MODEL;
-  if (modelId === "gemini-3.5-flash") {
-    modelId = "gemini-2.5-flash";
-  }
+  // normalize alias
+  if (modelId === "gemini-3.5-flash") modelId = "gemini-2.5-flash";
 
-  // Build Gemini-native contents
-  const geminiContents: any[] = [];
+  const needsJson = !!config?.responseMimeType?.includes("json") || !!config?.responseSchema;
 
-  if (typeof contents === "string") {
-    const parts: any[] = [{ text: contents }];
-    if (config?.images && config.images.length > 0) {
-      for (const img of config.images) {
-        if (img.startsWith("data:")) {
-          const mimeMatch = img.match(/^data:([^;]+);base64,(.+)$/);
-          if (mimeMatch) {
-            parts.push({ inlineData: { mimeType: mimeMatch[1], data: mimeMatch[2] } });
-          }
-        } else if (img.startsWith("http://") || img.startsWith("https://")) {
-          const base64Data = await fetchImageAsBase64(img);
-          if (base64Data) {
-            parts.push({ inlineData: { mimeType: base64Data.mimeType, data: base64Data.data } });
-          }
-        } else {
-          parts.push({ fileData: { fileUri: img } });
-        }
-      }
-    }
-    geminiContents.push({ role: "user", parts });
-  } else if (Array.isArray(contents)) {
-    for (const item of contents) {
-      if (typeof item === "string") {
-        geminiContents.push({ role: "user", parts: [{ text: item }] });
-      } else if (item.role && item.parts) {
-        geminiContents.push({ role: item.role === "model" ? "model" : "user", parts: item.parts });
-      } else if (item.text) {
-        geminiContents.push({ role: "user", parts: [{ text: item.text }] });
-      }
-    }
-  }
+  const messages = await buildOpenRouterMessages(contents, config?.systemInstruction, config?.images);
 
-  const geminiConfig: any = {
+  console.log(`[generateText] Calling OpenRouter | model=${mapModelName(modelId)} | msgs=${messages.length} | hasSchema=${!!config?.responseSchema} | hasImages=${!!(config?.images?.length)}`);
+
+  return openrouterChat({
+    model: modelId,
+    messages,
     temperature: config?.temperature ?? 0.7,
-  };
-
-  if (config?.systemInstruction) {
-    geminiConfig.systemInstruction = config.systemInstruction;
-  }
-
-  if (config?.responseMimeType) {
-    geminiConfig.responseMimeType = config.responseMimeType;
-  }
-
-  if (config?.responseSchema) {
-    geminiConfig.responseMimeType = "application/json";
-    geminiConfig.responseSchema = config.responseSchema;
-  }
-
-  const geminiStartTime = Date.now();
-  console.log(`[generateText] Calling Gemini API | model=${modelId} | contentParts=${geminiContents.length} | hasSchema=${!!geminiConfig.responseSchema} | hasImages=${!!(config?.images?.length)}`);
-
-  const maxRetries = 4;
-  let delay = 1000;
-  let lastError: any;
-
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      const response = await ai.models.generateContent({
-        model: modelId,
-        contents: geminiContents,
-        config: geminiConfig,
-      });
-
-      const geminiElapsed = Date.now() - geminiStartTime;
-      const text = response.text || "";
-      console.log(`[generateText] Gemini API responded | ${geminiElapsed}ms (${(geminiElapsed / 1000).toFixed(1)}s) | responseLen=${text.length}`);
-      return { text };
-    } catch (error: any) {
-      lastError = error;
-      const errorMsg = error?.message || String(error);
-      const isRateLimit = error?.status === 429 || errorMsg.includes("429") || errorMsg.includes("RESOURCE_EXHAUSTED") || errorMsg.includes("quota");
-      const isUnavailable = error?.status === 503 || errorMsg.includes("503") || errorMsg.includes("UNAVAILABLE") || errorMsg.includes("experiencing high demand");
-      const isNetworkError = errorMsg.includes("fetch failed") || errorMsg.includes("ENOTFOUND") || errorMsg.includes("ECONNRESET") || errorMsg.includes("ETIMEDOUT") || errorMsg.includes("socket");
-      const isPrepaymentDepleted = errorMsg.includes("prepayment credits are depleted") || errorMsg.includes("prepay");
-
-      if (isPrepaymentDepleted) {
-        try {
-          const { telegramService } = await import("./telegram.service");
-          telegramService.sendGeminiBillingAlert(errorMsg).catch((err: any) => {
-            console.error("[generateText] Failed to send Gemini billing alert to Telegram:", err);
-          });
-        } catch (tgErr) {
-          console.error("[generateText] Error importing telegramService:", tgErr);
-        }
-        break;
-      }
-
-      if ((isRateLimit || isUnavailable || isNetworkError) && attempt < maxRetries) {
-        console.warn(`[generateText] Attempt ${attempt} failed with API error (rate-limit/unavailable/network). Retrying in ${delay}ms... Error: ${errorMsg}`);
-        await new Promise((resolve) => setTimeout(resolve, delay));
-        delay *= 2;
-      } else {
-        break;
-      }
-    }
-  }
-
-  // ── FreeLLM Fallback ──────────────────────────────────────────────────────
-  // Sau khi hết tất cả lần retry với Gemini, thử gọi FreeLLM nếu được cấu hình
-  // Không fallback khi: có images (FreeLLM không hỗ trợ vision)
-  const hasImages = config?.images && config.images.length > 0;
-  if (isFreeLLMConfigured() && !hasImages) {
-    const lastErrorMsg = lastError?.message || String(lastError);
-    console.warn(`[generateText] Gemini failed. Falling back to FreeLLM API... Original Error: ${lastErrorMsg}`);
-    try {
-      const freeLLMMessages = buildFreeLLMMessages(contents, config?.systemInstruction);
-      const needsJson = !!config?.responseMimeType?.includes("json") || !!config?.responseSchema;
-      const freeLLMResult = await freeLLMChat(freeLLMMessages, {
-        temperature: config?.temperature,
-        jsonMode: needsJson,
-      });
-      console.log(`[generateText] FreeLLM fallback succeeded | model=${freeLLMResult.model} | responseLen=${freeLLMResult.content.length}`);
-      return { text: freeLLMResult.content };
-    } catch (freeLLMError: any) {
-      console.error(`[generateText] FreeLLM fallback also failed: ${freeLLMError?.message || freeLLMError}`);
-      // Ném lỗi gốc của Gemini, không ném lỗi FreeLLM
-    }
-  }
-  // ─────────────────────────────────────────────────────────────────────────
-
-  // Nếu không có FreeLLM hoặc FreeLLM thất bại, ném lỗi gốc của Gemini
-  if (lastError) {
-    const lastErrorMsg = lastError?.message || String(lastError);
-    const wasOverloaded = lastError?.status === 503 || lastErrorMsg.includes("503") || lastErrorMsg.includes("UNAVAILABLE") || lastErrorMsg.includes("experiencing high demand");
-    if (wasOverloaded) {
-      throw new Error("Mô hình AI quá tải, vui lòng thử lại sau.");
-    }
-    throw lastError;
-  }
-
-  throw new Error("Gemini API call failed with no error details.");
+    jsonMode: needsJson,
+    responseSchema: config?.responseSchema,
+  });
 }
 
 export const geminiService = {
@@ -616,7 +523,7 @@ export const geminiService = {
       });
     };
 
-    if (!process.env.GEMINI_API_KEY) {
+    if (!process.env.OPENROUTER_API_KEY) {
       return getMockResponse();
     }
 
@@ -811,8 +718,8 @@ STYLE OVERRIDE - ƯU TIÊN CAO NHẤT:
   },
 
   async chatComment(message: string, aiConfig: any, ragContext?: any) {
-    if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY.trim() === "") {
-      throw new Error("Không cấu hình GEMINI_API_KEY trên hệ thống.");
+    if (!process.env.OPENROUTER_API_KEY || process.env.OPENROUTER_API_KEY.trim() === "") {
+      throw new Error("Không cấu hình OPENROUTER_API_KEY trên hệ thống.");
     }
 
     const companyCode = ragContext?.companyCode || aiConfig?.companyCode;
@@ -928,7 +835,7 @@ Q: Chính sách vận chuyển của chúng tôi là gì?
 A: Giao hàng toàn quốc. Miễn phí vận chuyển cho đơn hàng trị giá từ 500k trở lên.`;
     };
 
-    if (!process.env.GEMINI_API_KEY) {
+    if (!process.env.OPENROUTER_API_KEY) {
       return getMockFAQ();
     }
 
@@ -971,7 +878,7 @@ ${docText}
       "Sự kiện ra mắt dòng sản phẩm mới hướng tới phong cách sống xanh bảo vệ môi trường",
     ];
 
-    if (!process.env.GEMINI_API_KEY) {
+    if (!process.env.OPENROUTER_API_KEY) {
       return fallbackSuggestions;
     }
 
@@ -1114,7 +1021,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
       return mockPillars;
     };
 
-    if (!process.env.GEMINI_API_KEY) {
+    if (!process.env.OPENROUTER_API_KEY) {
       return { pillars: getMockPillars(), isMock: true };
     }
 
@@ -1216,7 +1123,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
       return selected;
     };
 
-    if (!process.env.GEMINI_API_KEY) {
+    if (!process.env.OPENROUTER_API_KEY) {
       return { pillar: getMockSwapPillar(), isMock: true };
     }
 
@@ -1331,8 +1238,8 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
       return concepts;
     };
 
-    if (!process.env.GEMINI_API_KEY) {
-      throw new Error("GEMINI_API_KEY is not configured.");
+    if (!process.env.OPENROUTER_API_KEY) {
+      throw new Error("OPENROUTER_API_KEY is not configured.");
     }
 
     try {
@@ -1580,8 +1487,8 @@ Nội dung chi tiết gợi ý: ${suggestedContent}`;
       });
     };
 
-    if (!process.env.GEMINI_API_KEY) {
-      throw new Error("GEMINI_API_KEY is not configured.");
+    if (!process.env.OPENROUTER_API_KEY) {
+      throw new Error("OPENROUTER_API_KEY is not configured.");
     } else {
       try {
         const isHumanVideo = mediaOptions?.mediaType === "human-video";
@@ -1781,85 +1688,42 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
     prompt: string,
     options?: { aspectRatio?: string; modelName?: string; resolution?: string; existingImageUris?: string[] }
   ): Promise<{ url: string; isMock: boolean }> {
-    const modelToUse = "gemini-banana-flash";
-
-    if (!process.env.GEMINI_API_KEY) {
-      throw new Error("GEMINI_API_KEY chưa được cấu hình trong file .env. Vui lòng cấu hình key để sử dụng tính năng tạo ảnh bằng Gemini.");
+    if (!process.env.OPENROUTER_API_KEY) {
+      throw new Error("OPENROUTER_API_KEY chưa được cấu hình trong file .env.");
     }
 
-    return this._generateImageWithGemini(prompt, { ...options, modelName: modelToUse });
+    return this._generateImageWithOpenRouter(prompt, options);
   },
 
   /**
-   * Tạo ảnh bằng Google Gemini Image Model (gemini-banana-pro / gemini-banana-flash)
-   * Sử dụng gemini-3-pro-image hoặc gemini-3.1-flash-image qua generateContent
+   * Tạo ảnh qua OpenRouter image generation API.
+   * Default model: black-forest-labs/flux-1.1-pro (cấu hình qua OPENROUTER_IMAGE_MODEL)
    */
-  async _generateImageWithGemini(
+  async _generateImageWithOpenRouter(
     prompt: string,
     options?: { aspectRatio?: string; resolution?: string; existingImageUris?: string[]; modelName?: string }
   ): Promise<{ url: string; isMock: boolean }> {
-    const ai = getGeminiClient();
-    const inputImageUris = options?.existingImageUris || [];
+    const model = options?.modelName || process.env.OPENROUTER_IMAGE_MODEL || "google/gemini-3.1-flash-image";
 
-    // Mặc định sử dụng model Gemini 3.1 Flash Image
-    const model = "gemini-3.1-flash-image";
+    console.log(`[OpenRouter Image] Generating | model=${model} | promptLen=${prompt.length}`);
 
     try {
-      console.log(`[Gemini Banana] Generating image via ${model} | hasRefImages=${inputImageUris.length > 0}`);
-
-      // Build parts: text prompt + optional reference images
-      const parts: any[] = [{ text: prompt }];
-
-      for (const uri of inputImageUris) {
-        if (uri.startsWith("data:")) {
-          const mimeMatch = uri.match(/^data:([^;]+);base64,(.+)$/);
-          if (mimeMatch) {
-            parts.push({ inlineData: { mimeType: mimeMatch[1], data: mimeMatch[2] } });
-          }
-        } else if (uri.startsWith("http://") || uri.startsWith("https://")) {
-          const imgData = await fetchImageAsBase64(uri);
-          if (imgData) {
-            parts.push({ inlineData: { mimeType: imgData.mimeType, data: imgData.data } });
-          }
-        }
-      }
-
-      const response = await ai.models.generateContent({
-        model: model,
-        contents: [{ role: "user", parts }],
-        config: {
-          responseModalities: ["IMAGE", "TEXT"],
-        },
+      const result = await openrouterGenerateImage({
+        prompt,
+        model,
+        referenceImages: options?.existingImageUris,
       });
+      let imageUrl = result.url;
 
-      // Tìm inline image trong response
-      let imageBase64: string | null = null;
-      let imageMimeType = "image/png";
-
-      const candidates = (response as any).candidates || [];
-      for (const candidate of candidates) {
-        for (const part of candidate?.content?.parts || []) {
-          if (part?.inlineData?.data) {
-            imageBase64 = part.inlineData.data;
-            imageMimeType = part.inlineData.mimeType || "image/png";
-            break;
-          }
-        }
-        if (imageBase64) break;
+      if (imageUrl.startsWith("data:")) {
+        console.log("[OpenRouter Image] Got base64, uploading to Cloudinary...");
+        imageUrl = await cloudinaryService.uploadMedia(imageUrl, "igen_erp/generated_images");
       }
 
-      if (!imageBase64) {
-        throw new Error("Gemini Image API không trả về ảnh nào trong response.");
-      }
-
-      console.log(`[Gemini Banana Pro] Image generated. Uploading to Cloudinary...`);
-      const base64DataUrl = `data:${imageMimeType};base64,${imageBase64}`;
-      const cloudinaryUrl = await cloudinaryService.uploadMedia(base64DataUrl, "igen_erp/gemini_images");
-
-      console.log(`[Gemini Banana Pro] Uploaded to Cloudinary: ${cloudinaryUrl}`);
-      return { url: cloudinaryUrl, isMock: false };
+      console.log(`[OpenRouter Image] Done: ${imageUrl}`);
+      return { url: imageUrl, isMock: false };
     } catch (error: any) {
-      console.error("[Gemini Banana Pro] Error generating image:", error);
+      console.error("[OpenRouter Image] Error:", error);
       throw error;
     }
   },
@@ -2018,7 +1882,7 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
    * Tối ưu kịch bản giọng nói
    */
   async optimizeScript(text: string, readingStyle: string, model?: string) {
-    if (!process.env.GEMINI_API_KEY) {
+    if (!process.env.OPENROUTER_API_KEY) {
       return { optimizedText: `[Tối ưu hóa Giả lập] ${text}` };
     }
     try {
@@ -2072,7 +1936,7 @@ Hãy tối ưu hóa văn bản gốc của người dùng để biến nó thàn
       return getMockImagePrompt();
     }
 
-    if (!process.env.GEMINI_API_KEY) {
+    if (!process.env.OPENROUTER_API_KEY) {
       return getMockImagePrompt();
     }
 
@@ -2240,7 +2104,7 @@ Do not include markdown blocks or any text other than the JSON object.`
       };
     }
 
-    if (!process.env.GEMINI_API_KEY) {
+    if (!process.env.OPENROUTER_API_KEY) {
       return getMockVideoPrompt();
     }
 
@@ -2282,7 +2146,7 @@ Do not include markdown blocks or any text other than the JSON object.`
       return { optimized_prompt: "" };
     }
 
-    if (!process.env.GEMINI_API_KEY) {
+    if (!process.env.OPENROUTER_API_KEY) {
       return { optimized_prompt: normalizedDescription };
     }
 
