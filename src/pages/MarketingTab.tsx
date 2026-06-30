@@ -8,7 +8,7 @@ import {
   ChevronDown
 } from "lucide-react";
 import { MarketingSubTabType, ContentApprovalCard } from "../types";
-import { buildFacebookPostUrl, marketingService, extractDraftContent, sanitizeHumanVideoVoiceScript, stripHumanVideoOutlineSections } from "../services/marketingService";
+import { buildFacebookPostUrl, buildFaithfulMediaPrompt, marketingService, extractDraftContent, sanitizeHumanVideoVoiceScript, stripHumanVideoOutlineSections } from "../services/marketingService";
 import { toast } from "./Toast";
 import { useAuth } from "../context/AuthContext";
 import { parseFirebaseError } from "../utils/firebaseErrorParser";
@@ -633,7 +633,7 @@ export default function MarketingTab() {
         sanitizeHumanVideoVoiceScript(card.voiceScript || card.outline || extractDraftContent(card.bodyText) || "")
       );
     } else {
-      cleanText = card.mediaPrompt || "";
+      cleanText = buildFaithfulMediaPrompt(card, selectedType === "video" ? "video" : "image");
       if (!cleanText) {
         if (selectedType === 'video') {
           cleanText = card.outline || card.bodyText || "";

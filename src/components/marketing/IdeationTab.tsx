@@ -41,6 +41,19 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
   const [loadingDoc, setLoadingDoc] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
+  const buildSourceBriefContext = (baseText?: string) => {
+    const primaryText = String(baseText || campaignInput || "").trim();
+    const parts = [primaryText];
+
+    if (uploadedDocText) {
+      parts.push(
+        `TÀI LIỆU ĐÍNH KÈM:\nTên tài liệu: ${uploadedDocName || "Tài liệu tải lên"}\nNội dung tài liệu:\n${uploadedDocText}`
+      );
+    }
+
+    return parts.filter(Boolean).join("\n\n").trim();
+  };
+
   const loadScript = (src: string, globalVar: string): Promise<any> => {
     return new Promise((resolve, reject) => {
       if ((window as any)[globalVar]) {
@@ -1037,6 +1050,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
           throw new Error("AI không thể phát triển chi tiết bài viết.");
         }
 
+        const sourceBriefContext = buildSourceBriefContext(bestConcept.title);
         const newCards: ContentApprovalCard[] = result.posts.map((post: any, index: number) => {
           const cardMediaType = bestConcept.mediaType || (actualMediaType as any);
           const voiceScriptVal = cardMediaType === "human-video" ? getHumanVideoScript(post, bestConcept.title, bestConcept.summary) : (post.voiceScript || "");
@@ -1071,6 +1085,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
             mediaType: cardMediaType,
             humanDurationSeconds: parseInt(estimatedHumanVoiceDuration, 10) || DEFAULT_HUMAN_VOICE_DURATION_SECONDS,
             referenceImage: uploadedImageBase64 || undefined,
+            sourceBrief: sourceBriefContext,
             engineType: cardMediaType === "human-video" ? selectedEngineType : undefined,
             avatarId: cardMediaType === "human-video" ? selectedHumanAvatar : undefined,
             voiceId: cardMediaType === "human-video" ? selectedHumanVoice : undefined,
@@ -1154,6 +1169,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
         return;
       }
       if (result && result.posts && result.posts.length > 0) {
+        const sourceBriefContext = buildSourceBriefContext(concept.title);
         const newCards: ContentApprovalCard[] = result.posts.map((post: any, index: number) => {
           const cardMediaType = concept.mediaType || (mediaType as any);
           return {
@@ -1174,6 +1190,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
             generatedAt: new Date().toISOString(),
             authorUid: userProfile?.uid ?? "",
             mediaType: cardMediaType,
+            sourceBrief: sourceBriefContext,
             conceptTitle: concept.title,
             conceptSummary: concept.summary || "",
             engineType: cardMediaType === "human-video" ? selectedEngineType : undefined,
