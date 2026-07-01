@@ -14,10 +14,12 @@ import {
   Film,
   ChevronRight,
   Info,
+  Upload,
 } from "lucide-react";
 import { opusclipService, OpusClipProject } from "../services/opusclipService";
 import { socketService } from "../services/socketService";
 import { toast } from "./Toast";
+import { getAccessToken } from "../services/authService";
 
 export default function LongToShortTab() {
   const [videoUrl, setVideoUrl] = useState("");
@@ -30,6 +32,8 @@ export default function LongToShortTab() {
   const [selectedProject, setSelectedProject] = useState<OpusClipProject | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [copiedTextId, setCopiedTextId] = useState<string | null>(null);
 
   // Load projects list
@@ -75,6 +79,113 @@ export default function LongToShortTab() {
       unsubFailed();
     };
   }, [selectedProject?.projectId]);
+
+  // Handle upload local video file in chunks directly to Cloudinary
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Giới hạn dung lượng video tối đa 1.5GB cho video dài 20-30 phút
+    const MAX_SIZE = 1500 * 1024 * 1024; // 1.5GB
+    if (file.size > MAX_SIZE) {
+      toast.error("Dung lượng video không được vượt quá 1.5GB.");
+      return;
+    }
+
+    setUploading(true);
+    setUploadProgress(0);
+
+    try {
+      // 1. Tạo các tham số cần ký
+      const timestamp = Math.round(Date.now() / 1000).toString();
+      const folder = "igen_erp/opusclip";
+      const paramsToSign = {
+        timestamp,
+        folder,
+      };
+
+      // 2. Gọi backend lấy chữ ký bảo mật
+      const signRes = await fetch('/api/v1/media/sign-upload', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${getAccessToken()}`,
+        },
+        body: JSON.stringify({ paramsToSign }),
+      });
+
+      if (!signRes.ok) {
+        const errText = await signRes.text();
+        throw new Error(`Không thể lấy chữ ký tải lên từ máy chủ: ${errText}`);
+      }
+
+      const { signature, apiKey, cloudName } = await signRes.json();
+
+      // 3. Tiến hành tải lên theo phân đoạn (Chunked Upload) trực tiếp sang Cloudinary
+      // Sử dụng chunk 6MB (Cloudinary yêu cầu từ 5MB - 100MB cho mỗi chunk)
+      const chunkSize = 6 * 1024 * 1024; 
+      const totalSize = file.size;
+      const uniqueUploadId = 'igen_upload_' + Math.random().toString(36).substring(2, 15);
+
+      let start = 0;
+      let secureUrl = "";
+
+      while (start < totalSize) {
+        const end = Math.min(start + chunkSize, totalSize);
+        const chunk = file.slice(start, end);
+
+        const formData = new FormData();
+        formData.append("file", chunk);
+        formData.append("api_key", apiKey);
+        formData.append("timestamp", timestamp);
+        formData.append("signature", signature);
+        formData.append("folder", folder);
+
+        const headers: Record<string, string> = {
+          "X-Unique-Upload-Id": uniqueUploadId,
+          "Content-Range": `bytes ${start}-${end - 1}/${totalSize}`,
+        };
+
+        const uploadUrl = `https://api.cloudinary.com/v1_1/${cloudName}/video/upload`;
+        
+        const response = await fetch(uploadUrl, {
+          method: "POST",
+          headers: headers,
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const errText = await response.text();
+          throw new Error(`Lỗi tải lên phân đoạn sang Cloudinary: ${errText}`);
+        }
+
+        const data = await response.json();
+        
+        // Cập nhật phần trăm tiến trình
+        const progress = Math.round((end / totalSize) * 100);
+        setUploadProgress(progress);
+
+        if (end === totalSize) {
+          secureUrl = data.secure_url;
+        }
+
+        start = end;
+      }
+
+      if (secureUrl) {
+        setVideoUrl(secureUrl);
+        toast.success("Tải video lên Cloudinary thành công!");
+      } else {
+        throw new Error("Tải lên hoàn tất nhưng không nhận được URL video.");
+      }
+    } catch (err: any) {
+      console.error("Lỗi tải video chunked:", err);
+      toast.error(err.message || "Tải video thất bại. Vui lòng thử lại.");
+    } finally {
+      setUploading(false);
+      setUploadProgress(0);
+    }
+  };
 
   // Handle submit new project
   const handleSubmit = async (e: React.FormEvent) => {
@@ -198,7 +309,7 @@ export default function LongToShortTab() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">
-                  Đường dẫn video (YouTube / Google Drive) *
+                  Đường dẫn video (YouTube / Google Drive / URL trực tiếp) *
                 </label>
                 <input
                   type="url"
@@ -207,7 +318,32 @@ export default function LongToShortTab() {
                   value={videoUrl}
                   onChange={(e) => setVideoUrl(e.target.value)}
                   className="block h-11 w-full rounded-2xl border border-gray-200 bg-white px-4 text-xs font-bold text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10"
+                  disabled={uploading}
                 />
+                
+                {/* Tải lên video cục bộ */}
+                <div className="mt-2">
+                  <label className="flex h-11 cursor-pointer items-center justify-center gap-2 rounded-2xl border border-dashed border-purple-200 bg-purple-50/30 px-4 text-xs font-bold text-purple-600 transition-all hover:bg-purple-50 hover:border-purple-300">
+                    {uploading ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 animate-spin text-purple-600" />
+                        <span>Đang tải tệp lên: {uploadProgress}%</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-4 w-4 text-purple-500" />
+                        <span>Tải tệp video từ máy tính (&lt; 1.5GB)</span>
+                      </>
+                    )}
+                    <input
+                      type="file"
+                      accept="video/*"
+                      className="hidden"
+                      onChange={handleFileUpload}
+                      disabled={uploading}
+                    />
+                  </label>
+                </div>
               </div>
 
               <div>
@@ -264,7 +400,7 @@ export default function LongToShortTab() {
                   type="text"
                   placeholder="Nhập Template ID nếu có"
                   value={brandTemplateId}
-                  onChange={(e) => setSourceLang(e.target.value)}
+                  onChange={(e) => setBrandTemplateId(e.target.value)}
                   className="block h-11 w-full rounded-2xl border border-gray-200 bg-white px-4 text-xs font-bold text-gray-900 outline-none transition-all focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10"
                 />
               </div>
