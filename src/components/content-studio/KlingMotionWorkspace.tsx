@@ -10,11 +10,21 @@ import { toast } from "../../pages/Toast";
 import { getAccessToken } from "../../services/authService";
 
 const KLING_MODELS = [
-  { value: "kling-v1-5", label: "Kling v1.5", desc: "Ổn định, nhanh" },
-  { value: "kling-v2", label: "Kling v2", desc: "Chất lượng cao hơn" },
+  { value: "kling-v2-6", label: "Kling v2.6", desc: "Ổn định, nhanh" },
+  { value: "kling-v3", label: "Kling v3", desc: "Chất lượng cao nhất" },
 ] as const;
 
 const MAX_VIDEO_SIZE_MB = 50;
+
+const KLING_COST_PER_SECOND: Record<string, Record<string, number>> = {
+  "kling-v2-6": { std: 18, pro: 28 },
+  "kling-v3":   { std: 32, pro: 43 },
+};
+
+function calcEstimatedCost(model: string, m: string, durationSec: number): number {
+  const rate = KLING_COST_PER_SECOND[model]?.[m] ?? 32;
+  return Math.ceil(durationSec) * rate;
+}
 
 export function KlingMotionWorkspace({
   cardId,
@@ -28,9 +38,11 @@ export function KlingMotionWorkspace({
   const [motionVideoName, setMotionVideoName] = useState<string>("");
   const [prompt, setPrompt] = useState("");
 
-  const [modelName, setModelName] = useState<string>("kling-v1-5");
+  const [modelName, setModelName] = useState<string>("kling-v2-6");
+  const [mode, setMode] = useState<"std" | "pro">("std");
   const [characterOrientation, setCharacterOrientation] = useState<"video" | "image">("video");
   const [keepOriginalSound, setKeepOriginalSound] = useState(false);
+  const [videoDuration, setVideoDuration] = useState<number>(0);
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
@@ -128,6 +140,16 @@ export function KlingMotionWorkspace({
       return;
     }
 
+    // Detect duration via temporary object URL
+    const objectUrl = URL.createObjectURL(file);
+    const tempVideo = document.createElement("video");
+    tempVideo.preload = "metadata";
+    tempVideo.onloadedmetadata = () => {
+      setVideoDuration(tempVideo.duration);
+      URL.revokeObjectURL(objectUrl);
+    };
+    tempVideo.src = objectUrl;
+
     setIsUploadingVideo(true);
     setMotionVideoName(file.name);
     const reader = new FileReader();
@@ -199,9 +221,11 @@ export function KlingMotionWorkspace({
         imageUrl: characterImage,
         videoUrl: motionVideo,
         modelName,
+        mode,
         prompt: prompt.trim() || undefined,
         characterOrientation,
         keepOriginalSound,
+        videoDuration: videoDuration > 0 ? videoDuration : undefined,
       });
 
       setGeneratedVideoUrl(result.url);
@@ -311,7 +335,7 @@ export function KlingMotionWorkspace({
                   </div>
                   <button
                     type="button"
-                    onClick={() => { setMotionVideo(null); setMotionVideoName(""); }}
+                    onClick={() => { setMotionVideo(null); setMotionVideoName(""); setVideoDuration(0); }}
                     className="p-1.5 bg-slate-200 hover:bg-slate-300 text-slate-600 rounded-full transition-all cursor-pointer shrink-0"
                   >
                     <X className="h-3 w-3" />
@@ -360,6 +384,37 @@ export function KlingMotionWorkspace({
                   </option>
                 ))}
               </select>
+            </div>
+
+            {/* Mode */}
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] text-slate-500 font-semibold">Chất lượng xuất</span>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMode("std")}
+                  disabled={isGenerating}
+                  className={`py-2 px-3 text-xs font-bold rounded-xl border transition-all cursor-pointer ${
+                    mode === "std"
+                      ? "border-violet-500 bg-violet-50 text-violet-700"
+                      : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+                  }`}
+                >
+                  Standard · 720p
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMode("pro")}
+                  disabled={isGenerating}
+                  className={`py-2 px-3 text-xs font-bold rounded-xl border transition-all cursor-pointer ${
+                    mode === "pro"
+                      ? "border-violet-500 bg-violet-50 text-violet-700"
+                      : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+                  }`}
+                >
+                  Pro · 1080p
+                </button>
+              </div>
             </div>
 
             {/* Character Orientation */}
@@ -429,6 +484,18 @@ export function KlingMotionWorkspace({
               </button>
             </div>
           </div>
+
+          {/* Estimated Cost */}
+          {videoDuration > 0 && (
+            <div className="flex items-center justify-between px-3 py-2 bg-violet-50 border border-violet-100 rounded-xl text-[10px]">
+              <span className="text-slate-500 font-medium">
+                Ước tính phí · {videoDuration.toFixed(1)}s × {KLING_COST_PER_SECOND[modelName]?.[mode] ?? 32} credits/s
+              </span>
+              <span className="font-bold text-violet-700">
+                {calcEstimatedCost(modelName, mode, videoDuration).toLocaleString()} credits
+              </span>
+            </div>
+          )}
 
           {/* Generate Button */}
           <button

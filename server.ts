@@ -194,7 +194,14 @@ async function startServer() {
   const app = express();
   app.set("trust proxy", true);
   app.use(cookieParser());
-  app.use(express.json({ limit: "300mb" }));
+  app.use(
+    express.json({
+      limit: "300mb",
+      verify: (req: any, res, buf) => {
+        req.rawBody = buf.toString();
+      },
+    })
+  );
   app.use(express.urlencoded({ limit: "300mb", extended: true }));
 
   // 1. Cấu hình CORS bảo mật sử dụng allowedOrigins từ biến môi trường LINK_COR

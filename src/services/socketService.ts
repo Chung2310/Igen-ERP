@@ -102,6 +102,28 @@ class SocketService {
       this.statusCallbacks = this.statusCallbacks.filter((cb) => cb !== callback);
     };
   }
+
+  on(event: string, callback: (data: any) => void) {
+    const checkAndListen = () => {
+      if (this.socket) {
+        this.socket.on(event, callback);
+      }
+    };
+
+    checkAndListen();
+    
+    // Nếu chưa connect hoặc bị reconnect, tự đăng ký lại
+    if (this.socket) {
+      this.socket.on("connect", checkAndListen);
+    }
+
+    return () => {
+      if (this.socket) {
+        this.socket.off(event, callback);
+        this.socket.off("connect", checkAndListen);
+      }
+    };
+  }
 }
 
 export const socketService = new SocketService();
