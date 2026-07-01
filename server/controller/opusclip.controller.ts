@@ -241,10 +241,11 @@ export const opusclipController = {
           clips: mappedClips,
         });
       } else if (stage === "FAILED" || stage === "STALLED") {
-        console.log(`[OpusClipController.handleWebhook] Project ${projectId} failed processing.`);
+        const errorMsg = payload.error || "Dự án bị lỗi trong lúc xử lý trên OpusClip.";
+        console.log(`[OpusClipController.handleWebhook] Project ${projectId} failed processing. Error: ${errorMsg}`);
         
         project.status = "failed";
-        project.error = payload.error || "Dự án bị lỗi trong lúc xử lý trên OpusClip.";
+        project.error = errorMsg;
         await project.save();
 
         broadcastEvent("opusclip:failed", {
