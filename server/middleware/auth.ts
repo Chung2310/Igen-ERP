@@ -23,6 +23,7 @@ function shouldSkipRoutineAuthLog(method: string, url: string) {
   }
 
   const noisyPrefixes = [
+    "/api/v1/auth/telegram-link",
     "/api/v1/crud/marketing-contents",
     "/api/v1/crud/crm-tickets",
     "/api/v1/crud/products",
@@ -106,7 +107,9 @@ export function requireAuth(req: AuthenticatedRequest, res: Response, next: Next
     // console.log(`[requireAuth] Xác thực thành công: ${req.method} ${req.originalUrl} - User: ${decoded.email} (${decoded.role}), ID: ${decoded.id}`);
     return next();
   } catch (error) {
-    console.warn(`[requireAuth] JWT không hợp lệ hoặc hết hạn cho ${req.method} ${req.originalUrl}:`, (error as Error).message);
+    if (!shouldSkipRoutineAuthLog(req.method, req.originalUrl)) {
+      console.warn(`[requireAuth] JWT không hợp lệ hoặc hết hạn cho ${req.method} ${req.originalUrl}:`, (error as Error).message);
+    }
     return res.status(401).json({
       status: "error",
       message: "Mã xác thực không hợp lệ hoặc đã hết hạn. Vui lòng đăng nhập lại.",

@@ -250,10 +250,6 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
 
     loadTelegramLinkStatus();
 
-    const interval = window.setInterval(() => {
-      loadTelegramLinkStatus();
-    }, 3000);
-
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
         loadTelegramLinkStatus();
@@ -264,7 +260,6 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
-      window.clearInterval(interval);
       window.removeEventListener("focus", loadTelegramLinkStatus);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };

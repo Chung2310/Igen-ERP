@@ -12,11 +12,11 @@ export interface ITelegramLinkToken extends Document {
 
 const TelegramLinkTokenSchema = new Schema<ITelegramLinkToken>(
   {
-    userId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+    userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
     email: { type: String, required: true },
     displayName: { type: String, default: "" },
     code: { type: String, required: true, unique: true, index: true },
-    expiresAt: { type: Date, required: true, index: true },
+    expiresAt: { type: Date, required: true },
   },
   { timestamps: true }
 );
