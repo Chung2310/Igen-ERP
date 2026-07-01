@@ -3,6 +3,7 @@ import { geminiService } from "./gemini.service";
 import { cloudinaryService } from "./cloudinary.service";
 import { TelegramProcessedUpdateModel } from "../model/telegram-processed-update.model";
 import { TelegramSessionModel } from "../model/telegram-session.model";
+import { TelegramLinkTokenModel } from "../model/telegram-link-token.model";
 import { UserModel } from "../model/user.model";
 import { CRMTicketModel } from "../model/crm-ticket.model";
 import { TransactionModel } from "../model/transaction.model";
@@ -39,6 +40,16 @@ function truncateTelegramText(value: string, maxLength: number): string {
   if (!normalized) return "";
   if (normalized.length <= maxLength) return normalized;
   return `${normalized.slice(0, maxLength - 3)}...`;
+}
+
+function normalizeTelegramCommand(rawText: string): { command: string; args: string } {
+  const text = String(rawText || "").trim();
+  const spaceIndex = text.indexOf(" ");
+  const rawCommand = spaceIndex === -1 ? text : text.substring(0, spaceIndex);
+  const args = spaceIndex === -1 ? "" : text.substring(spaceIndex + 1).trim();
+  const command = rawCommand.replace(/@[^@\s]+$/, "");
+
+  return { command, args };
 }
 
 export const telegramService = {
@@ -262,10 +273,11 @@ export const telegramService = {
               const document = update.message.document;
               const replyToMessage = update.message.reply_to_message;
               const chatId = update.message.chat.id;
+              const telegramUserId = update.message.from?.id;
               const messageId = update.message.message_id;
 
               if (text.startsWith("/")) {
-                this.handleCommand(chatId, text, photo, document, replyToMessage, messageId).catch((err) => {
+                this.handleCommand(chatId, telegramUserId, text, photo, document, replyToMessage, messageId).catch((err) => {
                   console.error("[Telegram Bot] Lỗi khi thực thi lệnh:", err);
                 });
               }
@@ -290,17 +302,76 @@ export const telegramService = {
    */
   async handleCommand(
     chatId: number,
+    telegramUserId: number | undefined,
     text: string,
     photo?: any[],
     document?: any,
     replyToMessage?: any,
     messageId?: number
   ): Promise<void> {
-    const spaceIndex = text.indexOf(" ");
-    const command = spaceIndex === -1 ? text : text.substring(0, spaceIndex);
-    const args = spaceIndex === -1 ? "" : text.substring(spaceIndex + 1).trim();
+    const { command, args } = normalizeTelegramCommand(text);
 
     // === XỬ LÝ ĐĂNG NHẬP ===
+    if (command === "/link") {
+      const normalizedCode = String(args || "").trim().toUpperCase();
+      if (!normalizedCode) {
+        await this.sendMessage(chatId, "⚠️ Vui lòng nhập mã liên kết. Ví dụ: <code>/link ABC123</code>");
+        return;
+      }
+
+      try {
+        const linkToken = await TelegramLinkTokenModel.findOne({ code: normalizedCode });
+        if (!linkToken) {
+          await this.sendMessage(chatId, "❌ Mã liên kết không hợp lệ hoặc đã hết hạn. Hãy tạo mã mới từ web ERP.");
+          return;
+        }
+
+        if (linkToken.expiresAt.getTime() <= Date.now()) {
+          await TelegramLinkTokenModel.deleteOne({ _id: linkToken._id });
+          await this.sendMessage(chatId, "⌛ Mã liên kết đã hết hạn. Hãy tạo mã mới từ web ERP.");
+          return;
+        }
+
+        const user = await UserModel.findById(linkToken.userId);
+        if (!user) {
+          await TelegramLinkTokenModel.deleteOne({ _id: linkToken._id });
+          await this.sendMessage(chatId, "❌ Không tìm thấy tài khoản ERP tương ứng với mã liên kết.");
+          return;
+        }
+
+        await TelegramSessionModel.deleteMany({
+          $or: [
+            { telegramChatId: chatId },
+            { userId: user._id },
+            ...(telegramUserId ? [{ telegramUserId }] : []),
+          ],
+        });
+
+        await TelegramSessionModel.create({
+          telegramChatId: chatId,
+          telegramUserId,
+          userId: user._id,
+          email: user.email,
+          displayName: user.displayName || user.email,
+          role: user.role || "user",
+          companyCode: user.companyCode || "",
+        });
+
+        await TelegramLinkTokenModel.deleteMany({ userId: user._id });
+
+        await this.sendMessage(chatId, [
+          "✅ <b>Liên kết Telegram thành công!</b>",
+          `👤 Xin chào, <b>${user.displayName}</b>`,
+          `📧 Email: <code>${user.email}</code>`,
+          "Gõ /help để xem danh sách lệnh khả dụng.",
+        ].join("\n"));
+      } catch (err: any) {
+        console.error("[Telegram Bot] Lỗi xử lý liên kết Telegram:", err);
+        await this.sendMessage(chatId, "❌ Lỗi hệ thống khi liên kết Telegram. Vui lòng thử lại sau.");
+      }
+      return;
+    }
+
     if (command === "/login") {
       // Luôn xóa tin nhắn chứa mật khẩu ngay lập tức
       if (messageId) {
@@ -328,10 +399,17 @@ export const telegramService = {
         }
 
         // Xóa session cũ nếu userId đã liên kết với chat khác
-        await TelegramSessionModel.deleteMany({ $or: [{ telegramChatId: chatId }, { userId: user._id }] });
+        await TelegramSessionModel.deleteMany({
+          $or: [
+            { telegramChatId: chatId },
+            { userId: user._id },
+            ...(telegramUserId ? [{ telegramUserId }] : []),
+          ],
+        });
 
         await TelegramSessionModel.create({
           telegramChatId: chatId,
+          telegramUserId,
           userId: user._id,
           email: user.email,
           displayName: user.displayName || email,
@@ -359,7 +437,12 @@ export const telegramService = {
     // === XỬ LÝ ĐĂNG XUẤT ===
     if (command === "/logout") {
       try {
-        const deleted = await TelegramSessionModel.findOneAndDelete({ telegramChatId: chatId });
+        const deleted = await TelegramSessionModel.findOneAndDelete({
+          $or: [
+            { telegramChatId: chatId },
+            ...(telegramUserId ? [{ telegramUserId }] : []),
+          ],
+        });
         if (deleted) {
           await this.sendMessage(chatId, "👋 <b>Đã đăng xuất thành công.</b>\nGõ /login để đăng nhập lại.");
         } else {
@@ -375,7 +458,27 @@ export const telegramService = {
     // === TRA CỨU SESSION HIỆN TẠI ===
     let session: any = null;
     try {
-      session = await TelegramSessionModel.findOne({ telegramChatId: chatId }).lean();
+      session = await TelegramSessionModel.findOne({
+        $or: [
+          { telegramChatId: chatId },
+          ...(telegramUserId ? [{ telegramUserId }] : []),
+        ],
+      }).lean();
+      if (session && (session.telegramChatId !== chatId || (telegramUserId && session.telegramUserId !== telegramUserId))) {
+        await TelegramSessionModel.updateOne(
+          { _id: session._id },
+          {
+            $set: {
+              telegramChatId: chatId,
+              ...(telegramUserId ? { telegramUserId } : {}),
+            },
+          }
+        );
+        session.telegramChatId = chatId;
+        if (telegramUserId) {
+          session.telegramUserId = telegramUserId;
+        }
+      }
     } catch (err) {
       console.error("[Telegram Bot] Lỗi tra cứu session:", err);
     }

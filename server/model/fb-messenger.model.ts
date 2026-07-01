@@ -39,7 +39,7 @@ export interface IFBMessage extends Document {
 const FBConversationSchema: Schema = new Schema(
   {
     recipientId: { type: String, required: true },
-    facebookConversationId: { type: String, default: "" },
+    facebookConversationId: { type: String, default: undefined },
     senderName: { type: String, default: "Khách hàng Facebook" },
     avatarUrl: { type: String, default: "" },
     pageId: { type: String, required: true },
@@ -56,7 +56,15 @@ const FBConversationSchema: Schema = new Schema(
 
 // PSID is only unique within a specific Facebook page, not globally.
 FBConversationSchema.index({ pageId: 1, recipientId: 1 }, { unique: true });
-FBConversationSchema.index({ pageId: 1, facebookConversationId: 1 }, { unique: true, sparse: true });
+FBConversationSchema.index(
+  { pageId: 1, facebookConversationId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      facebookConversationId: { $exists: true, $type: "string", $ne: "" },
+    },
+  }
+);
 FBConversationSchema.index({ pageId: 1, lastMessageAt: -1 });
 
 // Schema Tin nhắn
