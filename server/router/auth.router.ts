@@ -128,6 +128,10 @@ authRouter.post("/logout", authController.logout);
 // Lấy thông tin tài khoản hiện tại (yêu cầu Access Token)
 authRouter.get("/me", requireAuth as any, authController.getMe as any);
 
+authRouter.get("/telegram-link", requireAuth as any, authController.getTelegramLinkStatus as any);
+authRouter.post("/telegram-link", requireAuth as any, authController.createTelegramLinkCode as any);
+authRouter.delete("/telegram-link", requireAuth as any, authController.unlinkTelegram as any);
+
 // Cập nhật thông tin tài khoản hiện tại (yêu cầu Access Token)
 authRouter.patch("/profile", requireAuth as any, validateRequest(updateProfileSchema), authController.updateProfile as any);
 

@@ -47,3 +47,13 @@ export interface CompanyProfile {
   createdAt: any;
   ownerEmail: string;
 }
+
+export interface TelegramLinkStatus {
+  linked: boolean;
+  telegramChatId: number | null;
+  telegramUserId: number | null;
+  linkedAt: any | null;
+  pendingCode: string | null;
+  pendingCodeExpiresAt: any | null;
+  botUsername: string;
+}
