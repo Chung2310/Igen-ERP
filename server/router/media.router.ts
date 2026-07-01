@@ -28,6 +28,37 @@ mediaRouter.post(
   mediaController.upload as any
 );
 
+// Route ký tham số tải lên trực tiếp lên Cloudinary từ Client (Bảo mật)
+mediaRouter.post(
+  "/sign-upload",
+  requireAuth as any,
+  async (req, res) => {
+    try {
+      const { paramsToSign } = req.body;
+      if (!paramsToSign) {
+        return res.status(400).json({ error: "Thiếu tham số cần ký 'paramsToSign'." });
+      }
+      
+      const apiSecret = process.env.CLOUDINARY_API_SECRET;
+      if (!apiSecret) {
+        return res.status(500).json({ error: "Chưa cấu hình CLOUDINARY_API_SECRET trên server." });
+      }
+
+      const { v2: cloudinary } = await import("cloudinary");
+      const signature = cloudinary.utils.api_sign_request(paramsToSign, apiSecret);
+      
+      return res.status(200).json({
+        signature,
+        apiKey: process.env.CLOUDINARY_API_KEY,
+        cloudName: process.env.CLOUDINARY_CLOUD_NAME,
+      });
+    } catch (err: any) {
+      console.error("[Media Sign Upload Error]:", err);
+      res.status(500).json({ error: "Lỗi tạo chữ ký upload.", details: err.message });
+    }
+  }
+);
+
 // Route download proxy để giải quyết vấn đề CORS ở phía Client
 mediaRouter.get(
   "/download",

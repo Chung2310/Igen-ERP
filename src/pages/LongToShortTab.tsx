@@ -33,6 +33,7 @@ export default function LongToShortTab() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [copiedTextId, setCopiedTextId] = useState<string | null>(null);
 
   // Load projects list
@@ -79,56 +80,110 @@ export default function LongToShortTab() {
     };
   }, [selectedProject?.projectId]);
 
-  // Handle upload local video file
+  // Handle upload local video file in chunks directly to Cloudinary
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Giới hạn dung lượng video (Ví dụ: 100MB)
-    const MAX_SIZE = 100 * 1024 * 1024; // 100MB
+    // Giới hạn dung lượng video tối đa 1.5GB cho video dài 20-30 phút
+    const MAX_SIZE = 1500 * 1024 * 1024; // 1.5GB
     if (file.size > MAX_SIZE) {
-      toast.error("Dung lượng video không được vượt quá 100MB.");
+      toast.error("Dung lượng video không được vượt quá 1.5GB.");
       return;
     }
 
     setUploading(true);
-    try {
-      const base64Data = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = (error) => reject(error);
-      });
+    setUploadProgress(0);
 
-      const res = await fetch('/api/v1/media/upload', {
+    try {
+      // 1. Tạo các tham số cần ký
+      const timestamp = Math.round(Date.now() / 1000).toString();
+      const folder = "igen_erp/opusclip";
+      const paramsToSign = {
+        timestamp,
+        folder,
+      };
+
+      // 2. Gọi backend lấy chữ ký bảo mật
+      const signRes = await fetch('/api/v1/media/sign-upload', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${getAccessToken()}`,
         },
-        body: JSON.stringify({
-          file: base64Data,
-          folder: 'igen_erp/opusclip',
-        }),
+        body: JSON.stringify({ paramsToSign }),
       });
 
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.message || `Lỗi tải lên: ${res.statusText}`);
+      if (!signRes.ok) {
+        const errText = await signRes.text();
+        throw new Error(`Không thể lấy chữ ký tải lên từ máy chủ: ${errText}`);
       }
 
-      const data = await res.json();
-      if (data.url) {
-        setVideoUrl(data.url);
-        toast.success("Tải video lên máy chủ thành công!");
+      const { signature, apiKey, cloudName } = await signRes.json();
+
+      // 3. Tiến hành tải lên theo phân đoạn (Chunked Upload) trực tiếp sang Cloudinary
+      // Sử dụng chunk 6MB (Cloudinary yêu cầu từ 5MB - 100MB cho mỗi chunk)
+      const chunkSize = 6 * 1024 * 1024; 
+      const totalSize = file.size;
+      const uniqueUploadId = 'igen_upload_' + Math.random().toString(36).substring(2, 15);
+
+      let start = 0;
+      let secureUrl = "";
+
+      while (start < totalSize) {
+        const end = Math.min(start + chunkSize, totalSize);
+        const chunk = file.slice(start, end);
+
+        const formData = new FormData();
+        formData.append("file", chunk);
+        formData.append("api_key", apiKey);
+        formData.append("timestamp", timestamp);
+        formData.append("signature", signature);
+        formData.append("folder", folder);
+
+        const headers: Record<string, string> = {
+          "X-Unique-Upload-Id": uniqueUploadId,
+          "Content-Range": `bytes ${start}-${end - 1}/${totalSize}`,
+        };
+
+        const uploadUrl = `https://api.cloudinary.com/v1_1/${cloudName}/video/upload`;
+        
+        const response = await fetch(uploadUrl, {
+          method: "POST",
+          headers: headers,
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const errText = await response.text();
+          throw new Error(`Lỗi tải lên phân đoạn sang Cloudinary: ${errText}`);
+        }
+
+        const data = await response.json();
+        
+        // Cập nhật phần trăm tiến trình
+        const progress = Math.round((end / totalSize) * 100);
+        setUploadProgress(progress);
+
+        if (end === totalSize) {
+          secureUrl = data.secure_url;
+        }
+
+        start = end;
+      }
+
+      if (secureUrl) {
+        setVideoUrl(secureUrl);
+        toast.success("Tải video lên Cloudinary thành công!");
       } else {
-        throw new Error("Không nhận được URL từ máy chủ.");
+        throw new Error("Tải lên hoàn tất nhưng không nhận được URL video.");
       }
     } catch (err: any) {
-      console.error("Lỗi tải video:", err);
+      console.error("Lỗi tải video chunked:", err);
       toast.error(err.message || "Tải video thất bại. Vui lòng thử lại.");
     } finally {
       setUploading(false);
+      setUploadProgress(0);
     }
   };
 
@@ -272,12 +327,12 @@ export default function LongToShortTab() {
                     {uploading ? (
                       <>
                         <RefreshCw className="h-4 w-4 animate-spin text-purple-600" />
-                        <span>Đang tải tệp lên (vui lòng chờ)...</span>
+                        <span>Đang tải tệp lên: {uploadProgress}%</span>
                       </>
                     ) : (
                       <>
                         <Upload className="h-4 w-4 text-purple-500" />
-                        <span>Tải tệp video từ máy tính (&lt; 100MB)</span>
+                        <span>Tải tệp video từ máy tính (&lt; 1.5GB)</span>
                       </>
                     )}
                     <input
