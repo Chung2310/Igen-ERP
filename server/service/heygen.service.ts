@@ -14,6 +14,7 @@ type HeyGenLibraryItem = {
   accent?: string;
   isDefault?: boolean;
   isCustom?: boolean;
+  avatarType?: string;
 };
 
 type HeyGenAccessContext = {
@@ -142,14 +143,28 @@ export async function parseHeyGenResponse(response: Response, fallbackMessage: s
 
 export async function requestHeyGenJson(path: string, init?: RequestInit, overrideApiKey?: string) {
   const apiKey = requireApiKey(overrideApiKey);
-  const response = await fetch(`${HEYGEN_API_BASE}${path}`, {
-    ...init,
-    headers: {
-      "x-api-key": apiKey,
-      ...(init?.headers || {}),
-    },
-  });
-  return parseHeyGenResponse(response, `Không thể gọi HeyGen API: ${path}`);
+  
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 12000); // 12 seconds timeout
+
+  try {
+    const response = await fetch(`${HEYGEN_API_BASE}${path}`, {
+      ...init,
+      signal: controller.signal,
+      headers: {
+        "x-api-key": apiKey,
+        ...(init?.headers || {}),
+      },
+    });
+    clearTimeout(timeoutId);
+    return await parseHeyGenResponse(response, `Không thể gọi HeyGen API: ${path}`);
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    if (error.name === "AbortError") {
+      throw new Error(`Yêu cầu HeyGen API (${path}) đã hết thời gian phản hồi (timeout).`);
+    }
+    throw error;
+  }
 }
 
 function normalizeLibraryItems(payload: any, type: "avatar" | "voice"): HeyGenLibraryItem[] {
@@ -189,9 +204,14 @@ function normalizeLibraryItems(payload: any, type: "avatar" | "voice"): HeyGenLi
           item?.owned_by_me ||
           item?.created_by_user ||
           item?.avatar_type === "custom" ||
+          item?.avatar_type === "digital_twin" ||
+          item?.avatar_type === "photo_avatar" ||
+          item?.avatar_type === "talking_photo" ||
           item?.source === "user" ||
-          item?.type === "custom"
+          item?.type === "custom" ||
+          item?.status
         ),
+        avatarType: String(item?.avatar_type || item?.type || ""),
       } satisfies HeyGenLibraryItem;
     })
     .filter(Boolean)
@@ -208,44 +228,88 @@ function normalizeLibraryItems(payload: any, type: "avatar" | "voice"): HeyGenLi
 }
 
 function filterCustomAvatars(items: HeyGenLibraryItem[]) {
-  const customOnly = items.filter((item) => item.isCustom);
-  return customOnly.length > 0 ? customOnly : items;
+  return items.filter((item) => item.isCustom);
+}
+
+export async function getCompanyHeyGenLibrary(companyCode: string, apiKey: string) {
+  const cacheKey = `${apiKey}_library`;
+  libraryCache.delete(cacheKey);
+
+  const avatarResult = await fetchLibraryWithCandidates("avatar", apiKey);
+  const voiceResult = await fetchLibraryWithCandidates("voice", apiKey);
+  
+  const result = {
+    avatars: filterCustomAvatars(avatarResult.items),
+    voices: voiceResult.items,
+    sources: {
+      avatars: avatarResult.source,
+      voices: voiceResult.source,
+    },
+  };
+
+  libraryCache.set(cacheKey, {
+    data: result,
+    timestamp: Date.now(),
+  });
+
+  return result;
 }
 
 export async function getHeyGenAccessContext(userId: string): Promise<HeyGenAccessContext> {
   const user = await UserModel.findById(userId)
-    .select("role heygenAccess")
+    .select("role heygenAccess companyCode")
     .lean();
 
   if (!user) {
     throw new Error("Không tìm thấy người dùng");
   }
 
-  const rawAvatarIds = Array.isArray(user.heygenAccess?.avatarIds)
+  let rawAvatarIds = Array.isArray(user.heygenAccess?.avatarIds)
     ? user.heygenAccess?.avatarIds.map((item: any) => String(item || "").trim()).filter(Boolean)
     : [];
-  const legacyAvatarId = String(user.heygenAccess?.avatarId || "").trim();
+  let legacyAvatarId = String(user.heygenAccess?.avatarId || "").trim();
+  let voiceId = String(user.heygenAccess?.voiceId || "").trim();
+  let apiKey = String(user.heygenAccess?.apiKey || "").trim();
+
+  // FALLBACK TO COMPANY CONFIG
+  if (!apiKey && user.companyCode && user.companyCode !== "SYSTEM") {
+    try {
+      const { CompanyModel } = await import("../model/company.model");
+      const company = await CompanyModel.findOne({ code: user.companyCode.toUpperCase() }).lean();
+      if (company?.heygenConfig?.apiKey) {
+        apiKey = String(company.heygenConfig.apiKey).trim();
+        if (!legacyAvatarId && !rawAvatarIds.length && company.heygenConfig.defaultAvatarId) {
+          legacyAvatarId = String(company.heygenConfig.defaultAvatarId).trim();
+        }
+        if (!voiceId && company.heygenConfig.defaultVoiceId) {
+          voiceId = String(company.heygenConfig.defaultVoiceId).trim();
+        }
+      }
+    } catch (err) {
+      console.error("[getHeyGenAccessContext] Failed to load company HeyGen config:", err);
+    }
+  }
+
   const avatarIds = rawAvatarIds.length > 0
     ? rawAvatarIds
     : (legacyAvatarId ? [legacyAvatarId] : []);
   const avatarId = String(legacyAvatarId || avatarIds[0] || getDefaultAvatarId()).trim();
-  const voiceId = String(user.heygenAccess?.voiceId || getDefaultVoiceId()).trim();
-  const apiKey = String(user.heygenAccess?.apiKey || "").trim();
+  const finalVoiceId = String(voiceId || getDefaultVoiceId()).trim();
   const warnings: string[] = [];
-  const allowFullLibrary = false;
+  const allowFullLibrary = true;
 
   if (!avatarId) {
     warnings.push("Tài khoản này chưa được gán avatar HeyGen mặc định.");
   }
 
-  if (!voiceId) {
+  if (!finalVoiceId) {
     warnings.push("Tài khoản này chưa được gán voice HeyGen mặc định.");
   }
 
   return {
     avatarIds,
     avatarId,
-    voiceId,
+    voiceId: finalVoiceId,
     apiKey,
     allowFullLibrary,
     warnings,
@@ -295,19 +359,35 @@ function filterLibraryByAccess(items: HeyGenLibraryItem[], selectedIds: string[]
 
 async function fetchLibraryWithCandidates(type: "avatar" | "voice", overrideApiKey?: string) {
   const candidates = type === "avatar"
-    ? ["/v2/avatars", "/v1/avatars", "/v2/avatar.list", "/v1/avatar.list"]
-    : ["/v2/voices", "/v1/voices", "/v2/voice.list", "/v1/voice.list"];
+    ? [
+        "/v3/avatars/looks?ownership=private&limit=50",
+        "/v3/avatars?ownership=private&limit=50",
+        "/v3/avatars/looks?limit=50",
+        "/v3/avatars?limit=50"
+      ]
+    : [
+        "/v3/voices?limit=100",
+        "/v3/voices?limit=50",
+        "/v3/voices"
+      ];
 
   let lastError: Error | null = null;
 
   for (const path of candidates) {
     try {
+      console.log(`[fetchLibraryWithCandidates] Hitting HeyGen ${type} path: ${path}`);
       const payload = await requestHeyGenJson(path, undefined, overrideApiKey);
-      const normalized = normalizeLibraryItems(payload, type);
+      let normalized = normalizeLibraryItems(payload, type);
+      console.log(`[fetchLibraryWithCandidates] Hitting HeyGen ${type} path ${path} returned ${normalized.length} normalized items.`);
+      if (path.includes("ownership=private")) {
+        normalized = normalized.map(item => ({ ...item, isCustom: true }));
+      }
       if (normalized.length > 0) {
         return { items: normalized, source: path };
       }
+      console.log(`[fetchLibraryWithCandidates] Normalized count is 0 for path ${path}, trying next...`);
     } catch (error: any) {
+      console.error(`[fetchLibraryWithCandidates] Error hitting path ${path}:`, error.message);
       lastError = error;
     }
   }
@@ -549,7 +629,7 @@ function verifyWebhookToken(token?: string) {
 export const heygenService = {
   verifyWebhookToken,
 
-  async getLibrary(userId: string) {
+  async getLibrary(userId: string, force?: boolean) {
     const accessContext = await getHeyGenAccessContext(userId);
     requireApiKey(accessContext.apiKey);
     const apiKey = accessContext.apiKey || process.env.HEYGEN_API_KEY?.trim() || "";
@@ -559,6 +639,9 @@ export const heygenService = {
       : (accessContext.avatarId ? [accessContext.avatarId] : []);
 
     const cacheKey = `${apiKey}_library`;
+    if (force) {
+      libraryCache.delete(cacheKey);
+    }
     const cached = libraryCache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
       const { avatars, voices, sources } = cached.data;

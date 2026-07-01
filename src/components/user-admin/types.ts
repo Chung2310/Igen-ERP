@@ -1,6 +1,6 @@
 import { AdminUserBalance } from "../../services/walletService";
 import { RolePermission } from "../../services/rolePermissionService";
-import { CompanyProfile, UserProfile } from "../../types";
+import { CompanyHeyGenConfig, CompanyProfile, UserProfile } from "../../types";
 
 export type UserAdminTabKey = "users" | "roles" | "balance";
 
@@ -12,9 +12,6 @@ export interface UserFormState {
   companyCode: string;
   parentId: string;
   department: string;
-  heyGenAvatarIds: string;
-  heyGenVoiceId: string;
-  heyGenApiKey: string;
 }
 
 export interface UserTableProps {
@@ -31,10 +28,8 @@ export interface UserTableProps {
   onToggleActionMenu: (uid: string) => void;
   onEditUser: (user: UserProfile) => void;
   onDeleteUser: (user: UserProfile) => void;
-  onOpenHeyGenEditor: (user: UserProfile) => void;
   onOpenBalance: (user: UserProfile, balance?: AdminUserBalance) => void;
   setActiveTab: (tab: UserAdminTabKey) => void;
-  formatAvatarIds: (user?: UserProfile | null) => string;
 }
 
 export interface CompanyFormState {
@@ -50,4 +45,5 @@ export interface CompanyEditFormState {
   name: string;
   code: string;
   ownerEmail: string;
+  heygenConfig: CompanyHeyGenConfig;
 }

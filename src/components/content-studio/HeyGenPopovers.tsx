@@ -1,3 +1,4 @@
+import React, { useState, useMemo } from "react";
 import { AudioLines, Check, ExternalLink, LoaderCircle, Play, UserRound, X } from "lucide-react";
 import type { HeyGenLibraryItem } from "../../api/heygen";
 import { HEYGEN_THEME } from "./heygenTheme";
@@ -80,23 +81,91 @@ export function PickerPopover({
   onSelect: (item: HeyGenLibraryItem) => void;
   emptyLabel: string;
 }) {
+  const isAvatarMode = title.toLowerCase().includes("avatar");
+  const [activeTab, setActiveTab] = useState<"all" | "instant" | "studio" | "photo">("all");
+
+  const getAvatarTab = (item: HeyGenLibraryItem): "instant" | "studio" | "photo" => {
+    const typeStr = String(item.avatarType || "").toLowerCase();
+    const idStr = String(item.id || "").toLowerCase();
+    if (typeStr.includes("photo") || idStr.includes("photo")) {
+      return "photo";
+    }
+    if (typeStr.includes("studio") || typeStr.includes("avatar_iii") || idStr.includes("studio") || idStr.includes("avatar_iii")) {
+      return "studio";
+    }
+    return "instant";
+  };
+
+  const displayItems = useMemo(() => {
+    if (!isAvatarMode) return items;
+    const customOnly = items.filter(item => item.isCustom);
+    return customOnly.length > 0 ? customOnly : items;
+  }, [items, isAvatarMode]);
+
+  const filteredItems = useMemo(() => {
+    if (!isAvatarMode) return displayItems;
+    if (activeTab === "all") return displayItems;
+    return displayItems.filter(item => getAvatarTab(item) === activeTab);
+  }, [displayItems, activeTab, isAvatarMode]);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm">
       <div className={`w-full max-w-[min(92vw,760px)] rounded-[28px] border ${HEYGEN_THEME.border} ${HEYGEN_THEME.surface} p-4 shadow-2xl`}>
         <div className="mb-3 flex items-center justify-between gap-3 px-1">
           <div>
             <p className="text-sm font-semibold text-slate-900">{title}</p>
-            <p className={`text-xs ${HEYGEN_THEME.textMuted}`}>Chọn trực tiếp từ thư viện được cấp</p>
+            <p className={`text-xs ${HEYGEN_THEME.textMuted}`}>
+              {isAvatarMode ? "Chọn từ các avatar doanh nghiệp của bạn" : "Chọn trực tiếp từ thư viện được cấp"}
+            </p>
           </div>
           <button type="button" onClick={onClose} className={`flex h-8 w-8 items-center justify-center rounded-full border ${HEYGEN_THEME.border} ${HEYGEN_THEME.surfaceMuted} text-slate-500 transition hover:text-slate-900`}>
             <X className="h-4 w-4" />
           </button>
         </div>
-        {items.length === 0 ? (
-          <div className={`rounded-2xl border border-dashed ${HEYGEN_THEME.border} ${HEYGEN_THEME.surfaceMuted} px-4 py-6 text-center text-sm ${HEYGEN_THEME.textMuted}`}>{emptyLabel}</div>
+
+        {isAvatarMode && displayItems.length > 0 && (
+          <div className="mb-4 flex gap-1.5 border-b border-slate-100 pb-2 overflow-x-auto scrollbar-none">
+            {[
+              { id: "all", label: "Tất cả" },
+              { id: "instant", label: "Instant Avatar" },
+              { id: "studio", label: "Studio Avatar" },
+              { id: "photo", label: "Photo Avatar" },
+            ].map((tab) => {
+              const isTabActive = activeTab === tab.id;
+              const count = tab.id === "all" 
+                ? displayItems.length 
+                : displayItems.filter(item => getAvatarTab(item) === tab.id).length;
+
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={`relative flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl transition-all duration-200 whitespace-nowrap ${
+                    isTabActive
+                      ? "bg-cyan-50 text-cyan-600 shadow-[0_2px_8px_rgba(6,182,212,0.08)] border border-cyan-200/50"
+                      : "text-slate-500 hover:bg-slate-50 border border-transparent hover:border-slate-155"
+                  }`}
+                >
+                  <span>{tab.label}</span>
+                  <span className={`inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-[10px] ${
+                    isTabActive ? "bg-cyan-200 text-cyan-700" : "bg-slate-100 text-slate-500"
+                  }`}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {filteredItems.length === 0 ? (
+          <div className={`rounded-2xl border border-dashed ${HEYGEN_THEME.border} ${HEYGEN_THEME.surfaceMuted} px-4 py-8 text-center text-sm ${HEYGEN_THEME.textMuted}`}>
+            {isAvatarMode ? "Không có avatar nào trong danh mục này." : emptyLabel}
+          </div>
         ) : (
-          <div className="grid max-h-[70vh] grid-cols-1 gap-3 overflow-y-auto pr-1 sm:grid-cols-2">
-            {items.map((item) => {
+          <div className="grid max-h-[60vh] grid-cols-1 gap-3 overflow-y-auto pr-1 sm:grid-cols-2">
+            {filteredItems.map((item) => {
               const isSelected = item.id === selectedId;
               return (
                 <button

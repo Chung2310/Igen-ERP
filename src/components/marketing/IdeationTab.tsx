@@ -335,7 +335,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
 
       try {
         const [heygenLibrary, voiceLibrary] = await Promise.all([
-          heygenApi.getLibrary(),
+          heygenApi.getLibrary({ force: true }),
           elevenlabsApi.getVoices()
         ]);
 

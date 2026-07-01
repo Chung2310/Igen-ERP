@@ -243,6 +243,34 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userProfile?.uid]);
 
+  useEffect(() => {
+    if (!showTelegramModal || !userProfile) {
+      return;
+    }
+
+    loadTelegramLinkStatus();
+
+    const interval = window.setInterval(() => {
+      loadTelegramLinkStatus();
+    }, 3000);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        loadTelegramLinkStatus();
+      }
+    };
+
+    window.addEventListener("focus", loadTelegramLinkStatus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", loadTelegramLinkStatus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showTelegramModal, userProfile?.uid]);
+
   const normalizedQuery = searchQuery.trim().toLowerCase();
   const filteredResults =
     normalizedQuery === ""
@@ -806,7 +834,7 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
                 <Send className="h-4 w-4" />
               </div>
               <h3 className="text-base font-bold text-gray-900">Liên kết Telegram</h3>
-              <p className="mt-1 text-xs text-gray-500">Mở bot và gửi đúng mã liên kết để đăng nhập không cần mật khẩu.</p>
+              <p className="mt-1 text-xs text-gray-500">Chỉ dùng link liên kết từ web, không dùng đăng nhập Telegram nữa.</p>
             </div>
 
             <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
@@ -819,23 +847,27 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
               {telegramLink?.linked && (
                 <p className="mt-2 text-[11px] text-gray-500">Telegram đã được liên kết với tài khoản này.</p>
               )}
+              {!telegramLink?.linked && telegramLink?.pendingCode && (
+                <p className="mt-2 text-[11px] text-gray-500">Web sẽ tự cập nhật ngay sau khi bạn liên kết xong trên Telegram.</p>
+              )}
             </div>
 
             {!telegramLink?.linked && (
               <div className="mt-4 rounded-2xl border border-sky-100 bg-sky-50/70 p-4">
                 <p className="text-[11px] font-semibold text-sky-700">1. Mở bot</p>
                 <a
-                  href={`https://t.me/${telegramLink?.botUsername || "iGEN_ERP_Bot"}`}
+                  href={`https://t.me/${telegramLink?.botUsername || "iGEN_ERP_Bot"}?start=${encodeURIComponent(telegramLink?.pendingCode || "")}`}
                   target="_blank"
                   rel="noreferrer"
                   className="mt-1 inline-block text-sm font-bold text-sky-800 underline decoration-sky-300 underline-offset-4"
                 >
-                  @{telegramLink?.botUsername || "iGEN_ERP_Bot"}
+                  Mở @{telegramLink?.botUsername || "iGEN_ERP_Bot"}
                 </a>
-                <p className="mt-3 text-[11px] font-semibold text-sky-700">2. Gửi lệnh này</p>
+                <p className="mt-3 text-[11px] font-semibold text-sky-700">2. Mã dự phòng</p>
                 <div className="mt-1 rounded-xl bg-white px-3 py-2 font-mono text-sm font-bold text-gray-900">
                   /link {telegramLink?.pendingCode || "......"}
                 </div>
+                <p className="mt-2 text-[11px] text-gray-500">Thông thường chỉ cần bấm link mở bot ở trên. Lệnh này chỉ là phương án dự phòng.</p>
               </div>
             )}
 
