@@ -60,7 +60,8 @@ export const elevenlabsController = {
 
   async getVoices(req: Request, res: Response) {
     try {
-      return res.status(200).json(await elevenlabsService.getVoices());
+      const userId = (req as any).user?.id;
+      return res.status(200).json(await elevenlabsService.getVoices(userId));
     } catch (error: any) {
       console.error("[elevenlabsController.getVoices] Error:", error);
       return res.status(500).json({ status: "error", message: "Không thể lấy danh sách giọng nói ElevenLabs", details: error.message });
@@ -69,7 +70,8 @@ export const elevenlabsController = {
 
   async getVoice(req: Request, res: Response) {
     try {
-      return res.status(200).json(await elevenlabsService.getVoice(req.params.voiceId));
+      const userId = (req as any).user?.id;
+      return res.status(200).json(await elevenlabsService.getVoice(userId, req.params.voiceId));
     } catch (error: any) {
       console.error("[elevenlabsController.getVoice] Error:", error);
       return res.status(500).json({ status: "error", message: "Không thể lấy chi tiết voice ElevenLabs", details: error.message });
@@ -78,7 +80,8 @@ export const elevenlabsController = {
 
   async getModels(req: Request, res: Response) {
     try {
-      return res.status(200).json(await elevenlabsService.getModels());
+      const userId = (req as any).user?.id;
+      return res.status(200).json(await elevenlabsService.getModels(userId));
     } catch (error: any) {
       console.error("[elevenlabsController.getModels] Error:", error);
       return res.status(500).json({ status: "error", message: "Không thể lấy danh sách model ElevenLabs", details: error.message });
@@ -87,7 +90,8 @@ export const elevenlabsController = {
 
   async getVoiceSettings(req: Request, res: Response) {
     try {
-      return res.status(200).json(await elevenlabsService.getVoiceSettings(req.params.voiceId));
+      const userId = (req as any).user?.id;
+      return res.status(200).json(await elevenlabsService.getVoiceSettings(userId, req.params.voiceId));
     } catch (error: any) {
       console.error("[elevenlabsController.getVoiceSettings] Error:", error);
       return res.status(500).json({ status: "error", message: "Không thể lấy voice settings ElevenLabs", details: error.message });
@@ -96,7 +100,8 @@ export const elevenlabsController = {
 
   async updateVoiceSettings(req: Request, res: Response) {
     try {
-      return res.status(200).json(await elevenlabsService.updateVoiceSettings(req.params.voiceId, req.body));
+      const userId = (req as any).user?.id;
+      return res.status(200).json(await elevenlabsService.updateVoiceSettings(userId, req.params.voiceId, req.body));
     } catch (error: any) {
       console.error("[elevenlabsController.updateVoiceSettings] Error:", error);
       return res.status(500).json({ status: "error", message: "Không thể cập nhật voice settings ElevenLabs", details: error.message });
@@ -105,7 +110,8 @@ export const elevenlabsController = {
 
   async generateCustomVoicePreview(req: Request, res: Response) {
     try {
-      return res.status(200).json(await elevenlabsService.generateCustomVoicePreview(req.body));
+      const userId = (req as any).user?.id;
+      return res.status(200).json(await elevenlabsService.generateCustomVoicePreview(userId, req.body));
     } catch (error: any) {
       console.error("[elevenlabsController.generateCustomVoicePreview] Error:", error);
       return res.status(500).json({ status: "error", message: "Không thể thiết kế giọng nói thử nghiệm", details: error.message });
@@ -114,7 +120,8 @@ export const elevenlabsController = {
 
   async createCustomVoice(req: Request, res: Response) {
     try {
-      return res.status(200).json(await elevenlabsService.createCustomVoice(req.body));
+      const userId = (req as any).user?.id;
+      return res.status(200).json(await elevenlabsService.createCustomVoice(userId, req.body));
     } catch (error: any) {
       console.error("[elevenlabsController.createCustomVoice] Error:", error);
       return res.status(500).json({ status: "error", message: "Không thể lưu giọng nói cá nhân vào ElevenLabs", details: error.message });
@@ -123,8 +130,9 @@ export const elevenlabsController = {
 
   async addVoice(req: Request, res: Response) {
     try {
-      const { name, description, files, userId } = req.body;
-      return res.status(200).json(await elevenlabsService.addVoice(name, description, files, userId));
+      const userId = (req as any).user?.id;
+      const { name, description, files } = req.body;
+      return res.status(200).json(await elevenlabsService.addVoice(userId, name, description, files));
     } catch (error: any) {
       console.error("[elevenlabsController.addVoice] Error:", error);
       return res.status(500).json({ status: "error", message: "Không thể thêm giọng nói ElevenLabs", details: error.message });
@@ -133,7 +141,8 @@ export const elevenlabsController = {
 
   async deleteVoice(req: Request, res: Response) {
     try {
-      return res.status(200).json(await elevenlabsService.deleteVoice(req.params.voiceId));
+      const userId = (req as any).user?.id;
+      return res.status(200).json(await elevenlabsService.deleteVoice(userId, req.params.voiceId));
     } catch (error: any) {
       console.error("[elevenlabsController.deleteVoice] Error:", error);
       return res.status(500).json({ status: "error", message: "Không thể xóa giọng nói ElevenLabs", details: error.message });

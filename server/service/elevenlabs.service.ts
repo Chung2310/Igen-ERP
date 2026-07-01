@@ -1,5 +1,7 @@
 import { AIMediaModel } from "../model/ai-media.model";
 import { cloudinaryService } from "./cloudinary.service";
+import { UserModel } from "../model/user.model";
+import { CompanyModel } from "../model/company.model";
 
 const ELEVENLABS_VOICE_MAP: Record<string, string> = {
   Sadaltager: "pNInz6obpgqjGQJe7v5C",
@@ -32,6 +34,29 @@ const ELEVENLABS_VOICE_MAP: Record<string, string> = {
   Sadachbia: "EXAVITQu4vr4xnSDxMaL",
 };
 
+async function getElevenLabsApiKey(userId?: string): Promise<string> {
+  if (!userId) {
+    return process.env.ELEVENLABS_API_KEY?.trim() || "";
+  }
+  try {
+    const user = await UserModel.findById(userId).select("elevenlabsAccess companyCode").lean();
+    if (user) {
+      if (user.elevenlabsAccess?.apiKey?.trim()) {
+        return user.elevenlabsAccess.apiKey.trim();
+      }
+      if (user.companyCode && user.companyCode !== "SYSTEM") {
+        const company = await CompanyModel.findOne({ code: user.companyCode.toUpperCase() }).select("elevenlabsConfig").lean();
+        if (company?.elevenlabsConfig?.apiKey?.trim()) {
+          return company.elevenlabsConfig.apiKey.trim();
+        }
+      }
+    }
+  } catch (err) {
+    console.error("[getElevenLabsApiKey] Lỗi phân giải API key ElevenLabs:", err);
+  }
+  return process.env.ELEVENLABS_API_KEY?.trim() || "";
+}
+
 function resolveElevenLabsVoiceId(voiceId?: string) {
   if (!voiceId) return "pNInz6obpgqjGQJe7v5C";
   return ELEVENLABS_VOICE_MAP[voiceId] || voiceId;
@@ -55,10 +80,10 @@ export const elevenlabsService = {
     } = input;
 
     let cloudinaryUrl = "";
-    const apiKey = process.env.ELEVENLABS_API_KEY;
+    const apiKey = await getElevenLabsApiKey(userId);
 
     if (!apiKey || apiKey.trim() === "") {
-      throw new Error("ELEVENLABS_API_KEY is not configured.");
+      throw new Error("API Key ElevenLabs chưa được cấu hình cho tài khoản hoặc doanh nghiệp.");
     }
 
     try {
@@ -118,11 +143,11 @@ export const elevenlabsService = {
     });
   },
 
-  async getVoices() {
-    const apiKey = process.env.ELEVENLABS_API_KEY;
+  async getVoices(userId?: string) {
+    const apiKey = await getElevenLabsApiKey(userId);
 
     if (!apiKey || apiKey.trim() === "") {
-      throw new Error("ELEVENLABS_API_KEY is not configured.");
+      throw new Error("API Key ElevenLabs chưa được cấu hình cho tài khoản hoặc doanh nghiệp.");
     }
 
     try {
@@ -142,11 +167,11 @@ export const elevenlabsService = {
     }
   },
 
-  async getVoice(voiceId: string) {
-    const apiKey = process.env.ELEVENLABS_API_KEY;
+  async getVoice(userId: string, voiceId: string) {
+    const apiKey = await getElevenLabsApiKey(userId);
 
     if (!apiKey || apiKey.trim() === "") {
-      throw new Error("ELEVENLABS_API_KEY is not configured.");
+      throw new Error("API Key ElevenLabs chưa được cấu hình cho tài khoản hoặc doanh nghiệp.");
     }
 
     try {
@@ -169,11 +194,11 @@ export const elevenlabsService = {
     }
   },
 
-  async getVoiceSettings(voiceId: string) {
-    const apiKey = process.env.ELEVENLABS_API_KEY;
+  async getVoiceSettings(userId: string, voiceId: string) {
+    const apiKey = await getElevenLabsApiKey(userId);
 
     if (!apiKey || apiKey.trim() === "") {
-      throw new Error("ELEVENLABS_API_KEY is not configured.");
+      throw new Error("API Key ElevenLabs chưa được cấu hình cho tài khoản hoặc doanh nghiệp.");
     }
 
     try {
@@ -197,12 +222,13 @@ export const elevenlabsService = {
   },
 
   async updateVoiceSettings(
+    userId: string,
     voiceId: string,
     settings: { stability?: number; similarity_boost?: number; style?: number; use_speaker_boost?: boolean }
   ) {
-    const apiKey = process.env.ELEVENLABS_API_KEY;
+    const apiKey = await getElevenLabsApiKey(userId);
     if (!apiKey || apiKey.trim() === "") {
-      throw new Error("ELEVENLABS_API_KEY is not configured.");
+      throw new Error("API Key ElevenLabs chưa được cấu hình cho tài khoản hoặc doanh nghiệp.");
     }
 
     const resolvedVoiceId = resolveElevenLabsVoiceId(voiceId);
@@ -223,11 +249,11 @@ export const elevenlabsService = {
     return response.json();
   },
 
-  async getModels() {
-    const apiKey = process.env.ELEVENLABS_API_KEY;
+  async getModels(userId?: string) {
+    const apiKey = await getElevenLabsApiKey(userId);
 
     if (!apiKey || apiKey.trim() === "") {
-      throw new Error("ELEVENLABS_API_KEY is not configured.");
+      throw new Error("API Key ElevenLabs chưa được cấu hình cho tài khoản hoặc doanh nghiệp.");
     }
 
     try {
@@ -251,11 +277,11 @@ export const elevenlabsService = {
     }
   },
 
-  async generateCustomVoicePreview(input: { gender: string; accent: string; age: string; accentStrength: number; text: string }) {
-    const apiKey = process.env.ELEVENLABS_API_KEY;
+  async generateCustomVoicePreview(userId: string, input: { gender: string; accent: string; age: string; accentStrength: number; text: string }) {
+    const apiKey = await getElevenLabsApiKey(userId);
 
     if (!apiKey || apiKey.trim() === "") {
-      throw new Error("ELEVENLABS_API_KEY is not configured.");
+      throw new Error("API Key ElevenLabs chưa được cấu hình cho tài khoản hoặc doanh nghiệp.");
     }
 
     try {
@@ -294,11 +320,11 @@ export const elevenlabsService = {
     }
   },
 
-  async createCustomVoice(input: { voiceName: string; voiceDescription: string; generatedVoiceId: string }) {
-    const apiKey = process.env.ELEVENLABS_API_KEY;
+  async createCustomVoice(userId: string, input: { voiceName: string; voiceDescription: string; generatedVoiceId: string }) {
+    const apiKey = await getElevenLabsApiKey(userId);
 
     if (!apiKey || apiKey.trim() === "") {
-      throw new Error("ELEVENLABS_API_KEY is not configured.");
+      throw new Error("API Key ElevenLabs chưa được cấu hình cho tài khoản hoặc doanh nghiệp.");
     }
 
     try {
@@ -328,11 +354,11 @@ export const elevenlabsService = {
     }
   },
 
-  async addVoice(name: string, description: string, files: string[], userId?: string) {
-    const apiKey = process.env.ELEVENLABS_API_KEY;
+  async addVoice(userId: string, name: string, description: string, files: string[]) {
+    const apiKey = await getElevenLabsApiKey(userId);
 
     if (!apiKey || apiKey.trim() === "") {
-      throw new Error("ELEVENLABS_API_KEY is not configured.");
+      throw new Error("API Key ElevenLabs chưa được cấu hình cho tài khoản hoặc doanh nghiệp.");
     }
 
     try {
@@ -374,10 +400,10 @@ export const elevenlabsService = {
     }
   },
 
-  async deleteVoice(voiceId: string) {
-    const apiKey = process.env.ELEVENLABS_API_KEY;
+  async deleteVoice(userId: string, voiceId: string) {
+    const apiKey = await getElevenLabsApiKey(userId);
     if (!apiKey || apiKey.trim() === "") {
-      throw new Error("ELEVENLABS_API_KEY is not configured.");
+      throw new Error("API Key ElevenLabs chưa được cấu hình cho tài khoản hoặc doanh nghiệp.");
     }
 
     try {
