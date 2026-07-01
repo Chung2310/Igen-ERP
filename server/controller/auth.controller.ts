@@ -153,6 +153,51 @@ export const authController = {
     }
   },
 
+  async getTelegramLinkStatus(req: AuthenticatedRequest, res: Response) {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Người dùng chưa xác thực." });
+      }
+
+      const data = await authService.getTelegramLinkStatus(userId);
+      return res.status(200).json({ status: "success", data });
+    } catch (error: any) {
+      console.error("[authController.getTelegramLinkStatus] Error:", error);
+      return res.status(500).json({ status: "error", message: error.message || "Không thể lấy trạng thái liên kết Telegram." });
+    }
+  },
+
+  async createTelegramLinkCode(req: AuthenticatedRequest, res: Response) {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Người dùng chưa xác thực." });
+      }
+
+      const data = await authService.createTelegramLinkCode(userId);
+      return res.status(200).json({ status: "success", message: "Đã tạo mã liên kết Telegram.", data });
+    } catch (error: any) {
+      console.error("[authController.createTelegramLinkCode] Error:", error);
+      return res.status(500).json({ status: "error", message: error.message || "Không thể tạo mã liên kết Telegram." });
+    }
+  },
+
+  async unlinkTelegram(req: AuthenticatedRequest, res: Response) {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Người dùng chưa xác thực." });
+      }
+
+      const data = await authService.unlinkTelegram(userId);
+      return res.status(200).json({ status: "success", message: "Đã hủy liên kết Telegram.", data });
+    } catch (error: any) {
+      console.error("[authController.unlinkTelegram] Error:", error);
+      return res.status(500).json({ status: "error", message: error.message || "Không thể hủy liên kết Telegram." });
+    }
+  },
+
   /**
    * PATCH /api/v1/auth/profile
    */

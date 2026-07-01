@@ -1,4 +1,4 @@
-import { UserProfile, CompanyProfile } from "../types";
+import { UserProfile, CompanyProfile, TelegramLinkStatus } from "../types";
 
 // Helper để lấy token từ localStorage
 export function getAccessToken(): string | null {
@@ -395,6 +395,56 @@ export const authService = {
       ...result.user,
       uid: result.user._id,
     };
+  },
+
+  async getTelegramLinkStatus(): Promise<TelegramLinkStatus> {
+    const res = await fetch("/api/v1/auth/telegram-link", {
+      headers: {
+        "Authorization": `Bearer ${getAccessToken()}`,
+      },
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.message || "Không thể lấy trạng thái liên kết Telegram");
+    }
+
+    const result = await res.json();
+    return result.data;
+  },
+
+  async createTelegramLinkCode(): Promise<TelegramLinkStatus> {
+    const res = await fetch("/api/v1/auth/telegram-link", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${getAccessToken()}`,
+      },
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.message || "Không thể tạo mã liên kết Telegram");
+    }
+
+    const result = await res.json();
+    return result.data;
+  },
+
+  async unlinkTelegram(): Promise<TelegramLinkStatus> {
+    const res = await fetch("/api/v1/auth/telegram-link", {
+      method: "DELETE",
+      headers: {
+        "Authorization": `Bearer ${getAccessToken()}`,
+      },
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.message || "Không thể gỡ liên kết Telegram");
+    }
+
+    const result = await res.json();
+    return result.data;
   },
 
   // Thay đổi mật khẩu người dùng qua REST API

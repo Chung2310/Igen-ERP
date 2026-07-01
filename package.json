@@ -10,7 +10,8 @@
     "start": "node dist/server.cjs",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "debug:fb-autoreply": "tsx scripts/fb-autoreply-debug.ts"
+    "debug:fb-autoreply": "tsx scripts/fb-autoreply-debug.ts",
+    "fix:fb-conversation-index": "tsx scripts/fix_fb_conversation_index.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
