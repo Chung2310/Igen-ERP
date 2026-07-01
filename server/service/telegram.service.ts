@@ -12,7 +12,6 @@ import { SocialIntegrationModel } from "../model/social-integration.model";
 import { MarketingContentModel } from "../model/marketing-content.model";
 import { facebookPostService } from "./facebook-post.service";
 import { tiktokService } from "./tiktok.service";
-import bcrypt from "bcryptjs";
 
 const TELEGRAM_API_BASE_URL = process.env.TELEGRAM_API_BASE_URL || "https://api.telegram.org";
 
@@ -311,6 +310,11 @@ export const telegramService = {
   ): Promise<void> {
     const { command, args } = normalizeTelegramCommand(text);
 
+    if (command === "/start" && args) {
+      await this.handleCommand(chatId, telegramUserId, `/link ${args}`, photo, document, replyToMessage, messageId);
+      return;
+    }
+
     // === XỬ LÝ ĐĂNG NHẬP ===
     if (command === "/link") {
       const normalizedCode = String(args || "").trim().toUpperCase();
@@ -373,64 +377,13 @@ export const telegramService = {
     }
 
     if (command === "/login") {
-      // Luôn xóa tin nhắn chứa mật khẩu ngay lập tức
       if (messageId) {
         await this.deleteMessage(chatId, messageId);
       }
-
-      const parts = args.split(/\s+/);
-      if (parts.length < 2) {
-        await this.sendMessage(chatId, "⚠️ Sử dụng: <code>/login email mật_khẩu</code>\nVí dụ: <code>/login admin@igen.com 123456</code>\n\n🔒 <i>Tin nhắn chứa mật khẩu đã được xóa tự động để bảo mật.</i>");
-        return;
-      }
-
-      const [email, password] = parts;
-      try {
-        const user = await UserModel.findOne({ email: email.toLowerCase().trim() });
-        if (!user || !user.password) {
-          await this.sendMessage(chatId, "❌ Email hoặc mật khẩu không đúng.\n🔒 <i>Tin nhắn đăng nhập đã được xóa tự động.</i>");
-          return;
-        }
-
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) {
-          await this.sendMessage(chatId, "❌ Email hoặc mật khẩu không đúng.\n🔒 <i>Tin nhắn đăng nhập đã được xóa tự động.</i>");
-          return;
-        }
-
-        // Xóa session cũ nếu userId đã liên kết với chat khác
-        await TelegramSessionModel.deleteMany({
-          $or: [
-            { telegramChatId: chatId },
-            { userId: user._id },
-            ...(telegramUserId ? [{ telegramUserId }] : []),
-          ],
-        });
-
-        await TelegramSessionModel.create({
-          telegramChatId: chatId,
-          telegramUserId,
-          userId: user._id,
-          email: user.email,
-          displayName: user.displayName || email,
-          role: user.role || "user",
-          companyCode: user.companyCode || "",
-        });
-
-        await this.sendMessage(chatId, [
-          "✅ <b>Đăng nhập thành công!</b>",
-          `👤 Xin chào, <b>${user.displayName}</b>`,
-          `📧 Email: <code>${user.email}</code>`,
-          `🔑 Vai trò: <b>${user.role || "user"}</b>`,
-          `🏢 Công ty: <b>${user.companyName || user.companyCode || "Chưa thiết lập"}</b>`,
-          "",
-          "🔒 <i>Tin nhắn đăng nhập đã được xóa tự động để bảo mật.</i>",
-          "Gõ /help để xem danh sách lệnh khả dụng.",
-        ].join("\n"));
-      } catch (err: any) {
-        console.error("[Telegram Bot] Lỗi xử lý đăng nhập:", err);
-        await this.sendMessage(chatId, "❌ Lỗi hệ thống khi đăng nhập. Vui lòng thử lại sau.");
-      }
+      await this.sendMessage(
+        chatId,
+        "🔗 Đăng nhập bằng mật khẩu trên Telegram đã được tắt.\nVui lòng vào web ERP > menu tài khoản > Telegram > mở bot từ link liên kết."
+      );
       return;
     }
 
@@ -444,9 +397,9 @@ export const telegramService = {
           ],
         });
         if (deleted) {
-          await this.sendMessage(chatId, "👋 <b>Đã đăng xuất thành công.</b>\nGõ /login để đăng nhập lại.");
+          await this.sendMessage(chatId, "👋 <b>Đã đăng xuất thành công.</b>\nHãy mở lại link liên kết từ web ERP nếu muốn dùng lại bot.");
         } else {
-          await this.sendMessage(chatId, "⚠️ Bạn chưa đăng nhập.");
+          await this.sendMessage(chatId, "⚠️ Telegram này chưa được liên kết với tài khoản nào.");
         }
       } catch (err: any) {
         console.error("[Telegram Bot] Lỗi xử lý đăng xuất:", err);
@@ -486,16 +439,13 @@ export const telegramService = {
     // === LỆNH CÔNG KHAI: /start, /help ===
     if (command === "/start" || command === "/help") {
       if (!session) {
-        // Chưa đăng nhập → hiển thị hướng dẫn đăng nhập
+        // Chưa liên kết → hiển thị hướng dẫn liên kết
         const guestHelp = [
           "🤖 <b>Chào mừng bạn đến với iGEN ERP Bot!</b>",
-          "Để sử dụng bot, bạn cần đăng nhập bằng tài khoản ERP.",
+          "Để sử dụng bot, bạn hãy liên kết Telegram từ web ERP.",
           "",
-          "📌 <b>Hướng dẫn đăng nhập:</b>",
-          "<code>/login email mật_khẩu</code>",
-          "Ví dụ: <code>/login admin@igen.com 123456</code>",
-          "",
-          "🔒 <i>Tin nhắn chứa mật khẩu sẽ được xóa tự động sau khi xác thực.</i>",
+          "📌 <b>Cách dùng nhanh:</b>",
+          "Web ERP > menu tài khoản > Telegram > mở bot từ link.",
         ].join("\n");
         await this.sendMessage(chatId, guestHelp);
       } else {
@@ -524,7 +474,7 @@ export const telegramService = {
 
     // === CÁC LỆNH CÒN LẠI: YÊU CẦU ĐĂNG NHẬP ===
     if (!session) {
-      await this.sendMessage(chatId, "🔒 Bạn cần đăng nhập trước khi sử dụng lệnh này.\nGõ: <code>/login email mật_khẩu</code>");
+      await this.sendMessage(chatId, "🔗 Bạn cần liên kết Telegram từ web ERP trước khi sử dụng lệnh này.");
       return;
     }
 

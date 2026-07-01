@@ -23,6 +23,7 @@ export interface UserProfile {
   tiktokIntegration?: TikTokIntegration | null;
   zaloIntegration?: ZaloIntegration | null;
   aiAutoReplyConfig?: AIChatConfig | null;
+  // Legacy only. HeyGen is migrating to company-level config.
   heygenAccess?: {
     avatarIds?: string[];
     avatarId?: string;
@@ -40,12 +41,22 @@ export interface UserProfile {
   companyName?: string;
 }
 
+export interface CompanyHeyGenConfig {
+  apiKey: string;
+  defaultAvatarId: string;
+  defaultVoiceId: string;
+  isConnected: boolean;
+  connectedAt?: any | null;
+  lastSyncAt?: any | null;
+}
+
 export interface CompanyProfile {
   id: string;
   code: string;
   name: string;
   createdAt: any;
   ownerEmail: string;
+  heygenConfig?: CompanyHeyGenConfig;
 }
 
 export interface TelegramLinkStatus {

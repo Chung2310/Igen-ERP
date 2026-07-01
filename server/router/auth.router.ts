@@ -243,12 +243,65 @@ const updateCompanySchema = {
   }),
 };
 
+const companyCodeParamSchema = {
+  params: Joi.object({
+    code: Joi.string().min(1).required(),
+  }),
+};
+
+const updateCompanyHeyGenSchema = {
+  params: companyCodeParamSchema.params,
+  body: Joi.object({
+    apiKey: Joi.string().allow("").optional(),
+    defaultAvatarId: Joi.string().allow("").optional(),
+    defaultVoiceId: Joi.string().allow("").optional(),
+    isConnected: Joi.boolean().optional(),
+    connectedAt: Joi.date().optional().allow(null),
+    lastSyncAt: Joi.date().optional().allow(null),
+  }),
+};
+
+const testCompanyHeyGenSchema = {
+  params: companyCodeParamSchema.params,
+  body: Joi.object({
+    apiKey: Joi.string().allow("").optional(),
+  }),
+};
+
 authRouter.patch(
   "/companies/:id",
   requireAuth as any,
   requireRole(["superadmin"]) as any,
   validateRequest(updateCompanySchema),
   authController.updateCompany as any
+);
+
+authRouter.get(
+  "/companies/:code/heygen",
+  requireAuth as any,
+  validateRequest(companyCodeParamSchema),
+  authController.getCompanyHeyGenConfig as any
+);
+
+authRouter.put(
+  "/companies/:code/heygen",
+  requireAuth as any,
+  validateRequest(updateCompanyHeyGenSchema),
+  authController.updateCompanyHeyGenConfig as any
+);
+
+authRouter.post(
+  "/companies/:code/heygen/test",
+  requireAuth as any,
+  validateRequest(testCompanyHeyGenSchema),
+  authController.testCompanyHeyGenConfig as any
+);
+
+authRouter.post(
+  "/companies/:code/heygen/sync",
+  requireAuth as any,
+  validateRequest(companyCodeParamSchema),
+  authController.syncCompanyHeyGenLibrary as any
 );
 
 const bulkUpdateUsersSchema = {
