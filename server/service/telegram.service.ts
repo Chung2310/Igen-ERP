@@ -46,9 +46,43 @@ function normalizeTelegramCommand(rawText: string): { command: string; args: str
   const spaceIndex = text.indexOf(" ");
   const rawCommand = spaceIndex === -1 ? text : text.substring(0, spaceIndex);
   const args = spaceIndex === -1 ? "" : text.substring(spaceIndex + 1).trim();
-  const command = rawCommand.replace(/@[^@\s]+$/, "");
+  const command = rawCommand.replace(/@[^@\s]+$/, "").toLowerCase();
 
   return { command, args };
+}
+
+function buildGuestHelpMessage(): string {
+  return [
+    "🤖 <b>Chào mừng bạn đến với iGEN ERP Bot!</b>",
+    "Để sử dụng bot, bạn hãy liên kết Telegram từ web ERP.",
+    "",
+    "📌 <b>Cách dùng nhanh:</b>",
+    "Web ERP > menu tài khoản > Telegram > mở bot từ link.",
+  ].join("\n");
+}
+
+function buildSessionHelpMessage(session: any): string {
+  const isAdmin = ADMIN_ROLES.includes(session.role);
+  const helpLines = [
+    `🤖 <b>Xin chào, ${session.displayName}!</b>`,
+    `📧 ${session.email} | 🔑 ${session.role}`,
+    "",
+    "📌 <b>Danh sách câu lệnh:</b>",
+    "• <code>/help</code> hoặc <code>/menu</code> - Hiển thị hướng dẫn sử dụng bot.",
+    "• <code>/image [mô tả]</code> - Sinh ảnh nghệ thuật AI.",
+    "• <code>/video [mô tả]</code> - Sinh video ngắn AI.",
+  ];
+
+  if (isAdmin) {
+    helpLines.push("• <code>/stats</code> hoặc <code>/report</code> - Báo cáo thống kê CRM và giao dịch.");
+    helpLines.push("• <code>/warning_stock</code> hoặc <code>/lowstock</code> - Kiểm tra sản phẩm sắp hết hàng.");
+    helpLines.push("• <code>/queue</code> - Xem nhanh các bài marketing đang chờ đăng của công ty.");
+    helpLines.push("• <code>/publish_fb [cardId]</code> - Đăng ngay 1 card Facebook đã duyệt.");
+    helpLines.push("• <code>/publish_tt [cardId]</code> - Đăng ngay 1 card TikTok đã duyệt.");
+  }
+
+  helpLines.push("• <code>/logout</code> - Đăng xuất khỏi bot.");
+  return helpLines.join("\n");
 }
 
 export const telegramService = {
@@ -272,13 +306,13 @@ export const telegramService = {
               const document = update.message.document;
               const replyToMessage = update.message.reply_to_message;
               const chatId = update.message.chat.id;
+              const chatType = String(update.message.chat.type || "private").toLowerCase();
               const telegramUserId = update.message.from?.id;
               const messageId = update.message.message_id;
 
               if (text.startsWith("/")) {
-                this.handleCommand(chatId, telegramUserId, text, photo, document, replyToMessage, messageId).catch((err) => {
-                  console.error("[Telegram Bot] Lỗi khi thực thi lệnh:", err);
-                });
+                // Xử lý tuần tự từng command để tránh race condition giữa /link và lệnh ngay sau đó như /help.
+                await this.handleCommand(chatId, chatType, telegramUserId, text, photo, document, replyToMessage, messageId);
               }
             }
           }
@@ -301,6 +335,7 @@ export const telegramService = {
    */
   async handleCommand(
     chatId: number,
+    chatType: string,
     telegramUserId: number | undefined,
     text: string,
     photo?: any[],
@@ -308,10 +343,20 @@ export const telegramService = {
     replyToMessage?: any,
     messageId?: number
   ): Promise<void> {
-    const { command, args } = normalizeTelegramCommand(text);
+    const normalizedInput = normalizeTelegramCommand(text);
+    const command = normalizedInput.command === "/menu" ? "/help" : normalizedInput.command;
+    const args = normalizedInput.args;
+
+    if (chatType !== "private") {
+      await this.sendMessage(
+        chatId,
+        "🔒 Bot này chỉ hỗ trợ chat riêng 1-1. Vui lòng mở bot từ link trong web ERP và sử dụng trong cửa sổ chat riêng."
+      );
+      return;
+    }
 
     if (command === "/start" && args) {
-      await this.handleCommand(chatId, telegramUserId, `/link ${args}`, photo, document, replyToMessage, messageId);
+      await this.handleCommand(chatId, chatType, telegramUserId, `/link ${args}`, photo, document, replyToMessage, messageId);
       return;
     }
 
@@ -324,21 +369,19 @@ export const telegramService = {
       }
 
       try {
-        const linkToken = await TelegramLinkTokenModel.findOne({ code: normalizedCode });
+        const linkToken = await TelegramLinkTokenModel.findOneAndDelete({ code: normalizedCode });
         if (!linkToken) {
           await this.sendMessage(chatId, "❌ Mã liên kết không hợp lệ hoặc đã hết hạn. Hãy tạo mã mới từ web ERP.");
           return;
         }
 
         if (linkToken.expiresAt.getTime() <= Date.now()) {
-          await TelegramLinkTokenModel.deleteOne({ _id: linkToken._id });
           await this.sendMessage(chatId, "⌛ Mã liên kết đã hết hạn. Hãy tạo mã mới từ web ERP.");
           return;
         }
 
         const user = await UserModel.findById(linkToken.userId);
         if (!user) {
-          await TelegramLinkTokenModel.deleteOne({ _id: linkToken._id });
           await this.sendMessage(chatId, "❌ Không tìm thấy tài khoản ERP tương ứng với mã liên kết.");
           return;
         }
@@ -361,7 +404,15 @@ export const telegramService = {
           companyCode: user.companyCode || "",
         });
 
-        await TelegramLinkTokenModel.deleteMany({ userId: user._id });
+        const linkedSession = {
+          telegramChatId: chatId,
+          telegramUserId,
+          userId: user._id,
+          email: user.email,
+          displayName: user.displayName || user.email,
+          role: user.role || "user",
+          companyCode: user.companyCode || "",
+        };
 
         await this.sendMessage(chatId, [
           "✅ <b>Liên kết Telegram thành công!</b>",
@@ -369,6 +420,7 @@ export const telegramService = {
           `📧 Email: <code>${user.email}</code>`,
           "Gõ /help để xem danh sách lệnh khả dụng.",
         ].join("\n"));
+        await this.sendMessage(chatId, buildSessionHelpMessage(linkedSession));
       } catch (err: any) {
         console.error("[Telegram Bot] Lỗi xử lý liên kết Telegram:", err);
         await this.sendMessage(chatId, "❌ Lỗi hệ thống khi liên kết Telegram. Vui lòng thử lại sau.");
@@ -411,26 +463,17 @@ export const telegramService = {
     // === TRA CỨU SESSION HIỆN TẠI ===
     let session: any = null;
     try {
-      session = await TelegramSessionModel.findOne({
-        $or: [
-          { telegramChatId: chatId },
-          ...(telegramUserId ? [{ telegramUserId }] : []),
-        ],
-      }).lean();
-      if (session && (session.telegramChatId !== chatId || (telegramUserId && session.telegramUserId !== telegramUserId))) {
+      session = await TelegramSessionModel.findOne({ telegramChatId: chatId }).lean();
+      if (session && telegramUserId && session.telegramUserId !== telegramUserId) {
         await TelegramSessionModel.updateOne(
           { _id: session._id },
           {
             $set: {
-              telegramChatId: chatId,
-              ...(telegramUserId ? { telegramUserId } : {}),
+              telegramUserId,
             },
           }
         );
-        session.telegramChatId = chatId;
-        if (telegramUserId) {
-          session.telegramUserId = telegramUserId;
-        }
+        session.telegramUserId = telegramUserId;
       }
     } catch (err) {
       console.error("[Telegram Bot] Lỗi tra cứu session:", err);
@@ -447,7 +490,7 @@ export const telegramService = {
           "📌 <b>Cách dùng nhanh:</b>",
           "Web ERP > menu tài khoản > Telegram > mở bot từ link.",
         ].join("\n");
-        await this.sendMessage(chatId, guestHelp);
+        await this.sendMessage(chatId, buildGuestHelpMessage());
       } else {
         const isAdmin = ADMIN_ROLES.includes(session.role);
         const helpLines = [
@@ -467,7 +510,7 @@ export const telegramService = {
           helpLines.push("• <code>/publish_tt [cardId]</code> - Đăng ngay 1 card TikTok đã duyệt.");
         }
         helpLines.push("• <code>/logout</code> - Đăng xuất khỏi bot.");
-        await this.sendMessage(chatId, helpLines.join("\n"));
+        await this.sendMessage(chatId, buildSessionHelpMessage(session));
       }
       return;
     }

@@ -13,12 +13,20 @@ const CompanyHeyGenConfigSchema = new Schema(
   { _id: false }
 );
 
+const CompanyElevenLabsConfigSchema = new Schema(
+  {
+    apiKey: { type: String, default: "" },
+  },
+  { _id: false }
+);
+
 const CompanySchema = new Schema<ICompany>({
   code: { type: String, required: true, unique: true, index: true, uppercase: true },
   name: { type: String, required: true },
   createdAt: { type: Date, default: Date.now },
   ownerEmail: { type: String, required: true },
   heygenConfig: { type: CompanyHeyGenConfigSchema, default: () => ({}) },
+  elevenlabsConfig: { type: CompanyElevenLabsConfigSchema, default: () => ({}) },
 });
 
 export const CompanyModel = model<ICompany>("Company", CompanySchema);
