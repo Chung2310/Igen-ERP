@@ -8,8 +8,8 @@ class SocketService {
   private videoCallbacks: Array<(data: { videoId: string; status: string; updates: any[] }) => void> = [];
 
   connect(token: string) {
-    if (this.socket?.connected) {
-      console.log("[SocketService] Already connected.");
+    if (this.socket) {
+      console.log("[SocketService] Socket already exists, skipping duplicate connect.");
       return;
     }
 
@@ -64,6 +64,7 @@ class SocketService {
   disconnect() {
     if (this.socket) {
       console.log("[SocketService] Disconnecting...");
+      this.socket.removeAllListeners();
       this.socket.disconnect();
       this.socket = null;
       this.statusCallbacks.forEach((cb) => cb(false));
