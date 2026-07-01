@@ -18,8 +18,8 @@ const HeyGenOptionsDrawer = lazy(() =>
 const PickerPopover = lazy(() =>
   import("./HeyGenPopovers").then((module) => ({ default: module.PickerPopover }))
 );
-const AudioHistoryPopover = lazy(() =>
-  import("./HeyGenPopovers").then((module) => ({ default: module.AudioHistoryPopover }))
+const VoiceSourcePopover = lazy(() =>
+  import("./VoiceSourcePopover").then((module) => ({ default: module.VoiceSourcePopover }))
 );
 const ModelSelectionPopover = lazy(() =>
   import("./HeyGenPopovers").then((module) => ({ default: module.ModelSelectionPopover }))
@@ -79,9 +79,11 @@ export function HeyGenWorkspace({
     engineType === 'avatar_iii' ? 'Avatar III' : HEYGEN_MODEL_OPTIONS[0].id
   );
   const [voices, setVoices] = useState<HeyGenLibraryItem[]>([]);
+  const [personalVoices, setPersonalVoices] = useState<HeyGenLibraryItem[]>([]);
   const [selectedHeyGenVoiceId, setSelectedHeyGenVoiceId] = useState("");
+  const [usePersonalVoiceMode, setUsePersonalVoiceMode] = useState(engineType === "avatar_iii");
+  const [voicePickerTab, setVoicePickerTab] = useState<"third-party" | "personal">("third-party");
   const [avatarThreeScript, setAvatarThreeScript] = useState(initialPrompt || "");
-  const [isHeyGenVoicePickerOpen, setIsHeyGenVoicePickerOpen] = useState(false);
   const [history, setHistory] = useState<any[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [hasLoadedHistory, setHasLoadedHistory] = useState(false);
@@ -121,13 +123,23 @@ export function HeyGenWorkspace({
   const selectedAvatar = useMemo(() => avatars.find((avatar) => avatar.id === selectedAvatarId) || avatars[0] || null, [avatars, selectedAvatarId]);
   const selectedAudio = useMemo(() => audioRecords.find((record) => record._id === selectedAudioRecordId) || audioRecords[0] || null, [audioRecords, selectedAudioRecordId]);
   const selectedModel = useMemo(() => HEYGEN_MODEL_OPTIONS.find((item) => item.id === selectedAvatarModel) || HEYGEN_MODEL_OPTIONS[0], [selectedAvatarModel]);
-  const selectedHeyGenVoice = useMemo(() => voices.find((v) => v.id === selectedHeyGenVoiceId) || voices[0] || null, [voices, selectedHeyGenVoiceId]);
+  const selectedHeyGenVoice = useMemo(
+    () => personalVoices.find((v) => v.id === selectedHeyGenVoiceId) || voices.find((v) => v.id === selectedHeyGenVoiceId) || personalVoices[0] || voices[0] || null,
+    [personalVoices, voices, selectedHeyGenVoiceId]
+  );
+  const personalHeyGenVoices = useMemo(() => personalVoices, [personalVoices]);
+  const personalVoiceHint = useMemo(() => {
+    if (personalVoices.length > 0) {
+      return "Đang hiển thị đúng danh sách My Voice riêng từ HeyGen.";
+    }
+    return "Chưa nhận được voice nào từ HeyGen cho tài khoản hiện tại.";
+  }, [personalVoices.length]);
   const activeScript = useMemo(() => {
-    if (selectedAvatarModel === "Avatar III") {
+    if (selectedAvatarModel === "Avatar III" || usePersonalVoiceMode) {
       return avatarThreeScript;
     }
     return selectedAudio?.prompt || selectedAudio?.metadata?.title || "";
-  }, [selectedAvatarModel, avatarThreeScript, selectedAudio]);
+  }, [selectedAvatarModel, usePersonalVoiceMode, avatarThreeScript, selectedAudio]);
   const totalHistoryPages = Math.max(1, Math.ceil(history.length / HISTORY_PAGE_SIZE));
   const paginatedHistory = history.slice((historyPage - 1) * HISTORY_PAGE_SIZE, historyPage * HISTORY_PAGE_SIZE);
 
@@ -148,6 +160,7 @@ export function HeyGenWorkspace({
             }
             if (card.engineType === 'avatar_iii') {
               setSelectedAvatarModel("Avatar III");
+              setUsePersonalVoiceMode(true);
               if (card.avatarId) {
                 setSelectedAvatarId(card.avatarId);
               }
@@ -157,6 +170,8 @@ export function HeyGenWorkspace({
               setAvatarThreeScript((current) => card.inputText || card.voiceScript || current || initialPrompt || "");
               toast.info(`Đã nạp kịch bản Avatar III cho bài đăng: "${card.title}"`);
             } else {
+              const hasPersonalVoiceCardState = Boolean(card.voiceId && (card.inputText || card.voiceScript));
+              setUsePersonalVoiceMode(hasPersonalVoiceCardState);
               if (card.engineType === 'avatar_v') {
                 setSelectedAvatarModel("Avatar V");
               } else {
@@ -164,6 +179,10 @@ export function HeyGenWorkspace({
               }
               if (card.avatarId) {
                 setSelectedAvatarId(card.avatarId);
+              }
+              if (hasPersonalVoiceCardState && card.voiceId) {
+                setSelectedHeyGenVoiceId(card.voiceId);
+                setAvatarThreeScript((current) => card.inputText || card.voiceScript || current || initialPrompt || "");
               }
               if (card.audioRecordId) {
                 setSelectedAudioRecordId(card.audioRecordId);
@@ -198,12 +217,29 @@ export function HeyGenWorkspace({
   }, [cardId]);
 
   useEffect(() => {
+    if (usePersonalVoiceMode) {
+      if (!selectedHeyGenVoiceId && personalVoices[0]?.id) {
+        setSelectedHeyGenVoiceId(personalVoices[0].id);
+        return;
+      }
+      if (selectedHeyGenVoiceId && !personalVoices.some((voice) => voice.id === selectedHeyGenVoiceId) && personalVoices[0]?.id) {
+        setSelectedHeyGenVoiceId(personalVoices[0].id);
+      }
+      return;
+    }
+
+    if (!selectedAudioRecordId && audioRecords[0]?._id) {
+      setSelectedAudioRecordId(audioRecords[0]._id);
+    }
+  }, [usePersonalVoiceMode, personalVoices, selectedHeyGenVoiceId, audioRecords, selectedAudioRecordId]);
+
+  useEffect(() => {
     if (autoTrigger && !isLoadingLibrary && isCardAudioLoaded && !autoTriggeredRef.current) {
-      const isAvatarThree = selectedAvatarModel === "Avatar III";
-      if (isAvatarThree) {
+      const usesTextToVoice = selectedAvatarModel === "Avatar III" || usePersonalVoiceMode;
+      if (usesTextToVoice) {
         if (selectedAvatarId && selectedHeyGenVoiceId && avatarThreeScript.trim()) {
           autoTriggeredRef.current = true;
-          toast.info("Chế độ AutoTrigger: Tự động khởi chạy kết xuất Video Avatar III...");
+          toast.info("Chế độ AutoTrigger: Tự động khởi chạy video text-to-voice HeyGen...");
           void handleGenerate();
         }
       } else {
@@ -214,7 +250,7 @@ export function HeyGenWorkspace({
         }
       }
     }
-  }, [autoTrigger, isLoadingLibrary, isCardAudioLoaded, selectedAvatarModel, selectedAvatarId, selectedHeyGenVoiceId, selectedAudioRecordId, avatarThreeScript]);
+  }, [autoTrigger, isLoadingLibrary, isCardAudioLoaded, selectedAvatarModel, usePersonalVoiceMode, selectedAvatarId, selectedHeyGenVoiceId, selectedAudioRecordId, avatarThreeScript]);
 
   useEffect(() => {
     setHistoryPage(1);
@@ -291,13 +327,25 @@ export function HeyGenWorkspace({
       if (libraryResult.status === "fulfilled") {
         const nextAvatars = libraryResult.value.avatars || [];
         const nextVoices = libraryResult.value.voices || [];
+        const nextPersonalVoices = libraryResult.value.personalVoices || [];
         const defaultAvatarId = libraryResult.value.defaults?.avatarId || "";
         const defaultVoiceId = libraryResult.value.defaults?.voiceId || "";
         setAvatars(nextAvatars);
         setVoices(nextVoices);
+        setPersonalVoices(nextPersonalVoices);
         setWarnings(libraryResult.value.warnings || []);
         setSelectedAvatarId((current) => current && nextAvatars.some((avatar) => avatar.id === current) ? current : defaultAvatarId && nextAvatars.some((avatar) => avatar.id === defaultAvatarId) ? defaultAvatarId : nextAvatars[0]?.id || "");
-        setSelectedHeyGenVoiceId((current) => current && nextVoices.some((v) => v.id === current) ? current : defaultVoiceId && nextVoices.some((v) => v.id === defaultVoiceId) ? defaultVoiceId : nextVoices[0]?.id || "");
+        setSelectedHeyGenVoiceId((current) => {
+          const personalIds = new Set(nextPersonalVoices.map((voice) => voice.id));
+          const allIds = new Set(nextVoices.map((voice) => voice.id));
+          if (current && (personalIds.has(current) || allIds.has(current))) {
+            return current;
+          }
+          if (defaultVoiceId && (personalIds.has(defaultVoiceId) || allIds.has(defaultVoiceId))) {
+            return defaultVoiceId;
+          }
+          return nextPersonalVoices[0]?.id || nextVoices[0]?.id || "";
+        });
         preloadAvatarImages(nextAvatars);
       } else {
         setErrorMessage(libraryResult.reason?.message || "Không thể tải thư viện khuôn mặt");
@@ -362,13 +410,11 @@ export function HeyGenWorkspace({
   }
 
   async function handleOpenVoicePicker() {
-    if (selectedAvatarModel === "Avatar III") {
-      setIsHeyGenVoicePickerOpen(true);
-    } else {
-      setIsAudioPickerOpen(true);
-      if (!hasLoadedAudioHistory && !isLoadingAudioHistory) {
-        await ensureAudioHistoryLoaded();
-      }
+    const openPersonalByDefault = selectedAvatarModel === "Avatar III" || usePersonalVoiceMode;
+    setVoicePickerTab(openPersonalByDefault ? "personal" : "third-party");
+    setIsAudioPickerOpen(true);
+    if (!openPersonalByDefault && !hasLoadedAudioHistory && !isLoadingAudioHistory) {
+      await ensureAudioHistoryLoaded();
     }
   }
 
@@ -406,9 +452,9 @@ export function HeyGenWorkspace({
       return;
     }
 
-    if (selectedModel.engineType === "avatar_iii") {
+    if (selectedModel.engineType === "avatar_iii" || usePersonalVoiceMode) {
       if (!avatarThreeScript.trim()) {
-        setErrorMessage("Vui lòng nhập kịch bản phát thanh cho Avatar III.");
+        setErrorMessage("Vui lòng nhập kịch bản phát thanh để render bằng HeyGen voice.");
         return;
       }
       if (!selectedHeyGenVoiceId) {
@@ -442,9 +488,10 @@ export function HeyGenWorkspace({
         avatarLayout,
       };
 
-      if (selectedModel.engineType === "avatar_iii") {
+      if (selectedModel.engineType === "avatar_iii" || usePersonalVoiceMode) {
         payload.voiceId = selectedHeyGenVoiceId;
         payload.inputText = avatarThreeScript;
+        payload.usePersonalVoice = usePersonalVoiceMode;
       } else {
         payload.audioRecordId = selectedAudioRecordId || undefined;
         payload.audioUrl = selectedAudio?.url || undefined;
@@ -557,6 +604,7 @@ export function HeyGenWorkspace({
           script={activeScript}
           onScriptChange={setAvatarThreeScript}
           selectedAvatarModel={selectedAvatarModel}
+          usePersonalVoiceMode={usePersonalVoiceMode}
           enableCaption={enableCaption}
           setEnableCaption={setEnableCaption}
           captionPreset={captionPreset}
@@ -582,6 +630,7 @@ export function HeyGenWorkspace({
               selectedAvatar={selectedAvatar}
               selectedAudio={selectedAudio}
               selectedHeyGenVoice={selectedHeyGenVoice}
+              usePersonalVoiceMode={usePersonalVoiceMode}
               isLoadingLibrary={isLoadingLibrary}
               onOpenAvatarPicker={() => setIsAvatarPickerOpen(true)}
               onOpenVoicePicker={() => void handleOpenVoicePicker()}
@@ -885,27 +934,41 @@ export function HeyGenWorkspace({
       ) : null}
       {isAudioPickerOpen ? (
         <Suspense fallback={<ModalFallback label="Đang tải danh sách giọng nói..." />}>
-          <AudioHistoryPopover title="Đổi giọng nói" items={audioRecords} selectedId={selectedAudioRecordId} isLoading={isLoadingAudioHistory} onRefresh={() => void refreshAudioHistory()} onClose={() => setIsAudioPickerOpen(false)} onSelect={(item) => { setSelectedAudioRecordId(item._id); setIsAudioPickerOpen(false); }} />
+          <VoiceSourcePopover
+            title="Đổi giọng nói"
+            activeTab={voicePickerTab}
+            onTabChange={(tab) => {
+              setVoicePickerTab(tab);
+              if (tab === "third-party" && !hasLoadedAudioHistory && !isLoadingAudioHistory) {
+                void ensureAudioHistoryLoaded();
+              }
+            }}
+            thirdPartyItems={audioRecords}
+            selectedThirdPartyId={selectedAudioRecordId}
+            isLoadingThirdParty={isLoadingAudioHistory}
+            onRefreshThirdParty={() => void refreshAudioHistory()}
+            onSelectThirdParty={(item) => {
+              setSelectedAudioRecordId(item._id);
+              setUsePersonalVoiceMode(false);
+              setIsAudioPickerOpen(false);
+            }}
+            personalItems={personalHeyGenVoices}
+            selectedPersonalId={selectedHeyGenVoiceId}
+            onSelectPersonal={(item) => {
+              setSelectedHeyGenVoiceId(item.id);
+              setUsePersonalVoiceMode(true);
+              setAvatarThreeScript((current) => current.trim() || selectedAudio?.prompt || initialPrompt || "");
+              setIsAudioPickerOpen(false);
+              toast.info(`Đã chọn giọng cá nhân "${item.name}" và bật chế độ text-to-voice của HeyGen.`);
+            }}
+            personalHint={`${personalVoiceHint} Khi chọn giọng cá nhân, bạn có thể dùng text-to-voice HeyGen cho Avatar IV/V hoặc Avatar III.`}
+            onClose={() => setIsAudioPickerOpen(false)}
+          />
         </Suspense>
       ) : null}
       {isModelPickerOpen ? (
         <Suspense fallback={<ModalFallback label="Đang tải bộ máy chuyển động..." />}>
           <ModelSelectionPopover title="Bộ máy chuyển động" items={HEYGEN_MODEL_OPTIONS.map((item) => ({ id: item.id, description: item.description, icon: item.icon }))} selectedValue={selectedAvatarModel} onClose={() => setIsModelPickerOpen(false)} onSelect={(value) => { setSelectedAvatarModel(value); setIsModelPickerOpen(false); }} />
-        </Suspense>
-      ) : null}
-      {isHeyGenVoicePickerOpen ? (
-        <Suspense fallback={<ModalFallback label="Đang tải danh sách giọng nói HeyGen..." />}>
-          <PickerPopover
-            title="Chọn giọng nói HeyGen"
-            items={voices}
-            selectedId={selectedHeyGenVoiceId}
-            onClose={() => setIsHeyGenVoicePickerOpen(false)}
-            onSelect={(item) => {
-              setSelectedHeyGenVoiceId(item.id);
-              setIsHeyGenVoicePickerOpen(false);
-            }}
-            emptyLabel="Chưa có giọng nói nào trong thư viện HeyGen."
-          />
         </Suspense>
       ) : null}
     </div>

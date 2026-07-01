@@ -20,6 +20,7 @@ const createAvatarVideoSchema = {
     title: Joi.string().allow("").optional(),
     description: Joi.string().allow("").optional(),
     enableCaption: Joi.boolean().optional(),
+    usePersonalVoice: Joi.boolean().optional(),
     avatarBackground: Joi.string().valid("customize", "remove", "color").optional(),
     backgroundColor: Joi.string().allow("").optional(),
     avatarLayout: Joi.string().valid("original", "circle").optional(),
@@ -28,6 +29,10 @@ const createAvatarVideoSchema = {
       if (!String(value.inputText || "").trim()) {
         return helpers.message({ custom: '"inputText" is required for avatar_iii engine' });
       }
+      return value;
+    }
+    const hasTextToVoice = Boolean(String(value.inputText || "").trim()) && Boolean(String(value.voiceId || "").trim());
+    if (hasTextToVoice) {
       return value;
     }
     const hasAudio = Boolean(String(value.audioUrl || "").trim()) || Boolean(String(value.audioRecordId || "").trim());
