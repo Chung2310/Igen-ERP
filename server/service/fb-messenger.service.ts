@@ -13,6 +13,11 @@ function normalizeFacebookId(value: any) {
   return String(value || "").trim();
 }
 
+function normalizeOptionalFacebookConversationId(value: any): string | undefined {
+  const normalized = String(value || "").trim();
+  return normalized || undefined;
+}
+
 export const fbMessengerService = {
   shouldSync(key: string, ttlMs: number) {
     const now = Date.now();
@@ -102,7 +107,7 @@ export const fbMessengerService = {
       }
 
       if (conversation) {
-        conversation.facebookConversationId = fbConversation.id;
+        conversation.facebookConversationId = normalizeOptionalFacebookConversationId(fbConversation.id);
         conversation.recipientId = recipientId;
         conversation.senderName = senderName || conversation.senderName || "Khách hàng Facebook";
         if (avatarUrl) {
@@ -118,7 +123,7 @@ export const fbMessengerService = {
         conversation = new FBConversationModel({
           recipientId,
           pageId,
-          facebookConversationId: fbConversation.id,
+          facebookConversationId: normalizeOptionalFacebookConversationId(fbConversation.id),
           senderName: senderName || "Khách hàng Facebook",
           avatarUrl,
           lastMessageText: latestMessage?.message || "[Đính kèm]",
@@ -457,13 +462,13 @@ export const fbMessengerService = {
       return;
     }
 
-    const token = await this.getPageAccessTokenByPageId(recipientId);
+    const token = await this.getPageAccessTokenByPageId(resolvedPageId);
     const duplicateMsg = await FBMessageModel.findOne({ messageId });
     if (duplicateMsg) {
       // Vẫn kích hoạt AI nếu tin nhắn này là inbound và chưa được xử lý phản hồi
-      const conversation = await FBConversationModel.findOne({ recipientId: senderId, pageId: recipientId });
+      const conversation = await FBConversationModel.findOne({ recipientId: senderId, pageId: resolvedPageId });
       if (conversation) {
-        aiAutoReplyService.triggerAutoReply("facebook", recipientId, conversation._id.toString(), text, messageId);
+        aiAutoReplyService.triggerAutoReply("facebook", resolvedPageId, conversation._id.toString(), text, messageId);
       }
       return;
     }
@@ -471,7 +476,7 @@ export const fbMessengerService = {
     // Lấy token động từ DB dựa theo Page ID của tin nhắn đến
 
     // 1. Kiểm tra xem đã có cuộc hội thoại với khách hàng này chưa
-    let conversation = await FBConversationModel.findOne({ recipientId: senderId, pageId: recipientId });
+    let conversation = await FBConversationModel.findOne({ recipientId: senderId, pageId: resolvedPageId });
 
     if (!conversation) {
       let senderName = "Khách hàng Facebook";
@@ -496,13 +501,24 @@ export const fbMessengerService = {
         recipientId: senderId,
         senderName,
         avatarUrl,
-        pageId: recipientId,
+        pageId: resolvedPageId,
         lastMessageText: text || "[Đính kèm]",
         lastMessageAt: timestamp,
         unreadCount: 1,
         status: "open",
       });
-      await conversation.save();
+      try {
+        await conversation.save();
+      } catch (err: any) {
+        if (err?.code === 11000) {
+          conversation = await FBConversationModel.findOne({ recipientId: senderId, pageId: resolvedPageId });
+          if (!conversation) {
+            throw err;
+          }
+        } else {
+          throw err;
+        }
+      }
       console.log(`[FB Service processIncomingMessage] 💾 CONVERSATION NEW: Đã tạo cuộc hội thoại mới _id=${conversation._id.toString()}`);
     } else {
       conversation.lastMessageText = text || "[Đính kèm]";
@@ -531,18 +547,18 @@ export const fbMessengerService = {
       console.log(`[FB Service processIncomingMessage] 💾 MSG SAVE: Đã lưu tin nhắn inbound thành công (messageId=${messageId})`);
 
       // Realtime update via Socket.IO
-      emitToPage(recipientId, "new_message", {
+      emitToPage(resolvedPageId, "new_message", {
         message: newMsg,
         conversation: conversation
       });
-      emitToPage(recipientId, "conversation_updated", conversation);
+      emitToPage(resolvedPageId, "conversation_updated", conversation);
 
       // Kích hoạt AI Auto-Reply Bot bất đồng bộ
       console.log(
         `[FB Service processIncomingMessage] 🚀 TRIGGER AI: Đang chuyển tiếp sang aiAutoReplyService.triggerAutoReply ` +
-        `cho conversationId=${conversation._id.toString()}, pageId=${recipientId}, textLength=${text.length}`
+        `cho conversationId=${conversation._id.toString()}, pageId=${resolvedPageId}, textLength=${text.length}`
       );
-      aiAutoReplyService.triggerAutoReply("facebook", recipientId, conversation._id.toString(), text, messageId);
+      aiAutoReplyService.triggerAutoReply("facebook", resolvedPageId, conversation._id.toString(), text, messageId);
     }
   },
 

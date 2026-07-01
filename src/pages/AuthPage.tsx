@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useAuth } from "../context/AuthContext";
-import { Mail, Lock, RefreshCw, ArrowRight, Eye, EyeOff, AlertCircle } from "lucide-react";
+import { Mail, Lock, RefreshCw, ArrowRight, Eye, EyeOff, AlertCircle, ArrowLeft } from "lucide-react";
 import { BRAND_LOGO_URL, BRAND_NAME } from "../config/brand";
 import { parseFirebaseError } from "../utils/firebaseErrorParser";
 
@@ -70,6 +70,15 @@ export default function AuthPage() {
 
       {/* Main Login Card Container */}
       <div className="w-full max-w-md bg-white/85 backdrop-blur-2xl border border-slate-100/90 rounded-3xl p-9 shadow-[0_22px_70px_rgba(15,23,42,0.06)] z-10 flex flex-col gap-6 text-left animate-fade-in-up">
+        <div>
+          <a
+            href="/"
+            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-blue-200 hover:text-blue-700"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            <span>Về trang chủ</span>
+          </a>
+        </div>
         
         {/* Brand Header */}
         <div className="text-center space-y-3">

@@ -4,6 +4,7 @@ import { cloudinaryService } from "./cloudinary.service";
 import { piapiService } from "./piapi.service";
 import { videoBlueprintService } from "./video-blueprint.service";
 import { hermesService } from "./hermes.service";
+import { elevenlabsService } from "./elevenlabs.service";
 import { openrouterChat, openrouterGenerateImage, mapModelName, type OpenRouterMessage } from "./openrouter.service";
 import { exec } from "child_process";
 import { remotionQueueService } from "./remotion-queue.service";
@@ -1777,6 +1778,10 @@ Trả về kết quả ở định dạng JSON phù hợp chính xác với cấ
     return { url: `pending://piapi/${taskId}`, isMock: false, taskId } as any;
   },
 
+  async getPiapiTaskStatus(taskId: string): Promise<{ status: string; url?: string; progress?: number; error?: string }> {
+    return piapiService.getTaskStatus(taskId);
+  },
+
   /**
    * Tạo giọng nói TTS (Gemini Voice Modality)
    */
@@ -2402,214 +2407,32 @@ CHỈ trả về lệnh chỉnh sửa, không thêm giải thích, không markdo
   },
 
   /**
-   * Lấy danh sách giọng nói ElevenLabs
+   * Lấy danh sách giọng nói ElevenLabs (delegate to elevenlabsService)
    */
-  async getElevenLabsVoices() {
-    const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
-    if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
-      console.log("[geminiService.getElevenLabsVoices] ELEVENLABS_API_KEY is not configured. Running in MOCK mode.");
-      return {
-        status: "success",
-        voices: [
-          {
-            voice_id: "Sadaltager",
-            name: "Roger (Mock)",
-            category: "cloned",
-            description: "Laid-Back, Casual, Resonant",
-            labels: { gender: "male", age: "adult", accent: "american" }
-          }
-        ]
-      };
-    }
-
-    try {
-      const response = await fetch("https://api.elevenlabs.io/v1/voices", {
-        headers: {
-          "xi-api-key": elevenLabsApiKey.trim()
-        }
-      });
-      if (!response.ok) {
-        throw new Error(`ElevenLabs error: ${response.status}`);
-      }
-      const data = await response.json();
-      // Filter generated or cloned voices
-      const filtered = (data.voices || []).filter((v: any) => v.category === "cloned" || v.category === "generated" || v.category === "custom");
-      return { status: "success", voices: filtered };
-    } catch (error: any) {
-      console.error("[geminiService.getElevenLabsVoices] Error:", error);
-      throw error;
-    }
+  async getElevenLabsVoices(userId?: string) {
+    return elevenlabsService.getVoices(userId);
   },
 
   /**
-   * Thiết kế & phát nghe thử giọng nói ElevenLabs
+   * Thiết kế & phát nghe thử giọng nói ElevenLabs (delegate to elevenlabsService)
    */
-  async generateCustomVoicePreview(input: { gender: string; accent: string; age: string; accentStrength: number; text: string }) {
-    const { gender, accent, age, accentStrength, text } = input;
-    const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
-    if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
-      console.log("[geminiService.generateCustomVoicePreview] ELEVENLABS_API_KEY is not configured. Running in MOCK mode.");
-      return {
-        generatedVoiceId: "mock-voice-id-" + Date.now(),
-        url: "data:audio/wav;base64,UklGRigAAABXQVZFlm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAAAG"
-      };
-    }
-
-    try {
-      const response = await fetch("https://api.elevenlabs.io/v1/voice-generation/generate-voice", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "xi-api-key": elevenLabsApiKey.trim()
-        },
-        body: JSON.stringify({
-          gender,
-          accent,
-          age,
-          accent_strength: accentStrength,
-          text
-        })
-      });
-
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`ElevenLabs preview error: ${response.status} - ${errText}`);
-      }
-
-      const generatedVoiceId = response.headers.get("generated_voice_id");
-      if (!generatedVoiceId) {
-        throw new Error("No generated_voice_id found in headers");
-      }
-
-      const arrayBuffer = await response.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-      const base64Audio = buffer.toString('base64');
-      const audioDataUri = `data:audio/mpeg;base64,${base64Audio}`;
-
-      const mediaUrl = await cloudinaryService.uploadMedia(audioDataUri, "igen_erp/marketing/voice_previews");
-
-      return {
-        generatedVoiceId,
-        url: mediaUrl
-      };
-    } catch (error: any) {
-      console.error("[geminiService.generateCustomVoicePreview] Error:", error);
-      throw error;
-    }
+  async generateCustomVoicePreview(userId: string, input: { gender: string; accent: string; age: string; accentStrength: number; text: string }) {
+    return elevenlabsService.generateCustomVoicePreview(userId, input);
   },
 
   /**
-   * Lưu giọng thiết kế thành giọng chính thức
+   * Lưu giọng thiết kế thành giọng chính thức (delegate to elevenlabsService)
    */
-  async createCustomVoice(input: { voiceName: string; voiceDescription: string; generatedVoiceId: string }) {
-    const { voiceName, voiceDescription, generatedVoiceId } = input;
-    const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
-    if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
-      console.log("[geminiService.createCustomVoice] ELEVENLABS_API_KEY is not configured. Running in MOCK mode.");
-      return {
-        voice_id: "mock-saved-voice-id-" + Date.now()
-      };
-    }
-
-    try {
-      const response = await fetch("https://api.elevenlabs.io/v1/voice-generation/create-voice", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "xi-api-key": elevenLabsApiKey.trim()
-        },
-        body: JSON.stringify({
-          voice_name: voiceName,
-          voice_description: voiceDescription,
-          generated_voice_id: generatedVoiceId
-        })
-      });
-
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`ElevenLabs create-voice error: ${response.status} - ${errText}`);
-      }
-
-      const result = await response.json();
-      return { voice_id: result.voice_id };
-    } catch (error: any) {
-      console.error("[geminiService.createCustomVoice] Error:", error);
-      throw error;
-    }
+  async createCustomVoice(userId: string, input: { voiceName: string; voiceDescription: string; generatedVoiceId: string }) {
+    return elevenlabsService.createCustomVoice(userId, input);
   },
 
-  async addElevenLabsVoice(name: string, description: string, files: string[], userId: string) {
-    const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
-    if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
-      return { voice_id: "mock-saved-voice-id-" + Date.now() };
-    }
-
-    try {
-      const formData = new FormData();
-      formData.append('name', name);
-      formData.append('description', description);
-
-      if (userId) {
-        formData.append('labels', JSON.stringify({ userId }));
-      }
-
-      for (let i = 0; i < files.length; i++) {
-        const dataUri = files[i];
-        const matches = dataUri.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/);
-        if (!matches) {
-          throw new Error("Invalid file format");
-        }
-        const type = matches[1];
-        const buffer = Buffer.from(matches[2], 'base64');
-        const blob = new Blob([buffer], { type });
-        formData.append('files', blob, `file-${i}.${type.split('/')[1]}`);
-      }
-
-      const response = await fetch('https://api.elevenlabs.io/v1/voices/add', {
-        method: 'POST',
-        headers: {
-          'xi-api-key': elevenLabsApiKey.trim(),
-        },
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorBody = await response.text();
-        throw new Error(`ElevenLabs API error: ${response.status} - ${errorBody}`);
-      }
-
-      const data = await response.json();
-      return data;
-    } catch (error: any) {
-      console.error("[geminiService.addElevenLabsVoice] Error:", error);
-      throw error;
-    }
+  async addElevenLabsVoice(userId: string, name: string, description: string, files: string[]) {
+    return elevenlabsService.addVoice(userId, name, description, files);
   },
 
-  async deleteElevenLabsVoice(voiceId: string) {
-    const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
-    if (!elevenLabsApiKey || elevenLabsApiKey.trim() === "") {
-      return { success: true };
-    }
-
-    try {
-      const response = await fetch(`https://api.elevenlabs.io/v1/voices/${voiceId}`, {
-        method: 'DELETE',
-        headers: {
-          'xi-api-key': elevenLabsApiKey.trim(),
-        },
-      });
-
-      if (!response.ok) {
-        const errorBody = await response.text();
-        throw new Error(`ElevenLabs API error: ${response.status} - ${errorBody}`);
-      }
-
-      return { success: true };
-    } catch (error: any) {
-      console.error("[geminiService.deleteElevenLabsVoice] Error:", error);
-      throw error;
-    }
+  async deleteElevenLabsVoice(userId: string, voiceId: string) {
+    return elevenlabsService.deleteVoice(userId, voiceId);
   }
 };
 

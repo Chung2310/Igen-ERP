@@ -287,7 +287,7 @@ export function HeyGenWorkspace({
     setIsLoadingLibrary(true);
     setErrorMessage("");
     try {
-      const [libraryResult] = await Promise.allSettled([heygenApi.getLibrary()]);
+      const [libraryResult] = await Promise.allSettled([heygenApi.getLibrary({ force: true })]);
       if (libraryResult.status === "fulfilled") {
         const nextAvatars = libraryResult.value.avatars || [];
         const nextVoices = libraryResult.value.voices || [];

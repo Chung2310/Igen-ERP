@@ -1,5 +1,14 @@
-import React, { useState, useEffect } from "react";
-import { ShieldAlert, Search, Trash2, CheckCircle2, Clock, Mail, AlertCircle, ArrowLeft } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  Clock,
+  Mail,
+  Search,
+  ShieldAlert,
+  Trash2,
+  Unplug,
+} from "lucide-react";
 import { SEOHead } from "../seo/SEOHead";
 import { BRAND_NAME } from "../config/brand";
 
@@ -12,6 +21,8 @@ interface DeletionStatus {
   details?: string;
 }
 
+const lastUpdated = "June 30, 2026";
+
 export default function UserDataDeletion() {
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
@@ -19,26 +30,25 @@ export default function UserDataDeletion() {
   const [statusResult, setStatusResult] = useState<DeletionStatus | null>(null);
 
   const meta = {
-    title: "Yêu cầu xóa dữ liệu người dùng | iGen ERP",
-    description: "Hướng dẫn xóa dữ liệu người dùng và tra cứu trạng thái yêu cầu xóa dữ liệu trên hệ thống iGen ERP.",
-    keywords: "xóa dữ liệu, user data deletion, bảo mật thông tin, igen erp",
+    title: `User Data Deletion | ${BRAND_NAME}`,
+    description: `Instructions for disconnecting integrations and requesting user data deletion from ${BRAND_NAME}.`,
+    keywords: "user data deletion, TikTok Shop data deletion, Facebook data deletion, iGen ERP",
     path: "/user-data-deletion",
   };
 
-  // Tự động kiểm tra nếu có mã code trên URL query (?code=xxx)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const codeParam = params.get("code") || params.get("id");
     if (codeParam) {
       setCode(codeParam);
-      handleCheckStatus(codeParam);
+      void handleCheckStatus(codeParam);
     }
   }, []);
 
   const handleCheckStatus = async (checkCode: string) => {
     const activeCode = checkCode || code;
     if (!activeCode.trim()) {
-      setError("Vui lòng nhập mã xác nhận.");
+      setError("Please enter a deletion request code.");
       return;
     }
 
@@ -51,186 +61,242 @@ export default function UserDataDeletion() {
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.message || "Không tìm thấy mã yêu cầu xóa dữ liệu.");
+        throw new Error(result.message || "Deletion request code not found.");
       }
 
       setStatusResult(result.data);
     } catch (err: any) {
-      console.error(err);
-      setError(err.message || "Đã xảy ra lỗi khi kiểm tra mã xác nhận.");
+      setError(err.message || "Unable to check deletion request status.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto space-y-6 text-left">
+    <div className="w-full max-w-5xl mx-auto space-y-6">
       <SEOHead meta={meta} />
 
-      {/* Hero Header Section */}
-      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 border border-slate-700/50 rounded-3xl p-8 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,rgba(99,102,241,0.15),transparent_60%)] pointer-events-none" />
-        <div className="space-y-3 z-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold uppercase tracking-wider">
-            <ShieldAlert className="h-4 w-4" />
-            <span>Quyền riêng tư & Kiểm soát</span>
+      <div className="bg-white border border-slate-200 rounded-3xl p-8 shadow-sm">
+        <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
+          <div className="space-y-3">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-50 text-rose-700 text-xs font-bold uppercase tracking-wider">
+              <ShieldAlert className="h-4 w-4" />
+              <span>Privacy Control</span>
+            </div>
+            <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight">
+              User Data Deletion
+            </h1>
+            <p className="max-w-2xl text-sm leading-6 text-slate-600">
+              This page explains how users can disconnect third-party integrations, revoke
+              platform access and request deletion of eligible data associated with{" "}
+              {BRAND_NAME}.
+            </p>
           </div>
-          <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-300 bg-clip-text text-transparent">
-            User Data Deletion
-          </h1>
-          <p className="text-slate-400 text-xs font-medium">Hướng dẫn xóa dữ liệu người dùng và tra cứu trạng thái yêu cầu</p>
-        </div>
 
-        <div className="grid grid-cols-2 gap-4 text-xs z-10 shrink-0">
-          <div className="border border-slate-700/50 rounded-2xl p-4 bg-slate-800/40 backdrop-blur-sm">
-            <strong className="block text-[10px] uppercase text-slate-500 tracking-wider mb-1">Dịch vụ</strong>
-            <span className="font-semibold text-slate-200">{BRAND_NAME}</span>
-          </div>
-          <div className="border border-slate-700/50 rounded-2xl p-4 bg-slate-800/40 backdrop-blur-sm">
-            <strong className="block text-[10px] uppercase text-slate-500 tracking-wider mb-1">Quy định</strong>
-            <span className="font-semibold text-slate-200">GDPR / Meta Compliance</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm shrink-0">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                Service
+              </p>
+              <p className="mt-1 font-semibold text-slate-800">{BRAND_NAME}</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                Last Updated
+              </p>
+              <p className="mt-1 font-semibold text-slate-800">{lastUpdated}</p>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        
-        {/* Left Side: Check Status Box */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2">
           <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
             <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <Search className="h-5 w-5 text-indigo-600" />
-              Tra cứu trạng thái
+              <Search className="h-5 w-5 text-slate-700" />
+              Check Request Status
             </h2>
-            <p className="text-slate-500 text-xs leading-relaxed">
-              Nếu bạn đã gửi yêu cầu xóa dữ liệu qua Facebook hoặc nhận được mã xác nhận định dạng <code className="bg-slate-100 text-indigo-600 px-1.5 py-0.5 rounded font-mono text-[10px]">DEL-XXXXXXXX</code>, hãy nhập mã vào đây để kiểm tra tiến trình.
+            <p className="text-sm leading-6 text-slate-600">
+              If you already submitted a platform-triggered deletion request and received a
+              confirmation code such as <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs">DEL-XXXXXXXX</code>,
+              you can check its processing status here.
             </p>
 
             <div className="space-y-3">
               <input
                 type="text"
-                placeholder="Ví dụ: DEL-3E5A29CD"
+                placeholder="Example: DEL-3E5A29CD"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleCheckStatus("")}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all"
+                onKeyDown={(e) => e.key === "Enter" && void handleCheckStatus("")}
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-800 outline-none transition focus:border-slate-400 focus:bg-white"
               />
               <button
-                onClick={() => handleCheckStatus("")}
+                onClick={() => void handleCheckStatus("")}
                 disabled={loading}
-                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer duration-200"
+                className="w-full rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:bg-slate-300"
               >
-                {loading ? "Đang truy vấn..." : "Kiểm tra trạng thái"}
+                {loading ? "Checking..." : "Check status"}
               </button>
             </div>
 
-            {/* Error Message */}
             {error && (
-              <div className="bg-red-50 border border-red-200/50 text-red-600 rounded-xl p-3.5 text-xs flex items-start gap-2.5">
-                <AlertCircle className="h-4.5 w-4.5 shrink-0 text-red-500 mt-0.5" />
-                <span className="font-medium text-left leading-normal">{error}</span>
+              <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                <span>{error}</span>
               </div>
             )}
 
-            {/* Status Results Display */}
             {statusResult && (
-              <div className="border border-indigo-100 bg-indigo-50/30 rounded-2xl p-4 space-y-3 text-xs animate-fade-in-up">
-                <div className="flex items-center justify-between border-b border-indigo-100/50 pb-2">
-                  <span className="font-bold text-slate-700 font-mono">{statusResult.code}</span>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 space-y-3 text-sm">
+                <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-3">
+                  <span className="font-mono font-semibold text-slate-800">{statusResult.code}</span>
                   {statusResult.status === "completed" ? (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-green-100 text-green-700 text-[10px] font-bold">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-bold text-emerald-700">
                       <CheckCircle2 className="h-3 w-3" />
-                      Đã hoàn thành
+                      Completed
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold">
-                      <Clock className="h-3 w-3 animate-spin" />
-                      Đang xử lý
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-bold text-amber-700">
+                      <Clock className="h-3 w-3" />
+                      Processing
                     </span>
                   )}
                 </div>
 
-                <div className="space-y-1.5 text-slate-600">
-                  <p className="flex justify-between">
-                    <span>Facebook User:</span>
-                    <span className="font-mono text-slate-800">{statusResult.facebookUserId.slice(0, 6)}***</span>
+                <div className="space-y-2 text-slate-600">
+                  <p>
+                    Platform user reference:{" "}
+                    <span className="font-mono text-slate-800">
+                      {statusResult.facebookUserId.slice(0, 6)}***
+                    </span>
                   </p>
-                  <p className="flex justify-between">
-                    <span>Thời gian nhận:</span>
-                    <span className="text-slate-800">{new Date(statusResult.requestedAt).toLocaleString("vi-VN")}</span>
+                  <p>
+                    Requested at:{" "}
+                    <span className="text-slate-800">
+                      {new Date(statusResult.requestedAt).toLocaleString("en-US")}
+                    </span>
                   </p>
                   {statusResult.completedAt && (
-                    <p className="flex justify-between">
-                      <span>Hoàn tất lúc:</span>
-                      <span className="text-slate-800">{new Date(statusResult.completedAt).toLocaleString("vi-VN")}</span>
+                    <p>
+                      Completed at:{" "}
+                      <span className="text-slate-800">
+                        {new Date(statusResult.completedAt).toLocaleString("en-US")}
+                      </span>
                     </p>
                   )}
                   {statusResult.details && (
-                    <div className="border-t border-indigo-100/30 pt-2 mt-2">
-                      <p className="text-[10px] uppercase text-slate-400 font-bold mb-1">Chi tiết xử lý</p>
-                      <p className="text-slate-650 bg-slate-100/50 p-2 rounded-lg font-mono text-[10px] leading-relaxed break-words">{statusResult.details}</p>
-                    </div>
+                    <p className="rounded-xl bg-white px-3 py-2 text-xs leading-5 text-slate-600 border border-slate-200">
+                      {statusResult.details}
+                    </p>
                   )}
                 </div>
               </div>
             )}
+
+            <p className="text-xs leading-5 text-slate-500">
+              Note: the live status checker currently supports deletion codes generated by
+              the Facebook-related webhook flow. Manual deletion requests are handled through
+              the support channel below.
+            </p>
           </div>
         </div>
 
-        {/* Right Side: Detailed Instructions */}
-        <div className="lg:col-span-3 bg-white border border-slate-200 rounded-3xl p-6 lg:p-8 shadow-sm space-y-6">
+        <div className="lg:col-span-3 bg-white border border-slate-200 rounded-3xl p-6 lg:p-8 shadow-sm space-y-8">
           <section className="space-y-3">
-            <h2 className="text-lg font-bold text-slate-900 border-b border-slate-100 pb-2 flex items-center gap-2">
-              <Trash2 className="h-5 w-5 text-red-500" />
-              1. Phương thức xóa liên kết tự động (Facebook)
+            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <Unplug className="h-5 w-5 text-slate-700" />
+              1. Disconnect Inside The Application
             </h2>
-            <p className="leading-relaxed text-slate-600 text-xs">
-              Nếu bạn đã đăng nhập hoặc liên kết các Fanpage/Messenger của mình vào hệ thống **{BRAND_NAME}** thông qua đăng nhập Facebook, bạn có thể chủ động hủy kết nối và yêu cầu xóa toàn bộ thông tin đã lưu trữ theo các bước sau:
+            <p className="text-sm leading-6 text-slate-600">
+              If you connected TikTok Shop, Facebook or another supported channel to{" "}
+              {BRAND_NAME}, you can remove that connection from the integration settings in
+              your account. Once disconnected, the system will stop using the related access
+              token for future synchronization.
             </p>
-            <ol className="list-decimal pl-5 space-y-2 text-slate-600 text-xs">
-              <li>Truy cập vào tài khoản Facebook cá nhân của bạn.</li>
-              <li>Đi tới phần <strong className="text-slate-800">Cài đặt & Quyền riêng tư</strong> &gt; <strong className="text-slate-800">Cài đặt</strong> &gt; <strong className="text-slate-800">Ứng dụng và trang web</strong> (hoặc nhấn trực tiếp vào liên kết cài đặt ứng dụng của Facebook).</li>
-              <li>Tìm kiếm ứng dụng tên <strong className="text-indigo-600">TestLogin</strong> hoặc ứng dụng tích hợp ERP liên quan.</li>
-              <li>Bấm nút <strong className="text-red-600">Gỡ (Remove)</strong> bên cạnh ứng dụng.</li>
-              <li>Facebook sẽ tự động gửi một thông báo Webhook giải phóng dữ liệu tới hệ thống của chúng tôi. Chúng tôi sẽ lập tức ngắt liên kết, hủy trạng thái kết nối Token của các Fanpage và gửi lại cho bạn một mã xác nhận để theo dõi trực tuyến.</li>
-            </ol>
           </section>
 
           <section className="space-y-3">
-            <h2 className="text-lg font-bold text-slate-900 border-b border-slate-100 pb-2 flex items-center gap-2">
-              <Mail className="h-5 w-5 text-indigo-600" />
-              2. Phương thức xóa thủ công & Hỗ trợ kỹ thuật
+            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <Trash2 className="h-5 w-5 text-slate-700" />
+              2. Revoke Access From The Third-Party Platform
             </h2>
-            <p className="leading-relaxed text-slate-600 text-xs">
-              Trong trường hợp bạn muốn xóa toàn bộ tài khoản doanh nghiệp, tài khoản cá nhân, hoặc dữ liệu lưu giữ trên nền tảng ERP của chúng tôi, bạn có thể thực hiện một trong hai cách:
+            <p className="text-sm leading-6 text-slate-600">
+              You may also revoke the application's access directly from the settings page of
+              the connected platform. After revocation, the service will no longer be able to
+              retrieve new data from that platform.
             </p>
-            <ul className="list-disc pl-5 space-y-2 text-slate-600 text-xs">
-              <li>
-                <strong className="text-slate-800">Yêu cầu từ trang Quản trị:</strong> Đăng nhập hệ thống, truy cập <strong className="text-slate-800">Cài đặt hệ thống</strong> &gt; <strong className="text-slate-800">Liên kết MXH</strong> và bấm nút <strong className="text-red-500">Xóa liên kết</strong>.
-              </li>
-              <li>
-                <strong className="text-slate-800">Gửi yêu cầu qua Email hỗ trợ:</strong> Gửi thư yêu cầu đến hòm thư hỗ trợ của chúng tôi tại địa chỉ <a href="mailto:igen.work99@gmail.com" className="text-indigo-600 font-bold hover:underline">igen.work99@gmail.com</a> kèm theo thông tin tài khoản (Email, số điện thoại đăng ký, hoặc mã Fanpage cần xóa).
-              </li>
-            </ul>
-            <p className="text-slate-500 text-[11px] leading-relaxed">
-              * Chúng tôi cam kết xử lý tất cả các yêu cầu xóa dữ liệu thủ công trong vòng tối đa 24 giờ làm việc kể từ thời điểm nhận được yêu cầu. Dữ liệu sau khi xóa sẽ biến mất vĩnh viễn khỏi các phân vùng lưu trữ và không thể phục hồi.
-            </p>
-          </section>
-
-          <section className="pt-2 border-t border-slate-100 space-y-2">
-            <h3 className="text-xs font-bold text-slate-800">Dữ liệu nào sẽ bị xóa sạch?</h3>
-            <p className="text-slate-600 text-xs leading-relaxed">
-              Khi thực hiện xóa dữ liệu liên kết, hệ thống sẽ thực hiện xóa bỏ vĩnh viễn:
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pt-1 text-[11px]">
-              <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                <span className="font-bold text-slate-700 block mb-0.5">Tokens & Khóa liên kết</span>
-                <span className="text-slate-500">Mọi Access Token, Refresh Token dùng để tương tác qua Graph API sẽ bị thu hồi hoàn toàn.</span>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                <p className="font-semibold text-slate-800">TikTok Shop or TikTok Account</p>
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  Revoke the application's authorization from your TikTok or TikTok Shop
+                  account settings if you no longer want the service to access approved shop
+                  or account data.
+                </p>
               </div>
-              <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                <span className="font-bold text-slate-700 block mb-0.5">Nhật ký tin nhắn & Chat</span>
-                <span className="text-slate-500">Dữ liệu hội thoại tạm thời lưu trên Omni-Inbox của doanh nghiệp liên quan đến tài khoản kết nối đó.</span>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                <p className="font-semibold text-slate-800">Facebook Integration</p>
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  Remove the application from your Facebook business or account settings to
+                  revoke future access and trigger the connected cleanup flow where
+                  supported.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <section className="space-y-3">
+            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <Mail className="h-5 w-5 text-slate-700" />
+              3. Request Manual Deletion
+            </h2>
+            <p className="text-sm leading-6 text-slate-600">
+              If you want eligible data removed from the service entirely, submit a deletion
+              request through our support channel and include enough information for us to
+              identify the workspace or integration to be removed.
+            </p>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm leading-6 text-slate-600">
+              <p>
+                Support page:{" "}
+                <a
+                  href="https://io.igentechsolutions.com/contact"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-semibold text-slate-900 underline underline-offset-2"
+                >
+                  https://io.igentechsolutions.com/contact
+                </a>
+              </p>
+              <p>
+                Contact email:{" "}
+                <a
+                  href="mailto:igen.work99@gmail.com"
+                  className="font-semibold text-slate-900 underline underline-offset-2"
+                >
+                  igen.work99@gmail.com
+                </a>
+              </p>
+            </div>
+          </section>
+
+          <section className="space-y-3">
+            <h2 className="text-lg font-bold text-slate-900">4. Data Categories Eligible For Cleanup</h2>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                <p className="font-semibold text-slate-800">Connection Credentials</p>
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  Access tokens, refresh tokens and related platform connection identifiers
+                  associated with the revoked integration.
+                </p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                <p className="font-semibold text-slate-800">Synchronized Operational Data</p>
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  Eligible synchronized records, temporary caches and related metadata that
+                  are no longer required for lawful retention or system integrity.
+                </p>
               </div>
             </div>
           </section>

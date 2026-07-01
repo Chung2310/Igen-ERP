@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from "react";
 import {
   Bell, LogOut, Search, Settings, Wallet, Info, X, Image, Video, Volume2, FileText,
-  Package, Megaphone, Sparkles, CheckCheck, ShoppingCart, AlertTriangle
+  Package, Megaphone, Sparkles, CheckCheck, ShoppingCart, AlertTriangle, Send
 } from "lucide-react";
 import { TabType } from "../types";
 import { useAuth } from "../context/AuthContext";
+import { authService } from "../services/authService";
 import { walletService } from "../services/walletService";
 import { marketingService } from "../services/marketingService";
 import { inventoryProductService } from "../services/inventoryProductService";
 import { crmService } from "../services/crmService";
+import { toast } from "./Toast";
 
 interface HeaderProps {
   currentTab: TabType;
@@ -50,7 +52,20 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [balance, setBalance] = useState<number>(0);
   const [showPricingModal, setShowPricingModal] = useState(false);
+  const [showTelegramModal, setShowTelegramModal] = useState(false);
+  const [telegramLink, setTelegramLink] = useState<any>(null);
+  const [telegramLoading, setTelegramLoading] = useState(false);
   const [notifs, setNotifs] = useState<AppNotification[]>([]);
+
+  const loadTelegramLinkStatus = async () => {
+    if (!userProfile) return;
+    try {
+      const data = await authService.getTelegramLinkStatus();
+      setTelegramLink(data);
+    } catch (error) {
+      console.error("Lỗi lấy trạng thái Telegram:", error);
+    }
+  };
 
   // ─── helpers ────────────────────────────────────────────────
   const unreadCount = notifs.filter(n => !n.read).length;
@@ -224,6 +239,39 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
     const interval = setInterval(fetchBalance, 10000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    loadTelegramLinkStatus();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userProfile?.uid]);
+
+  useEffect(() => {
+    if (!showTelegramModal || !userProfile) {
+      return;
+    }
+
+    loadTelegramLinkStatus();
+
+    const interval = window.setInterval(() => {
+      loadTelegramLinkStatus();
+    }, 3000);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        loadTelegramLinkStatus();
+      }
+    };
+
+    window.addEventListener("focus", loadTelegramLinkStatus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", loadTelegramLinkStatus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showTelegramModal, userProfile?.uid]);
 
   const normalizedQuery = searchQuery.trim().toLowerCase();
   const filteredResults =
@@ -462,6 +510,20 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
                   )}
                 </div>
                 <div className="p-1">
+                  <button
+                    onClick={async () => {
+                      setShowProfileMenu(false);
+                      setShowTelegramModal(true);
+                      await loadTelegramLinkStatus();
+                    }}
+                    className="flex w-full cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-semibold text-gray-700 transition-colors hover:bg-blue-50/80"
+                  >
+                    <Send className="h-4 w-4 text-sky-500" />
+                    <span className="flex-1">Telegram</span>
+                    <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold ${telegramLink?.linked ? "bg-emerald-50 text-emerald-600" : "bg-gray-100 text-gray-500"}`}>
+                      {telegramLink?.linked ? "Đã liên kết" : "Chưa"}
+                    </span>
+                  </button>
                   <button
                     onClick={() => {
                       onSearchSelect("CÀI ĐẶT" as TabType);
@@ -753,6 +815,105 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
               * Bảng giá có thể thay đổi tùy theo chính sách của nhà cung cấp dịch vụ AI.
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {showTelegramModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 p-4" onClick={() => setShowTelegramModal(false)}>
+          <div className="relative w-full max-w-sm rounded-3xl border border-gray-100 bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setShowTelegramModal(false)}
+              className="absolute right-4 top-4 rounded-full p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            <div className="mb-4">
+              <div className="mb-2 inline-flex rounded-2xl bg-sky-50 p-2 text-sky-600">
+                <Send className="h-4 w-4" />
+              </div>
+              <h3 className="text-base font-bold text-gray-900">Liên kết Telegram</h3>
+              <p className="mt-1 text-xs text-gray-500">Chỉ dùng link liên kết từ web, không dùng đăng nhập Telegram nữa.</p>
+            </div>
+
+            <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs font-semibold text-gray-600">Trạng thái</span>
+                <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${telegramLink?.linked ? "bg-emerald-100 text-emerald-700" : "border border-gray-200 bg-white text-gray-500"}`}>
+                  {telegramLink?.linked ? "Đã liên kết" : "Chưa liên kết"}
+                </span>
+              </div>
+              {telegramLink?.linked && (
+                <p className="mt-2 text-[11px] text-gray-500">Telegram đã được liên kết với tài khoản này.</p>
+              )}
+              {!telegramLink?.linked && telegramLink?.pendingCode && (
+                <p className="mt-2 text-[11px] text-gray-500">Web sẽ tự cập nhật ngay sau khi bạn liên kết xong trên Telegram.</p>
+              )}
+            </div>
+
+            {!telegramLink?.linked && (
+              <div className="mt-4 rounded-2xl border border-sky-100 bg-sky-50/70 p-4">
+                <p className="text-[11px] font-semibold text-sky-700">1. Mở bot</p>
+                <a
+                  href={`https://t.me/${telegramLink?.botUsername || "iGEN_ERP_Bot"}?start=${encodeURIComponent(telegramLink?.pendingCode || "")}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-1 inline-block text-sm font-bold text-sky-800 underline decoration-sky-300 underline-offset-4"
+                >
+                  Mở @{telegramLink?.botUsername || "iGEN_ERP_Bot"}
+                </a>
+                <p className="mt-3 text-[11px] font-semibold text-sky-700">2. Mã dự phòng</p>
+                <div className="mt-1 rounded-xl bg-white px-3 py-2 font-mono text-sm font-bold text-gray-900">
+                  /link {telegramLink?.pendingCode || "......"}
+                </div>
+                <p className="mt-2 text-[11px] text-gray-500">Thông thường chỉ cần bấm link mở bot ở trên. Lệnh này chỉ là phương án dự phòng.</p>
+              </div>
+            )}
+
+            <div className="mt-4 flex gap-2">
+              {!telegramLink?.linked && (
+                <button
+                  onClick={async () => {
+                    try {
+                      setTelegramLoading(true);
+                      const data = await authService.createTelegramLinkCode();
+                      setTelegramLink(data);
+                      toast.success("Đã tạo mã liên kết Telegram.");
+                    } catch (error: any) {
+                      toast.error(error.message || "Không thể tạo mã liên kết Telegram.");
+                    } finally {
+                      setTelegramLoading(false);
+                    }
+                  }}
+                  className="flex-1 rounded-2xl bg-sky-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={telegramLoading}
+                >
+                  {telegramLoading ? "Đang tạo..." : telegramLink?.pendingCode ? "Tạo lại mã" : "Tạo mã"}
+                </button>
+              )}
+
+              {telegramLink?.linked && (
+                <button
+                  onClick={async () => {
+                    try {
+                      setTelegramLoading(true);
+                      const data = await authService.unlinkTelegram();
+                      setTelegramLink(data);
+                      toast.success("Đã gỡ liên kết Telegram và tạo sẵn mã liên kết mới.");
+                    } catch (error: any) {
+                      toast.error(error.message || "Không thể gỡ liên kết Telegram.");
+                    } finally {
+                      setTelegramLoading(false);
+                    }
+                  }}
+                  className="flex-1 rounded-2xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-bold text-red-600 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={telegramLoading}
+                >
+                  {telegramLoading ? "Đang xử lý..." : "Gỡ liên kết"}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}

@@ -3,14 +3,34 @@ import bcrypt from "bcryptjs";
 import { UserModel } from "../model/user.model";
 import { CompanyModel } from "../model/company.model";
 import { RolePermissionModel } from "../model/role-permission.model";
+import { TelegramSessionModel } from "../model/telegram-session.model";
+import { TelegramLinkTokenModel } from "../model/telegram-link-token.model";
 import { DEFAULT_ROLE_LEVELS } from "../middleware/auth";
 import { IUser } from "../interface/user.interface";
 import { ICompany } from "../interface/company.interface";
+import { TelegramLinkStatus } from "../interface/telegram-link.interface";
+import { getCompanyHeyGenLibrary } from "./heygen.service";
 
 const ACCESS_TOKEN_SECRET = process.env.JWT_ACCESS_SECRET || "your_jwt_access_secret_key";
 const REFRESH_TOKEN_SECRET = process.env.JWT_REFRESH_SECRET || "your_jwt_refresh_secret_key";
+const TELEGRAM_LINK_CODE_TTL_MS = 5 * 60 * 1000;
+
+function generateTelegramLinkCode() {
+  return Math.random().toString(36).slice(2, 8).toUpperCase();
+}
 
 export const authService = {
+  normalizeCompanyHeyGenConfig(input?: any) {
+    return {
+      apiKey: String(input?.apiKey || "").trim(),
+      defaultAvatarId: String(input?.defaultAvatarId || "").trim(),
+      defaultVoiceId: String(input?.defaultVoiceId || "").trim(),
+      isConnected: Boolean(input?.isConnected),
+      connectedAt: input?.connectedAt ? new Date(input.connectedAt) : null,
+      lastSyncAt: input?.lastSyncAt ? new Date(input.lastSyncAt) : null,
+    };
+  },
+
   normalizeHeyGenAccess(heygenAccess?: any) {
     const avatarIds = Array.isArray(heygenAccess?.avatarIds)
       ? heygenAccess.avatarIds.map((item: any) => String(item || "").trim()).filter(Boolean)
@@ -127,6 +147,65 @@ export const authService = {
     return await UserModel.findById(id).select("-password");
   },
 
+  async getTelegramLinkStatus(id: string): Promise<TelegramLinkStatus> {
+    const [session, pendingCode] = await Promise.all([
+      TelegramSessionModel.findOne({ userId: id }).lean(),
+      TelegramLinkTokenModel.findOne({ userId: id }).lean(),
+    ]);
+
+    return {
+      linked: !!session,
+      telegramChatId: session?.telegramChatId ?? null,
+      telegramUserId: session?.telegramUserId ?? null,
+      linkedAt: session?.linkedAt ?? null,
+      pendingCode: pendingCode?.code ?? null,
+      pendingCodeExpiresAt: pendingCode?.expiresAt ?? null,
+      botUsername: String(process.env.TELEGRAM_BOT_USERNAME || "iGEN_ERP_Bot").trim(),
+    };
+  },
+
+  async createTelegramLinkCode(id: string): Promise<TelegramLinkStatus> {
+    const user = await UserModel.findById(id).select("email displayName");
+    if (!user) {
+      throw new Error("Không tìm thấy người dùng.");
+    }
+
+    await TelegramLinkTokenModel.deleteMany({ userId: user._id });
+
+    let created = null;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        created = await TelegramLinkTokenModel.create({
+          userId: user._id,
+          email: user.email,
+          displayName: user.displayName || user.email,
+          code: generateTelegramLinkCode(),
+          expiresAt: new Date(Date.now() + TELEGRAM_LINK_CODE_TTL_MS),
+        });
+        break;
+      } catch (error: any) {
+        if (error?.code !== 11000) {
+          throw error;
+        }
+      }
+    }
+
+    if (!created) {
+      throw new Error("Không thể tạo mã liên kết Telegram. Vui lòng thử lại.");
+    }
+
+    return this.getTelegramLinkStatus(id);
+  },
+
+  async unlinkTelegram(id: string): Promise<TelegramLinkStatus> {
+    await Promise.all([
+      TelegramSessionModel.deleteMany({ userId: id }),
+      TelegramLinkTokenModel.deleteMany({ userId: id }),
+    ]);
+
+    return this.createTelegramLinkCode(id);
+  },
+
   /**
    * Cập nhật thông tin tài khoản người dùng
    */
@@ -167,7 +246,8 @@ export const authService = {
       code: normalizedCode,
       name: companyName.trim(),
       ownerEmail: emailLower,
-      createdAt: new Date()
+      createdAt: new Date(),
+      heygenConfig: this.normalizeCompanyHeyGenConfig(),
     });
     await newCompany.save();
 
@@ -332,7 +412,7 @@ export const authService = {
   /**
    * Cập nhật thông tin doanh nghiệp (Superadmin only)
    */
-  async updateCompany(companyId: string, updateData: { name?: string; code?: string; ownerEmail?: string }): Promise<ICompany> {
+  async updateCompany(companyId: string, updateData: { name?: string; code?: string; ownerEmail?: string; heygenConfig?: any }): Promise<ICompany> {
     const company = await CompanyModel.findById(companyId);
     if (!company) {
       throw new Error("Không tìm thấy doanh nghiệp trên hệ thống.");
@@ -403,8 +483,107 @@ export const authService = {
     if (newName !== undefined) company.name = newName;
     if (newCode !== undefined) company.code = newCode;
     if (newOwnerEmail !== undefined) company.ownerEmail = newOwnerEmail;
+    if (updateData.heygenConfig) {
+      company.heygenConfig = this.normalizeCompanyHeyGenConfig({
+        ...company.heygenConfig,
+        ...updateData.heygenConfig,
+      });
+    }
 
     return await company.save();
+  },
+
+  async getCompanyHeyGenConfig(companyCode: string): Promise<any> {
+    const normalizedCode = String(companyCode || "").trim().toUpperCase();
+    const company = await CompanyModel.findOne({ code: normalizedCode });
+    if (!company) {
+      throw new Error("Khong tim thay doanh nghiep tren he thong.");
+    }
+
+    const config = this.normalizeCompanyHeyGenConfig(company.heygenConfig);
+    return {
+      companyCode: company.code,
+      companyName: company.name,
+      heygenConfig: config,
+    };
+  },
+
+  async updateCompanyHeyGenConfig(companyCode: string, payload: any): Promise<any> {
+    const normalizedCode = String(companyCode || "").trim().toUpperCase();
+    const company = await CompanyModel.findOne({ code: normalizedCode });
+    if (!company) {
+      throw new Error("Khong tim thay doanh nghiep tren he thong.");
+    }
+
+    company.heygenConfig = this.normalizeCompanyHeyGenConfig({
+      ...company.heygenConfig,
+      ...payload,
+    });
+
+    await company.save();
+    return this.getCompanyHeyGenConfig(normalizedCode);
+  },
+
+  async testCompanyHeyGenConfig(companyCode: string, apiKey?: string): Promise<any> {
+    const companyInfo = await this.getCompanyHeyGenConfig(companyCode);
+    const targetApiKey = String(apiKey || companyInfo.heygenConfig.apiKey || "").trim();
+    if (!targetApiKey) {
+      throw new Error("Chua cau hinh API key HeyGen cho doanh nghiep nay.");
+    }
+
+    const library = await getCompanyHeyGenLibrary(companyInfo.companyCode, targetApiKey);
+    return {
+      status: "success",
+      avatars: library.avatars,
+      voices: library.voices,
+      sources: library.sources,
+      counts: {
+        avatars: library.avatars.length,
+        voices: library.voices.length,
+      },
+    };
+  },
+
+  async syncCompanyHeyGenLibrary(companyCode: string): Promise<any> {
+    const company = await CompanyModel.findOne({ code: String(companyCode || "").trim().toUpperCase() });
+    if (!company) {
+      throw new Error("Khong tim thay doanh nghiep tren he thong.");
+    }
+
+    const config = this.normalizeCompanyHeyGenConfig(company.heygenConfig);
+    if (!config.apiKey) {
+      throw new Error("Chua cau hinh API key HeyGen cho doanh nghiep nay.");
+    }
+
+    const library = await getCompanyHeyGenLibrary(company.code, config.apiKey);
+    const avatarIds = library.avatars.map((item: any) => String(item.id || "").trim()).filter(Boolean);
+    const voiceIds = library.voices.map((item: any) => String(item.id || "").trim()).filter(Boolean);
+
+    company.heygenConfig = this.normalizeCompanyHeyGenConfig({
+      ...config,
+      defaultAvatarId: config.defaultAvatarId && avatarIds.includes(config.defaultAvatarId)
+        ? config.defaultAvatarId
+        : (avatarIds[0] || ""),
+      defaultVoiceId: config.defaultVoiceId && voiceIds.includes(config.defaultVoiceId)
+        ? config.defaultVoiceId
+        : (voiceIds[0] || ""),
+      isConnected: true,
+      connectedAt: config.connectedAt || new Date(),
+      lastSyncAt: new Date(),
+    });
+
+    await company.save();
+
+    return {
+      ...(await this.getCompanyHeyGenConfig(company.code)),
+      avatars: library.avatars,
+      voices: library.voices,
+      counts: {
+        avatars: library.avatars.length,
+        voices: library.voices.length,
+      },
+      sources: library.sources,
+    };
   },
 
   /**

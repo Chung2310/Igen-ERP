@@ -58,6 +58,10 @@ export interface IHeyGenAccessConfig {
   apiKey?: string;
 }
 
+export interface IElevenLabsAccessConfig {
+  apiKey?: string;
+}
+
 export interface IUser extends Document {
   email: string;
   password?: string; // Hashed password
@@ -70,6 +74,7 @@ export interface IUser extends Document {
   zaloIntegration?: IZaloIntegration | null;
   aiAutoReplyConfig?: IAiAutoReplyConfig | null;
   heygenAccess?: IHeyGenAccessConfig | null;
+  elevenlabsAccess?: IElevenLabsAccessConfig | null;
   
   // Org Chart & SaaS fields
   jobTitle?: string;

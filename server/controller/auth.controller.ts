@@ -153,6 +153,51 @@ export const authController = {
     }
   },
 
+  async getTelegramLinkStatus(req: AuthenticatedRequest, res: Response) {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Người dùng chưa xác thực." });
+      }
+
+      const data = await authService.getTelegramLinkStatus(userId);
+      return res.status(200).json({ status: "success", data });
+    } catch (error: any) {
+      console.error("[authController.getTelegramLinkStatus] Error:", error);
+      return res.status(500).json({ status: "error", message: error.message || "Không thể lấy trạng thái liên kết Telegram." });
+    }
+  },
+
+  async createTelegramLinkCode(req: AuthenticatedRequest, res: Response) {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Người dùng chưa xác thực." });
+      }
+
+      const data = await authService.createTelegramLinkCode(userId);
+      return res.status(200).json({ status: "success", message: "Đã tạo mã liên kết Telegram.", data });
+    } catch (error: any) {
+      console.error("[authController.createTelegramLinkCode] Error:", error);
+      return res.status(500).json({ status: "error", message: error.message || "Không thể tạo mã liên kết Telegram." });
+    }
+  },
+
+  async unlinkTelegram(req: AuthenticatedRequest, res: Response) {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Người dùng chưa xác thực." });
+      }
+
+      const data = await authService.unlinkTelegram(userId);
+      return res.status(200).json({ status: "success", message: "Đã hủy liên kết Telegram.", data });
+    } catch (error: any) {
+      console.error("[authController.unlinkTelegram] Error:", error);
+      return res.status(500).json({ status: "error", message: error.message || "Không thể hủy liên kết Telegram." });
+    }
+  },
+
   /**
    * PATCH /api/v1/auth/profile
    */
@@ -372,6 +417,67 @@ export const authController = {
         status: "error",
         message: error.message || "Không thể cập nhật doanh nghiệp",
       });
+    }
+  },
+
+  async getCompanyHeyGenConfig(req: AuthenticatedRequest, res: Response) {
+    try {
+      if (req.user?.role !== "superadmin" && req.user?.companyCode !== req.params.code) {
+        return res.status(403).json({ status: "error", message: "Ban khong co quyen xem cau hinh HeyGen cua doanh nghiep nay." });
+      }
+      const result = await authService.getCompanyHeyGenConfig(req.params.code);
+      return res.status(200).json({ status: "success", data: result });
+    } catch (error: any) {
+      console.error("[authController.getCompanyHeyGenConfig] Error:", error);
+      return res.status(400).json({ status: "error", message: error.message || "Khong the lay cau hinh HeyGen doanh nghiep" });
+    }
+  },
+
+  async updateCompanyHeyGenConfig(req: AuthenticatedRequest, res: Response) {
+    try {
+      if (!["admin", "superadmin"].includes(String(req.user?.role || ""))) {
+        return res.status(403).json({ status: "error", message: "Ban khong co quyen cap nhat cau hinh HeyGen." });
+      }
+      if (req.user?.role !== "superadmin" && req.user?.companyCode !== req.params.code) {
+        return res.status(403).json({ status: "error", message: "Ban khong co quyen cap nhat cau hinh HeyGen cua doanh nghiep nay." });
+      }
+      const result = await authService.updateCompanyHeyGenConfig(req.params.code, req.body);
+      return res.status(200).json({ status: "success", message: "Cap nhat cau hinh HeyGen thanh cong", data: result });
+    } catch (error: any) {
+      console.error("[authController.updateCompanyHeyGenConfig] Error:", error);
+      return res.status(400).json({ status: "error", message: error.message || "Khong the cap nhat cau hinh HeyGen doanh nghiep" });
+    }
+  },
+
+  async testCompanyHeyGenConfig(req: AuthenticatedRequest, res: Response) {
+    try {
+      if (!["admin", "superadmin"].includes(String(req.user?.role || ""))) {
+        return res.status(403).json({ status: "error", message: "Ban khong co quyen kiem tra ket noi HeyGen." });
+      }
+      if (req.user?.role !== "superadmin" && req.user?.companyCode !== req.params.code) {
+        return res.status(403).json({ status: "error", message: "Ban khong co quyen kiem tra HeyGen cua doanh nghiep nay." });
+      }
+      const result = await authService.testCompanyHeyGenConfig(req.params.code, req.body?.apiKey);
+      return res.status(200).json({ status: "success", data: result });
+    } catch (error: any) {
+      console.error("[authController.testCompanyHeyGenConfig] Error:", error);
+      return res.status(400).json({ status: "error", message: error.message || "Khong the kiem tra ket noi HeyGen" });
+    }
+  },
+
+  async syncCompanyHeyGenLibrary(req: AuthenticatedRequest, res: Response) {
+    try {
+      if (!["admin", "superadmin"].includes(String(req.user?.role || ""))) {
+        return res.status(403).json({ status: "error", message: "Ban khong co quyen dong bo thu vien HeyGen." });
+      }
+      if (req.user?.role !== "superadmin" && req.user?.companyCode !== req.params.code) {
+        return res.status(403).json({ status: "error", message: "Ban khong co quyen dong bo HeyGen cua doanh nghiep nay." });
+      }
+      const result = await authService.syncCompanyHeyGenLibrary(req.params.code);
+      return res.status(200).json({ status: "success", message: "Dong bo thu vien HeyGen thanh cong", data: result });
+    } catch (error: any) {
+      console.error("[authController.syncCompanyHeyGenLibrary] Error:", error);
+      return res.status(400).json({ status: "error", message: error.message || "Khong the dong bo thu vien HeyGen" });
     }
   },
 
