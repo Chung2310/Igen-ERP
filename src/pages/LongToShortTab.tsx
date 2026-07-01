@@ -14,10 +14,12 @@ import {
   Film,
   ChevronRight,
   Info,
+  Upload,
 } from "lucide-react";
 import { opusclipService, OpusClipProject } from "../services/opusclipService";
 import { socketService } from "../services/socketService";
 import { toast } from "./Toast";
+import { getAccessToken } from "../services/authService";
 
 export default function LongToShortTab() {
   const [videoUrl, setVideoUrl] = useState("");
@@ -30,6 +32,7 @@ export default function LongToShortTab() {
   const [selectedProject, setSelectedProject] = useState<OpusClipProject | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [copiedTextId, setCopiedTextId] = useState<string | null>(null);
 
   // Load projects list
@@ -75,6 +78,59 @@ export default function LongToShortTab() {
       unsubFailed();
     };
   }, [selectedProject?.projectId]);
+
+  // Handle upload local video file
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Giới hạn dung lượng video (Ví dụ: 100MB)
+    const MAX_SIZE = 100 * 1024 * 1024; // 100MB
+    if (file.size > MAX_SIZE) {
+      toast.error("Dung lượng video không được vượt quá 100MB.");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const base64Data = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = (error) => reject(error);
+      });
+
+      const res = await fetch('/api/v1/media/upload', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${getAccessToken()}`,
+        },
+        body: JSON.stringify({
+          file: base64Data,
+          folder: 'igen_erp/opusclip',
+        }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.message || `Lỗi tải lên: ${res.statusText}`);
+      }
+
+      const data = await res.json();
+      if (data.url) {
+        setVideoUrl(data.url);
+        toast.success("Tải video lên máy chủ thành công!");
+      } else {
+        throw new Error("Không nhận được URL từ máy chủ.");
+      }
+    } catch (err: any) {
+      console.error("Lỗi tải video:", err);
+      toast.error(err.message || "Tải video thất bại. Vui lòng thử lại.");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   // Handle submit new project
   const handleSubmit = async (e: React.FormEvent) => {
@@ -198,7 +254,7 @@ export default function LongToShortTab() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">
-                  Đường dẫn video (YouTube / Google Drive) *
+                  Đường dẫn video (YouTube / Google Drive / URL trực tiếp) *
                 </label>
                 <input
                   type="url"
@@ -207,7 +263,32 @@ export default function LongToShortTab() {
                   value={videoUrl}
                   onChange={(e) => setVideoUrl(e.target.value)}
                   className="block h-11 w-full rounded-2xl border border-gray-200 bg-white px-4 text-xs font-bold text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10"
+                  disabled={uploading}
                 />
+                
+                {/* Tải lên video cục bộ */}
+                <div className="mt-2">
+                  <label className="flex h-11 cursor-pointer items-center justify-center gap-2 rounded-2xl border border-dashed border-purple-200 bg-purple-50/30 px-4 text-xs font-bold text-purple-600 transition-all hover:bg-purple-50 hover:border-purple-300">
+                    {uploading ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 animate-spin text-purple-600" />
+                        <span>Đang tải tệp lên (vui lòng chờ)...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-4 w-4 text-purple-500" />
+                        <span>Tải tệp video từ máy tính (&lt; 100MB)</span>
+                      </>
+                    )}
+                    <input
+                      type="file"
+                      accept="video/*"
+                      className="hidden"
+                      onChange={handleFileUpload}
+                      disabled={uploading}
+                    />
+                  </label>
+                </div>
               </div>
 
               <div>
@@ -264,7 +345,7 @@ export default function LongToShortTab() {
                   type="text"
                   placeholder="Nhập Template ID nếu có"
                   value={brandTemplateId}
-                  onChange={(e) => setSourceLang(e.target.value)}
+                  onChange={(e) => setBrandTemplateId(e.target.value)}
                   className="block h-11 w-full rounded-2xl border border-gray-200 bg-white px-4 text-xs font-bold text-gray-900 outline-none transition-all focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10"
                 />
               </div>
