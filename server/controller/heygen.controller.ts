@@ -17,7 +17,8 @@ export const heygenController = {
       if (!userId) {
         return res.status(401).json({ status: "error", message: "Yeu cau dang nhap" });
       }
-      return res.status(200).json(await heygenService.getLibrary(userId));
+      const force = req.query.force === "true";
+      return res.status(200).json(await heygenService.getLibrary(userId, force));
     } catch (error: any) {
       console.error("[heygenController.getLibrary] Error:", error);
       return res.status(getErrorStatus(error)).json({ status: "error", message: "Khong the lay thu vien HeyGen", details: error.message });

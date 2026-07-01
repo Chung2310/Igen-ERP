@@ -6,6 +6,8 @@ export type HeyGenLibraryItem = {
   language?: string;
   accent?: string;
   isDefault?: boolean;
+  isCustom?: boolean;
+  avatarType?: string;
 };
 
 const HEYGEN_LIBRARY_CACHE_TTL = 2 * 60 * 1000;
@@ -61,7 +63,8 @@ export const heygenApi = {
     if (!options?.force && heygenLibraryCache && heygenLibraryCache.expiresAt > Date.now()) {
       return heygenLibraryCache.data;
     }
-    const response = await fetch("/api/v1/heygen/library", {
+    const url = options?.force ? "/api/v1/heygen/library?force=true" : "/api/v1/heygen/library";
+    const response = await fetch(url, {
       headers: getJwtHeaders(false),
     });
     const data = await parseJsonResponse(response, "Lỗi lấy thư viện HeyGen");

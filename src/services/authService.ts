@@ -1,4 +1,4 @@
-import { UserProfile, CompanyProfile, TelegramLinkStatus } from "../types";
+import { UserProfile, CompanyProfile, TelegramLinkStatus, CompanyHeyGenConfig } from "../types";
 
 // Helper để lấy token từ localStorage
 export function getAccessToken(): string | null {
@@ -395,6 +395,85 @@ export const authService = {
       ...result.user,
       uid: result.user._id,
     };
+  },
+
+  async getCompanyHeyGenConfig(companyCode: string): Promise<{
+    companyCode: string;
+    companyName: string;
+    heygenConfig: CompanyHeyGenConfig;
+  }> {
+    const res = await fetch(`/api/v1/auth/companies/${encodeURIComponent(companyCode)}/heygen`, {
+      headers: {
+        "Authorization": `Bearer ${getAccessToken()}`,
+      },
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.message || "Không thể lấy cấu hình HeyGen doanh nghiệp");
+    }
+
+    const result = await res.json();
+    return result.data;
+  },
+
+  async updateCompanyHeyGenConfig(companyCode: string, updateData: Partial<CompanyHeyGenConfig>): Promise<{
+    companyCode: string;
+    companyName: string;
+    heygenConfig: CompanyHeyGenConfig;
+  }> {
+    const res = await fetch(`/api/v1/auth/companies/${encodeURIComponent(companyCode)}/heygen`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${getAccessToken()}`,
+      },
+      body: JSON.stringify(updateData),
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.message || "Không thể cập nhật cấu hình HeyGen doanh nghiệp");
+    }
+
+    const result = await res.json();
+    return result.data;
+  },
+
+  async testCompanyHeyGenConfig(companyCode: string, apiKey?: string): Promise<any> {
+    const res = await fetch(`/api/v1/auth/companies/${encodeURIComponent(companyCode)}/heygen/test`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${getAccessToken()}`,
+      },
+      body: JSON.stringify({ apiKey }),
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.message || "Không thể kiểm tra kết nối HeyGen");
+    }
+
+    const result = await res.json();
+    return result.data;
+  },
+
+  async syncCompanyHeyGenLibrary(companyCode: string): Promise<any> {
+    const res = await fetch(`/api/v1/auth/companies/${encodeURIComponent(companyCode)}/heygen/sync`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${getAccessToken()}`,
+      },
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.message || "Không thể đồng bộ thư viện HeyGen");
+    }
+
+    const result = await res.json();
+    return result.data;
   },
 
   async getTelegramLinkStatus(): Promise<TelegramLinkStatus> {
