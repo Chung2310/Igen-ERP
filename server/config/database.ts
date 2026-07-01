@@ -108,7 +108,7 @@ export async function connectDB() {
 
   try {
     await mongoose.connect(connectionUri);
-    console.log("[Backend Database] Kết nối MongoDB thành công.");
+    console.log(`[Backend Database] Kết nối MongoDB thành công. db=${mongoose.connection.name || "unknown"} host=${mongoose.connection.host || "unknown"} instance=${process.env.INSTANCE_ID || process.env.HOSTNAME || "local"} pid=${process.pid}`);
     // Chạy các seeder dữ liệu hệ thống
     await seedSuperAdmin();
     await seedPermissions();

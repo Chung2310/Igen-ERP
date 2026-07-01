@@ -13,8 +13,8 @@ export interface ITelegramSession extends Document {
 
 const TelegramSessionSchema = new Schema<ITelegramSession>(
   {
-    telegramChatId: { type: Number, required: true, unique: true, index: true },
-    telegramUserId: { type: Number, default: undefined, index: true },
+    telegramChatId: { type: Number, required: true, unique: true },
+    telegramUserId: { type: Number, default: undefined },
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
     email: { type: String, required: true },
     displayName: { type: String, default: "" },

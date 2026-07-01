@@ -12,6 +12,7 @@ import { SocialIntegrationModel } from "../model/social-integration.model";
 import { MarketingContentModel } from "../model/marketing-content.model";
 import { facebookPostService } from "./facebook-post.service";
 import { tiktokService } from "./tiktok.service";
+import mongoose from "mongoose";
 
 const TELEGRAM_API_BASE_URL = process.env.TELEGRAM_API_BASE_URL || "https://api.telegram.org";
 
@@ -21,6 +22,19 @@ let lastOffset = 0;
 /** Danh sách role được phép sử dụng lệnh quản trị */
 const ADMIN_ROLES = ["admin", "superadmin"];
 const TELEGRAM_QUEUE_LIMIT = 5;
+const TELEGRAM_DEBUG_PREFIX = `[Telegram Debug][instance=${process.env.INSTANCE_ID || process.env.HOSTNAME || "local"}][pid=${process.pid}]`;
+
+function getTelegramDebugContext(extra?: Record<string, unknown>) {
+  const dbName = mongoose.connection?.name || "unknown";
+  const base = { db: dbName, ...extra };
+  return Object.entries(base)
+    .map(([key, value]) => `${key}=${String(value)}`)
+    .join(" ");
+}
+
+function logTelegramDebug(message: string, extra?: Record<string, unknown>) {
+  console.log(`${TELEGRAM_DEBUG_PREFIX} ${message}${extra ? ` | ${getTelegramDebugContext(extra)}` : ""}`);
+}
 
 function buildSessionScope(session: any) {
   const companyCode = String(session?.companyCode || "").trim();
@@ -347,6 +361,15 @@ export const telegramService = {
     const command = normalizedInput.command === "/menu" ? "/help" : normalizedInput.command;
     const args = normalizedInput.args;
 
+    logTelegramDebug("handleCommand:start", {
+      chatId,
+      chatType,
+      telegramUserId: telegramUserId ?? "none",
+      command,
+      args: args || "-",
+      messageId: messageId ?? "none",
+    });
+
     if (chatType !== "private") {
       await this.sendMessage(
         chatId,
@@ -363,6 +386,11 @@ export const telegramService = {
     // === XỬ LÝ ĐĂNG NHẬP ===
     if (command === "/link") {
       const normalizedCode = String(args || "").trim().toUpperCase();
+      logTelegramDebug("link:attempt", {
+        chatId,
+        telegramUserId: telegramUserId ?? "none",
+        code: normalizedCode || "-",
+      });
       if (!normalizedCode) {
         await this.sendMessage(chatId, "⚠️ Vui lòng nhập mã liên kết. Ví dụ: <code>/link ABC123</code>");
         return;
@@ -370,6 +398,14 @@ export const telegramService = {
 
       try {
         const linkToken = await TelegramLinkTokenModel.findOneAndDelete({ code: normalizedCode });
+        logTelegramDebug("link:tokenLookup", {
+          chatId,
+          telegramUserId: telegramUserId ?? "none",
+          code: normalizedCode,
+          foundToken: !!linkToken,
+          tokenUserId: linkToken?.userId ? String(linkToken.userId) : "none",
+          tokenExpiresAt: linkToken?.expiresAt ? linkToken.expiresAt.toISOString() : "none",
+        });
         if (!linkToken) {
           await this.sendMessage(chatId, "❌ Mã liên kết không hợp lệ hoặc đã hết hạn. Hãy tạo mã mới từ web ERP.");
           return;
@@ -402,6 +438,14 @@ export const telegramService = {
           displayName: user.displayName || user.email,
           role: user.role || "user",
           companyCode: user.companyCode || "",
+        });
+
+        logTelegramDebug("link:sessionCreated", {
+          chatId,
+          telegramUserId: telegramUserId ?? "none",
+          userId: String(user._id),
+          email: user.email,
+          companyCode: user.companyCode || "-",
         });
 
         const linkedSession = {
@@ -464,6 +508,15 @@ export const telegramService = {
     let session: any = null;
     try {
       session = await TelegramSessionModel.findOne({ telegramChatId: chatId }).lean();
+      logTelegramDebug("session:lookup", {
+        chatId,
+        telegramUserId: telegramUserId ?? "none",
+        command,
+        foundSession: !!session,
+        sessionUserId: session?.userId ? String(session.userId) : "none",
+        sessionEmail: session?.email || "none",
+        sessionRole: session?.role || "none",
+      });
       if (session && telegramUserId && session.telegramUserId !== telegramUserId) {
         await TelegramSessionModel.updateOne(
           { _id: session._id },
@@ -474,6 +527,11 @@ export const telegramService = {
           }
         );
         session.telegramUserId = telegramUserId;
+        logTelegramDebug("session:telegramUserIdUpdated", {
+          chatId,
+          sessionUserId: session?.userId ? String(session.userId) : "none",
+          telegramUserId,
+        });
       }
     } catch (err) {
       console.error("[Telegram Bot] Lỗi tra cứu session:", err);
