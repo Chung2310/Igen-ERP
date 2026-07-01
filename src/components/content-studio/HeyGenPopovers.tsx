@@ -142,53 +142,97 @@ export function PickerPopover({
 
   // UI render – split into two columns: folder list (left) and avatar grid (right)
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
-      <div className={`w-full max-w-[min(92vw,780px)] rounded-[28px] border ${HEYGEN_THEME.border} ${HEYGEN_THEME.surface} shadow-2xl flex flex-col overflow-hidden`}
-        style={{ maxHeight: "min(90vh, 640px)" }}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-sm">
+      <div
+        className={`flex w-full max-w-[min(92vw,820px)] flex-col overflow-hidden rounded-[28px] border ${HEYGEN_THEME.border} bg-white shadow-[0_32px_64px_rgba(0,0,0,0.18)]`}
+        style={{ maxHeight: "min(90vh, 660px)" }}
       >
         {/* ── Header ── */}
-        <div className={`flex items-center justify-between gap-3 px-5 py-4 border-b ${HEYGEN_THEME.border} shrink-0`}>
-          <div>
-            <p className="text-sm font-semibold text-slate-900">{title}</p>
-            <p className={`text-xs ${HEYGEN_THEME.textMuted}`}>
-              {isAvatarMode ? `${folderNames.length} nhóm · ${items.filter(i => i.isCustom).length} avatar` : `${items.length} mục`}
-            </p>
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400 to-violet-500 text-white shadow-sm">
+              <UserRound className="h-4 w-4" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-slate-900">{title}</p>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className={`text-[11px] ${HEYGEN_THEME.textMuted}`}>
+                  {isAvatarMode
+                    ? `${folderNames.length} nhóm · ${items.filter(i => i.isCustom).length} avatar`
+                    : `${items.length} mục`}
+                </span>
+                {selectedFolder && (
+                  <>
+                    <span className="text-slate-300 text-[11px]">›</span>
+                    <span className="text-[11px] font-semibold text-cyan-600 truncate max-w-[140px]">
+                      {selectedFolder}
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className={`flex h-8 w-8 items-center justify-center rounded-full border ${HEYGEN_THEME.border} ${HEYGEN_THEME.surfaceMuted} text-slate-500 transition hover:bg-slate-100 hover:text-slate-900`}
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-slate-200 hover:text-slate-900"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        {/* ── Body: sidebar + grid ── */}
+        {/* ── Body ── */}
         <div className="flex flex-1 overflow-hidden">
-          {/* Folder sidebar */}
-          <div className={`w-44 shrink-0 border-r ${HEYGEN_THEME.border} overflow-y-auto py-2 px-2`}>
-            <p className={`mb-1.5 px-2 text-[10px] font-bold uppercase tracking-widest ${HEYGEN_THEME.textMuted}`}>Nhóm avatar</p>
-            <ul className="space-y-0.5">
+
+          {/* ── Sidebar ── */}
+          <div className="w-52 shrink-0 overflow-y-auto border-r border-slate-100 bg-slate-50/60 py-3 px-2">
+            <p className="mb-2 px-2 text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">
+              Nhóm avatar
+            </p>
+            <ul className="space-y-1">
               {folderNames.map(name => {
                 const isActive = name === selectedFolder;
-                const count = avatarsByFolder[name]?.length ?? 0;
+                const folderItems = avatarsByFolder[name] ?? [];
+                const count = folderItems.length;
+                const thumb = folderItems[0]?.thumbnail || folderItems[0]?.avatarUrl || folderItems[0]?.previewImage || '';
                 return (
                   <li key={name}>
                     <button
                       type="button"
                       onClick={() => setSelectedFolder(name)}
-                      className={`group flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-left text-xs font-medium transition-all duration-150 ${
+                      className={`group relative flex w-full items-center gap-2.5 overflow-hidden rounded-xl px-2 py-2 text-left transition-all duration-150 ${
                         isActive
-                          ? "bg-cyan-50 text-cyan-700 shadow-[inset_0_0_0_1px_rgba(6,182,212,0.3)]"
-                          : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                          ? "bg-white shadow-sm ring-1 ring-slate-200"
+                          : "hover:bg-white/70"
                       }`}
                     >
-                      <span className="min-w-0 truncate leading-snug">{name}</span>
-                      <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums transition-colors ${
-                        isActive ? "bg-cyan-200 text-cyan-700" : "bg-slate-100 text-slate-400 group-hover:bg-slate-200"
-                      }`}>
-                        {count}
-                      </span>
+                      {/* Active left accent bar */}
+                      {isActive && (
+                        <span className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full bg-gradient-to-b from-cyan-400 to-violet-500" />
+                      )}
+                      {/* Folder thumbnail */}
+                      <div className="ml-1 h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-slate-200">
+                        {thumb ? (
+                          <img src={thumb} alt={name} loading="lazy" decoding="async" className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-200 to-slate-300">
+                            <UserRound className="h-4 w-4 text-slate-400" />
+                          </div>
+                        )}
+                      </div>
+                      {/* Folder info */}
+                      <div className="min-w-0 flex-1">
+                        <p className={`truncate text-xs font-semibold leading-tight ${isActive ? "text-slate-900" : "text-slate-600 group-hover:text-slate-800"}`}>
+                          {name}
+                        </p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">{count} avatar</p>
+                      </div>
+                      {/* Count pill */}
+                      {isActive && (
+                        <span className="shrink-0 rounded-full bg-cyan-100 px-1.5 py-0.5 text-[10px] font-bold text-cyan-700 tabular-nums">
+                          {count}
+                        </span>
+                      )}
                     </button>
                   </li>
                 );
@@ -196,16 +240,18 @@ export function PickerPopover({
             </ul>
           </div>
 
-          {/* Avatar grid */}
-          <div ref={gridScrollRef} className="flex-1 overflow-y-auto p-3">
+          {/* ── Avatar grid ── */}
+          <div ref={gridScrollRef} className="flex-1 overflow-y-auto p-4">
             {filteredItems.length === 0 ? (
-              <div className={`flex flex-col items-center justify-center h-full gap-2 rounded-2xl border border-dashed ${HEYGEN_THEME.border} ${HEYGEN_THEME.surfaceMuted} py-10`}>
-                <UserRound className={`h-8 w-8 ${HEYGEN_THEME.textMuted}`} />
-                <p className={`text-sm ${HEYGEN_THEME.textMuted}`}>Không có avatar nào trong nhóm này.</p>
+              <div className="flex h-full flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-slate-200 bg-slate-50 py-10">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100">
+                  <UserRound className="h-5 w-5 text-slate-400" />
+                </div>
+                <p className="text-sm text-slate-400">Không có avatar nào trong nhóm này.</p>
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4">
+                <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
                   {visibleItems.map(item => {
                     const isSelected = item.id === selectedId;
                     return (
@@ -213,35 +259,35 @@ export function PickerPopover({
                         key={item.id}
                         type="button"
                         onClick={() => onSelect(item)}
-                        className={`group relative overflow-hidden rounded-2xl border-2 text-left transition-all duration-150 hover:scale-[1.03] hover:shadow-md ${
+                        className={`group relative overflow-hidden rounded-2xl text-left transition-all duration-200 ${
                           isSelected
-                            ? `${HEYGEN_THEME.accentBorder} shadow-[0_0_0_3px_rgba(6,182,212,0.15)]`
-                            : `${HEYGEN_THEME.border} hover:border-slate-300`
-                        }`}
+                            ? "ring-2 ring-cyan-500 ring-offset-2 shadow-[0_0_20px_rgba(6,182,212,0.25)]"
+                            : "ring-1 ring-slate-200 hover:ring-slate-300 hover:shadow-md"
+                        } hover:scale-[1.025]`}
                       >
-                        {/* Thumbnail */}
-                        <div className="relative aspect-[3/4] w-full overflow-hidden bg-slate-100">
+                        {/* Thumbnail with gradient name overlay */}
+                        <div className="relative aspect-[2/3] w-full overflow-hidden bg-slate-100">
                           <img
                             src={item.thumbnail || item.avatarUrl || item.previewImage || ''}
                             alt={item.name}
                             loading="lazy"
                             decoding="async"
-                            className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
+                            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.07]"
                           />
+                          {/* Bottom gradient + name */}
+                          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/65 via-black/20 to-transparent px-2 pt-6 pb-2">
+                            <p className="truncate text-[11px] font-semibold leading-tight text-white drop-shadow">
+                              {item.name}
+                            </p>
+                          </div>
                           {/* Selected overlay */}
                           {isSelected && (
-                            <div className="absolute inset-0 flex items-center justify-center bg-cyan-600/20">
-                              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-cyan-600 text-white shadow-lg">
-                                <Check className="h-4 w-4" />
+                            <div className="absolute inset-0 flex items-start justify-end bg-cyan-500/10 p-2">
+                              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-cyan-500 text-white shadow-lg">
+                                <Check className="h-3.5 w-3.5" />
                               </span>
                             </div>
                           )}
-                        </div>
-                        {/* Label */}
-                        <div className={`px-2 py-1.5 ${isSelected ? HEYGEN_THEME.accentBg : ""}`}>
-                          <p className={`truncate text-[11px] font-semibold leading-tight ${isSelected ? "text-cyan-700" : "text-slate-700"}`}>
-                            {item.name}
-                          </p>
                         </div>
                       </button>
                     );
@@ -250,30 +296,30 @@ export function PickerPopover({
 
                 {/* ── Infinite scroll sentinel + progress ── */}
                 {hasMore ? (
-                  <div ref={sentinelRef} className="mt-4 flex flex-col items-center gap-2 pb-2">
-                    {/* Progress bar */}
-                    <div className="w-full max-w-[200px] overflow-hidden rounded-full bg-slate-100 h-1">
+                  <div ref={sentinelRef} className="mt-5 flex flex-col items-center gap-2 pb-2">
+                    <div className="w-full max-w-[180px] overflow-hidden rounded-full bg-slate-100 h-[3px]">
                       <div
-                        className="h-full rounded-full bg-cyan-400 transition-all duration-300"
+                        className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-violet-400 transition-all duration-500"
                         style={{ width: `${Math.round((visibleCount / filteredItems.length) * 100)}%` }}
                       />
                     </div>
                     <div className="flex items-center gap-1.5">
                       <LoaderCircle className="h-3.5 w-3.5 animate-spin text-slate-400" />
-                      <span className={`text-[11px] ${HEYGEN_THEME.textMuted}`}>
-                        Đang tải… {visibleCount}/{filteredItems.length}
+                      <span className="text-[11px] text-slate-400">
+                        {visibleCount} / {filteredItems.length} avatar
                       </span>
                     </div>
                   </div>
                 ) : filteredItems.length > PAGE_SIZE ? (
-                  <p className={`mt-4 pb-2 text-center text-[11px] ${HEYGEN_THEME.textMuted}`}>
-                    Đã hiển thị tất cả {filteredItems.length} avatar
-                  </p>
+                  <div className="mt-5 pb-2 flex items-center justify-center gap-1.5">
+                    <span className="h-px flex-1 bg-slate-100" />
+                    <p className="text-[11px] text-slate-400 px-2">Đã hiển thị tất cả {filteredItems.length} avatar</p>
+                    <span className="h-px flex-1 bg-slate-100" />
+                  </div>
                 ) : null}
               </>
             )}
           </div>
-
         </div>
       </div>
     </div>
