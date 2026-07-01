@@ -9,6 +9,7 @@ interface HeyGenVideoPreviewProps {
   script: string;
   onScriptChange?: (val: string) => void;
   selectedAvatarModel?: string;
+  usePersonalVoiceMode?: boolean;
   enableCaption: boolean;
   setEnableCaption: (value: boolean) => void;
   captionPreset?: "brand" | "clean" | "outline" | "highlight";
@@ -45,6 +46,7 @@ export function HeyGenVideoPreview({
   script,
   onScriptChange,
   selectedAvatarModel,
+  usePersonalVoiceMode = false,
   enableCaption,
   setEnableCaption,
   captionPreset = "brand",
@@ -225,6 +227,16 @@ export function HeyGenVideoPreview({
       ? "aspect-square max-w-[420px]"
       : "aspect-[16/9] max-w-[920px]";
 
+  const scriptInputTitle = selectedAvatarModel === "Avatar III"
+    ? "KỊCH BẢN PHÁT THANH (AVATAR III)"
+    : usePersonalVoiceMode
+      ? `KỊCH BẢN TEXT-TO-VOICE (${selectedAvatarModel || "HEYGEN"})`
+      : "KỊCH BẢN PHÁT THANH";
+
+  const scriptInputPlaceholder = usePersonalVoiceMode
+    ? "Nhập nội dung văn bản để HeyGen My Voice đọc trực tiếp..."
+    : "Nhập nội dung văn bản để avatar phát biểu...";
+
   return (
     <div className={`flex min-h-0 flex-1 flex-col ${HEYGEN_THEME.surface} text-slate-900`}>
       <div className="relative flex min-h-0 flex-1 items-center justify-center bg-slate-50/70 px-4 py-3">
@@ -302,8 +314,13 @@ export function HeyGenVideoPreview({
         </div>
       </div>
       
-      {selectedAvatarModel === "Avatar III" ? (
-        <HeyGenLegacyScriptInput value={script} onChange={onScriptChange || (() => {})} />
+      {selectedAvatarModel === "Avatar III" || usePersonalVoiceMode ? (
+        <HeyGenLegacyScriptInput
+          value={script}
+          onChange={onScriptChange || (() => {})}
+          title={scriptInputTitle}
+          placeholder={scriptInputPlaceholder}
+        />
       ) : null}
 
       <div className={`space-y-2 border-t ${HEYGEN_THEME.border} ${HEYGEN_THEME.surfaceMuted} p-3`}>

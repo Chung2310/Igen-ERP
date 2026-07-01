@@ -16,6 +16,7 @@ interface HeyGenOptionsDrawerProps {
   selectedAvatarModel: string;
   selectedAvatarModelDescription?: string;
   selectedHeyGenVoice?: any;
+  usePersonalVoiceMode: boolean;
   avatarBackground: "customize" | "remove" | "color";
   setAvatarBackground: (bg: "customize" | "remove" | "color") => void;
   avatarLayout: "original" | "circle";
@@ -55,6 +56,7 @@ export function HeyGenOptionsDrawer(props: HeyGenOptionsDrawerProps) {
     selectedAvatarModel,
     selectedAvatarModelDescription,
     selectedHeyGenVoice,
+    usePersonalVoiceMode,
     avatarBackground,
     setAvatarBackground,
     avatarLayout,
@@ -111,7 +113,7 @@ export function HeyGenOptionsDrawer(props: HeyGenOptionsDrawerProps) {
               <ChevronRight className="h-4 w-4 text-slate-400" />
             </OptionCard>
 
-            {selectedAvatarModel === "Avatar III" ? (
+            {selectedAvatarModel === "Avatar III" || usePersonalVoiceMode ? (
               <HeyGenLegacyVoiceOption
                 selectedVoiceName={selectedHeyGenVoice?.name}
                 selectedVoiceLanguage={selectedHeyGenVoice?.language || selectedHeyGenVoice?.accent}

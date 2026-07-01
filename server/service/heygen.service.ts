@@ -9,6 +9,7 @@ type HeyGenLibraryItem = {
   id: string;
   name: string;
   previewImage?: string;
+  previewAudioUrl?: string;
   gender?: string;
   language?: string;
   accent?: string;
@@ -22,6 +23,7 @@ type HeyGenAccessContext = {
   avatarId: string;
   voiceId: string;
   apiKey: string;
+  apiKeySource: "user" | "company" | "env" | "missing";
   allowFullLibrary: boolean;
   warnings: string[];
 };
@@ -64,6 +66,7 @@ export type CreateAvatarVideoInput = {
   avatarBackground?: "customize" | "remove" | "color";
   backgroundColor?: string;
   avatarLayout?: "original" | "circle";
+  usePersonalVoice?: boolean;
 };
 
 type HeyGenWebhookPayload = {
@@ -95,6 +98,17 @@ function getDefaultAvatarId() {
 
 function getDefaultVoiceId() {
   return String(process.env.HEYGEN_DEFAULT_VOICE_ID || "").trim();
+}
+
+function maskApiKey(value?: string) {
+  const raw = String(value || "").trim();
+  if (!raw) {
+    return "(empty)";
+  }
+  if (raw.length <= 8) {
+    return `${raw.slice(0, 2)}***${raw.slice(-2)}`;
+  }
+  return `${raw.slice(0, 4)}***${raw.slice(-4)}`;
 }
 
 function getHeyGenWebhookUrl() {
@@ -189,27 +203,60 @@ function normalizeLibraryItems(payload: any, type: "avatar" | "voice"): HeyGenLi
       if (!id || !name) {
         return null;
       }
+
+      const rawType = String(item?.avatar_type || item?.type || item?.voice_type || item?.category || "").toLowerCase();
+      const rawSource = String(item?.source || item?.origin || item?.provider || item?.library || "").toLowerCase();
+      const rawOwnership = String(item?.ownership || item?.scope || item?.visibility || "").toLowerCase();
+      const rawCreatedBy = String(item?.created_by || item?.owner_type || item?.owner_source || "").toLowerCase();
+      const tagValues = Array.isArray(item?.tags) ? item.tags.map((tag: any) => String(tag || "").toLowerCase()) : [];
+      const customSignals = [
+        item?.is_custom_avatar,
+        item?.is_user_avatar,
+        item?.is_owner,
+        item?.owned_by_me,
+        item?.created_by_user,
+        item?.is_custom_voice,
+        item?.is_user_voice,
+        item?.is_cloned_voice,
+        item?.is_mine,
+        item?.mine,
+      ];
+
+      const customKeywords = [
+        "custom",
+        "user",
+        "private",
+        "clone",
+        "cloned",
+        "voice_clone",
+        "instant_voice_clone",
+        "professional_voice_clone",
+        "import",
+        "imported",
+        "my_voice",
+        "my voice",
+        "owned",
+      ];
+
+      const matchesCustomKeyword = (...values: string[]) =>
+        values.some((value) => value && customKeywords.some((keyword) => value.includes(keyword)));
+
       return {
         id: String(id),
         name: String(name),
         previewImage: item?.preview_image_url || item?.preview_url || item?.image_url || item?.thumbnail_url,
+        previewAudioUrl: item?.preview_audio_url || item?.sample_audio_url || item?.audio_preview_url || item?.demo_audio_url,
         gender: item?.gender,
         language: item?.language || item?.locale,
         accent: item?.accent,
         isDefault: Boolean(item?.is_default || item?.default || false),
         isCustom: Boolean(
-          item?.is_custom_avatar ||
-          item?.is_user_avatar ||
-          item?.is_owner ||
-          item?.owned_by_me ||
-          item?.created_by_user ||
-          item?.avatar_type === "custom" ||
-          item?.avatar_type === "digital_twin" ||
-          item?.avatar_type === "photo_avatar" ||
-          item?.avatar_type === "talking_photo" ||
-          item?.source === "user" ||
-          item?.type === "custom" ||
-          item?.status
+          customSignals.some(Boolean) ||
+          rawType === "digital_twin" ||
+          rawType === "photo_avatar" ||
+          rawType === "talking_photo" ||
+          matchesCustomKeyword(rawType, rawSource, rawOwnership, rawCreatedBy) ||
+          tagValues.some((value) => matchesCustomKeyword(value))
         ),
         avatarType: String(item?.avatar_type || item?.type || ""),
       } satisfies HeyGenLibraryItem;
@@ -241,9 +288,11 @@ export async function getCompanyHeyGenLibrary(companyCode: string, apiKey: strin
   const result = {
     avatars: filterCustomAvatars(avatarResult.items),
     voices: voiceResult.items,
+    personalVoices: [] as HeyGenLibraryItem[],
     sources: {
       avatars: avatarResult.source,
       voices: voiceResult.source,
+      personalVoices: "not_loaded_for_company_sync",
     },
   };
 
@@ -270,6 +319,7 @@ export async function getHeyGenAccessContext(userId: string): Promise<HeyGenAcce
   let legacyAvatarId = String(user.heygenAccess?.avatarId || "").trim();
   let voiceId = String(user.heygenAccess?.voiceId || "").trim();
   let apiKey = String(user.heygenAccess?.apiKey || "").trim();
+  let apiKeySource: HeyGenAccessContext["apiKeySource"] = apiKey ? "user" : "missing";
 
   // FALLBACK TO COMPANY CONFIG
   if (!apiKey && user.companyCode && user.companyCode !== "SYSTEM") {
@@ -278,6 +328,7 @@ export async function getHeyGenAccessContext(userId: string): Promise<HeyGenAcce
       const company = await CompanyModel.findOne({ code: user.companyCode.toUpperCase() }).lean();
       if (company?.heygenConfig?.apiKey) {
         apiKey = String(company.heygenConfig.apiKey).trim();
+        apiKeySource = "company";
         if (!legacyAvatarId && !rawAvatarIds.length && company.heygenConfig.defaultAvatarId) {
           legacyAvatarId = String(company.heygenConfig.defaultAvatarId).trim();
         }
@@ -287,6 +338,14 @@ export async function getHeyGenAccessContext(userId: string): Promise<HeyGenAcce
       }
     } catch (err) {
       console.error("[getHeyGenAccessContext] Failed to load company HeyGen config:", err);
+    }
+  }
+
+  if (!apiKey) {
+    const envApiKey = String(process.env.HEYGEN_API_KEY || "").trim();
+    if (envApiKey) {
+      apiKey = envApiKey;
+      apiKeySource = "env";
     }
   }
 
@@ -306,11 +365,22 @@ export async function getHeyGenAccessContext(userId: string): Promise<HeyGenAcce
     warnings.push("Tài khoản này chưa được gán voice HeyGen mặc định.");
   }
 
+  console.log("[getHeyGenAccessContext] Resolved HeyGen access:", {
+    userId,
+    companyCode: user.companyCode || "SYSTEM",
+    apiKeySource,
+    apiKeyMasked: maskApiKey(apiKey),
+    avatarId: avatarId || "(empty)",
+    avatarCount: avatarIds.length,
+    defaultVoiceId: finalVoiceId || "(empty)",
+  });
+
   return {
     avatarIds,
     avatarId,
     voiceId: finalVoiceId,
     apiKey,
+    apiKeySource,
     allowFullLibrary,
     warnings,
   };
@@ -379,6 +449,35 @@ async function fetchLibraryWithCandidates(type: "avatar" | "voice", overrideApiK
       const payload = await requestHeyGenJson(path, undefined, overrideApiKey);
       let normalized = normalizeLibraryItems(payload, type);
       console.log(`[fetchLibraryWithCandidates] Hitting HeyGen ${type} path ${path} returned ${normalized.length} normalized items.`);
+      if (type === "voice") {
+        const rawCandidates = [
+          payload?.data?.voices,
+          payload?.voices,
+          payload?.data,
+          payload,
+        ];
+        const rawList = rawCandidates.find((item) => Array.isArray(item)) || [];
+        const rawSample = rawList.slice(0, 5).map((item: any) => ({
+          id: item?.voice_id || item?.id || item?.value,
+          name: item?.name || item?.title || item?.label,
+          type: item?.type,
+          voice_type: item?.voice_type,
+          source: item?.source,
+          provider: item?.provider,
+          ownership: item?.ownership,
+          scope: item?.scope,
+          visibility: item?.visibility,
+          created_by: item?.created_by,
+          owner_type: item?.owner_type,
+          owned_by_me: item?.owned_by_me,
+          is_owner: item?.is_owner,
+          is_custom_voice: item?.is_custom_voice,
+          is_user_voice: item?.is_user_voice,
+          is_cloned_voice: item?.is_cloned_voice,
+          isCustomNormalized: normalized.find((voice) => voice.id === String(item?.voice_id || item?.id || item?.value || ""))?.isCustom || false,
+        }));
+        console.log(`[fetchLibraryWithCandidates] HeyGen voice raw sample from ${path}:`, JSON.stringify(rawSample));
+      }
       if (path.includes("ownership=private")) {
         normalized = normalized.map(item => ({ ...item, isCustom: true }));
       }
@@ -393,6 +492,55 @@ async function fetchLibraryWithCandidates(type: "avatar" | "voice", overrideApiK
   }
 
   throw lastError || new Error(`Không lấy được thư viện HeyGen cho ${type}`);
+}
+
+async function fetchPersonalVoiceCandidates(overrideApiKey?: string) {
+  const candidates = [
+    "/v3/voices?type=private&limit=100",
+    "/v3/voices?type=private&limit=50",
+    "/v3/voices?type=private",
+  ];
+
+  let lastError: Error | null = null;
+
+  for (const path of candidates) {
+    try {
+      console.log(`[fetchPersonalVoiceCandidates] Hitting HeyGen personal voice path: ${path}`);
+      let nextPath: string | null = path;
+      const aggregated: HeyGenLibraryItem[] = [];
+      const seen = new Set<string>();
+
+      while (nextPath) {
+        const payload = await requestHeyGenJson(nextPath, undefined, overrideApiKey);
+        const normalized = normalizeLibraryItems(payload, "voice").map((item) => ({ ...item, isCustom: true }));
+        for (const item of normalized) {
+          if (seen.has(item.id)) {
+            continue;
+          }
+          seen.add(item.id);
+          aggregated.push(item);
+        }
+
+        const hasMore = Boolean(payload?.has_more);
+        const nextToken = String(payload?.next_token || "").trim();
+        nextPath = hasMore && nextToken ? `/v3/voices?type=private&limit=100&token=${encodeURIComponent(nextToken)}` : null;
+      }
+
+      console.log(`[fetchPersonalVoiceCandidates] Path ${path} returned ${aggregated.length} personal voices after pagination.`);
+      if (aggregated.length > 0) {
+        return { items: aggregated, source: path };
+      }
+    } catch (error: any) {
+      console.error(`[fetchPersonalVoiceCandidates] Error hitting path ${path}:`, error.message);
+      lastError = error;
+    }
+  }
+
+  if (lastError) {
+    console.warn("[fetchPersonalVoiceCandidates] Không lấy được My Voice riêng từ HeyGen, sẽ trả mảng rỗng.");
+  }
+
+  return { items: [] as HeyGenLibraryItem[], source: "no_personal_voice_source" };
 }
 
 export async function upsertVideoRecord(userId: string, payload: {
@@ -644,7 +792,7 @@ export const heygenService = {
     }
     const cached = libraryCache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
-      const { avatars, voices, sources } = cached.data;
+      const { avatars, voices, personalVoices, sources } = cached.data;
       return {
         status: "success",
         avatars: filterLibraryByAccess(
@@ -653,6 +801,7 @@ export const heygenService = {
           accessContext.allowFullLibrary
         ),
         voices,
+        personalVoices: personalVoices || [],
         sources,
         warnings: accessContext.warnings,
         defaults: {
@@ -689,16 +838,28 @@ export const heygenService = {
       avatarSource = avatarResult.source;
     }
 
-    // Always fetch full voice library since they are not restricted
+    // Fetch full voice library for generic HeyGen use cases
     const voiceResult = await fetchLibraryWithCandidates("voice", apiKey);
+    const personalVoiceResult = await fetchPersonalVoiceCandidates(apiKey);
+    if (voiceResult.items.length > 0 && personalVoiceResult.items.length === 0) {
+      console.warn("[heygenService.getLibrary] Public voices found but personal voices are empty.", {
+        userId,
+        apiKeySource: accessContext.apiKeySource,
+        apiKeyMasked: maskApiKey(apiKey),
+        publicVoiceCount: voiceResult.items.length,
+        personalVoiceCount: personalVoiceResult.items.length,
+      });
+    }
 
     // Save to cache for instant sub-sequent loads
     const dataToCache = {
       avatars,
       voices: voiceResult.items,
+      personalVoices: personalVoiceResult.items,
       sources: {
         avatars: avatarSource,
         voices: voiceResult.source,
+        personalVoices: personalVoiceResult.source,
       },
     };
 
@@ -715,6 +876,7 @@ export const heygenService = {
         accessContext.allowFullLibrary
       ),
       voices: voiceResult.items,
+      personalVoices: personalVoiceResult.items,
       sources: dataToCache.sources,
       warnings: accessContext.warnings,
       defaults: {
@@ -743,16 +905,21 @@ export const heygenService = {
       avatarBackground,
       backgroundColor,
       avatarLayout,
+      inputText,
     } = input;
-    const { audioUrl, audioRecordId } = await resolveAudioSource(userId, input);
     const normalizedVoiceId = String(voiceId || "").trim();
+    const normalizedInputText = String(inputText || "").trim();
+    const useTextToSpeech = Boolean(normalizedVoiceId && normalizedInputText);
+    const { audioUrl, audioRecordId } = useTextToSpeech
+      ? { audioUrl: "", audioRecordId: undefined }
+      : await resolveAudioSource(userId, input);
     const hasAudioSource = Boolean(audioUrl);
 
     if (!avatarId?.trim()) {
       throw new HeyGenApiError("Vui lòng chọn avatar HeyGen trước khi tạo video.", 400);
     }
 
-    if (!hasAudioSource) {
+    if (!useTextToSpeech && !hasAudioSource) {
       throw new HeyGenApiError("Cần cung cấp audio ElevenLabs để tạo video.", 400);
     }
 
@@ -807,7 +974,12 @@ export const heygenService = {
       };
     }
 
-    requestBody.audio_url = audioUrl;
+    if (useTextToSpeech) {
+      requestBody.script = normalizedInputText;
+    } else {
+      requestBody.audio_url = audioUrl;
+    }
+
     if (normalizedVoiceId) {
       requestBody.voice_id = normalizedVoiceId;
     }
@@ -847,7 +1019,7 @@ export const heygenService = {
 
     const record = await upsertVideoRecord(userId, {
       videoId,
-      script: title || "HeyGen audio video",
+      script: useTextToSpeech ? normalizedInputText : (title || "HeyGen audio video"),
       motionText,
       avatarId,
       voiceId: normalizedVoiceId || undefined,

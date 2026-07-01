@@ -2,6 +2,7 @@ export type HeyGenLibraryItem = {
   id: string;
   name: string;
   previewImage?: string;
+  previewAudioUrl?: string;
   gender?: string;
   language?: string;
   accent?: string;
@@ -14,7 +15,7 @@ const HEYGEN_LIBRARY_CACHE_TTL = 2 * 60 * 1000;
 let heygenLibraryCache:
   | {
     expiresAt: number;
-    data: { status: string; avatars: HeyGenLibraryItem[]; voices: HeyGenLibraryItem[]; warnings?: string[]; defaults?: { avatarId?: string; voiceId?: string } };
+    data: { status: string; avatars: HeyGenLibraryItem[]; voices: HeyGenLibraryItem[]; personalVoices?: HeyGenLibraryItem[]; warnings?: string[]; defaults?: { avatarId?: string; voiceId?: string } };
   }
   | null = null;
 
@@ -59,7 +60,7 @@ async function parseJsonResponse(response: Response, fallbackMessage: string) {
 }
 
 export const heygenApi = {
-  async getLibrary(options?: { force?: boolean }): Promise<{ status: string; avatars: HeyGenLibraryItem[]; voices: HeyGenLibraryItem[]; warnings?: string[]; defaults?: { avatarId?: string; voiceId?: string } }> {
+  async getLibrary(options?: { force?: boolean }): Promise<{ status: string; avatars: HeyGenLibraryItem[]; voices: HeyGenLibraryItem[]; personalVoices?: HeyGenLibraryItem[]; warnings?: string[]; defaults?: { avatarId?: string; voiceId?: string } }> {
     if (!options?.force && heygenLibraryCache && heygenLibraryCache.expiresAt > Date.now()) {
       return heygenLibraryCache.data;
     }
