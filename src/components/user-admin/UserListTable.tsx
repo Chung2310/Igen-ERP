@@ -111,10 +111,20 @@ export function UserListTable({
                     </td>
                   )}
                   <td className="p-4">
-                    <div className="space-y-1">
-                      <p className="text-[10px] text-slate-600">Nguồn: <span className="font-semibold">Theo công ty</span></p>
-                      <p className="text-[10px] text-slate-600">Công ty: <span className="font-mono">{usr.companyCode || "SYSTEM"}</span></p>
-                      <p className="text-[10px] text-slate-400">Avatar và voice được lấy từ account HeyGen của doanh nghiệp.</p>
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="inline-flex items-center rounded-md border border-cyan-100 bg-cyan-50 px-2 py-0.5 text-[9px] font-semibold text-cyan-800 uppercase tracking-wider">
+                          Theo công ty
+                        </span>
+                        <div className="group relative flex cursor-help items-center justify-center rounded-full bg-slate-100 text-slate-400 hover:bg-slate-200 hover:text-slate-600 h-4 w-4">
+                          <span className="text-[10px] font-bold">i</span>
+                          <div className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 w-52 -translate-x-1/2 scale-95 rounded-lg bg-slate-900 p-2.5 text-[10px] font-normal leading-relaxed text-white opacity-0 shadow-xl transition-all duration-150 group-hover:pointer-events-auto group-hover:scale-100 group-hover:opacity-100">
+                            Avatar và voice được lấy từ account HeyGen của doanh nghiệp.
+                            <div className="absolute top-full left-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1 bg-slate-900 rotate-45" />
+                          </div>
+                        </div>
+                      </div>
+                      <span className="font-mono text-[9px] text-slate-400">Mã: {usr.companyCode || "SYSTEM"}</span>
                     </div>
                   </td>
                   <td className="p-4 pr-6">
