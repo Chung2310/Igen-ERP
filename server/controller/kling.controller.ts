@@ -5,7 +5,17 @@ import { cloudinaryService } from "../service/cloudinary.service";
 import { walletService } from "../service/wallet.service";
 import { broadcastEvent } from "../socket";
 
-const KLING_MOTION_COST = 500;
+// Credits/giây = giá USD/s × 25400 VND/USD ÷ 100 VND/credit (làm tròn)
+const KLING_COST_PER_SECOND: Record<string, Record<string, number>> = {
+  "kling-v2-6": { std: 18, pro: 28 },
+  "kling-v3":   { std: 32, pro: 43 },
+};
+const DEFAULT_DURATION_S = 5;
+
+function calcKlingCost(modelName: string, mode: string, durationSec: number): number {
+  const rate = KLING_COST_PER_SECOND[modelName]?.[mode] ?? KLING_COST_PER_SECOND["kling-v3"].std;
+  return Math.ceil(durationSec) * rate;
+}
 
 async function pollKlingMotionBackground(recordId: string, taskId: string, userId: string) {
   console.log(`[Kling BG Poll] Started — record: ${recordId}, taskId: ${taskId}`);
@@ -76,19 +86,27 @@ export const klingController = {
    */
   async createMotionControl(req: Request, res: Response) {
     try {
-      const { imageUrl, videoUrl, modelName, prompt, characterOrientation, keepOriginalSound } = req.body;
+      const { imageUrl, videoUrl, modelName, mode, prompt, characterOrientation, keepOriginalSound, videoDuration } = req.body;
       const userId = (req as any).user?.id;
 
       if (!userId) {
         return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
       }
 
-      await walletService.checkBalance(userId, KLING_MOTION_COST);
+      const resolvedModel = modelName || "kling-v2-6";
+      const resolvedMode  = mode || "std";
+      const resolvedDuration = Number(videoDuration) > 0 ? Number(videoDuration) : DEFAULT_DURATION_S;
+      const cost = calcKlingCost(resolvedModel, resolvedMode, resolvedDuration);
+
+      console.log(`[KlingController] model=${resolvedModel} mode=${resolvedMode} duration=${resolvedDuration}s cost=${cost} credits`);
+
+      await walletService.checkBalance(userId, cost);
 
       const { taskId } = await klingService.createMotionControlTask({
         imageUrl,
         videoUrl,
-        modelName,
+        modelName: resolvedModel,
+        mode: resolvedMode,
         prompt,
         characterOrientation,
         keepOriginalSound,
@@ -106,13 +124,13 @@ export const klingController = {
           progress: 1,
           piapiTaskId: taskId,
           title: "Motion Control Video",
-          description: `Kling motion control — model: ${modelName || "kling-v1-5"}`,
+          description: `Kling motion control — model: ${resolvedModel} mode: ${resolvedMode} ${resolvedDuration}s`,
         },
       });
 
       pollKlingMotionBackground(record._id.toString(), taskId, userId);
 
-      await walletService.deductBalance(userId, KLING_MOTION_COST, "Chi phí Kling Motion Control");
+      await walletService.deductBalance(userId, cost, `Chi phí Kling Motion Control (${resolvedModel} ${resolvedMode} ${resolvedDuration}s)`);
 
       return res.status(200).json({
         status: "success",

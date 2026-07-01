@@ -1,28 +1,17 @@
-import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import { cloudinaryService } from "./cloudinary.service";
 
 dotenv.config();
 
-const KLING_ACCESS_KEY = process.env.KLING_ACCESS_KEY || "";
-const KLING_SECRET_KEY = process.env.KLING_SECRET_KEY || "";
+const KLING_API_KEY = process.env.KLING_API_KEY || "";
 const KLING_API_BASE_URL = process.env.KLING_API_BASE_URL || "https://api.klingai.com";
 
-console.log(`[Kling Service] Access Key status: ${KLING_ACCESS_KEY ? `Present (${KLING_ACCESS_KEY.substring(0, 6)}...)` : "Missing"}`);
-
-function generateKlingToken(): string {
-  const now = Math.floor(Date.now() / 1000);
-  return jwt.sign(
-    { iss: KLING_ACCESS_KEY, exp: now + 1800, nbf: now - 5 },
-    KLING_SECRET_KEY,
-    { algorithm: "HS256" }
-  );
-}
+console.log(`[Kling Service] API Key status: ${KLING_API_KEY ? `Present (${KLING_API_KEY.substring(0, 12)}...)` : "Missing"}`);
 
 function getKlingHeaders() {
   return {
     "Content-Type": "application/json",
-    "Authorization": `Bearer ${generateKlingToken()}`,
+    "Authorization": `Bearer ${KLING_API_KEY}`,
   };
 }
 
@@ -47,8 +36,8 @@ export const klingService = {
     keepOriginalSound?: boolean;
     mode?: "std" | "pro";
   }): Promise<{ taskId: string }> {
-    if (!KLING_ACCESS_KEY || !KLING_SECRET_KEY) {
-      throw new Error("Chưa cấu hình KLING_ACCESS_KEY và KLING_SECRET_KEY trong biến môi trường.");
+    if (!KLING_API_KEY) {
+      throw new Error("Chưa cấu hình KLING_API_KEY trong biến môi trường.");
     }
 
     let finalImageUrl = params.imageUrl;
@@ -67,24 +56,18 @@ export const klingService = {
     }
 
     const body: Record<string, any> = {
-      model_name: params.modelName || "kling-v1-5",
+      model_name: params.modelName || "kling-v2-6",
+      mode: params.mode || "std",
       image_url: finalImageUrl,
       video_url: finalVideoUrl,
       character_orientation: params.characterOrientation || "video",
-      keep_original_sound: params.keepOriginalSound ?? false,
-      mode: params.mode || "pro",
     };
 
     if (params.prompt) {
       body.prompt = params.prompt;
     }
 
-    console.log("[KlingService] Creating motion control task:", {
-      model_name: body.model_name,
-      character_orientation: body.character_orientation,
-      mode: body.mode,
-      keep_original_sound: body.keep_original_sound,
-    });
+    console.log("[KlingService] Creating motion control task, body:", JSON.stringify(body));
 
     const response = await fetch(`${KLING_API_BASE_URL}/v1/videos/motion-control`, {
       method: "POST",
@@ -92,12 +75,14 @@ export const klingService = {
       body: JSON.stringify(body),
     });
 
+    const responseText = await response.text();
+    console.log(`[KlingService] Response ${response.status}:`, responseText);
+
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Kling API lỗi ${response.status}: ${errorText}`);
+      throw new Error(`Kling API lỗi ${response.status}: ${responseText}`);
     }
 
-    const json: any = await response.json();
+    const json: any = JSON.parse(responseText);
     if (json.code !== 0) {
       throw new Error(`Kling API từ chối yêu cầu: ${json.message || JSON.stringify(json)}`);
     }
@@ -116,8 +101,8 @@ export const klingService = {
     url?: string;
     error?: string;
   }> {
-    if (!KLING_ACCESS_KEY || !KLING_SECRET_KEY) {
-      throw new Error("Chưa cấu hình KLING_ACCESS_KEY và KLING_SECRET_KEY");
+    if (!KLING_API_KEY) {
+      throw new Error("Chưa cấu hình KLING_API_KEY trong biến môi trường.");
     }
 
     const response = await fetch(`${KLING_API_BASE_URL}/v1/videos/motion-control/${taskId}`, {

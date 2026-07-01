@@ -14,9 +14,11 @@ export interface KlingMotionControlParams {
   imageUrl: string;
   videoUrl: string;
   modelName?: string;
+  mode?: "std" | "pro";
   prompt?: string;
   characterOrientation?: "video" | "image";
   keepOriginalSound?: boolean;
+  videoDuration?: number;
 }
 
 export const klingApi = {

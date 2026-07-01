@@ -1,7 +1,8 @@
 import { Suspense, lazy, useState, useEffect } from 'react';
-import { Clapperboard, Sparkles, Wand2, Film } from 'lucide-react';
+import { Clapperboard, Sparkles, Wand2, Film, Scissors } from 'lucide-react';
 import { SimpleVideoWorkspace } from './SimpleVideoWorkspace';
 import { EditVideoWorkspace } from './EditVideoWorkspace';
+import LongToShortTab from '../../pages/LongToShortTab';
 
 const HeyGenWorkspace = lazy(() =>
   import('./HeyGenWorkspace').then((module) => ({ default: module.HeyGenWorkspace }))
@@ -21,7 +22,7 @@ interface VideoGenerationWorkspaceProps {
   engineType?: string;
 }
 
-type VideoToolTab = 'veo' | 'heygen' | 'edit-video' | 'kling-motion';
+type VideoToolTab = 'veo' | 'heygen' | 'edit-video' | 'kling-motion' | 'long-to-short';
 
 const VIDEO_TOOL_TABS: Array<{
   id: VideoToolTab;
@@ -32,6 +33,7 @@ const VIDEO_TOOL_TABS: Array<{
   { id: 'heygen', label: 'Tạo video người thật', icon: Clapperboard },
   { id: 'kling-motion', label: 'Motion Control', icon: Film },
   { id: 'edit-video', label: 'Chỉnh sửa video', icon: Wand2 },
+  { id: 'long-to-short', label: 'Long to Short', icon: Scissors },
 ];
 
 export function VideoGenerationWorkspace({
@@ -134,6 +136,10 @@ export function VideoGenerationWorkspace({
           initialVideoUrl={editVideoSourceUrl}
           onClearInitialVideoUrl={() => setEditVideoSourceUrl(null)}
         />
+      )}
+
+      {activeVideoTab === 'long-to-short' && (
+        <LongToShortTab />
       )}
     </div>
   );

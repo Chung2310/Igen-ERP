@@ -16,10 +16,12 @@ const motionControlSchema = {
       "any.required": "Video chuyển động tham chiếu là bắt buộc.",
       "string.base": "videoUrl phải là chuỗi.",
     }),
-    modelName: Joi.string().valid("kling-v1-5", "kling-v2").optional().allow(""),
+    modelName: Joi.string().valid("kling-v2-6", "kling-v3").optional().allow(""),
+    mode: Joi.string().valid("std", "pro").optional(),
     prompt: Joi.string().max(2500).optional().allow(""),
     characterOrientation: Joi.string().valid("video", "image").optional(),
     keepOriginalSound: Joi.boolean().optional(),
+    videoDuration: Joi.number().min(1).max(300).optional(),
   }),
 };
 
