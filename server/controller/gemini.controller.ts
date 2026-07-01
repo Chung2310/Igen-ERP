@@ -1369,8 +1369,12 @@ export const geminiController = {
    */
   async generateCustomVoicePreview(req: Request, res: Response) {
     try {
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
+      }
       const { gender, accent, age, accentStrength, text } = req.body;
-      const result = await geminiService.generateCustomVoicePreview({ gender, accent, age, accentStrength, text });
+      const result = await geminiService.generateCustomVoicePreview(userId, { gender, accent, age, accentStrength, text });
       return res.status(200).json(result);
     } catch (error: any) {
       console.error("[geminiController.generateCustomVoicePreview] Error:", error);
@@ -1387,8 +1391,12 @@ export const geminiController = {
    */
   async createCustomVoice(req: Request, res: Response) {
     try {
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
+      }
       const { voiceName, voiceDescription, generatedVoiceId } = req.body;
-      const result = await geminiService.createCustomVoice({ voiceName, voiceDescription, generatedVoiceId });
+      const result = await geminiService.createCustomVoice(userId, { voiceName, voiceDescription, generatedVoiceId });
       return res.status(200).json(result);
     } catch (error: any) {
       console.error("[geminiController.createCustomVoice] Error:", error);
@@ -1405,8 +1413,12 @@ export const geminiController = {
    */
   async addElevenLabsVoice(req: Request, res: Response) {
     try {
-      const { name, description, files, userId } = req.body;
-      const result = await geminiService.addElevenLabsVoice(name, description, files, userId);
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
+      }
+      const { name, description, files } = req.body;
+      const result = await geminiService.addElevenLabsVoice(userId, name, description, files);
       return res.status(200).json(result);
     } catch (error: any) {
       console.error("[geminiController.addElevenLabsVoice] Error:", error);
@@ -1423,8 +1435,12 @@ export const geminiController = {
    */
   async deleteElevenLabsVoice(req: Request, res: Response) {
     try {
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
+      }
       const { voiceId } = req.params;
-      const result = await geminiService.deleteElevenLabsVoice(voiceId);
+      const result = await geminiService.deleteElevenLabsVoice(userId, voiceId);
       return res.status(200).json(result);
     } catch (error: any) {
       console.error("[geminiController.deleteElevenLabsVoice] Error:", error);

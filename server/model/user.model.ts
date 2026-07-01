@@ -74,6 +74,13 @@ const HeyGenAccessSchema = new Schema(
   { _id: false }
 );
 
+const ElevenLabsAccessSchema = new Schema(
+  {
+    apiKey: { type: String, default: "" },
+  },
+  { _id: false }
+);
+
 const UserSchema = new Schema<IUser>({
   email: { type: String, required: true, unique: true, index: true, lowercase: true },
   password: { type: String },
@@ -86,6 +93,7 @@ const UserSchema = new Schema<IUser>({
   zaloIntegration: { type: ZaloIntegrationSchema, default: null },
   aiAutoReplyConfig: { type: AiAutoReplyConfigSchema, default: () => ({}) },
   heygenAccess: { type: HeyGenAccessSchema, default: () => ({}) },
+  elevenlabsAccess: { type: ElevenLabsAccessSchema, default: () => ({}) },
   jobTitle: { type: String },
   department: { type: String },
   phone: { type: String },

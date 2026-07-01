@@ -900,7 +900,7 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
                       setTelegramLoading(true);
                       const data = await authService.unlinkTelegram();
                       setTelegramLink(data);
-                      toast.success("Đã gỡ liên kết Telegram.");
+                      toast.success("Đã gỡ liên kết Telegram và tạo sẵn mã liên kết mới.");
                     } catch (error: any) {
                       toast.error(error.message || "Không thể gỡ liên kết Telegram.");
                     } finally {

@@ -203,7 +203,7 @@ export const authService = {
       TelegramLinkTokenModel.deleteMany({ userId: id }),
     ]);
 
-    return this.getTelegramLinkStatus(id);
+    return this.createTelegramLinkCode(id);
   },
 
   /**
