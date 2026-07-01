@@ -88,6 +88,7 @@ export const heygenApi = {
     title?: string;
     description?: string;
     inputText?: string;
+    usePersonalVoice?: boolean;
     avatarBackground?: "customize" | "remove" | "color";
     backgroundColor?: string;
     avatarLayout?: "original" | "circle";

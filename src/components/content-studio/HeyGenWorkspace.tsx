@@ -62,6 +62,7 @@ export function HeyGenWorkspace({
   onMediaSaved,
   autoTrigger,
   engineType,
+  usePersonalVoice,
 }: {
   initialPrompt?: string;
   onEditVideo?: (url: string) => void;
@@ -69,6 +70,7 @@ export function HeyGenWorkspace({
   onMediaSaved?: (cardId: string, mediaUrl: string, type: 'image' | 'video' | 'audio') => void;
   autoTrigger?: boolean;
   engineType?: string;
+  usePersonalVoice?: boolean;
 }) {
   const [avatars, setAvatars] = useState<HeyGenLibraryItem[]>([]);
   const [isLoadingLibrary, setIsLoadingLibrary] = useState(false);
@@ -81,8 +83,12 @@ export function HeyGenWorkspace({
   const [voices, setVoices] = useState<HeyGenLibraryItem[]>([]);
   const [personalVoices, setPersonalVoices] = useState<HeyGenLibraryItem[]>([]);
   const [selectedHeyGenVoiceId, setSelectedHeyGenVoiceId] = useState("");
-  const [usePersonalVoiceMode, setUsePersonalVoiceMode] = useState(engineType === "avatar_iii");
-  const [voicePickerTab, setVoicePickerTab] = useState<"third-party" | "personal">("third-party");
+  const [usePersonalVoiceMode, setUsePersonalVoiceMode] = useState(
+    usePersonalVoice !== undefined ? usePersonalVoice : (engineType === "avatar_iii")
+  );
+  const [voicePickerTab, setVoicePickerTab] = useState<"third-party" | "personal">(
+    (usePersonalVoice !== undefined ? usePersonalVoice : (engineType === "avatar_iii")) ? "personal" : "third-party"
+  );
   const [avatarThreeScript, setAvatarThreeScript] = useState(initialPrompt || "");
   const [history, setHistory] = useState<any[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
@@ -170,8 +176,11 @@ export function HeyGenWorkspace({
               setAvatarThreeScript((current) => card.inputText || card.voiceScript || current || initialPrompt || "");
               toast.info(`Đã nạp kịch bản Avatar III cho bài đăng: "${card.title}"`);
             } else {
-              const hasPersonalVoiceCardState = Boolean(card.voiceId && (card.inputText || card.voiceScript));
+              const hasPersonalVoiceCardState = card.usePersonalVoice || Boolean(card.voiceId && (card.inputText || card.voiceScript));
               setUsePersonalVoiceMode(hasPersonalVoiceCardState);
+              if (hasPersonalVoiceCardState) {
+                setVoicePickerTab("personal");
+              }
               if (card.engineType === 'avatar_v') {
                 setSelectedAvatarModel("Avatar V");
               } else {
@@ -180,8 +189,10 @@ export function HeyGenWorkspace({
               if (card.avatarId) {
                 setSelectedAvatarId(card.avatarId);
               }
-              if (hasPersonalVoiceCardState && card.voiceId) {
-                setSelectedHeyGenVoiceId(card.voiceId);
+              if (hasPersonalVoiceCardState) {
+                if (card.voiceId) {
+                  setSelectedHeyGenVoiceId(card.voiceId);
+                }
                 setAvatarThreeScript((current) => card.inputText || card.voiceScript || current || initialPrompt || "");
               }
               if (card.audioRecordId) {

@@ -579,7 +579,8 @@ export default function MarketingTab() {
 
     if (isHumanVideo) {
       const isAvatarThree = card.engineType === 'avatar_iii';
-      if (isAvatarThree) {
+      const isMyVoice = isAvatarThree || card.usePersonalVoice;
+      if (isMyVoice) {
         setContentStudioParams({
           tab: 'video',
           videoSubTab: 'heygen',
@@ -590,6 +591,7 @@ export default function MarketingTab() {
           title: voiceTitle,
           description: voiceDescription,
           engineType: card.engineType,
+          usePersonalVoice: card.usePersonalVoice,
         });
         setSubTab(CONTENT_STUDIO_SUB_TAB);
         return;

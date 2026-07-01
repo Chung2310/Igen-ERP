@@ -50,6 +50,7 @@ export interface ContentApprovalCard {
   avatarId?: string;
   voiceId?: string;
   inputText?: string;
+  usePersonalVoice?: boolean;
 }
 
 export interface PublishEvent {
