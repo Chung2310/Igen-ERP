@@ -131,17 +131,17 @@ export const opusclipController = {
 
           if (stage === "COMPLETE") {
             const clipsRes = await opusclipService.getClips(projectId);
-            const mappedClips = (clipsRes?.list || []).map((clip: any) => ({
-              clipId: clip.curationId || clip.id?.split(".")[1] || clip.clipId,
-              videoUrl: clip.uriForExport || clip.videoUrl,
+            const mappedClips = (clipsRes?.data || []).map((clip: any) => ({
+              clipId: clip.curationId || clip.id?.split(".")[1] || clip.id || "",
+              videoUrl: clip.uriForPreview || clip.uriForExport || clip.videoUrl || "",
               title: clip.title || "",
               description: clip.description || "",
               hashtags: clip.hashtags || "",
-              viralityScore: clip.viralityScore || clip.viralScore || 0,
-              viralReason: clip.viralReason || "",
+              viralityScore: clip.score || clip.viralityScore || clip.judgeResult?.curvedScore || 0,
+              viralReason: clip.judgeResult?.trendComment || clip.viralReason || "",
               duration: clip.durationMs ? Math.round(clip.durationMs / 1000) : 0,
               startTime: clip.timeRanges?.[0]?.[0] ? Math.round(clip.timeRanges[0][0] / 1000) : 0,
-              endTime: clip.timeRanges?.[0]?.[1] ? Math.round(clip.timeRanges[0][1] / 1000) : 0,
+              endTime: clip.timeRanges?.[clip.timeRanges.length - 1]?.[1] ? Math.round(clip.timeRanges[clip.timeRanges.length - 1][1] / 1000) : 0,
             }));
 
             project.status = "completed";
@@ -215,17 +215,17 @@ export const opusclipController = {
         const clipsRes = await opusclipService.getClips(projectId);
         
         // Map các trường từ API về Database local của hệ thống
-        const mappedClips = (clipsRes?.list || []).map((clip: any) => ({
-          clipId: clip.curationId || clip.id?.split(".")[1] || clip.clipId,
-          videoUrl: clip.uriForExport || clip.videoUrl,
+        const mappedClips = (clipsRes?.data || []).map((clip: any) => ({
+          clipId: clip.curationId || clip.id?.split(".")[1] || clip.id || "",
+          videoUrl: clip.uriForPreview || clip.uriForExport || clip.videoUrl || "",
           title: clip.title || "",
           description: clip.description || "",
           hashtags: clip.hashtags || "",
-          viralityScore: clip.viralityScore || clip.viralScore || 0,
-          viralReason: clip.viralReason || "",
+          viralityScore: clip.score || clip.viralityScore || clip.judgeResult?.curvedScore || 0,
+          viralReason: clip.judgeResult?.trendComment || clip.viralReason || "",
           duration: clip.durationMs ? Math.round(clip.durationMs / 1000) : 0,
           startTime: clip.timeRanges?.[0]?.[0] ? Math.round(clip.timeRanges[0][0] / 1000) : 0,
-          endTime: clip.timeRanges?.[0]?.[1] ? Math.round(clip.timeRanges[0][1] / 1000) : 0,
+          endTime: clip.timeRanges?.[clip.timeRanges.length - 1]?.[1] ? Math.round(clip.timeRanges[clip.timeRanges.length - 1][1] / 1000) : 0,
         }));
 
         project.status = "completed";
