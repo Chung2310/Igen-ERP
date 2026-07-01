@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { Bell, LogOut, Search, Settings, Wallet, Info, X, Image, Video, Volume2, FileText,
-  Package, Megaphone, Sparkles, CheckCheck, ShoppingCart, AlertTriangle, Send } from "lucide-react";
+import {
+  Bell, LogOut, Search, Settings, Wallet, Info, X, Image, Video, Volume2, FileText,
+  Package, Megaphone, Sparkles, CheckCheck, ShoppingCart, AlertTriangle, Send
+} from "lucide-react";
 import { TabType } from "../types";
 import { useAuth } from "../context/AuthContext";
 import { authService } from "../services/authService";
@@ -114,11 +116,11 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
   const upsertNotif = (notif: AppNotification) =>
     setNotifs(prev => {
       const idx = prev.findIndex(n => n.id === notif.id);
-      
+
       const signatures = getReadSignatures();
       const newSignature = getNotifSignature(notif);
       const isReadInStorage = signatures.includes(newSignature);
-      
+
       let finalRead = isReadInStorage;
 
       if (idx === -1) {
@@ -170,9 +172,9 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
           action: { tab: "SALES CRM" as TabType, subTab: "PHỄU KHÁCH HÀNG" },
         });
       }
-    }, () => {});
+    }, () => { });
     return () => { if (typeof unsub === "function") unsub(); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ─── Inventory (low stock) ───────────────────────────────────
@@ -193,7 +195,7 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
       });
     });
     return () => { if (typeof unsub === "function") unsub(); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ─── Marketing pending ───────────────────────────────────────
@@ -212,12 +214,12 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
           action: { tab: "MARKETING" as TabType, subTab: "DUYỆT NỘI DUNG" },
         });
       },
-      () => {},
+      () => { },
       userProfile?.uid,
       userProfile?.role,
     );
     return () => { if (typeof unsub === "function") unsub(); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userProfile?.uid, userProfile?.role]);
 
   // ─── Wallet balance ──────────────────────────────────────────
@@ -271,17 +273,17 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
     normalizedQuery === ""
       ? []
       : searchIndex
-          .filter((item) => {
-            if (item.tab === "HIỆU SUẤT AI" && userProfile?.role !== "superadmin") {
-              return false;
-            }
-            return true;
-          })
-          .filter(
-            (item) =>
-              item.label.toLowerCase().includes(normalizedQuery) ||
-              item.keywords.toLowerCase().includes(normalizedQuery)
-          );
+        .filter((item) => {
+          if (item.tab === "HIỆU SUẤT AI" && userProfile?.role !== "superadmin") {
+            return false;
+          }
+          return true;
+        })
+        .filter(
+          (item) =>
+            item.label.toLowerCase().includes(normalizedQuery) ||
+            item.keywords.toLowerCase().includes(normalizedQuery)
+        );
 
   return (
     <header className="sticky top-0 z-40 flex h-18 items-center justify-between border-b border-gray-100 bg-white px-6 shadow-xs" id="app_header">
@@ -406,11 +408,11 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
                 ) : (
                   notifs.map((notif) => {
                     const ICON_MAP: Record<NotifType, { icon: React.ElementType; bg: string; iconColor: string; badge: string }> = {
-                      crm:       { icon: ShoppingCart, bg: "bg-emerald-50",  iconColor: "text-emerald-600", badge: "bg-emerald-500" },
-                      kho:       { icon: AlertTriangle, bg: "bg-amber-50",    iconColor: "text-amber-600",   badge: "bg-amber-500" },
-                      marketing: { icon: Megaphone,     bg: "bg-purple-50",   iconColor: "text-purple-600",  badge: "bg-purple-500" },
-                      ai:        { icon: Sparkles,      bg: "bg-blue-50",     iconColor: "text-blue-600",    badge: "bg-blue-500" },
-                      "he-thong":{ icon: Bell,          bg: "bg-gray-100",    iconColor: "text-gray-500",    badge: "bg-gray-400" },
+                      crm: { icon: ShoppingCart, bg: "bg-emerald-50", iconColor: "text-emerald-600", badge: "bg-emerald-500" },
+                      kho: { icon: AlertTriangle, bg: "bg-amber-50", iconColor: "text-amber-600", badge: "bg-amber-500" },
+                      marketing: { icon: Megaphone, bg: "bg-purple-50", iconColor: "text-purple-600", badge: "bg-purple-500" },
+                      ai: { icon: Sparkles, bg: "bg-blue-50", iconColor: "text-blue-600", badge: "bg-blue-500" },
+                      "he-thong": { icon: Bell, bg: "bg-gray-100", iconColor: "text-gray-500", badge: "bg-gray-400" },
                     };
                     const cfg = ICON_MAP[notif.type];
                     const Icon = cfg.icon;
@@ -424,9 +426,8 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
                             setShowNotifications(false);
                           }
                         }}
-                        className={`flex cursor-pointer items-start gap-3 p-4 transition-all duration-300 hover:bg-gray-50/80 ${
-                          notif.read ? "opacity-40" : ""
-                        }`}
+                        className={`flex cursor-pointer items-start gap-3 p-4 transition-all duration-300 hover:bg-gray-50/80 ${notif.read ? "opacity-40" : ""
+                          }`}
                       >
                         {/* Icon badge */}
                         <div className={`relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${cfg.bg}`}>
@@ -438,9 +439,8 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
 
                         {/* Content */}
                         <div className="min-w-0 flex-1">
-                          <p className={`text-xs leading-snug ${
-                            notif.read ? "font-medium text-gray-500" : "font-bold text-gray-800"
-                          }`}>{notif.title}</p>
+                          <p className={`text-xs leading-snug ${notif.read ? "font-medium text-gray-500" : "font-bold text-gray-800"
+                            }`}>{notif.title}</p>
                           <p className="mt-0.5 line-clamp-2 text-[11px] leading-relaxed text-gray-400">{notif.body}</p>
                           <span className="mt-1 block font-mono text-[10px] text-gray-300">{notif.time}</span>
                         </div>
@@ -606,7 +606,7 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
                   <tbody className="divide-y divide-gray-50">
                     <tr className="hover:bg-gray-50/50">
                       <td className="py-3">
-                        <div className="font-bold text-gray-800">iGen-3.1-flash-image-preview</div>
+                        <div className="font-bold text-gray-800">iGen 3.1 flash image preview</div>
                         <div className="text-[10px] text-gray-400 font-medium mt-0.5">1K: 27.5| 2K: 42 (Tính theo Credit)</div>
                       </td>
                       <td className="py-3 text-right font-bold text-cyan-600 pr-8 text-sm">27,5</td>
@@ -614,7 +614,7 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
                     </tr>
                     <tr className="hover:bg-gray-50/50">
                       <td className="py-3">
-                        <div className="font-bold text-gray-800">iGen-3-pro-image-preview</div>
+                        <div className="font-bold text-gray-800">iGen 3 pro image preview</div>
                         <div className="text-[10px] text-gray-400 font-medium mt-0.5">1K: 57 | 2K: 57 (Tính theo Credit)</div>
                       </td>
                       <td className="py-3 text-right font-bold text-cyan-600 pr-8 text-sm">57</td>
