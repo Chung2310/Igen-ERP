@@ -268,6 +268,8 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
   const [humanVoicePreviewCache, setHumanVoicePreviewCache] = useState<Record<string, string>>({});
   const [selectedEngineType, setSelectedEngineType] = useState<string>("avatar_iv");
   const [heygenVoices, setHeygenVoices] = useState<HeyGenLibraryItem[]>([]);
+  const [personalHeygenVoices, setPersonalHeygenVoices] = useState<HeyGenLibraryItem[]>([]);
+  const [selectedHumanVoiceSource, setSelectedHumanVoiceSource] = useState<"third-party" | "personal">("third-party");
   const [manualInputText, setManualInputText] = useState("");
 
   const mediaTypeMeta: Record<string, { label: string; tone: string }> = {
@@ -341,6 +343,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
 
         const nextAvatars = heygenLibrary.avatars || [];
         const nextHeygenVoices = heygenLibrary.voices || [];
+        const nextPersonalHeygenVoices = heygenLibrary.personalVoices || [];
         const mappedVoices = (voiceLibrary.voices || []).map((voice: any) => ({
           ...voice,
           id: voice.voice_id,
@@ -350,6 +353,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
 
         setHumanVideoAvatars(nextAvatars);
         setHeygenVoices(nextHeygenVoices);
+        setPersonalHeygenVoices(nextPersonalHeygenVoices);
         setHumanVideoVoices(mappedVoices);
 
         if (nextAvatars.length > 0) {
@@ -363,13 +367,14 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
         }
 
         if (selectedEngineType === "avatar_iii") {
-          if (nextHeygenVoices.length > 0) {
+          setSelectedHumanVoiceSource("personal");
+          if (nextPersonalHeygenVoices.length > 0) {
             setSelectedHumanVoice((current) =>
-              nextHeygenVoices.some((voice) => voice.id === current)
+              nextPersonalHeygenVoices.some((voice) => voice.id === current)
                 ? current
-                : heygenLibrary.defaults?.voiceId && nextHeygenVoices.some((voice) => voice.id === heygenLibrary.defaults?.voiceId)
+                : heygenLibrary.defaults?.voiceId && nextPersonalHeygenVoices.some((voice) => voice.id === heygenLibrary.defaults?.voiceId)
                   ? heygenLibrary.defaults.voiceId
-                  : nextHeygenVoices[0].id
+                  : nextPersonalHeygenVoices[0].id
             );
           }
         } else {
@@ -396,8 +401,13 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
   const handleEngineTypeChange = (engine: string) => {
     setSelectedEngineType(engine);
     if (engine === "avatar_iii") {
-      if (heygenVoices.length > 0) {
-        setSelectedHumanVoice(heygenVoices[0].id);
+      setSelectedHumanVoiceSource("personal");
+      if (personalHeygenVoices.length > 0) {
+        setSelectedHumanVoice(personalHeygenVoices[0].id);
+      }
+    } else if (selectedHumanVoiceSource === "personal") {
+      if (personalHeygenVoices.length > 0) {
+        setSelectedHumanVoice((current) => personalHeygenVoices.some((voice) => voice.id === current) ? current : personalHeygenVoices[0].id);
       }
     } else {
       if (humanVideoVoices.length > 0) {
@@ -421,6 +431,14 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
   const handlePreviewHumanVoice = async (voiceId?: string) => {
     const targetVoiceId = voiceId || selectedHumanVoice;
     if (!targetVoiceId) return;
+
+    if (selectedHumanVoiceSource === "personal" || selectedEngineType === "avatar_iii") {
+      const personalVoice = personalHeygenVoices.find((voice) => voice.id === targetVoiceId);
+      if (personalVoice?.previewAudioUrl) {
+        playHumanVoicePreview(personalVoice.previewAudioUrl);
+      }
+      return;
+    }
 
     const cachedUrl = humanVoicePreviewCache[targetVoiceId];
     if (cachedUrl) {
@@ -463,7 +481,9 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
     const targetWordCount = Math.max(80, Math.round(normalizedDuration * 2.6));
 
     const voiceLabel =
-      humanVideoVoices.find((voice: any) => (voice.voice_id || voice.id) === selectedHumanVoice)?.label ||
+      (selectedHumanVoiceSource === "personal"
+        ? personalHeygenVoices.find((voice) => voice.id === selectedHumanVoice)?.name
+        : humanVideoVoices.find((voice: any) => (voice.voice_id || voice.id) === selectedHumanVoice)?.label) ||
       humanVideoVoices.find((voice: any) => (voice.voice_id || voice.id) === selectedHumanVoice)?.name ||
       selectedHumanVoice;
 
@@ -633,13 +653,16 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
 
         if (targetMediaType === "human-video") {
           const post = posts[idx] || {};
-          const voiceScript = getHumanVideoScript(post, concept.title, concept.summary);
+          const voiceScript = selectedHumanVoiceSource === "personal" ? (manualInputText || getHumanVideoScript(post, concept.title, concept.summary)) : getHumanVideoScript(post, concept.title, concept.summary);
           const motionText = String(post?.motionText || "").trim();
 
           updatedCard = await marketingService.generateHumanVideoForCard(card.id, {
             avatarId: selectedHumanAvatar,
             voiceId: selectedHumanVoice,
             voiceModel: selectedHumanVoiceModel,
+            inputText: voiceScript,
+            usePersonalVoice: selectedHumanVoiceSource === "personal",
+            engineType: selectedEngineType,
             aspectRatio,
             quality: videoQuality === "1080p" ? "1080p" : "720p",
           });
@@ -1090,6 +1113,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
             avatarId: cardMediaType === "human-video" ? selectedHumanAvatar : undefined,
             voiceId: cardMediaType === "human-video" ? selectedHumanVoice : undefined,
             inputText: cardMediaType === "human-video" ? voiceScriptVal : undefined,
+            usePersonalVoice: cardMediaType === "human-video" ? selectedHumanVoiceSource === "personal" : undefined,
             isNew: true // Đánh dấu card mới phát triển
           };
         });
@@ -1197,6 +1221,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
             avatarId: cardMediaType === "human-video" ? selectedHumanAvatar : undefined,
             voiceId: cardMediaType === "human-video" ? selectedHumanVoice : undefined,
             inputText: cardMediaType === "human-video" ? (manualInputText || post.voiceScript || "") : undefined,
+            usePersonalVoice: cardMediaType === "human-video" ? selectedHumanVoiceSource === "personal" : undefined,
             isNew: true,
           };
         });
@@ -1936,14 +1961,26 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                   selectedAvatar={selectedHumanAvatar}
                   selectedVoice={selectedHumanVoice}
                   selectedVoiceModel={selectedHumanVoiceModel}
+                  selectedVoiceSource={selectedHumanVoiceSource}
                   estimatedDurationSeconds={estimatedHumanVoiceDuration}
                   avatars={humanVideoAvatars}
                   voices={humanVideoVoices}
+                  personalVoices={personalHeygenVoices}
                   isLoadingAvatars={isLoadingHumanVideoAvatars}
                   isLoadingVoices={isLoadingHumanVideoVoices}
                   isPreviewingVoice={isPreviewingHumanVoice}
                   onAvatarChange={setSelectedHumanAvatar}
                   onVoiceChange={setSelectedHumanVoice}
+                  onVoiceSourceChange={(value) => {
+                    setSelectedHumanVoiceSource(value);
+                    if (value === "personal") {
+                      if (personalHeygenVoices.length > 0) {
+                        setSelectedHumanVoice((current) => personalHeygenVoices.some((voice) => voice.id === current) ? current : personalHeygenVoices[0].id);
+                      }
+                    } else if (humanVideoVoices.length > 0) {
+                      setSelectedHumanVoice((current) => humanVideoVoices.some((voice: any) => (voice.voice_id || voice.id) === current) ? current : (humanVideoVoices[0].voice_id || humanVideoVoices[0].id || current));
+                    }
+                  }}
                   onVoiceModelChange={setSelectedHumanVoiceModel}
                   onEstimatedDurationChange={(value) => {
                     if (!value.trim()) {
@@ -1956,7 +1993,6 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                   onPreviewVoice={handlePreviewHumanVoice}
                   selectedEngineType={selectedEngineType}
                   onEngineTypeChange={handleEngineTypeChange}
-                  heygenVoices={heygenVoices}
                   isAutoPilot={isAutoPilot}
                   inputText={manualInputText}
                   onInputTextChange={setManualInputText}

@@ -198,7 +198,7 @@ export function ModerationPipCard({
             onGenerateMedia(
               card,
               card.mediaType === 'human-video'
-                ? (card.engineType === 'avatar_iii' ? 'video' : 'voice')
+                ? (card.engineType === 'avatar_iii' || card.usePersonalVoice ? 'video' : 'voice')
                 : card.mediaType === 'video' ? 'video' : card.mediaType === 'image' ? 'image' : undefined
             );
           }}
@@ -206,7 +206,7 @@ export function ModerationPipCard({
         >
           <Sparkles className="h-3 w-3 text-purple-500 animate-pulse" />
           <span>
-            {card.mediaType === "human-video" ? (card.engineType === "avatar_iii" ? "Tạo Video người thật" : "Tạo Voice → Video") :
+            {card.mediaType === "human-video" ? (card.engineType === "avatar_iii" || card.usePersonalVoice ? "Tạo Video người thật" : "Tạo Voice → Video") :
              card.mediaType === "video" ? "Tạo Video AI" :
              card.mediaType === "image" ? "Tạo Ảnh AI" : "Tạo Ảnh / Video AI"}
           </span>
@@ -415,7 +415,7 @@ export function ScheduledCard({
             onGenerateMedia(
               card,
               card.mediaType === 'human-video'
-                ? (card.engineType === 'avatar_iii' ? 'video' : 'voice')
+                ? (card.engineType === 'avatar_iii' || card.usePersonalVoice ? 'video' : 'voice')
                 : card.mediaType === 'video' ? 'video' : 'image'
             );
           }}
@@ -424,7 +424,7 @@ export function ScheduledCard({
           <Sparkles className="h-3 w-3 text-purple-500 animate-pulse" />
           <span>{
             card.mediaType === "human-video"
-              ? (card.engineType === "avatar_iii" ? "Tạo Video người thật" : "Tạo Voice → Video người thật")
+              ? (card.engineType === "avatar_iii" || card.usePersonalVoice ? "Tạo Video người thật" : "Tạo Voice → Video người thật")
               : card.mediaType === "video" ? "Tạo Video AI" :
               card.mediaType === "image" ? "Tạo Ảnh AI" :
               "Tạo Ảnh / Video AI"
@@ -438,7 +438,7 @@ export function ScheduledCard({
             onGenerateMedia(
               card,
               card.mediaType === 'human-video'
-                ? (card.engineType === 'avatar_iii' ? 'video' : 'voice')
+                ? (card.engineType === 'avatar_iii' || card.usePersonalVoice ? 'video' : 'voice')
                 : card.mediaType === 'video' ? 'video' : 'image'
             );
           }}
@@ -447,7 +447,7 @@ export function ScheduledCard({
           <Sparkles className="h-3 w-3 text-slate-500" />
           <span>{
             card.mediaType === "human-video"
-              ? (card.engineType === "avatar_iii" ? "Mở Xưởng Video người thật" : "Mở Xưởng Voice → Video")
+              ? (card.engineType === "avatar_iii" || card.usePersonalVoice ? "Mở Xưởng Video người thật" : "Mở Xưởng Voice → Video")
               : card.mediaType === "video" ? "Mở Xưởng Video AI" :
               card.mediaType === "image" ? "Mở Xưởng Ảnh AI" :
               "Mở Xưởng Media"

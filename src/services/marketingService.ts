@@ -639,6 +639,7 @@ export const marketingService = {
       voiceModel?: string;
       engineType?: string;
       inputText?: string;
+      usePersonalVoice?: boolean;
       aspectRatio?: "16:9" | "9:16" | "1:1";
       quality?: string;
       onProgressUpdate?: (status: string) => void;
@@ -651,6 +652,7 @@ export const marketingService = {
 
     const engineType = options?.engineType || card.engineType || "avatar_iv";
     const isAvatarThree = engineType === "avatar_iii";
+    const usePersonalVoice = Boolean(options?.usePersonalVoice ?? card.usePersonalVoice ?? false);
     const voiceScript = options?.inputText || card.inputText || getHumanVideoScript(card);
     const motionText = String(card.motionText || "").trim();
 
@@ -664,7 +666,7 @@ export const marketingService = {
     let audioRecordId: string | undefined = undefined;
     let audioUrl: string | undefined = undefined;
 
-    if (isAvatarThree) {
+    if (isAvatarThree || usePersonalVoice) {
       if (onProgressUpdate) {
         onProgressUpdate("Đang gửi yêu cầu tạo video trực tiếp bằng văn bản sang HeyGen...");
       }
@@ -698,9 +700,10 @@ export const marketingService = {
       avatarId,
       audioRecordId,
       audioUrl,
-      inputText: isAvatarThree ? voiceScript : undefined,
+      inputText: isAvatarThree || usePersonalVoice ? voiceScript : undefined,
       engineType,
-      voiceId: isAvatarThree ? voiceId : undefined,
+      voiceId: isAvatarThree || usePersonalVoice ? voiceId : undefined,
+      usePersonalVoice,
       motionText,
       aspectRatio,
       resolution: quality === "1080p" ? "1080p" : "720p",
@@ -721,9 +724,10 @@ export const marketingService = {
       avatarId,
       audioRecordId,
       audioUrl,
-      inputText: isAvatarThree ? voiceScript : undefined,
+      inputText: isAvatarThree || usePersonalVoice ? voiceScript : undefined,
       engineType,
-      voiceId: isAvatarThree ? voiceId : undefined,
+      voiceId: isAvatarThree || usePersonalVoice ? voiceId : undefined,
+      usePersonalVoice,
       motionText,
       aspectRatio,
       title: card.title,
@@ -753,7 +757,8 @@ export const marketingService = {
       engineType,
       avatarId,
       voiceId,
-      inputText: isAvatarThree ? voiceScript : undefined
+      inputText: isAvatarThree || usePersonalVoice ? voiceScript : undefined,
+      usePersonalVoice,
     };
 
     await this.updateCard(card.id, updatePayload);

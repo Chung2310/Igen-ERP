@@ -15,6 +15,7 @@ interface ContentStudioWorkspaceProps {
     title?: string;
     description?: string;
     engineType?: string;
+    usePersonalVoice?: boolean;
   } | null;
   onClearParams?: () => void;
   onMediaSaved?: (cardId: string, mediaUrl: string, type: 'image' | 'video' | 'audio') => void;
@@ -99,6 +100,7 @@ export function ContentStudioWorkspace({ initialParams, onClearParams, onMediaSa
             initialImage={initialParams?.image}
             autoTrigger={initialParams?.autoTrigger}
             engineType={initialParams?.engineType}
+            usePersonalVoice={initialParams?.usePersonalVoice}
           />
         )}
         {activeTab === 'voice' && (

@@ -931,7 +931,7 @@ export const heygenService = {
       throw new HeyGenApiError("Avatar này không được cấp cho tài khoản hiện tại.", 403);
     }
 
-    if (normalizedVoiceId && !accessContext.allowFullLibrary && accessContext.voiceId !== normalizedVoiceId) {
+    if (normalizedVoiceId && !accessContext.allowFullLibrary && !input.usePersonalVoice && accessContext.voiceId !== normalizedVoiceId) {
       throw new HeyGenApiError("Giọng đọc này không được cấp cho tài khoản hiện tại.", 403);
     }
 
@@ -957,10 +957,6 @@ export const heygenService = {
         value: finalBgColor,
       },
     };
-
-    if (avatarLayout) {
-      requestBody.avatar_style = avatarLayout === "circle" ? "circle" : "normal";
-    }
 
     const webhookUrl = getHeyGenWebhookUrl();
     if (webhookUrl) {
