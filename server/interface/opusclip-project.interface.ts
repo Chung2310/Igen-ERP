@@ -22,6 +22,9 @@ export interface IOpusClipProject extends Document {
     endTime: number;
   }>;
   error?: string;
+  sourceDurationSec: number;
+  chargedCredits: number;
+  billingStatus: "estimated" | "settled" | "refunded";
   createdAt: Date;
   updatedAt: Date;
 }

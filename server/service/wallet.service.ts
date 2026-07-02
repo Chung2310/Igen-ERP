@@ -13,6 +13,8 @@ export const API_COSTS = {
   ELEVENLABS_TTS_CHAR: 0.005,
   ELEVENLABS_MIN: 1.0,
   HEYGEN_VIDEO: 100,
+  OPUSCLIP_PER_MINUTE: 30, // Credit / 1 phut video goc (toi thieu 1 phut, lam tron len)
+  OPUSCLIP_MIN_HOLD_MINUTES: 10, // So phut tam giu khi chua do duoc thoi luong (YouTube/Drive)
 };
 
 type AdminBalanceFilters = {
@@ -92,6 +94,44 @@ export const walletService = {
 
     console.log(
       `[Wallet Service] Khau tru thanh cong ${amount} Credit tu User ID: ${userId} (${description}). So du moi: ${wallet.balance} Credit.`
+    );
+    return { wallet, transaction };
+  },
+
+  /**
+   * Hoan tien vao vi nguoi dung (vi du: dich vu that bai, hoan phan tam giu thua).
+   * Transaction duoc ghi voi type "deposit" de tranh phai mo rong enum type.
+   */
+  async refundBalance(userId: string, amount: number, description: string): Promise<any> {
+    if (amount <= 0) return null;
+
+    const wallet = await WalletModel.findOneAndUpdate(
+      { userId },
+      { $inc: { balance: amount }, $set: { updatedAt: new Date() } },
+      { upsert: true, returnDocument: "after" }
+    );
+
+    let orderCode: number;
+    let existing: any;
+    do {
+      orderCode = Math.floor(10000000 + Math.random() * 90000000);
+      existing = await TransactionModel.findOne({ orderCode });
+    } while (existing);
+
+    const transaction = new TransactionModel({
+      userId,
+      orderCode,
+      amount,
+      type: "deposit",
+      status: "success",
+      description: `Hoàn tiền: ${description}`,
+      createdAt: new Date(),
+      completedAt: new Date(),
+    });
+    await transaction.save();
+
+    console.log(
+      `[Wallet Service] Hoan tien thanh cong ${amount} Credit cho User ID: ${userId} (${description}). So du moi: ${wallet.balance} Credit.`
     );
     return { wallet, transaction };
   },

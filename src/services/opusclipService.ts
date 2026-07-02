@@ -102,7 +102,7 @@ export const opusclipService = {
     limit = 10,
     status?: string
   ): Promise<OpusClipProjectListResponse> {
-    let query = `?pageNum=${page}&pageSize=${limit}`;
+    let query = `?page=${page}&limit=${limit}`;
     if (status) {
       query += `&status=${encodeURIComponent(status)}`;
     }
