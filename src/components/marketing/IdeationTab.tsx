@@ -1966,6 +1966,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                   avatars={humanVideoAvatars}
                   voices={humanVideoVoices}
                   personalVoices={personalHeygenVoices}
+                  heygenVoices={heygenVoices}
                   isLoadingAvatars={isLoadingHumanVideoAvatars}
                   isLoadingVoices={isLoadingHumanVideoVoices}
                   isPreviewingVoice={isPreviewingHumanVoice}
@@ -1974,8 +1975,9 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab }
                   onVoiceSourceChange={(value) => {
                     setSelectedHumanVoiceSource(value);
                     if (value === "personal") {
-                      if (personalHeygenVoices.length > 0) {
-                        setSelectedHumanVoice((current) => personalHeygenVoices.some((voice) => voice.id === current) ? current : personalHeygenVoices[0].id);
+                      const allHeygen = [...personalHeygenVoices, ...heygenVoices];
+                      if (allHeygen.length > 0) {
+                        setSelectedHumanVoice((current) => allHeygen.some((voice) => voice.id === current) ? current : allHeygen[0].id);
                       }
                     } else if (humanVideoVoices.length > 0) {
                       setSelectedHumanVoice((current) => humanVideoVoices.some((voice: any) => (voice.voice_id || voice.id) === current) ? current : (humanVideoVoices[0].voice_id || humanVideoVoices[0].id || current));

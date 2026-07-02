@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { BookOpen, Check, Play, Search, Video, X } from "lucide-react";
 import type { HeyGenLibraryItem } from "../../api/heygen";
 
@@ -20,6 +20,7 @@ interface HumanVideoSettingsCardProps {
   avatars: HeyGenLibraryItem[];
   voices: ThirdPartyVoiceItem[];
   personalVoices: HeyGenLibraryItem[];
+  heygenVoices?: HeyGenLibraryItem[];
   isLoadingAvatars: boolean;
   isLoadingVoices: boolean;
   isPreviewingVoice: boolean;
@@ -101,6 +102,7 @@ export default function HumanVideoSettingsCard({
   avatars,
   voices,
   personalVoices,
+  heygenVoices,
   isLoadingAvatars,
   isLoadingVoices,
   isPreviewingVoice,
@@ -117,21 +119,56 @@ export default function HumanVideoSettingsCard({
   onInputTextChange,
 }: HumanVideoSettingsCardProps) {
   const [isVoiceLibraryOpen, setIsVoiceLibraryOpen] = useState(false);
-  const [voiceTab, setVoiceTab] = useState<"my-voices" | "library">(selectedVoiceSource === "personal" ? "my-voices" : "library");
+  const [voiceTab, setVoiceTab] = useState<"personal" | "heygen-public" | "elevenlabs">("personal");
   const [searchQuery, setSearchQuery] = useState("");
+  const [displayCount, setDisplayCount] = useState(20);
   const personalPreviewAudioRef = useRef<HTMLAudioElement | null>(null);
 
   const isAvatarThree = selectedEngineType === "avatar_iii";
   const usePersonalVoiceMode = isAvatarThree || selectedVoiceSource === "personal";
-  const activeVoices = usePersonalVoiceMode ? personalVoices : voices;
+  
+  const heygenPublicVoices = heygenVoices || [];
+
+  useEffect(() => {
+    setDisplayCount(20);
+  }, [voiceTab, searchQuery]);
+
+  const activeVoices = useMemo(() => {
+    return [...personalVoices, ...heygenPublicVoices, ...voices];
+  }, [personalVoices, heygenPublicVoices, voices]);
 
   const selectedAvatarItem = avatars.find((avatar) => avatar.id === selectedAvatar) || avatars[0] || null;
   const selectedVoiceItem = activeVoices.find((voice) => getVoiceKey(voice) === selectedVoice) || activeVoices[0] || null;
 
-  const visibleVoices = (isAvatarThree ? personalVoices : voiceTab === "my-voices" ? personalVoices : voices).filter((voice) => {
-    const keyword = searchQuery.toLowerCase();
-    return getVoiceName(voice).toLowerCase().includes(keyword) || getVoiceDesc(voice).toLowerCase().includes(keyword);
-  });
+  const visibleVoices = useMemo(() => {
+    let list: any[] = [];
+    if (isAvatarThree) {
+      if (voiceTab === "personal") {
+        list = personalVoices;
+      } else {
+        list = heygenPublicVoices;
+      }
+    } else {
+      if (voiceTab === "personal") {
+        list = personalVoices;
+      } else if (voiceTab === "heygen-public") {
+        list = heygenPublicVoices;
+      } else {
+        list = voices;
+      }
+    }
+    return list.filter((voice) => {
+      const keyword = searchQuery.toLowerCase();
+      return getVoiceName(voice).toLowerCase().includes(keyword) || getVoiceDesc(voice).toLowerCase().includes(keyword);
+    });
+  }, [isAvatarThree, voiceTab, personalVoices, heygenPublicVoices, voices, searchQuery]);
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.currentTarget;
+    if (target.scrollHeight - target.scrollTop <= target.clientHeight + 50) {
+      setDisplayCount((prev) => Math.min(prev + 20, visibleVoices.length));
+    }
+  };
 
   const previewPersonalVoice = (voice: HeyGenLibraryItem) => {
     if (!voice.previewAudioUrl) return;
@@ -141,6 +178,16 @@ export default function HumanVideoSettingsCard({
     const audio = new Audio(voice.previewAudioUrl);
     personalPreviewAudioRef.current = audio;
     void audio.play();
+  };
+
+  const openVoiceLibrary = () => {
+    if (selectedVoiceSource === "personal") {
+      const isPublicHeyGen = heygenPublicVoices.some((v) => getVoiceKey(v) === selectedVoice);
+      setVoiceTab(isPublicHeyGen ? "heygen-public" : "personal");
+    } else {
+      setVoiceTab(isAvatarThree ? "heygen-public" : "elevenlabs");
+    }
+    setIsVoiceLibraryOpen(true);
   };
 
   const scriptTitle = isAvatarThree
@@ -256,7 +303,7 @@ export default function HumanVideoSettingsCard({
             <p className="text-sm font-bold text-slate-900">Giọng nói đã chọn</p>
             <button
               type="button"
-              onClick={() => setIsVoiceLibraryOpen(true)}
+              onClick={openVoiceLibrary}
               className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-[11px] font-bold text-slate-700 transition-all hover:bg-slate-50"
             >
               <BookOpen className="h-4 w-4" />
@@ -363,34 +410,62 @@ export default function HumanVideoSettingsCard({
                   <button
                     type="button"
                     onClick={() => {
-                      setVoiceTab("my-voices");
-                      onVoiceSourceChange("personal");
+                      setVoiceTab("personal");
                     }}
-                    className={`flex-1 pb-2 text-xs font-bold transition ${voiceTab === "my-voices" ? "border-b-2 border-cyan-500 text-cyan-600" : "border-b-2 border-transparent text-slate-400"}`}
+                    className={`flex-1 pb-2 text-xs font-bold transition ${voiceTab === "personal" ? "border-b-2 border-cyan-500 text-cyan-600" : "border-b-2 border-transparent text-slate-400"}`}
                   >
-                    Giọng của tôi ({personalVoices.length})
+                    Giọng nói của tôi ({personalVoices.length})
                   </button>
                   <button
                     type="button"
                     onClick={() => {
-                      setVoiceTab("library");
-                      onVoiceSourceChange("third-party");
+                      setVoiceTab("elevenlabs");
                     }}
-                    className={`flex-1 pb-2 text-xs font-bold transition ${voiceTab === "library" ? "border-b-2 border-cyan-500 text-cyan-600" : "border-b-2 border-transparent text-slate-400"}`}
+                    className={`flex-1 pb-2 text-xs font-bold transition ${voiceTab === "elevenlabs" ? "border-b-2 border-cyan-500 text-cyan-600" : "border-b-2 border-transparent text-slate-400"}`}
                   >
-                    Bên thứ 3 ({voices.length})
+                    Giọng nói bên thứ 3 ({voices.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setVoiceTab("heygen-public");
+                    }}
+                    className={`flex-1 pb-2 text-xs font-bold transition ${voiceTab === "heygen-public" ? "border-b-2 border-cyan-500 text-cyan-600" : "border-b-2 border-transparent text-slate-400"}`}
+                  >
+                    Giọng nói có sẵn ({heygenPublicVoices.length})
                   </button>
                 </div>
-              ) : null}
+              ) : (
+                <div className="flex border-b border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setVoiceTab("personal");
+                    }}
+                    className={`flex-1 pb-2 text-xs font-bold transition ${voiceTab === "personal" ? "border-b-2 border-cyan-500 text-cyan-600" : "border-b-2 border-transparent text-slate-400"}`}
+                  >
+                    Giọng nói của tôi ({personalVoices.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setVoiceTab("heygen-public");
+                    }}
+                    className={`flex-1 pb-2 text-xs font-bold transition ${voiceTab === "heygen-public" ? "border-b-2 border-cyan-500 text-cyan-600" : "border-b-2 border-transparent text-slate-400"}`}
+                  >
+                    Giọng nói có sẵn ({heygenPublicVoices.length})
+                  </button>
+                </div>
+              )}
 
-              <div className="max-h-[420px] space-y-2 overflow-y-auto pr-1">
+              <div onScroll={handleScroll} className="max-h-[420px] space-y-2 overflow-y-auto pr-1">
                 {visibleVoices.length === 0 ? (
                   <div className="py-10 text-center text-xs text-slate-400">Không tìm thấy giọng đọc phù hợp.</div>
                 ) : (
-                  visibleVoices.map((voice) => {
+                  visibleVoices.slice(0, displayCount).map((voice) => {
                     const voiceKey = getVoiceKey(voice);
                     const isSelected = voiceKey === selectedVoice;
-                    const isPersonalVoice = isAvatarThree || voiceTab === "my-voices";
+                    const isHeyGenVoice = isAvatarThree || voiceTab === "personal" || voiceTab === "heygen-public";
 
                     return (
                       <div
@@ -399,14 +474,14 @@ export default function HumanVideoSettingsCard({
                         tabIndex={0}
                         onClick={() => {
                           onVoiceChange(voiceKey);
-                          onVoiceSourceChange(isPersonalVoice ? "personal" : "third-party");
+                          onVoiceSourceChange(isHeyGenVoice ? "personal" : "third-party");
                           setIsVoiceLibraryOpen(false);
                         }}
                         onKeyDown={(event) => {
                           if (event.key === "Enter" || event.key === " ") {
                             event.preventDefault();
                             onVoiceChange(voiceKey);
-                            onVoiceSourceChange(isPersonalVoice ? "personal" : "third-party");
+                            onVoiceSourceChange(isHeyGenVoice ? "personal" : "third-party");
                             setIsVoiceLibraryOpen(false);
                           }
                         }}
@@ -417,13 +492,13 @@ export default function HumanVideoSettingsCard({
                             type="button"
                             onClick={(event) => {
                               event.stopPropagation();
-                              if (isPersonalVoice) {
+                              if (isHeyGenVoice) {
                                 previewPersonalVoice(voice as HeyGenLibraryItem);
                               } else {
                                 onPreviewVoice(voiceKey);
                               }
                             }}
-                            disabled={isPersonalVoice ? !Boolean((voice as HeyGenLibraryItem).previewAudioUrl) : isPreviewingVoice}
+                            disabled={isHeyGenVoice ? !Boolean((voice as HeyGenLibraryItem).previewAudioUrl) : isPreviewingVoice}
                             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-xs disabled:cursor-not-allowed disabled:opacity-40"
                           >
                             <Play className="ml-0.5 h-4 w-4" />
