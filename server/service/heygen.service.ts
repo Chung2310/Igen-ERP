@@ -951,7 +951,6 @@ export const heygenService = {
       avatar_id: avatarId,
       aspect_ratio: aspectRatio || "16:9",
       resolution: resolution || "720p",
-      output_format: "mp4",
       background: {
         type: "color",
         value: finalBgColor,
@@ -972,12 +971,11 @@ export const heygenService = {
 
     if (useTextToSpeech) {
       requestBody.script = normalizedInputText;
+      if (normalizedVoiceId) {
+        requestBody.voice_id = normalizedVoiceId;
+      }
     } else {
       requestBody.audio_url = audioUrl;
-    }
-
-    if (normalizedVoiceId) {
-      requestBody.voice_id = normalizedVoiceId;
     }
 
     if (title?.trim()) {
