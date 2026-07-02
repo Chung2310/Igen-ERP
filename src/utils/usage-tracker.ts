@@ -132,6 +132,13 @@ export const PRICING_TABLE: Record<string, {
     category: 'image',
     note: 'Google Gemini Imagen API',
   },
+  'opusclip-long-to-short': {
+    costPerUnitCredit: 30,
+    unit: 'minutes',
+    label: 'Long video to Short video (OpusClip)',
+    category: 'video',
+    note: 'Tính theo phút video gốc, tối thiểu 1 phút; link YouTube/Drive tạm giữ 300 Credit và quyết toán theo thời lượng thực',
+  },
 };
 
 export function formatAiModelName(name: string): string {

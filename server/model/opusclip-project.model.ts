@@ -31,6 +31,14 @@ const OpusClipProjectSchema = new Schema<IOpusClipProject>(
       },
     ],
     error: { type: String, default: "" },
+    // Thông tin tính phí
+    sourceDurationSec: { type: Number, default: 0 }, // Thời lượng video gốc (giây)
+    chargedCredits: { type: Number, default: 0 }, // Tổng credits đã trừ của user
+    billingStatus: {
+      type: String,
+      enum: ["estimated", "settled", "refunded"],
+      default: "estimated", // estimated = tạm giữ chờ quyết toán; settled = đã trừ đúng; refunded = đã hoàn
+    },
   },
   {
     timestamps: true, // Tự động tạo createdAt, updatedAt và tự động đánh chỉ mục nếu cần

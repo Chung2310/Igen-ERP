@@ -2,6 +2,108 @@ import { Request, Response } from "express";
 import { opusclipService } from "../service/opusclip.service";
 import { OpusClipProjectModel } from "../model/opusclip-project.model";
 import { emitToUser } from "../socket";
+import { walletService, API_COSTS } from "../service/wallet.service";
+
+/**
+ * Tính phí OpusClip theo phút video gốc: tối thiểu 1 phút, làm tròn lên.
+ */
+function calcOpusclipCost(durationSec: number): { minutes: number; cost: number } {
+  const minutes = Math.max(1, Math.ceil(durationSec / 60));
+  return { minutes, cost: minutes * API_COSTS.OPUSCLIP_PER_MINUTE };
+}
+
+/**
+ * Trích xuất thời lượng video gốc (giây) từ payload/detail OpusClip trả về.
+ * Thử lần lượt các field khả dĩ; fallback: endTime lớn nhất trong danh sách clips.
+ */
+function extractSourceDurationSec(detail: any, mappedClips: any[]): number | null {
+  const candidatesMs = [
+    detail?.videoDurationMs,
+    detail?.durationMs,
+    detail?.sourceDurationMs,
+    detail?.videoMeta?.durationMs,
+  ];
+  for (const ms of candidatesMs) {
+    const num = Number(ms);
+    if (num > 0) return num / 1000;
+  }
+
+  const candidatesSec = [
+    detail?.videoDuration,
+    detail?.duration,
+    detail?.sourceDuration,
+    detail?.videoMeta?.duration,
+  ];
+  for (const sec of candidatesSec) {
+    const num = Number(sec);
+    if (num > 0) return num;
+  }
+
+  // Fallback: mốc thời gian kết thúc xa nhất của các clip trên video gốc
+  const maxEnd = (mappedClips || []).reduce((max, c) => Math.max(max, c.endTime || 0), 0);
+  return maxEnd > 0 ? maxEnd : null;
+}
+
+/**
+ * Quyết toán phí khi dự án hoàn thành: chỉ áp dụng cho dự án đang tạm giữ ("estimated").
+ * Trừ thêm nếu phí thực > phí tạm giữ, hoàn lại phần thừa nếu ngược lại.
+ * Không ném lỗi ra ngoài — quyết toán thất bại không được chặn việc hoàn thành dự án.
+ */
+async function settleProjectBilling(project: any, detail: any, mappedClips: any[]): Promise<void> {
+  if (project.billingStatus !== "estimated") return;
+
+  try {
+    const actualSec = extractSourceDurationSec(detail, mappedClips);
+    if (!actualSec) {
+      console.warn(`[OpusClipBilling] Không xác định được thời lượng thực của ${project.projectId}. Giữ nguyên mức phí tạm giữ ${project.chargedCredits} Credit.`);
+      project.billingStatus = "settled";
+      return;
+    }
+
+    const { minutes, cost: actualCost } = calcOpusclipCost(actualSec);
+    const diff = actualCost - (project.chargedCredits || 0);
+    const userId = project.userId.toString();
+
+    if (diff > 0) {
+      try {
+        await walletService.deductBalance(userId, diff, `Quyết toán bổ sung OpusClip Long-to-Short (${minutes} phút, dự án ${project.projectId})`);
+      } catch (deductErr: any) {
+        // Ví không đủ để trừ thêm: log lại, vẫn cho dự án hoàn thành
+        console.error(`[OpusClipBilling] Không trừ được ${diff} Credit bổ sung cho ${project.projectId}:`, deductErr.message);
+      }
+    } else if (diff < 0) {
+      await walletService.refundBalance(userId, -diff, `Hoàn phần tạm giữ thừa OpusClip Long-to-Short (thực tế ${minutes} phút, dự án ${project.projectId})`);
+    }
+
+    project.sourceDurationSec = Math.round(actualSec);
+    project.chargedCredits = actualCost;
+    project.billingStatus = "settled";
+    console.log(`[OpusClipBilling] Quyết toán ${project.projectId}: ${minutes} phút = ${actualCost} Credit (chênh lệch ${diff}).`);
+  } catch (err: any) {
+    console.error(`[OpusClipBilling] Lỗi quyết toán ${project.projectId}:`, err.message);
+  }
+}
+
+/**
+ * Hoàn credits khi dự án thất bại. Idempotent — không hoàn trùng.
+ */
+async function refundProjectOnFailure(project: any): Promise<number> {
+  if (project.billingStatus === "refunded" || !(project.chargedCredits > 0)) {
+    return 0;
+  }
+  try {
+    await walletService.refundBalance(
+      project.userId.toString(),
+      project.chargedCredits,
+      `OpusClip Long-to-Short xử lý thất bại (dự án ${project.projectId})`
+    );
+    project.billingStatus = "refunded";
+    return project.chargedCredits;
+  } catch (err: any) {
+    console.error(`[OpusClipBilling] Lỗi hoàn tiền cho ${project.projectId}:`, err.message);
+    return 0;
+  }
+}
 
 /**
  * Map dữ liệu clips từ OpusClip API về schema Database local.
@@ -40,7 +142,27 @@ export const opusclipController = {
 
       console.log(`[OpusClipController.createProject] User ${userId} requested create project. URL: ${videoUrl}`);
 
-      // 1. Gửi yêu cầu khởi tạo dự án lên OpusClip API
+      // 1. Đo thời lượng video gốc để tính phí (1 phút = OPUSCLIP_PER_MINUTE credits)
+      const measuredSec = await opusclipService.measureVideoDurationSec(videoUrl);
+      let minutes: number;
+      let cost: number;
+      let billingStatus: "estimated" | "settled";
+
+      if (measuredSec) {
+        // Đo được thời lượng chính xác → trừ đúng ngay
+        ({ minutes, cost } = calcOpusclipCost(measuredSec));
+        billingStatus = "settled";
+      } else {
+        // Link YouTube/Drive không đo được → tạm giữ mức tối thiểu, quyết toán khi hoàn thành
+        minutes = API_COSTS.OPUSCLIP_MIN_HOLD_MINUTES;
+        cost = minutes * API_COSTS.OPUSCLIP_PER_MINUTE;
+        billingStatus = "estimated";
+      }
+
+      // 2. Kiểm tra số dư ví (ném lỗi 402 nếu không đủ)
+      await walletService.checkBalance(userId, cost);
+
+      // 3. Gửi yêu cầu khởi tạo dự án lên OpusClip API
       const opusProject = await opusclipService.createProject({
         videoUrl,
         name: name || "Video Long-to-Short",
@@ -54,7 +176,7 @@ export const opusclipController = {
         throw new Error("OpusClip không trả về mã dự án (projectId) hợp lệ.");
       }
 
-      // 2. Lưu thông tin dự án vào Database MongoDB với trạng thái "processing"
+      // 4. Lưu thông tin dự án vào Database MongoDB với trạng thái "processing"
       const localProject = await OpusClipProjectModel.create({
         userId,
         projectId,
@@ -65,16 +187,31 @@ export const opusclipController = {
         language: sourceLang || "auto",
         brandTemplateId: brandTemplateId || "",
         clips: [],
+        sourceDurationSec: measuredSec ? Math.round(measuredSec) : 0,
+        chargedCredits: cost,
+        billingStatus,
       });
+
+      // 5. Khấu trừ credits sau khi tạo dự án thành công
+      const chargeNote = billingStatus === "settled"
+        ? `Chi phí cắt video Long-to-Short OpusClip (${minutes} phút, dự án ${projectId})`
+        : `Tạm giữ chi phí cắt video Long-to-Short OpusClip (${minutes} phút, quyết toán khi hoàn thành, dự án ${projectId})`;
+      await walletService.deductBalance(userId, cost, chargeNote);
 
       return res.status(201).json({
         status: "success",
         message: "Tạo dự án OpusClip thành công, đang tiến hành xử lý.",
         data: localProject,
+        costApplied: {
+          minutes,
+          costPerMinute: API_COSTS.OPUSCLIP_PER_MINUTE,
+          totalCost: cost,
+          isEstimated: billingStatus === "estimated",
+        },
       });
     } catch (error: any) {
       console.error("[OpusClipController.createProject] Error:", error.message);
-      return res.status(500).json({
+      return res.status(error.statusCode || 500).json({
         status: "error",
         message: error.message || "Đã xảy ra lỗi khi tạo dự án OpusClip.",
       });
@@ -153,12 +290,17 @@ export const opusclipController = {
 
           if (stage === "COMPLETE") {
             const rawClips = await opusclipService.getAllClips(projectId);
+            const mappedClips = mapClips(rawClips);
             project.status = "completed";
-            project.clips = mapClips(rawClips) as any;
+            project.clips = mappedClips as any;
+            // Quyết toán phần phí tạm giữ (nếu có) theo thời lượng thực
+            await settleProjectBilling(project, detail, mappedClips);
             await project.save();
           } else if (stage === "FAILED" || stage === "STALLED") {
             project.status = "failed";
             project.error = detail.error || "Dự án bị lỗi trong lúc xử lý.";
+            // Hoàn credits đã trừ cho user (idempotent)
+            await refundProjectOnFailure(project);
             await project.save();
           }
         } catch (syncErr: any) {
@@ -235,6 +377,20 @@ export const opusclipController = {
 
         project.status = "completed";
         project.clips = mappedClips as any;
+
+        // Quyết toán phí tạm giữ theo thời lượng thực (thử payload trước, thiếu thì hỏi detail API)
+        if (project.billingStatus === "estimated") {
+          let detailForBilling: any = payload;
+          if (!extractSourceDurationSec(payload, [])) {
+            try {
+              detailForBilling = await opusclipService.getProjectDetail(projectId);
+            } catch (detailErr: any) {
+              console.warn(`[OpusClipBilling] Không lấy được detail để quyết toán ${projectId}:`, detailErr.message);
+            }
+          }
+          await settleProjectBilling(project, detailForBilling, mappedClips);
+        }
+
         await project.save();
 
         console.log(`[OpusClipController.handleWebhook] Local database updated for ${projectId}. Emitting event to owner...`);
@@ -251,6 +407,8 @@ export const opusclipController = {
 
         project.status = "failed";
         project.error = errorMsg;
+        // Hoàn credits đã trừ cho user (idempotent — không hoàn trùng khi webhook lặp lại)
+        const refundedCredits = await refundProjectOnFailure(project);
         await project.save();
 
         emitToUser(project.userId.toString(), "opusclip:failed", {
@@ -258,6 +416,7 @@ export const opusclipController = {
           userId: project.userId.toString(),
           status: "failed",
           error: project.error,
+          refundedCredits,
         });
       } else {
         console.log(`[OpusClipController.handleWebhook] Project ${projectId} stage update: ${stage}`);
