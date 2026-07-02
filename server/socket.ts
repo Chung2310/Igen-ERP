@@ -65,6 +65,13 @@ export function initSocketServer(httpServer: HTTPServer) {
 
     console.log(`[Socket.IO] Client connected: ${user?.email || "Unknown"} (Socket: ${socket.id})`);
 
+    // Join room riêng theo userId để gửi sự kiện cá nhân (không broadcast toàn server)
+    if (user?._id) {
+      const userRoom = `user:${user._id.toString()}`;
+      socket.join(userRoom);
+      console.log(`[Socket.IO] User ${user?.email} joined personal room: ${userRoom}`);
+    }
+
     void (async () => {
       const roomIds = new Set<string>();
 
@@ -126,6 +133,16 @@ export function initSocketServer(httpServer: HTTPServer) {
 export function emitToPage(pageId: string, eventName: string, data: any) {
   if (io) {
     const room = `page:${pageId}`;
+    console.log(`[Socket.IO] Emitting event "${eventName}" to room: ${room}`);
+    io.to(room).emit(eventName, data);
+  } else {
+    console.warn("[Socket.IO] Server instance (io) not initialized.");
+  }
+}
+
+export function emitToUser(userId: string, eventName: string, data: any) {
+  if (io) {
+    const room = `user:${userId}`;
     console.log(`[Socket.IO] Emitting event "${eventName}" to room: ${room}`);
     io.to(room).emit(eventName, data);
   } else {

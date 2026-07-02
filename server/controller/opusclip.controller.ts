@@ -1,7 +1,28 @@
 import { Request, Response } from "express";
 import { opusclipService } from "../service/opusclip.service";
 import { OpusClipProjectModel } from "../model/opusclip-project.model";
-import { broadcastEvent } from "../socket";
+import { emitToUser } from "../socket";
+
+/**
+ * Map dữ liệu clips từ OpusClip API về schema Database local.
+ * Bỏ qua các clip không có videoUrl (schema yêu cầu bắt buộc, và không có URL thì không hiển thị được).
+ */
+function mapClips(rawClips: any[]): any[] {
+  return (rawClips || [])
+    .filter((clip: any) => clip && (clip.uriForPreview || clip.uriForExport || clip.videoUrl))
+    .map((clip: any, index: number) => ({
+      clipId: clip.curationId || clip.id?.split(".")[1] || clip.id || `clip_${index + 1}`,
+      videoUrl: clip.uriForPreview || clip.uriForExport || clip.videoUrl,
+      title: clip.title || "",
+      description: clip.description || "",
+      hashtags: Array.isArray(clip.hashtags) ? clip.hashtags.join(" ") : (clip.hashtags || ""),
+      viralityScore: clip.score || clip.viralityScore || clip.judgeResult?.curvedScore || 0,
+      viralReason: clip.judgeResult?.trendComment || clip.viralReason || "",
+      duration: clip.durationMs ? Math.round(clip.durationMs / 1000) : 0,
+      startTime: clip.timeRanges?.[0]?.[0] ? Math.round(clip.timeRanges[0][0] / 1000) : 0,
+      endTime: clip.timeRanges?.[clip.timeRanges.length - 1]?.[1] ? Math.round(clip.timeRanges[clip.timeRanges.length - 1][1] / 1000) : 0,
+    }));
+}
 
 export const opusclipController = {
   /**
@@ -71,8 +92,9 @@ export const opusclipController = {
         return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập." });
       }
 
-      const page = parseInt(req.query.page as string, 10) || 1;
-      const limit = parseInt(req.query.limit as string, 10) || 10;
+      // Chấp nhận cả page/limit lẫn pageNum/pageSize để tương thích với frontend
+      const page = parseInt((req.query.page || req.query.pageNum) as string, 10) || 1;
+      const limit = parseInt((req.query.limit || req.query.pageSize) as string, 10) || 10;
       const status = req.query.status as string;
 
       const filter: Record<string, any> = { userId };
@@ -130,22 +152,9 @@ export const opusclipController = {
           const stage = detail.stage || detail.status;
 
           if (stage === "COMPLETE") {
-            const clipsRes = await opusclipService.getClips(projectId);
-            const mappedClips = (clipsRes?.list || []).map((clip: any) => ({
-              clipId: clip.curationId || clip.id?.split(".")[1] || clip.clipId,
-              videoUrl: clip.uriForExport || clip.videoUrl,
-              title: clip.title || "",
-              description: clip.description || "",
-              hashtags: clip.hashtags || "",
-              viralityScore: clip.viralityScore || clip.viralScore || 0,
-              viralReason: clip.viralReason || "",
-              duration: clip.durationMs ? Math.round(clip.durationMs / 1000) : 0,
-              startTime: clip.timeRanges?.[0]?.[0] ? Math.round(clip.timeRanges[0][0] / 1000) : 0,
-              endTime: clip.timeRanges?.[0]?.[1] ? Math.round(clip.timeRanges[0][1] / 1000) : 0,
-            }));
-
+            const rawClips = await opusclipService.getAllClips(projectId);
             project.status = "completed";
-            project.clips = mappedClips;
+            project.clips = mapClips(rawClips) as any;
             await project.save();
           } else if (stage === "FAILED" || stage === "STALLED") {
             project.status = "failed";
@@ -192,6 +201,7 @@ export const opusclipController = {
 
       // 2. Phân tích nội dung payload nhận được
       const payload = req.body;
+      const salt = headers["x-opus-salt"];
       const projectId = payload.projectId || payload.id;
       const stage = payload.stage || payload.status; // COMPLETE, FAILED, processing, v.v.
 
@@ -204,37 +214,32 @@ export const opusclipController = {
       const project = await OpusClipProjectModel.findOne({ projectId });
       if (!project) {
         console.warn(`[OpusClipController.handleWebhook] Project ${projectId} not found in database.`);
+        opusclipService.markSaltProcessed(salt);
         return res.status(200).json({ status: "success", message: "Dự án không tồn tại cục bộ." });
       }
 
       // 3. Xử lý cập nhật DB tuỳ theo trạng thái
       if (stage === "COMPLETE") {
+        // Idempotent: dự án đã hoàn thành trước đó (webhook trùng lặp) thì trả 200 luôn
+        if (project.status === "completed") {
+          console.log(`[OpusClipController.handleWebhook] Project ${projectId} already completed. Skipping duplicate event.`);
+          opusclipService.markSaltProcessed(salt);
+          return res.status(200).json({ status: "success", message: "Dự án đã hoàn thành trước đó." });
+        }
+
         console.log(`[OpusClipController.handleWebhook] Project ${projectId} processed successfully. Fetching clips...`);
-        
-        // Gọi API lấy đầy đủ danh sách clips
-        const clipsRes = await opusclipService.getClips(projectId);
-        
-        // Map các trường từ API về Database local của hệ thống
-        const mappedClips = (clipsRes?.list || []).map((clip: any) => ({
-          clipId: clip.curationId || clip.id?.split(".")[1] || clip.clipId,
-          videoUrl: clip.uriForExport || clip.videoUrl,
-          title: clip.title || "",
-          description: clip.description || "",
-          hashtags: clip.hashtags || "",
-          viralityScore: clip.viralityScore || clip.viralScore || 0,
-          viralReason: clip.viralReason || "",
-          duration: clip.durationMs ? Math.round(clip.durationMs / 1000) : 0,
-          startTime: clip.timeRanges?.[0]?.[0] ? Math.round(clip.timeRanges[0][0] / 1000) : 0,
-          endTime: clip.timeRanges?.[0]?.[1] ? Math.round(clip.timeRanges[0][1] / 1000) : 0,
-        }));
+
+        // Gọi API lấy đầy đủ danh sách clips (tất cả các trang)
+        const rawClips = await opusclipService.getAllClips(projectId);
+        const mappedClips = mapClips(rawClips);
 
         project.status = "completed";
-        project.clips = mappedClips;
+        project.clips = mappedClips as any;
         await project.save();
 
-        console.log(`[OpusClipController.handleWebhook] Local database updated for ${projectId}. Broadcasting event...`);
-        // Bắn sự kiện qua Socket.IO để cập nhật giao diện người dùng ngay lập tức
-        broadcastEvent("opusclip:completed", {
+        console.log(`[OpusClipController.handleWebhook] Local database updated for ${projectId}. Emitting event to owner...`);
+        // Bắn sự kiện qua Socket.IO tới đúng user sở hữu dự án (không broadcast toàn server)
+        emitToUser(project.userId.toString(), "opusclip:completed", {
           projectId,
           userId: project.userId.toString(),
           status: "completed",
@@ -243,12 +248,12 @@ export const opusclipController = {
       } else if (stage === "FAILED" || stage === "STALLED") {
         const errorMsg = payload.error || "Dự án bị lỗi trong lúc xử lý trên OpusClip.";
         console.log(`[OpusClipController.handleWebhook] Project ${projectId} failed processing. Error: ${errorMsg}`);
-        
+
         project.status = "failed";
         project.error = errorMsg;
         await project.save();
 
-        broadcastEvent("opusclip:failed", {
+        emitToUser(project.userId.toString(), "opusclip:failed", {
           projectId,
           userId: project.userId.toString(),
           status: "failed",
@@ -257,6 +262,10 @@ export const opusclipController = {
       } else {
         console.log(`[OpusClipController.handleWebhook] Project ${projectId} stage update: ${stage}`);
       }
+
+      // Chỉ đánh dấu salt sau khi toàn bộ xử lý thành công.
+      // Nếu code phía trên ném lỗi (trả 500), OpusClip retry cùng salt vẫn được chấp nhận.
+      opusclipService.markSaltProcessed(salt);
 
       return res.status(200).json({ status: "success", message: "Webhook processed successfully." });
     } catch (error: any) {
