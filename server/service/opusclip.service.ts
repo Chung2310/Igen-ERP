@@ -1,5 +1,7 @@
 import crypto from "crypto";
+import { exec } from "child_process";
 import dotenv from "dotenv";
+import { AIMediaModel } from "../model/ai-media.model";
 
 dotenv.config();
 
@@ -20,6 +22,37 @@ function getHeaders() {
 const seenSalts = new Set<string>();
 
 export const opusclipService = {
+  /**
+   * Đo thời lượng video nguồn (giây) để tính phí.
+   * Trả về null nếu KHÔNG đo được (vd: link YouTube/Drive không phải file trực tiếp)
+   * — khác với gemini.service (fallback 5s) vì cần phân biệt để quyết định tạm giữ phí.
+   */
+  async measureVideoDurationSec(url: string): Promise<number | null> {
+    // 1. Thử lấy từ cache metadata trong DB (video đã upload qua hệ thống)
+    try {
+      const matchedRecord: any = await AIMediaModel.findOne({ url }).lean();
+      const cachedDur = Number(matchedRecord?.metadata?.duration);
+      if (cachedDur > 0) return cachedDur;
+    } catch (dbErr: any) {
+      console.warn("[OpusClipService.measureVideoDurationSec] DB query failed:", dbErr.message);
+    }
+
+    // 2. Đo trực tiếp bằng ffprobe (chỉ hoạt động với URL file trực tiếp)
+    return new Promise<number | null>((resolve) => {
+      const cmd = `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${url}"`;
+      exec(cmd, { timeout: 15000 }, (error, stdout) => {
+        if (!error && stdout) {
+          const dur = parseFloat(stdout.trim());
+          if (!isNaN(dur) && dur > 0) {
+            resolve(dur);
+            return;
+          }
+        }
+        resolve(null);
+      });
+    });
+  },
+
   /**
    * Tạo dự án cắt clip AI từ video dài
    */

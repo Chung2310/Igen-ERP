@@ -21,6 +21,10 @@ import { socketService } from "../services/socketService";
 import { toast } from "./Toast";
 import { getAccessToken } from "../services/authService";
 
+// Bảng phí OpusClip (đồng bộ với API_COSTS phía server)
+const OPUSCLIP_PER_MINUTE = 30; // credits / phút video gốc
+const OPUSCLIP_HOLD_CREDITS = 300; // tạm giữ khi không đo được thời lượng (link YouTube/Drive)
+
 export default function LongToShortTab() {
   const [videoUrl, setVideoUrl] = useState("");
   const [name, setName] = useState("");
@@ -34,6 +38,8 @@ export default function LongToShortTab() {
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadedDurationSec, setUploadedDurationSec] = useState<number | null>(null);
+  const [nowTs, setNowTs] = useState(Date.now());
   const [copiedTextId, setCopiedTextId] = useState<string | null>(null);
 
   // Load projects list
@@ -70,7 +76,8 @@ export default function LongToShortTab() {
 
     const unsubFailed = socketService.on("opusclip:failed", (data: any) => {
       console.error("[Socket] OpusClip project failed:", data);
-      toast.error(`Dự án #${data.projectId} xử lý thất bại: ${data.error}`);
+      const refundNote = data.refundedCredits > 0 ? ` Đã hoàn lại ${data.refundedCredits} credits vào ví.` : "";
+      toast.error(`Dự án #${data.projectId} xử lý thất bại: ${data.error}.${refundNote}`);
       fetchProjects(true);
     });
 
@@ -79,6 +86,29 @@ export default function LongToShortTab() {
       unsubFailed();
     };
   }, [selectedProject?.projectId]);
+
+  // Tick đồng hồ mỗi 2 giây khi có dự án đang xử lý để cập nhật % tiến độ giả lập
+  const hasProcessing =
+    selectedProject?.status === "processing" || projects.some((p) => p.status === "processing");
+  useEffect(() => {
+    if (!hasProcessing) return;
+    const timer = setInterval(() => setNowTs(Date.now()), 2000);
+    return () => clearInterval(timer);
+  }, [hasProcessing]);
+
+  // Tiến độ giả lập dựa trên thời gian đã trôi qua kể từ lúc tạo dự án:
+  // tăng nhanh lúc đầu rồi chậm dần, tiệm cận 95% (chỉ đạt 100% khi webhook báo hoàn thành)
+  const getSimulatedProgress = (createdAt: string) => {
+    const elapsedSec = Math.max(0, (nowTs - new Date(createdAt).getTime()) / 1000);
+    return Math.min(95, Math.round(95 * (1 - Math.exp(-elapsedSec / 180))));
+  };
+
+  const getProgressLabel = (progress: number) => {
+    if (progress < 20) return "Đang tải video nguồn về hệ thống...";
+    if (progress < 45) return "Đang trích xuất transcript giọng nói...";
+    if (progress < 70) return "Đang phân tích các phân cảnh có tiềm năng viral...";
+    return "Đang render các clip dọc 9:16 kèm phụ đề...";
+  };
 
   // Handle upload local video file in chunks directly to Cloudinary
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -167,6 +197,10 @@ export default function LongToShortTab() {
 
         if (end === totalSize) {
           secureUrl = data.secure_url;
+          // Cloudinary trả về thời lượng video ở response cuối — dùng để ước tính phí
+          if (data.duration && Number(data.duration) > 0) {
+            setUploadedDurationSec(Number(data.duration));
+          }
         }
 
         start = end;
@@ -208,6 +242,7 @@ export default function LongToShortTab() {
       toast.success("Khởi tạo dự án cắt video AI thành công! Video đang được phân tích.");
       setVideoUrl("");
       setName("");
+      setUploadedDurationSec(null);
       
       // Reload list and set as selected
       await fetchProjects(true);
@@ -242,7 +277,7 @@ export default function LongToShortTab() {
   };
 
   // Helper render badges
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string, createdAt?: string) => {
     switch (status) {
       case "completed":
         return (
@@ -259,7 +294,7 @@ export default function LongToShortTab() {
       default:
         return (
           <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700 border border-blue-100 animate-pulse">
-            <Clock className="h-3 w-3 animate-spin" /> Đang cắt...
+            <Clock className="h-3 w-3 animate-spin" /> Đang cắt...{createdAt ? ` ${getSimulatedProgress(createdAt)}%` : ""}
           </span>
         );
     }
@@ -316,7 +351,11 @@ export default function LongToShortTab() {
                   required
                   placeholder="Dán link youtube.com/watch?v=... hoặc Drive"
                   value={videoUrl}
-                  onChange={(e) => setVideoUrl(e.target.value)}
+                  onChange={(e) => {
+                    setVideoUrl(e.target.value);
+                    // URL nhập tay không còn khớp file vừa upload → bỏ ước tính cũ
+                    setUploadedDurationSec(null);
+                  }}
                   className="block h-11 w-full rounded-2xl border border-gray-200 bg-white px-4 text-xs font-bold text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10"
                   disabled={uploading}
                 />
@@ -405,6 +444,17 @@ export default function LongToShortTab() {
                 />
               </div>
 
+              {videoUrl && (
+                <div className="flex items-center justify-between rounded-xl bg-purple-50/60 border border-purple-100 px-3 py-2 text-[11px] font-bold text-purple-700">
+                  <span>Phí dự kiến:</span>
+                  <span>
+                    {uploadedDurationSec
+                      ? `${Math.max(1, Math.ceil(uploadedDurationSec / 60)) * OPUSCLIP_PER_MINUTE} credits (${Math.max(1, Math.ceil(uploadedDurationSec / 60))} phút)`
+                      : `Tạm giữ ${OPUSCLIP_HOLD_CREDITS} credits — quyết toán theo thời lượng thực`}
+                  </span>
+                </div>
+              )}
+
               <button
                 type="submit"
                 disabled={submitting}
@@ -424,7 +474,7 @@ export default function LongToShortTab() {
             <div className="mt-4 flex gap-2 rounded-xl bg-gray-50 border border-gray-100 px-3 py-2.5 text-[10px] text-gray-400 leading-normal">
               <Info className="h-3.5 w-3.5 shrink-0 text-purple-500 mt-0.5" />
               <span>
-                Hệ thống khấu trừ theo số phút của video gốc (1 phút = 1 credit). Clips ngắn đầu ra được tạo bằng AI kèm phụ đề sẵn có.
+                Phí: 1 phút video gốc = {OPUSCLIP_PER_MINUTE} credits (tối thiểu 1 phút, làm tròn lên). Link YouTube/Drive sẽ tạm giữ {OPUSCLIP_HOLD_CREDITS} credits và quyết toán theo thời lượng thực khi xử lý xong. Nếu xử lý thất bại, hệ thống tự động hoàn lại credits.
               </span>
             </div>
           </div>
@@ -461,7 +511,7 @@ export default function LongToShortTab() {
                           <span className="text-[9px] font-medium text-gray-400 font-mono">
                             {new Date(proj.createdAt).toLocaleDateString("vi-VN")}
                           </span>
-                          {getStatusBadge(proj.status)}
+                          {getStatusBadge(proj.status, proj.createdAt)}
                         </div>
                       </div>
                       <ChevronRight className="h-4 w-4 text-gray-400 shrink-0" />
@@ -511,19 +561,37 @@ export default function LongToShortTab() {
               </div>
 
               {/* Processing View */}
-              {selectedProject.status === "processing" && (
-                <div className="flex-1 flex flex-col items-center justify-center py-20 text-center">
-                  <div className="relative mb-6">
-                    <div className="h-16 w-16 rounded-full border-4 border-purple-100 border-t-purple-600 animate-spin" />
-                    <Scissors className="h-6 w-6 text-purple-600 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
+              {selectedProject.status === "processing" && (() => {
+                const progress = getSimulatedProgress(selectedProject.createdAt);
+                return (
+                  <div className="flex-1 flex flex-col items-center justify-center py-20 text-center">
+                    <div className="relative mb-6">
+                      <div className="h-16 w-16 rounded-full border-4 border-purple-100 border-t-purple-600 animate-spin" />
+                      <Scissors className="h-6 w-6 text-purple-600 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
+                    </div>
+                    <h4 className="text-sm font-bold text-gray-800">
+                      AI đang tiến hành cắt video dài... <span className="text-purple-600 font-mono">{progress}%</span>
+                    </h4>
+
+                    {/* Thanh tiến độ giả lập */}
+                    <div className="w-full max-w-[340px] mt-4">
+                      <div className="h-2 w-full rounded-full bg-purple-100 overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-purple-500 to-purple-600 transition-all duration-1000 ease-out"
+                          style={{ width: `${progress}%` }}
+                        />
+                      </div>
+                      <p className="text-[11px] font-semibold text-purple-600 mt-2 animate-pulse">
+                        {getProgressLabel(progress)}
+                      </p>
+                    </div>
+
+                    <p className="text-[11px] text-gray-400 mt-3 max-w-[340px] leading-relaxed">
+                      Quá trình này thường mất 3 - 8 phút. Bạn có thể làm việc khác, hệ thống sẽ tự động cập nhật khi xong!
+                    </p>
                   </div>
-                  <h4 className="text-sm font-bold text-gray-800">AI đang tiến hành cắt video dài...</h4>
-                  <p className="text-[11px] text-gray-400 mt-2 max-w-[340px] leading-relaxed">
-                    OpusClip đang download video, chạy trích xuất transcripts tiếng, phân tích các phân cảnh thu hút và render video ngắn dọc 9:16. 
-                    Quá trình này thường mất 3 - 8 phút. Bạn có thể làm việc khác, hệ thống sẽ tự động cập nhật khi xong!
-                  </p>
-                </div>
-              )}
+                );
+              })()}
 
               {/* Failed View */}
               {selectedProject.status === "failed" && (

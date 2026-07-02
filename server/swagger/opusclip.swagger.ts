@@ -3,6 +3,10 @@ export const opusclipSwagger = {
     "/api/v1/opusclip/projects": {
       post: {
         summary: "Khởi tạo dự án cắt ghép video dài thành ngắn",
+        description:
+          "Tính phí theo phút video gốc: 30 credits/phút, tối thiểu 1 phút, làm tròn lên. " +
+          "Nếu không đo được thời lượng (link YouTube/Drive), hệ thống tạm giữ 300 credits và quyết toán theo thời lượng thực khi xử lý hoàn tất. " +
+          "Dự án thất bại được hoàn credits tự động.",
         tags: ["OpusClip AI"],
         security: [{ BearerAuth: [] }],
         requestBody: {
@@ -65,6 +69,20 @@ export const opusclipSwagger = {
                         clips: { type: "array", items: { type: "object" } },
                       },
                     },
+                    costApplied: {
+                      type: "object",
+                      description: "Chi tiết phí đã khấu trừ",
+                      properties: {
+                        minutes: { type: "number", example: 10 },
+                        costPerMinute: { type: "number", example: 30 },
+                        totalCost: { type: "number", example: 300 },
+                        isEstimated: {
+                          type: "boolean",
+                          example: true,
+                          description: "true = tạm giữ chờ quyết toán theo thời lượng thực",
+                        },
+                      },
+                    },
                   },
                 },
               },
@@ -75,6 +93,9 @@ export const opusclipSwagger = {
           },
           401: {
             description: "Chưa xác thực hoặc không có quyền truy cập",
+          },
+          402: {
+            description: "Số dư ví không đủ để thanh toán chi phí xử lý video",
           },
           500: {
             description: "Lỗi hệ thống hoặc API OpusClip gặp sự cố",
