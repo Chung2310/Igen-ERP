@@ -134,6 +134,22 @@ export const opusclipService = {
   },
 
   /**
+   * Lấy TOÀN BỘ clips của dự án (tự động lặp qua các trang phân trang)
+   */
+  async getAllClips(projectId: string): Promise<any[]> {
+    const pageSize = 50;
+    const allClips: any[] = [];
+    // Giới hạn tối đa 20 trang (1000 clips) để tránh lặp vô hạn
+    for (let pageNum = 1; pageNum <= 20; pageNum++) {
+      const res = await this.getClips(projectId, pageNum, pageSize);
+      const batch: any[] = res?.data || [];
+      allClips.push(...batch);
+      if (batch.length < pageSize) break;
+    }
+    return allClips;
+  },
+
+  /**
    * Lấy danh sách Brand Templates hiện có trong tổ chức
    */
   async getBrandTemplates(): Promise<any> {
@@ -197,19 +213,13 @@ export const opusclipService = {
       const receivedBuffer = Buffer.from(signature, "hex");
       const expectedBuffer = Buffer.from(expectedSignature, "hex");
 
-      const isValid = receivedBuffer.length === expectedBuffer.length && 
+      const isValid = receivedBuffer.length === expectedBuffer.length &&
         crypto.timingSafeEqual(receivedBuffer, expectedBuffer);
 
       if (isValid) {
-        // Lưu trữ salt lại để chống replay (clear bớt nếu bộ nhớ quá tải, ở đây đơn giản dùng Set)
-        seenSalts.add(salt);
-        // Tự động giải phóng bớt bộ nhớ nếu kích thước lưu trữ quá lớn
-        if (seenSalts.size > 5000) {
-          const firstElement = seenSalts.values().next().value;
-          if (firstElement !== undefined) {
-            seenSalts.delete(firstElement);
-          }
-        }
+        // Lưu ý: KHÔNG đánh dấu salt tại đây. Controller sẽ gọi markSaltProcessed()
+        // sau khi xử lý nghiệp vụ thành công, để nếu xử lý lỗi (trả 500) thì
+        // OpusClip retry lại cùng payload vẫn được chấp nhận.
         return true;
       }
     } catch (e: any) {
@@ -218,5 +228,21 @@ export const opusclipService = {
 
     console.warn("[OpusClipService] Webhook rejected: Signature mismatch.");
     return false;
+  },
+
+  /**
+   * Đánh dấu salt đã được xử lý thành công (chống replay).
+   * Chỉ gọi SAU KHI đã xử lý xong nghiệp vụ webhook để không chặn retry hợp lệ.
+   */
+  markSaltProcessed(salt: string | undefined) {
+    if (!salt) return;
+    seenSalts.add(salt);
+    // Tự động giải phóng bớt bộ nhớ nếu kích thước lưu trữ quá lớn
+    if (seenSalts.size > 5000) {
+      const firstElement = seenSalts.values().next().value;
+      if (firstElement !== undefined) {
+        seenSalts.delete(firstElement);
+      }
+    }
   }
 };
