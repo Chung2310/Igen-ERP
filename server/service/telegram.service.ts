@@ -48,6 +48,66 @@ function buildSessionScope(session: any) {
   };
 }
 
+async function findTelegramSession(chatId: number, telegramUserId?: number) {
+  const conditions: Array<Record<string, unknown>> = [{ telegramChatId: chatId }];
+  if (telegramUserId) {
+    conditions.push({ telegramUserId });
+  }
+
+  return TelegramSessionModel.findOne({ $or: conditions }).lean();
+}
+
+async function hydrateLinkedSession(session: any) {
+  if (!session?.userId) {
+    return session;
+  }
+
+  const user = await UserModel.findById(session.userId)
+    .select("email displayName role companyCode")
+    .lean();
+
+  if (!user) {
+    await TelegramSessionModel.deleteOne({ _id: session._id }).catch(() => undefined);
+    return null;
+  }
+
+  const nextSession = {
+    ...session,
+    email: user.email,
+    displayName: user.displayName || user.email,
+    role: user.role || "user",
+    companyCode: user.companyCode || "",
+  };
+
+  const hasDrift =
+    session.email !== nextSession.email ||
+    session.displayName !== nextSession.displayName ||
+    session.role !== nextSession.role ||
+    session.companyCode !== nextSession.companyCode;
+
+  if (hasDrift) {
+    await TelegramSessionModel.updateOne(
+      { _id: session._id },
+      {
+        $set: {
+          email: nextSession.email,
+          displayName: nextSession.displayName,
+          role: nextSession.role,
+          companyCode: nextSession.companyCode,
+        },
+      }
+    );
+    logTelegramDebug("session:hydratedFromUser", {
+      sessionUserId: String(session.userId),
+      email: nextSession.email,
+      role: nextSession.role,
+      companyCode: nextSession.companyCode || "-",
+    });
+  }
+
+  return nextSession;
+}
+
 function truncateTelegramText(value: string, maxLength: number): string {
   const normalized = String(value || "").replace(/\s+/g, " ").trim();
   if (!normalized) return "";
@@ -507,31 +567,39 @@ export const telegramService = {
     // === TRA CỨU SESSION HIỆN TẠI ===
     let session: any = null;
     try {
-      session = await TelegramSessionModel.findOne({ telegramChatId: chatId }).lean();
+      session = await findTelegramSession(chatId, telegramUserId);
       logTelegramDebug("session:lookup", {
         chatId,
         telegramUserId: telegramUserId ?? "none",
         command,
         foundSession: !!session,
+        sessionChatId: session?.telegramChatId ?? "none",
+        sessionTelegramUserId: session?.telegramUserId ?? "none",
         sessionUserId: session?.userId ? String(session.userId) : "none",
         sessionEmail: session?.email || "none",
         sessionRole: session?.role || "none",
       });
-      if (session && telegramUserId && session.telegramUserId !== telegramUserId) {
+      if (session && (session.telegramChatId !== chatId || (telegramUserId && session.telegramUserId !== telegramUserId))) {
         await TelegramSessionModel.updateOne(
           { _id: session._id },
           {
             $set: {
+              telegramChatId: chatId,
               telegramUserId,
             },
           }
         );
+        session.telegramChatId = chatId;
         session.telegramUserId = telegramUserId;
-        logTelegramDebug("session:telegramUserIdUpdated", {
+        logTelegramDebug("session:repaired", {
           chatId,
+          sessionChatId: session?.telegramChatId ?? "none",
           sessionUserId: session?.userId ? String(session.userId) : "none",
-          telegramUserId,
+          telegramUserId: telegramUserId ?? "none",
         });
+      }
+      if (session) {
+        session = await hydrateLinkedSession(session);
       }
     } catch (err) {
       console.error("[Telegram Bot] Lỗi tra cứu session:", err);
@@ -844,43 +912,44 @@ export const telegramService = {
         await this.sendMessage(chatId, `⚠️ Không thể xử lý ảnh tham chiếu: ${err.message || err}. Hệ thống sẽ tạo video không có ảnh tham chiếu.`);
       }
 
-      await this.sendMessage(chatId, `🎬 <b>Đang gửi yêu cầu sinh video AI...</b>\nMô tả: <i>${args}</i>${refImageUrl ? "\n📎 <i>Có ảnh tham chiếu đi kèm</i>" : ""}\nQuá trình này có thể tốn từ 15-45 giây, vui lòng kiên nhẫn đợi.`);
+      await this.sendMessage(chatId, `🎬 <b>Đã nhận yêu cầu sinh video AI...</b>\nMô tả: <i>${args}</i>${refImageUrl ? "\n📎 <i>Có ảnh tham chiếu đi kèm</i>" : ""}\nBot sẽ xử lý nền và tự gửi kết quả khi hoàn tất.`);
 
-      try {
-        const result = await geminiService.generateVideo(
-          args,
-          6,
-          refImageUrl ? { referenceImageUris: [refImageUrl] } : undefined
-        );
-        if (result && result.url) {
-          if (result.url.startsWith("pending://piapi/")) {
-            const taskId = result.url.replace("pending://piapi/", "");
-            await this.sendMessage(chatId, "⏳ <b>Video đang được render trên máy chủ AI...</b>\nBot sẽ tự gửi video khi hoàn tất.");
-            const completedVideoUrl = await this.waitForPiapiVideo(taskId);
-            const sendRes = await this.sendVideo(chatId, completedVideoUrl, `🎬 <b>Video được tạo thành công!</b>\nMô tả: <i>${args}</i>`);
-            if (!sendRes || !sendRes.ok) {
-              await this.sendMessage(
-                chatId,
-                `🎬 <b>Video đã render xong!</b>\nMô tả: <i>${args}</i>\n\n🔗 <a href="${completedVideoUrl}">Nhấn vào đây để tải và xem video trực tiếp</a>`
-              );
+      void (async () => {
+        try {
+          const result = await geminiService.generateVideo(
+            args,
+            6,
+            refImageUrl ? { referenceImageUris: [refImageUrl] } : undefined
+          );
+          if (result && result.url) {
+            if (result.url.startsWith("pending://piapi/")) {
+              const taskId = result.url.replace("pending://piapi/", "");
+              await this.sendMessage(chatId, "⏳ <b>Video đang được render trên máy chủ AI...</b>\nBot sẽ tự gửi video khi hoàn tất.");
+              const completedVideoUrl = await this.waitForPiapiVideo(taskId);
+              const sendRes = await this.sendVideo(chatId, completedVideoUrl, `🎬 <b>Video được tạo thành công!</b>\nMô tả: <i>${args}</i>`);
+              if (!sendRes || !sendRes.ok) {
+                await this.sendMessage(
+                  chatId,
+                  `🎬 <b>Video đã render xong!</b>\nMô tả: <i>${args}</i>\n\n🔗 <a href="${completedVideoUrl}">Nhấn vào đây để tải và xem video trực tiếp</a>`
+                );
+              }
+            } else {
+              const sendRes = await this.sendVideo(chatId, result.url, `🎬 <b>Video được tạo thành công!</b>\nMô tả: <i>${args}</i>`);
+              if (!sendRes || !sendRes.ok) {
+                await this.sendMessage(
+                  chatId,
+                  `🎬 <b>Video được tạo thành công!</b>\nMô tả: <i>${args}</i>\n\n🔗 <a href="${result.url}">Nhấn vào đây để tải và xem video trực tiếp</a>`
+                );
+              }
             }
           } else {
-            const sendRes = await this.sendVideo(chatId, result.url, `🎬 <b>Video được tạo thành công!</b>\nMô tả: <i>${args}</i>`);
-            if (!sendRes || !sendRes.ok) {
-              // Gửi tin nhắn dạng văn bản kèm liên kết nếu Telegram không hiển thị được video trực tiếp
-              await this.sendMessage(
-                chatId,
-                `🎬 <b>Video được tạo thành công!</b>\nMô tả: <i>${args}</i>\n\n🔗 <a href="${result.url}">Nhấn vào đây để tải và xem video trực tiếp</a>`
-              );
-            }
+            await this.sendMessage(chatId, "❌ Quá trình tạo video không thành công. Hãy thử lại sau.");
           }
-        } else {
-          await this.sendMessage(chatId, "❌ Quá trình tạo video không thành công. Hãy thử lại sau.");
+        } catch (err: any) {
+          console.error("[Telegram Bot] Lỗi tạo video:", err);
+          await this.sendMessage(chatId, `❌ Lỗi hệ thống khi tạo video: ${err.message || err}`);
         }
-      } catch (err: any) {
-        console.error("[Telegram Bot] Lỗi tạo video:", err);
-        await this.sendMessage(chatId, `❌ Lỗi hệ thống khi tạo video: ${err.message || err}`);
-      }
+      })();
       return;
     }
 
