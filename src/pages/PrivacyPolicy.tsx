@@ -1,6 +1,13 @@
 import { ShieldCheck } from "lucide-react";
 import { SEOHead } from "../seo/SEOHead";
-import { BRAND_NAME } from "../config/brand";
+import {
+  BRAND_NAME,
+  PRIVACY_POLICY_URL,
+  SERVICE_WEBSITE_URL,
+  SUPPORT_EMAIL,
+  TERMS_OF_SERVICE_URL,
+  USER_DATA_DELETION_URL,
+} from "../config/brand";
 
 const lastUpdated = "June 30, 2026";
 
@@ -74,9 +81,11 @@ const policySections = [
   {
     title: "9. Contact",
     content: [
-      "Support page: https://io.igentechsolutions.com/contact",
-      "Service website: https://erp.igentechsolutions.com/",
-      "Data deletion instructions: /user-data-deletion",
+      `Service website: ${SERVICE_WEBSITE_URL}`,
+      `Privacy Policy: ${PRIVACY_POLICY_URL}`,
+      `Terms of Service: ${TERMS_OF_SERVICE_URL}`,
+      `Data deletion instructions: ${USER_DATA_DELETION_URL}`,
+      `Support email: ${SUPPORT_EMAIL}`,
     ],
   },
 ];

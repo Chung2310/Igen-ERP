@@ -1,6 +1,12 @@
 import { Scale } from "lucide-react";
 import { SEOHead } from "../seo/SEOHead";
-import { BRAND_NAME } from "../config/brand";
+import {
+  BRAND_NAME,
+  PRIVACY_POLICY_URL,
+  SERVICE_WEBSITE_URL,
+  SUPPORT_EMAIL,
+  TERMS_OF_SERVICE_URL,
+} from "../config/brand";
 
 const lastUpdated = "June 30, 2026";
 
@@ -67,9 +73,10 @@ const sections = [
   {
     title: "9. Contact",
     body: [
-      "Support page: https://io.igentechsolutions.com/contact",
-      "Service website: https://erp.igentechsolutions.com/",
-      "Privacy Policy: /privacy-policy",
+      `Service website: ${SERVICE_WEBSITE_URL}`,
+      `Terms of Service: ${TERMS_OF_SERVICE_URL}`,
+      `Privacy Policy: ${PRIVACY_POLICY_URL}`,
+      `Support email: ${SUPPORT_EMAIL}`,
     ],
   },
 ];
