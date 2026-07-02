@@ -931,7 +931,7 @@ export const heygenService = {
       throw new HeyGenApiError("Avatar này không được cấp cho tài khoản hiện tại.", 403);
     }
 
-    if (normalizedVoiceId && !accessContext.allowFullLibrary && accessContext.voiceId !== normalizedVoiceId) {
+    if (normalizedVoiceId && !accessContext.allowFullLibrary && !input.usePersonalVoice && accessContext.voiceId !== normalizedVoiceId) {
       throw new HeyGenApiError("Giọng đọc này không được cấp cho tài khoản hiện tại.", 403);
     }
 
@@ -951,16 +951,11 @@ export const heygenService = {
       avatar_id: avatarId,
       aspect_ratio: aspectRatio || "16:9",
       resolution: resolution || "720p",
-      output_format: "mp4",
       background: {
         type: "color",
         value: finalBgColor,
       },
     };
-
-    if (avatarLayout) {
-      requestBody.avatar_style = avatarLayout === "circle" ? "circle" : "normal";
-    }
 
     const webhookUrl = getHeyGenWebhookUrl();
     if (webhookUrl) {
@@ -976,12 +971,11 @@ export const heygenService = {
 
     if (useTextToSpeech) {
       requestBody.script = normalizedInputText;
+      if (normalizedVoiceId) {
+        requestBody.voice_id = normalizedVoiceId;
+      }
     } else {
       requestBody.audio_url = audioUrl;
-    }
-
-    if (normalizedVoiceId) {
-      requestBody.voice_id = normalizedVoiceId;
     }
 
     if (title?.trim()) {
