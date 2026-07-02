@@ -20,7 +20,15 @@ import {
   MapPin,
   ExternalLink
 } from "lucide-react";
-import { BRAND_LOGO_URL, BRAND_NAME, BRAND_TAGLINE } from "../config/brand";
+import {
+  BRAND_LOGO_PATH,
+  BRAND_NAME,
+  BRAND_TAGLINE,
+  PRIVACY_POLICY_URL,
+  SUPPORT_URL,
+  TERMS_OF_SERVICE_URL,
+  USER_DATA_DELETION_URL,
+} from "../config/brand";
 import { SEOHead } from "../seo/SEOHead";
 
 export default function LandingPage() {
@@ -73,7 +81,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img 
-              src={BRAND_LOGO_URL} 
+              src={BRAND_LOGO_PATH} 
               alt={BRAND_NAME} 
               className="h-11 w-11 rounded-2xl border border-white object-cover shadow-sm"
             />
@@ -171,9 +179,9 @@ export default function LandingPage() {
               <a href="#tong-quan" onClick={() => setMobileMenuOpen(false)} className="block py-2 text-xs font-bold text-slate-700 hover:text-blue-600">Tổng quan</a>
               <a href="#tinh-nang" onClick={() => setMobileMenuOpen(false)} className="block py-2 text-xs font-bold text-slate-700 hover:text-blue-600">Tính năng</a>
               <a href="#tich-hop-tiktok" onClick={() => setMobileMenuOpen(false)} className="block py-2 text-xs font-bold text-slate-700 hover:text-blue-600">Tích hợp TikTok Shop</a>
-              <a href="/privacy-policy" className="block py-2 text-xs font-bold text-slate-700 hover:text-blue-600">Privacy Policy</a>
-              <a href="/terms-of-service" className="block py-2 text-xs font-bold text-slate-700 hover:text-blue-600">Terms of Service</a>
-              <a href="/user-data-deletion" className="block py-2 text-xs font-bold text-slate-700 hover:text-blue-600">Data Deletion Instructions</a>
+              <a href={PRIVACY_POLICY_URL} className="block py-2 text-xs font-bold text-slate-700 hover:text-blue-600">Privacy Policy</a>
+              <a href={TERMS_OF_SERVICE_URL} className="block py-2 text-xs font-bold text-slate-700 hover:text-blue-600">Terms of Service</a>
+              <a href={USER_DATA_DELETION_URL} className="block py-2 text-xs font-bold text-slate-700 hover:text-blue-600">Data Deletion Instructions</a>
             </div>
             <div className="flex flex-col gap-2 pt-4 border-t border-slate-100">
               <a 
@@ -491,7 +499,7 @@ export default function LandingPage() {
 
                 <div className="flex items-center justify-center gap-8 py-4">
                   <div className="flex flex-col items-center gap-2">
-                    <img src={BRAND_LOGO_URL} alt={BRAND_NAME} className="w-16 h-16 rounded-2xl shadow-md border border-slate-100" />
+                    <img src={BRAND_LOGO_PATH} alt={BRAND_NAME} className="w-16 h-16 rounded-2xl shadow-md border border-slate-100" />
                     <span className="text-[10px] font-bold text-slate-500">iGen ERP App</span>
                   </div>
                   <div className="flex items-center justify-center flex-1 h-[2px] bg-gradient-to-r from-blue-500 to-black relative">
@@ -749,7 +757,7 @@ export default function LandingPage() {
               Dùng thử miễn phí
             </a>
             <a 
-              href="/privacy-policy" 
+              href={PRIVACY_POLICY_URL} 
               id="cta_btn_privacy_policy"
               className="w-full sm:w-auto bg-transparent hover:bg-white/5 border border-white/20 text-white font-bold py-3.5 px-8 rounded-xl text-xs transition-all"
             >
@@ -769,7 +777,7 @@ export default function LandingPage() {
             {/* Column 1: Brand Profile */}
             <div className="lg:col-span-4 space-y-4 text-left">
               <div className="flex items-center gap-2.5">
-                <img src={BRAND_LOGO_URL} alt={BRAND_NAME} className="h-9 w-9 rounded-xl object-cover shadow-md" />
+                <img src={BRAND_LOGO_PATH} alt={BRAND_NAME} className="h-9 w-9 rounded-xl object-cover shadow-md" />
                 <div>
                   <span className="font-extrabold text-white text-lg tracking-tight block">{BRAND_NAME}</span>
                   <span className="text-[9px] uppercase font-bold tracking-widest text-slate-500">Enterprise Solutions</span>
@@ -822,22 +830,22 @@ export default function LandingPage() {
               <h4 className="font-bold text-white uppercase tracking-wider text-[10px] border-b border-slate-900 pb-2">Thông tin Pháp lý</h4>
               <ul className="space-y-2.5">
                 <li>
-                  <a href="/privacy-policy" id="footer_link_privacy" className="hover:text-white transition-colors flex items-center gap-1.5 font-semibold text-slate-300">
+                  <a href={PRIVACY_POLICY_URL} id="footer_link_privacy" className="hover:text-white transition-colors flex items-center gap-1.5 font-semibold text-slate-300">
                     <ChevronRight className="h-3 w-3 text-slate-600" /> Privacy Policy (Bảo mật)
                   </a>
                 </li>
                 <li>
-                  <a href="/terms-of-service" id="footer_link_terms" className="hover:text-white transition-colors flex items-center gap-1.5 font-semibold text-slate-300">
+                  <a href={TERMS_OF_SERVICE_URL} id="footer_link_terms" className="hover:text-white transition-colors flex items-center gap-1.5 font-semibold text-slate-300">
                     <ChevronRight className="h-3 w-3 text-slate-600" /> Terms of Service (Điều khoản)
                   </a>
                 </li>
                 <li>
-                  <a href="/user-data-deletion" id="footer_link_data_deletion" className="hover:text-white transition-colors flex items-center gap-1.5 font-semibold text-slate-300">
+                  <a href={USER_DATA_DELETION_URL} id="footer_link_data_deletion" className="hover:text-white transition-colors flex items-center gap-1.5 font-semibold text-slate-300">
                     <ChevronRight className="h-3 w-3 text-slate-600" /> Data Deletion Instructions
                   </a>
                 </li>
                 <li>
-                  <a href="https://io.igentechsolutions.com/contact" id="footer_link_support" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors flex items-center gap-1.5">
+                  <a href={SUPPORT_URL} id="footer_link_support" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors flex items-center gap-1.5">
                     <ChevronRight className="h-3 w-3 text-slate-600" /> Liên hệ Phòng hỗ trợ
                   </a>
                 </li>

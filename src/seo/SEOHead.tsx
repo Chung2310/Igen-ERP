@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { BRAND_NAME, BRAND_TAGLINE } from "../config/brand";
-import { DEFAULT_SEO, SEO_BASE_URL, SEO_DEFAULT_IMAGE, SEO_DEFAULT_LOCALE, type SeoMeta, resolveSeoUrl } from "./seo-config";
+import { buildDocumentTitle, DEFAULT_SEO, SEO_BASE_URL, SEO_DEFAULT_IMAGE, SEO_DEFAULT_LOCALE, type SeoMeta, resolveSeoUrl } from "./seo-config";
 
 function ensureMeta(selector: string, attributes: Record<string, string>) {
   let el = document.head.querySelector(selector) as HTMLMetaElement | null;
@@ -44,7 +44,7 @@ export function SEOHead({ meta }: { meta: SeoMeta }) {
     };
 
     const canonicalUrl = resolveSeoUrl(merged.path);
-    document.title = `${merged.title} | ${BRAND_NAME}`;
+    document.title = buildDocumentTitle(merged.title);
     document.documentElement.lang = "vi";
 
     ensureMeta('meta[name="description"]', { name: "description" }).setAttribute("content", merged.description);

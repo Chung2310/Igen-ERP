@@ -13,7 +13,14 @@ import {
   Users,
   Wallet,
 } from "lucide-react";
-import { BRAND_LOGO_URL, BRAND_NAME, BRAND_TAGLINE } from "../config/brand";
+import {
+  BRAND_LOGO_PATH,
+  BRAND_NAME,
+  BRAND_TAGLINE,
+  PRIVACY_POLICY_URL,
+  TERMS_OF_SERVICE_URL,
+  USER_DATA_DELETION_URL,
+} from "../config/brand";
 import type { TabType } from "../types";
 import { useAuth } from "../context/AuthContext";
 
@@ -161,7 +168,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
       <div className={`flex items-center border-b border-gray-100 ${isCollapsed ? "justify-center px-3 py-5" : "p-6"}`} id="sidebar_brand_header">
         <div className={`flex min-w-0 items-center ${isCollapsed ? "justify-center" : "gap-3"}`}>
           <img
-            src={BRAND_LOGO_URL}
+            src={BRAND_LOGO_PATH}
             alt={BRAND_NAME}
             onClick={() => setActiveTab("TỔNG QUAN")}
             title="Về trang Tổng quan"
@@ -239,7 +246,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
         {!isCollapsed ? (
           <div className="mt-3 flex flex-wrap gap-x-3 gap-y-2 px-1 text-[11px] text-gray-500">
             <a
-              href="/privacy-policy"
+              href={PRIVACY_POLICY_URL}
               target="_blank"
               rel="noopener noreferrer"
               className="font-medium underline underline-offset-2 hover:text-blue-700"
@@ -247,7 +254,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
               Privacy
             </a>
             <a
-              href="/terms-of-service"
+              href={TERMS_OF_SERVICE_URL}
               target="_blank"
               rel="noopener noreferrer"
               className="font-medium underline underline-offset-2 hover:text-blue-700"
@@ -255,7 +262,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
               Terms
             </a>
             <a
-              href="/user-data-deletion"
+              href={USER_DATA_DELETION_URL}
               target="_blank"
               rel="noopener noreferrer"
               className="font-medium underline underline-offset-2 hover:text-blue-700"
