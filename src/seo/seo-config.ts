@@ -17,8 +17,13 @@ export const SEO_BASE_URL = "https://erp.igentechsolutions.com";
 export const SEO_DEFAULT_IMAGE = BRAND_LOGO_URL;
 export const SEO_DEFAULT_LOCALE = "vi_VN";
 
+export function buildDocumentTitle(title: string) {
+  const normalized = title.trim();
+  return normalized.includes(BRAND_NAME) ? normalized : `${normalized} | ${BRAND_NAME}`;
+}
+
 export const DEFAULT_SEO: SeoMeta = {
-  title: `${BRAND_NAME} - Nền tảng quản trị doanh nghiệp tích hợp AI`,
+  title: "Nền tảng quản trị doanh nghiệp tích hợp AI",
   description:
     "iGen ERP là nền tảng quản trị doanh nghiệp tích hợp AI thế hệ mới, hỗ trợ quản lý kho vận, nhân sự HRM, marketing automation, sales CRM đa kênh và tối ưu hiệu suất vận hành doanh nghiệp.",
   keywords:
@@ -32,7 +37,7 @@ export const DEFAULT_SEO: SeoMeta = {
 };
 
 export const AUTH_SEO: SeoMeta = {
-  title: `Đăng nhập ${BRAND_NAME} - Quản trị doanh nghiệp thông minh`,
+  title: "Đăng nhập - Quản trị doanh nghiệp thông minh",
   description:
     "Đăng nhập vào iGen ERP để quản lý vận hành, nhân sự, kho, marketing và CRM trên một nền tảng doanh nghiệp tích hợp AI.",
   keywords:
@@ -46,7 +51,7 @@ export const AUTH_SEO: SeoMeta = {
 };
 
 export const PRIVACY_SEO: SeoMeta = {
-  title: "Chính sách bảo mật | iGen ERP",
+  title: "Chính sách bảo mật",
   description: "Chính sách bảo mật thông tin người dùng và dữ liệu của iGen ERP.",
   keywords: "chính sách bảo mật, bảo mật dữ liệu, igen erp",
   path: "/privacy-policy",
@@ -58,7 +63,7 @@ export const PRIVACY_SEO: SeoMeta = {
 };
 
 export const TERMS_SEO: SeoMeta = {
-  title: "Điều khoản dịch vụ | iGen ERP",
+  title: "Điều khoản dịch vụ",
   description: "Điều khoản dịch vụ và thỏa thuận sử dụng phần mềm quản trị doanh nghiệp iGen ERP.",
   keywords: "điều khoản dịch vụ, thoả thuận sử dụng, igen erp",
   path: "/terms-of-service",
@@ -70,7 +75,7 @@ export const TERMS_SEO: SeoMeta = {
 };
 
 export const DELETION_SEO: SeoMeta = {
-  title: "Yêu cầu xóa dữ liệu người dùng | iGen ERP",
+  title: "Yêu cầu xóa dữ liệu người dùng",
   description: "Hướng dẫn xóa dữ liệu người dùng và tra cứu trạng thái yêu cầu xóa thông tin trên hệ thống iGen ERP.",
   keywords: "xóa dữ liệu người dùng, bảo mật dữ liệu, user data deletion, igen erp",
   path: "/user-data-deletion",
@@ -83,7 +88,7 @@ export const DELETION_SEO: SeoMeta = {
 
 export const TAB_SEO_MAP: Record<TabType, SeoMeta> = {
   "TỔNG QUAN": {
-    title: "Tổng quan doanh nghiệp - Dashboard điều hành thông minh | iGen ERP",
+    title: "Tổng quan doanh nghiệp - Dashboard điều hành thông minh",
     description:
       "Báo cáo tổng quan hiệu suất kinh doanh, doanh thu bán hàng, tiến độ công việc và phân tích vận hành doanh nghiệp tự động với AI trên iGen ERP.",
     keywords:
@@ -93,7 +98,7 @@ export const TAB_SEO_MAP: Record<TabType, SeoMeta> = {
     changeFrequency: "daily",
   },
   "NHÂN SỰ": {
-    title: "Quản lý nhân sự HRM - Sơ đồ tổ chức, KPI và Đào tạo | iGen ERP",
+    title: "Quản lý nhân sự HRM - Sơ đồ tổ chức, KPI và Đào tạo",
     description:
       "Giải pháp HRM toàn diện trên iGen ERP giúp quản lý hồ sơ nhân sự, vẽ sơ đồ tổ chức tự động, thiết lập KPI và số hóa tài liệu đào tạo nội bộ.",
     keywords:
@@ -103,7 +108,7 @@ export const TAB_SEO_MAP: Record<TabType, SeoMeta> = {
     changeFrequency: "weekly",
   },
   "KHO & SẢN PHẨM": {
-    title: "Quản lý kho & Sản phẩm - Quản lý tồn kho SKU, xuất nhập kho | iGen ERP",
+    title: "Quản lý kho & Sản phẩm - Quản lý tồn kho SKU, xuất nhập kho",
     description:
       "Tối ưu hóa quản lý chuỗi cung ứng với tính năng quản lý tồn kho SKU, theo dõi lịch sử giao dịch xuất nhập kho và dự báo nhu cầu hàng hóa thông minh bằng AI.",
     keywords:
@@ -113,7 +118,7 @@ export const TAB_SEO_MAP: Record<TabType, SeoMeta> = {
     changeFrequency: "weekly",
   },
   MARKETING: {
-    title: "Marketing AI - Sáng tạo nội dung, sản xuất video AI | iGen ERP",
+    title: "Marketing AI - Sáng tạo nội dung, sản xuất video AI",
     description:
       "Tăng tốc chiến dịch tiếp thị số với bộ công cụ Marketing AI tự động tạo ý tưởng bài viết, lên kế hoạch nội dung và sản xuất video quảng cáo AI.",
     keywords:
@@ -123,7 +128,7 @@ export const TAB_SEO_MAP: Record<TabType, SeoMeta> = {
     changeFrequency: "daily",
   },
   "SALES CRM": {
-    title: "Sales CRM - Quản lý khách hàng, hội thoại Omni-Inbox | iGen ERP",
+    title: "Sales CRM - Quản lý khách hàng, hội thoại Omni-Inbox",
     description:
       "Chăm sóc khách hàng tập trung với tính năng chat đa kênh Omni-Inbox (Facebook, Zalo), AI tự động phản hồi và quản lý phễu bán hàng CRM hiệu quả.",
     keywords:
@@ -133,7 +138,7 @@ export const TAB_SEO_MAP: Record<TabType, SeoMeta> = {
     changeFrequency: "weekly",
   },
   "HIỆU SUẤT AI": {
-    title: "Giám sát hiệu suất AI - Phân tích tự động hóa vận hành | iGen ERP",
+    title: "Giám sát hiệu suất AI - Phân tích tự động hóa vận hành",
     description:
       "Đo lường hiệu suất của trợ lý AI, thống kê tác vụ tự động hóa và phân tích tốc độ xử lý nghiệp vụ so với quy trình truyền thống.",
     keywords:
@@ -143,7 +148,7 @@ export const TAB_SEO_MAP: Record<TabType, SeoMeta> = {
     changeFrequency: "weekly",
   },
   "QUẢN TRỊ USER": {
-    title: "Quản trị người dùng - Phân quyền và cấu hình tài khoản | iGen ERP",
+    title: "Quản trị người dùng - Phân quyền và cấu hình tài khoản",
     description:
       "Quản lý tài khoản người dùng, phân quyền truy cập hệ thống, cấu hình HeyGen API và quản trị thông tin doanh nghiệp tập trung.",
     keywords:
@@ -154,7 +159,7 @@ export const TAB_SEO_MAP: Record<TabType, SeoMeta> = {
     changeFrequency: "monthly",
   },
   "CÀI ĐẶT": {
-    title: "Cài đặt hệ thống - Hồ sơ, tích hợp và cấu hình nền tảng | iGen ERP",
+    title: "Cài đặt hệ thống - Hồ sơ, tích hợp và cấu hình nền tảng",
     description:
       "Thiết lập thông tin hồ sơ doanh nghiệp, cấu hình tùy chỉnh hiển thị, tích hợp AI Copilot và kết nối mạng xã hội.",
     keywords:
@@ -165,7 +170,7 @@ export const TAB_SEO_MAP: Record<TabType, SeoMeta> = {
     changeFrequency: "monthly",
   },
   "VÍ & NẠP TIỀN": {
-    title: "Ví & Nạp tiền - Nạp tiền tài khoản qua PayOS | iGen ERP",
+    title: "Ví & Nạp tiền - Nạp tiền tài khoản qua PayOS",
     description:
       "Quản lý ví tài khoản cá nhân, xem số dư và nạp tiền nhanh chóng bằng QR Code qua cổng thanh toán PayOS.",
     keywords:

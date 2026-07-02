@@ -36,12 +36,17 @@
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://erp.igentechsolutions.com/privacy-policy.html</loc>
+    <loc>https://erp.igentechsolutions.com/privacy-policy</loc>
     <changefreq>monthly</changefreq>
     <priority>0.4</priority>
   </url>
   <url>
-    <loc>https://erp.igentechsolutions.com/terms-of-service.html</loc>
+    <loc>https://erp.igentechsolutions.com/terms-of-service</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.4</priority>
+  </url>
+  <url>
+    <loc>https://erp.igentechsolutions.com/user-data-deletion</loc>
     <changefreq>monthly</changefreq>
     <priority>0.4</priority>
   </url>

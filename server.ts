@@ -10,8 +10,8 @@ import { swaggerRouter } from "./server/swagger";
 import { initSocketServer } from "./server/socket";
 import { remotionQueueService } from "./server/service/remotion-queue.service";
 import { tiktokController } from "./server/controller/tiktok.controller";
-import { getSeoForPath, resolveSeoUrl } from "./src/seo/seo-config";
-import { BRAND_NAME, BRAND_TAGLINE, BRAND_LOGO_URL } from "./src/config/brand";
+import { buildDocumentTitle, getSeoForPath, resolveSeoUrl } from "./src/seo/seo-config";
+import { BRAND_NAME, BRAND_TAGLINE, BRAND_LOGO_URL, SERVICE_WEBSITE_URL } from "./src/config/brand";
 import { telegramService } from "./server/service/telegram.service";
 
 dotenv.config();
@@ -54,7 +54,7 @@ function injectSeoMeta(html: string, requestPath: string): string {
     }
 
     // Title
-    output = output.replace(/<title>[\s\S]*?<\/title>/i, `<title>${seo.title} | ${BRAND_NAME}</title>`);
+    output = output.replace(/<title>[\s\S]*?<\/title>/i, `<title>${buildDocumentTitle(seo.title)}</title>`);
 
     // Description
     output = output.replace(
@@ -72,6 +72,14 @@ function injectSeoMeta(html: string, requestPath: string): string {
     output = output.replace(
       /<link\s+rel="canonical"\s+href="[\s\S]*?"\s*\/?>/i,
       `<link rel="canonical" href="${canonicalUrl}" />`
+    );
+    output = output.replace(
+      /<link\s+rel="alternate"\s+hreflang="vi-VN"\s+href="[\s\S]*?"\s*\/?>/i,
+      `<link rel="alternate" hreflang="vi-VN" href="${canonicalUrl}" />`
+    );
+    output = output.replace(
+      /<link\s+rel="alternate"\s+hreflang="x-default"\s+href="[\s\S]*?"\s*\/?>/i,
+      `<link rel="alternate" hreflang="x-default" href="${canonicalUrl}" />`
     );
 
     // OpenGraph Tags
@@ -120,9 +128,9 @@ function injectSeoMeta(html: string, requestPath: string): string {
       "@graph": [
         {
           "@type": "Organization",
-          "@id": "https://io.igentechsolutions.com/#organization",
+          "@id": `${SERVICE_WEBSITE_URL}/#organization`,
           "name": BRAND_NAME,
-          "url": "https://io.igentechsolutions.com",
+          "url": SERVICE_WEBSITE_URL,
           "logo": {
             "@type": "ImageObject",
             "url": BRAND_LOGO_URL
@@ -130,13 +138,13 @@ function injectSeoMeta(html: string, requestPath: string): string {
         },
         {
           "@type": "WebSite",
-          "@id": "https://io.igentechsolutions.com/#website",
+          "@id": `${SERVICE_WEBSITE_URL}/#website`,
           "name": BRAND_NAME,
-          "url": "https://io.igentechsolutions.com",
+          "url": SERVICE_WEBSITE_URL,
           "inLanguage": "vi-VN",
           "description": BRAND_TAGLINE,
           "publisher": {
-            "@id": "https://io.igentechsolutions.com/#organization"
+            "@id": `${SERVICE_WEBSITE_URL}/#organization`
           }
         },
         {
@@ -158,7 +166,7 @@ function injectSeoMeta(html: string, requestPath: string): string {
           "description": seo.description,
           "inLanguage": "vi-VN",
           "isPartOf": {
-            "@id": "https://io.igentechsolutions.com/#website"
+            "@id": `${SERVICE_WEBSITE_URL}/#website`
           },
           "primaryImageOfPage": {
             "@type": "ImageObject",

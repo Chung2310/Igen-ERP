@@ -1,7 +1,13 @@
 import React, { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { Mail, Lock, RefreshCw, ArrowRight, Eye, EyeOff, AlertCircle, ArrowLeft } from "lucide-react";
-import { BRAND_LOGO_URL, BRAND_NAME } from "../config/brand";
+import {
+  BRAND_LOGO_PATH,
+  BRAND_NAME,
+  PRIVACY_POLICY_URL,
+  TERMS_OF_SERVICE_URL,
+  USER_DATA_DELETION_URL,
+} from "../config/brand";
 import { parseFirebaseError } from "../utils/firebaseErrorParser";
 
 export default function AuthPage() {
@@ -85,7 +91,7 @@ export default function AuthPage() {
           <div className="inline-block relative">
             <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 opacity-20 blur-sm animate-pulse" />
             <img
-              src={BRAND_LOGO_URL}
+              src={BRAND_LOGO_PATH}
               alt={BRAND_NAME}
               className="relative mx-auto h-16 w-16 rounded-2xl border border-white object-cover shadow-lg"
             />
@@ -197,7 +203,7 @@ export default function AuthPage() {
         <div className="border-t border-slate-100 pt-4 text-center text-[11px] text-slate-500">
           <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2">
             <a
-              href="/privacy-policy"
+              href={PRIVACY_POLICY_URL}
               target="_blank"
               rel="noopener noreferrer"
               className="font-semibold text-slate-600 underline underline-offset-2 hover:text-blue-700"
@@ -205,7 +211,7 @@ export default function AuthPage() {
               Privacy Policy
             </a>
             <a
-              href="/terms-of-service"
+              href={TERMS_OF_SERVICE_URL}
               target="_blank"
               rel="noopener noreferrer"
               className="font-semibold text-slate-600 underline underline-offset-2 hover:text-blue-700"
@@ -213,7 +219,7 @@ export default function AuthPage() {
               Terms of Service
             </a>
             <a
-              href="/user-data-deletion"
+              href={USER_DATA_DELETION_URL}
               target="_blank"
               rel="noopener noreferrer"
               className="font-semibold text-slate-600 underline underline-offset-2 hover:text-blue-700"
