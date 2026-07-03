@@ -50,6 +50,17 @@
 
     <meta name="zalo-platform-site-verification" content="Re-R2Uw0DmKEYxm9YxWpFWwsYIVYm5nnEJOs" />
     <title>iGen ERP - Nền tảng quản trị doanh nghiệp tích hợp AI</title>
+    <script>
+      (function() {
+        const theme = localStorage.getItem("theme");
+        const token = localStorage.getItem("accessToken");
+        if (token && (theme === "dark" || (!theme && window.matchMedia("(prefers-color-scheme: dark)").matches))) {
+          document.documentElement.classList.add("dark");
+        } else {
+          document.documentElement.classList.remove("dark");
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

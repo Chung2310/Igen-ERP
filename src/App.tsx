@@ -42,6 +42,19 @@ function AppContent() {
     }
   }, [user]);
 
+  React.useEffect(() => {
+    if (!user || !userProfile) {
+      document.documentElement.classList.remove("dark");
+    } else {
+      const theme = localStorage.getItem("theme");
+      if (theme === "dark") {
+        document.documentElement.classList.add("dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+      }
+    }
+  }, [user, userProfile]);
+
   if (isLandingGuestPage) {
     return (
       <Suspense fallback={<AuthLoader />}>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import {
   Bell, LogOut, Search, Settings, Wallet, Info, X, Image, Video, Volume2, FileText,
-  Package, Megaphone, Sparkles, CheckCheck, ShoppingCart, AlertTriangle, Send
+  Package, Megaphone, Sparkles, CheckCheck, ShoppingCart, AlertTriangle, Send, Sun, Moon
 } from "lucide-react";
 import { TabType } from "../types";
 import { useAuth } from "../context/AuthContext";
@@ -56,6 +56,17 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
   const [telegramLink, setTelegramLink] = useState<any>(null);
   const [telegramLoading, setTelegramLoading] = useState(false);
   const [notifs, setNotifs] = useState<AppNotification[]>([]);
+  const [isDark, setIsDark] = useState(() => {
+    return localStorage.getItem("theme") === "dark" || document.documentElement.classList.contains("dark");
+  });
+
+  useEffect(() => {
+    const handleThemeChange = (e: any) => {
+      setIsDark(e.detail.theme === "dark");
+    };
+    window.addEventListener("theme-change" as any, handleThemeChange);
+    return () => window.removeEventListener("theme-change" as any, handleThemeChange);
+  }, []);
 
   const loadTelegramLinkStatus = async () => {
     if (!userProfile) return;
@@ -361,6 +372,29 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
           id="header_pricing_info_btn"
         >
           <Info className="h-4.5 w-4.5 shrink-0" />
+        </button>
+
+        {/* Dark Mode Toggle Button */}
+        <button
+          onClick={() => {
+            const nextDark = !isDark;
+            setIsDark(nextDark);
+            if (nextDark) {
+              document.documentElement.classList.add("dark");
+              localStorage.setItem("theme", "dark");
+              toast.success("Đã chuyển sang giao diện tối");
+            } else {
+              document.documentElement.classList.remove("dark");
+              localStorage.setItem("theme", "light");
+              toast.success("Đã chuyển sang giao diện sáng");
+            }
+            window.dispatchEvent(new CustomEvent("theme-change", { detail: { theme: nextDark ? "dark" : "light" } }));
+          }}
+          className="flex items-center justify-center p-2 rounded-full text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-all active:scale-95 cursor-pointer"
+          title={isDark ? "Giao diện sáng" : "Giao diện tối"}
+          id="header_darkmode_btn"
+        >
+          {isDark ? <Sun className="h-4.5 w-4.5 shrink-0 text-amber-500" /> : <Moon className="h-4.5 w-4.5 shrink-0" />}
         </button>
 
         <div className="relative" id="notification_dropdown_button">
