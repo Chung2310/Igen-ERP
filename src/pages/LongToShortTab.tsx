@@ -313,7 +313,7 @@ export default function LongToShortTab() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-100 pb-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
-            <Scissors className="h-6 w-6 text-purple-600" /> Long video to Short video
+            <Scissors className="h-6 w-6 text-cyan-600" /> Long video to Short video
           </h1>
           <p className="text-xs text-gray-500 mt-1">
             Chuyển đổi các video dài (YouTube/Drive) thành hàng loạt clip ngắn dọc 9:16 có kèm phụ đề sinh động và phân tích xu hướng bằng AI.
@@ -337,7 +337,7 @@ export default function LongToShortTab() {
           {/* Submit Box */}
           <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-xs">
             <div className="flex items-center gap-2 mb-4">
-              <Sparkles className="h-5 w-5 text-purple-500" />
+              <Sparkles className="h-5 w-5 text-cyan-500" />
               <h3 className="text-sm font-bold text-gray-800">Cắt video mới</h3>
             </div>
 
@@ -356,21 +356,21 @@ export default function LongToShortTab() {
                     // URL nhập tay không còn khớp file vừa upload → bỏ ước tính cũ
                     setUploadedDurationSec(null);
                   }}
-                  className="block h-11 w-full rounded-2xl border border-gray-200 bg-white px-4 text-xs font-bold text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10"
+                  className="block h-11 w-full rounded-2xl border border-gray-200 bg-white px-4 text-xs font-bold text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10"
                   disabled={uploading}
                 />
                 
                 {/* Tải lên video cục bộ */}
                 <div className="mt-2">
-                  <label className="flex h-11 cursor-pointer items-center justify-center gap-2 rounded-2xl border border-dashed border-purple-200 bg-purple-50/30 px-4 text-xs font-bold text-purple-600 transition-all hover:bg-purple-50 hover:border-purple-300">
+                  <label className="flex h-11 cursor-pointer items-center justify-center gap-2 rounded-2xl border border-dashed border-cyan-200 bg-cyan-50/30 px-4 text-xs font-bold text-cyan-600 transition-all hover:bg-cyan-50 hover:border-cyan-300">
                     {uploading ? (
                       <>
-                        <RefreshCw className="h-4 w-4 animate-spin text-purple-600" />
+                        <RefreshCw className="h-4 w-4 animate-spin text-cyan-600" />
                         <span>Đang tải tệp lên: {uploadProgress}%</span>
                       </>
                     ) : (
                       <>
-                        <Upload className="h-4 w-4 text-purple-500" />
+                        <Upload className="h-4 w-4 text-cyan-500" />
                         <span>Tải tệp video từ máy tính (&lt; 1.5GB)</span>
                       </>
                     )}
@@ -394,7 +394,7 @@ export default function LongToShortTab() {
                   placeholder="Ví dụ: Review công nghệ số 01"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="block h-11 w-full rounded-2xl border border-gray-200 bg-white px-4 text-xs font-bold text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10"
+                  className="block h-11 w-full rounded-2xl border border-gray-200 bg-white px-4 text-xs font-bold text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10"
                 />
               </div>
 
@@ -406,7 +406,7 @@ export default function LongToShortTab() {
                   <select
                     value={lengthOption}
                     onChange={(e) => setLengthOption(e.target.value)}
-                    className="block h-11 w-full rounded-2xl border border-gray-200 bg-white px-3 text-xs font-bold text-gray-700 outline-none transition-all focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10"
+                    className="block h-11 w-full rounded-2xl border border-gray-200 bg-white px-3 text-xs font-bold text-gray-700 outline-none transition-all focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10"
                   >
                     <option value="auto">Tự động (Auto)</option>
                     <option value="<30s">&lt; 30 giây</option>
@@ -422,7 +422,7 @@ export default function LongToShortTab() {
                   <select
                     value={sourceLang}
                     onChange={(e) => setSourceLang(e.target.value)}
-                    className="block h-11 w-full rounded-2xl border border-gray-200 bg-white px-3 text-xs font-bold text-gray-700 outline-none transition-all focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10"
+                    className="block h-11 w-full rounded-2xl border border-gray-200 bg-white px-3 text-xs font-bold text-gray-700 outline-none transition-all focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10"
                   >
                     <option value="auto">Tự nhận diện (Auto)</option>
                     <option value="vi">Tiếng Việt (vi)</option>
@@ -440,12 +440,12 @@ export default function LongToShortTab() {
                   placeholder="Nhập Template ID nếu có"
                   value={brandTemplateId}
                   onChange={(e) => setBrandTemplateId(e.target.value)}
-                  className="block h-11 w-full rounded-2xl border border-gray-200 bg-white px-4 text-xs font-bold text-gray-900 outline-none transition-all focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10"
+                  className="block h-11 w-full rounded-2xl border border-gray-200 bg-white px-4 text-xs font-bold text-gray-900 outline-none transition-all focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10"
                 />
               </div>
 
               {videoUrl && (
-                <div className="flex items-center justify-between rounded-xl bg-purple-50/60 border border-purple-100 px-3 py-2 text-[11px] font-bold text-purple-700">
+                <div className="flex items-center justify-between rounded-xl bg-cyan-50/60 border border-cyan-100 px-3 py-2 text-[11px] font-bold text-cyan-700">
                   <span>Phí dự kiến:</span>
                   <span>
                     {uploadedDurationSec
@@ -458,7 +458,7 @@ export default function LongToShortTab() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full flex items-center justify-center gap-2 rounded-2xl bg-purple-600 py-3.5 text-xs font-bold text-white shadow-lg shadow-purple-600/15 transition-all hover:bg-purple-700 active:scale-97 disabled:opacity-50"
+                className="w-full flex items-center justify-center gap-2 rounded-2xl bg-cyan-600 py-3.5 text-xs font-bold text-white shadow-lg shadow-cyan-600/15 transition-all hover:bg-cyan-700 active:scale-97 disabled:opacity-50"
               >
                 {submitting ? (
                   <RefreshCw className="h-4 w-4 animate-spin" />
@@ -472,7 +472,7 @@ export default function LongToShortTab() {
             </form>
 
             <div className="mt-4 flex gap-2 rounded-xl bg-gray-50 border border-gray-100 px-3 py-2.5 text-[10px] text-gray-400 leading-normal">
-              <Info className="h-3.5 w-3.5 shrink-0 text-purple-500 mt-0.5" />
+              <Info className="h-3.5 w-3.5 shrink-0 text-cyan-500 mt-0.5" />
               <span>
                 Phí: 1 phút video gốc = {OPUSCLIP_PER_MINUTE} credits (tối thiểu 1 phút, làm tròn lên). Link YouTube/Drive sẽ tạm giữ {OPUSCLIP_HOLD_CREDITS} credits và quyết toán theo thời lượng thực khi xử lý xong. Nếu xử lý thất bại, hệ thống tự động hoàn lại credits.
               </span>
@@ -499,7 +499,7 @@ export default function LongToShortTab() {
                       onClick={() => handleSelectProject(proj)}
                       className={`w-full text-left p-3.5 rounded-2xl border transition-all flex items-center justify-between ${
                         isActive
-                          ? "border-purple-200 bg-purple-50/50 shadow-xs"
+                          ? "border-cyan-200 bg-cyan-50/50 shadow-xs"
                           : "border-gray-100 hover:bg-gray-50"
                       }`}
                     >
@@ -539,7 +539,7 @@ export default function LongToShortTab() {
                     href={selectedProject.videoUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="text-[11px] text-purple-600 font-medium underline flex items-center gap-1 mt-1 hover:text-purple-700"
+                    className="text-[11px] text-cyan-600 font-medium underline flex items-center gap-1 mt-1 hover:text-cyan-700"
                   >
                     <span>Xem video gốc</span> <ExternalLink className="h-3 w-3" />
                   </a>
@@ -566,22 +566,22 @@ export default function LongToShortTab() {
                 return (
                   <div className="flex-1 flex flex-col items-center justify-center py-20 text-center">
                     <div className="relative mb-6">
-                      <div className="h-16 w-16 rounded-full border-4 border-purple-100 border-t-purple-600 animate-spin" />
-                      <Scissors className="h-6 w-6 text-purple-600 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
+                      <div className="h-16 w-16 rounded-full border-4 border-cyan-100 border-t-cyan-600 animate-spin" />
+                      <Scissors className="h-6 w-6 text-cyan-600 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
                     </div>
                     <h4 className="text-sm font-bold text-gray-800">
-                      AI đang tiến hành cắt video dài... <span className="text-purple-600 font-mono">{progress}%</span>
+                      AI đang tiến hành cắt video dài... <span className="text-cyan-600 font-mono">{progress}%</span>
                     </h4>
 
                     {/* Thanh tiến độ giả lập */}
                     <div className="w-full max-w-[340px] mt-4">
-                      <div className="h-2 w-full rounded-full bg-purple-100 overflow-hidden">
+                      <div className="h-2 w-full rounded-full bg-cyan-100 overflow-hidden">
                         <div
-                          className="h-full rounded-full bg-gradient-to-r from-purple-500 to-purple-600 transition-all duration-1000 ease-out"
+                          className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-cyan-600 transition-all duration-1000 ease-out"
                           style={{ width: `${progress}%` }}
                         />
                       </div>
-                      <p className="text-[11px] font-semibold text-purple-600 mt-2 animate-pulse">
+                      <p className="text-[11px] font-semibold text-cyan-600 mt-2 animate-pulse">
                         {getProgressLabel(progress)}
                       </p>
                     </div>
@@ -616,8 +616,8 @@ export default function LongToShortTab() {
                     </div>
                   ) : (
                     <div>
-                      <div className="flex items-center gap-2 mb-4 bg-purple-50 border border-purple-100 rounded-2xl p-3 text-xs text-purple-800">
-                        <Sparkles className="h-4 w-4 text-purple-600 shrink-0" />
+                      <div className="flex items-center gap-2 mb-4 bg-cyan-50 border border-cyan-100 rounded-2xl p-3 text-xs text-cyan-800">
+                        <Sparkles className="h-4 w-4 text-cyan-600 shrink-0" />
                         <span className="font-medium">
                           AI tìm thấy **{selectedProject.clips.length} clip ngắn** đạt tiêu chuẩn viral cao.
                         </span>
@@ -631,7 +631,7 @@ export default function LongToShortTab() {
                           return (
                             <div
                               key={clip.clipId}
-                              className="rounded-3xl border border-gray-100 bg-white shadow-xs overflow-hidden flex flex-col relative group hover:border-purple-200 transition-all"
+                              className="rounded-3xl border border-gray-100 bg-white shadow-xs overflow-hidden flex flex-col relative group hover:border-cyan-200 transition-all"
                             >
                               {/* 9:16 Video Player Area */}
                               <div className="bg-slate-950 aspect-[9/16] w-full max-h-[360px] overflow-hidden relative flex items-center justify-center">
@@ -657,7 +657,7 @@ export default function LongToShortTab() {
                                     <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Tiêu đề đề xuất</span>
                                     <button
                                       onClick={() => copyToClipboard(clip.title, copyIdTitle)}
-                                      className="text-gray-400 hover:text-purple-600 p-1"
+                                      className="text-gray-400 hover:text-cyan-600 p-1"
                                       title="Sao chép tiêu đề"
                                     >
                                       {copiedTextId === copyIdTitle ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
@@ -674,7 +674,7 @@ export default function LongToShortTab() {
                                     <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Nội dung mạng xã hội & Hashtags</span>
                                     <button
                                       onClick={() => copyToClipboard(`${clip.description}\n\n${clip.hashtags}`, copyIdDesc)}
-                                      className="text-gray-400 hover:text-purple-600 p-1"
+                                      className="text-gray-400 hover:text-cyan-600 p-1"
                                       title="Sao chép mô tả"
                                     >
                                       {copiedTextId === copyIdDesc ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
@@ -682,7 +682,7 @@ export default function LongToShortTab() {
                                   </div>
                                   <p className="text-[11px] text-gray-600 mt-1 line-clamp-3 leading-relaxed font-medium bg-slate-50 border border-slate-100 rounded-xl p-2.5">
                                     {clip.description || "Không có mô tả."}
-                                    {clip.hashtags && <span className="block mt-1.5 text-purple-600 font-bold">{clip.hashtags}</span>}
+                                    {clip.hashtags && <span className="block mt-1.5 text-cyan-600 font-bold">{clip.hashtags}</span>}
                                   </p>
                                 </div>
 
@@ -707,7 +707,7 @@ export default function LongToShortTab() {
                                     download
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 hover:border-purple-200 bg-white py-2 text-center text-xs font-bold text-gray-600 hover:text-purple-700 transition active:scale-95 shadow-xs"
+                                    className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 hover:border-cyan-200 bg-white py-2 text-center text-xs font-bold text-gray-600 hover:text-cyan-700 transition active:scale-95 shadow-xs"
                                   >
                                     <Download className="h-3.5 w-3.5" />
                                     <span>Tải clip xuống</span>
@@ -727,7 +727,7 @@ export default function LongToShortTab() {
             </div>
           ) : (
             <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-xs min-h-[500px] flex flex-col items-center justify-center text-center">
-              <div className="h-16 w-16 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center mb-4">
+              <div className="h-16 w-16 rounded-full bg-cyan-50 text-cyan-600 flex items-center justify-center mb-4">
                 <Scissors className="h-7 w-7" />
               </div>
               <h3 className="text-base font-bold text-gray-800">Không có dự án nào được chọn</h3>
