@@ -38,6 +38,18 @@ function getFallbackImageModel(): string {
   return mapModelName(process.env.OPENROUTER_FALLBACK_IMAGE_MODEL || "google/gemini-3-pro-image");
 }
 
+/** Tầng fallback thứ 3: server LLM free tự host (OpenAI-compatible). Null nếu chưa cấu hình. */
+function getFreeLlmConfig(): { baseUrl: string; apiKey: string; model: string } | null {
+  const baseUrl = process.env.FREELLM_API_URL;
+  const apiKey = process.env.FREELLM_API_KEY;
+  if (!baseUrl || !apiKey) return null;
+  return {
+    baseUrl: baseUrl.replace(/\/+$/, ""),
+    apiKey,
+    model: process.env.FREELLM_API_MODEL || "auto",
+  };
+}
+
 /** Lỗi mà đổi model cũng không cứu được (sai key / hết credit) → không fallback */
 function isNonFallbackableError(error: any): boolean {
   const status = error?.status ?? 0;
@@ -75,13 +87,17 @@ export interface OpenRouterChatParams {
 
 /**
  * Chat completions — text và/hoặc vision (base64 images).
- * Model chính lỗi hết retry → fallback sang getFallbackModel().
+ * Chuỗi fallback 3 tầng:
+ *   1. Model chính qua OpenRouter
+ *   2. getFallbackModel() qua OpenRouter (mặc định qwen/qwen3.6-flash)
+ *   3. FreeLLM server tự host (FREELLM_API_URL) nếu được cấu hình
  */
 export async function openrouterChat(params: OpenRouterChatParams): Promise<{ text: string }> {
   const { model, temperature = 0.7, jsonMode, responseSchema, maxRetries = 4 } = params;
   const apiKey = getApiKey();
+  const freeLlm = getFreeLlmConfig();
 
-  if (!apiKey) {
+  if (!apiKey && !freeLlm) {
     throw new Error("[OpenRouter] OPENROUTER_API_KEY chưa được cấu hình trong .env");
   }
 
@@ -104,20 +120,42 @@ export async function openrouterChat(params: OpenRouterChatParams): Promise<{ te
 
   const jsonRequested = Boolean(jsonMode || responseSchema);
 
-  try {
-    return await chatWithRetries(apiKey, mappedModel, messages, temperature, jsonRequested, maxRetries);
-  } catch (error: any) {
-    const fallbackModel = getFallbackModel();
-    if (isNonFallbackableError(error) || fallbackModel === mappedModel) throw error;
+  let lastError: any;
 
-    console.warn(
-      `[OpenRouter] Model ${mappedModel} thất bại sau ${maxRetries} lần thử, fallback sang ${fallbackModel}. Lỗi: ${error?.message || error}`
-    );
-    return await chatWithRetries(apiKey, fallbackModel, messages, temperature, jsonRequested, 2);
+  // Tầng 1 + 2: OpenRouter (model chính → model fallback)
+  if (apiKey) {
+    try {
+      return await chatWithRetries(OPENROUTER_BASE_URL, apiKey, mappedModel, messages, temperature, jsonRequested, maxRetries);
+    } catch (error: any) {
+      lastError = error;
+      const fallbackModel = getFallbackModel();
+
+      if (!isNonFallbackableError(error) && fallbackModel !== mappedModel) {
+        console.warn(
+          `[OpenRouter] Model ${mappedModel} thất bại sau ${maxRetries} lần thử, fallback sang ${fallbackModel}. Lỗi: ${error?.message || error}`
+        );
+        try {
+          return await chatWithRetries(OPENROUTER_BASE_URL, apiKey, fallbackModel, messages, temperature, jsonRequested, 2);
+        } catch (fallbackError: any) {
+          lastError = fallbackError;
+        }
+      }
+    }
   }
+
+  // Tầng 3: FreeLLM server tự host
+  if (freeLlm) {
+    console.warn(
+      `[OpenRouter] Fallback tầng 3 → FreeLLM server ${freeLlm.baseUrl} | model=${freeLlm.model}. Lỗi trước đó: ${lastError?.message || lastError || "OpenRouter chưa cấu hình"}`
+    );
+    return await chatWithRetries(freeLlm.baseUrl, freeLlm.apiKey, freeLlm.model, messages, temperature, jsonRequested, 2);
+  }
+
+  throw lastError ?? new Error("[OpenRouter] Chat completions failed with no error details.");
 }
 
 async function chatWithRetries(
+  baseUrl: string,
   apiKey: string,
   model: string,
   messages: OpenRouterMessage[],
@@ -141,9 +179,9 @@ async function chatWithRetries(
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       const startTime = Date.now();
-      console.log(`[OpenRouter] POST /chat/completions | model=${model} | attempt=${attempt}`);
+      console.log(`[OpenRouter] POST ${baseUrl}/chat/completions | model=${model} | attempt=${attempt}`);
 
-      const response = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
+      const response = await fetch(`${baseUrl}/chat/completions`, {
         method: "POST",
         headers: buildHeaders(apiKey),
         body: JSON.stringify(body),
