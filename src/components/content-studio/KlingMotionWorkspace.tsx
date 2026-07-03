@@ -269,8 +269,8 @@ export function KlingMotionWorkspace({
 
           {/* Header */}
           <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
-            <div className="h-7 w-7 rounded-lg bg-violet-100 flex items-center justify-center">
-              <Film className="h-3.5 w-3.5 text-violet-600" />
+            <div className="h-7 w-7 rounded-lg bg-cyan-100 flex items-center justify-center">
+              <Film className="h-3.5 w-3.5 text-cyan-600" />
             </div>
             <div>
               <p className="text-xs font-bold text-slate-800">Kling Motion Control</p>
@@ -283,7 +283,7 @@ export function KlingMotionWorkspace({
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
               Ảnh nhân vật tham chiếu <span className="text-red-400">*</span>
             </span>
-            <div className="border border-dashed border-slate-200 rounded-2xl p-4 bg-slate-50/30 flex flex-col items-center justify-center relative min-h-[130px] hover:border-violet-400/60 hover:bg-violet-50/10 transition-all duration-300">
+            <div className="border border-dashed border-slate-200 rounded-2xl p-4 bg-slate-50/30 flex flex-col items-center justify-center relative min-h-[130px] hover:border-cyan-400/60 hover:bg-cyan-50/10 transition-all duration-300">
               {characterImage ? (
                 <div className="relative w-full">
                   <img
@@ -318,20 +318,20 @@ export function KlingMotionWorkspace({
               </span>
               <span className="text-[9px] text-slate-400">Tối đa {MAX_VIDEO_SIZE_MB}MB · MP4 / MOV</span>
             </div>
-            <div className="border border-dashed border-slate-200 rounded-2xl p-4 bg-slate-50/30 flex flex-col items-center justify-center relative min-h-[100px] hover:border-violet-400/60 hover:bg-violet-50/10 transition-all duration-300">
+            <div className="border border-dashed border-slate-200 rounded-2xl p-4 bg-slate-50/30 flex flex-col items-center justify-center relative min-h-[100px] hover:border-cyan-400/60 hover:bg-cyan-50/10 transition-all duration-300">
               {isUploadingVideo ? (
                 <div className="flex flex-col items-center gap-2 text-slate-400">
-                  <Loader2 className="h-6 w-6 animate-spin text-violet-500" />
+                  <Loader2 className="h-6 w-6 animate-spin text-cyan-500" />
                   <span className="text-xs font-medium">Đang đọc file video...</span>
                 </div>
               ) : motionVideo ? (
-                <div className="w-full flex items-center gap-3 p-2 bg-violet-50 rounded-xl border border-violet-100">
-                  <div className="h-9 w-9 rounded-lg bg-violet-100 flex items-center justify-center shrink-0">
-                    <Film className="h-4 w-4 text-violet-600" />
+                <div className="w-full flex items-center gap-3 p-2 bg-cyan-50 rounded-xl border border-cyan-100">
+                  <div className="h-9 w-9 rounded-lg bg-cyan-100 flex items-center justify-center shrink-0">
+                    <Film className="h-4 w-4 text-cyan-600" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-bold text-slate-800 truncate">{motionVideoName || "video_motion.mp4"}</p>
-                    <p className="text-[10px] text-violet-500 font-medium">Sẵn sàng</p>
+                    <p className="text-[10px] text-cyan-500 font-medium">Sẵn sàng</p>
                   </div>
                   <button
                     type="button"
@@ -357,7 +357,7 @@ export function KlingMotionWorkspace({
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Mô tả thêm (tuỳ chọn)</span>
             <textarea
               placeholder="Ví dụ: nhân vật đang nhảy điệu samba trên sân khấu ngoài trời..."
-              className="w-full text-xs p-3 border border-slate-200 rounded-xl h-18 focus:ring-1 focus:ring-violet-400 focus:outline-none leading-relaxed bg-slate-50/20 resize-none font-medium"
+              className="w-full text-xs p-3 border border-slate-200 rounded-xl h-18 focus:ring-1 focus:ring-cyan-400 focus:outline-none leading-relaxed bg-slate-50/20 resize-none font-medium"
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               disabled={isGenerating}
@@ -396,7 +396,7 @@ export function KlingMotionWorkspace({
                   disabled={isGenerating}
                   className={`py-2 px-3 text-xs font-bold rounded-xl border transition-all cursor-pointer ${
                     mode === "std"
-                      ? "border-violet-500 bg-violet-50 text-violet-700"
+                      ? "border-cyan-500 bg-cyan-50 text-cyan-700"
                       : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
                   }`}
                 >
@@ -408,7 +408,7 @@ export function KlingMotionWorkspace({
                   disabled={isGenerating}
                   className={`py-2 px-3 text-xs font-bold rounded-xl border transition-all cursor-pointer ${
                     mode === "pro"
-                      ? "border-violet-500 bg-violet-50 text-violet-700"
+                      ? "border-cyan-500 bg-cyan-50 text-cyan-700"
                       : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
                   }`}
                 >
@@ -432,7 +432,7 @@ export function KlingMotionWorkspace({
                   disabled={isGenerating}
                   className={`py-2 px-3 text-xs font-bold rounded-xl border transition-all cursor-pointer ${
                     characterOrientation === "video"
-                      ? "border-violet-500 bg-violet-50 text-violet-700"
+                      ? "border-cyan-500 bg-cyan-50 text-cyan-700"
                       : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
                   }`}
                 >
@@ -444,7 +444,7 @@ export function KlingMotionWorkspace({
                   disabled={isGenerating}
                   className={`py-2 px-3 text-xs font-bold rounded-xl border transition-all cursor-pointer ${
                     characterOrientation === "image"
-                      ? "border-violet-500 bg-violet-50 text-violet-700"
+                      ? "border-cyan-500 bg-cyan-50 text-cyan-700"
                       : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
                   }`}
                 >
@@ -462,7 +462,7 @@ export function KlingMotionWorkspace({
             <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
               <div className="flex items-center gap-2">
                 {keepOriginalSound ? (
-                  <Volume2 className="h-3.5 w-3.5 text-violet-500" />
+                  <Volume2 className="h-3.5 w-3.5 text-cyan-500" />
                 ) : (
                   <VolumeX className="h-3.5 w-3.5 text-slate-400" />
                 )}
@@ -473,7 +473,7 @@ export function KlingMotionWorkspace({
                 onClick={() => setKeepOriginalSound(!keepOriginalSound)}
                 disabled={isGenerating}
                 className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors cursor-pointer ${
-                  keepOriginalSound ? "bg-violet-500" : "bg-slate-200"
+                  keepOriginalSound ? "bg-cyan-500" : "bg-slate-200"
                 }`}
               >
                 <span
@@ -487,11 +487,11 @@ export function KlingMotionWorkspace({
 
           {/* Estimated Cost */}
           {videoDuration > 0 && (
-            <div className="flex items-center justify-between px-3 py-2 bg-violet-50 border border-violet-100 rounded-xl text-[10px]">
+            <div className="flex items-center justify-between px-3 py-2 bg-cyan-50 border border-cyan-100 rounded-xl text-[10px]">
               <span className="text-slate-500 font-medium">
                 Ước tính phí · {videoDuration.toFixed(1)}s × {KLING_COST_PER_SECOND[modelName]?.[mode] ?? 32} credits/s
               </span>
-              <span className="font-bold text-violet-700">
+              <span className="font-bold text-cyan-700">
                 {calcEstimatedCost(modelName, mode, videoDuration).toLocaleString()} credits
               </span>
             </div>
@@ -504,7 +504,7 @@ export function KlingMotionWorkspace({
             disabled={!canGenerate}
             className={`w-full py-3.5 rounded-xl text-xs font-bold tracking-wider uppercase transition-all flex items-center justify-center gap-2 mt-2 cursor-pointer active:scale-95 shadow-md ${
               canGenerate
-                ? "bg-violet-600 hover:bg-violet-700 text-white shadow-violet-200"
+                ? "bg-cyan-600 hover:bg-cyan-700 text-white shadow-cyan-200"
                 : "bg-slate-100 text-slate-400 border border-slate-200 shadow-none cursor-not-allowed"
             }`}
           >
@@ -526,9 +526,9 @@ export function KlingMotionWorkspace({
           <div className="flex-1 flex flex-col justify-center items-center relative min-h-[360px] mb-4">
             {isGenerating && !generatedVideoUrl ? (
               <div className="flex flex-col items-center gap-4 text-slate-400 p-8 text-center animate-pulse">
-                <Loader2 className="h-10 w-10 text-violet-500 animate-spin" />
+                <Loader2 className="h-10 w-10 text-cyan-500 animate-spin" />
                 <div className="flex flex-col gap-1.5 items-center">
-                  <span className="text-xs font-bold tracking-wider uppercase font-mono text-violet-400">
+                  <span className="text-xs font-bold tracking-wider uppercase font-mono text-cyan-400">
                     Đang dựng Motion Control {generateProgress}%...
                   </span>
                   <span className="text-[10px] text-slate-500">
@@ -537,7 +537,7 @@ export function KlingMotionWorkspace({
                 </div>
                 <div className="w-48 bg-slate-200 h-1.5 rounded-full overflow-hidden mt-1">
                   <div
-                    className="bg-violet-500 h-full transition-all duration-300 rounded-full"
+                    className="bg-cyan-500 h-full transition-all duration-300 rounded-full"
                     style={{ width: `${generateProgress}%` }}
                   />
                 </div>
@@ -550,15 +550,15 @@ export function KlingMotionWorkspace({
                     const matched = history.find((r) => r.metadata?.piapiTaskId === taskId);
                     const progressVal = matched?.metadata?.progress;
                     return (
-                      <div className="w-full h-full bg-slate-900 flex flex-col items-center justify-center text-xs font-bold text-violet-400 uppercase tracking-widest p-4 text-center">
-                        <Loader2 className="h-8 w-8 animate-spin mb-2 text-violet-500" />
+                      <div className="w-full h-full bg-slate-900 flex flex-col items-center justify-center text-xs font-bold text-cyan-400 uppercase tracking-widest p-4 text-center">
+                        <Loader2 className="h-8 w-8 animate-spin mb-2 text-cyan-500" />
                         Video đang được dựng...
                         {progressVal !== undefined && (
                           <div className="flex flex-col items-center gap-1.5 mt-2 w-48 mx-auto">
-                            <span className="text-[10px] text-violet-300 font-mono">Tiến độ: {progressVal}%</span>
+                            <span className="text-[10px] text-cyan-300 font-mono">Tiến độ: {progressVal}%</span>
                             <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
                               <div
-                                className="bg-violet-500 h-full transition-all duration-300 rounded-full"
+                                className="bg-cyan-500 h-full transition-all duration-300 rounded-full"
                                 style={{ width: `${progressVal}%` }}
                               />
                             </div>
@@ -596,8 +596,8 @@ export function KlingMotionWorkspace({
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center gap-3 p-10 text-center select-none">
-                <div className="h-12 w-12 rounded-full bg-violet-50 border border-violet-100 flex items-center justify-center mb-2">
-                  <Film className="h-6 w-6 text-violet-300 stroke-[1.5]" />
+                <div className="h-12 w-12 rounded-full bg-cyan-50 border border-cyan-100 flex items-center justify-center mb-2">
+                  <Film className="h-6 w-6 text-cyan-300 stroke-[1.5]" />
                 </div>
                 <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Motion Control sẵn sàng</span>
                 <span className="text-[11px] text-slate-400 max-w-xs leading-relaxed">
@@ -614,14 +614,14 @@ export function KlingMotionWorkspace({
                 <h4 className="font-bold text-slate-800 text-xs">Lịch sử Motion Control</h4>
                 <p className="text-[10px] text-slate-400 mt-0.5">Hiển thị tối đa 20 kết quả gần nhất.</p>
               </div>
-              <span className="px-2.5 py-0.5 bg-violet-50 text-violet-600 rounded-full text-[10px] font-bold font-mono">
+              <span className="px-2.5 py-0.5 bg-cyan-50 text-cyan-600 rounded-full text-[10px] font-bold font-mono">
                 {history.slice(0, 20).length}/20
               </span>
             </div>
 
             {isLoadingHistory ? (
               <div className="flex flex-col items-center justify-center py-6 text-slate-400">
-                <Loader2 className="h-6 w-6 text-violet-500 animate-spin mb-2" />
+                <Loader2 className="h-6 w-6 text-cyan-500 animate-spin mb-2" />
                 <span className="text-[9px] uppercase tracking-wider font-mono">Đang tải...</span>
               </div>
             ) : history.length === 0 ? (
@@ -660,7 +660,7 @@ export function KlingMotionWorkspace({
                         key={id}
                         onClick={() => !isPending && setGeneratedVideoUrl(record.url)}
                         className={`w-32 aspect-[16/10] relative rounded-xl overflow-hidden bg-slate-950 shadow-xs shrink-0 border-2 transition-all group/item ${
-                          isActive ? "border-violet-500" : "border-transparent"
+                          isActive ? "border-cyan-500" : "border-transparent"
                         } ${!isPending ? "cursor-pointer hover:shadow-md" : "cursor-default"}`}
                       >
                         {!isPending && record.url ? (
@@ -673,8 +673,8 @@ export function KlingMotionWorkspace({
                             crossOrigin="anonymous"
                           />
                         ) : (
-                          <div className="w-full h-full bg-slate-900 flex flex-col items-center justify-center text-[8px] font-bold text-violet-400 uppercase tracking-widest p-1 text-center">
-                            <Loader2 className="h-4 w-4 animate-spin mb-1 text-violet-500" />
+                          <div className="w-full h-full bg-slate-900 flex flex-col items-center justify-center text-[8px] font-bold text-cyan-400 uppercase tracking-widest p-1 text-center">
+                            <Loader2 className="h-4 w-4 animate-spin mb-1 text-cyan-500" />
                             ĐANG DỰNG
                             {record.metadata?.progress !== undefined && ` ${record.metadata.progress}%`}
                           </div>
@@ -702,7 +702,7 @@ export function KlingMotionWorkspace({
 
                         <div className="absolute bottom-1 left-1.5 right-1.5 flex justify-between items-center text-[8px] font-bold text-white bg-black/40 px-1 py-0.5 rounded backdrop-blur-xs">
                           <span className="truncate max-w-[55px]">{`MC ${history.length - index}`}</span>
-                          <span className="text-violet-300">Kling</span>
+                          <span className="text-cyan-300">Kling</span>
                         </div>
                       </div>
                     );

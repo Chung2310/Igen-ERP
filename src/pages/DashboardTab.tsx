@@ -46,7 +46,7 @@ const toneClass: Record<Tone, { soft: string; text: string; fill: string; strong
   emerald: { soft: "bg-emerald-50/60", text: "text-emerald-600", fill: "bg-emerald-500", strong: "text-emerald-700" },
 };
 
-const getDescendantEmployeeCount = (rootId: string, users: UserProfile[]) => {
+const getDescendantEmployees = (rootId: string, users: UserProfile[]): UserProfile[] => {
   const childrenByParent = new Map<string, string[]>();
   users.forEach((user) => {
     if (user.parentId) {
@@ -56,16 +56,20 @@ const getDescendantEmployeeCount = (rootId: string, users: UserProfile[]) => {
     }
   });
 
-  let count = 0;
+  const descendantIds = new Set<string>();
   const stack = [rootId];
   while (stack.length > 0) {
     const current = stack.pop()!;
     const children = childrenByParent.get(current) || [];
-    count += children.length;
+    children.forEach(cid => descendantIds.add(cid));
     stack.push(...children);
   }
 
-  return count;
+  return users.filter(u => descendantIds.has(u.uid));
+};
+
+const getDescendantEmployeeCount = (rootId: string, users: UserProfile[]) => {
+  return getDescendantEmployees(rootId, users).length;
 };
 
 const formatCardDate = (dateStr: any): string => {
@@ -84,11 +88,37 @@ const formatCardDate = (dateStr: any): string => {
   }
 };
 
+const formatDashboardCurrency = (val: number, decimalDigits: number = 1, useK: boolean = true): string => {
+  if (val === 0) return "₫0";
+  if (!isFinite(val) || isNaN(val)) return "₫0";
+  
+  const absVal = Math.abs(val);
+  const sign = val < 0 ? "-" : "";
+
+  if (absVal >= 1e15) {
+    return `${sign}₫${absVal.toExponential(2)}`;
+  }
+  if (absVal >= 1e12) {
+    return `${sign}₫${(absVal / 1e12).toFixed(decimalDigits)}T`;
+  }
+  if (absVal >= 1e9) {
+    return `${sign}₫${(absVal / 1e9).toFixed(decimalDigits)}B`;
+  }
+  if (absVal >= 1e6) {
+    return `${sign}₫${(absVal / 1e6).toFixed(decimalDigits)}M`;
+  }
+  if (useK && absVal >= 1e3) {
+    return `${sign}₫${(absVal / 1e3).toFixed(0)}K`;
+  }
+  return `${sign}₫${Math.round(absVal).toLocaleString("vi-VN")}`;
+};
+
 export default function DashboardTab() {
   const { userProfile } = useAuth();
   const [activeView, setActiveView] = useState<DashboardView>("overview");
   const [employeeCount, setEmployeeCount] = useState<string>("...");
   const [employeeLabel, setEmployeeLabel] = useState<string>("Tổng nhân sự");
+  const [newHiresCount, setNewHiresCount] = useState<number>(0);
   const [totalProducts, setTotalProducts] = useState<string>("...");
   const [pendingShipments, setPendingShipments] = useState<string>("...");
   const [marketingPendingCount, setMarketingPendingCount] = useState<string>("...");
@@ -143,6 +173,7 @@ export default function DashboardTab() {
       if (!userProfile) {
         setEmployeeCount("0");
         setEmployeeLabel("Nhân sự");
+        setNewHiresCount(0);
         return;
       }
 
@@ -156,23 +187,52 @@ export default function DashboardTab() {
 
         let count = 0;
         let label = "Nhân sự";
+        let targetUsers: UserProfile[] = [];
+
         if (userProfile.role === "superadmin") {
-          count = users.filter((user) => user.role !== "superadmin").length;
+          targetUsers = users.filter((user) => user.role !== "superadmin");
+          count = targetUsers.length;
           label = "Tổng nhân sự";
         } else if (userProfile.role === "admin" || userProfile.role === "manager") {
-          count = getDescendantEmployeeCount(userProfile.uid, users);
+          targetUsers = getDescendantEmployees(userProfile.uid, users);
+          count = targetUsers.length;
           label = "Tổng nhân sự";
         } else {
+          targetUsers = users;
           count = users.length;
           label = "Nhân sự";
         }
 
         setEmployeeCount(String(count));
         setEmployeeLabel(label);
+
+        // Calculate new hires in current month
+        const isCreatedInCurrentMonth = (createdAt: any): boolean => {
+          if (!createdAt) return false;
+          try {
+            let date: Date;
+            if (createdAt && typeof createdAt.toDate === "function") {
+              date = createdAt.toDate();
+            } else if (createdAt instanceof Date) {
+              date = createdAt;
+            } else {
+              date = new Date(createdAt);
+            }
+            if (isNaN(date.getTime())) return false;
+            const now = new Date();
+            return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+          } catch (e) {
+            return false;
+          }
+        };
+
+        const newHires = targetUsers.filter(u => isCreatedInCurrentMonth(u.createdAt)).length;
+        setNewHiresCount(newHires);
       } catch (error) {
         console.error("Lỗi lấy nhân sự Dashboard:", error);
         setEmployeeCount("0");
         setEmployeeLabel("Nhân sự");
+        setNewHiresCount(0);
       }
     };
 
@@ -202,13 +262,7 @@ export default function DashboardTab() {
 
         let formattedValue = "0";
         if (val > 0) {
-          if (val >= 1e9) {
-            formattedValue = `₫${(val / 1e9).toFixed(1)}B`;
-          } else if (val >= 1e6) {
-            formattedValue = `₫${(val / 1e6).toFixed(1)}M`;
-          } else {
-            formattedValue = `₫${val.toLocaleString("vi-VN")}`;
-          }
+          formattedValue = formatDashboardCurrency(val, 1, false);
         }
         setTotalInventoryValue(formattedValue);
       });
@@ -534,15 +588,7 @@ export default function DashboardTab() {
     setGrowthRate(rate);
 
     const formatCurrencyShort = (val: number) => {
-      if (val >= 1e9) {
-        return `₫${(val / 1e9).toFixed(1)}B`;
-      } else if (val >= 1e6) {
-        return `₫${(val / 1e6).toFixed(1)}M`;
-      } else if (val >= 1e3) {
-        return `₫${(val / 1e3).toFixed(0)}K`;
-      } else {
-        return `₫${val.toLocaleString("vi-VN")}`;
-      }
+      return formatDashboardCurrency(val, 1, true);
     };
     setPrevRevenueShort(formatCurrencyShort(previousPeriodRevenue));
 
@@ -867,6 +913,7 @@ export default function DashboardTab() {
           leadsCount={leadsCount}
           totalInventoryValue={totalInventoryValue}
           trendData={revenueTrendData}
+          newHiresCount={newHiresCount}
         />
       )}
       {activeView === "revenue" && (
@@ -907,6 +954,7 @@ function OverviewPanel({
   leadsCount,
   totalInventoryValue,
   trendData,
+  newHiresCount,
 }: {
   employeeCount: string;
   employeeLabel: string;
@@ -929,6 +977,7 @@ function OverviewPanel({
   leadsCount: string;
   totalInventoryValue: string;
   trendData: Array<{ label: string; value: number }>;
+  newHiresCount: number;
 }) {
   const [showLowStockModal, setShowLowStockModal] = useState<boolean>(false);
   const [showPendingReviewModal, setShowPendingReviewModal] = useState<boolean>(false);
@@ -965,7 +1014,17 @@ function OverviewPanel({
     <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_280px]">
       <div className="space-y-6">
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-          <ModuleCard icon={Users} tone="amber" title="Nhân sự" value={employeeCount} label={employeeLabel} footer="Độ hài lòng" footerValue="92%" progress={92} onClick={() => goToTab("NHÂN SỰ")} />
+          <ModuleCard
+            icon={Users}
+            tone="amber"
+            title="Nhân sự"
+            value={employeeCount}
+            label={employeeLabel}
+            footer="Nhân sự mới"
+            footerValue={`+${newHiresCount}`}
+            progress={Math.min(100, (parseInt(employeeCount) || 0) > 0 ? Math.round((newHiresCount / (parseInt(employeeCount) || 1)) * 100) : 0)}
+            onClick={() => goToTab("NHÂN SỰ")}
+          />
           <ModuleCard icon={PackageCheck} tone="blue" title="Kho & Sản phẩm" value={totalProducts} label="Tổng sản phẩm" footer="Đơn chờ xuất" footerValue={`${pendingShipments} Đơn`} progress={78} alert lowCount={lowStockCount} onClick={() => goToTab("KHO & SẢN PHẨM")} />
           <ModuleCard icon={Megaphone} tone="slate" title="Marketing" value={marketingPendingCount} label="Bài chờ duyệt" footer="Tỉ lệ duyệt" footerValue={`${marketingApprovalRate}%`} progress={Number(marketingApprovalRate) || 0} onClick={() => goToTab("MARKETING")} />
           <SalesCard value={totalInventoryValue} leadsCount={leadsCount} />
@@ -1261,13 +1320,7 @@ function RevenuePanel({
   productSegments: Array<{ label: string; value: number; color: string }>;
 }) {
   const formatCurrency = (val: number) => {
-    if (val >= 1e9) {
-      return `₫${(val / 1e9).toFixed(2)}B`;
-    } else if (val >= 1e6) {
-      return `₫${(val / 1e6).toFixed(1)}M`;
-    } else {
-      return `₫${val.toLocaleString("vi-VN")}`;
-    }
+    return formatDashboardCurrency(val, 2, false);
   };
 
   return (
@@ -1363,16 +1416,16 @@ function ModuleCard({ icon: Icon, tone, title, value, label, footer, footerValue
           {title}{showCount ? ` (${lowCount})` : ""}
         </span>
       </div>
-      <div className="mb-4 flex items-end justify-between gap-3">
-        <span className="text-sm font-medium text-gray-500">{label}</span>
-        <span className="font-sans text-xl font-extrabold text-gray-800">{value}</span>
+      <div className="mb-4 flex items-end justify-between gap-3 min-w-0">
+        <span className="text-sm font-medium text-gray-500 shrink-0">{label}</span>
+        <span className="font-sans text-xl font-extrabold text-gray-800 truncate" title={value}>{value}</span>
       </div>
       <div className="h-1.5 rounded-full bg-slate-100">
         <div className={`h-1.5 rounded-full ${color.fill} transition-all duration-500`} style={{ width: `${progress}%` }} />
       </div>
-      <div className="mt-4 flex justify-between text-xs font-medium">
-        <span className="text-gray-400">{footer}</span>
-        <span className={`font-bold ${color.strong}`}>{footerValue}</span>
+      <div className="mt-4 flex justify-between text-xs font-medium min-w-0">
+        <span className="text-gray-400 truncate pr-2">{footer}</span>
+        <span className={`font-bold shrink-0 ${color.strong}`}>{footerValue}</span>
       </div>
     </div>
   );
@@ -1419,7 +1472,7 @@ function MetricCard({ icon: Icon, label, value, delta, tone = "blue", negative =
         </span>
       </div>
       <p className="text-sm font-medium text-gray-500">{label}</p>
-      <p className="mt-3 font-sans text-3xl font-extrabold tracking-tight text-gray-800">{value}</p>
+      <p className="mt-3 font-sans text-3xl font-extrabold tracking-tight text-gray-800 truncate" title={value}>{value}</p>
     </div>
   );
 }
@@ -1432,13 +1485,7 @@ function LineChartCard({ monthlyRevenue }: { monthlyRevenue: number[] }) {
 
     let formatted = "0";
     if (val > 0) {
-      if (val >= 1e9) {
-        formatted = `₫${(val / 1e9).toFixed(1)}B`;
-      } else if (val >= 1e6) {
-        formatted = `₫${(val / 1e6).toFixed(1)}M`;
-      } else {
-        formatted = `₫${val.toLocaleString("vi-VN")}`;
-      }
+      formatted = formatDashboardCurrency(val, 1, false);
     }
     return { x, y, val: formatted };
   });
@@ -1607,15 +1654,7 @@ function BarChart({ data = [] }: { data?: Array<{ label: string; value: number }
 
   const formatCurrencyShort = (val: number) => {
     if (!hasData) return "₫0";
-    if (val >= 1e9) {
-      return `₫${(val / 1e9).toFixed(1)}B`;
-    } else if (val >= 1e6) {
-      return `₫${(val / 1e6).toFixed(1)}M`;
-    } else if (val >= 1e3) {
-      return `₫${(val / 1e3).toFixed(0)}K`;
-    } else {
-      return `₫${Math.round(val).toLocaleString("vi-VN")}`;
-    }
+    return formatDashboardCurrency(val, 1, true);
   };
 
   return (

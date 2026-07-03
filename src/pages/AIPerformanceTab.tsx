@@ -55,7 +55,7 @@ export default function AIPerformanceTab() {
           className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 text-white font-bold text-xs rounded-lg flex items-center gap-1.5 self-start select-none shadow-sm transition-colors cursor-pointer"
         >
           <RefreshCw className={`h-4 w-4 ${simLoading ? "animate-spin" : ""}`} />
-          {simLoading ? "Đang truy vấn mô hình..." : "Quét Telemetry Hệ thống AI"}
+          {simLoading ? "Đang truy vấn mô hình..." : "Quét Hệ thống AI"}
         </button>
       </div>
 
@@ -63,15 +63,15 @@ export default function AIPerformanceTab() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5" id="ai_perf_stats_grid">
         
         {/* Cost saved */}
-        <div className="bg-slate-900 text-slate-100 p-5 rounded-2xl flex flex-col justify-between hover:shadow-lg transition-shadow relative overflow-hidden group">
+        <div className="bg-white border border-gray-200 p-5 rounded-2xl flex flex-col justify-between hover:shadow-lg transition-shadow relative overflow-hidden group">
           <div className="absolute top-0 left-0 w-1.5 h-full bg-blue-500" />
           <div className="flex items-center justify-between text-xs font-semibold uppercase font-mono tracking-wider text-slate-400">
             <span>Giảm tải thời gian lặp lại</span>
-            <span className="p-1 px-2.5 bg-blue-500/10 text-blue-400 rounded-sm">78.4%</span>
+            <span className="p-1 px-2.5 bg-blue-50 text-blue-600 rounded-md font-bold">78.4%</span>
           </div>
           <div className="my-4">
-            <h3 className="text-2xl font-bold font-mono text-white">328 cuộc thoại</h3>
-            <p className="text-[11px] text-slate-400 leading-normal mt-1.5 font-sans">Được trợ lý AI xử lý trực tiếp không cần operator can thiệp trong tuần này.</p>
+            <h3 className="text-2xl font-bold font-mono text-blue-600">328 cuộc thoại</h3>
+            <p className="text-[11px] text-gray-500 leading-normal mt-1.5 font-sans">Được trợ lý AI xử lý trực tiếp không cần operator can thiệp trong tuần này.</p>
           </div>
         </div>
 
@@ -149,11 +149,7 @@ export default function AIPerformanceTab() {
             <div className="flex gap-4">
               <div className="flex items-center gap-1.5">
                 <span className="w-3.5 h-3.5 bg-indigo-500 rounded-sm" />
-                <span className="text-gray-500">iGen AI Copilot (Tự động hóa)</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-3.5 h-3.5 bg-gray-300 rounded-sm" />
-                <span className="text-gray-500">Con người trực điện thoại</span>
+                <span className="text-gray-500">iGen AI (Tự động hóa)</span>
               </div>
             </div>
             <div className="flex gap-14 font-mono text-gray-400 text-[10px]">
@@ -168,25 +164,25 @@ export default function AIPerformanceTab() {
         </div>
 
         {/* Telemetry Core Activity Logs board */}
-        <div className="bg-[#0F172A] border border-slate-800 text-slate-100 p-6 rounded-2xl flex flex-col justify-between" id="telemetry_logs_board">
+        <div className="bg-white border border-gray-200 text-gray-800 p-6 rounded-2xl flex flex-col justify-between" id="telemetry_logs_board">
           <div>
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <h4 className="font-bold text-xs tracking-wide font-mono text-blue-400 flex items-center gap-1.5 uppercase select-none">
-                <Terminal className="h-4.5 w-4.5 animate-pulse" />
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+              <h4 className="font-bold text-xs tracking-wide font-mono text-indigo-600 flex items-center gap-1.5 uppercase select-none">
+                <Terminal className="h-4.5 w-4.5 text-indigo-500" />
                 AI Agent Telemetry logs
               </h4>
-              <span className="text-[8px] font-mono text-slate-500 uppercase">PORT: 3000 // EXPRESS</span>
+              <span className="text-[8px] font-mono text-gray-400 uppercase">PORT: 3000 // EXPRESS</span>
             </div>
 
-            <div className="space-y-4 mt-5 font-mono text-[10px] text-slate-350" id="telemetry_logs_list">
+            <div className="space-y-4 mt-5 font-mono text-[10px] text-gray-650" id="telemetry_logs_list">
               {logs.map((log) => (
-                <div key={log.id} className="p-3 bg-slate-950 border border-slate-850/80 rounded-xl leading-relaxed">
-                  <div className="flex justify-between items-center text-slate-400 font-bold mb-1">
+                <div key={log.id} className="p-3 bg-slate-50/50 border border-slate-100 rounded-xl leading-relaxed">
+                  <div className="flex justify-between items-center text-gray-700 font-bold mb-1">
                     <span className="truncate max-w-[130px]">{log.service}</span>
-                    <span className="text-xxs text-emerald-400 shrink-0 font-bold">{log.value}</span>
+                    <span className="text-xxs text-emerald-650 shrink-0 font-bold">{log.value}</span>
                   </div>
-                  <p className="text-slate-500 text-[9.5px] truncate select-text">{log.metric}</p>
-                  <div className="flex justify-between items-center mt-2 text-[8px] text-slate-600 border-t border-slate-900 pt-1.5">
+                  <p className="text-gray-500 text-[9.5px] truncate select-text">{log.metric}</p>
+                  <div className="flex justify-between items-center mt-2 text-[8px] text-gray-400 border-t border-slate-100 pt-1.5">
                     <span>TRANSACT_ID: {log.id}</span>
                     <span>ĐỘ TRỄ: {log.latency}</span>
                   </div>
@@ -195,7 +191,7 @@ export default function AIPerformanceTab() {
             </div>
           </div>
 
-          <p className="text-[10px] text-slate-500 leading-normal text-center pt-4 border-t border-slate-850 font-mono select-none">
+          <p className="text-[10px] text-gray-400 leading-normal text-center pt-4 border-t border-gray-100 font-mono select-none">
             Mô hình: gemini-3.5-flash-latest • iGen AI active
           </p>
         </div>

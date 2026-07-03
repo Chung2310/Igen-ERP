@@ -146,7 +146,7 @@ export default function SettingsTab() {
               : "text-gray-500 hover:text-gray-700"
               }`}
           >
-            MXH Ca Nhan
+            MXH Cá Nhân
           </button>
           <button
             onClick={() => setActiveSubTab("company-integrations")}
