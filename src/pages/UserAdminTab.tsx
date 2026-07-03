@@ -918,7 +918,7 @@ export default function UserAdminTab() {
                             </div>
                           </td>
                           <td className="p-4 cursor-pointer" onClick={() => setSelectedBalanceUserId(item.userId)}>
-                            <div className="font-semibold text-slate-700">{item.companyName || "Há»‡ thá»‘ng"}</div>
+                            <div className="font-semibold text-slate-700">{item.companyName || "Hệ thống"}</div>
                             <div className="text-[10px] text-gray-400 font-mono">{item.companyCode || "SYSTEM"}</div>
                           </td>
                           <td className="p-4">

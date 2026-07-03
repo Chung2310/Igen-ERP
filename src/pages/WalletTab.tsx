@@ -19,6 +19,7 @@ import {
 import { walletService, TransactionInfo } from "../services/walletService";
 import { toast } from "./Toast";
 import { Pagination } from "../components/common/Pagination";
+import { useAuth } from "../context/AuthContext";
 
 const formatNumberWithDots = (val: string) => {
   const clean = val.replace(/\D/g, "");
@@ -27,6 +28,7 @@ const formatNumberWithDots = (val: string) => {
 };
 
 export default function WalletTab() {
+  const { userProfile } = useAuth();
   const [balance, setBalance] = useState<number>(0);
   const [transactions, setTransactions] = useState<TransactionInfo[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -78,9 +80,29 @@ export default function WalletTab() {
     }
   };
 
+  // Tải dữ liệu khi userProfile thay đổi (hoặc khi component mount)
   useEffect(() => {
-    loadData();
-  }, []);
+    if (userProfile) {
+      loadData();
+    }
+  }, [userProfile?.uid]);
+
+  // Polling số dư định kỳ mỗi 10 giây để đồng bộ tức thời với Header
+  useEffect(() => {
+    if (!userProfile) return;
+
+    const fetchBalanceSilent = async () => {
+      try {
+        const bal = await walletService.getWalletBalance();
+        setBalance(bal);
+      } catch (err) {
+        console.error("Lỗi đồng bộ số dư ví định kỳ:", err);
+      }
+    };
+
+    const interval = setInterval(fetchBalanceSilent, 10000);
+    return () => clearInterval(interval);
+  }, [userProfile?.uid]);
 
   // Xử lý callback trạng thái giao dịch từ URL
   useEffect(() => {
