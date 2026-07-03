@@ -911,7 +911,7 @@ export default function DashboardTab() {
           lowStockItems={lowStockItems}
           marketingCards={marketingCards}
           leadsCount={leadsCount}
-          totalInventoryValue={totalInventoryValue}
+          totalRevenue={filteredTotalRevenue}
           trendData={revenueTrendData}
           newHiresCount={newHiresCount}
         />
@@ -952,7 +952,7 @@ function OverviewPanel({
   lowStockItems,
   marketingCards,
   leadsCount,
-  totalInventoryValue,
+  totalRevenue,
   trendData,
   newHiresCount,
 }: {
@@ -975,7 +975,7 @@ function OverviewPanel({
   lowStockItems: any[];
   marketingCards: ContentApprovalCard[];
   leadsCount: string;
-  totalInventoryValue: string;
+  totalRevenue: number;
   trendData: Array<{ label: string; value: number }>;
   newHiresCount: number;
 }) {
@@ -1027,7 +1027,7 @@ function OverviewPanel({
           />
           <ModuleCard icon={PackageCheck} tone="blue" title="Kho & Sản phẩm" value={totalProducts} label="Tổng sản phẩm" footer="Đơn chờ xuất" footerValue={`${pendingShipments} Đơn`} progress={78} alert lowCount={lowStockCount} onClick={() => goToTab("KHO & SẢN PHẨM")} />
           <ModuleCard icon={Megaphone} tone="slate" title="Marketing" value={marketingPendingCount} label="Bài chờ duyệt" footer="Tỉ lệ duyệt" footerValue={`${marketingApprovalRate}%`} progress={Number(marketingApprovalRate) || 0} onClick={() => goToTab("MARKETING")} />
-          <SalesCard value={totalInventoryValue} leadsCount={leadsCount} />
+          <SalesCard value={formatDashboardCurrency(totalRevenue, 1, false)} leadsCount={leadsCount} />
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -1453,7 +1453,7 @@ function SalesCard({ value, leadsCount }: { value: string; leadsCount: string })
       footer="Khách hàng tiềm năng mới"
       footerValue={`${leadsCount} `}
       progress={100}
-      onClick={() => goToTab("KHO & SẢN PHẨM")}
+      onClick={() => goToTab("SALES CRM")}
     />
   );
 }
