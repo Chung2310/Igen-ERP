@@ -109,7 +109,7 @@ export default function AIPerformanceTab() {
         {/* Workload breakdown - CUSTOM SVG */}
         <div className="lg:col-span-2 bg-white p-6 border border-gray-200 rounded-2xl flex flex-col justify-between" id="workload_diagram_card">
           <div>
-            <h4 className="font-bold text-gray-800 text-sm tracking-wide font-sans uppercase">Phân bổ nguồn lực hội thoại • AI vs Con người</h4>
+            <h4 className="font-bold text-gray-800 text-sm tracking-wide font-sans uppercase">Phân bổ nguồn lực hội thoại • AI với Con người</h4>
             <p className="text-xs text-gray-400 mt-1">Biểu thị nguồn lực chăm sóc ròng từ tháng 4 đến tháng 9</p>
           </div>
 
