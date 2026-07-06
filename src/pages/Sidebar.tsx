@@ -1,9 +1,11 @@
 import React, { useState } from "react";
 import {
   ChevronRight,
+  FolderTree,
   LayoutDashboard,
   LineChart,
   Megaphone,
+  MessageSquare,
   MessageSquareShare,
   Package,
   PanelLeftClose,
@@ -112,6 +114,20 @@ const baseMenuItems: MenuItem[] = [
     desc: "Chăm sóc và phễu khách hàng",
     icon: MessageSquareShare,
     tone: "rose",
+  },
+  {
+    label: "TRÒ CHUYỆN",
+    title: "Trò chuyện nội bộ",
+    desc: "Chat nhóm và 1-1 nội bộ",
+    icon: MessageSquare,
+    tone: "indigo",
+  },
+  {
+    label: "TÀI NGUYÊN",
+    title: "Quản lý tài nguyên",
+    desc: "Tài liệu nội bộ và Google Drive",
+    icon: FolderTree,
+    tone: "amber",
   },
 ];
 

@@ -36,6 +36,7 @@
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
     "remotion": "^4.0.476",
+    "@socket.io/redis-adapter": "^8.3.0",
     "socket.io": "^4.8.3",
     "socket.io-client": "^4.8.3",
     "swagger-ui-express": "^5.0.1",

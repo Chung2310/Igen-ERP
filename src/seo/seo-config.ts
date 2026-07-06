@@ -137,6 +137,16 @@ export const TAB_SEO_MAP: Record<TabType, SeoMeta> = {
     priority: "0.8",
     changeFrequency: "weekly",
   },
+  "TRÒ CHUYỆN": {
+    title: "Trò chuyện nội bộ - Trực quan, Thời gian thực",
+    description:
+      "Trực tiếp trao đổi công việc, trò chuyện 1-1 hoặc tạo phòng chat nhóm giữa các tài khoản nhân viên trong doanh nghiệp tại iGen ERP.",
+    keywords:
+      "chat nội bộ, chat nhóm, chat 1-1, trò chuyện nội bộ, nhắn tin realtime, socket.io chat, igen erp",
+    path: "/tro-chuyen",
+    priority: "0.7",
+    changeFrequency: "weekly",
+  },
   "HIỆU SUẤT AI": {
     title: "Giám sát hiệu suất AI - Phân tích tự động hóa vận hành",
     description:
@@ -176,6 +186,17 @@ export const TAB_SEO_MAP: Record<TabType, SeoMeta> = {
     keywords:
       "ví tài khoản, nạp tiền erp, payos nạp tiền, vietqr, nạp tiền ngân hàng, số dư ví erp",
     path: "/vi-nap-tien",
+    robots: "noindex, nofollow",
+    priority: "0.5",
+    changeFrequency: "weekly",
+  },
+  "TÀI NGUYÊN": {
+    title: "Tài nguyên - Quản lý tài liệu & Drive nội bộ",
+    description:
+      "Lưu trữ và quản lý tài liệu nội bộ, kết nối Google Drive và chia sẻ tài nguyên doanh nghiệp tập trung trên iGen ERP.",
+    keywords:
+      "tài liệu nội bộ, google drive, quản lý tài nguyên, lưu trữ doanh nghiệp, tài nguyên ERP",
+    path: "/tai-nguyen",
     robots: "noindex, nofollow",
     priority: "0.5",
     changeFrequency: "weekly",

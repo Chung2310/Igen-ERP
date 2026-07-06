@@ -122,8 +122,8 @@ authRouter.post("/login", validateRequest(loginSchema), authController.login);
 // Làm mới Access Token bằng Refresh Token
 authRouter.post("/refresh-token", authController.refreshToken);
 
-// Đăng xuất tài khoản
-authRouter.post("/logout", authController.logout);
+// Đăng xuất tài khoản (yêu cầu Access Token)
+authRouter.post("/logout", requireAuth as any, authController.logout as any);
 
 // Lấy thông tin tài khoản hiện tại (yêu cầu Access Token)
 authRouter.get("/me", requireAuth as any, authController.getMe as any);
@@ -295,6 +295,34 @@ authRouter.post(
   requireAuth as any,
   validateRequest(testCompanyHeyGenSchema),
   authController.testCompanyHeyGenConfig as any
+);
+
+// Google Drive per-company qua OAuth (Quản lý tài nguyên)
+// Lưu ý: callback phải đặt TRƯỚC route "/companies/:code/drive" để không bị nuốt bởi ":code".
+authRouter.get(
+  "/companies/drive/oauth-callback",
+  authController.driveOAuthCallback as any
+);
+
+authRouter.get(
+  "/companies/:code/drive",
+  requireAuth as any,
+  validateRequest(companyCodeParamSchema),
+  authController.getCompanyDriveConfig as any
+);
+
+authRouter.get(
+  "/companies/:code/drive/oauth-url",
+  requireAuth as any,
+  validateRequest(companyCodeParamSchema),
+  authController.getDriveOAuthUrl as any
+);
+
+authRouter.post(
+  "/companies/:code/drive/disconnect",
+  requireAuth as any,
+  validateRequest(companyCodeParamSchema),
+  authController.disconnectDrive as any
 );
 
 authRouter.post(

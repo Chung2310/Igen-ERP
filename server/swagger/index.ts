@@ -10,6 +10,7 @@ import { permissionSwagger } from "./permission.swagger";
 import { rolePermissionSwagger } from "./role-permission.swagger";
 import { crudSwagger } from "./crud.swagger";
 import { opusclipSwagger } from "./opusclip.swagger";
+import { chatSwagger } from "./chat.swagger";
 
 const swaggerDocument = {
   openapi: "3.0.0",
@@ -35,6 +36,7 @@ const swaggerDocument = {
     ...rolePermissionSwagger.paths,
     ...crudSwagger.paths,
     ...opusclipSwagger.paths,
+    ...chatSwagger.paths,
   },
   components: {
     securitySchemes: {

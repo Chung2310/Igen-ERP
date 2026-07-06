@@ -1,10 +1,48 @@
 import { Server as SocketIOServer, Socket } from "socket.io";
 import { Server as HTTPServer } from "http";
 import jwt from "jsonwebtoken";
+import { createAdapter } from "@socket.io/redis-adapter";
+import Redis from "ioredis";
 import { UserModel } from "./model/user.model";
 import { SocialIntegrationModel } from "./model/social-integration.model";
+import { ChatRoomModel } from "./model/chat-room.model";
 
 let io: SocketIOServer | null = null;
+
+/**
+ * Gắn Redis adapter cho Socket.IO để phát sự kiện xuyên nhiều instance (scale ngang).
+ * Tự phục hồi: nếu Redis lỗi/chưa sẵn sàng, log cảnh báo và vẫn chạy (delivery nội bộ 1 instance).
+ * Cần sticky session (nginx ip_hash) khi chạy sau load balancer nhiều node.
+ */
+function attachRedisAdapter(server: SocketIOServer) {
+  try {
+    const redisOptions = {
+      host: process.env.REDIS_HOST || "127.0.0.1",
+      port: Number(process.env.REDIS_PORT) || 6379,
+      password: process.env.REDIS_PASSWORD || undefined,
+      enableReadyCheck: false,
+      maxRetriesPerRequest: null as unknown as number,
+      retryStrategy: (times: number) => Math.min(times * 200, 5000),
+    };
+
+    const pubClient = new Redis(redisOptions);
+    const subClient = pubClient.duplicate();
+
+    pubClient.on("error", (e: any) => console.error("[Socket.IO Redis pub] error:", e?.message || e));
+    subClient.on("error", (e: any) => console.error("[Socket.IO Redis sub] error:", e?.message || e));
+    pubClient.once("ready", () =>
+      console.log(`[Socket.IO] Redis adapter đã kết nối ${redisOptions.host}:${redisOptions.port} — scale ngang đã bật.`)
+    );
+
+    server.adapter(createAdapter(pubClient, subClient));
+    console.log("[Socket.IO] Đã gắn Redis adapter (pub/sub).");
+  } catch (err: any) {
+    console.error(
+      "[Socket.IO] Không khởi tạo được Redis adapter → chạy chế độ in-memory (chỉ 1 instance):",
+      err?.message || err
+    );
+  }
+}
 
 function getAllowedOrigins(): string[] {
   const origins = new Set<string>(["http://localhost:5173", "http://localhost:3000"]);
@@ -34,6 +72,19 @@ export function initSocketServer(httpServer: HTTPServer) {
       credentials: true
     }
   });
+
+  // Gắn Redis adapter để scale ngang nhiều instance
+  attachRedisAdapter(io);
+
+  // Reset tất cả users về offline khi server khởi động (tránh trạng thái lỗi từ session trước)
+  void (async () => {
+    try {
+      await UserModel.updateMany({ status: "online" }, { $set: { status: "offline" } });
+      console.log("[Socket.IO] Đã reset tất cả trạng thái users về offline khi server khởi động.");
+    } catch (err) {
+      console.error("[Socket.IO] Lỗi khi reset trạng thái users:", err);
+    }
+  })();
 
   // JWT Middleware for socket connection authentication
   io.use(async (socket: Socket, next) => {
@@ -67,9 +118,28 @@ export function initSocketServer(httpServer: HTTPServer) {
 
     // Join room riêng theo userId để gửi sự kiện cá nhân (không broadcast toàn server)
     if (user?._id) {
-      const userRoom = `user:${user._id.toString()}`;
+      const userId = user._id.toString();
+      const companyCode = user.companyCode;
+      const userRoom = `user:${userId}`;
       socket.join(userRoom);
       console.log(`[Socket.IO] User ${user?.email} joined personal room: ${userRoom}`);
+
+      // Xử lý cập nhật presence online bất đồng bộ
+      void (async () => {
+        try {
+          await UserModel.findByIdAndUpdate(userId, { status: "online" });
+          if (companyCode) {
+            const companyRoom = `company:${companyCode}`;
+            socket.join(companyRoom);
+            socket.to(companyRoom).emit("user_presence_change", {
+              userId,
+              status: "online",
+            });
+          }
+        } catch (err) {
+          console.error("[Socket.IO] Lỗi cập nhật trạng thái online:", err);
+        }
+      })();
     }
 
     void (async () => {
@@ -120,10 +190,87 @@ export function initSocketServer(httpServer: HTTPServer) {
         socket.join(room);
         console.log(`[Socket.IO] User ${user?.email} joined room: ${room}`);
       });
+
+      // Tự động join các phòng chat nội bộ của user
+      if (user?._id && user?.companyCode) {
+        try {
+          const chatRooms = await ChatRoomModel.find({
+            companyCode: user.companyCode,
+            "members.userId": user._id,
+          }).select("_id");
+
+          chatRooms.forEach((cr) => {
+            const chatRoomName = `chat_room:${cr._id.toString()}`;
+            socket.join(chatRoomName);
+            console.log(`[Socket.IO] User ${user.email} joined internal chat room: ${chatRoomName}`);
+          });
+        } catch (error) {
+          console.error("[Socket.IO] Khong the nap danh sach phong chat de join room:", error);
+        }
+      }
     })();
+
+    // Lắng nghe sự kiện tham gia phòng chat thủ công
+    socket.on("join_chat_room", (data: { roomId: string }) => {
+      if (!data?.roomId || !user?._id) return;
+      ChatRoomModel.findOne({ _id: data.roomId, "members.userId": user._id })
+        .then((room) => {
+          if (room) {
+            const chatRoomName = `chat_room:${data.roomId}`;
+            socket.join(chatRoomName);
+            console.log(`[Socket.IO] User ${user.email} joined chat room manually: ${chatRoomName}`);
+          }
+        })
+        .catch((err) => console.error("Error joining chat room manually:", err));
+    });
+
+    // Lắng nghe sự kiện rời phòng chat thủ công
+    socket.on("leave_chat_room", (data: { roomId: string }) => {
+      if (!data?.roomId) return;
+      const chatRoomName = `chat_room:${data.roomId}`;
+      socket.leave(chatRoomName);
+      console.log(`[Socket.IO] User ${user?.email} left chat room manually: ${chatRoomName}`);
+    });
+
+    // Lắng nghe sự kiện đang nhập tin nhắn
+    socket.on("typing_status", (data: { roomId: string; isTyping: boolean }) => {
+      if (!data?.roomId || !user?._id) return;
+      const chatRoomName = `chat_room:${data.roomId}`;
+      socket.to(chatRoomName).emit("internal_typing_status", {
+        roomId: data.roomId,
+        userId: user._id.toString(),
+        displayName: user.displayName,
+        isTyping: data.isTyping,
+      });
+    });
 
     socket.on("disconnect", () => {
       console.log(`[Socket.IO] Client disconnected: ${socket.id}`);
+      if (user?._id) {
+        const userId = user._id.toString();
+        const companyCode = user.companyCode;
+
+        void (async () => {
+          try {
+            const userRoom = `user:${userId}`;
+            const activeSockets = await io?.in(userRoom).fetchSockets();
+
+            // Nếu không còn socket nào kết nối cho userId này
+            if (!activeSockets || activeSockets.length === 0) {
+              await UserModel.findByIdAndUpdate(userId, { status: "offline" });
+              if (companyCode) {
+                const companyRoom = `company:${companyCode}`;
+                io?.to(companyRoom).emit("user_presence_change", {
+                  userId,
+                  status: "offline",
+                });
+              }
+            }
+          } catch (err) {
+            console.error("[Socket.IO] Lỗi cập nhật trạng thái offline khi disconnect:", err);
+          }
+        })();
+      }
     });
   });
 
