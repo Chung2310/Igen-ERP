@@ -134,6 +134,36 @@ export default function ChatTab() {
   const [mention, setMention] = useState<{ query: string; start: number } | null>(null);
   const draftsRef = useRef<Record<string, string>>({});
 
+  // Custom Confirmation Modal State & Helper
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    confirmText?: string;
+    cancelText?: string;
+    isDanger?: boolean;
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {},
+  });
+
+  const showConfirm = (options: {
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    confirmText?: string;
+    cancelText?: string;
+    isDanger?: boolean;
+  }) => {
+    setConfirmModal({
+      ...options,
+      isOpen: true,
+    });
+  };
+
   // Ứng viên @mention (chỉ trong nhóm, loại trừ chính mình)
   const mentionCandidates = React.useMemo(() => {
     if (!mention || !activeRoom || !activeRoom.isGroup) return [] as any[];
@@ -298,7 +328,7 @@ export default function ChatTab() {
         toast.info("Không tìm thấy tin nhắn trong lịch sử trò chuyện.");
       }
     } catch {
-      toast.error("Không thể tải tin nhắn cũ để nhảy tới.");
+      toast.error("Đã xảy ra lỗi khi tải tin nhắn trong lịch sử trò chuyện.");
     } finally {
       setJumpingToMessage(false);
     }
@@ -765,11 +795,11 @@ export default function ChatTab() {
   const handleCreateGroup = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!groupName.trim()) {
-      toast.warning("Vui lòng nhập tên nhóm.");
+      toast.warning("Vui lòng nhập đầy đủ tên phòng chat để tiếp tục.");
       return;
     }
     if (selectedMembers.length < 1) {
-      toast.warning("Vui lòng chọn ít nhất 1 thành viên tham gia.");
+      toast.warning("Vui lòng chọn ít nhất một thành viên để tạo phòng chat.");
       return;
     }
 
@@ -781,7 +811,7 @@ export default function ChatTab() {
         avatarURL: groupAvatar,
       });
 
-      toast.success("Tạo nhóm chat thành công!");
+      toast.success("Chúc mừng! Phòng chat nhóm đã được khởi tạo thành công.");
       setRooms((prev) => [room, ...prev]);
       setActiveRoom(room);
       setShowCreateGroupModal(false);
@@ -799,7 +829,7 @@ export default function ChatTab() {
     if (!activeRoom || membersToAdd.length === 0) return;
     try {
       const updatedRoom = await internalChatService.addMembers(activeRoom._id, membersToAdd);
-      toast.success("Đã thêm thành viên vào nhóm.");
+      toast.success("Thành viên mới đã được thêm vào phòng chat thành công.");
       setActiveRoom(updatedRoom);
       setRooms((prev) => prev.map((r) => (r._id === updatedRoom._id ? updatedRoom : r)));
       setShowAddMemberModal(false);
@@ -810,52 +840,70 @@ export default function ChatTab() {
   };
 
   // Remove member from Group Chat (Admin only)
-  const handleRemoveMember = async (userId: string) => {
+  const handleRemoveMember = (userId: string) => {
     if (!activeRoom) return;
-    if (confirm("Bạn có chắc chắn muốn xóa thành viên này khỏi nhóm?")) {
-      try {
-        const updatedRoom = await internalChatService.removeMember(activeRoom._id, userId);
-        toast.success("Đã xóa thành viên khỏi nhóm.");
-        setActiveRoom(updatedRoom);
-        setRooms((prev) => prev.map((r) => (r._id === updatedRoom._id ? updatedRoom : r)));
-      } catch (error: any) {
-        toast.error(error.message);
-      }
-    }
+    showConfirm({
+      title: "Xóa thành viên",
+      message: "Bạn có chắc chắn muốn xóa thành viên này ra khỏi phòng chat không?",
+      isDanger: true,
+      confirmText: "Xóa",
+      onConfirm: async () => {
+        try {
+          const updatedRoom = await internalChatService.removeMember(activeRoom._id, userId);
+          toast.success("Đã xóa thành viên ra khỏi phòng chat thành công.");
+          setActiveRoom(updatedRoom);
+          setRooms((prev) => prev.map((r) => (r._id === updatedRoom._id ? updatedRoom : r)));
+        } catch (error: any) {
+          toast.error(error.message);
+        }
+      },
+    });
   };
 
   // Leave Group Chat
-  const handleLeaveGroup = async () => {
+  const handleLeaveGroup = () => {
     if (!activeRoom) return;
-    if (confirm("Bạn có chắc chắn muốn rời khỏi nhóm chat này?")) {
-      try {
-        await internalChatService.leaveRoom(activeRoom._id);
-        toast.success("Bạn đã rời nhóm chat.");
-        setRooms((prev) => prev.filter((r) => r._id !== activeRoom._id));
-        setActiveRoom(null);
-        setMessages([]);
-        setShowRoomDetails(false);
-      } catch (error: any) {
-        toast.error(error.message);
-      }
-    }
+    showConfirm({
+      title: "Rời phòng chat",
+      message: "Bạn có chắc chắn muốn rời khỏi phòng chat này không?",
+      isDanger: true,
+      confirmText: "Rời phòng",
+      onConfirm: async () => {
+        try {
+          await internalChatService.leaveRoom(activeRoom._id);
+          toast.success("Bạn đã rời khỏi phòng chat thành công.");
+          setRooms((prev) => prev.filter((r) => r._id !== activeRoom._id));
+          setActiveRoom(null);
+          setMessages([]);
+          setShowRoomDetails(false);
+        } catch (error: any) {
+          toast.error(error.message);
+        }
+      },
+    });
   };
 
   // Disband Group Chat (Admin only)
-  const handleDeleteGroup = async () => {
+  const handleDeleteGroup = () => {
     if (!activeRoom) return;
-    if (confirm("LƯU Ý CỰC KỲ QUAN TRỌNG: Giải tán nhóm sẽ xóa vĩnh viễn tất cả lịch sử tin nhắn của mọi thành viên. Bạn có chắc chắn?")) {
-      try {
-        await internalChatService.deleteRoom(activeRoom._id);
-        toast.success("Đã giải tán nhóm chat.");
-        setRooms((prev) => prev.filter((r) => r._id !== activeRoom._id));
-        setActiveRoom(null);
-        setMessages([]);
-        setShowRoomDetails(false);
-      } catch (error: any) {
-        toast.error(error.message);
-      }
-    }
+    showConfirm({
+      title: "Giải tán phòng chat",
+      message: "LƯU Ý CỰC KỲ QUAN TRỌNG: Giải tán phòng sẽ xóa vĩnh viễn tất cả lịch sử tin nhắn của mọi thành viên. Bạn có chắc chắn muốn tiếp tục?",
+      isDanger: true,
+      confirmText: "Giải tán",
+      onConfirm: async () => {
+        try {
+          await internalChatService.deleteRoom(activeRoom._id);
+          toast.success("Phòng chat nhóm đã được giải tán và xóa toàn bộ dữ liệu thành công.");
+          setRooms((prev) => prev.filter((r) => r._id !== activeRoom._id));
+          setActiveRoom(null);
+          setMessages([]);
+          setShowRoomDetails(false);
+        } catch (error: any) {
+          toast.error(error.message);
+        }
+      },
+    });
   };
 
   // Update Group Settings (name & avatar) - Group Admin only
@@ -863,7 +911,7 @@ export default function ChatTab() {
     if (!activeRoom) return;
     const newName = editingGroupName.trim();
     if (!newName) {
-      toast.error("Tên nhóm không được để trống.");
+      toast.error("Tên phòng chat nhóm không được phép để trống.");
       return;
     }
     setSavingGroupSettings(true);
@@ -871,7 +919,7 @@ export default function ChatTab() {
       const updatedRoom = await internalChatService.updateRoom(activeRoom._id, {
         name: newName,
       });
-      toast.success("Đã cập nhật tên nhóm thành công.");
+      toast.success("Đã cập nhật tên phòng chat thành công.");
       setActiveRoom(updatedRoom);
       setRooms((prev) => prev.map((r) => (r._id === updatedRoom._id ? updatedRoom : r)));
       setShowGroupSettings(false);
@@ -892,7 +940,7 @@ export default function ChatTab() {
       const updatedRoom = await internalChatService.updateRoom(activeRoom._id, {
         avatarURL: attachment.url,
       });
-      toast.success("Đã cập nhật ảnh đại diện nhóm.");
+      toast.success("Đã cập nhật ảnh đại diện của phòng chat thành công.");
       setActiveRoom(updatedRoom);
       setRooms((prev) => prev.map((r) => (r._id === updatedRoom._id ? updatedRoom : r)));
     } catch (error: any) {
@@ -905,27 +953,33 @@ export default function ChatTab() {
   };
 
   // Update member role (admin/deputy/member) - Group Admin only
-  const handleUpdateMemberRole = async (userId: string, targetName: string, newRole: "admin" | "deputy" | "member") => {
+  const handleUpdateMemberRole = (userId: string, targetName: string, newRole: "admin" | "deputy" | "member") => {
     if (!activeRoom) return;
-    const confirmMsg = newRole === "admin"
-      ? `Thăng chức ${targetName} làm Trưởng phòng?`
-      : newRole === "deputy"
-        ? `Thăng chức ${targetName} làm Phó phòng?`
-        : `Hạ cấp vai trò của ${targetName} xuống thành viên thường?`;
-    if (!confirm(confirmMsg)) return;
+    const isPromoting = newRole === "deputy";
+    const confirmMsg = isPromoting
+      ? `Bạn có chắc chắn muốn bổ nhiệm ${targetName} làm Phó phòng?`
+      : `Bạn có chắc chắn muốn bãi nhiệm chức vụ Phó phòng của ${targetName}?`;
 
-    try {
-      const updatedRoom = await internalChatService.updateMemberRole(activeRoom._id, userId, newRole);
-      if (newRole === "deputy") {
-        toast.success(`Đã thăng chức ${targetName} làm Phó phòng.`);
-      } else {
-        toast.success(`Đã cập nhật vai trò của ${targetName}.`);
-      }
-      setActiveRoom(updatedRoom);
-      setRooms((prev) => prev.map((r) => (r._id === updatedRoom._id ? updatedRoom : r)));
-    } catch (error: any) {
-      toast.error(error.message);
-    }
+    showConfirm({
+      title: isPromoting ? "Bổ nhiệm Phó phòng" : "Bãi nhiệm Phó phòng",
+      message: confirmMsg,
+      isDanger: !isPromoting,
+      confirmText: isPromoting ? "Bổ nhiệm" : "Bãi nhiệm",
+      onConfirm: async () => {
+        try {
+          const updatedRoom = await internalChatService.updateMemberRole(activeRoom._id, userId, newRole);
+          if (newRole === "deputy") {
+            toast.success(`Đã bổ nhiệm ${targetName} làm Phó phòng thành công!`);
+          } else {
+            toast.success(`Đã bãi nhiệm chức vụ Phó phòng của ${targetName} thành công.`);
+          }
+          setActiveRoom(updatedRoom);
+          setRooms((prev) => prev.map((r) => (r._id === updatedRoom._id ? updatedRoom : r)));
+        } catch (error: any) {
+          toast.error(error.message);
+        }
+      },
+    });
   };
 
   // Pin message in room
@@ -956,17 +1010,23 @@ export default function ChatTab() {
   };
 
   // Thu hồi / Xóa tin nhắn
-  const handleDeleteMessage = async (messageId: string) => {
+  const handleDeleteMessage = (messageId: string) => {
     if (!activeRoom) return;
-    if (!confirm("Bạn có chắc chắn muốn thu hồi tin nhắn này không?")) return;
-
-    try {
-      const deletedMessage = await internalChatService.deleteMessage(activeRoom._id, messageId);
-      toast.success("Đã thu hồi tin nhắn.");
-      setMessages((prev) => prev.map((m) => (m._id === messageId ? deletedMessage : m)));
-    } catch (error: any) {
-      toast.error(error.message);
-    }
+    showConfirm({
+      title: "Thu hồi tin nhắn",
+      message: "Bạn có chắc chắn muốn thu hồi tin nhắn này không? Hành động này không thể hoàn tác.",
+      isDanger: true,
+      confirmText: "Thu hồi",
+      onConfirm: async () => {
+        try {
+          const deletedMessage = await internalChatService.deleteMessage(activeRoom._id, messageId);
+          toast.success("Đã thu hồi tin nhắn.");
+          setMessages((prev) => prev.map((m) => (m._id === messageId ? deletedMessage : m)));
+        } catch (error: any) {
+          toast.error(error.message);
+        }
+      },
+    });
   };
 
   // Thả / gỡ cảm xúc (reaction) trên tin nhắn — cập nhật lạc quan trước, socket đồng bộ sau
@@ -3136,6 +3196,42 @@ export default function ChatTab() {
                   );
                 })
               )}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* CUSTOM CONFIRM MODAL */}
+      {confirmModal.isOpen && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs animate-fade-in">
+          <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl border border-slate-100/80 transform scale-100 transition-all duration-300">
+            <h4 className={`text-base font-extrabold mb-2.5 ${confirmModal.isDanger ? "text-rose-600" : "text-slate-800"}`}>
+              {confirmModal.title}
+            </h4>
+            <p className="text-xs text-slate-500 leading-relaxed mb-6 whitespace-pre-line">
+              {confirmModal.message}
+            </p>
+            <div className="flex gap-3 justify-end text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
+                className="px-4 py-2.5 border border-slate-200 text-slate-500 hover:text-slate-700 rounded-2xl bg-white hover:bg-slate-50 transition active:scale-95 cursor-pointer"
+              >
+                {confirmModal.cancelText || "Hủy bỏ"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  confirmModal.onConfirm();
+                  setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+                }}
+                className={`px-5 py-2.5 text-white rounded-2xl transition active:scale-95 cursor-pointer ${
+                  confirmModal.isDanger
+                    ? "bg-rose-600 hover:bg-rose-700 shadow-lg shadow-rose-100"
+                    : "bg-indigo-650 hover:bg-indigo-700 shadow-lg shadow-indigo-100"
+                }`}
+              >
+                {confirmModal.confirmText || "Xác nhận"}
+              </button>
             </div>
           </div>
         </div>
