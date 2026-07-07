@@ -11,6 +11,7 @@ const ResourceSchema = new Schema<IResource>({
   webContentLink: { type: String },
   thumbnailLink: { type: String },
   size: { type: Number },
+  chatRoomId: { type: Schema.Types.ObjectId, ref: "ChatRoom", index: true },
   createdAt: { type: Date, default: Date.now, index: true },
 });
 

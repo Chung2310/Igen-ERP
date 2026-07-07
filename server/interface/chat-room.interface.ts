@@ -4,6 +4,7 @@ export interface IChatRoomMember {
   userId: Types.ObjectId | string;
   role: "admin" | "deputy" | "member";
   joinedAt: Date;
+  canUploadDrive?: boolean;
 }
 
 export interface IChatRoom extends Document {
@@ -16,6 +17,8 @@ export interface IChatRoom extends Document {
   avatarURL?: string;
   pinnedMessageIds?: (Types.ObjectId | string | any)[];
   onlyAdminsCanMessage?: boolean;
+  driveFolderId?: string;
+  driveGeneralAccess?: "restricted" | "company";
   createdAt: Date;
   updatedAt: Date;
 }

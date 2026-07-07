@@ -6,6 +6,7 @@ const ChatRoomMemberSchema = new Schema(
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
     role: { type: String, enum: ["admin", "deputy", "member"], default: "member" },
     joinedAt: { type: Date, default: Date.now },
+    canUploadDrive: { type: Boolean, default: false },
   },
   { _id: false }
 );
@@ -21,6 +22,8 @@ const ChatRoomSchema = new Schema<IChatRoom>(
     avatarURL: { type: String, default: "" },
     pinnedMessageIds: [{ type: Schema.Types.ObjectId, ref: "ChatMessage" }],
     onlyAdminsCanMessage: { type: Boolean, default: false },
+    driveFolderId: { type: String, default: "" },
+    driveGeneralAccess: { type: String, enum: ["restricted", "company"], default: "restricted" },
   },
   {
     timestamps: true,
