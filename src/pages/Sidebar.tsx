@@ -13,6 +13,7 @@ import {
   PanelLeftOpen,
   Settings,
   Shield,
+  GraduationCap,
   Users,
   Wallet,
 } from "lucide-react";
@@ -129,6 +130,13 @@ const baseMenuItems: MenuItem[] = [
     desc: "Chat nhóm và 1-1 nội bộ",
     icon: MessageSquare,
     tone: "indigo",
+  },
+  {
+    label: "QUẢN LÝ HỌC VIÊN",
+    title: "Quản lý học viên",
+    desc: "Đào tạo, thi cử, học phí và đối tác",
+    icon: GraduationCap,
+    tone: "blue",
   },
 ];
 

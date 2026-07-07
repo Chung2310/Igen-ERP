@@ -23,6 +23,7 @@ import { googleDriveRouter } from "./google-drive.router";
 import { chatRouter } from "./chat.router";
 import { chatbotRouter } from "./chatbot.router";
 import { resourceRouter } from "./resource.router";
+import { studentManagementRouter } from "../modules/student-management/router";
 export const apiRouter = Router();
 /**
  * GET /api/v1/health
@@ -111,3 +112,6 @@ apiRouter.use("/chatbot", chatbotRouter);
 
 // Quản lý tài nguyên — file explorer nội bộ + tài liệu Google Drive
 apiRouter.use("/resources", resourceRouter);
+
+// Module Quản lý Học viên
+apiRouter.use("/", studentManagementRouter);
