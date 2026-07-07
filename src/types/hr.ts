@@ -1,4 +1,4 @@
-export type HRSubTabType = "SƠ ĐỒ TỔ CHỨC" | "GIAO VIỆC KANBAN" | "ĐÀO TẠO" | "QUY TRÌNH";
+export type HRSubTabType = "SƠ ĐỒ TỔ CHỨC" | "GIAO VIỆC KANBAN" | "ĐÀO TẠO" | "QUY TRÌNH" | "LỊCH";
 
 export interface WorkflowStep {
   id: string;
@@ -6,9 +6,15 @@ export interface WorkflowStep {
   description?: string;
   assigneeUid?: string;
   assignee?: string;
-  type: "start" | "task" | "approval" | "end";
+  /** @deprecated Không còn phân loại ô — giữ lại để tương thích dữ liệu cũ */
+  type?: "start" | "task" | "approval" | "end";
   estDays?: number;
-  position: { x: number; y: number };
+  /** Kết quả / đầu ra mong đợi của bước */
+  deliverable?: string;
+  /** Lưu ý / điều kiện thực hiện */
+  note?: string;
+  /** @deprecated Không còn dùng canvas — giữ lại để tương thích dữ liệu cũ */
+  position?: { x: number; y: number };
 }
 
 export interface WorkflowEdge {
@@ -18,13 +24,29 @@ export interface WorkflowEdge {
   label?: string;
 }
 
+/** Một người đang đi qua quy trình, đứng ở cột (bước) hiện tại */
+export interface WorkflowParticipant {
+  id: string;
+  /** Tên người thực hiện (nhân viên/ứng viên…) */
+  name: string;
+  /** Liên kết tới tài khoản hệ thống (nếu có) */
+  userUid?: string;
+  avatar?: string;
+  /** id của bước hiện tại; "__done__" = đã hoàn thành */
+  currentStepId: string;
+  note?: string;
+  startedAt?: string;
+  updatedAt?: string;
+}
+
 export interface Workflow {
   id: string;
   name: string;
   description?: string;
   category?: string;
   steps: WorkflowStep[];
-  edges: WorkflowEdge[];
+  edges?: WorkflowEdge[];
+  participants?: WorkflowParticipant[];
   companyCode: string;
   creatorUid: string;
   createdAt: any;

@@ -1,0 +1,1024 @@
+import React, { useState, useEffect } from "react";
+import {
+  Calendar as CalendarIcon,
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  Trash2,
+  Edit,
+  Filter,
+  Users,
+  Bell,
+  Clock,
+  Info,
+  CalendarCheck,
+  CheckCircle,
+  X
+} from "lucide-react";
+import { UserProfile, EmployeeNode } from "../../types";
+import { getAccessToken } from "../../services/authService";
+import { toast } from "../../pages/Toast";
+
+interface CalendarTabProps {
+  userProfile: UserProfile | null;
+  selectedCompanyCode: string;
+  isManager: boolean;
+  usersList: UserProfile[];
+  employees: EmployeeNode[];
+}
+
+interface CalendarItem {
+  _id?: string;
+  id?: string;
+  companyCode: string;
+  type: "event" | "leave" | "reminder";
+  title: string;
+  description?: string;
+  startDate: string;
+  endDate: string;
+  employeeId?: string;
+  employeeName?: string;
+  assigneeId?: string;
+  status: "pending" | "approved" | "completed" | "active";
+  creatorId: string;
+  createdAt?: string;
+}
+
+const WEEKDAYS = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
+
+export default function CalendarTab({
+  userProfile,
+  selectedCompanyCode,
+  isManager,
+  employees
+}: CalendarTabProps) {
+  // Time States
+  const [currentDate, setCurrentDate] = useState<Date>(new Date());
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth(); // 0-11
+
+  // Data States
+  const [items, setItems] = useState<CalendarItem[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+
+  // Filters State
+  const [filterType, setFilterType] = useState<string>("all");
+  const [filterEmployee, setFilterEmployee] = useState<string>("all");
+  const [searchTerm, setSearchTerm] = useState<string>("");
+
+  // Modals States
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState<boolean>(false);
+  const [isFormModalOpen, setIsFormModalOpen] = useState<boolean>(false);
+  const [selectedDayDate, setSelectedDayDate] = useState<Date | null>(null);
+  const [selectedItem, setSelectedItem] = useState<CalendarItem | null>(null);
+  const [formMode, setFormMode] = useState<"create" | "edit">("create");
+
+  // Form Fields
+  const [formType, setFormType] = useState<"event" | "leave" | "reminder">("event");
+  const [formTitle, setFormTitle] = useState<string>("");
+  const [formDescription, setFormDescription] = useState<string>("");
+  const [formStartDate, setFormStartDate] = useState<string>("");
+  const [formStartTime, setFormStartTime] = useState<string>("08:00");
+  const [formEndDate, setFormEndDate] = useState<string>("");
+  const [formEndTime, setFormEndTime] = useState<string>("17:00");
+  const [formEmployeeId, setFormEmployeeId] = useState<string>("");
+  const [formAssigneeId, setFormAssigneeId] = useState<string>("");
+  const [formStatus, setFormStatus] = useState<string>("active");
+
+  // Fetch Items
+  const fetchCalendarItems = async () => {
+    if (!selectedCompanyCode) return;
+    setLoading(true);
+    try {
+      const url = `/api/v1/crud/hr-calendar-events?companyCode=${encodeURIComponent(selectedCompanyCode)}`;
+      const res = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${getAccessToken()}`,
+        },
+      });
+
+      if (!res.ok) {
+        throw new Error("Không thể tải danh sách lịch.");
+      }
+
+      const json = await res.json();
+      const list: CalendarItem[] = (json.data || []).map((item: any) => ({
+        ...item,
+        id: item._id,
+      }));
+      setItems(list);
+    } catch (err: any) {
+      console.error("Lỗi khi tải lịch:", err);
+      toast.error("Không thể tải dữ liệu lịch trình.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCalendarItems();
+  }, [selectedCompanyCode]);
+
+  // Navigate Months
+  const handlePrevMonth = () => {
+    setCurrentDate(new Date(year, month - 1, 1));
+  };
+
+  const handleNextMonth = () => {
+    setCurrentDate(new Date(year, month + 1, 1));
+  };
+
+  const handleGoToday = () => {
+    setCurrentDate(new Date());
+  };
+
+  // Generate Calendar Grid
+  const calendarDays = [];
+  const firstDayOfMonth = new Date(year, month, 1);
+  const firstDayIndex = firstDayOfMonth.getDay(); // 0 = Sun
+  const prevMonthLastDay = new Date(year, month, 0).getDate();
+
+  // Prev month filler days
+  for (let i = firstDayIndex - 1; i >= 0; i--) {
+    const d = new Date(year, month - 1, prevMonthLastDay - i);
+    calendarDays.push({ date: d, isCurrentMonth: false });
+  }
+
+  // Current month days
+  const daysInCurrentMonth = new Date(year, month + 1, 0).getDate();
+  for (let i = 1; i <= daysInCurrentMonth; i++) {
+    const d = new Date(year, month, i);
+    calendarDays.push({ date: d, isCurrentMonth: true });
+  }
+
+  // Next month filler days (fill up to dynamic grid of 35 or 42 cells)
+  const totalDaysNeeded = firstDayIndex + daysInCurrentMonth;
+  const gridCellsCount = totalDaysNeeded <= 35 ? 35 : 42;
+  const remainingDays = gridCellsCount - calendarDays.length;
+  for (let i = 1; i <= remainingDays; i++) {
+    const d = new Date(year, month + 1, i);
+    calendarDays.push({ date: d, isCurrentMonth: false });
+  }
+
+  // Compare dates ignoring times
+  const isSameDay = (d1: Date, d2: Date) => {
+    return (
+      d1.getDate() === d2.getDate() &&
+      d1.getMonth() === d2.getMonth() &&
+      d1.getFullYear() === d2.getFullYear()
+    );
+  };
+
+  const isToday = (d: Date) => {
+    return isSameDay(d, new Date());
+  };
+
+  // Check if item spans over this day
+  const itemMatchesDay = (item: CalendarItem, day: Date) => {
+    const sDate = new Date(item.startDate);
+    const eDate = new Date(item.endDate);
+    
+    // Normalize to compare dates
+    const start = new Date(sDate.getFullYear(), sDate.getMonth(), sDate.getDate()).getTime();
+    const end = new Date(eDate.getFullYear(), eDate.getMonth(), eDate.getDate()).getTime();
+    const current = new Date(day.getFullYear(), day.getMonth(), day.getDate()).getTime();
+
+    return current >= start && current <= end;
+  };
+
+  // Filtering Logic
+  const getFilteredItems = () => {
+    return items.filter((item) => {
+      // Type Filter
+      if (filterType !== "all" && item.type !== filterType) return false;
+
+      // Employee Filter
+      if (filterEmployee !== "all") {
+        if (item.type === "leave" && item.employeeId !== filterEmployee) return false;
+        if (item.type === "reminder" && item.assigneeId !== filterEmployee) return false;
+        if (item.type === "event" && item.creatorId !== filterEmployee && item.assigneeId !== filterEmployee) return false;
+      }
+
+      // Search term
+      if (searchTerm.trim() !== "") {
+        const query = searchTerm.toLowerCase();
+        const titleMatch = item.title.toLowerCase().includes(query);
+        const descMatch = item.description?.toLowerCase().includes(query) || false;
+        const nameMatch = item.employeeName?.toLowerCase().includes(query) || false;
+        return titleMatch || descMatch || nameMatch;
+      }
+
+      return true;
+    });
+  };
+
+  const filteredItems = getFilteredItems();
+
+  // Statistics calculations (For the current active month and selected filters)
+  const getStatistics = () => {
+    let events = 0;
+    let leaves = 0;
+    let reminders = 0;
+
+    filteredItems.forEach((item) => {
+      const sDate = new Date(item.startDate);
+      // Check if item resides in current active month/year
+      if (sDate.getMonth() === month && sDate.getFullYear() === year) {
+        if (item.type === "event") events++;
+        if (item.type === "leave") leaves++;
+        if (item.type === "reminder") reminders++;
+      }
+    });
+
+    return { events, leaves, reminders };
+  };
+
+  const stats = getStatistics();
+
+  // Open creation form for a specific day
+  const handleDayClick = (dayDate: Date) => {
+    setSelectedDayDate(dayDate);
+    const itemsOnDay = filteredItems.filter((it) => itemMatchesDay(it, dayDate));
+
+    if (itemsOnDay.length > 0) {
+      // If there are existing items, show detail popup first
+      setIsDetailModalOpen(true);
+    } else {
+      // Otherwise directly open create popup
+      openCreateModal(dayDate);
+    }
+  };
+
+  const openCreateModal = (date: Date, type: "event" | "leave" | "reminder" = "event") => {
+    const formattedDate = date.toISOString().slice(0, 10);
+    setFormMode("create");
+    setFormType(type);
+    setFormTitle("");
+    setFormDescription("");
+    setFormStartDate(formattedDate);
+    setFormStartTime("08:00");
+    setFormEndDate(formattedDate);
+    setFormEndTime("17:00");
+    setFormEmployeeId(userProfile?.uid || "");
+    setFormAssigneeId(userProfile?.uid || "");
+    setFormStatus(type === "leave" ? "pending" : "active");
+    
+    setIsFormModalOpen(true);
+    setIsDetailModalOpen(false);
+  };
+
+  // Open edit modal for an item
+  const openEditModal = (item: CalendarItem) => {
+    setSelectedItem(item);
+    setFormMode("edit");
+    setFormType(item.type);
+    setFormTitle(item.title);
+    setFormDescription(item.description || "");
+    
+    const sDate = new Date(item.startDate);
+    const eDate = new Date(item.endDate);
+    
+    setFormStartDate(sDate.toISOString().slice(0, 10));
+    setFormStartTime(sDate.toLocaleTimeString("en-US", { hour12: false }).slice(0, 5));
+    setFormEndDate(eDate.toISOString().slice(0, 10));
+    setFormEndTime(eDate.toLocaleTimeString("en-US", { hour12: false }).slice(0, 5));
+    
+    setFormEmployeeId(item.employeeId || "");
+    setFormAssigneeId(item.assigneeId || "");
+    setFormStatus(item.status);
+    
+    setIsFormModalOpen(true);
+    setIsDetailModalOpen(false);
+  };
+
+  // Form Submit Handler
+  const handleFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formTitle.trim()) {
+      toast.error("Vui lòng nhập tiêu đề.");
+      return;
+    }
+
+    const startDateTime = new Date(`${formStartDate}T${formStartTime}:00`);
+    const endDateTime = new Date(`${formEndDate}T${formEndTime}:00`);
+
+    if (endDateTime < startDateTime) {
+      toast.error("Thời gian kết thúc phải lớn hơn hoặc bằng thời gian bắt đầu.");
+      return;
+    }
+
+    const selectedEmployee = employees.find((emp) => emp.id === formEmployeeId);
+
+    const payload: Partial<CalendarItem> = {
+      type: formType,
+      title: formTitle,
+      description: formDescription,
+      startDate: startDateTime.toISOString(),
+      endDate: endDateTime.toISOString(),
+      employeeId: formType === "leave" ? formEmployeeId : undefined,
+      employeeName: formType === "leave" ? (selectedEmployee?.name || userProfile?.displayName) : undefined,
+      assigneeId: formType === "reminder" ? formAssigneeId : undefined,
+      status: formStatus as any,
+      companyCode: selectedCompanyCode,
+      creatorId: userProfile?.uid || "unknown",
+    };
+
+    try {
+      let res;
+      if (formMode === "create") {
+        res = await fetch("/api/v1/crud/hr-calendar-events", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${getAccessToken()}`,
+          },
+          body: JSON.stringify(payload),
+        });
+      } else {
+        res = await fetch(`/api/v1/crud/hr-calendar-events/${selectedItem?._id || selectedItem?.id}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${getAccessToken()}`,
+          },
+          body: JSON.stringify(payload),
+        });
+      }
+
+      if (!res.ok) {
+        throw new Error("Lỗi mạng khi lưu lịch.");
+      }
+
+      toast.success(formMode === "create" ? "Tạo mới lịch trình thành công!" : "Cập nhật lịch trình thành công!");
+      setIsFormModalOpen(false);
+      fetchCalendarItems();
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Không thể lưu lịch trình. Vui lòng thử lại.");
+    }
+  };
+
+  // Delete Handler
+  const handleDeleteItem = async (itemId: string) => {
+    if (!window.confirm("Bạn có chắc chắn muốn xóa lịch trình này?")) return;
+
+    try {
+      const res = await fetch(`/api/v1/crud/hr-calendar-events/${itemId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${getAccessToken()}`,
+        },
+      });
+
+      if (!res.ok) {
+        throw new Error("Lỗi mạng khi xóa.");
+      }
+
+      toast.success("Đã xóa lịch trình thành công.");
+      setIsDetailModalOpen(false);
+      setIsFormModalOpen(false);
+      fetchCalendarItems();
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Không thể xóa lịch trình.");
+    }
+  };
+
+  return (
+    <div
+      className="flex flex-col h-full bg-gradient-to-br from-slate-50 via-white to-indigo-50/30 p-5 overflow-y-auto duration-500"
+      id="calendar_tab_wrapper"
+    >
+      {/* 1. Glassmorphism Header Controls & Filters & Quick Stats */}
+      <div className="flex flex-col gap-5 bg-white/80 backdrop-blur-md p-5 rounded-3xl border border-slate-100/80 shadow-md shadow-slate-100/50 mb-5 transition-all duration-300">
+        {/* Navigation & Actions */}
+        <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="bg-indigo-50 p-2.5 rounded-2xl text-indigo-600 shadow-xs border border-indigo-100/40">
+              <CalendarIcon className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-base font-extrabold text-slate-800 tracking-wide uppercase">
+                Lịch trình
+              </h2>
+              <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">
+                Tháng {month + 1} / {year}
+              </p>
+            </div>
+            <div className="flex border border-slate-200/80 rounded-2xl overflow-hidden shadow-xs ml-3 bg-white">
+              <button
+                onClick={handlePrevMonth}
+                className="p-2.5 hover:bg-slate-50 active:bg-slate-100 transition-colors text-slate-650 cursor-pointer"
+                title="Tháng trước"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={handleGoToday}
+                className="px-4 py-1.5 hover:bg-slate-50 active:bg-slate-100 transition-colors font-bold text-xs text-slate-700 border-x border-slate-150 cursor-pointer"
+              >
+                Tháng này
+              </button>
+              <button
+                onClick={handleNextMonth}
+                className="p-2.5 hover:bg-slate-50 active:bg-slate-100 transition-colors text-slate-650 cursor-pointer"
+                title="Tháng sau"
+              >
+                <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Search and direct create dropdown */}
+          <div className="flex items-center gap-3 self-end md:self-auto">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Tìm tiêu đề, mô tả..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-3.5 pr-9 py-2 bg-slate-50 hover:bg-slate-100/50 border border-slate-200/80 rounded-2xl text-xs focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 w-44 md:w-56 font-semibold shadow-2xs transition-all duration-200"
+              />
+              {searchTerm && (
+                <button
+                  onClick={() => setSearchTerm("")}
+                  className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+
+            {/* Quick Add Dropdown */}
+            <div className="relative group">
+              <button className="flex items-center gap-1.5 px-4.5 py-2 bg-indigo-600 hover:bg-indigo-700 hover:shadow-md hover:shadow-indigo-500/20 active:scale-98 text-white rounded-2xl text-xs font-extrabold transition-all shadow-sm cursor-pointer">
+                <Plus className="h-4 w-4" />
+                Thêm mới
+              </button>
+              <div className="absolute right-0 mt-1.5 w-48 bg-white border border-slate-150 rounded-2xl shadow-xl py-1.5 hidden group-hover:block group-focus-within:block z-20 transition-all animate-in fade-in duration-100">
+                <button
+                  onClick={() => openCreateModal(new Date(), "event")}
+                  className="w-full text-left px-4 py-2 hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center gap-2.5 cursor-pointer"
+                >
+                  <CalendarCheck className="h-4 w-4 text-blue-500" />
+                  Tạo sự kiện
+                </button>
+                <button
+                  onClick={() => openCreateModal(new Date(), "leave")}
+                  className="w-full text-left px-4 py-2 hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center gap-2.5 cursor-pointer"
+                >
+                  <Users className="h-4 w-4 text-rose-500" />
+                  Đăng ký nghỉ phép
+                </button>
+                <button
+                  onClick={() => openCreateModal(new Date(), "reminder")}
+                  className="w-full text-left px-4 py-2 hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center gap-2.5 cursor-pointer"
+                >
+                  <Bell className="h-4 w-4 text-amber-500" />
+                  Tạo nhắc hẹn
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Filters and Stats Row */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center pt-4 border-t border-slate-100">
+          {/* Filters (6 cols) */}
+          <div className="lg:col-span-6 flex flex-wrap gap-2.5">
+            <div className="flex items-center gap-1.5 bg-slate-100/50 px-3 py-1.5 rounded-2xl border border-slate-200/50">
+              <Filter className="h-3.5 w-3.5 text-slate-550" />
+              <span className="text-xs text-slate-600 font-extrabold">Bộ lọc:</span>
+            </div>
+
+            {/* Type selector */}
+            <select
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value)}
+              className="px-3 py-1.5 border border-slate-200/80 bg-slate-50 hover:bg-slate-100/50 rounded-2xl text-xs font-bold focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 cursor-pointer transition-all"
+            >
+              <option value="all">Tất cả danh mục</option>
+              <option value="event">📅 Sự kiện</option>
+              <option value="leave">🌴 Nghỉ phép</option>
+              <option value="reminder">🔔 Nhắc hẹn</option>
+            </select>
+
+            {/* Employee selector */}
+            <select
+              value={filterEmployee}
+              onChange={(e) => setFilterEmployee(e.target.value)}
+              className="px-3 py-1.5 border border-slate-200/80 bg-slate-50 hover:bg-slate-100/50 rounded-2xl text-xs font-bold focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 cursor-pointer transition-all max-w-[180px]"
+            >
+              <option value="all">Tất cả nhân sự</option>
+              {employees.map((emp) => (
+                <option key={emp.id} value={emp.id}>
+                  {emp.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Premium stats widgets (6 cols) */}
+          <div className="lg:col-span-6 flex justify-end gap-3 flex-wrap">
+            <div className="bg-white border-l-4 border-l-blue-500 border-y border-r border-slate-100/80 rounded-2xl px-4 py-2 text-xs font-bold text-slate-700 flex items-center justify-between min-w-[130px] shadow-sm hover:-translate-y-0.5 hover:shadow-md hover:shadow-blue-500/5 transition-all duration-300">
+              <div className="flex flex-col">
+                <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Sự kiện</span>
+                <span className="text-sm font-extrabold text-slate-800">{stats.events}</span>
+              </div>
+              <div className="bg-blue-50 p-1.5 rounded-full text-blue-600">
+                <CalendarCheck className="h-4 w-4" />
+              </div>
+            </div>
+
+            <div className="bg-white border-l-4 border-l-rose-500 border-y border-r border-slate-100/80 rounded-2xl px-4 py-2 text-xs font-bold text-slate-700 flex items-center justify-between min-w-[130px] shadow-sm hover:-translate-y-0.5 hover:shadow-md hover:shadow-rose-500/5 transition-all duration-300">
+              <div className="flex flex-col">
+                <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Nghỉ phép</span>
+                <span className="text-sm font-extrabold text-slate-800">{stats.leaves}</span>
+              </div>
+              <div className="bg-rose-50 p-1.5 rounded-full text-rose-600">
+                <Users className="h-4 w-4" />
+              </div>
+            </div>
+
+            <div className="bg-white border-l-4 border-l-amber-500 border-y border-r border-slate-100/80 rounded-2xl px-4 py-2 text-xs font-bold text-slate-700 flex items-center justify-between min-w-[130px] shadow-sm hover:-translate-y-0.5 hover:shadow-md hover:shadow-amber-500/5 transition-all duration-300">
+              <div className="flex flex-col">
+                <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Nhắc hẹn</span>
+                <span className="text-sm font-extrabold text-slate-800">{stats.reminders}</span>
+              </div>
+              <div className="bg-amber-50 p-1.5 rounded-full text-amber-600">
+                <Bell className="h-4 w-4" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. Premium Calendar Grid */}
+      <div className="flex-1 bg-white/90 backdrop-blur-md border border-slate-100/80 rounded-3xl shadow-md shadow-slate-100/40 p-5 overflow-x-auto min-h-[550px] transition-all duration-300">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center h-full py-20 gap-3.5">
+            <div className="w-9 h-9 border-3 border-indigo-650 border-t-transparent rounded-full animate-spin" />
+            <span className="text-xs text-slate-500 font-bold tracking-wider">Đang tải lịch trình...</span>
+          </div>
+        ) : (
+          <div className="min-w-[750px] h-full flex flex-col">
+            {/* Weekdays Labels */}
+            <div className="grid grid-cols-7 gap-1.5 mb-3">
+              {WEEKDAYS.map((day, idx) => (
+                <div
+                  key={day}
+                  className={`text-center py-2.5 text-xs font-extrabold tracking-wider uppercase ${
+                    idx === 0
+                      ? "text-rose-500"
+                      : idx === 6
+                      ? "text-blue-500"
+                      : "text-slate-550"
+                  }`}
+                >
+                  {day}
+                </div>
+              ))}
+            </div>
+
+            {/* Days Grid */}
+            <div className="grid grid-cols-7 gap-2 flex-1 select-none">
+              {calendarDays.map(({ date: dayDate, isCurrentMonth }, index) => {
+                const dayItems = filteredItems.filter((item) => itemMatchesDay(item, dayDate));
+                const dayIsToday = isToday(dayDate);
+
+                return (
+                  <div
+                    key={index}
+                    onClick={() => handleDayClick(dayDate)}
+                    className={`min-h-[100px] p-2.5 border rounded-2xl flex flex-col justify-between transition-all hover:bg-indigo-50/20 hover:border-indigo-100 hover:shadow-md hover:-translate-y-0.5 duration-300 cursor-pointer ${
+                      isCurrentMonth
+                        ? "bg-white border-slate-100/80 shadow-3xs"
+                        : "bg-slate-50/30 border-slate-50/50 text-slate-350"
+                    } ${
+                      dayIsToday
+                        ? "ring-2 ring-indigo-500 ring-offset-2 bg-gradient-to-br from-indigo-50/20 to-violet-50/20 border-indigo-200/50 shadow-sm shadow-indigo-500/5"
+                        : ""
+                    }`}
+                  >
+                    {/* Day Number */}
+                    <div className="flex justify-between items-center mb-1.5">
+                      <span
+                        className={`text-xs font-extrabold rounded-xl w-6 h-6 flex items-center justify-center transition-all ${
+                          dayIsToday
+                            ? "bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-500/30 font-black"
+                            : isCurrentMonth
+                            ? "text-slate-700 hover:bg-slate-100"
+                            : "text-slate-400"
+                        }`}
+                      >
+                        {dayDate.getDate()}
+                      </span>
+                      {dayItems.length > 0 && (
+                        <span className="text-[9px] bg-slate-100/80 text-slate-650 px-1.5 py-0.5 rounded-lg font-extrabold border border-slate-200/50 shadow-3xs">
+                          {dayItems.length}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Day events visual list */}
+                    <div className="flex-1 flex flex-col gap-1.5 overflow-hidden max-h-[75px]">
+                      {dayItems.slice(0, 3).map((item, idx) => {
+                        const styleClass =
+                          item.type === "leave"
+                            ? "bg-rose-50/80 text-rose-700 border-rose-100/60 hover:bg-rose-100/60"
+                            : item.type === "reminder"
+                            ? "bg-amber-50/80 text-amber-700 border-amber-100/60 hover:bg-amber-100/60"
+                            : "bg-blue-50/80 text-blue-700 border-blue-100/60 hover:bg-blue-100/60";
+
+                        return (
+                          <div
+                            key={idx}
+                            onClick={(e) => {
+                              e.stopPropagation(); // Avoid triggering day click
+                              openEditModal(item);
+                            }}
+                            className={`text-[9px] px-2 py-0.5 rounded-lg border font-bold truncate transition-all duration-200 hover:scale-[1.01] active:scale-100 ${styleClass}`}
+                            title={`${item.title} (${
+                              item.type === "leave" ? "Nghỉ phép" : item.type === "reminder" ? "Nhắc hẹn" : "Sự kiện"
+                            })`}
+                          >
+                            {item.type === "leave" ? `🌴 ` : item.type === "reminder" ? `🔔 ` : `📅 `}
+                            {item.title}
+                          </div>
+                        );
+                      })}
+                      {dayItems.length > 3 && (
+                        <div className="text-[9px] text-slate-450 font-extrabold pl-1.5">
+                          + {dayItems.length - 3} lịch...
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 3. Detail Popover Modal */}
+      {isDetailModalOpen && selectedDayDate && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md border border-white/20 overflow-hidden animate-in fade-in zoom-in duration-200">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center bg-slate-50/50 border-b border-slate-100 px-6 py-4.5">
+              <div>
+                <h3 className="font-extrabold text-slate-800 text-sm">
+                  Lịch trình ngày {selectedDayDate.getDate()}/{selectedDayDate.getMonth() + 1}/{selectedDayDate.getFullYear()}
+                </h3>
+                <p className="text-[10px] text-slate-550 font-bold uppercase tracking-wide mt-0.5">
+                  Có {filteredItems.filter((it) => itemMatchesDay(it, selectedDayDate)).length} lịch trình trong ngày
+                </p>
+              </div>
+              <button
+                onClick={() => setIsDetailModalOpen(false)}
+                className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition-all cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 max-h-[350px] overflow-y-auto flex flex-col gap-3">
+              {filteredItems
+                .filter((item) => itemMatchesDay(item, selectedDayDate))
+                .map((item) => {
+                  const badgeColor =
+                    item.type === "leave"
+                      ? "bg-rose-50 text-rose-700 border-rose-100"
+                      : item.type === "reminder"
+                      ? "bg-amber-50 text-amber-700 border-amber-100"
+                      : "bg-blue-50 text-blue-700 border-blue-100";
+
+                  const typeLabel =
+                    item.type === "leave" ? "Nghỉ phép" : item.type === "reminder" ? "Nhắc hẹn" : "Sự kiện";
+
+                  return (
+                    <div
+                      key={item._id || item.id}
+                      className="border border-slate-100/80 bg-slate-50/40 rounded-2xl p-4 flex flex-col gap-2 hover:bg-white hover:border-slate-200 hover:shadow-md transition-all duration-300 relative group"
+                    >
+                      <div className="flex justify-between items-start">
+                        <span className={`text-[9px] px-2 py-0.5 font-extrabold rounded-lg border uppercase tracking-wider ${badgeColor}`}>
+                          {typeLabel}
+                        </span>
+                        <div className="flex gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => openEditModal(item)}
+                            className="p-1 text-slate-400 hover:text-indigo-650 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
+                            title="Sửa"
+                          >
+                            <Edit className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteItem((item._id || item.id)!)}
+                            className="p-1 text-slate-400 hover:text-rose-650 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                            title="Xóa"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <h4 className="font-extrabold text-xs text-slate-800 tracking-wide">{item.title}</h4>
+                      {item.description && (
+                        <p className="text-[10px] text-slate-650 font-medium leading-relaxed">{item.description}</p>
+                      )}
+
+                      <div className="flex flex-wrap gap-y-1 items-center gap-3.5 text-[10px] text-slate-500 font-semibold pt-2 border-t border-slate-100">
+                        <span className="flex items-center gap-1.5">
+                          <Clock className="h-3 w-3 text-slate-400" />
+                          {new Date(item.startDate).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
+                          {` - `}
+                          {new Date(item.endDate).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                        {item.type === "leave" && item.employeeName && (
+                          <span className="flex items-center gap-1.5">
+                            <Users className="h-3 w-3 text-rose-450" />
+                            {item.employeeName}
+                          </span>
+                        )}
+                        {item.type === "leave" && (
+                          <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider ${
+                            item.status === "approved"
+                              ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
+                              : "bg-amber-50 text-amber-700 border border-amber-100"
+                          }`}>
+                            {item.status === "approved" ? "Đã duyệt" : "Chờ duyệt"}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+
+            {/* Modal Footer (Actions to Quick Add) */}
+            <div className="bg-slate-50 border-t border-slate-150 px-6 py-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+              <span className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wide">Thêm mới lịch:</span>
+              <div className="flex gap-1.5">
+                <button
+                  onClick={() => openCreateModal(selectedDayDate, "event")}
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-extrabold transition-all shadow-sm hover:shadow-md cursor-pointer"
+                >
+                  Sự kiện
+                </button>
+                <button
+                  onClick={() => openCreateModal(selectedDayDate, "leave")}
+                  className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-[10px] font-extrabold transition-all shadow-sm hover:shadow-md cursor-pointer"
+                >
+                  Nghỉ phép
+                </button>
+                <button
+                  onClick={() => openCreateModal(selectedDayDate, "reminder")}
+                  className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-[10px] font-extrabold transition-all shadow-sm hover:shadow-md cursor-pointer"
+                >
+                  Nhắc hẹn
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 4. Create/Edit Form Modal */}
+      {isFormModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md border border-white/20 overflow-hidden animate-in fade-in zoom-in duration-200">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center bg-slate-50/50 border-b border-slate-100 px-6 py-4.5">
+              <h3 className="font-extrabold text-slate-800 text-sm">
+                {formMode === "create" ? "Tạo lịch trình mới" : "Chỉnh sửa lịch trình"}
+              </h3>
+              <button
+                onClick={() => setIsFormModalOpen(false)}
+                className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition-all cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Modal Form */}
+            <form onSubmit={handleFormSubmit}>
+              <div className="p-6 flex flex-col gap-4">
+                {/* Category Picker */}
+                <div>
+                  <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
+                    Loại lịch trình
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { key: "event", label: "Sự kiện", color: "border-blue-500 text-blue-600" },
+                      { key: "leave", label: "Nghỉ phép", color: "border-rose-500 text-rose-600" },
+                      { key: "reminder", label: "Nhắc hẹn", color: "border-amber-500 text-amber-600" }
+                    ].map((t) => (
+                      <button
+                        key={t.key}
+                        type="button"
+                        onClick={() => {
+                          setFormType(t.key as any);
+                          if (t.key === "leave") setFormStatus("pending");
+                          else setFormStatus("active");
+                        }}
+                        className={`py-2 border text-center rounded-2xl text-xs font-extrabold transition-all cursor-pointer ${
+                          formType === t.key
+                            ? `${t.color} bg-slate-50/50 font-black border-2 shadow-3xs`
+                            : "border-slate-200 text-slate-500 hover:bg-slate-50"
+                        }`}
+                      >
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Title */}
+                <div>
+                  <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
+                    Tiêu đề
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder={
+                      formType === "leave"
+                        ? "Ví dụ: Nghỉ phép cá nhân, Nghỉ ốm..."
+                        : formType === "reminder"
+                        ? "Ví dụ: Gọi điện cho khách hàng, Nộp báo cáo..."
+                        : "Ví dụ: Họp nội bộ phòng ban..."
+                    }
+                    value={formTitle}
+                    onChange={(e) => setFormTitle(e.target.value)}
+                    className="w-full px-4 py-2 border border-slate-200/80 rounded-2xl text-xs focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-semibold transition-all shadow-2xs"
+                  />
+                </div>
+
+                {/* Date & Time Pickers */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
+                      Ngày bắt đầu
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={formStartDate}
+                      onChange={(e) => setFormStartDate(e.target.value)}
+                      className="w-full px-3.5 py-2 border border-slate-200/80 rounded-2xl text-xs focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-semibold transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
+                      Giờ bắt đầu
+                    </label>
+                    <input
+                      type="time"
+                      required
+                      value={formStartTime}
+                      onChange={(e) => setFormStartTime(e.target.value)}
+                      className="w-full px-3.5 py-2 border border-slate-200/80 rounded-2xl text-xs focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-semibold transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
+                      Ngày kết thúc
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={formEndDate}
+                      onChange={(e) => setFormEndDate(e.target.value)}
+                      className="w-full px-3.5 py-2 border border-slate-200/80 rounded-2xl text-xs focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-semibold transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
+                      Giờ kết thúc
+                    </label>
+                    <input
+                      type="time"
+                      required
+                      value={formEndTime}
+                      onChange={(e) => setFormEndTime(e.target.value)}
+                      className="w-full px-3.5 py-2 border border-slate-200/80 rounded-2xl text-xs focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-semibold transition-all"
+                    />
+                  </div>
+                </div>
+
+                {/* Conditional Fields based on Type */}
+                {formType === "leave" && (
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
+                      Nhân sự nghỉ phép
+                    </label>
+                    <select
+                      value={formEmployeeId}
+                      onChange={(e) => setFormEmployeeId(e.target.value)}
+                      className="w-full px-3.5 py-2 border border-slate-200/80 bg-white rounded-2xl text-xs focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-semibold cursor-pointer transition-all"
+                    >
+                      {employees.map((emp) => (
+                        <option key={emp.id} value={emp.id}>
+                          {emp.name} ({emp.role})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {formType === "reminder" && (
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
+                      Người nhận nhắc nhở
+                    </label>
+                    <select
+                      value={formAssigneeId}
+                      onChange={(e) => setFormAssigneeId(e.target.value)}
+                      className="w-full px-3.5 py-2 border border-slate-200/80 bg-white rounded-2xl text-xs focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-semibold cursor-pointer transition-all"
+                    >
+                      {employees.map((emp) => (
+                        <option key={emp.id} value={emp.id}>
+                          {emp.name} ({emp.role})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Status for Leaves */}
+                {formType === "leave" && (
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
+                      Trạng thái duyệt
+                    </label>
+                    <select
+                      value={formStatus}
+                      onChange={(e) => setFormStatus(e.target.value)}
+                      className="w-full px-3.5 py-2 border border-slate-200/80 bg-white rounded-2xl text-xs focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-semibold cursor-pointer transition-all"
+                    >
+                      <option value="pending">Chờ phê duyệt</option>
+                      <option value="approved">Đã phê duyệt</option>
+                    </select>
+                  </div>
+                )}
+
+                {/* Description */}
+                <div>
+                  <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
+                    Mô tả chi tiết
+                  </label>
+                  <textarea
+                    placeholder="Nhập nội dung mô tả hoặc ghi chú..."
+                    value={formDescription}
+                    onChange={(e) => setFormDescription(e.target.value)}
+                    rows={3}
+                    className="w-full px-4 py-2 border border-slate-200/80 rounded-2xl text-xs focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-semibold transition-all shadow-2xs resize-none"
+                  />
+                </div>
+              </div>
+
+              {/* Modal Actions */}
+              <div className="bg-slate-50 border-t border-slate-150 px-6 py-4.5 flex justify-between items-center gap-3">
+                <div>
+                  {formMode === "edit" && (
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteItem(selectedItem?._id || selectedItem?.id || "")}
+                      className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-2xl text-xs font-bold transition-all border border-rose-200/80 hover:shadow-md cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Xóa lịch
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setIsFormModalOpen(false)}
+                    className="px-4.5 py-2 border border-slate-200 hover:bg-slate-100 text-slate-650 rounded-2xl text-xs font-bold transition-all cursor-pointer"
+                  >
+                    Hủy bỏ
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 hover:shadow-md hover:shadow-indigo-500/10 text-white rounded-2xl text-xs font-extrabold transition-all cursor-pointer"
+                  >
+                    {formMode === "create" ? "Tạo lịch" : "Cập nhật"}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

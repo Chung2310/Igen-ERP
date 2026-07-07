@@ -14,6 +14,8 @@ const WorkflowStepSchema = new Schema(
       default: "task",
     },
     estDays: { type: Number },
+    deliverable: { type: String, default: "" },
+    note: { type: String, default: "" },
     position: {
       x: { type: Number, default: 0 },
       y: { type: Number, default: 0 },
@@ -32,12 +34,27 @@ const WorkflowEdgeSchema = new Schema(
   { _id: false }
 );
 
+const WorkflowParticipantSchema = new Schema(
+  {
+    id: { type: String, required: true },
+    name: { type: String, required: true },
+    userUid: { type: String, default: "" },
+    avatar: { type: String, default: "" },
+    currentStepId: { type: String, default: "" },
+    note: { type: String, default: "" },
+    startedAt: { type: String, default: "" },
+    updatedAt: { type: String, default: "" },
+  },
+  { _id: false }
+);
+
 const WorkflowSchema = new Schema<IWorkflow>({
   name: { type: String, required: true, index: true },
   description: { type: String, default: "" },
   category: { type: String, default: "" },
   steps: { type: [WorkflowStepSchema], default: [] },
   edges: { type: [WorkflowEdgeSchema], default: [] },
+  participants: { type: [WorkflowParticipantSchema], default: [] },
   companyCode: { type: String, required: true, index: true },
   creatorUid: { type: String, required: true, index: true },
   createdAt: { type: Date, default: Date.now, index: true },

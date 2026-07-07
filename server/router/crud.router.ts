@@ -19,6 +19,7 @@ const SUPPORTED_MODELS = [
   "social-integrations",
   "workflows",
   "users",
+  "hr-calendar-events",
 ];
 
 const listSchema = {
