@@ -904,55 +904,23 @@ export default function ChatTab() {
     }
   };
 
-  // Transfer Admin Role to another member - Group Admin only
-  const handleTransferAdmin = async (targetUserId: string, targetName: string) => {
-    if (!activeRoom) return;
-    if (!confirm(`Chuyển quyền Trưởng nhóm cho ${targetName}? Bạn sẽ trở thành thành viên thông thường sau khi xác nhận.`)) return;
-    try {
-      // Thêm thành viên mới với quyền admin (API sẽ handle)
-      const updatedRoom = await internalChatService.updateRoom(activeRoom._id, {
-        name: activeRoom.name,
-        // Note: transfer admin requires a dedicated endpoint. Using removeMember + addMembers workaround not ideal.
-        // We'll mark the room locally and notify user to use a proper API if needed.
-      });
-      // Hiện tại gọi API chuyển quyền qua endpoint patch room (need backend support)
-      // Sử dụng fetch trực tiếp để gọi endpoint transfer admin
-      const { getAccessToken } = await import("../services/authService");
-      const res = await fetch(`/api/v1/chat/rooms/${activeRoom._id}/transfer-admin`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${getAccessToken()}`,
-        },
-        body: JSON.stringify({ newAdminId: targetUserId }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.message || "Chuyển quyền thất bại.");
-      }
-      const json = await res.json();
-      const refreshedRoom = json.data as ChatRoom;
-      toast.success(`Đã chuyển quyền Trưởng nhóm cho ${targetName}.`);
-      setActiveRoom(refreshedRoom);
-      setRooms((prev) => prev.map((r) => (r._id === refreshedRoom._id ? refreshedRoom : r)));
-    } catch (error: any) {
-      toast.error(error.message);
-    }
-  };
-
   // Update member role (admin/deputy/member) - Group Admin only
   const handleUpdateMemberRole = async (userId: string, targetName: string, newRole: "admin" | "deputy" | "member") => {
     if (!activeRoom) return;
     const confirmMsg = newRole === "admin"
-      ? `Thăng chức ${targetName} làm Trưởng nhóm?`
+      ? `Thăng chức ${targetName} làm Trưởng phòng?`
       : newRole === "deputy"
-        ? `Thăng chức ${targetName} làm Phó nhóm?`
+        ? `Thăng chức ${targetName} làm Phó phòng?`
         : `Hạ cấp vai trò của ${targetName} xuống thành viên thường?`;
     if (!confirm(confirmMsg)) return;
 
     try {
       const updatedRoom = await internalChatService.updateMemberRole(activeRoom._id, userId, newRole);
-      toast.success(`Đã cập nhật vai trò của ${targetName}.`);
+      if (newRole === "deputy") {
+        toast.success(`Đã thăng chức ${targetName} làm Phó phòng.`);
+      } else {
+        toast.success(`Đã cập nhật vai trò của ${targetName}.`);
+      }
       setActiveRoom(updatedRoom);
       setRooms((prev) => prev.map((r) => (r._id === updatedRoom._id ? updatedRoom : r)));
     } catch (error: any) {
@@ -1917,12 +1885,12 @@ export default function ChatTab() {
                                   </span>
                                   {getMsgSenderRole(msg) === "admin" && (
                                     <span className="rounded bg-amber-50 border border-amber-200 px-1 py-0.2 text-[8px] font-bold text-amber-700 uppercase leading-none">
-                                      Trưởng nhóm
+                                      Trưởng phòng
                                     </span>
                                   )}
                                   {getMsgSenderRole(msg) === "deputy" && (
                                     <span className="rounded bg-indigo-50 border border-indigo-200 px-1 py-0.2 text-[8px] font-bold text-indigo-700 uppercase leading-none">
-                                      Phó nhóm
+                                      Phó phòng
                                     </span>
                                   )}
                                 </div>
@@ -2265,7 +2233,7 @@ export default function ChatTab() {
                         <div className="border-t border-gray-100 pt-4">
                           <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Cài đặt quyền nhắn tin</label>
                           <div className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 transition">
-                            <span className="text-xs text-slate-600 font-medium">Chỉ Trưởng/Phó nhóm nhắn tin</span>
+                            <span className="text-xs text-slate-600 font-medium">Chỉ Trưởng/Phó phòng nhắn tin</span>
                             <button
                               type="button"
                               onClick={async () => {
@@ -2298,49 +2266,7 @@ export default function ChatTab() {
                           </div>
                         </div>
 
-                        {/* Chuyển quyền Trưởng nhóm */}
-                        <div>
-                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
-                            <Crown className="h-3 w-3 inline mr-1 text-amber-500" />
-                            Chuyển quyền Trưởng nhóm
-                          </label>
-                          <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                            {activeRoom.members
-                              .filter((m) => {
-                                const mId = m.userId._id || m.userId.uid || m.userId;
-                                return mId !== currentUserId && m.role !== "admin";
-                              })
-                              .map((member) => {
-                                const memId = member.userId._id || member.userId.uid || member.userId;
-                                return (
-                                  <div key={memId} className="flex items-center justify-between rounded-xl p-2 hover:bg-amber-50/60 transition">
-                                    <div className="flex items-center gap-2 min-w-0">
-                                      <div className="h-7 w-7 rounded-lg bg-slate-100 overflow-hidden shrink-0 flex items-center justify-center text-xs font-bold text-slate-600">
-                                        {member.userId.photoURL ? (
-                                          <img src={member.userId.photoURL} alt={member.userId.displayName} className="h-full w-full object-cover" />
-                                        ) : member.userId.displayName?.charAt(0).toUpperCase()}
-                                      </div>
-                                      <p className="text-xs font-semibold text-slate-700 truncate">{member.userId.displayName}</p>
-                                    </div>
-                                    <button
-                                      onClick={() => handleTransferAdmin(memId, member.userId.displayName)}
-                                      className="ml-1 shrink-0 flex items-center gap-1 rounded-lg bg-amber-50 border border-amber-200 px-2 py-1 text-[10px] font-bold text-amber-700 hover:bg-amber-100 transition"
-                                      title="Chuyển quyền Trưởng nhóm"
-                                    >
-                                      <Crown className="h-3 w-3" />
-                                      Bổ nhiệm
-                                    </button>
-                                  </div>
-                                );
-                              })}
-                          </div>
-                          {activeRoom.members.filter((m) => {
-                            const mId = m.userId._id || m.userId.uid || m.userId;
-                            return mId !== currentUserId && m.role !== "admin";
-                          }).length === 0 && (
-                              <p className="text-xs text-center text-gray-400 py-3">Không có thành viên nào khác để chuyển quyền.</p>
-                            )}
-                        </div>
+
                       </div>
                     ) : (
                       <>
@@ -2407,18 +2333,18 @@ export default function ChatTab() {
                                     <div className="flex items-center gap-1.5 shrink-0">
                                       {member.role === "admin" ? (
                                         <span className="rounded-md bg-amber-50 border border-amber-100 px-1 py-0.5 text-[8px] font-bold text-amber-600 uppercase">
-                                          Trưởng nhóm
+                                          Trưởng phòng
                                         </span>
                                       ) : member.role === "deputy" ? (
                                         <span className="rounded-md bg-indigo-50 border border-indigo-100 px-1 py-0.5 text-[8px] font-bold text-indigo-600 uppercase">
-                                          Phó nhóm
+                                          Phó phòng
                                         </span>
                                       ) : null}
                                       {isGroupAdmin() && !isMemMe && (
                                         <button
                                           onClick={() => handleUpdateMemberRole(memId, member.userId.displayName, member.role === "deputy" ? "member" : "deputy")}
                                           className={`p-1 transition rounded-lg ${member.role === "deputy" ? "text-indigo-600 hover:bg-indigo-50" : "text-slate-400 hover:text-indigo-600 hover:bg-slate-100"}`}
-                                          title={member.role === "deputy" ? "Hạ cấp xuống Thành viên thường" : "Thăng cấp làm Phó nhóm"}
+                                          title={member.role === "deputy" ? "Hạ cấp xuống Thành viên thường" : "Thăng cấp làm Phó phòng"}
                                         >
                                           <ShieldCheck className="h-3.5 w-3.5" />
                                         </button>
@@ -2870,7 +2796,7 @@ export default function ChatTab() {
                 <div className="flex items-center justify-center gap-2 rounded-2xl bg-slate-100/80 px-4 py-3 text-center border border-slate-200/50">
                   <VolumeX className="h-4.5 w-4.5 text-slate-400 shrink-0" />
                   <span className="text-xs font-semibold text-slate-500">
-                    Chỉ Quản trị viên mới được phép gửi tin nhắn trong nhóm này.
+                    Chỉ Trưởng phòng hoặc Phó phòng mới được phép gửi tin nhắn trong nhóm này.
                   </span>
                 </div>
               )}
