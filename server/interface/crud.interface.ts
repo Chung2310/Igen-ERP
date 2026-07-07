@@ -9,6 +9,7 @@ export type SupportedModelName =
   | "training-courses"
   | "training-enrollments"
   | "social-integrations"
+  | "workflows"
   | "users";
 
 export interface ICRUDQueryOptions {

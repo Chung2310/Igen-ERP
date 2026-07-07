@@ -10,6 +10,7 @@ import { useSubTabRouter } from "../hooks/useSubTabRouter";
 const OrgChartTab = lazy(() => import("../components/hr/OrgChartTab"));
 const KanbanTab = lazy(() => import("../components/hr/KanbanTab"));
 const TrainingTab = lazy(() => import("../components/hr/TrainingTab"));
+const WorkflowTab = lazy(() => import("../components/hr/WorkflowTab"));
 
 export default function HRTab() {
   const { userProfile } = useAuth();
@@ -22,6 +23,7 @@ export default function HRTab() {
     { slug: "so-do", value: "SƠ ĐỒ TỔ CHỨC" as HRSubTabType },
     { slug: "kanban", value: "GIAO VIỆC KANBAN" as HRSubTabType },
     { slug: "dao-tao", value: "ĐÀO TẠO" as HRSubTabType },
+    { slug: "quy-trinh", value: "QUY TRÌNH" as HRSubTabType },
   ] as const;
   const [subTab, setSubTab] = useSubTabRouter<HRSubTabType>(HR_SUB_TAB_ROUTES as any, "SƠ ĐỒ TỔ CHỨC");
   const [usersList, setUsersList] = useState<UserProfile[]>([]);
@@ -136,7 +138,7 @@ export default function HRTab() {
       {/* Sub Tabs switcher navigation bar */}
       <div className="border-b border-gray-200 bg-gray-50/50 p-2 text-xs flex justify-between items-center shrink-0" id="hr_sub_tabs_bar">
         <div className="flex gap-2">
-          {["SƠ ĐỒ TỔ CHỨC", "GIAO VIỆC KANBAN", "ĐÀO TẠO"].map((tab) => (
+          {["SƠ ĐỒ TỔ CHỨC", "GIAO VIỆC KANBAN", "ĐÀO TẠO", "QUY TRÌNH"].map((tab) => (
             <button
               key={tab}
               onClick={() => setSubTab(tab as HRSubTabType)}
@@ -209,6 +211,15 @@ export default function HRTab() {
             setCourses={setCourses}
             fetchCourses={fetchCourses}
             employees={employees}
+          />
+        )}
+
+        {subTab === "QUY TRÌNH" && (
+          <WorkflowTab
+            userProfile={userProfile}
+            selectedCompanyCode={selectedCompanyCode}
+            isManager={isManager}
+            usersList={usersList}
           />
         )}
       </Suspense>
