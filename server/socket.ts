@@ -14,12 +14,30 @@ let io: SocketIOServer | null = null;
  * Tự phục hồi: nếu Redis lỗi/chưa sẵn sàng, log cảnh báo và vẫn chạy (delivery nội bộ 1 instance).
  * Cần sticky session (nginx ip_hash) khi chạy sau load balancer nhiều node.
  */
-function attachRedisAdapter(server: SocketIOServer) {
+async function attachRedisAdapter(server: SocketIOServer) {
+  const host = process.env.REDIS_HOST || "127.0.0.1";
+  const port = Number(process.env.REDIS_PORT) || 6379;
+  const password = process.env.REDIS_PASSWORD || undefined;
+
+  console.log(`[Socket.IO] Đang kiểm tra kết nối Redis tại ${host}:${port}...`);
+
+  const tempClient = new Redis({
+    host,
+    port,
+    password,
+    lazyConnect: true,
+    connectTimeout: 2000,
+    maxRetriesPerRequest: 0,
+  });
+
   try {
+    await tempClient.connect();
+    await tempClient.quit();
+
     const redisOptions = {
-      host: process.env.REDIS_HOST || "127.0.0.1",
-      port: Number(process.env.REDIS_PORT) || 6379,
-      password: process.env.REDIS_PASSWORD || undefined,
+      host,
+      port,
+      password,
       enableReadyCheck: false,
       maxRetriesPerRequest: null as unknown as number,
       retryStrategy: (times: number) => Math.min(times * 200, 5000),
@@ -31,15 +49,15 @@ function attachRedisAdapter(server: SocketIOServer) {
     pubClient.on("error", (e: any) => console.error("[Socket.IO Redis pub] error:", e?.message || e));
     subClient.on("error", (e: any) => console.error("[Socket.IO Redis sub] error:", e?.message || e));
     pubClient.once("ready", () =>
-      console.log(`[Socket.IO] Redis adapter đã kết nối ${redisOptions.host}:${redisOptions.port} — scale ngang đã bật.`)
+      console.log(`[Socket.IO] Redis adapter đã kết nối ${host}:${port} — scale ngang đã bật.`)
     );
 
     server.adapter(createAdapter(pubClient, subClient));
     console.log("[Socket.IO] Đã gắn Redis adapter (pub/sub).");
   } catch (err: any) {
-    console.error(
-      "[Socket.IO] Không khởi tạo được Redis adapter → chạy chế độ in-memory (chỉ 1 instance):",
-      err?.message || err
+    tempClient.disconnect();
+    console.warn(
+      `[Socket.IO] Không kết nối được Redis tại ${host}:${port} (${err?.message || err}) → Chạy chế độ in-memory (chỉ 1 instance).`
     );
   }
 }
@@ -64,7 +82,7 @@ function getAllowedOrigins(): string[] {
   return Array.from(origins);
 }
 
-export function initSocketServer(httpServer: HTTPServer) {
+export async function initSocketServer(httpServer: HTTPServer) {
   io = new SocketIOServer(httpServer, {
     cors: {
       origin: getAllowedOrigins(),
@@ -74,7 +92,7 @@ export function initSocketServer(httpServer: HTTPServer) {
   });
 
   // Gắn Redis adapter để scale ngang nhiều instance
-  attachRedisAdapter(io);
+  await attachRedisAdapter(io);
 
   // Reset tất cả users về offline khi server khởi động (tránh trạng thái lỗi từ session trước)
   void (async () => {

@@ -31,6 +31,10 @@ const KanbanTaskSchema = new Schema<IKanbanTask>({
   tags: { type: [String], default: [] },
   linkNote: { type: String },
   history: { type: [TaskHistorySchema], default: [] },
+  workflowId: { type: String, index: true },
+  workflowStepId: { type: String, index: true },
+  participantId: { type: String, index: true },
+  isFromWorkflow: { type: Boolean, default: false },
 });
 
 export const KanbanTaskModel = model<IKanbanTask>("KanbanTask", KanbanTaskSchema);

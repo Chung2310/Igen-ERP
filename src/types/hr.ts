@@ -1,14 +1,45 @@
-export type HRSubTabType = "SƠ ĐỒ TỔ CHỨC" | "GIAO VIỆC KANBAN" | "ĐÀO TẠO" | "QUY TRÌNH";
+export type HRSubTabType = "SƠ ĐỒ TỔ CHỨC" | "GIAO VIỆC KANBAN" | "ĐÀO TẠO" | "QUY TRÌNH" | "LỊCH";
+
+export interface WorkflowSubTask {
+  id: string;
+  title: string;
+  assigneeUid?: string;
+  assignee?: string;
+  done?: boolean;
+}
 
 export interface WorkflowStep {
   id: string;
   title: string;
   description?: string;
+  /** Single assignee (legacy) */
   assigneeUid?: string;
   assignee?: string;
-  type: "start" | "task" | "approval" | "end";
+  /** Multiple assignees */
+  assigneeUids?: string[];
+  /** Related persons (người liên quan) */
+  relatedUids?: string[];
+  /** Domain / project tag */
+  domain?: string;
+  /** Priority: urgent_important | urgent | important | normal */
+  priority?: "urgent_important" | "urgent" | "important" | "normal";
+  /** Deadline type relative to stage start */
+  deadlineType?: "same_day" | "after_1" | "after_2" | "after_x" | "none" | "custom_time";
+  /** Used when deadlineType = after_x */
+  deadlineDays?: number;
+  /** Specific time HH:mm when deadlineType = custom_time */
+  deadlineTime?: string;
+  /** @deprecated Không còn phân loại ô — giữ lại để tương thích dữ liệu cũ */
+  type?: "start" | "task" | "approval" | "end";
   estDays?: number;
-  position: { x: number; y: number };
+  /** Kết quả / đầu ra mong đợi của bước */
+  deliverable?: string;
+  /** Lưu ý / điều kiện thực hiện */
+  note?: string;
+  /** Sub-tasks (công việc con) */
+  subTasks?: WorkflowSubTask[];
+  /** @deprecated Không còn dùng canvas — giữ lại để tương thích dữ liệu cũ */
+  position?: { x: number; y: number };
 }
 
 export interface WorkflowEdge {
@@ -18,13 +49,29 @@ export interface WorkflowEdge {
   label?: string;
 }
 
+/** Một người đang đi qua quy trình, đứng ở cột (bước) hiện tại */
+export interface WorkflowParticipant {
+  id: string;
+  /** Tên người thực hiện (nhân viên/ứng viên…) */
+  name: string;
+  /** Liên kết tới tài khoản hệ thống (nếu có) */
+  userUid?: string;
+  avatar?: string;
+  /** id của bước hiện tại; "__done__" = đã hoàn thành */
+  currentStepId: string;
+  note?: string;
+  startedAt?: string;
+  updatedAt?: string;
+}
+
 export interface Workflow {
   id: string;
   name: string;
   description?: string;
   category?: string;
   steps: WorkflowStep[];
-  edges: WorkflowEdge[];
+  edges?: WorkflowEdge[];
+  participants?: WorkflowParticipant[];
   companyCode: string;
   creatorUid: string;
   createdAt: any;
@@ -82,6 +129,10 @@ export interface HRTask {
   tags?: string[];
   linkNote?: string;
   history?: TaskHistoryEntry[];
+  workflowId?: string;
+  workflowStepId?: string;
+  participantId?: string;
+  isFromWorkflow?: boolean;
 }
 
 export interface Lesson {

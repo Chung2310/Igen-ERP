@@ -4,7 +4,22 @@ import { crudController } from "../controller/crud.controller";
 import { validateRequest } from "../middleware/validation";
 import { requireAuth } from "../middleware/auth";
 
+import { workflowLinkController } from "../controller/workflow-link.controller";
+
 export const crudRouter = Router();
+
+// Custom endpoints for workflow ↔ kanban-task link
+crudRouter.post(
+  "/workflows/:id/participants/:participantId/advance",
+  requireAuth as any,
+  workflowLinkController.advanceParticipant as any
+);
+
+crudRouter.get(
+  "/workflows/:id/participants/:participantId/tasks",
+  requireAuth as any,
+  workflowLinkController.getParticipantTasks as any
+);
 
 const SUPPORTED_MODELS = [
   "products",
@@ -19,6 +34,7 @@ const SUPPORTED_MODELS = [
   "social-integrations",
   "workflows",
   "users",
+  "hr-calendar-events",
 ];
 
 const listSchema = {

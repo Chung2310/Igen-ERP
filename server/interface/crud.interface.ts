@@ -10,7 +10,8 @@ export type SupportedModelName =
   | "training-enrollments"
   | "social-integrations"
   | "workflows"
-  | "users";
+  | "users"
+  | "hr-calendar-events";
 
 export interface ICRUDQueryOptions {
   page?: number;
