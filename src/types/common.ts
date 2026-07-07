@@ -7,12 +7,19 @@ export type TabType =
   | "KHO & SẢN PHẨM"
   | "MARKETING"
   | "SALES CRM"
+  | "QUẢN LÝ TÀI NGUYÊN"
   | "TRÒ CHUYỆN"
   | "TÀI NGUYÊN"
   | "HIỆU SUẤT AI"
   | "QUẢN TRỊ USER"
   | "VÍ & NẠP TIỀN"
   | "CÀI ĐẶT";
+
+export interface GoogleDriveIntegration {
+  isConnected: boolean;
+  driveEmail: string;
+  connectedAt?: any | null;
+}
 
 export interface UserProfile {
   uid: string;
@@ -24,6 +31,7 @@ export interface UserProfile {
   facebookIntegration?: FacebookIntegration | null;
   tiktokIntegration?: TikTokIntegration | null;
   zaloIntegration?: ZaloIntegration | null;
+  googleDriveIntegration?: GoogleDriveIntegration | null;
   aiAutoReplyConfig?: AIChatConfig | null;
   // Legacy only. HeyGen is migrating to company-level config.
   heygenAccess?: {

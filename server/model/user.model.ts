@@ -48,6 +48,20 @@ const ZaloIntegrationSchema = new Schema(
   { _id: false }
 );
 
+const GoogleDriveIntegrationSchema = new Schema(
+  {
+    isConnected: { type: Boolean, default: false },
+    driveEmail: { type: String, default: "" },
+    accessToken: { type: String, default: "" },
+    refreshToken: { type: String, default: "" },
+    tokenExpiredAt: { type: Date },
+    rootFolderId: { type: String, default: "" },
+    connectedAt: { type: Date },
+  },
+  { _id: false }
+);
+
+
 export const AiAutoReplyConfigSchema = new Schema(
   {
     enabled: { type: Boolean, default: false },
@@ -91,6 +105,7 @@ const UserSchema = new Schema<IUser>({
   facebookIntegration: { type: FacebookIntegrationSchema, default: null },
   tiktokIntegration: { type: TikTokIntegrationSchema, default: null },
   zaloIntegration: { type: ZaloIntegrationSchema, default: null },
+  googleDriveIntegration: { type: GoogleDriveIntegrationSchema, default: null },
   aiAutoReplyConfig: { type: AiAutoReplyConfigSchema, default: () => ({}) },
   heygenAccess: { type: HeyGenAccessSchema, default: () => ({}) },
   elevenlabsAccess: { type: ElevenLabsAccessSchema, default: () => ({}) },
