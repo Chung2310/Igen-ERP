@@ -31,6 +31,7 @@ export const APP_ROUTES: AppRoute[] = [
     tab: "SALES CRM",
     component: lazy(() => import("../pages/CRMTab")),
   },
+  {
     tab: "QUẢN LÝ TÀI NGUYÊN",
     component: lazy(() => import("../pages/ResourceTab")),
   },
