@@ -940,12 +940,14 @@ export default function ChatTab() {
     }
   };
 
-  // Update member role (admin/member) - Group Admin only
-  const handleUpdateMemberRole = async (userId: string, targetName: string, newRole: "admin" | "member") => {
+  // Update member role (admin/deputy/member) - Group Admin only
+  const handleUpdateMemberRole = async (userId: string, targetName: string, newRole: "admin" | "deputy" | "member") => {
     if (!activeRoom) return;
     const confirmMsg = newRole === "admin"
-      ? `Thăng chức ${targetName} làm Quản trị viên nhóm?`
-      : `Hạ chức Quản trị viên của ${targetName} xuống thành viên thường?`;
+      ? `Thăng chức ${targetName} làm Trưởng nhóm?`
+      : newRole === "deputy"
+        ? `Thăng chức ${targetName} làm Phó nhóm?`
+        : `Hạ cấp vai trò của ${targetName} xuống thành viên thường?`;
     if (!confirm(confirmMsg)) return;
 
     try {
@@ -1360,11 +1362,33 @@ export default function ChatTab() {
     return name.includes(query) || email.includes(query);
   });
 
+  // Check if I am admin or deputy of the current group
+  const isGroupAdminOrDeputy = () => {
+    if (!activeRoom || !activeRoom.isGroup) return false;
+    const member = activeRoom.members.find((m: any) => {
+      const mId = m.userId._id || m.userId.uid || m.userId;
+      return mId === currentUserId;
+    });
+    return member?.role === "admin" || member?.role === "deputy";
+  };
+
+  const canUserMessage = !activeRoom || !activeRoom.isGroup || !activeRoom.onlyAdminsCanMessage || isGroupAdminOrDeputy();
+
+  const getMsgSenderRole = (msg: any) => {
+    if (!activeRoom || !activeRoom.isGroup) return "member";
+    const senderId = typeof msg.senderId === "object" && msg.senderId !== null ? msg.senderId._id : msg.senderId;
+    const member = activeRoom.members.find((m: any) => {
+      const mId = m.userId._id || m.userId.uid || m.userId;
+      return mId === senderId;
+    });
+    return member ? member.role : "member";
+  };
+
   return (
     <div className="flex h-full w-full overflow-hidden rounded-3xl border border-gray-100 bg-white/70 shadow-2xl shadow-slate-100 backdrop-blur-xl" id="chat_tab_root">
 
       {/* LEFT SIDEBAR: Conversations & Search */}
-      <div className="flex w-80 shrink-0 flex-col border-r border-gray-100 bg-white/30" id="chat_sidebar">
+      <div className={`flex w-80 shrink-0 flex-col border-r border-gray-100 bg-white/30 transition-all duration-300 ${activeRoom ? "hidden md:flex" : "w-full flex"}`} id="chat_sidebar">
 
         {/* Search & Plus header */}
         <div className="p-4 border-b border-gray-100/50">
@@ -1546,12 +1570,22 @@ export default function ChatTab() {
       </div>
 
       {/* RIGHT CHAT AREA */}
-      <div className="flex flex-1 flex-col bg-gradient-to-b from-indigo-50/15 via-slate-50/40 to-violet-50/10 relative" id="chat_box_area">
+      <div className={`flex flex-1 flex-col bg-gradient-to-b from-indigo-50/15 via-slate-50/40 to-violet-50/10 relative transition-all duration-300 ${activeRoom ? "flex" : "hidden md:flex"}`} id="chat_box_area">
         {activeRoom ? (
           <>
             {/* CHAT HEADER */}
-            <div className="flex h-[72px] items-center justify-between border-b border-gray-100 bg-white/50 px-6 backdrop-blur-md">
+            <div className="flex h-[72px] items-center justify-between border-b border-gray-100 bg-white/50 px-4 md:px-6 backdrop-blur-md">
               <div className="flex items-center gap-3">
+                {/* Back button on mobile */}
+                <button
+                  type="button"
+                  onClick={() => setActiveRoom(null)}
+                  className="md:hidden p-1.5 rounded-xl hover:bg-slate-100 text-slate-500 active:scale-95 transition mr-1"
+                  title="Quay lại"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+
                 <div className="relative h-11 w-11 rounded-xl bg-slate-100 overflow-hidden border border-gray-200">
                   {getRoomAvatar(activeRoom) ? (
                     <img src={getRoomAvatar(activeRoom)} alt={getRoomName(activeRoom)} className="h-full w-full object-cover" />
@@ -1687,7 +1721,7 @@ export default function ChatTab() {
                 <div
                   ref={scrollContainerRef}
                   onScroll={handleScroll}
-                  className="flex-1 overflow-y-auto p-6"
+                  className="flex-1 overflow-y-auto p-4 md:p-6"
                 >
                   {loadingMore && (
                     <div className="flex items-center justify-center py-2 text-slate-400">
@@ -1875,17 +1909,34 @@ export default function ChatTab() {
                             {/* Message content block */}
                             <div className="max-w-[70%]">
                               {/* Sender Name in group */}
+                              {/* Sender Name in group */}
                               {showSenderName && (
-                                <span className="text-[10px] font-semibold text-slate-500 ml-1 mb-1 block">
-                                  {msg.senderName}
-                                </span>
+                                <div className="flex items-center gap-1.5 ml-1 mb-1">
+                                  <span className="text-[10px] font-semibold text-slate-500">
+                                    {msg.senderName}
+                                  </span>
+                                  {getMsgSenderRole(msg) === "admin" && (
+                                    <span className="rounded bg-amber-50 border border-amber-200 px-1 py-0.2 text-[8px] font-bold text-amber-700 uppercase leading-none">
+                                      Trưởng nhóm
+                                    </span>
+                                  )}
+                                  {getMsgSenderRole(msg) === "deputy" && (
+                                    <span className="rounded bg-indigo-50 border border-indigo-200 px-1 py-0.2 text-[8px] font-bold text-indigo-700 uppercase leading-none">
+                                      Phó nhóm
+                                    </span>
+                                  )}
+                                </div>
                               )}
 
                               {/* Bubble */}
                               <div
                                 className={`rounded-2xl px-4 py-2.5 text-sm shadow-sm transition-all duration-300 ${isMe
                                   ? "bg-gradient-to-br from-indigo-650 via-indigo-600 to-violet-600 text-white rounded-tr-none shadow-md shadow-indigo-100/40"
-                                  : "bg-slate-200 text-slate-800 rounded-tl-none border border-slate-300/50 shadow-xs backdrop-blur-xs hover:shadow-md hover:bg-slate-200/80"
+                                  : getMsgSenderRole(msg) === "admin"
+                                    ? "bg-amber-50/90 text-amber-950 rounded-tl-none border border-amber-300 shadow-xs backdrop-blur-xs hover:shadow-md hover:bg-amber-100/50"
+                                    : getMsgSenderRole(msg) === "deputy"
+                                      ? "bg-indigo-50/90 text-indigo-950 rounded-tl-none border border-indigo-300 shadow-xs backdrop-blur-xs hover:shadow-md hover:bg-indigo-100/50"
+                                      : "bg-slate-200 text-slate-800 rounded-tl-none border border-slate-300/50 shadow-xs backdrop-blur-xs hover:shadow-md hover:bg-slate-200/80"
                                   }`}
                               >
                                 {/* Quoted / Replied message */}
@@ -2070,7 +2121,7 @@ export default function ChatTab() {
 
                 {/* Floating Typing Indicator overlay */}
                 {typingUsers[activeRoom._id]?.length > 0 && (
-                  <div className="absolute bottom-4 left-6 rounded-full bg-white/90 border border-gray-100 px-4 py-2 shadow-lg backdrop-blur-sm z-10 flex items-center gap-2">
+                  <div className="absolute bottom-4 left-4 md:left-6 rounded-full bg-white/90 border border-gray-100 px-4 py-2 shadow-lg backdrop-blur-sm z-10 flex items-center gap-2">
                     <span className="text-xs font-semibold text-emerald-600">
                       {typingUsers[activeRoom._id].join(", ")} đang nhập
                     </span>
@@ -2095,7 +2146,7 @@ export default function ChatTab() {
                   <button
                     type="button"
                     onClick={handleScrollToBottomClick}
-                    className="absolute bottom-4 right-6 z-10 flex items-center gap-1.5 rounded-full bg-white/95 border border-slate-200 pl-2 pr-3 py-2 shadow-lg backdrop-blur-sm hover:bg-white transition active:scale-95"
+                    className="absolute bottom-4 right-4 md:right-6 z-10 flex items-center gap-1.5 rounded-full bg-white/95 border border-slate-200 pl-2 pr-3 py-2 shadow-lg backdrop-blur-sm hover:bg-white transition active:scale-95"
                     title="Cuộn xuống tin mới nhất"
                   >
                     <span className="relative flex h-7 w-7 items-center justify-center rounded-full bg-indigo-600 text-white">
@@ -2112,7 +2163,21 @@ export default function ChatTab() {
 
               {/* DETAILS SIDEBAR PANEL */}
               {showRoomDetails && (
-                <div className="w-72 shrink-0 border-l border-gray-100 bg-white/60 overflow-y-auto flex flex-col justify-between" id="chat_details_panel">
+                <div className="absolute inset-y-0 right-0 z-20 w-full md:relative md:w-72 shrink-0 border-l border-gray-100 bg-white overflow-y-auto flex flex-col justify-between" id="chat_details_panel">
+                  {/* Mobile details close header */}
+                  <div className="p-4 border-b border-gray-100 flex items-center justify-between md:hidden shrink-0 bg-white">
+                    <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                      <Info className="h-4 w-4 text-indigo-600" />
+                      Chi tiết hội thoại
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => setShowRoomDetails(false)}
+                      className="text-gray-400 hover:text-gray-600 rounded-lg p-1 hover:bg-slate-100 transition"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
 
                   {/* Tab bar: Info vs Settings (chỉ Admin nhóm mới thấy Settings) */}
                   {activeRoom.isGroup && isGroupAdmin() && (
@@ -2194,6 +2259,43 @@ export default function ChatTab() {
                             {savingGroupSettings ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                             Lưu tên nhóm
                           </button>
+                        </div>
+
+                        {/* Cài đặt quyền nhắn tin */}
+                        <div className="border-t border-gray-100 pt-4">
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Cài đặt quyền nhắn tin</label>
+                          <div className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 transition">
+                            <span className="text-xs text-slate-600 font-medium">Chỉ Trưởng/Phó nhóm nhắn tin</span>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                if (savingGroupSettings) return;
+                                setSavingGroupSettings(true);
+                                try {
+                                  const updatedRoom = await internalChatService.updateRoom(activeRoom._id, {
+                                    onlyAdminsCanMessage: !activeRoom.onlyAdminsCanMessage,
+                                  });
+                                  toast.success("Đã cập nhật quyền gửi tin nhắn.");
+                                  setActiveRoom(updatedRoom);
+                                  setRooms((prev) => prev.map((r) => (r._id === updatedRoom._id ? updatedRoom : r)));
+                                } catch (error: any) {
+                                  toast.error(error.message || "Lỗi cập nhật quyền.");
+                                } finally {
+                                  setSavingGroupSettings(false);
+                                }
+                              }}
+                              disabled={savingGroupSettings}
+                              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                                activeRoom.onlyAdminsCanMessage ? "bg-indigo-600" : "bg-slate-200"
+                              }`}
+                            >
+                              <span
+                                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                                  activeRoom.onlyAdminsCanMessage ? "translate-x-5" : "translate-x-0"
+                                }`}
+                              />
+                            </button>
+                          </div>
                         </div>
 
                         {/* Chuyển quyền Trưởng nhóm */}
@@ -2280,7 +2382,6 @@ export default function ChatTab() {
 
                             <div className="space-y-2">
                               {activeRoom.members.map((member) => {
-                                const isMemberAdmin = member.role === "admin";
                                 const memId = member.userId._id || member.userId.uid || member.userId;
                                 const isMemMe = memId === currentUserId;
 
@@ -2304,18 +2405,22 @@ export default function ChatTab() {
                                       </div>
                                     </div>
                                     <div className="flex items-center gap-1.5 shrink-0">
-                                      {isMemberAdmin && (
-                                        <span className="rounded-md bg-indigo-50 border border-indigo-100 px-1 py-0.5 text-[8px] font-bold text-indigo-600 uppercase">
-                                          Admin
+                                      {member.role === "admin" ? (
+                                        <span className="rounded-md bg-amber-50 border border-amber-100 px-1 py-0.5 text-[8px] font-bold text-amber-600 uppercase">
+                                          Trưởng nhóm
                                         </span>
-                                      )}
+                                      ) : member.role === "deputy" ? (
+                                        <span className="rounded-md bg-indigo-50 border border-indigo-100 px-1 py-0.5 text-[8px] font-bold text-indigo-600 uppercase">
+                                          Phó nhóm
+                                        </span>
+                                      ) : null}
                                       {isGroupAdmin() && !isMemMe && (
                                         <button
-                                          onClick={() => handleUpdateMemberRole(memId, member.userId.displayName, isMemberAdmin ? "member" : "admin")}
-                                          className={`p-1 transition rounded-lg ${isMemberAdmin ? "text-amber-600 hover:bg-amber-50" : "text-indigo-50 hover:text-indigo-100"}`}
-                                          title={isMemberAdmin ? "Hạ cấp xuống Thành viên thường" : "Thăng cấp làm Quản trị viên nhóm"}
+                                          onClick={() => handleUpdateMemberRole(memId, member.userId.displayName, member.role === "deputy" ? "member" : "deputy")}
+                                          className={`p-1 transition rounded-lg ${member.role === "deputy" ? "text-indigo-600 hover:bg-indigo-50" : "text-slate-400 hover:text-indigo-600 hover:bg-slate-100"}`}
+                                          title={member.role === "deputy" ? "Hạ cấp xuống Thành viên thường" : "Thăng cấp làm Phó nhóm"}
                                         >
-                                          {isMemberAdmin ? <ShieldCheck className="h-3.5 w-3.5" /> : <Crown className="h-3.5 w-3.5 text-slate-400 hover:text-indigo-600" />}
+                                          <ShieldCheck className="h-3.5 w-3.5" />
                                         </button>
                                       )}
                                       {isGroupAdmin() && !isMemMe && (
@@ -2370,9 +2475,9 @@ export default function ChatTab() {
 
               {/* SEARCH SIDEBAR PANEL (Zalo-like search) */}
               {showSearchPanel && (
-                <div className="w-80 shrink-0 border-l border-gray-100 bg-white/60 overflow-hidden flex flex-col" id="chat_search_panel">
+                <div className="absolute inset-y-0 right-0 z-20 w-full md:relative md:w-80 shrink-0 border-l border-gray-100 bg-white overflow-hidden flex flex-col" id="chat_search_panel">
                   {/* Header */}
-                  <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-white/80">
+                  <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-white shrink-0">
                     <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
                       <Search className="h-4 w-4 text-indigo-600" />
                       Tìm kiếm trong phòng
@@ -2526,238 +2631,249 @@ export default function ChatTab() {
             </div>
 
             {/* CHAT INPUT AREA */}
-            <div className="border-t border-gray-100 bg-white/50 p-4 backdrop-blur-md">
-              {/* Replying message banner */}
-              {/* Gợi ý @mention thành viên (nhóm) */}
-              {mention && mentionCandidates.length > 0 && (
-                <div className="mb-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg">
-                  <div className="border-b border-slate-100 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Nhắc đến thành viên
-                  </div>
-                  <div className="max-h-48 overflow-y-auto">
-                    {mentionCandidates.map((u: any) => (
-                      <button
-                        key={u._id}
-                        type="button"
-                        onClick={() => insertMention(u.displayName)}
-                        className="flex w-full items-center gap-2.5 px-3 py-2 text-left transition hover:bg-indigo-50"
-                      >
-                        <div className="h-7 w-7 shrink-0 overflow-hidden rounded-lg border border-gray-100 bg-slate-100">
-                          {u.photoURL ? (
-                            <img src={u.photoURL} alt={u.displayName} className="h-full w-full object-cover" />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center text-[11px] font-bold text-slate-500">
-                              {(u.displayName || "?").charAt(0).toUpperCase()}
+            <div className="border-t border-gray-100 bg-white/50 p-3 md:p-4 backdrop-blur-md">
+              {canUserMessage ? (
+                <>
+                  {/* Replying message banner */}
+                  {/* Gợi ý @mention thành viên (nhóm) */}
+                  {mention && mentionCandidates.length > 0 && (
+                    <div className="mb-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg">
+                      <div className="border-b border-slate-100 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        Nhắc đến thành viên
+                      </div>
+                      <div className="max-h-48 overflow-y-auto">
+                        {mentionCandidates.map((u: any) => (
+                          <button
+                            key={u._id}
+                            type="button"
+                            onClick={() => insertMention(u.displayName)}
+                            className="flex w-full items-center gap-2.5 px-3 py-2 text-left transition hover:bg-indigo-50"
+                          >
+                            <div className="h-7 w-7 shrink-0 overflow-hidden rounded-lg border border-gray-100 bg-slate-100">
+                              {u.photoURL ? (
+                                <img src={u.photoURL} alt={u.displayName} className="h-full w-full object-cover" />
+                              ) : (
+                                <div className="flex h-full w-full items-center justify-center text-[11px] font-bold text-slate-500">
+                                  {(u.displayName || "?").charAt(0).toUpperCase()}
+                                </div>
+                              )}
                             </div>
-                          )}
+                            <span className="truncate text-sm font-medium text-slate-700">{u.displayName}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {editingMessage && (
+                    <div className="flex items-center justify-between bg-amber-50/80 border border-amber-200/60 rounded-xl px-4 py-2 mb-3 text-xs">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <Edit3 className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                        <div className="min-w-0 flex-1 mr-2">
+                          <p className="font-semibold text-amber-700">Đang sửa tin nhắn</p>
+                          <p className="text-slate-500 truncate mt-0.5">{editingMessage.content}</p>
                         </div>
-                        <span className="truncate text-sm font-medium text-slate-700">{u.displayName}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {editingMessage && (
-                <div className="flex items-center justify-between bg-amber-50/80 border border-amber-200/60 rounded-xl px-4 py-2 mb-3 text-xs">
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <Edit3 className="h-3.5 w-3.5 text-amber-600 shrink-0" />
-                    <div className="min-w-0 flex-1 mr-2">
-                      <p className="font-semibold text-amber-700">Đang sửa tin nhắn</p>
-                      <p className="text-slate-500 truncate mt-0.5">{editingMessage.content}</p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={cancelEdit}
-                    className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-200/40"
-                    title="Hủy sửa (Esc)"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              )}
-
-              {replyingMessage && (
-                <div className="flex items-center justify-between bg-indigo-50/70 border border-indigo-100/50 rounded-xl px-4 py-2 mb-3 text-xs">
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <CornerUpLeft className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
-                    <div className="min-w-0 flex-1 mr-2">
-                      <p className="font-semibold text-indigo-850">
-                        Đang trả lời {replyingMessage.senderName}
-                      </p>
-                      <p className="text-slate-500 truncate mt-0.5">
-                        {replyingMessage.content || (replyingMessage.attachments && replyingMessage.attachments.length > 0 ? "📎 Tệp đính kèm" : "")}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setReplyingMessage(null)}
-                    className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-200/40"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              )}
-
-              {/* Attachments preview list */}
-              {attachments.length > 0 && (
-                <div className="flex flex-wrap gap-2 mb-3">
-                  {attachments.map((file, idx) => (
-                    <div key={idx} className="flex items-center gap-2 rounded-xl bg-indigo-50 border border-indigo-100 p-2 text-xs text-indigo-700">
-                      <FileIcon className="h-3.5 w-3.5" />
-                      <span className="max-w-[120px] truncate font-medium">{file.name}</span>
+                      </div>
                       <button
                         type="button"
-                        onClick={() => setAttachments((prev) => prev.filter((_, i) => i !== idx))}
-                        className="text-indigo-400 hover:text-indigo-600"
+                        onClick={cancelEdit}
+                        className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-200/40"
+                        title="Hủy sửa (Esc)"
                       >
-                        <X className="h-3.5 w-3.5" />
+                        <X className="h-4 w-4" />
                       </button>
                     </div>
-                  ))}
-                </div>
-              )}
+                  )}
 
-              {/* Sticker Picker Panel */}
-              {showStickerPicker && (
-                <div className="mb-3 rounded-2xl border border-slate-200/80 bg-white shadow-lg p-3">
-                  {/* Category Tabs */}
-                  <div className="flex gap-1 border-b border-slate-100 pb-2 mb-2">
-                    {EMOJI_CATEGORIES.map((cat, idx) => (
+                  {replyingMessage && (
+                    <div className="flex items-center justify-between bg-indigo-50/70 border border-indigo-100/50 rounded-xl px-4 py-2 mb-3 text-xs">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <CornerUpLeft className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
+                        <div className="min-w-0 flex-1 mr-2">
+                          <p className="font-semibold text-indigo-850">
+                            Đang trả lời {replyingMessage.senderName}
+                          </p>
+                          <p className="text-slate-500 truncate mt-0.5">
+                            {replyingMessage.content || (replyingMessage.attachments && replyingMessage.attachments.length > 0 ? "📎 Tệp đính kèm" : "")}
+                          </p>
+                        </div>
+                      </div>
                       <button
-                        key={idx}
                         type="button"
-                        onClick={() => setActiveEmojiCategoryTab(idx)}
-                        className={`text-lg p-1.5 rounded-lg transition-all duration-150 ${activeEmojiCategoryTab === idx ? "bg-indigo-50 border-b-2 border-indigo-500 scale-110" : "hover:bg-slate-100"}`}
-                        title={cat.title}
+                        onClick={() => setReplyingMessage(null)}
+                        className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-200/40"
                       >
-                        {cat.icon}
+                        <X className="h-4 w-4" />
                       </button>
-                    ))}
-                  </div>
+                    </div>
+                  )}
 
-                  {/* Emojis Grid */}
-                  <div className="grid grid-cols-8 gap-2.5 max-h-48 overflow-y-auto pr-1">
-                    {EMOJI_CATEGORIES[activeEmojiCategoryTab].emojis.map((emoji, i) => (
-                      <button
-                        key={`${emoji}-${i}`}
-                        type="button"
-                        onClick={() => handleSelectEmoji(emoji)}
-                        className="text-2xl hover:scale-125 transition-transform duration-100 leading-none p-1 rounded-lg hover:bg-slate-50"
-                      >
-                        {emoji}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
+                  {/* Attachments preview list */}
+                  {attachments.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {attachments.map((file, idx) => (
+                        <div key={idx} className="flex items-center gap-2 rounded-xl bg-indigo-50 border border-indigo-100 p-2 text-xs text-indigo-700">
+                          <FileIcon className="h-3.5 w-3.5" />
+                          <span className="max-w-[120px] truncate font-medium">{file.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => setAttachments((prev) => prev.filter((_, i) => i !== idx))}
+                            className="text-indigo-400 hover:text-indigo-600"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
-              <form onSubmit={handleSendMessage} className="flex items-center gap-2">
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploadingFile || isRecording}
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-slate-450 hover:text-indigo-650 hover:bg-indigo-50 border border-slate-150/40 transition active:scale-95 disabled:opacity-50"
-                  title="Đính kèm tài liệu, ảnh, video"
-                >
-                  {uploadingFile ? <Loader2 className="h-5 w-5 animate-spin" /> : <Paperclip className="h-5 w-5" />}
-                </button>
+                  {/* Sticker Picker Panel */}
+                  {showStickerPicker && (
+                    <div className="mb-3 rounded-2xl border border-slate-200/80 bg-white shadow-lg p-3">
+                      {/* Category Tabs */}
+                      <div className="flex gap-1 border-b border-slate-100 pb-2 mb-2">
+                        {EMOJI_CATEGORIES.map((cat, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => setActiveEmojiCategoryTab(idx)}
+                            className={`text-lg p-1.5 rounded-lg transition-all duration-150 ${activeEmojiCategoryTab === idx ? "bg-indigo-50 border-b-2 border-indigo-500 scale-110" : "hover:bg-slate-100"}`}
+                            title={cat.title}
+                          >
+                            {cat.icon}
+                          </button>
+                        ))}
+                      </div>
 
-                {/* Sticker button */}
-                <button
-                  type="button"
-                  onClick={() => setShowStickerPicker((p) => !p)}
-                  disabled={isRecording}
-                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border transition active:scale-95 disabled:opacity-50 ${showStickerPicker ? "bg-amber-50 text-amber-500 border-amber-200" : "bg-slate-50 text-slate-450 hover:text-amber-500 hover:bg-amber-50 border-slate-150/40"}`}
-                  title="Chọn emoji"
-                >
-                  <Smile className="h-5 w-5" />
-                </button>
+                      {/* Emojis Grid */}
+                      <div className="grid grid-cols-8 gap-2.5 max-h-48 overflow-y-auto pr-1">
+                        {EMOJI_CATEGORIES[activeEmojiCategoryTab].emojis.map((emoji, i) => (
+                          <button
+                            key={`${emoji}-${i}`}
+                            type="button"
+                            onClick={() => handleSelectEmoji(emoji)}
+                            className="text-2xl hover:scale-125 transition-transform duration-100 leading-none p-1 rounded-lg hover:bg-slate-50"
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
-                {/* Recording UI or Normal Input */}
-                {isRecording ? (
-                  <div className="flex flex-1 items-center gap-3 rounded-2xl border border-rose-300 bg-rose-50 px-4 py-2.5">
-                    {/* Pulse indicator */}
-                    <span className="relative flex h-3 w-3 shrink-0">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
-                      <span className="relative inline-flex h-3 w-3 rounded-full bg-rose-500" />
-                    </span>
-                    <span className="text-sm font-semibold text-rose-600 flex-1">
-                      Đang ghi... {Math.floor(recordingSeconds / 60).toString().padStart(2, "0")}:{(recordingSeconds % 60).toString().padStart(2, "0")}
-                    </span>
-                    {/* Cancel button */}
-                    <button type="button" onClick={cancelRecording} className="text-slate-400 hover:text-rose-600 transition" title="Hủy">
-                      <X className="h-5 w-5" />
+                  <form onSubmit={handleSendMessage} className="flex items-center gap-2">
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleFileUpload}
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploadingFile || isRecording}
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-slate-450 hover:text-indigo-655 hover:bg-indigo-50 border border-slate-150/40 transition active:scale-95 disabled:opacity-50"
+                      title="Đính kèm tài liệu, ảnh, video"
+                    >
+                      {uploadingFile ? <Loader2 className="h-5 w-5 animate-spin" /> : <Paperclip className="h-5 w-5" />}
                     </button>
-                  </div>
-                ) : (
-                  <textarea
-                    ref={messageInputRef}
-                    rows={1}
-                    placeholder="Nhập tin nhắn..."
-                    value={messageInput}
-                    onChange={handleInputChange}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        // Nếu đang mở gợi ý @mention → chọn người đầu tiên thay vì gửi
-                        if (mention && mentionCandidates.length > 0) {
-                          e.preventDefault();
-                          insertMention(mentionCandidates[0].displayName);
-                          return;
-                        }
-                        e.preventDefault();
-                        handleSendMessage(e as unknown as React.FormEvent);
-                      } else if (e.key === "Escape") {
-                        if (mention) {
-                          e.preventDefault();
-                          setMention(null);
-                        } else if (editingMessage) {
-                          e.preventDefault();
-                          cancelEdit();
-                        }
-                      }
-                    }}
-                    className="flex-1 resize-none max-h-[140px] rounded-2xl border border-slate-200/80 bg-slate-55/60 py-3 px-5 text-sm leading-relaxed outline-none transition-all duration-300 focus:border-indigo-500/80 focus:bg-white focus:ring-4 focus:ring-indigo-500/5 placeholder-slate-450 focus:shadow-[0_0_15px_-3px_rgba(99,102,241,0.15)]"
-                  />
-                )}
 
-                {/* Mic button or Stop & Send when recording */}
-                {isRecording ? (
-                  <button
-                    type="button"
-                    onClick={stopRecording}
-                    disabled={uploadingAudio}
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-r from-rose-500 to-pink-500 text-white shadow-md hover:shadow-lg hover:scale-105 active:scale-95 transition-all duration-300 disabled:opacity-60"
-                    title="Gửi tin nhắn thoại"
-                  >
-                    {uploadingAudio ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-4 w-4" />}
-                  </button>
-                ) : messageInput.trim() || attachments.length > 0 ? (
-                  <button
-                    type="submit"
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white transition-all duration-300 hover:shadow-lg hover:shadow-indigo-200/60 hover:scale-105 active:scale-95 shadow-md shadow-indigo-100"
-                  >
-                    <Send className="h-4 w-4" />
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={startRecording}
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-slate-450 hover:text-rose-500 hover:bg-rose-50 border border-slate-150/40 transition active:scale-95"
-                    title="Ghi âm tin nhắn thoại"
-                  >
-                    <Mic className="h-5 w-5" />
-                  </button>
-                )}
-              </form>
+                    {/* Sticker button */}
+                    <button
+                      type="button"
+                      onClick={() => setShowStickerPicker((p) => !p)}
+                      disabled={isRecording}
+                      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border transition active:scale-95 disabled:opacity-50 ${showStickerPicker ? "bg-amber-50 text-amber-500 border-amber-200" : "bg-slate-50 text-slate-450 hover:text-amber-500 hover:bg-amber-50 border-slate-150/40"}`}
+                      title="Chọn emoji"
+                    >
+                      <Smile className="h-5 w-5" />
+                    </button>
+
+                    {/* Recording UI or Normal Input */}
+                    {isRecording ? (
+                      <div className="flex flex-1 items-center gap-3 rounded-2xl border border-rose-300 bg-rose-50 px-4 py-2.5">
+                        {/* Pulse indicator */}
+                        <span className="relative flex h-3 w-3 shrink-0">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
+                          <span className="relative inline-flex h-3 w-3 rounded-full bg-rose-500" />
+                        </span>
+                        <span className="text-sm font-semibold text-rose-600 flex-1">
+                          Đang ghi... {Math.floor(recordingSeconds / 60).toString().padStart(2, "0")}:{(recordingSeconds % 60).toString().padStart(2, "0")}
+                        </span>
+                        {/* Cancel button */}
+                        <button type="button" onClick={cancelRecording} className="text-slate-400 hover:text-rose-600 transition" title="Hủy">
+                          <X className="h-5 w-5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <textarea
+                        ref={messageInputRef}
+                        rows={1}
+                        placeholder="Nhập tin nhắn..."
+                        value={messageInput}
+                        onChange={handleInputChange}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !e.shiftKey) {
+                            // Nếu đang mở gợi ý @mention → chọn người đầu tiên thay vì gửi
+                            if (mention && mentionCandidates.length > 0) {
+                              e.preventDefault();
+                              insertMention(mentionCandidates[0].displayName);
+                              return;
+                            }
+                            e.preventDefault();
+                            handleSendMessage(e as unknown as React.FormEvent);
+                          } else if (e.key === "Escape") {
+                            if (mention) {
+                              e.preventDefault();
+                              setMention(null);
+                            } else if (editingMessage) {
+                              e.preventDefault();
+                              cancelEdit();
+                            }
+                          }
+                        }}
+                        className="flex-1 resize-none max-h-[140px] rounded-2xl border border-slate-200/80 bg-slate-55/60 py-3 px-5 text-sm leading-relaxed outline-none transition-all duration-300 focus:border-indigo-500/80 focus:bg-white focus:ring-4 focus:ring-indigo-500/5 placeholder-slate-450 focus:shadow-[0_0_15px_-3px_rgba(99,102,241,0.15)]"
+                      />
+                    )}
+
+                    {/* Mic button or Stop & Send when recording */}
+                    {isRecording ? (
+                      <button
+                        type="button"
+                        onClick={stopRecording}
+                        disabled={uploadingAudio}
+                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-r from-rose-500 to-pink-500 text-white shadow-md hover:shadow-lg hover:scale-105 active:scale-95 transition-all duration-300 disabled:opacity-60"
+                        title="Gửi tin nhắn thoại"
+                      >
+                        {uploadingAudio ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-4 w-4" />}
+                      </button>
+                    ) : messageInput.trim() || attachments.length > 0 ? (
+                      <button
+                        type="submit"
+                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white transition-all duration-300 hover:shadow-lg hover:shadow-indigo-200/60 hover:scale-105 active:scale-95 shadow-md shadow-indigo-100"
+                      >
+                        <Send className="h-4 w-4" />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={startRecording}
+                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-slate-450 hover:text-rose-500 hover:bg-rose-50 border border-slate-150/40 transition active:scale-95"
+                        title="Ghi âm tin nhắn thoại"
+                      >
+                        <Mic className="h-5 w-5" />
+                      </button>
+                    )}
+                  </form>
+                </>
+              ) : (
+                <div className="flex items-center justify-center gap-2 rounded-2xl bg-slate-100/80 px-4 py-3 text-center border border-slate-200/50">
+                  <VolumeX className="h-4.5 w-4.5 text-slate-400 shrink-0" />
+                  <span className="text-xs font-semibold text-slate-500">
+                    Chỉ Quản trị viên mới được phép gửi tin nhắn trong nhóm này.
+                  </span>
+                </div>
+              )}
             </div>
           </>
         ) : (

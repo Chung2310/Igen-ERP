@@ -41,7 +41,7 @@ export interface ChatRoomMember {
     role: string;
     status?: "online" | "offline";
   };
-  role: "admin" | "member";
+  role: "admin" | "deputy" | "member";
   joinedAt: string;
 }
 
@@ -56,6 +56,7 @@ export interface ChatRoom {
   avatarURL?: string;
   pinnedMessageIds?: (string | ChatMessage)[];
   unreadCount?: number;
+  onlyAdminsCanMessage?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -129,7 +130,7 @@ export const internalChatService = {
   /**
    * Cập nhật thông tin phòng chat nhóm
    */
-  async updateRoom(roomId: string, updateData: { name?: string; avatarURL?: string }): Promise<ChatRoom> {
+  async updateRoom(roomId: string, updateData: { name?: string; avatarURL?: string; onlyAdminsCanMessage?: boolean }): Promise<ChatRoom> {
     const res = await fetch(`/api/v1/chat/rooms/${roomId}`, {
       method: "PATCH",
       headers: {
@@ -326,7 +327,7 @@ export const internalChatService = {
   /**
    * Cập nhật vai trò thành viên nhóm (Chỉ Admin)
    */
-  async updateMemberRole(roomId: string, userId: string, role: "admin" | "member"): Promise<ChatRoom> {
+  async updateMemberRole(roomId: string, userId: string, role: "admin" | "deputy" | "member"): Promise<ChatRoom> {
     const res = await fetch(`/api/v1/chat/rooms/${roomId}/members/${userId}/role`, {
       method: "POST",
       headers: {

@@ -115,9 +115,9 @@ export const chatController = {
       const userId = req.user!.id;
       const companyCode = req.user!.companyCode || "SYSTEM";
       const { roomId } = req.params;
-      const { name, avatarURL } = req.body;
+      const { name, avatarURL, onlyAdminsCanMessage } = req.body;
 
-      const room = await chatService.updateGroupRoom(roomId, userId, { name, avatarURL }, companyCode);
+      const room = await chatService.updateGroupRoom(roomId, userId, { name, avatarURL, onlyAdminsCanMessage }, companyCode);
 
       // Phát sự kiện cập nhật tới các thành viên
       room.members.forEach((member: any) => {
@@ -276,10 +276,24 @@ export const chatController = {
       const { roomId } = req.params;
       const { content, attachments, replyTo } = req.body;
 
-      const message = await chatService.sendMessage(roomId, senderId, content, attachments, companyCode, replyTo);
-
-      // Lấy chi tiết phòng trò chuyện hiện tại để lấy danh sách thành viên đầy đủ
+      // 1. Lấy chi tiết phòng trò chuyện hiện tại để kiểm tra quyền và lấy danh sách thành viên đầy đủ
       const room = await chatService.getRoomById(roomId, senderId, companyCode);
+
+      // 2. Kiểm tra nếu chỉ Trưởng/Phó nhóm mới được nhắn tin
+      if (room.isGroup && room.onlyAdminsCanMessage) {
+        const member = room.members.find((m: any) => {
+          const mId = m.userId._id ? m.userId._id.toString() : m.userId.toString();
+          return mId === senderId;
+        });
+        if (!member || (member.role !== "admin" && member.role !== "deputy")) {
+          return res.status(403).json({
+            status: "error",
+            message: "Chỉ Trưởng nhóm hoặc Phó nhóm mới được phép gửi tin nhắn trong phòng trò chuyện này.",
+          });
+        }
+      }
+
+      const message = await chatService.sendMessage(roomId, senderId, content, attachments, companyCode, replyTo);
 
       // Phát sự kiện tin nhắn mới (internal_new_message) đến toàn bộ các thành viên trong phòng
       room.members.forEach((member: any) => {

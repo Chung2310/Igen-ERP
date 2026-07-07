@@ -46,6 +46,9 @@ export const updateRoomSchema = {
     avatarURL: Joi.string().uri().optional().allow("").messages({
       "string.uri": "Ảnh đại diện phải là một URL hợp lệ.",
     }),
+    onlyAdminsCanMessage: Joi.boolean().optional().messages({
+      "boolean.base": "Cấu hình 'onlyAdminsCanMessage' phải là kiểu boolean.",
+    }),
   }),
 };
 
@@ -155,9 +158,9 @@ export const updateMemberRoleSchema = {
     }),
   }),
   body: Joi.object({
-    role: Joi.string().valid("admin", "member").required().messages({
+    role: Joi.string().valid("admin", "deputy", "member").required().messages({
       "any.required": "Trường 'role' là bắt buộc.",
-      "any.only": "Trường 'role' chỉ được nhận giá trị 'admin' hoặc 'member'.",
+      "any.only": "Trường 'role' chỉ được nhận giá trị 'admin', 'deputy' hoặc 'member'.",
     }),
   }),
 };
