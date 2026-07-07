@@ -189,7 +189,7 @@ export const chatService = {
   async updateGroupRoom(
     roomId: string,
     userId: string,
-    updateData: { name?: string; avatarURL?: string },
+    updateData: { name?: string; avatarURL?: string; onlyAdminsCanMessage?: boolean },
     companyCode: string
   ): Promise<IChatRoom> {
     const room = await ChatRoomModel.findOne({ _id: roomId, companyCode });
@@ -212,6 +212,9 @@ export const chatService = {
     }
     if (updateData.avatarURL !== undefined) {
       room.avatarURL = updateData.avatarURL;
+    }
+    if (updateData.onlyAdminsCanMessage !== undefined) {
+      room.onlyAdminsCanMessage = updateData.onlyAdminsCanMessage;
     }
 
     await room.save();

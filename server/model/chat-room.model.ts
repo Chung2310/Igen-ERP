@@ -4,7 +4,7 @@ import { IChatRoom } from "../interface/chat-room.interface";
 const ChatRoomMemberSchema = new Schema(
   {
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
-    role: { type: String, enum: ["admin", "member"], default: "member" },
+    role: { type: String, enum: ["admin", "deputy", "member"], default: "member" },
     joinedAt: { type: Date, default: Date.now },
   },
   { _id: false }
@@ -20,6 +20,7 @@ const ChatRoomSchema = new Schema<IChatRoom>(
     lastMessage: { type: Schema.Types.ObjectId, ref: "ChatMessage" },
     avatarURL: { type: String, default: "" },
     pinnedMessageIds: [{ type: Schema.Types.ObjectId, ref: "ChatMessage" }],
+    onlyAdminsCanMessage: { type: Boolean, default: false },
   },
   {
     timestamps: true,
