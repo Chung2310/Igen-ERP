@@ -201,6 +201,10 @@ export default function HRTab() {
             employees={employees}
             isManager={isManager}
             usersList={usersList}
+            onNavigateToWorkflow={(workflowId) => {
+              sessionStorage.setItem("targetWorkflowId", workflowId);
+              setSubTab("QUY TRÌNH");
+            }}
           />
         )}
 

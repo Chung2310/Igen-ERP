@@ -27,4 +27,8 @@ export interface IKanbanTask extends Document {
   tags?: string[];
   linkNote?: string;
   history?: ITaskHistoryEntry[];
+  workflowId?: string;
+  workflowStepId?: string;
+  participantId?: string;
+  isFromWorkflow?: boolean;
 }

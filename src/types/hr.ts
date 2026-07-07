@@ -129,6 +129,10 @@ export interface HRTask {
   tags?: string[];
   linkNote?: string;
   history?: TaskHistoryEntry[];
+  workflowId?: string;
+  workflowStepId?: string;
+  participantId?: string;
+  isFromWorkflow?: boolean;
 }
 
 export interface Lesson {

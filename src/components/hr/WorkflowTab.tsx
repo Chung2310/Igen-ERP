@@ -86,6 +86,29 @@ export default function WorkflowTab({
   const [view, setView] = useState<"list" | "detail">("list");
   const [wizardOpen, setWizardOpen] = useState(false);
 
+  // ---- Theme & Task linkage states ----
+  const [isDark, setIsDark] = useState(() =>
+    document.documentElement.classList.contains("dark")
+  );
+
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setIsDark(document.documentElement.classList.contains("dark"));
+    });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+    return () => observer.disconnect();
+  }, []);
+
+  const [wfTasks, setWfTasks] = useState<any[]>([]);
+  const [selectedPartTasks, setSelectedPartTasks] = useState<{
+    part: WorkflowParticipant;
+    stepTitle: string;
+    tasks: any[];
+  } | null>(null);
+
   // ---- Trạng thái trang chi tiết ----
   const [activeId, setActiveId] = useState<string>("");
   const [wfName, setWfName] = useState("");
@@ -94,6 +117,27 @@ export default function WorkflowTab({
   const [steps, setSteps] = useState<WorkflowStep[]>([]);
   const [participants, setParticipants] = useState<WorkflowParticipant[]>([]);
   const [saving, setSaving] = useState(false);
+
+  const fetchWfTasks = useCallback(async () => {
+    if (!activeId) return;
+    try {
+      const res = await fetch(`/api/v1/crud/kanban-tasks?workflowId=${activeId}`, {
+        headers: { Authorization: `Bearer ${getAccessToken()}` },
+      });
+      if (res.ok) {
+        const json = await res.json();
+        setWfTasks(json.data || []);
+      }
+    } catch (err) {
+      console.error("Lỗi tải danh sách công việc quy trình:", err);
+    }
+  }, [activeId]);
+
+  useEffect(() => {
+    if (activeId && view === "detail") {
+      fetchWfTasks();
+    }
+  }, [activeId, view, fetchWfTasks]);
 
   // Modal chỉnh sửa bước & thêm người
   const [stepDraft, setStepDraft] = useState<WorkflowStep | null>(null);
@@ -131,6 +175,19 @@ export default function WorkflowTab({
   useEffect(() => {
     fetchWorkflows();
   }, [fetchWorkflows]);
+
+  useEffect(() => {
+    if (workflows.length > 0 && view === "list") {
+      const targetWfId = sessionStorage.getItem("targetWorkflowId");
+      if (targetWfId) {
+        const targetWf = workflows.find((w) => w.id === targetWfId);
+        if (targetWf) {
+          openDetail(targetWf);
+          sessionStorage.removeItem("targetWorkflowId");
+        }
+      }
+    }
+  }, [workflows, view]);
 
   // ---- Mở trang chi tiết (wf = null → tạo mới) ----
   const openDetail = (wf: Workflow | null) => {
@@ -396,6 +453,35 @@ export default function WorkflowTab({
     const next = participants.filter((p) => p.id !== pid);
     setParticipants(next);
     autoPersist({ participants: next });
+  };
+
+  const advanceParticipantApi = async (pid: string, nextStepId: string) => {
+    try {
+      const res = await fetch(`/api/v1/crud/workflows/${activeId}/participants/${pid}/advance`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${getAccessToken()}`,
+        },
+        body: JSON.stringify({ nextStepId }),
+      });
+      if (!res.ok) throw new Error("advance failed");
+      toast.success("Đã chuyển bước và khởi tạo công việc Kanban mới.");
+
+      const wfRes = await fetch(`/api/v1/crud/workflows/${activeId}`, {
+        headers: { Authorization: `Bearer ${getAccessToken()}` },
+      });
+      if (wfRes.ok) {
+        const wfJson = await wfRes.json();
+        if (wfJson.data) {
+          setParticipants(wfJson.data.participants || []);
+        }
+      }
+      fetchWfTasks();
+    } catch (err) {
+      console.error("Lỗi chuyển bước:", err);
+      toast.error("Không thể chuyển bước.");
+    }
   };
 
   // ---- Cột hiển thị: mỗi bước + cột Hoàn thành ----
@@ -716,65 +802,111 @@ export default function WorkflowTab({
                       Trống
                     </p>
                   )}
-                  {col.people.map((p) => (
-                    <div
-                      key={p.id}
-                      className="rounded-xl border border-gray-200 bg-white p-2 shadow-sm"
-                    >
-                      <div className="flex items-center gap-2">
-                        <img
-                          src={p.avatar || avatarUrl(p.name)}
-                          alt={p.name}
-                          className="h-7 w-7 shrink-0 rounded-full object-cover"
-                        />
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate text-xs font-bold text-slate-700">
-                            {p.name}
+                  {col.people.map((p) => {
+                    const pStepTasks = wfTasks.filter((t) => t.participantId === p.id && t.workflowStepId === p.currentStepId);
+                    const doneTasks = pStepTasks.filter((t) => t.status === "Done" || t.status === "done").length;
+                    const totalTasks = pStepTasks.length;
+                    const progressPct = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 100;
+                    const allTasksDone = pStepTasks.every((t) => t.status === "Done" || t.status === "done");
+
+                    return (
+                      <div
+                        key={p.id}
+                        className="rounded-xl border border-gray-200 bg-white p-2 shadow-sm"
+                      >
+                        <div className="flex items-center gap-2">
+                          <img
+                            src={p.avatar || avatarUrl(p.name)}
+                            alt={p.name}
+                            className="h-7 w-7 shrink-0 rounded-full object-cover"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-xs font-bold text-slate-700">
+                              {p.name}
+                            </div>
+                            <div className="text-[10px] text-slate-400">
+                              {col.isDone
+                                ? `✓ Xong · ${fmtDate(p.updatedAt)}`
+                                : `Bước ${col.order}/${steps.length} · ${fmtDate(
+                                    p.updatedAt
+                                  )}`}
+                            </div>
                           </div>
-                          <div className="text-[10px] text-slate-400">
-                            {col.isDone
-                              ? `✓ Xong · ${fmtDate(p.updatedAt)}`
-                              : `Bước ${col.order}/${steps.length} · ${fmtDate(
-                                  p.updatedAt
-                                )}`}
-                          </div>
+                          {canEdit && (
+                            <button
+                              onClick={() => removeParticipant(p.id)}
+                              className="rounded p-0.5 text-slate-300 hover:bg-red-50 hover:text-red-500"
+                              title="Gỡ khỏi quy trình"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          )}
                         </div>
-                        {canEdit && (
-                          <button
-                            onClick={() => removeParticipant(p.id)}
-                            className="rounded p-0.5 text-slate-300 hover:bg-red-50 hover:text-red-500"
-                            title="Gỡ khỏi quy trình"
+
+                        {/* Kanban task progress */}
+                        {!col.isDone && totalTasks > 0 && (
+                          <div
+                            className="mt-2 p-1.5 rounded-lg bg-slate-50 hover:bg-indigo-50 border border-slate-100 transition-all cursor-pointer"
+                            onClick={() =>
+                              setSelectedPartTasks({
+                                part: p,
+                                stepTitle: col.step.title,
+                                tasks: pStepTasks,
+                              })
+                            }
+                            title="Nhấp để xem chi tiết công việc Kanban"
                           >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
+                            <div className="flex items-center justify-between text-[9px] font-extrabold text-indigo-700 uppercase mb-1">
+                              <span>Công việc ({doneTasks}/{totalTasks})</span>
+                              <span>{progressPct}%</span>
+                            </div>
+                            <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                              <div
+                                className="bg-indigo-650 h-full rounded-full transition-all"
+                                style={{ width: `${progressPct}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {p.note && (
+                          <p className="mt-1 line-clamp-2 rounded-md bg-slate-50 px-1.5 py-1 text-[10px] text-slate-500">
+                            {p.note}
+                          </p>
+                        )}
+                        {canEdit && (
+                          <div className="mt-1.5 flex items-center gap-1">
+                            <button
+                              onClick={() => moveParticipant(p.id, -1)}
+                              disabled={col.order === 1 && !col.isDone}
+                              className="flex flex-1 items-center justify-center gap-0.5 rounded-md border border-gray-200 py-1 text-[10px] font-bold text-slate-500 hover:bg-gray-50 disabled:opacity-30"
+                            >
+                              <ChevronLeft className="h-3 w-3" /> Lùi
+                            </button>
+                            <button
+                              onClick={() => {
+                                const orderIds = [...steps.map((s) => s.id), DONE_COL];
+                                const idx = orderIds.indexOf(p.currentStepId);
+                                const nextStepId = orderIds[idx + 1];
+                                if (nextStepId) {
+                                  advanceParticipantApi(p.id, nextStepId);
+                                }
+                              }}
+                              disabled={col.isDone || !allTasksDone}
+                              className={`flex flex-1 items-center justify-center gap-0.5 rounded-md py-1 text-[10px] font-bold text-white transition-all ${
+                                col.isDone ? "bg-slate-300 opacity-30 cursor-not-allowed" :
+                                !allTasksDone ? "bg-gray-300 opacity-60 cursor-not-allowed" : ""
+                              }`}
+                              style={!col.isDone && allTasksDone ? { background: ACCENT } : {}}
+                              title={!allTasksDone ? "Hãy hoàn thành tất cả công việc Kanban ở bước này" : "Chuyển sang bước tiếp theo"}
+                            >
+                              Tiếp <ChevronRight className="h-3 w-3" />
+                            </button>
+                          </div>
                         )}
                       </div>
-                      {p.note && (
-                        <p className="mt-1 line-clamp-2 rounded-md bg-slate-50 px-1.5 py-1 text-[10px] text-slate-500">
-                          {p.note}
-                        </p>
-                      )}
-                      {canEdit && (
-                        <div className="mt-1.5 flex items-center gap-1">
-                          <button
-                            onClick={() => moveParticipant(p.id, -1)}
-                            disabled={col.order === 1 && !col.isDone}
-                            className="flex flex-1 items-center justify-center gap-0.5 rounded-md border border-gray-200 py-1 text-[10px] font-bold text-slate-500 hover:bg-gray-50 disabled:opacity-30"
-                          >
-                            <ChevronLeft className="h-3 w-3" /> Lùi
-                          </button>
-                          <button
-                            onClick={() => moveParticipant(p.id, 1)}
-                            disabled={col.isDone}
-                            className="flex flex-1 items-center justify-center gap-0.5 rounded-md py-1 text-[10px] font-bold text-white disabled:opacity-30"
-                            style={{ background: col.isDone ? "#94a3b8" : ACCENT }}
-                          >
-                            Tiếp <ChevronRight className="h-3 w-3" />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
               </React.Fragment>
@@ -896,6 +1028,77 @@ export default function WorkflowTab({
               >
                 <Plus className="h-3.5 w-3.5" /> Thêm vào bước 1
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Drawer xem danh sách công việc Kanban của người tham gia */}
+      {selectedPartTasks && (
+        <div
+          className="fixed inset-0 z-50 flex justify-end bg-black/40"
+          onClick={() => setSelectedPartTasks(null)}
+        >
+          <div
+            className={`w-full max-w-md h-full shadow-2xl flex flex-col p-5 animate-in slide-in-from-right duration-200 transition-colors ${
+              isDark ? "bg-[#1c1c1c] text-zinc-150 border-l border-zinc-800" : "bg-white text-slate-800"
+            }`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className={`flex items-center justify-between border-b pb-3 mb-4 ${isDark ? "border-zinc-800" : "border-gray-200"}`}>
+              <div>
+                <h3 className={`text-sm font-bold ${isDark ? "text-zinc-200" : "text-slate-800"}`}>
+                  Công việc của: {selectedPartTasks.part.name}
+                </h3>
+                <p className={`text-xs ${isDark ? "text-zinc-500" : "text-slate-400"}`}>
+                  Bước: {selectedPartTasks.stepTitle}
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedPartTasks(null)}
+                className={`p-1.5 rounded-lg transition-colors ${
+                  isDark ? "hover:bg-zinc-800 text-zinc-400 hover:text-zinc-250" : "hover:bg-gray-100 text-slate-400"
+                }`}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto space-y-3">
+              {selectedPartTasks.tasks.length === 0 ? (
+                <p className="text-xs text-slate-400 italic text-center py-6">
+                  Không có công việc nào ở bước này.
+                </p>
+              ) : (
+                selectedPartTasks.tasks.map((task) => (
+                  <div
+                    key={task.id || task._id}
+                    className={`p-3 border rounded-xl transition-all ${
+                      isDark 
+                        ? "bg-[#242424] border-zinc-850 hover:bg-[#282828] text-zinc-200" 
+                        : "bg-slate-50/50 border-gray-150 hover:bg-slate-50 text-slate-700"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="text-xs font-bold">{task.title}</span>
+                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold border whitespace-nowrap ${
+                        task.status === "Done" || task.status === "done"
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-250"
+                          : task.status === "In Progress" || task.status === "doing"
+                          ? "bg-sky-50 text-sky-700 border-sky-200"
+                          : "bg-slate-100 text-slate-500 border-gray-250"
+                      }`}>
+                        {task.status === "Done" || task.status === "done" ? "Đã xong" :
+                         task.status === "In Progress" || task.status === "doing" ? "Đang làm" : "Chưa làm"}
+                      </span>
+                    </div>
+                    <div className={`mt-2 flex items-center justify-between text-[10px] ${
+                      isDark ? "text-zinc-550" : "text-slate-400"
+                    }`}>
+                      <span>👤 {task.assignee}</span>
+                      {task.dueDate && <span>⏱ {task.dueDate}</span>}
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>

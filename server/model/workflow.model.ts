@@ -8,6 +8,36 @@ const WorkflowStepSchema = new Schema(
     description: { type: String, default: "" },
     assigneeUid: { type: String, default: "" },
     assignee: { type: String, default: "" },
+    assigneeUids: { type: [String], default: [] },
+    relatedUids: { type: [String], default: [] },
+    domain: { type: String, default: "" },
+    priority: {
+      type: String,
+      enum: ["urgent_important", "urgent", "important", "normal"],
+      default: "normal",
+    },
+    deadlineType: {
+      type: String,
+      enum: ["same_day", "after_1", "after_2", "after_x", "none", "custom_time"],
+      default: "none",
+    },
+    deadlineDays: { type: Number },
+    deadlineTime: { type: String, default: "" },
+    subTasks: {
+      type: [
+        new Schema(
+          {
+            id: { type: String, required: true },
+            title: { type: String, required: true },
+            assigneeUid: { type: String, default: "" },
+            assignee: { type: String, default: "" },
+            done: { type: Boolean, default: false },
+          },
+          { _id: false }
+        ),
+      ],
+      default: [],
+    },
     type: {
       type: String,
       enum: ["start", "task", "approval", "end"],

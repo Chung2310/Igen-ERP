@@ -6,6 +6,14 @@ export interface IWorkflowStep {
   description?: string;
   assigneeUid?: string;
   assignee?: string;
+  assigneeUids?: string[];
+  relatedUids?: string[];
+  domain?: string;
+  priority?: "urgent_important" | "urgent" | "important" | "normal";
+  deadlineType?: "same_day" | "after_1" | "after_2" | "after_x" | "none" | "custom_time";
+  deadlineDays?: number;
+  deadlineTime?: string;
+  subTasks?: { id: string; title: string; assigneeUid?: string; assignee?: string; done?: boolean }[];
   /** @deprecated Không còn phân loại ô — giữ lại để tương thích dữ liệu cũ */
   type?: "start" | "task" | "approval" | "end";
   estDays?: number;

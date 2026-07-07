@@ -32,6 +32,7 @@ interface KanbanTabProps {
   employees: EmployeeNode[];
   isManager: boolean;
   usersList: UserProfile[];
+  onNavigateToWorkflow?: (workflowId: string) => void;
 }
 
 const isUrl = (str?: string): boolean => {
@@ -254,12 +255,46 @@ export default function KanbanTab({
   selectedCompanyCode,
   employees,
   isManager,
-  usersList
+  usersList,
+  onNavigateToWorkflow
 }: KanbanTabProps) {
   const [tasks, setTasks] = useState<HRTask[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [kanbanViewTab, setKanbanViewTab] = useState<"By project" | "Board" | "All tasks">("By project");
+  const [kanbanViewTab, setKanbanViewTab] = useState<"By project" | "Board" | "All tasks" | "By workflow">("By project");
   const [selectedKanbanTask, setSelectedKanbanTask] = useState<HRTask | null>(null);
+  const [selectedWorkflowFilter, setSelectedWorkflowFilter] = useState<string | null>(null);
+
+  // Group tasks by workflow
+  const workflowGroupedTasks = React.useMemo(() => {
+    const groups: Record<string, typeof tasks> = {};
+    tasks.forEach((t) => {
+      if (t.isFromWorkflow && t.workflowId) {
+        const wfName = t.tags?.[0] || "Quy trình liên kết";
+        const key = `${t.workflowId}::${wfName}`;
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(t);
+      } else {
+        if (!groups["other"]) groups["other"] = [];
+        groups["other"].push(t);
+      }
+    });
+    return groups;
+  }, [tasks]);
+
+  // Extract unique workflows from tasks
+  const uniqueWorkflows = React.useMemo(() => {
+    const wfs: { id: string; name: string }[] = [];
+    const seen = new Set<string>();
+    tasks.forEach((t) => {
+      if (t.isFromWorkflow && t.workflowId) {
+        if (!seen.has(t.workflowId)) {
+          seen.add(t.workflowId);
+          wfs.push({ id: t.workflowId, name: t.tags?.[0] || "Quy trình liên kết" });
+        }
+      }
+    });
+    return wfs;
+  }, [tasks]);
 
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
@@ -735,9 +770,16 @@ export default function KanbanTab({
     }
   };
 
-  const visibleTasks = kanbanFilter
-    ? tasks.filter(t => t.assignee.toLowerCase() === kanbanFilter.toLowerCase())
-    : tasks;
+  const visibleTasks = React.useMemo(() => {
+    let list = tasks;
+    if (kanbanFilter) {
+      list = list.filter((t) => t.assignee.toLowerCase() === kanbanFilter.toLowerCase());
+    }
+    if (selectedWorkflowFilter) {
+      list = list.filter((t) => t.isFromWorkflow && t.workflowId === selectedWorkflowFilter);
+    }
+    return list;
+  }, [tasks, kanbanFilter, selectedWorkflowFilter]);
 
   return (
     <>
@@ -750,7 +792,7 @@ export default function KanbanTab({
 
               {/* Tab buttons */}
               <div className="flex bg-gray-100 border border-gray-200 p-1 rounded-xl text-xs font-semibold gap-1 select-none">
-                {(["By project", "Board", "All tasks"] as const).map((vt) => (
+                {(["By project", "Board", "All tasks", "By workflow"] as const).map((vt) => (
                   <button
                     key={vt}
                     onClick={() => setKanbanViewTab(vt)}
@@ -758,7 +800,9 @@ export default function KanbanTab({
                       kanbanViewTab === vt ? "bg-white text-slate-850 shadow-xs" : "text-gray-500 hover:text-slate-700"
                     }`}
                   >
-                    {vt === "By project" ? "Theo dự án" : vt === "Board" ? "Bảng Kanban" : "Tất cả công việc"}
+                    {vt === "By project" ? "Theo dự án" : 
+                     vt === "Board" ? "Bảng Kanban" : 
+                     vt === "By workflow" ? "Theo quy trình" : "Tất cả công việc"}
                   </button>
                 ))}
               </div>
@@ -773,10 +817,22 @@ export default function KanbanTab({
                   onChange={(e) => setKanbanFilter(e.target.value || null)}
                   className="border border-gray-200 p-1.5 rounded-xl text-xs bg-white outline-none cursor-pointer"
                 >
-                  <option value="">Lọc theo nhân sự</option>
+                  <option value="">Lọc nhân sự</option>
                   {employees.map(emp => (
                     <option key={emp.id} value={emp.name}>
-                      {emp.name} ({emp.role})
+                      {emp.name}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={selectedWorkflowFilter || ""}
+                  onChange={(e) => setSelectedWorkflowFilter(e.target.value || null)}
+                  className="border border-gray-200 p-1.5 rounded-xl text-xs bg-white outline-none cursor-pointer ml-1"
+                >
+                  <option value="">Lọc quy trình</option>
+                  {uniqueWorkflows.map(wf => (
+                    <option key={wf.id} value={wf.id}>
+                      {wf.name}
                     </option>
                   ))}
                 </select>
@@ -936,6 +992,7 @@ export default function KanbanTab({
                       canDelete={isManager || task.creatorUid === userProfile?.uid}
                       onClick={() => setSelectedKanbanTask(task)}
                       projects={projects}
+                      onNavigateToWorkflow={onNavigateToWorkflow}
                     />
                   ))}
                 </div>
@@ -962,6 +1019,7 @@ export default function KanbanTab({
                       canDelete={isManager || task.creatorUid === userProfile?.uid}
                       onClick={() => setSelectedKanbanTask(task)}
                       projects={projects}
+                      onNavigateToWorkflow={onNavigateToWorkflow}
                     />
                   ))}
                 </div>
@@ -988,6 +1046,7 @@ export default function KanbanTab({
                       canDelete={isManager || task.creatorUid === userProfile?.uid}
                       onClick={() => setSelectedKanbanTask(task)}
                       projects={projects}
+                      onNavigateToWorkflow={onNavigateToWorkflow}
                     />
                   ))}
                 </div>
@@ -1014,6 +1073,7 @@ export default function KanbanTab({
                       canDelete={isManager || task.creatorUid === userProfile?.uid}
                       onClick={() => setSelectedKanbanTask(task)}
                       projects={projects}
+                      onNavigateToWorkflow={onNavigateToWorkflow}
                     />
                   ))}
                 </div>
@@ -1029,6 +1089,87 @@ export default function KanbanTab({
               projects={projects}
               onSelectTask={setSelectedKanbanTask}
             />
+          )}
+
+          {/* Tab 4: Workflow-grouped tasks list */}
+          {kanbanViewTab === "By workflow" && (
+            <div className="space-y-4">
+              {Object.keys(workflowGroupedTasks).length === 0 || (Object.keys(workflowGroupedTasks).length === 1 && workflowGroupedTasks["other"]?.length === tasks.length) ? (
+                <div className="text-center py-12 text-gray-400 select-none">
+                  <Briefcase className="h-12 w-12 mx-auto text-gray-200 mb-3" />
+                  <p className="font-bold text-sm">Chưa có công việc nào liên kết với Quy trình</p>
+                </div>
+              ) : (
+                <>
+                  {Object.entries(workflowGroupedTasks).map(([key, value]) => {
+                    if (key === "other") return null;
+                    const groupTasks = value as HRTask[];
+                    const [wfId, wfName] = key.split("::");
+                    const isExpanded = !!expandedProjects[wfId];
+
+                    const filteredGroupTasks = groupTasks.filter(t => visibleTasks.some(vt => vt.id === t.id));
+
+                    return (
+                      <div key={wfId} className="border border-gray-200 rounded-2xl overflow-hidden shadow-2xs">
+                        <div
+                          onClick={() => setExpandedProjects(p => ({ ...p, [wfId]: !isExpanded }))}
+                          className="bg-slate-50 px-5 py-3.5 flex items-center justify-between cursor-pointer select-none hover:bg-slate-100/80 transition-colors"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <ChevronRight className={`h-4.5 w-4.5 text-slate-555 transition-transform ${isExpanded ? "rotate-90" : ""}`} />
+                            <span className="w-2.5 h-2.5 rounded-full bg-purple-500 shrink-0" />
+                            <h3 className="font-bold text-slate-800 text-sm truncate">Quy trình: {wfName}</h3>
+                            <span className="px-2 py-0.5 bg-purple-50 border border-purple-150 text-purple-700 font-mono text-[9px] font-bold rounded-full">
+                              {filteredGroupTasks.length} việc
+                            </span>
+                          </div>
+                        </div>
+
+                        {isExpanded && (
+                          <div className="p-4 bg-white border-t border-gray-150 max-h-[400px] overflow-y-auto">
+                            <TaskTable
+                              tasks={filteredGroupTasks}
+                              showProjectColumn={true}
+                              projects={projects}
+                              onSelectTask={setSelectedKanbanTask}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {/* Tasks not from any workflow */}
+                  {workflowGroupedTasks["other"] && workflowGroupedTasks["other"].length > 0 && (
+                    <div className="border border-gray-200 rounded-2xl overflow-hidden shadow-2xs">
+                      <div
+                        onClick={() => setExpandedProjects(p => ({ ...p, other_wf: !expandedProjects.other_wf }))}
+                        className="bg-slate-50 px-5 py-3.5 flex items-center justify-between cursor-pointer select-none hover:bg-slate-100/80 transition-colors"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <ChevronRight className={`h-4.5 w-4.5 text-slate-555 transition-transform ${expandedProjects.other_wf ? "rotate-90" : ""}`} />
+                          <Tag className="h-4 w-4 text-slate-500 shrink-0" />
+                          <h3 className="font-bold text-slate-600 text-sm">Công việc ngoài Quy trình</h3>
+                          <span className="px-2 py-0.5 bg-slate-150 text-slate-600 font-mono text-[9px] font-bold rounded-full">
+                            {workflowGroupedTasks["other"].filter(t => visibleTasks.some(vt => vt.id === t.id)).length} việc
+                          </span>
+                        </div>
+                      </div>
+                      {expandedProjects.other_wf && (
+                        <div className="p-4 bg-white border-t border-gray-150 max-h-[400px] overflow-y-auto">
+                          <TaskTable
+                            tasks={workflowGroupedTasks["other"].filter(t => visibleTasks.some(vt => vt.id === t.id))}
+                            showProjectColumn={true}
+                            projects={projects}
+                            onSelectTask={setSelectedKanbanTask}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -1382,7 +1523,8 @@ function KanbanCard({
   onDelete,
   canDelete,
   onClick,
-  projects
+  projects,
+  onNavigateToWorkflow
 }: {
   key?: any;
   task: HRTask;
@@ -1391,6 +1533,7 @@ function KanbanCard({
   canDelete: boolean;
   onClick: () => void;
   projects: Project[];
+  onNavigateToWorkflow?: (workflowId: string) => void;
 }) {
   return (
     <div
@@ -1418,6 +1561,19 @@ function KanbanCard({
           <div className="flex items-center gap-1 text-[9px] text-slate-650 font-semibold select-none">
             <Target className="w-3 h-3 text-indigo-500 shrink-0" />
             <span className="truncate">{projects.find(p => p.id === task.projectId)?.name || "Không có dự án"}</span>
+          </div>
+        )}
+        {task.isFromWorkflow && (
+          <div
+            onClick={(e) => {
+              e.stopPropagation();
+              onNavigateToWorkflow && onNavigateToWorkflow(task.workflowId || "");
+            }}
+            className="flex items-center gap-1 text-[9px] text-purple-655 font-extrabold select-none bg-purple-50/70 border border-purple-100/80 rounded-lg px-2 py-0.5 w-fit hover:bg-purple-100 transition-colors"
+            title="Xem quy trình chi tiết"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-purple-500 shrink-0 animate-pulse" />
+            <span className="truncate">Quy trình · {task.tags?.[0] || "Liên kết"}</span>
           </div>
         )}
       </div>
