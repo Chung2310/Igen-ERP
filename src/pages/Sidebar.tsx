@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import {
   ChevronRight,
+  FolderOpen,
   LayoutDashboard,
   LineChart,
   Megaphone,
@@ -112,6 +113,13 @@ const baseMenuItems: MenuItem[] = [
     desc: "Chăm sóc và phễu khách hàng",
     icon: MessageSquareShare,
     tone: "rose",
+  },
+  {
+    label: "QUẢN LÝ TÀI NGUYÊN",
+    title: "Quản lý tài nguyên",
+    desc: "Tài liệu nội bộ và Google Drive",
+    icon: FolderOpen,
+    tone: "indigo",
   },
 ];
 

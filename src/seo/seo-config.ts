@@ -137,6 +137,16 @@ export const TAB_SEO_MAP: Record<TabType, SeoMeta> = {
     priority: "0.8",
     changeFrequency: "weekly",
   },
+  "QUẢN LÝ TÀI NGUYÊN": {
+    title: "Quản lý tài nguyên - Lưu trữ và đồng bộ Google Drive",
+    description:
+      "Không gian quản lý tài nguyên, tài liệu nội bộ và liên kết đồng bộ trực tiếp với tài khoản Google Drive cá nhân của nhân viên trên iGen ERP.",
+    keywords:
+      "quản lý tài nguyên, lưu trữ tài liệu, google drive erp, đồng bộ google drive, thư mục tài nguyên, igen erp",
+    path: "/quan-ly-tai-nguyen",
+    priority: "0.8",
+    changeFrequency: "weekly",
+  },
   "HIỆU SUẤT AI": {
     title: "Giám sát hiệu suất AI - Phân tích tự động hóa vận hành",
     description:

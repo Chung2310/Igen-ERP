@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { CheckCircle, Facebook, RefreshCw, Trash2, User, MessageCircleMore, Film } from "lucide-react";
+import { CheckCircle, Facebook, RefreshCw, Trash2, User, MessageCircleMore, Film, HardDrive } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { socialIntegrationService, SocialIntegration } from "../../services/socialIntegrationService";
 import { toast } from "../../pages/Toast";
+import { getAccessToken } from "../../services/authService";
 
 export default function PersonalIntegrationsTab() {
   const {
@@ -22,6 +23,7 @@ export default function PersonalIntegrationsTab() {
   const [savingZalo, setSavingZalo] = useState(false);
   const [savingTikTok, setSavingTikTok] = useState(false);
   const [connectingTikTokOAuth, setConnectingTikTokOAuth] = useState(false);
+  const [connectingGoogleDrive, setConnectingGoogleDrive] = useState(false);
 
   const [facebookForm, setFacebookForm] = useState({
     pageId: "",
@@ -127,6 +129,20 @@ export default function PersonalIntegrationsTab() {
     return () => window.removeEventListener("message", handleTikTokOAuthMessage);
   }, [refreshProfile]);
 
+  useEffect(() => {
+    const handleGoogleDriveMessage = async (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type === "GOOGLE_DRIVE_CONNECTED") {
+        toast.success(`Đã kết nối Google Drive cá nhân thành công!`);
+        void refreshProfile();
+      } else if (event.data?.type === "GOOGLE_DRIVE_FAILED") {
+        toast.error(event.data.error || "Kết nối Google Drive cá nhân thất bại.");
+      }
+    };
+    window.addEventListener("message", handleGoogleDriveMessage);
+    return () => window.removeEventListener("message", handleGoogleDriveMessage);
+  }, [refreshProfile]);
+
   const handleTikTokOAuth = async () => {
     setConnectingTikTokOAuth(true);
     try {
@@ -184,6 +200,63 @@ export default function PersonalIntegrationsTab() {
       console.error("Lỗi khởi tạo TikTok OAuth:", error);
       toast.error(error.message || "Không thể mở cửa sổ kết nối TikTok.");
       setConnectingTikTokOAuth(false);
+    }
+  };
+
+  const handleGoogleDriveOAuth = async () => {
+    setConnectingGoogleDrive(true);
+    try {
+      localStorage.removeItem("google_drive_oauth_result");
+      const res = await fetch("/api/v1/integrations/google-drive/auth-url", {
+        headers: { Authorization: `Bearer ${getAccessToken()}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Không thể lấy link xác thực Google.");
+
+      const authUrl = data.authUrl;
+      const width = 600;
+      const height = 650;
+      const left = window.screen.width / 2 - width / 2;
+      const top = window.screen.height / 2 - height / 2;
+      const oauthWindow = window.open(
+        authUrl,
+        "GoogleDriveOAuthPopup",
+        `width=${width},height=${height},left=${left},top=${top},status=no,resizable=yes,scrollbars=yes`
+      );
+
+      if (!oauthWindow) {
+        throw new Error("Trình duyệt đang chặn cửa sổ popup. Vui lòng cho phép popup để kết nối.");
+      }
+
+      const checkInterval = setInterval(() => {
+        if (oauthWindow.closed) {
+          clearInterval(checkInterval);
+          setConnectingGoogleDrive(false);
+        }
+      }, 800);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Không thể kết nối Google Drive.");
+      setConnectingGoogleDrive(false);
+    }
+  };
+
+  const handleDisconnectGoogleDrive = async () => {
+    if (!window.confirm("Bạn có chắc chắn muốn ngắt kết nối Google Drive cá nhân không?")) {
+      return;
+    }
+    try {
+      const res = await fetch("/api/v1/integrations/google-drive/disconnect", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${getAccessToken()}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Không thể ngắt kết nối.");
+      toast.success("Đã ngắt kết nối Google Drive.");
+      void refreshProfile();
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Lỗi ngắt kết nối Google Drive.");
     }
   };
 
@@ -426,12 +499,12 @@ export default function PersonalIntegrationsTab() {
           Danh Sách Tài Khoản Cá Nhân Đã Kết Nối
         </h3>
         
-        {!(userProfile?.facebookIntegration?.isConnected || userProfile?.zaloIntegration?.isConnected || userProfile?.tiktokIntegration?.isConnected) ? (
+        {!(userProfile?.facebookIntegration?.isConnected || userProfile?.zaloIntegration?.isConnected || userProfile?.tiktokIntegration?.isConnected || userProfile?.googleDriveIntegration?.isConnected) ? (
           <div className="text-center py-6 text-gray-400 text-xs italic">
             Chưa có tài khoản mạng xã hội cá nhân nào được thêm. Hãy cấu hình ở các biểu mẫu bên dưới.
           </div>
         ) : (
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-4">
             {userProfile?.facebookIntegration?.isConnected && (
               <div className="flex items-center justify-between p-4 border border-blue-100 bg-blue-50/30 rounded-2xl">
                 <div className="flex items-center gap-3 text-left">
@@ -509,11 +582,33 @@ export default function PersonalIntegrationsTab() {
                 </button>
               </div>
             )}
+
+            {userProfile?.googleDriveIntegration?.isConnected && (
+              <div className="flex items-center justify-between p-4 border border-indigo-100 bg-indigo-50/30 rounded-2xl">
+                <div className="flex items-center gap-3 text-left">
+                  <div className="w-10 h-10 rounded-full bg-indigo-650 flex items-center justify-center text-white shrink-0 shadow-xs">
+                    <HardDrive className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-slate-800 truncate">{userProfile.googleDriveIntegration.driveEmail || "Google Drive"}</p>
+                    <p className="text-[10px] text-gray-500 font-mono truncate">ID: {userProfile.googleDriveIntegration.rootFolderId || "iGen Thư mục"}</p>
+                    <span className="inline-block mt-1 px-2 py-0.5 bg-indigo-100 text-indigo-700 text-[9px] font-bold rounded-full">Google Drive</span>
+                  </div>
+                </div>
+                <button
+                  onClick={handleDisconnectGoogleDrive}
+                  className="p-2 text-rose-600 hover:bg-rose-50 rounded-xl transition-all cursor-pointer"
+                  title="Gỡ liên kết"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-4">
         <div className="rounded-2xl border border-blue-200 bg-white p-5 shadow-xs">
           <div className="flex items-center gap-2 text-left">
             <Facebook className="h-5 w-5 text-blue-600" />
@@ -762,6 +857,46 @@ export default function PersonalIntegrationsTab() {
               </button>
             </div>
           </form>
+        </div>
+
+        <div className="rounded-2xl border border-indigo-200 bg-white p-5 shadow-xs">
+          <div className="flex items-center gap-2 text-left">
+            <HardDrive className="h-5 w-5 text-indigo-650" />
+            <div>
+              <h4 className="text-sm font-bold text-slate-800">Google Drive</h4>
+              <p className="text-[11px] text-slate-500">Bộ nhớ lưu trữ tài nguyên cá nhân.</p>
+            </div>
+          </div>
+
+          <div className="mt-4 p-4 rounded-2xl bg-indigo-50/70 border border-indigo-100 text-left space-y-3">
+            <p className="text-[11px] leading-relaxed text-indigo-900">
+              Liên kết tài khoản Google Drive cá nhân của bạn để upload và đồng bộ trực tiếp ảnh/video từ ERP.
+            </p>
+            {userProfile?.googleDriveIntegration?.isConnected ? (
+              <div className="space-y-2">
+                <div className="text-xs bg-white/80 p-2.5 rounded-xl border border-indigo-100 font-medium text-slate-700">
+                  <p className="text-[10px] text-gray-400 font-bold uppercase">Đã liên kết email</p>
+                  <p className="mt-0.5 truncate font-mono text-[11px]">{userProfile.googleDriveIntegration.driveEmail}</p>
+                </div>
+                <button
+                  onClick={handleDisconnectGoogleDrive}
+                  className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl border border-red-200 bg-red-50 py-2.5 text-xs font-bold text-red-700 hover:bg-red-100/60 transition cursor-pointer"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Ngắt kết nối Google Drive
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={handleGoogleDriveOAuth}
+                disabled={connectingGoogleDrive}
+                className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-indigo-650 px-4 py-2.5 text-xs font-bold text-white hover:bg-indigo-700 transition cursor-pointer disabled:opacity-60"
+              >
+                <HardDrive className="h-3.5 w-3.5" />
+                {connectingGoogleDrive ? "Đang mở popup..." : "Kết nối Google Drive"}
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

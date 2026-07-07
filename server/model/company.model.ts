@@ -20,6 +20,15 @@ const CompanyElevenLabsConfigSchema = new Schema(
   { _id: false }
 );
 
+const CompanyDriveOAuthSchema = new Schema(
+  {
+    refreshToken: { type: String, default: "" },
+    connectedEmail: { type: String, default: "" },
+    connectedAt: { type: Date, default: null },
+  },
+  { _id: false }
+);
+
 const CompanySchema = new Schema<ICompany>({
   code: { type: String, required: true, unique: true, index: true, uppercase: true },
   name: { type: String, required: true },
@@ -27,6 +36,9 @@ const CompanySchema = new Schema<ICompany>({
   ownerEmail: { type: String, required: true },
   heygenConfig: { type: CompanyHeyGenConfigSchema, default: () => ({}) },
   elevenlabsConfig: { type: CompanyElevenLabsConfigSchema, default: () => ({}) },
+  driveFolderLink: { type: String, default: "" },
+  driveOAuth: { type: CompanyDriveOAuthSchema, default: () => ({}) },
+  driveFolderId: { type: String, default: "" },
 });
 
 export const CompanyModel = model<ICompany>("Company", CompanySchema);

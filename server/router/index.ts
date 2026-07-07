@@ -19,6 +19,8 @@ import { walletRouter } from "./wallet.router";
 import { professionalRouter } from "./professional.router";
 import { klingRouter } from "./kling.router";
 import { opusclipRouter } from "./opusclip.router";
+import { googleDriveRouter } from "./google-drive.router";
+import { resourceRouter } from "./resource.router";
 export const apiRouter = Router();
 /**
  * GET /api/v1/health
@@ -68,6 +70,12 @@ apiRouter.use("/scheduler", schedulerRouter);
 
 // Gắn kết router phụ của Media Cloudinary Relay
 apiRouter.use("/media", mediaRouter);
+
+// Gắn kết router phụ của Google Drive Tích hợp cá nhân
+apiRouter.use("/integrations/google-drive", googleDriveRouter);
+
+// Quản lý tài nguyên — file explorer nội bộ + tài liệu Google Drive
+apiRouter.use("/resources", resourceRouter);
 
 // Gắn kết router phụ của Xác thực JWT
 apiRouter.use("/auth", authRouter);
