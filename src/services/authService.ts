@@ -55,10 +55,12 @@ export const authService = {
 
   // Đăng xuất
   async logout(): Promise<void> {
+    const token = localStorage.getItem("accessToken");
     localStorage.removeItem("accessToken");
     try {
       await fetch("/api/v1/auth/logout", {
         method: "POST",
+        headers: token ? { "Authorization": `Bearer ${token}` } : {},
       });
     } catch (err) {
       console.error("Lỗi khi gọi API đăng xuất phía server:", err);
@@ -438,6 +440,60 @@ export const authService = {
 
     const result = await res.json();
     return result.data;
+  },
+
+  async getCompanyDriveConfig(companyCode: string): Promise<{
+    companyCode: string;
+    companyName: string;
+    driveFolderLink: string;
+    driveConnected: boolean;
+    driveConnectedEmail: string;
+  }> {
+    const res = await fetch(`/api/v1/auth/companies/${encodeURIComponent(companyCode)}/drive`, {
+      headers: {
+        "Authorization": `Bearer ${getAccessToken()}`,
+      },
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.message || "Không thể lấy cấu hình Google Drive doanh nghiệp");
+    }
+
+    const result = await res.json();
+    return result.data;
+  },
+
+  /** Lấy link OAuth để mở popup kết nối Google Drive. */
+  async getDriveOAuthUrl(companyCode: string): Promise<string> {
+    const res = await fetch(`/api/v1/auth/companies/${encodeURIComponent(companyCode)}/drive/oauth-url`, {
+      headers: {
+        "Authorization": `Bearer ${getAccessToken()}`,
+      },
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.message || "Không tạo được link kết nối Google Drive");
+    }
+
+    const result = await res.json();
+    return result.data.url as string;
+  },
+
+  /** Ngắt kết nối Google Drive của doanh nghiệp. */
+  async disconnectCompanyDrive(companyCode: string): Promise<void> {
+    const res = await fetch(`/api/v1/auth/companies/${encodeURIComponent(companyCode)}/drive/disconnect`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${getAccessToken()}`,
+      },
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.message || "Không thể ngắt kết nối Google Drive");
+    }
   },
 
   async testCompanyHeyGenConfig(companyCode: string, apiKey?: string): Promise<any> {

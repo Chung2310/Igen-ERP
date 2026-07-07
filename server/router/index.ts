@@ -19,6 +19,9 @@ import { walletRouter } from "./wallet.router";
 import { professionalRouter } from "./professional.router";
 import { klingRouter } from "./kling.router";
 import { opusclipRouter } from "./opusclip.router";
+import { chatRouter } from "./chat.router";
+import { chatbotRouter } from "./chatbot.router";
+import { resourceRouter } from "./resource.router";
 export const apiRouter = Router();
 /**
  * GET /api/v1/health
@@ -84,6 +87,9 @@ apiRouter.use("/wallet", walletRouter);
 // Gắn kết router CRUD đa năng (MongoDB)
 apiRouter.use("/crud", crudRouter);
 
+// Gắn kết router chat nội bộ
+apiRouter.use("/chat", chatRouter);
+
 // Public Professional Video Render API (auth bằng X-API-Key header)
 apiRouter.use("/professional", professionalRouter);
 
@@ -92,3 +98,9 @@ apiRouter.use("/kling", klingRouter);
 
 // OpusClip AI — Long-to-Short video clipping
 apiRouter.use("/opusclip", opusclipRouter);
+
+// Trợ lý ảo AI — chatbot ngữ cảnh dữ liệu doanh nghiệp
+apiRouter.use("/chatbot", chatbotRouter);
+
+// Quản lý tài nguyên — file explorer nội bộ + tài liệu Google Drive
+apiRouter.use("/resources", resourceRouter);
