@@ -32,6 +32,10 @@ export const APP_ROUTES: AppRoute[] = [
     component: lazy(() => import("../pages/CRMTab")),
   },
   {
+    tab: "QUẢN LÝ HỌC VIÊN",
+    component: lazy(() => import("../modules/student-management/StudentManagementTab")),
+  },
+  {
     tab: "HIỆU SUẤT AI",
     component: lazy(() => import("../pages/AIPerformanceTab")),
     canAccess: (userProfile) => userProfile.role === "superadmin",

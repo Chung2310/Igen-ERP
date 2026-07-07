@@ -19,6 +19,7 @@ import { walletRouter } from "./wallet.router";
 import { professionalRouter } from "./professional.router";
 import { klingRouter } from "./kling.router";
 import { opusclipRouter } from "./opusclip.router";
+import { studentManagementRouter } from "../modules/student-management/router";
 export const apiRouter = Router();
 /**
  * GET /api/v1/health
@@ -92,3 +93,4 @@ apiRouter.use("/kling", klingRouter);
 
 // OpusClip AI — Long-to-Short video clipping
 apiRouter.use("/opusclip", opusclipRouter);
+apiRouter.use("/", studentManagementRouter);

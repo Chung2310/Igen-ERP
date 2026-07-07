@@ -137,6 +137,16 @@ export const TAB_SEO_MAP: Record<TabType, SeoMeta> = {
     priority: "0.8",
     changeFrequency: "weekly",
   },
+  "QUẢN LÝ HỌC VIÊN": {
+    title: "Quản lý học viên - Đào tạo, lớp học, lịch thi và học phí",
+    description:
+      "Phân khu quản lý học viên trong iGen ERP giúp theo dõi hồ sơ học viên, khóa học, lớp học, lịch thi, học phí, thông báo và đối tác tuyển sinh trên cùng một nền tảng.",
+    keywords:
+      "quản lý học viên, quản lý đào tạo, lớp học, lịch thi, học phí, đối tác tuyển sinh, erp giáo dục",
+    path: "/quan-ly-hoc-vien",
+    priority: "0.8",
+    changeFrequency: "weekly",
+  },
   "HIỆU SUẤT AI": {
     title: "Giám sát hiệu suất AI - Phân tích tự động hóa vận hành",
     description:
@@ -189,6 +199,7 @@ export const PUBLIC_SEO_PAGES: SeoMeta[] = [
   TAB_SEO_MAP["KHO & SẢN PHẨM"],
   TAB_SEO_MAP.MARKETING,
   TAB_SEO_MAP["SALES CRM"],
+  TAB_SEO_MAP["QUẢN LÝ HỌC VIÊN"],
   TAB_SEO_MAP["HIỆU SUẤT AI"],
 ];
 

@@ -7,6 +7,7 @@ export type TabType =
   | "KHO & SẢN PHẨM"
   | "MARKETING"
   | "SALES CRM"
+  | "QUẢN LÝ HỌC VIÊN"
   | "HIỆU SUẤT AI"
   | "QUẢN TRỊ USER"
   | "VÍ & NẠP TIỀN"
