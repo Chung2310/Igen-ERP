@@ -79,7 +79,12 @@ mediaRouter.get(
       if (contentType) {
         res.setHeader("Content-Type", contentType);
       }
-      res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(filename)}"`);
+      // Content-Disposition theo RFC 5987: giữ đúng tên gốc (kể cả tiếng Việt) + fallback ASCII.
+      const asciiFallback = filename.replace(/["\\]/g, "").replace(/[^\x20-\x7E]/g, "_");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(filename)}`
+      );
       
       const arrayBuffer = await response.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);

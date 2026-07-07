@@ -8,6 +8,8 @@ export type TabType =
   | "MARKETING"
   | "SALES CRM"
   | "QUẢN LÝ TÀI NGUYÊN"
+  | "TRÒ CHUYỆN"
+  | "TÀI NGUYÊN"
   | "HIỆU SUẤT AI"
   | "QUẢN TRỊ USER"
   | "VÍ & NẠP TIỀN"

@@ -1,4 +1,34 @@
-export type HRSubTabType = "SƠ ĐỒ TỔ CHỨC" | "GIAO VIỆC KANBAN" | "ĐÀO TẠO";
+export type HRSubTabType = "SƠ ĐỒ TỔ CHỨC" | "GIAO VIỆC KANBAN" | "ĐÀO TẠO" | "QUY TRÌNH";
+
+export interface WorkflowStep {
+  id: string;
+  title: string;
+  description?: string;
+  assigneeUid?: string;
+  assignee?: string;
+  type: "start" | "task" | "approval" | "end";
+  estDays?: number;
+  position: { x: number; y: number };
+}
+
+export interface WorkflowEdge {
+  id: string;
+  source: string;
+  target: string;
+  label?: string;
+}
+
+export interface Workflow {
+  id: string;
+  name: string;
+  description?: string;
+  category?: string;
+  steps: WorkflowStep[];
+  edges: WorkflowEdge[];
+  companyCode: string;
+  creatorUid: string;
+  createdAt: any;
+}
 
 export interface EmployeeNode {
   id: string;

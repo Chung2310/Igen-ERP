@@ -2,9 +2,11 @@ import React, { useState } from "react";
 import {
   ChevronRight,
   FolderOpen,
+  FolderTree,
   LayoutDashboard,
   LineChart,
   Megaphone,
+  MessageSquare,
   MessageSquareShare,
   Package,
   PanelLeftClose,
@@ -119,6 +121,13 @@ const baseMenuItems: MenuItem[] = [
     title: "Quản lý tài nguyên",
     desc: "Tài liệu nội bộ và Google Drive",
     icon: FolderOpen,
+    tone: "indigo",
+  },
+  {
+    label: "TRÒ CHUYỆN",
+    title: "Trò chuyện nội bộ",
+    desc: "Chat nhóm và 1-1 nội bộ",
+    icon: MessageSquare,
     tone: "indigo",
   },
 ];

@@ -19,6 +19,8 @@
     "@remotion/bundler": "4.0.476",
     "@remotion/player": "^4.0.476",
     "@remotion/renderer": "^4.0.476",
+    "@socket.io/redis-adapter": "^8.3.0",
+    "@xyflow/react": "^12.11.2",
     "bcryptjs": "^3.0.3",
     "bullmq": "^5.78.1",
     "cloudinary": "^2.10.0",

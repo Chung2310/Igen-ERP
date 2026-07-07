@@ -524,6 +524,55 @@ export const authService = {
     return this.getCompanyHeyGenConfig(normalizedCode);
   },
 
+  /** Lấy cấu hình Google Drive của doanh nghiệp (kèm trạng thái kết nối OAuth). */
+  async getCompanyDriveConfig(companyCode: string): Promise<any> {
+    const normalizedCode = String(companyCode || "").trim().toUpperCase();
+    const company = await CompanyModel.findOne({ code: normalizedCode });
+    if (!company) {
+      throw new Error("Khong tim thay doanh nghiep tren he thong.");
+    }
+    return {
+      companyCode: company.code,
+      companyName: company.name,
+      driveFolderLink: company.driveFolderLink || "",
+      driveConnected: !!company.driveOAuth?.refreshToken,
+      driveConnectedEmail: company.driveOAuth?.connectedEmail || "",
+    };
+  },
+
+  /** Lưu OAuth Google Drive sau khi công ty kết nối thành công. */
+  async saveDriveOAuth(companyCode: string, data: { refreshToken: string; email: string }): Promise<any> {
+    const normalizedCode = String(companyCode || "").trim().toUpperCase();
+    const company = await CompanyModel.findOne({ code: normalizedCode });
+    if (!company) {
+      throw new Error("Khong tim thay doanh nghiep tren he thong.");
+    }
+    company.driveOAuth = {
+      refreshToken: data.refreshToken,
+      connectedEmail: data.email || "",
+      connectedAt: new Date(),
+    };
+    // Reset thư mục để tạo mới trong tài khoản vừa kết nối (nếu đổi tài khoản)
+    company.driveFolderId = "";
+    company.driveFolderLink = "";
+    await company.save();
+    return this.getCompanyDriveConfig(normalizedCode);
+  },
+
+  /** Ngắt kết nối Google Drive của doanh nghiệp. */
+  async disconnectDrive(companyCode: string): Promise<any> {
+    const normalizedCode = String(companyCode || "").trim().toUpperCase();
+    const company = await CompanyModel.findOne({ code: normalizedCode });
+    if (!company) {
+      throw new Error("Khong tim thay doanh nghiep tren he thong.");
+    }
+    company.driveOAuth = { refreshToken: "", connectedEmail: "", connectedAt: null };
+    company.driveFolderId = "";
+    company.driveFolderLink = "";
+    await company.save();
+    return this.getCompanyDriveConfig(normalizedCode);
+  },
+
   async testCompanyHeyGenConfig(companyCode: string, apiKey?: string): Promise<any> {
     const companyInfo = await this.getCompanyHeyGenConfig(companyCode);
     const targetApiKey = String(apiKey || companyInfo.heygenConfig.apiKey || "").trim();

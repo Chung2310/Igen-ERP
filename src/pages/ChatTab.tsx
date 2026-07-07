@@ -765,11 +765,11 @@ export default function ChatTab() {
   const handleCreateGroup = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!groupName.trim()) {
-      toast.warning("Vui lòng nhập tên nhóm.");
+      toast.warning("Vui lòng nhập đầy đủ tên phòng chat để tiếp tục.");
       return;
     }
     if (selectedMembers.length < 1) {
-      toast.warning("Vui lòng chọn ít nhất 1 thành viên tham gia.");
+      toast.warning("Vui lòng chọn ít nhất một thành viên để tạo phòng chat.");
       return;
     }
 
@@ -892,7 +892,7 @@ export default function ChatTab() {
       const updatedRoom = await internalChatService.updateRoom(activeRoom._id, {
         avatarURL: attachment.url,
       });
-      toast.success("Đã cập nhật ảnh đại diện nhóm.");
+      toast.success("Đã cập nhật ảnh đại diện của phòng chat thành công.");
       setActiveRoom(updatedRoom);
       setRooms((prev) => prev.map((r) => (r._id === updatedRoom._id ? updatedRoom : r)));
     } catch (error: any) {
@@ -956,17 +956,23 @@ export default function ChatTab() {
   };
 
   // Thu hồi / Xóa tin nhắn
-  const handleDeleteMessage = async (messageId: string) => {
+  const handleDeleteMessage = (messageId: string) => {
     if (!activeRoom) return;
-    if (!confirm("Bạn có chắc chắn muốn thu hồi tin nhắn này không?")) return;
-
-    try {
-      const deletedMessage = await internalChatService.deleteMessage(activeRoom._id, messageId);
-      toast.success("Đã thu hồi tin nhắn.");
-      setMessages((prev) => prev.map((m) => (m._id === messageId ? deletedMessage : m)));
-    } catch (error: any) {
-      toast.error(error.message);
-    }
+    showConfirm({
+      title: "Thu hồi tin nhắn",
+      message: "Bạn có chắc chắn muốn thu hồi tin nhắn này không? Hành động này không thể hoàn tác.",
+      isDanger: true,
+      confirmText: "Thu hồi",
+      onConfirm: async () => {
+        try {
+          const deletedMessage = await internalChatService.deleteMessage(activeRoom._id, messageId);
+          toast.success("Đã thu hồi tin nhắn.");
+          setMessages((prev) => prev.map((m) => (m._id === messageId ? deletedMessage : m)));
+        } catch (error: any) {
+          toast.error(error.message);
+        }
+      },
+    });
   };
 
   // Thả / gỡ cảm xúc (reaction) trên tin nhắn — cập nhật lạc quan trước, socket đồng bộ sau
@@ -3136,6 +3142,42 @@ export default function ChatTab() {
                   );
                 })
               )}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* CUSTOM CONFIRM MODAL */}
+      {confirmModal.isOpen && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs animate-fade-in">
+          <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl border border-slate-100/80 transform scale-100 transition-all duration-300">
+            <h4 className={`text-base font-extrabold mb-2.5 ${confirmModal.isDanger ? "text-rose-600" : "text-slate-800"}`}>
+              {confirmModal.title}
+            </h4>
+            <p className="text-xs text-slate-500 leading-relaxed mb-6 whitespace-pre-line">
+              {confirmModal.message}
+            </p>
+            <div className="flex gap-3 justify-end text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
+                className="px-4 py-2.5 border border-slate-200 text-slate-500 hover:text-slate-700 rounded-2xl bg-white hover:bg-slate-50 transition active:scale-95 cursor-pointer"
+              >
+                {confirmModal.cancelText || "Hủy bỏ"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  confirmModal.onConfirm();
+                  setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+                }}
+                className={`px-5 py-2.5 text-white rounded-2xl transition active:scale-95 cursor-pointer ${
+                  confirmModal.isDanger
+                    ? "bg-rose-600 hover:bg-rose-700 shadow-lg shadow-rose-100"
+                    : "bg-indigo-650 hover:bg-indigo-700 shadow-lg shadow-indigo-100"
+                }`}
+              >
+                {confirmModal.confirmText || "Xác nhận"}
+              </button>
             </div>
           </div>
         </div>

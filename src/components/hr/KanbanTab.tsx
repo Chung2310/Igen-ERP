@@ -211,7 +211,7 @@ function TaskTable({
                   </td>
 
                   {/* Hạn chót */}
-                  <td className="px-4 py-3 text-gray-400 font-mono">{task.dueDate || "-"}</td>
+                  <td className="px-4 py-3 text-gray-650 font-mono text-[10px]">{formatDatetime(task.dueDate)}</td>
 
                   {/* Bắt đầu */}
                   <td className="px-4 py-3 text-gray-650 font-mono text-[10px]">{formatDatetime(task.startTime)}</td>
@@ -531,6 +531,9 @@ export default function KanbanTab({
           const oldProj = projects.find(p => p.id === selectedKanbanTask.projectId)?.name || "Không có dự án";
           const newProj = projects.find(p => p.id === editProjectId)?.name || "Không có dự án";
           changes.push(`Chuyển dự án: "${oldProj}" → "${newProj}"`);
+        }
+        if ((selectedKanbanTask.dueDate || "") !== editDueDate.trim()) {
+          changes.push(`Sửa hạn chót: "${selectedKanbanTask.dueDate || 'Chưa thiết lập'}" → "${editDueDate.trim() || 'Chưa thiết lập'}"`);
         }
         if ((selectedKanbanTask.startTime || "") !== editStartTime) {
           changes.push(`Sửa TG bắt đầu: "${selectedKanbanTask.startTime || 'Chưa thiết lập'}" → "${editStartTime || 'Chưa thiết lập'}"`);
@@ -1143,11 +1146,10 @@ export default function KanbanTab({
                 <div className="flex items-center gap-4">
                   <span className="w-24 text-gray-400 font-semibold select-none flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> Hạn chót</span>
                   <input
-                    type="text"
+                    type="datetime-local"
                     value={editDueDate}
                     onChange={(e) => setEditDueDate(e.target.value)}
-                    placeholder="Ví dụ: 30/12/2024"
-                    className="flex-1 p-1 bg-slate-50 border border-transparent hover:border-gray-200 rounded-lg outline-none font-semibold text-xs"
+                    className="flex-1 p-1 bg-slate-50 border border-transparent hover:border-gray-200 rounded-lg outline-none text-[10px] font-semibold"
                   />
                 </div>
 
@@ -1425,7 +1427,7 @@ function KanbanCard({
           {renderAvatar(task.assigneeAvatar || "👨‍💻", "w-6 h-6", "text-xs")}
           <span className="text-slate-650 font-semibold">{task.assignee}</span>
         </div>
-        <span className="text-gray-400 font-mono font-medium">Hạn: {task.dueDate}</span>
+        <span className="text-gray-400 font-mono font-medium">Hạn: {formatDatetime(task.dueDate)}</span>
       </div>
 
       {/* Show KPI Badge on Card if available */}

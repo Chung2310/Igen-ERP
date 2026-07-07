@@ -9,6 +9,7 @@ import { TrainingCourseModel } from "../model/training-course.model";
 import { TrainingEnrollmentModel } from "../model/training-enrollment.model";
 import { UserModel } from "../model/user.model";
 import { SocialIntegrationModel } from "../model/social-integration.model";
+import { WorkflowModel } from "../model/workflow.model";
 import { SupportedModelName, ICRUDQueryOptions } from "../interface/crud.interface";
 import mongoose from "mongoose";
 import { facebookPostService } from "./facebook-post.service";
@@ -244,6 +245,7 @@ const MODEL_MAPPING: Record<SupportedModelName, mongoose.Model<any>> = {
   "training-courses": TrainingCourseModel,
   "training-enrollments": TrainingEnrollmentModel,
   "social-integrations": SocialIntegrationModel,
+  "workflows": WorkflowModel,
   "users": UserModel,
 };
 

@@ -17,6 +17,7 @@ const SUPPORTED_MODELS = [
   "training-courses",
   "training-enrollments",
   "social-integrations",
+  "workflows",
   "users",
 ];
 
