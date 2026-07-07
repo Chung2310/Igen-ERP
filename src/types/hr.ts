@@ -1,11 +1,34 @@
 export type HRSubTabType = "SƠ ĐỒ TỔ CHỨC" | "GIAO VIỆC KANBAN" | "ĐÀO TẠO" | "QUY TRÌNH" | "LỊCH";
 
+export interface WorkflowSubTask {
+  id: string;
+  title: string;
+  assigneeUid?: string;
+  assignee?: string;
+  done?: boolean;
+}
+
 export interface WorkflowStep {
   id: string;
   title: string;
   description?: string;
+  /** Single assignee (legacy) */
   assigneeUid?: string;
   assignee?: string;
+  /** Multiple assignees */
+  assigneeUids?: string[];
+  /** Related persons (người liên quan) */
+  relatedUids?: string[];
+  /** Domain / project tag */
+  domain?: string;
+  /** Priority: urgent_important | urgent | important | normal */
+  priority?: "urgent_important" | "urgent" | "important" | "normal";
+  /** Deadline type relative to stage start */
+  deadlineType?: "same_day" | "after_1" | "after_2" | "after_x" | "none" | "custom_time";
+  /** Used when deadlineType = after_x */
+  deadlineDays?: number;
+  /** Specific time HH:mm when deadlineType = custom_time */
+  deadlineTime?: string;
   /** @deprecated Không còn phân loại ô — giữ lại để tương thích dữ liệu cũ */
   type?: "start" | "task" | "approval" | "end";
   estDays?: number;
@@ -13,6 +36,8 @@ export interface WorkflowStep {
   deliverable?: string;
   /** Lưu ý / điều kiện thực hiện */
   note?: string;
+  /** Sub-tasks (công việc con) */
+  subTasks?: WorkflowSubTask[];
   /** @deprecated Không còn dùng canvas — giữ lại để tương thích dữ liệu cũ */
   position?: { x: number; y: number };
 }

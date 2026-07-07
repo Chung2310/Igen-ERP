@@ -22,11 +22,22 @@ import {
   GripVertical,
   ArrowDown,
   ArrowRight,
+  AlertCircle,
+  AlertTriangle,
+  Zap,
+  Smile,
+  Paperclip,
+  Mic,
+  Circle,
+  CloudUpload,
+  Table2,
+  Check,
 } from "lucide-react";
 import {
   UserProfile,
   Workflow,
   WorkflowStep,
+  WorkflowSubTask,
   WorkflowParticipant,
 } from "../../types";
 import { getAccessToken } from "../../services/authService";
@@ -1614,6 +1625,8 @@ function NewWorkflowWizard({
       {editingStep && (
         <WizardStepEditorModal
           step={editingStep}
+          steps={steps}
+          stepIndex={steps.findIndex((s) => s.id === editingStep.id)}
           usersList={usersList}
           isDark={isDark}
           onClose={() => setEditingStep(null)}
@@ -1630,12 +1643,16 @@ function NewWorkflowWizard({
 // ============ Modal chỉnh sửa thông tin giai đoạn trong Wizard ============
 function WizardStepEditorModal({
   step,
+  steps,
+  stepIndex,
   usersList,
   isDark,
   onClose,
   onSave,
 }: {
   step: WorkflowStep;
+  steps: WorkflowStep[];
+  stepIndex: number;
   usersList: UserProfile[];
   isDark: boolean;
   onClose: () => void;
@@ -1643,162 +1660,545 @@ function WizardStepEditorModal({
 }) {
   const [title, setTitle] = useState(step.title);
   const [description, setDescription] = useState(step.description || "");
-  const [assigneeUid, setAssigneeUid] = useState(step.assigneeUid || "");
-  const [estDays, setEstDays] = useState<number | undefined>(step.estDays);
+  const [assigneeUids, setAssigneeUids] = useState<string[]>(step.assigneeUids || (step.assigneeUid ? [step.assigneeUid] : []));
+  const [relatedUids, setRelatedUids] = useState<string[]>(step.relatedUids || []);
+  const [domain, setDomain] = useState(step.domain || "");
+  const [priority, setPriority] = useState<WorkflowStep["priority"]>(step.priority || "normal");
+  const [deadlineType, setDeadlineType] = useState<WorkflowStep["deadlineType"]>(step.deadlineType || "none");
+  const [deadlineDays, setDeadlineDays] = useState(step.deadlineDays ?? 3);
+  const [deadlineTime, setDeadlineTime] = useState(step.deadlineTime || "");
+  const [subTasks, setSubTasks] = useState<WorkflowSubTask[]>(step.subTasks || []);
+  const [newSubTask, setNewSubTask] = useState("");
+
+  const isFirstStep = stepIndex === 0;
+  const nextStep = steps[stepIndex + 1] || null;
+
+  const toggleAssignee = (uid: string) => {
+    setAssigneeUids((prev) =>
+      prev.includes(uid) ? prev.filter((x) => x !== uid) : [...prev, uid]
+    );
+  };
+
+  const toggleRelated = (uid: string) => {
+    setRelatedUids((prev) =>
+      prev.includes(uid) ? prev.filter((x) => x !== uid) : [...prev, uid]
+    );
+  };
+
+  const addSubTask = () => {
+    if (!newSubTask.trim()) return;
+    setSubTasks((prev) => [
+      ...prev,
+      { id: `st_${Date.now()}`, title: newSubTask.trim() },
+    ]);
+    setNewSubTask("");
+  };
+
+  const removeSubTask = (id: string) => {
+    setSubTasks((prev) => prev.filter((t) => t.id !== id));
+  };
 
   const handleSave = () => {
-    const u = usersList.find((x) => x.uid === assigneeUid);
+    const primaryUid = assigneeUids[0] || "";
+    const primaryUser = usersList.find((x) => x.uid === primaryUid);
     onSave({
       ...step,
       title: title.trim() || step.title,
       description,
-      assigneeUid,
-      assignee: u?.displayName || "",
-      estDays,
+      assigneeUid: primaryUid,
+      assignee: primaryUser?.displayName || "",
+      assigneeUids,
+      relatedUids,
+      domain,
+      priority,
+      deadlineType,
+      deadlineDays,
+      deadlineTime,
+      subTasks,
     });
   };
 
+  const avatarUrl = (u: UserProfile) =>
+    u.photoURL && (u.photoURL.startsWith("http") || u.photoURL.startsWith("/"))
+      ? u.photoURL
+      : `https://ui-avatars.com/api/?name=${encodeURIComponent(u.displayName)}&background=4f46e5&color=fff`;
+
+  const inp = `w-full px-3 py-2 rounded-xl text-xs focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-semibold transition-all ${
+    isDark
+      ? "bg-[#242424] border border-zinc-750 text-zinc-200"
+      : "bg-white border border-gray-200 text-slate-800"
+  }`;
+
+  const lbl = `block text-[11px] uppercase tracking-wide font-extrabold mb-1.5 ${
+    isDark ? "text-zinc-500" : "text-slate-450"
+  }`;
+
+  const PRIORITIES: { key: WorkflowStep["priority"]; label: string; color: string; icon: React.ReactNode }[] = [
+    { key: "urgent_important", label: "Cần gặp và Q.trọng", color: "#06b6d4", icon: <Zap className="h-3 w-3" /> },
+    { key: "urgent",           label: "Cần gặp",           color: "#f97316", icon: <AlertCircle className="h-3 w-3" /> },
+    { key: "important",        label: "Quan trọng",        color: "#ef4444", icon: <AlertTriangle className="h-3 w-3" /> },
+    { key: "normal",           label: "Thoải mái",          color: "#94a3b8", icon: <Smile className="h-3 w-3" /> },
+  ];
+
+  const DEADLINES: { key: WorkflowStep["deadlineType"]; label: string }[] = [
+    { key: "same_day", label: "Cùng ngày" },
+    { key: "after_1",  label: "Sau 1 ngày" },
+    { key: "after_2",  label: "Sau 2 ngày" },
+    { key: "after_x",  label: "Sau x ngày" },
+    { key: "none",     label: "Không có" },
+    { key: "custom_time", label: "..." },
+  ];
+
+  const row = `flex items-start gap-3 py-2.5 border-b transition-colors ${
+    isDark ? "border-zinc-800/60" : "border-gray-100"
+  }`;
+
+  const rowLabel = `w-28 shrink-0 text-[11px] font-bold pt-0.5 ${
+    isDark ? "text-zinc-500" : "text-slate-450"
+  }`;
+
   return (
     <div
-      className="fixed inset-0 z-60 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4"
+      className="fixed inset-0 z-60 flex items-center justify-center bg-black/55 backdrop-blur-xs p-4"
       onClick={onClose}
     >
       <div
-        className={`w-full max-w-md rounded-3xl border shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 transition-colors ${
+        className={`w-full max-w-xl rounded-3xl border shadow-2xl overflow-hidden flex flex-col max-h-[90vh] transition-colors ${
           isDark
             ? "bg-[#1c1c1c] text-zinc-150 border-zinc-800"
             : "bg-white text-slate-850 border-gray-200"
         }`}
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Header */}
         <div
-          className={`flex items-center justify-between border-b px-5.5 py-4 transition-colors ${
-            isDark ? "bg-[#1a1a1a] border-zinc-800/80" : "bg-slate-50 border-gray-205"
+          className={`flex items-center justify-between px-5 py-3.5 border-b flex-shrink-0 transition-colors ${
+            isDark ? "bg-[#1a1a1a] border-zinc-800/80" : "bg-slate-50 border-gray-200"
           }`}
         >
           <div className="flex items-center gap-2">
-            <Pencil className="h-4 w-4 text-indigo-500" />
-            <h4 className={`text-sm font-bold ${isDark ? "text-zinc-200" : "text-slate-800"}`}>Chi tiết giai đoạn</h4>
+            <span className={`text-xs font-bold ${isDark ? "text-zinc-500" : "text-slate-400"}`}>
+              Giai đoạn
+            </span>
+            <span className="text-sm font-extrabold text-indigo-500">{title.toUpperCase() || "(CHƯA ĐẶT TÊN)"}</span>
+            {isFirstStep && (
+              <span className="ml-1 px-2 py-0.5 rounded-full bg-emerald-500 text-white text-[9px] font-extrabold uppercase">
+                Bắt đầu
+              </span>
+            )}
           </div>
           <button
             onClick={onClose}
             className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-              isDark
-                ? "hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200"
-                : "hover:bg-gray-150 text-slate-400 hover:text-slate-655"
+              isDark ? "hover:bg-zinc-800 text-zinc-450 hover:text-zinc-200" : "hover:bg-gray-100 text-slate-400"
             }`}
           >
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="p-5.5 space-y-4">
-          <div>
-            <label
-              className={`block text-[10px] uppercase tracking-wide font-extrabold mb-1.5 ${
-                isDark ? "text-zinc-550" : "text-slate-455"
-              }`}
-            >
-              Tên giai đoạn
-            </label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className={`w-full px-3.5 py-2 rounded-xl text-xs focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-semibold transition-all ${
-                isDark
-                  ? "bg-[#242424] border border-zinc-750 text-zinc-200"
-                  : "bg-white border border-gray-200 text-slate-800"
-              }`}
-            />
+
+        {/* Body — scrollable */}
+        <div className="flex-1 overflow-y-auto px-5 pt-3 pb-2 space-y-0.5">
+
+          {/* Tên */}
+          <div className={row}>
+            <span className={rowLabel}>Tên *</span>
+            <div className="flex flex-1 items-center gap-2">
+              <input
+                value={stepIndex + 1}
+                disabled
+                className={`w-10 text-center rounded-xl text-xs font-bold border transition-all ${
+                  isDark ? "bg-zinc-800 border-zinc-700 text-zinc-400" : "bg-gray-100 border-gray-200 text-slate-500"
+                } py-1.5`}
+              />
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className={`${inp} flex-1`}
+                placeholder="Tên giai đoạn..."
+              />
+            </div>
           </div>
-          <div>
-            <label
-              className={`block text-[10px] uppercase tracking-wide font-extrabold mb-1.5 ${
-                isDark ? "text-zinc-550" : "text-slate-455"
-              }`}
-            >
-              Mô tả chi tiết
-            </label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-              className={`w-full px-3.5 py-2 rounded-xl text-xs focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-semibold resize-none transition-all ${
-                isDark
-                  ? "bg-[#242424] border border-zinc-750 text-zinc-200"
-                  : "bg-white border border-gray-200 text-slate-800"
-              }`}
-            />
+
+          {/* Người phụ trách */}
+          <div className={row}>
+            <span className={rowLabel}>Người phụ trách</span>
+            <div className="flex-1">
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {assigneeUids.map((uid) => {
+                  const u = usersList.find((x) => x.uid === uid);
+                  if (!u) return null;
+                  return (
+                    <div
+                      key={uid}
+                      className={`flex items-center gap-1.5 px-2 py-1 rounded-lg border text-[11px] font-bold transition-colors ${
+                        isDark ? "bg-zinc-800 border-zinc-700 text-zinc-200" : "bg-indigo-50 border-indigo-200 text-indigo-700"
+                      }`}
+                    >
+                      <img src={avatarUrl(u)} className="h-4 w-4 rounded-full" alt="" />
+                      {u.displayName}
+                      <button onClick={() => toggleAssignee(uid)} className="hover:text-red-400">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  );
+                })}
+                {/* Unselected users to add */}
+                <div className="relative group">
+                  <button
+                    className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-[11px] font-bold transition-colors ${
+                      isDark ? "bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-zinc-200" : "bg-white border-gray-200 text-slate-400 hover:text-slate-700"
+                    }`}
+                  >
+                    <Users className="h-3 w-3" /> Thêm
+                  </button>
+                  <div
+                    className={`absolute left-0 top-8 z-10 w-52 rounded-2xl border shadow-xl overflow-auto max-h-48 hidden group-focus-within:block ${
+                      isDark ? "bg-[#1e1e1e] border-zinc-700" : "bg-white border-gray-200"
+                    }`}
+                  >
+                    {usersList
+                      .filter((u) => !assigneeUids.includes(u.uid))
+                      .map((u) => (
+                        <button
+                          key={u.uid}
+                          onMouseDown={(e) => { e.preventDefault(); toggleAssignee(u.uid); }}
+                          className={`flex w-full items-center gap-2 px-3 py-2 text-[11px] font-semibold transition-colors ${
+                            isDark ? "hover:bg-zinc-800 text-zinc-300" : "hover:bg-slate-50 text-slate-700"
+                          }`}
+                        >
+                          <img src={avatarUrl(u)} className="h-5 w-5 rounded-full" alt="" />
+                          {u.displayName}
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-          <div>
-            <label
-              className={`block text-[10px] uppercase tracking-wide font-extrabold mb-1.5 ${
-                isDark ? "text-zinc-550" : "text-slate-455"
-              }`}
-            >
-              Người phụ trách
-            </label>
-            <select
-              value={assigneeUid}
-              onChange={(e) => setAssigneeUid(e.target.value)}
-              className={`w-full px-3.5 py-2 rounded-xl text-xs focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-semibold cursor-pointer transition-all ${
-                isDark
-                  ? "bg-[#242424] border border-zinc-750 text-zinc-200"
-                  : "bg-white border border-gray-200 text-slate-800"
-              }`}
-            >
-              <option value="">— Chưa gán —</option>
-              {usersList.map((u) => (
-                <option key={u.uid} value={u.uid}>
-                  {u.displayName} {u.jobTitle ? `(${u.jobTitle})` : ""}
-                </option>
+
+          {/* Người liên quan */}
+          <div className={row}>
+            <span className={rowLabel}>Người liên quan</span>
+            <div className="flex-1">
+              <div className="flex flex-wrap gap-1.5">
+                {relatedUids.map((uid) => {
+                  const u = usersList.find((x) => x.uid === uid);
+                  if (!u) return null;
+                  return (
+                    <div
+                      key={uid}
+                      className={`flex items-center gap-1.5 px-2 py-1 rounded-lg border text-[11px] font-bold ${
+                        isDark ? "bg-zinc-800 border-zinc-700 text-zinc-200" : "bg-slate-50 border-gray-200 text-slate-600"
+                      }`}
+                    >
+                      <img src={avatarUrl(u)} className="h-4 w-4 rounded-full" alt="" />
+                      {u.displayName}
+                      <button onClick={() => toggleRelated(uid)} className="hover:text-red-400">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  );
+                })}
+                <div className="relative group">
+                  <button
+                    className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-[11px] font-bold transition-colors ${
+                      isDark ? "bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-zinc-200" : "bg-white border-gray-200 text-slate-400 hover:text-slate-700"
+                    }`}
+                  >
+                    <User className="h-3 w-3" /> Thêm
+                  </button>
+                  <div
+                    className={`absolute left-0 top-8 z-10 w-52 rounded-2xl border shadow-xl overflow-auto max-h-48 hidden group-focus-within:block ${
+                      isDark ? "bg-[#1e1e1e] border-zinc-700" : "bg-white border-gray-200"
+                    }`}
+                  >
+                    {usersList
+                      .filter((u) => !relatedUids.includes(u.uid))
+                      .map((u) => (
+                        <button
+                          key={u.uid}
+                          onMouseDown={(e) => { e.preventDefault(); toggleRelated(u.uid); }}
+                          className={`flex w-full items-center gap-2 px-3 py-2 text-[11px] font-semibold transition-colors ${
+                            isDark ? "hover:bg-zinc-800 text-zinc-300" : "hover:bg-slate-50 text-slate-700"
+                          }`}
+                        >
+                          <img src={avatarUrl(u)} className="h-5 w-5 rounded-full" alt="" />
+                          {u.displayName}
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Lĩnh vực / dự án */}
+          <div className={row}>
+            <span className={rowLabel}>Lĩnh vực / dự án</span>
+            <div className="flex-1 flex items-center gap-2">
+              {domain && (
+                <span
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold border ${
+                    isDark ? "bg-cyan-950/30 border-cyan-700 text-cyan-400" : "bg-cyan-50 border-cyan-200 text-cyan-700"
+                  }`}
+                >
+                  {domain}
+                  <button onClick={() => setDomain("")} className="hover:text-red-400 ml-1">
+                    <X className="h-2.5 w-2.5" />
+                  </button>
+                </span>
+              )}
+              <input
+                value={domain}
+                onChange={(e) => setDomain(e.target.value)}
+                placeholder="Nhập lĩnh vực..."
+                className={`${inp} flex-1 max-w-[180px]`}
+              />
+            </div>
+          </div>
+
+          {/* Độ ưu tiên */}
+          <div className={row}>
+            <span className={rowLabel}>Độ ưu tiên</span>
+            <div className="flex-1 flex flex-wrap gap-2">
+              {PRIORITIES.map((p) => (
+                <button
+                  key={p.key}
+                  onClick={() => setPriority(p.key)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-extrabold transition-all ${
+                    priority === p.key
+                      ? "text-white shadow-sm"
+                      : isDark
+                      ? "bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-zinc-200"
+                      : "bg-white border-gray-200 text-slate-500 hover:text-slate-700"
+                  }`}
+                  style={priority === p.key ? { background: p.color, borderColor: p.color } : {}}
+                >
+                  {p.icon} {p.label}
+                </button>
               ))}
-            </select>
+            </div>
           </div>
-          <div>
-            <label
-              className={`block text-[10px] uppercase tracking-wide font-extrabold mb-1.5 ${
-                isDark ? "text-zinc-550" : "text-slate-455"
-              }`}
-            >
-              Thời gian hoàn thành (ngày)
-            </label>
-            <input
-              type="number"
-              min={0}
-              value={estDays ?? ""}
-              onChange={(e) => setEstDays(e.target.value === "" ? undefined : Number(e.target.value))}
-              className={`w-full px-3.5 py-2 rounded-xl text-xs focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-semibold transition-all ${
-                isDark
-                  ? "bg-[#242424] border border-zinc-750 text-zinc-200"
-                  : "bg-white border border-gray-200 text-slate-800"
-              }`}
-            />
+
+          {/* Hạn chốt */}
+          <div className={row}>
+            <span className={rowLabel}>Hạn chốt</span>
+            <div className="flex-1">
+              <div className="flex flex-wrap gap-1.5">
+                {DEADLINES.map((d) => (
+                  <button
+                    key={d.key}
+                    onClick={() => setDeadlineType(d.key)}
+                    className={`px-3 py-1.5 rounded-xl border text-[11px] font-extrabold transition-all ${
+                      deadlineType === d.key
+                        ? isDark
+                          ? "bg-cyan-600 border-cyan-500 text-white"
+                          : "bg-cyan-500 border-cyan-400 text-white"
+                        : isDark
+                        ? "bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-zinc-200"
+                        : "bg-white border-gray-200 text-slate-500 hover:text-slate-700"
+                    }`}
+                  >
+                    {d.label}
+                  </button>
+                ))}
+              </div>
+              {deadlineType === "after_x" && (
+                <div className="mt-2 flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={1}
+                    value={deadlineDays}
+                    onChange={(e) => setDeadlineDays(Number(e.target.value))}
+                    className={`${inp} w-20`}
+                  />
+                  <span className={`text-xs ${isDark ? "text-zinc-500" : "text-slate-400"}`}>ngày</span>
+                </div>
+              )}
+              {/* Chọn giờ */}
+              <div className="mt-2 flex items-center gap-2">
+                <button
+                  onClick={() => setDeadlineType(deadlineType === "custom_time" ? "none" : "custom_time")}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-semibold transition-all ${
+                    deadlineType === "custom_time"
+                      ? isDark ? "bg-cyan-600 border-cyan-500 text-white" : "bg-cyan-500 border-cyan-400 text-white"
+                      : isDark ? "bg-zinc-800 border-zinc-700 text-zinc-450" : "bg-white border-gray-200 text-slate-500"
+                  }`}
+                >
+                  <Clock className="h-3 w-3" /> Chọn giờ
+                </button>
+                {deadlineType === "custom_time" && (
+                  <input
+                    type="time"
+                    value={deadlineTime}
+                    onChange={(e) => setDeadlineTime(e.target.value)}
+                    className={`${inp} w-28`}
+                  />
+                )}
+              </div>
+            </div>
           </div>
+
+          {/* Mô tả */}
+          <div className={row}>
+            <span className={rowLabel}>Mô tả</span>
+            <div className="flex-1 relative">
+              <input
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Mô tả giai đoạn..."
+                className={`${inp} pr-8`}
+              />
+              <Pencil className={`absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 ${
+                isDark ? "text-zinc-600" : "text-slate-350"
+              }`} />
+            </div>
+          </div>
+
+          {/* Công việc con */}
+          <div className={`py-2.5 border-b transition-colors ${
+            isDark ? "border-zinc-800/60" : "border-gray-100"
+          }`}>
+            <div className="flex items-center justify-between mb-2">
+              <span className={`text-[11px] font-extrabold uppercase tracking-wide ${
+                isDark ? "text-cyan-400" : "text-cyan-600"
+              }`}>
+                Công việc con ({subTasks.length})
+              </span>
+            </div>
+            <div className="space-y-1.5">
+              {subTasks.map((t) => (
+                <div
+                  key={t.id}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold transition-colors ${
+                    isDark ? "bg-zinc-800/60 border-zinc-700 text-zinc-200" : "bg-slate-50 border-gray-100 text-slate-700"
+                  }`}
+                >
+                  <Check className="h-3 w-3 text-emerald-500 shrink-0" />
+                  <span className="flex-1 uppercase tracking-wide">{t.title}</span>
+                  <button onClick={() => removeSubTask(t.id)} className={`hover:text-red-400 ${
+                    isDark ? "text-zinc-600" : "text-slate-350"
+                  }`}>
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+              <div className="flex items-center gap-2 mt-1">
+                <Plus className={`h-3.5 w-3.5 ${
+                  isDark ? "text-zinc-550" : "text-slate-400"
+                }`} />
+                <input
+                  value={newSubTask}
+                  onChange={(e) => setNewSubTask(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") addSubTask(); }}
+                  placeholder="Thêm công việc con..."
+                  className={`flex-1 text-xs font-semibold outline-none bg-transparent transition-colors ${
+                    isDark ? "text-zinc-300 placeholder-zinc-700" : "text-slate-700 placeholder-slate-350"
+                  }`}
+                />
+                {newSubTask && (
+                  <button
+                    onClick={addSubTask}
+                    className="text-[10px] font-bold text-indigo-500 hover:text-indigo-400"
+                  >
+                    Thêm
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* File đính kèm */}
+          <div className={`py-2.5 border-b transition-colors ${
+            isDark ? "border-zinc-800/60" : "border-gray-100"
+          }`}>
+            <span className={`text-[11px] font-extrabold uppercase tracking-wide mb-2 block ${
+              isDark ? "text-cyan-400" : "text-cyan-600"
+            }`}>
+              File đính kèm
+            </span>
+            <div className="flex items-center gap-3">
+              {[
+                { icon: <Paperclip className="h-4 w-4" />, color: "text-slate-500", title: "Tập tin" },
+                { icon: <span className="text-xs font-black" style={{color:"#f97316"}}>N</span>, color: "", title: "Notion" },
+                { icon: <Mic className="h-4 w-4" />, color: "text-purple-500", title: "Ghi âm" },
+                { icon: <Circle className="h-4 w-4 fill-red-500" />, color: "text-red-500", title: "Quay màn hình" },
+                { icon: <CloudUpload className="h-4 w-4" />, color: "text-green-500", title: "Google Drive" },
+                { icon: <Table2 className="h-4 w-4" />, color: "text-indigo-400", title: "Bảng" },
+              ].map((a, i) => (
+                <button
+                  key={i}
+                  title={a.title}
+                  className={`p-1.5 rounded-lg transition-colors ${a.color} ${
+                    isDark ? "hover:bg-zinc-800" : "hover:bg-slate-100"
+                  }`}
+                  onClick={() => toast.info("Tính năng đính kèm đang phát triển.")}
+                >
+                  {a.icon}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Giai đoạn tiếp theo */}
+          {nextStep && (
+            <div className={`py-2.5`}>
+              <span className={`text-[11px] font-extrabold uppercase tracking-wide mb-2 block ${
+                isDark ? "text-cyan-400" : "text-cyan-600"
+              }`}>
+                Giai đoạn tiếp theo
+              </span>
+              <div
+                className={`flex items-center gap-3 px-4 py-3 rounded-2xl border-2 border-dashed transition-colors ${
+                  isDark ? "border-zinc-700 bg-zinc-800/30" : "border-gray-200 bg-slate-50/50"
+                }`}
+              >
+                <ArrowRight className={`h-4 w-4 shrink-0 ${
+                  isDark ? "text-zinc-600" : "text-slate-300"
+                }`} />
+                <div
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-extrabold uppercase tracking-wide ${
+                    isDark ? "bg-zinc-800 border-zinc-700 text-zinc-200" : "bg-white border-gray-200 text-slate-700"
+                  }`}
+                >
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border mr-1 ${
+                    isDark ? "bg-zinc-700 border-zinc-600 text-zinc-400" : "bg-gray-100 border-gray-200 text-slate-500"
+                  }`}>
+                    {steps.indexOf(nextStep) + 1}
+                  </span>
+                  {nextStep.title}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
+
+        {/* Footer */}
         <div
-          className={`border-t px-5.5 py-4 flex justify-end gap-2.5 transition-colors ${
-            isDark ? "bg-[#1a1a1a] border-zinc-800/80" : "bg-slate-50 border-gray-205"
+          className={`flex justify-end gap-2.5 px-5 py-3.5 border-t flex-shrink-0 transition-colors ${
+            isDark ? "bg-[#1a1a1a] border-zinc-800/80" : "bg-slate-50 border-gray-200"
           }`}
         >
           <button
             onClick={onClose}
-            className={`px-4.5 py-2 border rounded-xl text-xs font-bold transition-all cursor-pointer shadow-3xs ${
+            className={`px-4.5 py-2 border rounded-xl text-xs font-bold transition-all cursor-pointer ${
               isDark
                 ? "border-zinc-700 text-zinc-450 hover:text-zinc-200 hover:bg-zinc-800"
-                : "border-gray-250 text-slate-600 hover:bg-slate-100 hover:text-slate-800"
+                : "border-gray-250 text-slate-600 hover:bg-gray-100"
             }`}
           >
             Hủy
           </button>
           <button
             onClick={handleSave}
-            className="px-5.5 py-2 bg-indigo-650 hover:bg-indigo-750 text-white rounded-xl text-xs font-extrabold transition-all cursor-pointer shadow-xs active:scale-98"
+            className="px-5.5 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-xl text-xs font-extrabold transition-all cursor-pointer shadow-sm active:scale-98"
           >
-            Đồng ý
+            Ghi nhận
           </button>
         </div>
       </div>
     </div>
   );
 }
+
