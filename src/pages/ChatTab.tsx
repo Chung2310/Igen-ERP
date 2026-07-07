@@ -298,7 +298,7 @@ export default function ChatTab() {
         toast.info("Không tìm thấy tin nhắn trong lịch sử trò chuyện.");
       }
     } catch {
-      toast.error("Không thể tải tin nhắn cũ để nhảy tới.");
+      toast.error("Đã xảy ra lỗi khi tải tin nhắn trong lịch sử trò chuyện.");
     } finally {
       setJumpingToMessage(false);
     }
@@ -765,11 +765,11 @@ export default function ChatTab() {
   const handleCreateGroup = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!groupName.trim()) {
-      toast.warning("Vui lòng nhập tên nhóm.");
+      toast.warning("Vui lòng nhập đầy đủ tên phòng chat để tiếp tục.");
       return;
     }
     if (selectedMembers.length < 1) {
-      toast.warning("Vui lòng chọn ít nhất 1 thành viên tham gia.");
+      toast.warning("Vui lòng chọn ít nhất một thành viên để tạo phòng chat.");
       return;
     }
 
@@ -781,7 +781,7 @@ export default function ChatTab() {
         avatarURL: groupAvatar,
       });
 
-      toast.success("Tạo nhóm chat thành công!");
+      toast.success("Chúc mừng! Phòng chat nhóm đã được khởi tạo thành công.");
       setRooms((prev) => [room, ...prev]);
       setActiveRoom(room);
       setShowCreateGroupModal(false);
@@ -799,7 +799,7 @@ export default function ChatTab() {
     if (!activeRoom || membersToAdd.length === 0) return;
     try {
       const updatedRoom = await internalChatService.addMembers(activeRoom._id, membersToAdd);
-      toast.success("Đã thêm thành viên vào nhóm.");
+      toast.success("Thành viên mới đã được thêm vào phòng chat thành công.");
       setActiveRoom(updatedRoom);
       setRooms((prev) => prev.map((r) => (r._id === updatedRoom._id ? updatedRoom : r)));
       setShowAddMemberModal(false);
@@ -815,7 +815,7 @@ export default function ChatTab() {
     if (confirm("Bạn có chắc chắn muốn xóa thành viên này khỏi nhóm?")) {
       try {
         const updatedRoom = await internalChatService.removeMember(activeRoom._id, userId);
-        toast.success("Đã xóa thành viên khỏi nhóm.");
+        toast.success("Đã xóa thành viên ra khỏi phòng chat thành công.");
         setActiveRoom(updatedRoom);
         setRooms((prev) => prev.map((r) => (r._id === updatedRoom._id ? updatedRoom : r)));
       } catch (error: any) {
@@ -830,7 +830,7 @@ export default function ChatTab() {
     if (confirm("Bạn có chắc chắn muốn rời khỏi nhóm chat này?")) {
       try {
         await internalChatService.leaveRoom(activeRoom._id);
-        toast.success("Bạn đã rời nhóm chat.");
+        toast.success("Bạn đã rời khỏi phòng chat thành công.");
         setRooms((prev) => prev.filter((r) => r._id !== activeRoom._id));
         setActiveRoom(null);
         setMessages([]);
@@ -847,7 +847,7 @@ export default function ChatTab() {
     if (confirm("LƯU Ý CỰC KỲ QUAN TRỌNG: Giải tán nhóm sẽ xóa vĩnh viễn tất cả lịch sử tin nhắn của mọi thành viên. Bạn có chắc chắn?")) {
       try {
         await internalChatService.deleteRoom(activeRoom._id);
-        toast.success("Đã giải tán nhóm chat.");
+        toast.success("Phòng chat nhóm đã được giải tán và xóa toàn bộ dữ liệu thành công.");
         setRooms((prev) => prev.filter((r) => r._id !== activeRoom._id));
         setActiveRoom(null);
         setMessages([]);
@@ -863,7 +863,7 @@ export default function ChatTab() {
     if (!activeRoom) return;
     const newName = editingGroupName.trim();
     if (!newName) {
-      toast.error("Tên nhóm không được để trống.");
+      toast.error("Tên phòng chat nhóm không được phép để trống.");
       return;
     }
     setSavingGroupSettings(true);
@@ -871,7 +871,7 @@ export default function ChatTab() {
       const updatedRoom = await internalChatService.updateRoom(activeRoom._id, {
         name: newName,
       });
-      toast.success("Đã cập nhật tên nhóm thành công.");
+      toast.success("Đã cập nhật tên phòng chat thành công.");
       setActiveRoom(updatedRoom);
       setRooms((prev) => prev.map((r) => (r._id === updatedRoom._id ? updatedRoom : r)));
       setShowGroupSettings(false);
@@ -892,7 +892,7 @@ export default function ChatTab() {
       const updatedRoom = await internalChatService.updateRoom(activeRoom._id, {
         avatarURL: attachment.url,
       });
-      toast.success("Đã cập nhật ảnh đại diện nhóm.");
+      toast.success("Đã cập nhật ảnh đại diện của phòng chat thành công.");
       setActiveRoom(updatedRoom);
       setRooms((prev) => prev.map((r) => (r._id === updatedRoom._id ? updatedRoom : r)));
     } catch (error: any) {
@@ -907,19 +907,17 @@ export default function ChatTab() {
   // Update member role (admin/deputy/member) - Group Admin only
   const handleUpdateMemberRole = async (userId: string, targetName: string, newRole: "admin" | "deputy" | "member") => {
     if (!activeRoom) return;
-    const confirmMsg = newRole === "admin"
-      ? `Thăng chức ${targetName} làm Trưởng phòng?`
-      : newRole === "deputy"
-        ? `Thăng chức ${targetName} làm Phó phòng?`
-        : `Hạ cấp vai trò của ${targetName} xuống thành viên thường?`;
+    const confirmMsg = newRole === "deputy"
+      ? `Bạn có chắc chắn muốn bổ nhiệm ${targetName} làm Phó phòng?`
+      : `Bạn có chắc chắn muốn bãi nhiệm chức vụ Phó phòng của ${targetName}?`;
     if (!confirm(confirmMsg)) return;
 
     try {
       const updatedRoom = await internalChatService.updateMemberRole(activeRoom._id, userId, newRole);
       if (newRole === "deputy") {
-        toast.success(`Đã thăng chức ${targetName} làm Phó phòng.`);
+        toast.success(`Đã bổ nhiệm ${targetName} làm Phó phòng thành công!`);
       } else {
-        toast.success(`Đã cập nhật vai trò của ${targetName}.`);
+        toast.success(`Đã bãi nhiệm chức vụ Phó phòng của ${targetName} thành công.`);
       }
       setActiveRoom(updatedRoom);
       setRooms((prev) => prev.map((r) => (r._id === updatedRoom._id ? updatedRoom : r)));
