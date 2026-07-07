@@ -85,6 +85,7 @@ export default function WorkflowTab({
   const [loading, setLoading] = useState(false);
   const [view, setView] = useState<"list" | "detail">("list");
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [wizardData, setWizardData] = useState<Workflow | null>(null);
 
   // ---- Theme & Task linkage states ----
   const [isDark, setIsDark] = useState(() =>
@@ -218,16 +219,22 @@ export default function WorkflowTab({
     fetchWorkflows();
   };
 
-  // ---- Tạo quy trình mới từ wizard, rồi mở luôn bảng theo dõi ----
-  const createFromWizard = async (data: {
+  // ---- Tạo hoặc sửa quy trình từ wizard ----
+  const handleWizardSubmit = async (data: {
     name: string;
     category: string;
     description: string;
     steps: WorkflowStep[];
   }) => {
     try {
-      const res = await fetch("/api/v1/crud/workflows", {
-        method: "POST",
+      const isEdit = !!wizardData;
+      const url = isEdit
+        ? `/api/v1/crud/workflows/${wizardData.id}`
+        : "/api/v1/crud/workflows";
+      const method = isEdit ? "PATCH" : "POST";
+
+      const res = await fetch(url, {
+        method,
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${getAccessToken()}`,
@@ -237,20 +244,24 @@ export default function WorkflowTab({
           category: data.category.trim(),
           description: data.description.trim(),
           steps: data.steps,
-          participants: [],
-          creatorUid: userProfile?.uid || "",
+          ...(isEdit ? {} : { participants: [], creatorUid: userProfile?.uid || "" }),
         }),
       });
-      if (!res.ok) throw new Error("create failed");
+      if (!res.ok) throw new Error("wizard save failed");
       const json = await res.json();
-      const wf: Workflow = { ...json.data, id: json.data._id };
-      toast.success("Đã tạo quy trình mới.");
+      toast.success(isEdit ? "Đã cập nhật quy trình." : "Đã tạo quy trình mới.");
       setWizardOpen(false);
+      setWizardData(null);
       await fetchWorkflows();
-      openDetail(wf);
+
+      // Mở detail nếu là quy trình tạo mới
+      if (!isEdit) {
+        const wf: Workflow = { ...json.data, id: json.data._id };
+        openDetail(wf);
+      }
     } catch (err) {
-      console.error("Lỗi tạo quy trình:", err);
-      toast.error("Không thể tạo quy trình.");
+      console.error("Lỗi khi lưu quy trình từ wizard:", err);
+      toast.error("Không thể lưu quy trình.");
     }
   };
 
@@ -532,7 +543,10 @@ export default function WorkflowTab({
               <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
             </button>
             <button
-              onClick={() => setWizardOpen(true)}
+              onClick={() => {
+                setWizardData(null);
+                setWizardOpen(true);
+              }}
               disabled={!canEdit}
               className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-bold text-white hover:bg-indigo-500 disabled:opacity-40"
             >
@@ -544,8 +558,12 @@ export default function WorkflowTab({
         {wizardOpen && (
           <NewWorkflowWizard
             usersList={usersList}
-            onClose={() => setWizardOpen(false)}
-            onSubmit={createFromWizard}
+            initialData={wizardData || undefined}
+            onClose={() => {
+              setWizardOpen(false);
+              setWizardData(null);
+            }}
+            onSubmit={handleWizardSubmit}
           />
         )}
 
@@ -576,11 +594,26 @@ export default function WorkflowTab({
                       <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
                         <WorkflowIcon className="h-5 w-5" />
                       </div>
-                      {wf.category && (
-                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
-                          {wf.category}
-                        </span>
-                      )}
+                      <div className="flex items-center gap-1.5">
+                        {wf.category && (
+                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
+                            {wf.category}
+                          </span>
+                        )}
+                        {canEdit && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setWizardData(wf);
+                              setWizardOpen(true);
+                            }}
+                            className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-indigo-650 transition-colors"
+                            title="Sửa quy trình"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                     <h3 className="mt-3 line-clamp-2 text-sm font-bold text-slate-800 group-hover:text-indigo-700">
                       {wf.name}
@@ -1264,10 +1297,17 @@ function StepEditorModal({
 // ============ Wizard 2 bước tạo quy trình mới ============
 function NewWorkflowWizard({
   usersList,
+  initialData,
   onClose,
   onSubmit,
 }: {
   usersList: UserProfile[];
+  initialData?: {
+    name: string;
+    category: string;
+    description: string;
+    steps: WorkflowStep[];
+  };
   onClose: () => void;
   onSubmit: (data: {
     name: string;
@@ -1277,10 +1317,10 @@ function NewWorkflowWizard({
   }) => void | Promise<void>;
 }) {
   const [step, setStep] = useState<1 | 2>(1);
-  const [name, setName] = useState("Quy trình mới");
-  const [category, setCategory] = useState("");
-  const [description, setDescription] = useState("");
-  const [steps, setSteps] = useState<WorkflowStep[]>([]);
+  const [name, setName] = useState(initialData?.name || "Quy trình mới");
+  const [category, setCategory] = useState(initialData?.category || "");
+  const [description, setDescription] = useState(initialData?.description || "");
+  const [steps, setSteps] = useState<WorkflowStep[]>(initialData?.steps || []);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
