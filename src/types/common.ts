@@ -10,6 +10,7 @@ export type TabType =
   | "QUẢN LÝ TÀI NGUYÊN"
   | "TRÒ CHUYỆN"
   | "TÀI NGUYÊN"
+  | "QUẢN LÝ HỌC VIÊN"
   | "HIỆU SUẤT AI"
   | "QUẢN TRỊ USER"
   | "VÍ & NẠP TIỀN"

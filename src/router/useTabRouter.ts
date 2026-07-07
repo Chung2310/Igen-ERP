@@ -30,10 +30,6 @@ export function useTabRouter(options?: { enabled?: boolean }) {
   useEffect(() => {
     if (!enabled) return;
 
-    if (!isAppTabPath(window.location.pathname)) {
-      return;
-    }
-
     const nextPath = tabToPath(activeTab);
     if (window.location.pathname !== nextPath) {
       window.history.pushState(null, "", nextPath);
