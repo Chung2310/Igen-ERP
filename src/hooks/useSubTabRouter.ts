@@ -32,6 +32,15 @@ export function useSubTabRouter<T extends string>(
     setActiveSubTabState(resolveFromUrl());
   }, [resolveFromUrl]);
 
+  // Sync URL → state when popstate fires (handles browser back/forward buttons)
+  useEffect(() => {
+    const handlePopState = () => {
+      setActiveSubTabState(resolveFromUrl());
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [resolveFromUrl]);
+
   const setActiveSubTab = useCallback(
     (tab: T) => {
       setActiveSubTabState(tab);

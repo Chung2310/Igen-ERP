@@ -47,10 +47,6 @@ export function useTabRouter(options?: { enabled?: boolean }) {
   useEffect(() => {
     if (!enabled) return;
 
-    if (!isAppTabPath(window.location.pathname)) {
-      return;
-    }
-
     const nextPath = tabToPath(activeTab);
     console.log(`[useTabRouter] Sync Path Effect: activeTab="${activeTab}", currentPath="${window.location.pathname}", nextPath="${nextPath}"`);
     if (window.location.pathname !== nextPath) {

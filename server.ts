@@ -350,7 +350,7 @@ async function startServer() {
 
   // Tạo HTTP Server bọc Express để hỗ trợ cả HTTP & Socket.IO
   const httpServer = createServer(app);
-  initSocketServer(httpServer);
+  await initSocketServer(httpServer);
 
   httpServer.listen(PORT, "0.0.0.0", () => {
     console.log(`Express and Socket.IO server running on http://localhost:${PORT}`);

@@ -170,6 +170,10 @@
   --color-red-700: #93000a;
   --color-red-800: #690005;
   --color-red-900: #410002;
+
+  --color-brand-primary: var(--color-cyan-600);
+  --color-brand-sidebar: #08222f;
+  --color-brand-bg: var(--color-background);
 }
 
 /* Force Vietnamese unicode range to use Be Vietnam Pro (designed for Vietnamese) */
