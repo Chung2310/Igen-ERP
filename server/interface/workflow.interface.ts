@@ -31,11 +31,21 @@ export interface IWorkflowEdge {
 
 export interface IWorkflowParticipant {
   id: string;
+  /** Tên công việc (case) đi qua quy trình */
   name: string;
+  /** Người phụ trách chính — fallback nhận task khi bước không gán ai */
   userUid?: string;
   avatar?: string;
   currentStepId: string;
   note?: string;
+  description?: string;
+  relatedUids?: string[];
+  priority?: "urgent_important" | "urgent" | "important" | "normal";
+  startDate?: string;
+  dueDate?: string;
+  docLinks?: string[];
+  /** Công việc con riêng của case — sinh task Kanban ở bước đầu tiên */
+  customSubTasks?: { id: string; title: string; assigneeUid?: string; assignee?: string; done?: boolean }[];
   startedAt?: string;
   updatedAt?: string;
 }
@@ -47,6 +57,8 @@ export interface IWorkflow extends Document {
   steps: IWorkflowStep[];
   edges: IWorkflowEdge[];
   participants: IWorkflowParticipant[];
+  /** Tự chuyển case sang bước kế khi mọi task Kanban của bước hiện tại hoàn thành */
+  autoAdvance?: boolean;
   companyCode: string;
   creatorUid: string;
   createdAt: Date;

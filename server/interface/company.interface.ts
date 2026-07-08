@@ -19,6 +19,15 @@ export interface ICompanyDriveOAuth {
   connectedAt?: Date | null;
 }
 
+export interface ICompanyLocationConfig {
+  latitude: number;
+  longitude: number;
+  allowedRadius: number;
+  addressName?: string;
+  checkInLimit?: string;
+  checkOutLimit?: string;
+}
+
 export interface ICompany extends Document {
   code: string;
   name: string;
@@ -32,4 +41,5 @@ export interface ICompany extends Document {
   driveOAuth?: ICompanyDriveOAuth;
   /** ID thư mục do app tạo trong Drive của công ty để chứa tài liệu. */
   driveFolderId?: string;
+  locationConfig?: ICompanyLocationConfig;
 }
