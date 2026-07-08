@@ -1,4 +1,4 @@
-import { Schema, model, models } from "mongoose";
+import mongoose, { Schema, model } from "mongoose";
 import { IResource } from "../interface/resource.interface";
 
 const ResourceSchema = new Schema<IResource>({
@@ -15,4 +15,4 @@ const ResourceSchema = new Schema<IResource>({
   createdAt: { type: Date, default: Date.now, index: true },
 });
 
-export const ResourceModel = models.Resource || model<IResource>("Resource", ResourceSchema);
+export const ResourceModel = mongoose.models?.Resource || model<IResource>("Resource", ResourceSchema);
