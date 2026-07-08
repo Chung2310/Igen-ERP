@@ -5,7 +5,8 @@ import {
   Loader2, RefreshCw, AlertCircle, ArrowUpRight, FolderTree,
   Share2, Shield, Lock, Globe, Search, X, ChevronDown, Check, Users, Plus,
   Link as LinkIcon, FileSpreadsheet, Presentation, FolderPlus, Upload, MoreVertical,
-  Info, Pencil, ArrowRightLeft, Copy, BellOff, MessageSquare, Briefcase, ChevronRight
+  Info, Pencil, ArrowRightLeft, Copy, BellOff, MessageSquare, Briefcase, ChevronRight,
+  ExternalLink, Link
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "./Toast";
@@ -37,6 +38,40 @@ const GoogleDriveLogo = ({ className = "h-6 w-6" }) => (
     <path d="M121 54.5L50.5 176.5L93.5 251L164 129L121 54.5Z" fill="#0066DA" />
     <path d="M239 54.5L121 54.5L164 129L282 129L239 54.5Z" fill="#00A85D" />
     <path d="M164 129L93.5 251L211.5 251L282 129L164 129Z" fill="#FFD043" />
+  </svg>
+);
+
+const GoogleDocsLogo = ({ className = "h-16 w-16" }) => (
+  <svg className={className} viewBox="0 0 360 360" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M75 30H210L285 105V330H75V30Z" fill="#4285F4" />
+    <path d="M210 30L285 105H210V30Z" fill="#A1C2FA" />
+    <rect x="110" y="145" width="140" height="20" rx="4" fill="white" />
+    <rect x="110" y="185" width="140" height="20" rx="4" fill="white" />
+    <rect x="110" y="225" width="140" height="20" rx="4" fill="white" />
+    <rect x="110" y="265" width="90" height="20" rx="4" fill="white" />
+  </svg>
+);
+
+const GoogleSheetsLogo = ({ className = "h-16 w-16" }) => (
+  <svg className={className} viewBox="0 0 360 360" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M75 30H210L285 105V330H75V30Z" fill="#0F9D58" />
+    <path d="M210 30L285 105H210V30Z" fill="#57DB9A" />
+    <rect x="105" y="135" width="150" height="135" rx="6" fill="white" />
+    <rect x="120" y="150" width="55" height="30" fill="#0F9D58" />
+    <rect x="185" y="150" width="55" height="30" fill="#0F9D58" />
+    <rect x="120" y="190" width="55" height="30" fill="#0F9D58" />
+    <rect x="185" y="190" width="55" height="30" fill="#0F9D58" />
+    <rect x="120" y="230" width="55" height="30" fill="#0F9D58" />
+    <rect x="185" y="230" width="55" height="30" fill="#0F9D58" />
+  </svg>
+);
+
+const GoogleSlidesLogo = ({ className = "h-16 w-16" }) => (
+  <svg className={className} viewBox="0 0 360 360" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M75 30H210L285 105V330H75V30Z" fill="#F4B400" />
+    <path d="M210 30L285 105H210V30Z" fill="#FAD980" />
+    <rect x="110" y="150" width="140" height="95" rx="6" fill="white" />
+    <rect x="120" y="160" width="120" height="75" rx="4" fill="#F4B400" />
   </svg>
 );
 
@@ -88,9 +123,21 @@ const EmptyStateIllustration = () => (
 
 const getMemberId = (u: any) => (u && typeof u === "object" ? (u._id || u.id) : u);
 
+interface OpenedTab {
+  id: string;
+  title: string;
+  type: "explorer" | "google-doc";
+  mimeType?: string;
+  url?: string;
+}
+
 export default function ResourceTab() {
   const { userProfile, setActiveTab, refreshProfile } = useAuth();
   const [subTab, setSubTab] = useState<ResourceSubTabType>("TÀI LIỆU KHÁC");
+  const [openedTabs, setOpenedTabs] = useState<OpenedTab[]>([
+    { id: "explorer", title: "Thẻ mới", type: "explorer" }
+  ]);
+  const [activeTabId, setActiveTabId] = useState<string>("explorer");
   const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -375,6 +422,87 @@ export default function ResourceTab() {
     const words = name.trim().split(/\s+/);
     if (words.length === 1) return words[0].substring(0, 2).toUpperCase();
     return (words[0][0] + (words[1]?.[0] || "")).toUpperCase();
+  };
+
+  const handleCopyToLocal = async (resource: Resource) => {
+    if (resource.mimeType === "application/vnd.google-apps.folder") {
+      toast.warning("Hệ thống chỉ hỗ trợ sao chép tệp tin/tài liệu (không sao chép thư mục).");
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/v1/resources/file", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${getAccessToken()}`,
+        },
+        body: JSON.stringify({
+          name: resource.name,
+          fileUrl: resource.webViewLink,
+          parentId: "google-documents",
+          mimeType: resource.mimeType,
+          size: resource.size || 0,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || "Sao chép thất bại.");
+      }
+
+      toast.success(`Đã sao chép "${resource.name}" vào thư mục "_GOOGLE DOCUMENTS" thành công!`);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Có lỗi xảy ra khi sao chép tài nguyên.");
+    }
+  };
+
+  const handleOpenFile = (item: { _id: string; name: string; fileUrl?: string; mimeType?: string }) => {
+    const existingTab = openedTabs.find(t => t.id === item._id);
+    if (existingTab) {
+      setActiveTabId(item._id);
+    } else {
+      const newTab: OpenedTab = {
+        id: item._id,
+        title: item.name,
+        type: "google-doc",
+        mimeType: item.mimeType,
+        url: item.fileUrl,
+      };
+      setOpenedTabs([...openedTabs, newTab]);
+      setActiveTabId(item._id);
+    }
+  };
+
+  const handleCloseTab = (tabId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const tabIndex = openedTabs.findIndex(t => t.id === tabId);
+    if (tabIndex === -1) return;
+
+    const newTabs = openedTabs.filter(t => t.id !== tabId);
+    setOpenedTabs(newTabs);
+
+    if (activeTabId === tabId) {
+      const nextActiveIndex = tabIndex > 0 ? tabIndex - 1 : 0;
+      if (newTabs.length > 0) {
+        setActiveTabId(newTabs[nextActiveIndex].id);
+      } else {
+        setOpenedTabs([{ id: "explorer", title: "Thẻ mới", type: "explorer" }]);
+        setActiveTabId("explorer");
+      }
+    }
+  };
+
+  const handleAddExplorerTab = () => {
+    const newId = `explorer-${Date.now()}`;
+    const newTab: OpenedTab = {
+      id: newId,
+      title: "Thẻ mới",
+      type: "explorer"
+    };
+    setOpenedTabs([...openedTabs, newTab]);
+    setActiveTabId(newId);
   };
 
   // Generate badge color
@@ -699,7 +827,12 @@ export default function ResourceTab() {
       setCurrentFolderId(resource.driveFileId);
       setBreadcrumbs((prev) => [...prev, { id: resource.driveFileId, name: resource.name }]);
     } else {
-      setPreviewFile(resource);
+      handleOpenFile({
+        _id: resource._id,
+        name: resource.name,
+        fileUrl: resource.webViewLink,
+        mimeType: resource.mimeType,
+      });
     }
   };
 
@@ -756,7 +889,7 @@ export default function ResourceTab() {
               : "bg-transparent hover:bg-slate-100 border-transparent hover:border-slate-200/50 hover:shadow-xs"
         }`}
       >
-        {/* Three-dot menu button */}
+{/* Three-dot menu button */}
         {canEdit && (
           <div className={`absolute top-2 right-2 card-menu-container z-10 transition-opacity duration-150 ${isMenuOpen ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
             <button
@@ -770,7 +903,38 @@ export default function ResourceTab() {
             </button>
 
             {isMenuOpen && (
-              <div className="absolute left-2 top-9 mt-1.5 w-48 bg-white border border-slate-200 rounded-2xl shadow-xl py-1.5 z-20 text-left">
+              <div className="absolute left-2 top-9 mt-1.5 w-52 bg-white border border-slate-200 rounded-2xl shadow-xl py-1.5 z-20 text-left">
+                {/* Mở trong trình duyệt - chỉ cho file, không phải folder */}
+                {!isFolder && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActiveMenuId(null);
+                      window.open(resource.webViewLink, "_blank", "noopener,noreferrer");
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                  >
+                    <ExternalLink className="h-4 w-4 text-slate-500" />
+                    <span>Mở trong trình duyệt</span>
+                  </button>
+                )}
+
+                {/* Sao chép đường liên kết - chỉ cho file */}
+                {!isFolder && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActiveMenuId(null);
+                      navigator.clipboard.writeText(resource.webViewLink);
+                      toast.success("Đã sao chép đường liên kết Google Drive.");
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                  >
+                    <Link className="h-4 w-4 text-slate-500" />
+                    <span>Sao chép đường liên kết</span>
+                  </button>
+                )}
+
                 {/* Đổi tên */}
                 <button
                   onClick={(e) => {
@@ -805,6 +969,8 @@ export default function ResourceTab() {
                   <span>Di chuyển đến thư mục</span>
                 </button>
 
+
+
                 <div className="border-t border-slate-100 my-1"></div>
 
                 {/* Chuyển vào thùng rác */}
@@ -836,19 +1002,25 @@ export default function ResourceTab() {
           </div>
         )}
 
-        {/* Center Icon */}
-        <div className="flex-1 flex items-center justify-center mt-3">
-          {isFolder && resource.name.toUpperCase().includes("GOOGLE") ? (
-            <div className="relative">
-              <FolderOpen className="h-16 w-16 text-[#5bc0be]" strokeWidth={1.5} />
-              <div className="absolute inset-0 flex items-center justify-center mt-2.5">
-                <GoogleDriveLogo className="h-5 w-5 bg-white rounded-full p-0.5" />
-              </div>
+      {/* Center Icon */}
+      <div className="flex-1 flex items-center justify-center mt-3">
+        {isFolder && resource.name.toUpperCase().includes("GOOGLE") ? (
+          <div className="relative">
+            <FolderOpen className="h-16 w-16 text-[#5bc0be]" strokeWidth={1.5} />
+            <div className="absolute inset-0 flex items-center justify-center mt-2.5">
+              <GoogleDriveLogo className="h-5 w-5 bg-white rounded-full p-0.5" />
             </div>
-          ) : (
-            <Icon className={`h-16 w-16 ${iconColor}`} strokeWidth={1.5} />
-          )}
-        </div>
+          </div>
+        ) : resource.mimeType === "application/vnd.google-apps.spreadsheet" ? (
+          <GoogleSheetsLogo className="h-16 w-16" />
+        ) : resource.mimeType === "application/vnd.google-apps.document" ? (
+          <GoogleDocsLogo className="h-16 w-16" />
+        ) : resource.mimeType === "application/vnd.google-apps.presentation" ? (
+          <GoogleSlidesLogo className="h-16 w-16" />
+        ) : (
+          <Icon className={`h-16 w-16 ${iconColor}`} strokeWidth={1.5} />
+        )}
+      </div>
 
         {/* Card Name */}
         <div className="mt-auto w-full pt-2">
@@ -889,13 +1061,91 @@ export default function ResourceTab() {
       </div>
 
       {/* Right Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 bg-white overflow-hidden">
-        {subTab === "TÀI LIỆU KHÁC" ? (
-          <div className="flex-1 overflow-y-auto p-6 text-left">
-            <FileExplorer />
-          </div>
-        ) : (
-          <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 bg-[#f8f9fa] overflow-hidden">
+        {/* Browser Tabs Bar */}
+        <div className="h-12 bg-slate-100/90 border-b border-slate-200 flex items-end px-4 gap-1 shrink-0 select-none">
+          {openedTabs.map((tab) => {
+            const isActive = activeTabId === tab.id;
+            const isExplorer = tab.type === "explorer";
+            
+            // Get Tab Icon
+            let TabIcon = FileIcon;
+            let iconColor = "text-slate-400";
+            if (isExplorer) {
+              TabIcon = FolderOpen;
+              iconColor = "text-blue-500";
+            } else if (tab.mimeType?.includes("spreadsheet") || tab.title.endsWith(".xlsx")) {
+              TabIcon = FileSpreadsheet;
+              iconColor = "text-green-600";
+            } else if (tab.mimeType?.includes("presentation")) {
+              TabIcon = Presentation;
+              iconColor = "text-orange-500";
+            } else {
+              TabIcon = FileText;
+              iconColor = "text-blue-500";
+            }
+
+            return (
+              <div
+                key={tab.id}
+                onClick={() => setActiveTabId(tab.id)}
+                className={`group h-9 flex items-center gap-2 px-4 rounded-t-xl text-xs font-bold transition duration-150 cursor-pointer border-x border-t max-w-[180px] ${
+                  isActive
+                    ? "bg-white text-slate-800 border-slate-200 shadow-xs z-10"
+                    : "text-slate-500 bg-slate-200/40 border-transparent hover:bg-slate-200/80 hover:text-slate-700"
+                }`}
+              >
+                {!isExplorer && tab.mimeType?.includes("google-apps") ? (
+                  <GoogleDriveLogo className="h-4 w-4 shrink-0" />
+                ) : (
+                  <TabIcon className={`h-4 w-4 shrink-0 ${iconColor}`} />
+                )}
+                
+                <span className="truncate max-w-[110px]">{tab.title}</span>
+                
+                {/* Close Button */}
+                <button
+                  onClick={(e) => handleCloseTab(tab.id, e)}
+                  className="p-0.5 rounded-full hover:bg-slate-200 group-hover:opacity-100 opacity-60 text-slate-400 hover:text-slate-600 transition ml-auto"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            );
+          })}
+
+          <button
+            onClick={handleAddExplorerTab}
+            className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500 hover:text-slate-800 transition ml-2 mb-1.5"
+            title="Thẻ mới"
+          >
+            <Plus className="h-4.5 w-4.5" />
+          </button>
+        </div>
+
+        {/* Tab Contents wrapper */}
+        <div className="flex-1 flex flex-col overflow-hidden bg-white relative">
+          {(() => {
+            const activeTab = openedTabs.find(t => t.id === activeTabId);
+            if (activeTab?.type === "google-doc") {
+              return (
+                <div className="flex-1 bg-white flex flex-col overflow-hidden">
+                  <iframe
+                    src={activeTab.url}
+                    title={activeTab.title}
+                    className="w-full h-full border-0"
+                    allow="autoplay; encrypted-media; clipboard-write; clipboard-read"
+                  ></iframe>
+                </div>
+              );
+            }
+            
+            return subTab === "TÀI LIỆU KHÁC" ? (
+              <div className="flex-1 overflow-y-auto p-6 text-left">
+                <FileExplorer onOpenFile={handleOpenFile} />
+              </div>
+            ) : (
+              <div className="flex-1 flex flex-col overflow-hidden">
             {/* Header Row matching user screenshot */}
             <div className="h-20 px-8 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white">
               {/* Space Dropdown Selector on Left */}
@@ -1285,7 +1535,9 @@ export default function ResourceTab() {
               )}
             </div>
           </div>
-        )}
+        )
+      })()}
+        </div>
       </div>
 
       {/* Google Drive File Inline Preview Embed Modal */}

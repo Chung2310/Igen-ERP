@@ -15,6 +15,7 @@ export interface ResourceItem {
   driveType?: DriveDocType;
   creatorUid?: string;
   creatorName?: string;
+  isFixed?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -22,6 +23,7 @@ export interface ResourceItem {
 export interface BreadcrumbEntry {
   _id: string;
   name: string;
+  isFixed?: boolean;
 }
 
 export type ResourceSubTabType = "TÀI LIỆU KHÁC" | "GOOGLE DRIVE";

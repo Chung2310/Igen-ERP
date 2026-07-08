@@ -19,6 +19,7 @@ export interface IResourceItem extends Document {
   driveType?: "folder" | "document" | "spreadsheet" | "presentation" | "pdf" | "file";
   creatorUid?: string;
   creatorName?: string;
+  isFixed?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -40,6 +41,7 @@ const ResourceItemSchema = new Schema<IResourceItem>(
     },
     creatorUid: { type: String, default: "" },
     creatorName: { type: String, default: "" },
+    isFixed: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
