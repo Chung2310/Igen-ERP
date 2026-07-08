@@ -37,4 +37,4 @@ const resourceSchema = new Schema<IResource>(
   }
 );
 
-export const Resource = model<IResource>("Resource", resourceSchema);
+export const Resource = model<IResource>("StudentResource", resourceSchema, "student_resources");
