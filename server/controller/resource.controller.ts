@@ -29,7 +29,7 @@ export const resourceController = {
     try {
       const section = (req.query.section as "local" | "drive") || "local";
       const parentId = (req.query.parentId as string) || null;
-      const items = await resourceService.list(getCompanyCode(req), section, parentId);
+      const items = await resourceService.list(getCompanyCode(req), section, parentId, req.user?.id);
       return res.json({ success: true, items });
     } catch (error) {
       return sendError(res, error, "list");
@@ -39,7 +39,7 @@ export const resourceController = {
   /** GET /api/v1/resources/breadcrumb/:id */
   async breadcrumb(req: AuthenticatedRequest, res: Response) {
     try {
-      const trail = await resourceService.breadcrumb(getCompanyCode(req), req.params.id);
+      const trail = await resourceService.breadcrumb(getCompanyCode(req), req.params.id, req.user?.id);
       return res.json({ success: true, trail });
     } catch (error) {
       return sendError(res, error, "breadcrumb");
