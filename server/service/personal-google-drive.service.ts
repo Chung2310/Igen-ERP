@@ -24,7 +24,7 @@ export class GoogleDriveService {
     const oauth2Client = this.getOAuth2Client();
     return oauth2Client.generateAuthUrl({
       access_type: "offline",
-      prompt: "consent",
+      prompt: "select_account consent",
       scope: [
         "https://www.googleapis.com/auth/drive.file",
         "https://www.googleapis.com/auth/userinfo.email",

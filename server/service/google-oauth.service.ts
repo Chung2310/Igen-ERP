@@ -43,7 +43,7 @@ export const googleOAuthService = {
     const client = new OAuth2Client(clientId, clientSecret, redirectUri);
     return client.generateAuthUrl({
       access_type: "offline", // để nhận refresh_token
-      prompt: "consent", // luôn xin lại refresh_token
+      prompt: "select_account consent", // luôn xin lại refresh_token
       scope: SCOPES,
       state,
       include_granted_scopes: true,

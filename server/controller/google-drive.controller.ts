@@ -344,14 +344,16 @@ export const googleDriveController = {
         return res.status(401).json({ status: "error", message: "Thông tin xác thực không hợp lệ." });
       }
 
-      // 1. Tìm phòng chat
-      const chatRoom = await ChatRoomModel.findOne({ _id: roomId, companyCode });
+      // 1. Tìm phòng chat và populate thông tin thành viên
+      const chatRoom = await ChatRoomModel.findOne({ _id: roomId, companyCode })
+        .populate("members.userId", "displayName photoURL email role status");
       if (!chatRoom) {
         return res.status(404).json({ status: "error", message: "Không tìm thấy phòng chat." });
       }
 
       // 2. Kiểm tra quyền truy cập phòng chat
-      const isMember = chatRoom.members.some(m => m.userId.toString() === userId);
+      const getUserIdString = (u: any) => (u && typeof u === "object" ? (u._id || u.id || u).toString() : String(u));
+      const isMember = chatRoom.members.some(m => getUserIdString(m.userId) === userId);
       const isCompanyWide = chatRoom.driveGeneralAccess === "company";
       const isAdmin = ["admin", "superadmin"].includes(req.user?.role || "");
 
@@ -596,12 +598,16 @@ export const googleDriveController = {
 
       await chatRoom.save();
 
+      // Populate thông tin người dùng trước khi phản hồi về Client
+      const populatedChatRoom = await ChatRoomModel.findById(chatRoom._id)
+        .populate("members.userId", "displayName photoURL email role status");
+
       return res.status(200).json({
         status: "success",
         message: "Cập nhật cấu hình phân quyền Google Drive nhóm thành công.",
         data: {
           driveGeneralAccess: chatRoom.driveGeneralAccess,
-          members: chatRoom.members
+          members: populatedChatRoom?.members || []
         }
       });
     } catch (error: any) {
@@ -724,6 +730,52 @@ export const googleDriveController = {
           { driveFileId: fileId }
         ].filter(Boolean) as any
       });
+
+      // Kiểm tra quyền di chuyển tài nguyên nguồn và quyền tại thư mục đích
+      let isAllowedSource = false;
+      const isAdmin = ["admin", "superadmin"].includes(req.user?.role || "");
+
+      if (isAdmin) {
+        isAllowedSource = true;
+      } else if (resource && resource.uploadedBy.toString() === userId) {
+        isAllowedSource = true;
+      } else if (resource && resource.chatRoomId) {
+        const chatRoom = await ChatRoomModel.findOne({ _id: resource.chatRoomId, companyCode });
+        if (chatRoom) {
+          const memberInfo = chatRoom.members.find(m => m.userId.toString() === userId);
+          const isRoomAdmin = memberInfo?.role === "admin";
+          const isCreator = chatRoom.creatorId.toString() === userId;
+          const isUploader = memberInfo?.canUploadDrive === true;
+          if (isRoomAdmin || isCreator || isUploader) {
+            isAllowedSource = true;
+          }
+        }
+      } else if (!resource) {
+        isAllowedSource = true;
+      }
+
+      let isAllowedDest = false;
+      if (spaceType === "group" && roomId) {
+        const chatRoom = await ChatRoomModel.findOne({ _id: roomId, companyCode });
+        if (chatRoom) {
+          const memberInfo = chatRoom.members.find(m => m.userId.toString() === userId);
+          const isRoomAdmin = memberInfo?.role === "admin";
+          const isCreator = chatRoom.creatorId.toString() === userId;
+          const isUploader = memberInfo?.canUploadDrive === true;
+          if (isRoomAdmin || isCreator || isUploader || isAdmin) {
+            isAllowedDest = true;
+          }
+        }
+      } else {
+        isAllowedDest = true;
+      }
+
+      if (!isAllowedSource || !isAllowedDest) {
+        return res.status(403).json({
+          status: "error",
+          message: "Bạn không có quyền di chuyển tài nguyên này."
+        });
+      }
 
       const actualDriveFileId = resource ? resource.driveFileId : fileId;
 
@@ -1003,6 +1055,38 @@ export const googleDriveController = {
 
       if (!resource) {
         return res.status(404).json({ status: "error", message: "Không tìm thấy tài nguyên." });
+      }
+
+      // Kiểm tra quyền đổi tên tài nguyên
+      let isAllowed = false;
+      const isAdmin = ["admin", "superadmin"].includes(req.user?.role || "");
+
+      if (isAdmin) {
+        isAllowed = true;
+      } else if (resource.uploadedBy.toString() === userId) {
+        isAllowed = true;
+      } else if (resource.chatRoomId) {
+        const chatRoom = await ChatRoomModel.findOne({ _id: resource.chatRoomId, companyCode });
+        if (chatRoom) {
+          const memberInfo = chatRoom.members.find(m => m.userId.toString() === userId);
+          const isRoomAdmin = memberInfo?.role === "admin";
+          const isCreator = chatRoom.creatorId.toString() === userId;
+          const isUploader = memberInfo?.canUploadDrive === true;
+          if (isRoomAdmin || isCreator || isUploader) {
+            isAllowed = true;
+          }
+        }
+      } else {
+        if (resource.uploadedBy.toString() === userId) {
+          isAllowed = true;
+        }
+      }
+
+      if (!isAllowed) {
+        return res.status(403).json({
+          status: "error",
+          message: "Bạn không có quyền chỉnh sửa tài nguyên này.",
+        });
       }
 
       // Xác định client xác thực

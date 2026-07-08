@@ -86,8 +86,10 @@ const EmptyStateIllustration = () => (
   </svg>
 );
 
+const getMemberId = (u: any) => (u && typeof u === "object" ? (u._id || u.id) : u);
+
 export default function ResourceTab() {
-  const { userProfile, setActiveTab } = useAuth();
+  const { userProfile, setActiveTab, refreshProfile } = useAuth();
   const [subTab, setSubTab] = useState<ResourceSubTabType>("TÀI LIỆU KHÁC");
   const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(false);
@@ -158,6 +160,81 @@ export default function ResourceTab() {
   const [driveRenameTarget, setDriveRenameTarget] = useState<Resource | null>(null);
   const [driveRenameValue, setDriveRenameValue] = useState("");
   const [driveRenaming, setDriveRenaming] = useState(false);
+
+  const [connectingGoogleDrive, setConnectingGoogleDrive] = useState(false);
+
+  useEffect(() => {
+    const handleGoogleDriveMessage = async (event: MessageEvent) => {
+      const isAllowedOrigin =
+        event.origin === window.location.origin ||
+        event.origin.includes("localhost:") ||
+        event.origin.includes("127.0.0.1:");
+      if (!isAllowedOrigin) return;
+
+      if (event.data?.type === "GOOGLE_DRIVE_CONNECTED") {
+        toast.success(`Đã kết nối Google Drive cá nhân thành công!`);
+        void refreshProfile();
+        window.location.reload();
+      } else if (event.data?.type === "GOOGLE_DRIVE_FAILED") {
+        toast.error(event.data.error || "Kết nối Google Drive cá nhân thất bại.");
+      }
+    };
+    window.addEventListener("message", handleGoogleDriveMessage);
+    return () => window.removeEventListener("message", handleGoogleDriveMessage);
+  }, [refreshProfile]);
+
+  const handleGoogleDriveOAuth = async () => {
+    setConnectingGoogleDrive(true);
+    try {
+      localStorage.removeItem("google_drive_oauth_result");
+      const res = await fetch("/api/v1/integrations/google-drive/auth-url", {
+        headers: { Authorization: `Bearer ${getAccessToken()}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Không thể lấy link xác thực Google.");
+
+      const authUrl = data.authUrl;
+      const width = 600;
+      const height = 650;
+      const left = window.screen.width / 2 - width / 2;
+      const top = window.screen.height / 2 - height / 2;
+      const oauthWindow = window.open(
+        authUrl,
+        "GoogleDriveOAuthPopup",
+        `width=${width},height=${height},left=${left},top=${top},status=no,resizable=yes,scrollbars=yes`
+      );
+
+      if (!oauthWindow) {
+        throw new Error("Trình duyệt đang chặn cửa sổ popup. Vui lòng cho phép popup để kết nối.");
+      }
+
+      const checkInterval = setInterval(() => {
+        if (oauthWindow.closed) {
+          clearInterval(checkInterval);
+          setConnectingGoogleDrive(false);
+          // Polling check to automatically reload if connection succeeded
+          setTimeout(async () => {
+            try {
+              const res = await fetch("/api/v1/auth/me", {
+                headers: { Authorization: `Bearer ${getAccessToken()}` },
+              });
+              const data = await res.json();
+              if (res.ok && data.user?.googleDriveIntegration?.isConnected) {
+                toast.success(`Đã kết nối Google Drive cá nhân thành công!`);
+                window.location.reload();
+              }
+            } catch (err) {
+              console.error("Lỗi khi kiểm tra kết nối Google Drive:", err);
+            }
+          }, 600);
+        }
+      }, 800);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Không thể kết nối Google Drive.");
+      setConnectingGoogleDrive(false);
+    }
+  };
 
   const fetchMoveFolders = async (space: string, folderId: string) => {
     setLoadingMoveFolders(true);
@@ -402,7 +479,7 @@ export default function ResourceTab() {
     if (!room) return false;
 
     const memberInfo = room.members.find(
-      (m: any) => String(m.userId?._id || m.userId?.uid || m.userId) === String(userProfile?.uid || userProfile?.id)
+      (m: any) => String(getMemberId(m.userId)) === String(userProfile?.uid || userProfile?.id)
     );
     const isRoomAdmin = memberInfo?.role === "admin";
     const isCreator = String(room.creatorId) === String(userProfile?.uid || userProfile?.id);
@@ -419,7 +496,7 @@ export default function ResourceTab() {
     if (!room) return false;
 
     const memberInfo = room.members.find(
-      (m: any) => String(m.userId?._id || m.userId?.uid || m.userId) === String(userProfile?.uid || userProfile?.id)
+      (m: any) => String(getMemberId(m.userId)) === String(userProfile?.uid || userProfile?.id)
     );
     const isRoomAdmin = memberInfo?.role === "admin";
     const isCreator = String(room.creatorId) === String(userProfile?.uid || userProfile?.id);
@@ -635,8 +712,23 @@ export default function ResourceTab() {
     const isFolder = resource.mimeType === "application/vnd.google-apps.folder";
     const isCreatorOrAdmin = ["admin", "superadmin"].includes(userProfile?.role || "");
     const room = selectedSpace !== "personal" ? rooms.find(r => r._id === selectedSpace) : null;
-    const isRoomAdmin = room && room.members.find((m: any) => String(m.userId?._id || m.userId?.uid || m.userId) === String(userProfile?.uid || userProfile?.id))?.role === "admin";
-    const canDelete = selectedSpace === "personal" || isCreatorOrAdmin || isRoomAdmin;
+    const isRoomAdmin = room && room.members.find((m: any) => String(getMemberId(m.userId)) === String(userProfile?.uid || userProfile?.id))?.role === "admin";
+    
+    // Check if the current user has edit permission for this space
+    const canEdit = (() => {
+      if (selectedSpace === "personal") return !!isConnected;
+      if (isCreatorOrAdmin) return true;
+      if (!room) return false;
+      const memberInfo = room.members.find(
+        (m: any) => String(getMemberId(m.userId)) === String(userProfile?.uid || userProfile?.id)
+      );
+      const isRoomAdmin = memberInfo?.role === "admin";
+      const isCreator = String(room.creatorId) === String(userProfile?.uid || userProfile?.id);
+      const isUploader = memberInfo?.canUploadDrive === true;
+      return isRoomAdmin || isCreator || isUploader;
+    })();
+
+    const canDelete = selectedSpace === "personal" || isCreatorOrAdmin || isRoomAdmin || (room && room.members.find((m: any) => String(getMemberId(m.userId)) === String(userProfile?.uid || userProfile?.id))?.canUploadDrive === true);
 
     const { Icon, iconColor } = isFolder 
       ? { Icon: FolderOpen, iconColor: "text-[#5bc0be]" } 
@@ -665,72 +757,74 @@ export default function ResourceTab() {
         }`}
       >
         {/* Three-dot menu button */}
-        <div className={`absolute top-2 right-2 card-menu-container z-10 transition-opacity duration-150 ${isMenuOpen ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setActiveMenuId(isMenuOpen ? null : resource._id);
-            }}
-            className="w-8 h-8 rounded-full bg-white hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center shadow-xs border border-slate-200/40 transition active:scale-90 cursor-pointer"
-          >
-            <MoreVertical className="h-4 w-4" />
-          </button>
+        {canEdit && (
+          <div className={`absolute top-2 right-2 card-menu-container z-10 transition-opacity duration-150 ${isMenuOpen ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setActiveMenuId(isMenuOpen ? null : resource._id);
+              }}
+              className="w-8 h-8 rounded-full bg-white hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center shadow-xs border border-slate-200/40 transition active:scale-90 cursor-pointer"
+            >
+              <MoreVertical className="h-4 w-4" />
+            </button>
 
-          {isMenuOpen && (
-            <div className="absolute left-2 top-9 mt-1.5 w-48 bg-white border border-slate-200 rounded-2xl shadow-xl py-1.5 z-20 text-left">
-              {/* Đổi tên */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setActiveMenuId(null);
-                  setDriveRenameTarget(resource);
-                  setDriveRenameValue(resource.name);
-                }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
-              >
-                <Pencil className="h-4 w-4 text-slate-500" />
-                <span>Đổi tên</span>
-              </button>
-
-              {/* Di chuyển đến thư mục */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setActiveMenuId(null);
-                  // Mở modal, browse từ thư mục gốc của space hiện tại
-                  const rootId = selectedSpace === "personal"
-                    ? (userProfile?.googleDriveIntegration?.rootFolderId || "root")
-                    : (rooms.find(r => r._id === selectedSpace)?.driveFolderId || "root");
-                  setMoveTarget(resource);
-                  setMoveSpace(selectedSpace);
-                  setMoveFolderId(rootId);
-                  setMoveBreadcrumbs([]);
-                }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
-              >
-                <ArrowRightLeft className="h-4 w-4 text-slate-500" />
-                <span>Di chuyển đến thư mục</span>
-              </button>
-
-              <div className="border-t border-slate-100 my-1"></div>
-
-              {/* Chuyển vào thùng rác */}
-              {canDelete && (
+            {isMenuOpen && (
+              <div className="absolute left-2 top-9 mt-1.5 w-48 bg-white border border-slate-200 rounded-2xl shadow-xl py-1.5 z-20 text-left">
+                {/* Đổi tên */}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     setActiveMenuId(null);
-                    handleDeleteResource(resource._id, resource.name);
+                    setDriveRenameTarget(resource);
+                    setDriveRenameValue(resource.name);
                   }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-semibold text-red-600 hover:bg-red-50 transition cursor-pointer"
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
                 >
-                  <Trash2 className="h-4 w-4 text-red-500" />
-                  <span>Chuyển vào thùng rác</span>
+                  <Pencil className="h-4 w-4 text-slate-500" />
+                  <span>Đổi tên</span>
                 </button>
-              )}
-            </div>
-          )}
-        </div>
+
+                {/* Di chuyển đến thư mục */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveMenuId(null);
+                    // Mở modal, browse từ thư mục gốc của space hiện tại
+                    const rootId = selectedSpace === "personal"
+                      ? (userProfile?.googleDriveIntegration?.rootFolderId || "root")
+                      : (rooms.find(r => r._id === selectedSpace)?.driveFolderId || "root");
+                    setMoveTarget(resource);
+                    setMoveSpace(selectedSpace);
+                    setMoveFolderId(rootId);
+                    setMoveBreadcrumbs([]);
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                >
+                  <ArrowRightLeft className="h-4 w-4 text-slate-500" />
+                  <span>Di chuyển đến thư mục</span>
+                </button>
+
+                <div className="border-t border-slate-100 my-1"></div>
+
+                {/* Chuyển vào thùng rác */}
+                {canDelete && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActiveMenuId(null);
+                      handleDeleteResource(resource._id, resource.name);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-semibold text-red-600 hover:bg-red-50 transition cursor-pointer"
+                  >
+                    <Trash2 className="h-4 w-4 text-red-500" />
+                    <span>Chuyển vào thùng rác</span>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Drag-over overlay for folders */}
         {isDraggedOver && (
@@ -1122,11 +1216,21 @@ export default function ResourceTab() {
                     Nhân viên cần liên kết với tài khoản Google cá nhân của mình để kích hoạt không gian lưu trữ tài nguyên riêng biệt.
                   </p>
                   <button
-                    onClick={() => setActiveTab("CÀI ĐẶT")}
-                    className="mt-6 flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-lg transition-all duration-150 cursor-pointer"
+                    onClick={handleGoogleDriveOAuth}
+                    disabled={connectingGoogleDrive}
+                    className="mt-6 flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-lg transition-all duration-150 cursor-pointer disabled:opacity-60"
                   >
-                    <span>Đi tới Cài đặt cá nhân để liên kết</span>
-                    <ArrowUpRight className="h-4 w-4" />
+                    {connectingGoogleDrive ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin text-white" />
+                        <span>Đang kết nối...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Kết nối Google Drive cá nhân ngay</span>
+                        <ArrowUpRight className="h-4 w-4" />
+                      </>
+                    )}
                   </button>
                 </div>
               ) : (
@@ -1373,11 +1477,11 @@ export default function ResourceTab() {
                     return name.toLowerCase().includes(shareSearchQuery.toLowerCase());
                   })
                   .map((member: any) => {
-                    const isOwner = String(rooms.find(r => r._id === selectedSpace)?.creatorId) === String(member.userId?._id);
-                    const isMe = String(member.userId?._id) === String(userProfile?.uid || userProfile?.id);
+                    const isOwner = String(rooms.find(r => r._id === selectedSpace)?.creatorId) === String(getMemberId(member.userId));
+                    const isMe = String(getMemberId(member.userId)) === String(userProfile?.uid || userProfile?.id);
                     
                     return (
-                      <div key={member.userId?._id} className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-xl transition">
+                      <div key={String(getMemberId(member.userId))} className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-xl transition">
                         <div className="flex items-center gap-2.5 min-w-0">
                           <img
                             src={member.userId?.photoURL || "https://www.gravatar.com/avatar?d=mp"}
@@ -1401,14 +1505,16 @@ export default function ResourceTab() {
                               const updatedVal = e.target.value === "uploader";
                               setRoomMembers((prev: any[]) =>
                                 prev.map((m: any) =>
-                                  m.userId?._id === member.userId?._id ? { ...m, canUploadDrive: updatedVal } : m
+                                  String(getMemberId(m.userId)) === String(getMemberId(member.userId))
+                                    ? { ...m, canUploadDrive: updatedVal }
+                                    : m
                                 )
                               );
                             }}
                             className="text-[10px] font-bold text-gray-700 bg-white border border-gray-200 rounded-xl px-2.5 py-1.5 focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
                           >
                             <option value="viewer">Người xem</option>
-                            <option value="uploader">Người tải lên</option>
+                            <option value="uploader">Người chỉnh sửa</option>
                           </select>
                         )}
                       </div>
