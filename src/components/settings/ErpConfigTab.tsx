@@ -21,7 +21,8 @@ export default function ErpConfigTab() {
   const [isLocating, setIsLocating] = useState(false);
   const [savingLocation, setSavingLocation] = useState(false);
 
-  const isCompanyManager = userProfile?.role === "superadmin" || userProfile?.role === "admin" || userProfile?.role === "manager";
+  // Cấu hình vị trí chấm công (GPS) chỉ dành cho admin/superadmin xem & sửa
+  const canManageLocation = userProfile?.role === "superadmin" || userProfile?.role === "admin";
 
   useEffect(() => {
     if (userProfile?.aiAutoReplyConfig?.model) {
@@ -30,7 +31,7 @@ export default function ErpConfigTab() {
   }, [userProfile]);
 
   useEffect(() => {
-    if (isCompanyManager) {
+    if (canManageLocation) {
       const fetchCompanyLocation = async () => {
         try {
           const res = await fetch("/api/v1/timekeeping/company-location", {
@@ -55,7 +56,7 @@ export default function ErpConfigTab() {
       };
       fetchCompanyLocation();
     }
-  }, [isCompanyManager]);
+  }, [canManageLocation]);
 
   const handleGetCurrentLocation = () => {
     if (!navigator.geolocation) {
@@ -213,8 +214,8 @@ export default function ErpConfigTab() {
         </div>
       </div>
 
-      {/* Cấu hình Vị trí Chấm công (GPS) */}
-      {isCompanyManager && (
+      {/* Cấu hình Vị trí Chấm công (GPS) — chỉ admin/superadmin */}
+      {canManageLocation && (
         <div>
           <h3 className="text-base font-bold text-gray-800 mb-4 flex items-center gap-2 border-b border-gray-100 pb-3">
             <MapPin className="h-5 w-5 text-indigo-500" />

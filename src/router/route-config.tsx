@@ -1,6 +1,7 @@
 import { lazy } from "react";
 import type { ComponentType, LazyExoticComponent } from "react";
 import type { TabType, UserProfile } from "../types";
+import { isTabHidden } from "../config/modules";
 
 export type LazyPageComponent = LazyExoticComponent<ComponentType<any>>;
 
@@ -26,10 +27,12 @@ export const APP_ROUTES: AppRoute[] = [
   {
     tab: "MARKETING",
     component: lazy(() => import("../pages/MarketingTab")),
+    canAccess: () => !isTabHidden("MARKETING"),
   },
   {
     tab: "SALES CRM",
     component: lazy(() => import("../pages/CRMTab")),
+    canAccess: () => !isTabHidden("SALES CRM"),
   },
   {
     tab: "QUẢN LÝ TÀI NGUYÊN",

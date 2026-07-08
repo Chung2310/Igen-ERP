@@ -163,9 +163,38 @@ function sanitizeMarketingResult(modelName: string, item: any) {
   return sanitizeMarketingPayload(modelName, plainItem);
 }
 
+/**
+ * Model chỉ được đọc qua router CRUD chung; mọi thao tác ghi (tạo/sửa/xóa)
+ * phải đi qua router chuyên biệt có kiểm tra phân quyền & phân cấp đầy đủ.
+ * Chặn ở đây để tránh leo thang đặc quyền (vd tự set role/permissions qua /crud/users).
+ */
+const WRITE_PROTECTED_MODELS = new Set<string>(["users"]);
+
+/** Loại bỏ trường nhạy cảm khỏi kết quả trả về của model users */
+function sanitizeUserResult(modelName: string, item: any) {
+  if (modelName !== "users" || !item || typeof item !== "object") {
+    return item;
+  }
+  const plainItem = typeof item.toObject === "function" ? item.toObject() : { ...item };
+  delete plainItem.password;
+  delete plainItem.refreshToken;
+  return plainItem;
+}
+
+function assertWritable(modelName: string) {
+  if (WRITE_PROTECTED_MODELS.has(modelName)) {
+    const err: any = new Error(
+      "Không thể thao tác trực tiếp trên tài nguyên này qua API chung. Vui lòng dùng chức năng Quản lý người dùng."
+    );
+    err.statusCode = 403;
+    throw err;
+  }
+}
+
 function sanitizeCrudResult(modelName: string, item: any) {
   const inventoryItem = sanitizeInventoryResult(modelName, item);
-  return sanitizeMarketingResult(modelName, inventoryItem);
+  const marketingItem = sanitizeMarketingResult(modelName, inventoryItem);
+  return sanitizeUserResult(modelName, marketingItem);
 }
 
 async function handlePendingVideoUrl(item: any, modelName: string) {
@@ -346,6 +375,7 @@ export const crudService = {
     if (!model) {
       throw new Error(`Model '${modelName}' không được hỗ trợ.`);
     }
+    assertWritable(modelName);
 
     // Ép buộc gán companyCode để bảo mật dữ liệu doanh nghiệp
     const payload = sanitizeMarketingPayload(modelName, {
@@ -397,6 +427,8 @@ export const crudService = {
     if (!model) {
       throw new Error(`Model '${modelName}' không được hỗ trợ.`);
     }
+
+    assertWritable(modelName);
 
     const query: any = { _id: id };
     if (userRole !== "superadmin" || (companyCode && companyCode !== "SYSTEM")) {
@@ -477,6 +509,7 @@ export const crudService = {
     if (!model) {
       throw new Error(`Model '${modelName}' không được hỗ trợ.`);
     }
+    assertWritable(modelName);
 
     const query: any = { _id: id };
     if (userRole !== "superadmin" || (companyCode && companyCode !== "SYSTEM")) {

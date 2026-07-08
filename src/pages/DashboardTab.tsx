@@ -30,6 +30,7 @@ import { crmService } from "../services/crmService";
 import { toast } from "../pages/Toast";
 import { UserProfile, ContentApprovalCard } from "../types";
 import LowStockModal from "../components/inventory/LowStockModal";
+import { isTabHidden } from "../config/modules";
 
 type DashboardView = "overview" | "revenue" | "ai";
 type Tone = "blue" | "amber" | "slate" | "indigo" | "emerald";
@@ -1057,8 +1058,12 @@ function OverviewPanel({
             onClick={() => goToTab("NHÂN SỰ")}
           />
           <ModuleCard icon={PackageCheck} tone="blue" title="Kho & Sản phẩm" value={totalProducts} label="Tổng sản phẩm" footer="Đơn chờ xuất" footerValue={`${pendingShipments} Đơn`} progress={78} alert lowCount={lowStockCount} onClick={() => goToTab("KHO & SẢN PHẨM")} />
-          <ModuleCard icon={Megaphone} tone="slate" title="Marketing" value={marketingPendingCount} label="Bài chờ duyệt" footer="Tỉ lệ duyệt" footerValue={`${marketingApprovalRate}%`} progress={Number(marketingApprovalRate) || 0} onClick={() => goToTab("MARKETING")} />
-          <SalesCard value={formatDashboardCurrency(totalRevenue, 1, false)} leadsCount={leadsCount} />
+          {!isTabHidden("MARKETING") && (
+            <ModuleCard icon={Megaphone} tone="slate" title="Marketing" value={marketingPendingCount} label="Bài chờ duyệt" footer="Tỉ lệ duyệt" footerValue={`${marketingApprovalRate}%`} progress={Number(marketingApprovalRate) || 0} onClick={() => goToTab("MARKETING")} />
+          )}
+          {!isTabHidden("SALES CRM") && (
+            <SalesCard value={formatDashboardCurrency(totalRevenue, 1, false)} leadsCount={leadsCount} />
+          )}
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -1069,7 +1074,7 @@ function OverviewPanel({
             </div>
             <BarChart data={trendData} />
           </div>
-          <DonutCard cards={marketingCards} />
+          {!isTabHidden("MARKETING") && <DonutCard cards={marketingCards} />}
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -1116,6 +1121,7 @@ function OverviewPanel({
             {showLowStockModal && <LowStockModal products={lowStockItems} onClose={() => setShowLowStockModal(false)} />}
           </div>
 
+          {!isTabHidden("MARKETING") && (
           <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col justify-between">
             <div>
               <div className="mb-5 flex items-center justify-between">
@@ -1179,6 +1185,7 @@ function OverviewPanel({
               />
             )}
           </div>
+          )}
         </div>
       </div>
 
@@ -1214,6 +1221,7 @@ function OverviewPanel({
             },
             {
               icon: Megaphone,
+              hiddenTab: "MARKETING" as const,
               title: marketingPendingItems.length > 0 ? `${marketingPendingItems.length} bài marketing chờ duyệt` : "Marketing đang ổn định",
               body: marketingPendingItems.length > 0
                 ? `AI đề xuất xử lý ${marketingPendingItems.length} bài viết chờ duyệt để không trì hoãn chiến dịch.`
@@ -1224,6 +1232,7 @@ function OverviewPanel({
             },
             {
               icon: Bot,
+              hiddenTab: "SALES CRM" as const,
               title: "Tự động hóa CSKH bằng AI",
               body: "AI phát hiện có cơ hội thiết lập thêm Agent trả lời tự động để chăm sóc khách hàng 24/7 và cải thiện chuyển đổi.",
               action: "Trải nghiệm AI Agent",
@@ -1233,7 +1242,9 @@ function OverviewPanel({
                 goToTab("SALES CRM");
               },
             },
-          ].map((item) => (
+          ]
+            .filter((item) => !("hiddenTab" in item) || !isTabHidden((item as any).hiddenTab))
+            .map((item) => (
             <AiInsightCard key={item.title} {...item} />
           ))}
         </div>
@@ -1464,6 +1475,7 @@ function ModuleCard({ icon: Icon, tone, title, value, label, footer, footerValue
 
 function SalesCard({ value, leadsCount }: { value: string; leadsCount: string }) {
   const goToTab = (tab: string) => {
+    if (isTabHidden(tab as any)) return;
     const pathMap: Record<string, string> = {
       "SALES CRM": "/sales-crm",
       "KHO & SẢN PHẨM": "/kho-san-pham"

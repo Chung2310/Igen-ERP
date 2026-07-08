@@ -27,6 +27,7 @@ import {
 } from "../config/brand";
 import type { TabType } from "../types";
 import { useAuth } from "../context/AuthContext";
+import { isTabHidden } from "../config/modules";
 
 interface SidebarProps {
   activeTab: TabType;
@@ -143,7 +144,8 @@ const baseMenuItems: MenuItem[] = [
 export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
   const { userProfile } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const menuItems = [...baseMenuItems];
+  // Loại các module bị ẩn tạm khỏi thanh điều hướng
+  const menuItems = baseMenuItems.filter((item) => !isTabHidden(item.label));
 
   if (userProfile?.role === "superadmin" || userProfile?.role === "admin") {
     menuItems.push({
