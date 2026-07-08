@@ -1,4 +1,4 @@
-import { Schema, model } from "mongoose";
+import mongoose, { Schema, model } from "mongoose";
 import { IResource } from "../interface/resource.interface";
 
 const ResourceSchema = new Schema<IResource>({
@@ -11,7 +11,9 @@ const ResourceSchema = new Schema<IResource>({
   webContentLink: { type: String },
   thumbnailLink: { type: String },
   size: { type: Number },
+  chatRoomId: { type: Schema.Types.ObjectId, ref: "ChatRoom", index: true },
   createdAt: { type: Date, default: Date.now, index: true },
 });
 
-export const ResourceModel = model<IResource>("GoogleDriveResource", ResourceSchema, "resources");
+export const ResourceModel = model<IResource>("Resource", ResourceSchema);
+

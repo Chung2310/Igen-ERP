@@ -10,5 +10,6 @@ export interface IResource extends Document {
   webContentLink?: string;
   thumbnailLink?: string;
   size?: number;
+  chatRoomId?: Types.ObjectId | string;
   createdAt: Date;
 }

@@ -131,10 +131,16 @@ export default function PersonalIntegrationsTab() {
 
   useEffect(() => {
     const handleGoogleDriveMessage = async (event: MessageEvent) => {
-      if (event.origin !== window.location.origin) return;
+      const isAllowedOrigin =
+        event.origin === window.location.origin ||
+        event.origin.includes("localhost:") ||
+        event.origin.includes("127.0.0.1:");
+      if (!isAllowedOrigin) return;
+
       if (event.data?.type === "GOOGLE_DRIVE_CONNECTED") {
         toast.success(`Đã kết nối Google Drive cá nhân thành công!`);
         void refreshProfile();
+        window.location.reload();
       } else if (event.data?.type === "GOOGLE_DRIVE_FAILED") {
         toast.error(event.data.error || "Kết nối Google Drive cá nhân thất bại.");
       }
@@ -232,6 +238,21 @@ export default function PersonalIntegrationsTab() {
         if (oauthWindow.closed) {
           clearInterval(checkInterval);
           setConnectingGoogleDrive(false);
+          // Polling check to automatically reload if connection succeeded
+          setTimeout(async () => {
+            try {
+              const res = await fetch("/api/v1/auth/me", {
+                headers: { Authorization: `Bearer ${getAccessToken()}` },
+              });
+              const data = await res.json();
+              if (res.ok && data.user?.googleDriveIntegration?.isConnected) {
+                toast.success(`Đã kết nối Google Drive cá nhân thành công!`);
+                window.location.reload();
+              }
+            } catch (err) {
+              console.error("Lỗi khi kiểm tra kết nối Google Drive:", err);
+            }
+          }, 600);
         }
       }, 800);
     } catch (err: any) {
