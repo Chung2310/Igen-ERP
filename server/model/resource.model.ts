@@ -14,4 +14,4 @@ const ResourceSchema = new Schema<IResource>({
   createdAt: { type: Date, default: Date.now, index: true },
 });
 
-export const ResourceModel = model<IResource>("Resource", ResourceSchema);
+export const ResourceModel = model<IResource>("GoogleDriveResource", ResourceSchema, "resources");
