@@ -79,7 +79,7 @@ timekeepingRouter.get(
   timekeepingController.getCompanyLocation as any
 );
 
-// Update company location config (restricted to superadmin, admin, manager inside controller)
+// Update company location config (restricted to superadmin, admin inside controller)
 timekeepingRouter.patch(
   "/company-location",
   requireAuth as any,

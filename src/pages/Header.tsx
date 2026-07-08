@@ -10,6 +10,7 @@ import { walletService } from "../services/walletService";
 import { marketingService } from "../services/marketingService";
 import { inventoryProductService } from "../services/inventoryProductService";
 import { crmService } from "../services/crmService";
+import { isTabHidden } from "../config/modules";
 import { toast } from "./Toast";
 
 interface HeaderProps {
@@ -158,6 +159,7 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
 
   // ─── CRM leads (new / pending orders) ───────────────────────
   useEffect(() => {
+    if (isTabHidden("SALES CRM")) return; // Module Sales CRM đang ẩn → không tạo thông báo
     const unsub = crmService.subscribeLeads((leads) => {
       const hotLeads = leads.filter((l: any) => l.stage === "hot" || l.stage === "deal");
       const newLeads = leads.filter((l: any) => l.stage === "cold" || l.stage === "warm");
@@ -211,6 +213,7 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
 
   // ─── Marketing pending ───────────────────────────────────────
   useEffect(() => {
+    if (isTabHidden("MARKETING")) return; // Module Marketing đang ẩn → không tạo thông báo
     const unsub = marketingService.subscribeToContents(
       (cards) => {
         const pending = cards.filter((c: any) => c.status === "pending");
@@ -285,6 +288,9 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
       ? []
       : searchIndex
         .filter((item) => {
+          if (isTabHidden(item.tab)) {
+            return false;
+          }
           if (item.tab === "HIỆU SUẤT AI" && userProfile?.role !== "superadmin") {
             return false;
           }

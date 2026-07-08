@@ -271,7 +271,7 @@ export const timekeepingController = {
       const companyCode = req.user?.companyCode || "SYSTEM";
       const userRole = req.user?.role || "user";
 
-      if (userRole !== "superadmin" && userRole !== "admin" && userRole !== "manager") {
+      if (userRole !== "superadmin" && userRole !== "admin") {
         return res.status(403).json({
           status: "error",
           message: "Bạn không có quyền thay đổi cấu hình vị trí của công ty.",

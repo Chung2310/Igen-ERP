@@ -2,9 +2,16 @@ import { useEffect, useState } from "react";
 import { pathToTab, tabToPath } from "../seo/seo-config";
 import type { TabType } from "../types";
 import { DEFAULT_APP_TAB } from "./route-config";
+import { isTabHidden } from "../config/modules";
+
+/** Tab bị ẩn (kể cả khi gõ URL trực tiếp) → đưa về tab mặc định */
+function resolveTabFromPath(pathname: string): TabType {
+  const tab = pathToTab(pathname) || DEFAULT_APP_TAB;
+  return isTabHidden(tab) ? DEFAULT_APP_TAB : tab;
+}
 
 function resolveInitialTab() {
-  const tab = pathToTab(window.location.pathname) || DEFAULT_APP_TAB;
+  const tab = resolveTabFromPath(window.location.pathname);
   console.log(`[useTabRouter] resolveInitialTab: pathname="${window.location.pathname}", resolvedTab="${tab}"`);
   return tab;
 }
@@ -23,7 +30,7 @@ export function useTabRouter(options?: { enabled?: boolean }) {
   // Sync tab state when router becomes enabled (e.g. after auth loading finishes)
   useEffect(() => {
     if (enabled) {
-      const currentTab = pathToTab(window.location.pathname) || DEFAULT_APP_TAB;
+      const currentTab = resolveTabFromPath(window.location.pathname);
       if (activeTab !== currentTab) {
         console.log(`[useTabRouter] Syncing activeTab from path: pathname="${window.location.pathname}", tab="${currentTab}"`);
         setActiveTab(currentTab);
@@ -35,7 +42,7 @@ export function useTabRouter(options?: { enabled?: boolean }) {
     if (!enabled) return;
 
     const handlePopState = () => {
-      const tab = pathToTab(window.location.pathname) || DEFAULT_APP_TAB;
+      const tab = resolveTabFromPath(window.location.pathname);
       console.log(`[useTabRouter] handlePopState: pathname="${window.location.pathname}", resolvedTab="${tab}"`);
       setActiveTab(tab);
     };

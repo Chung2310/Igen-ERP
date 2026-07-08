@@ -2,6 +2,21 @@ import { Response } from "express";
 import { AuthenticatedRequest } from "../middleware/auth";
 import { workflowLinkService } from "../service/workflow-link.service";
 
+/** Vai trò được phép vận hành quy trình (khớp isManager ở frontend) */
+const MANAGER_ROLES = ["superadmin", "admin", "manager"];
+
+/** Trả về true nếu đã chặn (không đủ quyền); controller nên return ngay sau đó */
+function blockIfNotManager(req: AuthenticatedRequest, res: Response): boolean {
+  if (!req.user || !MANAGER_ROLES.includes(req.user.role)) {
+    res.status(403).json({
+      status: "error",
+      message: "Bạn không có quyền vận hành quy trình (chỉ dành cho quản lý).",
+    });
+    return true;
+  }
+  return false;
+}
+
 export const workflowLinkController = {
   /**
    * POST /api/v1/crud/workflows/:id/participants
@@ -9,6 +24,7 @@ export const workflowLinkController = {
    */
   async createCase(req: AuthenticatedRequest, res: Response) {
     try {
+      if (blockIfNotManager(req, res)) return;
       const { id: workflowId } = req.params;
       const companyCode = req.user?.companyCode || "SYSTEM";
 
@@ -33,6 +49,7 @@ export const workflowLinkController = {
    */
   async advanceParticipant(req: AuthenticatedRequest, res: Response) {
     try {
+      if (blockIfNotManager(req, res)) return;
       const { id: workflowId, participantId } = req.params;
       const { nextStepId, force } = req.body;
       const companyCode = req.user?.companyCode || "SYSTEM";
@@ -72,6 +89,7 @@ export const workflowLinkController = {
    */
   async removeCase(req: AuthenticatedRequest, res: Response) {
     try {
+      if (blockIfNotManager(req, res)) return;
       const { id: workflowId, participantId } = req.params;
       const companyCode = req.user?.companyCode || "SYSTEM";
 
