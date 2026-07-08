@@ -7,8 +7,19 @@ type ProductCardProps = {
   onEdit: (product: ProductItem) => void;
 };
 
+export function formatCurrencyCompact(value: number): string {
+  if (value >= 1e9) {
+    return `${(value / 1e9).toLocaleString("vi-VN", { maximumFractionDigits: 2 })} tỷ`;
+  }
+  if (value >= 1e6) {
+    return `${(value / 1e6).toLocaleString("vi-VN", { maximumFractionDigits: 2 })} triệu`;
+  }
+  return value.toLocaleString("vi-VN");
+}
+
 export function ProductCard({ product, onDelete, onEdit }: ProductCardProps) {
   const alertState = product.stock <= product.minStockAlert;
+  const compactPrice = formatCurrencyCompact(product.price);
   const formattedPrice = product.price.toLocaleString("vi-VN");
   const formattedStock = product.stock.toLocaleString("vi-VN");
 
@@ -65,14 +76,16 @@ export function ProductCard({ product, onDelete, onEdit }: ProductCardProps) {
         )}
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-3 border-t border-gray-100 pt-3">
-        <div>
-          <p className="font-mono text-[10px] text-gray-400">Đơn giá</p>
-          <p className="font-mono text-[13px] font-bold text-indigo-600">{formattedPrice} đ</p>
+      <div className="mt-4 flex flex-wrap items-start justify-between gap-x-2 gap-y-1.5 border-t border-gray-100 pt-3">
+        <div className="min-w-0 flex-1 text-left">
+          <p className="font-mono text-[10px] text-gray-450">Đơn giá</p>
+          <p className="font-mono text-[13px] font-bold text-indigo-600 truncate" title={`${formattedPrice} đ`}>
+            {compactPrice} đ
+          </p>
         </div>
-        <div className="text-right">
-          <p className="font-mono text-[10px] text-gray-400">Tồn kho</p>
-          <p className={`font-mono text-[13px] font-bold ${alertState && product.status !== "Inactive" ? "text-red-500" : "text-gray-700"}`}>
+        <div className="text-right shrink-0">
+          <p className="font-mono text-[10px] text-gray-450">Tồn kho</p>
+          <p className={`font-mono text-[13px] font-bold ${alertState && product.status !== "Inactive" ? "text-red-500" : "text-slate-700"} truncate`} title={`${formattedStock} ${product.unit || "chiếc"}`}>
             {formattedStock} {product.unit || "chiếc"}
           </p>
         </div>

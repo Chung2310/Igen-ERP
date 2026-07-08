@@ -1,5 +1,5 @@
-import React from "react";
-import { AudioLines, Check, ExternalLink, LoaderCircle, MicVocal, Play, Sparkles, X } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import { AudioLines, Check, ExternalLink, LoaderCircle, MicVocal, Pause, Play, Sparkles, X } from "lucide-react";
 import type { HeyGenLibraryItem } from "../../api/heygen";
 import type { ElevenLabsAudioRecord } from "./HeyGenPopovers";
 import { HEYGEN_THEME } from "./heygenTheme";
@@ -37,6 +37,49 @@ export function VoiceSourcePopover({
   personalHint,
   onClose,
 }: VoiceSourcePopoverProps) {
+  const [playingUrl, setPlayingUrl] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const handlePlayToggle = (url: string) => {
+    if (!url) return;
+
+    if (playingUrl === url) {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+      setPlayingUrl(null);
+    } else {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      setPlayingUrl(url);
+      audio.play().catch((err) => {
+        console.error("Failed to play audio:", err);
+        setPlayingUrl(null);
+      });
+      audio.onended = () => {
+        setPlayingUrl(null);
+      };
+    }
+  };
+
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+    setPlayingUrl(null);
+  }, [activeTab]);
+
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+    };
+  }, []);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm">
       <div className={`w-full max-w-[min(92vw,760px)] rounded-[28px] border ${HEYGEN_THEME.border} ${HEYGEN_THEME.surface} p-4 shadow-2xl`}>
@@ -88,6 +131,8 @@ export function VoiceSourcePopover({
             selectedId={selectedThirdPartyId}
             isLoading={isLoadingThirdParty}
             onSelect={onSelectThirdParty}
+            playingUrl={playingUrl}
+            onPlay={handlePlayToggle}
           />
         ) : (
           <PersonalHeyGenVoiceList
@@ -95,6 +140,8 @@ export function VoiceSourcePopover({
             selectedId={selectedPersonalId}
             hint={personalHint}
             onSelect={onSelectPersonal}
+            playingUrl={playingUrl}
+            onPlay={handlePlayToggle}
           />
         )}
       </div>
@@ -132,11 +179,15 @@ function ThirdPartyVoiceList({
   selectedId,
   isLoading,
   onSelect,
+  playingUrl,
+  onPlay,
 }: {
   items: ElevenLabsAudioRecord[];
   selectedId: string;
   isLoading: boolean;
   onSelect: (item: ElevenLabsAudioRecord) => void;
+  playingUrl: string | null;
+  onPlay: (url: string) => void;
 }) {
   if (isLoading) {
     return (
@@ -159,6 +210,7 @@ function ThirdPartyVoiceList({
     <div className="grid max-h-[70vh] grid-cols-1 gap-3 overflow-y-auto pr-1">
       {items.map((item) => {
         const isSelected = item._id === selectedId;
+        const isPlaying = playingUrl === item.url;
         return (
           <button
             key={item._id}
@@ -186,16 +238,26 @@ function ThirdPartyVoiceList({
               ) : null}
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <a
-                href={item.url}
-                target="_blank"
-                rel="noreferrer"
-                onClick={(event) => event.stopPropagation()}
-                className={`inline-flex h-8 items-center gap-1.5 rounded-full border ${HEYGEN_THEME.border} bg-white px-3 text-xs font-semibold text-slate-600 transition hover:text-slate-900`}
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onPlay(item.url);
+                }}
+                className={`inline-flex h-8 items-center gap-1.5 rounded-full border ${HEYGEN_THEME.border} bg-white px-3 text-xs font-semibold text-slate-650 transition hover:text-slate-900 hover:bg-slate-50`}
               >
-                <Play className="h-3.5 w-3.5" />
-                Nghe
-              </a>
+                {isPlaying ? (
+                  <>
+                    <Pause className="h-3.5 w-3.5 text-cyan-600 animate-pulse" />
+                    Dừng
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-3.5 w-3.5" />
+                    Nghe
+                  </>
+                )}
+              </button>
               <a
                 href={item.url}
                 target="_blank"
@@ -219,11 +281,15 @@ function PersonalHeyGenVoiceList({
   selectedId,
   hint,
   onSelect,
+  playingUrl,
+  onPlay,
 }: {
   items: HeyGenLibraryItem[];
   selectedId: string;
   hint?: string;
   onSelect: (item: HeyGenLibraryItem) => void;
+  playingUrl: string | null;
+  onPlay: (url: string) => void;
 }) {
   if (items.length === 0) {
     return (
@@ -248,6 +314,7 @@ function PersonalHeyGenVoiceList({
         {items.map((item) => {
           const isSelected = item.id === selectedId;
           const hasPreviewAudio = Boolean(item.previewAudioUrl);
+          const isPlaying = hasPreviewAudio && playingUrl === item.previewAudioUrl;
           return (
             <button
               key={item.id}
@@ -277,24 +344,26 @@ function PersonalHeyGenVoiceList({
                 ) : null}
               </div>
               <div className="mt-3 flex items-center gap-2">
-                <a
-                  href={hasPreviewAudio ? item.previewAudioUrl : undefined}
-                  target="_blank"
-                  rel="noreferrer"
-                  aria-disabled={!hasPreviewAudio}
+                <button
+                  type="button"
                   onClick={(event) => {
                     event.stopPropagation();
-                    if (!hasPreviewAudio) {
-                      event.preventDefault();
+                    if (hasPreviewAudio && item.previewAudioUrl) {
+                      onPlay(item.previewAudioUrl);
                     }
                   }}
-                  className={`inline-flex h-8 w-8 items-center justify-center rounded-full border ${HEYGEN_THEME.border} bg-white text-slate-600 transition ${
-                    hasPreviewAudio ? "hover:text-slate-900" : "cursor-not-allowed opacity-40"
+                  disabled={!hasPreviewAudio}
+                  className={`inline-flex h-8 w-8 items-center justify-center rounded-full border ${HEYGEN_THEME.border} bg-white text-slate-650 transition ${
+                    hasPreviewAudio ? "hover:text-slate-900 hover:bg-slate-50" : "cursor-not-allowed opacity-40"
                   }`}
-                  title={hasPreviewAudio ? "Nghe thử voice" : "Voice này chưa có file nghe thử"}
+                  title={hasPreviewAudio ? (isPlaying ? "Dừng" : "Nghe thử voice") : "Voice này chưa có file nghe thử"}
                 >
-                  <Play className="h-3.5 w-3.5" />
-                </a>
+                  {isPlaying ? (
+                    <Pause className="h-3.5 w-3.5 text-cyan-600 animate-pulse" />
+                  ) : (
+                    <Play className="h-3.5 w-3.5" />
+                  )}
+                </button>
               </div>
             </button>
           );
