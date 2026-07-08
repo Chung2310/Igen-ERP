@@ -50,8 +50,12 @@ export default function CalendarTab({
   userProfile,
   selectedCompanyCode,
   isManager,
-  employees
+  employees,
+  usersList = []
 }: CalendarTabProps) {
+  // Sub-tab Navigation
+  const [currentSubTab, setCurrentSubTab] = useState<"schedule" | "attendance">("schedule");
+
   // Time States
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const year = currentDate.getFullYear();
@@ -60,6 +64,17 @@ export default function CalendarTab({
   // Data States
   const [items, setItems] = useState<CalendarItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+
+  // Timekeeping logs state
+  const [logs, setLogs] = useState<any[]>([]);
+  const [logsTotal, setLogsTotal] = useState(0);
+  const [logsPage, setLogsPage] = useState(1);
+  const [logsLimit] = useState(10);
+  const [logFilterEmployee, setLogFilterEmployee] = useState("all");
+  const [logFilterStatus, setLogFilterStatus] = useState("all");
+  const [logStartDate, setLogStartDate] = useState("");
+  const [logEndDate, setLogEndDate] = useState("");
+  const [isLogsLoading, setIsLogsLoading] = useState(false);
 
   // Filters State
   const [filterType, setFilterType] = useState<string>("all");
@@ -115,9 +130,383 @@ export default function CalendarTab({
     }
   };
 
+  const fetchTimekeepingLogs = async () => {
+    setIsLogsLoading(true);
+    try {
+      let url = `/api/v1/crud/timekeeping-logs?companyCode=${encodeURIComponent(selectedCompanyCode)}&limit=1000`;
+      
+      if (!isManager) {
+        url += `&uid=${userProfile?.uid}`;
+      } else if (logFilterEmployee !== "all") {
+        url += `&uid=${logFilterEmployee}`;
+      }
+
+      if (logStartDate) {
+        url += `&date[$gte]=${logStartDate}`;
+      }
+      if (logEndDate) {
+        url += `&date[$lte]=${logEndDate}`;
+      }
+
+      const res = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${getAccessToken()}`,
+        },
+      });
+      if (res.ok) {
+        const result = await res.json();
+        setLogs(result.data || []);
+      }
+    } catch (err) {
+      console.error("Lỗi khi tải lịch sử chấm công:", err);
+      toast.error("Không thể tải lịch sử chấm công.");
+    } finally {
+      setIsLogsLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchCalendarItems();
   }, [selectedCompanyCode]);
+
+  useEffect(() => {
+    if (currentSubTab === "attendance" && selectedCompanyCode) {
+      fetchTimekeepingLogs();
+    }
+  }, [currentSubTab, logFilterEmployee, logStartDate, logEndDate, selectedCompanyCode]);
+
+  const renderAttendanceTab = () => {
+    const getUserDetail = (uid: string) => {
+      const uDetail = usersList.find((u) => u.uid === uid || (u as any)._id === uid);
+      return {
+        displayName: uDetail?.displayName || "Nhân viên iGen",
+        photoURL: uDetail?.photoURL || "",
+        email: uDetail?.email || "",
+      };
+    };
+
+    // Generate date range
+    const getDatesRange = () => {
+      const start = logStartDate
+        ? new Date(logStartDate)
+        : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+      const end = logEndDate ? new Date(logEndDate) : new Date();
+
+      const dates = [];
+      let current = new Date(start);
+      while (current <= end) {
+        dates.push(current.toISOString().split("T")[0]);
+        current.setDate(current.getDate() + 1);
+      }
+      return dates.reverse();
+    };
+
+    const dates = getDatesRange();
+    const targetEmployees = isManager
+      ? (logFilterEmployee === "all" ? usersList : usersList.filter(u => u.uid === logFilterEmployee))
+      : (userProfile ? [userProfile] : []);
+
+    const generatedRows: any[] = [];
+
+    dates.forEach(dateStr => {
+      targetEmployees.forEach(emp => {
+        const dbLog = logs.find(l => l.uid === emp.uid && l.date === dateStr);
+        if (dbLog) {
+          generatedRows.push({
+            id: dbLog._id || dbLog.id,
+            uid: emp.uid,
+            date: dateStr,
+            checkIn: dbLog.checkIn,
+            checkOut: dbLog.checkOut,
+            status: dbLog.status,
+            note: dbLog.note
+          });
+        } else {
+          // Check leave events
+          const hasLeave = items.some(item => {
+            if (item.type !== "leave" || item.status !== "approved") return false;
+            const empMatch = item.employeeId === emp.uid || item.creatorId === emp.uid;
+            if (!empMatch) return false;
+
+            const sDate = new Date(item.startDate.split("T")[0]).getTime();
+            const eDate = new Date(item.endDate.split("T")[0]).getTime();
+            const curr = new Date(dateStr).getTime();
+            return curr >= sDate && curr <= eDate;
+          });
+
+          const isTodayOrPast = new Date(dateStr).getTime() <= new Date().setHours(23, 59, 59, 999);
+
+          if (isTodayOrPast) {
+            generatedRows.push({
+              id: `missing-${emp.uid}-${dateStr}`,
+              uid: emp.uid,
+              date: dateStr,
+              checkIn: null,
+              checkOut: null,
+              status: hasLeave ? "Approved-Leave" : "Absent",
+              note: hasLeave ? "Nghỉ phép có duyệt" : "Nghỉ không phép / Vắng mặt"
+            });
+          }
+        }
+      });
+    });
+
+    const filteredRows = generatedRows.filter(row => {
+      if (logFilterStatus === "all") return true;
+      return row.status === logFilterStatus;
+    });
+
+    const totalPages = Math.ceil(filteredRows.length / logsLimit) || 1;
+    const paginatedRows = filteredRows.slice((logsPage - 1) * logsLimit, logsPage * logsLimit);
+
+    return (
+      <div className="space-y-5 animate-fade-in text-left">
+        {/* Filters Panel */}
+        <div className="bg-white/80 backdrop-blur-md p-5 rounded-3xl border border-slate-100/80 shadow-md shadow-slate-100/50">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4 mb-4">
+            <div>
+              <h2 className="text-base font-extrabold text-slate-800 tracking-wide uppercase">
+                Lịch sử chấm công GPS
+              </h2>
+              <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider mt-0.5">
+                Bảng theo dõi hiện diện và thời gian làm việc
+              </p>
+            </div>
+            <button
+              onClick={fetchTimekeepingLogs}
+              className="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-2xl transition-all cursor-pointer border-0"
+            >
+              Làm mới dữ liệu
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+            {isManager && (
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Chọn Nhân viên</label>
+                <select
+                  value={logFilterEmployee}
+                  onChange={(e) => {
+                    setLogFilterEmployee(e.target.value);
+                    setLogsPage(1);
+                  }}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 cursor-pointer outline-none"
+                >
+                  <option value="all">Tất cả nhân sự</option>
+                  {usersList.map((u) => (
+                    <option key={u.uid} value={u.uid}>
+                      {u.displayName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Trạng thái</label>
+              <select
+                value={logFilterStatus}
+                onChange={(e) => {
+                  setLogFilterStatus(e.target.value);
+                  setLogsPage(1);
+                }}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 cursor-pointer outline-none"
+              >
+                <option value="all">Tất cả trạng thái</option>
+                <option value="Present">Đúng giờ (Present)</option>
+                <option value="Late">Đi muộn (Late)</option>
+                <option value="Approved-Leave">Nghỉ có phép</option>
+                <option value="Absent">Nghỉ không phép</option>
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Từ ngày</label>
+              <input
+                type="date"
+                value={logStartDate}
+                onChange={(e) => {
+                  setLogStartDate(e.target.value);
+                  setLogsPage(1);
+                }}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 cursor-pointer outline-none"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Đến ngày</label>
+              <input
+                type="date"
+                value={logEndDate}
+                onChange={(e) => {
+                  setLogEndDate(e.target.value);
+                  setLogsPage(1);
+                }}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 cursor-pointer outline-none"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Table Content */}
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs text-left text-slate-700">
+              <thead className="bg-slate-50 border-b border-slate-100 font-extrabold uppercase text-[10px] text-slate-400 tracking-wider">
+                <tr>
+                  <th className="px-6 py-4">Ngày</th>
+                  <th className="px-6 py-4">Nhân sự</th>
+                  <th className="px-6 py-4">Giờ Vào (Check-in)</th>
+                  <th className="px-6 py-4">Giờ Ra (Check-out)</th>
+                  <th className="px-6 py-4">Trạng thái</th>
+                  <th className="px-6 py-4">Ghi chú</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
+                {isLogsLoading ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
+                      <div className="flex justify-center items-center gap-2">
+                        <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                        Đang tải danh sách lịch sử...
+                      </div>
+                    </td>
+                  </tr>
+                ) : paginatedRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center text-slate-400 font-medium">
+                      Không tìm thấy lịch sử chấm công nào trong bộ lọc này.
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedRows.map((log) => {
+                    const user = getUserDetail(log.uid);
+                    const formatLogTime = (timeStr: any) => {
+                      if (!timeStr) return "--:--";
+                      const date = new Date(timeStr);
+                      return date.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+                    };
+
+                    const formatDateString = (dateStr: string) => {
+                      if (!dateStr) return "";
+                      const parts = dateStr.split("-");
+                      if (parts.length !== 3) return dateStr;
+                      const [y, m, d] = parts;
+                      return `${d}/${m}/${y}`;
+                    };
+
+                    const getStatusStyle = (status: string) => {
+                      switch (status) {
+                        case "Present":
+                          return "bg-emerald-50 text-emerald-700 border-emerald-100";
+                        case "Late":
+                          return "bg-amber-50 text-amber-700 border-amber-100";
+                        case "Approved-Leave":
+                          return "bg-blue-50 text-blue-700 border-blue-100";
+                        case "Absent":
+                          return "bg-rose-50 text-rose-700 border-rose-100";
+                        default:
+                          return "bg-slate-50 text-slate-700 border-slate-100";
+                      }
+                    };
+
+                    return (
+                      <tr key={log.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-6 py-4 whitespace-nowrap font-mono text-gray-800">
+                          {formatDateString(log.date)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center gap-3">
+                            {user.photoURL ? (
+                              <img src={user.photoURL} alt={user.displayName} className="w-8 h-8 rounded-full object-cover ring-2 ring-slate-100" />
+                            ) : (
+                              <div className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-650 flex items-center justify-center font-bold">
+                                {user.displayName.slice(0, 2).toUpperCase()}
+                              </div>
+                            )}
+                            <div className="text-left">
+                              <p className="font-bold text-slate-800 leading-snug">{user.displayName}</p>
+                              <p className="text-[10px] text-slate-400 font-medium">{user.email}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {log.checkIn ? (
+                            <div>
+                              <span className="font-bold text-slate-800">{formatLogTime(log.checkIn.time)}</span>
+                              <span className="block text-[10px] text-slate-400 font-medium">
+                                IP: {log.checkIn.ipAddress || "N/A"} · {Math.round(log.checkIn.distance)}m
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-slate-400">--:--</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {log.checkOut ? (
+                            <div>
+                              <span className="font-bold text-slate-800">{formatLogTime(log.checkOut.time)}</span>
+                              <span className="block text-[10px] text-slate-400 font-medium">
+                                IP: {log.checkOut.ipAddress || "N/A"} · {Math.round(log.checkOut.distance)}m
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-slate-400">--:--</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${getStatusStyle(log.status)}`}>
+                            {log.status === "Present"
+                              ? "Đúng giờ"
+                              : log.status === "Late"
+                              ? "Đi muộn"
+                              : log.status === "Approved-Leave"
+                              ? "Nghỉ có phép"
+                              : "Nghỉ không phép"}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-slate-500 max-w-[200px] truncate" title={log.note}>
+                          {log.note || <span className="text-slate-350 italic">Không có ghi chú</span>}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination */}
+          {!isLogsLoading && filteredRows.length > 0 && (
+            <div className="flex items-center justify-between border-t border-slate-100 px-6 py-4">
+              <span className="text-xs text-slate-500">
+                Hiển thị {paginatedRows.length} / {filteredRows.length} dòng
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  disabled={logsPage <= 1}
+                  onClick={() => setLogsPage(logsPage - 1)}
+                  className="px-3.5 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50 transition-all cursor-pointer"
+                >
+                  Trước
+                </button>
+                <span className="text-xs font-bold text-slate-850 px-2">
+                  Trang {logsPage} / {totalPages}
+                </span>
+                <button
+                  disabled={logsPage >= totalPages}
+                  onClick={() => setLogsPage(logsPage + 1)}
+                  className="px-3.5 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50 transition-all cursor-pointer"
+                >
+                  Sau
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   // Navigate Months
   const handlePrevMonth = () => {
@@ -389,8 +778,38 @@ export default function CalendarTab({
       className="flex flex-col h-full bg-gradient-to-br from-slate-50 via-white to-indigo-50/30 p-5 overflow-y-auto duration-500"
       id="calendar_tab_wrapper"
     >
-      {/* 1. Glassmorphism Header Controls & Filters & Quick Stats */}
-      <div className="flex flex-col gap-5 bg-white/80 backdrop-blur-md p-5 rounded-3xl border border-slate-100/80 shadow-md shadow-slate-100/50 mb-5 transition-all duration-300">
+      {/* Subtab Switcher */}
+      <div className="flex border-b border-slate-200/60 pb-3 mb-5 justify-between items-center">
+        <div className="flex gap-2 bg-slate-100/85 p-1 rounded-xl w-fit">
+          <button
+            onClick={() => setCurrentSubTab("schedule")}
+            className={`px-5 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer ${
+              currentSubTab === "schedule"
+                ? "bg-white text-slate-900 shadow-xs border border-slate-200/40"
+                : "text-gray-500 hover:text-gray-800"
+            }`}
+          >
+            Lịch trình & Nghỉ phép
+          </button>
+          <button
+            onClick={() => setCurrentSubTab("attendance")}
+            className={`px-5 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer ${
+              currentSubTab === "attendance"
+                ? "bg-white text-slate-900 shadow-xs border border-slate-200/40"
+                : "text-gray-500 hover:text-gray-800"
+            }`}
+          >
+            Lịch sử chấm công
+          </button>
+        </div>
+      </div>
+
+      {currentSubTab === "attendance" ? (
+        renderAttendanceTab()
+      ) : (
+        <>
+          {/* 1. Glassmorphism Header Controls & Filters & Quick Stats */}
+          <div className="flex flex-col gap-5 bg-white/80 backdrop-blur-md p-5 rounded-3xl border border-slate-100/80 shadow-md shadow-slate-100/50 mb-5 transition-all duration-300">
         {/* Navigation & Actions */}
         <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
           <div className="flex flex-wrap items-center gap-3">
@@ -660,6 +1079,8 @@ export default function CalendarTab({
           </div>
         )}
       </div>
+      </>
+      )}
 
       {/* 3. Detail Popover Modal */}
       {isDetailModalOpen && selectedDayDate && (

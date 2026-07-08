@@ -49,17 +49,31 @@ export interface WorkflowEdge {
   label?: string;
 }
 
-/** Một người đang đi qua quy trình, đứng ở cột (bước) hiện tại */
+/** Một "công việc" (case) đang đi qua quy trình, đứng ở cột (bước) hiện tại */
 export interface WorkflowParticipant {
   id: string;
-  /** Tên người thực hiện (nhân viên/ứng viên…) */
+  /** Tên công việc (VD: "Onboarding Nguyễn Văn A") */
   name: string;
-  /** Liên kết tới tài khoản hệ thống (nếu có) */
+  /** Người phụ trách chính — fallback nhận task khi bước không gán ai */
   userUid?: string;
   avatar?: string;
   /** id của bước hiện tại; "__done__" = đã hoàn thành */
   currentStepId: string;
   note?: string;
+  /** Mô tả chi tiết công việc */
+  description?: string;
+  /** Người liên quan */
+  relatedUids?: string[];
+  /** Độ ưu tiên của công việc (dùng khi bước không có priority riêng) */
+  priority?: "urgent_important" | "urgent" | "important" | "normal";
+  /** Ngày bắt đầu dự kiến (YYYY-MM-DD) */
+  startDate?: string;
+  /** Hạn hoàn thành toàn quy trình (YYYY-MM-DD) */
+  dueDate?: string;
+  /** Link tài liệu/hồ sơ đính kèm */
+  docLinks?: string[];
+  /** Công việc con riêng của case — sinh task Kanban ở bước đầu tiên */
+  customSubTasks?: WorkflowSubTask[];
   startedAt?: string;
   updatedAt?: string;
 }
@@ -72,6 +86,8 @@ export interface Workflow {
   steps: WorkflowStep[];
   edges?: WorkflowEdge[];
   participants?: WorkflowParticipant[];
+  /** Tự chuyển case sang bước kế khi mọi task Kanban của bước hiện tại hoàn thành */
+  autoAdvance?: boolean;
   companyCode: string;
   creatorUid: string;
   createdAt: any;

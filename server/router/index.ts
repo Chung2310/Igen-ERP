@@ -24,6 +24,7 @@ import { chatRouter } from "./chat.router";
 import { chatbotRouter } from "./chatbot.router";
 import { resourceRouter } from "./resource.router";
 import { studentManagementRouter } from "../modules/student-management/router";
+import { timekeepingRouter } from "./timekeeping.router";
 export const apiRouter = Router();
 /**
  * GET /api/v1/health
@@ -94,6 +95,9 @@ apiRouter.use("/wallet", walletRouter);
 
 // Gắn kết router CRUD đa năng (MongoDB)
 apiRouter.use("/crud", crudRouter);
+
+// Gắn kết router chấm công (GPS Timekeeping)
+apiRouter.use("/timekeeping", timekeepingRouter);
 
 // Gắn kết router chat nội bộ
 apiRouter.use("/chat", chatRouter);

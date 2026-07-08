@@ -226,6 +226,10 @@ export default function HRTab() {
             selectedCompanyCode={selectedCompanyCode}
             isManager={isManager}
             usersList={usersList}
+            onNavigateToKanban={(taskId) => {
+              sessionStorage.setItem("targetKanbanTaskId", taskId);
+              setSubTab("GIAO VIỆC KANBAN");
+            }}
           />
         )}
 

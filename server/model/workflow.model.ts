@@ -1,6 +1,17 @@
 import { Schema, model } from "mongoose";
 import { IWorkflow } from "../interface/workflow.interface";
 
+const WorkflowSubTaskSchema = new Schema(
+  {
+    id: { type: String, required: true },
+    title: { type: String, required: true },
+    assigneeUid: { type: String, default: "" },
+    assignee: { type: String, default: "" },
+    done: { type: Boolean, default: false },
+  },
+  { _id: false }
+);
+
 const WorkflowStepSchema = new Schema(
   {
     id: { type: String, required: true },
@@ -23,21 +34,7 @@ const WorkflowStepSchema = new Schema(
     },
     deadlineDays: { type: Number },
     deadlineTime: { type: String, default: "" },
-    subTasks: {
-      type: [
-        new Schema(
-          {
-            id: { type: String, required: true },
-            title: { type: String, required: true },
-            assigneeUid: { type: String, default: "" },
-            assignee: { type: String, default: "" },
-            done: { type: Boolean, default: false },
-          },
-          { _id: false }
-        ),
-      ],
-      default: [],
-    },
+    subTasks: { type: [WorkflowSubTaskSchema], default: [] },
     type: {
       type: String,
       enum: ["start", "task", "approval", "end"],
@@ -72,6 +69,17 @@ const WorkflowParticipantSchema = new Schema(
     avatar: { type: String, default: "" },
     currentStepId: { type: String, default: "" },
     note: { type: String, default: "" },
+    description: { type: String, default: "" },
+    relatedUids: { type: [String], default: [] },
+    priority: {
+      type: String,
+      enum: ["urgent_important", "urgent", "important", "normal"],
+      default: "normal",
+    },
+    startDate: { type: String, default: "" },
+    dueDate: { type: String, default: "" },
+    docLinks: { type: [String], default: [] },
+    customSubTasks: { type: [WorkflowSubTaskSchema], default: [] },
     startedAt: { type: String, default: "" },
     updatedAt: { type: String, default: "" },
   },
@@ -85,6 +93,7 @@ const WorkflowSchema = new Schema<IWorkflow>({
   steps: { type: [WorkflowStepSchema], default: [] },
   edges: { type: [WorkflowEdgeSchema], default: [] },
   participants: { type: [WorkflowParticipantSchema], default: [] },
+  autoAdvance: { type: Boolean, default: false },
   companyCode: { type: String, required: true, index: true },
   creatorUid: { type: String, required: true, index: true },
   createdAt: { type: Date, default: Date.now, index: true },

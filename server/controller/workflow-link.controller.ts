@@ -4,12 +4,37 @@ import { workflowLinkService } from "../service/workflow-link.service";
 
 export const workflowLinkController = {
   /**
+   * POST /api/v1/crud/workflows/:id/participants
+   * Tạo "công việc" (case) mới chạy theo quy trình
+   */
+  async createCase(req: AuthenticatedRequest, res: Response) {
+    try {
+      const { id: workflowId } = req.params;
+      const companyCode = req.user?.companyCode || "SYSTEM";
+
+      const result = await workflowLinkService.createCase(companyCode, workflowId, req.body || {});
+
+      return res.status(201).json({
+        status: "success",
+        message: "Đã tạo công việc và khởi tạo task Kanban cho bước đầu tiên.",
+        data: result,
+      });
+    } catch (error: any) {
+      console.error("[workflowLinkController.createCase] Error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: error.message || "Lỗi khi tạo công việc theo quy trình",
+      });
+    }
+  },
+
+  /**
    * POST /api/v1/crud/workflows/:id/participants/:participantId/advance
    */
   async advanceParticipant(req: AuthenticatedRequest, res: Response) {
     try {
       const { id: workflowId, participantId } = req.params;
-      const { nextStepId } = req.body;
+      const { nextStepId, force } = req.body;
       const companyCode = req.user?.companyCode || "SYSTEM";
 
       if (!nextStepId) {
@@ -23,7 +48,8 @@ export const workflowLinkController = {
         companyCode,
         workflowId,
         participantId,
-        nextStepId
+        nextStepId,
+        { force: force === true }
       );
 
       return res.status(200).json({
@@ -33,9 +59,34 @@ export const workflowLinkController = {
       });
     } catch (error: any) {
       console.error("[workflowLinkController.advanceParticipant] Error:", error);
-      return res.status(500).json({
+      return res.status(error.statusCode || 500).json({
         status: "error",
         message: error.message || "Lỗi khi chuyển bước cho người tham gia quy trình",
+      });
+    }
+  },
+
+  /**
+   * DELETE /api/v1/crud/workflows/:id/participants/:participantId
+   * Xóa "công việc" (case) khỏi quy trình và lưu trữ các task Kanban chưa xong
+   */
+  async removeCase(req: AuthenticatedRequest, res: Response) {
+    try {
+      const { id: workflowId, participantId } = req.params;
+      const companyCode = req.user?.companyCode || "SYSTEM";
+
+      const result = await workflowLinkService.removeParticipant(companyCode, workflowId, participantId);
+
+      return res.status(200).json({
+        status: "success",
+        message: `Đã xóa công việc và lưu trữ ${result.tasksArchived} task Kanban chưa hoàn thành.`,
+        data: { tasksArchived: result.tasksArchived },
+      });
+    } catch (error: any) {
+      console.error("[workflowLinkController.removeCase] Error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: error.message || "Lỗi khi xóa công việc khỏi quy trình",
       });
     }
   },

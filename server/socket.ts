@@ -315,6 +315,16 @@ export function emitToUser(userId: string, eventName: string, data: any) {
   }
 }
 
+export function emitToCompany(companyCode: string, eventName: string, data: any) {
+  if (io) {
+    const room = `company:${companyCode}`;
+    console.log(`[Socket.IO] Emitting event "${eventName}" to room: ${room}`);
+    io.to(room).emit(eventName, data);
+  } else {
+    console.warn("[Socket.IO] Server instance (io) not initialized.");
+  }
+}
+
 export function broadcastEvent(eventName: string, data: any) {
   if (io) {
     console.log(`[Socket.IO] Broadcasting event "${eventName}"`);

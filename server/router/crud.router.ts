@@ -10,6 +10,12 @@ export const crudRouter = Router();
 
 // Custom endpoints for workflow ↔ kanban-task link
 crudRouter.post(
+  "/workflows/:id/participants",
+  requireAuth as any,
+  workflowLinkController.createCase as any
+);
+
+crudRouter.post(
   "/workflows/:id/participants/:participantId/advance",
   requireAuth as any,
   workflowLinkController.advanceParticipant as any
@@ -19,6 +25,12 @@ crudRouter.get(
   "/workflows/:id/participants/:participantId/tasks",
   requireAuth as any,
   workflowLinkController.getParticipantTasks as any
+);
+
+crudRouter.delete(
+  "/workflows/:id/participants/:participantId",
+  requireAuth as any,
+  workflowLinkController.removeCase as any
 );
 
 const SUPPORTED_MODELS = [
@@ -35,6 +47,7 @@ const SUPPORTED_MODELS = [
   "workflows",
   "users",
   "hr-calendar-events",
+  "timekeeping-logs",
 ];
 
 const listSchema = {

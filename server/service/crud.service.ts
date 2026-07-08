@@ -11,11 +11,13 @@ import { UserModel } from "../model/user.model";
 import { SocialIntegrationModel } from "../model/social-integration.model";
 import { WorkflowModel } from "../model/workflow.model";
 import { HRCalendarEventModel } from "../model/hr-calendar-event.model";
+import { TimekeepingLogModel } from "../model/timekeeping.model";
 import { SupportedModelName, ICRUDQueryOptions } from "../interface/crud.interface";
 import mongoose from "mongoose";
 import { facebookPostService } from "./facebook-post.service";
 import { zaloMessengerService } from "./zalo-messenger.service";
 import { telegramService } from "./telegram.service";
+import { workflowLinkService } from "./workflow-link.service";
 
 const DEMO_VIDEO_URL_PATTERNS = [
   "w3schools.com/html/mov_bbb.mp4",
@@ -249,6 +251,7 @@ const MODEL_MAPPING: Record<SupportedModelName, mongoose.Model<any>> = {
   "workflows": WorkflowModel,
   "users": UserModel,
   "hr-calendar-events": HRCalendarEventModel,
+  "timekeeping-logs": TimekeepingLogModel,
 };
 
 export const crudService = {
@@ -451,6 +454,13 @@ export const crudService = {
       console.error("[crudService.update] error in handlePendingVideoUrl:", err);
     });
 
+    // Task Kanban thuộc quy trình đổi trạng thái → đồng bộ ngược về Quy trình
+    if (modelName === "kanban-tasks" && updatedItem) {
+      workflowLinkService.handleTaskStatusChange(updatedItem).catch((err) => {
+        console.error("[crudService.update] Error syncing workflow from kanban task:", err);
+      });
+    }
+
     return sanitizeCrudResult(modelName, updatedItem);
   },
 
@@ -477,6 +487,16 @@ export const crudService = {
     if (!deletedItem) {
       throw new Error("Không tìm thấy tài nguyên hoặc bạn không có quyền xóa.");
     }
+
+    // Xóa quy trình → lưu trữ các task Kanban chưa xong đã sinh từ quy trình đó
+    if (modelName === "workflows") {
+      workflowLinkService
+        .archiveWorkflowTasks(deletedItem.companyCode || companyCode, id)
+        .catch((err) => {
+          console.error("[crudService.delete] Error archiving workflow tasks:", err);
+        });
+    }
+
     return deletedItem;
   },
 };

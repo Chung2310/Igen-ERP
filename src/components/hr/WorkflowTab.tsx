@@ -32,6 +32,7 @@ import {
   CloudUpload,
   Table2,
   Check,
+  ExternalLink,
 } from "lucide-react";
 import {
   UserProfile,
@@ -41,6 +42,7 @@ import {
   WorkflowParticipant,
 } from "../../types";
 import { getAccessToken } from "../../services/authService";
+import { socketService } from "../../services/socketService";
 import { toast } from "../../pages/Toast";
 
 interface WorkflowTabProps {
@@ -48,6 +50,8 @@ interface WorkflowTabProps {
   selectedCompanyCode: string;
   isManager: boolean;
   usersList: UserProfile[];
+  /** Điều hướng sang tab Kanban và mở modal chi tiết của task được trỏ tới */
+  onNavigateToKanban?: (taskId: string) => void;
 }
 
 const ACCENT = "#4f46e5";
@@ -80,6 +84,7 @@ export default function WorkflowTab({
   selectedCompanyCode,
   isManager,
   usersList,
+  onNavigateToKanban,
 }: WorkflowTabProps) {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -115,6 +120,7 @@ export default function WorkflowTab({
   const [wfName, setWfName] = useState("");
   const [wfCategory, setWfCategory] = useState("");
   const [wfDescription, setWfDescription] = useState("");
+  const [wfAutoAdvance, setWfAutoAdvance] = useState(false);
   const [steps, setSteps] = useState<WorkflowStep[]>([]);
   const [participants, setParticipants] = useState<WorkflowParticipant[]>([]);
   const [saving, setSaving] = useState(false);
@@ -140,13 +146,62 @@ export default function WorkflowTab({
     }
   }, [activeId, view, fetchWfTasks]);
 
-  // Modal chỉnh sửa bước & thêm người
+  // Realtime: nhận tín hiệu từ Kanban khi bước hoàn thành hết task / case tự chuyển bước
+  useEffect(() => {
+    if (!activeId || view !== "detail") return;
+
+    const refreshParticipants = async () => {
+      try {
+        const res = await fetch(`/api/v1/crud/workflows/${activeId}`, {
+          headers: { Authorization: `Bearer ${getAccessToken()}` },
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.data) setParticipants(json.data.participants || []);
+        }
+      } catch (err) {
+        console.error("Lỗi đồng bộ participants qua socket:", err);
+      }
+    };
+
+    const offReady = socketService.on("workflow:step-ready", (data: any) => {
+      if (data?.workflowId !== activeId) return;
+      fetchWfTasks();
+      toast.success(
+        `«${data.participantName}» đã hoàn thành mọi task ở bước «${data.stepTitle}» — sẵn sàng chuyển bước.`
+      );
+    });
+    const offAdvanced = socketService.on("workflow:participant-advanced", (data: any) => {
+      if (data?.workflowId !== activeId) return;
+      refreshParticipants();
+      fetchWfTasks();
+      toast.success(`«${data.participantName}» đã tự động chuyển sang bước tiếp theo.`);
+    });
+
+    return () => {
+      offReady();
+      offAdvanced();
+    };
+  }, [activeId, view, fetchWfTasks]);
+
+  // Modal chỉnh sửa bước & tạo công việc theo quy trình
   const [stepDraft, setStepDraft] = useState<WorkflowStep | null>(null);
   const [partDraft, setPartDraft] = useState<{
-    userUid: string;
     name: string;
+    userUid: string;
+    description: string;
     note: string;
+    relatedUids: string[];
+    priority: NonNullable<WorkflowParticipant["priority"]>;
+    startDate: string;
+    dueDate: string;
+    docLinks: string[];
+    customSubTasks: WorkflowSubTask[];
   } | null>(null);
+  const [newCaseSubTask, setNewCaseSubTask] = useState("");
+  const [newCaseDocLink, setNewCaseDocLink] = useState("");
+  // Menu "⋯" đang mở của card case nào (participant id)
+  const [cardMenuFor, setCardMenuFor] = useState<string | null>(null);
 
   const canEdit = isManager;
 
@@ -197,6 +252,7 @@ export default function WorkflowTab({
       setWfName("Quy trình mới");
       setWfCategory("");
       setWfDescription("");
+      setWfAutoAdvance(false);
       setSteps([]);
       setParticipants([]);
     } else {
@@ -204,6 +260,7 @@ export default function WorkflowTab({
       setWfName(wf.name);
       setWfCategory(wf.category || "");
       setWfDescription(wf.description || "");
+      setWfAutoAdvance(wf.autoAdvance === true);
       setSteps(wf.steps || []);
       setParticipants(wf.participants || []);
     }
@@ -268,7 +325,7 @@ export default function WorkflowTab({
   // ---- Lưu quy trình; trả về id đã lưu (hoặc "" nếu lỗi) ----
   const persist = useCallback(
     async (
-      override?: Partial<{ steps: WorkflowStep[]; participants: WorkflowParticipant[] }>,
+      override?: Partial<{ steps: WorkflowStep[]; participants: WorkflowParticipant[]; autoAdvance: boolean }>,
       opts?: { silent?: boolean }
     ): Promise<string> => {
       const payload = {
@@ -277,6 +334,7 @@ export default function WorkflowTab({
         description: wfDescription.trim(),
         steps: override?.steps ?? steps,
         participants: override?.participants ?? participants,
+        autoAdvance: override?.autoAdvance ?? wfAutoAdvance,
         creatorUid: userProfile?.uid || "",
       };
       const url = activeId
@@ -299,12 +357,12 @@ export default function WorkflowTab({
         toast.success(activeId ? "Đã cập nhật quy trình." : "Đã tạo quy trình mới.");
       return savedId;
     },
-    [wfName, wfCategory, wfDescription, steps, participants, activeId, userProfile]
+    [wfName, wfCategory, wfDescription, wfAutoAdvance, steps, participants, activeId, userProfile]
   );
 
   // Tự lưu ngầm khi kéo người/di chuyển bước (chỉ khi đã có bản ghi)
   const autoPersist = useCallback(
-    async (override: Partial<{ steps: WorkflowStep[]; participants: WorkflowParticipant[] }>) => {
+    async (override: Partial<{ steps: WorkflowStep[]; participants: WorkflowParticipant[]; autoAdvance: boolean }>) => {
       if (!activeId) return; // chưa lưu lần đầu → chờ nút Lưu
       try {
         await persist(override, { silent: true });
@@ -366,16 +424,15 @@ export default function WorkflowTab({
     });
   };
 
-  const saveStepDraft = () => {
-    if (!stepDraft) return;
-    if (!stepDraft.title.trim()) {
+  const saveStepDraft = (updated: WorkflowStep) => {
+    if (!updated.title.trim()) {
       toast.error("Vui lòng nhập tên bước.");
       return;
     }
-    const exists = steps.some((s) => s.id === stepDraft.id);
+    const exists = steps.some((s) => s.id === updated.id);
     const next = exists
-      ? steps.map((s) => (s.id === stepDraft.id ? stepDraft : s))
-      : [...steps, stepDraft];
+      ? steps.map((s) => (s.id === updated.id ? updated : s))
+      : [...steps, updated];
     setSteps(next);
     setStepDraft(null);
     autoPersist({ steps: next });
@@ -404,46 +461,77 @@ export default function WorkflowTab({
     autoPersist({ steps: next });
   };
 
-  // ---- Thao tác với người tham gia ----
+  // ---- Tạo công việc chạy theo quy trình (case) ----
   const openAddParticipant = () => {
     if (steps.length === 0) {
-      toast.error("Hãy tạo ít nhất một bước trước khi thêm người theo dõi.");
+      toast.error("Hãy tạo ít nhất một bước trước khi tạo công việc.");
       return;
     }
-    setPartDraft({ userUid: "", name: "", note: "" });
+    setPartDraft({
+      name: "",
+      userUid: "",
+      description: "",
+      note: "",
+      relatedUids: [],
+      priority: "normal",
+      startDate: "",
+      dueDate: "",
+      docLinks: [],
+      customSubTasks: [],
+    });
+    setNewCaseSubTask("");
+    setNewCaseDocLink("");
   };
 
   const saveParticipantDraft = async () => {
     if (!partDraft) return;
     const name = partDraft.name.trim();
     if (!name) {
-      toast.error("Vui lòng nhập tên người thực hiện.");
+      toast.error("Vui lòng nhập tên công việc.");
       return;
     }
     const u = usersList.find((x) => x.uid === partDraft.userUid);
-    const newPart: WorkflowParticipant = {
-      id: genId("part"),
-      name,
-      userUid: partDraft.userUid || "",
-      avatar: avatarUrl(name, u?.photoURL),
-      currentStepId: steps[0]?.id ?? DONE_COL,
-      note: partDraft.note.trim(),
-      startedAt: nowISO(),
-      updatedAt: nowISO(),
-    };
-    const next = [...participants, newPart];
-    setParticipants(next);
-    setPartDraft(null);
-    // Nếu chưa lưu lần đầu, lưu luôn để có activeId cho các lần kéo sau
-    if (!activeId) {
-      try {
-        await persist({ participants: next }, { silent: true });
-        await fetchWorkflows();
-      } catch {
-        toast.error("Không thể lưu người tham gia.");
+    try {
+      // Lưu quy trình trước (tạo mới nếu chưa có activeId) để bước mới nhất có trên server
+      const savedId = await persist(undefined, { silent: true });
+      if (!activeId) await fetchWorkflows();
+
+      const res = await fetch(`/api/v1/crud/workflows/${savedId}/participants`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${getAccessToken()}`,
+        },
+        body: JSON.stringify({
+          name,
+          userUid: partDraft.userUid || "",
+          avatar: avatarUrl(name, u?.photoURL),
+          note: partDraft.note.trim(),
+          description: partDraft.description.trim(),
+          relatedUids: partDraft.relatedUids,
+          priority: partDraft.priority,
+          startDate: partDraft.startDate,
+          dueDate: partDraft.dueDate,
+          docLinks: partDraft.docLinks.filter((l) => l.trim()),
+          customSubTasks: partDraft.customSubTasks,
+        }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => null);
+        throw new Error(j?.message || "Không thể tạo công việc.");
       }
-    } else {
-      autoPersist({ participants: next });
+      const json = await res.json();
+      setPartDraft(null);
+      if (json.data?.workflow?.participants) {
+        setParticipants(json.data.workflow.participants);
+      }
+      toast.success(
+        `Đã tạo công việc và ${json.data?.tasksCreated ?? 0} task Kanban cho bước đầu tiên.`
+      );
+      fetchWfTasks();
+    } catch (err: any) {
+      console.error("Lỗi tạo công việc:", err);
+      toast.error(err?.message || "Không thể tạo công việc.");
     }
   };
 
@@ -460,13 +548,34 @@ export default function WorkflowTab({
     autoPersist({ participants: next });
   };
 
-  const removeParticipant = (pid: string) => {
-    const next = participants.filter((p) => p.id !== pid);
-    setParticipants(next);
-    autoPersist({ participants: next });
+  const removeParticipant = async (pid: string) => {
+    // Chưa lưu lên server → chỉ cần bỏ khỏi state cục bộ
+    if (!activeId) {
+      setParticipants(participants.filter((p) => p.id !== pid));
+      return;
+    }
+    try {
+      const res = await fetch(`/api/v1/crud/workflows/${activeId}/participants/${pid}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${getAccessToken()}` },
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(json?.message || "Không thể xóa công việc.");
+      setParticipants((prev) => prev.filter((p) => p.id !== pid));
+      const archived = json?.data?.tasksArchived ?? 0;
+      toast.success(
+        archived > 0
+          ? `Đã xóa công việc và lưu trữ ${archived} task Kanban chưa hoàn thành.`
+          : "Đã xóa công việc."
+      );
+      fetchWfTasks();
+    } catch (err: any) {
+      console.error("Lỗi xóa công việc:", err);
+      toast.error(err?.message || "Không thể xóa công việc.");
+    }
   };
 
-  const advanceParticipantApi = async (pid: string, nextStepId: string) => {
+  const advanceParticipantApi = async (pid: string, nextStepId: string, force = false) => {
     try {
       const res = await fetch(`/api/v1/crud/workflows/${activeId}/participants/${pid}/advance`, {
         method: "POST",
@@ -474,9 +583,20 @@ export default function WorkflowTab({
           "Content-Type": "application/json",
           Authorization: `Bearer ${getAccessToken()}`,
         },
-        body: JSON.stringify({ nextStepId }),
+        body: JSON.stringify({ nextStepId, force }),
       });
-      if (!res.ok) throw new Error("advance failed");
+      if (!res.ok) {
+        const j = await res.json().catch(() => null);
+        // Server chặn vì còn task chưa xong → hỏi quản lý có muốn ép chuyển không
+        if (res.status === 409 && !force) {
+          const ok = window.confirm(
+            `${j?.message || "Còn task Kanban chưa hoàn thành ở bước hiện tại."}\n\nVẫn chuyển bước? Các task chưa xong sẽ giữ nguyên trên bảng Kanban.`
+          );
+          if (ok) await advanceParticipantApi(pid, nextStepId, true);
+          return;
+        }
+        throw new Error(j?.message || "Không thể chuyển bước.");
+      }
       toast.success("Đã chuyển bước và khởi tạo công việc Kanban mới.");
 
       const wfRes = await fetch(`/api/v1/crud/workflows/${activeId}`, {
@@ -489,9 +609,9 @@ export default function WorkflowTab({
         }
       }
       fetchWfTasks();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Lỗi chuyển bước:", err);
-      toast.error("Không thể chuyển bước.");
+      toast.error(err?.message || "Không thể chuyển bước.");
     }
   };
 
@@ -678,7 +798,7 @@ export default function WorkflowTab({
             disabled={!canEdit}
             className="flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700 hover:bg-indigo-100 disabled:opacity-40"
           >
-            <Users className="h-3.5 w-3.5" /> Thêm người
+            <Plus className="h-3.5 w-3.5" /> Tạo công việc
           </button>
           <button
             onClick={openNewStep}
@@ -711,11 +831,28 @@ export default function WorkflowTab({
           <Layers className="h-3.5 w-3.5" /> {steps.length} bước
         </span>
         <span className="flex items-center gap-1">
-          <Users className="h-3.5 w-3.5" /> {participants.length} người đang theo dõi
+          <Users className="h-3.5 w-3.5" /> {participants.length} công việc đang chạy
         </span>
         <span className="flex items-center gap-1 text-emerald-600">
           <CheckCircle2 className="h-3.5 w-3.5" /> {doneCount} đã hoàn thành
         </span>
+        <label
+          className={`ml-auto flex items-center gap-1.5 ${canEdit ? "cursor-pointer" : "cursor-not-allowed opacity-60"}`}
+          title="Khi mọi task Kanban của bước hiện tại hoàn thành, case tự chuyển sang bước kế tiếp"
+        >
+          <input
+            type="checkbox"
+            checked={wfAutoAdvance}
+            disabled={!canEdit}
+            onChange={(e) => {
+              const v = e.target.checked;
+              setWfAutoAdvance(v);
+              autoPersist({ autoAdvance: v });
+            }}
+            className="h-3.5 w-3.5 accent-indigo-600"
+          />
+          <Zap className="h-3.5 w-3.5 text-indigo-500" /> Tự chuyển bước khi xong task
+        </label>
       </div>
 
       {/* Bảng cột */}
@@ -726,7 +863,7 @@ export default function WorkflowTab({
             Chưa có bước nào trong quy trình
           </p>
           <p className="text-xs text-slate-400">
-            Nhấn “Thêm bước” để tạo cột đầu tiên, rồi thêm người để theo dõi tiến độ.
+            Nhấn “Thêm bước” để tạo cột đầu tiên, rồi tạo công việc để chạy theo quy trình.
           </p>
         </div>
       ) : (
@@ -836,7 +973,9 @@ export default function WorkflowTab({
                     </p>
                   )}
                   {col.people.map((p) => {
-                    const pStepTasks = wfTasks.filter((t) => t.participantId === p.id && t.workflowStepId === p.currentStepId);
+                    const pStepTasks = wfTasks.filter(
+                      (t) => t.participantId === p.id && t.workflowStepId === p.currentStepId && t.status !== "Archived"
+                    );
                     const doneTasks = pStepTasks.filter((t) => t.status === "Done" || t.status === "done").length;
                     const totalTasks = pStepTasks.length;
                     const progressPct = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 100;
@@ -876,6 +1015,32 @@ export default function WorkflowTab({
                           )}
                         </div>
 
+                        {/* Badge ưu tiên & hạn hoàn thành của công việc */}
+                        {((p.priority && p.priority !== "normal") || p.dueDate) && (
+                          <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                            {p.priority === "urgent_important" && (
+                              <span className="rounded-full bg-red-50 px-1.5 py-0.5 text-[9px] font-extrabold text-red-600">
+                                🔥 Gấp & Q.trọng
+                              </span>
+                            )}
+                            {p.priority === "urgent" && (
+                              <span className="rounded-full bg-orange-50 px-1.5 py-0.5 text-[9px] font-extrabold text-orange-600">
+                                ⚡ Cần gấp
+                              </span>
+                            )}
+                            {p.priority === "important" && (
+                              <span className="rounded-full bg-amber-50 px-1.5 py-0.5 text-[9px] font-extrabold text-amber-600">
+                                ★ Quan trọng
+                              </span>
+                            )}
+                            {p.dueDate && (
+                              <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold text-slate-500">
+                                ⏰ Hạn {fmtDate(p.dueDate)}
+                              </span>
+                            )}
+                          </div>
+                        )}
+
                         {/* Kanban task progress */}
                         {!col.isDone && totalTasks > 0 && (
                           <div
@@ -902,6 +1067,13 @@ export default function WorkflowTab({
                           </div>
                         )}
 
+                        {/* Bước đã xong hết task → badge bám trên card đến khi chuyển bước */}
+                        {!col.isDone && totalTasks > 0 && allTasksDone && (
+                          <div className="mt-1 flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[9px] font-extrabold text-emerald-600">
+                            <CheckCircle2 className="h-3 w-3" /> Sẵn sàng chuyển bước
+                          </div>
+                        )}
+
                         {p.note && (
                           <p className="mt-1 line-clamp-2 rounded-md bg-slate-50 px-1.5 py-1 text-[10px] text-slate-500">
                             {p.note}
@@ -910,14 +1082,17 @@ export default function WorkflowTab({
                         {canEdit && (
                           <div className="mt-1.5 flex items-center gap-1">
                             <button
-                              onClick={() => moveParticipant(p.id, -1)}
-                              disabled={col.order === 1 && !col.isDone}
-                              className="flex flex-1 items-center justify-center gap-0.5 rounded-md border border-gray-200 py-1 text-[10px] font-bold text-slate-500 hover:bg-gray-50 disabled:opacity-30"
-                            >
-                              <ChevronLeft className="h-3 w-3" /> Lùi
-                            </button>
-                            <button
                               onClick={() => {
+                                if (col.isDone) return;
+                                // Còn task chưa xong → mở drawer xem thay vì disabled im lặng
+                                if (!allTasksDone) {
+                                  setSelectedPartTasks({
+                                    part: p,
+                                    stepTitle: col.step.title,
+                                    tasks: pStepTasks,
+                                  });
+                                  return;
+                                }
                                 const orderIds = [...steps.map((s) => s.id), DONE_COL];
                                 const idx = orderIds.indexOf(p.currentStepId);
                                 const nextStepId = orderIds[idx + 1];
@@ -925,16 +1100,84 @@ export default function WorkflowTab({
                                   advanceParticipantApi(p.id, nextStepId);
                                 }
                               }}
-                              disabled={col.isDone || !allTasksDone}
-                              className={`flex flex-1 items-center justify-center gap-0.5 rounded-md py-1 text-[10px] font-bold text-white transition-all ${
-                                col.isDone ? "bg-slate-300 opacity-30 cursor-not-allowed" :
-                                !allTasksDone ? "bg-gray-300 opacity-60 cursor-not-allowed" : ""
+                              disabled={col.isDone}
+                              className={`flex flex-1 items-center justify-center gap-0.5 rounded-md py-1 text-[10px] font-bold transition-all ${
+                                col.isDone
+                                  ? "bg-slate-300 text-white opacity-30 cursor-not-allowed"
+                                  : !allTasksDone
+                                  ? "border border-amber-200 bg-amber-50 text-amber-600 hover:bg-amber-100"
+                                  : "text-white"
                               }`}
                               style={!col.isDone && allTasksDone ? { background: ACCENT } : {}}
-                              title={!allTasksDone ? "Hãy hoàn thành tất cả công việc Kanban ở bước này" : "Chuyển sang bước tiếp theo"}
+                              title={
+                                !allTasksDone
+                                  ? "Nhấp để xem các task còn lại của bước này"
+                                  : "Chuyển sang bước tiếp theo"
+                              }
                             >
-                              Tiếp <ChevronRight className="h-3 w-3" />
+                              {!col.isDone && !allTasksDone ? (
+                                <>Còn {totalTasks - doneTasks}/{totalTasks} task</>
+                              ) : (
+                                <>Tiếp <ChevronRight className="h-3 w-3" /></>
+                              )}
                             </button>
+                            <div className="relative">
+                              <button
+                                onClick={() => setCardMenuFor(cardMenuFor === p.id ? null : p.id)}
+                                className="rounded-md border border-gray-200 px-1.5 py-1 text-[10px] font-bold leading-none text-slate-500 hover:bg-gray-50"
+                                title="Thao tác khác"
+                              >
+                                ⋯
+                              </button>
+                              {cardMenuFor === p.id && (
+                                <>
+                                  <div className="fixed inset-0 z-20" onClick={() => setCardMenuFor(null)} />
+                                  <div className="absolute right-0 z-30 mt-1 w-44 rounded-lg border border-gray-200 bg-white py-1 text-[10px] font-semibold text-slate-600 shadow-xl">
+                                    <button
+                                      onClick={() => {
+                                        setCardMenuFor(null);
+                                        moveParticipant(p.id, -1);
+                                      }}
+                                      disabled={col.order === 1 && !col.isDone}
+                                      className="flex w-full items-center gap-1 px-3 py-1.5 text-left hover:bg-slate-50 disabled:opacity-30"
+                                    >
+                                      <ChevronLeft className="h-3 w-3" /> Lùi một bước
+                                    </button>
+                                    {!col.isDone && (
+                                      <>
+                                        <div className="my-1 border-t border-gray-100" />
+                                        <p className="px-3 py-0.5 text-[9px] font-extrabold uppercase text-slate-400">
+                                          Chuyển đến bước
+                                        </p>
+                                        {steps
+                                          .filter((s) => s.id !== p.currentStepId)
+                                          .map((s) => (
+                                            <button
+                                              key={s.id}
+                                              onClick={() => {
+                                                setCardMenuFor(null);
+                                                advanceParticipantApi(p.id, s.id);
+                                              }}
+                                              className="block w-full truncate px-3 py-1.5 text-left hover:bg-slate-50"
+                                            >
+                                              {steps.findIndex((x) => x.id === s.id) + 1}. {s.title}
+                                            </button>
+                                          ))}
+                                        <button
+                                          onClick={() => {
+                                            setCardMenuFor(null);
+                                            advanceParticipantApi(p.id, DONE_COL);
+                                          }}
+                                          className="block w-full px-3 py-1.5 text-left text-emerald-600 hover:bg-emerald-50"
+                                        >
+                                          ✓ Hoàn thành
+                                        </button>
+                                      </>
+                                    )}
+                                  </div>
+                                </>
+                              )}
+                            </div>
                           </div>
                         )}
                       </div>
@@ -959,13 +1202,17 @@ export default function WorkflowTab({
         </div>
       )}
 
-      {/* Modal chỉnh sửa bước */}
+      {/* Modal chỉnh sửa bước — dùng chung editor với wizard tạo quy trình */}
       {stepDraft && (
-        <StepEditorModal
-          draft={stepDraft}
+        <WizardStepEditorModal
+          step={stepDraft}
+          steps={steps}
+          stepIndex={(() => {
+            const i = steps.findIndex((s) => s.id === stepDraft.id);
+            return i >= 0 ? i : steps.length; // bước mới → coi như nằm cuối
+          })()}
           usersList={usersList}
-          canEdit={canEdit}
-          onChange={setStepDraft}
+          isDark={isDark}
           onClose={() => setStepDraft(null)}
           onSave={saveStepDraft}
         />
@@ -974,93 +1221,374 @@ export default function WorkflowTab({
       {/* Modal thêm người tham gia */}
       {partDraft && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
           onClick={() => setPartDraft(null)}
         >
           <div
-            className="w-full max-w-sm rounded-2xl bg-white shadow-xl"
+            className={`flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border shadow-2xl ${
+              isDark
+                ? "bg-[#1c1c1c] text-zinc-150 border-zinc-800"
+                : "bg-white text-slate-850 border-gray-200"
+            }`}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+            <div
+              className={`flex items-center justify-between border-b px-5 py-4 ${
+                isDark ? "border-zinc-800 bg-[#181818]" : "border-gray-200 bg-white"
+              }`}
+            >
               <div className="flex items-center gap-2">
-                <Users className="h-5 w-5 text-indigo-600" />
-                <h3 className="text-sm font-bold text-slate-800">
-                  Thêm người vào quy trình
-                </h3>
+                <Target className={`h-5 w-5 ${isDark ? "text-indigo-400" : "text-indigo-600"}`} />
+                <div>
+                  <h3 className={`text-sm font-extrabold ${isDark ? "text-zinc-150" : "text-slate-800"}`}>
+                    Tạo công việc theo quy trình
+                  </h3>
+                  <p className={`text-[11px] ${isDark ? "text-zinc-500" : "text-slate-400"}`}>
+                    Công việc sẽ bắt đầu ở bước 1 · «{steps[0]?.title}» và tự sinh task Kanban
+                  </p>
+                </div>
               </div>
               <button
                 onClick={() => setPartDraft(null)}
-                className="p-1 rounded hover:bg-gray-100 text-slate-400"
+                className={`p-1.5 rounded-xl ${
+                  isDark ? "hover:bg-zinc-800 text-zinc-400" : "hover:bg-gray-100 text-slate-400"
+                }`}
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <div className="space-y-3 p-4">
+
+            <div className="flex-1 space-y-4 overflow-y-auto p-5">
+              {/* Tên công việc */}
               <div>
-                <label className="text-[11px] font-bold text-slate-500">
-                  Chọn từ nhân sự (tùy chọn)
-                </label>
-                <select
-                  value={partDraft.userUid}
-                  onChange={(e) => {
-                    const uid = e.target.value;
-                    const u = usersList.find((x) => x.uid === uid);
-                    setPartDraft({
-                      ...partDraft,
-                      userUid: uid,
-                      name: u?.displayName || partDraft.name,
-                    });
-                  }}
-                  className="mt-1 w-full rounded-lg border border-gray-200 px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
-                >
-                  <option value="">— Nhập tên thủ công —</option>
-                  {usersList.map((u) => (
-                    <option key={u.uid} value={u.uid}>
-                      {u.displayName}
-                      {u.jobTitle ? ` (${u.jobTitle})` : ""}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-[11px] font-bold text-slate-500">
-                  Tên người thực hiện
+                <label className={`text-[11px] font-extrabold uppercase tracking-wide ${isDark ? "text-zinc-500" : "text-slate-450"}`}>
+                  Tên công việc <span className="text-red-500">*</span>
                 </label>
                 <input
                   value={partDraft.name}
-                  onChange={(e) =>
-                    setPartDraft({ ...partDraft, name: e.target.value })
-                  }
-                  placeholder="VD: Nguyễn Văn A"
-                  className="mt-1 w-full rounded-lg border border-gray-200 px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+                  onChange={(e) => setPartDraft({ ...partDraft, name: e.target.value })}
+                  placeholder="VD: Onboarding Nguyễn Văn A, Xử lý hợp đồng #123…"
+                  autoFocus
+                  className={`mt-1.5 w-full rounded-xl border px-3 py-2 text-sm font-semibold outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 ${
+                    isDark ? "bg-[#242424] border-zinc-700 text-zinc-200" : "border-gray-200"
+                  }`}
                 />
               </div>
+
+              {/* Phụ trách + Ưu tiên */}
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className={`text-[11px] font-extrabold uppercase tracking-wide ${isDark ? "text-zinc-500" : "text-slate-450"}`}>
+                    Người phụ trách chính
+                  </label>
+                  <select
+                    value={partDraft.userUid}
+                    onChange={(e) => setPartDraft({ ...partDraft, userUid: e.target.value })}
+                    className={`mt-1.5 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 ${
+                      isDark ? "bg-[#242424] border-zinc-700 text-zinc-200" : "border-gray-200"
+                    }`}
+                  >
+                    <option value="">— Chưa gán —</option>
+                    {usersList.map((u) => (
+                      <option key={u.uid} value={u.uid}>
+                        {u.displayName}
+                        {u.jobTitle ? ` (${u.jobTitle})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={`text-[11px] font-extrabold uppercase tracking-wide ${isDark ? "text-zinc-500" : "text-slate-450"}`}>
+                    Độ ưu tiên
+                  </label>
+                  <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+                    {(
+                      [
+                        { key: "urgent_important", label: "Gấp & Q.trọng" },
+                        { key: "urgent", label: "Cần gấp" },
+                        { key: "important", label: "Quan trọng" },
+                        { key: "normal", label: "Thoải mái" },
+                      ] as const
+                    ).map((pr) => (
+                      <button
+                        key={pr.key}
+                        onClick={() => setPartDraft({ ...partDraft, priority: pr.key })}
+                        className={`rounded-lg border px-2 py-1.5 text-[11px] font-bold transition-all ${
+                          partDraft.priority === pr.key
+                            ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                            : isDark
+                            ? "border-zinc-700 text-zinc-400 hover:border-zinc-500"
+                            : "border-gray-200 text-slate-500 hover:border-gray-300"
+                        }`}
+                      >
+                        {pr.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Thời gian */}
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className={`text-[11px] font-extrabold uppercase tracking-wide ${isDark ? "text-zinc-500" : "text-slate-450"}`}>
+                    Ngày bắt đầu
+                  </label>
+                  <input
+                    type="date"
+                    value={partDraft.startDate}
+                    onChange={(e) => setPartDraft({ ...partDraft, startDate: e.target.value })}
+                    className={`mt-1.5 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 ${
+                      isDark ? "bg-[#242424] border-zinc-700 text-zinc-200" : "border-gray-200"
+                    }`}
+                  />
+                </div>
+                <div>
+                  <label className={`text-[11px] font-extrabold uppercase tracking-wide ${isDark ? "text-zinc-500" : "text-slate-450"}`}>
+                    Hạn hoàn thành toàn quy trình
+                  </label>
+                  <input
+                    type="date"
+                    value={partDraft.dueDate}
+                    onChange={(e) => setPartDraft({ ...partDraft, dueDate: e.target.value })}
+                    className={`mt-1.5 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 ${
+                      isDark ? "bg-[#242424] border-zinc-700 text-zinc-200" : "border-gray-200"
+                    }`}
+                  />
+                </div>
+              </div>
+
+              {/* Mô tả */}
               <div>
-                <label className="text-[11px] font-bold text-slate-500">Ghi chú</label>
+                <label className={`text-[11px] font-extrabold uppercase tracking-wide ${isDark ? "text-zinc-500" : "text-slate-450"}`}>
+                  Mô tả chi tiết
+                </label>
                 <textarea
+                  value={partDraft.description}
+                  onChange={(e) => setPartDraft({ ...partDraft, description: e.target.value })}
+                  rows={3}
+                  placeholder="Bối cảnh, yêu cầu, thông tin cần thiết cho công việc này…"
+                  className={`mt-1.5 w-full resize-none rounded-xl border px-3 py-2 text-sm outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 ${
+                    isDark ? "bg-[#242424] border-zinc-700 text-zinc-200" : "border-gray-200"
+                  }`}
+                />
+              </div>
+
+              {/* Người liên quan */}
+              <div>
+                <label className={`text-[11px] font-extrabold uppercase tracking-wide ${isDark ? "text-zinc-500" : "text-slate-450"}`}>
+                  Người liên quan
+                </label>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {usersList.map((u) => {
+                    const selected = partDraft.relatedUids.includes(u.uid);
+                    return (
+                      <button
+                        key={u.uid}
+                        onClick={() =>
+                          setPartDraft({
+                            ...partDraft,
+                            relatedUids: selected
+                              ? partDraft.relatedUids.filter((x) => x !== u.uid)
+                              : [...partDraft.relatedUids, u.uid],
+                          })
+                        }
+                        className={`flex items-center gap-1.5 rounded-full border px-2 py-1 text-[11px] font-bold transition-all ${
+                          selected
+                            ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                            : isDark
+                            ? "border-zinc-700 text-zinc-400 hover:border-zinc-500"
+                            : "border-gray-200 text-slate-500 hover:border-gray-300"
+                        }`}
+                      >
+                        <img
+                          src={avatarUrl(u.displayName, u.photoURL)}
+                          alt={u.displayName}
+                          className="h-4 w-4 rounded-full object-cover"
+                        />
+                        {u.displayName}
+                        {selected && <Check className="h-3 w-3" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Công việc con bổ sung */}
+              <div>
+                <label className={`text-[11px] font-extrabold uppercase tracking-wide ${isDark ? "text-zinc-500" : "text-slate-450"}`}>
+                  Công việc con bổ sung (ngoài subtasks của bước 1)
+                </label>
+                <div className="mt-1.5 space-y-1.5">
+                  {partDraft.customSubTasks.map((st) => (
+                    <div
+                      key={st.id}
+                      className={`flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs ${
+                        isDark ? "border-zinc-700 bg-[#242424]" : "border-gray-150 bg-slate-50"
+                      }`}
+                    >
+                      <Circle className="h-3 w-3 shrink-0 text-indigo-400" />
+                      <span className="flex-1 truncate font-semibold">{st.title}</span>
+                      <button
+                        onClick={() =>
+                          setPartDraft({
+                            ...partDraft,
+                            customSubTasks: partDraft.customSubTasks.filter((x) => x.id !== st.id),
+                          })
+                        }
+                        className="rounded p-0.5 text-slate-300 hover:bg-red-50 hover:text-red-500"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                  <div className="flex gap-1.5">
+                    <input
+                      value={newCaseSubTask}
+                      onChange={(e) => setNewCaseSubTask(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && newCaseSubTask.trim()) {
+                          setPartDraft({
+                            ...partDraft,
+                            customSubTasks: [
+                              ...partDraft.customSubTasks,
+                              { id: genId("cst"), title: newCaseSubTask.trim() },
+                            ],
+                          });
+                          setNewCaseSubTask("");
+                        }
+                      }}
+                      placeholder="Nhập tên công việc con rồi Enter…"
+                      className={`flex-1 rounded-xl border px-3 py-1.5 text-xs outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 ${
+                        isDark ? "bg-[#242424] border-zinc-700 text-zinc-200" : "border-gray-200"
+                      }`}
+                    />
+                    <button
+                      onClick={() => {
+                        if (!newCaseSubTask.trim()) return;
+                        setPartDraft({
+                          ...partDraft,
+                          customSubTasks: [
+                            ...partDraft.customSubTasks,
+                            { id: genId("cst"), title: newCaseSubTask.trim() },
+                          ],
+                        });
+                        setNewCaseSubTask("");
+                      }}
+                      className="rounded-xl bg-indigo-600 px-3 text-white hover:bg-indigo-500"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Link tài liệu */}
+              <div>
+                <label className={`text-[11px] font-extrabold uppercase tracking-wide ${isDark ? "text-zinc-500" : "text-slate-450"}`}>
+                  Link tài liệu / hồ sơ
+                </label>
+                <div className="mt-1.5 space-y-1.5">
+                  {partDraft.docLinks.map((link, i) => (
+                    <div
+                      key={i}
+                      className={`flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs ${
+                        isDark ? "border-zinc-700 bg-[#242424]" : "border-gray-150 bg-slate-50"
+                      }`}
+                    >
+                      <Paperclip className="h-3 w-3 shrink-0 text-slate-400" />
+                      <span className="flex-1 truncate text-indigo-600">{link}</span>
+                      <button
+                        onClick={() =>
+                          setPartDraft({
+                            ...partDraft,
+                            docLinks: partDraft.docLinks.filter((_, j) => j !== i),
+                          })
+                        }
+                        className="rounded p-0.5 text-slate-300 hover:bg-red-50 hover:text-red-500"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                  <div className="flex gap-1.5">
+                    <input
+                      value={newCaseDocLink}
+                      onChange={(e) => setNewCaseDocLink(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && newCaseDocLink.trim()) {
+                          setPartDraft({
+                            ...partDraft,
+                            docLinks: [...partDraft.docLinks, newCaseDocLink.trim()],
+                          });
+                          setNewCaseDocLink("");
+                        }
+                      }}
+                      placeholder="https://… (Drive, Notion, hợp đồng…) rồi Enter"
+                      className={`flex-1 rounded-xl border px-3 py-1.5 text-xs outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 ${
+                        isDark ? "bg-[#242424] border-zinc-700 text-zinc-200" : "border-gray-200"
+                      }`}
+                    />
+                    <button
+                      onClick={() => {
+                        if (!newCaseDocLink.trim()) return;
+                        setPartDraft({
+                          ...partDraft,
+                          docLinks: [...partDraft.docLinks, newCaseDocLink.trim()],
+                        });
+                        setNewCaseDocLink("");
+                      }}
+                      className="rounded-xl bg-indigo-600 px-3 text-white hover:bg-indigo-500"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Ghi chú */}
+              <div>
+                <label className={`text-[11px] font-extrabold uppercase tracking-wide ${isDark ? "text-zinc-500" : "text-slate-450"}`}>
+                  Ghi chú
+                </label>
+                <input
                   value={partDraft.note}
-                  onChange={(e) =>
-                    setPartDraft({ ...partDraft, note: e.target.value })
-                  }
-                  rows={2}
-                  placeholder="Thông tin thêm về người này…"
-                  className="mt-1 w-full resize-none rounded-lg border border-gray-200 px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+                  onChange={(e) => setPartDraft({ ...partDraft, note: e.target.value })}
+                  placeholder="Lưu ý ngắn hiển thị trên thẻ công việc…"
+                  className={`mt-1.5 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 ${
+                    isDark ? "bg-[#242424] border-zinc-700 text-zinc-200" : "border-gray-200"
+                  }`}
                 />
               </div>
             </div>
-            <div className="flex justify-end gap-2 border-t border-gray-200 px-4 py-3">
-              <button
-                onClick={() => setPartDraft(null)}
-                className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-bold text-slate-655 hover:bg-gray-50"
-              >
-                Hủy
-              </button>
-              <button
-                onClick={saveParticipantDraft}
-                className="flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-indigo-500"
-              >
-                <Plus className="h-3.5 w-3.5" /> Thêm vào bước 1
-              </button>
+
+            <div
+              className={`flex items-center justify-between border-t px-5 py-3.5 ${
+                isDark ? "border-zinc-800 bg-[#181818]" : "border-gray-200 bg-white"
+              }`}
+            >
+              <p className={`text-[11px] ${isDark ? "text-zinc-500" : "text-slate-400"}`}>
+                {(steps[0]?.subTasks?.length || 1) + partDraft.customSubTasks.length} task Kanban
+                sẽ được tạo ở bước 1
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setPartDraft(null)}
+                  className={`rounded-xl border px-4 py-2 text-xs font-bold ${
+                    isDark
+                      ? "border-zinc-700 text-zinc-400 hover:bg-zinc-800"
+                      : "border-gray-200 text-slate-650 hover:bg-gray-50"
+                  }`}
+                >
+                  Hủy
+                </button>
+                <button
+                  onClick={saveParticipantDraft}
+                  className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-5 py-2 text-xs font-extrabold text-white hover:bg-indigo-500"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Tạo công việc
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1105,13 +1633,30 @@ export default function WorkflowTab({
                   <div
                     key={task.id || task._id}
                     className={`p-3 border rounded-xl transition-all ${
-                      isDark 
-                        ? "bg-[#242424] border-zinc-850 hover:bg-[#282828] text-zinc-200" 
+                      isDark
+                        ? "bg-[#242424] border-zinc-850 hover:bg-[#282828] text-zinc-200"
                         : "bg-slate-50/50 border-gray-150 hover:bg-slate-50 text-slate-700"
                     }`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <span className="text-xs font-bold">{task.title}</span>
+                      <span className="flex items-center gap-1">
+                      {onNavigateToKanban && (task._id || task.id) && (
+                        <button
+                          onClick={() => {
+                            setSelectedPartTasks(null);
+                            onNavigateToKanban(String(task._id || task.id));
+                          }}
+                          title="Mở trên bảng Kanban"
+                          className={`p-1 rounded-md transition-colors ${
+                            isDark
+                              ? "text-zinc-500 hover:bg-zinc-800 hover:text-indigo-400"
+                              : "text-slate-400 hover:bg-indigo-50 hover:text-indigo-600"
+                          }`}
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                        </button>
+                      )}
                       <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold border whitespace-nowrap ${
                         task.status === "Done" || task.status === "done"
                           ? "bg-emerald-50 text-emerald-700 border-emerald-250"
@@ -1121,6 +1666,7 @@ export default function WorkflowTab({
                       }`}>
                         {task.status === "Done" || task.status === "done" ? "Đã xong" :
                          task.status === "In Progress" || task.status === "doing" ? "Đang làm" : "Chưa làm"}
+                      </span>
                       </span>
                     </div>
                     <div className={`mt-2 flex items-center justify-between text-[10px] ${
@@ -1136,160 +1682,6 @@ export default function WorkflowTab({
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-// ============ Modal chỉnh sửa chi tiết bước ============
-function StepEditorModal({
-  draft,
-  usersList,
-  canEdit,
-  onChange,
-  onClose,
-  onSave,
-}: {
-  draft: WorkflowStep;
-  usersList: UserProfile[];
-  canEdit: boolean;
-  onChange: (s: WorkflowStep) => void;
-  onClose: () => void;
-  onSave: () => void;
-}) {
-  const set = (patch: Partial<WorkflowStep>) => onChange({ ...draft, ...patch });
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      onClick={onClose}
-    >
-      <div
-        className="flex max-h-[88vh] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
-          <div className="flex items-center gap-2">
-            <FileText className="h-5 w-5 text-indigo-600" />
-            <h3 className="text-sm font-bold text-slate-800">Chi tiết bước</h3>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1 rounded hover:bg-gray-100 text-slate-400"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        <div className="flex-1 space-y-3.5 overflow-y-auto p-4">
-          <div>
-            <label className="flex items-center gap-1 text-[11px] font-bold text-slate-500">
-              <FileText className="h-3.5 w-3.5" /> Tên bước
-            </label>
-            <input
-              value={draft.title}
-              onChange={(e) => set({ title: e.target.value })}
-              disabled={!canEdit}
-              placeholder="VD: Ký hợp đồng thử việc"
-              className="mt-1 w-full rounded-lg border border-gray-200 px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
-            />
-          </div>
-          <div>
-            <label className="flex items-center gap-1 text-[11px] font-bold text-slate-500">
-              <Info className="h-3.5 w-3.5" /> Mô tả chi tiết
-            </label>
-            <textarea
-              value={draft.description || ""}
-              onChange={(e) => set({ description: e.target.value })}
-              disabled={!canEdit}
-              rows={4}
-              placeholder="Nội dung công việc cần làm trong bước này…"
-              className="mt-1 w-full resize-none rounded-lg border border-gray-200 px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
-            />
-          </div>
-          <div>
-            <label className="flex items-center gap-1 text-[11px] font-bold text-slate-500">
-              <Target className="h-3.5 w-3.5" /> Kết quả / đầu ra mong đợi
-            </label>
-            <textarea
-              value={draft.deliverable || ""}
-              onChange={(e) => set({ deliverable: e.target.value })}
-              disabled={!canEdit}
-              rows={2}
-              placeholder="Sản phẩm/tài liệu cần có sau khi hoàn thành bước…"
-              className="mt-1 w-full resize-none rounded-lg border border-gray-200 px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
-            />
-          </div>
-          <div>
-            <label className="flex items-center gap-1 text-[11px] font-bold text-slate-500">
-              <User className="h-3.5 w-3.5" /> Người phụ trách
-            </label>
-            <select
-              value={draft.assigneeUid || ""}
-              onChange={(e) => {
-                const uid = e.target.value;
-                const u = usersList.find((x) => x.uid === uid);
-                set({ assigneeUid: uid, assignee: u?.displayName || "" });
-              }}
-              disabled={!canEdit}
-              className="mt-1 w-full rounded-lg border border-gray-200 px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
-            >
-              <option value="">— Chưa gán —</option>
-              {usersList.map((u) => (
-                <option key={u.uid} value={u.uid}>
-                  {u.displayName}
-                  {u.jobTitle ? ` (${u.jobTitle})` : ""}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="flex items-center gap-1 text-[11px] font-bold text-slate-500">
-              <Clock className="h-3.5 w-3.5" /> Thời hạn (số ngày)
-            </label>
-            <input
-              type="number"
-              min={0}
-              value={draft.estDays ?? ""}
-              onChange={(e) =>
-                set({
-                  estDays: e.target.value === "" ? undefined : Number(e.target.value),
-                })
-              }
-              disabled={!canEdit}
-              placeholder="VD: 3"
-              className="mt-1 w-full rounded-lg border border-gray-200 px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
-            />
-          </div>
-          <div>
-            <label className="flex items-center gap-1 text-[11px] font-bold text-slate-500">
-              <Info className="h-3.5 w-3.5" /> Lưu ý / điều kiện
-            </label>
-            <textarea
-              value={draft.note || ""}
-              onChange={(e) => set({ note: e.target.value })}
-              disabled={!canEdit}
-              rows={2}
-              placeholder="Điều kiện tiên quyết, ghi chú, cảnh báo…"
-              className="mt-1 w-full resize-none rounded-lg border border-gray-200 px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
-            />
-          </div>
-        </div>
-
-        <div className="flex justify-end gap-2 border-t border-gray-200 px-4 py-3">
-          <button
-            onClick={onClose}
-            className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-bold text-slate-650 hover:bg-gray-50"
-          >
-            Hủy
-          </button>
-          <button
-            onClick={onSave}
-            disabled={!canEdit}
-            className="flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-indigo-500 disabled:opacity-40"
-          >
-            <Save className="h-3.5 w-3.5" /> Lưu bước
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
@@ -1906,6 +2298,30 @@ function WizardStepEditorModal({
   const [assigneeUids, setAssigneeUids] = useState<string[]>(step.assigneeUids || (step.assigneeUid ? [step.assigneeUid] : []));
   const [relatedUids, setRelatedUids] = useState<string[]>(step.relatedUids || []);
   const [domain, setDomain] = useState(step.domain || "");
+  const [projects, setProjects] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const res = await fetch("/api/v1/crud/projects", {
+          headers: {
+            "Authorization": `Bearer ${getAccessToken()}`,
+          },
+        });
+        if (res.ok) {
+          const json = await res.json();
+          const projData = (json.data || []).map((item: any) => ({
+            ...item,
+            id: item._id,
+          }));
+          setProjects(projData);
+        }
+      } catch (err) {
+        console.error("Lỗi khi tải danh sách dự án:", err);
+      }
+    };
+    fetchProjects();
+  }, []);
   const [priority, setPriority] = useState<WorkflowStep["priority"]>(step.priority || "normal");
   const [deadlineType, setDeadlineType] = useState<WorkflowStep["deadlineType"]>(step.deadlineType || "none");
   const [deadlineDays, setDeadlineDays] = useState(step.deadlineDays ?? 3);
@@ -1999,6 +2415,9 @@ function WizardStepEditorModal({
   const rowLabel = `w-28 shrink-0 text-[11px] font-bold pt-0.5 ${
     isDark ? "text-zinc-500" : "text-slate-450"
   }`;
+
+  const selectedProject = projects.find((p) => p.id === domain || p._id === domain);
+  const displayDomain = selectedProject ? selectedProject.name : domain;
 
   return (
     <div
@@ -2186,18 +2605,29 @@ function WizardStepEditorModal({
                     isDark ? "bg-cyan-950/30 border-cyan-700 text-cyan-400" : "bg-cyan-50 border-cyan-200 text-cyan-700"
                   }`}
                 >
-                  {domain}
+                  {displayDomain}
                   <button onClick={() => setDomain("")} className="hover:text-red-400 ml-1">
                     <X className="h-2.5 w-2.5" />
                   </button>
                 </span>
               )}
-              <input
+              <select
                 value={domain}
                 onChange={(e) => setDomain(e.target.value)}
-                placeholder="Nhập lĩnh vực..."
-                className={`${inp} flex-1 max-w-[180px]`}
-              />
+                className={`${inp} flex-1 max-w-[220px]`}
+              >
+                <option value="">-- Chọn dự án --</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+                {domain && !projects.some((p) => p.id === domain || p._id === domain) && (
+                  <option value={domain}>
+                    {domain} (Cũ)
+                  </option>
+                )}
+              </select>
             </div>
           </div>
 
