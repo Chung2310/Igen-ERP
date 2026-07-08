@@ -16,11 +16,12 @@ jobs:
       - uses: actions/checkout@v4
 
       # Giải phóng ~25-30GB dung lượng runner (xóa toolchain không dùng đến)
-      # để BuildKit đủ chỗ build image + chuẩn bị cache export
+      # để BuildKit đủ chỗ build image + chuẩn bị cache export.
+      # LƯU Ý: không chạy `docker image prune` ở đây — sẽ xóa nhầm image của các
+      # Docker-based action (appleboy/scp-action, ssh-action) đã build lúc khởi tạo job
       - name: Free up runner disk space
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
-          sudo docker image prune -af
           df -h /
 
       - name: Set up Docker Buildx
