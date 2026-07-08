@@ -25,6 +25,7 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ item, onClos
   const downloadHref = `/api/v1/media/download?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(item.name)}`;
   const officeViewer = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
   const { Icon, color } = getFileIcon(item.mimeType, item.name);
+  const isGoogleDoc = item.mimeType?.startsWith("application/vnd.google-apps") || url.includes("drive.google.com") || url.includes("docs.google.com");
 
   const handleShare = async () => {
     try {
@@ -87,7 +88,14 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ item, onClos
 
         {/* Nội dung preview */}
         <div className="min-h-0 flex-1 overflow-auto bg-slate-50">
-          {kind === "image" && (
+          {isGoogleDoc ? (
+            <iframe
+              src={url}
+              title={item.name}
+              className="h-[80vh] w-full border-0 bg-white"
+              allow="autoplay; encrypted-media; clipboard-write; clipboard-read"
+            />
+          ) : kind === "image" && (
             <div className="flex min-h-[50vh] items-center justify-center p-4">
               <img src={url} alt={item.name} className="max-h-[78vh] max-w-full rounded-xl object-contain shadow-sm" />
             </div>

@@ -912,20 +912,20 @@
   resolved "https://registry.npmjs.org/@remotion/compositor-win32-x64-msvc/-/compositor-win32-x64-msvc-4.0.476.tgz"
   integrity sha512-tnLwVldG41uKUg7QJXBKb0GCCHcpPoljsHB4Ku0m1ay/gW48kkJUP93gHAc+raHbG9oxWKnUzQvoRtlGnrQG/w==
 
-"@remotion/compositor-win32-x64-msvc@4.0.482":
-  version "4.0.482"
-  resolved "https://registry.npmjs.org/@remotion/compositor-win32-x64-msvc/-/compositor-win32-x64-msvc-4.0.482.tgz"
-  integrity sha512-KU67TFQzUqePcfreWsLgYvgU7DrtxbyBEqGXBFOTyUiKjdlOOFClUggrNYMHWAdWeJBhFo4VILo6ycecGKRcRg==
+"@remotion/compositor-win32-x64-msvc@4.0.478":
+  version "4.0.478"
+  resolved "https://registry.npmjs.org/@remotion/compositor-win32-x64-msvc/-/compositor-win32-x64-msvc-4.0.478.tgz"
+  integrity sha512-AiVnP+I1xcltyh0LSsoZixyCYhciG4lcEmmWKqDD/BCKCNCWdO3owEP05qLGAkiMSU/3vJRvWtS3mKZjrEp67w==
 
 "@remotion/licensing@4.0.476":
   version "4.0.476"
   resolved "https://registry.npmjs.org/@remotion/licensing/-/licensing-4.0.476.tgz"
   integrity sha512-bDx+4hYizZ9J5F6pR4cruhro0BXyv6WaNH9oPhR1/4QDN12VYHvng9RUW7PWZ62aVRAf8U2aPXjnT2tqmLS0jg==
 
-"@remotion/licensing@4.0.482":
-  version "4.0.482"
-  resolved "https://registry.npmjs.org/@remotion/licensing/-/licensing-4.0.482.tgz"
-  integrity sha512-IjA9Wn2HTXsmmu26CcBfMSWMRI2iC3JpUlzASUPBkNEsB7xL28t/goNQ6vHWHpqr4HZ9mcYT+wQ3CYx9mxTR9A==
+"@remotion/licensing@4.0.478":
+  version "4.0.478"
+  resolved "https://registry.npmjs.org/@remotion/licensing/-/licensing-4.0.478.tgz"
+  integrity sha512-vFfOFbyZUHPCmSftKcNEGfgPgJimlQHNDmO7aYP4gx3jE7+YP4R8K9wp1j+tremOqIfabnVIpckA2SPnff/iRQ==
 
 "@remotion/media-parser@4.0.476":
   version "4.0.476"
@@ -941,11 +941,11 @@
     remotion "4.0.476"
 
 "@remotion/player@^4.0.476":
-  version "4.0.482"
-  resolved "https://registry.npmjs.org/@remotion/player/-/player-4.0.482.tgz"
-  integrity sha512-fJDTDX6uWdJg514BCaVbO2mKItRZ3ySvAiQxCNxL6mLhO/uW6S/9Pkk7bgCuez749x8+t4dDb8XXZTYMP09WfQ==
+  version "4.0.478"
+  resolved "https://registry.npmjs.org/@remotion/player/-/player-4.0.478.tgz"
+  integrity sha512-ERfAI+rAMHcM/eFkHeJUVJU8LnFGWvpnEbPpig2t1doDUmKuR9tGKjF4gqBUBbYTHoN8HfXBluisoJgDtLUBew==
   dependencies:
-    remotion "4.0.482"
+    remotion "4.0.478"
 
 "@remotion/player@4.0.476":
   version "4.0.476"
@@ -955,24 +955,24 @@
     remotion "4.0.476"
 
 "@remotion/renderer@^4.0.476":
-  version "4.0.482"
-  resolved "https://registry.npmjs.org/@remotion/renderer/-/renderer-4.0.482.tgz"
-  integrity sha512-YfZx8/lnCim3TbGGc9egFIz/rX6FKlC9vXUX//F9bZxkn+SaVjokluR7rpVW7UT6WjkPKK2GYkVtz9hjLYAIXA==
+  version "4.0.478"
+  resolved "https://registry.npmjs.org/@remotion/renderer/-/renderer-4.0.478.tgz"
+  integrity sha512-fDj8q0yNPJHgHqgzOKeCvy6QJtG1VY54dUkOZ9gYtjjYI8lY5WN5B0FjOrFaF6DmdsMhk4nRAqbTG4NuC+GdJw==
   dependencies:
-    "@remotion/licensing" "4.0.482"
-    "@remotion/streaming" "4.0.482"
+    "@remotion/licensing" "4.0.478"
+    "@remotion/streaming" "4.0.478"
     execa "5.1.1"
-    remotion "4.0.482"
+    remotion "4.0.478"
     source-map "0.8.0-beta.0"
-    ws "8.21.0"
+    ws "8.20.1"
   optionalDependencies:
-    "@remotion/compositor-darwin-arm64" "4.0.482"
-    "@remotion/compositor-darwin-x64" "4.0.482"
-    "@remotion/compositor-linux-arm64-gnu" "4.0.482"
-    "@remotion/compositor-linux-arm64-musl" "4.0.482"
-    "@remotion/compositor-linux-x64-gnu" "4.0.482"
-    "@remotion/compositor-linux-x64-musl" "4.0.482"
-    "@remotion/compositor-win32-x64-msvc" "4.0.482"
+    "@remotion/compositor-darwin-arm64" "4.0.478"
+    "@remotion/compositor-darwin-x64" "4.0.478"
+    "@remotion/compositor-linux-arm64-gnu" "4.0.478"
+    "@remotion/compositor-linux-arm64-musl" "4.0.478"
+    "@remotion/compositor-linux-x64-gnu" "4.0.478"
+    "@remotion/compositor-linux-x64-musl" "4.0.478"
+    "@remotion/compositor-win32-x64-msvc" "4.0.478"
 
 "@remotion/renderer@4.0.476":
   version "4.0.476"
@@ -999,10 +999,10 @@
   resolved "https://registry.npmjs.org/@remotion/streaming/-/streaming-4.0.476.tgz"
   integrity sha512-1cfRT0yRgbV/uy+1p+1Rk9M378UfLjh16JJrPTXz18J9j/zONaM+8G2JafgbvM72JvX/iV/lTkMGVy1AC8Tj/w==
 
-"@remotion/streaming@4.0.482":
-  version "4.0.482"
-  resolved "https://registry.npmjs.org/@remotion/streaming/-/streaming-4.0.482.tgz"
-  integrity sha512-S2L8m5fnEiUuPqmXC6Y6bH1YbWqg071e1pgHEY3k7JvsvVC4pwrvnNY/gnEAkn9i5IglDGjKeHpjay1HjhUdmw==
+"@remotion/streaming@4.0.478":
+  version "4.0.478"
+  resolved "https://registry.npmjs.org/@remotion/streaming/-/streaming-4.0.478.tgz"
+  integrity sha512-HEr/kiabf7aCLrlWQVduxGKVAbIYSfQK7Hg/9uqb4Ih2QcwIKYvGZa9W1Mm092YCGWS9ib87JQP4xPL2r4HC1A==
 
 "@remotion/studio-shared@4.0.476":
   version "4.0.476"
@@ -1198,9 +1198,9 @@
   integrity sha512-C5Mc6rdnsaJDjO3UpGW/CQTHtCKaYlScZTly4JIu97Jxo/odCiH0ITnDXSJPTOrEKk/ycSZ0AOgTmkDtkOsvIA==
 
 "@tybys/wasm-util@^0.10.1":
-  version "0.10.3"
-  resolved "https://registry.npmjs.org/@tybys/wasm-util/-/wasm-util-0.10.3.tgz"
-  integrity sha512-F3fo1MYrRJYL3zER0OUOmkutjr1Vp23m7OsSgp7nq4SP6OqX6C/56XFIPAl5bt3zaBRjmW7SGz3u/6LwFpYcOg==
+  version "0.10.2"
+  resolved "https://registry.npmjs.org/@tybys/wasm-util/-/wasm-util-0.10.2.tgz"
+  integrity sha512-RoBvJ2X0wuKlWFIjrwffGw1IqZHKQqzIchKaadZZfnNpsAYp2mM0h36JtPCjNDAHGgYez/15uMBpfGwchhiMgg==
   dependencies:
     tslib "^2.4.0"
 
@@ -2111,7 +2111,12 @@ cookie-parser@^1.4.7:
     cookie "0.7.2"
     cookie-signature "1.0.6"
 
-cookie-signature@~1.0.6, cookie-signature@1.0.6:
+cookie-signature@~1.0.6:
+  version "1.0.7"
+  resolved "https://registry.npmjs.org/cookie-signature/-/cookie-signature-1.0.7.tgz"
+  integrity sha512-NXdYc3dLr47pBkpUCHtKSwIOQXLVn8dZEuywboCOJY/osA0wFSLlSawr3KN8qXJEyX66FcONTH8EIlVuK0yyFA==
+
+cookie-signature@1.0.6:
   version "1.0.6"
   resolved "https://registry.npmjs.org/cookie-signature/-/cookie-signature-1.0.6.tgz"
   integrity sha512-QADzlaHc8icV8I7vbaJXJwod9HWYp8uCqf1xa4OfNu1T7JVxQIrUgOWtHdNDtPiywmFbiS12VjotIXLrKM3orQ==
@@ -4014,9 +4019,9 @@ postcss-value-parser@^4.1.0, postcss-value-parser@^4.2.0:
   integrity sha512-1NNCs6uurfkVbeXG4S8JFT9t19m45ICnif8zWLd5oPSZ50QnwMfK+H3jv408d4jw/7Bttv5axS5IiHoLaVNHeQ==
 
 postcss@^8.4.40, postcss@^8.5.3, postcss@^8.5.8:
-  version "8.5.16"
-  resolved "https://registry.npmjs.org/postcss/-/postcss-8.5.16.tgz"
-  integrity sha512-vuwillviilfKZsg0VGj5R/YwwcHx4SLsIOI/7K6mQkWx+l5cUHTjj5g0AasTBcyXsbfTgrwsUNmVUb5xVwyPwg==
+  version "8.5.15"
+  resolved "https://registry.npmjs.org/postcss/-/postcss-8.5.15.tgz"
+  integrity sha512-FfR8sjd4em2T6fb3I2MwAJU7HWVMr9zba+enmQeeWFfCbm+UOC/0X4DS8XtpUTMwWMGbjKYP7xjfNekzyGmB3A==
   dependencies:
     nanoid "^3.3.12"
     picocolors "^1.1.1"
@@ -4168,10 +4173,10 @@ redis-parser@^3.0.0, redis-parser@3.0.0:
   dependencies:
     redis-errors "^1.0.0"
 
-remotion@^4.0.476, remotion@4.0.482:
-  version "4.0.482"
-  resolved "https://registry.npmjs.org/remotion/-/remotion-4.0.482.tgz"
-  integrity sha512-FfKxdxL9fW9UnY/WS9RLitevoDCf+fa5WZaNz4/CHhrXF1nc3SV+6GBp7td+dwvN1+UnP9t5DheIGvvoxL22NQ==
+remotion@^4.0.476, remotion@4.0.478:
+  version "4.0.478"
+  resolved "https://registry.npmjs.org/remotion/-/remotion-4.0.478.tgz"
+  integrity sha512-oQlh+p3TNnqBzghoP/uCUbKdKhglK4pTnbDZxs9ATmJhnushWuzZ58lbBldb1OnnmuTEA/eClRKaidxuPsD7jA==
 
 remotion@4.0.476:
   version "4.0.476"
@@ -4279,12 +4284,10 @@ semver@^6.3.1:
   resolved "https://registry.npmjs.org/semver/-/semver-6.3.1.tgz"
   integrity sha512-BR7VvDCVHO+q2xBEWskxS6DJE1qRnb7DxzUrogb71CWoSficBxYsiAGd+Kl0mmq/MprG9yArRkyrQxTO6XjMzA==
 
-semver@^7.3.5, semver@7.5.3:
-  version "7.5.3"
-  resolved "https://registry.npmjs.org/semver/-/semver-7.5.3.tgz"
-  integrity sha512-QBlUtyVk/5EeHbi7X0fw6liDZc7BBmEaSYn01fMU1OUYbf6GPsbTtd8WmnqbI20SeycoHSeiybkE/q1Q+qlThQ==
-  dependencies:
-    lru-cache "^6.0.0"
+semver@^7.3.5:
+  version "7.8.5"
+  resolved "https://registry.npmjs.org/semver/-/semver-7.8.5.tgz"
+  integrity sha512-Y7/KDsb8LjooZpwaqGyulO6DQlksgCncchHGk+sZIY4SBvUocMBEFH5Ur1fI4dV+Jvl0w6cjvucaIi40puRioA==
 
 semver@^7.5.4:
   version "7.8.3"
@@ -4292,9 +4295,9 @@ semver@^7.5.4:
   integrity sha512-wnilbGyMxzbY7dNOl7jpKbLSjcfeweJWU5j4+u5qW+6/wuGD9KzIGOyZnQVSBM9E7DtWaaH3CyHkppYrKYoxwg==
 
 semver@^7.6.3:
-  version "7.8.5"
-  resolved "https://registry.npmjs.org/semver/-/semver-7.8.5.tgz"
-  integrity sha512-Y7/KDsb8LjooZpwaqGyulO6DQlksgCncchHGk+sZIY4SBvUocMBEFH5Ur1fI4dV+Jvl0w6cjvucaIi40puRioA==
+  version "7.8.4"
+  resolved "https://registry.npmjs.org/semver/-/semver-7.8.4.tgz"
+  integrity sha512-rUCObTnP32Q08R2uuIrt7r9PlEonuTmtuXYcW6s5kjdlj3xbnwe+21yXptAUYcMAABLkYYTtnmzb3w3EDZfueA==
 
 semver@^7.7.3:
   version "7.8.5"
@@ -4305,6 +4308,13 @@ semver@^7.7.4:
   version "7.8.5"
   resolved "https://registry.npmjs.org/semver/-/semver-7.8.5.tgz"
   integrity sha512-Y7/KDsb8LjooZpwaqGyulO6DQlksgCncchHGk+sZIY4SBvUocMBEFH5Ur1fI4dV+Jvl0w6cjvucaIi40puRioA==
+
+semver@7.5.3:
+  version "7.5.3"
+  resolved "https://registry.npmjs.org/semver/-/semver-7.5.3.tgz"
+  integrity sha512-QBlUtyVk/5EeHbi7X0fw6liDZc7BBmEaSYn01fMU1OUYbf6GPsbTtd8WmnqbI20SeycoHSeiybkE/q1Q+qlThQ==
+  dependencies:
+    lru-cache "^6.0.0"
 
 semver@7.8.1:
   version "7.8.1"
@@ -5056,7 +5066,7 @@ wrappy@1:
   resolved "https://registry.npmjs.org/wrappy/-/wrappy-1.0.2.tgz"
   integrity sha512-l4Sp/DRseor9wL6EvV2+TuQn63dMkPjZ/sp9XkghTEbV9KlPS1xUsZ3u7/IQO4wxtcFB4bgpQPRcR3QCvezPcQ==
 
-ws@^8.18.0, ws@^8.20.0, ws@8.21.0:
+ws@^8.18.0, ws@^8.20.0:
   version "8.21.0"
   resolved "https://registry.npmjs.org/ws/-/ws-8.21.0.tgz"
   integrity sha512-Vsp28b7DRcimFQvrqu2Wek3z1iYxDCWqHYB8Qsnk/S4RfaCQzPGPyBNuVjJV3cd6UiKtUtp6sNM77gWvzcCH+g==

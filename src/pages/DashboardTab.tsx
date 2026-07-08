@@ -119,6 +119,7 @@ export default function DashboardTab() {
   const [employeeCount, setEmployeeCount] = useState<string>("...");
   const [employeeLabel, setEmployeeLabel] = useState<string>("Tổng nhân sự");
   const [newHiresCount, setNewHiresCount] = useState<number>(0);
+  const [rawEmployees, setRawEmployees] = useState<UserProfile[]>([]);
   const [totalProducts, setTotalProducts] = useState<string>("...");
   const [pendingShipments, setPendingShipments] = useState<string>("...");
   const [marketingPendingCount, setMarketingPendingCount] = useState<string>("...");
@@ -174,6 +175,7 @@ export default function DashboardTab() {
         setEmployeeCount("0");
         setEmployeeLabel("Nhân sự");
         setNewHiresCount(0);
+        setRawEmployees([]);
         return;
       }
 
@@ -205,34 +207,13 @@ export default function DashboardTab() {
 
         setEmployeeCount(String(count));
         setEmployeeLabel(label);
-
-        // Calculate new hires in current month
-        const isCreatedInCurrentMonth = (createdAt: any): boolean => {
-          if (!createdAt) return false;
-          try {
-            let date: Date;
-            if (createdAt && typeof createdAt.toDate === "function") {
-              date = createdAt.toDate();
-            } else if (createdAt instanceof Date) {
-              date = createdAt;
-            } else {
-              date = new Date(createdAt);
-            }
-            if (isNaN(date.getTime())) return false;
-            const now = new Date();
-            return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
-          } catch (e) {
-            return false;
-          }
-        };
-
-        const newHires = targetUsers.filter(u => isCreatedInCurrentMonth(u.createdAt)).length;
-        setNewHiresCount(newHires);
+        setRawEmployees(targetUsers);
       } catch (error) {
         console.error("Lỗi lấy nhân sự Dashboard:", error);
         setEmployeeCount("0");
         setEmployeeLabel("Nhân sự");
         setNewHiresCount(0);
+        setRawEmployees([]);
       }
     };
 
@@ -431,7 +412,14 @@ export default function DashboardTab() {
     });
     setLeadsCount(String(filteredLeads.length));
 
-  }, [rawMarketingCards, rawStockLogs, rawLeads, dateFilter, customStartDate, customEndDate]);
+    // 4. Filter target employees (New Hires)
+    const filteredEmployees = rawEmployees.filter((user) => {
+      if (!user.createdAt) return false;
+      return isDateInFilter(user.createdAt);
+    });
+    setNewHiresCount(filteredEmployees.length);
+
+  }, [rawMarketingCards, rawStockLogs, rawLeads, rawEmployees, dateFilter, customStartDate, customEndDate]);
 
   useEffect(() => {
     const parseSafeDate = (dateStr: any): Date | null => {

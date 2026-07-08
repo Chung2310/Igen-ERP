@@ -17,8 +17,96 @@ export const resourceService = {
   /**
    * Liệt kê các mục trong một thư mục (folder trước, file sau, sắp theo tên).
    */
-  async list(companyCode: string, section: "local" | "drive", parentId: string | null) {
+  async list(companyCode: string, section: "local" | "drive", parentId: string | null, userId?: string) {
     const normalizedParent = parentId && parentId !== "root" ? parentId : null;
+
+    if (section === "local" && !normalizedParent) {
+      const fixedFolderName = "_GOOGLE DOCUMENTS";
+      let fixedFolder = await ResourceItemModel.findOne({
+        companyCode,
+        section: "local",
+        parentId: null,
+        name: fixedFolderName,
+        type: "folder",
+      });
+
+      if (!fixedFolder) {
+        await ResourceItemModel.create({
+          companyCode,
+          section: "local",
+          type: "folder",
+          name: fixedFolderName,
+          parentId: null,
+          isFixed: true,
+          creatorUid: "system",
+          creatorName: "Hệ thống",
+        });
+      } else if (!fixedFolder.isFixed) {
+        await ResourceItemModel.updateOne({ _id: fixedFolder._id }, { $set: { isFixed: true } });
+      }
+    }
+
+    let isFetchingGoogleDrive = false;
+    let driveFolderId = "";
+
+    if (section === "local" && normalizedParent) {
+      if (!isValidObjectId(normalizedParent)) {
+        isFetchingGoogleDrive = true;
+        driveFolderId = normalizedParent;
+      } else {
+        const parentFolder = await ResourceItemModel.findOne({ _id: normalizedParent, companyCode }).lean();
+        if (parentFolder && parentFolder.isFixed && parentFolder.name === "_GOOGLE DOCUMENTS") {
+          isFetchingGoogleDrive = true;
+          driveFolderId = "root";
+        }
+      }
+    }
+
+    if (isFetchingGoogleDrive && userId) {
+      const { UserModel } = await import("../model/user.model");
+      const { GoogleDriveService } = await import("./personal-google-drive.service");
+      const { google } = await import("googleapis");
+
+      const user = await UserModel.findById(userId);
+      if (user && user.googleDriveIntegration?.isConnected) {
+        try {
+          const authClient = await GoogleDriveService.getClientForUser(userId);
+          const drive = google.drive({ version: "v3", auth: authClient });
+
+          let targetFolderId = driveFolderId;
+          if (targetFolderId === "root") {
+            targetFolderId = user.googleDriveIntegration.rootFolderId;
+          }
+
+          const response = await drive.files.list({
+            q: `'${targetFolderId}' in parents and trashed = false`,
+            fields: "files(id, name, mimeType, webViewLink, size, createdTime)",
+            orderBy: "folder,name",
+          });
+
+          const files = response.data.files || [];
+          return files.map((file: any) => {
+            const isFolder = file.mimeType === "application/vnd.google-apps.folder";
+            return {
+              _id: file.id,
+              companyCode,
+              section: "local",
+              type: isFolder ? "folder" : "file",
+              name: file.name,
+              parentId: parentId,
+              fileUrl: file.webViewLink || "",
+              mimeType: file.mimeType || "",
+              size: file.size ? parseInt(file.size, 10) : 0,
+              createdAt: file.createdTime || new Date(),
+              updatedAt: file.createdTime || new Date(),
+            };
+          });
+        } catch (err: any) {
+          console.error("[resourceService.list] Failed to fetch Google Drive files:", err.message);
+          return [];
+        }
+      }
+    }
 
     const items = await ResourceItemModel.find({
       companyCode,
@@ -34,10 +122,52 @@ export const resourceService = {
   /**
    * Đường dẫn breadcrumb từ gốc → thư mục hiện tại.
    */
-  async breadcrumb(companyCode: string, folderId: string | null) {
-    const trail: Array<{ _id: string; name: string }> = [];
+  async breadcrumb(companyCode: string, folderId: string | null, userId?: string) {
+    const trail: Array<{ _id: string; name: string; isFixed?: boolean }> = [];
     let currentId = folderId && folderId !== "root" ? folderId : null;
     const guard = new Set<string>();
+
+    if (currentId && !isValidObjectId(currentId) && userId) {
+      const { UserModel } = await import("../model/user.model");
+      const { GoogleDriveService } = await import("./personal-google-drive.service");
+      const { google } = await import("googleapis");
+
+      const user = await UserModel.findById(userId);
+      if (user && user.googleDriveIntegration?.isConnected) {
+        try {
+          const authClient = await GoogleDriveService.getClientForUser(userId);
+          const drive = google.drive({ version: "v3", auth: authClient });
+
+          while (currentId && currentId !== user.googleDriveIntegration.rootFolderId) {
+            if (guard.has(currentId)) break;
+            guard.add(currentId);
+
+            const file = await drive.files.get({
+              fileId: currentId,
+              fields: "id, name, parents",
+            });
+            if (!file.data.id) break;
+
+            trail.unshift({ _id: file.data.id, name: file.data.name || "" });
+            currentId = file.data.parents?.[0] || null;
+          }
+        } catch (err) {
+          console.error("[resourceService.breadcrumb] Google Drive error:", err);
+        }
+      }
+
+      const fixedFolder = await ResourceItemModel.findOne({
+        companyCode,
+        section: "local",
+        parentId: null,
+        name: "_GOOGLE DOCUMENTS",
+        type: "folder",
+      });
+      if (fixedFolder) {
+        trail.unshift({ _id: String(fixedFolder._id), name: fixedFolder.name, isFixed: true });
+      }
+      return trail;
+    }
 
     while (currentId && isValidObjectId(currentId)) {
       if (guard.has(currentId)) break; // chống lặp vô hạn
@@ -49,7 +179,7 @@ export const resourceService = {
       }).lean();
       if (!folder) break;
 
-      trail.unshift({ _id: String(folder._id), name: folder.name });
+      trail.unshift({ _id: String(folder._id), name: folder.name, isFixed: folder.isFixed });
       currentId = folder.parentId;
     }
 
@@ -108,7 +238,31 @@ export const resourceService = {
     },
     creator: ResourceCreator
   ) {
-    const parentId = await this.assertParent(companyCode, "local", input.parentId ?? null);
+    let parentId = input.parentId ?? null;
+    if (parentId === "google-documents") {
+      let fixedFolder = await ResourceItemModel.findOne({
+        companyCode,
+        section: "local",
+        parentId: null,
+        name: "_GOOGLE DOCUMENTS",
+        type: "folder"
+      });
+      if (!fixedFolder) {
+        fixedFolder = await ResourceItemModel.create({
+          companyCode,
+          section: "local",
+          type: "folder",
+          name: "_GOOGLE DOCUMENTS",
+          parentId: null,
+          isFixed: true,
+          creatorUid: "system",
+          creatorName: "Hệ thống",
+        });
+      }
+      parentId = String(fixedFolder._id);
+    } else {
+      parentId = await this.assertParent(companyCode, "local", parentId);
+    }
 
     const item = await ResourceItemModel.create({
       companyCode,
@@ -152,8 +306,12 @@ export const resourceService = {
    */
   async rename(companyCode: string, id: string, name: string) {
     if (!isValidObjectId(id)) throw new Error("Mã tài nguyên không hợp lệ.");
+    const item = await ResourceItemModel.findOne({ _id: id, companyCode }).lean();
+    if (item && item.isFixed) {
+      throw new Error("Không thể đổi tên thư mục hệ thống cố định.");
+    }
     const updated = await ResourceItemModel.findOneAndUpdate(
-      { _id: id, companyCode },
+      { _id: id, companyCode, isFixed: { $ne: true } },
       { name: name.trim() },
       { new: true }
     ).lean();
@@ -168,6 +326,9 @@ export const resourceService = {
     if (!isValidObjectId(id)) throw new Error("Mã tài nguyên không hợp lệ.");
     const item = await ResourceItemModel.findOne({ _id: id, companyCode }).lean();
     if (!item) throw new Error("Không tìm thấy tài nguyên hoặc bạn không có quyền xóa.");
+    if (item.isFixed) {
+      throw new Error("Không thể xóa thư mục hệ thống cố định.");
+    }
 
     let deletedCount = 0;
 

@@ -29,10 +29,57 @@ import { FilePreviewModal } from "./FilePreviewModal";
 import { formatBytes, formatDate, getFileIcon } from "./resourceHelpers";
 import { useAuth } from "../../context/AuthContext";
 
-export const FileExplorer: React.FC = () => {
+const GoogleDriveLogo: React.FC<{ className?: string }> = ({ className = "h-6 w-6" }) => (
+  <svg className={className} viewBox="0 0 360 360" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M121 54.5L50.5 176.5L93.5 251L164 129L121 54.5Z" fill="#0066DA" />
+    <path d="M239 54.5L121 54.5L164 129L282 129L239 54.5Z" fill="#00A85D" />
+    <path d="M164 129L93.5 251L211.5 251L282 129L164 129Z" fill="#FFD043" />
+  </svg>
+);
+
+const GoogleDocsLogo: React.FC<{ className?: string }> = ({ className = "h-16 w-16" }) => (
+  <svg className={className} viewBox="0 0 360 360" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M75 30H210L285 105V330H75V30Z" fill="#4285F4" />
+    <path d="M210 30L285 105H210V30Z" fill="#A1C2FA" />
+    <rect x="110" y="145" width="140" height="20" rx="4" fill="white" />
+    <rect x="110" y="185" width="140" height="20" rx="4" fill="white" />
+    <rect x="110" y="225" width="140" height="20" rx="4" fill="white" />
+    <rect x="110" y="265" width="90" height="20" rx="4" fill="white" />
+  </svg>
+);
+
+const GoogleSheetsLogo: React.FC<{ className?: string }> = ({ className = "h-16 w-16" }) => (
+  <svg className={className} viewBox="0 0 360 360" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M75 30H210L285 105V330H75V30Z" fill="#0F9D58" />
+    <path d="M210 30L285 105H210V30Z" fill="#57DB9A" />
+    <rect x="105" y="135" width="150" height="135" rx="6" fill="white" />
+    <rect x="120" y="150" width="55" height="30" fill="#0F9D58" />
+    <rect x="185" y="150" width="55" height="30" fill="#0F9D58" />
+    <rect x="120" y="190" width="55" height="30" fill="#0F9D58" />
+    <rect x="185" y="190" width="55" height="30" fill="#0F9D58" />
+    <rect x="120" y="230" width="55" height="30" fill="#0F9D58" />
+    <rect x="185" y="230" width="55" height="30" fill="#0F9D58" />
+  </svg>
+);
+
+const GoogleSlidesLogo: React.FC<{ className?: string }> = ({ className = "h-16 w-16" }) => (
+  <svg className={className} viewBox="0 0 360 360" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M75 30H210L285 105V330H75V30Z" fill="#F4B400" />
+    <path d="M210 30L285 105H210V30Z" fill="#FAD980" />
+    <rect x="110" y="150" width="140" height="95" rx="6" fill="white" />
+    <rect x="120" y="160" width="120" height="75" rx="4" fill="#F4B400" />
+  </svg>
+);
+
+interface FileExplorerProps {
+  onOpenFile?: (item: ResourceItem) => void;
+}
+
+export const FileExplorer: React.FC<FileExplorerProps> = ({ onOpenFile }) => {
   const { userProfile } = useAuth();
   const [currentFolder, setCurrentFolder] = useState<string | null>(null);
   const [breadcrumb, setBreadcrumb] = useState<BreadcrumbEntry[]>([]);
+  const isInsideFixedFolder = breadcrumb.some((b) => b.isFixed);
   const [items, setItems] = useState<ResourceItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -96,6 +143,10 @@ export const FileExplorer: React.FC = () => {
 
   const uploadFiles = useCallback(
     async (files: FileList | File[]) => {
+      if (isInsideFixedFolder) {
+        toast.warning("Thư mục này chỉ dành cho tài liệu từ Google Drive, không thể tải lên trực tiếp.");
+        return;
+      }
       const arr = Array.from(files);
       if (arr.length === 0) return;
       setUploading(true);
@@ -112,7 +163,7 @@ export const FileExplorer: React.FC = () => {
       setUploading(false);
       load(currentFolder);
     },
-    [currentFolder, load]
+    [currentFolder, load, isInsideFixedFolder]
   );
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -166,7 +217,7 @@ export const FileExplorer: React.FC = () => {
       className="flex flex-col h-full"
       onDragOver={(e) => {
         e.preventDefault();
-        if (!isDragging) setIsDragging(true);
+        if (!isDragging && !isInsideFixedFolder) setIsDragging(true);
       }}
       onDragLeave={(e) => {
         if (e.currentTarget === e.target) setIsDragging(false);
@@ -176,22 +227,26 @@ export const FileExplorer: React.FC = () => {
     >
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2 pb-4">
-        <button
-          onClick={() => setShowNewFolder(true)}
-          className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition active:scale-95"
-        >
-          <FolderPlus className="w-4 h-4 text-amber-500" />
-          Tạo thư mục
-        </button>
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          disabled={uploading}
-          className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm shadow-blue-500/20 hover:bg-blue-700 transition active:scale-95 disabled:opacity-60"
-        >
-          {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-          {uploading ? "Đang tải lên..." : "Tải lên"}
-        </button>
-        <input ref={fileInputRef} type="file" multiple hidden onChange={handleFileInput} />
+        {!isInsideFixedFolder && (
+          <>
+            <button
+              onClick={() => setShowNewFolder(true)}
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition active:scale-95"
+            >
+              <FolderPlus className="w-4 h-4 text-amber-500" />
+              Tạo thư mục
+            </button>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm shadow-blue-500/20 hover:bg-blue-700 transition active:scale-95 disabled:opacity-60"
+            >
+              {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+              {uploading ? "Đang tải lên..." : "Tải lên"}
+            </button>
+            <input ref={fileInputRef} type="file" multiple hidden onChange={handleFileInput} />
+          </>
+        )}
 
         <button
           onClick={() => load(currentFolder)}
@@ -236,7 +291,7 @@ export const FileExplorer: React.FC = () => {
             isDragging ? "border-blue-400 border-dashed bg-blue-50/50" : "border-slate-100 bg-slate-50/40"
           } p-4 transition-colors`}
         >
-          {isDragging && (
+          {isDragging && !isInsideFixedFolder && (
             <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-blue-50/70 backdrop-blur-sm">
               <div className="flex flex-col items-center gap-2 text-blue-600">
                 <Upload className="w-10 h-10" />
@@ -292,7 +347,16 @@ export const FileExplorer: React.FC = () => {
                     e.stopPropagation();
                     setMenuOpenId(menuOpenId === item._id ? null : item._id);
                   }}
-                  onOpen={() => item.fileUrl && setPreviewItem(item)}
+                  onOpen={() => {
+                    if (item.fileUrl) {
+                      const isGoogleDoc = item.mimeType?.startsWith("application/vnd.google-apps") || item.fileUrl.includes("drive.google.com") || item.fileUrl.includes("docs.google.com");
+                      if (isGoogleDoc && onOpenFile) {
+                        onOpenFile(item);
+                      } else {
+                        setPreviewItem(item);
+                      }
+                    }
+                  }}
                   onRename={() => {
                     setRenameTarget(item);
                     setRenameValue(item.name);
@@ -554,16 +618,18 @@ const ResourceCard: React.FC<{
             </button>
 
             {/* Đổi tên */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onRename();
-              }}
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
-            >
-              <Pencil className="h-4 w-4 text-slate-500" />
-              <span>Đổi tên</span>
-            </button>
+            {!item.isFixed && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRename();
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+              >
+                <Pencil className="h-4 w-4 text-slate-500" />
+                <span>Đổi tên</span>
+              </button>
+            )}
 
             {/* Di chuyển đến thư mục */}
             <button
@@ -656,23 +722,40 @@ const ResourceCard: React.FC<{
             <div className="border-t border-slate-100 my-1"></div>
 
             {/* Chuyển vào thùng rác */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete();
-              }}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-semibold text-red-600 hover:bg-red-50 transition cursor-pointer"
-            >
-              <Trash2 className="h-4 w-4 text-red-500" />
-              <span>Chuyển vào thùng rác</span>
-            </button>
+            {!item.isFixed && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete();
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-semibold text-red-600 hover:bg-red-50 transition cursor-pointer"
+              >
+                <Trash2 className="h-4 w-4 text-red-500" />
+                <span>Chuyển vào thùng rác</span>
+              </button>
+            )}
           </div>
         )}
       </div>
 
       {/* Center Icon */}
       <div className="flex-1 flex items-center justify-center mt-3" onClick={onOpen}>
-        <Icon className={`w-16 h-16 ${color}`} strokeWidth={1.5} />
+        {isFolder && (item.isFixed || item.name.toUpperCase().includes("GOOGLE")) ? (
+          <div className="relative">
+            <FolderOpen className="h-16 w-16 text-[#5bc0be]" strokeWidth={1.5} />
+            <div className="absolute inset-0 flex items-center justify-center mt-2.5">
+              <GoogleDriveLogo className="h-5 w-5 bg-white rounded-full p-0.5" />
+            </div>
+          </div>
+        ) : item.mimeType === "application/vnd.google-apps.spreadsheet" ? (
+          <GoogleSheetsLogo className="w-16 h-16" />
+        ) : item.mimeType === "application/vnd.google-apps.document" ? (
+          <GoogleDocsLogo className="w-16 h-16" />
+        ) : item.mimeType === "application/vnd.google-apps.presentation" ? (
+          <GoogleSlidesLogo className="w-16 h-16" />
+        ) : (
+          <Icon className={`w-16 h-16 ${color}`} strokeWidth={1.5} />
+        )}
       </div>
 
       {/* Info */}
