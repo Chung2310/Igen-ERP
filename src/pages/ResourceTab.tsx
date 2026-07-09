@@ -25,6 +25,7 @@ interface Resource {
   thumbnailLink?: string;
   size?: number;
   createdAt: string;
+  uploadedBy?: string;
 }
 
 type ResourceSubTabType = "TÀI LIỆU KHÁC" | "GOOGLE DRIVE";
