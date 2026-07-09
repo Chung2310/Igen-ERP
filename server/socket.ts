@@ -6,6 +6,7 @@ import Redis from "ioredis";
 import { UserModel } from "./model/user.model";
 import { SocialIntegrationModel } from "./model/social-integration.model";
 import { ChatRoomModel } from "./model/chat-room.model";
+import { getJwtAccessSecret } from "./config/env";
 
 let io: SocketIOServer | null = null;
 
@@ -112,10 +113,7 @@ export async function initSocketServer(httpServer: HTTPServer) {
         return next(new Error("Authentication error: Token missing"));
       }
 
-      const decoded = jwt.verify(
-        token,
-        process.env.JWT_ACCESS_SECRET || "your_jwt_access_secret_key"
-      ) as any;
+      const decoded = jwt.verify(token, getJwtAccessSecret()) as any;
 
       const user = await UserModel.findById(decoded.id).lean();
       if (!user) {

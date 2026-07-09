@@ -4,6 +4,7 @@ import { SocialIntegrationModel } from "../model/social-integration.model";
 import { UserModel } from "../model/user.model";
 import { telegramService } from "./telegram.service";
 import jwt from "jsonwebtoken";
+import { getJwtAccessSecret } from "../config/env";
 
 const TIKTOK_API_BASE = "https://open.tiktokapis.com";
 const TIKTOK_OAUTH_AUTHORIZE_URL = "https://www.tiktok.com/v2/auth/authorize/";
@@ -36,7 +37,7 @@ function getTikTokClientSecret(target?: string) {
 }
 
 function getOAuthStateSecret() {
-  return String(process.env.JWT_ACCESS_SECRET || "your_jwt_access_secret_key");
+  return getJwtAccessSecret();
 }
 
 function encodeHtml(value: string) {
