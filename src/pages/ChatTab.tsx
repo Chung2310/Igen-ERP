@@ -34,6 +34,7 @@ import {
   Smile,
   Mic,
   StopCircle,
+  Video,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { authService } from "../services/authService";
@@ -104,6 +105,15 @@ export default function ChatTab() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Video Recording
+  const [isVideoRecording, setIsVideoRecording] = useState(false);
+  const [videoSeconds, setVideoSeconds] = useState(0);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
+  const videoRecorderRef = useRef<MediaRecorder | null>(null);
+  const videoChunksRef = useRef<Blob[]>([]);
+  const videoStreamRef = useRef<MediaStream | null>(null);
+  const videoTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Typing status
   const [typingUsers, setTypingUsers] = useState<{ [roomId: string]: string[] }>({});
@@ -1182,9 +1192,48 @@ export default function ChatTab() {
     }
   };
 
+  // Kiểm tra quyền micro/camera trước khi ghi.
+  // Nếu quyền đã bị chặn thì hướng dẫn mở lại; nếu chưa hỏi thì getUserMedia sẽ tự hiện hộp thoại xin quyền.
+  const ensureMediaPermissions = async (kinds: Array<"microphone" | "camera">): Promise<boolean> => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      toast.error("Trình duyệt không hỗ trợ ghi âm/ghi hình.");
+      return false;
+    }
+    try {
+      for (const kind of kinds) {
+        const status = await navigator.permissions.query({ name: kind as PermissionName });
+        if (status.state === "denied") {
+          toast.error(
+            kind === "microphone"
+              ? "Quyền micro đang bị chặn. Hãy bấm biểu tượng ổ khóa trên thanh địa chỉ và cho phép Micro rồi thử lại."
+              : "Quyền camera đang bị chặn. Hãy bấm biểu tượng ổ khóa trên thanh địa chỉ và cho phép Camera rồi thử lại."
+          );
+          return false;
+        }
+      }
+    } catch {
+      // Trình duyệt không hỗ trợ Permissions API cho micro/camera — để getUserMedia tự hỏi quyền
+    }
+    return true;
+  };
+
+  const showMediaError = (error: any, device: "micro" | "camera") => {
+    const name = error?.name || "";
+    if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+      toast.error(`Bạn chưa cấp quyền ${device}. Hãy bấm "Cho phép" khi trình duyệt hỏi quyền truy cập.`);
+    } else if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+      toast.error(`Không tìm thấy thiết bị ${device} trên máy này.`);
+    } else if (name === "NotReadableError" || name === "TrackStartError") {
+      toast.error(`Thiết bị ${device} đang được ứng dụng khác sử dụng.`);
+    } else {
+      toast.error(`Không thể truy cập ${device}. Vui lòng kiểm tra quyền truy cập.`);
+    }
+  };
+
   // Start voice recording
   const startRecording = async () => {
     if (!activeRoom) return;
+    if (!(await ensureMediaPermissions(["microphone"]))) return;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const recorder = new MediaRecorder(stream);
@@ -1201,8 +1250,8 @@ export default function ChatTab() {
       recordingTimerRef.current = setInterval(() => {
         setRecordingSeconds((s) => s + 1);
       }, 1000);
-    } catch {
-      toast.error("Không thể truy cập microphone. Vui lòng kiểm tra quyền truy cập.");
+    } catch (error) {
+      showMediaError(error, "micro");
     }
   };
 
@@ -1245,6 +1294,108 @@ export default function ChatTab() {
     setIsRecording(false);
     setRecordingSeconds(0);
   };
+
+  // ===== Video Recording =====
+  const VIDEO_MAX_SECONDS = 300; // Giới hạn 5 phút / video để tránh upload quá nặng
+
+  const attachVideoPreview = (el: HTMLVideoElement | null) => {
+    if (el && videoStreamRef.current && el.srcObject !== videoStreamRef.current) {
+      el.srcObject = videoStreamRef.current;
+    }
+  };
+
+  const releaseVideoStream = () => {
+    videoStreamRef.current?.getTracks().forEach((t) => t.stop());
+    videoStreamRef.current = null;
+    if (videoTimerRef.current) clearInterval(videoTimerRef.current);
+    setIsVideoRecording(false);
+    setVideoSeconds(0);
+  };
+
+  // Start video recording
+  const startVideoRecording = async () => {
+    if (!activeRoom) return;
+    if (!(await ensureMediaPermissions(["camera", "microphone"]))) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "user" },
+        audio: true,
+      });
+      videoStreamRef.current = stream;
+      videoChunksRef.current = [];
+      const recorder = new MediaRecorder(stream);
+      videoRecorderRef.current = recorder;
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) videoChunksRef.current.push(e.data);
+      };
+
+      recorder.start();
+      setIsVideoRecording(true);
+      setVideoSeconds(0);
+      videoTimerRef.current = setInterval(() => {
+        setVideoSeconds((s) => s + 1);
+      }, 1000);
+    } catch (error) {
+      showMediaError(error, "camera");
+    }
+  };
+
+  // Stop & send video recording
+  const stopVideoRecording = () => {
+    const recorder = videoRecorderRef.current;
+    if (!recorder || !activeRoom) return;
+    const roomId = activeRoom._id;
+    const replyId = replyingMessage?._id;
+
+    recorder.onstop = async () => {
+      const videoBlob = new Blob(videoChunksRef.current, { type: "video/webm" });
+      const videoFile = new File([videoBlob], `video-${Date.now()}.webm`, { type: "video/webm" });
+      try {
+        setUploadingVideo(true);
+        const attachment = await internalChatService.uploadAttachment(videoFile);
+        await internalChatService.sendMessage(roomId, "", [attachment], replyId);
+        setReplyingMessage(null);
+      } catch (error: any) {
+        toast.error(error.message || "Không thể gửi tin nhắn video.");
+      } finally {
+        setUploadingVideo(false);
+      }
+    };
+
+    recorder.stop();
+    releaseVideoStream();
+  };
+
+  // Cancel video recording
+  const cancelVideoRecording = () => {
+    const recorder = videoRecorderRef.current;
+    if (recorder && recorder.state !== "inactive") {
+      recorder.onstop = null;
+      recorder.stop();
+    }
+    videoChunksRef.current = [];
+    releaseVideoStream();
+  };
+
+  // Tự dừng và gửi khi chạm giới hạn thời lượng ghi hình
+  useEffect(() => {
+    if (isVideoRecording && videoSeconds >= VIDEO_MAX_SECONDS) {
+      toast.info("Đã đạt thời lượng tối đa 5 phút — video sẽ được gửi.");
+      stopVideoRecording();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [videoSeconds, isVideoRecording]);
+
+  // Tắt micro/camera nếu rời trang khi đang ghi dở
+  useEffect(() => {
+    return () => {
+      mediaRecorderRef.current?.stream.getTracks().forEach((t) => t.stop());
+      videoStreamRef.current?.getTracks().forEach((t) => t.stop());
+      if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+      if (videoTimerRef.current) clearInterval(videoTimerRef.current);
+    };
+  }, []);
 
   // Send Message
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -2777,6 +2928,17 @@ export default function ChatTab() {
                       <Smile className="h-5 w-5" />
                     </button>
 
+                    {/* Video record button */}
+                    <button
+                      type="button"
+                      onClick={startVideoRecording}
+                      disabled={isRecording || uploadingVideo}
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-slate-450 hover:text-rose-500 hover:bg-rose-50 border border-slate-150/40 transition active:scale-95 disabled:opacity-50"
+                      title="Ghi hình gửi tin nhắn video"
+                    >
+                      {uploadingVideo ? <Loader2 className="h-5 w-5 animate-spin" /> : <Video className="h-5 w-5" />}
+                    </button>
+
                     {/* Recording UI or Normal Input */}
                     {isRecording ? (
                       <div className="flex flex-1 items-center gap-3 rounded-2xl border border-rose-300 bg-rose-50 px-4 py-2.5">
@@ -2880,6 +3042,50 @@ export default function ChatTab() {
           </div>
         )}
       </div>
+
+      {/* MODAL: VIDEO RECORDING */}
+      {isVideoRecording && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-4 shadow-2xl">
+            <div className="relative overflow-hidden rounded-xl bg-black">
+              <video
+                ref={attachVideoPreview}
+                muted
+                playsInline
+                autoPlay
+                className="w-full max-h-[60vh] object-contain"
+              />
+              <div className="absolute top-3 left-3 flex items-center gap-2 rounded-full bg-black/50 px-3 py-1.5">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-rose-500" />
+                </span>
+                <span className="text-xs font-bold text-white tabular-nums">
+                  {Math.floor(videoSeconds / 60).toString().padStart(2, "0")}:{(videoSeconds % 60).toString().padStart(2, "0")}
+                </span>
+              </div>
+            </div>
+            <div className="mt-4 flex items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={cancelVideoRecording}
+                className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition active:scale-95"
+              >
+                <X className="h-4 w-4" />
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={stopVideoRecording}
+                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-rose-500 to-pink-500 px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:shadow-lg hover:scale-105 active:scale-95 transition-all duration-300"
+              >
+                <StopCircle className="h-4 w-4" />
+                Dừng & Gửi
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL: CREATE GROUP CHAT */}
       {showCreateGroupModal && (
