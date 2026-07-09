@@ -2131,10 +2131,10 @@ const ResourceCard: React.FC<{
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
-      className={`group relative flex flex-col items-center justify-between border rounded-2xl p-4 transition duration-150 select-none cursor-pointer text-center w-36 h-40 shadow-none hover:shadow-xs ${
+      className={`group relative flex flex-col items-center justify-between border rounded-3xl p-5 transition-all duration-300 ease-out select-none cursor-pointer text-center w-40 h-44 bg-white shadow-xs hover:shadow-lg hover:border-slate-200 hover:-translate-y-1 ${
         isDraggedOver
-          ? "bg-slate-100 border-[#10b981] border-dashed scale-105 shadow-md"
-          : "bg-transparent hover:bg-slate-100 border-transparent hover:border-slate-200/50"
+          ? "bg-slate-50 border-[#10b981] border-dashed scale-105 shadow-md"
+          : "border-slate-100 hover:bg-slate-50/30"
       }`}
     >
       {/* Badge chia sẻ */}
@@ -2147,12 +2147,12 @@ const ResourceCard: React.FC<{
         </div>
       )}
       {/* Three-dot menu button */}
-      <div className={`absolute top-2 right-2 z-10 transition-opacity duration-150 ${menuOpen ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
+      <div className={`absolute top-2.5 right-2.5 z-10 transition-all duration-200 ${menuOpen ? "opacity-100 scale-100" : "opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100"}`}>
         <button
           onClick={onToggleMenu}
-          className="w-8 h-8 rounded-full bg-white hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center shadow-xs border border-slate-200/40 transition active:scale-90 cursor-pointer"
+          className="w-7 h-7 rounded-full bg-white/80 hover:bg-white text-slate-400 hover:text-slate-700 flex items-center justify-center shadow-md border border-slate-100 transition duration-150 active:scale-90 cursor-pointer"
         >
-          <MoreVertical className="w-4 h-4" />
+          <MoreVertical className="w-3.5 h-3.5" />
         </button>
         {menuOpen && (
           <div
@@ -2298,12 +2298,12 @@ const ResourceCard: React.FC<{
       </div>
 
       {/* Center Icon */}
-      <div className="flex-1 flex items-center justify-center mt-3" onClick={onOpen}>
+      <div className="flex-1 flex items-center justify-center mt-4 w-full" onClick={onOpen}>
         {isFolder && item.name.toUpperCase().includes("GOOGLE") ? (
-          <div className="relative">
-            <FolderOpen className="h-16 w-16 text-[#5bc0be]" strokeWidth={1.5} />
-            <div className="absolute inset-0 flex items-center justify-center mt-2.5">
-              <GoogleDriveLogo className="h-5 w-5 bg-white rounded-full p-0.5" />
+          <div className="relative p-3.5 bg-[#5bc0be]/5 rounded-2xl group-hover:bg-[#5bc0be]/10 transition duration-300">
+            <FolderOpen className="h-11 w-11 text-[#5bc0be]" strokeWidth={1.5} />
+            <div className="absolute bottom-1 right-1 flex items-center justify-center">
+              <GoogleDriveLogo className="h-4 w-4 bg-white rounded-full p-0.5 shadow-xs" />
             </div>
           </div>
         ) : item.mimeType === "application/vnd.google-apps.spreadsheet" ? (
@@ -2313,9 +2313,9 @@ const ResourceCard: React.FC<{
         ) : item.mimeType === "application/vnd.google-apps.presentation" ? (
           <GoogleSlidesLogo className="w-16 h-16" />
         ) : !isFolder && item.mimeType?.startsWith("image/") && item.fileUrl ? (
-          <div className="relative w-28 h-20 flex items-center justify-center rounded-lg overflow-hidden bg-slate-50 border border-slate-200/60 shadow-inner">
+          <div className="relative w-32 h-20 flex items-center justify-center rounded-xl overflow-hidden bg-slate-50 border border-slate-100 shadow-inner group-hover:scale-105 transition-transform duration-300">
             <img src={item.fileUrl} alt={item.name} className="h-full w-full object-cover" />
-            <div className="absolute bottom-1 left-1 bg-[#ff7b00] text-white p-0.5 rounded-sm shadow-xs">
+            <div className="absolute bottom-1 left-1 bg-[#ff7b00] text-white p-0.5 rounded-xs shadow-xs">
               <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
                 <polyline points="14 2 14 8 20 8" />
@@ -2323,16 +2323,24 @@ const ResourceCard: React.FC<{
             </div>
           </div>
         ) : (
-          <Icon className={`w-16 h-16 ${color}`} strokeWidth={1.5} />
+          <div className={`p-3.5 rounded-2xl transition duration-300 ${
+            isFolder 
+              ? "bg-amber-50 group-hover:bg-amber-100/70" 
+              : item.mimeType === "text/html" 
+                ? "bg-teal-50 group-hover:bg-teal-100/70"
+                : "bg-slate-50 group-hover:bg-slate-100/70"
+          }`}>
+            <Icon className={`w-11 h-11 ${color}`} strokeWidth={1.5} />
+          </div>
         )}
       </div>
 
       {/* Info */}
-      <div className="mt-auto w-full pt-2" onClick={onOpen}>
-        <p className="truncate text-[13px] font-bold text-slate-800 px-0.5" title={item.name}>
+      <div className="mt-auto w-full pt-3" onClick={onOpen}>
+        <p className="truncate text-xs font-bold text-slate-800 px-0.5" title={item.name}>
           {item.name}
         </p>
-        <p className="truncate text-[10px] text-slate-400 mt-0.5">
+        <p className="truncate text-[10px] text-slate-400 font-semibold mt-1">
           {showTrash ? (
             (() => {
               if (!item.deletedAt) return "Còn 15 ngày";
@@ -2343,7 +2351,13 @@ const ResourceCard: React.FC<{
               return days > 0 ? `Còn ${days} ngày` : "Sắp xóa";
             })()
           ) : (
-            `${isFolder ? "Thư mục" : formatBytes(item.size)} · ${formatDate(item.createdAt)}`
+            `${
+              isFolder 
+                ? "Thư mục" 
+                : item.mimeType === "text/html" 
+                  ? "Liên kết" 
+                  : formatBytes(item.size)
+            } · ${formatDate(item.createdAt)}`
           )}
         </p>
       </div>
