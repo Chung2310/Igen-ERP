@@ -315,6 +315,20 @@ export function emitToUser(userId: string, eventName: string, data: any) {
   }
 }
 
+/**
+ * Kiểm tra user có đang mở web (còn socket kết nối) hay không.
+ * Dùng fetchSockets() để hoạt động đúng cả khi scale ngang qua Redis adapter.
+ */
+export async function isUserOnline(userId: string): Promise<boolean> {
+  if (!io) return false;
+  try {
+    const sockets = await io.in(`user:${userId}`).fetchSockets();
+    return sockets.length > 0;
+  } catch {
+    return false;
+  }
+}
+
 export function emitToCompany(companyCode: string, eventName: string, data: any) {
   if (io) {
     const room = `company:${companyCode}`;

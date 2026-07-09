@@ -26,6 +26,7 @@ import { resourceRouter } from "./resource.router";
 import { studentManagementRouter } from "../modules/student-management/router";
 import { timekeepingRouter } from "./timekeeping.router";
 import { dashboardRouter } from "./dashboard.router";
+import { pushRouter } from "./push.router";
 import { notificationRouter } from "./notification.router";
 export const apiRouter = Router();
 /**
@@ -107,6 +108,9 @@ apiRouter.use("/timekeeping", timekeepingRouter);
 
 // Gắn kết router tổng hợp số liệu trang tổng quan
 apiRouter.use("/dashboard", dashboardRouter);
+
+// Gắn kết router Web Push (thông báo đẩy khi người dùng không mở web)
+apiRouter.use("/push", pushRouter);
 
 // Gắn kết router thông báo web
 apiRouter.use("/notifications", notificationRouter);

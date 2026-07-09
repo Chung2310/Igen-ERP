@@ -2,7 +2,8 @@ import { Response } from "express";
 import { AuthenticatedRequest } from "../middleware/auth";
 import { chatService } from "../service/chat.service";
 import { linkPreviewService } from "../service/link-preview.service";
-import { emitToUser } from "../socket";
+import { emitToUser, isUserOnline } from "../socket";
+import { pushService } from "../service/push.service";
 
 export const chatController = {
   /**
@@ -304,6 +305,34 @@ export const chatController = {
           roomUpdate: room // Gửi kèm room update để client cập nhật thứ tự phòng và preview message
         });
       });
+
+      // Đẩy Web Push cho các thành viên đang offline (đã đóng web) — chạy nền, không chặn phản hồi
+      void (async () => {
+        try {
+          const senderName = (message as any).senderName || "Đồng nghiệp";
+          const preview =
+            content && String(content).trim()
+              ? String(content).slice(0, 120)
+              : "Đã gửi tệp đính kèm";
+          const title = room.isGroup && room.name ? `${senderName} — ${room.name}` : `Tin nhắn mới từ ${senderName}`;
+
+          await Promise.all(
+            room.members.map(async (member: any) => {
+              const memId = member.userId._id ? member.userId._id.toString() : member.userId.toString();
+              if (memId === senderId) return;
+              if (await isUserOnline(memId)) return; // Đang mở web — socket + Notification API đã lo
+              await pushService.sendToUser(memId, {
+                title,
+                body: preview,
+                url: "/tro-chuyen",
+                tag: `chat-${roomId}`,
+              });
+            })
+          );
+        } catch (pushError) {
+          console.error("[chatController.sendMessage] Lỗi gửi Web Push:", pushError);
+        }
+      })();
 
       return res.status(201).json({
         status: "success",
