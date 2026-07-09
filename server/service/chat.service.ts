@@ -76,6 +76,23 @@ export const chatService = {
       })
     );
 
+    // Sắp xếp các phòng chat: phòng nào được ghim (isPinned: true) bởi userId sẽ xếp lên đầu,
+    // sau đó sắp xếp theo thời gian cập nhật mới nhất (updatedAt giảm dần)
+    withUnread.sort((a, b) => {
+      const aMember = a.members.find((m: any) => (m.userId._id || m.userId).toString() === userId);
+      const bMember = b.members.find((m: any) => (m.userId._id || m.userId).toString() === userId);
+      const aPinned = aMember?.isPinned ? 1 : 0;
+      const bPinned = bMember?.isPinned ? 1 : 0;
+
+      if (aPinned !== bPinned) {
+        return bPinned - aPinned;
+      }
+      
+      const aTime = new Date(a.updatedAt).getTime();
+      const bTime = new Date(b.updatedAt).getTime();
+      return bTime - aTime;
+    });
+
     return withUnread;
   },
 
@@ -897,6 +914,26 @@ export const chatService = {
         select: "senderName content attachments isDeleted",
       })
       .exec();
+  },
+
+  /**
+   * Ghim/Bỏ ghim phòng chat đối với người dùng hiện tại
+   */
+  async togglePinRoom(roomId: string, userId: string, companyCode: string): Promise<any> {
+    const room = await ChatRoomModel.findOne({ _id: roomId, companyCode });
+    if (!room) {
+      throw new Error("Không tìm thấy phòng chat.");
+    }
+
+    const member = room.members.find((m) => m.userId.toString() === userId);
+    if (!member) {
+      throw new Error("Bạn không phải là thành viên trong phòng chat này.");
+    }
+
+    member.isPinned = !member.isPinned;
+    await room.save();
+
+    return await chatService.getFullRoom(roomId);
   },
 };
 

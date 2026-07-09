@@ -5,6 +5,7 @@ export interface IChatRoomMember {
   role: "admin" | "deputy" | "member";
   joinedAt: Date;
   canUploadDrive?: boolean;
+  isPinned?: boolean;
 }
 
 export interface IChatRoom extends Document {
