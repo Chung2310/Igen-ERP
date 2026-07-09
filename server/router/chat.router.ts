@@ -37,6 +37,14 @@ chatRouter.get(
   chatController.getRooms as any
 );
 
+// Ghim/bỏ ghim cuộc trò chuyện
+chatRouter.post(
+  "/rooms/:roomId/toggle-pin",
+  requireAuth as any,
+  validateRequest(roomIdParamsSchema),
+  chatController.togglePinRoom as any
+);
+
 // Tạo phòng chat mới (1-1 hoặc Nhóm)
 chatRouter.post(
   "/rooms",

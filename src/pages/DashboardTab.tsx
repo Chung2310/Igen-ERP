@@ -99,6 +99,24 @@ const formatCardDate = (dateStr: any): string => {
   }
 };
 
+// Quy đổi số lượng thành phần trăm cho DonutCard (tổng đúng 100, legend hiển thị cả số lượng)
+const buildPctSegments = (
+  parts: Array<{ label: string; value: number; color: string }>,
+  unit: string
+): Array<{ label: string; value: number; color: string; display: string }> => {
+  const total = parts.reduce((acc, p) => acc + Math.max(0, p.value), 0);
+  let used = 0;
+  return parts.map((p, i) => {
+    const count = Math.max(0, p.value);
+    let pct = 0;
+    if (total > 0) {
+      pct = i === parts.length - 1 ? Math.max(0, 100 - used) : Math.round((count / total) * 100);
+      used += pct;
+    }
+    return { ...p, value: pct, display: `${count.toLocaleString("vi-VN")} ${unit} (${pct}%)` };
+  });
+};
+
 const formatDashboardCurrency = (val: number, decimalDigits: number = 1, useK: boolean = true): string => {
   if (val === 0) return "₫0";
   if (!isFinite(val) || isNaN(val)) return "₫0";
@@ -1215,6 +1233,51 @@ function OverviewPanel({
           />
         </div>
 
+        {/* Biểu đồ tổng quát các module — cùng bảng màu trạng thái: amber = chưa, blue = đang, emerald = hoàn thành */}
+        {summary && (
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+            <DonutCard
+              title="Trạng thái công việc"
+              centerLabel="Tổng việc"
+              centerValue={summary.projects.tasks.total.toLocaleString("vi-VN")}
+              segments={buildPctSegments(
+                [
+                  { label: "Chưa làm", value: summary.projects.tasks.todo, color: "#f59e0b" },
+                  { label: "Đang làm", value: summary.projects.tasks.doing, color: "#2563eb" },
+                  { label: "Hoàn thành", value: summary.projects.tasks.done, color: "#059669" },
+                ],
+                "việc"
+              )}
+            />
+            <DonutCard
+              title="Tiến độ đào tạo"
+              centerLabel="Lượt ghi danh"
+              centerValue={summary.training.enrollments.total.toLocaleString("vi-VN")}
+              segments={buildPctSegments(
+                [
+                  { label: "Chưa bắt đầu", value: summary.training.enrollments.notStarted, color: "#f59e0b" },
+                  { label: "Đang học", value: summary.training.enrollments.inProgress, color: "#2563eb" },
+                  { label: "Hoàn thành", value: summary.training.enrollments.completed, color: "#059669" },
+                ],
+                "lượt"
+              )}
+            />
+            <DonutCard
+              title="Chấm công hôm nay"
+              centerLabel="Nhân sự"
+              centerValue={summary.timekeeping.totalEmployees.toLocaleString("vi-VN")}
+              segments={buildPctSegments(
+                [
+                  { label: "Đúng giờ", value: Math.max(0, summary.timekeeping.checkedInToday - summary.timekeeping.lateToday), color: "#059669" },
+                  { label: "Đi muộn", value: summary.timekeeping.lateToday, color: "#f59e0b" },
+                  { label: "Chưa điểm danh", value: Math.max(0, summary.timekeeping.totalEmployees - summary.timekeeping.checkedInToday), color: "#e2e8f0" },
+                ],
+                "người"
+              )}
+            />
+          </div>
+        )}
+
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md transition-all duration-300">
             <div className="mb-5 flex items-center justify-between">
@@ -1753,11 +1816,15 @@ function DonutCard({
   cards = [],
   segments: propSegments,
   title = "Hiệu suất kênh Marketing",
+  centerLabel = "Tổng số",
+  centerValue = "100%",
 }: {
   compact?: boolean;
   cards?: ContentApprovalCard[];
-  segments?: Array<{ label: string; value: number; color: string }>;
+  segments?: Array<{ label: string; value: number; color: string; display?: string }>;
   title?: string;
+  centerLabel?: string;
+  centerValue?: string;
 }) {
   const radius = 66;
   const circumference = 2 * Math.PI * radius;
@@ -1799,10 +1866,10 @@ function DonutCard({
 
   return (
     <div className={compact ? "" : "rounded-3xl border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md transition-all duration-300"}>
-      {!compact && <h3 className="mb-8 text-sm font-bold uppercase tracking-wider text-gray-800">Hiệu suất kênh Marketing</h3>}
+      {!compact && <h3 className="mb-8 text-sm font-bold uppercase tracking-wider text-gray-800">{title}</h3>}
       <div className="grid items-center gap-7 md:grid-cols-[minmax(160px,224px)_minmax(0,1fr)]">
         <div className="relative mx-auto h-48 w-48 shrink-0 sm:h-56 sm:w-56">
-          <svg className="h-full w-full -rotate-90" viewBox="0 0 180 180" aria-label="Marketing channel performance">
+          <svg className="h-full w-full -rotate-90" viewBox="0 0 180 180" aria-label={title}>
             <circle cx="90" cy="90" r={radius} fill="none" stroke="#f8fafc" strokeWidth="28" />
             {segments.map((segment) => {
               const dash = (segment.value / 100) * circumference;
@@ -1818,20 +1885,22 @@ function DonutCard({
                   strokeDasharray={`${dash} ${circumference - dash}`}
                   strokeDashoffset={-offset}
                   strokeLinecap="butt"
-                />
+                >
+                  <title>{`${segment.label}: ${segment.display || `${segment.value}%`}`}</title>
+                </circle>
               );
               offset += dash;
               return circle;
             })}
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-            <span className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Tổng số</span>
-            <strong className="font-sans text-2xl font-extrabold text-gray-800">100%</strong>
+            <span className="text-xs text-gray-400 font-semibold uppercase tracking-wider">{centerLabel}</span>
+            <strong className="font-sans text-2xl font-extrabold text-gray-800">{centerValue}</strong>
           </div>
         </div>
         <div className="min-w-0 space-y-4 text-sm">
           {segments.map((segment) => (
-            <Legend key={segment.label} color={segment.color} label={segment.label} value={`${segment.value}%`} />
+            <Legend key={segment.label} color={segment.color} label={segment.label} value={segment.display || `${segment.value}%`} />
           ))}
         </div>
       </div>

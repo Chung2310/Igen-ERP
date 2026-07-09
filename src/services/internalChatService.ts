@@ -43,6 +43,7 @@ export interface ChatRoomMember {
   };
   role: "admin" | "deputy" | "member";
   joinedAt: string;
+  isPinned?: boolean;
 }
 
 export interface ChatRoom {
@@ -490,5 +491,25 @@ export const internalChatService = {
 
     const json = await res.json();
     return json.data || [];
+  },
+
+  /**
+   * Ghim/Bỏ ghim cuộc trò chuyện lên đầu danh sách
+   */
+  async togglePinRoom(roomId: string): Promise<ChatRoom> {
+    const res = await fetch(`/api/v1/chat/rooms/${roomId}/toggle-pin`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${getAccessToken()}`,
+      },
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.message || "Không thể thực hiện ghim/bỏ ghim cuộc trò chuyện.");
+    }
+
+    const json = await res.json();
+    return json.data;
   },
 };

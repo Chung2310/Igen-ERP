@@ -387,7 +387,8 @@ export default function ChatTab() {
           const filtered = prevRooms.filter((r) => r._id !== data.roomId);
           const prevUnread = existing?.unreadCount || 0;
           const unreadCount = isActiveRoom || isMyMessage ? 0 : prevUnread + 1;
-          return [{ ...data.roomUpdate, unreadCount }, ...filtered];
+          const nextRoom = { ...data.roomUpdate, unreadCount };
+          return sortRoomsList([nextRoom, ...filtered]);
         });
 
         // Phát âm báo khi tin nhắn của người khác đến (phòng khác đang mở hoặc tab ẩn)
@@ -441,11 +442,11 @@ export default function ChatTab() {
       setRooms((prevRooms) => {
         const index = prevRooms.findIndex((r) => r._id === updatedRoom._id);
         if (index === -1) {
-          return [updatedRoom, ...prevRooms];
+          return sortRoomsList([updatedRoom, ...prevRooms]);
         }
         const next = [...prevRooms];
         next[index] = updatedRoom;
-        return next;
+        return sortRoomsList(next);
       });
 
       if (activeRoom && activeRoom._id === updatedRoom._id) {
@@ -660,12 +661,35 @@ export default function ChatTab() {
     };
   }, [activeRoom?._id]);
 
+  // Helper to check if a room is pinned by the current user
+  const isRoomPinned = (room: ChatRoom) => {
+    const member = room.members.find(
+      (m) => m.userId && (m.userId._id || (m.userId as any).uid || m.userId) === currentUserId
+    );
+    return !!member?.isPinned;
+  };
+
+  // Helper to sort rooms list: pinned first, then by updatedAt descending
+  const sortRoomsList = (roomsList: ChatRoom[]) => {
+    return [...roomsList].sort((a, b) => {
+      const aPinned = isRoomPinned(a) ? 1 : 0;
+      const bPinned = isRoomPinned(b) ? 1 : 0;
+
+      if (aPinned !== bPinned) {
+        return bPinned - aPinned;
+      }
+      const aTime = new Date(a.updatedAt).getTime();
+      const bTime = new Date(b.updatedAt).getTime();
+      return bTime - aTime;
+    });
+  };
+
   // Fetch Rooms API
   const fetchRooms = async () => {
     try {
       setLoadingRooms(true);
       const data = await internalChatService.getRooms();
-      setRooms(data);
+      setRooms(sortRoomsList(data));
     } catch (error: any) {
       toast.error(error.message);
     } finally {
@@ -795,7 +819,7 @@ export default function ChatTab() {
       // Thêm phòng vào list nếu chưa có
       setRooms((prev) => {
         if (prev.some((r) => r._id === room._id)) return prev;
-        return [room, ...prev];
+        return sortRoomsList([room, ...prev]);
       });
 
       setActiveRoom(room);
@@ -825,7 +849,7 @@ export default function ChatTab() {
       });
 
       toast.success("Chúc mừng! Phòng chat nhóm đã được khởi tạo thành công.");
-      setRooms((prev) => [room, ...prev]);
+      setRooms((prev) => sortRoomsList([room, ...prev]));
       setActiveRoom(room);
       setShowCreateGroupModal(false);
       // Clear form
@@ -844,7 +868,7 @@ export default function ChatTab() {
       const updatedRoom = await internalChatService.addMembers(activeRoom._id, membersToAdd);
       toast.success("Thành viên mới đã được thêm vào phòng chat thành công.");
       setActiveRoom(updatedRoom);
-      setRooms((prev) => prev.map((r) => (r._id === updatedRoom._id ? updatedRoom : r)));
+      setRooms((prev) => sortRoomsList(prev.map((r) => (r._id === updatedRoom._id ? updatedRoom : r))));
       setShowAddMemberModal(false);
       setMembersToAdd([]);
     } catch (error: any) {
@@ -865,7 +889,7 @@ export default function ChatTab() {
           const updatedRoom = await internalChatService.removeMember(activeRoom._id, userId);
           toast.success("Đã xóa thành viên ra khỏi phòng chat thành công.");
           setActiveRoom(updatedRoom);
-          setRooms((prev) => prev.map((r) => (r._id === updatedRoom._id ? updatedRoom : r)));
+          setRooms((prev) => sortRoomsList(prev.map((r) => (r._id === updatedRoom._id ? updatedRoom : r))));
         } catch (error: any) {
           toast.error(error.message);
         }
@@ -919,6 +943,24 @@ export default function ChatTab() {
     });
   };
 
+  // Ghim/Bỏ ghim phòng chat
+  const handleTogglePinRoom = async (roomId: string) => {
+    try {
+      const updatedRoom = await internalChatService.togglePinRoom(roomId);
+      setRooms((prev) => {
+        const next = prev.map((r) => (r._id === roomId ? updatedRoom : r));
+        return sortRoomsList(next);
+      });
+      if (activeRoom && activeRoom._id === roomId) {
+        setActiveRoom(updatedRoom);
+      }
+      const isPinned = isRoomPinned(updatedRoom);
+      toast.success(isPinned ? "Đã ghim cuộc trò chuyện lên đầu." : "Đã bỏ ghim cuộc trò chuyện.");
+    } catch (error: any) {
+      toast.error(error.message || "Không thể thực hiện ghim phòng chat.");
+    }
+  };
+
   // Update Group Settings (name & avatar) - Group Admin only
   const handleSaveGroupSettings = async () => {
     if (!activeRoom) return;
@@ -934,7 +976,7 @@ export default function ChatTab() {
       });
       toast.success("Đã cập nhật tên phòng chat thành công.");
       setActiveRoom(updatedRoom);
-      setRooms((prev) => prev.map((r) => (r._id === updatedRoom._id ? updatedRoom : r)));
+      setRooms((prev) => sortRoomsList(prev.map((r) => (r._id === updatedRoom._id ? updatedRoom : r))));
       setShowGroupSettings(false);
     } catch (error: any) {
       toast.error(error.message);
@@ -955,7 +997,7 @@ export default function ChatTab() {
       });
       toast.success("Đã cập nhật ảnh đại diện của phòng chat thành công.");
       setActiveRoom(updatedRoom);
-      setRooms((prev) => prev.map((r) => (r._id === updatedRoom._id ? updatedRoom : r)));
+      setRooms((prev) => sortRoomsList(prev.map((r) => (r._id === updatedRoom._id ? updatedRoom : r))));
     } catch (error: any) {
       toast.error(error.message);
     } finally {
@@ -987,7 +1029,7 @@ export default function ChatTab() {
             toast.success(`Đã bãi nhiệm chức vụ Phó phòng của ${targetName} thành công.`);
           }
           setActiveRoom(updatedRoom);
-          setRooms((prev) => prev.map((r) => (r._id === updatedRoom._id ? updatedRoom : r)));
+          setRooms((prev) => sortRoomsList(prev.map((r) => (r._id === updatedRoom._id ? updatedRoom : r))));
         } catch (error: any) {
           toast.error(error.message);
         }
@@ -1002,7 +1044,7 @@ export default function ChatTab() {
       const updatedRoom = await internalChatService.pinMessage(activeRoom._id, messageId);
       toast.success("Đã ghim tin nhắn.");
       setActiveRoom(updatedRoom);
-      setRooms((prev) => prev.map((r) => (r._id === updatedRoom._id ? updatedRoom : r)));
+      setRooms((prev) => sortRoomsList(prev.map((r) => (r._id === updatedRoom._id ? updatedRoom : r))));
     } catch (error: any) {
       toast.error(error.message);
     }
@@ -1015,7 +1057,7 @@ export default function ChatTab() {
       const updatedRoom = await internalChatService.unpinMessage(activeRoom._id, messageId);
       toast.success("Đã bỏ ghim tin nhắn.");
       setActiveRoom(updatedRoom);
-      setRooms((prev) => prev.map((r) => (r._id === updatedRoom._id ? updatedRoom : r)));
+      setRooms((prev) => sortRoomsList(prev.map((r) => (r._id === updatedRoom._id ? updatedRoom : r))));
       setCurrentPinnedIndex(0);
     } catch (error: any) {
       toast.error(error.message);
@@ -1726,11 +1768,14 @@ export default function ChatTab() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between">
                           <p className={`truncate text-sm font-semibold ${hasUnread ? "text-slate-900 font-bold" : "text-slate-700"}`}>{roomName}</p>
-                          {room.lastMessage && (
-                            <span className="text-[10px] text-gray-400">
-                              {new Date(room.lastMessage.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                          )}
+                          <div className="flex items-center gap-1 shrink-0">
+                            {isRoomPinned(room) && <Pin className="h-3 w-3 text-indigo-500 rotate-45 fill-indigo-500" />}
+                            {room.lastMessage && (
+                              <span className="text-[10px] text-gray-400">
+                                {new Date(room.lastMessage.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            )}
+                          </div>
                         </div>
 
                         {/* Last message / Typing indicator */}
@@ -1811,6 +1856,19 @@ export default function ChatTab() {
               </div>
 
               <div className="flex items-center gap-2">
+                {/* Pin Room Button */}
+                <button
+                  onClick={() => handleTogglePinRoom(activeRoom._id)}
+                  className={`flex h-9 w-9 items-center justify-center rounded-xl transition ${
+                    isRoomPinned(activeRoom)
+                      ? "bg-indigo-50 text-indigo-600 shadow-xs"
+                      : "text-gray-500 hover:bg-slate-100"
+                  }`}
+                  title={isRoomPinned(activeRoom) ? "Bỏ ghim cuộc trò chuyện này" : "Ghim cuộc trò chuyện lên đầu"}
+                >
+                  <Pin className={`h-5 w-5 ${isRoomPinned(activeRoom) ? "fill-indigo-600 rotate-45" : ""}`} />
+                </button>
+
                 {/* Search Button */}
                 <button
                   onClick={() => {

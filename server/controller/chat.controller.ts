@@ -630,4 +630,27 @@ export const chatController = {
       });
     }
   },
+
+  /**
+   * POST /api/v1/chat/rooms/:roomId/toggle-pin
+   */
+  async togglePinRoom(req: AuthenticatedRequest, res: Response) {
+    try {
+      const userId = req.user!.id;
+      const companyCode = req.user!.companyCode || "SYSTEM";
+      const { roomId } = req.params;
+
+      const room = await chatService.togglePinRoom(roomId, userId, companyCode);
+      return res.status(200).json({
+        status: "success",
+        data: room,
+      });
+    } catch (error: any) {
+      console.error("[chatController.togglePinRoom] Error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: error.message || "Lỗi khi ghim/bỏ ghim cuộc trò chuyện.",
+      });
+    }
+  },
 };

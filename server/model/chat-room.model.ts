@@ -7,6 +7,7 @@ const ChatRoomMemberSchema = new Schema(
     role: { type: String, enum: ["admin", "deputy", "member"], default: "member" },
     joinedAt: { type: Date, default: Date.now },
     canUploadDrive: { type: Boolean, default: false },
+    isPinned: { type: Boolean, default: false },
   },
   { _id: false }
 );
