@@ -185,17 +185,38 @@ export default function CalendarTab({
       };
     };
 
-    // Generate date range
+    const formatLocalDate = (date: Date) => {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, "0");
+      const d = String(date.getDate()).padStart(2, "0");
+      return `${y}-${m}-${d}`;
+    };
+
+    // Generate date range in local time to avoid timezone offset shifts
     const getDatesRange = () => {
-      const start = logStartDate
-        ? new Date(logStartDate)
-        : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-      const end = logEndDate ? new Date(logEndDate) : new Date();
+      let start: Date;
+      if (logStartDate) {
+        const [y, m, d] = logStartDate.split("-").map(Number);
+        start = new Date(y, m - 1, d);
+      } else {
+        start = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+      }
+
+      let end: Date;
+      if (logEndDate) {
+        const [y, m, d] = logEndDate.split("-").map(Number);
+        end = new Date(y, m - 1, d);
+      } else {
+        end = new Date();
+      }
+
+      start.setHours(0, 0, 0, 0);
+      end.setHours(0, 0, 0, 0);
 
       const dates = [];
       let current = new Date(start);
       while (current <= end) {
-        dates.push(current.toISOString().split("T")[0]);
+        dates.push(formatLocalDate(current));
         current.setDate(current.getDate() + 1);
       }
       return dates.reverse();
@@ -207,6 +228,7 @@ export default function CalendarTab({
       : (userProfile ? [userProfile] : []);
 
     const generatedRows: any[] = [];
+    const todayStr = formatLocalDate(new Date());
 
     dates.forEach(dateStr => {
       targetEmployees.forEach(emp => {
@@ -228,13 +250,12 @@ export default function CalendarTab({
             const empMatch = item.employeeId === emp.uid || item.creatorId === emp.uid;
             if (!empMatch) return false;
 
-            const sDate = new Date(item.startDate.split("T")[0]).getTime();
-            const eDate = new Date(item.endDate.split("T")[0]).getTime();
-            const curr = new Date(dateStr).getTime();
-            return curr >= sDate && curr <= eDate;
+            const sDate = item.startDate.split("T")[0];
+            const eDate = item.endDate.split("T")[0];
+            return dateStr >= sDate && dateStr <= eDate;
           });
 
-          const isTodayOrPast = new Date(dateStr).getTime() <= new Date().setHours(23, 59, 59, 999);
+          const isTodayOrPast = dateStr <= todayStr;
 
           if (isTodayOrPast) {
             generatedRows.push({

@@ -11,3 +11,5 @@ firebase-applet-config
 temp_key
 package-lock.json
 claude-render.hyperframe-tmp
+nginx/
+logs/
