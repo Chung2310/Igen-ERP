@@ -80,17 +80,22 @@ export const DEFAULT_ROLE_LEVELS: Record<string, number> = {
  * Middleware yêu cầu đăng nhập bằng Access Token
  */
 export function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  let token = "";
   const authHeader = req.headers.authorization;
 
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    console.warn(`[requireAuth] Từ chối truy cập ${req.method} ${req.originalUrl}: Không có Authorization header.`);
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    token = authHeader.split(" ")[1];
+  } else if (req.query.token) {
+    token = req.query.token as string;
+  }
+
+  if (!token) {
+    console.warn(`[requireAuth] Từ chối truy cập ${req.method} ${req.originalUrl}: Không tìm thấy Access Token.`);
     return res.status(401).json({
       status: "error",
       message: "Yêu cầu đăng nhập. Không tìm thấy mã xác thực.",
     });
   }
-
-  const token = authHeader.split(" ")[1];
 
   try {
     const decoded = jwt.verify(token, getJwtAccessSecret()) as any;

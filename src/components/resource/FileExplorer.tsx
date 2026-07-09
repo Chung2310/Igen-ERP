@@ -913,6 +913,20 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
                                       <MessageSquare className="h-3.5 w-3.5" />
                                       Gửi qua tin nhắn
                                     </button>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setMenuOpenId(null);
+                                        const token = localStorage.getItem("accessToken") || "";
+                                        const downloadUrl = `/api/v1/resources/${item._id}/download-zip?token=${encodeURIComponent(token)}`;
+                                        window.open(downloadUrl, "_blank");
+                                      }}
+                                      className="w-full flex items-center gap-2 px-3 py-2 hover:bg-slate-50 rounded-lg text-slate-600 font-semibold text-[11px]"
+                                    >
+                                      <Download className="h-3.5 w-3.5 text-slate-500" />
+                                      Tải xuống
+                                    </button>
                                   </>
                                 )}
                                 <div className="border-t border-slate-100 my-0.5"></div>
@@ -1037,6 +1051,22 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
                                       <MessageSquare className="h-3.5 w-3.5" />
                                       Gửi qua tin nhắn
                                     </button>
+                                    {item.fileUrl && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setMenuOpenId(null);
+                                          const token = localStorage.getItem("accessToken") || "";
+                                          const downloadUrl = `/api/v1/media/download?url=${encodeURIComponent(item.fileUrl!)}&filename=${encodeURIComponent(item.name)}&token=${encodeURIComponent(token)}`;
+                                          window.open(downloadUrl, "_blank");
+                                        }}
+                                        className="w-full flex items-center gap-2 px-3 py-2 hover:bg-slate-50 rounded-lg text-slate-600 font-semibold text-[11px]"
+                                      >
+                                        <Download className="h-3.5 w-3.5 text-slate-500" />
+                                        Tải xuống
+                                      </button>
+                                    )}
                                   </>
                                 )}
                                 <div className="border-t border-slate-100 my-0.5"></div>
@@ -2168,7 +2198,7 @@ const ResourceCard: React.FC<{
         isDraggedOver
           ? "bg-slate-50 border-[#10b981] border-dashed scale-105 shadow-md"
           : "border-slate-100 hover:bg-slate-50/30"
-      }`}
+      } ${menuOpen ? "z-50" : "z-0"}`}
     >
       {/* Badge chia sẻ */}
       {item.isShared && (
@@ -2189,7 +2219,7 @@ const ResourceCard: React.FC<{
         </button>
         {menuOpen && (
           <div
-            className="absolute left-2 top-9 z-20 w-60 overflow-hidden rounded-xl border border-slate-200 bg-white py-1.5 shadow-xl text-left"
+            className="absolute left-2 top-9 z-[999] w-60 overflow-hidden rounded-xl border border-slate-200 bg-white py-1.5 shadow-xl text-left"
             onClick={(e) => e.stopPropagation()}
           >
             {showTrash ? (
@@ -2291,9 +2321,24 @@ const ResourceCard: React.FC<{
                   <Share2 className="h-4 w-4 text-slate-500" />
                   <span>Chia sẻ</span>
                 </button>
-
-              
-             
+                {/* Tải xuống */}
+                {(isFolder || item.fileUrl) && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleMenu(e); // Close menu
+                      const token = localStorage.getItem("accessToken") || "";
+                      const downloadUrl = isFolder
+                        ? `/api/v1/resources/${item._id}/download-zip?token=${encodeURIComponent(token)}`
+                        : `/api/v1/media/download?url=${encodeURIComponent(item.fileUrl!)}&filename=${encodeURIComponent(item.name)}&token=${encodeURIComponent(token)}`;
+                      window.open(downloadUrl, "_blank");
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                  >
+                    <Download className="h-4 w-4 text-slate-500" />
+                    <span>Tải xuống</span>
+                  </button>
+                )}
 
                 {/* Gửi qua tin nhắn */}
                 <button
