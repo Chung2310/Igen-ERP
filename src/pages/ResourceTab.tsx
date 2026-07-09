@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import ReactDOM from "react-dom";
 import {
   FolderOpen, Folder, CloudUpload, Trash2, Eye, Download, HardDrive, ArrowLeft,
   FileText, Image as ImageIcon, Video as VideoIcon, File as FileIcon,
   Loader2, RefreshCw, AlertCircle, ArrowUpRight, FolderTree,
   Share2, Shield, Lock, Globe, Search, X, ChevronDown, Check, Users, Plus,
   Link as LinkIcon, FileSpreadsheet, Presentation, FolderPlus, Upload, MoreVertical,
-  Info, Pencil, ArrowRightLeft, Copy, BellOff, MessageSquare, Briefcase, ChevronRight,
+  Info, Pencil, ArrowRightLeft, Copy, BellOff, MessageSquare, Briefcase, ChevronRight, ChevronLeft,
   ExternalLink, Link, SlidersHorizontal, Calendar, List, LayoutGrid, Mic, Undo2, Redo2
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
@@ -208,6 +209,9 @@ export default function ResourceTab() {
   const [filterEndDate, setFilterEndDate] = useState("");
   const [filterType, setFilterType] = useState<string>("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  // Pagination for Drive list view
+  const DRIVE_LIST_PAGE_SIZE = 20;
+  const [driveListPage, setDriveListPage] = useState(1);
 
   // Folder navigation history/stack
   const [currentFolderId, setCurrentFolderId] = useState<string>("root");
@@ -272,6 +276,15 @@ export default function ResourceTab() {
 
   // Active menu id for three-dot menu on folder/file cards
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  // Position for fixed-positioned Drive list menu (to escape overflow:hidden containers)
+  const [menuPosition, setMenuPosition] = useState<{ top: number; right: number } | null>(null);
+
+  // Close Drive list menu on any scroll
+  useEffect(() => {
+    const handleScroll = () => { setActiveMenuId(null); setMenuPosition(null); };
+    window.addEventListener("scroll", handleScroll, true);
+    return () => window.removeEventListener("scroll", handleScroll, true);
+  }, []);
 
   // Dialog prompt state
   const [createFileDialog, setCreateFileDialog] = useState<{
@@ -860,14 +873,22 @@ export default function ResourceTab() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
-  const getFileIconDetails = (mimeType: string) => {
-    if (mimeType.startsWith("image/")) {
+  const formatDate = (iso?: string): string => {
+    if (!iso) return "";
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    return d.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
+  };
+
+  const getFileIconDetails = (mimeType?: string) => {
+    const mt = mimeType || "";
+    if (mt.startsWith("image/")) {
       return { Icon: ImageIcon, iconColor: "text-emerald-500" };
     }
-    if (mimeType.startsWith("video/")) {
+    if (mt.startsWith("video/")) {
       return { Icon: VideoIcon, iconColor: "text-blue-500" };
     }
-    if (mimeType.includes("pdf") || mimeType.includes("document") || mimeType.includes("text")) {
+    if (mt.includes("pdf") || mt.includes("document") || mt.includes("text")) {
       return { Icon: FileText, iconColor: "text-orange-500" };
     }
     return { Icon: FileIcon, iconColor: "text-gray-400" };
@@ -1722,7 +1743,16 @@ export default function ResourceTab() {
   };
 
   return (
-    <div className="flex h-full -mx-5 -my-5 overflow-hidden bg-[#f8f9fa]">
+    <div
+      className="flex h-full -mx-5 -my-5 overflow-hidden bg-[#f8f9fa]"
+      onMouseDown={(e) => {
+        // Close fixed dropdown when clicking outside it
+        if (menuPosition && activeMenuId) {
+          setActiveMenuId(null);
+          setMenuPosition(null);
+        }
+      }}
+    >
       {/* Left Vertical Sub-tab Switcher */}
       <div className="w-20 border-r border-slate-200 bg-[#f4f5f6] flex flex-col items-center py-8 gap-6 shrink-0 select-none">
         {SUB_TABS.map((tab) => {
@@ -2047,17 +2077,19 @@ export default function ResourceTab() {
                   {/* Right side actions */}
                   <div className="flex items-center gap-2">
                     {/* Filters icon button */}
-                    <button
-                      onClick={() => setShowFilters(!showFilters)}
-                      className={`p-2 rounded-xl transition active:scale-95 border flex items-center justify-center h-9 w-9 cursor-pointer ${
-                        showFilters 
-                          ? "bg-[#e0f2f1] hover:bg-[#b2dfdb]/50 text-[#008080] border-[#008080]" 
-                          : "bg-white hover:bg-slate-50 text-slate-500 hover:text-slate-800 border-slate-200"
-                      }`}
-                      title="Bộ lọc"
-                    >
-                      <SlidersHorizontal className="h-4 w-4" />
-                    </button>
+                    {subTab === "TÀI LIỆU KHÁC" && (
+                      <button
+                        onClick={() => setShowFilters(!showFilters)}
+                        className={`p-2 rounded-xl transition active:scale-95 border flex items-center justify-center h-9 w-9 cursor-pointer ${
+                          showFilters 
+                            ? "bg-[#e0f2f1] hover:bg-[#b2dfdb]/50 text-[#008080] border-[#008080]" 
+                            : "bg-white hover:bg-slate-50 text-slate-500 hover:text-slate-800 border-slate-200"
+                        }`}
+                        title="Bộ lọc"
+                      >
+                        <SlidersHorizontal className="h-4 w-4" />
+                      </button>
+                    )}
 
                     {/* List/grid toggle */}
                     <button
@@ -2408,16 +2440,7 @@ export default function ResourceTab() {
                     </div>
                   ) : (
                     <div className="w-full h-full flex flex-col overflow-hidden relative">
-                      {/* Floating Job Tab on Right Edge for Google Drive */}
-                      <div className="absolute right-0 top-1/2 -translate-y-1/2 z-30">
-                        <div 
-                          onClick={() => toast.info("Tính năng liên kết công việc đang được mở rộng.")}
-                          className="flex flex-col items-center bg-[#f5a623] hover:bg-[#e09618] text-white px-1.5 py-4 rounded-l-xl shadow-md cursor-pointer select-none transition duration-150 active:scale-95"
-                        >
-                          <span className="text-[9px] font-extrabold uppercase tracking-wider [writing-mode:vertical-lr] mb-1">Công việc</span>
-                          <Plus className="h-3.5 w-3.5" />
-                        </div>
-                      </div>
+
 
                       {/* Google Drive Breadcrumbs Navigation Row */}
                       {!(selectedSpace === "personal" && !isConnected) && (
@@ -2540,6 +2563,179 @@ export default function ResourceTab() {
                                   </div>
                                 )}
                               </div>
+                            ) : viewMode === "list" ? (
+                              <div className="flex flex-col gap-3">
+                              <div className="flex flex-col bg-white rounded-3xl border border-slate-100 shadow-xs text-left w-full">
+                                {/* Table Header */}
+                                <div className="flex items-center px-6 py-3.5 bg-slate-50 border-b border-slate-100 text-[11px] font-bold text-slate-500 uppercase tracking-wider rounded-t-3xl">
+                                  <div className="flex-1">Tên tài liệu</div>
+                                  <div className="w-56">Ngày tạo</div>
+                                  <div className="w-32">Kích thước</div>
+                                  <div className="w-12 text-center"></div>
+                                </div>
+
+                                {/* Table Body */}
+                                <div className="divide-y divide-slate-100">
+                                  {(() => {
+                                    const driveListTotalPagesInner = Math.max(1, Math.ceil(filteredResources.length / DRIVE_LIST_PAGE_SIZE));
+                                    const safeDrivePageInner = Math.min(driveListPage, driveListTotalPagesInner);
+                                    const pagedResources = filteredResources.slice((safeDrivePageInner - 1) * DRIVE_LIST_PAGE_SIZE, safeDrivePageInner * DRIVE_LIST_PAGE_SIZE);
+                                    return pagedResources;
+                                  })().map((resource) => {
+                                    const isFolder = resource.mimeType === "application/vnd.google-apps.folder";
+                                    const { Icon, iconColor } = isFolder 
+                                      ? { Icon: FolderOpen, iconColor: "text-[#5bc0be]" } 
+                                      : getFileIconDetails(resource.mimeType);
+
+                                    const isCreatorOrAdmin = ["admin", "superadmin"].includes(userProfile?.role || "");
+                                    const room = selectedSpace !== "personal" ? rooms.find(r => r._id === selectedSpace) : null;
+                                    
+                                    const canEdit = (() => {
+                                      if (selectedSpace === "personal") return !!isConnected;
+                                      if (isCreatorOrAdmin) return true;
+                                      if (!room) return false;
+                                      const memberInfo = room.members.find(
+                                        (m: any) => String(getMemberId(m.userId)) === String(userProfile?.uid || userProfile?.id)
+                                      );
+                                      const isRoomAdminLocal = memberInfo?.role === "admin";
+                                      const isCreator = String(room.creatorId) === String(userProfile?.uid || userProfile?.id);
+                                      const isUploader = memberInfo?.canUploadDrive === true;
+                                      return isRoomAdminLocal || isCreator || isUploader;
+                                    })();
+
+                                    const isMyFile = resource.uploadedBy && String(resource.uploadedBy) === String(userProfile?.uid || userProfile?.id);
+                                    const isRoomCreator = room && String(room.creatorId) === String(userProfile?.uid || userProfile?.id);
+                                    const memberInfo = room?.members.find(
+                                      (m: any) => String(getMemberId(m.userId)) === String(userProfile?.uid || userProfile?.id)
+                                    );
+                                    const isRoomAdminCheck = memberInfo?.role === "admin";
+                                    const canDelete = selectedSpace === "personal" || isCreatorOrAdmin || isRoomAdminCheck || isRoomCreator || isMyFile;
+
+                                    const isMenuOpen = activeMenuId === resource._id;
+
+                                    return (
+                                      <div 
+                                        key={resource._id}
+                                        className="group relative flex items-center px-6 py-3.5 hover:bg-slate-50/50 transition select-none cursor-pointer"
+                                        onClick={() => handleResourceClick(resource)}
+                                      >
+                                        {/* Name */}
+                                        <div className="flex-1 flex items-center gap-3 min-w-0 pr-4">
+                                          <div className="p-2 rounded-xl bg-slate-50 group-hover:bg-white transition duration-200">
+                                            <Icon className={`h-6 w-6 ${iconColor}`} />
+                                          </div>
+                                          <span className="truncate text-sm font-bold text-slate-800" title={resource.name}>
+                                            {resource.name}
+                                          </span>
+                                        </div>
+
+                                        {/* Date */}
+                                        <div className="w-56 text-xs text-slate-400 font-semibold">
+                                          {formatDate(resource.createdAt)}
+                                        </div>
+
+                                        {/* Size */}
+                                        <div className="w-32 text-xs text-slate-500 font-semibold">
+                                          {isFolder 
+                                            ? "Thư mục" 
+                                            : resource.mimeType === "text/html" 
+                                              ? "Liên kết" 
+                                              : formatBytes(resource.size)
+                                          }
+                                        </div>
+
+                                        {/* More Actions */}
+                                        <div
+                                          className="w-12 flex justify-center"
+                                          onClick={(e) => e.stopPropagation()}
+                                        >
+                                          {canEdit && (
+                                            <button
+                                              type="button"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (isMenuOpen) {
+                                                  setActiveMenuId(null);
+                                                  setMenuPosition(null);
+                                                } else {
+                                                  const rect = (e.currentTarget as HTMLButtonElement).getBoundingClientRect();
+                                                  setMenuPosition({
+                                                    top: rect.bottom + 4,
+                                                    right: window.innerWidth - rect.right,
+                                                  });
+                                                  setActiveMenuId(resource._id);
+                                                }
+                                              }}
+                                              className="w-7 h-7 rounded-full hover:bg-slate-200 text-slate-400 hover:text-slate-700 flex items-center justify-center transition cursor-pointer"
+                                            >
+                                              <MoreVertical className="h-4 w-4" />
+                                            </button>
+                                          )}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+
+                              {/* Pagination for Drive list view */}
+                              {(() => {
+                                const driveListTotalPages = Math.max(1, Math.ceil(filteredResources.length / DRIVE_LIST_PAGE_SIZE));
+                                const safeDrivePage = Math.min(driveListPage, driveListTotalPages);
+                                if (driveListTotalPages <= 1) return null;
+                                return (
+                                  <div className="flex items-center justify-between px-2 py-2">
+                                    <span className="text-xs text-slate-500 font-semibold">
+                                      {filteredResources.length} mục • Trang {safeDrivePage}/{driveListTotalPages}
+                                    </span>
+                                    <div className="flex items-center gap-1">
+                                      <button
+                                        type="button"
+                                        onClick={() => setDriveListPage(p => Math.max(1, p - 1))}
+                                        disabled={safeDrivePage === 1}
+                                        className="flex items-center justify-center w-8 h-8 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                                      >
+                                        <ChevronLeft className="h-4 w-4" />
+                                      </button>
+                                      {Array.from({ length: driveListTotalPages }, (_, i) => i + 1)
+                                        .filter(p => p === 1 || p === driveListTotalPages || Math.abs(p - safeDrivePage) <= 1)
+                                        .reduce<(number | "...")[]>((acc, p, i, arr) => {
+                                          if (i > 0 && (p as number) - (arr[i - 1] as number) > 1) acc.push("...");
+                                          acc.push(p);
+                                          return acc;
+                                        }, [])
+                                        .map((p, i) =>
+                                          p === "..." ? (
+                                            <span key={`ellipsis-${i}`} className="px-1 text-slate-400 text-xs">...</span>
+                                          ) : (
+                                            <button
+                                              key={p}
+                                              type="button"
+                                              onClick={() => setDriveListPage(p as number)}
+                                              className={`w-8 h-8 rounded-lg text-xs font-bold transition ${
+                                                safeDrivePage === p
+                                                  ? "bg-[#008080] text-white shadow-sm"
+                                                  : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                                              }`}
+                                            >
+                                              {p}
+                                            </button>
+                                          )
+                                        )
+                                      }
+                                      <button
+                                        type="button"
+                                        onClick={() => setDriveListPage(p => Math.min(driveListTotalPages, p + 1))}
+                                        disabled={safeDrivePage === driveListTotalPages}
+                                        className="flex items-center justify-center w-8 h-8 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                                      >
+                                        <ChevronRight className="h-4 w-4" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+                            </div>
                             ) : (
                               <div className="flex flex-wrap gap-4 pb-32">
                                 {/* Folders first */}
@@ -3614,6 +3810,118 @@ export default function ResourceTab() {
           </div>
         </div>
       )}
+
+      {/* Drive List View Dropdown Portal - rendered into document.body to escape overflow/event bubbling */}
+      {activeMenuId && menuPosition && (() => {
+        const resource = filteredResources.find(r => r._id === activeMenuId);
+        if (!resource) return null;
+        const isFolder = resource.mimeType === "application/vnd.google-apps.folder";
+        const isCreatorOrAdmin = ["admin", "superadmin"].includes(userProfile?.role || "");
+        const room = selectedSpace !== "personal" ? rooms.find(r => r._id === selectedSpace) : null;
+        const canEdit = (() => {
+          if (selectedSpace === "personal") return !!isConnected;
+          if (isCreatorOrAdmin) return true;
+          const memberInfo = room?.members?.find((m: any) => getMemberId(m.userId) === userProfile?._id || getMemberId(m.userId) === getMemberId(userProfile));
+          return memberInfo?.role === "admin" || room?.createdBy === userProfile?._id;
+        })();
+        const canDelete = canEdit;
+        if (!canEdit) return null;
+        const rootId = selectedSpace === "personal"
+          ? (userProfile?.googleDriveIntegration?.rootFolderId || "root")
+          : (rooms.find(r => r._id === selectedSpace)?.driveFolderId || "root");
+        return ReactDOM.createPortal(
+          <div
+            style={{ position: "fixed", top: menuPosition.top, right: menuPosition.right, zIndex: 99999 }}
+            className="w-52 rounded-2xl border border-slate-200 bg-white py-1.5 shadow-xl text-left overflow-hidden"
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Mở trong trình duyệt */}
+            {!isFolder && (
+              <button
+                type="button"
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActiveMenuId(null); setMenuPosition(null);
+                  window.open(resource.webViewLink, "_blank", "noopener,noreferrer");
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+              >
+                <ExternalLink className="h-4 w-4 text-slate-500" />
+                <span>Mở trong trình duyệt</span>
+              </button>
+            )}
+            {/* Sao chép đường liên kết */}
+            {!isFolder && (
+              <button
+                type="button"
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActiveMenuId(null); setMenuPosition(null);
+                  navigator.clipboard.writeText(resource.webViewLink);
+                  toast.success("Đã sao chép đường liên kết Google Drive.");
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+              >
+                <Link className="h-4 w-4 text-slate-500" />
+                <span>Sao chép đường liên kết</span>
+              </button>
+            )}
+            {/* Đổi tên */}
+            <button
+              type="button"
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                setActiveMenuId(null); setMenuPosition(null);
+                setDriveRenameTarget(resource);
+                setDriveRenameValue(resource.name);
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+            >
+              <Pencil className="h-4 w-4 text-slate-500" />
+              <span>Đổi tên</span>
+            </button>
+            {/* Di chuyển đến thư mục */}
+            <button
+              type="button"
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                setActiveMenuId(null); setMenuPosition(null);
+                setMoveTarget(resource);
+                setMoveSpace(selectedSpace);
+                setMoveFolderId(rootId);
+                setMoveBreadcrumbs([]);
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+            >
+              <ArrowRightLeft className="h-4 w-4 text-slate-500" />
+              <span>Di chuyển đến thư mục</span>
+            </button>
+            <div className="border-t border-slate-100 my-1"></div>
+            {/* Chuyển vào thùng rác */}
+            {canDelete && (
+              <button
+                type="button"
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActiveMenuId(null); setMenuPosition(null);
+                  handleDeleteResource(resource._id, resource.name);
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-semibold text-red-600 hover:bg-red-50 transition cursor-pointer"
+              >
+                <Trash2 className="h-4 w-4 text-red-500" />
+                <span>Chuyển vào thùng rác</span>
+              </button>
+            )}
+          </div>,
+          document.body
+        );
+      })()}
     </div>
   );
 }

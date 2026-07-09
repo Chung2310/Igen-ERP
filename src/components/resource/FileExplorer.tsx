@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ChevronRight,
+  ChevronLeft,
   Download,
   FolderPlus,
   Folder,
@@ -131,6 +132,10 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
   const [deleting, setDeleting] = useState(false);
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [previewItem, setPreviewItem] = useState<ResourceItem | null>(null);
+
+  // Pagination for list view
+  const LIST_PAGE_SIZE = 20;
+  const [listPage, setListPage] = useState(1);
 
   // Drag and drop states for moving
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
@@ -701,6 +706,14 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
   const sharedFolders = sharedItems.filter((i) => i.type === "folder");
   const sharedFiles = sharedItems.filter((i) => i.type === "file");
 
+  // Pagination logic for list view
+  const allListItems = [...folders, ...files];
+  const listTotalPages = Math.max(1, Math.ceil(allListItems.length / LIST_PAGE_SIZE));
+  const safeListPage = Math.min(listPage, listTotalPages);
+  const pagedListItems = allListItems.slice((safeListPage - 1) * LIST_PAGE_SIZE, safeListPage * LIST_PAGE_SIZE);
+  const pagedFolders = pagedListItems.filter((i) => i.type === "folder");
+  const pagedFiles = pagedListItems.filter((i) => i.type === "file");
+
   return (
     <div
       className="flex flex-col h-full"
@@ -758,18 +771,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
 
       {/* Vùng chứa hai cột: Danh sách tài liệu và Bảng thông tin chi tiết */}
       <div className="flex-1 flex overflow-hidden gap-4 min-h-0 relative">
-        {/* Floating Job Tab on Right Edge when details panel is not open */}
-        {!infoItem && (
-          <div className="absolute right-0 top-1/2 -translate-y-1/2 z-30">
-            <div 
-              onClick={() => toast.info("Tính năng liên kết công việc đang được mở rộng.")}
-              className="flex flex-col items-center bg-[#f5a623] hover:bg-[#e09618] text-white px-1.5 py-4 rounded-l-xl shadow-md cursor-pointer select-none transition duration-150 active:scale-95"
-            >
-              <span className="text-[9px] font-extrabold uppercase tracking-wider [writing-mode:vertical-lr] mb-1">Công việc</span>
-              <Plus className="h-3.5 w-3.5" />
-            </div>
-          </div>
-        )}
+
 
         {/* Vùng nội dung bên trái */}
         <div
@@ -803,280 +805,311 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
               </div>
             </div>
           ) : viewMode === "list" ? (
-            <div className="bg-white rounded-2xl border border-slate-100/80 overflow-hidden flex flex-col pb-32">
-              {/* Table Header */}
-              <div className="flex items-center px-6 py-4 bg-slate-50/50 border-b border-slate-100 text-[11px] font-extrabold uppercase tracking-wider text-slate-400 select-none text-left">
-                <div className="flex-1 pl-2">Tên</div>
-                <div className="w-56 pl-4">Ngày tạo</div>
-                <div className="w-32 text-right pr-12">Kích thước</div>
-              </div>
+            <div className="flex flex-col gap-3">
+              <div className="bg-white rounded-2xl border border-slate-100/80 flex flex-col">
+                {/* Table Header */}
+                <div className="flex items-center px-6 py-4 bg-slate-50/50 border-b border-slate-100 text-[11px] font-extrabold uppercase tracking-wider text-slate-400 select-none text-left rounded-t-2xl">
+                  <div className="flex-1 pl-2">Tên</div>
+                  <div className="w-56 pl-4">Ngày tạo</div>
+                  <div className="w-32 text-right">Kích thước</div>
+                  <div className="w-10"></div>
+                </div>
 
-              {/* Table Body (Folders + Files) */}
-              <div className="divide-y divide-slate-100">
-                {/* Render Folders */}
-                {folders.map((item) => {
-                  const isFolder = item.type === "folder";
-                  const iconDetails = isFolder ? { Icon: Folder, color: "text-[#5bc0be]" } : getFileIcon(item.mimeType, item.name);
-                  const Icon = iconDetails.Icon;
+                {/* Table Body (Folders + Files) - paginated */}
+                <div className="divide-y divide-slate-100">
+                  {/* Render Folders */}
+                  {pagedFolders.map((item) => {
+                    const isFolder = item.type === "folder";
+                    const iconDetails = isFolder ? { Icon: Folder, color: "text-[#5bc0be]" } : getFileIcon(item.mimeType, item.name);
+                    const Icon = iconDetails.Icon;
 
-                  return (
-                    <div
-                      key={item._id}
-                      onDoubleClick={() => !showTrash && openFolder(item._id)}
-                      className="flex items-center px-6 py-3.5 hover:bg-slate-50/80 transition cursor-pointer text-left text-sm group"
-                    >
-                      <div className="flex-1 flex items-center gap-3 min-w-0 pr-4">
-                        <div className="relative shrink-0">
-                          {item.name.toUpperCase().includes("GOOGLE") ? (
-                            <div className="relative">
-                              <FolderOpen className="h-6 w-6 text-[#5bc0be]" strokeWidth={1.5} />
-                              <div className="absolute inset-0 flex items-center justify-center mt-1">
-                                <GoogleDriveLogo className="h-2.5 w-2.5 bg-white rounded-full p-0.5" />
+                    return (
+                      <div
+                        key={item._id}
+                        className="group relative flex items-center px-6 py-3.5 hover:bg-slate-50/80 transition text-left text-sm"
+                      >
+                        {/* Name - clickable */}
+                        <div
+                          className="flex-1 flex items-center gap-3 min-w-0 pr-4 cursor-pointer"
+                          onDoubleClick={() => !showTrash && openFolder(item._id)}
+                          onClick={() => !showTrash && openFolder(item._id)}
+                        >
+                          <div className="relative shrink-0">
+                            {item.name.toUpperCase().includes("GOOGLE") ? (
+                              <div className="relative">
+                                <FolderOpen className="h-6 w-6 text-[#5bc0be]" strokeWidth={1.5} />
+                                <div className="absolute inset-0 flex items-center justify-center mt-1">
+                                  <GoogleDriveLogo className="h-2.5 w-2.5 bg-white rounded-full p-0.5" />
+                                </div>
                               </div>
-                            </div>
-                          ) : (
-                            <Icon className={`h-6 w-6 ${iconDetails.color}`} strokeWidth={1.5} />
-                          )}
-                        </div>
-                        <span className="font-bold text-slate-700 truncate pr-2 hover:text-[#008080] transition-colors">{item.name}</span>
-                      </div>
-                      <div className="w-56 pl-4 text-slate-500 font-semibold">{formatDate(item.createdAt)}</div>
-                      <div className="w-32 text-right pr-12 text-slate-400 font-semibold">—</div>
-
-                      {/* Options menu inside list item */}
-                      <div className="relative ml-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setMenuOpenId(menuOpenId === item._id ? null : item._id);
-                          }}
-                          className="p-1 hover:bg-slate-200/60 rounded-lg text-slate-400 hover:text-slate-600 transition"
-                        >
-                          <MoreVertical className="h-4.5 w-4.5" />
-                        </button>
-
-                        {menuOpenId === item._id && (
-                          <div className="absolute right-0 mt-1 w-44 bg-white border border-slate-200 rounded-xl shadow-lg z-30 p-1">
-                            {showTrash ? (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleRestore(item);
-                                  setMenuOpenId(null);
-                                }}
-                                className="w-full flex items-center gap-2 px-2.5 py-1.5 hover:bg-slate-50 rounded-lg text-slate-600 font-semibold text-[11px]"
-                              >
-                                <RefreshCw className="h-3.5 w-3.5" />
-                                Khôi phục
-                              </button>
                             ) : (
-                              <>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setRenameTarget(item);
-                                    setRenameValue(item.name);
-                                    setMenuOpenId(null);
-                                  }}
-                                  className="w-full flex items-center gap-2 px-2.5 py-1.5 hover:bg-slate-50 rounded-lg text-slate-600 font-semibold text-[11px]"
-                                >
-                                  <Pencil className="h-3.5 w-3.5" />
-                                  Đổi tên
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setLocalMoveTarget(item);
-                                    setMoveModalFolder(null);
-                                    setMenuOpenId(null);
-                                  }}
-                                  className="w-full flex items-center gap-2 px-2.5 py-1.5 hover:bg-slate-50 rounded-lg text-slate-600 font-semibold text-[11px]"
-                                >
-                                  <ArrowRightLeft className="h-3.5 w-3.5" />
-                                  Di chuyển
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSharingItem(item);
-                                    setShowShareModal(true);
-                                    void fetchShares(item._id);
-                                    setMenuOpenId(null);
-                                  }}
-                                  className="w-full flex items-center gap-2 px-2.5 py-1.5 hover:bg-slate-50 rounded-lg text-slate-600 font-semibold text-[11px]"
-                                >
-                                  <Share2 className="h-3.5 w-3.5" />
-                                  Chia sẻ
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSendToChatItem(item);
-                                    setShowSendToChatModal(true);
-                                    setMenuOpenId(null);
-                                  }}
-                                  className="w-full flex items-center gap-2 px-2.5 py-1.5 hover:bg-slate-50 rounded-lg text-slate-600 font-semibold text-[11px]"
-                                >
-                                  <MessageSquare className="h-3.5 w-3.5" />
-                                  Gửi qua tin nhắn
-                                </button>
-                              </>
+                              <Icon className={`h-6 w-6 ${iconDetails.color}`} strokeWidth={1.5} />
                             )}
+                          </div>
+                          <span className="font-bold text-slate-700 truncate pr-2 hover:text-[#008080] transition-colors">{item.name}</span>
+                        </div>
+                        <div className="w-56 pl-4 text-slate-500 font-semibold">{formatDate(item.createdAt)}</div>
+                        <div className="w-32 text-right text-slate-400 font-semibold">—</div>
+
+                        {/* Options menu - separate from clickable area */}
+                        <div className="w-10 flex justify-center">
+                          <div className="relative">
                             <button
+                              type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setDeleteTarget(item);
-                                setMenuOpenId(null);
+                                setMenuOpenId(menuOpenId === item._id ? null : item._id);
                               }}
-                              className="w-full flex items-center gap-2 px-2.5 py-1.5 hover:bg-red-50 text-red-600 rounded-lg font-semibold text-[11px]"
+                              className="p-1.5 hover:bg-slate-200/60 rounded-lg text-slate-400 hover:text-slate-600 transition opacity-0 group-hover:opacity-100 focus:opacity-100"
                             >
-                              <Trash2 className="h-3.5 w-3.5" />
-                              {showTrash ? "Xóa vĩnh viễn" : "Xóa"}
+                              <MoreVertical className="h-4 w-4" />
                             </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
 
-                {/* Render Files */}
-                {files.map((item) => {
-                  const iconDetails = getFileIcon(item.mimeType, item.name);
-                  const Icon = iconDetails.Icon;
-
-                  return (
-                    <div
-                      key={item._id}
-                      onDoubleClick={() => {
-                        if (showTrash) return;
-                        if (item.fileUrl) {
-                          const isGoogleDoc = item.mimeType?.startsWith("application/vnd.google-apps") || item.fileUrl.includes("drive.google.com") || item.fileUrl.includes("docs.google.com");
-                          if (isGoogleDoc && onOpenFile) {
-                            onOpenFile(item);
-                          } else {
-                            setPreviewItem(item);
-                          }
-                        }
-                      }}
-                      className="flex items-center px-6 py-3.5 hover:bg-slate-50/80 transition cursor-pointer text-left text-sm group"
-                    >
-                      <div className="flex-1 flex items-center gap-3 min-w-0 pr-4">
-                        <div className="relative shrink-0">
-                          {item.mimeType === "application/vnd.google-apps.spreadsheet" ? (
-                            <GoogleSheetsLogo className="w-6 h-6" />
-                          ) : item.mimeType === "application/vnd.google-apps.document" ? (
-                            <GoogleDocsLogo className="w-6 h-6" />
-                          ) : item.mimeType === "application/vnd.google-apps.presentation" ? (
-                            <GoogleSlidesLogo className="w-6 h-6" />
-                          ) : (
-                            <Icon className={`h-6 w-6 ${iconDetails.color}`} strokeWidth={1.5} />
-                          )}
-                        </div>
-                        <span className="font-bold text-slate-700 truncate pr-2 hover:text-[#008080] transition-colors">{item.name}</span>
-                      </div>
-                      <div className="w-56 pl-4 text-slate-500 font-semibold">{formatDate(item.createdAt)}</div>
-                      <div className="w-32 text-right pr-12 text-slate-500 font-semibold">
-                        {item.size ? formatBytes(item.size) : "—"}
-                      </div>
-
-                      {/* Options menu inside list item */}
-                      <div className="relative ml-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setMenuOpenId(menuOpenId === item._id ? null : item._id);
-                          }}
-                          className="p-1 hover:bg-slate-200/60 rounded-lg text-slate-400 hover:text-slate-600 transition"
-                        >
-                          <MoreVertical className="h-4.5 w-4.5" />
-                        </button>
-
-                        {menuOpenId === item._id && (
-                          <div className="absolute right-0 mt-1 w-44 bg-white border border-slate-200 rounded-xl shadow-lg z-30 p-1">
-                            {showTrash ? (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleRestore(item);
-                                  setMenuOpenId(null);
-                                }}
-                                className="w-full flex items-center gap-2 px-2.5 py-1.5 hover:bg-slate-50 rounded-lg text-slate-600 font-semibold text-[11px]"
+                            {menuOpenId === item._id && (
+                              <div
+                                className="absolute right-0 top-full mt-1 w-44 bg-white border border-slate-200 rounded-xl shadow-xl z-[999] py-1"
+                                onClick={(e) => e.stopPropagation()}
                               >
-                                <RefreshCw className="h-3.5 w-3.5" />
-                                Khôi phục
-                              </button>
-                            ) : (
-                              <>
+                                {showTrash ? (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); handleRestore(item); setMenuOpenId(null); }}
+                                    className="w-full flex items-center gap-2 px-3 py-2 hover:bg-slate-50 rounded-lg text-slate-600 font-semibold text-[11px]"
+                                  >
+                                    <RefreshCw className="h-3.5 w-3.5" />
+                                    Khôi phục
+                                  </button>
+                                ) : (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); setRenameTarget(item); setRenameValue(item.name); setMenuOpenId(null); }}
+                                      className="w-full flex items-center gap-2 px-3 py-2 hover:bg-slate-50 rounded-lg text-slate-600 font-semibold text-[11px]"
+                                    >
+                                      <Pencil className="h-3.5 w-3.5" />
+                                      Đổi tên
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); setLocalMoveTarget(item); setMoveModalFolder(null); setMenuOpenId(null); }}
+                                      className="w-full flex items-center gap-2 px-3 py-2 hover:bg-slate-50 rounded-lg text-slate-600 font-semibold text-[11px]"
+                                    >
+                                      <ArrowRightLeft className="h-3.5 w-3.5" />
+                                      Di chuyển
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); setSharingItem(item); setShowShareModal(true); void fetchShares(item._id); setMenuOpenId(null); }}
+                                      className="w-full flex items-center gap-2 px-3 py-2 hover:bg-slate-50 rounded-lg text-slate-600 font-semibold text-[11px]"
+                                    >
+                                      <Share2 className="h-3.5 w-3.5" />
+                                      Chia sẻ
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); setSendToChatItem(item); setShowSendToChatModal(true); setMenuOpenId(null); }}
+                                      className="w-full flex items-center gap-2 px-3 py-2 hover:bg-slate-50 rounded-lg text-slate-600 font-semibold text-[11px]"
+                                    >
+                                      <MessageSquare className="h-3.5 w-3.5" />
+                                      Gửi qua tin nhắn
+                                    </button>
+                                  </>
+                                )}
+                                <div className="border-t border-slate-100 my-0.5"></div>
                                 <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setRenameTarget(item);
-                                    setRenameValue(item.name);
-                                    setMenuOpenId(null);
-                                  }}
-                                  className="w-full flex items-center gap-2 px-2.5 py-1.5 hover:bg-slate-50 rounded-lg text-slate-600 font-semibold text-[11px]"
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); setDeleteTarget(item); setMenuOpenId(null); }}
+                                  className="w-full flex items-center gap-2 px-3 py-2 hover:bg-red-50 text-red-600 rounded-lg font-semibold text-[11px]"
                                 >
-                                  <Pencil className="h-3.5 w-3.5" />
-                                  Đổi tên
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                  {showTrash ? "Xóa vĩnh viễn" : "Xóa"}
                                 </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setLocalMoveTarget(item);
-                                    setMoveModalFolder(null);
-                                    setMenuOpenId(null);
-                                  }}
-                                  className="w-full flex items-center gap-2 px-2.5 py-1.5 hover:bg-slate-50 rounded-lg text-slate-600 font-semibold text-[11px]"
-                                >
-                                  <ArrowRightLeft className="h-3.5 w-3.5" />
-                                  Di chuyển
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSharingItem(item);
-                                    setShowShareModal(true);
-                                    void fetchShares(item._id);
-                                    setMenuOpenId(null);
-                                  }}
-                                  className="w-full flex items-center gap-2 px-2.5 py-1.5 hover:bg-slate-50 rounded-lg text-slate-600 font-semibold text-[11px]"
-                                >
-                                  <Share2 className="h-3.5 w-3.5" />
-                                  Chia sẻ
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSendToChatItem(item);
-                                    setShowSendToChatModal(true);
-                                    setMenuOpenId(null);
-                                  }}
-                                  className="w-full flex items-center gap-2 px-2.5 py-1.5 hover:bg-slate-50 rounded-lg text-slate-600 font-semibold text-[11px]"
-                                >
-                                  <MessageSquare className="h-3.5 w-3.5" />
-                                  Gửi qua tin nhắn
-                                </button>
-                              </>
+                              </div>
                             )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Render Files */}
+                  {pagedFiles.map((item) => {
+                    const iconDetails = getFileIcon(item.mimeType, item.name);
+                    const Icon = iconDetails.Icon;
+
+                    return (
+                      <div
+                        key={item._id}
+                        className="group relative flex items-center px-6 py-3.5 hover:bg-slate-50/80 transition text-left text-sm"
+                      >
+                        {/* Name - clickable */}
+                        <div
+                          className="flex-1 flex items-center gap-3 min-w-0 pr-4 cursor-pointer"
+                          onClick={() => {
+                            if (showTrash) return;
+                            if (item.fileUrl) {
+                              const isGoogleDoc = item.mimeType?.startsWith("application/vnd.google-apps") || item.fileUrl.includes("drive.google.com") || item.fileUrl.includes("docs.google.com");
+                              if (isGoogleDoc && onOpenFile) {
+                                onOpenFile(item);
+                              } else {
+                                setPreviewItem(item);
+                              }
+                            }
+                          }}
+                        >
+                          <div className="relative shrink-0">
+                            {item.mimeType === "application/vnd.google-apps.spreadsheet" ? (
+                              <GoogleSheetsLogo className="w-6 h-6" />
+                            ) : item.mimeType === "application/vnd.google-apps.document" ? (
+                              <GoogleDocsLogo className="w-6 h-6" />
+                            ) : item.mimeType === "application/vnd.google-apps.presentation" ? (
+                              <GoogleSlidesLogo className="w-6 h-6" />
+                            ) : (
+                              <Icon className={`h-6 w-6 ${iconDetails.color}`} strokeWidth={1.5} />
+                            )}
+                          </div>
+                          <span className="font-bold text-slate-700 truncate pr-2 hover:text-[#008080] transition-colors">{item.name}</span>
+                        </div>
+                        <div className="w-56 pl-4 text-slate-500 font-semibold">{formatDate(item.createdAt)}</div>
+                        <div className="w-32 text-right text-slate-500 font-semibold">
+                          {item.size ? formatBytes(item.size) : "—"}
+                        </div>
+
+                        {/* Options menu - separate from clickable area */}
+                        <div className="w-10 flex justify-center">
+                          <div className="relative">
                             <button
+                              type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setDeleteTarget(item);
-                                setMenuOpenId(null);
+                                setMenuOpenId(menuOpenId === item._id ? null : item._id);
                               }}
-                              className="w-full flex items-center gap-2 px-2.5 py-1.5 hover:bg-red-50 text-red-600 rounded-lg font-semibold text-[11px]"
+                              className="p-1.5 hover:bg-slate-200/60 rounded-lg text-slate-400 hover:text-slate-600 transition opacity-0 group-hover:opacity-100 focus:opacity-100"
                             >
-                              <Trash2 className="h-3.5 w-3.5" />
-                              {showTrash ? "Xóa vĩnh viễn" : "Xóa"}
+                              <MoreVertical className="h-4 w-4" />
                             </button>
+
+                            {menuOpenId === item._id && (
+                              <div
+                                className="absolute right-0 top-full mt-1 w-44 bg-white border border-slate-200 rounded-xl shadow-xl z-[999] py-1"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {showTrash ? (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); handleRestore(item); setMenuOpenId(null); }}
+                                    className="w-full flex items-center gap-2 px-3 py-2 hover:bg-slate-50 rounded-lg text-slate-600 font-semibold text-[11px]"
+                                  >
+                                    <RefreshCw className="h-3.5 w-3.5" />
+                                    Khôi phục
+                                  </button>
+                                ) : (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); setRenameTarget(item); setRenameValue(item.name); setMenuOpenId(null); }}
+                                      className="w-full flex items-center gap-2 px-3 py-2 hover:bg-slate-50 rounded-lg text-slate-600 font-semibold text-[11px]"
+                                    >
+                                      <Pencil className="h-3.5 w-3.5" />
+                                      Đổi tên
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); setLocalMoveTarget(item); setMoveModalFolder(null); setMenuOpenId(null); }}
+                                      className="w-full flex items-center gap-2 px-3 py-2 hover:bg-slate-50 rounded-lg text-slate-600 font-semibold text-[11px]"
+                                    >
+                                      <ArrowRightLeft className="h-3.5 w-3.5" />
+                                      Di chuyển
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); setSharingItem(item); setShowShareModal(true); void fetchShares(item._id); setMenuOpenId(null); }}
+                                      className="w-full flex items-center gap-2 px-3 py-2 hover:bg-slate-50 rounded-lg text-slate-600 font-semibold text-[11px]"
+                                    >
+                                      <Share2 className="h-3.5 w-3.5" />
+                                      Chia sẻ
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); setSendToChatItem(item); setShowSendToChatModal(true); setMenuOpenId(null); }}
+                                      className="w-full flex items-center gap-2 px-3 py-2 hover:bg-slate-50 rounded-lg text-slate-600 font-semibold text-[11px]"
+                                    >
+                                      <MessageSquare className="h-3.5 w-3.5" />
+                                      Gửi qua tin nhắn
+                                    </button>
+                                  </>
+                                )}
+                                <div className="border-t border-slate-100 my-0.5"></div>
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); setDeleteTarget(item); setMenuOpenId(null); }}
+                                  className="w-full flex items-center gap-2 px-3 py-2 hover:bg-red-50 text-red-600 rounded-lg font-semibold text-[11px]"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                  {showTrash ? "Xóa vĩnh viễn" : "Xóa"}
+                                </button>
+                              </div>
+                            )}
                           </div>
-                        )}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
+
+              {/* Pagination for list view */}
+              {listTotalPages > 1 && (
+                <div className="flex items-center justify-between px-2 py-2">
+                  <span className="text-xs text-slate-500 font-semibold">
+                    {allListItems.length} mục • Trang {safeListPage}/{listTotalPages}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setListPage(p => Math.max(1, p - 1))}
+                      disabled={safeListPage === 1}
+                      className="flex items-center justify-center w-8 h-8 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    {Array.from({ length: listTotalPages }, (_, i) => i + 1)
+                      .filter(p => p === 1 || p === listTotalPages || Math.abs(p - safeListPage) <= 1)
+                      .reduce<(number | "...")[]>((acc, p, i, arr) => {
+                        if (i > 0 && (p as number) - (arr[i - 1] as number) > 1) acc.push("...");
+                        acc.push(p);
+                        return acc;
+                      }, [])
+                      .map((p, i) =>
+                        p === "..." ? (
+                          <span key={`ellipsis-${i}`} className="px-1 text-slate-400 text-xs">...</span>
+                        ) : (
+                          <button
+                            key={p}
+                            type="button"
+                            onClick={() => setListPage(p as number)}
+                            className={`w-8 h-8 rounded-lg text-xs font-bold transition ${
+                              safeListPage === p
+                                ? "bg-[#008080] text-white shadow-sm"
+                                : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                            }`}
+                          >
+                            {p}
+                          </button>
+                        )
+                      )
+                    }
+                    <button
+                      type="button"
+                      onClick={() => setListPage(p => Math.min(listTotalPages, p + 1))}
+                      disabled={safeListPage === listTotalPages}
+                      className="flex items-center justify-center w-8 h-8 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div className="flex flex-wrap gap-4 pb-64">
