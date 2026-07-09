@@ -6,7 +6,7 @@ const ChatRoomMemberSchema = new Schema(
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
     role: { type: String, enum: ["admin", "deputy", "member"], default: "member" },
     joinedAt: { type: Date, default: Date.now },
-    canUploadDrive: { type: Boolean, default: false },
+    canUploadDrive: { type: Boolean, default: true },
   },
   { _id: false }
 );

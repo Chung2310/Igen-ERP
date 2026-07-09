@@ -29,7 +29,14 @@ export const resourceController = {
     try {
       const section = (req.query.section as "local" | "drive") || "local";
       const parentId = (req.query.parentId as string) || null;
-      const items = await resourceService.list(getCompanyCode(req), section, parentId, req.user?.id);
+      
+      let targetOwnerId = req.user?.id;
+      const userRole = req.user?.role;
+      if ((userRole === "admin" || userRole === "superadmin") && req.query.ownerId) {
+        targetOwnerId = req.query.ownerId as string;
+      }
+
+      const items = await resourceService.list(getCompanyCode(req), section, parentId, targetOwnerId);
       return res.json({ success: true, items });
     } catch (error) {
       return sendError(res, error, "list");
@@ -39,7 +46,13 @@ export const resourceController = {
   /** GET /api/v1/resources/breadcrumb/:id */
   async breadcrumb(req: AuthenticatedRequest, res: Response) {
     try {
-      const trail = await resourceService.breadcrumb(getCompanyCode(req), req.params.id, req.user?.id);
+      let targetOwnerId = req.user?.id;
+      const userRole = req.user?.role;
+      if ((userRole === "admin" || userRole === "superadmin") && req.query.ownerId) {
+        targetOwnerId = req.query.ownerId as string;
+      }
+
+      const trail = await resourceService.breadcrumb(getCompanyCode(req), req.params.id, targetOwnerId);
       return res.json({ success: true, trail });
     } catch (error) {
       return sendError(res, error, "breadcrumb");
@@ -49,11 +62,21 @@ export const resourceController = {
   /** POST /api/v1/resources/folder */
   async createFolder(req: AuthenticatedRequest, res: Response) {
     try {
-      const { name, parentId, section } = req.body;
+      const { name, parentId, section, ownerId } = req.body;
+      
+      let targetCreator = getCreator(req);
+      if ((req.user?.role === "admin" || req.user?.role === "superadmin") && ownerId) {
+        const { UserModel } = await import("../model/user.model");
+        const targetUser = await UserModel.findById(ownerId).lean();
+        if (targetUser) {
+          targetCreator = { uid: String(targetUser._id), name: targetUser.email };
+        }
+      }
+
       const item = await resourceService.createFolder(
         getCompanyCode(req),
         { name, parentId, section },
-        getCreator(req)
+        targetCreator
       );
       return res.status(201).json({ success: true, item });
     } catch (error) {
@@ -64,11 +87,21 @@ export const resourceController = {
   /** POST /api/v1/resources/file */
   async createFile(req: AuthenticatedRequest, res: Response) {
     try {
-      const { name, fileUrl, parentId, mimeType, size } = req.body;
+      const { name, fileUrl, parentId, mimeType, size, ownerId } = req.body;
+      
+      let targetCreator = getCreator(req);
+      if ((req.user?.role === "admin" || req.user?.role === "superadmin") && ownerId) {
+        const { UserModel } = await import("../model/user.model");
+        const targetUser = await UserModel.findById(ownerId).lean();
+        if (targetUser) {
+          targetCreator = { uid: String(targetUser._id), name: targetUser.email };
+        }
+      }
+
       const item = await resourceService.createFile(
         getCompanyCode(req),
         { name, fileUrl, parentId, mimeType, size },
-        getCreator(req)
+        targetCreator
       );
       return res.status(201).json({ success: true, item });
     } catch (error) {
@@ -94,7 +127,13 @@ export const resourceController = {
   /** PATCH /api/v1/resources/:id/rename */
   async rename(req: AuthenticatedRequest, res: Response) {
     try {
-      const item = await resourceService.rename(getCompanyCode(req), req.params.id, req.body.name);
+      const item = await resourceService.rename(
+        getCompanyCode(req),
+        req.params.id,
+        req.body.name,
+        req.user?.id,
+        req.user?.role
+      );
       return res.json({ success: true, item });
     } catch (error) {
       return sendError(res, error, "rename");
@@ -104,7 +143,12 @@ export const resourceController = {
   /** DELETE /api/v1/resources/:id */
   async remove(req: AuthenticatedRequest, res: Response) {
     try {
-      const result = await resourceService.remove(getCompanyCode(req), req.params.id);
+      const result = await resourceService.remove(
+        getCompanyCode(req),
+        req.params.id,
+        req.user?.id,
+        req.user?.role
+      );
       return res.json({ success: true, ...result });
     } catch (error) {
       return sendError(res, error, "remove");

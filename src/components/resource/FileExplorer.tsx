@@ -20,6 +20,7 @@ import {
   Briefcase,
   Share2,
   X,
+  Plus,
 } from "lucide-react";
 import type { ResourceItem, BreadcrumbEntry } from "../../types";
 import { resourceService } from "../../services/resourceService";
@@ -73,9 +74,21 @@ const GoogleSlidesLogo: React.FC<{ className?: string }> = ({ className = "h-16 
 
 interface FileExplorerProps {
   onOpenFile?: (item: ResourceItem) => void;
+  searchQuery?: string;
+  refreshTrigger?: number;
+  onItemsCountChange?: (count: number, total: number) => void;
+  onFolderChange?: (folderId: string | null) => void;
+  ownerId?: string;
 }
 
-export const FileExplorer: React.FC<FileExplorerProps> = ({ onOpenFile }) => {
+export const FileExplorer: React.FC<FileExplorerProps> = ({ 
+  onOpenFile, 
+  searchQuery = "", 
+  refreshTrigger = 0,
+  onItemsCountChange,
+  onFolderChange,
+  ownerId
+}) => {
   const { userProfile } = useAuth();
   const [currentFolder, setCurrentFolder] = useState<string | null>(null);
   const [breadcrumb, setBreadcrumb] = useState<BreadcrumbEntry[]>([]);
@@ -103,8 +116,8 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onOpenFile }) => {
     setLoading(true);
     try {
       const [list, trail] = await Promise.all([
-        resourceService.list("local", folderId),
-        folderId ? resourceService.breadcrumb(folderId) : Promise.resolve([] as BreadcrumbEntry[]),
+        resourceService.list("local", folderId, ownerId),
+        folderId ? resourceService.breadcrumb(folderId, ownerId) : Promise.resolve([] as BreadcrumbEntry[]),
       ]);
       setItems(list);
       setBreadcrumb(trail);
@@ -113,11 +126,30 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onOpenFile }) => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [ownerId]);
 
   useEffect(() => {
     load(currentFolder);
-  }, [currentFolder, load]);
+  }, [currentFolder, load, refreshTrigger]);
+
+  useEffect(() => {
+    if (onFolderChange) {
+      onFolderChange(currentFolder);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentFolder]);
+
+  // Compute filtered items
+  const filteredItems = items.filter((item) =>
+    item.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  useEffect(() => {
+    if (onItemsCountChange) {
+      onItemsCountChange(filteredItems.length, items.length);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredItems.length, items.length]);
 
   const openFolder = (id: string) => {
     setMenuOpenId(null);
@@ -129,7 +161,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onOpenFile }) => {
     if (!name) return;
     setCreatingFolder(true);
     try {
-      await resourceService.createFolder(name, currentFolder, "local");
+      await resourceService.createFolder(name, currentFolder, "local", ownerId);
       toast.success(`Đã tạo thư mục "${name}".`);
       setNewFolderName("");
       setShowNewFolder(false);
@@ -153,7 +185,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onOpenFile }) => {
       let ok = 0;
       for (const file of arr) {
         try {
-          await resourceService.uploadFile(file, currentFolder);
+          await resourceService.uploadFile(file, currentFolder, ownerId);
           ok += 1;
         } catch (e) {
           toast.error(`Lỗi tải "${file.name}": ${e instanceof Error ? e.message : "thất bại"}`);
@@ -163,7 +195,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onOpenFile }) => {
       setUploading(false);
       load(currentFolder);
     },
-    [currentFolder, load, isInsideFixedFolder]
+    [currentFolder, load, isInsideFixedFolder, ownerId]
   );
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -209,8 +241,8 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onOpenFile }) => {
     }
   };
 
-  const folders = items.filter((i) => i.type === "folder");
-  const files = items.filter((i) => i.type === "file");
+  const folders = filteredItems.filter((i) => i.type === "folder");
+  const files = filteredItems.filter((i) => i.type === "file");
 
   return (
     <div
@@ -225,66 +257,47 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onOpenFile }) => {
       onDrop={handleDrop}
       onClick={() => setMenuOpenId(null)}
     >
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-2 pb-4">
-        {!isInsideFixedFolder && (
-          <>
-            <button
-              onClick={() => setShowNewFolder(true)}
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition active:scale-95"
-            >
-              <FolderPlus className="w-4 h-4 text-amber-500" />
-              Tạo thư mục
-            </button>
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-              className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm shadow-blue-500/20 hover:bg-blue-700 transition active:scale-95 disabled:opacity-60"
-            >
-              {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-              {uploading ? "Đang tải lên..." : "Tải lên"}
-            </button>
-            <input ref={fileInputRef} type="file" multiple hidden onChange={handleFileInput} />
-          </>
-        )}
-
-        <button
-          onClick={() => load(currentFolder)}
-          className="ml-auto inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-500 hover:bg-slate-50 transition active:scale-95"
-          title="Làm mới"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-        </button>
-      </div>
-
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-1 text-sm text-slate-500 pb-3 flex-wrap">
-        <button
-          onClick={() => setCurrentFolder(null)}
-          className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 hover:bg-slate-100 transition ${
-            currentFolder === null ? "font-bold text-slate-800" : ""
-          }`}
-        >
-          <Home className="w-3.5 h-3.5" />
-          Tài liệu
-        </button>
-        {breadcrumb.map((b, idx) => (
-          <React.Fragment key={b._id}>
-            <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
-            <button
-              onClick={() => setCurrentFolder(b._id)}
-              className={`rounded-lg px-2 py-1 hover:bg-slate-100 transition truncate max-w-[160px] ${
-                idx === breadcrumb.length - 1 ? "font-bold text-slate-800" : ""
-              }`}
-            >
-              {b.name}
-            </button>
-          </React.Fragment>
-        ))}
-      </div>
+      {/* Breadcrumb - Only visible when inside a subfolder to match clean root layout */}
+      {currentFolder !== null && (
+        <div className="flex items-center gap-1 text-sm text-slate-500 pb-3 flex-wrap text-left">
+          <button
+            onClick={() => setCurrentFolder(null)}
+            className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 hover:bg-slate-100 transition text-xs font-bold text-slate-700 cursor-pointer"
+          >
+            <Home className="w-3.5 h-3.5 text-slate-400" />
+            <span>Tài liệu</span>
+          </button>
+          {breadcrumb.map((b, idx) => (
+            <React.Fragment key={b._id}>
+              <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
+              <button
+                onClick={() => setCurrentFolder(b._id)}
+                className={`rounded-lg px-2.5 py-1.5 hover:bg-slate-100 transition truncate max-w-[160px] text-xs font-bold ${
+                  idx === breadcrumb.length - 1 ? "text-slate-800" : "text-slate-500"
+                }`}
+              >
+                {b.name}
+              </button>
+            </React.Fragment>
+          ))}
+        </div>
+      )}
 
       {/* Vùng chứa hai cột: Danh sách tài liệu và Bảng thông tin chi tiết */}
-      <div className="flex-1 flex overflow-hidden gap-4 min-h-0">
+      <div className="flex-1 flex overflow-hidden gap-4 min-h-0 relative">
+        {/* Floating Job Tab on Right Edge when details panel is not open */}
+        {!infoItem && (
+          <div className="absolute right-0 top-1/2 -translate-y-1/2 z-30">
+            <div 
+              onClick={() => toast.info("Tính năng liên kết công việc đang được mở rộng.")}
+              className="flex flex-col items-center bg-[#f5a623] hover:bg-[#e09618] text-white px-1.5 py-4 rounded-l-xl shadow-md cursor-pointer select-none transition duration-150 active:scale-95"
+            >
+              <span className="text-[9px] font-extrabold uppercase tracking-wider [writing-mode:vertical-lr] mb-1">Công việc</span>
+              <Plus className="h-3.5 w-3.5" />
+            </div>
+          </div>
+        )}
+
         {/* Vùng nội dung bên trái */}
         <div
           className={`relative flex-1 overflow-y-auto rounded-2xl border ${
@@ -753,6 +766,16 @@ const ResourceCard: React.FC<{
           <GoogleDocsLogo className="w-16 h-16" />
         ) : item.mimeType === "application/vnd.google-apps.presentation" ? (
           <GoogleSlidesLogo className="w-16 h-16" />
+        ) : !isFolder && item.mimeType?.startsWith("image/") && item.fileUrl ? (
+          <div className="relative w-28 h-20 flex items-center justify-center rounded-lg overflow-hidden bg-slate-50 border border-slate-200/60 shadow-inner">
+            <img src={item.fileUrl} alt={item.name} className="h-full w-full object-cover" />
+            <div className="absolute bottom-1 left-1 bg-[#ff7b00] text-white p-0.5 rounded-sm shadow-xs">
+              <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                <polyline points="14 2 14 8 20 8" />
+              </svg>
+            </div>
+          </div>
         ) : (
           <Icon className={`w-16 h-16 ${color}`} strokeWidth={1.5} />
         )}

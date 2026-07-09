@@ -108,11 +108,24 @@ export const resourceService = {
       }
     }
 
-    const items = await ResourceItemModel.find({
+    const query: any = {
       companyCode,
       section,
       parentId: normalizedParent,
-    })
+    };
+
+    if (section === "local" && userId) {
+      if (normalizedParent) {
+        query.creatorUid = userId;
+      } else {
+        query.$or = [
+          { creatorUid: userId },
+          { isFixed: true }
+        ];
+      }
+    }
+
+    const items = await ResourceItemModel.find(query)
       .sort({ type: 1, name: 1 }) // "file" > "folder" theo alphabet nên folder đứng trước
       .lean();
 
@@ -304,12 +317,21 @@ export const resourceService = {
   /**
    * Đổi tên một mục.
    */
-  async rename(companyCode: string, id: string, name: string) {
+  async rename(companyCode: string, id: string, name: string, userId?: string, userRole?: string) {
     if (!isValidObjectId(id)) throw new Error("Mã tài nguyên không hợp lệ.");
-    const item = await ResourceItemModel.findOne({ _id: id, companyCode }).lean();
-    if (item && item.isFixed) {
+    
+    const query: any = { _id: id, companyCode };
+    const isAdmin = userRole === "admin" || userRole === "superadmin";
+    if (!isAdmin && userId) {
+      query.creatorUid = userId;
+    }
+
+    const item = await ResourceItemModel.findOne(query).lean();
+    if (!item) throw new Error("Không tìm thấy tài nguyên hoặc bạn không có quyền chỉnh sửa.");
+    if (item.isFixed) {
       throw new Error("Không thể đổi tên thư mục hệ thống cố định.");
     }
+
     const updated = await ResourceItemModel.findOneAndUpdate(
       { _id: id, companyCode, isFixed: { $ne: true } },
       { name: name.trim() },
@@ -322,9 +344,16 @@ export const resourceService = {
   /**
    * Xóa một mục. Nếu là thư mục thì xóa đệ quy toàn bộ con cháu.
    */
-  async remove(companyCode: string, id: string) {
+  async remove(companyCode: string, id: string, userId?: string, userRole?: string) {
     if (!isValidObjectId(id)) throw new Error("Mã tài nguyên không hợp lệ.");
-    const item = await ResourceItemModel.findOne({ _id: id, companyCode }).lean();
+    
+    const query: any = { _id: id, companyCode };
+    const isAdmin = userRole === "admin" || userRole === "superadmin";
+    if (!isAdmin && userId) {
+      query.creatorUid = userId;
+    }
+
+    const item = await ResourceItemModel.findOne(query).lean();
     if (!item) throw new Error("Không tìm thấy tài nguyên hoặc bạn không có quyền xóa.");
     if (item.isFixed) {
       throw new Error("Không thể xóa thư mục hệ thống cố định.");

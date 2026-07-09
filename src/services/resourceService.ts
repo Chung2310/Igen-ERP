@@ -26,9 +26,10 @@ async function parseError(res: Response, fallback: string): Promise<never> {
 
 export const resourceService = {
   /** Liệt kê mục trong một thư mục (hoặc gốc). */
-  async list(section: ResourceSection, parentId: string | null): Promise<ResourceItem[]> {
+  async list(section: ResourceSection, parentId: string | null, ownerId?: string): Promise<ResourceItem[]> {
     const params = new URLSearchParams({ section });
     if (parentId) params.set("parentId", parentId);
+    if (ownerId) params.set("ownerId", ownerId);
     const res = await fetch(`/api/v1/resources?${params.toString()}`, {
       headers: authHeaders(false),
     });
@@ -38,8 +39,10 @@ export const resourceService = {
   },
 
   /** Breadcrumb từ gốc tới thư mục hiện tại. */
-  async breadcrumb(folderId: string): Promise<BreadcrumbEntry[]> {
-    const res = await fetch(`/api/v1/resources/breadcrumb/${folderId}`, {
+  async breadcrumb(folderId: string, ownerId?: string): Promise<BreadcrumbEntry[]> {
+    const params = new URLSearchParams();
+    if (ownerId) params.set("ownerId", ownerId);
+    const res = await fetch(`/api/v1/resources/breadcrumb/${folderId}?${params.toString()}`, {
       headers: authHeaders(false),
     });
     if (!res.ok) await parseError(res, "Không tải được đường dẫn thư mục.");
@@ -48,18 +51,18 @@ export const resourceService = {
   },
 
   /** Tạo thư mục mới. */
-  async createFolder(name: string, parentId: string | null, section: ResourceSection = "local"): Promise<ResourceItem> {
+  async createFolder(name: string, parentId: string | null, section: ResourceSection = "local", ownerId?: string): Promise<ResourceItem> {
     const res = await fetch("/api/v1/resources/folder", {
       method: "POST",
       headers: authHeaders(),
-      body: JSON.stringify({ name, parentId, section }),
+      body: JSON.stringify({ name, parentId, section, ownerId }),
     });
     if (!res.ok) await parseError(res, "Không tạo được thư mục.");
     return (await res.json()).item as ResourceItem;
   },
 
   /** Upload file lên Cloudinary rồi lưu metadata làm tài nguyên. */
-  async uploadFile(file: File, parentId: string | null): Promise<ResourceItem> {
+  async uploadFile(file: File, parentId: string | null, ownerId?: string): Promise<ResourceItem> {
     // 1. Đọc file thành base64 data URL
     const base64Data = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
@@ -87,6 +90,7 @@ export const resourceService = {
         parentId,
         mimeType: file.type,
         size: file.size,
+        ownerId,
       }),
     });
     if (!res.ok) await parseError(res, "Không lưu được thông tin file.");
