@@ -25,6 +25,8 @@ import { chatbotRouter } from "./chatbot.router";
 import { resourceRouter } from "./resource.router";
 import { studentManagementRouter } from "../modules/student-management/router";
 import { timekeepingRouter } from "./timekeeping.router";
+import { dashboardRouter } from "./dashboard.router";
+import { notificationRouter } from "./notification.router";
 export const apiRouter = Router();
 /**
  * GET /api/v1/health
@@ -102,6 +104,12 @@ apiRouter.use("/crud", crudRouter);
 
 // Gắn kết router chấm công (GPS Timekeeping)
 apiRouter.use("/timekeeping", timekeepingRouter);
+
+// Gắn kết router tổng hợp số liệu trang tổng quan
+apiRouter.use("/dashboard", dashboardRouter);
+
+// Gắn kết router thông báo web
+apiRouter.use("/notifications", notificationRouter);
 
 // Gắn kết router chat nội bộ
 apiRouter.use("/chat", chatRouter);

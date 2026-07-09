@@ -5,3 +5,4 @@ export * from "./marketing";
 export * from "./inventory";
 export * from "./hr";
 export * from "./resource";
+export * from "./dashboard";

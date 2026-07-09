@@ -18,6 +18,7 @@ import { facebookPostService } from "./facebook-post.service";
 import { zaloMessengerService } from "./zalo-messenger.service";
 import { telegramService } from "./telegram.service";
 import { workflowLinkService } from "./workflow-link.service";
+import { notificationService } from "./notification.service";
 
 const DEMO_VIDEO_URL_PATTERNS = [
   "w3schools.com/html/mov_bbb.mp4",
@@ -403,7 +404,29 @@ export const crudService = {
         telegramService.sendLowStockAlert(newItem).catch((err) => {
           console.error("[crudService.create] Error sending low stock alert:", err);
         });
+        notificationService.notifyLowStock(newItem).catch((err) => {
+          console.error("[crudService.create] Error sending low stock web notification:", err);
+        });
       }
+    }
+
+    if (modelName === "kanban-tasks" && newItem) {
+      notificationService.notifyTaskAssigned(newItem).catch((err) => {
+        console.error("[crudService.create] Error sending task assigned web notification:", err);
+      });
+    }
+
+    if (modelName === "training-enrollments" && newItem) {
+      void (async () => {
+        try {
+          const course = await TrainingCourseModel.findById(newItem.courseId).select("title").lean();
+          if (course) {
+            await notificationService.notifyCourseAssigned(newItem, course.title);
+          }
+        } catch (err) {
+          console.error("[crudService.create] Error sending course assigned web notification:", err);
+        }
+      })();
     }
 
     handlePendingVideoUrl(newItem, modelName).catch((err) => {
@@ -478,6 +501,9 @@ export const crudService = {
       if (stock <= minStockAlert) {
         telegramService.sendLowStockAlert(updatedItem).catch((err) => {
           console.error("[crudService.update] Error sending low stock alert:", err);
+        });
+        notificationService.notifyLowStock(updatedItem).catch((err) => {
+          console.error("[crudService.update] Error sending low stock web notification:", err);
         });
       }
     }
