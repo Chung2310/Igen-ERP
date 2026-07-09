@@ -2,7 +2,8 @@ import React, { useState, useEffect } from "react";
 import {
   Bell, LogOut, Search, Settings, Wallet, Info, X, Image, Video, Volume2, FileText,
   Package, Megaphone, Sparkles, CheckCheck, ShoppingCart, AlertTriangle, Send, Sun, Moon,
-  Briefcase, GraduationCap
+  Briefcase, GraduationCap, LayoutGrid, LayoutDashboard, Users, MessageSquareShare,
+  FolderOpen, MessageSquare, Shield, LineChart
 } from "lucide-react";
 import { TabType } from "../types";
 import { useAuth } from "../context/AuthContext";
@@ -17,6 +18,18 @@ interface HeaderProps {
   currentTab: TabType;
   onSearchSelect: (tab: TabType, subTab?: string) => void;
 }
+
+// Danh sách chức năng cho panel tiện ích — cùng bộ module và phân quyền với Sidebar
+const utilityBaseItems: Array<{ label: TabType; title: string; icon: React.ElementType; color: string }> = [
+  { label: "TỔNG QUAN" as TabType, title: "Tổng quan", icon: LayoutDashboard, color: "bg-blue-50 text-blue-600" },
+  { label: "NHÂN SỰ" as TabType, title: "Nhân sự", icon: Users, color: "bg-emerald-50 text-emerald-600" },
+  { label: "KHO & SẢN PHẨM" as TabType, title: "Kho & Sản phẩm", icon: Package, color: "bg-amber-50 text-amber-600" },
+  { label: "MARKETING" as TabType, title: "Marketing", icon: Megaphone, color: "bg-purple-50 text-purple-600" },
+  { label: "SALES CRM" as TabType, title: "Sales CRM", icon: MessageSquareShare, color: "bg-rose-50 text-rose-600" },
+  { label: "QUẢN LÝ TÀI NGUYÊN" as TabType, title: "Tài nguyên", icon: FolderOpen, color: "bg-indigo-50 text-indigo-600" },
+  { label: "TRÒ CHUYỆN" as TabType, title: "Trò chuyện", icon: MessageSquare, color: "bg-sky-50 text-sky-600" },
+  { label: "QUẢN LÝ HỌC VIÊN" as TabType, title: "Học viên", icon: GraduationCap, color: "bg-cyan-50 text-cyan-600" },
+];
 
 const searchIndex = [
   { label: "Tổng quan Doanh nghiệp", tab: "TỔNG QUAN" as TabType, keywords: "tong quan dashboard kpi hieu suat bieu do" },
@@ -40,6 +53,7 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
   const [showResults, setShowResults] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showUtilities, setShowUtilities] = useState(false);
   const [balance, setBalance] = useState<number>(0);
   const [showPricingModal, setShowPricingModal] = useState(false);
   const [showTelegramModal, setShowTelegramModal] = useState(false);
@@ -221,6 +235,19 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
             item.keywords.toLowerCase().includes(normalizedQuery)
         );
 
+  // Danh sách tiện ích theo vai trò — cùng logic phân quyền với Sidebar
+  const utilityItems = [...utilityBaseItems.filter((item) => !isTabHidden(item.label))];
+  if (userProfile?.role === "superadmin" || userProfile?.role === "admin") {
+    utilityItems.push({ label: "QUẢN TRỊ USER" as TabType, title: "Quản trị user", icon: Shield, color: "bg-indigo-50 text-indigo-600" });
+  }
+  if (userProfile?.role === "superadmin") {
+    utilityItems.push({ label: "HIỆU SUẤT AI" as TabType, title: "Hiệu suất AI", icon: LineChart, color: "bg-violet-50 text-violet-600" });
+  }
+  if (userProfile) {
+    utilityItems.push({ label: "VÍ & NẠP TIỀN" as TabType, title: "Ví & Nạp tiền", icon: Wallet, color: "bg-blue-50 text-blue-600" });
+  }
+  utilityItems.push({ label: "CÀI ĐẶT" as TabType, title: "Cài đặt", icon: Settings, color: "bg-slate-100 text-slate-600" });
+
   return (
     <header className="sticky top-0 z-40 flex h-18 items-center justify-between border-b border-gray-100 bg-white px-6 shadow-xs" id="app_header">
       <div className="relative w-full max-w-2xl" id="search_container">
@@ -321,6 +348,51 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
         >
           {isDark ? <Sun className="h-4.5 w-4.5 shrink-0 text-amber-500" /> : <Moon className="h-4.5 w-4.5 shrink-0" />}
         </button>
+
+        {/* Utilities (App Launcher) Button */}
+        <div className="relative" id="header_utilities_dropdown">
+          <button
+            onClick={() => setShowUtilities(!showUtilities)}
+            className={`flex items-center justify-center p-2 rounded-full transition-all active:scale-95 cursor-pointer ${showUtilities ? "bg-blue-50 text-blue-600" : "text-gray-400 hover:text-blue-600 hover:bg-blue-50"}`}
+            title="Tiện ích — mở nhanh các chức năng"
+            id="header_utilities_btn"
+          >
+            <LayoutGrid className="h-4.5 w-4.5 shrink-0" />
+          </button>
+
+          {showUtilities && (
+            <div className="absolute right-0 z-50 mt-3 w-80 overflow-hidden rounded-2xl border border-gray-100 bg-white font-sans shadow-2xl">
+              <div className="border-b border-gray-100 bg-gray-50 px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                Tiện ích hệ thống
+              </div>
+              <div className="grid grid-cols-3 gap-1.5 p-3 max-h-[420px] overflow-y-auto">
+                {utilityItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = currentTab === item.label;
+                  return (
+                    <button
+                      key={item.label}
+                      onClick={() => {
+                        onSearchSelect(item.label);
+                        setShowUtilities(false);
+                      }}
+                      className={`flex flex-col items-center gap-2 rounded-2xl px-2 py-3 text-center transition-all active:scale-95 ${isActive ? "bg-blue-50/80 ring-1 ring-blue-100" : "hover:bg-gray-50"}`}
+                      title={item.title}
+                    >
+                      <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${item.color}`}>
+                        <Icon className="h-5 w-5" />
+                      </span>
+                      <span className={`text-[11px] font-semibold leading-tight line-clamp-2 ${isActive ? "text-blue-700" : "text-gray-600"}`}>
+                        {item.title}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          {showUtilities && <div className="fixed inset-0 z-[-1]" onClick={() => setShowUtilities(false)} />}
+        </div>
 
         <div className="relative" id="notification_dropdown_button">
           <button

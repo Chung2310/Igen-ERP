@@ -27,6 +27,26 @@ export const chatService = {
    * Lấy danh sách các phòng chat mà người dùng tham gia
    */
   async getRooms(userId: string, companyCode: string): Promise<any[]> {
+    // Tự động tạo phòng "Cloud của tôi" nếu chưa có
+    let cloudRoom = await ChatRoomModel.findOne({
+      isGroup: false,
+      companyCode,
+      creatorId: userId,
+      $expr: { $eq: [{ $size: "$members" }, 1] },
+      "members.userId": userId,
+    }).exec();
+
+    if (!cloudRoom) {
+      const newCloud = new ChatRoomModel({
+        isGroup: false,
+        name: "Cloud của tôi",
+        companyCode,
+        creatorId: userId,
+        members: [{ userId, role: "admin", joinedAt: new Date() }],
+      });
+      await newCloud.save();
+    }
+
     const rooms = await ChatRoomModel.find({
       companyCode,
       "members.userId": userId,
@@ -91,7 +111,32 @@ export const chatService = {
    */
   async getOrCreatePrivateRoom(userId: string, targetUserId: string, companyCode: string): Promise<IChatRoom> {
     if (userId === targetUserId) {
-      throw new Error("Không thể chat 1-1 với chính mình.");
+      // Trả về phòng Cloud của tôi thay vì quăng lỗi
+      let room = await ChatRoomModel.findOne({
+        isGroup: false,
+        companyCode,
+        creatorId: userId,
+        $expr: { $eq: [{ $size: "$members" }, 1] },
+        "members.userId": userId,
+      })
+        .populate("members.userId", "displayName photoURL email role status")
+        .populate("lastMessage")
+        .exec();
+
+      if (!room) {
+        const newCloud = new ChatRoomModel({
+          isGroup: false,
+          name: "Cloud của tôi",
+          companyCode,
+          creatorId: userId,
+          members: [{ userId, role: "admin", joinedAt: new Date() }],
+        });
+        const savedRoom = await newCloud.save();
+        room = await ChatRoomModel.findById(savedRoom._id)
+          .populate("members.userId", "displayName photoURL email role status")
+          .exec();
+      }
+      return room!;
     }
 
     // Kiểm tra người nhận có tồn tại trong cùng công ty không
