@@ -7,6 +7,7 @@ import {
   FileAudio,
   FileArchive,
   Presentation,
+  Link as LinkIcon,
   type LucideIcon,
 } from "lucide-react";
 import type { DriveDocType } from "../../types";
@@ -56,6 +57,9 @@ export function getFileIcon(mimeType?: string, name?: string): { Icon: LucideIco
   }
   if (["zip", "rar", "7z", "tar", "gz"].includes(ext)) {
     return { Icon: FileArchive, color: "text-amber-500" };
+  }
+  if (mt === "text/html" || mt.includes("html") || ext === "html") {
+    return { Icon: LinkIcon, color: "text-[#008080]" };
   }
   return { Icon: FileIcon, color: "text-slate-400" };
 }

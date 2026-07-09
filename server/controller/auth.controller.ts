@@ -649,4 +649,27 @@ export const authController = {
       });
     }
   },
+  /**
+   * GET /api/v1/auth/users/colleagues
+   * Trả về danh sách đồng nghiệp cùng công ty (chỉ các trường an toàn).
+   * Dành cho tất cả user đã đăng nhập (để dùng trong share picker, chat, v.v.)
+   */
+  async getColleagues(req: AuthenticatedRequest, res: Response) {
+    try {
+      const companyCode = req.user?.companyCode;
+      if (!companyCode) {
+        return res.status(400).json({ status: "error", message: "Không xác định được công ty." });
+      }
+
+      const colleagues = await UserModel.find(
+        { companyCode, isDeleted: { $ne: true } },
+        { _id: 1, displayName: 1, email: 1, photoURL: 1, jobTitle: 1, department: 1, role: 1 }
+      ).lean();
+
+      return res.status(200).json({ status: "success", data: colleagues });
+    } catch (error: any) {
+      console.error("[authController.getColleagues] Error:", error);
+      return res.status(500).json({ status: "error", message: "Không thể lấy danh sách đồng nghiệp." });
+    }
+  },
 };

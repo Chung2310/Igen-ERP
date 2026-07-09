@@ -26,9 +26,11 @@ async function parseError(res: Response, fallback: string): Promise<never> {
 
 export const resourceService = {
   /** Liệt kê mục trong một thư mục (hoặc gốc). */
-  async list(section: ResourceSection, parentId: string | null): Promise<ResourceItem[]> {
+  async list(section: ResourceSection, parentId: string | null, ownerId?: string, roomId?: string): Promise<ResourceItem[]> {
     const params = new URLSearchParams({ section });
     if (parentId) params.set("parentId", parentId);
+    if (ownerId) params.set("ownerId", ownerId);
+    if (roomId) params.set("roomId", roomId);
     const res = await fetch(`/api/v1/resources?${params.toString()}`, {
       headers: authHeaders(false),
     });
@@ -38,8 +40,11 @@ export const resourceService = {
   },
 
   /** Breadcrumb từ gốc tới thư mục hiện tại. */
-  async breadcrumb(folderId: string): Promise<BreadcrumbEntry[]> {
-    const res = await fetch(`/api/v1/resources/breadcrumb/${folderId}`, {
+  async breadcrumb(folderId: string, ownerId?: string, roomId?: string): Promise<BreadcrumbEntry[]> {
+    const params = new URLSearchParams();
+    if (ownerId) params.set("ownerId", ownerId);
+    if (roomId) params.set("roomId", roomId);
+    const res = await fetch(`/api/v1/resources/breadcrumb/${folderId}?${params.toString()}`, {
       headers: authHeaders(false),
     });
     if (!res.ok) await parseError(res, "Không tải được đường dẫn thư mục.");
@@ -48,18 +53,18 @@ export const resourceService = {
   },
 
   /** Tạo thư mục mới. */
-  async createFolder(name: string, parentId: string | null, section: ResourceSection = "local"): Promise<ResourceItem> {
+  async createFolder(name: string, parentId: string | null, section: ResourceSection = "local", ownerId?: string, roomId?: string): Promise<ResourceItem> {
     const res = await fetch("/api/v1/resources/folder", {
       method: "POST",
       headers: authHeaders(),
-      body: JSON.stringify({ name, parentId, section }),
+      body: JSON.stringify({ name, parentId, section, ownerId, roomId }),
     });
     if (!res.ok) await parseError(res, "Không tạo được thư mục.");
     return (await res.json()).item as ResourceItem;
   },
 
   /** Upload file lên Cloudinary rồi lưu metadata làm tài nguyên. */
-  async uploadFile(file: File, parentId: string | null): Promise<ResourceItem> {
+  async uploadFile(file: File, parentId: string | null, ownerId?: string, roomId?: string): Promise<ResourceItem> {
     // 1. Đọc file thành base64 data URL
     const base64Data = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
@@ -87,6 +92,8 @@ export const resourceService = {
         parentId,
         mimeType: file.type,
         size: file.size,
+        ownerId,
+        roomId,
       }),
     });
     if (!res.ok) await parseError(res, "Không lưu được thông tin file.");
@@ -115,6 +122,37 @@ export const resourceService = {
     return (await res.json()).item as ResourceItem;
   },
 
+  /** Di chuyển mục (file hoặc folder) tới thư mục khác và/hoặc không gian khác. */
+  async move(id: string, targetParentId: string | null, targetRoomId?: string | null, targetOwnerId?: string | null): Promise<ResourceItem> {
+    const res = await fetch(`/api/v1/resources/${id}/move`, {
+      method: "PATCH",
+      headers: authHeaders(),
+      body: JSON.stringify({ parentId: targetParentId, targetRoomId, targetOwnerId }),
+    });
+    if (!res.ok) await parseError(res, "Không di chuyển được tài nguyên.");
+    return (await res.json()).item as ResourceItem;
+  },
+
+  /** Lấy danh sách chia sẻ của tài nguyên. */
+  async getShares(id: string): Promise<Array<{ targetId: string; targetType: "user" | "room"; targetName: string }>> {
+    const res = await fetch(`/api/v1/resources/${id}/shares`, {
+      headers: authHeaders(false),
+    });
+    if (!res.ok) await parseError(res, "Không lấy được danh sách chia sẻ.");
+    return (await res.json()).shares;
+  },
+
+  /** Cập nhật danh sách chia sẻ của tài nguyên. */
+  async updateShares(id: string, shares: Array<{ targetId: string; targetType: "user" | "room"; targetName: string }>): Promise<Array<{ targetId: string; targetType: "user" | "room"; targetName: string }>> {
+    const res = await fetch(`/api/v1/resources/${id}/shares`, {
+      method: "PUT",
+      headers: authHeaders(),
+      body: JSON.stringify(shares),
+    });
+    if (!res.ok) await parseError(res, "Không cập nhật được chia sẻ.");
+    return (await res.json()).shares;
+  },
+
   /** Xóa mục (thư mục xóa đệ quy). */
   async remove(id: string): Promise<void> {
     const res = await fetch(`/api/v1/resources/${id}`, {
@@ -122,6 +160,28 @@ export const resourceService = {
       headers: authHeaders(false),
     });
     if (!res.ok) await parseError(res, "Không xóa được tài nguyên.");
+  },
+
+  /** Liệt kê danh sách tài nguyên bị xóa trong Thùng rác. */
+  async listTrash(ownerId?: string, roomId?: string): Promise<ResourceItem[]> {
+    const params = new URLSearchParams();
+    if (ownerId) params.set("ownerId", ownerId);
+    if (roomId) params.set("roomId", roomId);
+    const res = await fetch(`/api/v1/resources/trash?${params.toString()}`, {
+      headers: authHeaders(false),
+    });
+    if (!res.ok) await parseError(res, "Không tải được danh sách thùng rác.");
+    const data = await res.json();
+    return data.items as ResourceItem[];
+  },
+
+  /** Khôi phục mục từ Thùng rác. */
+  async restore(id: string): Promise<void> {
+    const res = await fetch(`/api/v1/resources/${id}/restore`, {
+      method: "POST",
+      headers: authHeaders(false),
+    });
+    if (!res.ok) await parseError(res, "Không thể khôi phục tài nguyên.");
   },
 
   // ─── Google Drive dùng chung (upload trực tiếp qua Service Account) ───

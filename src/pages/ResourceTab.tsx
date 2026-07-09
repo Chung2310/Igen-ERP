@@ -1,18 +1,19 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
-  FolderOpen, CloudUpload, Trash2, Eye, Download, HardDrive,
+  FolderOpen, Folder, CloudUpload, Trash2, Eye, Download, HardDrive, ArrowLeft,
   FileText, Image as ImageIcon, Video as VideoIcon, File as FileIcon,
   Loader2, RefreshCw, AlertCircle, ArrowUpRight, FolderTree,
   Share2, Shield, Lock, Globe, Search, X, ChevronDown, Check, Users, Plus,
   Link as LinkIcon, FileSpreadsheet, Presentation, FolderPlus, Upload, MoreVertical,
   Info, Pencil, ArrowRightLeft, Copy, BellOff, MessageSquare, Briefcase, ChevronRight,
-  ExternalLink, Link
+  ExternalLink, Link, SlidersHorizontal, Calendar, List, LayoutGrid, Mic, Undo2, Redo2
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "./Toast";
-import { getAccessToken } from "../services/authService";
+import { getAccessToken, authService } from "../services/authService";
 import { FileExplorer } from "../components/resource/FileExplorer";
 import { internalChatService } from "../services/internalChatService";
+import { resourceService } from "../services/resourceService";
 
 interface Resource {
   _id: string;
@@ -24,6 +25,7 @@ interface Resource {
   thumbnailLink?: string;
   size?: number;
   createdAt: string;
+  uploadedBy?: string;
 }
 
 type ResourceSubTabType = "TÀI LIỆU KHÁC" | "GOOGLE DRIVE";
@@ -145,6 +147,15 @@ export default function ResourceTab() {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const addMenuRef = useRef<HTMLDivElement>(null);
 
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [localFolderId, setLocalFolderId] = useState<string | null>(null);
+  const [localItemsCount, setLocalItemsCount] = useState({ count: 0, total: 0 });
+  const [viewingTrash, setViewingTrash] = useState(false);
+
+  const handleItemsCountChange = useCallback((count: number, total: number) => {
+    setLocalItemsCount({ count, total });
+  }, []);
+
   const isConnected = userProfile?.googleDriveIntegration?.isConnected;
   const driveEmail = userProfile?.googleDriveIntegration?.driveEmail;
 
@@ -152,6 +163,51 @@ export default function ResourceTab() {
   const [selectedSpace, setSelectedSpace] = useState<string>("personal");
   const [rooms, setRooms] = useState<any[]>([]);
   const [showSpaceDropdown, setShowSpaceDropdown] = useState(false);
+
+  // User/Owner scoping for Admins
+  const [selectedOwnerId, setSelectedOwnerId] = useState<string>("");
+  const [allStaff, setAllStaff] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (userProfile) {
+      setSelectedOwnerId(userProfile.uid || userProfile.id);
+    }
+  }, [userProfile]);
+
+  // Dùng uid ổn định làm dep để tránh infinite loop khi object userProfile thay đổi reference
+  const userUid = userProfile?.uid || userProfile?.id;
+  const userRole = userProfile?.role;
+  const userCompanyCode = userProfile?.companyCode;
+
+  useEffect(() => {
+    if (!userUid) return;
+    const fetchStaff = async () => {
+      try {
+        let data: any[] = [];
+        if (userRole === "superadmin") {
+          data = await authService.getAllUsers();
+        } else {
+          // Dùng endpoint /users/colleagues không cần quyền user:read
+          data = await authService.getColleagues();
+        }
+        setAllStaff(data);
+      } catch (err) {
+        console.error("Lỗi lấy danh sách nhân sự:", err);
+      }
+    };
+    void fetchStaff();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userUid, userRole, userCompanyCode]);
+
+  // Pill tab: Kho lưu trữ | Được chia sẻ
+  const [currentPill, setCurrentPill] = useState<"KHO_LUU_TRU" | "DUOC_CHIA_SE">("KHO_LUU_TRU");
+
+  // Advanced Filtering States
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterStartDate, setFilterStartDate] = useState("");
+  const [filterEndDate, setFilterEndDate] = useState("");
+  const [filterType, setFilterType] = useState<string>("");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
   // Folder navigation history/stack
   const [currentFolderId, setCurrentFolderId] = useState<string>("root");
@@ -162,6 +218,57 @@ export default function ResourceTab() {
 
   // Add Popover Dropdown
   const [showAddMenu, setShowAddMenu] = useState(false);
+
+  // Link Modal States
+  const [showAddLinkModal, setShowAddLinkModal] = useState(false);
+  const [linkName, setLinkName] = useState("");
+  const [linkUrl, setLinkUrl] = useState("");
+  const [savingLink, setSavingLink] = useState(false);
+
+  // Note Modal States
+  const [showAddNoteModal, setShowAddNoteModal] = useState(false);
+  const [noteTitle, setNoteTitle] = useState("");
+  const [noteContent, setNoteContent] = useState("");
+  const [savingNote, setSavingNote] = useState(false);
+  const [noteTool, setNoteTool] = useState<"draw" | "text" | "arrow" | "rect" | "line" | "image">("draw");
+  const [noteColor, setNoteColor] = useState<string>("#ef4444");
+
+  // Image editing states on canvas
+  const [editingImage, setEditingImage] = useState<{
+    img: HTMLImageElement;
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+  } | null>(null);
+
+  const isDraggingImageRef = useRef(false);
+  const isResizingImageRef = useRef(false);
+  const imageOffsetRef = useRef({ x: 0, y: 0 });
+  const [noteTextInput, setNoteTextInput] = useState<{
+    isOpen: boolean;
+    x: number;
+    y: number;
+    value: string;
+  }>({ isOpen: false, x: 0, y: 0, value: "" });
+
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const noteImageInputRef = useRef<HTMLInputElement | null>(null);
+  const textInputRef = useRef<HTMLInputElement | null>(null);
+  
+  const undoStackRef = useRef<ImageData[]>([]);
+  const redoStackRef = useRef<ImageData[]>([]);
+  const isDrawingRef = useRef<boolean>(false);
+  const startPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  // Audio Recording States
+  const [showAddAudioModal, setShowAddAudioModal] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [savingAudio, setSavingAudio] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const timerRef = useRef<any>(null);
 
   // Active menu id for three-dot menu on folder/file cards
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
@@ -534,11 +641,21 @@ export default function ResourceTab() {
   };
 
   const fetchResources = async () => {
-    if (selectedSpace === "personal" && !isConnected) return;
+    const targetUser = allStaff.find(u => (u.uid || u.id) === selectedOwnerId);
+    const targetIsConnected = selectedOwnerId === (userProfile?.uid || userProfile?.id)
+      ? isConnected
+      : targetUser?.googleDriveIntegration?.isConnected;
+
+    if (selectedSpace === "personal" && !targetIsConnected) {
+      setResources([]);
+      return;
+    }
     setLoading(true);
     try {
       let url = `/api/v1/integrations/google-drive/resources?folderId=${currentFolderId}`;
-      if (selectedSpace !== "personal") {
+      if (selectedSpace === "personal" && selectedOwnerId) {
+        url += `&ownerId=${selectedOwnerId}`;
+      } else if (selectedSpace !== "personal") {
         url = `/api/v1/integrations/google-drive/resources/group/${selectedSpace}?folderId=${currentFolderId}`;
       }
       const res = await fetch(url, {
@@ -564,19 +681,28 @@ export default function ResourceTab() {
     }
   };
 
-  // Reset folder position when switching space
+  // Reset folder position when switching space or owner
   useEffect(() => {
     setCurrentFolderId("root");
     setBreadcrumbs([]);
-  }, [selectedSpace]);
+    setViewingTrash(false);
+  }, [selectedSpace, selectedOwnerId, subTab]);
+
+
+
+  // Fetch chat groups on userProfile load
+  useEffect(() => {
+    if (userProfile) {
+      void fetchRooms();
+    }
+  }, [userProfile]);
 
   // Refetch when folder level changes or space changes
   useEffect(() => {
     if (subTab === "GOOGLE DRIVE") {
-      void fetchRooms();
       void fetchResources();
     }
-  }, [isConnected, subTab, selectedSpace, currentFolderId]);
+  }, [isConnected, subTab, selectedSpace, selectedOwnerId, currentFolderId, allStaff]);
 
   // Click outside listener for custom dropdowns
   useEffect(() => {
@@ -674,39 +800,50 @@ export default function ResourceTab() {
       toast.warning("Vui lòng nhập tên.");
       return;
     }
-    if (createFileDialog.type === "link" && !newFileLink.trim()) {
-      toast.warning("Vui lòng nhập đường link.");
-      return;
-    }
 
     setCreatingFile(true);
     try {
-      const payload = {
-        spaceType: selectedSpace === "personal" ? "personal" : "group",
-        roomId: selectedSpace !== "personal" ? selectedSpace : undefined,
-        type: createFileDialog.type,
-        name,
-        linkUrl: createFileDialog.type === "link" ? newFileLink.trim() : undefined,
-        folderId: currentFolderId
-      };
+      if (subTab === "TÀI LIỆU KHÁC") {
+        if (createFileDialog.type === "folder") {
+          const ownerIdParam = selectedSpace === "personal" ? selectedOwnerId : undefined;
+          const roomIdParam = selectedSpace !== "personal" ? selectedSpace : undefined;
+          await resourceService.createFolder(name, localFolderId, "local", ownerIdParam, roomIdParam);
+          toast.success(`Đã tạo thư mục "${name}" thành công!`);
+          setRefreshTrigger(prev => prev + 1);
+        }
+      } else {
+        if (createFileDialog.type === "link" && !newFileLink.trim()) {
+          toast.warning("Vui lòng nhập đường link.");
+          setCreatingFile(false);
+          return;
+        }
+        const payload = {
+          spaceType: selectedSpace === "personal" ? "personal" : "group",
+          roomId: selectedSpace !== "personal" ? selectedSpace : undefined,
+          type: createFileDialog.type,
+          name,
+          linkUrl: createFileDialog.type === "link" ? newFileLink.trim() : undefined,
+          folderId: currentFolderId
+        };
 
-      const res = await fetch("/api/v1/integrations/google-drive/create-file", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${getAccessToken()}`,
-        },
-        body: JSON.stringify(payload)
-      });
+        const res = await fetch("/api/v1/integrations/google-drive/create-file", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${getAccessToken()}`,
+          },
+          body: JSON.stringify(payload)
+        });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Tạo tài nguyên thất bại.");
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || "Tạo tài nguyên thất bại.");
 
-      toast.success("Đã tạo tài nguyên mới thành công.");
+        toast.success("Đã tạo tài nguyên mới thành công.");
+        void fetchResources();
+      }
       setCreateFileDialog(null);
       setNewFileName("");
       setNewFileLink("");
-      void fetchResources();
     } catch (err: any) {
       console.error(err);
       toast.error(err.message || "Có lỗi xảy ra khi tạo tài nguyên.");
@@ -781,9 +918,29 @@ export default function ResourceTab() {
     }
   };
 
+  const handleLocalFileUpload = async (file: File) => {
+    setUploading(true);
+    try {
+      const ownerIdParam = selectedSpace === "personal" ? selectedOwnerId : undefined;
+      const roomIdParam = selectedSpace !== "personal" ? selectedSpace : undefined;
+      await resourceService.uploadFile(file, localFolderId, ownerIdParam, roomIdParam);
+      toast.success(`Đã tải lên thành công: ${file.name}`);
+      setRefreshTrigger(prev => prev + 1);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Có lỗi xảy ra khi tải lên tệp tin.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      void handleFileUpload(e.target.files[0]);
+      if (subTab === "TÀI LIỆU KHÁC") {
+        void handleLocalFileUpload(e.target.files[0]);
+      } else {
+        void handleFileUpload(e.target.files[0]);
+      }
     }
   };
 
@@ -796,6 +953,526 @@ export default function ResourceTab() {
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       void handleFileUpload(e.dataTransfer.files[0]);
     }
+  };
+
+  // Advanced feature handlers (Link, Note, Audio)
+  const handleSaveLink = async () => {
+    const name = linkName.trim();
+    let url = linkUrl.trim();
+    if (!name || !url) {
+      toast.error("Vui lòng nhập đầy đủ tên và đường dẫn liên kết.");
+      return;
+    }
+
+    if (!/^https?:\/\//i.test(url)) {
+      url = "http://" + url;
+    }
+
+    setSavingLink(true);
+    try {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json"
+      };
+      const token = getAccessToken();
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const res = await fetch("/api/v1/resources/file", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          name,
+          fileUrl: url,
+          parentId: localFolderId === "root" ? null : localFolderId,
+          mimeType: "text/html",
+          size: 0,
+          ownerId: selectedSpace === "personal" ? selectedOwnerId : undefined,
+          roomId: selectedSpace !== "personal" ? selectedSpace : undefined,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.message || "Không thêm được liên kết.");
+      }
+
+      toast.success("Đã thêm liên kết thành công!");
+      setShowAddLinkModal(false);
+      setLinkName("");
+      setLinkUrl("");
+      setRefreshTrigger(prev => prev + 1);
+    } catch (err: any) {
+      console.error("Lỗi thêm liên kết:", err);
+      toast.error(err.message || "Không thêm được liên kết.");
+    } finally {
+      setSavingLink(false);
+    }
+  };
+
+  const handleSaveNote = async () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const title = noteTitle.trim() || "Ghi chú không tên";
+    setSavingNote(true);
+
+    try {
+      // 1. Chuyển canvas thành PNG base64
+      const dataUrl = canvas.toDataURL("image/png");
+
+      // 2. Convert base64 dataUrl sang File object
+      const byteString = atob(dataUrl.split(',')[1]);
+      const mimeString = dataUrl.split(',')[0].split(':')[1].split(';')[0];
+      const ab = new ArrayBuffer(byteString.length);
+      const ia = new Uint8Array(ab);
+      for (let i = 0; i < byteString.length; i++) {
+        ia[i] = byteString.charCodeAt(i);
+      }
+      const blob = new Blob([ab], {type: mimeString});
+      const noteFile = new File([blob], `${title}.png`, { type: "image/png" });
+
+      // 3. Upload file lên qua resourceService.uploadFile
+      await resourceService.uploadFile(
+        noteFile, 
+        localFolderId === "root" ? null : localFolderId, 
+        selectedSpace === "personal" ? selectedOwnerId : undefined, 
+        selectedSpace !== "personal" ? selectedSpace : undefined
+      );
+
+      toast.success("Đã lưu ghi chú thành ảnh thành công!");
+      setShowAddNoteModal(false);
+      setNoteTitle("");
+      setNoteContent("");
+      setRefreshTrigger(prev => prev + 1);
+    } catch (err: any) {
+      console.error("Lỗi lưu ghi chú:", err);
+      toast.error(err.message || "Lỗi lưu ghi chú.");
+    } finally {
+      setSavingNote(false);
+    }
+  };
+
+  // --- Canvas Note Drawing Helper Functions ---
+  const saveCanvasState = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    
+    // Lưu lại trạng thái ImageData hiện tại vào undoStack
+    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    undoStackRef.current.push(imgData);
+    
+    // Clear redoStack
+    redoStackRef.current = [];
+  };
+
+  const handleNoteUndo = () => {
+    const canvas = canvasRef.current;
+    if (!canvas || undoStackRef.current.length <= 1) {
+      toast.info("Không có gì để hoàn tác.");
+      return;
+    }
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    // Pop state hiện tại chuyển sang redoStack
+    const currentState = undoStackRef.current.pop();
+    if (currentState) {
+      redoStackRef.current.push(currentState);
+    }
+
+    // Vẽ state trước đó
+    const prevState = undoStackRef.current[undoStackRef.current.length - 1];
+    if (prevState) {
+      ctx.putImageData(prevState, 0, 0);
+    }
+  };
+
+  const handleNoteRedo = () => {
+    const canvas = canvasRef.current;
+    if (!canvas || redoStackRef.current.length === 0) {
+      toast.info("Không có gì để làm lại.");
+      return;
+    }
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const nextState = redoStackRef.current.pop();
+    if (nextState) {
+      undoStackRef.current.push(nextState);
+      ctx.putImageData(nextState, 0, 0);
+    }
+  };
+
+  const drawArrow = (ctx: CanvasRenderingContext2D, fromx: number, fromy: number, tox: number, toy: number, color: string) => {
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(fromx, fromy);
+    ctx.lineTo(tox, toy);
+    ctx.stroke();
+
+    const angle = Math.atan2(toy - fromy, tox - fromx);
+    const headlen = 15;
+    
+    ctx.beginPath();
+    ctx.moveTo(tox, toy);
+    ctx.lineTo(tox - headlen * Math.cos(angle - Math.PI / 6), toy - headlen * Math.sin(angle - Math.PI / 6));
+    ctx.lineTo(tox - headlen * Math.cos(angle + Math.PI / 6), toy - headlen * Math.sin(angle + Math.PI / 6));
+    ctx.closePath();
+    ctx.fill();
+  };
+
+  const confirmApplyImage = () => {
+    if (!editingImage) return;
+    const canvas = canvasRef.current;
+    if (canvas) {
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        // Vẽ ảnh vĩnh viễn không có viền edit
+        const lastState = undoStackRef.current[undoStackRef.current.length - 1];
+        if (lastState) {
+          ctx.putImageData(lastState, 0, 0);
+        }
+        ctx.drawImage(editingImage.img, editingImage.x, editingImage.y, editingImage.w, editingImage.h);
+        saveCanvasState();
+        setEditingImage(null);
+        setNoteTool("draw");
+        toast.success("Đã chèn ảnh vĩnh viễn vào ghi chú.");
+      }
+    }
+  };
+
+  const handleNoteImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = canvasRef.current;
+          if (!canvas) return;
+          
+          // Chiều rộng mặc định 240px, tự tính chiều cao tỷ lệ
+          const defaultWidth = 240;
+          const ratio = img.height / img.width;
+          const defaultHeight = defaultWidth * ratio;
+
+          setEditingImage({
+            img,
+            x: 50,
+            y: 50,
+            w: defaultWidth,
+            h: defaultHeight
+          });
+          setNoteTool("image");
+          toast.info("Đã tải ảnh lên. Dùng chuột kéo để di chuyển, kéo nút tròn góc để chỉnh kích cỡ ảnh.");
+        };
+        img.src = event.target?.result as string;
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Re-draw canvas whenever editingImage object changes
+  useEffect(() => {
+    if (editingImage) {
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          const lastState = undoStackRef.current[undoStackRef.current.length - 1];
+          if (lastState) {
+            ctx.putImageData(lastState, 0, 0);
+          }
+          // Vẽ ảnh đang edit
+          ctx.drawImage(editingImage.img, editingImage.x, editingImage.y, editingImage.w, editingImage.h);
+          
+          // Vẽ khung nét đứt màu teal
+          ctx.setLineDash([5, 5]);
+          ctx.strokeStyle = "#008080";
+          ctx.lineWidth = 1.5;
+          ctx.strokeRect(editingImage.x, editingImage.y, editingImage.w, editingImage.h);
+          ctx.setLineDash([]);
+          
+          // Vẽ nút tròn resize ở góc dưới bên phải
+          ctx.fillStyle = "#008080";
+          ctx.beginPath();
+          ctx.arc(editingImage.x + editingImage.w, editingImage.y + editingImage.h, 7, 0, 2 * Math.PI);
+          ctx.fill();
+        }
+      }
+    }
+  }, [editingImage]);
+
+  const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    if (noteTool === "image" && editingImage) {
+      // 1. Kiểm tra trúng nút resize góc dưới phải
+      const distToCorner = Math.sqrt(
+        Math.pow(x - (editingImage.x + editingImage.w), 2) +
+        Math.pow(y - (editingImage.y + editingImage.h), 2)
+      );
+      if (distToCorner < 16) {
+        isResizingImageRef.current = true;
+        return;
+      }
+
+      // 2. Kiểm tra click vào trong lòng ảnh
+      if (x >= editingImage.x && x <= editingImage.x + editingImage.w &&
+          y >= editingImage.y && y <= editingImage.y + editingImage.h) {
+        isDraggingImageRef.current = true;
+        imageOffsetRef.current = {
+          x: x - editingImage.x,
+          y: y - editingImage.y
+        };
+        return;
+      }
+    }
+
+    isDrawingRef.current = true;
+    startPosRef.current = { x, y };
+
+    if (noteTool === "draw") {
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.strokeStyle = noteColor;
+      ctx.lineWidth = 3;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+    }
+  };
+
+  const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    if (noteTool === "image" && editingImage) {
+      if (isResizingImageRef.current) {
+        const newW = Math.max(30, x - editingImage.x);
+        const ratio = editingImage.img.height / editingImage.img.width;
+        const newH = newW * ratio;
+        setEditingImage(prev => prev ? { ...prev, w: newW, h: newH } : null);
+      } else if (isDraggingImageRef.current) {
+        const newX = x - imageOffsetRef.current.x;
+        const newY = y - imageOffsetRef.current.y;
+        setEditingImage(prev => prev ? { ...prev, x: newX, y: newY } : null);
+      }
+      return;
+    }
+
+    if (!isDrawingRef.current) return;
+
+    if (noteTool === "draw") {
+      ctx.lineTo(x, y);
+      ctx.stroke();
+    } else if (noteTool === "arrow" || noteTool === "rect" || noteTool === "line") {
+      const lastState = undoStackRef.current[undoStackRef.current.length - 1];
+      if (lastState) {
+        ctx.putImageData(lastState, 0, 0);
+      }
+
+      if (noteTool === "arrow") {
+        drawArrow(ctx, startPosRef.current.x, startPosRef.current.y, x, y, noteColor);
+      } else if (noteTool === "line") {
+        ctx.strokeStyle = noteColor;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(startPosRef.current.x, startPosRef.current.y);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+      } else if (noteTool === "rect") {
+        ctx.strokeStyle = noteColor;
+        ctx.lineWidth = 3;
+        ctx.strokeRect(
+          startPosRef.current.x,
+          startPosRef.current.y,
+          x - startPosRef.current.x,
+          y - startPosRef.current.y
+        );
+      }
+    }
+  };
+
+  const handleCanvasMouseUp = () => {
+    isResizingImageRef.current = false;
+    isDraggingImageRef.current = false;
+
+    if (isDrawingRef.current) {
+      isDrawingRef.current = false;
+      saveCanvasState();
+    }
+  };
+
+  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (noteTool !== "text") return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    setNoteTextInput({
+      isOpen: true,
+      x,
+      y,
+      value: ""
+    });
+
+    setTimeout(() => {
+      textInputRef.current?.focus();
+    }, 50);
+  };
+
+  const handleSaveTextInput = () => {
+    if (!noteTextInput.isOpen) return;
+    const value = noteTextInput.value.trim();
+    
+    if (value) {
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.fillStyle = noteColor;
+          ctx.font = "bold 16px Arial, Helvetica, sans-serif";
+          ctx.textBaseline = "middle";
+          ctx.fillText(value, noteTextInput.x, noteTextInput.y);
+          saveCanvasState();
+        }
+      }
+    }
+
+    setNoteTextInput({
+      isOpen: false,
+      x: 0,
+      y: 0,
+      value: ""
+    });
+  };
+
+  // Khởi tạo Canvas trắng ban đầu khi mở modal
+  useEffect(() => {
+    if (showAddNoteModal) {
+      setTimeout(() => {
+        const canvas = canvasRef.current;
+        if (canvas) {
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            canvas.width = canvas.parentElement?.clientWidth || 800;
+            canvas.height = canvas.parentElement?.clientHeight || 500;
+            
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            undoStackRef.current = [ctx.getImageData(0, 0, canvas.width, canvas.height)];
+            redoStackRef.current = [];
+            setNoteTool("draw");
+            setNoteColor("#ef4444");
+          }
+        }
+      }, 300);
+    }
+  }, [showAddNoteModal]);
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          audioChunksRef.current.push(e.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/wav" });
+        stream.getTracks().forEach(track => track.stop());
+        
+        setSavingAudio(true);
+        try {
+          const fileName = `Ghi âm_${new Date().toLocaleDateString("vi-VN").replace(/\//g, "-")}_${new Date().toLocaleTimeString("vi-VN").replace(/:/g, "-")}.wav`;
+          const audioFile = new File([audioBlob], fileName, { type: "audio/wav" });
+
+          await resourceService.uploadFile(
+            audioFile,
+            localFolderId === "root" ? null : localFolderId,
+            selectedSpace === "personal" ? selectedOwnerId : undefined,
+            selectedSpace !== "personal" ? selectedSpace : undefined
+          );
+
+          toast.success("Đã tải tệp ghi âm lên thành công!");
+          setShowAddAudioModal(false);
+          setRecordingSeconds(0);
+          setRefreshTrigger(prev => prev + 1);
+        } catch (err: any) {
+          console.error("Lỗi lưu file ghi âm:", err);
+          toast.error(err.message || "Lỗi tải ghi âm lên.");
+        } finally {
+          setSavingAudio(false);
+        }
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordingSeconds(0);
+
+      timerRef.current = setInterval(() => {
+        setRecordingSeconds(prev => {
+          if (prev >= 180) {
+            clearInterval(timerRef.current);
+            mediaRecorder.stop();
+            return 180;
+          }
+          return prev + 1;
+        });
+      }, 1000);
+    } catch (err: any) {
+      console.error("Lỗi truy cập Microphone:", err);
+      toast.error("Không thể kết nối Microphone. Vui lòng cho phép quyền truy cập mic.");
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    }
+  };
+
+  const cancelRecording = () => {
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.onstop = null;
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+    }
+    setIsRecording(false);
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+    setRecordingSeconds(0);
+    setShowAddAudioModal(false);
   };
 
   const handleDeleteResource = async (id: string, name: string) => {
@@ -861,7 +1538,9 @@ export default function ResourceTab() {
       return isRoomAdmin || isCreator || isUploader;
     })();
 
-    const canDelete = selectedSpace === "personal" || isCreatorOrAdmin || isRoomAdmin || (room && room.members.find((m: any) => String(getMemberId(m.userId)) === String(userProfile?.uid || userProfile?.id))?.canUploadDrive === true);
+    const isMyFile = resource.uploadedBy && String(resource.uploadedBy) === String(userProfile?.uid || userProfile?.id);
+    const isRoomCreator = room && String(room.creatorId) === String(userProfile?.uid || userProfile?.id);
+    const canDelete = selectedSpace === "personal" || isCreatorOrAdmin || isRoomAdmin || isRoomCreator || isMyFile;
 
     const { Icon, iconColor } = isFolder 
       ? { Icon: FolderOpen, iconColor: "text-[#5bc0be]" } 
@@ -1017,6 +1696,16 @@ export default function ResourceTab() {
           <GoogleDocsLogo className="h-16 w-16" />
         ) : resource.mimeType === "application/vnd.google-apps.presentation" ? (
           <GoogleSlidesLogo className="h-16 w-16" />
+        ) : !isFolder && resource.mimeType?.startsWith("image/") && (resource.thumbnailLink || resource.webViewLink) ? (
+          <div className="relative w-28 h-20 flex items-center justify-center rounded-lg overflow-hidden bg-slate-50 border border-slate-200/60 shadow-inner">
+            <img src={resource.thumbnailLink || resource.webViewLink} alt={resource.name} className="h-full w-full object-cover" />
+            <div className="absolute bottom-1 left-1 bg-[#ff7b00] text-white p-0.5 rounded-sm shadow-xs">
+              <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                <polyline points="14 2 14 8 20 8" />
+              </svg>
+            </div>
+          </div>
         ) : (
           <Icon className={`h-16 w-16 ${iconColor}`} strokeWidth={1.5} />
         )}
@@ -1035,25 +1724,28 @@ export default function ResourceTab() {
   return (
     <div className="flex h-full -mx-5 -my-5 overflow-hidden bg-[#f8f9fa]">
       {/* Left Vertical Sub-tab Switcher */}
-      <div className="w-20 border-r border-slate-200 bg-slate-100 flex flex-col items-center py-8 gap-6 shrink-0">
+      <div className="w-20 border-r border-slate-200 bg-[#f4f5f6] flex flex-col items-center py-8 gap-6 shrink-0 select-none">
         {SUB_TABS.map((tab) => {
           const Icon = tab.icon;
           const active = subTab === tab.value;
           return (
             <button
               key={tab.value}
-              onClick={() => setSubTab(tab.value)}
-              className={`p-3.5 rounded-2xl transition-all duration-200 active:scale-95 ${
+              onClick={() => {
+                setSubTab(tab.value);
+                setCurrentPill("KHO_LUU_TRU");
+              }}
+              className={`p-3 rounded-2xl transition-all duration-200 active:scale-95 cursor-pointer flex items-center justify-center ${
                 active 
-                  ? "bg-white text-blue-600 shadow-md border border-slate-200/50 scale-105" 
-                  : "text-slate-400 hover:text-slate-600 hover:bg-slate-200/50"
+                  ? "bg-white shadow-sm border border-slate-200/65 scale-105" 
+                  : "hover:bg-slate-200/40"
               }`}
               title={tab.label}
             >
               {tab.value === "GOOGLE DRIVE" ? (
-                <GoogleDriveLogo className="h-7 w-7" />
+                <GoogleDriveLogo className={`h-7 w-7 ${active ? "" : "opacity-60 hover:opacity-100"}`} />
               ) : (
-                <Icon className="h-7 w-7" />
+                <Icon className={`h-7 w-7 ${active ? "text-[#10b981]" : "text-slate-400 hover:text-slate-600"}`} strokeWidth={1.5} />
               )}
             </button>
           );
@@ -1062,66 +1754,253 @@ export default function ResourceTab() {
 
       {/* Right Content Area */}
       <div className="flex-1 flex flex-col min-w-0 bg-[#f8f9fa] overflow-hidden">
-        {/* Browser Tabs Bar */}
-        <div className="h-12 bg-slate-100/90 border-b border-slate-200 flex items-end px-4 gap-1 shrink-0 select-none">
-          {openedTabs.map((tab) => {
-            const isActive = activeTabId === tab.id;
-            const isExplorer = tab.type === "explorer";
-            
-            // Get Tab Icon
-            let TabIcon = FileIcon;
-            let iconColor = "text-slate-400";
-            if (isExplorer) {
-              TabIcon = FolderOpen;
-              iconColor = "text-blue-500";
-            } else if (tab.mimeType?.includes("spreadsheet") || tab.title.endsWith(".xlsx")) {
-              TabIcon = FileSpreadsheet;
-              iconColor = "text-green-600";
-            } else if (tab.mimeType?.includes("presentation")) {
-              TabIcon = Presentation;
-              iconColor = "text-orange-500";
-            } else {
-              TabIcon = FileText;
-              iconColor = "text-blue-500";
-            }
+        {/* Browser Tabs Bar - only render if > 1 tabs or current tab is a google-doc */}
+        {(openedTabs.length > 1 || (openedTabs.length === 1 && openedTabs[0].type !== "explorer")) && (
+          <div className="h-12 bg-slate-100/90 border-b border-slate-200 flex items-end px-4 gap-1 shrink-0 select-none">
+            {openedTabs.map((tab) => {
+              const isActive = activeTabId === tab.id;
+              const isExplorer = tab.type === "explorer";
+              
+              // Get Tab Icon
+              let TabIcon = FileIcon;
+              let iconColor = "text-slate-400";
+              if (isExplorer) {
+                TabIcon = FolderOpen;
+                iconColor = "text-blue-500";
+              } else if (tab.mimeType?.includes("spreadsheet") || tab.title.endsWith(".xlsx")) {
+                TabIcon = FileSpreadsheet;
+                iconColor = "text-green-600";
+              } else if (tab.mimeType?.includes("presentation")) {
+                TabIcon = Presentation;
+                iconColor = "text-orange-500";
+              } else {
+                TabIcon = FileText;
+                iconColor = "text-blue-500";
+              }
 
-            return (
-              <div
-                key={tab.id}
-                onClick={() => setActiveTabId(tab.id)}
-                className={`group h-9 flex items-center gap-2 px-4 rounded-t-xl text-xs font-bold transition duration-150 cursor-pointer border-x border-t max-w-[180px] ${
-                  isActive
-                    ? "bg-white text-slate-800 border-slate-200 shadow-xs z-10"
-                    : "text-slate-500 bg-slate-200/40 border-transparent hover:bg-slate-200/80 hover:text-slate-700"
-                }`}
-              >
-                {!isExplorer && tab.mimeType?.includes("google-apps") ? (
-                  <GoogleDriveLogo className="h-4 w-4 shrink-0" />
-                ) : (
-                  <TabIcon className={`h-4 w-4 shrink-0 ${iconColor}`} />
-                )}
-                
-                <span className="truncate max-w-[110px]">{tab.title}</span>
-                
-                {/* Close Button */}
-                <button
-                  onClick={(e) => handleCloseTab(tab.id, e)}
-                  className="p-0.5 rounded-full hover:bg-slate-200 group-hover:opacity-100 opacity-60 text-slate-400 hover:text-slate-600 transition ml-auto"
+              return (
+                <div
+                  key={tab.id}
+                  onClick={() => setActiveTabId(tab.id)}
+                  className={`group h-9 flex items-center gap-2 px-4 rounded-t-xl text-xs font-bold transition duration-150 cursor-pointer border-x border-t max-w-[180px] ${
+                    isActive
+                      ? "bg-white text-slate-800 border-slate-200 shadow-xs z-10"
+                      : "text-slate-500 bg-slate-200/40 border-transparent hover:bg-slate-200/80 hover:text-slate-700"
+                  }`}
                 >
-                  <X className="h-3 w-3" />
-                </button>
-              </div>
-            );
-          })}
+                  {!isExplorer && tab.mimeType?.includes("google-apps") ? (
+                    <GoogleDriveLogo className="h-4 w-4 shrink-0" />
+                  ) : (
+                    <TabIcon className={`h-4 w-4 shrink-0 ${iconColor}`} />
+                  )}
+                  
+                  <span className="truncate max-w-[110px]">{tab.title}</span>
+                  
+                  {/* Close Button */}
+                  <button
+                    onClick={(e) => handleCloseTab(tab.id, e)}
+                    className="p-0.5 rounded-full hover:bg-slate-200 group-hover:opacity-100 opacity-60 text-slate-400 hover:text-slate-600 transition ml-auto"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              );
+            })}
 
-          <button
-            onClick={handleAddExplorerTab}
-            className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500 hover:text-slate-800 transition ml-2 mb-1.5"
-            title="Thẻ mới"
-          >
-            <Plus className="h-4.5 w-4.5" />
-          </button>
-        </div>
+            <button
+              onClick={handleAddExplorerTab}
+              className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500 hover:text-slate-800 transition ml-2 mb-1.5"
+              title="Thẻ mới"
+            >
+              <Plus className="h-4.5 w-4.5" />
+            </button>
+          </div>
+        )}
+
+        {/* Unified Top Header Bar */}
+        {(() => {
+          const activeTab = openedTabs.find(t => t.id === activeTabId);
+          if (activeTab?.type === "google-doc") return null;
+
+          return (
+            <div className="h-16 px-6 border-b border-slate-200 bg-white grid grid-cols-3 items-center shrink-0 select-none text-left">
+              {/* Left: Title & Space Selector Dropdown */}
+              <div className="flex items-center gap-2 justify-start">
+                <span className="text-base font-extrabold text-slate-800 tracking-tight">Tài nguyên với</span>
+                <div className="relative" ref={dropdownRef}>
+                  <button
+                    onClick={() => setShowSpaceDropdown(!showSpaceDropdown)}
+                    className="flex items-center gap-2.5 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-1.5 transition duration-150 text-xs font-bold text-slate-700 cursor-pointer shadow-xs"
+                  >
+                    {selectedSpace === "personal" ? (
+                      <div className="h-5 w-5 rounded-full bg-violet-600 text-white flex items-center justify-center text-[9px] font-black shrink-0">
+                        {getInitials(
+                          selectedOwnerId === (userProfile?.uid || userProfile?.id)
+                            ? (userProfile?.displayName || "Cá nhân")
+                            : (allStaff.find(u => (u.uid || u.id) === selectedOwnerId)?.displayName || "NV")
+                        )}
+                      </div>
+                    ) : (
+                      <div className={`h-5 w-5 rounded-full flex items-center justify-center text-[9px] font-black shrink-0 ${getBadgeColor(rooms.find(r => r._id === selectedSpace)?.name || "")}`}>
+                        {getInitials(rooms.find(r => r._id === selectedSpace)?.name || "")}
+                      </div>
+                    )}
+                    
+                    <span className="uppercase">
+                      {selectedSpace === "personal" 
+                        ? (selectedOwnerId === (userProfile?.uid || userProfile?.id)
+                            ? (userProfile?.displayName || "Cá nhân")
+                            : (allStaff.find(u => (u.uid || u.id) === selectedOwnerId)?.displayName || "Nhân viên")
+                          )
+                        : (rooms.find(r => r._id === selectedSpace)?.name || "Nhóm chung")
+                      }
+                    </span>
+                    <ChevronDown className={`h-3.5 w-3.5 text-slate-400 transition-transform duration-200 ${showSpaceDropdown ? "rotate-180" : ""}`} />
+                  </button>
+
+                  {showSpaceDropdown && (
+                    <div className="absolute left-0 mt-1.5 w-64 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 p-1.5 animate-fadeIn max-h-[300px] overflow-y-auto">
+                      <div className="text-[9px] text-slate-400 font-bold px-2.5 py-1 uppercase tracking-wider text-left">Không gian lưu trữ</div>
+                      <button
+                        onClick={() => {
+                          setSelectedSpace("personal");
+                          setSelectedOwnerId(userProfile?.uid || userProfile?.id || "");
+                          setShowSpaceDropdown(false);
+                        }}
+                        className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-xl text-left text-xs font-bold transition ${
+                          selectedSpace === "personal" && selectedOwnerId === (userProfile?.uid || userProfile?.id)
+                            ? "bg-blue-50 text-blue-600" 
+                            : "hover:bg-slate-50 text-slate-700"
+                        }`}
+                      >
+                        <div className="h-5 w-5 rounded-full bg-violet-600 text-white flex items-center justify-center text-[9px] font-bold shrink-0">
+                          {getInitials(userProfile?.displayName || "LAT")}
+                        </div>
+                        <span className="truncate">{userProfile?.displayName ? `${userProfile.displayName} (Tôi)` : "Cá nhân"}</span>
+                      </button>
+
+                      {/* Admin/Superadmin: List all employees */}
+                      {allStaff.length > 0 && (
+                        <>
+                          <div className="border-t border-slate-100 my-1"></div>
+                          <div className="text-[9px] text-slate-400 font-bold px-2.5 py-1 uppercase tracking-wider text-left">Không gian nhân sự</div>
+                          <div className="max-h-48 overflow-y-auto">
+                            {allStaff
+                              .filter(u => (u.uid || u.id) !== (userProfile?.uid || userProfile?.id))
+                              .map((u) => {
+                                const isSelected = selectedSpace === "personal" && selectedOwnerId === (u.uid || u.id);
+                                return (
+                                  <button
+                                    key={u.uid || u.id}
+                                    onClick={() => {
+                                      setSelectedSpace("personal");
+                                      setSelectedOwnerId(u.uid || u.id);
+                                      setShowSpaceDropdown(false);
+                                    }}
+                                    className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-left text-xs font-bold transition ${
+                                      isSelected 
+                                        ? "bg-blue-50 text-blue-600" 
+                                        : "hover:bg-slate-50 text-slate-700"
+                                    }`}
+                                  >
+                                    <div className={`h-5 w-5 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 ${getBadgeColor(u.displayName || "")}`}>
+                                      {getInitials(u.displayName || "")}
+                                    </div>
+                                    <span className="truncate">{u.displayName}</span>
+                                  </button>
+                                );
+                              })}
+                          </div>
+                        </>
+                      )}
+                      
+                      {rooms.length > 0 && (
+                        <>
+                          <div className="border-t border-slate-100 my-1"></div>
+                          <div className="text-[9px] text-slate-400 font-bold px-2.5 py-1 uppercase tracking-wider text-left">Nhóm chung (Chat)</div>
+                          {rooms.map((room) => {
+                            const isSelected = selectedSpace === room._id;
+                            return (
+                              <button
+                                key={room._id}
+                                onClick={() => {
+                                  setSelectedSpace(room._id);
+                                  setShowSpaceDropdown(false);
+                                }}
+                                className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-left text-xs font-bold transition ${
+                                  isSelected 
+                                    ? "bg-blue-50 text-blue-600" 
+                                    : "hover:bg-slate-50 text-slate-700"
+                                }`}
+                              >
+                                <div className={`h-5 w-5 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 ${getBadgeColor(room.name || "")}`}>
+                                  {getInitials(room.name || "")}
+                                </div>
+                                <span className="truncate">{room.name}</span>
+                              </button>
+                            );
+                          })}
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Center: Pill tabs - Kho lưu trữ & Được chia sẻ */}
+              <div className="flex items-center justify-center">
+                {subTab === "TÀI LIỆU KHÁC" && (
+                  <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1">
+                    <button
+                      onClick={() => { setCurrentPill("KHO_LUU_TRU"); setViewingTrash(false); }}
+                      className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all duration-150 cursor-pointer ${
+                        currentPill === "KHO_LUU_TRU"
+                          ? "bg-[#009b94] text-white shadow-sm"
+                          : "text-slate-500 hover:text-slate-800 hover:bg-slate-200/60"
+                      }`}
+                    >
+                      Kho lưu trữ
+                    </button>
+                    <button
+                      onClick={() => { setCurrentPill("DUOC_CHIA_SE"); setViewingTrash(false); }}
+                      className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all duration-150 cursor-pointer ${
+                        currentPill === "DUOC_CHIA_SE"
+                          ? "bg-[#009b94] text-white shadow-sm"
+                          : "text-slate-500 hover:text-slate-800 hover:bg-slate-200/60"
+                      }`}
+                    >
+                      Được chia sẻ
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Right: Thùng rác / Quay lại */}
+              <div className="flex items-center justify-end">
+                {subTab === "TÀI LIỆU KHÁC" && currentPill === "KHO_LUU_TRU" ? (
+                  <button
+                    onClick={() => setViewingTrash(!viewingTrash)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 hover:bg-slate-50 text-slate-500 hover:text-slate-800 rounded-xl text-xs font-bold transition bg-white shadow-xs cursor-pointer"
+                  >
+                    {viewingTrash ? (
+                      <>
+                        <ArrowLeft className="h-3.5 w-3.5 text-slate-500" />
+                        <span>Quay lại</span>
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="h-3.5 w-3.5 text-slate-500" />
+                        <span>Thùng rác</span>
+                      </>
+                    )}
+                  </button>
+                ) : (
+                  <div className="h-8 w-24"></div> // Khung giữ chỗ để không bị nhảy layout
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Tab Contents wrapper */}
         <div className="flex-1 flex flex-col overflow-hidden bg-white relative">
@@ -1139,404 +2018,555 @@ export default function ResourceTab() {
                 </div>
               );
             }
+
             
-            return subTab === "TÀI LIỆU KHÁC" ? (
-              <div className="flex-1 overflow-y-auto p-6 text-left">
-                <FileExplorer onOpenFile={handleOpenFile} />
-              </div>
-            ) : (
+            return (
               <div className="flex-1 flex flex-col overflow-hidden">
-            {/* Header Row matching user screenshot */}
-            <div className="h-20 px-8 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white">
-              {/* Space Dropdown Selector on Left */}
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-bold text-slate-600">Tài liệu của</span>
-                <div className="relative" ref={dropdownRef}>
-                  <button
-                    onClick={() => setShowSpaceDropdown(!showSpaceDropdown)}
-                    className="flex items-center gap-2.5 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 transition duration-150 text-sm font-bold text-slate-700 cursor-pointer shadow-xs"
-                  >
-                    {/* Badge */}
-                    {selectedSpace === "personal" ? (
-                      <img
-                        src={userProfile?.photoURL || "https://www.gravatar.com/avatar?d=mp"}
-                        alt={userProfile?.displayName}
-                        className="h-6 w-6 rounded-full object-cover"
+                {/* Unified Toolbar Row matching image 1 */}
+                <div className="h-16 px-6 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white select-none">
+                  {/* Left side search & count */}
+                  <div className="flex flex-col items-start gap-1">
+                    <div className="relative w-64">
+                      <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="Tên file..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full text-xs bg-slate-50/50 hover:bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-2 focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 text-slate-700 font-bold"
                       />
-                    ) : (
-                      <div className={`h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${getBadgeColor(rooms.find(r => r._id === selectedSpace)?.name || "")}`}>
-                        {getInitials(rooms.find(r => r._id === selectedSpace)?.name || "")}
-                      </div>
-                    )}
-                    
-                    <span>
-                      {selectedSpace === "personal" 
-                        ? (userProfile?.displayName ? `${userProfile.displayName} (Tôi)` : "Cá nhân")
-                        : (rooms.find(r => r._id === selectedSpace)?.name || "Nhóm chung")
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-400 pl-1 text-left">
+                      {subTab === "TÀI LIỆU KHÁC" 
+                        ? `${localItemsCount.count}/${localItemsCount.total} tệp`
+                        : `${filteredResources.length}/${resources.length} tệp`
                       }
                     </span>
-                    <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${showSpaceDropdown ? "rotate-180" : ""}`} />
-                  </button>
-
-                  {showSpaceDropdown && (
-                    <div className="absolute left-0 mt-1.5 w-64 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 p-1.5 animate-fadeIn max-h-[300px] overflow-y-auto">
-                      <div className="text-[10px] text-slate-400 font-semibold px-2.5 py-1 uppercase tracking-wider text-left">Không gian lưu trữ</div>
-                      <button
-                        onClick={() => {
-                          setSelectedSpace("personal");
-                          setShowSpaceDropdown(false);
-                        }}
-                        className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-left text-xs font-semibold transition ${
-                          selectedSpace === "personal" 
-                            ? "bg-blue-50 text-blue-600" 
-                            : "hover:bg-slate-50 text-slate-700"
-                        }`}
-                      >
-                        <img
-                          src={userProfile?.photoURL || "https://www.gravatar.com/avatar?d=mp"}
-                          alt={userProfile?.displayName}
-                          className="h-6 w-6 rounded-full object-cover"
-                        />
-                        <span className="truncate">{userProfile?.displayName ? `${userProfile.displayName} (Tôi)` : "Cá nhân"}</span>
-                      </button>
-                      
-                      {rooms.length > 0 && (
-                        <>
-                          <div className="border-t border-slate-100 my-1.5"></div>
-                          <div className="text-[10px] text-slate-400 font-semibold px-2.5 py-1 uppercase tracking-wider text-left">Nhóm chung (Chat)</div>
-                          {rooms.map((room) => {
-                            const isSelected = selectedSpace === room._id;
-                            return (
-                              <button
-                                key={room._id}
-                                onClick={() => {
-                                  setSelectedSpace(room._id);
-                                  setShowSpaceDropdown(false);
-                                }}
-                                className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-left text-xs font-semibold transition ${
-                                  isSelected 
-                                    ? "bg-blue-50 text-blue-600" 
-                                    : "hover:bg-slate-50 text-slate-700"
-                                }`}
-                              >
-                                <div className={`h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${getBadgeColor(room.name || "")}`}>
-                                  {getInitials(room.name || "")}
-                                </div>
-                                <span className="truncate">{room.name}</span>
-                              </button>
-                            );
-                          })}
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Actions & Search on Right */}
-              <div className="flex items-center gap-3">
-                {/* Search Bar */}
-                {!(selectedSpace === "personal" && !isConnected) && (
-                  <div className="relative w-72">
-                    <Search className="absolute left-3.5 top-3.5 h-4.5 w-4.5 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="Tìm kiếm"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full text-sm bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 text-slate-700 font-semibold"
-                    />
                   </div>
-                )}
 
-                {/* Manage Permissions Share Button */}
-                {canManagePermissions() && (
-                  <button
-                    onClick={() => {
-                      setShareSearchQuery("");
-                      setShowShareModal(true);
-                    }}
-                    className="p-2.5 hover:bg-slate-100 rounded-xl text-slate-600 hover:text-slate-900 border border-gray-200 transition active:scale-95 bg-white flex items-center justify-center h-10 w-10"
-                    title="Quản lý phân quyền"
-                  >
-                    <Share2 className="h-4.5 w-4.5" />
-                  </button>
-                )}
-
-                {/* Reload button */}
-                <button
-                  onClick={fetchResources}
-                  disabled={loading}
-                  className="p-2.5 hover:bg-slate-50 rounded-xl text-slate-500 hover:text-slate-800 transition active:scale-95 border border-slate-200 bg-white flex items-center justify-center h-10 w-10"
-                  title="Làm mới"
-                >
-                  <RefreshCw className={`h-4.5 w-4.5 ${loading ? "animate-spin" : ""}`} />
-                </button>
-
-                {/* Popover Add Button */}
-                {canUpload() && (
-                  <div className="relative" ref={addMenuRef}>
+                  {/* Right side actions */}
+                  <div className="flex items-center gap-2">
+                    {/* Filters icon button */}
                     <button
-                      onClick={() => setShowAddMenu(!showAddMenu)}
-                      className="p-2.5 bg-[#008080] hover:bg-[#006666] text-white rounded-xl transition duration-150 active:scale-95 shadow-md shadow-teal-500/10 flex items-center justify-center h-10 w-10 cursor-pointer"
-                      title="Thêm mới"
+                      onClick={() => setShowFilters(!showFilters)}
+                      className={`p-2 rounded-xl transition active:scale-95 border flex items-center justify-center h-9 w-9 cursor-pointer ${
+                        showFilters 
+                          ? "bg-[#e0f2f1] hover:bg-[#b2dfdb]/50 text-[#008080] border-[#008080]" 
+                          : "bg-white hover:bg-slate-50 text-slate-500 hover:text-slate-800 border-slate-200"
+                      }`}
+                      title="Bộ lọc"
                     >
-                      <Plus className="h-4.5 w-4.5" />
+                      <SlidersHorizontal className="h-4 w-4" />
                     </button>
 
-                    {showAddMenu && (
-                      <div className="absolute right-0 mt-1.5 w-60 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 p-1.5 animate-fadeIn text-left">
+                    {/* List/grid toggle */}
+                    <button
+                      onClick={() => setViewMode(viewMode === "grid" ? "list" : "grid")}
+                      className="p-2 hover:bg-slate-50 rounded-xl text-slate-500 hover:text-slate-800 transition active:scale-95 border border-slate-200 bg-white flex items-center justify-center h-9 w-9 cursor-pointer"
+                      title={viewMode === "grid" ? "Xem dạng danh sách" : "Xem dạng lưới"}
+                    >
+                      {viewMode === "grid" ? (
+                        <List className="h-4.5 w-4.5" />
+                      ) : (
+                        <LayoutGrid className="h-4.5 w-4.5" />
+                      )}
+                    </button>
+
+                    {/* Popover Add Button */}
+                    {!viewingTrash && localFolderId !== "chat-attachments" && (
+                      <div className="relative" ref={addMenuRef}>
                         <button
-                          onClick={() => {
-                            setCreateFileDialog({
-                              isOpen: true,
-                              type: "document",
-                              title: "Thêm Google Tài liệu mới",
-                              placeholder: "Nhập tên tài liệu..."
-                            });
-                            setShowAddMenu(false);
-                          }}
-                          className="w-full flex items-center gap-3 px-3 py-2 hover:bg-slate-50 rounded-xl text-xs font-semibold text-slate-700 transition"
+                          onClick={() => setShowAddMenu(!showAddMenu)}
+                          className="p-2 bg-[#008080] hover:bg-[#006666] text-white rounded-xl transition duration-150 active:scale-95 shadow-md shadow-teal-500/10 flex items-center justify-center h-9 w-9 cursor-pointer"
+                          title="Thêm mới"
                         >
-                          <FileText className="h-4 w-4 text-blue-600" />
-                          <span>Thêm Google Tài liệu</span>
-                        </button>
-                        
-                        <button
-                          onClick={() => {
-                            setCreateFileDialog({
-                              isOpen: true,
-                              type: "spreadsheet",
-                              title: "Thêm Google Trang tính mới",
-                              placeholder: "Nhập tên trang tính..."
-                            });
-                            setShowAddMenu(false);
-                          }}
-                          className="w-full flex items-center gap-3 px-3 py-2 hover:bg-slate-50 rounded-xl text-xs font-semibold text-slate-700 transition"
-                        >
-                          <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
-                          <span>Thêm Google Trang tính</span>
+                          <Plus className="h-4 w-4" />
                         </button>
 
-                        <button
-                          onClick={() => {
-                            setCreateFileDialog({
-                              isOpen: true,
-                              type: "presentation",
-                              title: "Thêm Google Trang trình bày mới",
-                              placeholder: "Nhập tên trang trình bày..."
-                            });
-                            setShowAddMenu(false);
-                          }}
-                          className="w-full flex items-center gap-3 px-3 py-2 hover:bg-slate-50 rounded-xl text-xs font-semibold text-slate-700 transition"
-                        >
-                          <Presentation className="h-4 w-4 text-amber-500" />
-                          <span>Thêm Google Trang trình bày</span>
-                        </button>
+                        {showAddMenu && (
+                          <div className="absolute right-0 mt-1.5 w-60 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 p-1.5 animate-fadeIn text-left">
+                            {subTab === "TÀI LIỆU KHÁC" ? (
+                              <>
+                                {/* Tải tệp lên */}
+                                <button
+                                  onClick={() => {
+                                    fileInputRef.current?.click();
+                                    setShowAddMenu(false);
+                                  }}
+                                  disabled={uploading}
+                                  className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 rounded-xl text-xs font-semibold text-slate-700 transition cursor-pointer"
+                                >
+                                  {uploading ? (
+                                    <Loader2 className="h-4 w-4 animate-spin text-teal-600" />
+                                  ) : (
+                                    <Upload className="h-4.5 w-4.5 text-teal-600" />
+                                  )}
+                                  <span>Tải tệp lên</span>
+                                </button>
 
-                        <div className="border-t border-slate-100 my-1"></div>
+                                {/* Thêm thư mục */}
+                                <button
+                                  onClick={() => {
+                                    setCreateFileDialog({
+                                      isOpen: true,
+                                      type: "folder",
+                                      title: "Thêm thư mục mới",
+                                      placeholder: "Nhập tên thư mục..."
+                                    });
+                                    setShowAddMenu(false);
+                                  }}
+                                  className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 rounded-xl text-xs font-semibold text-slate-700 transition cursor-pointer"
+                                >
+                                  <Folder className="h-4.5 w-4.5 text-[#7bc8c4]" />
+                                  <span>Thêm thư mục</span>
+                                </button>
 
-                        <button
-                          onClick={() => {
-                            setCreateFileDialog({
-                              isOpen: true,
-                              type: "link",
-                              title: "Thêm tài nguyên từ liên kết có sẵn",
-                              placeholder: "Nhập tên hiển thị..."
-                            });
-                            setShowAddMenu(false);
-                          }}
-                          className="w-full flex items-center gap-3 px-3 py-2 hover:bg-slate-50 rounded-xl text-xs font-semibold text-slate-700 transition"
-                        >
-                          <LinkIcon className="h-4 w-4 text-indigo-500" />
-                          <span>Thêm từ đường link có sẵn</span>
-                        </button>
+                                {/* Thêm liên kết */}
+                                <button
+                                  onClick={() => {
+                                    setShowAddLinkModal(true);
+                                    setShowAddMenu(false);
+                                  }}
+                                  className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 rounded-xl text-xs font-semibold text-slate-700 transition cursor-pointer"
+                                >
+                                  <Link className="h-4.5 w-4.5 text-slate-400" />
+                                  <span>Thêm liên kết</span>
+                                </button>
 
-                        <button
-                          onClick={() => {
-                            setCreateFileDialog({
-                              isOpen: true,
-                              type: "folder",
-                              title: "Thêm thư mục mới",
-                              placeholder: "Nhập tên thư mục..."
-                            });
-                            setShowAddMenu(false);
-                          }}
-                          className="w-full flex items-center gap-3 px-3 py-2 hover:bg-slate-50 rounded-xl text-xs font-semibold text-slate-700 transition"
-                        >
-                          <FolderPlus className="h-4 w-4 text-teal-600" />
-                          <span>Thêm thư mục</span>
-                        </button>
+                                {/* Thêm ghi chú */}
+                                <button
+                                  onClick={() => {
+                                    setShowAddNoteModal(true);
+                                    setShowAddMenu(false);
+                                  }}
+                                  className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 rounded-xl text-xs font-semibold text-slate-700 transition cursor-pointer"
+                                >
+                                  <FileText className="h-4.5 w-4.5 text-orange-500" />
+                                  <span>Thêm ghi chú</span>
+                                </button>
 
-                        <div className="border-t border-slate-100 my-1"></div>
+                                {/* Thêm ghi âm */}
+                                <button
+                                  onClick={() => {
+                                    setShowAddAudioModal(true);
+                                    setShowAddMenu(false);
+                                  }}
+                                  className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 rounded-xl text-xs font-semibold text-slate-700 transition cursor-pointer"
+                                >
+                                  <Mic className="h-4.5 w-4.5 text-blue-500" />
+                                  <span>Thêm ghi âm</span>
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <button
+                                  onClick={() => {
+                                    setCreateFileDialog({
+                                      isOpen: true,
+                                      type: "document",
+                                      title: "Thêm Google Tài liệu mới",
+                                      placeholder: "Nhập tên tài liệu..."
+                                    });
+                                    setShowAddMenu(false);
+                                  }}
+                                  className="w-full flex items-center gap-3 px-3 py-2 hover:bg-slate-50 rounded-xl text-xs font-semibold text-slate-700 transition cursor-pointer"
+                                >
+                                  <FileText className="h-4 w-4 text-blue-600" />
+                                  <span>Thêm Google Tài liệu</span>
+                                </button>
+                                
+                                <button
+                                  onClick={() => {
+                                    setCreateFileDialog({
+                                      isOpen: true,
+                                      type: "spreadsheet",
+                                      title: "Thêm Google Trang tính mới",
+                                      placeholder: "Nhập tên trang tính..."
+                                    });
+                                    setShowAddMenu(false);
+                                  }}
+                                  className="w-full flex items-center gap-3 px-3 py-2 hover:bg-slate-50 rounded-xl text-xs font-semibold text-slate-700 transition cursor-pointer"
+                                >
+                                  <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
+                                  <span>Thêm Google Trang tính</span>
+                                </button>
 
-                        <button
-                          onClick={() => {
-                            fileInputRef.current?.click();
-                            setShowAddMenu(false);
-                          }}
-                          disabled={uploading}
-                          className="w-full flex items-center gap-3 px-3 py-2 hover:bg-slate-50 rounded-xl text-xs font-semibold text-slate-700 transition"
-                        >
-                          {uploading ? (
-                            <Loader2 className="h-4 w-4 animate-spin text-slate-500" />
-                          ) : (
-                            <Upload className="h-4 w-4 text-slate-500" />
-                          )}
-                          <span>Tải tệp tin từ máy tính</span>
-                        </button>
+                                <button
+                                  onClick={() => {
+                                    setCreateFileDialog({
+                                      isOpen: true,
+                                      type: "presentation",
+                                      title: "Thêm Google Trang trình bày mới",
+                                      placeholder: "Nhập tên trang trình bày..."
+                                    });
+                                    setShowAddMenu(false);
+                                  }}
+                                  className="w-full flex items-center gap-3 px-3 py-2 hover:bg-slate-50 rounded-xl text-xs font-semibold text-slate-700 transition cursor-pointer"
+                                >
+                                  <Presentation className="h-4 w-4 text-amber-500" />
+                                  <span>Thêm Google Trang trình bày</span>
+                                </button>
+
+                                <div className="border-t border-slate-100 my-1"></div>
+
+                                <button
+                                  onClick={() => {
+                                    setCreateFileDialog({
+                                      isOpen: true,
+                                      type: "link",
+                                      title: "Thêm tài nguyên từ liên kết có sẵn",
+                                      placeholder: "Nhập tên hiển thị..."
+                                    });
+                                    setShowAddMenu(false);
+                                  }}
+                                  className="w-full flex items-center gap-3 px-3 py-2 hover:bg-slate-50 rounded-xl text-xs font-semibold text-slate-700 transition cursor-pointer"
+                                >
+                                  <LinkIcon className="h-4 w-4 text-indigo-500" />
+                                  <span>Thêm từ đường link có sẵn</span>
+                                </button>
+
+                                <button
+                                  onClick={() => {
+                                    setCreateFileDialog({
+                                      isOpen: true,
+                                      type: "folder",
+                                      title: "Thêm thư mục mới",
+                                      placeholder: "Nhập tên thư mục..."
+                                    });
+                                    setShowAddMenu(false);
+                                  }}
+                                  className="w-full flex items-center gap-3 px-3 py-2 hover:bg-slate-50 rounded-xl text-xs font-semibold text-slate-700 transition cursor-pointer"
+                                >
+                                  <FolderPlus className="h-4 w-4 text-teal-600" />
+                                  <span>Thêm thư mục</span>
+                                </button>
+
+                                <div className="border-t border-slate-100 my-1"></div>
+
+                                <button
+                                  onClick={() => {
+                                    fileInputRef.current?.click();
+                                    setShowAddMenu(false);
+                                  }}
+                                  disabled={uploading}
+                                  className="w-full flex items-center gap-3 px-3 py-2 hover:bg-slate-50 rounded-xl text-xs font-semibold text-slate-700 transition cursor-pointer"
+                                >
+                                  {uploading ? (
+                                    <Loader2 className="h-4 w-4 animate-spin text-slate-500" />
+                                  ) : (
+                                    <Upload className="h-4 w-4 text-slate-500" />
+                                  )}
+                                  <span>Tải tệp tin từ máy tính</span>
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        )}
                       </div>
                     )}
-                  </div>
-                )}
-                
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={onFileChange}
-                  className="hidden"
-                />
-              </div>
-            </div>
 
-            {/* Breadcrumbs Navigation Row matching screenshot 3 */}
-            {!(selectedSpace === "personal" && !isConnected) && (
-              <div className="h-12 px-8 border-b border-slate-100 bg-white flex items-center justify-between shrink-0">
-                <div className="flex items-center gap-1.5 text-slate-500 flex-wrap text-left">
-                  {breadcrumbs.length > 0 && (
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={onFileChange}
+                      className="hidden"
+                    />
+
+                    {/* Reload/sync button */}
                     <button
-                      onClick={() => {
-                        const newBcs = [...breadcrumbs];
-                        newBcs.pop();
-                        setBreadcrumbs(newBcs);
-                        setCurrentFolderId(newBcs.length === 0 ? "root" : newBcs[newBcs.length - 1].id);
-                      }}
-                      className="inline-flex items-center gap-1 text-xs font-bold text-slate-700 hover:text-slate-900 transition mr-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-2.5 py-1.5 cursor-pointer"
+                      onClick={subTab === "TÀI LIỆU KHÁC" ? () => setRefreshTrigger(prev => prev + 1) : fetchResources}
+                      disabled={loading}
+                      className="p-2 hover:bg-slate-50 rounded-xl text-slate-500 hover:text-slate-800 transition active:scale-95 border border-slate-200 bg-white flex items-center justify-center h-9 w-9 cursor-pointer"
+                      title="Làm mới"
                     >
-                      <span>← Quay lại</span>
+                      <RefreshCw className={`h-4.5 w-4.5 ${loading ? "animate-spin" : ""}`} />
                     </button>
-                  )}
-                  
-                  <button
-                    onClick={() => {
-                      setBreadcrumbs([]);
-                      setCurrentFolderId("root");
-                    }}
-                    className={`text-sm font-bold transition hover:text-slate-800 ${
-                      currentFolderId === "root" ? "text-slate-800" : "text-slate-400"
-                    }`}
-                  >
-                    {selectedSpace === "personal" 
-                      ? (userProfile?.displayName || "Cá nhân") 
-                      : (rooms.find(r => r._id === selectedSpace)?.name || "Nhóm chung")
-                    }
-                  </button>
+                  </div>
+                </div>
 
-                  {breadcrumbs.map((bc, idx) => (
-                    <React.Fragment key={bc.id}>
-                      <span className="text-slate-300 mx-1.5 text-sm">/</span>
+                {/* Advanced Filters Panel matching mockup */}
+                {showFilters && subTab === "TÀI LIỆU KHÁC" && (
+                  <div className="px-6 py-2.5 border-b border-slate-100 bg-[#fbfcfc] flex flex-wrap items-center gap-3 animate-fadeIn shrink-0 select-none text-left">
+                    {/* CSS override to hide default browser date picker indicators but make them clickable */}
+                    <style>{`
+                      .style-date-input::-webkit-calendar-picker-indicator {
+                        opacity: 0;
+                        width: 100%;
+                        height: 100%;
+                        position: absolute;
+                        left: 0;
+                        top: 0;
+                        cursor: pointer;
+                        z-index: 10;
+                      }
+                      .style-date-input {
+                        position: relative;
+                        z-index: 5;
+                      }
+                    `}</style>
+
+                    {/* Từ ngày */}
+                    <div className="relative flex items-center bg-white border border-slate-200 rounded-xl px-3 py-1.5 shadow-2xs hover:border-slate-300 transition duration-150">
+                      <input
+                        type={filterStartDate ? "date" : "text"}
+                        onFocus={(e) => (e.target.type = "date")}
+                        onBlur={(e) => {
+                          if (!e.target.value) e.target.type = "text";
+                        }}
+                        placeholder="Từ ngày"
+                        value={filterStartDate}
+                        onChange={(e) => setFilterStartDate(e.target.value)}
+                        className="text-xs font-bold text-slate-700 bg-transparent focus:outline-hidden pr-6 w-28 cursor-pointer style-date-input"
+                      />
+                      <Calendar className="absolute right-3 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+                    </div>
+
+                    {/* Đến ngày */}
+                    <div className="relative flex items-center bg-white border border-slate-200 rounded-xl px-3 py-1.5 shadow-2xs hover:border-slate-300 transition duration-150">
+                      <input
+                        type={filterEndDate ? "date" : "text"}
+                        onFocus={(e) => (e.target.type = "date")}
+                        onBlur={(e) => {
+                          if (!e.target.value) e.target.type = "text";
+                        }}
+                        placeholder="Đến ngày"
+                        value={filterEndDate}
+                        onChange={(e) => setFilterEndDate(e.target.value)}
+                        className="text-xs font-bold text-slate-700 bg-transparent focus:outline-hidden pr-6 w-28 cursor-pointer style-date-input"
+                      />
+                      <Calendar className="absolute right-3 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+                    </div>
+
+                    {/* Divider vertical */}
+                    <div className="h-5 w-[1px] bg-slate-200 mx-1"></div>
+
+                    {/* Filter Type Pills */}
+                    {[
+                      { value: "folder", label: "Thư mục" },
+                      { value: "image", label: "Hình ảnh" },
+                      { value: "audio", label: "Âm thanh" },
+                      { value: "video", label: "Video" },
+                      { value: "pdf", label: "PDF" },
+                      { value: "document", label: "Tài liệu" },
+                      { value: "spreadsheet", label: "Bảng tính" },
+                      { value: "presentation", label: "Bản trình bày" },
+                      { value: "link", label: "Liên kết" }
+                    ].map((type) => {
+                      const isActive = filterType === type.value;
+                      return (
+                        <button
+                          key={type.value}
+                          onClick={() => setFilterType(isActive ? "" : type.value)}
+                          className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition duration-150 cursor-pointer border ${
+                            isActive
+                              ? "bg-slate-800 border-slate-800 text-white shadow-xs"
+                              : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300"
+                          }`}
+                        >
+                          {type.label}
+                        </button>
+                      );
+                    })}
+
+                    {/* Clear Filter button if any is active */}
+                    {(filterStartDate || filterEndDate || filterType) && (
                       <button
                         onClick={() => {
-                          const index = breadcrumbs.findIndex(x => x.id === bc.id);
-                          const newBcs = breadcrumbs.slice(0, index + 1);
-                          setBreadcrumbs(newBcs);
-                          setCurrentFolderId(bc.id);
+                          setFilterStartDate("");
+                          setFilterEndDate("");
+                          setFilterType("");
                         }}
-                        className={`text-sm font-bold transition hover:text-slate-800 ${
-                          idx === breadcrumbs.length - 1 ? "text-slate-800" : "text-slate-400"
-                        }`}
+                        className="text-[10px] font-black text-red-500 hover:text-red-700 transition uppercase tracking-wider ml-auto cursor-pointer"
                       >
-                        {bc.name}
+                        Xóa lọc
                       </button>
-                    </React.Fragment>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Main content container */}
-            <div className="flex-1 overflow-y-auto p-6 bg-white">
-              {(selectedSpace === "personal" && !isConnected) ? (
-                <div className="flex-1 flex flex-col items-center justify-center py-16 bg-white/50 border border-dashed border-gray-200 rounded-3xl p-10 max-w-xl mx-auto mt-10">
-                  <div className="w-16 h-16 rounded-2xl bg-indigo-50 flex items-center justify-center text-blue-600 mb-4 shadow-inner">
-                    <HardDrive className="h-8 w-8" />
-                  </div>
-                  <h3 className="text-base font-bold text-gray-800">Chưa kết nối Google Drive</h3>
-                  <p className="text-xs text-gray-500 max-w-sm text-center mt-2 leading-relaxed">
-                    Nhân viên cần liên kết với tài khoản Google cá nhân của mình để kích hoạt không gian lưu trữ tài nguyên riêng biệt.
-                  </p>
-                  <button
-                    onClick={handleGoogleDriveOAuth}
-                    disabled={connectingGoogleDrive}
-                    className="mt-6 flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-lg transition-all duration-150 cursor-pointer disabled:opacity-60"
-                  >
-                    {connectingGoogleDrive ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin text-white" />
-                        <span>Đang kết nối...</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>Kết nối Google Drive cá nhân ngay</span>
-                        <ArrowUpRight className="h-4 w-4" />
-                      </>
                     )}
-                  </button>
-                </div>
-              ) : (
-                <div className="h-full flex flex-col">
-                  {/* Drag & Drop Area */}
-                 
+                  </div>
+                )}
 
-                  {/* Resource Grid / Empty State */}
-                  {loading && filteredResources.length === 0 ? (
-                    <div className="flex-1 flex flex-col items-center justify-center py-20">
-                      <RefreshCw className="h-8 w-8 animate-spin text-[#008080]" />
-                      <p className="text-xs text-gray-500 mt-2 font-medium">Đang tải tài nguyên...</p>
-                    </div>
-                  ) : filteredResources.length === 0 ? (
-                    /* Empty State exactly matching user screenshot */
-                    <div className="flex-1 flex flex-col items-center justify-center py-16">
-                      <EmptyStateIllustration />
-                      <p className="text-base font-bold text-slate-700 mt-6">Không có tài liệu nào</p>
-                      
-                      {canUpload() && (
-                        <div className="relative">
-                          <button
-                            onClick={() => setShowAddMenu(!showAddMenu)}
-                            className="mt-5 inline-flex items-center gap-2 px-6 py-2.5 bg-[#008080] hover:bg-[#006666] text-white rounded-xl text-sm font-bold shadow-md shadow-teal-500/10 transition duration-150 active:scale-95 cursor-pointer"
-                          >
-                            <Plus className="h-4 w-4" />
-                            <span>Thêm mới</span>
-                          </button>
-                        </div>
-                      )}
+                {/* Main Content Area */}
+                <div className="flex-1 overflow-hidden relative text-left">
+                  {subTab === "TÀI LIỆU KHÁC" ? (
+                    <div className="w-full h-full overflow-y-auto p-6">
+                      <FileExplorer 
+                        onOpenFile={handleOpenFile} 
+                        searchQuery={searchQuery}
+                        refreshTrigger={refreshTrigger}
+                        onFolderChange={setLocalFolderId}
+                        onItemsCountChange={handleItemsCountChange}
+                        ownerId={selectedSpace === "personal" ? selectedOwnerId : undefined}
+                        roomId={selectedSpace !== "personal" ? selectedSpace : undefined}
+                        showTrash={viewingTrash}
+                        users={allStaff}
+                        rooms={rooms}
+                        showSharedOnly={currentPill === "DUOC_CHIA_SE"}
+                        filterStartDate={filterStartDate}
+                        filterEndDate={filterEndDate}
+                        filterType={filterType}
+                        viewMode={viewMode}
+                      />
                     </div>
                   ) : (
-                    /* Grid Layout - Cards matching folder screenshot style */
-                    <div className="flex flex-wrap gap-4 pb-32">
-                      {/* Thư mục trước */}
-                      {filteredResources
-                        .filter((r) => r.mimeType === "application/vnd.google-apps.folder")
-                        .map((resource, idx) => renderResourceCard(resource, idx))}
-                      
-                      {/* Tệp sau */}
-                      {filteredResources
-                        .filter((r) => r.mimeType !== "application/vnd.google-apps.folder")
-                        .map((resource, idx) => {
-                          const foldersCount = filteredResources.filter(
-                            (r) => r.mimeType === "application/vnd.google-apps.folder"
-                          ).length;
-                          return renderResourceCard(resource, foldersCount + idx);
-                        })}
+                    <div className="w-full h-full flex flex-col overflow-hidden relative">
+                      {/* Floating Job Tab on Right Edge for Google Drive */}
+                      <div className="absolute right-0 top-1/2 -translate-y-1/2 z-30">
+                        <div 
+                          onClick={() => toast.info("Tính năng liên kết công việc đang được mở rộng.")}
+                          className="flex flex-col items-center bg-[#f5a623] hover:bg-[#e09618] text-white px-1.5 py-4 rounded-l-xl shadow-md cursor-pointer select-none transition duration-150 active:scale-95"
+                        >
+                          <span className="text-[9px] font-extrabold uppercase tracking-wider [writing-mode:vertical-lr] mb-1">Công việc</span>
+                          <Plus className="h-3.5 w-3.5" />
+                        </div>
+                      </div>
+
+                      {/* Google Drive Breadcrumbs Navigation Row */}
+                      {!(selectedSpace === "personal" && !isConnected) && (
+                        <div className="h-12 px-8 border-b border-slate-100 bg-white flex items-center justify-between shrink-0">
+                          <div className="flex items-center gap-1.5 text-slate-500 flex-wrap text-left">
+                            {breadcrumbs.length > 0 && (
+                              <button
+                                onClick={() => {
+                                  const newBcs = [...breadcrumbs];
+                                  newBcs.pop();
+                                  setBreadcrumbs(newBcs);
+                                  setCurrentFolderId(newBcs.length === 0 ? "root" : newBcs[newBcs.length - 1].id);
+                                }}
+                                className="inline-flex items-center gap-1 text-xs font-bold text-slate-700 hover:text-slate-900 transition mr-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-2.5 py-1.5 cursor-pointer"
+                              >
+                                <span>← Quay lại</span>
+                              </button>
+                            )}
+                            
+                            <button
+                              onClick={() => {
+                                setBreadcrumbs([]);
+                                setCurrentFolderId("root");
+                              }}
+                              className={`text-sm font-bold transition hover:text-slate-800 ${
+                                currentFolderId === "root" ? "text-slate-800" : "text-slate-400"
+                              }`}
+                            >
+                              {selectedSpace === "personal" 
+                                ? (userProfile?.displayName || "Cá nhân") 
+                                : (rooms.find(r => r._id === selectedSpace)?.name || "Nhóm chung")
+                              }
+                            </button>
+
+                            {breadcrumbs.map((bc, idx) => (
+                              <React.Fragment key={bc.id}>
+                                <span className="text-slate-300 mx-1.5 text-sm">/</span>
+                                <button
+                                  onClick={() => {
+                                    const index = breadcrumbs.findIndex(x => x.id === bc.id);
+                                    const newBcs = breadcrumbs.slice(0, index + 1);
+                                    setBreadcrumbs(newBcs);
+                                    setCurrentFolderId(bc.id);
+                                  }}
+                                  className={`text-sm font-bold transition hover:text-slate-800 ${
+                                    idx === breadcrumbs.length - 1 ? "text-slate-800" : "text-slate-400"
+                                  }`}
+                                >
+                                  {bc.name}
+                                </button>
+                              </React.Fragment>
+                            ))}
+                          </div>
+
+                          {/* Share button moved to sub-breadcrumbs bar since it is specific to Drive shared spaces */}
+                          {canManagePermissions() && (
+                            <button
+                              onClick={() => {
+                                setShareSearchQuery("");
+                                setShowShareModal(true);
+                              }}
+                              className="px-3 py-1.5 hover:bg-slate-50 rounded-xl text-slate-600 hover:text-slate-900 border border-gray-200 transition active:scale-95 bg-white flex items-center gap-1.5 text-xs font-bold shadow-xs cursor-pointer"
+                              title="Quản lý phân quyền"
+                            >
+                              <Share2 className="h-4 w-4" />
+                              <span>Phân quyền</span>
+                            </button>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="flex-1 overflow-y-auto p-6 bg-white">
+                        {(selectedSpace === "personal" && !isConnected) ? (
+                          <div className="flex flex-col items-center justify-center py-16 bg-white/50 border border-dashed border-gray-200 rounded-3xl p-10 max-w-xl mx-auto mt-10 text-center">
+                            <div className="w-16 h-16 rounded-2xl bg-indigo-50 flex items-center justify-center text-blue-600 mb-4 shadow-inner">
+                              <HardDrive className="h-8 w-8" />
+                            </div>
+                            <h3 className="text-base font-bold text-gray-800">Chưa kết nối Google Drive</h3>
+                            <p className="text-xs text-gray-500 max-w-sm text-center mt-2 leading-relaxed">
+                              Nhân viên cần liên kết với tài khoản Google cá nhân của mình để kích hoạt không gian lưu trữ tài nguyên riêng biệt.
+                            </p>
+                            <button
+                              onClick={handleGoogleDriveOAuth}
+                              disabled={connectingGoogleDrive}
+                              className="mt-6 flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-lg transition-all duration-150 cursor-pointer disabled:opacity-60"
+                            >
+                              {connectingGoogleDrive ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 animate-spin text-white" />
+                                  <span>Đang kết nối...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <span>Kết nối Google Drive cá nhân ngay</span>
+                                  <ArrowUpRight className="h-4 w-4" />
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="h-full flex flex-col">
+                            {loading && filteredResources.length === 0 ? (
+                              <div className="flex-1 flex flex-col items-center justify-center py-20 text-center">
+                                <RefreshCw className="h-8 w-8 animate-spin text-[#008080]" />
+                                <p className="text-xs text-gray-500 mt-2 font-medium">Đang tải tài nguyên...</p>
+                              </div>
+                            ) : filteredResources.length === 0 ? (
+                              <div className="flex-1 flex flex-col items-center justify-center py-16 text-center">
+                                <EmptyStateIllustration />
+                                <p className="text-base font-bold text-slate-700 mt-6">Không có tài liệu nào</p>
+                                {canUpload() && (
+                                  <div className="relative">
+                                    <button
+                                      onClick={() => setShowAddMenu(!showAddMenu)}
+                                      className="mt-5 inline-flex items-center gap-2 px-6 py-2.5 bg-[#008080] hover:bg-[#006666] text-white rounded-xl text-sm font-bold shadow-md shadow-teal-500/10 transition duration-150 active:scale-95 cursor-pointer"
+                                    >
+                                      <Plus className="h-4 w-4" />
+                                      <span>Thêm mới</span>
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="flex flex-wrap gap-4 pb-32">
+                                {/* Folders first */}
+                                {filteredResources
+                                  .filter((r) => r.mimeType === "application/vnd.google-apps.folder")
+                                  .map((resource, idx) => renderResourceCard(resource, idx))}
+                                
+                                {/* Files after */}
+                                {filteredResources
+                                  .filter((r) => r.mimeType !== "application/vnd.google-apps.folder")
+                                  .map((resource, idx) => {
+                                    const foldersCount = filteredResources.filter(
+                                      (r) => r.mimeType === "application/vnd.google-apps.folder"
+                                    ).length;
+                                    return renderResourceCard(resource, foldersCount + idx);
+                                  })}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
-              )}
-            </div>
-          </div>
-        )
-      })()}
+              </div>
+            );
+          })()}
         </div>
       </div>
 
@@ -1643,6 +2673,456 @@ export default function ResourceTab() {
               >
                 {creatingFile && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                 Tạo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Link Modal Dialog */}
+      {showAddLinkModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden border border-slate-100 flex flex-col text-left relative animate-fadeIn">
+            {/* Close button X */}
+            <button
+              onClick={() => {
+                setShowAddLinkModal(false);
+                setLinkName("");
+                setLinkUrl("");
+              }}
+              className="absolute right-4 top-4 rounded-full p-1 text-slate-400 hover:bg-slate-100 transition cursor-pointer z-10"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <div className="p-6 pb-4">
+              <h3 className="text-base font-bold text-slate-800 mb-6">Thêm liên kết</h3>
+              
+              <div className="space-y-4">
+                {/* Trong */}
+                <div className="flex items-center gap-4">
+                  <span className="w-16 text-xs font-bold text-slate-400">Trong</span>
+                  <span className="text-xs font-bold text-slate-800">
+                    {selectedSpace === "personal" 
+                      ? "Kho lưu trữ của tôi" 
+                      : (rooms.find(r => r._id === selectedSpace)?.name || "Thư mục hiện tại")
+                    }
+                  </span>
+                </div>
+
+                {/* Tên */}
+                <div className="flex items-center gap-4">
+                  <span className="w-16 text-xs font-bold text-slate-400">Tên</span>
+                  <input
+                    type="text"
+                    value={linkName}
+                    onChange={(e) => setLinkName(e.target.value)}
+                    placeholder="Nhập tên hiển thị..."
+                    className="flex-1 text-xs rounded-xl border border-slate-200 px-4 py-2.5 outline-hidden focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10 font-semibold text-slate-700"
+                  />
+                </div>
+
+                {/* URL */}
+                <div className="flex items-center gap-4">
+                  <span className="w-16 text-xs font-bold text-slate-400">URL</span>
+                  <input
+                    type="text"
+                    value={linkUrl}
+                    onChange={(e) => setLinkUrl(e.target.value)}
+                    placeholder="https://example.com"
+                    className="flex-1 text-xs rounded-xl border border-slate-200 px-4 py-2.5 outline-hidden focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10 font-semibold text-slate-700"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Footer buttons */}
+            <div className="flex justify-end gap-2.5 px-6 py-4 bg-slate-50/50 border-t border-slate-100">
+              <button
+                onClick={() => {
+                  setShowAddLinkModal(false);
+                  setLinkName("");
+                  setLinkUrl("");
+                }}
+                className="px-5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition active:scale-95 cursor-pointer"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleSaveLink}
+                disabled={savingLink || !linkName.trim() || !linkUrl.trim()}
+                className="px-5 py-2.5 rounded-xl bg-[#008080] hover:bg-[#006666] text-xs font-bold text-white transition active:scale-95 disabled:opacity-55 flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                {savingLink && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                Lưu
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Note Modal Dialog */}
+      {showAddNoteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-3xl w-full max-w-5xl h-[85vh] shadow-2xl overflow-hidden border border-slate-100 flex flex-col text-left relative animate-fadeIn">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-bold text-slate-800">Thêm ghi chú</h3>
+                <span className="text-xs text-slate-400">
+                  Trong{" "}
+                  <strong className="text-slate-600">
+                    {selectedSpace === "personal" 
+                      ? "Kho lưu trữ của tôi" 
+                      : (rooms.find(r => r._id === selectedSpace)?.name || "Thư mục hiện tại")
+                    }
+                  </strong>
+                </span>
+              </div>
+              <button
+                onClick={() => {
+                  setShowAddNoteModal(false);
+                  setNoteTitle("");
+                  setNoteContent("");
+                }}
+                className="rounded-full p-1 text-slate-400 hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Interactive Toolbars matching mockup */}
+            <div className="bg-slate-50/70 border-b border-slate-100 px-6 py-2 flex flex-wrap items-center gap-3 select-none">
+              
+              {/* Text formatting styles (A A A A) with inline colors */}
+              <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl p-1 shadow-2xs">
+                {[
+                  { color: "#000000", label: "A" },
+                  { color: "#ef4444", label: "A" },
+                  { color: "#22c55e", label: "A" },
+                  { color: "#3b82f6", label: "A" }
+                ].map((item, idx) => (
+                  <button 
+                    key={idx} 
+                    onClick={() => {
+                      setNoteTool("text");
+                      setNoteColor(item.color);
+                    }}
+                    style={{ color: item.color }}
+                    className={`h-7 w-7 rounded-lg flex items-center justify-center text-sm font-extrabold transition active:scale-95 cursor-pointer ${
+                      noteTool === "text" && noteColor === item.color
+                        ? "bg-slate-100 ring-2 ring-slate-300"
+                        : "hover:bg-slate-50"
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Arrow symbols colors with inline colors */}
+              <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl p-1 shadow-2xs">
+                {[
+                  { color: "#ef4444", label: "↗" },
+                  { color: "#22c55e", label: "↗" },
+                  { color: "#3b82f6", label: "↗" }
+                ].map((item, idx) => (
+                  <button 
+                    key={idx} 
+                    onClick={() => {
+                      setNoteTool("arrow");
+                      setNoteColor(item.color);
+                    }}
+                    style={{ color: item.color }}
+                    className={`h-7 w-7 rounded-lg flex items-center justify-center text-sm font-extrabold transition active:scale-95 cursor-pointer ${
+                      noteTool === "arrow" && noteColor === item.color
+                        ? "bg-slate-100 ring-2 ring-slate-300"
+                        : "hover:bg-slate-50"
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Shape boxes color options with inline colors */}
+              <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl p-1 shadow-2xs">
+                {[
+                  { color: "#ef4444" },
+                  { color: "#22c55e" },
+                  { color: "#3b82f6" }
+                ].map((item, idx) => (
+                  <button 
+                    key={idx} 
+                    onClick={() => {
+                      setNoteTool("rect");
+                      setNoteColor(item.color);
+                    }}
+                    className={`h-7 w-7 rounded-lg flex items-center justify-center transition active:scale-95 cursor-pointer ${
+                      noteTool === "rect" && noteColor === item.color
+                        ? "bg-slate-100 ring-2 ring-slate-300"
+                        : "hover:bg-slate-50"
+                    }`}
+                  >
+                    <div 
+                      style={{ borderColor: item.color }}
+                      className="h-4 w-4 rounded-xs border-2" 
+                    />
+                  </button>
+                ))}
+              </div>
+
+              {/* Pen Free Draw Tool with Dropdown */}
+              <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl p-1 shadow-2xs">
+                <button
+                  onClick={() => {
+                    setNoteTool("draw");
+                  }}
+                  className={`h-7 w-7 rounded-lg flex items-center justify-center transition active:scale-95 cursor-pointer ${
+                    noteTool === "draw" ? "bg-slate-100 ring-2 ring-slate-300" : "hover:bg-slate-50"
+                  }`}
+                  title="Cái bút vẽ tự do"
+                >
+                  <Pencil className="h-4 w-4 text-slate-700" />
+                </button>
+
+                <select
+                  value={noteColor}
+                  onChange={(e) => {
+                    setNoteColor(e.target.value);
+                    setNoteTool("draw");
+                  }}
+                  className="text-[10px] bg-slate-50 border border-slate-200 rounded-lg py-0.5 px-1 font-bold text-slate-700 focus:outline-hidden cursor-pointer"
+                >
+                  <option value="#000000">Đen</option>
+                  <option value="#ef4444">Đỏ</option>
+                  <option value="#22c55e">Xanh lá</option>
+                  <option value="#3b82f6">Xanh dương</option>
+                  <option value="#f59e0b">Vàng</option>
+                  <option value="#8b5cf6">Tím</option>
+                </select>
+              </div>
+
+              {/* Đường nét thẳng */}
+              <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl p-1 shadow-2xs">
+                <button
+                  onClick={() => {
+                    setNoteTool("line");
+                  }}
+                  className={`h-7 w-7 rounded-lg flex items-center justify-center transition active:scale-95 cursor-pointer ${
+                    noteTool === "line" ? "bg-slate-100 ring-2 ring-slate-300" : "hover:bg-slate-50"
+                  }`}
+                  title="Vẽ đường nét thẳng"
+                >
+                  <span className="text-base font-extrabold italic select-none" style={{ color: noteColor }}>╱</span>
+                </button>
+              </div>
+
+              {/* Tải ảnh lên */}
+              <button
+                onClick={() => noteImageInputRef.current?.click()}
+                className="h-9 px-3 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl flex items-center gap-1.5 text-xs font-bold text-slate-600 transition active:scale-95 shadow-2xs cursor-pointer"
+                title="Tải ảnh lên"
+              >
+                <ImageIcon className="h-4 w-4 text-emerald-500" />
+                <span>Tải ảnh lên</span>
+              </button>
+              <input
+                type="file"
+                ref={noteImageInputRef}
+                accept="image/*"
+                onChange={handleNoteImageUpload}
+                className="hidden"
+              />
+
+              {/* Đồng ý chèn ảnh */}
+              {editingImage && (
+                <button
+                  onClick={confirmApplyImage}
+                  className="h-9 px-3 bg-emerald-500 hover:bg-emerald-600 rounded-xl flex items-center gap-1 text-xs font-bold text-white transition active:scale-95 shadow-md cursor-pointer animate-pulse"
+                >
+                  <span>✓ Xác nhận chèn ảnh</span>
+                </button>
+              )}
+
+              {/* Undo / Redo - To hơn */}
+              <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl p-1 shadow-2xs ml-auto">
+                <button 
+                  onClick={handleNoteUndo}
+                  className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-slate-50 text-slate-700 active:scale-95 transition cursor-pointer"
+                  title="Hoàn tác (Undo)"
+                >
+                  <Undo2 className="h-5.5 w-5.5 stroke-[2.5]" />
+                </button>
+                <button 
+                  onClick={handleNoteRedo}
+                  className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-slate-50 text-slate-700 active:scale-95 transition cursor-pointer"
+                  title="Làm lại (Redo)"
+                >
+                  <Redo2 className="h-5.5 w-5.5 stroke-[2.5]" />
+                </button>
+              </div>
+            </div>
+
+            {/* Note Editor Area (Title + Canvas) */}
+            <div className="flex-1 p-6 flex flex-col gap-4 overflow-hidden relative">
+              <input
+                type="text"
+                value={noteTitle}
+                onChange={(e) => setNoteTitle(e.target.value)}
+                placeholder="Tiêu đề ghi chú..."
+                className="w-full text-lg font-bold text-slate-800 outline-hidden border-b border-slate-100 pb-2 placeholder-slate-300"
+              />
+              
+              {/* Canvas Wrapper */}
+              <div className="flex-1 border border-slate-200/80 rounded-2xl overflow-hidden relative bg-white shadow-inner flex">
+                <canvas 
+                  ref={canvasRef}
+                  onMouseDown={handleCanvasMouseDown}
+                  onMouseMove={handleCanvasMouseMove}
+                  onMouseUp={handleCanvasMouseUp}
+                  onClick={handleCanvasClick}
+                  style={{
+                    cursor: noteTool === "draw" 
+                      ? "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' style='font-size:24px'><text y='24'>✏️</text></svg>\") 0 24, auto"
+                      : "crosshair"
+                  }}
+                  className="flex-1 h-full"
+                />
+
+                {/* Absolute Text Input overlay for 'text' tool */}
+                {noteTextInput.isOpen && (
+                  <input
+                    ref={textInputRef}
+                    type="text"
+                    value={noteTextInput.value}
+                    onChange={(e) => setNoteTextInput(prev => ({ ...prev, value: e.target.value }))}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleSaveTextInput();
+                      if (e.key === "Escape") {
+                        setNoteTextInput({ isOpen: false, x: 0, y: 0, value: "" });
+                      }
+                    }}
+                    onBlur={handleSaveTextInput}
+                    style={{
+                      position: "absolute",
+                      left: noteTextInput.x,
+                      top: noteTextInput.y - 12,
+                      color: noteColor,
+                      font: "bold 16px Arial, Helvetica, sans-serif",
+                      background: "transparent",
+                      border: "none",
+                      outline: "none",
+                      padding: 0,
+                      margin: 0,
+                      zIndex: 30,
+                    }}
+                    placeholder="..."
+                  />
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end gap-2.5 px-6 py-4 bg-slate-50/50 border-t border-slate-100">
+              <button
+                onClick={() => {
+                  setShowAddNoteModal(false);
+                  setNoteTitle("");
+                  setNoteContent("");
+                }}
+                className="px-5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition active:scale-95 cursor-pointer"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleSaveNote}
+                disabled={savingNote}
+                className="px-5 py-2.5 rounded-xl bg-[#008080] hover:bg-[#006666] text-xs font-bold text-white transition active:scale-95 disabled:opacity-55 flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                {savingNote && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                Lưu
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Audio Modal Dialog */}
+      {showAddAudioModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden border border-slate-100 flex flex-col text-left relative animate-fadeIn">
+            {/* Close button X */}
+            <button
+              onClick={cancelRecording}
+              className="absolute right-4 top-4 rounded-full p-1 text-slate-400 hover:bg-slate-100 transition cursor-pointer"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <div className="p-6 flex flex-col items-center">
+              <div className="w-full flex items-center gap-2 mb-6">
+                <h3 className="text-base font-bold text-slate-800">Thêm ghi âm</h3>
+                <span className="text-[10px] text-slate-400">
+                  Trong{" "}
+                  <strong className="text-slate-600">
+                    {selectedSpace === "personal" 
+                      ? "Kho lưu trữ của tôi" 
+                      : (rooms.find(r => r._id === selectedSpace)?.name || "Thư mục hiện tại")
+                    }
+                  </strong>
+                </span>
+              </div>
+
+              {/* Big mic indicator */}
+              <div className="relative flex items-center justify-center my-6 select-none">
+                {/* Wave circle effect when recording */}
+                {isRecording && (
+                  <div className="absolute h-24 w-24 rounded-full bg-red-100 border-2 border-red-200 animate-ping opacity-75"></div>
+                )}
+                
+                <button
+                  onClick={isRecording ? stopRecording : startRecording}
+                  disabled={savingAudio}
+                  className={`h-20 w-20 rounded-full flex items-center justify-center shadow-lg transition active:scale-95 cursor-pointer z-10 ${
+                    isRecording 
+                      ? "bg-red-500 hover:bg-red-600 text-white" 
+                      : "bg-[#e0f2f1] hover:bg-[#b2dfdb] text-[#008080]"
+                  }`}
+                >
+                  <Mic className={`h-8 w-8 ${isRecording ? "animate-pulse" : ""}`} />
+                </button>
+              </div>
+
+              {/* Timer displaying 00:00:00 */}
+              <div className="text-lg font-bold text-orange-500 mb-2">
+                {new Date(recordingSeconds * 1000).toISOString().substr(11, 8)}
+              </div>
+
+              <div className="text-xs text-slate-400 text-center font-medium mb-2">
+                {isRecording ? "Đang ghi âm..." : "Nhấn nút để bắt đầu ghi âm"}
+              </div>
+
+              <div className="text-[10px] text-slate-400 text-center font-semibold bg-slate-50 px-3 py-1 rounded-full border border-slate-100">
+                Thời gian ghi âm tối đa: 180s
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end gap-2.5 px-6 py-4 bg-slate-50/50 border-t border-slate-100 w-full">
+              <button
+                onClick={cancelRecording}
+                className="px-5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition active:scale-95 cursor-pointer"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={stopRecording}
+                disabled={!isRecording || savingAudio}
+                className="px-5 py-2.5 rounded-xl bg-[#7bc8c4] hover:bg-[#5bb8b4] text-xs font-bold text-white transition active:scale-95 disabled:opacity-55 flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                {savingAudio && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                Hoàn tất
               </button>
             </div>
           </div>

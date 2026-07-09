@@ -7,6 +7,12 @@ import { Schema, model, Document } from "mongoose";
  *  - section = "drive": tài liệu Google Drive (lưu link chia sẻ)
  * Cấu trúc cây nhờ parentId (null = thư mục gốc của section).
  */
+export interface IResourceShare {
+  targetId: string;
+  targetType: "user" | "room";
+  targetName: string;
+}
+
 export interface IResourceItem extends Document {
   companyCode: string;
   section: "local" | "drive";
@@ -20,6 +26,10 @@ export interface IResourceItem extends Document {
   creatorUid?: string;
   creatorName?: string;
   isFixed?: boolean;
+  isDeleted?: boolean;
+  deletedAt?: Date | null;
+  roomId?: string | null;
+  shares?: IResourceShare[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -42,6 +52,19 @@ const ResourceItemSchema = new Schema<IResourceItem>(
     creatorUid: { type: String, default: "" },
     creatorName: { type: String, default: "" },
     isFixed: { type: Boolean, default: false },
+    isDeleted: { type: Boolean, default: false, index: true },
+    deletedAt: { type: Date, default: null, expires: "15d", index: true },
+    roomId: { type: String, default: null, index: true },
+    shares: {
+      type: [
+        {
+          targetId: { type: String, required: true },
+          targetType: { type: String, enum: ["user", "room"], required: true },
+          targetName: { type: String, default: "" },
+        },
+      ],
+      default: [],
+    },
   },
   { timestamps: true }
 );

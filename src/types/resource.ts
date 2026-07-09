@@ -16,6 +16,10 @@ export interface ResourceItem {
   creatorUid?: string;
   creatorName?: string;
   isFixed?: boolean;
+  isDeleted?: boolean;
+  deletedAt?: string;
+  isShared?: boolean; // true nếu item này được chia sẻ cho user hiện tại bởi người khác
+  shares?: Array<{ targetId: string; targetType: "user" | "room"; targetName: string }>;
   createdAt: string;
   updatedAt: string;
 }

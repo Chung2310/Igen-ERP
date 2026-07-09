@@ -225,6 +225,9 @@ const getUsersSchema = {
   }),
 };
 
+// Lấy danh sách thành viên cùng công ty cho tất cả user (để dùng trong tính năng chia sẻ tài nguyên, chat...)
+authRouter.get("/users/colleagues", requireAuth as any, authController.getColleagues as any);
+
 // Lấy danh sách thành viên doanh nghiệp (yêu cầu Access Token và quyền user:read)
 authRouter.get("/users", requireAuth as any, requirePermission("user:read") as any, validateRequest(getUsersSchema), authController.getUsers as any);
 

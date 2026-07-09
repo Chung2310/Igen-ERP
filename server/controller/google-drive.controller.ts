@@ -196,17 +196,22 @@ export const googleDriveController = {
    */
   async getResources(req: AuthenticatedRequest, res: Response) {
     try {
-      const userId = req.user?.id;
+      let userId = req.user?.id;
       const companyCode = req.user?.companyCode || "SYSTEM";
       const folderId = req.query.folderId as string;
+      const userRole = req.user?.role;
 
       if (!userId) {
         return res.status(401).json({ status: "error", message: "Thông tin xác thực không hợp lệ." });
       }
 
+      if ((userRole === "admin" || userRole === "superadmin") && req.query.ownerId) {
+        userId = req.query.ownerId as string;
+      }
+
       const user = await UserModel.findById(userId);
       if (!user || !user.googleDriveIntegration || !user.googleDriveIntegration.isConnected) {
-        return res.status(400).json({ status: "error", message: "Tài khoản của bạn chưa kết nối Google Drive." });
+        return res.status(400).json({ status: "error", message: "Tài khoản chưa kết nối Google Drive." });
       }
 
       const authClient = await GoogleDriveService.getClientForUser(userId);
@@ -256,12 +261,17 @@ export const googleDriveController = {
    */
   async uploadResource(req: AuthenticatedRequest, res: Response) {
     try {
-      const userId = req.user?.id;
+      let userId = req.user?.id;
       const companyCode = req.user?.companyCode || "SYSTEM";
-      const { file, name, mimeType, folderId } = req.body;
+      const { file, name, mimeType, folderId, ownerId } = req.body;
+      const userRole = req.user?.role;
 
       if (!userId) {
         return res.status(401).json({ status: "error", message: "Người dùng chưa xác thực." });
+      }
+
+      if ((userRole === "admin" || userRole === "superadmin") && ownerId) {
+        userId = ownerId;
       }
 
       if (!file || !name || !mimeType) {
@@ -275,7 +285,7 @@ export const googleDriveController = {
       if (!user || !user.googleDriveIntegration || !user.googleDriveIntegration.rootFolderId) {
         return res.status(400).json({
           status: "error",
-          message: "Tài khoản của bạn chưa liên kết Google Drive hoặc cấu hình thư mục lỗi.",
+          message: "Tài khoản chưa liên kết Google Drive hoặc cấu hình thư mục lỗi.",
         });
       }
 
@@ -418,6 +428,14 @@ export const googleDriveController = {
       });
 
       const files = response.data.files || [];
+      const driveFileIds = files.map((f: any) => f.id);
+      const dbResources = await ResourceModel.find({
+        companyCode,
+        driveFileId: { $in: driveFileIds }
+      }).select("driveFileId uploadedBy").lean();
+
+      const resourceOwnerMap = new Map(dbResources.map(r => [r.driveFileId, String(r.uploadedBy)]));
+
       const mappedResources = files.map((file: any) => ({
         _id: file.id,
         name: file.name,
@@ -428,6 +446,7 @@ export const googleDriveController = {
         thumbnailLink: file.thumbnailLink,
         size: file.size ? parseInt(file.size, 10) : undefined,
         createdAt: file.createdTime,
+        uploadedBy: resourceOwnerMap.get(file.id)
       }));
 
       return res.status(200).json({
@@ -660,7 +679,9 @@ export const googleDriveController = {
         const chatRoom = await ChatRoomModel.findOne({ _id: resource.chatRoomId, companyCode });
         if (chatRoom) {
           const memberInfo = chatRoom.members.find(m => m.userId.toString() === userId);
-          if (memberInfo?.role === "admin") {
+          const isRoomAdmin = memberInfo?.role === "admin";
+          const isCreator = chatRoom.creatorId.toString() === userId;
+          if (isRoomAdmin || isCreator) {
             isAllowed = true;
           }
         }
@@ -906,12 +927,16 @@ export const googleDriveController = {
         authClient = adminInfo.authClient;
       } else {
         // Cá nhân
-        const user = await UserModel.findById(userId);
+        let targetUserId = userId;
+        if ((req.user?.role === "admin" || req.user?.role === "superadmin") && req.body.ownerId) {
+          targetUserId = req.body.ownerId;
+        }
+        const user = await UserModel.findById(targetUserId);
         if (!user || !user.googleDriveIntegration || !user.googleDriveIntegration.isConnected) {
-          return res.status(400).json({ status: "error", message: "Tài khoản của bạn chưa kết nối Google Drive." });
+          return res.status(400).json({ status: "error", message: "Tài khoản chưa kết nối Google Drive." });
         }
         parentId = (folderId && folderId !== "root" && folderId !== "personal") ? folderId : user.googleDriveIntegration.rootFolderId;
-        authClient = await GoogleDriveService.getClientForUser(userId);
+        authClient = await GoogleDriveService.getClientForUser(targetUserId);
       }
 
       // 2. Xử lý tạo tệp theo loại
@@ -1002,7 +1027,7 @@ export const googleDriveController = {
       // 3. Lưu vào Database
       const resource = await ResourceModel.create({
         companyCode,
-        uploadedBy: userId,
+        uploadedBy: ((req.user?.role === "admin" || req.user?.role === "superadmin") && req.body.ownerId) ? req.body.ownerId : userId,
         name,
         mimeType,
         driveFileId,
