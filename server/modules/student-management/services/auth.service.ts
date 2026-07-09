@@ -5,8 +5,7 @@ import { IUser } from "../interfaces/user.interface";
 import { logger } from "../config/logger";
 import { SmsSettingsPayload, SmsSettingsService } from "./sms-settings.service";
 
-const ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || "your_jwt_access_secret_key_should_be_long_and_secure_12345";
-const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || "your_jwt_refresh_secret_key_should_be_long_and_secure_67890";
+import { getJwtAccessSecret, getJwtRefreshSecret } from "../../../config/env";
 
 interface RegisterData {
   email: string;
@@ -96,13 +95,13 @@ export class AuthService {
 
     const accessToken = jwt.sign(
       { uid: user._id, email: user.email, role: user.role, centerId: user.centerId },
-      ACCESS_SECRET,
+      getJwtAccessSecret(),
       { expiresIn: "15m" }
     );
 
     const refreshToken = jwt.sign(
       { uid: user._id, email: user.email, role: user.role, centerId: user.centerId },
-      REFRESH_SECRET,
+      getJwtRefreshSecret(),
       { expiresIn: "7d" }
     );
 
@@ -117,7 +116,7 @@ export class AuthService {
 
   static async verifyRefreshToken(token: string) {
     try {
-      const decoded = jwt.verify(token, REFRESH_SECRET) as {
+      const decoded = jwt.verify(token, getJwtRefreshSecret()) as {
         uid: string;
         email: string;
         role: "superadmin" | "admin" | "user";
@@ -135,7 +134,7 @@ export class AuthService {
 
       const accessToken = jwt.sign(
         { uid: user._id, email: user.email, role: user.role, centerId: user.centerId },
-        ACCESS_SECRET,
+        getJwtAccessSecret(),
         { expiresIn: "15m" }
       );
 

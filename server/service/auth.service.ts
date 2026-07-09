@@ -11,8 +11,7 @@ import { ICompany } from "../interface/company.interface";
 import { TelegramLinkStatus } from "../interface/telegram-link.interface";
 import { getCompanyHeyGenLibrary } from "./heygen.service";
 
-const ACCESS_TOKEN_SECRET = process.env.JWT_ACCESS_SECRET || "your_jwt_access_secret_key";
-const REFRESH_TOKEN_SECRET = process.env.JWT_REFRESH_SECRET || "your_jwt_refresh_secret_key";
+import { getJwtAccessSecret, getJwtRefreshSecret } from "../config/env";
 const TELEGRAM_LINK_CODE_TTL_MS = 5 * 60 * 1000;
 
 function generateTelegramLinkCode() {
@@ -59,8 +58,8 @@ export const authService = {
       companyCode: user.companyCode,
     };
 
-    const accessToken = jwt.sign(payload, ACCESS_TOKEN_SECRET, { expiresIn: "15m" });
-    const refreshToken = jwt.sign(payload, REFRESH_TOKEN_SECRET, { expiresIn: "7d" });
+    const accessToken = jwt.sign(payload, getJwtAccessSecret(), { expiresIn: "15m" });
+    const refreshToken = jwt.sign(payload, getJwtRefreshSecret(), { expiresIn: "7d" });
 
     return { accessToken, refreshToken };
   },
@@ -119,7 +118,7 @@ export const authService = {
    */
   async refresh(token: string) {
     try {
-      const decoded = jwt.verify(token, REFRESH_TOKEN_SECRET) as any;
+      const decoded = jwt.verify(token, getJwtRefreshSecret()) as any;
       const user = await UserModel.findById(decoded.id);
 
       if (!user) {
@@ -133,7 +132,7 @@ export const authService = {
         companyCode: user.companyCode,
       };
 
-      const accessToken = jwt.sign(payload, ACCESS_TOKEN_SECRET, { expiresIn: "15m" });
+      const accessToken = jwt.sign(payload, getJwtAccessSecret(), { expiresIn: "15m" });
       return { accessToken };
     } catch (error) {
       throw new Error("Mã làm mới (Refresh Token) đã hết hạn hoặc không hợp lệ.");

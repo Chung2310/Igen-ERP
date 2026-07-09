@@ -8,9 +8,20 @@ import { PermissionModel } from "../model/permission.model";
  */
 async function seedSuperAdmin() {
   try {
-    const saEmail = (process.env.VITE_SUPERADMIN_EMAIL || "superadmin@igen.com").toLowerCase().trim();
-    const saPassword = process.env.VITE_SUPERADMIN_PASSWORD || "superadmin123";
-    const saName = process.env.VITE_SUPERADMIN_NAME || "Super Admin";
+    // Đọc SUPERADMIN_* (tên cũ VITE_SUPERADMIN_* vẫn được chấp nhận để tương thích,
+    // nhưng không nên dùng: tiền tố VITE_ khiến biến có nguy cơ bị đưa vào bundle frontend).
+    const saEmail = (process.env.SUPERADMIN_EMAIL || process.env.VITE_SUPERADMIN_EMAIL || "")
+      .toLowerCase()
+      .trim();
+    const saPassword = process.env.SUPERADMIN_PASSWORD || process.env.VITE_SUPERADMIN_PASSWORD || "";
+    const saName = process.env.SUPERADMIN_NAME || process.env.VITE_SUPERADMIN_NAME || "Super Admin";
+
+    if (!saEmail || !saPassword) {
+      console.warn(
+        "[Backend Database] Bỏ qua seed Super Admin: chưa cấu hình SUPERADMIN_EMAIL / SUPERADMIN_PASSWORD."
+      );
+      return;
+    }
 
     // 1. Kiểm tra xem đã có bất kỳ tài khoản superadmin nào trong hệ thống chưa
     const existingSA = await UserModel.findOne({ role: "superadmin" });
