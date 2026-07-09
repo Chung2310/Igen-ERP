@@ -3,20 +3,26 @@ import {
   AlertTriangle,
   ArrowDownRight,
   ArrowUpRight,
+  BookOpen,
   Bot,
   BrainCircuit,
   CheckCircle,
   Clock,
   DollarSign,
   Filter,
+  FolderOpen,
+  GraduationCap,
+  KanbanSquare,
   Lightbulb,
   Megaphone,
+  MessageSquare,
   MoreVertical,
   PackageCheck,
   Rocket,
   Sparkles,
   ThumbsUp,
   Users,
+  Wallet,
   X,
   MapPin,
   UserCheck,
@@ -27,8 +33,10 @@ import { inventoryProductService } from "../services/inventoryProductService";
 import { inventoryStockLogService } from "../services/inventoryStockLogService";
 import { marketingService } from "../services/marketingService";
 import { crmService } from "../services/crmService";
+import { dashboardService } from "../services/dashboardService";
 import { toast } from "../pages/Toast";
 import { UserProfile, ContentApprovalCard } from "../types";
+import { DashboardSummary } from "../types/dashboard";
 import LowStockModal from "../components/inventory/LowStockModal";
 import { isTabHidden } from "../config/modules";
 
@@ -351,6 +359,31 @@ export default function DashboardTab() {
       fetchTodayTimekeeping();
     }
   }, [userProfile]);
+
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
+
+  useEffect(() => {
+    if (!userProfile) return;
+    let cancelled = false;
+
+    const loadSummary = () => {
+      dashboardService
+        .getSummary({ filter: dateFilter, startDate: customStartDate, endDate: customEndDate })
+        .then((data) => {
+          if (!cancelled) setSummary(data);
+        })
+        .catch((err) => {
+          console.error("Lỗi tải dữ liệu tổng quan module:", err);
+        });
+    };
+
+    loadSummary();
+    const intervalId = setInterval(loadSummary, 30000);
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+    };
+  }, [userProfile?.uid, dateFilter, customStartDate, customEndDate]);
 
   // Master calculation useEffect to filter data dynamically by date range
   useEffect(() => {
@@ -934,6 +967,7 @@ export default function DashboardTab() {
           todayTimekeeping={todayTimekeeping}
           isTimekeepingLoading={isTimekeepingLoading}
           onRefreshTimekeeping={fetchTodayTimekeeping}
+          summary={summary}
         />
       )}
       {activeView === "revenue" && (
@@ -978,6 +1012,7 @@ function OverviewPanel({
   todayTimekeeping,
   isTimekeepingLoading,
   onRefreshTimekeeping,
+  summary,
 }: {
   employeeCount: string;
   employeeLabel: string;
@@ -1004,6 +1039,7 @@ function OverviewPanel({
   todayTimekeeping: any;
   isTimekeepingLoading: boolean;
   onRefreshTimekeeping: () => void;
+  summary: DashboardSummary | null;
 }) {
   const [showLowStockModal, setShowLowStockModal] = useState<boolean>(false);
   const [showPendingReviewModal, setShowPendingReviewModal] = useState<boolean>(false);
@@ -1019,6 +1055,9 @@ function OverviewPanel({
       "QUẢN TRỊ USER": "/quan-tri-user",
       "CÀI ĐẶT": "/cai-dat",
       "VÍ & NẠP TIỀN": "/vi-nap-tien",
+      "QUẢN LÝ HỌC VIÊN": "/quan-ly-hoc-vien",
+      "TRÒ CHUYỆN": "/tro-chuyen",
+      "QUẢN LÝ TÀI NGUYÊN": "/quan-ly-tai-nguyen",
     };
     const path = pathMap[tab];
     if (path) {
@@ -1064,6 +1103,116 @@ function OverviewPanel({
           {!isTabHidden("SALES CRM") && (
             <SalesCard value={formatDashboardCurrency(totalRevenue, 1, false)} leadsCount={leadsCount} />
           )}
+        </div>
+
+        {/* Số liệu các module còn lại — dữ liệu tổng hợp từ /api/v1/dashboard/summary */}
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+          <ModuleCard
+            icon={KanbanSquare}
+            tone="indigo"
+            title="Dự án & Công việc"
+            value={summary ? String(summary.projects.tasks.doing) : "..."}
+            label="Task đang làm"
+            footer="Dự án hoạt động"
+            footerValue={summary ? String(summary.projects.activeProjects) : "..."}
+            progress={
+              summary && summary.projects.tasks.total > 0
+                ? Math.round((summary.projects.tasks.done / summary.projects.tasks.total) * 100)
+                : 0
+            }
+            alert
+            lowCount={summary ? String(summary.projects.overdueTasks) : "..."}
+            onClick={() => goToTab("NHÂN SỰ")}
+          />
+          <ModuleCard
+            icon={GraduationCap}
+            tone="emerald"
+            title="Học viên"
+            value={summary ? String(summary.students.totalStudents) : "..."}
+            label="Tổng học viên"
+            footer="Học viên mới trong kỳ"
+            footerValue={summary ? `+${summary.students.newStudents}` : "..."}
+            progress={
+              summary && summary.students.totalStudents > 0
+                ? Math.min(100, Math.round((summary.students.newStudents / summary.students.totalStudents) * 100))
+                : 0
+            }
+            onClick={() => goToTab("QUẢN LÝ HỌC VIÊN")}
+          />
+          <ModuleCard
+            icon={Wallet}
+            tone="amber"
+            title="Học phí & Công nợ"
+            value={summary ? formatDashboardCurrency(summary.students.tuitionRevenue, 1, false) : "..."}
+            label="Học phí đã thu"
+            footer="Công nợ còn lại"
+            footerValue={summary ? formatDashboardCurrency(summary.students.outstandingDebt, 1, false) : "..."}
+            progress={
+              summary && summary.students.tuitionRevenue + summary.students.outstandingDebt > 0
+                ? Math.round(
+                  (summary.students.tuitionRevenue /
+                    (summary.students.tuitionRevenue + summary.students.outstandingDebt)) *
+                  100
+                )
+                : 0
+            }
+            onClick={() => goToTab("QUẢN LÝ HỌC VIÊN")}
+          />
+          <ModuleCard
+            icon={UserCheck}
+            tone="blue"
+            title="Chấm công hôm nay"
+            value={summary ? `${summary.timekeeping.checkedInToday}/${summary.timekeeping.totalEmployees}` : "..."}
+            label="Đã điểm danh"
+            footer="Đi muộn"
+            footerValue={summary ? String(summary.timekeeping.lateToday) : "..."}
+            progress={
+              summary && summary.timekeeping.totalEmployees > 0
+                ? Math.round((summary.timekeeping.checkedInToday / summary.timekeeping.totalEmployees) * 100)
+                : 0
+            }
+          />
+          <ModuleCard
+            icon={MessageSquare}
+            tone="slate"
+            title="Trò chuyện"
+            value={summary ? String(summary.chat.unreadMessages) : "..."}
+            label="Tin chưa đọc"
+            footer="Phòng chat tham gia"
+            footerValue={summary ? String(summary.chat.roomCount) : "..."}
+            progress={summary && summary.chat.unreadMessages > 0 ? 100 : 0}
+            onClick={() => goToTab("TRÒ CHUYỆN")}
+          />
+          <ModuleCard
+            icon={FolderOpen}
+            tone="indigo"
+            title="Tài nguyên"
+            value={summary ? String(summary.resources.fileCount) : "..."}
+            label="Tổng số file"
+            footer="Tải lên trong kỳ"
+            footerValue={summary ? `+${summary.resources.recentUploads}` : "..."}
+            progress={
+              summary && summary.resources.fileCount > 0
+                ? Math.min(100, Math.round((summary.resources.recentUploads / summary.resources.fileCount) * 100))
+                : 0
+            }
+            onClick={() => goToTab("QUẢN LÝ TÀI NGUYÊN")}
+          />
+          <ModuleCard
+            icon={BookOpen}
+            tone="emerald"
+            title="Đào tạo"
+            value={summary ? String(summary.training.ongoingCourses) : "..."}
+            label="Khóa đang diễn ra"
+            footer="Lượt ghi danh"
+            footerValue={summary ? String(summary.training.enrollments.total) : "..."}
+            progress={
+              summary && summary.training.enrollments.total > 0
+                ? Math.round((summary.training.enrollments.completed / summary.training.enrollments.total) * 100)
+                : 0
+            }
+            onClick={() => goToTab("NHÂN SỰ")}
+          />
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">

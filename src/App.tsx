@@ -9,6 +9,7 @@ import { SEOHead } from "./seo/SEOHead";
 import { AUTH_SEO, getSeoForTab } from "./seo/seo-config";
 import { AppRouterView, useTabRouter } from "./router";
 import { socketService } from "./services/socketService";
+import { NotificationToastContainer } from "./components/notification/NotificationToastContainer";
 
 const AuthPage = lazy(() => import("./pages/AuthPage"));
 const ChatbotWidget = lazy(() =>
@@ -141,6 +142,9 @@ function AppContent() {
       <Suspense fallback={null}>
         <ChatbotWidget />
       </Suspense>
+
+      {/* Popup thông báo nổi thời gian thực ở góc dưới bên phải màn hình */}
+      <NotificationToastContainer onNavigate={handleSearchNavigation} />
     </div>
   );
 }

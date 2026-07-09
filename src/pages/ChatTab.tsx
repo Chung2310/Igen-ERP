@@ -638,11 +638,13 @@ export default function ChatTab() {
       isNearBottomRef.current = true;
       // Join socket room
       socketService.emit("join_chat_room", { roomId: activeRoom._id });
+      sessionStorage.setItem("activeRoomId", activeRoom._id);
     }
     return () => {
       if (activeRoom) {
         // Leave socket room
         socketService.emit("leave_chat_room", { roomId: activeRoom._id });
+        sessionStorage.removeItem("activeRoomId");
       }
     };
   }, [activeRoom?._id]);
