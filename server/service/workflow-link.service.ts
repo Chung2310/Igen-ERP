@@ -1,6 +1,34 @@
 import { WorkflowModel } from "../model/workflow.model";
 import { KanbanTaskModel } from "../model/kanban-task.model";
 import { UserModel } from "../model/user.model";
+import { ProjectModel } from "../model/project.model";
+import { emitToCompany, emitToUser } from "../socket";
+
+const DONE_COL = "__done__";
+const DONE_STATUSES = ["Done", "done"] as const;
+/** Trạng thái không tính là "đang chờ xử lý" khi xét hoàn thành một bước */
+const INACTIVE_STATUSES = ["Done", "done", "Archived"] as const;
+
+/** Lưu trữ các task chưa xong khớp bộ lọc; giữ nguyên task đã Done làm lịch sử */
+async function archivePendingTasks(
+  companyCode: string,
+  filter: { workflowId: string; participantId?: string }
+): Promise<number> {
+  const result = await KanbanTaskModel.updateMany(
+    { companyCode, ...filter, status: { $nin: INACTIVE_STATUSES } },
+    {
+      $set: { status: "Archived" },
+      $push: {
+        history: {
+          time: new Date().toLocaleString("vi-VN"),
+          user: "Hệ thống",
+          action: "Lưu trữ tự động do công việc/quy trình liên kết bị xóa",
+        },
+      },
+    }
+  );
+  return result.modifiedCount || 0;
+}
 
 function calculateDueDate(deadlineType?: string, deadlineDays?: number, deadlineTime?: string): string {
   const now = new Date();
@@ -35,6 +63,135 @@ function mapPriority(priority?: string): "High" | "Medium" | "Low" {
   return "Low";
 }
 
+type SubTaskLike = { id: string; title: string; assigneeUid?: string; assignee?: string; done?: boolean };
+
+/**
+ * Sinh Kanban Tasks cho một participant (công việc) tại một bước.
+ * extraSubTasks: công việc con riêng của case (chỉ truyền khi khởi tạo công việc).
+ */
+async function generateStepTasks(
+  companyCode: string,
+  workflow: any,
+  participant: any,
+  step: any,
+  extraSubTasks: SubTaskLike[] = []
+): Promise<number> {
+  // Chống sinh trùng: nếu case đã có task ở bước này (VD: lùi bước rồi tiến lại)
+  // thì giữ nguyên các task cũ, không tạo lại
+  const existingCount = await KanbanTaskModel.countDocuments({
+    companyCode,
+    workflowId: workflow.id,
+    participantId: participant.id,
+    workflowStepId: step.id,
+  });
+  if (existingCount > 0) return 0;
+
+  const stepSubTasks: SubTaskLike[] =
+    step.subTasks && step.subTasks.length > 0
+      ? step.subTasks
+      : [{ id: "default", title: step.title, assigneeUid: step.assigneeUid, assignee: step.assignee }];
+
+  const subTasksToCreate = [...stepSubTasks, ...extraSubTasks];
+  let tasksCreated = 0;
+
+  for (const sub of subTasksToCreate) {
+    // Xác định người nhận việc: subtask → bước → người phụ trách công việc → người tạo quy trình
+    const taskAssigneeUid =
+      sub.assigneeUid ||
+      step.assigneeUid ||
+      (step.assigneeUids && step.assigneeUids[0]) ||
+      participant.userUid ||
+      workflow.creatorUid;
+    let taskAssignee = sub.assignee || step.assignee || "Thành viên";
+
+    // Lấy avatar thực tế từ User Profile nếu có
+    let assigneeAvatar = "👨‍💻";
+    // Mongo _id của người nhận — room socket cá nhân dùng _id, không phải uid
+    let assigneeMongoId = "";
+    if (taskAssigneeUid) {
+      const userDoc = await UserModel.findOne({ uid: taskAssigneeUid }).select("displayName photoURL").lean();
+      if (userDoc) {
+        if (userDoc.displayName) taskAssignee = userDoc.displayName;
+        if (userDoc.photoURL) assigneeAvatar = userDoc.photoURL;
+        assigneeMongoId = String(userDoc._id);
+      }
+    }
+
+    // Công việc con riêng của case ưu tiên dùng hạn hoàn thành của case (nếu có)
+    const isExtra = extraSubTasks.includes(sub);
+    const dueDate =
+      isExtra && participant.dueDate
+        ? `${participant.dueDate}T18:00`
+        : calculateDueDate(step.deadlineType, step.deadlineDays, step.deadlineTime);
+    // Ưu tiên của bước; nếu bước không đặt thì dùng ưu tiên của công việc
+    const priority = mapPriority(step.priority && step.priority !== "normal" ? step.priority : participant.priority || step.priority);
+
+    // Xác định projectId từ step.domain (có thể là project ID hoặc project name)
+    let projectId = "";
+    if (step.domain) {
+      if (/^[0-9a-fA-F]{24}$/.test(step.domain)) {
+        projectId = step.domain;
+      } else {
+        // Tìm dự án theo tên và companyCode
+        const proj = await ProjectModel.findOne({ name: step.domain, companyCode }).lean();
+        if (proj) {
+          projectId = (proj._id as any).toString();
+        }
+      }
+    }
+
+    // Tạo Kanban Task mới — kèm tên công việc để phân biệt giữa các case cùng quy trình
+    const createdTask = await KanbanTaskModel.create({
+      title: participant.name ? `${sub.title} — ${participant.name}` : sub.title,
+      description:
+        participant.description || step.description ||
+        `Công việc thuộc quy trình "${workflow.name}" - Bước: ${step.title}`,
+      assigneeUid: taskAssigneeUid,
+      assignee: taskAssignee,
+      assigneeAvatar,
+      dueDate,
+      priority,
+      status: "Not Started",
+      category: "Quy trình",
+      companyCode,
+      creatorUid: workflow.creatorUid,
+      createdAt: new Date(),
+      projectId,
+      // Prefill số giờ dự tính từ ước lượng của bước (8h làm việc/ngày)
+      // để người nhận không phải điền tay khi hoàn thành
+      estTime: step.estDays && step.estDays > 0 ? step.estDays * 8 : 0,
+      tags: [workflow.name, step.title],
+      linkNote: (participant.docLinks && participant.docLinks[0]) || "",
+      workflowId: workflow.id,
+      workflowStepId: step.id,
+      participantId: participant.id,
+      isFromWorkflow: true,
+      history: [
+        {
+          time: new Date().toLocaleString("vi-VN"),
+          user: "Hệ thống",
+          action: `Khởi tạo tự động từ Quy trình "${workflow.name}" (Bước: ${step.title})`,
+        },
+      ],
+    });
+
+    // Báo realtime cho người nhận việc để KanbanTab của họ hiện task mới ngay
+    if (assigneeMongoId) {
+      emitToUser(assigneeMongoId, "kanban:task-created", {
+        taskId: createdTask._id.toString(),
+        title: createdTask.title,
+        workflowName: workflow.name,
+        stepTitle: step.title,
+        dueDate: createdTask.dueDate,
+      });
+    }
+
+    tasksCreated++;
+  }
+
+  return tasksCreated;
+}
+
 export const workflowLinkService = {
   /**
    * Chuyển participant sang bước tiếp theo & tự động sinh Kanban Tasks từ subtasks
@@ -43,7 +200,8 @@ export const workflowLinkService = {
     companyCode: string,
     workflowId: string,
     participantId: string,
-    nextStepId: string
+    nextStepId: string,
+    options: { force?: boolean } = {}
   ) {
     // 1. Tìm Quy trình
     const workflow = await WorkflowModel.findOne({ _id: workflowId, companyCode });
@@ -55,6 +213,25 @@ export const workflowLinkService = {
     const participant = workflow.participants.find((p) => p.id === participantId);
     if (!participant) {
       throw new Error("Không tìm thấy người tham gia quy trình này.");
+    }
+
+    // Chặn chuyển bước khi còn task Kanban chưa xong ở bước hiện tại (trừ khi force)
+    const currentStepId = participant.currentStepId;
+    if (!options.force && currentStepId && currentStepId !== DONE_COL && nextStepId !== currentStepId) {
+      const pendingCount = await KanbanTaskModel.countDocuments({
+        companyCode,
+        workflowId,
+        participantId,
+        workflowStepId: currentStepId,
+        status: { $nin: INACTIVE_STATUSES },
+      });
+      if (pendingCount > 0) {
+        const err: any = new Error(
+          `Còn ${pendingCount} task Kanban chưa hoàn thành ở bước hiện tại. Hoàn thành hết trước khi chuyển bước.`
+        );
+        err.statusCode = 409;
+        throw err;
+      }
     }
 
     const previousStepId = participant.currentStepId;
@@ -74,67 +251,81 @@ export const workflowLinkService = {
       return { workflow, participant, tasksCreated: 0 };
     }
 
-    // 5. Chuẩn bị danh sách subtasks để tạo Kanban Task
-    const subTasksToCreate = step.subTasks && step.subTasks.length > 0
-      ? step.subTasks
-      : [{ id: "default", title: step.title, assigneeUid: step.assigneeUid, assignee: step.assignee }];
-
-    let tasksCreated = 0;
-
-    for (const sub of subTasksToCreate) {
-      // Xác định người nhận việc
-      const taskAssigneeUid = sub.assigneeUid || step.assigneeUid || (step.assigneeUids && step.assigneeUids[0]) || workflow.creatorUid;
-      let taskAssignee = sub.assignee || step.assignee || "Thành viên";
-
-      // Lấy avatar thực tế từ User Profile nếu có
-      let assigneeAvatar = "👨‍💻";
-      if (taskAssigneeUid) {
-        const userDoc = await UserModel.findOne({ uid: taskAssigneeUid }).select("displayName photoURL").lean();
-        if (userDoc) {
-          if (userDoc.displayName) taskAssignee = userDoc.displayName;
-          if (userDoc.photoURL) assigneeAvatar = userDoc.photoURL;
-        }
-      }
-
-      const dueDate = calculateDueDate(step.deadlineType, step.deadlineDays, step.deadlineTime);
-      const priority = mapPriority(step.priority);
-
-      // Tạo Kanban Task mới
-      await KanbanTaskModel.create({
-        title: sub.title,
-        description: step.description || `Công việc thuộc quy trình "${workflow.name}" - Bước: ${step.title}`,
-        assigneeUid: taskAssigneeUid,
-        assignee: taskAssignee,
-        assigneeAvatar,
-        dueDate,
-        priority,
-        status: "Not Started",
-        category: "Quy trình",
-        companyCode,
-        creatorUid: workflow.creatorUid,
-        createdAt: new Date(),
-        tags: [workflow.name, step.title],
-        workflowId: workflow.id,
-        workflowStepId: step.id,
-        participantId: participant.id,
-        isFromWorkflow: true,
-        history: [
-          {
-            time: new Date().toLocaleString("vi-VN"),
-            user: "Hệ thống",
-            action: `Khởi tạo tự động từ Quy trình "${workflow.name}" (Bước: ${step.title})`,
-          },
-        ],
-      });
-
-      tasksCreated++;
-    }
+    // 5. Sinh Kanban Tasks từ subtasks của bước mới
+    const tasksCreated = await generateStepTasks(companyCode, workflow, participant, step);
 
     return {
       workflow,
       participant,
       tasksCreated,
     };
+  },
+
+  /**
+   * Tạo "công việc" (case) mới chạy theo quy trình: thêm participant với thông tin
+   * chi tiết, đặt vào bước đầu tiên và sinh Kanban Tasks (subtasks bước 1 + công việc con riêng)
+   */
+  async createCase(
+    companyCode: string,
+    workflowId: string,
+    caseData: {
+      name: string;
+      userUid?: string;
+      avatar?: string;
+      note?: string;
+      description?: string;
+      relatedUids?: string[];
+      priority?: string;
+      startDate?: string;
+      dueDate?: string;
+      docLinks?: string[];
+      customSubTasks?: SubTaskLike[];
+    }
+  ) {
+    const workflow = await WorkflowModel.findOne({ _id: workflowId, companyCode });
+    if (!workflow) {
+      throw new Error("Không tìm thấy quy trình yêu cầu.");
+    }
+    if (!workflow.steps || workflow.steps.length === 0) {
+      throw new Error("Quy trình chưa có bước nào — hãy thêm bước trước khi tạo công việc.");
+    }
+    if (!caseData.name || !caseData.name.trim()) {
+      throw new Error("Tên công việc là bắt buộc.");
+    }
+
+    const firstStep = workflow.steps[0];
+    const now = new Date().toISOString();
+    const participant: any = {
+      id: `part_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+      name: caseData.name.trim(),
+      userUid: caseData.userUid || "",
+      avatar: caseData.avatar || "",
+      currentStepId: firstStep.id,
+      note: caseData.note || "",
+      description: caseData.description || "",
+      relatedUids: caseData.relatedUids || [],
+      priority: (caseData.priority as any) || "normal",
+      startDate: caseData.startDate || "",
+      dueDate: caseData.dueDate || "",
+      docLinks: caseData.docLinks || [],
+      customSubTasks: caseData.customSubTasks || [],
+      startedAt: now,
+      updatedAt: now,
+    };
+
+    workflow.participants.push(participant);
+    await workflow.save();
+
+    // Sinh task cho bước đầu tiên + các công việc con riêng của case
+    const tasksCreated = await generateStepTasks(
+      companyCode,
+      workflow,
+      participant,
+      firstStep,
+      participant.customSubTasks
+    );
+
+    return { workflow, participant, tasksCreated };
   },
 
   /**
@@ -158,5 +349,92 @@ export const workflowLinkService = {
 
     const tasks = await KanbanTaskModel.find(query).sort({ createdAt: -1 }).lean();
     return tasks;
+  },
+
+  /**
+   * Xóa "công việc" (case) khỏi quy trình và lưu trữ các task Kanban chưa xong của nó
+   */
+  async removeParticipant(companyCode: string, workflowId: string, participantId: string) {
+    const workflow = await WorkflowModel.findOne({ _id: workflowId, companyCode });
+    if (!workflow) {
+      throw new Error("Không tìm thấy quy trình yêu cầu.");
+    }
+    const remaining = workflow.participants.filter((p) => p.id !== participantId);
+    if (remaining.length === workflow.participants.length) {
+      throw new Error("Không tìm thấy công việc trong quy trình này.");
+    }
+    workflow.participants = remaining as any;
+    await workflow.save();
+
+    const tasksArchived = await archivePendingTasks(companyCode, { workflowId, participantId });
+    return { workflow, tasksArchived };
+  },
+
+  /**
+   * Lưu trữ mọi task Kanban chưa xong của một quy trình (gọi khi quy trình bị xóa)
+   */
+  async archiveWorkflowTasks(companyCode: string, workflowId: string) {
+    return archivePendingTasks(companyCode, { workflowId });
+  },
+
+  /**
+   * Hook sau khi task Kanban đổi trạng thái: nếu mọi task ở bước hiện tại của case
+   * đã xong → phát socket "workflow:step-ready" cho công ty; nếu quy trình bật
+   * autoAdvance → tự chuyển case sang bước kế tiếp và sinh task mới.
+   */
+  async handleTaskStatusChange(task: any) {
+    if (!task?.isFromWorkflow || !task.workflowId || !task.participantId || !task.workflowStepId) {
+      return;
+    }
+    if (!DONE_STATUSES.includes(task.status)) return;
+
+    const pendingCount = await KanbanTaskModel.countDocuments({
+      companyCode: task.companyCode,
+      workflowId: task.workflowId,
+      participantId: task.participantId,
+      workflowStepId: task.workflowStepId,
+      status: { $nin: INACTIVE_STATUSES },
+    });
+    if (pendingCount > 0) return;
+
+    const workflow = await WorkflowModel.findOne({
+      _id: task.workflowId,
+      companyCode: task.companyCode,
+    });
+    if (!workflow) return;
+
+    const participant = workflow.participants.find((p) => p.id === task.participantId);
+    // Chỉ phản ứng khi bước vừa xong đúng là bước hiện tại của case
+    if (!participant || participant.currentStepId !== task.workflowStepId) return;
+
+    const step = workflow.steps.find((s) => s.id === task.workflowStepId);
+    const eventPayload = {
+      workflowId: String(task.workflowId),
+      workflowName: workflow.name,
+      participantId: participant.id,
+      participantName: participant.name,
+      stepId: task.workflowStepId,
+      stepTitle: step?.title || "",
+    };
+    emitToCompany(task.companyCode, "workflow:step-ready", eventPayload);
+
+    if (workflow.autoAdvance) {
+      const orderIds = [...workflow.steps.map((s) => s.id), DONE_COL];
+      const idx = orderIds.indexOf(participant.currentStepId);
+      const nextStepId = orderIds[idx + 1];
+      if (!nextStepId) return;
+
+      const result = await this.advanceParticipant(
+        task.companyCode,
+        task.workflowId,
+        participant.id,
+        nextStepId
+      );
+      emitToCompany(task.companyCode, "workflow:participant-advanced", {
+        ...eventPayload,
+        nextStepId,
+        tasksCreated: result.tasksCreated,
+      });
+    }
   },
 };

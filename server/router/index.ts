@@ -24,6 +24,10 @@ import { chatRouter } from "./chat.router";
 import { chatbotRouter } from "./chatbot.router";
 import { resourceRouter } from "./resource.router";
 import { studentManagementRouter } from "../modules/student-management/router";
+import { timekeepingRouter } from "./timekeeping.router";
+import { dashboardRouter } from "./dashboard.router";
+import { pushRouter } from "./push.router";
+import { notificationRouter } from "./notification.router";
 export const apiRouter = Router();
 /**
  * GET /api/v1/health
@@ -48,28 +52,32 @@ apiRouter.use("/gemini", geminiRouter);
 apiRouter.use("/elevenlabs", elevenlabsRouter);
 apiRouter.use("/heygen", heygenRouter);
 
-// Gắn kết router phụ của Facebook Post qua n8n & Facebook Messenger
-apiRouter.use("/facebook", facebookPostRouter);
-apiRouter.use("/facebook", fbMessengerRouter);
-apiRouter.use("/zalo", zaloMessengerRouter);
-apiRouter.use("/tiktok/messenger", tiktokMessengerRouter);
-
-
-// Gắn kết router phụ của TikTok
-apiRouter.get("/webhooks/tiktok", (req, res) => {
-  return res.status(200).json({
-    status: "ok",
-    path: "/api/v1/webhooks/tiktok",
-    message: "TikTok webhook endpoint is reachable",
-    timestamp: new Date().toISOString(),
-  });
-});
-apiRouter.post("/webhooks/tiktok", tiktokController.receiveWebhook as any);
-apiRouter.use("/tiktok", tiktokRouter);
-apiRouter.use("/tiktok-business", tiktokRouter);
-
-// Gắn kết router phụ của Scheduler
-apiRouter.use("/scheduler", schedulerRouter);
+// ==== TẠM ẨN: route BE của module MARKETING & SALES CRM ====
+// Đã comment phần đăng ký route để ẩn tạm 2 module; controller/service giữ nguyên.
+// Bỏ comment khối này để khôi phục hoàn toàn.
+//
+// // Gắn kết router phụ của Facebook Post qua n8n & Facebook Messenger
+// apiRouter.use("/facebook", facebookPostRouter);
+// apiRouter.use("/facebook", fbMessengerRouter);
+// apiRouter.use("/zalo", zaloMessengerRouter);
+// apiRouter.use("/tiktok/messenger", tiktokMessengerRouter);
+//
+// // Gắn kết router phụ của TikTok
+// apiRouter.get("/webhooks/tiktok", (req, res) => {
+//   return res.status(200).json({
+//     status: "ok",
+//     path: "/api/v1/webhooks/tiktok",
+//     message: "TikTok webhook endpoint is reachable",
+//     timestamp: new Date().toISOString(),
+//   });
+// });
+// apiRouter.post("/webhooks/tiktok", tiktokController.receiveWebhook as any);
+// apiRouter.use("/tiktok", tiktokRouter);
+// apiRouter.use("/tiktok-business", tiktokRouter);
+//
+// // Gắn kết router phụ của Scheduler (lên lịch đăng bài marketing)
+// apiRouter.use("/scheduler", schedulerRouter);
+// ==== HẾT phần tạm ẩn ====
 
 // Gắn kết router phụ của Media Cloudinary Relay
 apiRouter.use("/media", mediaRouter);
@@ -94,6 +102,18 @@ apiRouter.use("/wallet", walletRouter);
 
 // Gắn kết router CRUD đa năng (MongoDB)
 apiRouter.use("/crud", crudRouter);
+
+// Gắn kết router chấm công (GPS Timekeeping)
+apiRouter.use("/timekeeping", timekeepingRouter);
+
+// Gắn kết router tổng hợp số liệu trang tổng quan
+apiRouter.use("/dashboard", dashboardRouter);
+
+// Gắn kết router Web Push (thông báo đẩy khi người dùng không mở web)
+apiRouter.use("/push", pushRouter);
+
+// Gắn kết router thông báo web
+apiRouter.use("/notifications", notificationRouter);
 
 // Gắn kết router chat nội bộ
 apiRouter.use("/chat", chatRouter);

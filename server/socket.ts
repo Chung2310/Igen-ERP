@@ -6,6 +6,7 @@ import Redis from "ioredis";
 import { UserModel } from "./model/user.model";
 import { SocialIntegrationModel } from "./model/social-integration.model";
 import { ChatRoomModel } from "./model/chat-room.model";
+import { getJwtAccessSecret } from "./config/env";
 
 let io: SocketIOServer | null = null;
 
@@ -112,10 +113,7 @@ export async function initSocketServer(httpServer: HTTPServer) {
         return next(new Error("Authentication error: Token missing"));
       }
 
-      const decoded = jwt.verify(
-        token,
-        process.env.JWT_ACCESS_SECRET || "your_jwt_access_secret_key"
-      ) as any;
+      const decoded = jwt.verify(token, getJwtAccessSecret()) as any;
 
       const user = await UserModel.findById(decoded.id).lean();
       if (!user) {
@@ -308,6 +306,30 @@ export function emitToPage(pageId: string, eventName: string, data: any) {
 export function emitToUser(userId: string, eventName: string, data: any) {
   if (io) {
     const room = `user:${userId}`;
+    console.log(`[Socket.IO] Emitting event "${eventName}" to room: ${room}`);
+    io.to(room).emit(eventName, data);
+  } else {
+    console.warn("[Socket.IO] Server instance (io) not initialized.");
+  }
+}
+
+/**
+ * Kiểm tra user có đang mở web (còn socket kết nối) hay không.
+ * Dùng fetchSockets() để hoạt động đúng cả khi scale ngang qua Redis adapter.
+ */
+export async function isUserOnline(userId: string): Promise<boolean> {
+  if (!io) return false;
+  try {
+    const sockets = await io.in(`user:${userId}`).fetchSockets();
+    return sockets.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+export function emitToCompany(companyCode: string, eventName: string, data: any) {
+  if (io) {
+    const room = `company:${companyCode}`;
     console.log(`[Socket.IO] Emitting event "${eventName}" to room: ${room}`);
     io.to(room).emit(eventName, data);
   } else {

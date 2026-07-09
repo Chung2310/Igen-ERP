@@ -29,6 +29,18 @@ const CompanyDriveOAuthSchema = new Schema(
   { _id: false }
 );
 
+const CompanyLocationConfigSchema = new Schema(
+  {
+    latitude: { type: Number, default: 10.7769 }, // default Bitexco coordinates
+    longitude: { type: Number, default: 106.7009 },
+    allowedRadius: { type: Number, default: 1000 }, // default 1000m
+    addressName: { type: String, default: "Tòa nhà Bitexco" },
+    checkInLimit: { type: String, default: "08:30" },
+    checkOutLimit: { type: String, default: "17:30" },
+  },
+  { _id: false }
+);
+
 const CompanySchema = new Schema<ICompany>({
   code: { type: String, required: true, unique: true, index: true, uppercase: true },
   name: { type: String, required: true },
@@ -39,6 +51,7 @@ const CompanySchema = new Schema<ICompany>({
   driveFolderLink: { type: String, default: "" },
   driveOAuth: { type: CompanyDriveOAuthSchema, default: () => ({}) },
   driveFolderId: { type: String, default: "" },
+  locationConfig: { type: CompanyLocationConfigSchema, default: () => ({}) },
 });
 
 export const CompanyModel = model<ICompany>("Company", CompanySchema);

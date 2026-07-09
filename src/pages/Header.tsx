@@ -1,21 +1,35 @@
 import React, { useState, useEffect } from "react";
 import {
   Bell, LogOut, Search, Settings, Wallet, Info, X, Image, Video, Volume2, FileText,
-  Package, Megaphone, Sparkles, CheckCheck, ShoppingCart, AlertTriangle, Send, Sun, Moon
+  Package, Megaphone, Sparkles, CheckCheck, ShoppingCart, AlertTriangle, Send, Sun, Moon,
+  Briefcase, GraduationCap, LayoutGrid, LayoutDashboard, Users, MessageSquareShare,
+  FolderOpen, MessageSquare, Shield, LineChart
 } from "lucide-react";
 import { TabType } from "../types";
 import { useAuth } from "../context/AuthContext";
 import { authService } from "../services/authService";
 import { walletService } from "../services/walletService";
-import { marketingService } from "../services/marketingService";
-import { inventoryProductService } from "../services/inventoryProductService";
-import { crmService } from "../services/crmService";
+import { isTabHidden } from "../config/modules";
 import { toast } from "./Toast";
+import { notificationService, WebNotification } from "../services/notificationService";
+import { socketService } from "../services/socketService";
 
 interface HeaderProps {
   currentTab: TabType;
   onSearchSelect: (tab: TabType, subTab?: string) => void;
 }
+
+// Danh sách chức năng cho panel tiện ích — cùng bộ module và phân quyền với Sidebar
+const utilityBaseItems: Array<{ label: TabType; title: string; icon: React.ElementType; color: string }> = [
+  { label: "TỔNG QUAN" as TabType, title: "Tổng quan", icon: LayoutDashboard, color: "bg-blue-50 text-blue-600" },
+  { label: "NHÂN SỰ" as TabType, title: "Nhân sự", icon: Users, color: "bg-emerald-50 text-emerald-600" },
+  { label: "KHO & SẢN PHẨM" as TabType, title: "Kho & Sản phẩm", icon: Package, color: "bg-amber-50 text-amber-600" },
+  { label: "MARKETING" as TabType, title: "Marketing", icon: Megaphone, color: "bg-purple-50 text-purple-600" },
+  { label: "SALES CRM" as TabType, title: "Sales CRM", icon: MessageSquareShare, color: "bg-rose-50 text-rose-600" },
+  { label: "QUẢN LÝ TÀI NGUYÊN" as TabType, title: "Tài nguyên", icon: FolderOpen, color: "bg-indigo-50 text-indigo-600" },
+  { label: "TRÒ CHUYỆN" as TabType, title: "Trò chuyện", icon: MessageSquare, color: "bg-sky-50 text-sky-600" },
+  { label: "QUẢN LÝ HỌC VIÊN" as TabType, title: "Học viên", icon: GraduationCap, color: "bg-cyan-50 text-cyan-600" },
+];
 
 const searchIndex = [
   { label: "Tổng quan Doanh nghiệp", tab: "TỔNG QUAN" as TabType, keywords: "tong quan dashboard kpi hieu suat bieu do" },
@@ -33,29 +47,20 @@ const searchIndex = [
   { label: "Ví & Nạp tiền", tab: "VÍ & NẠP TIỀN" as TabType, keywords: "vi nap tien so du payos vietqr nap bank" },
 ];
 
-type NotifType = "crm" | "kho" | "marketing" | "ai" | "he-thong";
-interface AppNotification {
-  id: string;
-  type: NotifType;
-  title: string;
-  body: string;
-  time: string;
-  read: boolean;
-  action?: { tab: TabType; subTab?: string };
-}
-
 export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
   const { userProfile, logout } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [showResults, setShowResults] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showUtilities, setShowUtilities] = useState(false);
   const [balance, setBalance] = useState<number>(0);
   const [showPricingModal, setShowPricingModal] = useState(false);
   const [showTelegramModal, setShowTelegramModal] = useState(false);
   const [telegramLink, setTelegramLink] = useState<any>(null);
   const [telegramLoading, setTelegramLoading] = useState(false);
-  const [notifs, setNotifs] = useState<AppNotification[]>([]);
+  const [notifs, setNotifs] = useState<WebNotification[]>([]);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
   const [isDark, setIsDark] = useState(() => {
     return localStorage.getItem("theme") === "dark" || document.documentElement.classList.contains("dark");
   });
@@ -78,160 +83,91 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
     }
   };
 
-  // ─── helpers ────────────────────────────────────────────────
-  const unreadCount = notifs.filter(n => !n.read).length;
-
-  const getReadSignatures = (): string[] => {
+  // ─── helpers & API calls ────────────────────────────────────
+  const fetchNotifications = async () => {
+    if (!userProfile) return;
     try {
-      const saved = localStorage.getItem("igen_read_notifications_v1");
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  };
-
-  const saveReadSignatures = (sigs: string[]) => {
-    try {
-      localStorage.setItem("igen_read_notifications_v1", JSON.stringify(sigs));
+      const res = await notificationService.getNotifications({ limit: 20 });
+      setNotifs(res.data);
+      setUnreadCount(res.unreadCount);
     } catch (err) {
-      console.error("Lỗi khi lưu trạng thái thông báo:", err);
+      console.error("Lỗi khi tải thông báo từ API:", err);
     }
   };
 
-  const getNotifSignature = (n: AppNotification) => `${n.id}:${n.title}:${n.body}`;
-
-  const markRead = (id: string) => {
-    setNotifs(prev => {
-      const target = prev.find(n => n.id === id);
-      if (target) {
-        const signature = getNotifSignature(target);
-        const signatures = getReadSignatures();
-        if (!signatures.includes(signature)) {
-          saveReadSignatures([...signatures, signature]);
-        }
-      }
-      return prev.map(n => n.id === id ? { ...n, read: true } : n);
-    });
-  };
-
-  const markAllRead = () => {
-    setNotifs(prev => {
-      const newSigs = prev.map(n => getNotifSignature(n));
-      const signatures = getReadSignatures();
-      const unique = Array.from(new Set([...signatures, ...newSigs]));
-      saveReadSignatures(unique);
-      return prev.map(n => ({ ...n, read: true }));
-    });
-  };
-
-  const upsertNotif = (notif: AppNotification) =>
-    setNotifs(prev => {
-      const idx = prev.findIndex(n => n.id === notif.id);
-
-      const signatures = getReadSignatures();
-      const newSignature = getNotifSignature(notif);
-      const isReadInStorage = signatures.includes(newSignature);
-
-      let finalRead = isReadInStorage;
-
-      if (idx === -1) {
-        return [{ ...notif, read: finalRead }, ...prev];
-      }
-
-      const old = prev[idx];
-      const oldSignature = getNotifSignature(old);
-
-      if (oldSignature !== newSignature) {
-        // Content changed, so it becomes unread unless it's in storage
-        finalRead = isReadInStorage;
-      } else {
-        // Content didn't change, preserve state
-        finalRead = isReadInStorage || old.read;
-      }
-
-      return [
-        ...prev.slice(0, idx),
-        { ...notif, read: finalRead },
-        ...prev.slice(idx + 1),
-      ];
-    });
-
-  // ─── CRM leads (new / pending orders) ───────────────────────
-  useEffect(() => {
-    const unsub = crmService.subscribeLeads((leads) => {
-      const hotLeads = leads.filter((l: any) => l.stage === "hot" || l.stage === "deal");
-      const newLeads = leads.filter((l: any) => l.stage === "cold" || l.stage === "warm");
-      if (hotLeads.length > 0) {
-        upsertNotif({
-          id: "crm-hot",
-          type: "crm",
-          title: `${hotLeads.length} đơn hàng cần chốt`,
-          body: `${hotLeads.length} khách hàng tiềm năng đang ở giai đoạn HOT / DEAL — cần xử lý ngay.`,
-          time: "Vừa cập nhật",
-          read: false,
-          action: { tab: "SALES CRM" as TabType, subTab: "PHỄU KHÁCH HÀNG" },
-        });
-      }
-      if (newLeads.length > 0) {
-        upsertNotif({
-          id: "crm-new",
-          type: "crm",
-          title: `${newLeads.length} lead mới chưa xử lý`,
-          body: `Có ${newLeads.length} khách hàng mới (cold/warm) đang chờ tiếp cận và nuôi dưỡng.`,
-          time: "Vừa cập nhật",
-          read: false,
-          action: { tab: "SALES CRM" as TabType, subTab: "PHỄU KHÁCH HÀNG" },
-        });
-      }
-    }, () => { });
-    return () => { if (typeof unsub === "function") unsub(); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // ─── Inventory (low stock) ───────────────────────────────────
-  useEffect(() => {
-    const unsub = inventoryProductService.subscribe((products: any[]) => {
-      const low = products.filter(p =>
-        typeof p.stock === "number" && typeof p.minStockAlert === "number" && p.stock <= p.minStockAlert
-      );
-      if (low.length === 0) return;
-      upsertNotif({
-        id: "kho-low",
-        type: "kho",
-        title: `${low.length} sản phẩm sắp hết hàng`,
-        body: `"${low[0].name}" (tồn: ${low[0].stock}) đang dưới ngưỡng cảnh báo. Cần nhập hàng sớm.`,
-        time: "Vừa cập nhật",
-        read: false,
-        action: { tab: "KHO & SẢN PHẨM" as TabType, subTab: "DỰ BÁO AI" },
+  const formatNotifTime = (dateStr: string) => {
+    try {
+      const d = new Date(dateStr);
+      const now = new Date();
+      const diffMs = now.getTime() - d.getTime();
+      const diffMin = Math.floor(diffMs / (60 * 1000));
+      if (diffMin < 1) return "Vừa xong";
+      if (diffMin < 60) return `${diffMin} phút trước`;
+      const diffHr = Math.floor(diffMin / 60);
+      if (diffHr < 24) return `${diffHr} giờ trước`;
+      return d.toLocaleDateString("vi-VN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        day: "2-digit",
+        month: "2-digit",
       });
-    });
-    return () => { if (typeof unsub === "function") unsub(); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    } catch {
+      return "Vừa xong";
+    }
+  };
 
-  // ─── Marketing pending ───────────────────────────────────────
+  const markRead = async (id: string) => {
+    try {
+      await notificationService.markAsRead(id);
+      setNotifs(prev => prev.map(n => n._id === id ? { ...n, read: true } : n));
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    } catch (err) {
+      console.error("Lỗi khi đánh dấu đã đọc thông báo:", err);
+    }
+  };
+
+  const markAllRead = async () => {
+    try {
+      await notificationService.markAllAsRead();
+      setNotifs(prev => prev.map(n => ({ ...n, read: true })));
+      setUnreadCount(0);
+    } catch (err) {
+      console.error("Lỗi khi đánh dấu đọc tất cả thông báo:", err);
+    }
+  };
+
+  // Đồng bộ thông báo thời gian thực qua Socket.IO và sự kiện nội bộ
   useEffect(() => {
-    const unsub = marketingService.subscribeToContents(
-      (cards) => {
-        const pending = cards.filter((c: any) => c.status === "pending");
-        if (pending.length === 0) return;
-        upsertNotif({
-          id: "mkt-pending",
-          type: "marketing",
-          title: `${pending.length} bài viết chờ duyệt`,
-          body: `AI đã tạo ${pending.length} nội dung Marketing cần được phê duyệt trước khi đăng.`,
-          time: "Vừa cập nhật",
-          read: false,
-          action: { tab: "MARKETING" as TabType, subTab: "DUYỆT NỘI DUNG" },
-        });
-      },
-      () => { },
-      userProfile?.uid,
-      userProfile?.role,
-    );
-    return () => { if (typeof unsub === "function") unsub(); };
+    if (!userProfile) return;
+
+    fetchNotifications();
+
+    // Lắng nghe thông báo mới từ socket
+    const unsubSocket = socketService.on("new_notification", (notif: WebNotification) => {
+      setNotifs((prev) => {
+        // Tránh trùng lặp
+        if (prev.some((n) => n._id === notif._id)) return prev;
+        return [notif, ...prev];
+      });
+      if (!notif.read) {
+        setUnreadCount((prev) => prev + 1);
+      }
+      // Kích hoạt CustomEvent để hiển thị popup nổi góc phải dưới
+      window.dispatchEvent(new CustomEvent("new_notification_toast", { detail: notif }));
+    });
+
+    // Lắng nghe sự kiện đồng bộ từ các component khác
+    const handleMutation = () => {
+      fetchNotifications();
+    };
+    window.addEventListener("notification-mutation", handleMutation);
+
+    return () => {
+      unsubSocket();
+      window.removeEventListener("notification-mutation", handleMutation);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userProfile?.uid, userProfile?.role]);
+  }, [userProfile?.uid]);
 
   // ─── Wallet balance ──────────────────────────────────────────
   useEffect(() => {
@@ -285,6 +221,9 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
       ? []
       : searchIndex
         .filter((item) => {
+          if (isTabHidden(item.tab)) {
+            return false;
+          }
           if (item.tab === "HIỆU SUẤT AI" && userProfile?.role !== "superadmin") {
             return false;
           }
@@ -295,6 +234,19 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
             item.label.toLowerCase().includes(normalizedQuery) ||
             item.keywords.toLowerCase().includes(normalizedQuery)
         );
+
+  // Danh sách tiện ích theo vai trò — cùng logic phân quyền với Sidebar
+  const utilityItems = [...utilityBaseItems.filter((item) => !isTabHidden(item.label))];
+  if (userProfile?.role === "superadmin" || userProfile?.role === "admin") {
+    utilityItems.push({ label: "QUẢN TRỊ USER" as TabType, title: "Quản trị user", icon: Shield, color: "bg-indigo-50 text-indigo-600" });
+  }
+  if (userProfile?.role === "superadmin") {
+    utilityItems.push({ label: "HIỆU SUẤT AI" as TabType, title: "Hiệu suất AI", icon: LineChart, color: "bg-violet-50 text-violet-600" });
+  }
+  if (userProfile) {
+    utilityItems.push({ label: "VÍ & NẠP TIỀN" as TabType, title: "Ví & Nạp tiền", icon: Wallet, color: "bg-blue-50 text-blue-600" });
+  }
+  utilityItems.push({ label: "CÀI ĐẶT" as TabType, title: "Cài đặt", icon: Settings, color: "bg-slate-100 text-slate-600" });
 
   return (
     <header className="sticky top-0 z-40 flex h-18 items-center justify-between border-b border-gray-100 bg-white px-6 shadow-xs" id="app_header">
@@ -397,6 +349,51 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
           {isDark ? <Sun className="h-4.5 w-4.5 shrink-0 text-amber-500" /> : <Moon className="h-4.5 w-4.5 shrink-0" />}
         </button>
 
+        {/* Utilities (App Launcher) Button */}
+        <div className="relative" id="header_utilities_dropdown">
+          <button
+            onClick={() => setShowUtilities(!showUtilities)}
+            className={`flex items-center justify-center p-2 rounded-full transition-all active:scale-95 cursor-pointer ${showUtilities ? "bg-blue-50 text-blue-600" : "text-gray-400 hover:text-blue-600 hover:bg-blue-50"}`}
+            title="Tiện ích — mở nhanh các chức năng"
+            id="header_utilities_btn"
+          >
+            <LayoutGrid className="h-4.5 w-4.5 shrink-0" />
+          </button>
+
+          {showUtilities && (
+            <div className="absolute right-0 z-50 mt-3 w-80 overflow-hidden rounded-2xl border border-gray-100 bg-white font-sans shadow-2xl">
+              <div className="border-b border-gray-100 bg-gray-50 px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                Tiện ích hệ thống
+              </div>
+              <div className="grid grid-cols-3 gap-1.5 p-3 max-h-[420px] overflow-y-auto">
+                {utilityItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = currentTab === item.label;
+                  return (
+                    <button
+                      key={item.label}
+                      onClick={() => {
+                        onSearchSelect(item.label);
+                        setShowUtilities(false);
+                      }}
+                      className={`flex flex-col items-center gap-2 rounded-2xl px-2 py-3 text-center transition-all active:scale-95 ${isActive ? "bg-blue-50/80 ring-1 ring-blue-100" : "hover:bg-gray-50"}`}
+                      title={item.title}
+                    >
+                      <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${item.color}`}>
+                        <Icon className="h-5 w-5" />
+                      </span>
+                      <span className={`text-[11px] font-semibold leading-tight line-clamp-2 ${isActive ? "text-blue-700" : "text-gray-600"}`}>
+                        {item.title}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          {showUtilities && <div className="fixed inset-0 z-[-1]" onClick={() => setShowUtilities(false)} />}
+        </div>
+
         <div className="relative" id="notification_dropdown_button">
           <button
             onClick={() => setShowNotifications(!showNotifications)}
@@ -441,22 +438,21 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
                   </div>
                 ) : (
                   notifs.map((notif) => {
-                    const ICON_MAP: Record<NotifType, { icon: React.ElementType; bg: string; iconColor: string; badge: string }> = {
-                      crm: { icon: ShoppingCart, bg: "bg-emerald-50", iconColor: "text-emerald-600", badge: "bg-emerald-500" },
-                      kho: { icon: AlertTriangle, bg: "bg-amber-50", iconColor: "text-amber-600", badge: "bg-amber-500" },
-                      marketing: { icon: Megaphone, bg: "bg-purple-50", iconColor: "text-purple-600", badge: "bg-purple-500" },
-                      ai: { icon: Sparkles, bg: "bg-blue-50", iconColor: "text-blue-600", badge: "bg-blue-500" },
+                    const ICON_MAP: Record<string, { icon: React.ElementType; bg: string; iconColor: string; badge: string }> = {
+                      kho: { icon: Package, bg: "bg-amber-50", iconColor: "text-amber-600", badge: "bg-amber-500" },
+                      task: { icon: Briefcase, bg: "bg-blue-50", iconColor: "text-blue-600", badge: "bg-blue-500" },
+                      training: { icon: GraduationCap, bg: "bg-purple-50", iconColor: "text-purple-600", badge: "bg-purple-500" },
                       "he-thong": { icon: Bell, bg: "bg-gray-100", iconColor: "text-gray-500", badge: "bg-gray-400" },
                     };
-                    const cfg = ICON_MAP[notif.type];
+                    const cfg = ICON_MAP[notif.type] || ICON_MAP["he-thong"];
                     const Icon = cfg.icon;
                     return (
                       <div
-                        key={notif.id}
+                        key={notif._id}
                         onClick={() => {
-                          markRead(notif.id);
+                          markRead(notif._id);
                           if (notif.action) {
-                            onSearchSelect(notif.action.tab, notif.action.subTab);
+                            onSearchSelect(notif.action.tab as any, notif.action.subTab);
                             setShowNotifications(false);
                           }
                         }}
@@ -476,7 +472,7 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
                           <p className={`text-xs leading-snug ${notif.read ? "font-medium text-gray-500" : "font-bold text-gray-800"
                             }`}>{notif.title}</p>
                           <p className="mt-0.5 line-clamp-2 text-[11px] leading-relaxed text-gray-400">{notif.body}</p>
-                          <span className="mt-1 block font-mono text-[10px] text-gray-300">{notif.time}</span>
+                          <span className="mt-1 block font-mono text-[10px] text-gray-300">{formatNotifTime(notif.createdAt)}</span>
                         </div>
 
                         {/* Unread dot */}

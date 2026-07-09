@@ -1,4 +1,6 @@
+import { assertSecurityEnv } from "./server/config/env";
 import express from "express";
+import helmet from "helmet";
 import path from "path";
 import fs from "fs";
 import dotenv from "dotenv";
@@ -191,6 +193,14 @@ function injectSeoMeta(html: string, requestPath: string): string {
 }
 
 async function startServer() {
+  // Fail-fast: từ chối khởi động nếu thiếu các secret bắt buộc (JWT...)
+  try {
+    assertSecurityEnv();
+  } catch (err) {
+    console.error((err as Error).message);
+    process.exit(1);
+  }
+
   // Kết nối cơ sở dữ liệu MongoDB
   await connectDB();
 
@@ -200,7 +210,18 @@ async function startServer() {
 
 
   const app = express();
-  app.set("trust proxy", true);
+  // Chỉ tin 1 hop proxy (nginx) — dùng số thay vì true để X-Forwarded-For không thể bị client giả mạo
+  app.set("trust proxy", 1);
+
+  // Security headers. CSP tắt vì SPA nạp tài nguyên từ nhiều nguồn (Cloudinary, CDN...);
+  // CORP/COOP tắt vì middleware CORS bên dưới đã tự quản lý hai header này cho media cross-origin.
+  app.use(
+    helmet({
+      contentSecurityPolicy: false,
+      crossOriginResourcePolicy: false,
+      crossOriginOpenerPolicy: false,
+    })
+  );
   app.use(cookieParser());
   app.use(
     express.json({

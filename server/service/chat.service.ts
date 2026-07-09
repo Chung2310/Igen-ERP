@@ -27,6 +27,26 @@ export const chatService = {
    * Lấy danh sách các phòng chat mà người dùng tham gia
    */
   async getRooms(userId: string, companyCode: string): Promise<any[]> {
+    // Tự động tạo phòng "Cloud của tôi" nếu chưa có
+    let cloudRoom = await ChatRoomModel.findOne({
+      isGroup: false,
+      companyCode,
+      creatorId: userId,
+      $expr: { $eq: [{ $size: "$members" }, 1] },
+      "members.userId": userId,
+    }).exec();
+
+    if (!cloudRoom) {
+      const newCloud = new ChatRoomModel({
+        isGroup: false,
+        name: "Cloud của tôi",
+        companyCode,
+        creatorId: userId,
+        members: [{ userId, role: "admin", joinedAt: new Date() }],
+      });
+      await newCloud.save();
+    }
+
     const rooms = await ChatRoomModel.find({
       companyCode,
       "members.userId": userId,
@@ -55,6 +75,23 @@ export const chatService = {
         return { ...room, unreadCount };
       })
     );
+
+    // Sắp xếp các phòng chat: phòng nào được ghim (isPinned: true) bởi userId sẽ xếp lên đầu,
+    // sau đó sắp xếp theo thời gian cập nhật mới nhất (updatedAt giảm dần)
+    withUnread.sort((a, b) => {
+      const aMember = a.members.find((m: any) => (m.userId._id || m.userId).toString() === userId);
+      const bMember = b.members.find((m: any) => (m.userId._id || m.userId).toString() === userId);
+      const aPinned = aMember?.isPinned ? 1 : 0;
+      const bPinned = bMember?.isPinned ? 1 : 0;
+
+      if (aPinned !== bPinned) {
+        return bPinned - aPinned;
+      }
+      
+      const aTime = new Date(a.updatedAt).getTime();
+      const bTime = new Date(b.updatedAt).getTime();
+      return bTime - aTime;
+    });
 
     return withUnread;
   },
@@ -91,7 +128,32 @@ export const chatService = {
    */
   async getOrCreatePrivateRoom(userId: string, targetUserId: string, companyCode: string): Promise<IChatRoom> {
     if (userId === targetUserId) {
-      throw new Error("Không thể chat 1-1 với chính mình.");
+      // Trả về phòng Cloud của tôi thay vì quăng lỗi
+      let room = await ChatRoomModel.findOne({
+        isGroup: false,
+        companyCode,
+        creatorId: userId,
+        $expr: { $eq: [{ $size: "$members" }, 1] },
+        "members.userId": userId,
+      })
+        .populate("members.userId", "displayName photoURL email role status")
+        .populate("lastMessage")
+        .exec();
+
+      if (!room) {
+        const newCloud = new ChatRoomModel({
+          isGroup: false,
+          name: "Cloud của tôi",
+          companyCode,
+          creatorId: userId,
+          members: [{ userId, role: "admin", joinedAt: new Date() }],
+        });
+        const savedRoom = await newCloud.save();
+        room = await ChatRoomModel.findById(savedRoom._id)
+          .populate("members.userId", "displayName photoURL email role status")
+          .exec();
+      }
+      return room!;
     }
 
     // Kiểm tra người nhận có tồn tại trong cùng công ty không
@@ -852,6 +914,26 @@ export const chatService = {
         select: "senderName content attachments isDeleted",
       })
       .exec();
+  },
+
+  /**
+   * Ghim/Bỏ ghim phòng chat đối với người dùng hiện tại
+   */
+  async togglePinRoom(roomId: string, userId: string, companyCode: string): Promise<any> {
+    const room = await ChatRoomModel.findOne({ _id: roomId, companyCode });
+    if (!room) {
+      throw new Error("Không tìm thấy phòng chat.");
+    }
+
+    const member = room.members.find((m) => m.userId.toString() === userId);
+    if (!member) {
+      throw new Error("Bạn không phải là thành viên trong phòng chat này.");
+    }
+
+    member.isPinned = !member.isPinned;
+    await room.save();
+
+    return await chatService.getFullRoom(roomId);
   },
 };
 

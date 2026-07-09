@@ -9,7 +9,7 @@ COPY package.json yarn.lock ./
 # Install ALL dependencies (including devDependencies needed for build)
 # NODE_ENV must NOT be "production" here so devDeps are installed
 ENV NODE_ENV=development
-RUN yarn install --frozen-lockfile
+RUN --mount=type=cache,target=/root/.cache/yarn yarn install --frozen-lockfile
 
 # Copy the entire workspace (excluding files in .dockerignore)
 COPY . .
@@ -40,7 +40,7 @@ ENV PORT=3000
 COPY --from=builder /app/package.json /app/yarn.lock ./
 
 # Install only production dependencies
-RUN yarn install --production --frozen-lockfile
+RUN --mount=type=cache,target=/root/.cache/yarn yarn install --production --frozen-lockfile
 
 # Copy only the compiled output directory from builder
 COPY --from=builder /app/dist ./dist

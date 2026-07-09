@@ -3,6 +3,7 @@ import Joi from "joi";
 import { authController } from "../controller/auth.controller";
 import { requireAuth, requireRole, requirePermission, requireCompanyAccess, requireHierarchyAccess } from "../middleware/auth";
 import { validateRequest } from "../middleware/validation";
+import { authRateLimiter, refreshTokenRateLimiter } from "../middleware/rate-limit";
 import { UserModel } from "../model/user.model";
 
 export const authRouter = Router();
@@ -113,14 +114,14 @@ const updateProfileSchema = {
   }),
 };
 
-// Đăng ký tài khoản mới
-authRouter.post("/register", validateRequest(registerSchema), authController.register);
+// Đăng ký tài khoản mới (giới hạn tần suất chống spam/brute-force)
+authRouter.post("/register", authRateLimiter, validateRequest(registerSchema), authController.register);
 
-// Đăng nhập tài khoản
-authRouter.post("/login", validateRequest(loginSchema), authController.login);
+// Đăng nhập tài khoản (giới hạn tần suất chống brute-force mật khẩu)
+authRouter.post("/login", authRateLimiter, validateRequest(loginSchema), authController.login);
 
 // Làm mới Access Token bằng Refresh Token
-authRouter.post("/refresh-token", authController.refreshToken);
+authRouter.post("/refresh-token", refreshTokenRateLimiter, authController.refreshToken);
 
 // Đăng xuất tài khoản (yêu cầu Access Token)
 authRouter.post("/logout", requireAuth as any, authController.logout as any);
@@ -146,7 +147,7 @@ const changePasswordSchema = {
 };
 
 // Thay đổi mật khẩu người dùng hiện tại (yêu cầu Access Token)
-authRouter.post("/change-password", requireAuth as any, validateRequest(changePasswordSchema), authController.changePassword as any);
+authRouter.post("/change-password", authRateLimiter, requireAuth as any, validateRequest(changePasswordSchema), authController.changePassword as any);
 
 const registerCompanySchema = {
   body: Joi.object({

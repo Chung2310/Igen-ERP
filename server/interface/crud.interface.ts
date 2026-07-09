@@ -11,7 +11,8 @@ export type SupportedModelName =
   | "social-integrations"
   | "workflows"
   | "users"
-  | "hr-calendar-events";
+  | "hr-calendar-events"
+  | "timekeeping-logs";
 
 export interface ICRUDQueryOptions {
   page?: number;

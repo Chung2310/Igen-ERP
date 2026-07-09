@@ -3,21 +3,29 @@ import {
   AlertTriangle,
   ArrowDownRight,
   ArrowUpRight,
+  BookOpen,
   Bot,
   BrainCircuit,
   CheckCircle,
   Clock,
   DollarSign,
   Filter,
+  FolderOpen,
+  GraduationCap,
+  KanbanSquare,
   Lightbulb,
   Megaphone,
+  MessageSquare,
   MoreVertical,
   PackageCheck,
   Rocket,
   Sparkles,
   ThumbsUp,
   Users,
+  Wallet,
   X,
+  MapPin,
+  UserCheck,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { authService } from "../services/authService";
@@ -25,9 +33,12 @@ import { inventoryProductService } from "../services/inventoryProductService";
 import { inventoryStockLogService } from "../services/inventoryStockLogService";
 import { marketingService } from "../services/marketingService";
 import { crmService } from "../services/crmService";
+import { dashboardService } from "../services/dashboardService";
 import { toast } from "../pages/Toast";
 import { UserProfile, ContentApprovalCard } from "../types";
+import { DashboardSummary } from "../types/dashboard";
 import LowStockModal from "../components/inventory/LowStockModal";
+import { isTabHidden } from "../config/modules";
 
 type DashboardView = "overview" | "revenue" | "ai";
 type Tone = "blue" | "amber" | "slate" | "indigo" | "emerald";
@@ -86,6 +97,24 @@ const formatCardDate = (dateStr: any): string => {
   } catch (e) {
     return String(dateStr);
   }
+};
+
+// Quy đổi số lượng thành phần trăm cho DonutCard (tổng đúng 100, legend hiển thị cả số lượng)
+const buildPctSegments = (
+  parts: Array<{ label: string; value: number; color: string }>,
+  unit: string
+): Array<{ label: string; value: number; color: string; display: string }> => {
+  const total = parts.reduce((acc, p) => acc + Math.max(0, p.value), 0);
+  let used = 0;
+  return parts.map((p, i) => {
+    const count = Math.max(0, p.value);
+    let pct = 0;
+    if (total > 0) {
+      pct = i === parts.length - 1 ? Math.max(0, 100 - used) : Math.round((count / total) * 100);
+      used += pct;
+    }
+    return { ...p, value: pct, display: `${count.toLocaleString("vi-VN")} ${unit} (${pct}%)` };
+  });
 };
 
 const formatDashboardCurrency = (val: number, decimalDigits: number = 1, useK: boolean = true): string => {
@@ -147,6 +176,8 @@ export default function DashboardTab() {
   const [filteredLeadsCount, setFilteredLeadsCount] = useState<number>(0);
   const [revenueTrendData, setRevenueTrendData] = useState<Array<{ label: string; value: number }>>([]);
   const [productSegments, setProductSegments] = useState<Array<{ label: string; value: number; color: string }>>([]);
+  const [todayTimekeeping, setTodayTimekeeping] = useState<any>(null);
+  const [isTimekeepingLoading, setIsTimekeepingLoading] = useState<boolean>(false);
 
   type DateFilterType = "day" | "week" | "year" | "custom";
   const [dateFilter, setDateFilter] = useState<DateFilterType>("day");
@@ -322,6 +353,55 @@ export default function DashboardTab() {
       if (unsubLeads && typeof unsubLeads === "function") unsubLeads();
     };
   }, []);
+
+  const fetchTodayTimekeeping = async () => {
+    try {
+      const token = localStorage.getItem("accessToken");
+      if (!token) return;
+      const res = await fetch("/api/v1/timekeeping/today", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (res.ok) {
+        const result = await res.json();
+        setTodayTimekeeping(result.data);
+      }
+    } catch (err) {
+      console.error("Lỗi khi tải trạng thái chấm công:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (userProfile) {
+      fetchTodayTimekeeping();
+    }
+  }, [userProfile]);
+
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
+
+  useEffect(() => {
+    if (!userProfile) return;
+    let cancelled = false;
+
+    const loadSummary = () => {
+      dashboardService
+        .getSummary({ filter: dateFilter, startDate: customStartDate, endDate: customEndDate })
+        .then((data) => {
+          if (!cancelled) setSummary(data);
+        })
+        .catch((err) => {
+          console.error("Lỗi tải dữ liệu tổng quan module:", err);
+        });
+    };
+
+    loadSummary();
+    const intervalId = setInterval(loadSummary, 30000);
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+    };
+  }, [userProfile?.uid, dateFilter, customStartDate, customEndDate]);
 
   // Master calculation useEffect to filter data dynamically by date range
   useEffect(() => {
@@ -902,6 +982,10 @@ export default function DashboardTab() {
           totalRevenue={filteredTotalRevenue}
           trendData={revenueTrendData}
           newHiresCount={newHiresCount}
+          todayTimekeeping={todayTimekeeping}
+          isTimekeepingLoading={isTimekeepingLoading}
+          onRefreshTimekeeping={fetchTodayTimekeeping}
+          summary={summary}
         />
       )}
       {activeView === "revenue" && (
@@ -943,6 +1027,10 @@ function OverviewPanel({
   totalRevenue,
   trendData,
   newHiresCount,
+  todayTimekeeping,
+  isTimekeepingLoading,
+  onRefreshTimekeeping,
+  summary,
 }: {
   employeeCount: string;
   employeeLabel: string;
@@ -966,6 +1054,10 @@ function OverviewPanel({
   totalRevenue: number;
   trendData: Array<{ label: string; value: number }>;
   newHiresCount: number;
+  todayTimekeeping: any;
+  isTimekeepingLoading: boolean;
+  onRefreshTimekeeping: () => void;
+  summary: DashboardSummary | null;
 }) {
   const [showLowStockModal, setShowLowStockModal] = useState<boolean>(false);
   const [showPendingReviewModal, setShowPendingReviewModal] = useState<boolean>(false);
@@ -981,6 +1073,9 @@ function OverviewPanel({
       "QUẢN TRỊ USER": "/quan-tri-user",
       "CÀI ĐẶT": "/cai-dat",
       "VÍ & NẠP TIỀN": "/vi-nap-tien",
+      "QUẢN LÝ HỌC VIÊN": "/quan-ly-hoc-vien",
+      "TRÒ CHUYỆN": "/tro-chuyen",
+      "QUẢN LÝ TÀI NGUYÊN": "/quan-ly-tai-nguyen",
     };
     const path = pathMap[tab];
     if (path) {
@@ -1001,6 +1096,12 @@ function OverviewPanel({
   return (
     <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_280px]">
       <div className="space-y-6">
+        <TimekeepingWidget
+          todayTimekeeping={todayTimekeeping}
+          isLoading={isTimekeepingLoading}
+          onRefresh={onRefreshTimekeeping}
+        />
+
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
           <ModuleCard
             icon={Users}
@@ -1014,9 +1115,168 @@ function OverviewPanel({
             onClick={() => goToTab("NHÂN SỰ")}
           />
           <ModuleCard icon={PackageCheck} tone="blue" title="Kho & Sản phẩm" value={totalProducts} label="Tổng sản phẩm" footer="Đơn chờ xuất" footerValue={`${pendingShipments} Đơn`} progress={78} alert lowCount={lowStockCount} onClick={() => goToTab("KHO & SẢN PHẨM")} />
-          <ModuleCard icon={Megaphone} tone="slate" title="Marketing" value={marketingPendingCount} label="Bài chờ duyệt" footer="Tỉ lệ duyệt" footerValue={`${marketingApprovalRate}%`} progress={Number(marketingApprovalRate) || 0} onClick={() => goToTab("MARKETING")} />
-          <SalesCard value={formatDashboardCurrency(totalRevenue, 1, false)} leadsCount={leadsCount} />
+          {!isTabHidden("MARKETING") && (
+            <ModuleCard icon={Megaphone} tone="slate" title="Marketing" value={marketingPendingCount} label="Bài chờ duyệt" footer="Tỉ lệ duyệt" footerValue={`${marketingApprovalRate}%`} progress={Number(marketingApprovalRate) || 0} onClick={() => goToTab("MARKETING")} />
+          )}
+          {!isTabHidden("SALES CRM") && (
+            <SalesCard value={formatDashboardCurrency(totalRevenue, 1, false)} leadsCount={leadsCount} />
+          )}
         </div>
+
+        {/* Số liệu các module còn lại — dữ liệu tổng hợp từ /api/v1/dashboard/summary */}
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+          <ModuleCard
+            icon={KanbanSquare}
+            tone="indigo"
+            title="Dự án & Công việc"
+            value={summary ? String(summary.projects.tasks.doing) : "..."}
+            label="Task đang làm"
+            footer="Dự án hoạt động"
+            footerValue={summary ? String(summary.projects.activeProjects) : "..."}
+            progress={
+              summary && summary.projects.tasks.total > 0
+                ? Math.round((summary.projects.tasks.done / summary.projects.tasks.total) * 100)
+                : 0
+            }
+            alert
+            lowCount={summary ? String(summary.projects.overdueTasks) : "..."}
+            onClick={() => goToTab("NHÂN SỰ")}
+          />
+          <ModuleCard
+            icon={GraduationCap}
+            tone="emerald"
+            title="Học viên"
+            value={summary ? String(summary.students.totalStudents) : "..."}
+            label="Tổng học viên"
+            footer="Học viên mới trong kỳ"
+            footerValue={summary ? `+${summary.students.newStudents}` : "..."}
+            progress={
+              summary && summary.students.totalStudents > 0
+                ? Math.min(100, Math.round((summary.students.newStudents / summary.students.totalStudents) * 100))
+                : 0
+            }
+            onClick={() => goToTab("QUẢN LÝ HỌC VIÊN")}
+          />
+          <ModuleCard
+            icon={Wallet}
+            tone="amber"
+            title="Học phí & Công nợ"
+            value={summary ? formatDashboardCurrency(summary.students.tuitionRevenue, 1, false) : "..."}
+            label="Học phí đã thu"
+            footer="Công nợ còn lại"
+            footerValue={summary ? formatDashboardCurrency(summary.students.outstandingDebt, 1, false) : "..."}
+            progress={
+              summary && summary.students.tuitionRevenue + summary.students.outstandingDebt > 0
+                ? Math.round(
+                  (summary.students.tuitionRevenue /
+                    (summary.students.tuitionRevenue + summary.students.outstandingDebt)) *
+                  100
+                )
+                : 0
+            }
+            onClick={() => goToTab("QUẢN LÝ HỌC VIÊN")}
+          />
+          <ModuleCard
+            icon={UserCheck}
+            tone="blue"
+            title="Chấm công hôm nay"
+            value={summary ? `${summary.timekeeping.checkedInToday}/${summary.timekeeping.totalEmployees}` : "..."}
+            label="Đã điểm danh"
+            footer="Đi muộn"
+            footerValue={summary ? String(summary.timekeeping.lateToday) : "..."}
+            progress={
+              summary && summary.timekeeping.totalEmployees > 0
+                ? Math.round((summary.timekeeping.checkedInToday / summary.timekeeping.totalEmployees) * 100)
+                : 0
+            }
+          />
+          <ModuleCard
+            icon={MessageSquare}
+            tone="slate"
+            title="Trò chuyện"
+            value={summary ? String(summary.chat.unreadMessages) : "..."}
+            label="Tin chưa đọc"
+            footer="Phòng chat tham gia"
+            footerValue={summary ? String(summary.chat.roomCount) : "..."}
+            progress={summary && summary.chat.unreadMessages > 0 ? 100 : 0}
+            onClick={() => goToTab("TRÒ CHUYỆN")}
+          />
+          <ModuleCard
+            icon={FolderOpen}
+            tone="indigo"
+            title="Tài nguyên"
+            value={summary ? String(summary.resources.fileCount) : "..."}
+            label="Tổng số file"
+            footer="Tải lên trong kỳ"
+            footerValue={summary ? `+${summary.resources.recentUploads}` : "..."}
+            progress={
+              summary && summary.resources.fileCount > 0
+                ? Math.min(100, Math.round((summary.resources.recentUploads / summary.resources.fileCount) * 100))
+                : 0
+            }
+            onClick={() => goToTab("QUẢN LÝ TÀI NGUYÊN")}
+          />
+          <ModuleCard
+            icon={BookOpen}
+            tone="emerald"
+            title="Đào tạo"
+            value={summary ? String(summary.training.ongoingCourses) : "..."}
+            label="Khóa đang diễn ra"
+            footer="Lượt ghi danh"
+            footerValue={summary ? String(summary.training.enrollments.total) : "..."}
+            progress={
+              summary && summary.training.enrollments.total > 0
+                ? Math.round((summary.training.enrollments.completed / summary.training.enrollments.total) * 100)
+                : 0
+            }
+            onClick={() => goToTab("NHÂN SỰ")}
+          />
+        </div>
+
+        {/* Biểu đồ tổng quát các module — cùng bảng màu trạng thái: amber = chưa, blue = đang, emerald = hoàn thành */}
+        {summary && (
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+            <DonutCard
+              title="Trạng thái công việc"
+              centerLabel="Tổng việc"
+              centerValue={summary.projects.tasks.total.toLocaleString("vi-VN")}
+              segments={buildPctSegments(
+                [
+                  { label: "Chưa làm", value: summary.projects.tasks.todo, color: "#f59e0b" },
+                  { label: "Đang làm", value: summary.projects.tasks.doing, color: "#2563eb" },
+                  { label: "Hoàn thành", value: summary.projects.tasks.done, color: "#059669" },
+                ],
+                "việc"
+              )}
+            />
+            <DonutCard
+              title="Tiến độ đào tạo"
+              centerLabel="Lượt ghi danh"
+              centerValue={summary.training.enrollments.total.toLocaleString("vi-VN")}
+              segments={buildPctSegments(
+                [
+                  { label: "Chưa bắt đầu", value: summary.training.enrollments.notStarted, color: "#f59e0b" },
+                  { label: "Đang học", value: summary.training.enrollments.inProgress, color: "#2563eb" },
+                  { label: "Hoàn thành", value: summary.training.enrollments.completed, color: "#059669" },
+                ],
+                "lượt"
+              )}
+            />
+            <DonutCard
+              title="Chấm công hôm nay"
+              centerLabel="Nhân sự"
+              centerValue={summary.timekeeping.totalEmployees.toLocaleString("vi-VN")}
+              segments={buildPctSegments(
+                [
+                  { label: "Đúng giờ", value: Math.max(0, summary.timekeeping.checkedInToday - summary.timekeeping.lateToday), color: "#059669" },
+                  { label: "Đi muộn", value: summary.timekeeping.lateToday, color: "#f59e0b" },
+                  { label: "Chưa điểm danh", value: Math.max(0, summary.timekeeping.totalEmployees - summary.timekeeping.checkedInToday), color: "#e2e8f0" },
+                ],
+                "người"
+              )}
+            />
+          </div>
+        )}
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md transition-all duration-300">
@@ -1026,7 +1286,7 @@ function OverviewPanel({
             </div>
             <BarChart data={trendData} />
           </div>
-          <DonutCard cards={marketingCards} />
+          {!isTabHidden("MARKETING") && <DonutCard cards={marketingCards} />}
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -1073,6 +1333,7 @@ function OverviewPanel({
             {showLowStockModal && <LowStockModal products={lowStockItems} onClose={() => setShowLowStockModal(false)} />}
           </div>
 
+          {!isTabHidden("MARKETING") && (
           <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col justify-between">
             <div>
               <div className="mb-5 flex items-center justify-between">
@@ -1136,6 +1397,7 @@ function OverviewPanel({
               />
             )}
           </div>
+          )}
         </div>
       </div>
 
@@ -1171,6 +1433,7 @@ function OverviewPanel({
             },
             {
               icon: Megaphone,
+              hiddenTab: "MARKETING" as const,
               title: marketingPendingItems.length > 0 ? `${marketingPendingItems.length} bài marketing chờ duyệt` : "Marketing đang ổn định",
               body: marketingPendingItems.length > 0
                 ? `AI đề xuất xử lý ${marketingPendingItems.length} bài viết chờ duyệt để không trì hoãn chiến dịch.`
@@ -1181,6 +1444,7 @@ function OverviewPanel({
             },
             {
               icon: Bot,
+              hiddenTab: "SALES CRM" as const,
               title: "Tự động hóa CSKH bằng AI",
               body: "AI phát hiện có cơ hội thiết lập thêm Agent trả lời tự động để chăm sóc khách hàng 24/7 và cải thiện chuyển đổi.",
               action: "Trải nghiệm AI Agent",
@@ -1190,7 +1454,9 @@ function OverviewPanel({
                 goToTab("SALES CRM");
               },
             },
-          ].map((item) => (
+          ]
+            .filter((item) => !("hiddenTab" in item) || !isTabHidden((item as any).hiddenTab))
+            .map((item) => (
             <AiInsightCard key={item.title} {...item} />
           ))}
         </div>
@@ -1421,6 +1687,7 @@ function ModuleCard({ icon: Icon, tone, title, value, label, footer, footerValue
 
 function SalesCard({ value, leadsCount }: { value: string; leadsCount: string }) {
   const goToTab = (tab: string) => {
+    if (isTabHidden(tab as any)) return;
     const pathMap: Record<string, string> = {
       "SALES CRM": "/sales-crm",
       "KHO & SẢN PHẨM": "/kho-san-pham"
@@ -1549,11 +1816,15 @@ function DonutCard({
   cards = [],
   segments: propSegments,
   title = "Hiệu suất kênh Marketing",
+  centerLabel = "Tổng số",
+  centerValue = "100%",
 }: {
   compact?: boolean;
   cards?: ContentApprovalCard[];
-  segments?: Array<{ label: string; value: number; color: string }>;
+  segments?: Array<{ label: string; value: number; color: string; display?: string }>;
   title?: string;
+  centerLabel?: string;
+  centerValue?: string;
 }) {
   const radius = 66;
   const circumference = 2 * Math.PI * radius;
@@ -1595,10 +1866,10 @@ function DonutCard({
 
   return (
     <div className={compact ? "" : "rounded-3xl border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md transition-all duration-300"}>
-      {!compact && <h3 className="mb-8 text-sm font-bold uppercase tracking-wider text-gray-800">Hiệu suất kênh Marketing</h3>}
+      {!compact && <h3 className="mb-8 text-sm font-bold uppercase tracking-wider text-gray-800">{title}</h3>}
       <div className="grid items-center gap-7 md:grid-cols-[minmax(160px,224px)_minmax(0,1fr)]">
         <div className="relative mx-auto h-48 w-48 shrink-0 sm:h-56 sm:w-56">
-          <svg className="h-full w-full -rotate-90" viewBox="0 0 180 180" aria-label="Marketing channel performance">
+          <svg className="h-full w-full -rotate-90" viewBox="0 0 180 180" aria-label={title}>
             <circle cx="90" cy="90" r={radius} fill="none" stroke="#f8fafc" strokeWidth="28" />
             {segments.map((segment) => {
               const dash = (segment.value / 100) * circumference;
@@ -1614,20 +1885,22 @@ function DonutCard({
                   strokeDasharray={`${dash} ${circumference - dash}`}
                   strokeDashoffset={-offset}
                   strokeLinecap="butt"
-                />
+                >
+                  <title>{`${segment.label}: ${segment.display || `${segment.value}%`}`}</title>
+                </circle>
               );
               offset += dash;
               return circle;
             })}
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-            <span className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Tổng số</span>
-            <strong className="font-sans text-2xl font-extrabold text-gray-800">100%</strong>
+            <span className="text-xs text-gray-400 font-semibold uppercase tracking-wider">{centerLabel}</span>
+            <strong className="font-sans text-2xl font-extrabold text-gray-800">{centerValue}</strong>
           </div>
         </div>
         <div className="min-w-0 space-y-4 text-sm">
           {segments.map((segment) => (
-            <Legend key={segment.label} color={segment.color} label={segment.label} value={`${segment.value}%`} />
+            <Legend key={segment.label} color={segment.color} label={segment.label} value={segment.display || `${segment.value}%`} />
           ))}
         </div>
       </div>
@@ -1785,6 +2058,210 @@ function Legend({ color, label, value }: any) {
         <span className="truncate">{label}</span>
       </span>
       <strong className="font-mono text-gray-800">{value}</strong>
+    </div>
+  );
+}
+
+function TimekeepingWidget({
+  todayTimekeeping,
+  isLoading,
+  onRefresh,
+}: {
+  todayTimekeeping: any;
+  isLoading: boolean;
+  onRefresh: () => void;
+}) {
+  const [checking, setChecking] = useState<"in" | "out" | null>(null);
+  const [gpsPermission, setGpsPermission] = useState<"granted" | "denied" | "prompt" | "unsupported">("prompt");
+
+  useEffect(() => {
+    if (navigator.permissions && navigator.permissions.query) {
+      navigator.permissions.query({ name: "geolocation" }).then((status) => {
+        setGpsPermission(status.state as any);
+        status.onchange = () => {
+          setGpsPermission(status.state as any);
+        };
+      }).catch(() => {
+        setGpsPermission("prompt");
+      });
+    } else {
+      setGpsPermission("unsupported");
+    }
+  }, []);
+
+  const handleAction = async (type: "in" | "out") => {
+    if (!navigator.geolocation) {
+      toast.error("Trình duyệt của bạn không hỗ trợ định vị GPS.");
+      return;
+    }
+
+    setChecking(type);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        try {
+          const url = type === "in" ? "/api/v1/timekeeping/check-in" : "/api/v1/timekeeping/check-out";
+          const res = await fetch(url, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
+            },
+            body: JSON.stringify({
+              latitude,
+              longitude,
+              deviceInfo: navigator.userAgent,
+            }),
+          });
+          const result = await res.json();
+          if (res.ok) {
+            toast.success(result.message || `Check-${type} thành công!`);
+            onRefresh();
+          } else {
+            toast.error(result.message || `Không thể Check-${type}.`);
+          }
+        } catch (err) {
+          toast.error("Lỗi kết nối khi gửi dữ liệu chấm công.");
+        } finally {
+          setChecking(null);
+        }
+      },
+      (error) => {
+        setChecking(null);
+        console.error("Lỗi định vị:", error);
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            toast.error("Vui lòng cho phép truy cập vị trí trên trình duyệt để chấm công.");
+            break;
+          case error.POSITION_UNAVAILABLE:
+            toast.error("Không thể xác định vị trí hiện tại.");
+            break;
+          case error.TIMEOUT:
+            toast.error("Thời gian định vị GPS hết hạn.");
+            break;
+          default:
+            toast.error("Lỗi định vị không xác định.");
+        }
+      },
+      { enableHighAccuracy: true, timeout: 15000 }
+    );
+  };
+
+  const hasCheckIn = !!todayTimekeeping?.checkIn;
+  const hasCheckOut = !!todayTimekeeping?.checkOut;
+
+  const formatTime = (dateStr: string) => {
+    if (!dateStr) return "--:--";
+    const date = new Date(dateStr);
+    return date.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+  };
+
+  let statusText = "Chưa chấm công";
+  let statusColor = "bg-rose-500";
+  let statusBadge = "bg-rose-50 text-rose-700 ring-rose-500/10";
+  if (hasCheckIn) {
+    if (hasCheckOut) {
+      statusText = "Đã hoàn thành chấm công";
+      statusColor = "bg-blue-500";
+      statusBadge = "bg-blue-50 text-blue-700 ring-blue-500/10";
+    } else {
+      statusText = todayTimekeeping.status === "Late" ? "Đã check-in (Muộn)" : "Đã check-in (Đúng giờ)";
+      statusColor = todayTimekeeping.status === "Late" ? "bg-amber-500" : "bg-emerald-500";
+      statusBadge = todayTimekeeping.status === "Late" ? "bg-amber-50 text-amber-700 ring-amber-500/10" : "bg-emerald-50 text-emerald-700 ring-emerald-500/10";
+    }
+  }
+
+  return (
+    <div className="w-full bg-white/70 backdrop-blur-md border border-slate-150 rounded-3xl p-6 shadow-xs relative overflow-hidden transition-all hover:shadow-md duration-300 flex flex-col gap-4">
+      <div className="flex flex-col md:flex-row items-center justify-between gap-5">
+        <div className="flex items-center gap-4 text-left w-full md:w-auto">
+          <div className="relative">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-650 ring-4 ring-indigo-500/10">
+              <Clock className="h-7 w-7" />
+            </div>
+            <span className={`absolute -top-1 -right-1 flex h-4.5 w-4.5 rounded-full ${statusColor} border-2 border-white items-center justify-center shadow-xs`}>
+              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${statusColor} opacity-75`} />
+            </span>
+          </div>
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <h4 className="text-base font-bold text-gray-800">Chấm công GPS hàng ngày</h4>
+              <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ring-1 ${statusBadge}`}>
+                {statusText}
+              </span>
+            </div>
+            <p className="mt-1 text-xs text-gray-500">
+              {hasCheckIn ? (
+                <>
+                  Vào: <span className="font-bold text-gray-700">{formatTime(todayTimekeeping.checkIn.time)}</span>
+                  {todayTimekeeping.checkIn.distance > 0 && ` (${Math.round(todayTimekeeping.checkIn.distance)}m)`}
+                  {hasCheckOut && (
+                    <>
+                      {" · "}Ra: <span className="font-bold text-gray-700">{formatTime(todayTimekeeping.checkOut.time)}</span>
+                      {todayTimekeeping.checkOut.distance > 0 && ` (${Math.round(todayTimekeeping.checkOut.distance)}m)`}
+                    </>
+                  )}
+                </>
+              ) : (
+                "Vui lòng bật định vị và thực hiện Check-in đúng giờ quy định."
+              )}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 w-full md:w-auto justify-end">
+          <button
+            onClick={() => handleAction("in")}
+            disabled={hasCheckIn || checking !== null || isLoading}
+            className={`flex-1 md:flex-none inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold uppercase tracking-wider text-white shadow-md transition-all duration-200 cursor-pointer ${
+              hasCheckIn
+                ? "bg-slate-200 text-slate-400 shadow-none cursor-not-allowed border border-slate-300/40"
+                : checking === "in"
+                ? "bg-indigo-400 cursor-wait animate-pulse"
+                : "bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] shadow-indigo-600/10"
+            }`}
+          >
+            {checking === "in" ? (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              "Check-In"
+            )}
+          </button>
+
+          <button
+            onClick={() => handleAction("out")}
+            disabled={!hasCheckIn || hasCheckOut || checking !== null || isLoading}
+            className={`flex-1 md:flex-none inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold uppercase tracking-wider text-white shadow-md transition-all duration-200 cursor-pointer ${
+              !hasCheckIn || hasCheckOut
+                ? "bg-slate-200 text-slate-400 shadow-none cursor-not-allowed border border-slate-300/40"
+                : checking === "out"
+                ? "bg-emerald-400 cursor-wait animate-pulse"
+                : "bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] shadow-emerald-600/10"
+            }`}
+          >
+            {checking === "out" ? (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              "Check-Out"
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Permission Notices */}
+      {gpsPermission === "prompt" && (
+        <div className="w-full p-3 bg-indigo-50 border border-indigo-100 text-indigo-800 rounded-2xl flex items-center gap-2 animate-pulse">
+          <AlertTriangle className="h-4.5 w-4.5 shrink-0 text-indigo-600" />
+          <span className="text-[11px] font-semibold text-left">iGen ERP cần quyền vị trí của bạn để chấm công. Vui lòng chọn "Cho phép" (Allow) khi trình duyệt yêu cầu.</span>
+        </div>
+      )}
+
+      {gpsPermission === "denied" && (
+        <div className="w-full p-3 bg-rose-50 border border-rose-100 text-rose-800 rounded-2xl flex items-center gap-2">
+          <AlertTriangle className="h-4.5 w-4.5 shrink-0 text-rose-600" />
+          <span className="text-[11px] font-semibold text-left">Bạn đã chặn quyền truy cập vị trí. Vui lòng mở cài đặt trình duyệt, cho phép quyền truy cập vị trí và tải lại trang để chấm công.</span>
+        </div>
+      )}
     </div>
   );
 }

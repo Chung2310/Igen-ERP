@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 import { UserModel } from "../model/user.model";
 import { RolePermissionModel } from "../model/role-permission.model";
+import { getJwtAccessSecret } from "../config/env";
 
 export interface AuthenticatedRequest extends Request {
   user?: {
@@ -92,10 +93,7 @@ export function requireAuth(req: AuthenticatedRequest, res: Response, next: Next
   const token = authHeader.split(" ")[1];
 
   try {
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_ACCESS_SECRET || "your_jwt_access_secret_key"
-    ) as any;
+    const decoded = jwt.verify(token, getJwtAccessSecret()) as any;
 
     req.user = {
       id: decoded.id,

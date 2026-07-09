@@ -9,6 +9,9 @@ import { SEOHead } from "./seo/SEOHead";
 import { AUTH_SEO, getSeoForTab } from "./seo/seo-config";
 import { AppRouterView, useTabRouter } from "./router";
 import { socketService } from "./services/socketService";
+import { NotificationToastContainer } from "./components/notification/NotificationToastContainer";
+import { browserNotificationService } from "./services/browserNotificationService";
+import { pushService } from "./services/pushService";
 
 const AuthPage = lazy(() => import("./pages/AuthPage"));
 const ChatbotWidget = lazy(() =>
@@ -44,6 +47,37 @@ function AppContent() {
       socketService.disconnect();
     }
   }, [user]);
+
+  // Thông báo tin nhắn mới khi người dùng không xem giao diện:
+  // - Tab bị ẩn/thu nhỏ → Notification API (tại đây)
+  // - Đóng hẳn tab → Web Push qua Service Worker (server đẩy cho thành viên offline)
+  React.useEffect(() => {
+    if (!user || !userProfile) return;
+
+    void (async () => {
+      const permission = await browserNotificationService.requestPermission();
+      if (permission === "granted") {
+        await pushService.subscribe();
+      }
+    })();
+
+    const unsubscribe = socketService.on("internal_new_message", (data: any) => {
+      const msg = data?.message;
+      if (!msg) return;
+      const senderId = msg.senderId && typeof msg.senderId === "object" ? msg.senderId._id : msg.senderId;
+      if (senderId === userProfile.uid) return;
+      if (!document.hidden) return; // Đang xem giao diện — âm thanh/badge trong app đã lo
+
+      const body = msg.content && msg.content.trim() ? msg.content.slice(0, 120) : "Đã gửi tệp đính kèm";
+      browserNotificationService.show(`Tin nhắn mới từ ${msg.senderName || "đồng nghiệp"}`, {
+        body,
+        tag: `chat-${data.roomId}`,
+        onClick: () => setActiveTab("TRÒ CHUYỆN" as TabType),
+      });
+    });
+    return unsubscribe;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, userProfile?.uid]);
 
   React.useEffect(() => {
     if (!user || !userProfile) {
@@ -141,6 +175,9 @@ function AppContent() {
       <Suspense fallback={null}>
         <ChatbotWidget />
       </Suspense>
+
+      {/* Popup thông báo nổi thời gian thực ở góc dưới bên phải màn hình */}
+      <NotificationToastContainer onNavigate={handleSearchNavigation} />
     </div>
   );
 }

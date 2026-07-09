@@ -106,9 +106,9 @@ export const crudController = {
       });
     } catch (error: any) {
       console.error("[crudController.create] Error:", error);
-      return res.status(500).json({
+      return res.status(error.statusCode || 500).json({
         status: "error",
-        message: "Lỗi khi tạo mới tài nguyên",
+        message: error.statusCode ? error.message : "Lỗi khi tạo mới tài nguyên",
         details: error.message,
       });
     }
@@ -142,9 +142,9 @@ export const crudController = {
       });
     } catch (error: any) {
       console.error("[crudController.update] Error:", error);
-      return res.status(500).json({
+      return res.status(error.statusCode || 500).json({
         status: "error",
-        message: "Lỗi khi cập nhật tài nguyên",
+        message: error.statusCode ? error.message : "Lỗi khi cập nhật tài nguyên",
         details: error.message,
       });
     }
@@ -177,9 +177,9 @@ export const crudController = {
       });
     } catch (error: any) {
       console.error("[crudController.delete] Error:", error);
-      return res.status(500).json({
+      return res.status(error.statusCode || 500).json({
         status: "error",
-        message: "Lỗi khi xóa tài nguyên",
+        message: error.statusCode ? error.message : "Lỗi khi xóa tài nguyên",
         details: error.message,
       });
     }

@@ -34,6 +34,8 @@ import {
   Smile,
   Mic,
   StopCircle,
+  Video,
+  Cloud,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { authService } from "../services/authService";
@@ -104,6 +106,15 @@ export default function ChatTab() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Video Recording
+  const [isVideoRecording, setIsVideoRecording] = useState(false);
+  const [videoSeconds, setVideoSeconds] = useState(0);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
+  const videoRecorderRef = useRef<MediaRecorder | null>(null);
+  const videoChunksRef = useRef<Blob[]>([]);
+  const videoStreamRef = useRef<MediaStream | null>(null);
+  const videoTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Typing status
   const [typingUsers, setTypingUsers] = useState<{ [roomId: string]: string[] }>({});
@@ -376,7 +387,8 @@ export default function ChatTab() {
           const filtered = prevRooms.filter((r) => r._id !== data.roomId);
           const prevUnread = existing?.unreadCount || 0;
           const unreadCount = isActiveRoom || isMyMessage ? 0 : prevUnread + 1;
-          return [{ ...data.roomUpdate, unreadCount }, ...filtered];
+          const nextRoom = { ...data.roomUpdate, unreadCount };
+          return sortRoomsList([nextRoom, ...filtered]);
         });
 
         // Phát âm báo khi tin nhắn của người khác đến (phòng khác đang mở hoặc tab ẩn)
@@ -430,11 +442,11 @@ export default function ChatTab() {
       setRooms((prevRooms) => {
         const index = prevRooms.findIndex((r) => r._id === updatedRoom._id);
         if (index === -1) {
-          return [updatedRoom, ...prevRooms];
+          return sortRoomsList([updatedRoom, ...prevRooms]);
         }
         const next = [...prevRooms];
         next[index] = updatedRoom;
-        return next;
+        return sortRoomsList(next);
       });
 
       if (activeRoom && activeRoom._id === updatedRoom._id) {
@@ -638,21 +650,46 @@ export default function ChatTab() {
       isNearBottomRef.current = true;
       // Join socket room
       socketService.emit("join_chat_room", { roomId: activeRoom._id });
+      sessionStorage.setItem("activeRoomId", activeRoom._id);
     }
     return () => {
       if (activeRoom) {
         // Leave socket room
         socketService.emit("leave_chat_room", { roomId: activeRoom._id });
+        sessionStorage.removeItem("activeRoomId");
       }
     };
   }, [activeRoom?._id]);
+
+  // Helper to check if a room is pinned by the current user
+  const isRoomPinned = (room: ChatRoom) => {
+    const member = room.members.find(
+      (m) => m.userId && (m.userId._id || (m.userId as any).uid || m.userId) === currentUserId
+    );
+    return !!member?.isPinned;
+  };
+
+  // Helper to sort rooms list: pinned first, then by updatedAt descending
+  const sortRoomsList = (roomsList: ChatRoom[]) => {
+    return [...roomsList].sort((a, b) => {
+      const aPinned = isRoomPinned(a) ? 1 : 0;
+      const bPinned = isRoomPinned(b) ? 1 : 0;
+
+      if (aPinned !== bPinned) {
+        return bPinned - aPinned;
+      }
+      const aTime = new Date(a.updatedAt).getTime();
+      const bTime = new Date(b.updatedAt).getTime();
+      return bTime - aTime;
+    });
+  };
 
   // Fetch Rooms API
   const fetchRooms = async () => {
     try {
       setLoadingRooms(true);
       const data = await internalChatService.getRooms();
-      setRooms(data);
+      setRooms(sortRoomsList(data));
     } catch (error: any) {
       toast.error(error.message);
     } finally {
@@ -782,7 +819,7 @@ export default function ChatTab() {
       // Thêm phòng vào list nếu chưa có
       setRooms((prev) => {
         if (prev.some((r) => r._id === room._id)) return prev;
-        return [room, ...prev];
+        return sortRoomsList([room, ...prev]);
       });
 
       setActiveRoom(room);
@@ -812,7 +849,7 @@ export default function ChatTab() {
       });
 
       toast.success("Chúc mừng! Phòng chat nhóm đã được khởi tạo thành công.");
-      setRooms((prev) => [room, ...prev]);
+      setRooms((prev) => sortRoomsList([room, ...prev]));
       setActiveRoom(room);
       setShowCreateGroupModal(false);
       // Clear form
@@ -831,7 +868,7 @@ export default function ChatTab() {
       const updatedRoom = await internalChatService.addMembers(activeRoom._id, membersToAdd);
       toast.success("Thành viên mới đã được thêm vào phòng chat thành công.");
       setActiveRoom(updatedRoom);
-      setRooms((prev) => prev.map((r) => (r._id === updatedRoom._id ? updatedRoom : r)));
+      setRooms((prev) => sortRoomsList(prev.map((r) => (r._id === updatedRoom._id ? updatedRoom : r))));
       setShowAddMemberModal(false);
       setMembersToAdd([]);
     } catch (error: any) {
@@ -852,7 +889,7 @@ export default function ChatTab() {
           const updatedRoom = await internalChatService.removeMember(activeRoom._id, userId);
           toast.success("Đã xóa thành viên ra khỏi phòng chat thành công.");
           setActiveRoom(updatedRoom);
-          setRooms((prev) => prev.map((r) => (r._id === updatedRoom._id ? updatedRoom : r)));
+          setRooms((prev) => sortRoomsList(prev.map((r) => (r._id === updatedRoom._id ? updatedRoom : r))));
         } catch (error: any) {
           toast.error(error.message);
         }
@@ -906,6 +943,24 @@ export default function ChatTab() {
     });
   };
 
+  // Ghim/Bỏ ghim phòng chat
+  const handleTogglePinRoom = async (roomId: string) => {
+    try {
+      const updatedRoom = await internalChatService.togglePinRoom(roomId);
+      setRooms((prev) => {
+        const next = prev.map((r) => (r._id === roomId ? updatedRoom : r));
+        return sortRoomsList(next);
+      });
+      if (activeRoom && activeRoom._id === roomId) {
+        setActiveRoom(updatedRoom);
+      }
+      const isPinned = isRoomPinned(updatedRoom);
+      toast.success(isPinned ? "Đã ghim cuộc trò chuyện lên đầu." : "Đã bỏ ghim cuộc trò chuyện.");
+    } catch (error: any) {
+      toast.error(error.message || "Không thể thực hiện ghim phòng chat.");
+    }
+  };
+
   // Update Group Settings (name & avatar) - Group Admin only
   const handleSaveGroupSettings = async () => {
     if (!activeRoom) return;
@@ -921,7 +976,7 @@ export default function ChatTab() {
       });
       toast.success("Đã cập nhật tên phòng chat thành công.");
       setActiveRoom(updatedRoom);
-      setRooms((prev) => prev.map((r) => (r._id === updatedRoom._id ? updatedRoom : r)));
+      setRooms((prev) => sortRoomsList(prev.map((r) => (r._id === updatedRoom._id ? updatedRoom : r))));
       setShowGroupSettings(false);
     } catch (error: any) {
       toast.error(error.message);
@@ -942,7 +997,7 @@ export default function ChatTab() {
       });
       toast.success("Đã cập nhật ảnh đại diện của phòng chat thành công.");
       setActiveRoom(updatedRoom);
-      setRooms((prev) => prev.map((r) => (r._id === updatedRoom._id ? updatedRoom : r)));
+      setRooms((prev) => sortRoomsList(prev.map((r) => (r._id === updatedRoom._id ? updatedRoom : r))));
     } catch (error: any) {
       toast.error(error.message);
     } finally {
@@ -974,7 +1029,7 @@ export default function ChatTab() {
             toast.success(`Đã bãi nhiệm chức vụ Phó phòng của ${targetName} thành công.`);
           }
           setActiveRoom(updatedRoom);
-          setRooms((prev) => prev.map((r) => (r._id === updatedRoom._id ? updatedRoom : r)));
+          setRooms((prev) => sortRoomsList(prev.map((r) => (r._id === updatedRoom._id ? updatedRoom : r))));
         } catch (error: any) {
           toast.error(error.message);
         }
@@ -989,7 +1044,7 @@ export default function ChatTab() {
       const updatedRoom = await internalChatService.pinMessage(activeRoom._id, messageId);
       toast.success("Đã ghim tin nhắn.");
       setActiveRoom(updatedRoom);
-      setRooms((prev) => prev.map((r) => (r._id === updatedRoom._id ? updatedRoom : r)));
+      setRooms((prev) => sortRoomsList(prev.map((r) => (r._id === updatedRoom._id ? updatedRoom : r))));
     } catch (error: any) {
       toast.error(error.message);
     }
@@ -1002,7 +1057,7 @@ export default function ChatTab() {
       const updatedRoom = await internalChatService.unpinMessage(activeRoom._id, messageId);
       toast.success("Đã bỏ ghim tin nhắn.");
       setActiveRoom(updatedRoom);
-      setRooms((prev) => prev.map((r) => (r._id === updatedRoom._id ? updatedRoom : r)));
+      setRooms((prev) => sortRoomsList(prev.map((r) => (r._id === updatedRoom._id ? updatedRoom : r))));
       setCurrentPinnedIndex(0);
     } catch (error: any) {
       toast.error(error.message);
@@ -1180,9 +1235,48 @@ export default function ChatTab() {
     }
   };
 
+  // Kiểm tra quyền micro/camera trước khi ghi.
+  // Nếu quyền đã bị chặn thì hướng dẫn mở lại; nếu chưa hỏi thì getUserMedia sẽ tự hiện hộp thoại xin quyền.
+  const ensureMediaPermissions = async (kinds: Array<"microphone" | "camera">): Promise<boolean> => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      toast.error("Trình duyệt không hỗ trợ ghi âm/ghi hình.");
+      return false;
+    }
+    try {
+      for (const kind of kinds) {
+        const status = await navigator.permissions.query({ name: kind as PermissionName });
+        if (status.state === "denied") {
+          toast.error(
+            kind === "microphone"
+              ? "Quyền micro đang bị chặn. Hãy bấm biểu tượng ổ khóa trên thanh địa chỉ và cho phép Micro rồi thử lại."
+              : "Quyền camera đang bị chặn. Hãy bấm biểu tượng ổ khóa trên thanh địa chỉ và cho phép Camera rồi thử lại."
+          );
+          return false;
+        }
+      }
+    } catch {
+      // Trình duyệt không hỗ trợ Permissions API cho micro/camera — để getUserMedia tự hỏi quyền
+    }
+    return true;
+  };
+
+  const showMediaError = (error: any, device: "micro" | "camera") => {
+    const name = error?.name || "";
+    if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+      toast.error(`Bạn chưa cấp quyền ${device}. Hãy bấm "Cho phép" khi trình duyệt hỏi quyền truy cập.`);
+    } else if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+      toast.error(`Không tìm thấy thiết bị ${device} trên máy này.`);
+    } else if (name === "NotReadableError" || name === "TrackStartError") {
+      toast.error(`Thiết bị ${device} đang được ứng dụng khác sử dụng.`);
+    } else {
+      toast.error(`Không thể truy cập ${device}. Vui lòng kiểm tra quyền truy cập.`);
+    }
+  };
+
   // Start voice recording
   const startRecording = async () => {
     if (!activeRoom) return;
+    if (!(await ensureMediaPermissions(["microphone"]))) return;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const recorder = new MediaRecorder(stream);
@@ -1199,8 +1293,8 @@ export default function ChatTab() {
       recordingTimerRef.current = setInterval(() => {
         setRecordingSeconds((s) => s + 1);
       }, 1000);
-    } catch {
-      toast.error("Không thể truy cập microphone. Vui lòng kiểm tra quyền truy cập.");
+    } catch (error) {
+      showMediaError(error, "micro");
     }
   };
 
@@ -1243,6 +1337,108 @@ export default function ChatTab() {
     setIsRecording(false);
     setRecordingSeconds(0);
   };
+
+  // ===== Video Recording =====
+  const VIDEO_MAX_SECONDS = 300; // Giới hạn 5 phút / video để tránh upload quá nặng
+
+  const attachVideoPreview = (el: HTMLVideoElement | null) => {
+    if (el && videoStreamRef.current && el.srcObject !== videoStreamRef.current) {
+      el.srcObject = videoStreamRef.current;
+    }
+  };
+
+  const releaseVideoStream = () => {
+    videoStreamRef.current?.getTracks().forEach((t) => t.stop());
+    videoStreamRef.current = null;
+    if (videoTimerRef.current) clearInterval(videoTimerRef.current);
+    setIsVideoRecording(false);
+    setVideoSeconds(0);
+  };
+
+  // Start video recording
+  const startVideoRecording = async () => {
+    if (!activeRoom) return;
+    if (!(await ensureMediaPermissions(["camera", "microphone"]))) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "user" },
+        audio: true,
+      });
+      videoStreamRef.current = stream;
+      videoChunksRef.current = [];
+      const recorder = new MediaRecorder(stream);
+      videoRecorderRef.current = recorder;
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) videoChunksRef.current.push(e.data);
+      };
+
+      recorder.start();
+      setIsVideoRecording(true);
+      setVideoSeconds(0);
+      videoTimerRef.current = setInterval(() => {
+        setVideoSeconds((s) => s + 1);
+      }, 1000);
+    } catch (error) {
+      showMediaError(error, "camera");
+    }
+  };
+
+  // Stop & send video recording
+  const stopVideoRecording = () => {
+    const recorder = videoRecorderRef.current;
+    if (!recorder || !activeRoom) return;
+    const roomId = activeRoom._id;
+    const replyId = replyingMessage?._id;
+
+    recorder.onstop = async () => {
+      const videoBlob = new Blob(videoChunksRef.current, { type: "video/webm" });
+      const videoFile = new File([videoBlob], `video-${Date.now()}.webm`, { type: "video/webm" });
+      try {
+        setUploadingVideo(true);
+        const attachment = await internalChatService.uploadAttachment(videoFile);
+        await internalChatService.sendMessage(roomId, "", [attachment], replyId);
+        setReplyingMessage(null);
+      } catch (error: any) {
+        toast.error(error.message || "Không thể gửi tin nhắn video.");
+      } finally {
+        setUploadingVideo(false);
+      }
+    };
+
+    recorder.stop();
+    releaseVideoStream();
+  };
+
+  // Cancel video recording
+  const cancelVideoRecording = () => {
+    const recorder = videoRecorderRef.current;
+    if (recorder && recorder.state !== "inactive") {
+      recorder.onstop = null;
+      recorder.stop();
+    }
+    videoChunksRef.current = [];
+    releaseVideoStream();
+  };
+
+  // Tự dừng và gửi khi chạm giới hạn thời lượng ghi hình
+  useEffect(() => {
+    if (isVideoRecording && videoSeconds >= VIDEO_MAX_SECONDS) {
+      toast.info("Đã đạt thời lượng tối đa 5 phút — video sẽ được gửi.");
+      stopVideoRecording();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [videoSeconds, isVideoRecording]);
+
+  // Tắt micro/camera nếu rời trang khi đang ghi dở
+  useEffect(() => {
+    return () => {
+      mediaRecorderRef.current?.stream.getTracks().forEach((t) => t.stop());
+      videoStreamRef.current?.getTracks().forEach((t) => t.stop());
+      if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+      if (videoTimerRef.current) clearInterval(videoTimerRef.current);
+    };
+  }, []);
 
   // Send Message
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -1349,6 +1545,11 @@ export default function ChatTab() {
   const getRoomName = (room: ChatRoom) => {
     if (room.isGroup) return room.name || "Nhóm trò chuyện";
 
+    // Phòng Cloud của tôi (chỉ có 1 thành viên là chính mình)
+    if (room.members.length === 1) {
+      return "Cloud của tôi";
+    }
+
     // Find the other member in private chat
     const otherMember = room.members.find(
       (m) => m.userId && (m.userId._id || m.userId.uid || m.userId) !== currentUserId
@@ -1359,6 +1560,11 @@ export default function ChatTab() {
   // Format Room display Avatar
   const getRoomAvatar = (room: ChatRoom) => {
     if (room.isGroup) return room.avatarURL || "";
+
+    // Phòng Cloud của tôi (chỉ có 1 thành viên là chính mình)
+    if (room.members.length === 1) {
+      return "cloud-avatar";
+    }
 
     const otherMember = room.members.find(
       (m) => m.userId && (m.userId._id || m.userId.uid || m.userId) !== currentUserId
@@ -1540,14 +1746,20 @@ export default function ChatTab() {
                     >
                       {/* Avatar */}
                       <div className="relative h-11 w-11 shrink-0 rounded-xl bg-slate-100 overflow-hidden border border-gray-100">
-                        {roomAvatar ? (
+                        {roomAvatar && roomAvatar !== "cloud-avatar" ? (
                           <img src={roomAvatar} alt={roomName} className="h-full w-full object-cover" />
                         ) : (
-                          <div className="flex h-full w-full items-center justify-center font-bold text-slate-600">
-                            {room.isGroup ? <Users className="h-5 w-5 text-slate-500" /> : roomName.charAt(0).toUpperCase()}
+                          <div className="flex h-full w-full items-center justify-center font-bold text-slate-600 bg-indigo-50">
+                            {roomAvatar === "cloud-avatar" ? (
+                              <Cloud className="h-5 w-5 text-indigo-600" />
+                            ) : room.isGroup ? (
+                              <Users className="h-5 w-5 text-slate-500" />
+                            ) : (
+                              roomName.charAt(0).toUpperCase()
+                            )}
                           </div>
                         )}
-                        {!room.isGroup && onlineStatus && (
+                        {!room.isGroup && room.members.length > 1 && onlineStatus && (
                           <div className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white ${onlineStatus === "online" ? "bg-emerald-500" : "bg-slate-300"}`} />
                         )}
                       </div>
@@ -1556,11 +1768,14 @@ export default function ChatTab() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between">
                           <p className={`truncate text-sm font-semibold ${hasUnread ? "text-slate-900 font-bold" : "text-slate-700"}`}>{roomName}</p>
-                          {room.lastMessage && (
-                            <span className="text-[10px] text-gray-400">
-                              {new Date(room.lastMessage.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                          )}
+                          <div className="flex items-center gap-1 shrink-0">
+                            {isRoomPinned(room) && <Pin className="h-3 w-3 text-indigo-500 rotate-45 fill-indigo-500" />}
+                            {room.lastMessage && (
+                              <span className="text-[10px] text-gray-400">
+                                {new Date(room.lastMessage.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            )}
+                          </div>
                         </div>
 
                         {/* Last message / Typing indicator */}
@@ -1615,14 +1830,20 @@ export default function ChatTab() {
                 </button>
 
                 <div className="relative h-11 w-11 rounded-xl bg-slate-100 overflow-hidden border border-gray-200">
-                  {getRoomAvatar(activeRoom) ? (
+                  {getRoomAvatar(activeRoom) && getRoomAvatar(activeRoom) !== "cloud-avatar" ? (
                     <img src={getRoomAvatar(activeRoom)} alt={getRoomName(activeRoom)} className="h-full w-full object-cover" />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center font-bold text-slate-600">
-                      {activeRoom.isGroup ? <Users className="h-5 w-5 text-slate-500" /> : getRoomName(activeRoom).charAt(0).toUpperCase()}
+                    <div className="flex h-full w-full items-center justify-center font-bold text-slate-600 bg-indigo-50">
+                      {getRoomAvatar(activeRoom) === "cloud-avatar" ? (
+                        <Cloud className="h-5 w-5 text-indigo-600" />
+                      ) : activeRoom.isGroup ? (
+                        <Users className="h-5 w-5 text-slate-500" />
+                      ) : (
+                        getRoomName(activeRoom).charAt(0).toUpperCase()
+                      )}
                     </div>
                   )}
-                  {!activeRoom.isGroup && getOtherUserStatus(activeRoom) === "online" && (
+                  {!activeRoom.isGroup && activeRoom.members.length > 1 && getOtherUserStatus(activeRoom) === "online" && (
                     <div className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500" />
                   )}
                 </div>
@@ -1635,6 +1856,19 @@ export default function ChatTab() {
               </div>
 
               <div className="flex items-center gap-2">
+                {/* Pin Room Button */}
+                <button
+                  onClick={() => handleTogglePinRoom(activeRoom._id)}
+                  className={`flex h-9 w-9 items-center justify-center rounded-xl transition ${
+                    isRoomPinned(activeRoom)
+                      ? "bg-indigo-50 text-indigo-600 shadow-xs"
+                      : "text-gray-500 hover:bg-slate-100"
+                  }`}
+                  title={isRoomPinned(activeRoom) ? "Bỏ ghim cuộc trò chuyện này" : "Ghim cuộc trò chuyện lên đầu"}
+                >
+                  <Pin className={`h-5 w-5 ${isRoomPinned(activeRoom) ? "fill-indigo-600 rotate-45" : ""}`} />
+                </button>
+
                 {/* Search Button */}
                 <button
                   onClick={() => {
@@ -2334,11 +2568,17 @@ export default function ChatTab() {
                         {/* Header info */}
                         <div className="flex flex-col items-center text-center pb-5 border-b border-gray-100">
                           <div className="relative h-16 w-16 rounded-2xl bg-slate-100 overflow-hidden border border-gray-200 mb-3 shadow-md">
-                            {getRoomAvatar(activeRoom) ? (
+                            {getRoomAvatar(activeRoom) && getRoomAvatar(activeRoom) !== "cloud-avatar" ? (
                               <img src={getRoomAvatar(activeRoom)} alt={getRoomName(activeRoom)} className="h-full w-full object-cover" />
                             ) : (
-                              <div className="flex h-full w-full items-center justify-center font-bold text-xl text-slate-600">
-                                {activeRoom.isGroup ? <Users className="h-7 w-7 text-slate-500" /> : getRoomName(activeRoom).charAt(0).toUpperCase()}
+                              <div className="flex h-full w-full items-center justify-center font-bold text-xl text-slate-600 bg-indigo-50">
+                                {getRoomAvatar(activeRoom) === "cloud-avatar" ? (
+                                  <Cloud className="h-7 w-7 text-indigo-600" />
+                                ) : activeRoom.isGroup ? (
+                                  <Users className="h-7 w-7 text-slate-500" />
+                                ) : (
+                                  getRoomName(activeRoom).charAt(0).toUpperCase()
+                                )}
                               </div>
                             )}
                           </div>
@@ -2775,6 +3015,17 @@ export default function ChatTab() {
                       <Smile className="h-5 w-5" />
                     </button>
 
+                    {/* Video record button */}
+                    <button
+                      type="button"
+                      onClick={startVideoRecording}
+                      disabled={isRecording || uploadingVideo}
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-slate-450 hover:text-rose-500 hover:bg-rose-50 border border-slate-150/40 transition active:scale-95 disabled:opacity-50"
+                      title="Ghi hình gửi tin nhắn video"
+                    >
+                      {uploadingVideo ? <Loader2 className="h-5 w-5 animate-spin" /> : <Video className="h-5 w-5" />}
+                    </button>
+
                     {/* Recording UI or Normal Input */}
                     {isRecording ? (
                       <div className="flex flex-1 items-center gap-3 rounded-2xl border border-rose-300 bg-rose-50 px-4 py-2.5">
@@ -2878,6 +3129,50 @@ export default function ChatTab() {
           </div>
         )}
       </div>
+
+      {/* MODAL: VIDEO RECORDING */}
+      {isVideoRecording && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-4 shadow-2xl">
+            <div className="relative overflow-hidden rounded-xl bg-black">
+              <video
+                ref={attachVideoPreview}
+                muted
+                playsInline
+                autoPlay
+                className="w-full max-h-[60vh] object-contain"
+              />
+              <div className="absolute top-3 left-3 flex items-center gap-2 rounded-full bg-black/50 px-3 py-1.5">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-rose-500" />
+                </span>
+                <span className="text-xs font-bold text-white tabular-nums">
+                  {Math.floor(videoSeconds / 60).toString().padStart(2, "0")}:{(videoSeconds % 60).toString().padStart(2, "0")}
+                </span>
+              </div>
+            </div>
+            <div className="mt-4 flex items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={cancelVideoRecording}
+                className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition active:scale-95"
+              >
+                <X className="h-4 w-4" />
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={stopVideoRecording}
+                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-rose-500 to-pink-500 px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:shadow-lg hover:scale-105 active:scale-95 transition-all duration-300"
+              >
+                <StopCircle className="h-4 w-4" />
+                Dừng & Gửi
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL: CREATE GROUP CHAT */}
       {showCreateGroupModal && (
