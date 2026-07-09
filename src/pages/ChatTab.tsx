@@ -35,6 +35,7 @@ import {
   Mic,
   StopCircle,
   Video,
+  Cloud,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { authService } from "../services/authService";
@@ -1502,6 +1503,11 @@ export default function ChatTab() {
   const getRoomName = (room: ChatRoom) => {
     if (room.isGroup) return room.name || "Nhóm trò chuyện";
 
+    // Phòng Cloud của tôi (chỉ có 1 thành viên là chính mình)
+    if (room.members.length === 1) {
+      return "Cloud của tôi";
+    }
+
     // Find the other member in private chat
     const otherMember = room.members.find(
       (m) => m.userId && (m.userId._id || m.userId.uid || m.userId) !== currentUserId
@@ -1512,6 +1518,11 @@ export default function ChatTab() {
   // Format Room display Avatar
   const getRoomAvatar = (room: ChatRoom) => {
     if (room.isGroup) return room.avatarURL || "";
+
+    // Phòng Cloud của tôi (chỉ có 1 thành viên là chính mình)
+    if (room.members.length === 1) {
+      return "cloud-avatar";
+    }
 
     const otherMember = room.members.find(
       (m) => m.userId && (m.userId._id || m.userId.uid || m.userId) !== currentUserId
@@ -1693,14 +1704,20 @@ export default function ChatTab() {
                     >
                       {/* Avatar */}
                       <div className="relative h-11 w-11 shrink-0 rounded-xl bg-slate-100 overflow-hidden border border-gray-100">
-                        {roomAvatar ? (
+                        {roomAvatar && roomAvatar !== "cloud-avatar" ? (
                           <img src={roomAvatar} alt={roomName} className="h-full w-full object-cover" />
                         ) : (
-                          <div className="flex h-full w-full items-center justify-center font-bold text-slate-600">
-                            {room.isGroup ? <Users className="h-5 w-5 text-slate-500" /> : roomName.charAt(0).toUpperCase()}
+                          <div className="flex h-full w-full items-center justify-center font-bold text-slate-600 bg-indigo-50">
+                            {roomAvatar === "cloud-avatar" ? (
+                              <Cloud className="h-5 w-5 text-indigo-600" />
+                            ) : room.isGroup ? (
+                              <Users className="h-5 w-5 text-slate-500" />
+                            ) : (
+                              roomName.charAt(0).toUpperCase()
+                            )}
                           </div>
                         )}
-                        {!room.isGroup && onlineStatus && (
+                        {!room.isGroup && room.members.length > 1 && onlineStatus && (
                           <div className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white ${onlineStatus === "online" ? "bg-emerald-500" : "bg-slate-300"}`} />
                         )}
                       </div>
@@ -1768,14 +1785,20 @@ export default function ChatTab() {
                 </button>
 
                 <div className="relative h-11 w-11 rounded-xl bg-slate-100 overflow-hidden border border-gray-200">
-                  {getRoomAvatar(activeRoom) ? (
+                  {getRoomAvatar(activeRoom) && getRoomAvatar(activeRoom) !== "cloud-avatar" ? (
                     <img src={getRoomAvatar(activeRoom)} alt={getRoomName(activeRoom)} className="h-full w-full object-cover" />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center font-bold text-slate-600">
-                      {activeRoom.isGroup ? <Users className="h-5 w-5 text-slate-500" /> : getRoomName(activeRoom).charAt(0).toUpperCase()}
+                    <div className="flex h-full w-full items-center justify-center font-bold text-slate-600 bg-indigo-50">
+                      {getRoomAvatar(activeRoom) === "cloud-avatar" ? (
+                        <Cloud className="h-5 w-5 text-indigo-600" />
+                      ) : activeRoom.isGroup ? (
+                        <Users className="h-5 w-5 text-slate-500" />
+                      ) : (
+                        getRoomName(activeRoom).charAt(0).toUpperCase()
+                      )}
                     </div>
                   )}
-                  {!activeRoom.isGroup && getOtherUserStatus(activeRoom) === "online" && (
+                  {!activeRoom.isGroup && activeRoom.members.length > 1 && getOtherUserStatus(activeRoom) === "online" && (
                     <div className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500" />
                   )}
                 </div>
@@ -2487,11 +2510,17 @@ export default function ChatTab() {
                         {/* Header info */}
                         <div className="flex flex-col items-center text-center pb-5 border-b border-gray-100">
                           <div className="relative h-16 w-16 rounded-2xl bg-slate-100 overflow-hidden border border-gray-200 mb-3 shadow-md">
-                            {getRoomAvatar(activeRoom) ? (
+                            {getRoomAvatar(activeRoom) && getRoomAvatar(activeRoom) !== "cloud-avatar" ? (
                               <img src={getRoomAvatar(activeRoom)} alt={getRoomName(activeRoom)} className="h-full w-full object-cover" />
                             ) : (
-                              <div className="flex h-full w-full items-center justify-center font-bold text-xl text-slate-600">
-                                {activeRoom.isGroup ? <Users className="h-7 w-7 text-slate-500" /> : getRoomName(activeRoom).charAt(0).toUpperCase()}
+                              <div className="flex h-full w-full items-center justify-center font-bold text-xl text-slate-600 bg-indigo-50">
+                                {getRoomAvatar(activeRoom) === "cloud-avatar" ? (
+                                  <Cloud className="h-7 w-7 text-indigo-600" />
+                                ) : activeRoom.isGroup ? (
+                                  <Users className="h-7 w-7 text-slate-500" />
+                                ) : (
+                                  getRoomName(activeRoom).charAt(0).toUpperCase()
+                                )}
                               </div>
                             )}
                           </div>

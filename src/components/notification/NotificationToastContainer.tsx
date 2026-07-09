@@ -13,6 +13,65 @@ export function NotificationToastContainer({ onNavigate }: NotificationToastCont
   const { userProfile } = useAuth();
   const [toasts, setToasts] = useState<WebNotification[]>([]);
 
+  const removeToast = (id: string) => {
+    setToasts((prev) => prev.filter((t) => t._id !== id));
+  };
+
+  const handleToastClick = async (toast: WebNotification) => {
+    // Đóng popup trước
+    removeToast(toast._id);
+
+    // Gọi API cập nhật trạng thái đã đọc ở background (chỉ cho thông báo database thật)
+    if (!toast._id.startsWith("chat-")) {
+      try {
+        await notificationService.markAsRead(toast._id);
+        // Gửi event để Header biết cần reload danh sách hoặc cập nhật số lượng unread
+        window.dispatchEvent(new Event("notification-mutation"));
+      } catch (err) {
+        console.error("Lỗi khi đánh dấu đã đọc từ toast click:", err);
+      }
+    }
+
+    // Điều hướng trang nếu có action định sẵn
+    if (toast.action && onNavigate) {
+      onNavigate(toast.action.tab, toast.action.subTab);
+    }
+  };
+
+  // Helper để hiển thị thông báo native của hệ điều hành qua HTML5 Notification API
+  const showNativeNotification = (title: string, body: string, actionToast: WebNotification) => {
+    if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+      // Chỉ kích hoạt khi người dùng đang không active tab này
+      if (document.hidden || !document.hasFocus()) {
+        try {
+          const nativeNotif = new Notification(title, {
+            body: body,
+            icon: "/favicon.ico",
+            tag: actionToast._id,
+          });
+
+          nativeNotif.onclick = () => {
+            window.focus();
+            handleToastClick(actionToast);
+          };
+        } catch (err) {
+          console.error("Lỗi khi hiển thị thông báo native:", err);
+        }
+      }
+    }
+  };
+
+  // Yêu cầu quyền gửi thông báo từ trình duyệt khi mount component
+  useEffect(() => {
+    if (typeof window !== "undefined" && "Notification" in window) {
+      if (Notification.permission === "default") {
+        Notification.requestPermission().catch((err) => {
+          console.warn("Không thể xin quyền thông báo hệ thống:", err);
+        });
+      }
+    }
+  }, []);
+
   useEffect(() => {
     const handleNewNotificationToast = (e: Event) => {
       const customEvent = e as CustomEvent<WebNotification>;
@@ -20,6 +79,10 @@ export function NotificationToastContainer({ onNavigate }: NotificationToastCont
 
       if (!newNotif || !newNotif._id) return;
 
+      // 1. Gửi thông báo hệ thống (Native OS Notification) nếu tab không focus
+      showNativeNotification(newNotif.title, newNotif.body, newNotif);
+
+      // 2. Đồng thời hiện toast thông thường trong giao diện web
       setToasts((prev) => {
         // Tránh trùng lặp
         if (prev.some((t) => t._id === newNotif._id)) return prev;
@@ -77,6 +140,10 @@ export function NotificationToastContainer({ onNavigate }: NotificationToastCont
         createdAt: new Date().toISOString(),
       };
 
+      // 1. Gửi thông báo hệ thống (Native OS Notification) nếu tab không focus
+      showNativeNotification(chatNotif.title, chatNotif.body, chatNotif);
+
+      // 2. Đồng thời hiện toast thông thường trong giao diện web
       setToasts((prev) => {
         if (prev.some((t) => t._id === chatNotif._id)) return prev;
 
@@ -99,31 +166,6 @@ export function NotificationToastContainer({ onNavigate }: NotificationToastCont
       unsub();
     };
   }, [userProfile]);
-
-  const removeToast = (id: string) => {
-    setToasts((prev) => prev.filter((t) => t._id !== id));
-  };
-
-  const handleToastClick = async (toast: WebNotification) => {
-    // Đóng popup trước
-    removeToast(toast._id);
-
-    // Gọi API cập nhật trạng thái đã đọc ở background (chỉ cho thông báo database thật)
-    if (!toast._id.startsWith("chat-")) {
-      try {
-        await notificationService.markAsRead(toast._id);
-        // Gửi event để Header biết cần reload danh sách hoặc cập nhật số lượng unread
-        window.dispatchEvent(new Event("notification-mutation"));
-      } catch (err) {
-        console.error("Lỗi khi đánh dấu đã đọc từ toast click:", err);
-      }
-    }
-
-    // Điều hướng trang nếu có action định sẵn
-    if (toast.action && onNavigate) {
-      onNavigate(toast.action.tab, toast.action.subTab);
-    }
-  };
 
   if (toasts.length === 0) return null;
 
