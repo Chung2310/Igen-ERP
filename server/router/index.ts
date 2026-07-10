@@ -14,6 +14,7 @@ import { dashboardRouter } from "./dashboard.router";
 import { pushRouter } from "./push.router";
 import { mediaRouter } from "./media.router";
 import { notificationRouter } from "./notification.router";
+import { kanbanRouter } from "./kanban.router";
 export const apiRouter = Router();
 /**
  * GET /api/v1/health
@@ -66,6 +67,9 @@ apiRouter.use("/push", pushRouter);
 
 // Gắn kết router thông báo web
 apiRouter.use("/notifications", notificationRouter);
+
+// API chuyên biệt cho giao việc, dự án và audit Kanban
+apiRouter.use("/kanban", kanbanRouter);
 
 // Gắn kết router chat nội bộ
 apiRouter.use("/chat", chatRouter);

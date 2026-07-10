@@ -128,7 +128,7 @@ function sanitizeInventoryResult(modelName: string, item: any) {
  * phải đi qua router chuyên biệt có kiểm tra phân quyền & phân cấp đầy đủ.
  * Chặn ở đây để tránh leo thang đặc quyền (vd tự set role/permissions qua /crud/users).
  */
-const WRITE_PROTECTED_MODELS = new Set<string>(["users"]);
+const WRITE_PROTECTED_MODELS = new Set<string>(["users", "kanban-tasks", "projects"]);
 
 /** Loại bỏ trường nhạy cảm khỏi kết quả trả về của model users */
 function sanitizeUserResult(modelName: string, item: any) {

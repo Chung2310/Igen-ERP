@@ -191,7 +191,7 @@ function TaskTable({
                       </div>
                     </div>
                   </td>
-                  
+
                   {/* Dự án (Optional) */}
                   {showProjectColumn && (
                     <td className="px-4 py-3 text-slate-500 truncate max-w-[110px]" title={projects.find(p => p.id === task.projectId)?.name || "Không có dự án"}>
@@ -206,24 +206,22 @@ function TaskTable({
 
                   {/* Ưu tiên */}
                   <td className="px-4 py-3 select-none">
-                    <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold border uppercase tracking-wider font-mono whitespace-nowrap ${
-                      task.priority === "High" ? "bg-rose-50 text-rose-700 border-rose-200" :
-                      task.priority === "Low" ? "bg-slate-100 text-slate-500 border-gray-250" : "bg-amber-50 text-amber-700 border-amber-200"
-                    }`}>
+                    <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold border uppercase tracking-wider font-mono whitespace-nowrap ${task.priority === "High" ? "bg-rose-50 text-rose-700 border-rose-200" :
+                        task.priority === "Low" ? "bg-slate-100 text-slate-500 border-gray-250" : "bg-amber-50 text-amber-700 border-amber-200"
+                      }`}>
                       {task.priority === "High" ? "Cao" : task.priority === "Low" ? "Thấp" : "Trung bình"}
                     </span>
                   </td>
 
                   {/* Trạng thái */}
                   <td className="px-4 py-3 select-none">
-                    <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold border whitespace-nowrap ${
-                      task.status === "Done" || task.status === "done" ? "bg-emerald-50 text-emerald-700 border-emerald-250" :
-                      task.status === "Review/Testing" ? "bg-indigo-50 text-indigo-700 border-indigo-200" :
-                      task.status === "In Progress" || task.status === "doing" ? "bg-sky-50 text-sky-700 border-sky-200" : "bg-slate-100 text-slate-500 border-gray-250"
-                    }`}>
+                    <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold border whitespace-nowrap ${task.status === "Done" || task.status === "done" ? "bg-emerald-50 text-emerald-700 border-emerald-250" :
+                        task.status === "Review/Testing" ? "bg-indigo-50 text-indigo-700 border-indigo-200" :
+                          task.status === "In Progress" || task.status === "doing" ? "bg-sky-50 text-sky-700 border-sky-200" : "bg-slate-100 text-slate-500 border-gray-250"
+                      }`}>
                       {task.status === "Done" || task.status === "done" ? "Đã xong" :
-                      task.status === "Review/Testing" ? "Kiểm tra" :
-                      task.status === "In Progress" || task.status === "doing" ? "Đang làm" : "Chưa làm"}
+                        task.status === "Review/Testing" ? "Kiểm tra" :
+                          task.status === "In Progress" || task.status === "doing" ? "Đang làm" : "Chưa làm"}
                     </span>
                   </td>
 
@@ -928,11 +926,11 @@ export default function KanbanTab({
   const doneMissing =
     selectedKanbanTask && editStatus === "Done"
       ? getMissingDoneFields({
-          description: editDescription,
-          dueDate: editDueDate,
-          startTime: editStartTime,
-          estTime: editEstTime === "" ? 0 : Number(editEstTime),
-        })
+        description: editDescription,
+        dueDate: editDueDate,
+        startTime: editStartTime,
+        estTime: editEstTime === "" ? 0 : Number(editEstTime),
+      })
       : [];
   const missingKeySet = new Set(doneMissing.map((m) => m.key));
   const missingCls = (key: DoneFieldKey, base: string) =>
@@ -1027,13 +1025,12 @@ export default function KanbanTab({
                   <button
                     key={vt}
                     onClick={() => setKanbanViewTab(vt)}
-                    className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                      kanbanViewTab === vt ? "bg-white text-slate-850 shadow-xs" : "text-gray-500 hover:text-slate-700"
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${kanbanViewTab === vt ? "bg-white text-slate-850 shadow-xs" : "text-gray-500 hover:text-slate-700"
+                      }`}
                   >
-                    {vt === "By project" ? "Theo dự án" : 
-                     vt === "Board" ? "Bảng Kanban" : 
-                     vt === "By workflow" ? "Theo quy trình" : "Tất cả công việc"}
+                    {vt === "By project" ? "Theo dự án" :
+                      vt === "Board" ? "Bảng Kanban" :
+                        vt === "By workflow" ? "Theo quy trình" : "Tất cả công việc"}
                   </button>
                 ))}
               </div>
@@ -1077,7 +1074,7 @@ export default function KanbanTab({
                     className="px-4 py-2 border border-gray-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer"
                   >
                     <Target className="h-4 w-4" />
-                    Tạo Dự Án
+                    Tạo Dự Án & Lĩnh vực
                   </button>
 
                   <button
@@ -1926,10 +1923,9 @@ function KanbanCard({
     >
       <div className="space-y-1.5">
         <div className="flex justify-between items-start gap-2 select-none">
-          <span className={`px-2 py-0.5 rounded-md text-[8px] font-bold border uppercase tracking-wider font-mono ${
-            task.priority === "High" ? "bg-rose-50 text-rose-700 border-rose-200" :
-            task.priority === "Low" ? "bg-slate-100 text-slate-500 border-gray-250" : "bg-amber-50 text-amber-705 text-amber-700 border-amber-205 border-amber-200"
-          }`}>
+          <span className={`px-2 py-0.5 rounded-md text-[8px] font-bold border uppercase tracking-wider font-mono ${task.priority === "High" ? "bg-rose-50 text-rose-700 border-rose-200" :
+              task.priority === "Low" ? "bg-slate-100 text-slate-500 border-gray-250" : "bg-amber-50 text-amber-705 text-amber-700 border-amber-205 border-amber-200"
+            }`}>
             {task.priority === "High" ? "Cao" : task.priority === "Low" ? "Thấp" : "Trung bình"}
           </span>
           <span className="text-[9px] font-bold text-indigo-750 font-mono uppercase tracking-wider bg-slate-50 border border-slate-200 px-1.5 py-0.5 rounded">

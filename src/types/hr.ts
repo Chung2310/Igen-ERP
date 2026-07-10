@@ -142,6 +142,8 @@ export interface HRTask {
   estTime?: number;
   endTime?: string;
   actualTime?: number;
+  completedAt?: string;
+  revision?: number;
   tags?: string[];
   linkNote?: string;
   history?: TaskHistoryEntry[];

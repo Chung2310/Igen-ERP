@@ -24,6 +24,10 @@ export interface IKanbanTask extends Document {
   estTime?: number;
   endTime?: string;
   actualTime?: number;
+  completedAt?: string;
+  revision?: number;
+  deadlineReminderSentAt?: Date;
+  overdueNotifiedAt?: Date;
   tags?: string[];
   linkNote?: string;
   history?: ITaskHistoryEntry[];
