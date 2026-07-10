@@ -9,15 +9,29 @@ import { ChatRoomModel } from "../model/chat-room.model";
 /**
  * Helper lấy OAuth2 Client và rootFolderId của tài khoản Google Drive quản trị doanh nghiệp
  */
-async function getAdminDriveClient(companyCode: string) {
-  // 1. Tìm tài khoản admin hoặc superadmin của công ty đã kết nối Drive
-  let adminUser = await UserModel.findOne({
-    companyCode,
-    role: { $in: ["admin", "superadmin"] },
-    "googleDriveIntegration.isConnected": true,
-  });
+async function getAdminDriveClient(companyCode: string, loggedInUserId?: string) {
+  let adminUser = null;
 
-  // 2. Nếu không tìm thấy, thử tìm bất kỳ superadmin nào trong hệ thống đã kết nối Drive (fallback)
+  // 1. Nếu có loggedInUserId, kiểm tra xem người này có phải là admin/superadmin và đã kết nối Drive không
+  if (loggedInUserId) {
+    adminUser = await UserModel.findOne({
+      _id: loggedInUserId,
+      companyCode,
+      role: { $in: ["admin", "superadmin"] },
+      "googleDriveIntegration.isConnected": true,
+    });
+  }
+
+  // 2. Fallback: Tìm tài khoản admin hoặc superadmin đầu tiên của công ty đã kết nối Drive
+  if (!adminUser) {
+    adminUser = await UserModel.findOne({
+      companyCode,
+      role: { $in: ["admin", "superadmin"] },
+      "googleDriveIntegration.isConnected": true,
+    });
+  }
+
+  // 3. Fallback 2: Thử tìm bất kỳ superadmin nào trong hệ thống đã kết nối Drive (fallback)
   if (!adminUser) {
     adminUser = await UserModel.findOne({
       role: "superadmin",
@@ -372,7 +386,7 @@ export const googleDriveController = {
       }
 
       // 3. Nếu phòng chat chưa có driveFolderId, tiến hành khởi tạo tự động
-      const adminInfo = await getAdminDriveClient(companyCode);
+      const adminInfo = await getAdminDriveClient(companyCode, req.user?.id);
       const drive = google.drive({ version: "v3", auth: adminInfo.authClient });
 
       if (!chatRoom.driveFolderId) {
@@ -561,7 +575,7 @@ export const googleDriveController = {
       }
 
       // 3. Lấy client Drive của Admin doanh nghiệp
-      const { authClient } = await getAdminDriveClient(companyCode);
+      const { authClient } = await getAdminDriveClient(companyCode, req.user?.id);
 
       // Decode base64 sang Buffer
       let base64Data = file;
@@ -802,7 +816,7 @@ export const googleDriveController = {
       try {
         let authClient;
         if (chatRoomId) {
-          const adminInfo = await getAdminDriveClient(companyCode);
+          const adminInfo = await getAdminDriveClient(companyCode, req.user?.id);
           authClient = adminInfo.authClient;
         } else {
           authClient = await GoogleDriveService.getClientForUser(uploadedByUserId);
@@ -909,7 +923,7 @@ export const googleDriveController = {
       // 2. Xác định client xác thực dựa trên không gian nguồn
       let authClient;
       if (resource && resource.chatRoomId) {
-        const adminInfo = await getAdminDriveClient(companyCode);
+        const adminInfo = await getAdminDriveClient(companyCode, req.user?.id);
         authClient = adminInfo.authClient;
       } else {
         authClient = await GoogleDriveService.getClientForUser(userId);
@@ -1004,7 +1018,7 @@ export const googleDriveController = {
 
         // Khởi tạo thư mục nhóm nếu chưa có
         if (!chatRoom.driveFolderId) {
-          const adminInfo = await getAdminDriveClient(companyCode);
+          const adminInfo = await getAdminDriveClient(companyCode, req.user?.id);
           const sharedGroupsFolderId = await GoogleDriveService.createFolder(adminInfo.authClient, "iGen Shared Groups");
           const drive = google.drive({ version: "v3", auth: adminInfo.authClient });
           const folder = await drive.files.create({
@@ -1030,7 +1044,7 @@ export const googleDriveController = {
         }
 
         parentId = (folderId && folderId !== "root" && folderId !== roomId) ? folderId : chatRoom.driveFolderId;
-        const adminInfo = await getAdminDriveClient(companyCode);
+        const adminInfo = await getAdminDriveClient(companyCode, req.user?.id);
         authClient = adminInfo.authClient;
       } else {
         // Cá nhân
