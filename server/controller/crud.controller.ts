@@ -109,12 +109,19 @@ export const crudController = {
 
       console.log(`[crudController.create] modelName=${modelName} body:`, req.body);
 
-      if (modelName === "hr-calendar-events" && req.body.type === "leave") {
+      const LEAVE_TYPES = ["leave", "wfh", "exception"];
+      if (modelName === "hr-calendar-events" && LEAVE_TYPES.includes(req.body.type)) {
         const userRole = req.user?.role || "user";
         if (userRole !== "superadmin" && userRole !== "admin" && userRole !== "manager") {
           return res.status(403).json({
             status: "error",
-            message: "Chỉ quản lý và admin mới có quyền đăng ký lịch nghỉ phép.",
+            message: "Chỉ quản lý và admin mới có quyền tạo đơn nghỉ phép, làm tại nhà hoặc ngoại lệ.",
+          });
+        }
+        if (req.body.status === "approved") {
+          return res.status(403).json({
+            status: "error",
+            message: "Bạn không được phép tự duyệt khi tạo đơn.",
           });
         }
       }
@@ -166,12 +173,19 @@ export const crudController = {
       }
 
       if (modelName === "hr-calendar-events") {
+        const LEAVE_TYPES = ["leave", "wfh", "exception"];
         const event = await HRCalendarEventModel.findById(id).lean();
-        if (event && (event.type === "leave" || req.body.type === "leave")) {
+        if (event && (LEAVE_TYPES.includes(event.type) || LEAVE_TYPES.includes(req.body.type))) {
           if (userRole !== "superadmin" && userRole !== "admin" && userRole !== "manager") {
             return res.status(403).json({
               status: "error",
-              message: "Chỉ quản lý và admin mới có quyền chỉnh sửa lịch nghỉ phép.",
+              message: "Chỉ quản lý và admin mới có quyền chỉnh sửa đơn nghỉ phép / làm tại nhà / ngoại lệ.",
+            });
+          }
+          if (req.body.status === "approved" && event.creatorId === req.user?.id) {
+            return res.status(403).json({
+              status: "error",
+              message: "Người tạo đơn không được phép tự duyệt.",
             });
           }
         }
@@ -275,12 +289,13 @@ export const crudController = {
       }
 
       if (modelName === "hr-calendar-events") {
+        const LEAVE_TYPES = ["leave", "wfh", "exception"];
         const event = await HRCalendarEventModel.findById(id).lean();
-        if (event && event.type === "leave") {
+        if (event && LEAVE_TYPES.includes(event.type)) {
           if (userRole !== "superadmin" && userRole !== "admin" && userRole !== "manager") {
             return res.status(403).json({
               status: "error",
-              message: "Chỉ quản lý và admin mới có quyền xóa lịch nghỉ phép.",
+              message: "Chỉ quản lý và admin mới có quyền xóa đơn nghỉ phép / làm tại nhà / ngoại lệ.",
             });
           }
         }

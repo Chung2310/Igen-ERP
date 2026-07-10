@@ -2,7 +2,7 @@ import { Document } from "mongoose";
 
 export interface IHRCalendarEvent extends Document {
   companyCode: string;
-  type: "event" | "leave" | "reminder";
+  type: "event" | "leave" | "wfh" | "exception" | "reminder";
   title: string;
   description?: string;
   startDate: Date;

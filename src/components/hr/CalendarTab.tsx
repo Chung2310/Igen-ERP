@@ -24,6 +24,7 @@ import {
 import { UserProfile, EmployeeNode } from "../../types";
 import { getAccessToken } from "../../services/authService";
 import { toast } from "../../pages/Toast";
+import { ConfirmDialog } from "../common/ConfirmDialog";
 
 interface CalendarTabProps {
   userProfile: UserProfile | null;
@@ -91,6 +92,36 @@ export default function CalendarTab({
 
   // Uploading state for files
   const [isFileUploading, setIsFileUploading] = useState<boolean>(false);
+
+  // Premium confirm dialog state (replaces native window.confirm)
+  const [confirmState, setConfirmState] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    confirmLabel?: string;
+    cancelLabel?: string;
+    onConfirm: () => void | Promise<void>;
+  } | null>(null);
+
+  const askConfirm = (
+    title: string,
+    description: string,
+    onConfirm: () => void | Promise<void>,
+    confirmLabel = "Xác nhận",
+    cancelLabel = "Hủy"
+  ) => {
+    setConfirmState({
+      isOpen: true,
+      title,
+      description,
+      confirmLabel,
+      cancelLabel,
+      onConfirm: async () => {
+        await onConfirm();
+        setConfirmState(null);
+      },
+    });
+  };
 
   // Time States
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
@@ -556,41 +587,81 @@ export default function CalendarTab({
   };
 
   const handleDeleteApp = async (appId: string) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa đơn xin nghỉ này?")) return;
+    askConfirm(
+      "Xóa đơn xin nghỉ",
+      "Bạn có chắc chắn muốn xóa đơn xin nghỉ này không? Hành động này không thể hoàn tác.",
+      async () => {
+        try {
+          const res = await fetch(`/api/v1/crud/hr-leave-applications/${appId}`, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${getAccessToken()}` },
+          });
 
-    try {
-      const res = await fetch(`/api/v1/crud/hr-leave-applications/${appId}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${getAccessToken()}` },
-      });
+          if (!res.ok) throw new Error("Lỗi khi xóa đơn.");
 
-      if (!res.ok) throw new Error("Lỗi khi xóa đơn.");
-
-      toast.success("Đã xóa đơn thành công.");
-      fetchApplications();
-    } catch (err: any) {
-      console.error(err);
-      toast.error("Xóa đơn thất bại.");
-    }
+          toast.success("Đã xóa đơn thành công.");
+          fetchApplications();
+        } catch (err: any) {
+          console.error(err);
+          toast.error("Xóa đơn thất bại.");
+        }
+      },
+      "Xóa"
+    );
   };
 
   const handleDeleteTpl = async (tplId: string) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa biểu mẫu mẫu này?")) return;
+    askConfirm(
+      "Xóa biểu mẫu",
+      "Bạn có chắc chắn muốn xóa biểu mẫu mẫu này không? Hành động này không thể hoàn tác.",
+      async () => {
+        try {
+          const res = await fetch(`/api/v1/crud/hr-leave-templates/${tplId}`, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${getAccessToken()}` },
+          });
 
-    try {
-      const res = await fetch(`/api/v1/crud/hr-leave-templates/${tplId}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${getAccessToken()}` },
-      });
+          if (!res.ok) throw new Error("Lỗi khi xóa biểu mẫu.");
 
-      if (!res.ok) throw new Error("Lỗi khi xóa biểu mẫu.");
+          toast.success("Đã xóa biểu mẫu thành công.");
+          fetchTemplates();
+        } catch (err: any) {
+          console.error(err);
+          toast.error("Xóa biểu mẫu thất bại.");
+        }
+      },
+      "Xóa"
+    );
+  };
 
-      toast.success("Đã xóa biểu mẫu thành công.");
-      fetchTemplates();
-    } catch (err: any) {
-      console.error(err);
-      toast.error("Xóa biểu mẫu thất bại.");
-    }
+  const handleDeleteItem = async (itemId: string) => {
+    askConfirm(
+      "Xóa lịch trình",
+      "Bạn có chắc chắn muốn xóa lịch trình này không? Hành động này không thể hoàn tác.",
+      async () => {
+        try {
+          const res = await fetch(`/api/v1/crud/hr-calendar-events/${itemId}`, {
+            method: "DELETE",
+            headers: {
+              Authorization: `Bearer ${getAccessToken()}`,
+            },
+          });
+
+          if (!res.ok) {
+            throw new Error("Lỗi mạng khi xóa.");
+          }
+
+          toast.success("Đã xóa lịch trình thành công.");
+          setIsDetailModalOpen(false);
+          setIsFormModalOpen(false);
+          fetchCalendarItems();
+        } catch (err: any) {
+          console.error(err);
+          toast.error("Xóa lịch trình thất bại.");
+        }
+      },
+      "Xóa"
+    );
   };
 
   useEffect(() => {
@@ -1825,31 +1896,6 @@ export default function CalendarTab({
     }
   };
 
-  // Delete Handler
-  const handleDeleteItem = async (itemId: string) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa lịch trình này?")) return;
-
-    try {
-      const res = await fetch(`/api/v1/crud/hr-calendar-events/${itemId}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${getAccessToken()}`,
-        },
-      });
-
-      if (!res.ok) {
-        throw new Error("Lỗi mạng khi xóa.");
-      }
-
-      toast.success("Đã xóa lịch trình thành công.");
-      setIsDetailModalOpen(false);
-      setIsFormModalOpen(false);
-      fetchCalendarItems();
-    } catch (err: any) {
-      console.error(err);
-      toast.error("Không thể xóa lịch trình.");
-    }
-  };
 
   return (
     <div
@@ -2863,6 +2909,19 @@ export default function CalendarTab({
             </form>
           </div>
         </div>
+      )}
+
+      {/* Custom confirm dialog — thay thế native window.confirm */}
+      {confirmState && (
+        <ConfirmDialog
+          isOpen={confirmState.isOpen}
+          title={confirmState.title}
+          description={confirmState.description}
+          confirmLabel={confirmState.confirmLabel}
+          cancelLabel={confirmState.cancelLabel}
+          onClose={() => setConfirmState(null)}
+          onConfirm={confirmState.onConfirm}
+        />
       )}
     </div>
   );

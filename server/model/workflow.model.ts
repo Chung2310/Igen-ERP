@@ -43,6 +43,7 @@ const WorkflowStepSchema = new Schema(
     estDays: { type: Number },
     deliverable: { type: String, default: "" },
     note: { type: String, default: "" },
+    docLinks: { type: [String], default: [] },
     position: {
       x: { type: Number, default: 0 },
       y: { type: Number, default: 0 },
@@ -80,6 +81,7 @@ const WorkflowParticipantSchema = new Schema(
     dueDate: { type: String, default: "" },
     docLinks: { type: [String], default: [] },
     customSubTasks: { type: [WorkflowSubTaskSchema], default: [] },
+    projectId: { type: String, default: "" },
     startedAt: { type: String, default: "" },
     updatedAt: { type: String, default: "" },
   },
