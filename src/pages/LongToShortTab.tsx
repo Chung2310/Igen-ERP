@@ -48,7 +48,7 @@ export default function LongToShortTab() {
     try {
       const res = await opusclipService.getProjects(1, 20);
       setProjects(res.list || []);
-      
+
       // Update selected project if active
       if (selectedProject) {
         const updated = (res.list || []).find((p) => p.projectId === selectedProject.projectId);
@@ -153,7 +153,7 @@ export default function LongToShortTab() {
 
       // 3. Tiến hành tải lên theo phân đoạn (Chunked Upload) trực tiếp sang Cloudinary
       // Sử dụng chunk 6MB (Cloudinary yêu cầu từ 5MB - 100MB cho mỗi chunk)
-      const chunkSize = 6 * 1024 * 1024; 
+      const chunkSize = 6 * 1024 * 1024;
       const totalSize = file.size;
       const uniqueUploadId = 'igen_upload_' + Math.random().toString(36).substring(2, 15);
 
@@ -177,7 +177,7 @@ export default function LongToShortTab() {
         };
 
         const uploadUrl = `https://api.cloudinary.com/v1_1/${cloudName}/video/upload`;
-        
+
         const response = await fetch(uploadUrl, {
           method: "POST",
           headers: headers,
@@ -190,7 +190,7 @@ export default function LongToShortTab() {
         }
 
         const data = await response.json();
-        
+
         // Cập nhật phần trăm tiến trình
         const progress = Math.round((end / totalSize) * 100);
         setUploadProgress(progress);
@@ -243,7 +243,7 @@ export default function LongToShortTab() {
       setVideoUrl("");
       setName("");
       setUploadedDurationSec(null);
-      
+
       // Reload list and set as selected
       await fetchProjects(true);
       setSelectedProject(newProj);
@@ -308,7 +308,7 @@ export default function LongToShortTab() {
 
   return (
     <div className="h-full flex flex-col space-y-6 overflow-y-auto pr-1 font-sans" id="long_to_short_root">
-      
+
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-100 pb-4">
         <div>
@@ -330,10 +330,10 @@ export default function LongToShortTab() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
+
         {/* COLUMN LEFT: Form + History (4 cols) */}
         <div className="lg:col-span-4 space-y-6">
-          
+
           {/* Submit Box */}
           <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-xs">
             <div className="flex items-center gap-2 mb-4">
@@ -359,7 +359,7 @@ export default function LongToShortTab() {
                   className="block h-11 w-full rounded-2xl border border-gray-200 bg-white px-4 text-xs font-bold text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10"
                   disabled={uploading}
                 />
-                
+
                 {/* Tải lên video cục bộ */}
                 <div className="mt-2">
                   <label className="flex h-11 cursor-pointer items-center justify-center gap-2 rounded-2xl border border-dashed border-cyan-200 bg-cyan-50/30 px-4 text-xs font-bold text-cyan-600 transition-all hover:bg-cyan-50 hover:border-cyan-300">
@@ -497,11 +497,10 @@ export default function LongToShortTab() {
                     <button
                       key={proj._id}
                       onClick={() => handleSelectProject(proj)}
-                      className={`w-full text-left p-3.5 rounded-2xl border transition-all flex items-center justify-between ${
-                        isActive
+                      className={`w-full text-left p-3.5 rounded-2xl border transition-all flex items-center justify-between ${isActive
                           ? "border-cyan-200 bg-cyan-50/50 shadow-xs"
                           : "border-gray-100 hover:bg-gray-50"
-                      }`}
+                        }`}
                     >
                       <div className="min-w-0 flex-1 pr-2">
                         <p className="text-xs font-bold text-gray-800 truncate" title={proj.name}>
@@ -525,10 +524,10 @@ export default function LongToShortTab() {
 
         {/* COLUMN RIGHT: Selected Project Details (8 cols) */}
         <div className="lg:col-span-8">
-          
+
           {selectedProject ? (
             <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-xs min-h-[500px] flex flex-col">
-              
+
               {/* Selected Project Header */}
               <div className="border-b border-gray-100 pb-4 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
@@ -609,7 +608,7 @@ export default function LongToShortTab() {
               {/* Completed Clips Grid View */}
               {selectedProject.status === "completed" && (
                 <div className="flex-1 space-y-6">
-                  
+
                   {(!selectedProject.clips || selectedProject.clips.length === 0) ? (
                     <div className="py-20 text-center text-xs text-gray-400 font-medium">
                       AI không tìm thấy phân cảnh ngắn đạt chuẩn viral nào trong video này.
@@ -650,7 +649,7 @@ export default function LongToShortTab() {
 
                               {/* Details Info */}
                               <div className="p-5 flex-1 flex flex-col space-y-4">
-                                
+
                                 {/* Title with copy */}
                                 <div>
                                   <div className="flex items-center justify-between gap-2">
