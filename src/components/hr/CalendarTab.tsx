@@ -18,6 +18,7 @@ import {
 import { UserProfile, EmployeeNode } from "../../types";
 import { getAccessToken } from "../../services/authService";
 import { toast } from "../../pages/Toast";
+import { ConfirmDialog } from "../common/ConfirmDialog";
 
 interface CalendarTabProps {
   userProfile: UserProfile | null;
@@ -87,6 +88,34 @@ export default function CalendarTab({
   const [selectedDayDate, setSelectedDayDate] = useState<Date | null>(null);
   const [selectedItem, setSelectedItem] = useState<CalendarItem | null>(null);
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
+  const [confirmState, setConfirmState] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    confirmLabel?: string;
+    cancelLabel?: string;
+    onConfirm: () => void | Promise<void>;
+  } | null>(null);
+
+  const askConfirm = (
+    title: string,
+    description: string,
+    onConfirm: () => void | Promise<void>,
+    confirmLabel = "Xác nhận",
+    cancelLabel = "Hủy"
+  ) => {
+    setConfirmState({
+      isOpen: true,
+      title,
+      description,
+      confirmLabel,
+      cancelLabel,
+      onConfirm: async () => {
+        await onConfirm();
+        setConfirmState(null);
+      },
+    });
+  };
 
   // Form Fields
   const [formType, setFormType] = useState<"event" | "leave" | "wfh" | "exception" | "reminder">("event");
@@ -783,10 +812,7 @@ export default function CalendarTab({
     }
   };
 
-  // Delete Handler
-  const handleDeleteItem = async (itemId: string) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa lịch trình này?")) return;
-
+  const deleteItemConfirmed = async (itemId: string) => {
     try {
       const res = await fetch(`/api/v1/crud/hr-calendar-events/${itemId}`, {
         method: "DELETE",
@@ -807,6 +833,17 @@ export default function CalendarTab({
       console.error(err);
       toast.error("Không thể xóa lịch trình.");
     }
+  };
+
+  // Delete Handler
+  const handleDeleteItem = (itemId: string) => {
+    askConfirm(
+      "Xóa lịch trình này?",
+      "Bạn có chắc chắn muốn xóa lịch trình này? Thao tác này không thể hoàn tác.",
+      () => deleteItemConfirmed(itemId),
+      "Xóa lịch trình",
+      "Hủy"
+    );
   };
 
   return (
@@ -1529,6 +1566,19 @@ export default function CalendarTab({
             </form>
           </div>
         </div>
+      )}
+
+      {/* Custom confirm dialog */}
+      {confirmState && (
+        <ConfirmDialog
+          isOpen={confirmState.isOpen}
+          title={confirmState.title}
+          description={confirmState.description}
+          confirmLabel={confirmState.confirmLabel}
+          cancelLabel={confirmState.cancelLabel}
+          onClose={() => setConfirmState(null)}
+          onConfirm={confirmState.onConfirm}
+        />
       )}
     </div>
   );

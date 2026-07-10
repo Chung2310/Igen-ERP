@@ -44,6 +44,7 @@ import {
 import { getAccessToken } from "../../services/authService";
 import { socketService } from "../../services/socketService";
 import { toast } from "../../pages/Toast";
+import { ConfirmDialog } from "../common/ConfirmDialog";
 
 interface WorkflowTabProps {
   userProfile: UserProfile | null;
@@ -212,6 +213,34 @@ export default function WorkflowTab({
   const [steps, setSteps] = useState<WorkflowStep[]>([]);
   const [participants, setParticipants] = useState<WorkflowParticipant[]>([]);
   const [saving, setSaving] = useState(false);
+  const [confirmState, setConfirmState] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    confirmLabel?: string;
+    cancelLabel?: string;
+    onConfirm: () => void | Promise<void>;
+  } | null>(null);
+
+  const askConfirm = (
+    title: string,
+    description: string,
+    onConfirm: () => void | Promise<void>,
+    confirmLabel = "Xác nhận",
+    cancelLabel = "Hủy"
+  ) => {
+    setConfirmState({
+      isOpen: true,
+      title,
+      description,
+      confirmLabel,
+      cancelLabel,
+      onConfirm: async () => {
+        await onConfirm();
+        setConfirmState(null);
+      },
+    });
+  };
 
   const fetchWfTasks = useCallback(async () => {
     if (!activeId) return;
@@ -479,12 +508,7 @@ export default function WorkflowTab({
     }
   };
 
-  const handleDeleteWorkflow = async () => {
-    if (!activeId) {
-      backToList();
-      return;
-    }
-    if (!window.confirm("Xóa quy trình này?")) return;
+  const deleteWorkflowConfirmed = async () => {
     try {
       const res = await fetch(`/api/v1/crud/workflows/${activeId}`, {
         method: "DELETE",
@@ -497,6 +521,20 @@ export default function WorkflowTab({
       console.error("Lỗi xóa quy trình:", err);
       toast.error("Không thể xóa quy trình.");
     }
+  };
+
+  const handleDeleteWorkflow = () => {
+    if (!activeId) {
+      backToList();
+      return;
+    }
+    askConfirm(
+      "Xóa quy trình này?",
+      "Bạn có chắc chắn muốn xóa quy trình này? Thao tác này không thể hoàn tác.",
+      deleteWorkflowConfirmed,
+      "Xóa quy trình",
+      "Hủy"
+    );
   };
 
   // ---- Thao tác với bước ----
@@ -528,16 +566,22 @@ export default function WorkflowTab({
   };
 
   const deleteStep = (id: string) => {
-    if (!window.confirm("Xóa bước này? Người đang ở bước này sẽ chuyển về bước đầu."))
-      return;
-    const nextSteps = steps.filter((s) => s.id !== id);
-    const firstId = nextSteps[0]?.id ?? DONE_COL;
-    const nextParts = participants.map((p) =>
-      p.currentStepId === id ? { ...p, currentStepId: firstId, updatedAt: nowISO() } : p
+    askConfirm(
+      "Xóa bước này?",
+      "Người đang ở bước này sẽ được tự động chuyển về bước đầu tiên. Thao tác này không thể hoàn tác.",
+      () => {
+        const nextSteps = steps.filter((s) => s.id !== id);
+        const firstId = nextSteps[0]?.id ?? DONE_COL;
+        const nextParts = participants.map((p) =>
+          p.currentStepId === id ? { ...p, currentStepId: firstId, updatedAt: nowISO() } : p
+        );
+        setSteps(nextSteps);
+        setParticipants(nextParts);
+        autoPersist({ steps: nextSteps, participants: nextParts });
+      },
+      "Xóa bước",
+      "Hủy"
     );
-    setSteps(nextSteps);
-    setParticipants(nextParts);
-    autoPersist({ steps: nextSteps, participants: nextParts });
   };
 
   const moveStep = (id: string, dir: -1 | 1) => {
@@ -680,10 +724,15 @@ export default function WorkflowTab({
         const j = await res.json().catch(() => null);
         // Server chặn vì còn task chưa xong → hỏi quản lý có muốn ép chuyển không
         if (res.status === 409 && !force) {
-          const ok = window.confirm(
-            `${j?.message || "Còn task Kanban chưa hoàn thành ở bước hiện tại."}\n\nVẫn chuyển bước? Các task chưa xong sẽ giữ nguyên trên bảng Kanban.`
+          askConfirm(
+            "Cảnh báo công việc chưa xong",
+            `${j?.message || "Còn task Kanban chưa hoàn thành ở bước hiện tại."} Vẫn tiếp tục chuyển bước? Các task chưa xong sẽ giữ nguyên trên bảng Kanban.`,
+            async () => {
+              await advanceParticipantApi(pid, nextStepId, true);
+            },
+            "Vẫn chuyển bước",
+            "Hủy"
           );
-          if (ok) await advanceParticipantApi(pid, nextStepId, true);
           return;
         }
         throw new Error(j?.message || "Không thể chuyển bước.");
@@ -2414,6 +2463,19 @@ function NewWorkflowWizard({
             setSteps((prev) => prev.map((s) => (s.id === updatedStep.id ? updatedStep : s)));
             setEditingStep(null);
           }}
+        />
+      )}
+
+      {/* Custom confirm dialog */}
+      {confirmState && (
+        <ConfirmDialog
+          isOpen={confirmState.isOpen}
+          title={confirmState.title}
+          description={confirmState.description}
+          confirmLabel={confirmState.confirmLabel}
+          cancelLabel={confirmState.cancelLabel}
+          onClose={() => setConfirmState(null)}
+          onConfirm={confirmState.onConfirm}
         />
       )}
     </div>

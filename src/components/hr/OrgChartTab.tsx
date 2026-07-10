@@ -21,6 +21,7 @@ import {
 import { EmployeeNode, UserProfile, TrainingCourse } from "../../types";
 import { authService, getAccessToken } from "../../services/authService";
 import { toast } from "../../pages/Toast";
+import { ConfirmDialog } from "../common/ConfirmDialog";
 
 interface OrgChartTabProps {
   userProfile: any;
@@ -171,6 +172,34 @@ export default function OrgChartTab({
   const [isFitted, setIsFitted] = useState<boolean>(false);
   const [preFitZoom, setPreFitZoom] = useState<number>(1);
   const [isSafari, setIsSafari] = useState<boolean>(false);
+  const [confirmState, setConfirmState] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    confirmLabel?: string;
+    cancelLabel?: string;
+    onConfirm: () => void | Promise<void>;
+  } | null>(null);
+
+  const askConfirm = (
+    title: string,
+    description: string,
+    onConfirm: () => void | Promise<void>,
+    confirmLabel = "Xác nhận",
+    cancelLabel = "Hủy"
+  ) => {
+    setConfirmState({
+      isOpen: true,
+      title,
+      description,
+      confirmLabel,
+      cancelLabel,
+      onConfirm: async () => {
+        await onConfirm();
+        setConfirmState(null);
+      },
+    });
+  };
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
@@ -466,14 +495,7 @@ export default function OrgChartTab({
     return currentUserWeight > selectedUserWeight;
   };
 
-  const handleDeleteEmployeeSubmit = async (empId: string) => {
-    const targetEmp = employees.find(e => e.id === empId);
-    if (!targetEmp) return;
-
-    if (!window.confirm(`Bạn có chắc chắn muốn xóa nhân sự "${targetEmp.name}" khỏi hệ thống? Sơ đồ sẽ tự động chuyển cấp dưới trực thuộc của nhân sự này báo cáo lên quản lý cấp trên.`)) {
-      return;
-    }
-
+  const deleteEmployeeConfirmed = async (empId: string) => {
     try {
       await authService.deleteUser(empId);
       toast.success("Đã xóa nhân sự thành công!");
@@ -483,6 +505,19 @@ export default function OrgChartTab({
       console.error("Lỗi khi xóa nhân sự:", error);
       toast.error("Không thể xóa nhân sự. Vui lòng kiểm tra quyền hạn.");
     }
+  };
+
+  const handleDeleteEmployeeSubmit = (empId: string) => {
+    const targetEmp = employees.find(e => e.id === empId);
+    if (!targetEmp) return;
+
+    askConfirm(
+      "Xóa nhân sự này?",
+      `Bạn có chắc chắn muốn xóa nhân sự "${targetEmp.name}" khỏi hệ thống? Sơ đồ sẽ tự động chuyển cấp dưới trực thuộc của nhân sự này báo cáo lên quản lý cấp trên.`,
+      () => deleteEmployeeConfirmed(empId),
+      "Xóa nhân sự",
+      "Hủy"
+    );
   };
 
   useEffect(() => {
@@ -1644,6 +1679,19 @@ export default function OrgChartTab({
             </div>
           </form>
         </div>
+      )}
+
+      {/* Custom confirm dialog */}
+      {confirmState && (
+        <ConfirmDialog
+          isOpen={confirmState.isOpen}
+          title={confirmState.title}
+          description={confirmState.description}
+          confirmLabel={confirmState.confirmLabel}
+          cancelLabel={confirmState.cancelLabel}
+          onClose={() => setConfirmState(null)}
+          onConfirm={confirmState.onConfirm}
+        />
       )}
     </>
   );
