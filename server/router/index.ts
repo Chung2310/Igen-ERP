@@ -1,24 +1,21 @@
 import { Router } from "express";
 import mongoose from "mongoose";
-import { geminiRouter } from "./gemini.router";
-import { elevenlabsRouter } from "./elevenlabs.router";
-import { facebookPostRouter } from "./facebook-post.router";
-import { fbMessengerRouter } from "./fb-messenger.router";
-import { zaloMessengerRouter } from "./zalo-messenger.router";
-import { tiktokMessengerRouter } from "./tiktok-messenger.router";
-import { tiktokRouter } from "./tiktok.router";
-import { tiktokController } from "../controller/tiktok.controller";
-import { schedulerRouter } from "./scheduler.router";
-import { mediaRouter } from "./media.router";
 import { authRouter } from "./auth.router";
 import { permissionRouter } from "./permission.router";
 import { rolePermissionRouter } from "./role-permission.router";
 import { crudRouter } from "./crud.router";
-import { heygenRouter } from "./heygen.router";
 import { walletRouter } from "./wallet.router";
-import { professionalRouter } from "./professional.router";
-import { klingRouter } from "./kling.router";
-import { opusclipRouter } from "./opusclip.router";
+import { googleDriveRouter } from "./google-drive.router";
+import { chatRouter } from "./chat.router";
+import { chatbotRouter } from "./chatbot.router";
+import { resourceRouter } from "./resource.router";
+import { studentManagementRouter } from "../modules/student-management/router";
+import { timekeepingRouter } from "./timekeeping.router";
+import { dashboardRouter } from "./dashboard.router";
+import { pushRouter } from "./push.router";
+import { mediaRouter } from "./media.router";
+import { notificationRouter } from "./notification.router";
+import { kanbanRouter } from "./kanban.router";
 export const apiRouter = Router();
 /**
  * GET /api/v1/health
@@ -36,38 +33,11 @@ apiRouter.get("/health", (req, res) => {
   });
 });
 
-// Gắn kết router phụ của Gemini
-apiRouter.use("/gemini", geminiRouter);
+// Gắn kết router phụ của Google Drive Tích hợp cá nhân
+apiRouter.use("/integrations/google-drive", googleDriveRouter);
 
-// Gắn kết router phụ của ElevenLabs
-apiRouter.use("/elevenlabs", elevenlabsRouter);
-apiRouter.use("/heygen", heygenRouter);
-
-// Gắn kết router phụ của Facebook Post qua n8n & Facebook Messenger
-apiRouter.use("/facebook", facebookPostRouter);
-apiRouter.use("/facebook", fbMessengerRouter);
-apiRouter.use("/zalo", zaloMessengerRouter);
-apiRouter.use("/tiktok/messenger", tiktokMessengerRouter);
-
-
-// Gắn kết router phụ của TikTok
-apiRouter.get("/webhooks/tiktok", (req, res) => {
-  return res.status(200).json({
-    status: "ok",
-    path: "/api/v1/webhooks/tiktok",
-    message: "TikTok webhook endpoint is reachable",
-    timestamp: new Date().toISOString(),
-  });
-});
-apiRouter.post("/webhooks/tiktok", tiktokController.receiveWebhook as any);
-apiRouter.use("/tiktok", tiktokRouter);
-apiRouter.use("/tiktok-business", tiktokRouter);
-
-// Gắn kết router phụ của Scheduler
-apiRouter.use("/scheduler", schedulerRouter);
-
-// Gắn kết router phụ của Media Cloudinary Relay
-apiRouter.use("/media", mediaRouter);
+// Quản lý tài nguyên — file explorer nội bộ + tài liệu Google Drive
+apiRouter.use("/resources", resourceRouter);
 
 // Gắn kết router phụ của Xác thực JWT
 apiRouter.use("/auth", authRouter);
@@ -84,11 +54,29 @@ apiRouter.use("/wallet", walletRouter);
 // Gắn kết router CRUD đa năng (MongoDB)
 apiRouter.use("/crud", crudRouter);
 
-// Public Professional Video Render API (auth bằng X-API-Key header)
-apiRouter.use("/professional", professionalRouter);
+// Gắn kết router chấm công (GPS Timekeeping)
+apiRouter.use("/timekeeping", timekeepingRouter);
 
-// Kling AI — Motion Control video generation
-apiRouter.use("/kling", klingRouter);
+// Gắn kết router tổng hợp số liệu trang tổng quan
+apiRouter.use("/dashboard", dashboardRouter);
 
-// OpusClip AI — Long-to-Short video clipping
-apiRouter.use("/opusclip", opusclipRouter);
+// Upload/download file qua Cloudinary — dùng chung cho chat, tài nguyên, kho, avatar
+apiRouter.use("/media", mediaRouter);
+
+// Gắn kết router Web Push (thông báo đẩy khi người dùng không mở web)
+apiRouter.use("/push", pushRouter);
+
+// Gắn kết router thông báo web
+apiRouter.use("/notifications", notificationRouter);
+
+// API chuyên biệt cho giao việc, dự án và audit Kanban
+apiRouter.use("/kanban", kanbanRouter);
+
+// Gắn kết router chat nội bộ
+apiRouter.use("/chat", chatRouter);
+
+// Trợ lý ảo AI — chatbot ngữ cảnh dữ liệu doanh nghiệp
+apiRouter.use("/chatbot", chatbotRouter);
+
+// Module Quản lý Học viên
+apiRouter.use("/", studentManagementRouter);

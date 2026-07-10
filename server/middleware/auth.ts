@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 import { UserModel } from "../model/user.model";
 import { RolePermissionModel } from "../model/role-permission.model";
+import { getJwtAccessSecret } from "../config/env";
 
 export interface AuthenticatedRequest extends Request {
   user?: {
@@ -79,23 +80,25 @@ export const DEFAULT_ROLE_LEVELS: Record<string, number> = {
  * Middleware yêu cầu đăng nhập bằng Access Token
  */
 export function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  let token = "";
   const authHeader = req.headers.authorization;
 
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    console.warn(`[requireAuth] Từ chối truy cập ${req.method} ${req.originalUrl}: Không có Authorization header.`);
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    token = authHeader.split(" ")[1];
+  } else if (req.query.token) {
+    token = req.query.token as string;
+  }
+
+  if (!token) {
+    console.warn(`[requireAuth] Từ chối truy cập ${req.method} ${req.originalUrl}: Không tìm thấy Access Token.`);
     return res.status(401).json({
       status: "error",
       message: "Yêu cầu đăng nhập. Không tìm thấy mã xác thực.",
     });
   }
 
-  const token = authHeader.split(" ")[1];
-
   try {
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_ACCESS_SECRET || "your_jwt_access_secret_key"
-    ) as any;
+    const decoded = jwt.verify(token, getJwtAccessSecret()) as any;
 
     req.user = {
       id: decoded.id,

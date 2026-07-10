@@ -1,7 +1,33 @@
 import { Request, Response } from "express";
 import { authService } from "../service/auth.service";
 import { AuthenticatedRequest } from "../middleware/auth";
-import { aiKnowledgeService } from "../service/ai-knowledge.service";
+import { UserModel } from "../model/user.model";
+import { googleOAuthService } from "../service/google-oauth.service";
+
+/** Redirect URI cho OAuth Google Drive (khớp Google Cloud Console). */
+function buildDriveRedirectUri(req: Request): string {
+  const host = req.get("host") || "";
+  const isLocal = host.includes("localhost") || host.includes("127.0.0.1") || host.includes("192.168.");
+  const protocol = isLocal ? req.protocol : "https";
+  return `${protocol}://${host}/api/v1/auth/companies/drive/oauth-callback`;
+}
+
+/** Trang HTML đóng popup và gửi kết quả OAuth về cửa sổ cha. */
+function driveOAuthResultHtml(ok: boolean, message: string): string {
+  const payload = JSON.stringify({ type: "GOOGLE_DRIVE_OAUTH_RESULT", ok, message });
+  const title = ok ? "Đã kết nối Google Drive" : "Kết nối Google Drive thất bại";
+  const color = ok ? "#16a34a" : "#dc2626";
+  return `<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"/><title>${title}</title>
+<style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#f8fafc}
+.box{background:#fff;border-radius:16px;padding:28px 32px;max-width:420px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.08)}
+h2{color:${color};margin:0 0 8px;font-size:18px}p{color:#64748b;font-size:13px;line-height:1.5;margin:0}</style></head>
+<body><div class="box"><h2>${ok ? "✅ " : "❌ "}${title}</h2><p>${ok ? `Tài khoản: ${message}` : message}</p></div>
+<script>
+  try { localStorage.setItem('gdrive_oauth_result', ${JSON.stringify(payload)}); } catch(e){}
+  if (window.opener) { window.opener.postMessage(${payload}, '*'); }
+  setTimeout(function(){ window.close(); }, ${ok ? 1200 : 4000});
+</script></body></html>`;
+}
 
 export const authController = {
   /**
@@ -93,8 +119,13 @@ export const authController = {
   /**
    * POST /api/v1/auth/logout
    */
-  async logout(req: Request, res: Response) {
+  async logout(req: AuthenticatedRequest, res: Response) {
     try {
+      const userId = req.user?.id;
+      if (userId) {
+        await UserModel.findByIdAndUpdate(userId, { status: "offline" });
+      }
+
       res.clearCookie("refreshToken", {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
@@ -226,22 +257,6 @@ export const authController = {
           status: "error",
           message: "Không tìm thấy hồ sơ người dùng.",
         });
-      }
-
-      if (req.body.aiAutoReplyConfig && updatedUser.companyCode) {
-        try {
-          await aiKnowledgeService.upsertKnowledgeFromText({
-            companyCode: updatedUser.companyCode,
-            sourceType: "manual",
-            sourceTitle: "Manual Omni Inbox AI Knowledge",
-            text: req.body.aiAutoReplyConfig.trainingKnowledge || "",
-            sourceUrl: "",
-            createdBy: updatedUser._id.toString(),
-            channelScope: ["all"],
-          });
-        } catch (syncErr) {
-          console.warn("[Auth updateProfile] Khong the dong bo AI knowledge chunks:", syncErr);
-        }
       }
 
       // console.log(`[Auth updateProfile] Cập nhật thành công cho user ${updatedUser.email}. FBConnected=${updatedUser.facebookIntegration?.isConnected}, FBPageId=${updatedUser.facebookIntegration?.pageId}`);
@@ -420,70 +435,71 @@ export const authController = {
     }
   },
 
-  async getCompanyHeyGenConfig(req: AuthenticatedRequest, res: Response) {
+  async getCompanyDriveConfig(req: AuthenticatedRequest, res: Response) {
     try {
       if (req.user?.role !== "superadmin" && req.user?.companyCode !== req.params.code) {
-        return res.status(403).json({ status: "error", message: "Ban khong co quyen xem cau hinh HeyGen cua doanh nghiep nay." });
+        return res.status(403).json({ status: "error", message: "Bạn không có quyền xem cấu hình Google Drive của doanh nghiệp này." });
       }
-      const result = await authService.getCompanyHeyGenConfig(req.params.code);
+      const result = await authService.getCompanyDriveConfig(req.params.code);
       return res.status(200).json({ status: "success", data: result });
     } catch (error: any) {
-      console.error("[authController.getCompanyHeyGenConfig] Error:", error);
-      return res.status(400).json({ status: "error", message: error.message || "Khong the lay cau hinh HeyGen doanh nghiep" });
+      console.error("[authController.getCompanyDriveConfig] Error:", error);
+      return res.status(400).json({ status: "error", message: error.message || "Không thể lấy cấu hình Google Drive doanh nghiệp" });
     }
   },
 
-  async updateCompanyHeyGenConfig(req: AuthenticatedRequest, res: Response) {
+  /** GET /api/v1/auth/companies/:code/drive/oauth-url — tạo link OAuth cho popup (admin). */
+  async getDriveOAuthUrl(req: AuthenticatedRequest, res: Response) {
     try {
       if (!["admin", "superadmin"].includes(String(req.user?.role || ""))) {
-        return res.status(403).json({ status: "error", message: "Ban khong co quyen cap nhat cau hinh HeyGen." });
+        return res.status(403).json({ status: "error", message: "Bạn không có quyền kết nối Google Drive." });
       }
       if (req.user?.role !== "superadmin" && req.user?.companyCode !== req.params.code) {
-        return res.status(403).json({ status: "error", message: "Ban khong co quyen cap nhat cau hinh HeyGen cua doanh nghiep nay." });
+        return res.status(403).json({ status: "error", message: "Bạn không có quyền kết nối Google Drive của doanh nghiệp này." });
       }
-      const result = await authService.updateCompanyHeyGenConfig(req.params.code, req.body);
-      return res.status(200).json({ status: "success", message: "Cap nhat cau hinh HeyGen thanh cong", data: result });
+      const redirectUri = buildDriveRedirectUri(req);
+      const url = googleOAuthService.buildAuthUrl(redirectUri, req.params.code);
+      return res.status(200).json({ status: "success", data: { url } });
     } catch (error: any) {
-      console.error("[authController.updateCompanyHeyGenConfig] Error:", error);
-      return res.status(400).json({ status: "error", message: error.message || "Khong the cap nhat cau hinh HeyGen doanh nghiep" });
+      console.error("[authController.getDriveOAuthUrl] Error:", error);
+      return res.status(400).json({ status: "error", message: error.message || "Không tạo được link kết nối Google Drive" });
     }
   },
 
-  async testCompanyHeyGenConfig(req: AuthenticatedRequest, res: Response) {
+  /** GET /api/v1/auth/companies/drive/oauth-callback — Google redirect về đây (public). */
+  async driveOAuthCallback(req: Request, res: Response) {
+    try {
+      const { code, state, error } = req.query;
+      if (error) return res.send(driveOAuthResultHtml(false, String(error)));
+      if (!code || !state) return res.send(driveOAuthResultHtml(false, "Thiếu mã xác thực hoặc thông tin doanh nghiệp."));
+
+      const redirectUri = buildDriveRedirectUri(req);
+      const { refreshToken, email } = await googleOAuthService.exchangeCode(String(code), redirectUri);
+      await authService.saveDriveOAuth(String(state), { refreshToken, email });
+      return res.send(driveOAuthResultHtml(true, email || "Google Drive"));
+    } catch (error: any) {
+      console.error("[authController.driveOAuthCallback] Error:", error);
+      return res.send(driveOAuthResultHtml(false, error.message || "Kết nối Google Drive thất bại."));
+    }
+  },
+
+  /** POST /api/v1/auth/companies/:code/drive/disconnect — ngắt kết nối (admin). */
+  async disconnectDrive(req: AuthenticatedRequest, res: Response) {
     try {
       if (!["admin", "superadmin"].includes(String(req.user?.role || ""))) {
-        return res.status(403).json({ status: "error", message: "Ban khong co quyen kiem tra ket noi HeyGen." });
+        return res.status(403).json({ status: "error", message: "Bạn không có quyền ngắt kết nối Google Drive." });
       }
       if (req.user?.role !== "superadmin" && req.user?.companyCode !== req.params.code) {
-        return res.status(403).json({ status: "error", message: "Ban khong co quyen kiem tra HeyGen cua doanh nghiep nay." });
+        return res.status(403).json({ status: "error", message: "Bạn không có quyền thao tác trên doanh nghiệp này." });
       }
-      const result = await authService.testCompanyHeyGenConfig(req.params.code, req.body?.apiKey);
-      return res.status(200).json({ status: "success", data: result });
+      const result = await authService.disconnectDrive(req.params.code);
+      return res.status(200).json({ status: "success", message: "Đã ngắt kết nối Google Drive", data: result });
     } catch (error: any) {
-      console.error("[authController.testCompanyHeyGenConfig] Error:", error);
-      return res.status(400).json({ status: "error", message: error.message || "Khong the kiem tra ket noi HeyGen" });
+      console.error("[authController.disconnectDrive] Error:", error);
+      return res.status(400).json({ status: "error", message: error.message || "Không thể ngắt kết nối Google Drive" });
     }
   },
 
-  async syncCompanyHeyGenLibrary(req: AuthenticatedRequest, res: Response) {
-    try {
-      if (!["admin", "superadmin"].includes(String(req.user?.role || ""))) {
-        return res.status(403).json({ status: "error", message: "Ban khong co quyen dong bo thu vien HeyGen." });
-      }
-      if (req.user?.role !== "superadmin" && req.user?.companyCode !== req.params.code) {
-        return res.status(403).json({ status: "error", message: "Ban khong co quyen dong bo HeyGen cua doanh nghiep nay." });
-      }
-      const result = await authService.syncCompanyHeyGenLibrary(req.params.code);
-      return res.status(200).json({ status: "success", message: "Dong bo thu vien HeyGen thanh cong", data: result });
-    } catch (error: any) {
-      console.error("[authController.syncCompanyHeyGenLibrary] Error:", error);
-      return res.status(400).json({ status: "error", message: error.message || "Khong the dong bo thu vien HeyGen" });
-    }
-  },
-
-  /**
-   * PATCH /api/v1/auth/users/bulk
-   */
   async bulkUpdateUsers(req: AuthenticatedRequest, res: Response) {
     try {
       const callerRole = req.user?.role;
@@ -550,6 +566,29 @@ export const authController = {
         status: "error",
         message: error.message || "Không thể xóa nhân sự",
       });
+    }
+  },
+  /**
+   * GET /api/v1/auth/users/colleagues
+   * Trả về danh sách đồng nghiệp cùng công ty (chỉ các trường an toàn).
+   * Dành cho tất cả user đã đăng nhập (để dùng trong share picker, chat, v.v.)
+   */
+  async getColleagues(req: AuthenticatedRequest, res: Response) {
+    try {
+      const companyCode = req.user?.companyCode;
+      if (!companyCode) {
+        return res.status(400).json({ status: "error", message: "Không xác định được công ty." });
+      }
+
+      const colleagues = await UserModel.find(
+        { companyCode, isDeleted: { $ne: true } },
+        { _id: 1, displayName: 1, email: 1, photoURL: 1, jobTitle: 1, department: 1, role: 1 }
+      ).lean();
+
+      return res.status(200).json({ status: "success", data: colleagues });
+    } catch (error: any) {
+      console.error("[authController.getColleagues] Error:", error);
+      return res.status(500).json({ status: "error", message: "Không thể lấy danh sách đồng nghiệp." });
     }
   },
 };

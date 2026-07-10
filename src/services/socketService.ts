@@ -6,6 +6,7 @@ class SocketService {
   private conversationCallbacks: Array<(conversation: any) => void> = [];
   private statusCallbacks: Array<(connected: boolean) => void> = [];
   private videoCallbacks: Array<(data: { videoId: string; status: string; updates: any[] }) => void> = [];
+  private customListeners: Map<string, Set<(data: any) => void>> = new Map();
 
   connect(token: string) {
     if (this.socket) {
@@ -31,6 +32,14 @@ class SocketService {
     this.socket.on("connect", () => {
       console.log(`[SocketService] Connected successfully (Socket ID: ${this.socket?.id})`);
       this.statusCallbacks.forEach((cb) => cb(true));
+      
+      // Đăng ký lại toàn bộ custom listeners khi kết nối hoặc kết nối lại
+      this.customListeners.forEach((callbacks, event) => {
+        callbacks.forEach((cb) => {
+          this.socket?.off(event, cb);
+          this.socket?.on(event, cb);
+        });
+      });
     });
 
     this.socket.on("connect_error", (error) => {
@@ -105,25 +114,36 @@ class SocketService {
   }
 
   on(event: string, callback: (data: any) => void) {
-    const checkAndListen = () => {
-      if (this.socket) {
-        this.socket.on(event, callback);
-      }
-    };
+    if (!this.customListeners.has(event)) {
+      this.customListeners.set(event, new Set());
+    }
+    this.customListeners.get(event)!.add(callback);
 
-    checkAndListen();
-    
-    // Nếu chưa connect hoặc bị reconnect, tự đăng ký lại
     if (this.socket) {
-      this.socket.on("connect", checkAndListen);
+      this.socket.off(event, callback);
+      this.socket.on(event, callback);
     }
 
     return () => {
+      const callbacks = this.customListeners.get(event);
+      if (callbacks) {
+        callbacks.delete(callback);
+        if (callbacks.size === 0) {
+          this.customListeners.delete(event);
+        }
+      }
       if (this.socket) {
         this.socket.off(event, callback);
-        this.socket.off("connect", checkAndListen);
       }
     };
+  }
+
+  emit(event: string, data: any) {
+    if (this.socket && this.socket.connected) {
+      this.socket.emit(event, data);
+    } else {
+      console.warn(`[SocketService] Cannot emit event "${event}". Socket is not connected.`);
+    }
   }
 }
 

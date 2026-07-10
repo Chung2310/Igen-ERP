@@ -16,12 +16,40 @@ import { CompanyEditFormState, CompanyFormState } from "../components/user-admin
 import { UserFormModal } from "../components/user-admin/UserFormModal";
 import { BalanceModal } from "../components/user-admin/BalanceModal";
 import { RoleModal } from "../components/user-admin/RoleModal";
-import { HeyGenModal } from "../components/user-admin/HeyGenModal";
+import { ConfirmDialog } from "../components/common/ConfirmDialog";
 
 export default function UserAdminTab() {
   const { userProfile } = useAuth();
   const [usersList, setUsersList] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [confirmState, setConfirmState] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    confirmLabel?: string;
+    cancelLabel?: string;
+    onConfirm: () => void | Promise<void>;
+  } | null>(null);
+
+  const askConfirm = (
+    title: string,
+    description: string,
+    onConfirm: () => void | Promise<void>,
+    confirmLabel = "Xác nhận",
+    cancelLabel = "Hủy"
+  ) => {
+    setConfirmState({
+      isOpen: true,
+      title,
+      description,
+      confirmLabel,
+      cancelLabel,
+      onConfirm: async () => {
+        await onConfirm();
+        setConfirmState(null);
+      },
+    });
+  };
   
   // SaaS States
   const [companies, setCompanies] = useState<CompanyProfile[]>([]);
@@ -55,22 +83,8 @@ export default function UserAdminTab() {
   const [userCompanyCode, setUserCompanyCode] = useState<string>("");
   const [userParentId, setUserParentId] = useState<string>("");
   const [userDepartment, setUserDepartment] = useState("");
-  const [userHeyGenAvatarIds, setUserHeyGenAvatarIds] = useState("");
-  const [userHeyGenVoiceId, setUserHeyGenVoiceId] = useState("");
-  const [userHeyGenApiKey, setUserHeyGenApiKey] = useState("");
   const [submittingUser, setSubmittingUser] = useState(false);
-  const [isHeyGenModalOpen, setIsHeyGenModalOpen] = useState(false);
-  const [editingHeyGenUser, setEditingHeyGenUser] = useState<UserProfile | null>(null);
-  const [editingHeyGenAvatarIds, setEditingHeyGenAvatarIds] = useState("");
-  const [editingHeyGenVoiceId, setEditingHeyGenVoiceId] = useState("");
-  const [editingHeyGenApiKey, setEditingHeyGenApiKey] = useState("");
-  const [savingHeyGenAccess, setSavingHeyGenAccess] = useState(false);
 
-  const parseAvatarIdsInput = (value: string) =>
-    value
-      .split(/[\n,]+/)
-      .map((item) => item.trim())
-      .filter(Boolean);
   const resetUserForm = () => {
     setEditingUser(null);
     setUserDisplayName("");
@@ -79,15 +93,7 @@ export default function UserAdminTab() {
     setUserRole("user");
     setUserParentId("");
     setUserDepartment("");
-    setUserHeyGenAvatarIds("");
-    setUserHeyGenVoiceId("");
-    setUserHeyGenApiKey("");
   };
-  const formatAvatarIds = (user?: UserProfile | null) =>
-    Array.isArray(user?.heygenAccess?.avatarIds) && user?.heygenAccess?.avatarIds.length > 0
-      ? user.heygenAccess.avatarIds.join(", ")
-      : (user?.heygenAccess?.avatarId || "-");
-
   const companyFormState: CompanyFormState = {
     companyName,
     companyCode,
@@ -340,7 +346,7 @@ export default function UserAdminTab() {
   // - Superadmin: see all, filter by selectedCompanyCode
   // - Admin: see all users in the same company (except superadmins)
   const visibleUsers = usersList.filter((usr) => {
-    // 1. Lá»c theo Doanh nghiá»‡p
+    // 1. Lọc theo Doanh nghiệp
     if (userProfile?.role === "superadmin") {
       if (selectedCompanyCode !== "all" && usr.companyCode !== selectedCompanyCode) {
         return false;
@@ -352,7 +358,7 @@ export default function UserAdminTab() {
       }
     }
 
-    // 2. Lá»c theo TÃªn hoáº·c Email
+    // 2. Lọc theo Tên hoặc Email
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim();
       const matchName = usr.displayName?.toLowerCase().includes(query);
@@ -360,7 +366,7 @@ export default function UserAdminTab() {
       if (!matchName && !matchEmail) return false;
     }
 
-    // 3. Lá»c theo NgÃ y Ä‘Äƒng kÃ½ (createdAt)
+    // 3. Lọc theo Ngày đăng ký (createdAt)
     if (filterStartDate || filterEndDate) {
       if (!usr.createdAt) return false;
       const userDate = new Date(usr.createdAt);
@@ -553,12 +559,6 @@ export default function UserAdminTab() {
 
       // Tìm level của người quản lý để tính level nhân viên mới
       const managerProfile = userParentId ? usersList.find(u => u.uid === userParentId) : null;
-      const heygenAccessPayload = {
-          avatarIds: parseAvatarIdsInput(userHeyGenAvatarIds),
-          avatarId: parseAvatarIdsInput(userHeyGenAvatarIds)[0] || undefined,
-          voiceId: userHeyGenVoiceId.trim() || undefined,
-          apiKey: userHeyGenApiKey.trim() || undefined,
-        };
 
       if (editingUser) {
         await authService.updateUser(editingUser.uid, {
@@ -571,7 +571,6 @@ export default function UserAdminTab() {
           department: userDepartment.trim() || "",
           division: userDepartment.trim() || "",
           phone: editingUser.phone || "",
-          heygenAccess: heygenAccessPayload,
         });
 
         toast.success(`Đã cập nhật tài khoản "${userDisplayName}".`);
@@ -588,7 +587,6 @@ export default function UserAdminTab() {
           userDepartment.trim() || undefined,
           userDepartment.trim() || undefined,
           undefined,
-          heygenAccessPayload
         );
 
         toast.success(`Đăng ký tài khoản cho "${userDisplayName}" thành công!`);
@@ -624,24 +622,37 @@ export default function UserAdminTab() {
     setUserCompanyCode(user.companyCode || "");
     setUserParentId(user.parentId || "");
     setUserDepartment(user.department || "");
-    setUserHeyGenAvatarIds(formatAvatarIds(user) === "-" ? "" : formatAvatarIds(user));
-    setUserHeyGenVoiceId(user.heygenAccess?.voiceId || "");
-    setUserHeyGenApiKey(user.heygenAccess?.apiKey || "");
     setIsUserModalOpen(true);
   };
 
-  const handleDeleteUser = async (user: UserProfile) => {
-    setOpenActionMenuId(null);
-    if (user.uid === userProfile?.uid) {
-      toast.warning("Bạn không thể tự xóa chính mình.");
-      return;
+  const deleteRoleConfirmed = async (role: string) => {
+    try {
+      let code = undefined;
+      if (userProfile?.role === "superadmin") {
+        code = selectedCompanyCode === "all" ? "SYSTEM" : selectedCompanyCode;
+      } else {
+        code = userProfile?.companyCode;
+      }
+      await rolePermissionService.deleteRolePermission(role, code);
+      toast.success("Xóa cấu hình vai trò thành công!");
+      await fetchRolePermissions();
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error.message || "Xóa vai trò thất bại.");
     }
+  };
 
-    const accepted = window.confirm(`Xóa người dùng "${user.displayName}"? Thao tác này không thể hoàn tác.`);
-    if (!accepted) {
-      return;
-    }
+  const handleDeleteRole = (roleInfo: any) => {
+    askConfirm(
+      "Xóa vai trò?",
+      `Bạn có chắc chắn muốn xóa vai trò "${roleInfo.displayName}"? Hành động này sẽ bỏ phân quyền vai trò.`,
+      () => deleteRoleConfirmed(roleInfo.role),
+      "Xóa vai trò",
+      "Hủy"
+    );
+  };
 
+  const deleteUserConfirmed = async (user: UserProfile) => {
     try {
       await authService.deleteUser(user.uid);
       setUsersList((prev) => prev.filter((item) => item.uid !== user.uid));
@@ -650,6 +661,22 @@ export default function UserAdminTab() {
       console.error("Lỗi xóa người dùng:", error);
       toast.error(error.message || "Không thể xóa người dùng.");
     }
+  };
+
+  const handleDeleteUser = (user: UserProfile) => {
+    setOpenActionMenuId(null);
+    if (user.uid === userProfile?.uid) {
+      toast.warning("Bạn không thể tự xóa chính mình.");
+      return;
+    }
+
+    askConfirm(
+      "Xóa người dùng?",
+      `Bạn có chắc chắn muốn xóa người dùng "${user.displayName}"? Thao tác này không thể hoàn tác.`,
+      () => deleteUserConfirmed(user),
+      "Xóa",
+      "Hủy"
+    );
   };
 
   const openBalanceEditor = (targetUser: AdminUserBalance, action: "add" | "subtract" = "add") => {
@@ -722,64 +749,6 @@ export default function UserAdminTab() {
     setBalanceAction("add");
     setNewBalanceValue("");
     setBalanceNote("");
-  };
-
-  const openHeyGenEditor = (user: UserProfile) => {
-    setOpenActionMenuId(null);
-    setEditingHeyGenUser(user);
-    setEditingHeyGenAvatarIds(
-      Array.isArray(user.heygenAccess?.avatarIds) && user.heygenAccess?.avatarIds.length > 0
-        ? user.heygenAccess.avatarIds.join(", ")
-        : (user.heygenAccess?.avatarId || "")
-    );
-    setEditingHeyGenVoiceId(user.heygenAccess?.voiceId || "");
-    setEditingHeyGenApiKey(user.heygenAccess?.apiKey || "");
-    setIsHeyGenModalOpen(true);
-  };
-
-  const handleSaveHeyGenAccess = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingHeyGenUser) {
-      return;
-    }
-
-    setSavingHeyGenAccess(true);
-    try {
-      const avatarIds = parseAvatarIdsInput(editingHeyGenAvatarIds);
-      await authService.updateUser(editingHeyGenUser.uid, {
-        heygenAccess: {
-          avatarIds,
-          avatarId: avatarIds[0] || "",
-          voiceId: editingHeyGenVoiceId.trim(),
-          apiKey: editingHeyGenApiKey.trim(),
-        },
-      });
-
-      setUsersList((prev) =>
-        prev.map((user) =>
-          user.uid === editingHeyGenUser.uid
-            ? {
-                ...user,
-                heygenAccess: {
-                  avatarIds,
-                  avatarId: avatarIds[0] || "",
-                  voiceId: editingHeyGenVoiceId.trim(),
-                  apiKey: editingHeyGenApiKey.trim(),
-                },
-              }
-            : user
-        )
-      );
-
-      toast.success(`Đã cập nhật cấu hình HeyGen cho "${editingHeyGenUser.displayName}".`);
-      setIsHeyGenModalOpen(false);
-      setEditingHeyGenUser(null);
-    } catch (error: any) {
-      console.error("Lỗi cập nhật HeyGen access:", error);
-      toast.error(error.message || "Không thể cập nhật cấu hình HeyGen cho người dùng này.");
-    } finally {
-      setSavingHeyGenAccess(false);
-    }
   };
 
   return (
@@ -1202,24 +1171,7 @@ export default function UserAdminTab() {
                         )}
                         {!roleInfo.isDefault && (
                           <button
-                            onClick={async () => {
-                              if (window.confirm(`Bạn có chắc chắn muốn xóa vai trò "${roleInfo.displayName}"? Hành động này sẽ bỏ phân quyền vai trò.`)) {
-                                try {
-                                  let code = undefined;
-                                  if (userProfile?.role === "superadmin") {
-                                    code = selectedCompanyCode === "all" ? "SYSTEM" : selectedCompanyCode;
-                                  } else {
-                                    code = userProfile?.companyCode;
-                                  }
-                                  await rolePermissionService.deleteRolePermission(roleInfo.role, code);
-                                  toast.success("Xóa cấu hình vai trò thành công!");
-                                  await fetchRolePermissions();
-                                } catch (error: any) {
-                                  console.error(error);
-                                  toast.error(error.message || "Xóa vai trò thất bại.");
-                                }
-                              }
-                            }}
+                            onClick={() => handleDeleteRole(roleInfo)}
                             className="p-1.5 bg-red-50 hover:bg-red-100 border border-red-200 rounded-xl text-[10px] font-bold text-red-650 cursor-pointer transition-all active:scale-95"
                             title="Xóa vai trò"
                           >
@@ -1277,19 +1229,12 @@ export default function UserAdminTab() {
         setUserParentId={setUserParentId}
         userDepartment={userDepartment}
         setUserDepartment={setUserDepartment}
-        userHeyGenAvatarIds={userHeyGenAvatarIds}
-        setUserHeyGenAvatarIds={setUserHeyGenAvatarIds}
-        userHeyGenVoiceId={userHeyGenVoiceId}
-        setUserHeyGenVoiceId={setUserHeyGenVoiceId}
-        userHeyGenApiKey={userHeyGenApiKey}
-        setUserHeyGenApiKey={setUserHeyGenApiKey}
         getAvailableRoles={getAvailableRoles}
         userProfile={userProfile}
         companies={companies}
         usersList={usersList}
         onSubmit={handleRegisterUser}
         submittingUser={submittingUser}
-        parseAvatarIdsInput={parseAvatarIdsInput}
       />
 
       <BalanceModal
@@ -1359,22 +1304,18 @@ export default function UserAdminTab() {
         }}
       />
 
-      <HeyGenModal
-        open={isHeyGenModalOpen}
-        onClose={() => {
-          setIsHeyGenModalOpen(false);
-          setEditingHeyGenUser(null);
-        }}
-        editingHeyGenUser={editingHeyGenUser}
-        editingHeyGenAvatarIds={editingHeyGenAvatarIds}
-        setEditingHeyGenAvatarIds={setEditingHeyGenAvatarIds}
-        editingHeyGenVoiceId={editingHeyGenVoiceId}
-        setEditingHeyGenVoiceId={setEditingHeyGenVoiceId}
-        editingHeyGenApiKey={editingHeyGenApiKey}
-        setEditingHeyGenApiKey={setEditingHeyGenApiKey}
-        savingHeyGenAccess={savingHeyGenAccess}
-        onSubmit={handleSaveHeyGenAccess}
-      />
+      {/* Custom confirm dialog */}
+      {confirmState && (
+        <ConfirmDialog
+          isOpen={confirmState.isOpen}
+          title={confirmState.title}
+          description={confirmState.description}
+          confirmLabel={confirmState.confirmLabel}
+          cancelLabel={confirmState.cancelLabel}
+          onClose={() => setConfirmState(null)}
+          onConfirm={confirmState.onConfirm}
+        />
+      )}
     </div>
   );
 }

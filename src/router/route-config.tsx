@@ -24,17 +24,20 @@ export const APP_ROUTES: AppRoute[] = [
     component: lazy(() => import("../pages/InventoryTab")),
   },
   {
-    tab: "MARKETING",
-    component: lazy(() => import("../pages/MarketingTab")),
+    tab: "QUẢN LÝ TÀI NGUYÊN",
+    component: lazy(() => import("../pages/ResourceTab")),
   },
   {
-    tab: "SALES CRM",
-    component: lazy(() => import("../pages/CRMTab")),
+    tab: "TÀI NGUYÊN",
+    component: lazy(() => import("../pages/ResourceTab")),
   },
   {
-    tab: "HIỆU SUẤT AI",
-    component: lazy(() => import("../pages/AIPerformanceTab")),
-    canAccess: (userProfile) => userProfile.role === "superadmin",
+    tab: "TRÒ CHUYỆN",
+    component: lazy(() => import("../pages/ChatTab")),
+  },
+  {
+    tab: "QUẢN LÝ HỌC VIÊN",
+    component: lazy(() => import("../modules/student-management/StudentManagementTab")),
   },
   {
     tab: "QUẢN TRỊ USER",

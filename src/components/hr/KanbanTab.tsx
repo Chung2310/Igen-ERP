@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect, @typescript-eslint/no-unused-vars, no-empty */
 import React, { useState, useEffect } from "react";
 import {
   Briefcase,
@@ -24,7 +25,9 @@ import {
 } from "lucide-react";
 import { EmployeeNode, UserProfile, HRTask, Project, TaskHistoryEntry } from "../../types";
 import { getAccessToken } from "../../services/authService";
+import { socketService } from "../../services/socketService";
 import { toast } from "../../pages/Toast";
+import { ConfirmDialog } from "../common/ConfirmDialog";
 
 interface KanbanTabProps {
   userProfile: any;
@@ -32,6 +35,7 @@ interface KanbanTabProps {
   employees: EmployeeNode[];
   isManager: boolean;
   usersList: UserProfile[];
+  onNavigateToWorkflow?: (workflowId: string) => void;
 }
 
 const isUrl = (str?: string): boolean => {
@@ -43,6 +47,27 @@ const getLocalDatetimeString = (date = new Date()) => {
   const tzOffset = date.getTimezoneOffset() * 60000; // in ms
   const localISOTime = (new Date(date.getTime() - tzOffset)).toISOString().slice(0, 16);
   return localISOTime;
+};
+
+/**
+ * Các trường bắt buộc phải điền trước khi đánh dấu Hoàn thành —
+ * đảm bảo task Done luôn đủ dữ liệu để tính KPI và truy vết.
+ */
+type DoneFieldKey = "description" | "dueDate" | "startTime" | "estTime";
+
+const getMissingDoneFields = (info: {
+  description?: string;
+  dueDate?: string;
+  startTime?: string;
+  estTime?: number;
+}): { key: DoneFieldKey; label: string }[] => {
+  const missing: { key: DoneFieldKey; label: string }[] = [];
+  if (!info.description || !info.description.trim()) missing.push({ key: "description", label: "Mô tả công việc" });
+  const due = (info.dueDate || "").trim();
+  if (!due || due === "Chưa cập nhật") missing.push({ key: "dueDate", label: "Hạn chót" });
+  if (!info.startTime) missing.push({ key: "startTime", label: "Ngày giờ bắt đầu" });
+  if (!info.estTime || info.estTime <= 0) missing.push({ key: "estTime", label: "Số giờ phải làm" });
+  return missing;
 };
 
 const calculateKPI = (task: HRTask) => {
@@ -166,7 +191,7 @@ function TaskTable({
                       </div>
                     </div>
                   </td>
-                  
+
                   {/* Dự án (Optional) */}
                   {showProjectColumn && (
                     <td className="px-4 py-3 text-slate-500 truncate max-w-[110px]" title={projects.find(p => p.id === task.projectId)?.name || "Không có dự án"}>
@@ -181,24 +206,22 @@ function TaskTable({
 
                   {/* Ưu tiên */}
                   <td className="px-4 py-3 select-none">
-                    <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold border uppercase tracking-wider font-mono whitespace-nowrap ${
-                      task.priority === "High" ? "bg-rose-50 text-rose-700 border-rose-200" :
-                      task.priority === "Low" ? "bg-slate-100 text-slate-500 border-gray-250" : "bg-amber-50 text-amber-700 border-amber-200"
-                    }`}>
+                    <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold border uppercase tracking-wider font-mono whitespace-nowrap ${task.priority === "High" ? "bg-rose-50 text-rose-700 border-rose-200" :
+                        task.priority === "Low" ? "bg-slate-100 text-slate-500 border-gray-250" : "bg-amber-50 text-amber-700 border-amber-200"
+                      }`}>
                       {task.priority === "High" ? "Cao" : task.priority === "Low" ? "Thấp" : "Trung bình"}
                     </span>
                   </td>
 
                   {/* Trạng thái */}
                   <td className="px-4 py-3 select-none">
-                    <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold border whitespace-nowrap ${
-                      task.status === "Done" || task.status === "done" ? "bg-emerald-50 text-emerald-700 border-emerald-250" :
-                      task.status === "Review/Testing" ? "bg-indigo-50 text-indigo-700 border-indigo-200" :
-                      task.status === "In Progress" || task.status === "doing" ? "bg-sky-50 text-sky-700 border-sky-200" : "bg-slate-100 text-slate-500 border-gray-250"
-                    }`}>
+                    <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold border whitespace-nowrap ${task.status === "Done" || task.status === "done" ? "bg-emerald-50 text-emerald-700 border-emerald-250" :
+                        task.status === "Review/Testing" ? "bg-indigo-50 text-indigo-700 border-indigo-200" :
+                          task.status === "In Progress" || task.status === "doing" ? "bg-sky-50 text-sky-700 border-sky-200" : "bg-slate-100 text-slate-500 border-gray-250"
+                      }`}>
                       {task.status === "Done" || task.status === "done" ? "Đã xong" :
-                      task.status === "Review/Testing" ? "Kiểm tra" :
-                      task.status === "In Progress" || task.status === "doing" ? "Đang làm" : "Chưa làm"}
+                        task.status === "Review/Testing" ? "Kiểm tra" :
+                          task.status === "In Progress" || task.status === "doing" ? "Đang làm" : "Chưa làm"}
                     </span>
                   </td>
 
@@ -211,7 +234,7 @@ function TaskTable({
                   </td>
 
                   {/* Hạn chót */}
-                  <td className="px-4 py-3 text-gray-400 font-mono">{task.dueDate || "-"}</td>
+                  <td className="px-4 py-3 text-gray-650 font-mono text-[10px]">{formatDatetime(task.dueDate)}</td>
 
                   {/* Bắt đầu */}
                   <td className="px-4 py-3 text-gray-650 font-mono text-[10px]">{formatDatetime(task.startTime)}</td>
@@ -254,12 +277,63 @@ export default function KanbanTab({
   selectedCompanyCode,
   employees,
   isManager,
-  usersList
+  usersList,
+  onNavigateToWorkflow
 }: KanbanTabProps) {
   const [tasks, setTasks] = useState<HRTask[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [kanbanViewTab, setKanbanViewTab] = useState<"By project" | "Board" | "All tasks">("By project");
+  const [kanbanViewTab, setKanbanViewTab] = useState<"By project" | "Board" | "All tasks" | "By workflow">("By project");
   const [selectedKanbanTask, setSelectedKanbanTask] = useState<HRTask | null>(null);
+  // Mở modal với trạng thái "Done" chọn sẵn (khi đổi trạng thái nhanh nhưng thiếu thông tin)
+  const [presetDoneOnOpen, setPresetDoneOnOpen] = useState(false);
+  // Popover "Hoàn thành nhanh": chỉ hỏi đúng các trường còn thiếu để đánh Done
+  const [quickDone, setQuickDone] = useState<{
+    task: HRTask;
+    missing: { key: DoneFieldKey; label: string }[];
+  } | null>(null);
+  const [qdFields, setQdFields] = useState<{
+    description: string;
+    dueDate: string;
+    startTime: string;
+    estTime: number | "";
+  }>({ description: "", dueDate: "", startTime: "", estTime: "" });
+  const [selectedWorkflowFilter, setSelectedWorkflowFilter] = useState<string | null>(null);
+  const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
+  const [projectToDelete, setProjectToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [isDeletingTask, setIsDeletingTask] = useState(false);
+  const [isDeletingProject, setIsDeletingProject] = useState(false);
+
+  // Group tasks by workflow
+  const workflowGroupedTasks = React.useMemo(() => {
+    const groups: Record<string, typeof tasks> = {};
+    tasks.forEach((t) => {
+      if (t.isFromWorkflow && t.workflowId) {
+        const wfName = t.tags?.[0] || "Quy trình liên kết";
+        const key = `${t.workflowId}::${wfName}`;
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(t);
+      } else {
+        if (!groups["other"]) groups["other"] = [];
+        groups["other"].push(t);
+      }
+    });
+    return groups;
+  }, [tasks]);
+
+  // Extract unique workflows from tasks
+  const uniqueWorkflows = React.useMemo(() => {
+    const wfs: { id: string; name: string }[] = [];
+    const seen = new Set<string>();
+    tasks.forEach((t) => {
+      if (t.isFromWorkflow && t.workflowId) {
+        if (!seen.has(t.workflowId)) {
+          seen.add(t.workflowId);
+          wfs.push({ id: t.workflowId, name: t.tags?.[0] || "Quy trình liên kết" });
+        }
+      }
+    });
+    return wfs;
+  }, [tasks]);
 
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
@@ -288,7 +362,7 @@ export default function KanbanTab({
   const fetchTasks = async () => {
     if (!selectedCompanyCode) return;
     try {
-      const res = await fetch("/api/v1/crud/kanban-tasks", {
+      const res = await fetch("/api/v1/kanban/tasks", {
         headers: {
           "Authorization": `Bearer ${getAccessToken()}`,
         },
@@ -310,7 +384,7 @@ export default function KanbanTab({
   const fetchProjects = async () => {
     if (!selectedCompanyCode) return;
     try {
-      const res = await fetch("/api/v1/crud/projects", {
+      const res = await fetch("/api/v1/kanban/projects", {
         headers: {
           "Authorization": `Bearer ${getAccessToken()}`,
         },
@@ -343,6 +417,29 @@ export default function KanbanTab({
     }
   }, [selectedCompanyCode]);
 
+  // Realtime: quy trình vừa sinh task mới cho chính mình → tải lại và báo
+  useEffect(() => {
+    const off = socketService.on("kanban:task-created", (data: any) => {
+      fetchTasks();
+      toast.success(
+        `Bạn có task mới từ quy trình «${data?.workflowName || ""}»: ${data?.title || ""}`
+      );
+    });
+    return off;
+  }, [selectedCompanyCode]);
+
+  // Deep-link từ tab Quy trình: mở modal chi tiết đúng task được trỏ tới
+  useEffect(() => {
+    const targetId = sessionStorage.getItem("targetKanbanTaskId");
+    if (targetId && tasks.length > 0) {
+      const target = tasks.find((t) => t.id === targetId);
+      if (target) {
+        setSelectedKanbanTask(target);
+        sessionStorage.removeItem("targetKanbanTaskId");
+      }
+    }
+  }, [tasks]);
+
   useEffect(() => {
     if (selectedKanbanTask) {
       setEditTitle(selectedKanbanTask.title || "");
@@ -372,6 +469,10 @@ export default function KanbanTab({
       setEditLinkNote(selectedKanbanTask.linkNote || "");
       setTaskHistory(selectedKanbanTask.history || []);
       setEditCategory(selectedKanbanTask.category || "Onboarding");
+      if (presetDoneOnOpen) {
+        setEditStatus("Done");
+        setPresetDoneOnOpen(false);
+      }
     }
   }, [selectedKanbanTask]);
 
@@ -381,6 +482,13 @@ export default function KanbanTab({
       setEditEndTime(getLocalDatetimeString());
     }
   }, [editStatus, editStartTime]);
+
+  // Tự động ghi thời gian bắt đầu khi chuyển sang Đang làm (tự thu thập thay vì bắt điền tay)
+  useEffect(() => {
+    if (editStatus === "In Progress" && !editStartTime) {
+      setEditStartTime(getLocalDatetimeString());
+    }
+  }, [editStatus]);
 
   // Tự động tính số giờ thực tế khi có ngày giờ Bắt đầu và Kết thúc
   useEffect(() => {
@@ -433,6 +541,20 @@ export default function KanbanTab({
     if (!assignedEmp) {
       toast.error("Nhân sự được giao việc không hợp lệ!");
       return;
+    }
+
+    // Đánh dấu Hoàn thành → bắt buộc điền đầy đủ thông tin
+    if (editStatus === "Done") {
+      const missing = getMissingDoneFields({
+        description: editDescription,
+        dueDate: editDueDate,
+        startTime: editStartTime,
+        estTime: editEstTime === "" ? 0 : Number(editEstTime),
+      });
+      if (missing.length > 0) {
+        toast.warning(`Để đánh dấu Hoàn thành, vui lòng điền đầy đủ: ${missing.map((m) => m.label).join(", ")}.`);
+        return;
+      }
     }
 
     try {
@@ -491,7 +613,7 @@ export default function KanbanTab({
           category: editCategory
         };
 
-        const res = await fetch("/api/v1/crud/kanban-tasks", {
+        const res = await fetch("/api/v1/kanban/tasks", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -531,6 +653,9 @@ export default function KanbanTab({
           const oldProj = projects.find(p => p.id === selectedKanbanTask.projectId)?.name || "Không có dự án";
           const newProj = projects.find(p => p.id === editProjectId)?.name || "Không có dự án";
           changes.push(`Chuyển dự án: "${oldProj}" → "${newProj}"`);
+        }
+        if ((selectedKanbanTask.dueDate || "") !== editDueDate.trim()) {
+          changes.push(`Sửa hạn chót: "${selectedKanbanTask.dueDate || 'Chưa thiết lập'}" → "${editDueDate.trim() || 'Chưa thiết lập'}"`);
         }
         if ((selectedKanbanTask.startTime || "") !== editStartTime) {
           changes.push(`Sửa TG bắt đầu: "${selectedKanbanTask.startTime || 'Chưa thiết lập'}" → "${editStartTime || 'Chưa thiết lập'}"`);
@@ -580,7 +705,7 @@ export default function KanbanTab({
           category: editCategory
         };
 
-        const res = await fetch(`/api/v1/crud/kanban-tasks/${selectedKanbanTask.id}`, {
+        const res = await fetch(`/api/v1/kanban/tasks/${selectedKanbanTask.id}`, {
           method: "PATCH",
           headers: {
             "Content-Type": "application/json",
@@ -598,9 +723,9 @@ export default function KanbanTab({
         setTasks(prev => prev.map(t => t.id === selectedKanbanTask.id ? { ...t, ...updatedFields } : t));
       }
       setSelectedKanbanTask(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Lỗi khi lưu công việc:", error);
-      toast.error("Không thể lưu thay đổi. Vui lòng kiểm tra quyền hạn.");
+      toast.error(error.message || "Không thể lưu thay đổi. Vui lòng kiểm tra quyền hạn.");
     }
   };
 
@@ -619,7 +744,7 @@ export default function KanbanTab({
         createdAt: new Date().toISOString()
       };
 
-      const res = await fetch("/api/v1/crud/projects", {
+      const res = await fetch("/api/v1/kanban/projects", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -644,9 +769,9 @@ export default function KanbanTab({
       setExpandedProjects(prev => ({ ...prev, [createdProj.id]: true }));
       setNewProjectName("");
       setIsNewProjectModalOpen(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Lỗi khi tạo dự án:", error);
-      toast.error("Không thể tạo dự án. Vui lòng thử lại.");
+      toast.error(error.message || "Không thể tạo dự án. Vui lòng thử lại.");
     }
   };
 
@@ -666,8 +791,28 @@ export default function KanbanTab({
 
       let endTimeUpdate = undefined;
       let actualTimeUpdate = undefined;
+      let startTimeUpdate = undefined;
+      let actualStartTimeUpdate = undefined;
+
+      // Bắt đầu làm → tự ghi thời gian bắt đầu (không bắt người dùng điền tay)
+      if (newStatus === "In Progress" && taskObj) {
+        if (taskObj.isFromWorkflow && !taskObj.actualStartTime) actualStartTimeUpdate = getLocalDatetimeString();
+        else if (!taskObj.startTime) startTimeUpdate = getLocalDatetimeString();
+      }
 
       if (newStatus === "Done" && taskObj) {
+        // Thiếu thông tin → mở popover hoàn thành nhanh, chỉ hỏi đúng trường còn thiếu
+        const missing = getMissingDoneFields(taskObj);
+        if (missing.length > 0) {
+          setQdFields({
+            description: "",
+            dueDate: "",
+            startTime: getLocalDatetimeString(),
+            estTime: "",
+          });
+          setQuickDone({ task: taskObj, missing });
+          return;
+        }
         if (taskObj.startTime && !taskObj.endTime) {
           endTimeUpdate = getLocalDatetimeString();
           const start = new Date(taskObj.startTime).getTime();
@@ -684,8 +829,10 @@ export default function KanbanTab({
       };
       if (endTimeUpdate !== undefined) updateData.endTime = endTimeUpdate;
       if (actualTimeUpdate !== undefined) updateData.actualTime = actualTimeUpdate;
+      if (startTimeUpdate !== undefined) updateData.startTime = startTimeUpdate;
+      if (actualStartTimeUpdate !== undefined) updateData.actualStartTime = actualStartTimeUpdate;
 
-      const res = await fetch(`/api/v1/crud/kanban-tasks/${id}`, {
+      const res = await fetch(`/api/v1/kanban/tasks/${id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -701,16 +848,106 @@ export default function KanbanTab({
 
       setTasks(prev => prev.map(t => t.id === id ? { ...t, ...updateData } : t));
       toast.success("Đã cập nhật trạng thái công việc!");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Lỗi khi cập nhật trạng thái công việc:", error);
-      toast.error("Không thể cập nhật trạng thái. Vui lòng thử lại.");
+      toast.error(error.message || "Không thể cập nhật trạng thái. Vui lòng thử lại.");
     }
   };
 
-  const deleteTask = async (id: string) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa công việc này?")) return false;
+  // Gộp giá trị đã có của task với phần vừa điền trong popover rồi đánh Done
+  const submitQuickDone = async () => {
+    if (!quickDone) return;
+    const t = quickDone.task;
+    const merged = {
+      description: t.description && t.description.trim() ? t.description : qdFields.description.trim(),
+      dueDate:
+        (t.dueDate || "").trim() && (t.dueDate || "").trim() !== "Chưa cập nhật"
+          ? t.dueDate
+          : qdFields.dueDate,
+      startTime: t.startTime || qdFields.startTime,
+      estTime:
+        t.estTime && t.estTime > 0
+          ? t.estTime
+          : qdFields.estTime === ""
+            ? 0
+            : Number(qdFields.estTime),
+    };
+    const stillMissing = getMissingDoneFields(merged);
+    if (stillMissing.length > 0) {
+      toast.warning(`Vui lòng điền: ${stillMissing.map((m) => m.label).join(", ")}.`);
+      return;
+    }
+
     try {
-      const res = await fetch(`/api/v1/crud/kanban-tasks/${id}`, {
+      const userName = userProfile?.displayName || userProfile?.email || "Thành viên";
+      const endTime = t.endTime || getLocalDatetimeString();
+      let actualTime = t.actualTime || 0;
+      const start = new Date(merged.startTime).getTime();
+      const end = new Date(endTime).getTime();
+      if (!isNaN(start) && !isNaN(end) && end >= start) {
+        actualTime = Number(((end - start) / (1000 * 60 * 60)).toFixed(1));
+      }
+
+      const updateData: any = {
+        ...merged,
+        status: "Done",
+        endTime,
+        actualTime,
+        history: [
+          ...(t.history || []),
+          {
+            time: new Date().toLocaleString("vi-VN"),
+            user: userName,
+            action: `Đổi trạng thái: "${t.status}" → "Done" (hoàn thành nhanh)`,
+          },
+        ],
+      };
+
+      const res = await fetch(`/api/v1/kanban/tasks/${t.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${getAccessToken()}`,
+        },
+        body: JSON.stringify(updateData),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Cập nhật trạng thái thất bại");
+      }
+
+      setTasks(prev => prev.map(x => (x.id === t.id ? { ...x, ...updateData } : x)));
+      setQuickDone(null);
+      toast.success("Đã hoàn thành công việc!");
+    } catch (error) {
+      console.error("Lỗi khi hoàn thành nhanh:", error);
+      toast.error("Không thể hoàn thành công việc. Vui lòng thử lại.");
+    }
+  };
+
+  // Modal đang chọn status Done → tính live các trường còn thiếu để highlight
+  const doneMissing =
+    selectedKanbanTask && editStatus === "Done"
+      ? getMissingDoneFields({
+        description: editDescription,
+        dueDate: editDueDate,
+        startTime: editStartTime,
+        estTime: editEstTime === "" ? 0 : Number(editEstTime),
+      })
+      : [];
+  const missingKeySet = new Set(doneMissing.map((m) => m.key));
+  const missingCls = (key: DoneFieldKey, base: string) =>
+    missingKeySet.has(key) ? `${base} !border-rose-400 !bg-rose-50/60` : base;
+
+  const deleteTask = (id: string) => {
+    setTaskToDelete(id);
+    return false;
+  };
+
+  const executeDeleteTask = async (id: string) => {
+    setIsDeletingTask(true);
+    try {
+      const res = await fetch(`/api/v1/kanban/tasks/${id}`, {
         method: "DELETE",
         headers: {
           "Authorization": `Bearer ${getAccessToken()}`,
@@ -725,16 +962,56 @@ export default function KanbanTab({
       setTasks(prev => prev.filter(t => t.id !== id));
       toast.success("Đã xóa công việc thành công!");
       return true;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Lỗi khi xóa công việc:", error);
-      toast.error("Không thể xóa công việc. Chỉ quản lý mới có quyền.");
+      toast.error(error.message || "Không thể xóa công việc. Chỉ quản lý mới có quyền.");
       return false;
+    } finally {
+      setIsDeletingTask(false);
     }
   };
 
-  const visibleTasks = kanbanFilter
-    ? tasks.filter(t => t.assignee.toLowerCase() === kanbanFilter.toLowerCase())
-    : tasks;
+  const deleteProject = (id: string, name: string) => {
+    setProjectToDelete({ id, name });
+  };
+
+  const executeDeleteProject = async (id: string) => {
+    setIsDeletingProject(true);
+    try {
+      const res = await fetch(`/api/v1/kanban/projects/${id}`, {
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${getAccessToken()}`,
+        },
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Xóa dự án thất bại");
+      }
+
+      setProjects(prev => prev.filter(p => p.id !== id));
+      // Task thuộc dự án đã được server gỡ projectId → cập nhật local để hiện về nhóm "Chưa phân loại"
+      setTasks(prev => prev.map(t => (t.projectId === id ? { ...t, projectId: "" } : t)));
+      toast.success("Đã xóa dự án thành công!");
+    } catch (error: any) {
+      console.error("Lỗi khi xóa dự án:", error);
+      toast.error(error.message || "Không thể xóa dự án. Vui lòng kiểm tra quyền hạn.");
+    } finally {
+      setIsDeletingProject(false);
+    }
+  };
+
+  const visibleTasks = React.useMemo(() => {
+    let list = tasks;
+    if (kanbanFilter) {
+      list = list.filter((t) => t.assignee.toLowerCase() === kanbanFilter.toLowerCase());
+    }
+    if (selectedWorkflowFilter) {
+      list = list.filter((t) => t.isFromWorkflow && t.workflowId === selectedWorkflowFilter);
+    }
+    return list;
+  }, [tasks, kanbanFilter, selectedWorkflowFilter]);
 
   return (
     <>
@@ -747,15 +1024,16 @@ export default function KanbanTab({
 
               {/* Tab buttons */}
               <div className="flex bg-gray-100 border border-gray-200 p-1 rounded-xl text-xs font-semibold gap-1 select-none">
-                {(["By project", "Board", "All tasks"] as const).map((vt) => (
+                {(["By project", "Board", "All tasks", "By workflow"] as const).map((vt) => (
                   <button
                     key={vt}
                     onClick={() => setKanbanViewTab(vt)}
-                    className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                      kanbanViewTab === vt ? "bg-white text-slate-850 shadow-xs" : "text-gray-500 hover:text-slate-700"
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${kanbanViewTab === vt ? "bg-white text-slate-850 shadow-xs" : "text-gray-500 hover:text-slate-700"
+                      }`}
                   >
-                    {vt === "By project" ? "Theo dự án" : vt === "Board" ? "Bảng Kanban" : "Tất cả công việc"}
+                    {vt === "By project" ? "Theo dự án" :
+                      vt === "Board" ? "Bảng Kanban" :
+                        vt === "By workflow" ? "Theo quy trình" : "Tất cả công việc"}
                   </button>
                 ))}
               </div>
@@ -770,10 +1048,22 @@ export default function KanbanTab({
                   onChange={(e) => setKanbanFilter(e.target.value || null)}
                   className="border border-gray-200 p-1.5 rounded-xl text-xs bg-white outline-none cursor-pointer"
                 >
-                  <option value="">Lọc theo nhân sự</option>
+                  <option value="">Lọc nhân sự</option>
                   {employees.map(emp => (
                     <option key={emp.id} value={emp.name}>
-                      {emp.name} ({emp.role})
+                      {emp.name}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={selectedWorkflowFilter || ""}
+                  onChange={(e) => setSelectedWorkflowFilter(e.target.value || null)}
+                  className="border border-gray-200 p-1.5 rounded-xl text-xs bg-white outline-none cursor-pointer ml-1"
+                >
+                  <option value="">Lọc quy trình</option>
+                  {uniqueWorkflows.map(wf => (
+                    <option key={wf.id} value={wf.id}>
+                      {wf.name}
                     </option>
                   ))}
                 </select>
@@ -787,7 +1077,7 @@ export default function KanbanTab({
                     className="px-4 py-2 border border-gray-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer"
                   >
                     <Target className="h-4 w-4" />
-                    Tạo Dự Án
+                    Tạo Dự Án & Lĩnh vực
                   </button>
 
                   <button
@@ -860,6 +1150,19 @@ export default function KanbanTab({
                           </div>
                           <div className="flex items-center gap-4 text-[10px] text-gray-400 font-medium">
                             <span>Tạo ngày: {new Date(proj.createdAt).toLocaleDateString("vi-VN")}</span>
+                            {isManager && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteProject(proj.id, proj.name);
+                                }}
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                                title="Xóa dự án"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            )}
                           </div>
                         </div>
 
@@ -933,6 +1236,7 @@ export default function KanbanTab({
                       canDelete={isManager || task.creatorUid === userProfile?.uid}
                       onClick={() => setSelectedKanbanTask(task)}
                       projects={projects}
+                      onNavigateToWorkflow={onNavigateToWorkflow}
                     />
                   ))}
                 </div>
@@ -959,6 +1263,7 @@ export default function KanbanTab({
                       canDelete={isManager || task.creatorUid === userProfile?.uid}
                       onClick={() => setSelectedKanbanTask(task)}
                       projects={projects}
+                      onNavigateToWorkflow={onNavigateToWorkflow}
                     />
                   ))}
                 </div>
@@ -985,6 +1290,7 @@ export default function KanbanTab({
                       canDelete={isManager || task.creatorUid === userProfile?.uid}
                       onClick={() => setSelectedKanbanTask(task)}
                       projects={projects}
+                      onNavigateToWorkflow={onNavigateToWorkflow}
                     />
                   ))}
                 </div>
@@ -1011,6 +1317,7 @@ export default function KanbanTab({
                       canDelete={isManager || task.creatorUid === userProfile?.uid}
                       onClick={() => setSelectedKanbanTask(task)}
                       projects={projects}
+                      onNavigateToWorkflow={onNavigateToWorkflow}
                     />
                   ))}
                 </div>
@@ -1027,8 +1334,190 @@ export default function KanbanTab({
               onSelectTask={setSelectedKanbanTask}
             />
           )}
+
+          {/* Tab 4: Workflow-grouped tasks list */}
+          {kanbanViewTab === "By workflow" && (
+            <div className="space-y-4">
+              {Object.keys(workflowGroupedTasks).length === 0 || (Object.keys(workflowGroupedTasks).length === 1 && workflowGroupedTasks["other"]?.length === tasks.length) ? (
+                <div className="text-center py-12 text-gray-400 select-none">
+                  <Briefcase className="h-12 w-12 mx-auto text-gray-200 mb-3" />
+                  <p className="font-bold text-sm">Chưa có công việc nào liên kết với Quy trình</p>
+                </div>
+              ) : (
+                <>
+                  {Object.entries(workflowGroupedTasks).map(([key, value]) => {
+                    if (key === "other") return null;
+                    const groupTasks = value as HRTask[];
+                    const [wfId, wfName] = key.split("::");
+                    const isExpanded = !!expandedProjects[wfId];
+
+                    const filteredGroupTasks = groupTasks.filter(t => visibleTasks.some(vt => vt.id === t.id));
+
+                    return (
+                      <div key={wfId} className="border border-gray-200 rounded-2xl overflow-hidden shadow-2xs">
+                        <div
+                          onClick={() => setExpandedProjects(p => ({ ...p, [wfId]: !isExpanded }))}
+                          className="bg-slate-50 px-5 py-3.5 flex items-center justify-between cursor-pointer select-none hover:bg-slate-100/80 transition-colors"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <ChevronRight className={`h-4.5 w-4.5 text-slate-555 transition-transform ${isExpanded ? "rotate-90" : ""}`} />
+                            <span className="w-2.5 h-2.5 rounded-full bg-purple-500 shrink-0" />
+                            <h3 className="font-bold text-slate-800 text-sm truncate">Quy trình: {wfName}</h3>
+                            <span className="px-2 py-0.5 bg-purple-50 border border-purple-150 text-purple-700 font-mono text-[9px] font-bold rounded-full">
+                              {filteredGroupTasks.length} việc
+                            </span>
+                          </div>
+                        </div>
+
+                        {isExpanded && (
+                          <div className="p-4 bg-white border-t border-gray-150 max-h-[400px] overflow-y-auto">
+                            <TaskTable
+                              tasks={filteredGroupTasks}
+                              showProjectColumn={true}
+                              projects={projects}
+                              onSelectTask={setSelectedKanbanTask}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {/* Tasks not from any workflow */}
+                  {workflowGroupedTasks["other"] && workflowGroupedTasks["other"].length > 0 && (
+                    <div className="border border-gray-200 rounded-2xl overflow-hidden shadow-2xs">
+                      <div
+                        onClick={() => setExpandedProjects(p => ({ ...p, other_wf: !expandedProjects.other_wf }))}
+                        className="bg-slate-50 px-5 py-3.5 flex items-center justify-between cursor-pointer select-none hover:bg-slate-100/80 transition-colors"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <ChevronRight className={`h-4.5 w-4.5 text-slate-555 transition-transform ${expandedProjects.other_wf ? "rotate-90" : ""}`} />
+                          <Tag className="h-4 w-4 text-slate-500 shrink-0" />
+                          <h3 className="font-bold text-slate-600 text-sm">Công việc ngoài Quy trình</h3>
+                          <span className="px-2 py-0.5 bg-slate-150 text-slate-600 font-mono text-[9px] font-bold rounded-full">
+                            {workflowGroupedTasks["other"].filter(t => visibleTasks.some(vt => vt.id === t.id)).length} việc
+                          </span>
+                        </div>
+                      </div>
+                      {expandedProjects.other_wf && (
+                        <div className="p-4 bg-white border-t border-gray-150 max-h-[400px] overflow-y-auto">
+                          <TaskTable
+                            tasks={workflowGroupedTasks["other"].filter(t => visibleTasks.some(vt => vt.id === t.id))}
+                            showProjectColumn={true}
+                            projects={projects}
+                            onSelectTask={setSelectedKanbanTask}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
         </div>
       </div>
+
+      {/* POPOVER HOÀN THÀNH NHANH — chỉ hỏi đúng các trường còn thiếu */}
+      {quickDone && (
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-2xs flex items-center justify-center z-50 p-4"
+          onClick={() => setQuickDone(null)}
+        >
+          <div
+            className="bg-white border border-gray-200 text-slate-800 rounded-2xl shadow-2xl w-full max-w-sm p-6 text-left font-sans"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-2 mb-1">
+              <h3 className="text-sm font-bold text-slate-800">Hoàn thành công việc</h3>
+              <button
+                onClick={() => setQuickDone(null)}
+                className="p-1 rounded-lg hover:bg-gray-100 text-slate-400"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-[11px] text-slate-400 mb-4 line-clamp-1">{quickDone.task.title}</p>
+            <p className="text-[11px] font-semibold text-slate-500 mb-3">
+              Chỉ còn thiếu {quickDone.missing.length} thông tin để hoàn thành:
+            </p>
+            <div className="space-y-3 text-xs">
+              {quickDone.missing.some((m) => m.key === "description") && (
+                <div>
+                  <label className="block text-gray-400 font-bold mb-1">Mô tả công việc</label>
+                  <textarea
+                    value={qdFields.description}
+                    onChange={(e) => setQdFields((f) => ({ ...f, description: e.target.value }))}
+                    placeholder="Kết quả / nội dung đã thực hiện..."
+                    className="w-full p-2 bg-slate-50 border border-gray-200 focus:bg-white focus:border-indigo-500 rounded-lg outline-none resize-none min-h-[64px]"
+                    autoFocus
+                  />
+                </div>
+              )}
+              {quickDone.missing.some((m) => m.key === "dueDate") && (
+                <div>
+                  <label className="block text-gray-400 font-bold mb-1">Hạn chót</label>
+                  <input
+                    type="datetime-local"
+                    value={qdFields.dueDate}
+                    onChange={(e) => setQdFields((f) => ({ ...f, dueDate: e.target.value }))}
+                    className="w-full p-2 bg-slate-50 border border-gray-200 focus:bg-white focus:border-indigo-500 rounded-lg outline-none"
+                  />
+                </div>
+              )}
+              {quickDone.missing.some((m) => m.key === "startTime") && (
+                <div>
+                  <label className="block text-gray-400 font-bold mb-1">Ngày giờ bắt đầu</label>
+                  <input
+                    type="datetime-local"
+                    value={qdFields.startTime}
+                    onChange={(e) => setQdFields((f) => ({ ...f, startTime: e.target.value }))}
+                    className="w-full p-2 bg-slate-50 border border-gray-200 focus:bg-white focus:border-indigo-500 rounded-lg outline-none"
+                  />
+                </div>
+              )}
+              {quickDone.missing.some((m) => m.key === "estTime") && (
+                <div>
+                  <label className="block text-gray-400 font-bold mb-1">Số giờ phải làm (h)</label>
+                  <input
+                    type="number"
+                    min={0.5}
+                    step={0.5}
+                    value={qdFields.estTime}
+                    onChange={(e) =>
+                      setQdFields((f) => ({
+                        ...f,
+                        estTime: e.target.value === "" ? "" : Number(e.target.value),
+                      }))
+                    }
+                    placeholder="VD: 4"
+                    className="w-full p-2 bg-slate-50 border border-gray-200 focus:bg-white focus:border-indigo-500 rounded-lg outline-none"
+                  />
+                </div>
+              )}
+            </div>
+            <div className="mt-5 flex items-center justify-between gap-2 text-xs font-bold">
+              <button
+                onClick={() => {
+                  const t = quickDone.task;
+                  setQuickDone(null);
+                  setPresetDoneOnOpen(true);
+                  setSelectedKanbanTask(t);
+                }}
+                className="text-slate-400 hover:text-indigo-600 font-semibold"
+              >
+                Mở chi tiết đầy đủ…
+              </button>
+              <button
+                onClick={submitQuickDone}
+                className="px-4 py-2 rounded-xl text-white bg-emerald-600 hover:bg-emerald-700 transition-all active:scale-95 flex items-center gap-1.5"
+              >
+                <CheckCircle className="w-4 h-4" /> Hoàn thành
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* NOTION TASK DETAIL MODAL */}
       {selectedKanbanTask && (
@@ -1143,11 +1632,10 @@ export default function KanbanTab({
                 <div className="flex items-center gap-4">
                   <span className="w-24 text-gray-400 font-semibold select-none flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> Hạn chót</span>
                   <input
-                    type="text"
+                    type="datetime-local"
                     value={editDueDate}
                     onChange={(e) => setEditDueDate(e.target.value)}
-                    placeholder="Ví dụ: 30/12/2024"
-                    className="flex-1 p-1 bg-slate-50 border border-transparent hover:border-gray-200 rounded-lg outline-none font-semibold text-xs"
+                    className={missingCls("dueDate", "flex-1 p-1 bg-slate-50 border border-transparent hover:border-gray-200 rounded-lg outline-none text-[10px] font-semibold")}
                   />
                 </div>
 
@@ -1157,7 +1645,7 @@ export default function KanbanTab({
                     type="datetime-local"
                     value={editStartTime}
                     onChange={(e) => setEditStartTime(e.target.value)}
-                    className="flex-1 p-1 bg-slate-50 border border-transparent hover:border-gray-200 rounded-lg outline-none text-[10px] font-semibold"
+                    className={missingCls("startTime", "flex-1 p-1 bg-slate-50 border border-transparent hover:border-gray-200 rounded-lg outline-none text-[10px] font-semibold")}
                   />
                 </div>
 
@@ -1179,7 +1667,7 @@ export default function KanbanTab({
                       placeholder="Số giờ phải làm"
                       value={editEstTime}
                       onChange={(e) => setEditEstTime(e.target.value === "" ? "" : Number(e.target.value))}
-                      className="w-1/2 p-1 bg-slate-50 border border-transparent hover:border-gray-200 rounded-lg outline-none text-[10px]"
+                      className={missingCls("estTime", "w-1/2 p-1 bg-slate-50 border border-transparent hover:border-gray-200 rounded-lg outline-none text-[10px]")}
                     />
                     <input
                       type="number"
@@ -1246,7 +1734,7 @@ export default function KanbanTab({
                 value={editDescription}
                 onChange={(e) => setEditDescription(e.target.value)}
                 placeholder="Nhập ghi chú chi tiết cho nhân viên thực hiện..."
-                className="w-full flex-1 p-3 bg-slate-50 border border-transparent hover:border-gray-200 focus:bg-white focus:border-indigo-500 rounded-xl outline-none resize-none min-h-[120px]"
+                className={missingCls("description", "w-full flex-1 p-3 bg-slate-50 border border-transparent hover:border-gray-200 focus:bg-white focus:border-indigo-500 rounded-xl outline-none resize-none min-h-[120px]")}
               />
             </div>
 
@@ -1279,17 +1767,21 @@ export default function KanbanTab({
               </div>
             )}
 
+            {/* Cảnh báo cố định khi chọn Hoàn thành mà còn thiếu thông tin */}
+            {doneMissing.length > 0 && (
+              <div className="mb-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] font-semibold text-rose-600">
+                Để đánh dấu Hoàn thành, cần điền: {doneMissing.map((m) => m.label).join(", ")}
+              </div>
+            )}
+
             {/* Action buttons */}
             <div className="pt-6 border-t flex justify-between items-center text-xs font-bold shrink-0">
               <div>
                 {selectedKanbanTask.id !== "new" && (isManager || selectedKanbanTask.creatorUid === userProfile?.uid) && (
                   <button
                     type="button"
-                    onClick={async () => {
-                      const success = await deleteTask(selectedKanbanTask.id);
-                      if (success) {
-                        setSelectedKanbanTask(null);
-                      }
+                    onClick={() => {
+                      setTaskToDelete(selectedKanbanTask.id);
                     }}
                     className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl cursor-pointer transition-all active:scale-95 flex items-center gap-1.5 font-sans"
                   >
@@ -1369,6 +1861,41 @@ export default function KanbanTab({
           </form>
         </div>
       )}
+
+      <ConfirmDialog
+        isOpen={taskToDelete !== null}
+        title="Xóa công việc"
+        description="Bạn có chắc chắn muốn xóa công việc này? Hành động này không thể hoàn tác và tất cả dữ liệu liên quan đến công việc sẽ bị xóa vĩnh viễn."
+        onClose={() => setTaskToDelete(null)}
+        onConfirm={async () => {
+          if (taskToDelete) {
+            const success = await executeDeleteTask(taskToDelete);
+            if (success) {
+              if (selectedKanbanTask && selectedKanbanTask.id === taskToDelete) {
+                setSelectedKanbanTask(null);
+              }
+            }
+            setTaskToDelete(null);
+          }
+        }}
+        isSubmitting={isDeletingTask}
+        tone="danger"
+      />
+
+      <ConfirmDialog
+        isOpen={projectToDelete !== null}
+        title="Xóa dự án"
+        description={`Bạn có chắc chắn muốn xóa dự án "${projectToDelete?.name}"? Các công việc thuộc dự án này sẽ được tự động chuyển về nhóm "Chưa phân loại".`}
+        onClose={() => setProjectToDelete(null)}
+        onConfirm={async () => {
+          if (projectToDelete) {
+            await executeDeleteProject(projectToDelete.id);
+            setProjectToDelete(null);
+          }
+        }}
+        isSubmitting={isDeletingProject}
+        tone="danger"
+      />
     </>
   );
 }
@@ -1380,7 +1907,8 @@ function KanbanCard({
   onDelete,
   canDelete,
   onClick,
-  projects
+  projects,
+  onNavigateToWorkflow
 }: {
   key?: any;
   task: HRTask;
@@ -1389,6 +1917,7 @@ function KanbanCard({
   canDelete: boolean;
   onClick: () => void;
   projects: Project[];
+  onNavigateToWorkflow?: (workflowId: string) => void;
 }) {
   return (
     <div
@@ -1397,10 +1926,9 @@ function KanbanCard({
     >
       <div className="space-y-1.5">
         <div className="flex justify-between items-start gap-2 select-none">
-          <span className={`px-2 py-0.5 rounded-md text-[8px] font-bold border uppercase tracking-wider font-mono ${
-            task.priority === "High" ? "bg-rose-50 text-rose-700 border-rose-200" :
-            task.priority === "Low" ? "bg-slate-100 text-slate-500 border-gray-250" : "bg-amber-50 text-amber-705 text-amber-700 border-amber-205 border-amber-200"
-          }`}>
+          <span className={`px-2 py-0.5 rounded-md text-[8px] font-bold border uppercase tracking-wider font-mono ${task.priority === "High" ? "bg-rose-50 text-rose-700 border-rose-200" :
+              task.priority === "Low" ? "bg-slate-100 text-slate-500 border-gray-250" : "bg-amber-50 text-amber-705 text-amber-700 border-amber-205 border-amber-200"
+            }`}>
             {task.priority === "High" ? "Cao" : task.priority === "Low" ? "Thấp" : "Trung bình"}
           </span>
           <span className="text-[9px] font-bold text-indigo-750 font-mono uppercase tracking-wider bg-slate-50 border border-slate-200 px-1.5 py-0.5 rounded">
@@ -1418,6 +1946,19 @@ function KanbanCard({
             <span className="truncate">{projects.find(p => p.id === task.projectId)?.name || "Không có dự án"}</span>
           </div>
         )}
+        {task.isFromWorkflow && (
+          <div
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onNavigateToWorkflow) onNavigateToWorkflow(task.workflowId || "");
+            }}
+            className="flex items-center gap-1 text-[9px] text-purple-655 font-extrabold select-none bg-purple-50/70 border border-purple-100/80 rounded-lg px-2 py-0.5 w-fit hover:bg-purple-100 transition-colors"
+            title="Xem quy trình chi tiết"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-purple-500 shrink-0 animate-pulse" />
+            <span className="truncate">Quy trình · {task.tags?.[0] || "Liên kết"}</span>
+          </div>
+        )}
       </div>
 
       <div className="flex items-center justify-between border-t border-gray-100 pt-2.5 text-[10px]">
@@ -1425,7 +1966,7 @@ function KanbanCard({
           {renderAvatar(task.assigneeAvatar || "👨‍💻", "w-6 h-6", "text-xs")}
           <span className="text-slate-650 font-semibold">{task.assignee}</span>
         </div>
-        <span className="text-gray-400 font-mono font-medium">Hạn: {task.dueDate}</span>
+        <span className="text-gray-400 font-mono font-medium">Hạn: {formatDatetime(task.dueDate)}</span>
       </div>
 
       {/* Show KPI Badge on Card if available */}

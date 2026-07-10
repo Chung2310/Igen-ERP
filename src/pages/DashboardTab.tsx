@@ -1,41 +1,47 @@
+/* eslint-disable react-hooks/set-state-in-effect */
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable no-empty */
+/* eslint-disable react-hooks/immutability */
+/* eslint-disable react-hooks/exhaustive-deps */
 import React, { useEffect, useState } from "react";
 import {
   AlertTriangle,
-  ArrowDownRight,
   ArrowUpRight,
+  BookOpen,
   Bot,
-  BrainCircuit,
   CheckCircle,
   Clock,
   DollarSign,
-  Filter,
-  Lightbulb,
-  Megaphone,
-  MoreVertical,
+  FolderOpen,
+  GraduationCap,
+  KanbanSquare,
   PackageCheck,
-  Rocket,
   Sparkles,
-  ThumbsUp,
   Users,
+  Wallet,
   X,
+  UserCheck,
+  Clock3,
+  MessageSquare,
+  CheckCircle2,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { authService } from "../services/authService";
 import { inventoryProductService } from "../services/inventoryProductService";
 import { inventoryStockLogService } from "../services/inventoryStockLogService";
-import { marketingService } from "../services/marketingService";
-import { crmService } from "../services/crmService";
+import { dashboardService } from "../services/dashboardService";
 import { toast } from "../pages/Toast";
-import { UserProfile, ContentApprovalCard } from "../types";
+import { UserProfile } from "../types";
+import { DashboardSummary } from "../types/dashboard";
 import LowStockModal from "../components/inventory/LowStockModal";
 
-type DashboardView = "overview" | "revenue" | "ai";
+type DashboardView = "overview" | "revenue";
 type Tone = "blue" | "amber" | "slate" | "indigo" | "emerald";
 
 const tabs: Array<{ id: DashboardView; label: string }> = [
   { id: "overview", label: "Tổng quan" },
   { id: "revenue", label: "Phân tích doanh thu" },
-  { id: "ai", label: "Hiệu suất AI" },
 ];
 
 const toneClass: Record<Tone, { soft: string; text: string; fill: string; strong: string }> = {
@@ -68,24 +74,21 @@ const getDescendantEmployees = (rootId: string, users: UserProfile[]): UserProfi
   return users.filter(u => descendantIds.has(u.uid));
 };
 
-const getDescendantEmployeeCount = (rootId: string, users: UserProfile[]) => {
-  return getDescendantEmployees(rootId, users).length;
-};
-
-const formatCardDate = (dateStr: any): string => {
-  if (!dateStr) return "";
-  try {
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return String(dateStr);
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    return `${hours}:${minutes} ${day}/${month}/${year}`;
-  } catch (e) {
-    return String(dateStr);
-  }
+const buildPctSegments = (
+  parts: Array<{ label: string; value: number; color: string }>,
+  unit: string
+): Array<{ label: string; value: number; color: string; display: string }> => {
+  const total = parts.reduce((acc, p) => acc + Math.max(0, p.value), 0);
+  let used = 0;
+  return parts.map((p, i) => {
+    const count = Math.max(0, p.value);
+    let pct = 0;
+    if (total > 0) {
+      pct = i === parts.length - 1 ? Math.max(0, 100 - used) : Math.round((count / total) * 100);
+      used += pct;
+    }
+    return { ...p, value: pct, display: `${count.toLocaleString("vi-VN")} ${unit} (${pct}%)` };
+  });
 };
 
 const formatDashboardCurrency = (val: number, decimalDigits: number = 1, useK: boolean = true): string => {
@@ -119,35 +122,29 @@ export default function DashboardTab() {
   const [employeeCount, setEmployeeCount] = useState<string>("...");
   const [employeeLabel, setEmployeeLabel] = useState<string>("Tổng nhân sự");
   const [newHiresCount, setNewHiresCount] = useState<number>(0);
+  const [rawEmployees, setRawEmployees] = useState<UserProfile[]>([]);
   const [totalProducts, setTotalProducts] = useState<string>("...");
   const [pendingShipments, setPendingShipments] = useState<string>("...");
-  const [marketingPendingCount, setMarketingPendingCount] = useState<string>("...");
-  const [marketingApprovalRate, setMarketingApprovalRate] = useState<string>("...");
-  const [marketingPendingItems, setMarketingPendingItems] = useState<ContentApprovalCard[]>([]);
   const [overstockItems, setOverstockItems] = useState<any[]>([]);
-  const [pendingReviewPage, setPendingReviewPage] = useState<number>(1);
   const [lowStockCount, setLowStockCount] = useState<string>("...");
   const [lowStockItems, setLowStockItems] = useState<any[]>([]);
-  const [marketingCards, setMarketingCards] = useState<ContentApprovalCard[]>([]);
-  const [rawMarketingCards, setRawMarketingCards] = useState<ContentApprovalCard[]>([]);
   const [rawStockLogs, setRawStockLogs] = useState<any[]>([]);
-  const [rawLeads, setRawLeads] = useState<any[]>([]);
-  const [leadsCount, setLeadsCount] = useState<string>("...");
   const [totalInventoryValue, setTotalInventoryValue] = useState<string>("0");
   const [rawProducts, setRawProducts] = useState<any[]>([]);
   const [monthlyRevenue, setMonthlyRevenue] = useState<number[]>(Array(12).fill(0));
+  const [totalProductsSold, setTotalProductsSold] = useState<number>(0);
 
   const [filteredTotalRevenue, setFilteredTotalRevenue] = useState<number>(0);
   const [growthRate, setGrowthRate] = useState<number>(0);
   const [prevRevenueShort, setPrevRevenueShort] = useState<string>("₫0");
   const [avgOrderValue, setAvgOrderValue] = useState<number>(0);
   const [filteredOrderCount, setFilteredOrderCount] = useState<number>(0);
-  const [conversionRate, setConversionRate] = useState<number>(0);
-  const [filteredLeadsCount, setFilteredLeadsCount] = useState<number>(0);
   const [revenueTrendData, setRevenueTrendData] = useState<Array<{ label: string; value: number }>>([]);
   const [productSegments, setProductSegments] = useState<Array<{ label: string; value: number; color: string }>>([]);
+  const [todayTimekeeping, setTodayTimekeeping] = useState<any>(null);
+  const [isTimekeepingLoading, setIsTimekeepingLoading] = useState<boolean>(false);
 
-  type DateFilterType = "day" | "week" | "year" | "custom";
+  type DateFilterType = "day" | "month" | "year" | "custom";
   const [dateFilter, setDateFilter] = useState<DateFilterType>("day");
   const [customStartDate, setCustomStartDate] = useState<string>(() => {
     const d = new Date();
@@ -158,22 +155,13 @@ export default function DashboardTab() {
     return new Date().toISOString().split("T")[0];
   });
 
-  const isPendingApprovalDisabled = userProfile?.role === "user" || userProfile?.role === "manager";
-
-  const handleApprovePendingCard = async (id: string) => {
-    try {
-      await marketingService.updateCardStatus(id, "approved");
-    } catch (error) {
-      console.error("Lỗi duyệt bài marketing:", error);
-    }
-  };
-
   useEffect(() => {
     const loadEmployeeData = async () => {
       if (!userProfile) {
         setEmployeeCount("0");
         setEmployeeLabel("Nhân sự");
         setNewHiresCount(0);
+        setRawEmployees([]);
         return;
       }
 
@@ -205,34 +193,13 @@ export default function DashboardTab() {
 
         setEmployeeCount(String(count));
         setEmployeeLabel(label);
-
-        // Calculate new hires in current month
-        const isCreatedInCurrentMonth = (createdAt: any): boolean => {
-          if (!createdAt) return false;
-          try {
-            let date: Date;
-            if (createdAt && typeof createdAt.toDate === "function") {
-              date = createdAt.toDate();
-            } else if (createdAt instanceof Date) {
-              date = createdAt;
-            } else {
-              date = new Date(createdAt);
-            }
-            if (isNaN(date.getTime())) return false;
-            const now = new Date();
-            return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
-          } catch (e) {
-            return false;
-          }
-        };
-
-        const newHires = targetUsers.filter(u => isCreatedInCurrentMonth(u.createdAt)).length;
-        setNewHiresCount(newHires);
+        setRawEmployees(targetUsers);
       } catch (error) {
         console.error("Lỗi lấy nhân sự Dashboard:", error);
         setEmployeeCount("0");
         setEmployeeLabel("Nhân sự");
         setNewHiresCount(0);
+        setRawEmployees([]);
       }
     };
 
@@ -245,7 +212,6 @@ export default function DashboardTab() {
     try {
       unsubProducts = inventoryProductService.subscribe((products) => {
         setRawProducts(products);
-        // total number of product SKUs
         setTotalProducts(String(products.length));
         const lowItems = products.filter((p: any) => typeof p.stock === "number" && typeof p.minStockAlert === "number" ? p.stock <= p.minStockAlert : false);
         const overstock = products.filter((p: any) => typeof p.stock === "number" && typeof p.minStockAlert === "number" ? p.stock >= p.minStockAlert * 3 : false);
@@ -253,7 +219,6 @@ export default function DashboardTab() {
         setLowStockItems(lowItems);
         setOverstockItems(overstock);
 
-        // Calculate total inventory value when sold out
         const val = products.reduce((acc, p: any) => {
           const s = typeof p.stock === "number" ? p.stock : 0;
           const pr = typeof p.price === "number" ? p.price : 0;
@@ -295,52 +260,59 @@ export default function DashboardTab() {
     };
   }, []);
 
-  // Subscribe to marketing contents to compute pending approvals and approval rate
-  useEffect(() => {
-    let unsubMarketing: (() => void) | null = null;
-    if (!userProfile) {
-      setRawMarketingCards([]);
-      return;
-    }
+  const getAccessToken = () => localStorage.getItem("accessToken") || "";
 
+  const fetchTodayTimekeeping = async () => {
+    setIsTimekeepingLoading(true);
     try {
-      unsubMarketing = marketingService.subscribeToContents(
-        (cards) => {
-          setRawMarketingCards(cards);
+      const token = getAccessToken();
+      if (!token) return;
+      const res = await fetch("/api/v1/timekeeping/today", {
+        headers: {
+          Authorization: `Bearer ${token}`,
         },
-        (error) => {
-          console.error("Lỗi lấy dữ liệu marketing Dashboard:", error);
-          setRawMarketingCards([]);
-        },
-        userProfile.uid,
-        userProfile.role
-      );
-    } catch (err) {
-      console.error("Lỗi đăng ký marketing Dashboard:", err);
-      setRawMarketingCards([]);
-    }
-
-    return () => {
-      if (unsubMarketing) unsubMarketing();
-    };
-  }, [userProfile?.uid, userProfile?.role]);
-
-  // Subscribe to CRM leads to compute reached users
-  useEffect(() => {
-    let unsubLeads: any = null;
-    try {
-      unsubLeads = crmService.subscribeLeads((leads) => {
-        setRawLeads(leads);
       });
+      if (res.ok) {
+        const result = await res.json();
+        setTodayTimekeeping(result.data);
+      }
     } catch (err) {
-      console.error("Lỗi lấy danh sách lead Dashboard:", err);
-      setRawLeads([]);
+      console.error("Lỗi khi tải trạng thái chấm công:", err);
+    } finally {
+      setIsTimekeepingLoading(false);
     }
+  };
 
-    return () => {
-      if (unsubLeads && typeof unsubLeads === "function") unsubLeads();
+  useEffect(() => {
+    if (userProfile) {
+      fetchTodayTimekeeping();
+    }
+  }, [userProfile]);
+
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
+
+  useEffect(() => {
+    if (!userProfile) return;
+    let cancelled = false;
+
+    const loadSummary = () => {
+      dashboardService
+        .getSummary({ filter: dateFilter, startDate: customStartDate, endDate: customEndDate })
+        .then((data) => {
+          if (!cancelled) setSummary(data);
+        })
+        .catch((err) => {
+          console.error("Lỗi tải dữ liệu tổng quan module:", err);
+        });
     };
-  }, []);
+
+    loadSummary();
+    const intervalId = setInterval(loadSummary, 30000);
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+    };
+  }, [userProfile?.uid, dateFilter, customStartDate, customEndDate]);
 
   // Master calculation useEffect to filter data dynamically by date range
   useEffect(() => {
@@ -377,10 +349,9 @@ export default function DashboardTab() {
       if (dateFilter === "day") {
         const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         return date >= startOfToday;
-      } else if (dateFilter === "week") {
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(now.getDate() - 7);
-        return date >= sevenDaysAgo;
+      } else if (dateFilter === "month") {
+        const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        return date >= startOfThisMonth;
       } else if (dateFilter === "year") {
         const startOfYear = new Date(now.getFullYear(), 0, 1);
         return date >= startOfYear;
@@ -393,45 +364,21 @@ export default function DashboardTab() {
       return true;
     };
 
-    // 1. Filter marketing cards
-    const filteredMarketing = rawMarketingCards.filter((card) => isDateInFilter(card.generatedAt));
-    const pendingCards = filteredMarketing
-      .filter((card) => card.status === "pending")
-      .sort((a, b) => {
-        const dateA = parseSafeDate(a.generatedAt)?.getTime() || 0;
-        const dateB = parseSafeDate(b.generatedAt)?.getTime() || 0;
-        return dateB - dateA;
-      });
-
-    const total = filteredMarketing.length;
-    const approved = filteredMarketing.filter((card) =>
-      card.status === "approved" ||
-      card.status === "scheduled" ||
-      card.status === "published" ||
-      card.status === "failed"
-    ).length;
-    const approvalRate = total > 0 ? Math.round((approved / total) * 100) : 0;
-
-    setMarketingPendingCount(String(pendingCards.length));
-    setMarketingApprovalRate(`${approvalRate}`);
-    setMarketingPendingItems(pendingCards);
-    setMarketingCards(filteredMarketing);
-
-    // 2. Filter stock logs
+    // 1. Filter stock logs
     const filteredLogs = rawStockLogs.filter((log) => isDateInFilter(log.createdAt));
     const pendingShipmentsCount = filteredLogs.filter(
       (l) => l.type === "xuất" && (l.status === "Đang chờ" || l.status === "Đang xử lý")
     ).length;
     setPendingShipments(String(pendingShipmentsCount));
 
-    // 3. Filter CRM leads
-    const filteredLeads = rawLeads.filter((lead) => {
-      if (!lead.createdAt) return false;
-      return isDateInFilter(lead.createdAt);
+    // 2. Filter target employees (New Hires)
+    const filteredEmployees = rawEmployees.filter((user) => {
+      if (!user.createdAt) return false;
+      return isDateInFilter(user.createdAt);
     });
-    setLeadsCount(String(filteredLeads.length));
+    setNewHiresCount(filteredEmployees.length);
 
-  }, [rawMarketingCards, rawStockLogs, rawLeads, dateFilter, customStartDate, customEndDate]);
+  }, [rawStockLogs, rawEmployees, dateFilter, customStartDate, customEndDate]);
 
   useEffect(() => {
     const parseSafeDate = (dateStr: any): Date | null => {
@@ -523,15 +470,12 @@ export default function DashboardTab() {
       prevStart.setDate(prevStart.getDate() - 1);
       prevEnd = new Date(end);
       prevEnd.setDate(prevEnd.getDate() - 1);
-    } else if (dateFilter === "week") {
-      start = new Date();
-      start.setDate(now.getDate() - 7);
-      start.setHours(0, 0, 0, 0);
+    } else if (dateFilter === "month") {
+      start = new Date(now.getFullYear(), now.getMonth(), 1);
+      end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
       
-      prevStart = new Date(start);
-      prevStart.setDate(prevStart.getDate() - 7);
-      prevEnd = new Date(start);
-      prevEnd.setMilliseconds(-1);
+      prevStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      prevEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
     } else if (dateFilter === "year") {
       start = new Date(now.getFullYear(), 0, 1);
       
@@ -547,13 +491,6 @@ export default function DashboardTab() {
       prevStart = new Date(s.getTime() - diffTime);
       prevEnd = new Date(s.getTime() - 1);
     }
-
-    const filteredLeads = rawLeads.filter((lead) => {
-      if (!lead.createdAt) return false;
-      const d = parseSafeDate(lead.createdAt);
-      return d && d >= start && d <= end;
-    });
-    setFilteredLeadsCount(filteredLeads.length);
 
     let currentPeriodRevenue = 0;
     let previousPeriodRevenue = 0;
@@ -595,9 +532,6 @@ export default function DashboardTab() {
     const avg = currentPeriodOrders > 0 ? (currentPeriodRevenue / currentPeriodOrders) : 0;
     setAvgOrderValue(avg);
 
-    const conv = filteredLeads.length > 0 ? (currentPeriodOrders / filteredLeads.length) * 100 : 0;
-    setConversionRate(conv);
-
     // Build trend data for BarChart
     let trendData: Array<{ label: string; value: number }> = [];
 
@@ -617,15 +551,8 @@ export default function DashboardTab() {
         }
       });
       trendData = intervals.map((label, idx) => ({ label, value: values[idx] }));
-    } else if (dateFilter === "week") {
-      const datesList: Date[] = [];
-      for (let i = 6; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(now.getDate() - i);
-        d.setHours(0, 0, 0, 0);
-        datesList.push(d);
-      }
-      const values = Array(7).fill(0);
+    } else if (dateFilter === "month") {
+      const values = Array(4).fill(0);
       rawStockLogs.forEach((log) => {
         const isOutbound = log.type === "xuất";
         const isCompleted = log.status === "Hoàn thành" || log.status === "Thành công";
@@ -633,17 +560,21 @@ export default function DashboardTab() {
 
         const logDate = parseSafeDate(log.createdAt);
         if (logDate && logDate >= start && logDate <= end) {
-          const logDayStart = new Date(logDate.getFullYear(), logDate.getMonth(), logDate.getDate()).getTime();
-          const idx = datesList.findIndex(d => d.getTime() === logDayStart);
-          if (idx !== -1) {
-            values[idx] += getLogRevenue(log);
-          }
+          const dateNum = logDate.getDate();
+          let idx = 0;
+          if (dateNum <= 7) idx = 0;
+          else if (dateNum <= 14) idx = 1;
+          else if (dateNum <= 21) idx = 2;
+          else idx = 3;
+          values[idx] += getLogRevenue(log);
         }
       });
-      trendData = datesList.map((d, idx) => ({
-        label: `${d.getDate()}/${d.getMonth() + 1}`,
-        value: values[idx]
-      }));
+      trendData = [
+        { label: "Tuần 1", value: values[0] },
+        { label: "Tuần 2", value: values[1] },
+        { label: "Tuần 3", value: values[2] },
+        { label: "Tuần 4", value: values[3] },
+      ];
     } else if (dateFilter === "year") {
       const months = ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10", "T11", "T12"];
       const values = Array(12).fill(0);
@@ -791,8 +722,9 @@ export default function DashboardTab() {
       }
     }
     setProductSegments(calculatedSegments);
+    setTotalProductsSold(totalQty);
 
-  }, [rawStockLogs, rawProducts, rawLeads, dateFilter, customStartDate, customEndDate]);
+  }, [rawStockLogs, rawProducts, dateFilter, customStartDate, customEndDate]);
 
   const handleCreateReorder = (productName?: string) => {
     const name = productName || lowStockItems[0]?.name || "sản phẩm";
@@ -801,7 +733,7 @@ export default function DashboardTab() {
 
   const handleCreatePromotion = (productName?: string) => {
     const name = productName || overstockItems[0]?.name || "sản phẩm";
-    toast.success(`Đề xuất chiến dịch ưu đãi đã được tạo cho ${name}. Hãy xem chi tiết trong MARKETING.`);
+    toast.success(`Đề xuất chiến dịch ưu đãi đã được tạo cho ${name}. Hãy xem chi tiết.`);
   };
 
   const handleRecommendAgent = () => {
@@ -820,15 +752,15 @@ export default function DashboardTab() {
         <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
             <h1 className="font-sans text-3xl font-bold tracking-tight text-gray-800">
-              {activeView === "ai" ? "Hiệu suất AI" : activeView === "revenue" ? "Phân tích doanh thu" : "Tổng quan Doanh nghiệp"}
+              {activeView === "revenue" ? "Phân tích doanh thu" : "Tổng quan Doanh nghiệp"}
             </h1>
-            <p className="mt-2 text-sm text-gray-600">Hôm nay, {todayLabel}</p>
+            <p className="mt-2 text-sm text-gray-655">Hôm nay, {todayLabel}</p>
           </div>
         </div>
 
         <div className="flex flex-col gap-4 border-b border-slate-100 pb-3 md:flex-row md:items-center md:justify-between">
           <div className="inline-flex rounded-xl bg-slate-100/80 p-1 w-fit">
-            {tabs.filter((tab) => tab.id !== "ai").map((tab) => {
+            {tabs.map((tab) => {
               const isActive = activeView === tab.id;
               return (
                 <button
@@ -849,7 +781,7 @@ export default function DashboardTab() {
             <div className="inline-flex rounded-xl bg-slate-100/80 p-1">
               {[
                 { id: "day", label: "Ngày" },
-                { id: "week", label: "Tuần" },
+                { id: "month", label: "Tháng" },
                 { id: "year", label: "Năm" },
                 { id: "custom", label: "Tùy chọn" },
               ].map((f) => {
@@ -896,29 +828,23 @@ export default function DashboardTab() {
           employeeLabel={employeeLabel}
           totalProducts={totalProducts}
           pendingShipments={pendingShipments}
-          marketingPendingCount={marketingPendingCount}
-          marketingApprovalRate={marketingApprovalRate}
-          marketingPendingItems={marketingPendingItems}
           overstockItems={overstockItems}
-          onApprovePendingCard={handleApprovePendingCard}
           onCreateReorder={handleCreateReorder}
           onCreatePromotion={handleCreatePromotion}
           onRecommendAgent={handleRecommendAgent}
-          isApprovalDisabled={isPendingApprovalDisabled}
-          pendingReviewPage={pendingReviewPage}
-          onPageChange={setPendingReviewPage}
           lowStockCount={lowStockCount}
           lowStockItems={lowStockItems}
-          marketingCards={marketingCards}
-          leadsCount={leadsCount}
-          totalInventoryValue={totalInventoryValue}
+          totalRevenue={filteredTotalRevenue}
           trendData={revenueTrendData}
           newHiresCount={newHiresCount}
+          todayTimekeeping={todayTimekeeping}
+          isTimekeepingLoading={isTimekeepingLoading}
+          onRefreshTimekeeping={fetchTodayTimekeeping}
+          summary={summary}
         />
       )}
       {activeView === "revenue" && (
         <RevenuePanel
-          marketingCards={marketingCards}
           totalRevenue={filteredTotalRevenue}
           growthRate={growthRate}
           prevRevenueShort={prevRevenueShort}
@@ -926,6 +852,7 @@ export default function DashboardTab() {
           orderCount={filteredOrderCount}
           trendData={revenueTrendData}
           productSegments={productSegments}
+          totalProductsSold={totalProductsSold}
         />
       )}
     </div>
@@ -937,83 +864,72 @@ function OverviewPanel({
   employeeLabel,
   totalProducts,
   pendingShipments,
-  marketingPendingCount,
-  marketingApprovalRate,
-  marketingPendingItems,
   overstockItems,
-  onApprovePendingCard,
   onCreateReorder,
   onCreatePromotion,
   onRecommendAgent,
-  isApprovalDisabled,
-  pendingReviewPage,
-  onPageChange,
   lowStockCount,
   lowStockItems,
-  marketingCards,
-  leadsCount,
-  totalInventoryValue,
+  totalRevenue,
   trendData,
   newHiresCount,
+  todayTimekeeping,
+  isTimekeepingLoading,
+  onRefreshTimekeeping,
+  summary,
 }: {
   employeeCount: string;
   employeeLabel: string;
   totalProducts: string;
   pendingShipments: string;
-  marketingPendingCount: string;
-  marketingApprovalRate: string;
-  marketingPendingItems: ContentApprovalCard[];
   overstockItems: any[];
-  onApprovePendingCard: (id: string) => Promise<void>;
   onCreateReorder: (productName?: string) => void;
   onCreatePromotion: (productName?: string) => void;
   onRecommendAgent: () => void;
-  isApprovalDisabled: boolean;
-  pendingReviewPage: number;
-  onPageChange: (page: number) => void;
   lowStockCount: string;
   lowStockItems: any[];
-  marketingCards: ContentApprovalCard[];
-  leadsCount: string;
-  totalInventoryValue: string;
+  totalRevenue: number;
   trendData: Array<{ label: string; value: number }>;
   newHiresCount: number;
+  todayTimekeeping: any;
+  isTimekeepingLoading: boolean;
+  onRefreshTimekeeping: () => void;
+  summary: DashboardSummary | null;
 }) {
   const [showLowStockModal, setShowLowStockModal] = useState<boolean>(false);
-  const [showPendingReviewModal, setShowPendingReviewModal] = useState<boolean>(false);
 
-  const goToTab = (tab: string) => {
+  const goToTab = (tab: string, subTab?: string) => {
     const pathMap: Record<string, string> = {
       "TỔNG QUAN": "/tong-quan",
       "NHÂN SỰ": "/nhan-su",
       "KHO & SẢN PHẨM": "/kho-san-pham",
-      "MARKETING": "/marketing",
-      "SALES CRM": "/sales-crm",
-      "HIỆU SUẤT AI": "/hieu-suat-ai",
       "QUẢN TRỊ USER": "/quan-tri-user",
       "CÀI ĐẶT": "/cai-dat",
       "VÍ & NẠP TIỀN": "/vi-nap-tien",
+      "QUẢN LÝ HỌC VIÊN": "/quan-ly-hoc-vien",
+      "TRÒ CHUYỆN": "/tro-chuyen",
+      "QUẢN LÝ TÀI NGUYÊN": "/quan-ly-tai-nguyen",
     };
-    const path = pathMap[tab];
+    let path = pathMap[tab];
     if (path) {
+      if (subTab) {
+        path += `?sub=${subTab}`;
+      }
       window.history.pushState(null, "", path);
       window.dispatchEvent(new PopStateEvent("popstate"));
     }
   };
 
-  const previewPendingItems = marketingPendingItems.slice(0, 3);
-  const itemsPerPage = 5;
-  const totalPendingPages = Math.max(1, Math.ceil(marketingPendingItems.length / itemsPerPage));
-
-  const openPendingModal = () => {
-    onPageChange(1);
-    setShowPendingReviewModal(true);
-  };
-
   return (
     <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_280px]">
       <div className="space-y-6">
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+        <TimekeepingWidget
+          todayTimekeeping={todayTimekeeping}
+          isLoading={isTimekeepingLoading}
+          onRefresh={onRefreshTimekeeping}
+        />
+
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
           <ModuleCard
             icon={Users}
             tone="amber"
@@ -1026,22 +942,175 @@ function OverviewPanel({
             onClick={() => goToTab("NHÂN SỰ")}
           />
           <ModuleCard icon={PackageCheck} tone="blue" title="Kho & Sản phẩm" value={totalProducts} label="Tổng sản phẩm" footer="Đơn chờ xuất" footerValue={`${pendingShipments} Đơn`} progress={78} alert lowCount={lowStockCount} onClick={() => goToTab("KHO & SẢN PHẨM")} />
-          <ModuleCard icon={Megaphone} tone="slate" title="Marketing" value={marketingPendingCount} label="Bài chờ duyệt" footer="Tỉ lệ duyệt" footerValue={`${marketingApprovalRate}%`} progress={Number(marketingApprovalRate) || 0} onClick={() => goToTab("MARKETING")} />
-          <SalesCard value={totalInventoryValue} leadsCount={leadsCount} />
         </div>
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* Số liệu các module còn lại — dữ liệu tổng hợp từ /api/v1/dashboard/summary */}
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+          <ModuleCard
+            icon={KanbanSquare}
+            tone="indigo"
+            title="Dự án & Công việc"
+            value={summary ? String(summary.projects.tasks.doing) : "..."}
+            label="Task đang làm"
+            footer="Dự án hoạt động"
+            footerValue={summary ? String(summary.projects.activeProjects) : "..."}
+            progress={
+              summary && summary.projects.tasks.total > 0
+                ? Math.round((summary.projects.tasks.done / summary.projects.tasks.total) * 100)
+                : 0
+            }
+            alert
+            lowCount={summary ? String(summary.projects.overdueTasks) : "..."}
+            onClick={() => goToTab("NHÂN SỰ", "kanban")}
+          />
+          <ModuleCard
+            icon={GraduationCap}
+            tone="emerald"
+            title="Học viên"
+            value={summary ? String(summary.students.totalStudents) : "..."}
+            label="Tổng học viên"
+            footer="Học viên mới trong kỳ"
+            footerValue={summary ? `+${summary.students.newStudents}` : "..."}
+            progress={
+              summary && summary.students.totalStudents > 0
+                ? Math.min(100, Math.round((summary.students.newStudents / summary.students.totalStudents) * 100))
+                : 0
+            }
+            onClick={() => goToTab("QUẢN LÝ HỌC VIÊN", "hoc-vien")}
+          />
+          <ModuleCard
+            icon={Wallet}
+            tone="amber"
+            title="Học phí & Công nợ"
+            value={summary ? formatDashboardCurrency(summary.students.tuitionRevenue, 1, false) : "..."}
+            label="Học phí đã thu"
+            footer="Công nợ còn lại"
+            footerValue={summary ? formatDashboardCurrency(summary.students.outstandingDebt, 1, false) : "..."}
+            progress={
+              summary && summary.students.tuitionRevenue + summary.students.outstandingDebt > 0
+                ? Math.round(
+                  (summary.students.tuitionRevenue /
+                    (summary.students.tuitionRevenue + summary.students.outstandingDebt)) *
+                  100
+                )
+                : 0
+            }
+            onClick={() => goToTab("QUẢN LÝ HỌC VIÊN", "hoc-phi")}
+          />
+          <ModuleCard
+            icon={UserCheck}
+            tone="blue"
+            title="Chấm công hôm nay"
+            value={summary ? `${summary.timekeeping.checkedInToday}/${summary.timekeeping.totalEmployees}` : "..."}
+            label="Đã điểm danh"
+            footer="Đi muộn"
+            footerValue={summary ? String(summary.timekeeping.lateToday) : "..."}
+            progress={
+              summary && summary.timekeeping.totalEmployees > 0
+                ? Math.round((summary.timekeeping.checkedInToday / summary.timekeeping.totalEmployees) * 100)
+                : 0
+            }
+            onClick={() => goToTab("NHÂN SỰ", "lich")}
+          />
+          <ModuleCard
+            icon={MessageSquare}
+            tone="slate"
+            title="Trò chuyện"
+            value={summary ? String(summary.chat.unreadMessages) : "..."}
+            label="Tin chưa đọc"
+            footer="Phòng chat tham gia"
+            footerValue={summary ? String(summary.chat.roomCount) : "..."}
+            progress={summary && summary.chat.unreadMessages > 0 ? 100 : 0}
+            onClick={() => goToTab("TRÒ CHUYỆN")}
+          />
+          <ModuleCard
+            icon={FolderOpen}
+            tone="indigo"
+            title="Tài nguyên"
+            value={summary ? String(summary.resources.fileCount) : "..."}
+            label="Tổng số file"
+            footer="Tải lên trong kỳ"
+            footerValue={summary ? `+${summary.resources.recentUploads}` : "..."}
+            progress={
+              summary && summary.resources.fileCount > 0
+                ? Math.min(100, Math.round((summary.resources.recentUploads / summary.resources.fileCount) * 100))
+                : 0
+            }
+            onClick={() => goToTab("QUẢN LÝ TÀI NGUYÊN")}
+          />
+          <ModuleCard
+            icon={BookOpen}
+            tone="emerald"
+            title="Đào tạo"
+            value={summary ? String(summary.training.ongoingCourses) : "..."}
+            label="Khóa đang diễn ra"
+            footer="Lượt ghi danh"
+            footerValue={summary ? String(summary.training.enrollments.total) : "..."}
+            progress={
+              summary && summary.training.enrollments.total > 0
+                ? Math.round((summary.training.enrollments.completed / summary.training.enrollments.total) * 100)
+                : 0
+            }
+            onClick={() => goToTab("NHÂN SỰ", "dao-tao")}
+          />
+        </div>
+
+        {/* Biểu đồ tổng quát các module */}
+        {summary && (
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+            <DonutCard
+              title="Trạng thái công việc"
+              centerLabel="Tổng việc"
+              centerValue={summary.projects.tasks.total.toLocaleString("vi-VN")}
+              segments={buildPctSegments(
+                [
+                  { label: "Chưa làm", value: summary.projects.tasks.todo, color: "#f59e0b" },
+                  { label: "Đang làm", value: summary.projects.tasks.doing, color: "#2563eb" },
+                  { label: "Hoàn thành", value: summary.projects.tasks.done, color: "#059669" },
+                ],
+                "việc"
+              )}
+            />
+            <DonutCard
+              title="Tiến độ đào tạo"
+              centerLabel="Lượt ghi danh"
+              centerValue={summary.training.enrollments.total.toLocaleString("vi-VN")}
+              segments={buildPctSegments(
+                [
+                  { label: "Chưa bắt đầu", value: summary.training.enrollments.notStarted, color: "#f59e0b" },
+                  { label: "Đang học", value: summary.training.enrollments.inProgress, color: "#2563eb" },
+                  { label: "Hoàn thành", value: summary.training.enrollments.completed, color: "#059669" },
+                ],
+                "lượt"
+              )}
+            />
+            <DonutCard
+              title="Chấm công hôm nay"
+              centerLabel="Nhân sự"
+              centerValue={summary.timekeeping.totalEmployees.toLocaleString("vi-VN")}
+              segments={buildPctSegments(
+                [
+                  { label: "Đúng giờ", value: Math.max(0, summary.timekeeping.checkedInToday - summary.timekeeping.lateToday), color: "#059669" },
+                  { label: "Đi muộn", value: summary.timekeeping.lateToday, color: "#f59e0b" },
+                  { label: "Chưa điểm danh", value: Math.max(0, summary.timekeeping.totalEmployees - summary.timekeeping.checkedInToday), color: "#e2e8f0" },
+                ],
+                "người"
+              )}
+            />
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 gap-6">
           <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md transition-all duration-300">
             <div className="mb-5 flex items-center justify-between">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-gray-800">Doanh thu</h3>
+              <h3 className="text-sm font-bold uppercase tracking-wider text-gray-800">Doanh thu xuất kho</h3>
               <span className="rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-600">Đơn vị: VNĐ</span>
             </div>
             <BarChart data={trendData} />
           </div>
-          <DonutCard cards={marketingCards} />
         </div>
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-6">
           <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col justify-between">
             <div>
               <div className="mb-5 flex items-center justify-between">
@@ -1084,70 +1153,6 @@ function OverviewPanel({
             )}
             {showLowStockModal && <LowStockModal products={lowStockItems} onClose={() => setShowLowStockModal(false)} />}
           </div>
-
-          <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col justify-between">
-            <div>
-              <div className="mb-5 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="flex h-2.5 w-2.5 rounded-full bg-amber-500 animate-pulse" />
-                  <h3 className="text-sm font-bold uppercase tracking-wide text-gray-800">Nội dung chờ duyệt</h3>
-                </div>
-                <button onClick={openPendingModal} className="text-xs font-semibold text-blue-655 hover:text-blue-700 transition-colors">Xem tất cả</button>
-              </div>
-
-              {previewPendingItems.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 p-8 text-center text-sm text-gray-500">
-                  <CheckCircle className="h-8 w-8 mx-auto mb-2 text-slate-400" />
-                  Hiện không có nội dung chờ duyệt.
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {previewPendingItems.map((item) => (
-                    <div key={item.id} className="rounded-2xl border border-slate-150 p-4 bg-slate-50/30 hover:bg-slate-50/80 transition-colors">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-semibold text-gray-850">{item.title}</p>
-                          <p className="text-[11px] text-gray-500">{item.channel} · {item.contentType}</p>
-                        </div>
-                        <span className="shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700 ring-1 ring-amber-100">Chờ duyệt</span>
-                      </div>
-                      <p className="mt-2 text-xs text-gray-650 line-clamp-2 leading-relaxed">{item.bodyText}</p>
-                      <div className="mt-3 flex items-center justify-between gap-3 pt-2 border-t border-dashed border-slate-100">
-                        <p className="text-[10px] text-gray-450">{formatCardDate(item.generatedAt)}</p>
-                        <button
-                          onClick={() => onApprovePendingCard(item.id)}
-                          disabled={isApprovalDisabled}
-                          className={`rounded-full px-3 py-1 text-xs font-bold text-white transition ${isApprovalDisabled ? 'bg-slate-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
-                        >
-                          Duyệt
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {marketingPendingItems.length > 0 && (
-              <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
-                <span className="text-xs text-gray-500">Tổng bài chờ duyệt:</span>
-                <span className="font-mono text-base font-extrabold text-amber-600">{marketingPendingCount} bài</span>
-              </div>
-            )}
-
-            {showPendingReviewModal && (
-              <PendingReviewModal
-                items={marketingPendingItems}
-                currentPage={pendingReviewPage}
-                pageSize={itemsPerPage}
-                totalPages={totalPendingPages}
-                onClose={() => setShowPendingReviewModal(false)}
-                onPageChange={onPageChange}
-                onApprove={onApprovePendingCard}
-                isApprovalDisabled={isApprovalDisabled}
-              />
-            )}
-          </div>
         </div>
       </div>
 
@@ -1182,16 +1187,6 @@ function OverviewPanel({
               },
             },
             {
-              icon: Megaphone,
-              title: marketingPendingItems.length > 0 ? `${marketingPendingItems.length} bài marketing chờ duyệt` : "Marketing đang ổn định",
-              body: marketingPendingItems.length > 0
-                ? `AI đề xuất xử lý ${marketingPendingItems.length} bài viết chờ duyệt để không trì hoãn chiến dịch.`
-                : "Không có nội dung AI marketing đang chờ duyệt ở thời điểm này.",
-              action: marketingPendingItems.length > 0 ? "Mở danh sách duyệt" : "Kiểm tra Marketing",
-              color: "blue",
-              onAction: () => openPendingModal(),
-            },
-            {
               icon: Bot,
               title: "Tự động hóa CSKH bằng AI",
               body: "AI phát hiện có cơ hội thiết lập thêm Agent trả lời tự động để chăm sóc khách hàng 24/7 và cải thiện chuyển đổi.",
@@ -1199,7 +1194,6 @@ function OverviewPanel({
               color: "indigo",
               onAction: () => {
                 onRecommendAgent();
-                goToTab("SALES CRM");
               },
             },
           ].map((item) => (
@@ -1211,97 +1205,7 @@ function OverviewPanel({
   );
 }
 
-function PendingReviewModal({
-  items,
-  currentPage,
-  pageSize,
-  totalPages,
-  onClose,
-  onPageChange,
-  onApprove,
-  isApprovalDisabled,
-}: {
-  items: ContentApprovalCard[];
-  currentPage: number;
-  pageSize: number;
-  totalPages: number;
-  onClose: () => void;
-  onPageChange: (page: number) => void;
-  onApprove: (id: string) => Promise<void>;
-  isApprovalDisabled: boolean;
-}) {
-  const pageItems = items.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-3xl overflow-hidden rounded-3xl bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900">Danh sách bài chờ duyệt</h3>
-            <p className="text-sm text-gray-500">Hiển thị {items.length} bài chờ duyệt. Duyệt trực tiếp trong modal.</p>
-          </div>
-          <button onClick={onClose} className="rounded-full p-2 text-gray-500 hover:bg-gray-100">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        <div className="max-h-[60vh] overflow-y-auto px-6 py-4">
-          {pageItems.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-8 text-center text-sm text-gray-500">Không có bài chờ duyệt.</div>
-          ) : (
-            <div className="space-y-4">
-              {pageItems.map((item) => (
-                <div key={item.id} className="rounded-3xl border border-gray-200 bg-gray-50 p-5">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="text-sm font-semibold text-gray-900">{item.title}</p>
-                      <p className="mt-1 text-xs text-gray-500">{item.channel} · {item.contentType}</p>
-                    </div>
-                    <span className="rounded-full bg-amber-100 px-2 py-1 text-[11px] font-semibold text-amber-700">Chờ duyệt</span>
-                  </div>
-                  <p className="mt-3 text-sm text-gray-600 line-clamp-4">{item.bodyText}</p>
-                  <div className="mt-4 flex items-center justify-between gap-3">
-                    <p className="text-xs text-gray-400">{formatCardDate(item.generatedAt)}</p>
-                    <button
-                      disabled={isApprovalDisabled}
-                      onClick={() => onApprove(item.id)}
-                      className={`rounded-full px-3 py-1 text-xs font-semibold text-white transition ${isApprovalDisabled ? 'bg-gray-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
-                    >
-                      Duyệt
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="flex items-center justify-between border-t border-gray-200 px-6 py-4">
-          <span className="text-sm text-gray-500">Trang {currentPage} / {totalPages}</span>
-          <div className="flex items-center gap-2">
-            <button
-              disabled={currentPage <= 1}
-              onClick={() => onPageChange(Math.max(1, currentPage - 1))}
-              className="rounded-full border border-gray-200 px-3 py-1 text-sm text-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Trước
-            </button>
-            <button
-              disabled={currentPage >= totalPages}
-              onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
-              className="rounded-full border border-gray-200 px-3 py-1 text-sm text-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Sau
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function RevenuePanel({
-  marketingCards,
   totalRevenue,
   growthRate,
   prevRevenueShort,
@@ -1309,8 +1213,8 @@ function RevenuePanel({
   orderCount,
   trendData,
   productSegments,
+  totalProductsSold,
 }: {
-  marketingCards: ContentApprovalCard[];
   totalRevenue: number;
   growthRate: number;
   prevRevenueShort: string;
@@ -1318,143 +1222,125 @@ function RevenuePanel({
   orderCount: number;
   trendData: Array<{ label: string; value: number }>;
   productSegments: Array<{ label: string; value: number; color: string }>;
+  totalProductsSold: number;
 }) {
-  const formatCurrency = (val: number) => {
-    return formatDashboardCurrency(val, 2, false);
-  };
-
   return (
-    <div className="space-y-8">
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
-        <MetricCard icon={DollarSign} label="Tổng doanh thu" value={formatCurrency(totalRevenue)} delta={`${growthRate >= 0 ? "+" : ""}${growthRate.toFixed(1)}%`} negative={growthRate < 0} />
-        <MetricCard icon={Rocket} label="Tốc độ tăng trưởng" value={`${growthRate >= 0 ? "+" : ""}${growthRate.toFixed(1)}%`} delta={prevRevenueShort} tone="amber" negative={growthRate < 0} />
-        <MetricCard icon={PackageCheck} label="Giá trị đơn hàng trung bình" value={formatCurrency(avgOrderValue)} delta={`${orderCount} đơn`} tone="blue" />
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+        <MetricCard
+          icon={DollarSign}
+          label="Tổng doanh thu"
+          value={formatDashboardCurrency(totalRevenue, 1, false)}
+          delta={`${growthRate >= 0 ? "+" : ""}${growthRate.toFixed(1)}%`}
+          tone="emerald"
+        />
+        <MetricCard
+          icon={CheckCircle}
+          label="Đơn hàng hoàn thành"
+          value={orderCount.toLocaleString("vi-VN")}
+          delta={`Kỳ trước: ${prevRevenueShort}`}
+          tone="blue"
+        />
+        <MetricCard
+          icon={Wallet}
+          label="Giá trị đơn trung bình"
+          value={formatDashboardCurrency(avgOrderValue, 1, false)}
+          delta="Đơn hoàn thành"
+          tone="amber"
+        />
+        <MetricCard
+          icon={PackageCheck}
+          label="Sản phẩm đã bán"
+          value={totalProductsSold.toLocaleString("vi-VN")}
+          delta="Tổng số lượng"
+          tone="indigo"
+        />
       </div>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_380px]">
-        <div className="rounded-3xl border border-gray-100 bg-white p-8 shadow-xs">
-          <div className="mb-8 flex items-start justify-between">
-            <div>
-              <h3 className="text-2xl font-bold text-gray-800">Xu hướng doanh thu</h3>
-            </div>
-            <MoreVertical className="h-5 w-5 text-gray-500" />
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_300px]">
+        <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md transition-all duration-300">
+          <div className="mb-5 flex items-center justify-between">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-gray-800">Doanh thu xuất kho</h3>
+            <span className="rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-600">Đơn vị: VNĐ</span>
           </div>
           <BarChart data={trendData} />
         </div>
 
-        <div className="rounded-3xl border border-gray-100 bg-white p-8 shadow-xs">
-          <div className="mb-8 flex items-start justify-between">
-            <h3 className="text-2xl font-bold text-gray-800">Cơ cấu nguồn</h3>
-            <MoreVertical className="h-5 w-5 text-gray-500" />
-          </div>
-          <DonutCard compact segments={productSegments} />
+        <DonutCard
+          title="Cơ cấu nguồn"
+          centerLabel="Sản phẩm đã bán"
+          centerValue={totalProductsSold.toLocaleString("vi-VN")}
+          segments={productSegments}
+        />
+      </div>
+
+      <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md transition-all duration-300">
+        <div className="mb-5">
+          <h3 className="text-sm font-bold uppercase tracking-wider text-gray-800">Tần suất làm việc trong tuần</h3>
         </div>
+        <WorkloadChart />
       </div>
     </div>
   );
 }
 
-function AiPanel() {
-  return (
-    <div className="space-y-8">
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard icon={Bot} label="Tac vu xu ly" value="12,450" delta="+15%" />
-        <MetricCard icon={Clock} label="Thoi gian tiet kiem" value="840h" delta="+8%" tone="amber" />
-        <MetricCard icon={BrainCircuit} label="Do chinh xac" value="98.2%" delta="Trung binh" />
-        <MetricCard icon={ThumbsUp} label="Hai long KH" value="4.9/5" delta="+0.2" tone="indigo" />
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[380px_1fr]">
-        <div className="rounded-3xl border border-gray-100 bg-white p-8 shadow-xs">
-          <h3 className="mb-6 text-2xl font-bold text-gray-800">Trang thai Agent AI</h3>
-          <div className="space-y-4 border-t border-gray-100 pt-6">
-            <AgentStatus icon={Bot} name="Sales Bot" status="Active" score="95" />
-            <AgentStatus icon={Megaphone} name="Marketing Writer" status="Learning" score="88" tone="amber" />
-            <AgentStatus icon={PackageCheck} name="Inventory Predictor" status="Idle" score="--" tone="indigo" />
-          </div>
-        </div>
-
-        <div className="rounded-3xl border border-gray-100 bg-white p-8 shadow-xs">
-          <div className="mb-6 flex items-start justify-between gap-4">
-            <h3 className="max-w-sm text-2xl font-bold text-gray-800">Khoi luong cong viec: AI vs Human</h3>
-            <div className="flex gap-5 text-xs text-gray-600">
-              <span className="flex items-center gap-2"><i className="h-3 w-3 rounded-full bg-blue-500" />AI Output</span>
-              <span className="flex items-center gap-2"><i className="h-3 w-3 rounded-full bg-blue-100 ring-1 ring-blue-200" />Human Output</span>
-            </div>
-          </div>
-          <WorkloadChart />
-        </div>
-      </div>
-
-      <div className="rounded-3xl border border-gray-100 bg-white p-8 shadow-xs">
-        <h3 className="mb-6 flex items-center gap-3 text-2xl font-bold text-gray-800">
-          <Lightbulb className="h-6 w-6 text-blue-500" />
-          Goi y toi uu tu AI
-        </h3>
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <Recommendation title="Tac nghen Sales CRM" body="Sales Bot dang gap kho khan khi phan loai lead tu chien dich Mua He. Can cap nhat bo du lieu huan luyen." action="Cap nhat du lieu" danger />
-          <Recommendation title="Co hoi tu dong hoa" body="Phat hien 120 email phan hoi khach hang co mau tuong tu. Co the thiet lap Auto-Reply Agent moi." action="Tao Agent Moi" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ModuleCard({ icon: Icon, tone, title, value, label, footer, footerValue, progress, alert, lowCount, onClick }: any) {
-  const color = toneClass[(tone as Tone) || "blue"];
-  const showCount = alert && lowCount && lowCount !== "0" && lowCount !== "...";
+function ModuleCard({
+  icon: Icon,
+  tone,
+  title,
+  value,
+  label,
+  footer,
+  footerValue,
+  progress,
+  alert,
+  lowCount,
+  onClick,
+}: {
+  icon: React.ElementType;
+  tone: Tone;
+  title: string;
+  value: string;
+  label: string;
+  footer: string;
+  footerValue: string;
+  progress: number;
+  alert?: boolean;
+  lowCount?: string;
+  onClick?: () => void;
+}) {
+  const color = toneClass[tone];
+  const isAlertActive = alert && lowCount && lowCount !== "0" && lowCount !== "...";
   return (
     <div
       onClick={onClick}
-      className={`rounded-3xl border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 ${onClick ? "cursor-pointer active:scale-[0.99]" : ""}`}
+      className="group relative flex flex-col justify-between overflow-hidden rounded-3xl border border-slate-100 bg-white p-6 shadow-sm transition-all duration-300 hover:shadow-md cursor-pointer hover:border-slate-200"
     >
-      <div className="mb-6 flex items-start justify-between">
-        <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${color.soft} ${color.text}`}>
-          <Icon className="h-5 w-5" />
+      <div>
+        <div className="mb-6 flex items-start justify-between">
+          <div className={`flex h-11 w-11 items-center justify-center rounded-2xl ${color.soft} ${color.text} group-hover:scale-105 transition-transform`}>
+            <Icon className="h-5.5 w-5.5" />
+          </div>
+          {isAlertActive && (
+            <span className="rounded-full bg-rose-50 px-2.5 py-0.5 text-[10px] font-bold text-rose-600 ring-1 ring-rose-500/10 animate-pulse">
+              Cảnh báo: {lowCount}
+            </span>
+          )}
         </div>
-        <span className={alert && showCount ? "rounded-full bg-rose-600 px-3 py-0.5 text-xs font-bold text-white shadow-xs animate-pulse" : "text-xs font-bold uppercase tracking-wider text-gray-400"}>
-          {title}{showCount ? ` (${lowCount})` : ""}
-        </span>
+        <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">{title}</p>
+        <p className="mt-2 font-sans text-3xl font-extrabold tracking-tight text-gray-800 truncate" title={value}>
+          {value}
+        </p>
+        <p className="mt-1.5 text-xs text-gray-500">{label}</p>
       </div>
-      <div className="mb-4 flex items-end justify-between gap-3 min-w-0">
-        <span className="text-sm font-medium text-gray-500 shrink-0">{label}</span>
-        <span className="font-sans text-xl font-extrabold text-gray-800 truncate" title={value}>{value}</span>
-      </div>
-      <div className="h-1.5 rounded-full bg-slate-100">
-        <div className={`h-1.5 rounded-full ${color.fill} transition-all duration-500`} style={{ width: `${progress}%` }} />
-      </div>
-      <div className="mt-4 flex justify-between text-xs font-medium min-w-0">
-        <span className="text-gray-400 truncate pr-2">{footer}</span>
-        <span className={`font-bold shrink-0 ${color.strong}`}>{footerValue}</span>
+
+      <div className="mt-6">
+        <div className="mb-2 flex items-center justify-between text-xs">
+          <span className="text-gray-400 truncate pr-2">{footer}</span>
+          <span className={`font-bold shrink-0 ${color.strong}`}>{footerValue}</span>
+        </div>
       </div>
     </div>
-  );
-}
-
-function SalesCard({ value, leadsCount }: { value: string; leadsCount: string }) {
-  const goToTab = (tab: string) => {
-    const pathMap: Record<string, string> = {
-      "SALES CRM": "/sales-crm",
-      "KHO & SẢN PHẨM": "/kho-san-pham"
-    };
-    const path = pathMap[tab];
-    if (path) {
-      window.history.pushState(null, "", path);
-      window.dispatchEvent(new PopStateEvent("popstate"));
-    }
-  };
-  return (
-    <ModuleCard
-      icon={DollarSign}
-      tone="emerald"
-      title="Doanh thu"
-      value={value}
-      label="Tổng tiền  "
-      footer="Khách hàng tiềm năng mới"
-      footerValue={`${leadsCount} `}
-      progress={100}
-      onClick={() => goToTab("KHO & SẢN PHẨM")}
-    />
   );
 }
 
@@ -1477,142 +1363,43 @@ function MetricCard({ icon: Icon, label, value, delta, tone = "blue", negative =
   );
 }
 
-function LineChartCard({ monthlyRevenue }: { monthlyRevenue: number[] }) {
-  const maxVal = Math.max(...monthlyRevenue);
-  const points = monthlyRevenue.map((val, i) => {
-    const x = 32 + i * 33;
-    const y = maxVal === 0 ? 240 : 240 - (val / maxVal) * 210;
-
-    let formatted = "0";
-    if (val > 0) {
-      formatted = formatDashboardCurrency(val, 1, false);
-    }
-    return { x, y, val: formatted };
-  });
-
-  const buildPaths = () => {
-    let curve = "";
-    for (let i = 1; i < points.length; i++) {
-      const p0 = points[i - 1];
-      const p1 = points[i];
-      const dx = p1.x - p0.x;
-      const cp1x = p0.x + dx / 3;
-      const cp1y = p0.y;
-      const cp2x = p0.x + (2 * dx) / 3;
-      const cp2y = p1.y;
-      curve += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${p1.x} ${p1.y}`;
-    }
-    const stroke = `M ${points[0].x} ${points[0].y}${curve}`;
-    const fill = `M ${points[0].x} 240 L ${points[0].x} ${points[0].y}${curve} L ${points[points.length - 1].x} 240 Z`;
-    return { stroke, fill };
-  };
-
-  const { stroke, fill } = buildPaths();
-
-  let unitLabel = "Đơn vị: VNĐ";
-  if (maxVal >= 1e9) {
-    unitLabel = "Đơn vị: Tỷ VNĐ";
-  } else if (maxVal >= 1e6) {
-    unitLabel = "Đơn vị: Triệu VNĐ";
-  }
-
-  return (
-    <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md transition-all duration-300">
-      <div className="mb-6 flex items-center justify-between">
-        <h3 className="text-sm font-bold uppercase tracking-wider text-gray-800">Doanh thu</h3>
-        <span className="rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-600">{unitLabel}</span>
-      </div>
-      <svg viewBox="0 0 440 260" className="h-72 w-full">
-        <defs>
-          <linearGradient id="lineFill" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.25" />
-            <stop offset="100%" stopColor="#06b6d4" stopOpacity="0.00" />
-          </linearGradient>
-          <linearGradient id="strokeGrad" x1="0" x2="1" y1="0" y2="0">
-            <stop offset="0%" stopColor="#06b6d4" />
-            <stop offset="100%" stopColor="#0891b2" />
-          </linearGradient>
-        </defs>
-        {[40, 80, 120, 160, 200, 240].map((y) => (
-          <line key={y} x1="36" x2="420" y1={y} y2={y} stroke="#f1f5f9" strokeDasharray="4 4" />
-        ))}
-        {/* Fill under line */}
-        <path d={fill} fill="url(#lineFill)" />
-        {/* Stroke line */}
-        <path d={stroke} fill="none" stroke="url(#strokeGrad)" strokeWidth="4" strokeLinecap="round" />
-        {/* Glow dots on peak points */}
-        {points.map((p, i) => (
-          <g key={i} className="group cursor-pointer">
-            <title>{`Tháng ${i + 1}: ${p.val}`}</title>
-            <circle cx={p.x} cy={p.y} r="8" className="fill-cyan-500/20 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
-            <circle cx={p.x} cy={p.y} r="4.5" className="fill-white stroke-cyan-500 stroke-2" />
-          </g>
-        ))}
-        {["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10", "T11", "T12"].map((m, i) => (
-          <text key={m} x={points[i].x} y="255" textAnchor="middle" fontSize="10" fontWeight="600" fill="#94a3b8">{m}</text>
-        ))}
-      </svg>
-    </div>
-  );
-}
-
 function DonutCard({
   compact = false,
-  cards = [],
-  segments: propSegments,
-  title = "Hiệu suất kênh Marketing",
+  segments,
+  title = "",
+  centerLabel = "Tổng số",
+  centerValue,
 }: {
   compact?: boolean;
-  cards?: ContentApprovalCard[];
-  segments?: Array<{ label: string; value: number; color: string }>;
+  segments?: Array<{ label: string; value: number; color: string; display?: string }>;
   title?: string;
+  centerLabel?: string;
+  centerValue?: string;
 }) {
   const radius = 66;
   const circumference = 2 * Math.PI * radius;
 
-  let segments = propSegments;
-  if (!segments) {
-    // Chỉ tính toán phân bổ phần trăm cho những bài viết ĐÃ ĐƯỢC DUYỆT (hoặc đã lên lịch/đăng)
-    const approvedCards = cards.filter(c =>
-      c.status === "approved" ||
-      c.status === "scheduled" ||
-      c.status === "published" ||
-      c.status === "failed"
-    );
-    const total = approvedCards.length;
-    let facebookPct = 50;
-    let zaloPct = 30;
-    let tiktokPct = 20;
+  let localSegments = segments || [];
+  let localCenterValue = centerValue || "";
 
-    if (total > 0) {
-      const facebookCount = approvedCards.filter(c => c.channel === "Facebook").length;
-      const zaloCount = approvedCards.filter(c => c.channel === "Zalo").length;
-      const tiktokCount = approvedCards.filter(c => c.channel === "TikTok").length;
-
-      const validTotal = facebookCount + zaloCount + tiktokCount;
-      if (validTotal > 0) {
-        facebookPct = Math.round((facebookCount / validTotal) * 100);
-        zaloPct = Math.round((zaloCount / validTotal) * 100);
-        tiktokPct = Math.max(0, 100 - facebookPct - zaloPct);
-      }
-    }
-
-    segments = [
-      { label: "Facebook", value: facebookPct, color: "#06b6c7" },
-      { label: "Zalo", value: zaloPct, color: "#60a5fa" },
-      { label: "TikTok", value: tiktokPct, color: "#e99a2c" },
+  if (localSegments.length === 0) {
+    localSegments = [
+      { label: "Chưa có dữ liệu", value: 100, color: "#cbd5e1", display: "0 bài" }
     ];
+    localCenterValue = "0";
   }
+
   let offset = 0;
 
   return (
     <div className={compact ? "" : "rounded-3xl border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md transition-all duration-300"}>
-      {!compact && <h3 className="mb-8 text-sm font-bold uppercase tracking-wider text-gray-800">Hiệu suất kênh Marketing</h3>}
-      <div className="grid items-center gap-7 md:grid-cols-[minmax(160px,224px)_minmax(0,1fr)]">
-        <div className="relative mx-auto h-48 w-48 shrink-0 sm:h-56 sm:w-56">
-          <svg className="h-full w-full -rotate-90" viewBox="0 0 180 180" aria-label="Marketing channel performance">
-            <circle cx="90" cy="90" r={radius} fill="none" stroke="#f8fafc" strokeWidth="28" />
-            {segments.map((segment) => {
+      {!compact && title && <h3 className="mb-6 text-sm font-bold uppercase tracking-wider text-gray-800">{title}</h3>}
+      
+      <div className="flex flex-col items-center gap-5 w-full">
+        <div className="relative h-40 w-40 shrink-0">
+          <svg className="h-full w-full -rotate-90" viewBox="0 0 180 180" aria-label={title}>
+            <circle cx="90" cy="90" r={radius} fill="none" stroke="#f8fafc" strokeWidth="24" />
+            {localSegments.map((segment) => {
               const dash = (segment.value / 100) * circumference;
               const circle = (
                 <circle
@@ -1622,24 +1409,26 @@ function DonutCard({
                   r={radius}
                   fill="none"
                   stroke={segment.color}
-                  strokeWidth="28"
+                  strokeWidth="24"
                   strokeDasharray={`${dash} ${circumference - dash}`}
                   strokeDashoffset={-offset}
                   strokeLinecap="butt"
-                />
+                >
+                  <title>{`${segment.label}: ${segment.display || `${segment.value}%`}`}</title>
+                </circle>
               );
               offset += dash;
               return circle;
             })}
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-            <span className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Tổng số</span>
-            <strong className="font-sans text-2xl font-extrabold text-gray-800">100%</strong>
+            <span className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">{centerLabel}</span>
+            <strong className="font-sans text-xl font-extrabold text-gray-800">{localCenterValue}</strong>
           </div>
         </div>
-        <div className="min-w-0 space-y-4 text-sm">
-          {segments.map((segment) => (
-            <Legend key={segment.label} color={segment.color} label={segment.label} value={`${segment.value}%`} />
+        <div className="w-full space-y-2.5 text-xs border-t border-slate-100/85 pt-4">
+          {localSegments.map((segment) => (
+            <Legend key={segment.label} color={segment.color} label={segment.label} value={segment.display || `${segment.value}%`} />
           ))}
         </div>
       </div>
@@ -1736,14 +1525,14 @@ function AiInsightCard({ icon: Icon, title, body, action, color, onAction }: any
         </div>
         <div className="flex-1 min-w-0">
           <h4 className="font-bold text-sm text-gray-850 truncate">{title}</h4>
-          <p className="mt-2 text-xs leading-relaxed text-gray-650">{body}</p>
+          <p className="mt-2 text-xs leading-relaxed text-gray-655">{body}</p>
         </div>
       </div>
       {action && (
         <div className="mt-4 flex justify-end">
           <button
             onClick={onAction}
-            className="inline-flex rounded-full bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-1.5 text-xs font-bold transition shadow-2xs hover:shadow-xs"
+            className="inline-flex rounded-full bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-1.5 text-xs font-bold transition shadow-2xs hover:shadow-xs cursor-pointer"
           >
             {action}
           </button>
@@ -1753,50 +1542,217 @@ function AiInsightCard({ icon: Icon, title, body, action, color, onAction }: any
   );
 }
 
-function AgentStatus({ icon: Icon, name, status, score, tone = "blue" }: any) {
-  const color = toneClass[(tone as Tone) || "blue"];
-  return (
-    <div className="flex items-center gap-4 rounded-2xl border border-gray-200 p-4">
-      <div className={`flex h-12 w-12 items-center justify-center rounded-full ${color.soft} ${color.text}`}>
-        <Icon className="h-6 w-6" />
-      </div>
-      <div className="flex-1">
-        <p className="font-bold text-gray-800">{name}</p>
-        <p className="text-sm text-gray-600"><span className={`mr-2 inline-block h-2 w-2 rounded-full ${color.fill}`} />{status}</p>
-      </div>
-      <div className="text-right">
-        <p className="font-mono text-2xl font-bold text-gray-800">{score}</p>
-        <p className="text-xs text-gray-500">Diem hieu suat</p>
-      </div>
-    </div>
-  );
-}
-
-function Recommendation({ title, body, action, danger = false }: any) {
-  return (
-    <div className="flex min-h-40 items-start gap-5 rounded-2xl border border-gray-200 bg-gray-50/40 p-6">
-      <div className={`flex h-12 w-12 items-center justify-center rounded-full ${danger ? "bg-red-50 text-red-600" : "bg-blue-50 text-blue-600"}`}>
-        {danger ? <AlertTriangle className="h-6 w-6" /> : <ArrowUpRight className="h-6 w-6" />}
-      </div>
-      <div className="flex flex-1 flex-col gap-5">
-        <div>
-          <h4 className="font-bold text-gray-800">{title}</h4>
-          <p className="mt-2 text-sm leading-6 text-gray-600">{body}</p>
-        </div>
-        <button className={`self-end rounded-full px-6 py-2 text-sm font-semibold ${danger ? "bg-blue-500 text-white" : "border border-gray-300 text-gray-700"}`}>{action}</button>
-      </div>
-    </div>
-  );
-}
-
 function Legend({ color, label, value }: any) {
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
-      <span className="flex min-w-0 items-center gap-3 text-gray-800">
-        <i className="h-3.5 w-3.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
-        <span className="truncate">{label}</span>
+    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2.5 text-xs">
+      <span className="flex min-w-0 items-center gap-2 text-gray-655">
+        <i className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
+        <span className="truncate font-semibold text-left">{label}</span>
       </span>
-      <strong className="font-mono text-gray-800">{value}</strong>
+      <strong className="font-mono text-gray-800 font-bold shrink-0">{value}</strong>
+    </div>
+  );
+}
+
+function TimekeepingWidget({
+  todayTimekeeping,
+  isLoading,
+  onRefresh,
+}: {
+  todayTimekeeping: any;
+  isLoading: boolean;
+  onRefresh: () => void;
+}) {
+  const [checking, setChecking] = useState<"in" | "out" | null>(null);
+  const [gpsPermission, setGpsPermission] = useState<"granted" | "denied" | "prompt" | "unsupported">("prompt");
+
+  useEffect(() => {
+    if (navigator.permissions && navigator.permissions.query) {
+      navigator.permissions.query({ name: "geolocation" }).then((status) => {
+        setGpsPermission(status.state as any);
+        status.onchange = () => {
+          setGpsPermission(status.state as any);
+        };
+      }).catch(() => {
+        setGpsPermission("prompt");
+      });
+    } else {
+      setGpsPermission("unsupported");
+    }
+  }, []);
+
+  const handleAction = async (type: "in" | "out") => {
+    if (!navigator.geolocation) {
+      toast.error("Trình duyệt của bạn không hỗ trợ định vị GPS.");
+      return;
+    }
+
+    setChecking(type);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        try {
+          const url = type === "in" ? "/api/v1/timekeeping/check-in" : "/api/v1/timekeeping/check-out";
+          const res = await fetch(url, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
+            },
+            body: JSON.stringify({
+              latitude,
+              longitude,
+              deviceInfo: navigator.userAgent,
+            }),
+          });
+          const result = await res.json();
+          if (res.ok) {
+            toast.success(result.message || `Check-${type} thành công!`);
+            onRefresh();
+          } else {
+            toast.error(result.message || `Không thể Check-${type}.`);
+          }
+        } catch (err) {
+          toast.error("Lỗi kết nối khi gửi dữ liệu chấm công.");
+        } finally {
+          setChecking(null);
+        }
+      },
+      (error) => {
+        setChecking(null);
+        console.error("Lỗi định vị:", error);
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            toast.error("Vui lòng cho phép truy cập vị trí trên trình duyệt để chấm công.");
+            break;
+          case error.POSITION_UNAVAILABLE:
+            toast.error("Không thể xác định vị trí hiện tại.");
+            break;
+          case error.TIMEOUT:
+            toast.error("Thời gian định vị GPS hết hạn.");
+            break;
+          default:
+            toast.error("Lỗi định vị không xác định.");
+        }
+      },
+      { enableHighAccuracy: true, timeout: 15000 }
+    );
+  };
+
+  const hasCheckIn = !!todayTimekeeping?.checkIn;
+  const hasCheckOut = !!todayTimekeeping?.checkOut;
+
+  const formatTime = (dateStr: string) => {
+    if (!dateStr) return "--:--";
+    const date = new Date(dateStr);
+    return date.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+  };
+
+  let statusText = "Chưa chấm công";
+  let statusColor = "bg-rose-500";
+  let statusBadge = "bg-rose-50 text-rose-700 ring-rose-500/10";
+  if (hasCheckIn) {
+    if (hasCheckOut) {
+      statusText = "Đã hoàn thành chấm công";
+      statusColor = "bg-blue-500";
+      statusBadge = "bg-blue-50 text-blue-700 ring-blue-500/10";
+    } else {
+      statusText = todayTimekeeping.status === "Late" ? "Đã check-in (Muộn)" : "Đã check-in (Đúng giờ)";
+      statusColor = todayTimekeeping.status === "Late" ? "bg-amber-500" : "bg-emerald-500";
+      statusBadge = todayTimekeeping.status === "Late" ? "bg-amber-50 text-amber-700 ring-amber-500/10" : "bg-emerald-50 text-emerald-700 ring-emerald-500/10";
+    }
+  }
+
+  return (
+    <div className="w-full bg-white/70 backdrop-blur-md border border-slate-150 rounded-3xl p-6 shadow-xs relative overflow-hidden transition-all hover:shadow-md duration-300 flex flex-col gap-4">
+      <div className="flex flex-col md:flex-row items-center justify-between gap-5">
+        <div className="flex items-center gap-4 text-left w-full md:w-auto">
+          <div className="relative">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-650 ring-4 ring-indigo-500/10">
+              <Clock className="h-7 w-7" />
+            </div>
+            <span className={`absolute -top-1 -right-1 flex h-4.5 w-4.5 rounded-full ${statusColor} border-2 border-white items-center justify-center shadow-xs`}>
+              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${statusColor} opacity-75`} />
+            </span>
+          </div>
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <h4 className="text-base font-bold text-gray-800">Chấm công GPS hàng ngày</h4>
+              <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ring-1 ${statusBadge}`}>
+                {statusText}
+              </span>
+            </div>
+            <p className="mt-1 text-xs text-gray-500">
+              {hasCheckIn ? (
+                <>
+                  Vào: <span className="font-bold text-gray-700">{formatTime(todayTimekeeping.checkIn.time)}</span>
+                  {todayTimekeeping.checkIn.distance > 0 && ` (${Math.round(todayTimekeeping.checkIn.distance)}m)`}
+                  {hasCheckOut && (
+                    <>
+                      {" · "}Ra: <span className="font-bold text-gray-700">{formatTime(todayTimekeeping.checkOut.time)}</span>
+                      {todayTimekeeping.checkOut.distance > 0 && ` (${Math.round(todayTimekeeping.checkOut.distance)}m)`}
+                    </>
+                  )}
+                </>
+              ) : (
+                "Vui lòng bật định vị và thực hiện Check-in đúng giờ quy định."
+              )}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 w-full md:w-auto justify-end">
+          <button
+            onClick={() => handleAction("in")}
+            disabled={hasCheckIn || checking !== null || isLoading}
+            className={`flex-1 md:flex-none inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold uppercase tracking-wider text-white shadow-md transition-all duration-200 cursor-pointer ${
+              hasCheckIn
+                ? "bg-slate-200 text-slate-400 shadow-none cursor-not-allowed border border-slate-300/40"
+                : checking === "in"
+                ? "bg-indigo-400 cursor-wait animate-pulse"
+                : "bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] shadow-indigo-600/10"
+            }`}
+          >
+            {checking === "in" ? (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              "Check-In"
+            )}
+          </button>
+
+          <button
+            onClick={() => handleAction("out")}
+            disabled={!hasCheckIn || hasCheckOut || checking !== null || isLoading}
+            className={`flex-1 md:flex-none inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold uppercase tracking-wider text-white shadow-md transition-all duration-200 cursor-pointer ${
+              !hasCheckIn || hasCheckOut
+                ? "bg-slate-200 text-slate-400 shadow-none cursor-not-allowed border border-slate-300/40"
+                : checking === "out"
+                ? "bg-emerald-400 cursor-wait animate-pulse"
+                : "bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] shadow-emerald-600/10"
+            }`}
+          >
+            {checking === "out" ? (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              "Check-Out"
+            )}
+          </button>
+        </div>
+      </div>
+
+      {gpsPermission === "prompt" && (
+        <div className="w-full p-3 bg-indigo-50 border border-indigo-100 text-indigo-800 rounded-2xl flex items-center gap-2 animate-pulse">
+          <AlertTriangle className="h-4.5 w-4.5 shrink-0 text-indigo-600" />
+          <span className="text-[11px] font-semibold text-left">iGen ERP cần quyền vị trí của bạn để chấm công. Vui lòng chọn "Cho phép" (Allow) khi trình duyệt yêu cầu.</span>
+        </div>
+      )}
+
+      {gpsPermission === "denied" && (
+        <div className="w-full p-3 bg-rose-50 border border-rose-100 text-rose-800 rounded-2xl flex items-center gap-2">
+          <AlertTriangle className="h-4.5 w-4.5 shrink-0 text-rose-600" />
+          <span className="text-[11px] font-semibold text-left">Bạn đã chặn quyền truy cập vị trí. Vui lòng mở cài đặt trình duyệt, cho phép quyền truy cập vị trí và tải lại trang để chấm công.</span>
+        </div>
+      )}
     </div>
   );
 }

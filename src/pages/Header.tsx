@@ -1,20 +1,24 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect, @typescript-eslint/no-unused-vars */
 import React, { useState, useEffect } from "react";
 import {
   Bell, LogOut, Search, Settings, Wallet, Info, X, Image, Video, Volume2, FileText,
-  Package, Megaphone, Sparkles, CheckCheck, ShoppingCart, AlertTriangle, Send, Sun, Moon
+  Package, Megaphone, Sparkles, CheckCheck, ShoppingCart, AlertTriangle, Send, Sun, Moon,
+  Briefcase, GraduationCap, LayoutGrid, LayoutDashboard, Users, MessageSquareShare,
+  FolderOpen, MessageSquare, Shield, LineChart, Menu, FolderTree, GitBranch, Calendar, Clock, User
 } from "lucide-react";
 import { TabType } from "../types";
 import { useAuth } from "../context/AuthContext";
 import { authService } from "../services/authService";
 import { walletService } from "../services/walletService";
-import { marketingService } from "../services/marketingService";
-import { inventoryProductService } from "../services/inventoryProductService";
-import { crmService } from "../services/crmService";
+import { isTabHidden } from "../config/modules";
 import { toast } from "./Toast";
+import { notificationService, WebNotification } from "../services/notificationService";
+import { socketService } from "../services/socketService";
 
 interface HeaderProps {
   currentTab: TabType;
   onSearchSelect: (tab: TabType, subTab?: string) => void;
+  onMenuClick?: () => void;
 }
 
 const searchIndex = [
@@ -33,29 +37,20 @@ const searchIndex = [
   { label: "Ví & Nạp tiền", tab: "VÍ & NẠP TIỀN" as TabType, keywords: "vi nap tien so du payos vietqr nap bank" },
 ];
 
-type NotifType = "crm" | "kho" | "marketing" | "ai" | "he-thong";
-interface AppNotification {
-  id: string;
-  type: NotifType;
-  title: string;
-  body: string;
-  time: string;
-  read: boolean;
-  action?: { tab: TabType; subTab?: string };
-}
-
-export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
+export default function Header({ currentTab, onSearchSelect, onMenuClick }: HeaderProps) {
   const { userProfile, logout } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [showResults, setShowResults] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showUtilities, setShowUtilities] = useState(false);
   const [balance, setBalance] = useState<number>(0);
   const [showPricingModal, setShowPricingModal] = useState(false);
   const [showTelegramModal, setShowTelegramModal] = useState(false);
   const [telegramLink, setTelegramLink] = useState<any>(null);
   const [telegramLoading, setTelegramLoading] = useState(false);
-  const [notifs, setNotifs] = useState<AppNotification[]>([]);
+  const [notifs, setNotifs] = useState<WebNotification[]>([]);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
   const [isDark, setIsDark] = useState(() => {
     return localStorage.getItem("theme") === "dark" || document.documentElement.classList.contains("dark");
   });
@@ -78,160 +73,91 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
     }
   };
 
-  // ─── helpers ────────────────────────────────────────────────
-  const unreadCount = notifs.filter(n => !n.read).length;
-
-  const getReadSignatures = (): string[] => {
+  // ─── helpers & API calls ────────────────────────────────────
+  const fetchNotifications = async () => {
+    if (!userProfile) return;
     try {
-      const saved = localStorage.getItem("igen_read_notifications_v1");
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  };
-
-  const saveReadSignatures = (sigs: string[]) => {
-    try {
-      localStorage.setItem("igen_read_notifications_v1", JSON.stringify(sigs));
+      const res = await notificationService.getNotifications({ limit: 20 });
+      setNotifs(res.data);
+      setUnreadCount(res.unreadCount);
     } catch (err) {
-      console.error("Lỗi khi lưu trạng thái thông báo:", err);
+      console.error("Lỗi khi tải thông báo từ API:", err);
     }
   };
 
-  const getNotifSignature = (n: AppNotification) => `${n.id}:${n.title}:${n.body}`;
-
-  const markRead = (id: string) => {
-    setNotifs(prev => {
-      const target = prev.find(n => n.id === id);
-      if (target) {
-        const signature = getNotifSignature(target);
-        const signatures = getReadSignatures();
-        if (!signatures.includes(signature)) {
-          saveReadSignatures([...signatures, signature]);
-        }
-      }
-      return prev.map(n => n.id === id ? { ...n, read: true } : n);
-    });
-  };
-
-  const markAllRead = () => {
-    setNotifs(prev => {
-      const newSigs = prev.map(n => getNotifSignature(n));
-      const signatures = getReadSignatures();
-      const unique = Array.from(new Set([...signatures, ...newSigs]));
-      saveReadSignatures(unique);
-      return prev.map(n => ({ ...n, read: true }));
-    });
-  };
-
-  const upsertNotif = (notif: AppNotification) =>
-    setNotifs(prev => {
-      const idx = prev.findIndex(n => n.id === notif.id);
-
-      const signatures = getReadSignatures();
-      const newSignature = getNotifSignature(notif);
-      const isReadInStorage = signatures.includes(newSignature);
-
-      let finalRead = isReadInStorage;
-
-      if (idx === -1) {
-        return [{ ...notif, read: finalRead }, ...prev];
-      }
-
-      const old = prev[idx];
-      const oldSignature = getNotifSignature(old);
-
-      if (oldSignature !== newSignature) {
-        // Content changed, so it becomes unread unless it's in storage
-        finalRead = isReadInStorage;
-      } else {
-        // Content didn't change, preserve state
-        finalRead = isReadInStorage || old.read;
-      }
-
-      return [
-        ...prev.slice(0, idx),
-        { ...notif, read: finalRead },
-        ...prev.slice(idx + 1),
-      ];
-    });
-
-  // ─── CRM leads (new / pending orders) ───────────────────────
-  useEffect(() => {
-    const unsub = crmService.subscribeLeads((leads) => {
-      const hotLeads = leads.filter((l: any) => l.stage === "hot" || l.stage === "deal");
-      const newLeads = leads.filter((l: any) => l.stage === "cold" || l.stage === "warm");
-      if (hotLeads.length > 0) {
-        upsertNotif({
-          id: "crm-hot",
-          type: "crm",
-          title: `${hotLeads.length} đơn hàng cần chốt`,
-          body: `${hotLeads.length} khách hàng tiềm năng đang ở giai đoạn HOT / DEAL — cần xử lý ngay.`,
-          time: "Vừa cập nhật",
-          read: false,
-          action: { tab: "SALES CRM" as TabType, subTab: "PHỄU KHÁCH HÀNG" },
-        });
-      }
-      if (newLeads.length > 0) {
-        upsertNotif({
-          id: "crm-new",
-          type: "crm",
-          title: `${newLeads.length} lead mới chưa xử lý`,
-          body: `Có ${newLeads.length} khách hàng mới (cold/warm) đang chờ tiếp cận và nuôi dưỡng.`,
-          time: "Vừa cập nhật",
-          read: false,
-          action: { tab: "SALES CRM" as TabType, subTab: "PHỄU KHÁCH HÀNG" },
-        });
-      }
-    }, () => { });
-    return () => { if (typeof unsub === "function") unsub(); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // ─── Inventory (low stock) ───────────────────────────────────
-  useEffect(() => {
-    const unsub = inventoryProductService.subscribe((products: any[]) => {
-      const low = products.filter(p =>
-        typeof p.stock === "number" && typeof p.minStockAlert === "number" && p.stock <= p.minStockAlert
-      );
-      if (low.length === 0) return;
-      upsertNotif({
-        id: "kho-low",
-        type: "kho",
-        title: `${low.length} sản phẩm sắp hết hàng`,
-        body: `"${low[0].name}" (tồn: ${low[0].stock}) đang dưới ngưỡng cảnh báo. Cần nhập hàng sớm.`,
-        time: "Vừa cập nhật",
-        read: false,
-        action: { tab: "KHO & SẢN PHẨM" as TabType, subTab: "DỰ BÁO AI" },
+  const formatNotifTime = (dateStr: string) => {
+    try {
+      const d = new Date(dateStr);
+      const now = new Date();
+      const diffMs = now.getTime() - d.getTime();
+      const diffMin = Math.floor(diffMs / (60 * 1000));
+      if (diffMin < 1) return "Vừa xong";
+      if (diffMin < 60) return `${diffMin} phút trước`;
+      const diffHr = Math.floor(diffMin / 60);
+      if (diffHr < 24) return `${diffHr} giờ trước`;
+      return d.toLocaleDateString("vi-VN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        day: "2-digit",
+        month: "2-digit",
       });
-    });
-    return () => { if (typeof unsub === "function") unsub(); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    } catch {
+      return "Vừa xong";
+    }
+  };
 
-  // ─── Marketing pending ───────────────────────────────────────
+  const markRead = async (id: string) => {
+    try {
+      await notificationService.markAsRead(id);
+      setNotifs(prev => prev.map(n => n._id === id ? { ...n, read: true } : n));
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    } catch (err) {
+      console.error("Lỗi khi đánh dấu đã đọc thông báo:", err);
+    }
+  };
+
+  const markAllRead = async () => {
+    try {
+      await notificationService.markAllAsRead();
+      setNotifs(prev => prev.map(n => ({ ...n, read: true })));
+      setUnreadCount(0);
+    } catch (err) {
+      console.error("Lỗi khi đánh dấu đọc tất cả thông báo:", err);
+    }
+  };
+
+  // Đồng bộ thông báo thời gian thực qua Socket.IO và sự kiện nội bộ
   useEffect(() => {
-    const unsub = marketingService.subscribeToContents(
-      (cards) => {
-        const pending = cards.filter((c: any) => c.status === "pending");
-        if (pending.length === 0) return;
-        upsertNotif({
-          id: "mkt-pending",
-          type: "marketing",
-          title: `${pending.length} bài viết chờ duyệt`,
-          body: `AI đã tạo ${pending.length} nội dung Marketing cần được phê duyệt trước khi đăng.`,
-          time: "Vừa cập nhật",
-          read: false,
-          action: { tab: "MARKETING" as TabType, subTab: "DUYỆT NỘI DUNG" },
-        });
-      },
-      () => { },
-      userProfile?.uid,
-      userProfile?.role,
-    );
-    return () => { if (typeof unsub === "function") unsub(); };
+    if (!userProfile) return;
+
+    fetchNotifications();
+
+    // Lắng nghe thông báo mới từ socket
+    const unsubSocket = socketService.on("new_notification", (notif: WebNotification) => {
+      setNotifs((prev) => {
+        // Tránh trùng lặp
+        if (prev.some((n) => n._id === notif._id)) return prev;
+        return [notif, ...prev];
+      });
+      if (!notif.read) {
+        setUnreadCount((prev) => prev + 1);
+      }
+      // Kích hoạt CustomEvent để hiển thị popup nổi góc phải dưới
+      window.dispatchEvent(new CustomEvent("new_notification_toast", { detail: notif }));
+    });
+
+    // Lắng nghe sự kiện đồng bộ từ các component khác
+    const handleMutation = () => {
+      fetchNotifications();
+    };
+    window.addEventListener("notification-mutation", handleMutation);
+
+    return () => {
+      unsubSocket();
+      window.removeEventListener("notification-mutation", handleMutation);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userProfile?.uid, userProfile?.role]);
+  }, [userProfile?.uid]);
 
   // ─── Wallet balance ──────────────────────────────────────────
   useEffect(() => {
@@ -285,7 +211,7 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
       ? []
       : searchIndex
         .filter((item) => {
-          if (item.tab === "HIỆU SUẤT AI" && userProfile?.role !== "superadmin") {
+          if (isTabHidden(item.tab)) {
             return false;
           }
           return true;
@@ -298,54 +224,66 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
 
   return (
     <header className="sticky top-0 z-40 flex h-18 items-center justify-between border-b border-gray-100 bg-white px-6 shadow-xs" id="app_header">
-      <div className="relative w-full max-w-2xl" id="search_container">
-        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
-          <Search className="h-5 w-5 text-gray-400" />
-        </div>
-        <input
-          type="text"
-          placeholder="Tìm kiếm trong ERP..."
-          className="block h-12 w-full rounded-full border border-gray-200 bg-white pl-12 pr-5 text-sm text-gray-900 shadow-[0_8px_24px_rgba(15,23,42,0.05)] outline-none transition-all placeholder:text-gray-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
-          value={searchQuery}
-          onChange={(event) => {
-            setSearchQuery(event.target.value);
-            setShowResults(true);
-          }}
-          onFocus={() => setShowResults(true)}
-          id="global_search_input"
-        />
-
-        {showResults && searchQuery.trim() !== "" && (
-          <div className="absolute left-0 z-50 mt-3 w-full overflow-hidden rounded-2xl border border-gray-100 bg-white font-sans text-xs shadow-2xl">
-            <div className="border-b border-gray-100 bg-gray-50 px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-gray-400">
-              Kết quả tìm kiếm ({filteredResults.length})
-            </div>
-            {filteredResults.length > 0 ? (
-              <div className="max-h-72 overflow-y-auto">
-                {filteredResults.map((item, index) => (
-                  <button
-                    key={`${item.label}_${index}`}
-                    onClick={() => {
-                      onSearchSelect(item.tab, item.subTab);
-                      setSearchQuery("");
-                      setShowResults(false);
-                    }}
-                    className="flex w-full flex-col gap-1 border-b border-gray-100 px-4 py-3 text-left transition-colors last:border-0 hover:bg-blue-50/60"
-                  >
-                    <span className="text-sm font-semibold text-gray-800">{item.label}</span>
-                    <span className="text-[10px] text-gray-400">
-                      {item.tab}
-                      {item.subTab ? ` › ${item.subTab}` : ""}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div className="p-5 text-center text-sm text-gray-500">Không tìm thấy phân mục phù hợp.</div>
-            )}
-          </div>
+      <div className="flex flex-1 items-center max-w-2xl">
+        {onMenuClick && (
+          <button
+            onClick={onMenuClick}
+            className="mr-3 md:hidden p-2 rounded-xl text-gray-600 hover:bg-gray-50 active:scale-95 cursor-pointer shrink-0"
+            title="Mở menu"
+            id="header_menu_btn"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
         )}
-        {showResults && <div className="fixed inset-0 z-[-1]" onClick={() => setShowResults(false)} />}
+        <div className="relative w-full" id="search_container">
+          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
+            <Search className="h-5 w-5 text-gray-400" />
+          </div>
+          <input
+            type="text"
+            placeholder="Tìm kiếm trong ERP..."
+            className="block h-12 w-full rounded-full border border-gray-200 bg-white pl-12 pr-5 text-sm text-gray-900 shadow-[0_8px_24px_rgba(15,23,42,0.05)] outline-none transition-all placeholder:text-gray-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+            value={searchQuery}
+            onChange={(event) => {
+              setSearchQuery(event.target.value);
+              setShowResults(true);
+            }}
+            onFocus={() => setShowResults(true)}
+            id="global_search_input"
+          />
+
+          {showResults && searchQuery.trim() !== "" && (
+            <div className="absolute left-0 z-50 mt-3 w-full overflow-hidden rounded-2xl border border-gray-100 bg-white font-sans text-xs shadow-2xl">
+              <div className="border-b border-gray-100 bg-gray-50 px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                Kết quả tìm kiếm ({filteredResults.length})
+              </div>
+              {filteredResults.length > 0 ? (
+                <div className="max-h-72 overflow-y-auto">
+                  {filteredResults.map((item, index) => (
+                    <button
+                      key={`${item.label}_${index}`}
+                      onClick={() => {
+                        onSearchSelect(item.tab, item.subTab);
+                        setSearchQuery("");
+                        setShowResults(false);
+                      }}
+                      className="flex w-full flex-col gap-1 border-b border-gray-100 px-4 py-3 text-left transition-colors last:border-0 hover:bg-blue-50/60"
+                    >
+                      <span className="text-sm font-semibold text-gray-800">{item.label}</span>
+                      <span className="text-[10px] text-gray-400">
+                        {item.tab}
+                        {item.subTab ? ` › ${item.subTab}` : ""}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-5 text-center text-sm text-gray-500">Không tìm thấy phân mục phù hợp.</div>
+              )}
+            </div>
+          )}
+          {showResults && <div className="fixed inset-0 z-[-1]" onClick={() => setShowResults(false)} />}
+        </div>
       </div>
 
       <div className="ml-6 flex items-center gap-3" id="header_controls">
@@ -397,6 +335,323 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
           {isDark ? <Sun className="h-4.5 w-4.5 shrink-0 text-amber-500" /> : <Moon className="h-4.5 w-4.5 shrink-0" />}
         </button>
 
+        {/* Utilities (App Launcher) Button */}
+        <div className="relative" id="header_utilities_dropdown">
+          <button
+            onClick={() => setShowUtilities(!showUtilities)}
+            className={`flex items-center justify-center p-2 rounded-full transition-all active:scale-95 cursor-pointer ${showUtilities ? "bg-blue-50 text-blue-600" : "text-gray-400 hover:text-blue-600 hover:bg-blue-50"}`}
+            title="Tiện ích — mở nhanh các chức năng"
+            id="header_utilities_btn"
+          >
+            <LayoutGrid className="h-4.5 w-4.5 shrink-0" />
+          </button>
+
+          {showUtilities && (
+            <div className={`absolute right-0 z-50 mt-3 w-[580px] rounded-3xl p-6 shadow-2xl font-sans animate-fade-in border ${isDark ? "bg-[#18181b] text-neutral-100 border-neutral-800 shadow-[0_20px_50px_rgba(0,0,0,0.5)]" : "bg-white text-slate-800 border-gray-150"}`}>
+              {/* Header */}
+              <div className={`flex items-center justify-between border-b pb-3.5 mb-2 ${isDark ? "border-neutral-800" : "border-gray-100"}`}>
+                <span className={`text-base font-bold tracking-wide ${isDark ? "text-white" : "text-slate-800"}`}>Menu</span>
+                <button
+                  onClick={() => setShowUtilities(false)}
+                  className={`p-1.5 rounded-full transition-all active:scale-90 ${isDark ? "text-neutral-400 hover:text-white hover:bg-neutral-800/50" : "text-gray-400 hover:text-slate-800 hover:bg-gray-100"}`}
+                  aria-label="Đóng Menu"
+                >
+                  <X className="h-4.5 w-4.5" />
+                </button>
+              </div>
+
+              {/* Two Column Layout */}
+              <div className="flex gap-6">
+                {/* Column Left (62%): Yêu thích & Tính năng */}
+                <div className={`flex-[1.6] pr-6 border-r ${isDark ? "border-neutral-800/85" : "border-gray-100"}`}>
+                  {/* Group Yêu thích */}
+                  <div>
+                    <h3 className={`text-[11px] font-bold uppercase tracking-wider mb-2.5 mt-2 ${isDark ? "text-neutral-500" : "text-slate-400"}`}>Yêu thích</h3>
+                    <div className="space-y-1">
+                      <div
+                        onClick={() => {
+                          onSearchSelect("NHÂN SỰ" as TabType, "SƠ ĐỒ TỔ CHỨC");
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-start gap-3.5 py-2 px-3 rounded-2xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <div className={`p-2 border rounded-xl transition-all mt-0.5 ${isDark ? "bg-neutral-800/50 border-neutral-800 text-neutral-400 group-hover:text-white group-hover:bg-neutral-800" : "bg-slate-50 border-gray-100 text-slate-500 group-hover:text-slate-800 group-hover:bg-slate-100"}`}>
+                          <FolderTree className="h-4.5 w-4.5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>Phòng ban</p>
+                          <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>Quản lý các phòng ban</p>
+                        </div>
+                      </div>
+
+                      <div
+                        onClick={() => {
+                          onSearchSelect("NHÂN SỰ" as TabType, "QUY TRÌNH");
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-start gap-3.5 py-2 px-3 rounded-2xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <div className={`p-2 border rounded-xl transition-all mt-0.5 ${isDark ? "bg-neutral-800/50 border-neutral-800 text-neutral-400 group-hover:text-white group-hover:bg-neutral-800" : "bg-slate-50 border-gray-100 text-slate-500 group-hover:text-slate-800 group-hover:bg-slate-100"}`}>
+                          <GitBranch className="h-4.5 w-4.5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>Quy trình công việc</p>
+                          <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>Quy trình làm việc</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Group Tính năng */}
+                  <div className="mt-5">
+                    <h3 className={`text-[11px] font-bold uppercase tracking-wider mb-2.5 ${isDark ? "text-neutral-500" : "text-slate-400"}`}>Tính năng</h3>
+                    <div className={`space-y-1 max-h-[300px] overflow-y-auto pr-1 scrollbar-thin scrollbar-track-transparent ${isDark ? "scrollbar-thumb-neutral-800" : "scrollbar-thumb-gray-200"}`}>
+                      <div
+                        onClick={() => {
+                          onSearchSelect("TỔNG QUAN" as TabType);
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-start gap-3.5 py-2 px-3 rounded-2xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <div className={`p-2 border rounded-xl transition-all mt-0.5 ${isDark ? "bg-neutral-800/50 border-neutral-800 text-neutral-400 group-hover:text-white group-hover:bg-neutral-800" : "bg-slate-50 border-gray-100 text-slate-500 group-hover:text-slate-800 group-hover:bg-slate-100"}`}>
+                          <LayoutDashboard className="h-4.5 w-4.5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>Tổng quan</p>
+                          <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>Xem tổng quát hoạt động</p>
+                        </div>
+                      </div>
+
+                      <div
+                        onClick={() => {
+                          onSearchSelect("NHÂN SỰ" as TabType, "GIAO VIỆC KANBAN");
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-start gap-3.5 py-2 px-3 rounded-2xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <div className={`p-2 border rounded-xl transition-all mt-0.5 ${isDark ? "bg-neutral-800/50 border-neutral-800 text-neutral-400 group-hover:text-white group-hover:bg-neutral-800" : "bg-slate-50 border-gray-100 text-slate-500 group-hover:text-slate-800 group-hover:bg-slate-100"}`}>
+                          <FileText className="h-4.5 w-4.5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>Việc của tôi</p>
+                          <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>Các công việc của tôi</p>
+                        </div>
+                      </div>
+
+                      <div
+                        onClick={() => {
+                          onSearchSelect("TRÒ CHUYỆN" as TabType);
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-start gap-3.5 py-2 px-3 rounded-2xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <div className={`p-2 border rounded-xl transition-all mt-0.5 ${isDark ? "bg-neutral-800/50 border-neutral-800 text-neutral-400 group-hover:text-white group-hover:bg-neutral-800" : "bg-slate-50 border-gray-100 text-slate-500 group-hover:text-slate-800 group-hover:bg-slate-100"}`}>
+                          <MessageSquare className="h-4.5 w-4.5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>Nhắn tin & gọi điện</p>
+                          <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>Trò chuyện và gọi điện audio/video</p>
+                        </div>
+                      </div>
+
+                      <div
+                        onClick={() => {
+                          onSearchSelect("TRÒ CHUYỆN" as TabType);
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-start gap-3.5 py-2 px-3 rounded-2xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <div className={`p-2 border rounded-xl transition-all mt-0.5 ${isDark ? "bg-neutral-800/50 border-neutral-800 text-neutral-400 group-hover:text-white group-hover:bg-neutral-800" : "bg-slate-50 border-gray-100 text-slate-500 group-hover:text-slate-800 group-hover:bg-slate-100"}`}>
+                          <Video className="h-4.5 w-4.5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>Cuộc họp trực tuyến</p>
+                          <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>Tạo cuộc họp trực tuyến giống như Zoom, Google Meet</p>
+                        </div>
+                      </div>
+
+                      <div
+                        onClick={() => {
+                          onSearchSelect("NHÂN SỰ" as TabType, "LỊCH");
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-start gap-3.5 py-2 px-3 rounded-2xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <div className={`p-2 border rounded-xl transition-all mt-0.5 ${isDark ? "bg-neutral-800/50 border-neutral-800 text-neutral-400 group-hover:text-white group-hover:bg-neutral-800" : "bg-slate-50 border-gray-100 text-slate-500 group-hover:text-slate-800 group-hover:bg-slate-100"}`}>
+                          <Calendar className="h-4.5 w-4.5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>Lịch</p>
+                          <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>Lịch công việc và sự kiện</p>
+                        </div>
+                      </div>
+
+                      <div
+                        onClick={() => {
+                          onSearchSelect("QUẢN LÝ TÀI NGUYÊN" as TabType);
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-start gap-3.5 py-2 px-3 rounded-2xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <div className={`p-2 border rounded-xl transition-all mt-0.5 ${isDark ? "bg-neutral-800/50 border-neutral-800 text-neutral-400 group-hover:text-white group-hover:bg-neutral-800" : "bg-slate-50 border-gray-100 text-slate-500 group-hover:text-slate-800 group-hover:bg-slate-100"}`}>
+                          <FolderOpen className="h-4.5 w-4.5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>Tài nguyên</p>
+                          <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>Các tài nguyên (files, docs, links...)</p>
+                        </div>
+                      </div>
+
+                      <div
+                        onClick={() => {
+                          onSearchSelect("TRÒ CHUYỆN" as TabType);
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-start gap-3.5 py-2 px-3 rounded-2xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <div className={`p-2 border rounded-xl transition-all mt-0.5 ${isDark ? "bg-neutral-800/50 border-neutral-800 text-neutral-400 group-hover:text-white group-hover:bg-neutral-800" : "bg-slate-50 border-gray-100 text-slate-500 group-hover:text-slate-800 group-hover:bg-slate-100"}`}>
+                          <Users className="h-4.5 w-4.5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>Nhóm của tôi</p>
+                          <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>Các nhóm làm việc và trò chuyện</p>
+                        </div>
+                      </div>
+
+                      <div
+                        onClick={() => {
+                          onSearchSelect("NHÂN SỰ" as TabType, "GIAO VIỆC KANBAN");
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-start gap-3.5 py-2 px-3 rounded-2xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <div className={`p-2 border rounded-xl transition-all mt-0.5 ${isDark ? "bg-neutral-800/50 border-neutral-800 text-neutral-400 group-hover:text-white group-hover:bg-neutral-800" : "bg-slate-50 border-gray-100 text-slate-500 group-hover:text-slate-800 group-hover:bg-slate-100"}`}>
+                          <Briefcase className="h-4.5 w-4.5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>Lĩnh vực, dự án</p>
+                          <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>Lĩnh vực hoạt động và dự án</p>
+                        </div>
+                      </div>
+
+                      {(userProfile?.role === "superadmin" || userProfile?.role === "admin") && (
+                        <div
+                          onClick={() => {
+                            onSearchSelect("QUẢN TRỊ USER" as TabType);
+                            setShowUtilities(false);
+                          }}
+                          className={`group flex items-start gap-3.5 py-2 px-3 rounded-2xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                        >
+                          <div className={`p-2 border rounded-xl transition-all mt-0.5 ${isDark ? "bg-neutral-800/50 border-neutral-800 text-neutral-400 group-hover:text-white group-hover:bg-neutral-800" : "bg-slate-50 border-gray-100 text-slate-500 group-hover:text-slate-800 group-hover:bg-slate-100"}`}>
+                            <Shield className="h-4.5 w-4.5" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>Thành viên</p>
+                            <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>Quản lý thành viên & phân quyền</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Column Right (38%): Tạo & Cá nhân */}
+                <div className="w-[190px] shrink-0">
+                  {/* Group Tạo */}
+                  <div>
+                    <h3 className={`text-[11px] font-bold uppercase tracking-wider mb-2.5 mt-2 ${isDark ? "text-neutral-500" : "text-slate-400"}`}>Tạo</h3>
+                    <div className="space-y-1">
+                      <div
+                        onClick={() => {
+                          onSearchSelect("NHÂN SỰ" as TabType, "GIAO VIỆC KANBAN");
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-center gap-3 py-2 px-3 rounded-xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <FileText className={`h-4 w-4 transition-colors ${isDark ? "text-neutral-400 group-hover:text-white" : "text-slate-400 group-hover:text-slate-800"}`} />
+                        <span className={`text-[13px] font-semibold transition-colors ${isDark ? "text-neutral-300 group-hover:text-white" : "text-slate-650 group-hover:text-slate-900"}`}>Công việc</span>
+                      </div>
+
+                      <div
+                        onClick={() => {
+                          onSearchSelect("TRÒ CHUYỆN" as TabType);
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-center gap-3 py-2 px-3 rounded-xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <Users className={`h-4 w-4 transition-colors ${isDark ? "text-neutral-400 group-hover:text-white" : "text-slate-400 group-hover:text-slate-800"}`} />
+                        <span className={`text-[13px] font-semibold transition-colors ${isDark ? "text-neutral-300 group-hover:text-white" : "text-slate-650 group-hover:text-slate-900"}`}>Nhóm</span>
+                      </div>
+
+                      <div
+                        onClick={() => {
+                          onSearchSelect("TRÒ CHUYỆN" as TabType);
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-center gap-3 py-2 px-3 rounded-xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <MessageSquare className={`h-4 w-4 transition-colors ${isDark ? "text-neutral-400 group-hover:text-white" : "text-slate-400 group-hover:text-slate-800"}`} />
+                        <span className={`text-[13px] font-semibold transition-colors ${isDark ? "text-neutral-300 group-hover:text-white" : "text-slate-650 group-hover:text-slate-900"}`}>Nhắn tin</span>
+                      </div>
+
+                      <div
+                        onClick={() => {
+                          onSearchSelect("TRÒ CHUYỆN" as TabType);
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-center gap-3 py-2 px-3 rounded-xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <Video className={`h-4 w-4 transition-colors ${isDark ? "text-neutral-400 group-hover:text-white" : "text-slate-400 group-hover:text-slate-800"}`} />
+                        <span className={`text-[13px] font-semibold transition-colors ${isDark ? "text-neutral-300 group-hover:text-white" : "text-slate-650 group-hover:text-slate-900"}`}>Cuộc gọi video</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Group Cá nhân */}
+                  <div className={`mt-5 border-t pt-4 ${isDark ? "border-neutral-800/80" : "border-gray-100"}`}>
+                    <h3 className={`text-[11px] font-bold uppercase tracking-wider mb-2.5 ${isDark ? "text-neutral-500" : "text-slate-400"}`}>Cá nhân</h3>
+                    <div className="space-y-1">
+                      <div
+                        onClick={() => {
+                          onSearchSelect("NHÂN SỰ" as TabType, "LỊCH");
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-center gap-3 py-2 px-3 rounded-xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <Calendar className={`h-4 w-4 transition-colors ${isDark ? "text-neutral-400 group-hover:text-white" : "text-slate-400 group-hover:text-slate-800"}`} />
+                        <span className={`text-[13px] font-semibold transition-colors ${isDark ? "text-neutral-300 group-hover:text-white" : "text-slate-650 group-hover:text-slate-900"}`}>Nghỉ phép</span>
+                      </div>
+
+                      <div
+                        onClick={() => {
+                          onSearchSelect("NHÂN SỰ" as TabType, "LỊCH");
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-center gap-3 py-2 px-3 rounded-xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <Calendar className={`h-4 w-4 transition-colors ${isDark ? "text-neutral-400 group-hover:text-white" : "text-slate-400 group-hover:text-slate-800"}`} />
+                        <span className={`text-[13px] font-semibold transition-colors ${isDark ? "text-neutral-300 group-hover:text-white" : "text-slate-650 group-hover:text-slate-900"}`}>Sự kiện</span>
+                      </div>
+
+                      <div
+                        onClick={() => {
+                          onSearchSelect("NHÂN SỰ" as TabType, "LỊCH");
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-center gap-3 py-2 px-3 rounded-xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <Clock className={`h-4 w-4 transition-colors ${isDark ? "text-neutral-400 group-hover:text-white" : "text-slate-400 group-hover:text-slate-800"}`} />
+                        <span className={`text-[13px] font-semibold transition-colors ${isDark ? "text-neutral-300 group-hover:text-white" : "text-slate-650 group-hover:text-slate-900"}`}>Nhắc nhở</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          {showUtilities && <div className="fixed inset-0 z-[-1]" onClick={() => setShowUtilities(false)} />}
+        </div>
+
         <div className="relative" id="notification_dropdown_button">
           <button
             onClick={() => setShowNotifications(!showNotifications)}
@@ -441,22 +696,21 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
                   </div>
                 ) : (
                   notifs.map((notif) => {
-                    const ICON_MAP: Record<NotifType, { icon: React.ElementType; bg: string; iconColor: string; badge: string }> = {
-                      crm: { icon: ShoppingCart, bg: "bg-emerald-50", iconColor: "text-emerald-600", badge: "bg-emerald-500" },
-                      kho: { icon: AlertTriangle, bg: "bg-amber-50", iconColor: "text-amber-600", badge: "bg-amber-500" },
-                      marketing: { icon: Megaphone, bg: "bg-purple-50", iconColor: "text-purple-600", badge: "bg-purple-500" },
-                      ai: { icon: Sparkles, bg: "bg-blue-50", iconColor: "text-blue-600", badge: "bg-blue-500" },
+                    const ICON_MAP: Record<string, { icon: React.ElementType; bg: string; iconColor: string; badge: string }> = {
+                      kho: { icon: Package, bg: "bg-amber-50", iconColor: "text-amber-600", badge: "bg-amber-500" },
+                      task: { icon: Briefcase, bg: "bg-blue-50", iconColor: "text-blue-600", badge: "bg-blue-500" },
+                      training: { icon: GraduationCap, bg: "bg-purple-50", iconColor: "text-purple-600", badge: "bg-purple-500" },
                       "he-thong": { icon: Bell, bg: "bg-gray-100", iconColor: "text-gray-500", badge: "bg-gray-400" },
                     };
-                    const cfg = ICON_MAP[notif.type];
+                    const cfg = ICON_MAP[notif.type] || ICON_MAP["he-thong"];
                     const Icon = cfg.icon;
                     return (
                       <div
-                        key={notif.id}
+                        key={notif._id}
                         onClick={() => {
-                          markRead(notif.id);
+                          markRead(notif._id);
                           if (notif.action) {
-                            onSearchSelect(notif.action.tab, notif.action.subTab);
+                            onSearchSelect(notif.action.tab as any, notif.action.subTab);
                             setShowNotifications(false);
                           }
                         }}
@@ -476,7 +730,7 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
                           <p className={`text-xs leading-snug ${notif.read ? "font-medium text-gray-500" : "font-bold text-gray-800"
                             }`}>{notif.title}</p>
                           <p className="mt-0.5 line-clamp-2 text-[11px] leading-relaxed text-gray-400">{notif.body}</p>
-                          <span className="mt-1 block font-mono text-[10px] text-gray-300">{notif.time}</span>
+                          <span className="mt-1 block font-mono text-[10px] text-gray-300">{formatNotifTime(notif.createdAt)}</span>
                         </div>
 
                         {/* Unread dot */}

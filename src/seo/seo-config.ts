@@ -117,34 +117,34 @@ export const TAB_SEO_MAP: Record<TabType, SeoMeta> = {
     priority: "0.8",
     changeFrequency: "weekly",
   },
-  MARKETING: {
-    title: "Marketing AI - Sáng tạo nội dung, sản xuất video AI",
+  "QUẢN LÝ TÀI NGUYÊN": {
+    title: "Quản lý tài nguyên - Lưu trữ và đồng bộ Google Drive",
     description:
-      "Tăng tốc chiến dịch tiếp thị số với bộ công cụ Marketing AI tự động tạo ý tưởng bài viết, lên kế hoạch nội dung và sản xuất video quảng cáo AI.",
+      "Không gian quản lý tài nguyên, tài liệu nội bộ và liên kết đồng bộ trực tiếp với tài khoản Google Drive cá nhân của nhân viên trên iGen ERP.",
     keywords:
-      "marketing AI, tạo nội dung AI, tạo video AI, lập kế hoạch marketing, chiến dịch số, heygen video",
-    path: "/marketing",
-    priority: "0.9",
-    changeFrequency: "daily",
-  },
-  "SALES CRM": {
-    title: "Sales CRM - Quản lý khách hàng, hội thoại Omni-Inbox",
-    description:
-      "Chăm sóc khách hàng tập trung với tính năng chat đa kênh Omni-Inbox (Facebook, Zalo), AI tự động phản hồi và quản lý phễu bán hàng CRM hiệu quả.",
-    keywords:
-      "sales crm, quản lý khách hàng, omni channel crm, chăm sóc khách hàng, crm doanh nghiệp, omni inbox",
-    path: "/sales-crm",
+      "quản lý tài nguyên, lưu trữ tài liệu, google drive erp, đồng bộ google drive, thư mục tài nguyên, igen erp",
+    path: "/quan-ly-tai-nguyen",
     priority: "0.8",
     changeFrequency: "weekly",
   },
-  "HIỆU SUẤT AI": {
-    title: "Giám sát hiệu suất AI - Phân tích tự động hóa vận hành",
+  "TRÒ CHUYỆN": {
+    title: "Trò chuyện nội bộ - Trực quan, Thời gian thực",
     description:
-      "Đo lường hiệu suất của trợ lý AI, thống kê tác vụ tự động hóa và phân tích tốc độ xử lý nghiệp vụ so với quy trình truyền thống.",
+      "Trực tiếp trao đổi công việc, trò chuyện 1-1 hoặc tạo phòng chat nhóm giữa các tài khoản nhân viên trong doanh nghiệp tại iGen ERP.",
     keywords:
-      "hiệu suất AI, tự động hóa doanh nghiệp, AI analytics, đo lường AI, iGen ERP, hiệu năng xử lý",
-    path: "/hieu-suat-ai",
+      "chat nội bộ, chat nhóm, chat 1-1, trò chuyện nội bộ, nhắn tin realtime, socket.io chat, igen erp",
+    path: "/tro-chuyen",
     priority: "0.7",
+    changeFrequency: "weekly",
+  },
+  "QUẢN LÝ HỌC VIÊN": {
+    title: "Quản lý học viên - Đào tạo, lớp học, lịch thi và học phí",
+    description:
+      "Phân khu quản lý học viên trong iGen ERP giúp theo dõi hồ sơ học viên, khóa học, lớp học, lịch thi, học phí, thông báo và đối tác tuyển sinh trên cùng một nền tảng.",
+    keywords:
+      "quản lý học viên, quản lý đào tạo, lớp học, lịch thi, học phí, đối tác tuyển sinh, erp giáo dục",
+    path: "/quan-ly-hoc-vien",
+    priority: "0.8",
     changeFrequency: "weekly",
   },
   "QUẢN TRỊ USER": {
@@ -180,6 +180,17 @@ export const TAB_SEO_MAP: Record<TabType, SeoMeta> = {
     priority: "0.5",
     changeFrequency: "weekly",
   },
+  "TÀI NGUYÊN": {
+    title: "Tài nguyên - Quản lý tài liệu & Drive nội bộ",
+    description:
+      "Lưu trữ và quản lý tài liệu nội bộ, kết nối Google Drive và chia sẻ tài nguyên doanh nghiệp tập trung trên iGen ERP.",
+    keywords:
+      "tài liệu nội bộ, google drive, quản lý tài nguyên, lưu trữ doanh nghiệp, tài nguyên ERP",
+    path: "/tai-nguyen",
+    robots: "noindex, nofollow",
+    priority: "0.5",
+    changeFrequency: "weekly",
+  },
 };
 
 export const PUBLIC_SEO_PAGES: SeoMeta[] = [
@@ -187,9 +198,7 @@ export const PUBLIC_SEO_PAGES: SeoMeta[] = [
   TAB_SEO_MAP["TỔNG QUAN"],
   TAB_SEO_MAP["NHÂN SỰ"],
   TAB_SEO_MAP["KHO & SẢN PHẨM"],
-  TAB_SEO_MAP.MARKETING,
-  TAB_SEO_MAP["SALES CRM"],
-  TAB_SEO_MAP["HIỆU SUẤT AI"],
+  TAB_SEO_MAP["QUẢN LÝ HỌC VIÊN"],
 ];
 
 export function getSeoForTab(tab: TabType): SeoMeta {

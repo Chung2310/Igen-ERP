@@ -1,6 +1,5 @@
 import type { FormEvent } from "react";
 import { Building2, Lock, Mail, RefreshCw, User, X } from "lucide-react";
-import { CompanyHeyGenConfig } from "../../types";
 import { CompanyEditFormState, CompanyFormState } from "./types";
 
 interface Props {
@@ -8,13 +7,9 @@ interface Props {
   open: boolean;
   form: CompanyFormState | CompanyEditFormState;
   submitting: boolean;
-  heygenLibrary?: { avatars: any[]; voices: any[]; counts?: { avatars: number; voices: number } } | null;
-  heygenLoading?: boolean;
   onClose: () => void;
   onChange: (field: string, value: string) => void;
   onSubmit: (e: FormEvent) => void;
-  onTestHeyGen?: () => void;
-  onSyncHeyGen?: () => void;
 }
 
 export function CompanyModal({
@@ -22,19 +17,14 @@ export function CompanyModal({
   open,
   form,
   submitting,
-  heygenLibrary,
-  heygenLoading,
   onClose,
   onChange,
   onSubmit,
-  onTestHeyGen,
-  onSyncHeyGen,
 }: Props) {
   if (!open) return null;
 
   const isEdit = mode === "edit";
   const editForm = form as CompanyEditFormState;
-  const heygenConfig = (editForm.heygenConfig || {}) as CompanyHeyGenConfig;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
@@ -49,7 +39,7 @@ export function CompanyModal({
                 {isEdit ? "Chinh sua doanh nghiep" : "Dang ky doanh nghiep moi"}
               </h3>
               <p className="mt-0.5 font-mono text-[10px] text-slate-300">
-                {isEdit ? "Cap nhat thong tin doanh nghiep va tai khoan HeyGen cong ty" : "Khoi tao moi truong SaaS multi-tenant"}
+                {isEdit ? "Cap nhat thong tin doanh nghiep" : "Khoi tao moi truong SaaS multi-tenant"}
               </p>
             </div>
           </div>
@@ -100,86 +90,7 @@ export function CompanyModal({
                   />
                 </div>
               </div>
-
-              <div className="space-y-4 rounded-2xl border border-cyan-100 bg-cyan-50/60 p-4 text-left">
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-cyan-700">Cau hinh HeyGen theo cong ty</p>
-                  <p className="mt-1 text-[11px] text-cyan-900/80">
-                    Moi cong ty dung 1 account HeyGen rieng. Thu vien avatar se lay tu My Avatar cua account nay.
-                  </p>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500">HeyGen API Key</label>
-                  <input
-                    type="text"
-                    placeholder="Nhap khoa API HeyGen cua cong ty"
-                    value={heygenConfig.apiKey || ""}
-                    onChange={(e) => onChange("heygenConfig.apiKey", e.target.value)}
-                    className="w-full rounded-xl border border-gray-200 px-3.5 py-2 text-xs font-mono outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500">Avatar mac dinh</label>
-                    <select
-                      value={heygenConfig.defaultAvatarId || ""}
-                      onChange={(e) => onChange("heygenConfig.defaultAvatarId", e.target.value)}
-                      className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-xs outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500"
-                    >
-                      <option value="">Chon avatar mac dinh</option>
-                      {(heygenLibrary?.avatars || []).map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.name} ({item.id})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500">Voice mac dinh</label>
-                    <select
-                      value={heygenConfig.defaultVoiceId || ""}
-                      onChange={(e) => onChange("heygenConfig.defaultVoiceId", e.target.value)}
-                      className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-xs outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500"
-                    >
-                      <option value="">Chon voice mac dinh</option>
-                      {(heygenLibrary?.voices || []).map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.name} ({item.id})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="space-y-1 rounded-xl border border-cyan-100 bg-white px-3 py-3 text-[11px] text-slate-600">
-                  <p>Trang thai: <span className="font-semibold">{heygenConfig.isConnected ? "Da ket noi" : "Chua ket noi"}</span></p>
-                  <p>My Avatar: <span className="font-semibold">{heygenLibrary?.counts?.avatars ?? 0}</span></p>
-                  <p>Voices: <span className="font-semibold">{heygenLibrary?.counts?.voices ?? 0}</span></p>
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={onTestHeyGen}
-                    disabled={heygenLoading}
-                    className="rounded-xl border border-cyan-200 bg-white px-4 py-2 text-xs font-bold text-cyan-700 transition hover:bg-cyan-50 disabled:opacity-50"
-                  >
-                    {heygenLoading ? "Dang xu ly..." : "Kiem tra ket noi"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={onSyncHeyGen}
-                    disabled={heygenLoading}
-                    className="rounded-xl bg-cyan-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-cyan-700 disabled:opacity-50"
-                  >
-                    {heygenLoading ? "Dang dong bo..." : "Dong bo My Avatar"}
-                  </button>
-                </div>
-              </div>
-            </div>
+`r`n            </div>
           ) : (
             <div className="my-4 space-y-4 border-t border-gray-100 pt-4">
               <div className="text-left">

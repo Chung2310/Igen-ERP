@@ -22,6 +22,7 @@ import {
 import { EmployeeNode, TrainingCourse, TrainingEnrollment, Lesson, QuizQuestion } from "../../types";
 import { getAccessToken, authService } from "../../services/authService";
 import { toast } from "../../pages/Toast";
+import { ConfirmDialog } from "../common/ConfirmDialog";
 
 interface TrainingTabProps {
   userProfile: any;
@@ -66,6 +67,34 @@ export default function TrainingTab({
   const [enrollments, setEnrollments] = useState<TrainingEnrollment[]>([]);
   const [editingCourse, setEditingCourse] = useState<TrainingCourse | null>(null);
   const [isAddCourseModalOpen, setIsAddCourseModalOpen] = useState(false);
+  const [confirmState, setConfirmState] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    confirmLabel?: string;
+    cancelLabel?: string;
+    onConfirm: () => void | Promise<void>;
+  } | null>(null);
+
+  const askConfirm = (
+    title: string,
+    description: string,
+    onConfirm: () => void | Promise<void>,
+    confirmLabel = "Xác nhận",
+    cancelLabel = "Hủy"
+  ) => {
+    setConfirmState({
+      isOpen: true,
+      title,
+      description,
+      confirmLabel,
+      cancelLabel,
+      onConfirm: async () => {
+        await onConfirm();
+        setConfirmState(null);
+      },
+    });
+  };
   const [courseFormTitle, setCourseFormTitle] = useState("");
   const [courseFormDesc, setCourseFormDesc] = useState("");
   const [courseFormCategory, setCourseFormCategory] = useState("Văn hóa");
@@ -624,8 +653,7 @@ export default function TrainingTab({
     }
   };
 
-  const handleDeleteCourse = async (courseId: string) => {
-    if (!window.confirm("Xác nhận xóa khóa học này?")) return;
+  const deleteCourseConfirmed = async (courseId: string) => {
     try {
       const res = await fetch(`/api/v1/crud/training-courses/${courseId}`, {
         method: "DELETE",
@@ -644,6 +672,16 @@ export default function TrainingTab({
     } catch (err) {
       toast.error("Không thể xóa khóa học.");
     }
+  };
+
+  const handleDeleteCourse = (courseId: string) => {
+    askConfirm(
+      "Xóa khóa học này?",
+      "Bạn có chắc chắn muốn xóa khóa học này? Thao tác này không thể hoàn tác.",
+      () => deleteCourseConfirmed(courseId),
+      "Xóa khóa học",
+      "Hủy"
+    );
   };
 
   const handleAddLessonForm = () => {
@@ -1580,6 +1618,19 @@ export default function TrainingTab({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Custom confirm dialog */}
+      {confirmState && (
+        <ConfirmDialog
+          isOpen={confirmState.isOpen}
+          title={confirmState.title}
+          description={confirmState.description}
+          confirmLabel={confirmState.confirmLabel}
+          cancelLabel={confirmState.cancelLabel}
+          onClose={() => setConfirmState(null)}
+          onConfirm={confirmState.onConfirm}
+        />
       )}
     </>
   );

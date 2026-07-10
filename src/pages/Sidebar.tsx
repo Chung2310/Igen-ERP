@@ -1,15 +1,15 @@
 import React, { useState } from "react";
 import {
   ChevronRight,
+  FolderOpen,
   LayoutDashboard,
-  LineChart,
-  Megaphone,
-  MessageSquareShare,
+  MessageSquare,
   Package,
   PanelLeftClose,
   PanelLeftOpen,
   Settings,
   Shield,
+  GraduationCap,
   Users,
   Wallet,
 } from "lucide-react";
@@ -23,10 +23,15 @@ import {
 } from "../config/brand";
 import type { TabType } from "../types";
 import { useAuth } from "../context/AuthContext";
+import { useIsMobile } from "../hooks/useMediaQuery";
 
 interface SidebarProps {
   activeTab: TabType;
   setActiveTab: (tab: TabType) => void;
+  /** Mobile: drawer đang mở */
+  mobileOpen: boolean;
+  /** Mobile: đóng drawer (bấm backdrop hoặc chọn menu) */
+  onMobileClose: () => void;
 }
 
 type MenuTone = "blue" | "green" | "amber" | "purple" | "rose" | "indigo" | "slate";
@@ -100,24 +105,35 @@ const baseMenuItems: MenuItem[] = [
     tone: "amber",
   },
   {
-    label: "MARKETING",
-    title: "AI Marketing Hub",
-    desc: "Sáng tạo nội dung và đăng lịch",
-    icon: Megaphone,
-    tone: "purple",
+    label: "QUẢN LÝ TÀI NGUYÊN",
+    title: "Quản lý tài nguyên",
+    desc: "Tài liệu nội bộ và Google Drive",
+    icon: FolderOpen,
+    tone: "indigo",
   },
   {
-    label: "SALES CRM",
-    title: "Sales CRM Omni-Inbox",
-    desc: "Chăm sóc và phễu khách hàng",
-    icon: MessageSquareShare,
-    tone: "rose",
+    label: "TRÒ CHUYỆN",
+    title: "Trò chuyện nội bộ",
+    desc: "Chat nhóm và 1-1 nội bộ",
+    icon: MessageSquare,
+    tone: "indigo",
+  },
+  {
+    label: "QUẢN LÝ HỌC VIÊN",
+    title: "Quản lý học viên",
+    desc: "Đào tạo, thi cử, học phí và đối tác",
+    icon: GraduationCap,
+    tone: "blue",
   },
 ];
 
-export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
+export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileClose }: SidebarProps) {
   const { userProfile } = useAuth();
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsedState, setIsCollapsed] = useState(false);
+  const isMobile = useIsMobile();
+  // Trên mobile drawer luôn ở dạng mở rộng; thu gọn chỉ là hành vi desktop
+  const isCollapsed = isCollapsedState && !isMobile;
+  // Loại các module bị ẩn tạm khỏi thanh điều hướng
   const menuItems = [...baseMenuItems];
 
   if (userProfile?.role === "superadmin" || userProfile?.role === "admin") {
@@ -126,16 +142,6 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
       title: "Quản trị user",
       desc: "Cấp quyền và phân vai trò",
       icon: Shield,
-      tone: "indigo",
-    });
-  }
-
-  if (userProfile?.role === "superadmin") {
-    menuItems.push({
-      label: "HIỆU SUẤT AI",
-      title: "Hiệu suất AI",
-      desc: "So sánh máy và con người",
-      icon: LineChart,
       tone: "indigo",
     });
   }
@@ -159,10 +165,19 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
   });
 
   return (
+    <>
+      {/* Backdrop mờ phía sau drawer trên mobile */}
+      {mobileOpen ? (
+        <div
+          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm md:hidden"
+          onClick={onMobileClose}
+          aria-hidden="true"
+        />
+      ) : null}
     <aside
-      className={`sticky top-0 flex h-screen shrink-0 flex-col border-r border-gray-100 bg-white text-gray-800 shadow-[18px_0_45px_rgba(15,23,42,0.04)] transition-all duration-300 ${
-        isCollapsed ? "w-24" : "w-72"
-      }`}
+      className={`fixed inset-y-0 left-0 z-50 flex h-dvh w-72 shrink-0 flex-col border-r border-gray-100 bg-white text-gray-800 shadow-[18px_0_45px_rgba(15,23,42,0.04)] transition-all duration-300 md:sticky md:top-0 md:z-auto md:translate-x-0 ${
+        mobileOpen ? "translate-x-0" : "-translate-x-full"
+      } ${isCollapsed ? "md:w-24" : "md:w-72"}`}
       id="sidebar_container"
     >
       <div className={`flex items-center border-b border-gray-100 ${isCollapsed ? "justify-center px-3 py-5" : "p-6"}`} id="sidebar_brand_header">
@@ -196,7 +211,10 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
           return (
             <button
               key={item.label}
-              onClick={() => setActiveTab(item.label)}
+              onClick={() => {
+                setActiveTab(item.label);
+                onMobileClose();
+              }}
               className={`group flex w-full items-center justify-between rounded-2xl border px-3.5 py-3.5 text-left font-sans transition-all active:scale-[0.98] ${isActive ? `${tone.active} shadow-xs` : "border-transparent text-gray-600 hover:border-gray-100 hover:bg-gray-50 hover:text-gray-900"
                 }`}
               id={`sidebar_menu_${item.label.replace(/\s+/g, "_")}`}
@@ -231,7 +249,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
         <button
           type="button"
           onClick={() => setIsCollapsed((current) => !current)}
-          className={`flex items-center rounded-2xl border border-gray-200 bg-white text-gray-500 transition hover:bg-gray-50 hover:text-gray-900 ${
+          className={`hidden md:flex items-center rounded-2xl border border-gray-200 bg-white text-gray-500 transition hover:bg-gray-50 hover:text-gray-900 ${
             isCollapsed ? "mx-auto h-11 w-11 justify-center" : "w-full justify-between px-4 py-3"
           }`}
           title={isCollapsed ? "Mở rộng thanh bên" : "Thu gọn thanh bên"}
@@ -273,5 +291,6 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
         ) : null}
       </div>
     </aside>
+    </>
   );
 }

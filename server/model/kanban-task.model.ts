@@ -25,12 +25,21 @@ const KanbanTaskSchema = new Schema<IKanbanTask>({
   createdAt: { type: Date, default: Date.now, index: true },
   projectId: { type: String, index: true },
   startTime: { type: String },
+  actualStartTime: { type: String },
   estTime: { type: Number },
   endTime: { type: String },
   actualTime: { type: Number },
+  completedAt: { type: String },
+  revision: { type: Number, default: 0 },
+  deadlineReminderSentAt: { type: Date },
+  overdueNotifiedAt: { type: Date },
   tags: { type: [String], default: [] },
   linkNote: { type: String },
   history: { type: [TaskHistorySchema], default: [] },
+  workflowId: { type: String, index: true },
+  workflowStepId: { type: String, index: true },
+  participantId: { type: String, index: true },
+  isFromWorkflow: { type: Boolean, default: false },
 });
 
 export const KanbanTaskModel = model<IKanbanTask>("KanbanTask", KanbanTaskSchema);

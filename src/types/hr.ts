@@ -1,4 +1,99 @@
-export type HRSubTabType = "SƠ ĐỒ TỔ CHỨC" | "GIAO VIỆC KANBAN" | "ĐÀO TẠO";
+export type HRSubTabType = "SƠ ĐỒ TỔ CHỨC" | "GIAO VIỆC KANBAN" | "ĐÀO TẠO" | "QUY TRÌNH" | "LỊCH";
+
+export interface WorkflowSubTask {
+  id: string;
+  title: string;
+  assigneeUid?: string;
+  assignee?: string;
+  done?: boolean;
+}
+
+export interface WorkflowStep {
+  id: string;
+  title: string;
+  description?: string;
+  /** Single assignee (legacy) */
+  assigneeUid?: string;
+  assignee?: string;
+  /** Multiple assignees */
+  assigneeUids?: string[];
+  /** Related persons (người liên quan) */
+  relatedUids?: string[];
+  /** Domain / project tag */
+  domain?: string;
+  /** Priority: urgent_important | urgent | important | normal */
+  priority?: "urgent_important" | "urgent" | "important" | "normal";
+  /** Deadline type relative to stage start */
+  deadlineType?: "same_day" | "after_1" | "after_2" | "after_x" | "none" | "custom_time";
+  /** Used when deadlineType = after_x */
+  deadlineDays?: number;
+  /** Specific time HH:mm when deadlineType = custom_time */
+  deadlineTime?: string;
+  /** @deprecated Không còn phân loại ô — giữ lại để tương thích dữ liệu cũ */
+  type?: "start" | "task" | "approval" | "end";
+  estDays?: number;
+  /** Kết quả / đầu ra mong đợi của bước */
+  deliverable?: string;
+  /** Lưu ý / điều kiện thực hiện */
+  note?: string;
+  /** Sub-tasks (công việc con) */
+  subTasks?: WorkflowSubTask[];
+  docLinks?: string[];
+  /** @deprecated Không còn dùng canvas — giữ lại để tương thích dữ liệu cũ */
+  position?: { x: number; y: number };
+}
+
+export interface WorkflowEdge {
+  id: string;
+  source: string;
+  target: string;
+  label?: string;
+}
+
+/** Một "công việc" (case) đang đi qua quy trình, đứng ở cột (bước) hiện tại */
+export interface WorkflowParticipant {
+  id: string;
+  /** Tên công việc (VD: "Onboarding Nguyễn Văn A") */
+  name: string;
+  /** Người phụ trách chính — fallback nhận task khi bước không gán ai */
+  userUid?: string;
+  avatar?: string;
+  /** id của bước hiện tại; "__done__" = đã hoàn thành */
+  currentStepId: string;
+  note?: string;
+  /** Mô tả chi tiết công việc */
+  description?: string;
+  /** Người liên quan */
+  relatedUids?: string[];
+  /** Độ ưu tiên của công việc (dùng khi bước không có priority riêng) */
+  priority?: "urgent_important" | "urgent" | "important" | "normal";
+  /** Ngày bắt đầu dự kiến (YYYY-MM-DD) */
+  startDate?: string;
+  /** Hạn hoàn thành toàn quy trình (YYYY-MM-DD) */
+  dueDate?: string;
+  /** Link tài liệu/hồ sơ đính kèm */
+  docLinks?: string[];
+  /** Công việc con riêng của case — sinh task Kanban ở bước đầu tiên */
+  customSubTasks?: WorkflowSubTask[];
+  projectId?: string;
+  startedAt?: string;
+  updatedAt?: string;
+}
+
+export interface Workflow {
+  id: string;
+  name: string;
+  description?: string;
+  category?: string;
+  steps: WorkflowStep[];
+  edges?: WorkflowEdge[];
+  participants?: WorkflowParticipant[];
+  /** Tự chuyển case sang bước kế khi mọi task Kanban của bước hiện tại hoàn thành */
+  autoAdvance?: boolean;
+  companyCode: string;
+  creatorUid: string;
+  createdAt: any;
+}
 
 export interface EmployeeNode {
   id: string;
@@ -46,12 +141,19 @@ export interface HRTask {
   // New Notion fields
   projectId?: string;
   startTime?: string;
+  actualStartTime?: string;
   estTime?: number;
   endTime?: string;
   actualTime?: number;
+  completedAt?: string;
+  revision?: number;
   tags?: string[];
   linkNote?: string;
   history?: TaskHistoryEntry[];
+  workflowId?: string;
+  workflowStepId?: string;
+  participantId?: string;
+  isFromWorkflow?: boolean;
 }
 
 export interface Lesson {

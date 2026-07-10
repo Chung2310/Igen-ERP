@@ -62,6 +62,16 @@ export interface IElevenLabsAccessConfig {
   apiKey?: string;
 }
 
+export interface IGoogleDriveIntegration {
+  isConnected: boolean;
+  driveEmail: string;
+  accessToken: string;
+  refreshToken: string;
+  tokenExpiredAt: Date;
+  rootFolderId?: string;
+  connectedAt?: Date;
+}
+
 export interface IUser extends Document {
   email: string;
   password?: string; // Hashed password
@@ -72,6 +82,7 @@ export interface IUser extends Document {
   facebookIntegration?: IFacebookIntegration | null;
   tiktokIntegration?: ITikTokIntegration | null;
   zaloIntegration?: IZaloIntegration | null;
+  googleDriveIntegration?: IGoogleDriveIntegration | null;
   aiAutoReplyConfig?: IAiAutoReplyConfig | null;
   heygenAccess?: IHeyGenAccessConfig | null;
   elevenlabsAccess?: IElevenLabsAccessConfig | null;
@@ -88,3 +99,4 @@ export interface IUser extends Document {
   companyName?: string;
   permissions?: string[];
 }
+

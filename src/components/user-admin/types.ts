@@ -1,6 +1,6 @@
 import { AdminUserBalance } from "../../services/walletService";
 import { RolePermission } from "../../services/rolePermissionService";
-import { CompanyHeyGenConfig, CompanyProfile, UserProfile } from "../../types";
+import { CompanyProfile, UserProfile } from "../../types";
 
 export type UserAdminTabKey = "users" | "roles" | "balance";
 
@@ -45,5 +45,4 @@ export interface CompanyEditFormState {
   name: string;
   code: string;
   ownerEmail: string;
-  heygenConfig: CompanyHeyGenConfig;
 }

@@ -99,18 +99,34 @@
   --color-blue-800: #075985;
   --color-blue-900: #0c4a6e;
 
-  --color-indigo-50: #e8efff;
-  --color-indigo-100: #dbe7ff;
+  --color-cyan-50: #e6f6ff;
+  --color-cyan-100: #d7f4ff;
+  --color-cyan-200: #b8dcff;
+  --color-cyan-300: #8cc7ff;
+  --color-cyan-400: #38bdf8;
+  --color-cyan-500: #00aeca;
+  --color-cyan-600: #008bad;
+  --color-cyan-700: #006f8d;
+  --color-cyan-800: #075985;
+  --color-cyan-900: #0c4a6e;
+  --color-cyan-950: #082f49;
+
+  --color-indigo-50: #e6f6ff;
+  --color-indigo-100: #d7f4ff;
   --color-indigo-150: #d2ddfb;
-  --color-indigo-200: #c7d7fe;
-  --color-indigo-300: #a9c2ff;
-  --color-indigo-400: #7da2ff;
-  --color-indigo-500: #3f7df4;
-  --color-indigo-600: #2563eb;
-  --color-indigo-650: #1d4ed8;
-  --color-indigo-700: #1d4ed8;
-  --color-indigo-800: #1e40af;
-  --color-indigo-900: #172554;
+  --color-indigo-200: #b8dcff;
+  --color-indigo-300: #8cc7ff;
+  --color-indigo-400: #38bdf8;
+  --color-indigo-500: #00aeca;
+  --color-indigo-550: #008bad;
+  --color-indigo-600: #008bad;
+  --color-indigo-650: #006f8d;
+  --color-indigo-655: #006f8d;
+  --color-indigo-700: #006f8d;
+  --color-indigo-750: #075985;
+  --color-indigo-800: #075985;
+  --color-indigo-900: #0c4a6e;
+  --color-indigo-950: #082f49;
 
   --color-purple-50: #f3e8ff;
   --color-purple-100: #ead5ff;
@@ -170,6 +186,10 @@
   --color-red-700: #93000a;
   --color-red-800: #690005;
   --color-red-900: #410002;
+
+  --color-brand-primary: var(--color-cyan-600);
+  --color-brand-sidebar: #08222f;
+  --color-brand-bg: var(--color-background);
 }
 
 /* Force Vietnamese unicode range to use Be Vietnam Pro (designed for Vietnamese) */
@@ -266,10 +286,15 @@
   --color-red-600: #f87171;
   --color-red-800: #dc2626;
 
-  --color-indigo-50: #151833;
-  --color-indigo-100: #222650;
-  --color-indigo-600: #818cf8;
-  --color-indigo-800: #4f46e5;
+  --color-indigo-50: #121e2d;
+  --color-indigo-100: #1b2f47;
+  --color-indigo-600: #38bdf8;
+  --color-indigo-800: #0284c7;
+
+  --color-cyan-50: #121e2d;
+  --color-cyan-100: #1b2f47;
+  --color-cyan-600: #38bdf8;
+  --color-cyan-800: #0284c7;
 
   --color-emerald-50: #0f241d;
   --color-emerald-100: #17382c;

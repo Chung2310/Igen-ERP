@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { Suspense, lazy } from "react";
 import { RefreshCw } from "lucide-react";
 import Sidebar from "./pages/Sidebar";
@@ -6,11 +7,18 @@ import { ToastContainer } from "./pages/Toast";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import type { TabType } from "./types";
 import { SEOHead } from "./seo/SEOHead";
-import { AUTH_SEO, getSeoForTab } from "./seo/seo-config";
+import { AUTH_SEO, getSeoForTab, tabToPath } from "./seo/seo-config";
 import { AppRouterView, useTabRouter } from "./router";
+import { subTabToSlug } from "./router/subTabRoutes";
 import { socketService } from "./services/socketService";
+import { NotificationToastContainer } from "./components/notification/NotificationToastContainer";
+import { browserNotificationService } from "./services/browserNotificationService";
+import { pushService } from "./services/pushService";
 
 const AuthPage = lazy(() => import("./pages/AuthPage"));
+const ChatbotWidget = lazy(() =>
+  import("./components/common/ChatbotWidget").then((m) => ({ default: m.ChatbotWidget }))
+);
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const TermsOfService = lazy(() => import("./pages/TermsOfService"));
 const UserDataDeletion = lazy(() => import("./pages/UserDataDeletion"));
@@ -18,9 +26,10 @@ const LandingPage = lazy(() => import("./pages/LandingPage"));
 
 function AppContent() {
   const { user, userProfile, loading } = useAuth();
+  const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
   const currentPath = normalizePublicPath(window.location.pathname);
   const isLandingPage = currentPath === "/" || currentPath === "/landing" || currentPath === "/landing.html";
-  const isLandingGuestPage = isLandingPage && !Boolean(user && userProfile);
+  const isLandingGuestPage = isLandingPage && !(user && userProfile);
   const isPrivacyPage = currentPath === "/privacy-policy" || currentPath === "/privacy-policy.html";
   const isTermsPage = currentPath === "/terms-of-service" || currentPath === "/terms-of-service.html";
   const isDeletionPage = currentPath === "/user-data-deletion" || currentPath === "/user-data-deletion.html";
@@ -41,6 +50,37 @@ function AppContent() {
       socketService.disconnect();
     }
   }, [user]);
+
+  // Thông báo tin nhắn mới khi người dùng không xem giao diện:
+  // - Tab bị ẩn/thu nhỏ → Notification API (tại đây)
+  // - Đóng hẳn tab → Web Push qua Service Worker (server đẩy cho thành viên offline)
+  React.useEffect(() => {
+    if (!user || !userProfile) return;
+
+    void (async () => {
+      const permission = await browserNotificationService.requestPermission();
+      if (permission === "granted") {
+        await pushService.subscribe();
+      }
+    })();
+
+    const unsubscribe = socketService.on("internal_new_message", (data: any) => {
+      const msg = data?.message;
+      if (!msg) return;
+      const senderId = msg.senderId && typeof msg.senderId === "object" ? msg.senderId._id : msg.senderId;
+      if (senderId === userProfile.uid) return;
+      if (!document.hidden) return; // Đang xem giao diện — âm thanh/badge trong app đã lo
+
+      const body = msg.content && msg.content.trim() ? msg.content.slice(0, 120) : "Đã gửi tệp đính kèm";
+      browserNotificationService.show(`Tin nhắn mới từ ${msg.senderName || "đồng nghiệp"}`, {
+        body,
+        tag: `chat-${data.roomId}`,
+        onClick: () => setActiveTab("TRÒ CHUYỆN" as TabType),
+      });
+    });
+    return unsubscribe;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, userProfile?.uid]);
 
   React.useEffect(() => {
     if (!user || !userProfile) {
@@ -117,22 +157,54 @@ function AppContent() {
   }
 
   const handleSearchNavigation = (tab: TabType, subTab?: string) => {
+    // Cập nhật URL (path của tab đích + ?sub=) TRƯỚC khi phát popstate — nếu phát
+    // popstate khi pathname còn là tab cũ, useTabRouter sẽ resolve ngược về tab cũ.
+    const url = new URL(window.location.href);
+    url.pathname = tabToPath(tab);
+    const slug = subTab ? subTabToSlug(tab, subTab) : "";
+    if (slug) {
+      url.searchParams.set("sub", slug);
+    } else {
+      url.searchParams.delete("sub");
+    }
+    if (url.toString() !== window.location.href) {
+      window.history.pushState(null, "", url.toString());
+    }
     setActiveTab(tab);
+    // popstate để useSubTabRouter của trang đang mở đọc lại ?sub= từ URL mới
+    window.dispatchEvent(new Event("popstate"));
     console.log(`Global Navigation search redirected to Tab: ${tab}, Section: ${subTab || "None"}`);
   };
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-background font-sans text-on-surface" id="app_root_layout">
+    <div className="flex h-dvh w-screen overflow-hidden bg-background font-sans text-on-surface" id="app_root_layout">
       <SEOHead meta={getSeoForTab(activeTab)} />
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+      <Sidebar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        mobileOpen={mobileNavOpen}
+        onMobileClose={() => setMobileNavOpen(false)}
+      />
 
-      <div className="flex h-screen flex-1 flex-col overflow-hidden" id="main_content_area">
-        <Header currentTab={activeTab} onSearchSelect={handleSearchNavigation} />
+      <div className="flex h-dvh min-w-0 flex-1 flex-col overflow-hidden" id="main_content_area">
+        <Header
+          currentTab={activeTab}
+          onSearchSelect={handleSearchNavigation}
+          onMenuClick={() => setMobileNavOpen(true)}
+        />
 
-        <main className="flex-1 overflow-hidden bg-surface p-6" id="primary_page_container">
+        <main className="flex-1 overflow-hidden bg-surface p-3 sm:p-6" id="primary_page_container">
           <AppRouterView activeTab={activeTab} userProfile={userProfile} />
         </main>
       </div>
+
+      {/* Trợ lý ảo AI — chatbot ngữ cảnh dữ liệu doanh nghiệp */}
+      <Suspense fallback={null}>
+        <ChatbotWidget />
+      </Suspense>
+
+      {/* Popup thông báo nổi thời gian thực ở góc dưới bên phải màn hình */}
+      <NotificationToastContainer onNavigate={handleSearchNavigation} />
     </div>
   );
 }

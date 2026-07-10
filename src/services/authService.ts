@@ -1,4 +1,4 @@
-import { UserProfile, CompanyProfile, TelegramLinkStatus, CompanyHeyGenConfig } from "../types";
+import { UserProfile, CompanyProfile, TelegramLinkStatus } from "../types";
 
 // Helper để lấy token từ localStorage
 export function getAccessToken(): string | null {
@@ -55,10 +55,12 @@ export const authService = {
 
   // Đăng xuất
   async logout(): Promise<void> {
+    const token = localStorage.getItem("accessToken");
     localStorage.removeItem("accessToken");
     try {
       await fetch("/api/v1/auth/logout", {
         method: "POST",
+        headers: token ? { "Authorization": `Bearer ${token}` } : {},
       });
     } catch (err) {
       console.error("Lỗi khi gọi API đăng xuất phía server:", err);
@@ -172,6 +174,26 @@ export const authService = {
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       throw new Error(data.message || "Không thể lấy danh sách người dùng doanh nghiệp");
+    }
+
+    const result = await res.json();
+    return (result.data || []).map((u: any) => ({
+      ...u,
+      uid: u._id,
+    }));
+  },
+
+  // Lấy danh sách đồng nghiệp cùng công ty (mọi user đã đăng nhập đều dùng được)
+  async getColleagues(): Promise<UserProfile[]> {
+    const res = await fetch(`/api/v1/auth/users/colleagues`, {
+      headers: {
+        "Authorization": `Bearer ${getAccessToken()}`,
+      },
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.message || "Không thể lấy danh sách đồng nghiệp");
     }
 
     const result = await res.json();
@@ -397,12 +419,14 @@ export const authService = {
     };
   },
 
-  async getCompanyHeyGenConfig(companyCode: string): Promise<{
+  async getCompanyDriveConfig(companyCode: string): Promise<{
     companyCode: string;
     companyName: string;
-    heygenConfig: CompanyHeyGenConfig;
+    driveFolderLink: string;
+    driveConnected: boolean;
+    driveConnectedEmail: string;
   }> {
-    const res = await fetch(`/api/v1/auth/companies/${encodeURIComponent(companyCode)}/heygen`, {
+    const res = await fetch(`/api/v1/auth/companies/${encodeURIComponent(companyCode)}/drive`, {
       headers: {
         "Authorization": `Bearer ${getAccessToken()}`,
       },
@@ -410,57 +434,33 @@ export const authService = {
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      throw new Error(data.message || "Không thể lấy cấu hình HeyGen doanh nghiệp");
+      throw new Error(data.message || "Không thể lấy cấu hình Google Drive doanh nghiệp");
     }
 
     const result = await res.json();
     return result.data;
   },
 
-  async updateCompanyHeyGenConfig(companyCode: string, updateData: Partial<CompanyHeyGenConfig>): Promise<{
-    companyCode: string;
-    companyName: string;
-    heygenConfig: CompanyHeyGenConfig;
-  }> {
-    const res = await fetch(`/api/v1/auth/companies/${encodeURIComponent(companyCode)}/heygen`, {
-      method: "PUT",
+  /** Lấy link OAuth để mở popup kết nối Google Drive. */
+  async getDriveOAuthUrl(companyCode: string): Promise<string> {
+    const res = await fetch(`/api/v1/auth/companies/${encodeURIComponent(companyCode)}/drive/oauth-url`, {
       headers: {
-        "Content-Type": "application/json",
         "Authorization": `Bearer ${getAccessToken()}`,
       },
-      body: JSON.stringify(updateData),
     });
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      throw new Error(data.message || "Không thể cập nhật cấu hình HeyGen doanh nghiệp");
+      throw new Error(data.message || "Không tạo được link kết nối Google Drive");
     }
 
     const result = await res.json();
-    return result.data;
+    return result.data.url as string;
   },
 
-  async testCompanyHeyGenConfig(companyCode: string, apiKey?: string): Promise<any> {
-    const res = await fetch(`/api/v1/auth/companies/${encodeURIComponent(companyCode)}/heygen/test`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${getAccessToken()}`,
-      },
-      body: JSON.stringify({ apiKey }),
-    });
-
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      throw new Error(data.message || "Không thể kiểm tra kết nối HeyGen");
-    }
-
-    const result = await res.json();
-    return result.data;
-  },
-
-  async syncCompanyHeyGenLibrary(companyCode: string): Promise<any> {
-    const res = await fetch(`/api/v1/auth/companies/${encodeURIComponent(companyCode)}/heygen/sync`, {
+  /** Ngắt kết nối Google Drive của doanh nghiệp. */
+  async disconnectCompanyDrive(companyCode: string): Promise<void> {
+    const res = await fetch(`/api/v1/auth/companies/${encodeURIComponent(companyCode)}/drive/disconnect`, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${getAccessToken()}`,
@@ -469,11 +469,8 @@ export const authService = {
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      throw new Error(data.message || "Không thể đồng bộ thư viện HeyGen");
+      throw new Error(data.message || "Không thể ngắt kết nối Google Drive");
     }
-
-    const result = await res.json();
-    return result.data;
   },
 
   async getTelegramLinkStatus(): Promise<TelegramLinkStatus> {

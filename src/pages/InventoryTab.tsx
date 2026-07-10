@@ -1,13 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
 import { onAuthStateChanged } from "firebase/auth";
-import { CheckCircle, Cpu, Download, FolderTree, Pencil, Plus, Search, Tags, Trash2, Upload } from "lucide-react";
+import { CheckCircle, Cpu, Download, FolderTree, Pencil, Plus, Search, Tags, Trash2, Upload, ArrowDownRight, ArrowUpRight } from "lucide-react";
 import { InventoryForecastSummary, InventorySubTabType, ProductCategory, ProductItem, StockLog } from "../types";
 import { useSubTabRouter } from "../hooks/useSubTabRouter";
+import { INVENTORY_SUB_TAB_ROUTES } from "../router/subTabRoutes";
 import { toast } from "./Toast";
 import { CategoryModal } from "../components/inventory/CategoryModal";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { inventoryTabs } from "../components/inventory/data";
-import { ProductCard } from "../components/inventory/ProductCard";
+import { ProductCard, formatCurrencyCompact } from "../components/inventory/ProductCard";
 import { Pagination } from "../components/common/Pagination";
 import { ProductModal } from "../components/inventory/ProductModal";
 import { CategoryManagementSection } from "../components/inventory/CategoryManagementSection";
@@ -18,6 +19,7 @@ import { useAuth } from "../context/AuthContext";
 import { inventoryCategoryService } from "../services/inventoryCategoryService";
 import { inventoryProductService } from "../services/inventoryProductService";
 import { inventoryStockLogService } from "../services/inventoryStockLogService";
+import { ViewToggle } from "../components/inventory/ViewToggle";
 
 // Lazy-loaded subcomponents
 const AiForecastPanel = lazy(() =>
@@ -63,13 +65,7 @@ function getStockLogItems(log: StockLog) {
 
 export default function InventoryTab() {
   const { user, userProfile } = useAuth();
-  const INVENTORY_SUB_TAB_ROUTES = [
-    { slug: "danh-muc", value: "DANH MỤC" as InventorySubTabType },
-    { slug: "phan-loai", value: "PHÂN LOẠI SẢN PHẨM" as InventorySubTabType },
-    { slug: "nhap-xuat", value: "NHẬP / XUẤT KHO" as InventorySubTabType },
-    { slug: "du-bao-ai", value: "DỰ BÁO AI" as InventorySubTabType },
-  ] as const;
-  const [subTab, setSubTab] = useSubTabRouter<InventorySubTabType>(INVENTORY_SUB_TAB_ROUTES as any, "DANH MỤC");
+  const [subTab, setSubTab] = useSubTabRouter<InventorySubTabType>(INVENTORY_SUB_TAB_ROUTES, "DANH MỤC");
   const [products, setProducts] = useState<ProductItem[]>([]);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [stockLogs, setStockLogs] = useState<StockLog[]>([]);
@@ -107,6 +103,8 @@ export default function InventoryTab() {
   const [newCategoryDescription, setNewCategoryDescription] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+  const [productViewMode, setProductViewMode] = useState<"grid" | "list">("grid");
+  const [categoryViewMode, setCategoryViewMode] = useState<"grid" | "list">("grid");
   const productImportInputRef = useRef<HTMLInputElement | null>(null);
   const stockLogImportInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -947,7 +945,7 @@ export default function InventoryTab() {
               onChange={handleImportProductsExcel}
             />
             <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center" id="catalog_filters">
-              <div className="flex flex-col gap-2 sm:flex-row">
+              <div className="flex flex-wrap items-center gap-2">
                 <div className="relative w-full sm:w-72">
                   <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
                     <Search className="h-4 w-4 text-gray-400" />
@@ -973,6 +971,7 @@ export default function InventoryTab() {
                     </option>
                   ))}
                 </select>
+                <ViewToggle mode={productViewMode} onChange={setProductViewMode} />
               </div>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <button
@@ -1015,13 +1014,132 @@ export default function InventoryTab() {
               </div>
             ) : (
               <div className="space-y-4">
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" id="products_grid">
-                  {paginatedProducts.map((product) => (
-                    <div key={product.id}>
-                      <ProductCard product={product} onDelete={handleDeleteProduct} onEdit={openEditProductModal} />
-                    </div>
-                  ))}
-                </div>
+                {productViewMode === "grid" ? (
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" id="products_grid">
+                    {paginatedProducts.map((product) => (
+                      <div key={product.id}>
+                        <ProductCard product={product} onDelete={handleDeleteProduct} onEdit={openEditProductModal} />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto rounded-xl border border-gray-150 bg-white shadow-2xs">
+                    <table className="w-full border-collapse text-left text-xs text-slate-600">
+                      <thead className="bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-700 border-b border-gray-150">
+                        <tr>
+                          <th className="px-4 py-3">Ảnh</th>
+                          <th className="px-4 py-3">SKU</th>
+                          <th className="px-4 py-3">Tên sản phẩm</th>
+                          <th className="px-4 py-3">Phân loại</th>
+                          <th className="px-4 py-3">Đơn giá</th>
+                          <th className="px-4 py-3">Tồn kho</th>
+                          <th className="px-4 py-3">Dự báo AI</th>
+                          <th className="px-4 py-3">Trạng thái</th>
+                          <th className="px-4 py-3 text-right">Thao tác</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {paginatedProducts.map((product) => {
+                          const alertState = product.stock <= product.minStockAlert;
+                          const formattedPrice = product.price.toLocaleString("vi-VN");
+                          const compactPrice = formatCurrencyCompact(product.price);
+                          const formattedStock = product.stock.toLocaleString("vi-VN");
+                          return (
+                            <tr key={product.id} className={`hover:bg-slate-50/55 transition-colors ${product.status === "Inactive" ? "opacity-60" : ""}`}>
+                              <td className="px-4 py-2.5">
+                                {product.imageUrl ? (
+                                  <img src={product.imageUrl} alt={product.name} className="h-8 w-8 rounded-md object-cover border border-slate-150" />
+                                ) : (
+                                  <div className="flex h-8 w-8 items-center justify-center rounded-md bg-slate-100 text-[9px] font-semibold text-slate-400 border border-slate-150">
+                                    No img
+                                  </div>
+                                )}
+                              </td>
+                              <td className="px-4 py-2.5 font-mono text-[10px] tracking-wide text-gray-400">{product.sku}</td>
+                              <td className="px-4 py-2.5">
+                                <div>
+                                  <div className="font-bold text-slate-800" title={product.name}>{product.name}</div>
+                                  {product.brand && (
+                                    <div className="text-[10px] text-gray-450 font-medium">Hiệu: {product.brand}</div>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="px-4 py-2.5">
+                                <span className="inline-flex rounded-md bg-blue-50 border border-blue-100/50 px-1.5 py-0.5 text-[10px] font-medium text-blue-600">
+                                  {product.category}
+                                </span>
+                              </td>
+                              <td className="px-4 py-2.5 font-mono font-semibold text-indigo-600 whitespace-nowrap" title={`${formattedPrice} đ`}>
+                                {compactPrice} đ
+                              </td>
+                              <td className="px-4 py-2.5">
+                                <span className={`font-mono font-semibold ${alertState && product.status !== "Inactive" ? "text-red-500" : "text-slate-700"}`}>
+                                  {formattedStock} {product.unit || "chiếc"}
+                                </span>
+                                {alertState && product.status !== "Inactive" && (
+                                  <span className="ml-1.5 rounded-full bg-red-50 px-1 py-0.5 text-[8px] font-bold text-red-500 border border-red-100">
+                                    Thiếu
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-4 py-2.5">
+                                <span
+                                  className={`inline-flex items-center gap-1 font-semibold text-[10px] ${
+                                    product.demandForecast === "Tăng mạnh"
+                                      ? "text-red-500"
+                                      : product.demandForecast === "Ổn định"
+                                        ? "text-green-600"
+                                        : "text-amber-600"
+                                  }`}
+                                >
+                                  {product.demandForecast === "Giảm nhẹ" ? (
+                                    <ArrowDownRight className="h-3 w-3" />
+                                  ) : product.demandForecast === "Ổn định" ? (
+                                    <CheckCircle className="h-3 w-3" />
+                                  ) : (
+                                    <ArrowUpRight className="h-3 w-3" />
+                                  )}
+                                  {product.demandForecast}
+                                </span>
+                              </td>
+                              <td className="px-4 py-2.5">
+                                {product.status === "Inactive" ? (
+                                  <span className="rounded-full border border-gray-250 bg-gray-50 px-2 py-0.5 text-[9px] font-bold text-gray-500">
+                                    Ngừng bán
+                                  </span>
+                                ) : (
+                                  <span className="rounded-full border border-emerald-100 bg-emerald-50 px-2 py-0.5 text-[9px] font-bold text-emerald-700">
+                                    Đang bán
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-4 py-2.5 text-right">
+                                <div className="flex items-center justify-end gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => openEditProductModal(product)}
+                                    className="inline-flex items-center gap-1 rounded-md p-1.5 text-[10px] font-bold text-slate-600 hover:bg-slate-100 hover:text-blue-600 transition-colors"
+                                    title="Sửa"
+                                  >
+                                    <Pencil className="h-3.5 w-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteProduct(product)}
+                                    className="inline-flex items-center gap-1 rounded-md p-1.5 text-[10px] font-bold text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors"
+                                    title="Xóa"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
                 <Pagination currentPage={productPage} totalPages={totalProductPages} onPageChange={setProductPage} />
               </div>
             )}
@@ -1074,8 +1192,8 @@ export default function InventoryTab() {
                 </h4>
                 <p className="mt-1 text-xs leading-snug text-gray-500">Mỗi phân loại sẽ xuất hiện trong form khai báo sản phẩm mới.</p>
               </div>
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <div className="relative sm:w-72">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <div className="relative w-full sm:w-72">
                   <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
                     <Search className="h-4 w-4 text-gray-400" />
                   </div>
@@ -1087,37 +1205,110 @@ export default function InventoryTab() {
                     onChange={(event) => setSearchCategory(event.target.value)}
                   />
                 </div>
-                <button onClick={openCreateCategoryModal} className="flex items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition-all hover:bg-blue-700">
+                <ViewToggle mode={categoryViewMode} onChange={setCategoryViewMode} />
+                <button onClick={openCreateCategoryModal} className="flex items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition-all hover:bg-blue-700 w-full sm:w-auto shrink-0">
                   <Plus className="h-4 w-4" />
                   Thêm phân loại
                 </button>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 xl:grid-cols-3">
-              {filteredCategories.map((category) => (
-                <div key={category.id} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-xs transition-all hover:shadow-md">
-                  <div className="flex items-start justify-between gap-3">
+            {categoryViewMode === "grid" ? (
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
+                {filteredCategories.map((category) => (
+                  <div key={category.id} className="flex flex-col justify-between rounded-xl border border-gray-150 bg-white p-4 shadow-2xs transition-all hover:border-blue-200 hover:shadow-xs">
                     <div>
-                      <h5 className="font-bold leading-snug text-slate-800">{category.name}</h5>
-                      <p className="mt-1 font-mono text-[10px] font-bold text-gray-400">Mã: {category.code}</p>
+                      <div className="flex items-start justify-between gap-2">
+                        <h5 className="truncate font-bold text-slate-800 text-sm" title={category.name}>
+                          {category.name}
+                        </h5>
+                        <span className="shrink-0 rounded-md border border-slate-100 bg-slate-50 px-1.5 py-0.5 font-mono text-[9px] font-bold text-slate-500">
+                          {category.code}
+                        </span>
+                      </div>
+                      <p className={`mt-2 line-clamp-2 text-xs leading-relaxed ${category.description && category.description !== "Chưa có mô tả. Có thể bổ sung sau." ? "text-slate-500" : "italic text-slate-400"}`}>
+                        {category.description || "Chưa có mô tả"}
+                      </p>
                     </div>
-                    <span className="rounded-full border border-blue-100 bg-blue-50 px-2.5 py-1 text-[9px] font-bold text-blue-700">{category.status}</span>
+                    <div className="mt-4 flex items-center justify-between border-t border-slate-50 pt-3">
+                      <span className="inline-flex items-center gap-1 rounded-full border border-blue-100 bg-blue-50/60 px-2 py-0.5 text-[9px] font-bold text-blue-700">
+                        <span className="h-1 w-1 rounded-full bg-blue-500"></span>
+                        {category.status}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => openEditCategoryModal(category)}
+                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-bold text-slate-600 transition-colors hover:bg-slate-50 hover:text-blue-600"
+                        >
+                          <Pencil className="h-3 w-3" />
+                          Sửa
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteCategory(category)}
+                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-bold text-red-600 transition-colors hover:bg-red-50 hover:text-red-700"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                          Xóa
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                  <p className="mt-4 min-h-10 text-xs leading-5 text-gray-500">{category.description}</p>
-                  <div className="mt-5 flex items-center justify-end gap-2 border-t border-gray-100 pt-4">
-                    <button type="button" onClick={() => openEditCategoryModal(category)} className="flex items-center gap-1.5 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-[11px] font-bold text-blue-700 transition-colors hover:bg-blue-100">
-                      <Pencil className="h-3.5 w-3.5" />
-                      Sửa
-                    </button>
-                    <button type="button" onClick={() => handleDeleteCategory(category)} className="flex items-center gap-1.5 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-[11px] font-bold text-red-700 transition-colors hover:bg-red-100">
-                      <Trash2 className="h-3.5 w-3.5" />
-                      Xóa
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-xl border border-gray-150 bg-white shadow-2xs">
+                <table className="w-full border-collapse text-left text-xs text-slate-600">
+                  <thead className="bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-700 border-b border-gray-150">
+                    <tr>
+                      <th className="px-4 py-3">Tên phân loại</th>
+                      <th className="px-4 py-3">Mã</th>
+                      <th className="px-4 py-3">Mô tả</th>
+                      <th className="px-4 py-3">Trạng thái</th>
+                      <th className="px-4 py-3 text-right">Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredCategories.map((category) => (
+                      <tr key={category.id} className="hover:bg-slate-50/55 transition-colors">
+                        <td className="px-4 py-3 font-bold text-slate-800">{category.name}</td>
+                        <td className="px-4 py-3 font-mono font-bold text-slate-500">{category.code}</td>
+                        <td className="px-4 py-3 text-slate-500 max-w-xs truncate" title={category.description}>
+                          {category.description || <span className="italic text-slate-400">Chưa có mô tả</span>}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="inline-flex items-center gap-1 rounded-full border border-blue-100 bg-blue-50/60 px-2 py-0.5 text-[9px] font-bold text-blue-700">
+                            <span className="h-1 w-1 rounded-full bg-blue-500"></span>
+                            {category.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => openEditCategoryModal(category)}
+                              className="inline-flex items-center gap-1 rounded-md p-1.5 text-[10px] font-bold text-slate-600 hover:bg-slate-100 hover:text-blue-600 transition-colors"
+                              title="Sửa"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteCategory(category)}
+                              className="inline-flex items-center gap-1 rounded-md p-1.5 text-[10px] font-bold text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors"
+                              title="Xóa"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
 
             {!categoryLoading && filteredCategories.length === 0 && (
               <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-10 text-center">

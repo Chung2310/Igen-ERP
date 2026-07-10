@@ -5,11 +5,14 @@ import { useAuth } from "../context/AuthContext";
 import { authService, getAccessToken } from "../services/authService";
 import { toast } from "./Toast";
 import { useSubTabRouter } from "../hooks/useSubTabRouter";
+import { HR_SUB_TAB_ROUTES } from "../router/subTabRoutes";
 
 // Lazy-loaded subcomponents
 const OrgChartTab = lazy(() => import("../components/hr/OrgChartTab"));
 const KanbanTab = lazy(() => import("../components/hr/KanbanTab"));
 const TrainingTab = lazy(() => import("../components/hr/TrainingTab"));
+const WorkflowTab = lazy(() => import("../components/hr/WorkflowTab"));
+const CalendarTab = lazy(() => import("../components/hr/CalendarTab"));
 
 export default function HRTab() {
   const { userProfile } = useAuth();
@@ -18,12 +21,7 @@ export default function HRTab() {
     userProfile?.role === "admin" ||
     userProfile?.role === "manager";
 
-  const HR_SUB_TAB_ROUTES = [
-    { slug: "so-do", value: "SƠ ĐỒ TỔ CHỨC" as HRSubTabType },
-    { slug: "kanban", value: "GIAO VIỆC KANBAN" as HRSubTabType },
-    { slug: "dao-tao", value: "ĐÀO TẠO" as HRSubTabType },
-  ] as const;
-  const [subTab, setSubTab] = useSubTabRouter<HRSubTabType>(HR_SUB_TAB_ROUTES as any, "SƠ ĐỒ TỔ CHỨC");
+  const [subTab, setSubTab] = useSubTabRouter<HRSubTabType>(HR_SUB_TAB_ROUTES, "SƠ ĐỒ TỔ CHỨC");
   const [usersList, setUsersList] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -136,7 +134,7 @@ export default function HRTab() {
       {/* Sub Tabs switcher navigation bar */}
       <div className="border-b border-gray-200 bg-gray-50/50 p-2 text-xs flex justify-between items-center shrink-0" id="hr_sub_tabs_bar">
         <div className="flex gap-2">
-          {["SƠ ĐỒ TỔ CHỨC", "GIAO VIỆC KANBAN", "ĐÀO TẠO"].map((tab) => (
+          {["SƠ ĐỒ TỔ CHỨC", "GIAO VIỆC KANBAN", "ĐÀO TẠO", "QUY TRÌNH", "LỊCH"].map((tab) => (
             <button
               key={tab}
               onClick={() => setSubTab(tab as HRSubTabType)}
@@ -197,6 +195,10 @@ export default function HRTab() {
             employees={employees}
             isManager={isManager}
             usersList={usersList}
+            onNavigateToWorkflow={(workflowId) => {
+              sessionStorage.setItem("targetWorkflowId", workflowId);
+              setSubTab("QUY TRÌNH");
+            }}
           />
         )}
 
@@ -208,6 +210,29 @@ export default function HRTab() {
             courses={courses}
             setCourses={setCourses}
             fetchCourses={fetchCourses}
+            employees={employees}
+          />
+        )}
+
+        {subTab === "QUY TRÌNH" && (
+          <WorkflowTab
+            userProfile={userProfile}
+            selectedCompanyCode={selectedCompanyCode}
+            isManager={isManager}
+            usersList={usersList}
+            onNavigateToKanban={(taskId) => {
+              sessionStorage.setItem("targetKanbanTaskId", taskId);
+              setSubTab("GIAO VIỆC KANBAN");
+            }}
+          />
+        )}
+
+        {subTab === "LỊCH" && (
+          <CalendarTab
+            userProfile={userProfile}
+            selectedCompanyCode={selectedCompanyCode}
+            isManager={isManager}
+            usersList={usersList}
             employees={employees}
           />
         )}

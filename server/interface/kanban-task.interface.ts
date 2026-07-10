@@ -21,10 +21,19 @@ export interface IKanbanTask extends Document {
   createdAt: Date;
   projectId?: string;
   startTime?: string;
+  actualStartTime?: string;
   estTime?: number;
   endTime?: string;
   actualTime?: number;
+  completedAt?: string;
+  revision?: number;
+  deadlineReminderSentAt?: Date;
+  overdueNotifiedAt?: Date;
   tags?: string[];
   linkNote?: string;
   history?: ITaskHistoryEntry[];
+  workflowId?: string;
+  workflowStepId?: string;
+  participantId?: string;
+  isFromWorkflow?: boolean;
 }

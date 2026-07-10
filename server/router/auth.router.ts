@@ -3,6 +3,7 @@ import Joi from "joi";
 import { authController } from "../controller/auth.controller";
 import { requireAuth, requireRole, requirePermission, requireCompanyAccess, requireHierarchyAccess } from "../middleware/auth";
 import { validateRequest } from "../middleware/validation";
+import { authRateLimiter, refreshTokenRateLimiter } from "../middleware/rate-limit";
 import { UserModel } from "../model/user.model";
 
 export const authRouter = Router();
@@ -113,17 +114,17 @@ const updateProfileSchema = {
   }),
 };
 
-// Đăng ký tài khoản mới
-authRouter.post("/register", validateRequest(registerSchema), authController.register);
+// Đăng ký tài khoản mới (giới hạn tần suất chống spam/brute-force)
+authRouter.post("/register", authRateLimiter, validateRequest(registerSchema), authController.register);
 
-// Đăng nhập tài khoản
-authRouter.post("/login", validateRequest(loginSchema), authController.login);
+// Đăng nhập tài khoản (giới hạn tần suất chống brute-force mật khẩu)
+authRouter.post("/login", authRateLimiter, validateRequest(loginSchema), authController.login);
 
 // Làm mới Access Token bằng Refresh Token
-authRouter.post("/refresh-token", authController.refreshToken);
+authRouter.post("/refresh-token", refreshTokenRateLimiter, authController.refreshToken);
 
-// Đăng xuất tài khoản
-authRouter.post("/logout", authController.logout);
+// Đăng xuất tài khoản (yêu cầu Access Token)
+authRouter.post("/logout", requireAuth as any, authController.logout as any);
 
 // Lấy thông tin tài khoản hiện tại (yêu cầu Access Token)
 authRouter.get("/me", requireAuth as any, authController.getMe as any);
@@ -146,7 +147,7 @@ const changePasswordSchema = {
 };
 
 // Thay đổi mật khẩu người dùng hiện tại (yêu cầu Access Token)
-authRouter.post("/change-password", requireAuth as any, validateRequest(changePasswordSchema), authController.changePassword as any);
+authRouter.post("/change-password", authRateLimiter, requireAuth as any, validateRequest(changePasswordSchema), authController.changePassword as any);
 
 const registerCompanySchema = {
   body: Joi.object({
@@ -224,6 +225,9 @@ const getUsersSchema = {
   }),
 };
 
+// Lấy danh sách thành viên cùng công ty cho tất cả user (để dùng trong tính năng chia sẻ tài nguyên, chat...)
+authRouter.get("/users/colleagues", requireAuth as any, authController.getColleagues as any);
+
 // Lấy danh sách thành viên doanh nghiệp (yêu cầu Access Token và quyền user:read)
 authRouter.get("/users", requireAuth as any, requirePermission("user:read") as any, validateRequest(getUsersSchema), authController.getUsers as any);
 
@@ -276,33 +280,37 @@ authRouter.patch(
   authController.updateCompany as any
 );
 
+
+
+
+// Google Drive per-company qua OAuth (Quản lý tài nguyên)
+// Lưu ý: callback phải đặt TRƯỚC route "/companies/:code/drive" để không bị nuốt bởi ":code".
 authRouter.get(
-  "/companies/:code/heygen",
-  requireAuth as any,
-  validateRequest(companyCodeParamSchema),
-  authController.getCompanyHeyGenConfig as any
+  "/companies/drive/oauth-callback",
+  authController.driveOAuthCallback as any
 );
 
-authRouter.put(
-  "/companies/:code/heygen",
+authRouter.get(
+  "/companies/:code/drive",
   requireAuth as any,
-  validateRequest(updateCompanyHeyGenSchema),
-  authController.updateCompanyHeyGenConfig as any
+  validateRequest(companyCodeParamSchema),
+  authController.getCompanyDriveConfig as any
+);
+
+authRouter.get(
+  "/companies/:code/drive/oauth-url",
+  requireAuth as any,
+  validateRequest(companyCodeParamSchema),
+  authController.getDriveOAuthUrl as any
 );
 
 authRouter.post(
-  "/companies/:code/heygen/test",
-  requireAuth as any,
-  validateRequest(testCompanyHeyGenSchema),
-  authController.testCompanyHeyGenConfig as any
-);
-
-authRouter.post(
-  "/companies/:code/heygen/sync",
+  "/companies/:code/drive/disconnect",
   requireAuth as any,
   validateRequest(companyCodeParamSchema),
-  authController.syncCompanyHeyGenLibrary as any
+  authController.disconnectDrive as any
 );
+
 
 const bulkUpdateUsersSchema = {
   body: Joi.object({

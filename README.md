@@ -37,14 +37,12 @@ Dự án này sử dụng GitHub Actions để tự động hóa toàn bộ quá
 | `SSH_PORT` | Cổng kết nối SSH (tùy chọn). | Mặc định là `22` nếu không thiết lập. |
 
 ### 2. Quy trình kiểm tra tích hợp (CI)
-Mỗi khi bạn thực hiện **Push** hoặc **Tạo Pull Request** hướng về nhánh `develop` hoặc `main`, GitHub Actions sẽ tự động chạy:
-1. **Kiểm tra kiểu dữ liệu (Type check & Lint)**: Chạy `yarn lint` (`tsc --noEmit`) trên toàn bộ dự án.
-2. **Kiểm tra biên dịch**: Chạy thử build dự án (`yarn build`).
-3. **Kiểm tra Cloud Functions**: Cài đặt và build thử TypeScript cho Firebase Functions.
-4. **Kiểm thử Security Rules**: Chạy test suite `node scratch/permission_test.mjs` trực tiếp để bảo vệ quy tắc bảo mật Firestore.
+Mỗi khi bạn thực hiện **Push** hoặc **Tạo Pull Request** hướng về nhánh `develop` hoặc `production`, GitHub Actions sẽ tự động chạy:
+1. **Kiểm tra kiểu dữ liệu (Type check)**: Chạy `yarn typecheck` (`tsc --noEmit`) trên toàn bộ dự án.
+2. **Kiểm tra biên dịch (chỉ trên Pull Request)**: Chạy thử build dự án (`yarn build`) để bắt lỗi build trước khi merge. Khi push, bước này được bỏ qua vì Docker image đã build lại toàn bộ.
 
 ### 3. Quy trình triển khai tự động (CD)
 Khi mã nguồn được merge thành công vào các nhánh chỉ định, CD sẽ tự động triển khai tương ứng:
 * **Nhánh `develop`**: Triển khai lên môi trường **Staging** trên VPS (đường dẫn `/opt/igen-erp/staging`).
-* **Nhánh `main`**: Triển khai lên môi trường **Production** trên VPS (đường dẫn `/opt/igen-erp/production`).
+* **Nhánh `production`**: Triển khai lên môi trường **Production** trên VPS (đường dẫn `/opt/igen-erp/production`).
 * Cả hai môi trường đều tự động cập nhật Firebase Cloud Functions, Firestore & Storage Security Rules.
