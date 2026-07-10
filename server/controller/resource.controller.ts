@@ -99,6 +99,20 @@ export const resourceController = {
     }
   },
 
+  /** GET /api/v1/resources/:id */
+  async getDetail(req: AuthenticatedRequest, res: Response) {
+    try {
+      const { ResourceItemModel } = await import("../model/resource-item.model");
+      const item = await ResourceItemModel.findOne({ _id: req.params.id, companyCode: getCompanyCode(req) }).lean();
+      if (!item) {
+        return res.status(404).json({ success: false, message: "Không tìm thấy tài nguyên." });
+      }
+      return res.json({ success: true, item });
+    } catch (error) {
+      return sendError(res, error, "getDetail");
+    }
+  },
+
   /** GET /api/v1/resources/breadcrumb/:id */
   async breadcrumb(req: AuthenticatedRequest, res: Response) {
     try {

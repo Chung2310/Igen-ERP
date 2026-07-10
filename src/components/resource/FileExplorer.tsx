@@ -508,6 +508,55 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentFolder]);
 
+  // Listen to ?id= query param to auto-open/navigate to resource
+  const [lastHandledId, setLastHandledId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const idParam = params.get("id");
+    if (!idParam) return;
+    if (lastHandledId === idParam) return;
+
+    let isSubscribed = true;
+
+    async function handleAutoNavigate() {
+      try {
+        const item = await resourceService.getDetail(idParam);
+        if (!isSubscribed || !item) return;
+
+        setLastHandledId(idParam);
+
+        if (item.type === "folder") {
+          setCurrentFolder(item._id);
+        } else {
+          setCurrentFolder(item.parentId || null);
+
+          const isGoogleDoc = item.mimeType?.startsWith("application/vnd.google-apps") || 
+            (item.fileUrl && (item.fileUrl.includes("drive.google.com") || item.fileUrl.includes("docs.google.com")));
+
+          if (isGoogleDoc && onOpenFile) {
+            onOpenFile(item);
+          } else {
+            setPreviewItem(item);
+          }
+        }
+
+        // Clean up URL parameter
+        const url = new URL(window.location.href);
+        url.searchParams.delete("id");
+        window.history.replaceState(null, "", url.toString());
+      } catch (err) {
+        console.error("Failed to auto-navigate in FileExplorer:", err);
+      }
+    }
+
+    void handleAutoNavigate();
+
+    return () => {
+      isSubscribed = false;
+    };
+  }, [window.location.search, onOpenFile, lastHandledId]);
+
   // Compute filtered items
   const filteredItems = items.filter((item) => {
     // 1. Lọc theo tên file (Search Query)
@@ -2294,13 +2343,14 @@ const ResourceCard: React.FC<{
                   onClick={(e) => {
                     e.stopPropagation();
                     onToggleMenu(e); // Close menu
-                    if (!isFolder && item.fileUrl) {
-                      const url = `${window.location.origin}/api/v1/media/download?url=${encodeURIComponent(item.fileUrl)}&filename=${encodeURIComponent(item.name)}`;
+                    const itemId = item._id || (item as any).id;
+                    if (itemId) {
+                      const url = `${window.location.origin}${window.location.pathname}?id=${itemId}`;
                       navigator.clipboard.writeText(url);
-                      toast.success("Đã sao chép đường dẫn tải tệp.");
+                      toast.success(isFolder ? "Đã sao chép đường dẫn thư mục." : "Đã sao chép đường dẫn tệp.");
                     } else {
                       navigator.clipboard.writeText(window.location.href);
-                      toast.success("Đã sao chép đường dẫn thư mục.");
+                      toast.success("Đã sao chép đường dẫn.");
                     }
                   }}
                   className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"

@@ -52,15 +52,16 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ item, onClos
 
   const handleShare = async () => {
     try {
-      // Ưu tiên hộp thoại chia sẻ hệ thống nếu có, ngược lại sao chép liên kết.
+      const itemId = item._id || (item as any).id;
+      const shareUrl = `${window.location.origin}${window.location.pathname}?id=${itemId}`;
+
       if (navigator.share) {
-        await navigator.share({ title: item.name, url });
+        await navigator.share({ title: item.name, url: shareUrl });
         return;
       }
-      await navigator.clipboard.writeText(url);
-      toast.success("Đã sao chép liên kết chia sẻ vào clipboard.");
+      await navigator.clipboard.writeText(shareUrl);
+      toast.success("Đã sao chép liên kết tài liệu vào clipboard.");
     } catch (e) {
-      // Người dùng hủy hộp thoại chia sẻ thì bỏ qua, chỉ báo lỗi thật sự khi copy fail.
       if ((e as Error)?.name === "AbortError") return;
       toast.error("Không sao chép được liên kết. Vui lòng thử lại.");
     }
