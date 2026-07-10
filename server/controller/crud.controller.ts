@@ -108,6 +108,12 @@ export const crudController = {
             message: "Chỉ quản lý và admin mới có quyền đăng ký lịch nghỉ phép.",
           });
         }
+        if (req.body.status === "approved") {
+          return res.status(403).json({
+            status: "error",
+            message: "Bạn không được phép tự duyệt đơn nghỉ phép lúc tạo.",
+          });
+        }
       }
 
       const item = await crudService.create(modelName, req.body, companyCode);
@@ -153,6 +159,12 @@ export const crudController = {
             return res.status(403).json({
               status: "error",
               message: "Chỉ quản lý và admin mới có quyền chỉnh sửa lịch nghỉ phép.",
+            });
+          }
+          if (req.body.status === "approved" && event.creatorId === req.user?.id) {
+            return res.status(403).json({
+              status: "error",
+              message: "Người tạo đơn nghỉ phép không được phép tự duyệt đơn nghỉ phép của mình.",
             });
           }
         }

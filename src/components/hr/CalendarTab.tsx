@@ -722,6 +722,13 @@ export default function CalendarTab({
       return;
     }
 
+    if (formType === "leave" && formStatus === "approved") {
+      if (formMode === "create" || selectedItem?.creatorId === userProfile?.uid) {
+        toast.error("Người tạo đơn không được phép tự phê duyệt đơn nghỉ phép.");
+        return;
+      }
+    }
+
     const selectedEmployee = employees.find((emp) => emp.id === formEmployeeId);
 
     const payload: Partial<CalendarItem> = {
@@ -1415,11 +1422,14 @@ export default function CalendarTab({
                     </label>
                     <select
                       value={formStatus}
+                      disabled={formMode === "create" || selectedItem?.creatorId === userProfile?.uid}
                       onChange={(e) => setFormStatus(e.target.value)}
-                      className="w-full px-3.5 py-2 border border-slate-200/80 bg-white rounded-2xl text-xs focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-semibold cursor-pointer transition-all"
+                      className="w-full px-3.5 py-2 border border-slate-200/80 bg-white rounded-2xl text-xs focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-semibold cursor-pointer transition-all disabled:bg-slate-50 disabled:text-slate-400"
                     >
                       <option value="pending">Chờ phê duyệt</option>
-                      <option value="approved">Đã phê duyệt</option>
+                      {!(formMode === "create" || selectedItem?.creatorId === userProfile?.uid) && (
+                        <option value="approved">Đã phê duyệt</option>
+                      )}
                     </select>
                   </div>
                 )}
