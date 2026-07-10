@@ -8,6 +8,8 @@ import { TrainingEnrollmentModel } from "../model/training-enrollment.model";
 import { UserModel } from "../model/user.model";
 import { WorkflowModel } from "../model/workflow.model";
 import { HRCalendarEventModel } from "../model/hr-calendar-event.model";
+import { HRLeaveTemplateModel } from "../model/hr-leave-template.model";
+import { HRLeaveApplicationModel } from "../model/hr-leave-application.model";
 import { TimekeepingLogModel } from "../model/timekeeping.model";
 import { SupportedModelName, ICRUDQueryOptions } from "../interface/crud.interface";
 import mongoose from "mongoose";
@@ -167,6 +169,8 @@ const MODEL_MAPPING: Record<SupportedModelName, mongoose.Model<any>> = {
   "workflows": WorkflowModel,
   "users": UserModel,
   "hr-calendar-events": HRCalendarEventModel,
+  "hr-leave-templates": HRLeaveTemplateModel,
+  "hr-leave-applications": HRLeaveApplicationModel,
   "timekeeping-logs": TimekeepingLogModel,
 };
 
