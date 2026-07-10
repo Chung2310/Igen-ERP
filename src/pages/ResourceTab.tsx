@@ -175,6 +175,41 @@ export default function ResourceTab() {
     }
   }, [userProfile]);
 
+  // Listen to ?id= query param to switch space & subTab
+  useEffect(() => {
+    if (!userProfile) return;
+    const params = new URLSearchParams(window.location.search);
+    const idParam = params.get("id");
+    if (!idParam) return;
+
+    let isSubscribed = true;
+
+    const handleUrlNavigation = async () => {
+      try {
+        const item = await resourceService.getDetail(idParam);
+        if (!isSubscribed || !item) return;
+
+        if (item.roomId) {
+          setSelectedSpace(item.roomId);
+        } else {
+          setSelectedSpace("personal");
+          if (item.creatorUid) {
+            setSelectedOwnerId(item.creatorUid);
+          }
+        }
+        setSubTab("TÀI LIỆU KHÁC");
+      } catch (err) {
+        console.error("Failed to auto-navigate space from URL:", err);
+      }
+    };
+
+    void handleUrlNavigation();
+
+    return () => {
+      isSubscribed = false;
+    };
+  }, [window.location.search, userProfile]);
+
   // Dùng uid ổn định làm dep để tránh infinite loop khi object userProfile thay đổi reference
   const userUid = userProfile?.uid || userProfile?.id;
   const userRole = userProfile?.role;

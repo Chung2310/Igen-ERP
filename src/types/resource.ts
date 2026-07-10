@@ -9,6 +9,7 @@ export interface ResourceItem {
   type: ResourceType;
   name: string;
   parentId: string | null;
+  roomId?: string | null;
   fileUrl?: string;
   mimeType?: string;
   size?: number;
