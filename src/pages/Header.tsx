@@ -214,9 +214,6 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
           if (isTabHidden(item.tab)) {
             return false;
           }
-          if (item.tab === "HIỆU SUẤT AI" && userProfile?.role !== "superadmin") {
-            return false;
-          }
           return true;
         })
         .filter(
