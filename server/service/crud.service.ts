@@ -547,6 +547,15 @@ export const crudService = {
       throw new Error("Không tìm thấy tài nguyên hoặc bạn không có quyền xóa.");
     }
 
+    // Xóa dự án → gỡ projectId khỏi các task Kanban để chúng hiện về nhóm "Chưa phân loại"
+    // (await để frontend refetch ngay sau khi xóa không thấy task mồ côi bị ẩn khỏi bảng)
+    if (modelName === "projects") {
+      await KanbanTaskModel.updateMany(
+        { companyCode: deletedItem.companyCode || companyCode, projectId: id },
+        { $set: { projectId: "" } }
+      );
+    }
+
     // Xóa quy trình → lưu trữ các task Kanban chưa xong đã sinh từ quy trình đó
     if (modelName === "workflows") {
       workflowLinkService

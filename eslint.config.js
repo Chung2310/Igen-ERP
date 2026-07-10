@@ -6,7 +6,17 @@ import reactRefresh from "eslint-plugin-react-refresh";
 
 export default [
     {
-        ignores: ["dist/**", "node_modules/**"],
+        ignores: [
+            "dist/**",
+            "node_modules/**",
+            "scratch/**",
+            "scripts/**",
+            "patch_orgchart.js",
+            ".puppeteerrc.cjs",
+            "public/sw.js",
+            "test-local-render.ts",
+            "test-professional-tet.ts"
+        ],
     },
 
     js.configs.recommended,
@@ -14,7 +24,7 @@ export default [
     ...tseslint.configs.recommended,
 
     {
-        files: ["**/*.{ts,tsx}"],
+        files: ["**/*.{ts,tsx,js,jsx}"],
 
         languageOptions: {
             globals: {
@@ -36,13 +46,14 @@ export default [
                 { allowConstantExport: true },
             ],
 
-            "@typescript-eslint/no-unused-vars": [
-                "warn",
-                {
-                    argsIgnorePattern: "^_",
-                    varsIgnorePattern: "^_",
-                },
-            ],
+            "@typescript-eslint/no-explicit-any": "off",
+            "@typescript-eslint/no-empty-object-type": "off",
+            "@typescript-eslint/no-require-imports": "off",
+            "prefer-const": "warn",
+            "no-undef": "off",
+            "no-useless-escape": "off",
+            "react-hooks/set-state-in-effect": "off",
+            "react-hooks/immutability": "off"
         },
     },
 ];

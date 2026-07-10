@@ -166,6 +166,7 @@ export default function DashboardTab() {
   const [totalInventoryValue, setTotalInventoryValue] = useState<string>("0");
   const [rawProducts, setRawProducts] = useState<any[]>([]);
   const [monthlyRevenue, setMonthlyRevenue] = useState<number[]>(Array(12).fill(0));
+  const [totalProductsSold, setTotalProductsSold] = useState<number>(0);
 
   const [filteredTotalRevenue, setFilteredTotalRevenue] = useState<number>(0);
   const [growthRate, setGrowthRate] = useState<number>(0);
@@ -179,7 +180,7 @@ export default function DashboardTab() {
   const [todayTimekeeping, setTodayTimekeeping] = useState<any>(null);
   const [isTimekeepingLoading, setIsTimekeepingLoading] = useState<boolean>(false);
 
-  type DateFilterType = "day" | "week" | "year" | "custom";
+  type DateFilterType = "day" | "month" | "year" | "custom";
   const [dateFilter, setDateFilter] = useState<DateFilterType>("day");
   const [customStartDate, setCustomStartDate] = useState<string>(() => {
     const d = new Date();
@@ -355,6 +356,7 @@ export default function DashboardTab() {
   }, []);
 
   const fetchTodayTimekeeping = async () => {
+    setIsTimekeepingLoading(true);
     try {
       const token = localStorage.getItem("accessToken");
       if (!token) return;
@@ -369,6 +371,8 @@ export default function DashboardTab() {
       }
     } catch (err) {
       console.error("Lỗi khi tải trạng thái chấm công:", err);
+    } finally {
+      setIsTimekeepingLoading(false);
     }
   };
 
@@ -438,10 +442,9 @@ export default function DashboardTab() {
       if (dateFilter === "day") {
         const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         return date >= startOfToday;
-      } else if (dateFilter === "week") {
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(now.getDate() - 7);
-        return date >= sevenDaysAgo;
+      } else if (dateFilter === "month") {
+        const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        return date >= startOfThisMonth;
       } else if (dateFilter === "year") {
         const startOfYear = new Date(now.getFullYear(), 0, 1);
         return date >= startOfYear;
@@ -591,15 +594,12 @@ export default function DashboardTab() {
       prevStart.setDate(prevStart.getDate() - 1);
       prevEnd = new Date(end);
       prevEnd.setDate(prevEnd.getDate() - 1);
-    } else if (dateFilter === "week") {
-      start = new Date();
-      start.setDate(now.getDate() - 7);
-      start.setHours(0, 0, 0, 0);
+    } else if (dateFilter === "month") {
+      start = new Date(now.getFullYear(), now.getMonth(), 1);
+      end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
       
-      prevStart = new Date(start);
-      prevStart.setDate(prevStart.getDate() - 7);
-      prevEnd = new Date(start);
-      prevEnd.setMilliseconds(-1);
+      prevStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      prevEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
     } else if (dateFilter === "year") {
       start = new Date(now.getFullYear(), 0, 1);
       
@@ -685,15 +685,8 @@ export default function DashboardTab() {
         }
       });
       trendData = intervals.map((label, idx) => ({ label, value: values[idx] }));
-    } else if (dateFilter === "week") {
-      const datesList: Date[] = [];
-      for (let i = 6; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(now.getDate() - i);
-        d.setHours(0, 0, 0, 0);
-        datesList.push(d);
-      }
-      const values = Array(7).fill(0);
+    } else if (dateFilter === "month") {
+      const values = Array(4).fill(0);
       rawStockLogs.forEach((log) => {
         const isOutbound = log.type === "xuất";
         const isCompleted = log.status === "Hoàn thành" || log.status === "Thành công";
@@ -701,17 +694,21 @@ export default function DashboardTab() {
 
         const logDate = parseSafeDate(log.createdAt);
         if (logDate && logDate >= start && logDate <= end) {
-          const logDayStart = new Date(logDate.getFullYear(), logDate.getMonth(), logDate.getDate()).getTime();
-          const idx = datesList.findIndex(d => d.getTime() === logDayStart);
-          if (idx !== -1) {
-            values[idx] += getLogRevenue(log);
-          }
+          const dateNum = logDate.getDate();
+          let idx = 0;
+          if (dateNum <= 7) idx = 0;
+          else if (dateNum <= 14) idx = 1;
+          else if (dateNum <= 21) idx = 2;
+          else idx = 3;
+          values[idx] += getLogRevenue(log);
         }
       });
-      trendData = datesList.map((d, idx) => ({
-        label: `${d.getDate()}/${d.getMonth() + 1}`,
-        value: values[idx]
-      }));
+      trendData = [
+        { label: "Tuần 1", value: values[0] },
+        { label: "Tuần 2", value: values[1] },
+        { label: "Tuần 3", value: values[2] },
+        { label: "Tuần 4", value: values[3] },
+      ];
     } else if (dateFilter === "year") {
       const months = ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10", "T11", "T12"];
       const values = Array(12).fill(0);
@@ -859,6 +856,7 @@ export default function DashboardTab() {
       }
     }
     setProductSegments(calculatedSegments);
+    setTotalProductsSold(totalQty);
 
   }, [rawStockLogs, rawProducts, rawLeads, dateFilter, customStartDate, customEndDate]);
 
@@ -917,7 +915,7 @@ export default function DashboardTab() {
             <div className="inline-flex rounded-xl bg-slate-100/80 p-1">
               {[
                 { id: "day", label: "Ngày" },
-                { id: "week", label: "Tuần" },
+                { id: "month", label: "Tháng" },
                 { id: "year", label: "Năm" },
                 { id: "custom", label: "Tùy chọn" },
               ].map((f) => {
@@ -998,6 +996,7 @@ export default function DashboardTab() {
           orderCount={filteredOrderCount}
           trendData={revenueTrendData}
           productSegments={productSegments}
+          totalProductsSold={totalProductsSold}
         />
       )}
     </div>
@@ -1062,7 +1061,17 @@ function OverviewPanel({
   const [showLowStockModal, setShowLowStockModal] = useState<boolean>(false);
   const [showPendingReviewModal, setShowPendingReviewModal] = useState<boolean>(false);
 
-  const goToTab = (tab: string) => {
+  const showMarketing = !isTabHidden("MARKETING");
+  const showCrm = !isTabHidden("SALES CRM");
+  const visibleCardsCount = 2 + (showMarketing ? 1 : 0) + (showCrm ? 1 : 0);
+  let topGridClass = "grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4";
+  if (visibleCardsCount === 3) {
+    topGridClass = "grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3";
+  } else if (visibleCardsCount === 2) {
+    topGridClass = "grid grid-cols-1 gap-5 md:grid-cols-2";
+  }
+
+  const goToTab = (tab: string, subTab?: string) => {
     const pathMap: Record<string, string> = {
       "TỔNG QUAN": "/tong-quan",
       "NHÂN SỰ": "/nhan-su",
@@ -1077,8 +1086,11 @@ function OverviewPanel({
       "TRÒ CHUYỆN": "/tro-chuyen",
       "QUẢN LÝ TÀI NGUYÊN": "/quan-ly-tai-nguyen",
     };
-    const path = pathMap[tab];
+    let path = pathMap[tab];
     if (path) {
+      if (subTab) {
+        path += `?sub=${subTab}`;
+      }
       window.history.pushState(null, "", path);
       window.dispatchEvent(new PopStateEvent("popstate"));
     }
@@ -1102,7 +1114,7 @@ function OverviewPanel({
           onRefresh={onRefreshTimekeeping}
         />
 
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+        <div className={topGridClass}>
           <ModuleCard
             icon={Users}
             tone="amber"
@@ -1115,10 +1127,10 @@ function OverviewPanel({
             onClick={() => goToTab("NHÂN SỰ")}
           />
           <ModuleCard icon={PackageCheck} tone="blue" title="Kho & Sản phẩm" value={totalProducts} label="Tổng sản phẩm" footer="Đơn chờ xuất" footerValue={`${pendingShipments} Đơn`} progress={78} alert lowCount={lowStockCount} onClick={() => goToTab("KHO & SẢN PHẨM")} />
-          {!isTabHidden("MARKETING") && (
+          {showMarketing && (
             <ModuleCard icon={Megaphone} tone="slate" title="Marketing" value={marketingPendingCount} label="Bài chờ duyệt" footer="Tỉ lệ duyệt" footerValue={`${marketingApprovalRate}%`} progress={Number(marketingApprovalRate) || 0} onClick={() => goToTab("MARKETING")} />
           )}
-          {!isTabHidden("SALES CRM") && (
+          {showCrm && (
             <SalesCard value={formatDashboardCurrency(totalRevenue, 1, false)} leadsCount={leadsCount} />
           )}
         </div>
@@ -1140,7 +1152,7 @@ function OverviewPanel({
             }
             alert
             lowCount={summary ? String(summary.projects.overdueTasks) : "..."}
-            onClick={() => goToTab("NHÂN SỰ")}
+            onClick={() => goToTab("NHÂN SỰ", "kanban")}
           />
           <ModuleCard
             icon={GraduationCap}
@@ -1155,7 +1167,7 @@ function OverviewPanel({
                 ? Math.min(100, Math.round((summary.students.newStudents / summary.students.totalStudents) * 100))
                 : 0
             }
-            onClick={() => goToTab("QUẢN LÝ HỌC VIÊN")}
+            onClick={() => goToTab("QUẢN LÝ HỌC VIÊN", "hoc-vien")}
           />
           <ModuleCard
             icon={Wallet}
@@ -1174,7 +1186,7 @@ function OverviewPanel({
                 )
                 : 0
             }
-            onClick={() => goToTab("QUẢN LÝ HỌC VIÊN")}
+            onClick={() => goToTab("QUẢN LÝ HỌC VIÊN", "hoc-phi")}
           />
           <ModuleCard
             icon={UserCheck}
@@ -1189,6 +1201,7 @@ function OverviewPanel({
                 ? Math.round((summary.timekeeping.checkedInToday / summary.timekeeping.totalEmployees) * 100)
                 : 0
             }
+            onClick={() => goToTab("NHÂN SỰ", "lich")}
           />
           <ModuleCard
             icon={MessageSquare}
@@ -1229,7 +1242,7 @@ function OverviewPanel({
                 ? Math.round((summary.training.enrollments.completed / summary.training.enrollments.total) * 100)
                 : 0
             }
-            onClick={() => goToTab("NHÂN SỰ")}
+            onClick={() => goToTab("NHÂN SỰ", "dao-tao")}
           />
         </div>
 
@@ -1278,7 +1291,7 @@ function OverviewPanel({
           </div>
         )}
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className={`grid grid-cols-1 gap-6 ${showMarketing ? "lg:grid-cols-2" : "lg:grid-cols-1"}`}>
           <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md transition-all duration-300">
             <div className="mb-5 flex items-center justify-between">
               <h3 className="text-sm font-bold uppercase tracking-wider text-gray-800">Doanh thu</h3>
@@ -1286,10 +1299,10 @@ function OverviewPanel({
             </div>
             <BarChart data={trendData} />
           </div>
-          {!isTabHidden("MARKETING") && <DonutCard cards={marketingCards} />}
+          {showMarketing && <DonutCard cards={marketingCards} />}
         </div>
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className={`grid grid-cols-1 gap-6 ${showMarketing ? "lg:grid-cols-2" : "lg:grid-cols-1"}`}>
           <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col justify-between">
             <div>
               <div className="mb-5 flex items-center justify-between">
@@ -1333,7 +1346,7 @@ function OverviewPanel({
             {showLowStockModal && <LowStockModal products={lowStockItems} onClose={() => setShowLowStockModal(false)} />}
           </div>
 
-          {!isTabHidden("MARKETING") && (
+          {showMarketing && (
           <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col justify-between">
             <div>
               <div className="mb-5 flex items-center justify-between">
@@ -1563,6 +1576,7 @@ function RevenuePanel({
   orderCount,
   trendData,
   productSegments,
+  totalProductsSold,
 }: {
   marketingCards: ContentApprovalCard[];
   totalRevenue: number;
@@ -1572,6 +1586,7 @@ function RevenuePanel({
   orderCount: number;
   trendData: Array<{ label: string; value: number }>;
   productSegments: Array<{ label: string; value: number; color: string }>;
+  totalProductsSold: number;
 }) {
   const formatCurrency = (val: number) => {
     return formatDashboardCurrency(val, 2, false);
@@ -1601,7 +1616,12 @@ function RevenuePanel({
             <h3 className="text-2xl font-bold text-gray-800">Cơ cấu nguồn</h3>
             <MoreVertical className="h-5 w-5 text-gray-500" />
           </div>
-          <DonutCard compact segments={productSegments} />
+          <DonutCard
+            compact
+            centerLabel="Tổng sản phẩm"
+            centerValue={totalProductsSold > 0 ? `${totalProductsSold.toLocaleString("vi-VN")}` : "0"}
+            segments={productSegments}
+          />
         </div>
       </div>
     </div>
@@ -1817,7 +1837,7 @@ function DonutCard({
   segments: propSegments,
   title = "Hiệu suất kênh Marketing",
   centerLabel = "Tổng số",
-  centerValue = "100%",
+  centerValue: propCenterValue,
 }: {
   compact?: boolean;
   cards?: ContentApprovalCard[];
@@ -1830,6 +1850,8 @@ function DonutCard({
   const circumference = 2 * Math.PI * radius;
 
   let segments = propSegments;
+  let centerValue = propCenterValue;
+
   if (!segments) {
     // Chỉ tính toán phân bổ phần trăm cho những bài viết ĐÃ ĐƯỢC DUYỆT (hoặc đã lên lịch/đăng)
     const approvedCards = cards.filter(c =>
@@ -1839,71 +1861,124 @@ function DonutCard({
       c.status === "failed"
     );
     const total = approvedCards.length;
-    let facebookPct = 50;
-    let zaloPct = 30;
-    let tiktokPct = 20;
 
-    if (total > 0) {
+    if (total === 0) {
+      segments = [
+        { label: "Chưa có dữ liệu", value: 100, color: "#cbd5e1", display: "0 bài" }
+      ];
+      centerValue = "0";
+    } else {
       const facebookCount = approvedCards.filter(c => c.channel === "Facebook").length;
       const zaloCount = approvedCards.filter(c => c.channel === "Zalo").length;
       const tiktokCount = approvedCards.filter(c => c.channel === "TikTok").length;
 
       const validTotal = facebookCount + zaloCount + tiktokCount;
+      let facebookPct = 50;
+      let zaloPct = 30;
+      let tiktokPct = 20;
+
       if (validTotal > 0) {
         facebookPct = Math.round((facebookCount / validTotal) * 100);
         zaloPct = Math.round((zaloCount / validTotal) * 100);
         tiktokPct = Math.max(0, 100 - facebookPct - zaloPct);
       }
-    }
 
-    segments = [
-      { label: "Facebook", value: facebookPct, color: "#06b6c7" },
-      { label: "Zalo", value: zaloPct, color: "#60a5fa" },
-      { label: "TikTok", value: tiktokPct, color: "#e99a2c" },
-    ];
+      segments = [
+        { label: "Facebook", value: facebookPct, color: "#06b6c7", display: `${facebookCount} bài (${facebookPct}%)` },
+        { label: "Zalo", value: zaloPct, color: "#60a5fa", display: `${zaloCount} bài (${zaloPct}%)` },
+        { label: "TikTok", value: tiktokPct, color: "#e99a2c", display: `${tiktokCount} bài (${tiktokPct}%)` },
+      ];
+      centerValue = String(total);
+    }
+  } else {
+    if (!centerValue) {
+      centerValue = "100%";
+    }
   }
   let offset = 0;
+  const isVertical = compact || !!propSegments;
 
   return (
     <div className={compact ? "" : "rounded-3xl border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md transition-all duration-300"}>
-      {!compact && <h3 className="mb-8 text-sm font-bold uppercase tracking-wider text-gray-800">{title}</h3>}
-      <div className="grid items-center gap-7 md:grid-cols-[minmax(160px,224px)_minmax(0,1fr)]">
-        <div className="relative mx-auto h-48 w-48 shrink-0 sm:h-56 sm:w-56">
-          <svg className="h-full w-full -rotate-90" viewBox="0 0 180 180" aria-label={title}>
-            <circle cx="90" cy="90" r={radius} fill="none" stroke="#f8fafc" strokeWidth="28" />
-            {segments.map((segment) => {
-              const dash = (segment.value / 100) * circumference;
-              const circle = (
-                <circle
-                  key={segment.label}
-                  cx="90"
-                  cy="90"
-                  r={radius}
-                  fill="none"
-                  stroke={segment.color}
-                  strokeWidth="28"
-                  strokeDasharray={`${dash} ${circumference - dash}`}
-                  strokeDashoffset={-offset}
-                  strokeLinecap="butt"
-                >
-                  <title>{`${segment.label}: ${segment.display || `${segment.value}%`}`}</title>
-                </circle>
-              );
-              offset += dash;
-              return circle;
-            })}
-          </svg>
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-            <span className="text-xs text-gray-400 font-semibold uppercase tracking-wider">{centerLabel}</span>
-            <strong className="font-sans text-2xl font-extrabold text-gray-800">{centerValue}</strong>
+      {!compact && <h3 className="mb-6 text-sm font-bold uppercase tracking-wider text-gray-800">{title}</h3>}
+      
+      {isVertical ? (
+        <div className="flex flex-col items-center gap-5 w-full">
+          <div className="relative h-40 w-40 shrink-0">
+            <svg className="h-full w-full -rotate-90" viewBox="0 0 180 180" aria-label={title}>
+              <circle cx="90" cy="90" r={radius} fill="none" stroke="#f8fafc" strokeWidth="24" />
+              {segments.map((segment) => {
+                const dash = (segment.value / 100) * circumference;
+                const circle = (
+                  <circle
+                    key={segment.label}
+                    cx="90"
+                    cy="90"
+                    r={radius}
+                    fill="none"
+                    stroke={segment.color}
+                    strokeWidth="24"
+                    strokeDasharray={`${dash} ${circumference - dash}`}
+                    strokeDashoffset={-offset}
+                    strokeLinecap="butt"
+                  >
+                    <title>{`${segment.label}: ${segment.display || `${segment.value}%`}`}</title>
+                  </circle>
+                );
+                offset += dash;
+                return circle;
+              })}
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+              <span className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">{centerLabel}</span>
+              <strong className="font-sans text-xl font-extrabold text-gray-800">{centerValue}</strong>
+            </div>
+          </div>
+          <div className="w-full space-y-2.5 text-xs border-t border-slate-100/85 pt-4">
+            {segments.map((segment) => (
+              <Legend key={segment.label} color={segment.color} label={segment.label} value={segment.display || `${segment.value}%`} />
+            ))}
           </div>
         </div>
-        <div className="min-w-0 space-y-4 text-sm">
-          {segments.map((segment) => (
-            <Legend key={segment.label} color={segment.color} label={segment.label} value={segment.display || `${segment.value}%`} />
-          ))}
+      ) : (
+        <div className="grid items-center gap-6 sm:grid-cols-[minmax(140px,200px)_minmax(0,1fr)]">
+          <div className="relative mx-auto h-40 w-40 shrink-0 sm:h-44 sm:w-44">
+            <svg className="h-full w-full -rotate-90" viewBox="0 0 180 180" aria-label={title}>
+              <circle cx="90" cy="90" r={radius} fill="none" stroke="#f8fafc" strokeWidth="24" />
+              {segments.map((segment) => {
+                const dash = (segment.value / 100) * circumference;
+                const circle = (
+                  <circle
+                    key={segment.label}
+                    cx="90"
+                    cy="90"
+                    r={radius}
+                    fill="none"
+                    stroke={segment.color}
+                    strokeWidth="24"
+                    strokeDasharray={`${dash} ${circumference - dash}`}
+                    strokeDashoffset={-offset}
+                    strokeLinecap="butt"
+                  >
+                    <title>{`${segment.label}: ${segment.display || `${segment.value}%`}`}</title>
+                  </circle>
+                );
+                offset += dash;
+                return circle;
+              })}
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+              <span className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">{centerLabel}</span>
+              <strong className="font-sans text-xl font-extrabold text-gray-800">{centerValue}</strong>
+            </div>
+          </div>
+          <div className="min-w-0 space-y-3.5 text-xs">
+            {segments.map((segment) => (
+              <Legend key={segment.label} color={segment.color} label={segment.label} value={segment.display || `${segment.value}%`} />
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -2052,12 +2127,12 @@ function Recommendation({ title, body, action, danger = false }: any) {
 
 function Legend({ color, label, value }: any) {
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
-      <span className="flex min-w-0 items-center gap-3 text-gray-800">
-        <i className="h-3.5 w-3.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
-        <span className="truncate">{label}</span>
+    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2.5 text-xs">
+      <span className="flex min-w-0 items-center gap-2 text-gray-650">
+        <i className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
+        <span className="truncate font-semibold text-left">{label}</span>
       </span>
-      <strong className="font-mono text-gray-800">{value}</strong>
+      <strong className="font-mono text-gray-800 font-bold shrink-0">{value}</strong>
     </div>
   );
 }
