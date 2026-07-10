@@ -21,6 +21,7 @@ export interface IKanbanTask extends Document {
   createdAt: Date;
   projectId?: string;
   startTime?: string;
+  actualStartTime?: string;
   estTime?: number;
   endTime?: string;
   actualTime?: number;

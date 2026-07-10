@@ -792,10 +792,12 @@ export default function KanbanTab({
       let endTimeUpdate = undefined;
       let actualTimeUpdate = undefined;
       let startTimeUpdate = undefined;
+      let actualStartTimeUpdate = undefined;
 
       // Bắt đầu làm → tự ghi thời gian bắt đầu (không bắt người dùng điền tay)
-      if (newStatus === "In Progress" && taskObj && !taskObj.startTime) {
-        startTimeUpdate = getLocalDatetimeString();
+      if (newStatus === "In Progress" && taskObj) {
+        if (taskObj.isFromWorkflow && !taskObj.actualStartTime) actualStartTimeUpdate = getLocalDatetimeString();
+        else if (!taskObj.startTime) startTimeUpdate = getLocalDatetimeString();
       }
 
       if (newStatus === "Done" && taskObj) {
@@ -828,6 +830,7 @@ export default function KanbanTab({
       if (endTimeUpdate !== undefined) updateData.endTime = endTimeUpdate;
       if (actualTimeUpdate !== undefined) updateData.actualTime = actualTimeUpdate;
       if (startTimeUpdate !== undefined) updateData.startTime = startTimeUpdate;
+      if (actualStartTimeUpdate !== undefined) updateData.actualStartTime = actualStartTimeUpdate;
 
       const res = await fetch(`/api/v1/kanban/tasks/${id}`, {
         method: "PATCH",
