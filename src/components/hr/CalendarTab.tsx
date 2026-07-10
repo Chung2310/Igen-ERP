@@ -733,7 +733,6 @@ export default function CalendarTab({
       }
     }
 
-    const selectedEmployee = employees.find((emp) => emp.id === formEmployeeId);
 
     const payload: Partial<CalendarItem> = {
       type: formType,
@@ -741,8 +740,8 @@ export default function CalendarTab({
       description: formDescription,
       startDate: startDateTime.toISOString(),
       endDate: endDateTime.toISOString(),
-      employeeId: (formType === "leave" || formType === "wfh" || formType === "exception") ? formEmployeeId : undefined,
-      employeeName: (formType === "leave" || formType === "wfh" || formType === "exception") ? (selectedEmployee?.name || userProfile?.displayName) : undefined,
+      employeeId: (formType === "leave" || formType === "wfh" || formType === "exception") ? (userProfile?.uid || "") : undefined,
+      employeeName: (formType === "leave" || formType === "wfh" || formType === "exception") ? (userProfile?.displayName || "") : undefined,
       assigneeId: formType === "reminder" ? formAssigneeId : undefined,
       status: (formType === "leave" || formType === "wfh" || formType === "exception") && formMode === "create" ? "pending" : formStatus as any,
       companyCode: selectedCompanyCode,
@@ -1441,25 +1440,6 @@ export default function CalendarTab({
                   </div>
                 </div>
 
-                {/* Conditional Fields based on Type */}
-                {["leave","wfh","exception"].includes(formType) && (
-                  <div>
-                    <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
-                      {formType === "leave" ? "Nhân sự nghỉ phép" : formType === "wfh" ? "Nhân sự làm tại nhà" : "Nhân sự (Ngoại lệ)"}
-                    </label>
-                    <select
-                      value={formEmployeeId}
-                      onChange={(e) => setFormEmployeeId(e.target.value)}
-                      className="w-full px-3.5 py-2 border border-slate-200/80 bg-white rounded-2xl text-xs focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-semibold cursor-pointer transition-all"
-                    >
-                      {employees.map((emp) => (
-                        <option key={emp.id} value={emp.id}>
-                          {emp.name} ({emp.role})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
 
                 {formType === "reminder" && (
                   <div>
