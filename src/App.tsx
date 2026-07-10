@@ -37,9 +37,6 @@ function AppContent() {
     enabled: !isPublicPage && !loading && Boolean(user && userProfile),
   });
 
-  // Drawer menu chức năng trên mobile — mở bằng nút menu ở Header
-  const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
-
   React.useEffect(() => {
     const token = localStorage.getItem("accessToken");
     if (user && token) {
