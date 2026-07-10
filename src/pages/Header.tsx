@@ -22,14 +22,19 @@ interface HeaderProps {
 }
 
 const searchIndex = [
-  { label: "Tá»•ng quan Doanh nghiá»‡p", tab: "Tá»”NG QUAN" as TabType, keywords: "tong quan dashboard kpi hieu suat bieu do" },
-  { label: "SÆ¡ Ä‘á»“ tá»• chá»©c", tab: "NHÃ‚N Sá»°" as TabType, subTab: "SÆ  Äá»’ Tá»” CHá»¨C", keywords: "hr so do to chuc nhan su phong ban" },
-  { label: "Giao viá»‡c Kanban", tab: "NHÃ‚N Sá»°" as TabType, subTab: "GIAO VIá»†C KANBAN", keywords: "hr giao viec kanban task list cong viec" },
-  { label: "ÄÃ o táº¡o e-Learning", tab: "NHÃ‚N Sá»°" as TabType, subTab: "ÄÃ€O Táº O", keywords: "onboarding hoc tap dao tao kien thuc video" },
-  { label: "Danh má»¥c Kho & Sáº£n pháº©m", tab: "KHO & Sáº¢N PHáº¨M" as TabType, subTab: "DANH Má»¤C", keywords: "kho hang san pham price danh muc gia ban" },
-  { label: "Nháº­p / Xuáº¥t kho hÃ ng", tab: "KHO & Sáº¢N PHáº¨M" as TabType, subTab: "NHáº¬P / XUáº¤T KHO", keywords: "nhap kho xuat kho phieu nhap phieu xuat chung tu" },
-  { label: "Dá»± bÃ¡o AI & cáº£nh bÃ¡o tá»“n kho", tab: "KHO & Sáº¢N PHáº¨M" as TabType, subTab: "Dá»° BÃO AI", keywords: "ai forecast du bao nhu cau canh bao" },
-  { label: "VÃ­ & Náº¡p tiá»n", tab: "VÃ & Náº P TIá»€N" as TabType, keywords: "vi nap tien so du payos vietqr nap bank" },
+  { label: "Tổng quan Doanh nghiệp", tab: "TỔNG QUAN" as TabType, keywords: "tong quan dashboard kpi hieu suat bieu do" },
+  { label: "Sơ đồ tổ chức", tab: "NHÂN SỰ" as TabType, subTab: "SƠ ĐỒ TỔ CHỨC", keywords: "hr so do to chuc nhan su phong ban" },
+  { label: "Giao việc Kanban", tab: "NHÂN SỰ" as TabType, subTab: "GIAO VIỆC KANBAN", keywords: "hr giao viec kanban task list cong viec" },
+  { label: "Đào tạo e-Learning", tab: "NHÂN SỰ" as TabType, subTab: "ĐÀO TẠO", keywords: "onboarding hoc tap dao tao kien thuc video" },
+  { label: "Danh mục Kho & Sản phẩm", tab: "KHO & SẢN PHẨM" as TabType, subTab: "DANH MỤC", keywords: "kho hang san pham price danh muc gia ban" },
+  { label: "Nhập / Xuất kho hàng", tab: "KHO & SẢN PHẨM" as TabType, subTab: "NHẬP / XUẤT KHO", keywords: "nhap kho xuat kho phieu nhap phieu xuat chung tu" },
+  { label: "Dự báo AI & cảnh báo tồn kho", tab: "KHO & SẢN PHẨM" as TabType, subTab: "DỰ BÁO AI", keywords: "ai forecast du bao nhu cau canh bao" },
+  { label: "Lên ý tưởng AI Marketing", tab: "MARKETING" as TabType, subTab: "LÊN Ý TƯỞNG AI", keywords: "viet content y tuong campaign facebook tiktok copywriter" },
+  { label: "Duyệt nội dung Marketing", tab: "MARKETING" as TabType, subTab: "DUYỆT NỘI DUNG", keywords: "duyet content post facebook linkedin tiktok" },
+  { label: "Lịch đăng Content", tab: "MARKETING" as TabType, subTab: "LỊCH ĐĂNG CONTENT", keywords: "lich dang content calendar publish" },
+  { label: "Phễu Khách hàng", tab: "SALES CRM" as TabType, subTab: "PHỄU KHÁCH HÀNG", keywords: "crm phieu khach hang lead cold warm hot" },
+  { label: "Omni-Inbox Chat", tab: "SALES CRM" as TabType, subTab: "OMNI-INBOX CHAT", keywords: "chat vip mailbox tro ly ai" },
+  { label: "Ví & Nạp tiền", tab: "VÍ & NẠP TIỀN" as TabType, keywords: "vi nap tien so du payos vietqr nap bank" },
 ];
 
 export default function Header({ currentTab, onSearchSelect, onMenuClick }: HeaderProps) {
@@ -64,11 +69,11 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
       const data = await authService.getTelegramLinkStatus();
       setTelegramLink(data);
     } catch (error) {
-      console.error("Lá»—i láº¥y tráº¡ng thÃ¡i Telegram:", error);
+      console.error("Lỗi lấy trạng thái Telegram:", error);
     }
   };
 
-  // â”€â”€â”€ helpers & API calls â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── helpers & API calls ────────────────────────────────────
   const fetchNotifications = async () => {
     if (!userProfile) return;
     try {
@@ -76,7 +81,7 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
       setNotifs(res.data);
       setUnreadCount(res.unreadCount);
     } catch (err) {
-      console.error("Lá»—i khi táº£i thÃ´ng bÃ¡o tá»« API:", err);
+      console.error("Lỗi khi tải thông báo từ API:", err);
     }
   };
 
@@ -86,10 +91,10 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
       const now = new Date();
       const diffMs = now.getTime() - d.getTime();
       const diffMin = Math.floor(diffMs / (60 * 1000));
-      if (diffMin < 1) return "Vá»«a xong";
-      if (diffMin < 60) return `${diffMin} phÃºt trÆ°á»›c`;
+      if (diffMin < 1) return "Vừa xong";
+      if (diffMin < 60) return `${diffMin} phút trước`;
       const diffHr = Math.floor(diffMin / 60);
-      if (diffHr < 24) return `${diffHr} giá» trÆ°á»›c`;
+      if (diffHr < 24) return `${diffHr} giờ trước`;
       return d.toLocaleDateString("vi-VN", {
         hour: "2-digit",
         minute: "2-digit",
@@ -97,7 +102,7 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
         month: "2-digit",
       });
     } catch {
-      return "Vá»«a xong";
+      return "Vừa xong";
     }
   };
 
@@ -107,7 +112,7 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
       setNotifs(prev => prev.map(n => n._id === id ? { ...n, read: true } : n));
       setUnreadCount(prev => Math.max(0, prev - 1));
     } catch (err) {
-      console.error("Lá»—i khi Ä‘Ã¡nh dáº¥u Ä‘Ã£ Ä‘á»c thÃ´ng bÃ¡o:", err);
+      console.error("Lỗi khi đánh dấu đã đọc thông báo:", err);
     }
   };
 
@@ -117,31 +122,31 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
       setNotifs(prev => prev.map(n => ({ ...n, read: true })));
       setUnreadCount(0);
     } catch (err) {
-      console.error("Lá»—i khi Ä‘Ã¡nh dáº¥u Ä‘á»c táº¥t cáº£ thÃ´ng bÃ¡o:", err);
+      console.error("Lỗi khi đánh dấu đọc tất cả thông báo:", err);
     }
   };
 
-  // Äá»“ng bá»™ thÃ´ng bÃ¡o thá»i gian thá»±c qua Socket.IO vÃ  sá»± kiá»‡n ná»™i bá»™
+  // Đồng bộ thông báo thời gian thực qua Socket.IO và sự kiện nội bộ
   useEffect(() => {
     if (!userProfile) return;
 
     fetchNotifications();
 
-    // Láº¯ng nghe thÃ´ng bÃ¡o má»›i tá»« socket
+    // Lắng nghe thông báo mới từ socket
     const unsubSocket = socketService.on("new_notification", (notif: WebNotification) => {
       setNotifs((prev) => {
-        // TrÃ¡nh trÃ¹ng láº·p
+        // Tránh trùng lặp
         if (prev.some((n) => n._id === notif._id)) return prev;
         return [notif, ...prev];
       });
       if (!notif.read) {
         setUnreadCount((prev) => prev + 1);
       }
-      // KÃ­ch hoáº¡t CustomEvent Ä‘á»ƒ hiá»ƒn thá»‹ popup ná»•i gÃ³c pháº£i dÆ°á»›i
+      // Kích hoạt CustomEvent để hiển thị popup nổi góc phải dưới
       window.dispatchEvent(new CustomEvent("new_notification_toast", { detail: notif }));
     });
 
-    // Láº¯ng nghe sá»± kiá»‡n Ä‘á»“ng bá»™ tá»« cÃ¡c component khÃ¡c
+    // Lắng nghe sự kiện đồng bộ từ các component khác
     const handleMutation = () => {
       fetchNotifications();
     };
@@ -154,20 +159,20 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userProfile?.uid]);
 
-  // â”€â”€â”€ Wallet balance â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Wallet balance ──────────────────────────────────────────
   useEffect(() => {
     const fetchBalance = async () => {
       try {
         const bal = await walletService.getWalletBalance();
         setBalance(bal);
       } catch (err) {
-        console.error("Lá»—i khi láº¥y sá»‘ dÆ° vÃ­ á»Ÿ Header:", err);
+        console.error("Lỗi khi lấy số dư ví ở Header:", err);
       }
     };
 
     fetchBalance();
 
-    // Polling sá»‘ dÆ° Ä‘á»‹nh ká»³ má»—i 10 giÃ¢y Ä‘á»ƒ Ä‘á»“ng bá»™ tá»©c thá»i
+    // Polling số dư định kỳ mỗi 10 giây để đồng bộ tức thời
     const interval = setInterval(fetchBalance, 10000);
     return () => clearInterval(interval);
   }, []);
@@ -209,6 +214,10 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
           if (isTabHidden(item.tab)) {
             return false;
           }
+          if (item.tab === "HIỆU SUẤT AI" && userProfile?.role !== "superadmin") {
+            return false;
+          }
+          return true;
         })
         .filter(
           (item) =>
@@ -285,7 +294,7 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
         {/* Wallet Balance Pill */}
         {userProfile && (
           <button
-            onClick={() => onSearchSelect("VÃ & Náº P TIá»€N" as TabType)}
+            onClick={() => onSearchSelect("VÍ & NẠP TIỀN" as TabType)}
             className="flex items-center gap-2 rounded-full bg-blue-50 border border-blue-100 px-4 py-2 font-sans transition-all hover:bg-blue-100/50 hover:border-blue-200 active:scale-95 shadow-xs shadow-blue-500/5 cursor-pointer"
             id="header_wallet_pill"
           >
@@ -300,7 +309,7 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
         <button
           onClick={() => setShowPricingModal(true)}
           className="flex items-center justify-center p-2 rounded-full text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-all active:scale-95 cursor-pointer"
-          title="Báº£ng giÃ¡ dá»‹ch vá»¥"
+          title="Bảng giá dịch vụ"
           id="header_pricing_info_btn"
         >
           <Info className="h-4.5 w-4.5 shrink-0" />
@@ -314,16 +323,16 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
             if (nextDark) {
               document.documentElement.classList.add("dark");
               localStorage.setItem("theme", "dark");
-              toast.success("ÄÃ£ chuyá»ƒn sang giao diá»‡n tá»‘i");
+              toast.success("Đã chuyển sang giao diện tối");
             } else {
               document.documentElement.classList.remove("dark");
               localStorage.setItem("theme", "light");
-              toast.success("ÄÃ£ chuyá»ƒn sang giao diá»‡n sÃ¡ng");
+              toast.success("Đã chuyển sang giao diện sáng");
             }
             window.dispatchEvent(new CustomEvent("theme-change", { detail: { theme: nextDark ? "dark" : "light" } }));
           }}
           className="flex items-center justify-center p-2 rounded-full text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-all active:scale-95 cursor-pointer"
-          title={isDark ? "Giao diá»‡n sÃ¡ng" : "Giao diá»‡n tá»‘i"}
+          title={isDark ? "Giao diện sáng" : "Giao diện tối"}
           id="header_darkmode_btn"
         >
           {isDark ? <Sun className="h-4.5 w-4.5 shrink-0 text-amber-500" /> : <Moon className="h-4.5 w-4.5 shrink-0" />}
@@ -334,7 +343,7 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
           <button
             onClick={() => setShowUtilities(!showUtilities)}
             className={`flex items-center justify-center p-2 rounded-full transition-all active:scale-95 cursor-pointer ${showUtilities ? "bg-blue-50 text-blue-600" : "text-gray-400 hover:text-blue-600 hover:bg-blue-50"}`}
-            title="Tiá»‡n Ã­ch â€” má»Ÿ nhanh cÃ¡c chá»©c nÄƒng"
+            title="Tiện ích — mở nhanh các chức năng"
             id="header_utilities_btn"
           >
             <LayoutGrid className="h-4.5 w-4.5 shrink-0" />
@@ -664,7 +673,7 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
               {/* Panel Header */}
               <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-4 py-3">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-gray-800">ThÃ´ng bÃ¡o</span>
+                  <span className="text-sm font-bold text-gray-800">Thông báo</span>
                   {unreadCount > 0 && (
                     <span className="rounded-full bg-red-500 px-1.5 py-0.5 font-mono text-[10px] font-bold text-white">
                       {unreadCount}
@@ -676,7 +685,7 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
                   className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-blue-600 transition-colors hover:bg-blue-50"
                 >
                   <CheckCheck className="h-3.5 w-3.5" />
-                  Xem táº¥t cáº£
+                  Xem tất cả
                 </button>
               </div>
 
@@ -685,8 +694,8 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
                 {notifs.length === 0 ? (
                   <div className="flex flex-col items-center gap-2 py-10 text-center">
                     <Bell className="h-8 w-8 text-gray-200" />
-                    <p className="text-sm font-medium text-gray-400">KhÃ´ng cÃ³ thÃ´ng bÃ¡o</p>
-                    <p className="text-xs text-gray-300">Má»i hoáº¡t Ä‘á»™ng sáº½ xuáº¥t hiá»‡n táº¡i Ä‘Ã¢y</p>
+                    <p className="text-sm font-medium text-gray-400">Không có thông báo</p>
+                    <p className="text-xs text-gray-300">Mọi hoạt động sẽ xuất hiện tại đây</p>
                   </div>
                 ) : (
                   notifs.map((notif) => {
@@ -740,7 +749,7 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
               {/* Footer */}
               <div className="border-t border-gray-100 bg-gray-50/80 px-4 py-2.5 text-center">
                 <p className="text-[10px] font-medium text-gray-400">
-                  {unreadCount === 0 ? "âœ” Táº¥t cáº£ Ä‘Ã£ Ä‘Æ°á»£c Ä‘á»c" : `${unreadCount} thÃ´ng bÃ¡o chÆ°a Ä‘á»c`}
+                  {unreadCount === 0 ? "✔ Tất cả đã được đọc" : `${unreadCount} thông báo chưa đọc`}
                 </p>
               </div>
             </div>
@@ -777,7 +786,7 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
               <div className="fixed inset-0 z-40" onClick={() => setShowProfileMenu(false)} />
               <div className="absolute right-0 z-50 mt-3 w-56 rounded-2xl border border-gray-100 bg-white/95 py-2 font-sans shadow-2xl backdrop-blur-md">
                 <div className="border-b border-gray-100 px-4 py-2.5">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">TÃ i khoáº£n</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Tài khoản</p>
                   <p className="mt-0.5 truncate text-sm font-bold text-gray-800">{userProfile?.displayName}</p>
                   <p className="truncate text-xs text-gray-500">{userProfile?.email}</p>
                   {userProfile?.role && (
@@ -798,18 +807,18 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
                     <Send className="h-4 w-4 text-sky-500" />
                     <span className="flex-1">Telegram</span>
                     <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold ${telegramLink?.linked ? "bg-emerald-50 text-emerald-600" : "bg-gray-100 text-gray-500"}`}>
-                      {telegramLink?.linked ? "ÄÃ£ liÃªn káº¿t" : "ChÆ°a"}
+                      {telegramLink?.linked ? "Đã liên kết" : "Chưa"}
                     </span>
                   </button>
                   <button
                     onClick={() => {
-                      onSearchSelect("CÃ€I Äáº¶T" as TabType);
+                      onSearchSelect("CÀI ĐẶT" as TabType);
                       setShowProfileMenu(false);
                     }}
                     className="flex w-full cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-semibold text-gray-700 transition-colors hover:bg-blue-50/80"
                   >
                     <Settings className="h-4 w-4 text-gray-500" />
-                    <span>CÃ i Ä‘áº·t cÃ¡ nhÃ¢n</span>
+                    <span>Cài đặt cá nhân</span>
                   </button>
                   <button
                     onClick={async () => {
@@ -819,7 +828,7 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
                     className="mt-1 flex w-full cursor-pointer items-center gap-2.5 rounded-xl border-t border-gray-50 px-3 py-2 pt-2 text-left text-xs font-semibold text-red-600 transition-colors hover:bg-red-50/80"
                   >
                     <LogOut className="h-4 w-4 text-red-500" />
-                    <span>ÄÄƒng xuáº¥t há»‡ thá»‘ng</span>
+                    <span>Đăng xuất hệ thống</span>
                   </button>
                 </div>
               </div>
@@ -850,57 +859,57 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
             {/* Header */}
             <div>
               <h2 className="text-xl font-bold text-gray-950 flex items-center gap-2">
-                Báº£ng giÃ¡ dá»‹ch vá»¥
+                Bảng giá dịch vụ
               </h2>
               <p className="text-xs text-gray-500 mt-1">
-                Chi phÃ­ Ä‘Æ°á»£c tÃ­nh dá»±a trÃªn sá»‘ lÆ°á»£ng Credit tiÃªu thá»¥ cho má»—i Ä‘Æ¡n vá»‹ sá»­ dá»¥ng.
+                Chi phí được tính dựa trên số lượng Credit tiêu thụ cho mỗi đơn vị sử dụng.
               </p>
             </div>
 
             {/* Exchange Rate Card */}
             <div className="bg-blue-50/50 border border-blue-100/60 rounded-2xl p-4 flex flex-col gap-1.5 shadow-xs">
               <div className="flex items-center gap-2 text-blue-700 font-bold text-sm">
-                <span>ðŸ’¡</span> 100 VND = 1 Credit
+                <span>💡</span> 100 VND = 1 Credit
               </div>
               <div className="text-xs text-blue-800 font-medium leading-relaxed">
-                Chi phÃ­ Ä‘Æ°á»£c tÃ­nh cá»‘ Ä‘á»‹nh cho má»—i láº§n phÃ¢n tÃ­ch prompt hoáº·c má»—i áº£nh/video Ä‘Æ°á»£c táº¡o ra.
+                Chi phí được tính cố định cho mỗi lần phân tích prompt hoặc mỗi ảnh/video được tạo ra.
               </div>
             </div>
 
-            {/* 1. HÃ¬nh áº£nh */}
+            {/* 1. Hình ảnh */}
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-2 text-gray-900 font-bold text-sm border-b border-gray-100 pb-2">
                 <div className="p-1.5 bg-cyan-50 text-cyan-600 rounded-lg">
                   <Image className="h-4 w-4" />
                 </div>
-                <span>HÃ¬nh áº£nh</span>
+                <span>Hình ảnh</span>
               </div>
 
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="text-gray-400 font-medium border-b border-gray-100">
-                      <th className="py-2 font-semibold">MÃ´ hÃ¬nh / Dá»‹ch vá»¥</th>
-                      <th className="py-2 text-right font-semibold pr-8">GiÃ¡ (Credit)</th>
-                      <th className="py-2 text-right font-semibold">ÄÆ¡n vá»‹</th>
+                      <th className="py-2 font-semibold">Mô hình / Dịch vụ</th>
+                      <th className="py-2 text-right font-semibold pr-8">Giá (Credit)</th>
+                      <th className="py-2 text-right font-semibold">Đơn vị</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
                     <tr className="hover:bg-gray-50/50">
                       <td className="py-3">
                         <div className="font-bold text-gray-800">iGen 3.1 flash image preview</div>
-                        <div className="text-[10px] text-gray-400 font-medium mt-0.5">1K: 27.5| 2K: 42 (TÃ­nh theo Credit)</div>
+                        <div className="text-[10px] text-gray-400 font-medium mt-0.5">1K: 27.5| 2K: 42 (Tính theo Credit)</div>
                       </td>
                       <td className="py-3 text-right font-bold text-cyan-600 pr-8 text-sm">27,5</td>
-                      <td className="py-3 text-right text-gray-400 font-medium">/ áº£nh</td>
+                      <td className="py-3 text-right text-gray-400 font-medium">/ ảnh</td>
                     </tr>
                     <tr className="hover:bg-gray-50/50">
                       <td className="py-3">
                         <div className="font-bold text-gray-800">iGen 3 pro image preview</div>
-                        <div className="text-[10px] text-gray-400 font-medium mt-0.5">1K: 57 | 2K: 57 (TÃ­nh theo Credit)</div>
+                        <div className="text-[10px] text-gray-400 font-medium mt-0.5">1K: 57 | 2K: 57 (Tính theo Credit)</div>
                       </td>
                       <td className="py-3 text-right font-bold text-cyan-600 pr-8 text-sm">57</td>
-                      <td className="py-3 text-right text-gray-400 font-medium">/ áº£nh</td>
+                      <td className="py-3 text-right text-gray-400 font-medium">/ ảnh</td>
                     </tr>
                   </tbody>
                 </table>
@@ -999,88 +1008,88 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
               </div>
             </div>
 
-            {/* 3. Ã‚m thanh */}
+            {/* 3. Âm thanh */}
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-2 text-gray-900 font-bold text-sm border-b border-gray-100 pb-2">
                 <div className="p-1.5 bg-purple-50 text-purple-600 rounded-lg">
                   <Volume2 className="h-4 w-4" />
                 </div>
-                <span>Ã‚m thanh</span>
+                <span>Âm thanh</span>
               </div>
 
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="text-gray-400 font-medium border-b border-gray-100">
-                      <th className="py-2 font-semibold">MÃ´ hÃ¬nh / Dá»‹ch vá»¥</th>
-                      <th className="py-2 text-right font-semibold pr-8">GiÃ¡ (Credit)</th>
-                      <th className="py-2 text-right font-semibold">ÄÆ¡n vá»‹</th>
+                      <th className="py-2 font-semibold">Mô hình / Dịch vụ</th>
+                      <th className="py-2 text-right font-semibold pr-8">Giá (Credit)</th>
+                      <th className="py-2 text-right font-semibold">Đơn vị</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
                     <tr className="hover:bg-gray-50/50">
                       <td className="py-3">
                         <div className="font-bold text-gray-800">iGen 2.5 Flash TTS</div>
-                        <div className="text-[10px] text-gray-400 font-medium mt-0.5">Quy Ä‘á»•i tá»« $0.0005/giÃ¢y gá»‘c</div>
+                        <div className="text-[10px] text-gray-400 font-medium mt-0.5">Quy đổi từ $0.0005/giây gốc</div>
                       </td>
                       <td className="py-3 text-right font-bold text-purple-600 pr-8 text-sm">0,128</td>
-                      <td className="py-3 text-right text-gray-400 font-medium">/ giÃ¢y</td>
+                      <td className="py-3 text-right text-gray-400 font-medium">/ giây</td>
                     </tr>
                     <tr className="hover:bg-gray-50/50">
                       <td className="py-3">
                         <div className="font-bold text-gray-800">iGen 2.5 Pro TTS</div>
-                        <div className="text-[10px] text-gray-400 font-medium mt-0.5">Quy Ä‘á»•i tá»« $0.001/giÃ¢y gá»‘c</div>
+                        <div className="text-[10px] text-gray-400 font-medium mt-0.5">Quy đổi từ $0.001/giây gốc</div>
                       </td>
                       <td className="py-3 text-right font-bold text-purple-600 pr-8 text-sm">0,255</td>
-                      <td className="py-3 text-right text-gray-400 font-medium">/ giÃ¢y</td>
+                      <td className="py-3 text-right text-gray-400 font-medium">/ giây</td>
                     </tr>
                   </tbody>
                 </table>
               </div>
             </div>
 
-            {/* 4. VÄƒn báº£n / Prompt */}
+            {/* 4. Văn bản / Prompt */}
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-2 text-gray-900 font-bold text-sm border-b border-gray-100 pb-2">
                 <div className="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg">
                   <FileText className="h-4 w-4" />
                 </div>
-                <span>VÄƒn báº£n / Prompt</span>
+                <span>Văn bản / Prompt</span>
               </div>
 
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="text-gray-400 font-medium border-b border-gray-100">
-                      <th className="py-2 font-semibold">MÃ´ hÃ¬nh / Dá»‹ch vá»¥</th>
-                      <th className="py-2 text-right font-semibold pr-8">GiÃ¡ (Credit)</th>
-                      <th className="py-2 text-right font-semibold">ÄÆ¡n vá»‹</th>
+                      <th className="py-2 font-semibold">Mô hình / Dịch vụ</th>
+                      <th className="py-2 text-right font-semibold pr-8">Giá (Credit)</th>
+                      <th className="py-2 text-right font-semibold">Đơn vị</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
                     <tr className="hover:bg-gray-50/50">
                       <td className="py-3">
                         <div className="font-bold text-gray-800">iGen 3.1 pro</div>
-                        <div className="text-[10px] text-gray-400 font-medium mt-0.5">Cá»‘ Ä‘á»‹nh má»—i láº§n táº¡o</div>
+                        <div className="text-[10px] text-gray-400 font-medium mt-0.5">Cố định mỗi lần tạo</div>
                       </td>
                       <td className="py-3 text-right font-bold text-emerald-600 pr-8 text-sm">10</td>
-                      <td className="py-3 text-right text-gray-400 font-medium">/ láº§n</td>
+                      <td className="py-3 text-right text-gray-400 font-medium">/ lần</td>
                     </tr>
                     <tr className="hover:bg-gray-50/50">
                       <td className="py-3">
                         <div className="font-bold text-gray-800">iGen 3.1 flash lite</div>
-                        <div className="text-[10px] text-gray-400 font-medium mt-0.5">Cá»‘ Ä‘á»‹nh má»—i láº§n táº¡o</div>
+                        <div className="text-[10px] text-gray-400 font-medium mt-0.5">Cố định mỗi lần tạo</div>
                       </td>
                       <td className="py-3 text-right font-bold text-emerald-600 pr-8 text-sm">1,5</td>
-                      <td className="py-3 text-right text-gray-400 font-medium">/ láº§n</td>
+                      <td className="py-3 text-right text-gray-400 font-medium">/ lần</td>
                     </tr>
                     <tr className="hover:bg-gray-50/50">
                       <td className="py-3">
                         <div className="font-bold text-gray-800">iGen 3 flash</div>
-                        <div className="text-[10px] text-gray-400 font-medium mt-0.5">Cá»‘ Ä‘á»‹nh má»—i láº§n táº¡o</div>
+                        <div className="text-[10px] text-gray-400 font-medium mt-0.5">Cố định mỗi lần tạo</div>
                       </td>
                       <td className="py-3 text-right font-bold text-emerald-600 pr-8 text-sm">2,5</td>
-                      <td className="py-3 text-right text-gray-400 font-medium">/ láº§n</td>
+                      <td className="py-3 text-right text-gray-400 font-medium">/ lần</td>
                     </tr>
                   </tbody>
                 </table>
@@ -1089,7 +1098,7 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
 
             {/* Note Footer */}
             <div className="text-[10px] text-gray-400 font-medium italic mt-2 border-t border-gray-100 pt-3">
-              * Báº£ng giÃ¡ cÃ³ thá»ƒ thay Ä‘á»•i tÃ¹y theo chÃ­nh sÃ¡ch cá»§a nhÃ  cung cáº¥p dá»‹ch vá»¥ AI.
+              * Bảng giá có thể thay đổi tùy theo chính sách của nhà cung cấp dịch vụ AI.
             </div>
 
           </div>
@@ -1110,41 +1119,41 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
               <div className="mb-2 inline-flex rounded-2xl bg-sky-50 p-2 text-sky-600">
                 <Send className="h-4 w-4" />
               </div>
-              <h3 className="text-base font-bold text-gray-900">LiÃªn káº¿t Telegram</h3>
-              <p className="mt-1 text-xs text-gray-500">Chá»‰ dÃ¹ng link liÃªn káº¿t tá»« web, khÃ´ng dÃ¹ng Ä‘Äƒng nháº­p Telegram ná»¯a.</p>
+              <h3 className="text-base font-bold text-gray-900">Liên kết Telegram</h3>
+              <p className="mt-1 text-xs text-gray-500">Chỉ dùng link liên kết từ web, không dùng đăng nhập Telegram nữa.</p>
             </div>
 
             <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
               <div className="flex items-center justify-between gap-3">
-                <span className="text-xs font-semibold text-gray-600">Tráº¡ng thÃ¡i</span>
+                <span className="text-xs font-semibold text-gray-600">Trạng thái</span>
                 <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${telegramLink?.linked ? "bg-emerald-100 text-emerald-700" : "border border-gray-200 bg-white text-gray-500"}`}>
-                  {telegramLink?.linked ? "ÄÃ£ liÃªn káº¿t" : "ChÆ°a liÃªn káº¿t"}
+                  {telegramLink?.linked ? "Đã liên kết" : "Chưa liên kết"}
                 </span>
               </div>
               {telegramLink?.linked && (
-                <p className="mt-2 text-[11px] text-gray-500">Telegram Ä‘Ã£ Ä‘Æ°á»£c liÃªn káº¿t vá»›i tÃ i khoáº£n nÃ y.</p>
+                <p className="mt-2 text-[11px] text-gray-500">Telegram đã được liên kết với tài khoản này.</p>
               )}
               {!telegramLink?.linked && telegramLink?.pendingCode && (
-                <p className="mt-2 text-[11px] text-gray-500">Web sáº½ tá»± cáº­p nháº­t ngay sau khi báº¡n liÃªn káº¿t xong trÃªn Telegram.</p>
+                <p className="mt-2 text-[11px] text-gray-500">Web sẽ tự cập nhật ngay sau khi bạn liên kết xong trên Telegram.</p>
               )}
             </div>
 
             {!telegramLink?.linked && (
               <div className="mt-4 rounded-2xl border border-sky-100 bg-sky-50/70 p-4">
-                <p className="text-[11px] font-semibold text-sky-700">1. Má»Ÿ bot</p>
+                <p className="text-[11px] font-semibold text-sky-700">1. Mở bot</p>
                 <a
                   href={`https://t.me/${telegramLink?.botUsername || "iGEN_ERP_Bot"}?start=${encodeURIComponent(telegramLink?.pendingCode || "")}`}
                   target="_blank"
                   rel="noreferrer"
                   className="mt-1 inline-block text-sm font-bold text-sky-800 underline decoration-sky-300 underline-offset-4"
                 >
-                  Má»Ÿ @{telegramLink?.botUsername || "iGEN_ERP_Bot"}
+                  Mở @{telegramLink?.botUsername || "iGEN_ERP_Bot"}
                 </a>
-                <p className="mt-3 text-[11px] font-semibold text-sky-700">2. MÃ£ dá»± phÃ²ng</p>
+                <p className="mt-3 text-[11px] font-semibold text-sky-700">2. Mã dự phòng</p>
                 <div className="mt-1 rounded-xl bg-white px-3 py-2 font-mono text-sm font-bold text-gray-900">
                   /link {telegramLink?.pendingCode || "......"}
                 </div>
-                <p className="mt-2 text-[11px] text-gray-500">ThÃ´ng thÆ°á»ng chá»‰ cáº§n báº¥m link má»Ÿ bot á»Ÿ trÃªn. Lá»‡nh nÃ y chá»‰ lÃ  phÆ°Æ¡ng Ã¡n dá»± phÃ²ng.</p>
+                <p className="mt-2 text-[11px] text-gray-500">Thông thường chỉ cần bấm link mở bot ở trên. Lệnh này chỉ là phương án dự phòng.</p>
               </div>
             )}
 
@@ -1156,9 +1165,9 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
                       setTelegramLoading(true);
                       const data = await authService.createTelegramLinkCode();
                       setTelegramLink(data);
-                      toast.success("ÄÃ£ táº¡o mÃ£ liÃªn káº¿t Telegram.");
+                      toast.success("Đã tạo mã liên kết Telegram.");
                     } catch (error: any) {
-                      toast.error(error.message || "KhÃ´ng thá»ƒ táº¡o mÃ£ liÃªn káº¿t Telegram.");
+                      toast.error(error.message || "Không thể tạo mã liên kết Telegram.");
                     } finally {
                       setTelegramLoading(false);
                     }
@@ -1166,7 +1175,7 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
                   className="flex-1 rounded-2xl bg-sky-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
                   disabled={telegramLoading}
                 >
-                  {telegramLoading ? "Äang táº¡o..." : telegramLink?.pendingCode ? "Táº¡o láº¡i mÃ£" : "Táº¡o mÃ£"}
+                  {telegramLoading ? "Đang tạo..." : telegramLink?.pendingCode ? "Tạo lại mã" : "Tạo mã"}
                 </button>
               )}
 
@@ -1177,9 +1186,9 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
                       setTelegramLoading(true);
                       const data = await authService.unlinkTelegram();
                       setTelegramLink(data);
-                      toast.success("ÄÃ£ gá»¡ liÃªn káº¿t Telegram vÃ  táº¡o sáºµn mÃ£ liÃªn káº¿t má»›i.");
+                      toast.success("Đã gỡ liên kết Telegram và tạo sẵn mã liên kết mới.");
                     } catch (error: any) {
-                      toast.error(error.message || "KhÃ´ng thá»ƒ gá»¡ liÃªn káº¿t Telegram.");
+                      toast.error(error.message || "Không thể gỡ liên kết Telegram.");
                     } finally {
                       setTelegramLoading(false);
                     }
@@ -1187,7 +1196,7 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
                   className="flex-1 rounded-2xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-bold text-red-600 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
                   disabled={telegramLoading}
                 >
-                  {telegramLoading ? "Äang xá»­ lÃ½..." : "Gá»¡ liÃªn káº¿t"}
+                  {telegramLoading ? "Đang xử lý..." : "Gỡ liên kết"}
                 </button>
               )}
             </div>
