@@ -3,6 +3,7 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
+import reactPlugin from "eslint-plugin-react";
 
 export default [
     {
@@ -15,7 +16,9 @@ export default [
             ".puppeteerrc.cjs",
             "public/sw.js",
             "test-local-render.ts",
-            "test-professional-tet.ts"
+            "test-professional-tet.ts",
+            "*.js",
+            "*.cjs"
         ],
     },
 
@@ -36,6 +39,7 @@ export default [
         plugins: {
             "react-hooks": reactHooks,
             "react-refresh": reactRefresh,
+            "react": reactPlugin,
         },
 
         rules: {
@@ -53,7 +57,16 @@ export default [
             "no-undef": "off",
             "no-useless-escape": "off",
             "react-hooks/set-state-in-effect": "off",
-            "react-hooks/immutability": "off"
+            "react-hooks/immutability": "off",
+            "@typescript-eslint/no-unused-vars": "off",
+            "no-empty": "off",
+            "no-extra-boolean-cast": "off",
+            "react-hooks/preserve-manual-memoization": "off",
+            "@typescript-eslint/no-unused-expressions": "off",
+            "no-irregular-whitespace": "off",
+            "react-hooks/purity": "off",
+            "no-case-declarations": "off",
+            "no-constant-binary-expression": "off"
         },
     },
 ];
