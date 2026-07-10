@@ -183,6 +183,26 @@ export const authService = {
     }));
   },
 
+  // Lấy danh sách đồng nghiệp cùng công ty (mọi user đã đăng nhập đều dùng được)
+  async getColleagues(): Promise<UserProfile[]> {
+    const res = await fetch(`/api/v1/auth/users/colleagues`, {
+      headers: {
+        "Authorization": `Bearer ${getAccessToken()}`,
+      },
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.message || "Không thể lấy danh sách đồng nghiệp");
+    }
+
+    const result = await res.json();
+    return (result.data || []).map((u: any) => ({
+      ...u,
+      uid: u._id,
+    }));
+  },
+
   // Cập nhật vai trò người dùng
   async updateUserRole(uid: string, newRole: "user" | "manager" | "admin" | "superadmin"): Promise<void> {
     const res = await fetch(`/api/v1/auth/users/${uid}`, {

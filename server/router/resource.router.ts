@@ -23,6 +23,7 @@ const folderSchema = {
     }),
     parentId: Joi.string().allow(null, "", "root").optional(),
     section: Joi.string().valid("local", "drive").optional(),
+    roomId: Joi.string().allow(null, "").optional(),
   }),
 };
 
@@ -36,6 +37,7 @@ const fileSchema = {
     parentId: Joi.string().allow(null, "", "root").optional(),
     mimeType: Joi.string().allow("").optional(),
     size: Joi.number().min(0).optional(),
+    roomId: Joi.string().allow(null, "").optional(),
   }),
 };
 
@@ -65,8 +67,27 @@ const renameSchema = {
   body: Joi.object({ name: Joi.string().trim().min(1).max(300).required() }),
 };
 
+const moveSchema = {
+  params: Joi.object({ id: objectId.required() }),
+  body: Joi.object({
+    parentId: Joi.string().allow(null, "", "root").required().messages({
+      "any.required": "Mã thư mục đích là bắt buộc.",
+    }),
+  }),
+};
+
 const idParamSchema = {
   params: Joi.object({ id: objectId.required() }),
+};
+
+const sharesSchema = {
+  body: Joi.array().items(
+    Joi.object({
+      targetId: Joi.string().required(),
+      targetType: Joi.string().valid("user", "room").required(),
+      targetName: Joi.string().allow("").optional(),
+    })
+  ).required(),
 };
 
 // Google Drive dùng chung — đặt trước các route "/:id" để tránh trùng khớp
@@ -75,9 +96,14 @@ resourceRouter.post("/drive/upload", requireAuth as any, validateRequest(driveUp
 resourceRouter.delete("/drive/files/:fileId", requireAuth as any, resourceController.driveDelete as any);
 
 resourceRouter.get("/", requireAuth as any, validateRequest(listSchema), resourceController.list as any);
+resourceRouter.get("/trash", requireAuth as any, resourceController.trashList as any);
 resourceRouter.get("/breadcrumb/:id", requireAuth as any, resourceController.breadcrumb as any);
 resourceRouter.post("/folder", requireAuth as any, validateRequest(folderSchema), resourceController.createFolder as any);
 resourceRouter.post("/file", requireAuth as any, validateRequest(fileSchema), resourceController.createFile as any);
 resourceRouter.post("/drive", requireAuth as any, validateRequest(driveSchema), resourceController.addDriveLink as any);
+resourceRouter.get("/:id/shares", requireAuth as any, validateRequest(idParamSchema), resourceController.getShares as any);
+resourceRouter.put("/:id/shares", requireAuth as any, validateRequest(idParamSchema), validateRequest(sharesSchema), resourceController.updateShares as any);
 resourceRouter.patch("/:id/rename", requireAuth as any, validateRequest(renameSchema), resourceController.rename as any);
+resourceRouter.patch("/:id/move", requireAuth as any, validateRequest(moveSchema), resourceController.move as any);
+resourceRouter.post("/:id/restore", requireAuth as any, validateRequest(idParamSchema), resourceController.restore as any);
 resourceRouter.delete("/:id", requireAuth as any, validateRequest(idParamSchema), resourceController.remove as any);
