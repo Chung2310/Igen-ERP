@@ -421,13 +421,58 @@ export const googleDriveController = {
         targetFolderId = chatRoom.driveFolderId;
       }
 
-      const response = await drive.files.list({
-        q: `'${targetFolderId}' in parents and trashed = false`,
-        fields: "files(id, name, mimeType, webViewLink, webContentLink, thumbnailLink, size, createdTime)",
-        orderBy: "folder,name",
-      });
+      let files: any[] = [];
+      try {
+        const response = await drive.files.list({
+          q: `'${targetFolderId}' in parents and trashed = false`,
+          fields: "files(id, name, mimeType, webViewLink, webContentLink, thumbnailLink, size, createdTime)",
+          orderBy: "folder,name",
+        });
+        files = response.data.files || [];
+      } catch (listErr: any) {
+        const isPermissionOrNotFound = listErr.status === 403 || listErr.status === 404 || 
+          (listErr.message && (listErr.message.includes("Insufficient permissions") || listErr.message.includes("not found")));
+        
+        if (isPermissionOrNotFound && targetFolderId === chatRoom.driveFolderId) {
+          console.warn("[getGroupResources] Phát hiện lỗi quyền truy cập hoặc thư mục không tồn tại. Tiến hành khởi tạo lại thư mục mới...");
+          try {
+            const sharedGroupsFolderId = await GoogleDriveService.createFolder(adminInfo.authClient, "iGen Shared Groups");
+            const newFolder = await drive.files.create({
+              requestBody: {
+                name: chatRoom.name || `Nhóm_${roomId}`,
+                mimeType: "application/vnd.google-apps.folder",
+                parents: [sharedGroupsFolderId]
+              },
+              fields: "id"
+            });
+            
+            try {
+              await drive.permissions.create({
+                fileId: newFolder.data.id!,
+                requestBody: { role: "reader", type: "anyone" }
+              });
+            } catch (permErr: any) {
+              console.warn("Không thể thiết lập quyền công khai cho thư mục nhóm mới:", permErr.message);
+            }
 
-      const files = response.data.files || [];
+            chatRoom.driveFolderId = newFolder.data.id!;
+            await chatRoom.save();
+            targetFolderId = chatRoom.driveFolderId;
+            
+            const response = await drive.files.list({
+              q: `'${targetFolderId}' in parents and trashed = false`,
+              fields: "files(id, name, mimeType, webViewLink, webContentLink, thumbnailLink, size, createdTime)",
+              orderBy: "folder,name",
+            });
+            files = response.data.files || [];
+          } catch (recreateErr: any) {
+            console.error("[getGroupResources] Không thể tự động tạo lại thư mục nhóm mới:", recreateErr);
+            throw listErr;
+          }
+        } else {
+          throw listErr;
+        }
+      }
       const driveFileIds = files.map((f: any) => f.id);
       const dbResources = await ResourceModel.find({
         companyCode,
@@ -529,13 +574,63 @@ export const googleDriveController = {
       const parentFolderId = (folderId && folderId !== "root" && folderId !== roomId) ? folderId : chatRoom.driveFolderId;
 
       // Upload lên Google Drive dưới thư mục của nhóm
-      const driveFile = await GoogleDriveService.uploadFile(
-        authClient,
-        fileBuffer,
-        name,
-        mimeType,
-        parentFolderId
-      );
+      let driveFile;
+      let actualParentId = parentFolderId;
+      try {
+        driveFile = await GoogleDriveService.uploadFile(
+          authClient,
+          fileBuffer,
+          name,
+          mimeType,
+          actualParentId
+        );
+      } catch (uploadErr: any) {
+        const isPermissionOrNotFound = uploadErr.status === 403 || uploadErr.status === 404 || 
+          (uploadErr.message && (uploadErr.message.includes("Insufficient permissions") || uploadErr.message.includes("not found")));
+
+        if (isPermissionOrNotFound && actualParentId === chatRoom.driveFolderId) {
+          console.warn("[uploadGroupResource] Thư mục cha không hợp lệ hoặc thiếu quyền. Tiến hành khởi tạo lại thư mục mới...");
+          try {
+            const sharedGroupsFolderId = await GoogleDriveService.createFolder(authClient, "iGen Shared Groups");
+            const drive = google.drive({ version: "v3", auth: authClient });
+            const newFolder = await drive.files.create({
+              requestBody: {
+                name: chatRoom.name || `Nhóm_${roomId}`,
+                mimeType: "application/vnd.google-apps.folder",
+                parents: [sharedGroupsFolderId]
+              },
+              fields: "id"
+            });
+            
+            try {
+              await drive.permissions.create({
+                fileId: newFolder.data.id!,
+                requestBody: { role: "reader", type: "anyone" }
+              });
+            } catch (permErr: any) {
+              console.warn("Không thể thiết lập quyền công khai cho thư mục nhóm mới:", permErr.message);
+            }
+
+            chatRoom.driveFolderId = newFolder.data.id!;
+            await chatRoom.save();
+            actualParentId = chatRoom.driveFolderId;
+
+            // Thử upload lại tệp lên thư mục mới
+            driveFile = await GoogleDriveService.uploadFile(
+              authClient,
+              fileBuffer,
+              name,
+              mimeType,
+              actualParentId
+            );
+          } catch (recreateErr: any) {
+            console.error("[uploadGroupResource] Khôi phục thư mục và upload lại thất bại:", recreateErr);
+            throw uploadErr;
+          }
+        } else {
+          throw uploadErr;
+        }
+      }
 
       // Lưu metadata vào MongoDB
       const resource = await ResourceModel.create({
@@ -654,15 +749,21 @@ export const googleDriveController = {
       }
 
       const resource = await ResourceModel.findOne({
-        _id: resourceId,
-        companyCode,
+        $or: [
+          { _id: /^[0-9a-fA-F]{24}$/.test(resourceId) ? resourceId : undefined },
+          { driveFileId: resourceId }
+        ].filter(Boolean) as any,
+        companyCode
       });
 
-      if (!resource) {
-        return res.status(404).json({
-          status: "error",
-          message: "Không tìm thấy tài nguyên hoặc bạn không có quyền xóa.",
-        });
+      let driveFileIdToDelete = resourceId;
+      let uploadedByUserId = userId;
+      let chatRoomId = "";
+
+      if (resource) {
+        driveFileIdToDelete = resource.driveFileId;
+        uploadedByUserId = resource.uploadedBy ? resource.uploadedBy.toString() : "";
+        chatRoomId = resource.chatRoomId ? resource.chatRoomId.toString() : "";
       }
 
       // Kiểm tra quyền xóa:
@@ -673,10 +774,10 @@ export const googleDriveController = {
 
       if (isAdmin) {
         isAllowed = true;
-      } else if (resource.uploadedBy.toString() === userId) {
+      } else if (uploadedByUserId === userId) {
         isAllowed = true;
-      } else if (resource.chatRoomId) {
-        const chatRoom = await ChatRoomModel.findOne({ _id: resource.chatRoomId, companyCode });
+      } else if (chatRoomId) {
+        const chatRoom = await ChatRoomModel.findOne({ _id: chatRoomId, companyCode });
         if (chatRoom) {
           const memberInfo = chatRoom.members.find(m => m.userId.toString() === userId);
           const isRoomAdmin = memberInfo?.role === "admin";
@@ -685,6 +786,9 @@ export const googleDriveController = {
             isAllowed = true;
           }
         }
+      } else {
+        // Tài nguyên không có trong DB và không thuộc phòng nhóm nào -> cho phép chủ tài khoản drive xóa
+        isAllowed = true;
       }
 
       if (!isAllowed) {
@@ -697,20 +801,22 @@ export const googleDriveController = {
       // Xóa trên Google Drive
       try {
         let authClient;
-        if (resource.chatRoomId) {
+        if (chatRoomId) {
           const adminInfo = await getAdminDriveClient(companyCode);
           authClient = adminInfo.authClient;
         } else {
-          authClient = await GoogleDriveService.getClientForUser(resource.uploadedBy.toString());
+          authClient = await GoogleDriveService.getClientForUser(uploadedByUserId);
         }
-        await GoogleDriveService.deleteFile(authClient, resource.driveFileId);
+        await GoogleDriveService.deleteFile(authClient, driveFileIdToDelete);
       } catch (err: any) {
         // Log và cho phép xóa tiếp ở DB nếu file đã bị xóa trên Drive thủ công từ trước
         console.warn(`[googleDriveController.deleteResource] File không tìm thấy trên Drive hoặc không thể xóa:`, err.message);
       }
 
       // Xóa trong local DB
-      await resource.deleteOne();
+      if (resource) {
+        await resource.deleteOne();
+      }
 
       return res.status(200).json({
         status: "success",
@@ -872,12 +978,13 @@ export const googleDriveController = {
       // 1. Xác thực quyền sở hữu/truy cập không gian
       let parentId = "";
       let authClient;
+      let chatRoom: any;
 
       if (spaceType === "group") {
         if (!roomId) {
           return res.status(400).json({ status: "error", message: "Thiếu thông tin roomId cho không gian nhóm." });
         }
-        const chatRoom = await ChatRoomModel.findOne({ _id: roomId, companyCode });
+        chatRoom = await ChatRoomModel.findOne({ _id: roomId, companyCode });
         if (!chatRoom) {
           return res.status(404).json({ status: "error", message: "Không tìm thấy phòng chat." });
         }
@@ -992,18 +1099,69 @@ export const googleDriveController = {
           targetMimeType = "application/vnd.google-apps.presentation";
         }
 
-        const fileMetadata: any = {
-          name,
-          mimeType: targetMimeType,
-        };
-        if (parentId) {
-          fileMetadata.parents = [parentId];
-        }
+        let createdFile;
+        let actualParentId = parentId;
+        try {
+          const fileMetadata: any = {
+            name,
+            mimeType: targetMimeType,
+          };
+          if (actualParentId) {
+            fileMetadata.parents = [actualParentId];
+          }
 
-        const createdFile = await drive.files.create({
-          requestBody: fileMetadata,
-          fields: "id, name, mimeType, webViewLink"
-        });
+          createdFile = await drive.files.create({
+            requestBody: fileMetadata,
+            fields: "id, name, mimeType, webViewLink"
+          });
+        } catch (createErr: any) {
+          const isPermissionOrNotFound = createErr.status === 403 || createErr.status === 404 || 
+            (createErr.message && (createErr.message.includes("Insufficient permissions") || createErr.message.includes("not found")));
+
+          if (isPermissionOrNotFound && spaceType === "group" && actualParentId === chatRoom.driveFolderId) {
+            console.warn("[createFile] Thư mục cha không hợp lệ hoặc thiếu quyền. Tiến hành khởi tạo lại thư mục mới...");
+            try {
+              const sharedGroupsFolderId = await GoogleDriveService.createFolder(authClient, "iGen Shared Groups");
+              const newFolder = await drive.files.create({
+                requestBody: {
+                  name: chatRoom.name || `Nhóm_${roomId}`,
+                  mimeType: "application/vnd.google-apps.folder",
+                  parents: [sharedGroupsFolderId]
+                },
+                fields: "id"
+              });
+              
+              try {
+                await drive.permissions.create({
+                  fileId: newFolder.data.id!,
+                  requestBody: { role: "reader", type: "anyone" }
+                });
+              } catch (permErr: any) {
+                console.warn("Không thể thiết lập quyền công khai cho thư mục nhóm mới:", permErr.message);
+              }
+
+              chatRoom.driveFolderId = newFolder.data.id!;
+              await chatRoom.save();
+              actualParentId = chatRoom.driveFolderId;
+
+              const fileMetadata: any = {
+                name,
+                mimeType: targetMimeType,
+              };
+              fileMetadata.parents = [actualParentId];
+
+              createdFile = await drive.files.create({
+                requestBody: fileMetadata,
+                fields: "id, name, mimeType, webViewLink"
+              });
+            } catch (recreateErr: any) {
+              console.error("[createFile] Khôi phục thư mục và tạo tệp lại thất bại:", recreateErr);
+              throw createErr;
+            }
+          } else {
+            throw createErr;
+          }
+        }
 
         driveFileId = createdFile.data.id!;
         webViewLink = createdFile.data.webViewLink || (

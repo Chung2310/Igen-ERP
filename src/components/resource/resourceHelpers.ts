@@ -59,12 +59,12 @@ export function getFileIcon(mimeType?: string, name?: string): { Icon: LucideIco
     return { Icon: FileArchive, color: "text-amber-500" };
   }
   if (mt === "text/html" || mt.includes("html") || ext === "html") {
-    return { Icon: LinkIcon, color: "text-[#008080]" };
+    return { Icon: LinkIcon, color: "text-cyan-600" };
   }
   return { Icon: FileIcon, color: "text-slate-400" };
 }
 
-export type PreviewKind = "image" | "video" | "audio" | "pdf" | "office" | "text" | "unsupported";
+export type PreviewKind = "image" | "video" | "audio" | "pdf" | "office" | "text" | "link" | "unsupported";
 
 /** Xác định cách xem trước phù hợp dựa trên mimeType / phần mở rộng. */
 export function getPreviewKind(mimeType?: string, name?: string): PreviewKind {
@@ -76,6 +76,7 @@ export function getPreviewKind(mimeType?: string, name?: string): PreviewKind {
   if (mt.startsWith("audio/") || ["mp3", "wav", "ogg", "m4a", "aac", "flac"].includes(ext)) return "audio";
   if (mt === "application/pdf" || ext === "pdf") return "pdf";
   if (["doc", "docx", "xls", "xlsx", "ppt", "pptx"].includes(ext)) return "office";
+  if (mt === "text/html" || mt.includes("html") || ["html", "htm"].includes(ext)) return "link";
   if (mt.startsWith("text/") || ["txt", "csv", "md", "json", "log"].includes(ext)) return "text";
   return "unsupported";
 }

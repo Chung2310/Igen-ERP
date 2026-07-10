@@ -23,6 +23,7 @@ const LandingPage = lazy(() => import("./pages/LandingPage"));
 
 function AppContent() {
   const { user, userProfile, loading } = useAuth();
+  const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
   const currentPath = normalizePublicPath(window.location.pathname);
   const isLandingPage = currentPath === "/" || currentPath === "/landing" || currentPath === "/landing.html";
   const isLandingGuestPage = isLandingPage && !(user && userProfile);
