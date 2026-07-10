@@ -43,6 +43,7 @@ const WorkflowStepSchema = new Schema(
     estDays: { type: Number },
     deliverable: { type: String, default: "" },
     note: { type: String, default: "" },
+    docLinks: { type: [String], default: [] },
     position: {
       x: { type: Number, default: 0 },
       y: { type: Number, default: 0 },

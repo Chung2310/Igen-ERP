@@ -19,6 +19,7 @@ export interface IWorkflowStep {
   estDays?: number;
   deliverable?: string;
   note?: string;
+  docLinks?: string[];
   position: { x: number; y: number };
 }
 

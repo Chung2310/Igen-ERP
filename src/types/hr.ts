@@ -38,6 +38,7 @@ export interface WorkflowStep {
   note?: string;
   /** Sub-tasks (công việc con) */
   subTasks?: WorkflowSubTask[];
+  docLinks?: string[];
   /** @deprecated Không còn dùng canvas — giữ lại để tương thích dữ liệu cũ */
   position?: { x: number; y: number };
 }

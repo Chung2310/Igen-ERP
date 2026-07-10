@@ -2473,6 +2473,8 @@ function WizardStepEditorModal({
   const [deadlineTime, setDeadlineTime] = useState(step.deadlineTime || "");
   const [subTasks, setSubTasks] = useState<WorkflowSubTask[]>(step.subTasks || []);
   const [newSubTask, setNewSubTask] = useState("");
+  const [docLinks, setDocLinks] = useState<string[]>(step.docLinks || []);
+  const [uploading, setUploading] = useState(false);
 
   const isFirstStep = stepIndex === 0;
   const nextStep = steps[stepIndex + 1] || null;
@@ -2519,7 +2521,203 @@ function WizardStepEditorModal({
       deadlineDays,
       deadlineTime,
       subTasks,
+      docLinks,
     });
+  };
+
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const triggerFileUpload = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const base64Data = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const res = await fetch("/api/v1/media/upload", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${getAccessToken()}`,
+        },
+        body: JSON.stringify({ file: base64Data, folder: "igen_erp/workflows" }),
+      });
+
+      if (!res.ok) throw new Error("Upload thất bại.");
+      const json = await res.json();
+      if (json.url) {
+        setDocLinks((prev) => [...prev, json.url]);
+        toast.success(`Đã tải lên file: ${file.name}`);
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Không thể tải lên file.");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleAddNotion = () => {
+    const url = prompt("Nhập liên kết Notion (VD: https://notion.so/...):");
+    if (!url) return;
+    if (!url.startsWith("http")) {
+      toast.error("Liên kết không hợp lệ.");
+      return;
+    }
+    setDocLinks((prev) => [...prev, url.trim()]);
+    toast.success("Đã đính kèm liên kết Notion.");
+  };
+
+  const [recording, setRecording] = useState(false);
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      const chunks: Blob[] = [];
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data);
+      };
+      recorder.onstop = async () => {
+        const audioBlob = new Blob(chunks, { type: "audio/webm" });
+        setUploading(true);
+        try {
+          const reader = new FileReader();
+          reader.readAsDataURL(audioBlob);
+          reader.onloadend = async () => {
+            const base64Data = reader.result as string;
+            const res = await fetch("/api/v1/media/upload", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${getAccessToken()}`,
+              },
+              body: JSON.stringify({ file: base64Data, folder: "igen_erp/audio" }),
+            });
+            if (!res.ok) throw new Error("Upload âm thanh thất bại.");
+            const json = await res.json();
+            if (json.url) {
+              setDocLinks((prev) => [...prev, json.url]);
+              toast.success("Đã tải lên bản ghi âm.");
+            }
+          };
+        } catch (err: any) {
+          toast.error(err.message || "Lỗi tải lên bản ghi âm.");
+        } finally {
+          setUploading(false);
+        }
+        stream.getTracks().forEach((track) => track.stop());
+      };
+      recorder.start();
+      setMediaRecorder(recorder);
+      setRecording(true);
+      toast.success("Bắt đầu ghi âm...");
+    } catch (err) {
+      console.error(err);
+      toast.error("Không thể truy cập microphone.");
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorder && recording) {
+      mediaRecorder.stop();
+      setRecording(false);
+      toast.info("Đang xử lý bản ghi âm...");
+    }
+  };
+
+  const [screenRecording, setScreenRecording] = useState(false);
+  const [screenRecorder, setScreenRecorder] = useState<MediaRecorder | null>(null);
+
+  const startScreenRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+      const recorder = new MediaRecorder(stream);
+      const chunks: Blob[] = [];
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data);
+      };
+      recorder.onstop = async () => {
+        const videoBlob = new Blob(chunks, { type: "video/webm" });
+        setUploading(true);
+        try {
+          const reader = new FileReader();
+          reader.readAsDataURL(videoBlob);
+          reader.onloadend = async () => {
+            const base64Data = reader.result as string;
+            const res = await fetch("/api/v1/media/upload", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${getAccessToken()}`,
+              },
+              body: JSON.stringify({ file: base64Data, folder: "igen_erp/video" }),
+            });
+            if (!res.ok) throw new Error("Upload video thất bại.");
+            const json = await res.json();
+            if (json.url) {
+              setDocLinks((prev) => [...prev, json.url]);
+              toast.success("Đã tải lên bản quay màn hình.");
+            }
+          };
+        } catch (err: any) {
+          toast.error(err.message || "Lỗi tải lên bản quay màn hình.");
+        } finally {
+          setUploading(false);
+        }
+        stream.getTracks().forEach((track) => track.stop());
+      };
+      recorder.start();
+      setScreenRecorder(recorder);
+      setScreenRecording(true);
+      toast.success("Bắt đầu quay màn hình...");
+    } catch (err) {
+      console.error(err);
+      toast.error("Không thể bắt đầu quay màn hình.");
+    }
+  };
+
+  const stopScreenRecording = () => {
+    if (screenRecorder && screenRecording) {
+      screenRecorder.stop();
+      setScreenRecording(false);
+      toast.info("Đang xử lý video quay màn hình...");
+    }
+  };
+
+  const handleAddDrive = () => {
+    const url = prompt("Nhập liên kết Google Drive (VD: https://drive.google.com/...):");
+    if (!url) return;
+    if (!url.startsWith("http")) {
+      toast.error("Liên kết không hợp lệ.");
+      return;
+    }
+    setDocLinks((prev) => [...prev, url.trim()]);
+    toast.success("Đã đính kèm liên kết Google Drive.");
+  };
+
+  const handleAddSpreadsheet = () => {
+    const url = prompt("Nhập liên kết Bảng tính / Spreadsheet (VD: https://docs.google.com/spreadsheets/...):");
+    if (!url) return;
+    if (!url.startsWith("http")) {
+      toast.error("Liên kết không hợp lệ.");
+      return;
+    }
+    setDocLinks((prev) => [...prev, url.trim()]);
+    toast.success("Đã đính kèm liên kết bảng tính.");
   };
 
   const avatarUrl = (u: UserProfile) =>
@@ -2931,32 +3129,136 @@ function WizardStepEditorModal({
           <div className={`py-2.5 border-b transition-colors ${
             isDark ? "border-zinc-800/60" : "border-gray-100"
           }`}>
-            <span className={`text-[11px] font-extrabold uppercase tracking-wide mb-2 block ${
+            <span className={`text-[11px] font-extrabold uppercase tracking-wide mb-2 block flex items-center justify-between ${
               isDark ? "text-cyan-400" : "text-cyan-600"
             }`}>
-              File đính kèm
+              <span>File đính kèm</span>
+              {uploading && (
+                <span className="text-[10px] lowercase text-indigo-400 flex items-center gap-1 font-semibold">
+                  <div className="w-2.5 h-2.5 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+                  Đang tải lên...
+                </span>
+              )}
             </span>
-            <div className="flex items-center gap-3">
-              {[
-                { icon: <Paperclip className="h-4 w-4" />, color: "text-slate-500", title: "Tập tin" },
-                { icon: <span className="text-xs font-black" style={{color:"#f97316"}}>N</span>, color: "", title: "Notion" },
-                { icon: <Mic className="h-4 w-4" />, color: "text-purple-500", title: "Ghi âm" },
-                { icon: <Circle className="h-4 w-4 fill-red-500" />, color: "text-red-500", title: "Quay màn hình" },
-                { icon: <CloudUpload className="h-4 w-4" />, color: "text-green-500", title: "Google Drive" },
-                { icon: <Table2 className="h-4 w-4" />, color: "text-indigo-400", title: "Bảng" },
-              ].map((a, i) => (
-                <button
-                  key={i}
-                  title={a.title}
-                  className={`p-1.5 rounded-lg transition-colors ${a.color} ${
-                    isDark ? "hover:bg-zinc-800" : "hover:bg-slate-100"
-                  }`}
-                  onClick={() => toast.info("Tính năng đính kèm đang phát triển.")}
-                >
-                  {a.icon}
-                </button>
-              ))}
+
+            {/* Hidden file input */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileUpload}
+              className="hidden"
+            />
+
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Tập tin */}
+              <button
+                type="button"
+                title="Tập tin"
+                onClick={triggerFileUpload}
+                className={`p-1.5 rounded-lg transition-colors cursor-pointer text-slate-500 ${
+                  isDark ? "hover:bg-zinc-800" : "hover:bg-slate-100"
+                }`}
+              >
+                <Paperclip className="h-4 w-4" />
+              </button>
+
+              {/* Notion */}
+              <button
+                type="button"
+                title="Notion"
+                onClick={handleAddNotion}
+                className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                  isDark ? "hover:bg-zinc-800" : "hover:bg-slate-100"
+                }`}
+              >
+                <span className="text-xs font-black" style={{ color: "#f97316" }}>N</span>
+              </button>
+
+              {/* Ghi âm */}
+              <button
+                type="button"
+                title={recording ? "Dừng ghi âm" : "Ghi âm"}
+                onClick={recording ? stopRecording : startRecording}
+                className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                  recording
+                    ? "text-white bg-red-500 hover:bg-red-650"
+                    : "text-purple-500 " + (isDark ? "hover:bg-zinc-800" : "hover:bg-slate-100")
+                }`}
+              >
+                <Mic className={`h-4 w-4 ${recording ? "animate-pulse" : ""}`} />
+              </button>
+
+              {/* Quay màn hình */}
+              <button
+                type="button"
+                title={screenRecording ? "Dừng quay" : "Quay màn hình"}
+                onClick={screenRecording ? stopScreenRecording : startScreenRecording}
+                className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                  screenRecording
+                    ? "text-white bg-red-500 hover:bg-red-650 animate-pulse"
+                    : "text-red-500 " + (isDark ? "hover:bg-zinc-800" : "hover:bg-slate-100")
+                }`}
+              >
+                <Circle className={`h-4 w-4 ${screenRecording ? "animate-pulse fill-white" : "fill-red-500"}`} />
+              </button>
+
+              {/* Google Drive */}
+              <button
+                type="button"
+                title="Google Drive"
+                onClick={handleAddDrive}
+                className={`p-1.5 rounded-lg transition-colors cursor-pointer text-green-500 ${
+                  isDark ? "hover:bg-zinc-800" : "hover:bg-slate-100"
+                }`}
+              >
+                <CloudUpload className="h-4 w-4" />
+              </button>
+
+              {/* Bảng */}
+              <button
+                type="button"
+                title="Bảng"
+                onClick={handleAddSpreadsheet}
+                className={`p-1.5 rounded-lg transition-colors cursor-pointer text-indigo-400 ${
+                  isDark ? "hover:bg-zinc-800" : "hover:bg-slate-100"
+                }`}
+              >
+                <Table2 className="h-4 w-4" />
+              </button>
             </div>
+
+            {/* Attached documents list */}
+            {docLinks.length > 0 && (
+              <div className="mt-3 space-y-1.5 max-h-32 overflow-y-auto pr-1">
+                {docLinks.map((link, idx) => (
+                  <div
+                    key={idx}
+                    className={`flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-xl border text-[11px] font-semibold transition-colors ${
+                      isDark ? "bg-[#242424] border-zinc-750 text-zinc-300" : "bg-slate-50 border-gray-150 text-slate-700"
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <Paperclip className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                      <a
+                        href={link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="truncate hover:underline text-indigo-500 font-mono"
+                      >
+                        {link}
+                      </a>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setDocLinks((prev) => prev.filter((_, i) => i !== idx))}
+                      className="text-slate-400 hover:text-red-500 p-0.5 cursor-pointer"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Giai đoạn tiếp theo */}

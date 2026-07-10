@@ -268,7 +268,7 @@ async function generateStepTasks(
       // để người nhận không phải điền tay khi hoàn thành
       estTime: stepWindow?.durationDays ? stepWindow.durationDays * 8 : 0,
       tags: [workflow.name, step.title],
-      linkNote: (participant.docLinks && participant.docLinks[0]) || "",
+      linkNote: (participant.docLinks && participant.docLinks[0]) || (step.docLinks && step.docLinks[0]) || "",
       workflowId: workflow.id,
       workflowStepId: step.id,
       participantId: participant.id,
