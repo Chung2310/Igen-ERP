@@ -80,6 +80,7 @@ const WorkflowParticipantSchema = new Schema(
     dueDate: { type: String, default: "" },
     docLinks: { type: [String], default: [] },
     customSubTasks: { type: [WorkflowSubTaskSchema], default: [] },
+    projectId: { type: String, default: "" },
     startedAt: { type: String, default: "" },
     updatedAt: { type: String, default: "" },
   },

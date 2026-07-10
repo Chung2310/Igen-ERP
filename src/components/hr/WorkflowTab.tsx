@@ -79,6 +79,69 @@ const fmtDate = (iso?: string) => {
   ).padStart(2, "0")}`;
 };
 
+/** Thời lượng hiệu dụng của một bước (ngày) — cùng logic với server (workflow-link.service) */
+const getStepDurationDays = (step: WorkflowStep): number | null => {
+  if (step.estDays && step.estDays > 0) return step.estDays;
+  switch (step.deadlineType) {
+    case "same_day":
+    case "custom_time":
+      return 0;
+    case "after_1":
+      return 1;
+    case "after_2":
+      return 2;
+    case "after_x":
+      return step.deadlineDays || 3;
+    default:
+      return null;
+  }
+};
+
+type StepSchedulePreview = {
+  stepId: string;
+  title: string;
+  start: Date;
+  due: Date | null;
+  durationDays: number | null;
+};
+
+/**
+ * Lịch trình dự kiến khi giao việc theo quy trình: các bước nối đuôi nhau từ ngày
+ * bắt đầu — bước sau bắt đầu khi bước trước đến hạn. Hiển thị xem trước trong modal
+ * giao việc; server tính lại cùng logic khi sinh task.
+ */
+const buildStepSchedulePreview = (steps: WorkflowStep[], startDate?: string): StepSchedulePreview[] => {
+  let cursor =
+    startDate && /^\d{4}-\d{2}-\d{2}/.test(startDate)
+      ? new Date(`${startDate.slice(0, 10)}T08:00:00`)
+      : new Date();
+  if (isNaN(cursor.getTime())) cursor = new Date();
+
+  return steps.map((step) => {
+    const durationDays = getStepDurationDays(step);
+    if (durationDays === null) {
+      return { stepId: step.id, title: step.title, start: new Date(cursor), due: null, durationDays };
+    }
+    const due = new Date(cursor);
+    due.setDate(due.getDate() + durationDays);
+    if (step.deadlineTime && step.deadlineTime.includes(":")) {
+      const [h, m] = step.deadlineTime.split(":");
+      due.setHours(parseInt(h, 10), parseInt(m, 10), 0, 0);
+    } else {
+      due.setHours(18, 0, 0, 0);
+    }
+    if (due.getTime() < cursor.getTime()) due.setDate(due.getDate() + 1);
+    const entry = { stepId: step.id, title: step.title, start: new Date(cursor), due, durationDays };
+    cursor = new Date(due);
+    return entry;
+  });
+};
+
+const fmtScheduleDatetime = (d: Date) =>
+  `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")} ${String(
+    d.getHours()
+  ).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+
 export default function WorkflowTab({
   userProfile,
   selectedCompanyCode,
@@ -91,6 +154,31 @@ export default function WorkflowTab({
   const [view, setView] = useState<"list" | "detail">("list");
   const [wizardOpen, setWizardOpen] = useState(false);
   const [wizardData, setWizardData] = useState<Workflow | null>(null);
+  const [projects, setProjects] = useState<any[]>([]);
+
+  // Fetch projects list for selecting project/domain in case creation
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const res = await fetch("/api/v1/crud/projects", {
+          headers: {
+            "Authorization": `Bearer ${getAccessToken()}`,
+          },
+        });
+        if (res.ok) {
+          const json = await res.json();
+          const projData = (json.data || []).map((item: any) => ({
+            ...item,
+            id: item._id,
+          }));
+          setProjects(projData);
+        }
+      } catch (err) {
+        console.error("Lỗi khi tải danh sách dự án:", err);
+      }
+    };
+    fetchProjects();
+  }, []);
 
   // ---- Theme & Task linkage states ----
   const [isDark, setIsDark] = useState(() =>
@@ -197,6 +285,7 @@ export default function WorkflowTab({
     dueDate: string;
     docLinks: string[];
     customSubTasks: WorkflowSubTask[];
+    projectId: string;
   } | null>(null);
   const [newCaseSubTask, setNewCaseSubTask] = useState("");
   const [newCaseDocLink, setNewCaseDocLink] = useState("");
@@ -478,6 +567,7 @@ export default function WorkflowTab({
       dueDate: "",
       docLinks: [],
       customSubTasks: [],
+      projectId: "",
     });
     setNewCaseSubTask("");
     setNewCaseDocLink("");
@@ -514,6 +604,7 @@ export default function WorkflowTab({
           dueDate: partDraft.dueDate,
           docLinks: partDraft.docLinks.filter((l) => l.trim()),
           customSubTasks: partDraft.customSubTasks,
+          projectId: partDraft.projectId,
         }),
       });
       if (!res.ok) {
@@ -1275,6 +1366,27 @@ export default function WorkflowTab({
                 />
               </div>
 
+              {/* Dự án/ Lĩnh vực */}
+              <div>
+                <label className={`text-[11px] font-extrabold uppercase tracking-wide ${isDark ? "text-zinc-500" : "text-slate-450"}`}>
+                  Dự án/ Lĩnh vực
+                </label>
+                <select
+                  value={partDraft.projectId}
+                  onChange={(e) => setPartDraft({ ...partDraft, projectId: e.target.value })}
+                  className={`mt-1.5 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 ${
+                    isDark ? "bg-[#242424] border-zinc-700 text-zinc-200" : "border-gray-200"
+                  }`}
+                >
+                  <option value="">— Chưa chọn dự án —</option>
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               {/* Phụ trách + Ưu tiên */}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
@@ -1357,6 +1469,39 @@ export default function WorkflowTab({
                   />
                 </div>
               </div>
+
+              {/* Lịch trình dự kiến — tự tính từ thông tin các bước, nối đuôi nhau */}
+              {steps.length > 0 && (
+                <div
+                  className={`rounded-2xl border p-3 ${
+                    isDark ? "border-zinc-800 bg-[#181818]" : "border-gray-200 bg-gray-50"
+                  }`}
+                >
+                  <p className={`text-[11px] font-extrabold uppercase tracking-wide ${isDark ? "text-zinc-500" : "text-slate-450"}`}>
+                    Lịch trình dự kiến theo các bước
+                  </p>
+                  <div className="mt-2 space-y-1.5">
+                    {buildStepSchedulePreview(steps, partDraft.startDate).map((s, i) => (
+                      <div key={s.stepId} className="flex items-center justify-between gap-3 text-[11px]">
+                        <span className={`truncate font-semibold ${isDark ? "text-zinc-300" : "text-slate-600"}`}>
+                          {i + 1}. {s.title}
+                        </span>
+                        <span className={`shrink-0 font-mono ${isDark ? "text-zinc-500" : "text-slate-450"}`}>
+                          {s.due
+                            ? `${fmtScheduleDatetime(s.start)} → ${fmtScheduleDatetime(s.due)}${
+                                s.durationDays ? ` · ${s.durationDays} ngày` : ""
+                              }`
+                            : "Chưa có thời lượng"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className={`mt-2 text-[10px] ${isDark ? "text-zinc-600" : "text-slate-400"}`}>
+                    Công việc con trong mỗi bước dùng chung thời gian với bước cha. Bước chưa có
+                    thời lượng (không ước lượng ngày, không deadline) sẽ không dịch lịch các bước sau.
+                  </p>
+                </div>
+              )}
 
               {/* Mô tả */}
               <div>

@@ -46,6 +46,7 @@ export interface IWorkflowParticipant {
   docLinks?: string[];
   /** Công việc con riêng của case — sinh task Kanban ở bước đầu tiên */
   customSubTasks?: { id: string; title: string; assigneeUid?: string; assignee?: string; done?: boolean }[];
+  projectId?: string;
   startedAt?: string;
   updatedAt?: string;
 }
