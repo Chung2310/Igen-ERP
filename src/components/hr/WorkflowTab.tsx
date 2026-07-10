@@ -2475,6 +2475,13 @@ function WizardStepEditorModal({
   const [newSubTask, setNewSubTask] = useState("");
   const [docLinks, setDocLinks] = useState<string[]>(step.docLinks || []);
   const [uploading, setUploading] = useState(false);
+  const [linkModal, setLinkModal] = useState<{
+    open: boolean;
+    type: "notion" | "drive" | "spreadsheet";
+    title: string;
+    placeholder: string;
+    value: string;
+  } | null>(null);
 
   const isFirstStep = stepIndex === 0;
   const nextStep = steps[stepIndex + 1] || null;
@@ -2570,14 +2577,13 @@ function WizardStepEditorModal({
   };
 
   const handleAddNotion = () => {
-    const url = prompt("Nhập liên kết Notion (VD: https://notion.so/...):");
-    if (!url) return;
-    if (!url.startsWith("http")) {
-      toast.error("Liên kết không hợp lệ.");
-      return;
-    }
-    setDocLinks((prev) => [...prev, url.trim()]);
-    toast.success("Đã đính kèm liên kết Notion.");
+    setLinkModal({
+      open: true,
+      type: "notion",
+      title: "Đính kèm liên kết Notion",
+      placeholder: "Nhập liên kết Notion (VD: https://notion.so/...)",
+      value: "",
+    });
   };
 
   const [recording, setRecording] = useState(false);
@@ -2699,25 +2705,40 @@ function WizardStepEditorModal({
   };
 
   const handleAddDrive = () => {
-    const url = prompt("Nhập liên kết Google Drive (VD: https://drive.google.com/...):");
-    if (!url) return;
-    if (!url.startsWith("http")) {
-      toast.error("Liên kết không hợp lệ.");
-      return;
-    }
-    setDocLinks((prev) => [...prev, url.trim()]);
-    toast.success("Đã đính kèm liên kết Google Drive.");
+    setLinkModal({
+      open: true,
+      type: "drive",
+      title: "Đính kèm liên kết Google Drive",
+      placeholder: "Nhập liên kết Google Drive (VD: https://drive.google.com/...)",
+      value: "",
+    });
   };
 
   const handleAddSpreadsheet = () => {
-    const url = prompt("Nhập liên kết Bảng tính / Spreadsheet (VD: https://docs.google.com/spreadsheets/...):");
-    if (!url) return;
-    if (!url.startsWith("http")) {
-      toast.error("Liên kết không hợp lệ.");
+    setLinkModal({
+      open: true,
+      type: "spreadsheet",
+      title: "Đính kèm liên kết Bảng tính",
+      placeholder: "Nhập liên kết Bảng tính / Spreadsheet (VD: https://docs.google.com/spreadsheets/...)",
+      value: "",
+    });
+  };
+
+  const handleConfirmLink = () => {
+    if (!linkModal) return;
+    const url = linkModal.value.trim();
+    if (!url) {
+      toast.error("Vui lòng nhập liên kết.");
       return;
     }
-    setDocLinks((prev) => [...prev, url.trim()]);
-    toast.success("Đã đính kèm liên kết bảng tính.");
+    if (!url.startsWith("http")) {
+      toast.error("Liên kết không hợp lệ. Vui lòng nhập link bắt đầu bằng http:// hoặc https://");
+      return;
+    }
+
+    setDocLinks((prev) => [...prev, url]);
+    toast.success(`Đã đính kèm liên kết ${linkModal.type === "notion" ? "Notion" : linkModal.type === "drive" ? "Google Drive" : "Bảng tính"}.`);
+    setLinkModal(null);
   };
 
   const avatarUrl = (u: UserProfile) =>
@@ -3318,6 +3339,78 @@ function WizardStepEditorModal({
           </button>
         </div>
       </div>
+
+      {/* Custom dialog for inputting Notion/Drive/Spreadsheet links */}
+      {linkModal && linkModal.open && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fade-in"
+          onClick={() => setLinkModal(null)}
+        >
+          <div
+            className={`w-full max-w-md rounded-2xl border shadow-2xl overflow-hidden flex flex-col transition-all transform scale-100 ${
+              isDark
+                ? "bg-[#222222] text-zinc-150 border-zinc-800"
+                : "bg-white text-slate-850 border-gray-200"
+            }`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Title */}
+            <div className={`px-5 py-3.5 border-b text-xs font-extrabold uppercase tracking-wider ${
+              isDark ? "border-zinc-800 bg-[#1d1d1d] text-cyan-400" : "border-gray-200 bg-slate-50 text-cyan-600"
+            }`}>
+              {linkModal.title}
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 space-y-4">
+              <span className={`text-[11px] font-bold block ${isDark ? "text-zinc-400" : "text-slate-500"}`}>
+                Vui lòng nhập liên kết hợp lệ bắt đầu bằng http:// hoặc https://
+              </span>
+              <input
+                type="text"
+                value={linkModal.value}
+                onChange={(e) => setLinkModal({ ...linkModal, value: e.target.value })}
+                placeholder={linkModal.placeholder}
+                autoFocus
+                className={`w-full px-3 py-2.5 rounded-xl text-xs font-semibold outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all ${
+                  isDark
+                    ? "bg-[#2c2c2c] border border-zinc-700 text-zinc-200"
+                    : "bg-white border border-gray-250 text-slate-850"
+                }`}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleConfirmLink();
+                  }
+                }}
+              />
+            </div>
+
+            {/* Modal Footer */}
+            <div className={`px-5 py-3.5 border-t flex justify-end gap-2.5 ${
+              isDark ? "border-zinc-800 bg-[#1d1d1d]" : "border-gray-200 bg-slate-50"
+            }`}>
+              <button
+                type="button"
+                onClick={() => setLinkModal(null)}
+                className={`px-4 py-2 rounded-xl text-xs font-bold border transition-colors cursor-pointer ${
+                  isDark
+                    ? "border-zinc-700 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850"
+                    : "border-gray-250 text-slate-650 hover:bg-gray-100"
+                }`}
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmLink}
+                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-extrabold transition-all cursor-pointer shadow-sm active:scale-98 shadow-indigo-500/15"
+              >
+                Đồng ý
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
