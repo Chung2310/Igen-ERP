@@ -6,6 +6,7 @@ import { KanbanTaskModel } from "../model/kanban-task.model";
 import { ProjectModel } from "../model/project.model";
 import { UserModel } from "../model/user.model";
 import { notificationService } from "../service/notification.service";
+import { workflowLinkService } from "../service/workflow-link.service";
 import { emitToCompany, emitToUser } from "../socket";
 
 export const kanbanRouter = Router();
@@ -228,6 +229,10 @@ kanbanRouter.patch("/tasks/:id", async (req: AuthenticatedRequest, res: Response
     }
     if (update.status === "Done") {
       const merged = { ...task, ...update };
+      const plannedStartAt = new Date(merged.startTime).getTime();
+      if (Number.isFinite(plannedStartAt) && plannedStartAt > Date.now()) {
+        throw httpError(400, "Chưa đến thời gian bắt đầu đã chọn nên không thể hoàn thành công việc.");
+      }
       if (!merged.description?.trim() || !merged.startTime || !Number(merged.estTime)) {
         throw httpError(400, "Hoàn thành công việc yêu cầu mô tả, thời gian bắt đầu và số giờ dự tính.");
       }
@@ -254,6 +259,9 @@ kanbanRouter.patch("/tasks/:id", async (req: AuthenticatedRequest, res: Response
     if (update.dueDate && update.dueDate !== task.dueDate) await notificationService.notifyTaskDeadlineChanged(updated);
     if (update.status && update.status !== normalizeStatus(task.status)) {
       await notificationService.notifyTaskStatusChanged(updated, req.user?.id || "");
+      if (updated.isFromWorkflow && updated.status === "Done") {
+        await workflowLinkService.handleTaskStatusChange(updated);
+      }
     }
     emitToCompany(task.companyCode, "kanban:task-updated", toClient(updated));
     emitToUser(updated.assigneeUid, "kanban:task-updated", toClient(updated));
@@ -268,6 +276,7 @@ kanbanRouter.delete("/tasks/:id", async (req: AuthenticatedRequest, res: Respons
     if (!isManager(req.user?.role)) throw httpError(403, "Chỉ quản lý mới được xóa công việc.");
     const task: any = await KanbanTaskModel.findOneAndDelete({ _id: req.params.id, ...companyFilter(req) });
     if (!task) throw httpError(404, "Không tìm thấy công việc.");
+    await workflowLinkService.handleTaskDeletion(task);
     emitToCompany(task.companyCode, "kanban:task-deleted", { id: task._id.toString() });
     return res.json({ status: "success", data: toClient(task) });
   } catch (error) {
