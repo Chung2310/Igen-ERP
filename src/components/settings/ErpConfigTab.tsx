@@ -1,15 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { Sliders, Bell, Sparkles, Laptop, MapPin } from "lucide-react";
+import { Sliders, Bell, MapPin } from "lucide-react";
 import { toast } from "../../pages/Toast";
 import { useAuth } from "../../context/AuthContext";
 
 export default function ErpConfigTab() {
-  const { userProfile, updateAiAutoReplyConfig } = useAuth();
+  const { userProfile } = useAuth();
   const [emailNotifications, setEmailNotifications] = useState(true);
-  const [aiModel, setAiModel] = useState(() => {
-    return userProfile?.aiAutoReplyConfig?.model || localStorage.getItem("selected_ai_model") || "gemini-3.5-flash";
-  });
-  const [autoBackup, setAutoBackup] = useState(true);
 
   // States for timekeeping location setup
   const [addressName, setAddressName] = useState("");
@@ -24,11 +20,6 @@ export default function ErpConfigTab() {
   // Cấu hình vị trí chấm công (GPS) chỉ dành cho admin/superadmin xem & sửa
   const canManageLocation = userProfile?.role === "superadmin" || userProfile?.role === "admin";
 
-  useEffect(() => {
-    if (userProfile?.aiAutoReplyConfig?.model) {
-      setAiModel(userProfile.aiAutoReplyConfig.model);
-    }
-  }, [userProfile]);
 
   useEffect(() => {
     if (canManageLocation) {
@@ -143,64 +134,6 @@ export default function ErpConfigTab() {
             <label className="relative inline-flex items-center cursor-pointer">
             
               <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
-            </label>
-          </div>
-        </div>
-      </div>
-
-      {/* AI Copilot & Data Settings */}
-      <div>
-        <h3 className="text-base font-bold text-gray-800 mb-4 flex items-center gap-2 border-b border-gray-100 pb-3">
-          <Sparkles className="h-5 w-5 text-indigo-500" />
-          Mô hình Trợ lý AI & Dữ liệu
-        </h3>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-1.5 text-left">
-            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Phiên bản Gemini API</label>
-            <select
-              value={aiModel}
-              onChange={async (e) => {
-                const model = e.target.value;
-                setAiModel(model);
-                localStorage.setItem("selected_ai_model", model);
-                if (userProfile?.aiAutoReplyConfig) {
-                  try {
-                    await updateAiAutoReplyConfig({
-                      ...userProfile.aiAutoReplyConfig,
-                      model
-                    });
-                    toast.success(`Đã đồng bộ và đổi mô hình AI sang: ${model}`);
-                  } catch (err) {
-                    console.error(err);
-                  }
-                } else {
-                  toast.success(`Đã đổi mô hình AI sang: ${model}`);
-                }
-              }}
-              className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none cursor-pointer"
-            >
-              <option value="gemini-3.5-flash">Gemini 3.5 Flash (Tối ưu tốc độ)</option>
-              <option value="gemini-3.1-pro">Gemini 3.1 Pro (Đọc hiểu nâng cao)</option>
-            </select>
-          </div>
-
-          <div className="flex items-center justify-between p-3 bg-gray-50 border border-gray-150 rounded-xl mt-4 md:mt-0 text-left">
-            <div className="flex items-center gap-2.5">
-              <Laptop className="h-4.5 w-4.5 text-gray-500" />
-              <div>
-                <h4 className="text-[11px] font-bold text-gray-800">Auto-Backup Dữ liệu</h4>
-                <p className="text-[9px] text-gray-400">Sao lưu tự động sang Firestore</p>
-              </div>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={autoBackup}
-                onChange={(e) => setAutoBackup(e.target.checked)}
-                className="sr-only peer"
-              />
-              <div className="w-8 h-4.5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-indigo-600"></div>
             </label>
           </div>
         </div>

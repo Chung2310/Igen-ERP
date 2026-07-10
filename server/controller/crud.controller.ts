@@ -4,6 +4,7 @@ import { crudService } from "../service/crud.service";
 import { SupportedModelName } from "../interface/crud.interface";
 import { UserModel } from "../model/user.model";
 import { TrainingCourseModel } from "../model/training-course.model";
+import { HRCalendarEventModel } from "../model/hr-calendar-event.model";
 
 export const crudController = {
   /**
@@ -99,6 +100,16 @@ export const crudController = {
 
       console.log(`[crudController.create] modelName=${modelName} body:`, req.body);
 
+      if (modelName === "hr-calendar-events" && req.body.type === "leave") {
+        const userRole = req.user?.role || "user";
+        if (userRole !== "superadmin" && userRole !== "admin" && userRole !== "manager") {
+          return res.status(403).json({
+            status: "error",
+            message: "Chỉ quản lý và admin mới có quyền đăng ký lịch nghỉ phép.",
+          });
+        }
+      }
+
       const item = await crudService.create(modelName, req.body, companyCode);
       return res.status(201).json({
         status: "success",
@@ -135,6 +146,18 @@ export const crudController = {
         }
       }
 
+      if (modelName === "hr-calendar-events") {
+        const event = await HRCalendarEventModel.findById(id).lean();
+        if (event && (event.type === "leave" || req.body.type === "leave")) {
+          if (userRole !== "superadmin" && userRole !== "admin" && userRole !== "manager") {
+            return res.status(403).json({
+              status: "error",
+              message: "Chỉ quản lý và admin mới có quyền chỉnh sửa lịch nghỉ phép.",
+            });
+          }
+        }
+      }
+
       const item = await crudService.update(modelName as SupportedModelName, id, req.body, companyCode, userRole);
       return res.status(200).json({
         status: "success",
@@ -166,6 +189,18 @@ export const crudController = {
             status: "error",
             message: "Bạn không có quyền xóa khóa học này vì không phải là người tạo.",
           });
+        }
+      }
+
+      if (modelName === "hr-calendar-events") {
+        const event = await HRCalendarEventModel.findById(id).lean();
+        if (event && event.type === "leave") {
+          if (userRole !== "superadmin" && userRole !== "admin" && userRole !== "manager") {
+            return res.status(403).json({
+              status: "error",
+              message: "Chỉ quản lý và admin mới có quyền xóa lịch nghỉ phép.",
+            });
+          }
         }
       }
 

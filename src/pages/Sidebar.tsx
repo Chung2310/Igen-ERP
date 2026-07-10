@@ -2,12 +2,8 @@ import React, { useState } from "react";
 import {
   ChevronRight,
   FolderOpen,
-  FolderTree,
   LayoutDashboard,
-  LineChart,
-  Megaphone,
   MessageSquare,
-  MessageSquareShare,
   Package,
   PanelLeftClose,
   PanelLeftOpen,
@@ -27,7 +23,6 @@ import {
 } from "../config/brand";
 import type { TabType } from "../types";
 import { useAuth } from "../context/AuthContext";
-import { isTabHidden } from "../config/modules";
 import { useIsMobile } from "../hooks/useMediaQuery";
 
 interface SidebarProps {
@@ -110,20 +105,6 @@ const baseMenuItems: MenuItem[] = [
     tone: "amber",
   },
   {
-    label: "MARKETING",
-    title: "AI Marketing Hub",
-    desc: "Sáng tạo nội dung và đăng lịch",
-    icon: Megaphone,
-    tone: "purple",
-  },
-  {
-    label: "SALES CRM",
-    title: "Sales CRM Omni-Inbox",
-    desc: "Chăm sóc và phễu khách hàng",
-    icon: MessageSquareShare,
-    tone: "rose",
-  },
-  {
     label: "QUẢN LÝ TÀI NGUYÊN",
     title: "Quản lý tài nguyên",
     desc: "Tài liệu nội bộ và Google Drive",
@@ -153,7 +134,7 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
   // Trên mobile drawer luôn ở dạng mở rộng; thu gọn chỉ là hành vi desktop
   const isCollapsed = isCollapsedState && !isMobile;
   // Loại các module bị ẩn tạm khỏi thanh điều hướng
-  const menuItems = baseMenuItems.filter((item) => !isTabHidden(item.label));
+  const menuItems = [...baseMenuItems];
 
   if (userProfile?.role === "superadmin" || userProfile?.role === "admin") {
     menuItems.push({
@@ -161,16 +142,6 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
       title: "Quản trị user",
       desc: "Cấp quyền và phân vai trò",
       icon: Shield,
-      tone: "indigo",
-    });
-  }
-
-  if (userProfile?.role === "superadmin") {
-    menuItems.push({
-      label: "HIỆU SUẤT AI",
-      title: "Hiệu suất AI",
-      desc: "So sánh máy và con người",
-      icon: LineChart,
       tone: "indigo",
     });
   }

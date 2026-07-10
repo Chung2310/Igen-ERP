@@ -9,14 +9,12 @@ import {
 } from "lucide-react";
 import { toast } from "./Toast";
 import { useSubTabRouter } from "../hooks/useSubTabRouter";
-import { isSettingsSubTabHidden } from "../config/modules";
+import { SETTINGS_SUB_TAB_ROUTES, type SettingsSubTabType } from "../router/subTabRoutes";
 
 // Lazy-loaded subcomponents
 const ProfileTab = lazy(() => import("../components/settings/ProfileTab"));
 const SecurityTab = lazy(() => import("../components/settings/SecurityTab"));
 const ErpConfigTab = lazy(() => import("../components/settings/ErpConfigTab"));
-const PersonalIntegrationsTab = lazy(() => import("../components/settings/PersonalIntegrationsTab"));
-const CompanyIntegrationsTab = lazy(() => import("../components/settings/CompanyIntegrationsTab"));
 const GoogleDriveTab = lazy(() => import("../components/settings/GoogleDriveTab"));
 
 export default function SettingsTab() {
@@ -28,22 +26,8 @@ export default function SettingsTab() {
   const [uploading, setUploading] = useState(false);
 
   // Sub-tabs in Settings
-  const SETTINGS_SUB_TAB_ROUTES = [
-    { slug: "ho-so", value: "profile" as const },
-    { slug: "bao-mat", value: "security" as const },
-    { slug: "cau-hinh", value: "erp" as const },
-    { slug: "mxh-ca-nhan", value: "personal-integrations" as const },
-    { slug: "dong-bo", value: "company-integrations" as const },
-    { slug: "google-drive", value: "google-drive" as const },
-  ] as const;
-  const [activeSubTab, setActiveSubTab] = useSubTabRouter<"profile" | "security" | "erp" | "personal-integrations" | "company-integrations" | "google-drive">(SETTINGS_SUB_TAB_ROUTES as any, "profile");
+  const [activeSubTab, setActiveSubTab] = useSubTabRouter<SettingsSubTabType>(SETTINGS_SUB_TAB_ROUTES, "profile");
 
-  // Nếu URL cũ trỏ vào sub-tab đã bị ẩn (MXH cá nhân/doanh nghiệp) → ép về Hồ sơ
-  React.useEffect(() => {
-    if (isSettingsSubTabHidden(activeSubTab)) {
-      setActiveSubTab("profile");
-    }
-  }, [activeSubTab, setActiveSubTab]);
 
   // Synchronize display name and photo url from context if it updates
   React.useEffect(() => {
@@ -149,28 +133,6 @@ export default function SettingsTab() {
           >
             Cấu hình ERP
           </button>
-          {!isSettingsSubTabHidden("personal-integrations") && (
-            <button
-              onClick={() => setActiveSubTab("personal-integrations")}
-              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${activeSubTab === "personal-integrations"
-                ? "bg-white text-gray-800 shadow-xs"
-                : "text-gray-500 hover:text-gray-700"
-                }`}
-            >
-              MXH Cá Nhân
-            </button>
-          )}
-          {!isSettingsSubTabHidden("company-integrations") && (
-            <button
-              onClick={() => setActiveSubTab("company-integrations")}
-              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${activeSubTab === "company-integrations"
-                ? "bg-white text-gray-800 shadow-xs"
-                : "text-gray-500 hover:text-gray-700"
-                }`}
-            >
-              🏢 MXH Doanh nghiệp
-            </button>
-          )}
           <button
             onClick={() => setActiveSubTab("google-drive")}
             className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${activeSubTab === "google-drive"
@@ -250,8 +212,6 @@ export default function SettingsTab() {
             {activeSubTab === "profile" && <ProfileTab />}
             {activeSubTab === "security" && <SecurityTab />}
             {activeSubTab === "erp" && <ErpConfigTab />}
-            {activeSubTab === "personal-integrations" && !isSettingsSubTabHidden("personal-integrations") && <PersonalIntegrationsTab />}
-            {activeSubTab === "company-integrations" && !isSettingsSubTabHidden("company-integrations") && <CompanyIntegrationsTab userProfile={userProfile} />}
             {activeSubTab === "google-drive" && <GoogleDriveTab />}
           </Suspense>
         </div>

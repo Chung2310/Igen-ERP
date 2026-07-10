@@ -33,7 +33,7 @@ export function TuitionTab({
   handleDeletePaymentClick
 }: TuitionTabProps) {
   const { userProfile: user } = useAuth();
-  const feeLabel = 'Há»c phÃ­ Ä‘Ã£ chá»‘t';
+  const feeLabel = 'Học phí đã chốt';
   const totalFee = parseInt(parseVND(student.fee)) || 0;
   const paid = student.paidAmount || 0;
   const remaining = totalFee - paid;
@@ -109,7 +109,7 @@ export function TuitionTab({
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      console.error("Lá»—i khi táº£i áº£nh QR:", error);
+      console.error("Lỗi khi tải ảnh QR:", error);
       window.open(qrCodeUrl, '_blank');
     }
   };
@@ -118,14 +118,14 @@ export function TuitionTab({
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <FeeCard label={feeLabel} amount={totalFee} icon={CreditCard} color="text-slate-800" />
-        <FeeCard label="ÄÃ£ Ä‘Ã³ng" amount={paid} icon={CreditCard} color="text-emerald-600" isPaid />
-        <FeeCard label="CÃ²n ná»£" amount={remaining} icon={AlertCircle} color="text-rose-600" isWarning />
+        <FeeCard label="Đã đóng" amount={paid} icon={CreditCard} color="text-emerald-600" isPaid />
+        <FeeCard label="Còn nợ" amount={remaining} icon={AlertCircle} color="text-rose-600" isWarning />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm">
           <h3 className="text-sm font-bold text-slate-800 mb-6 flex items-center gap-2">
-            <History className="w-4 h-4 text-cyan-500" /> Nháº­t kÃ½ Ä‘Ã³ng phÃ­
+            <History className="w-4 h-4 text-cyan-500" /> Nhật ký đóng phí
           </h3>
           <div className="space-y-3">
             {(student.paymentHistory || []).length > 0 ? (
@@ -136,9 +136,9 @@ export function TuitionTab({
                       <CreditCard className="w-5 h-5" />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-bold text-slate-700">Thanh toÃ¡n Ä‘á»£t {idx + 1}</p>
-                      <p className="text-[10px] text-slate-400 font-medium">{p.date} â€¢ {p.method}</p>
-                      {p.note && <p className="text-[10px] text-slate-400 italic mt-0.5 max-w-[200px] truncate" title={p.note}>Ghi chÃº: {p.note}</p>}
+                      <p className="text-sm font-bold text-slate-700">Thanh toán đợt {idx + 1}</p>
+                      <p className="text-[10px] text-slate-400 font-medium">{p.date} • {p.method}</p>
+                      {p.note && <p className="text-[10px] text-slate-400 italic mt-0.5 max-w-[200px] truncate" title={p.note}>Ghi chú: {p.note}</p>}
                     </div>
                   </div>
 
@@ -149,10 +149,10 @@ export function TuitionTab({
                     </div>
 
                     <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => handleStartEditPayment(p, idx)} className="p-2 bg-white hover:bg-cyan-50 border border-slate-200 hover:border-cyan-200 text-slate-500 hover:text-cyan-600 rounded-xl transition-all shadow-sm active:scale-90" title="Sá»­a giao dá»‹ch">
+                      <button onClick={() => handleStartEditPayment(p, idx)} className="p-2 bg-white hover:bg-cyan-50 border border-slate-200 hover:border-cyan-200 text-slate-500 hover:text-cyan-600 rounded-xl transition-all shadow-sm active:scale-90" title="Sửa giao dịch">
                         <Pencil className="w-3.5 h-3.5" />
                       </button>
-                      <button onClick={() => handleDeletePaymentClick(p, idx)} className="p-2 bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-200 text-slate-500 hover:text-rose-600 rounded-xl transition-all shadow-sm active:scale-90" title="XÃ³a giao dá»‹ch">
+                      <button onClick={() => handleDeletePaymentClick(p, idx)} className="p-2 bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-200 text-slate-500 hover:text-rose-600 rounded-xl transition-all shadow-sm active:scale-90" title="Xóa giao dịch">
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
@@ -162,7 +162,7 @@ export function TuitionTab({
             ) : (
               <div className="flex flex-col items-center justify-center py-10 opacity-30">
                 <History className="w-12 h-12 text-slate-300 mb-3" />
-                <p className="text-xs font-bold text-slate-400 italic">ChÆ°a cÃ³ lá»‹ch sá»­ thanh toÃ¡n.</p>
+                <p className="text-xs font-bold text-slate-400 italic">Chưa có lịch sử thanh toán.</p>
               </div>
             )}
           </div>
@@ -172,7 +172,7 @@ export function TuitionTab({
           <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col items-center">
             <div className="w-full flex items-center justify-between mb-4">
               <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                <QrCode className="w-4 h-4 text-cyan-500" /> Thanh toÃ¡n VietQR
+                <QrCode className="w-4 h-4 text-cyan-500" /> Thanh toán VietQR
               </h4>
               {hasValidConfig && remaining > 0 && (
                 <span className="flex h-2 w-2 relative">
@@ -184,37 +184,37 @@ export function TuitionTab({
 
             {totalFee === 0 ? (
               <div className="w-full py-8 text-center text-rose-500/80 text-xs font-bold italic">
-                ChÆ°a Ä‘Ã³ng há»c phÃ­ (ChÆ°a cáº¥u hÃ¬nh há»c phÃ­)
+                Chưa đóng học phí (Chưa cấu hình học phí)
               </div>
             ) : remaining <= 0 ? (
               <div className="w-full py-8 text-center text-slate-400 text-xs italic">
-                Há»c viÃªn Ä‘Ã£ hoÃ n táº¥t Ä‘Ã³ng há»c phÃ­.
+                Học viên đã hoàn tất đóng học phí.
               </div>
             ) : !hasValidConfig ? (
               <div className="w-full py-6 text-center space-y-3">
                 <Info className="w-8 h-8 text-amber-500 mx-auto" />
                 <p className="text-xs text-slate-500 leading-relaxed px-2">
-                  ChÆ°a cáº¥u hÃ¬nh thÃ´ng tin tÃ i khoáº£n ngÃ¢n hÃ ng nháº­n tiá»n.
+                  Chưa cấu hình thông tin tài khoản ngân hàng nhận tiền.
                 </p>
                 <p className="text-[10px] text-slate-400">
-                  Vui lÃ²ng truy cáº­p trang <strong>CÃ i Ä‘áº·t ERP</strong> hoáº·c cáº¥u hÃ¬nh cÃ¡ nhÃ¢n Ä‘á»ƒ thiáº¿t láº­p VietQR.
+                  Vui lòng truy cập trang <strong>Cài đặt ERP</strong> hoặc cấu hình cá nhân để thiết lập VietQR.
                 </p>
               </div>
             ) : (
               <div className="w-full space-y-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">Sá»‘ tiá»n thanh toÃ¡n</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase">Số tiền thanh toán</label>
                   <input
                     type="text"
                     value={paymentAmountInput}
                     onChange={(e) => handleAmountInputChange(e.target.value)}
-                    placeholder="Nháº­p sá»‘ tiá»n..."
+                    placeholder="Nhập số tiền..."
                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold text-slate-800 focus:outline-none focus:border-cyan-500 transition-colors"
                   />
                   <div className="flex justify-between text-[9px] text-slate-400 font-medium">
-                    <span>CÃ²n ná»£: {formatVND(remaining)}Ä‘</span>
+                    <span>Còn nợ: {formatVND(remaining)}đ</span>
                     <button onClick={() => { setPaymentAmount(remaining); setPaymentAmountInput(formatVND(remaining)); }} className="text-cyan-600 hover:underline font-bold">
-                      ÄÃ³ng háº¿t
+                      Đóng hết
                     </button>
                   </div>
                 </div>
@@ -224,33 +224,33 @@ export function TuitionTab({
                     <img src={qrCodeUrl} alt="VietQR Payment Code" className="w-36 h-36 object-contain" />
                   </div>
 
-                  <button onClick={handleDownloadQR} className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 hover:text-cyan-600 rounded-xl text-[10px] font-bold transition-all shadow-sm mb-3 active:scale-95" title="Táº£i áº£nh mÃ£ QR vá» mÃ¡y">
+                  <button onClick={handleDownloadQR} className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 hover:text-cyan-600 rounded-xl text-[10px] font-bold transition-all shadow-sm mb-3 active:scale-95" title="Tải ảnh mã QR về máy">
                     <Download className="w-3.5 h-3.5" />
-                    Táº£i mÃ£ QR
+                    Tải mã QR
                   </button>
 
                   <div className="w-full space-y-1.5 text-xs text-slate-600">
                     <div className="flex justify-between">
-                      <span className="text-slate-400">NgÃ¢n hÃ ng:</span>
+                      <span className="text-slate-400">Ngân hàng:</span>
                       <span className="font-bold text-slate-800 uppercase">{bankId}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-400">Sá»‘ tÃ i khoáº£n:</span>
+                      <span className="text-slate-400">Số tài khoản:</span>
                       <span className="font-bold text-slate-800">{accountNo}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-400">Chá»§ tÃ i khoáº£n:</span>
+                      <span className="text-slate-400">Chủ tài khoản:</span>
                       <span className="font-bold text-slate-800">{accountName}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-400">Sá»‘ tiá»n:</span>
-                      <span className="font-bold text-cyan-600">{formatVND(paymentAmount)}Ä‘</span>
+                      <span className="text-slate-400">Số tiền:</span>
+                      <span className="font-bold text-cyan-600">{formatVND(paymentAmount)}đ</span>
                     </div>
                     <div className="pt-1.5 border-t border-slate-200/60 mt-1 flex flex-col gap-1">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">Ná»™i dung chuyá»ƒn khoáº£n</span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">Nội dung chuyển khoản</span>
                       <div className="flex items-center justify-between bg-white px-3 py-1.5 rounded-lg border border-slate-100">
                         <span className="font-mono text-[10px] font-black text-slate-800 tracking-wider select-all">{student.id}</span>
-                        <button onClick={handleCopyMemo} className="text-slate-400 hover:text-cyan-600 p-0.5 rounded transition-colors" title="Sao chÃ©p ná»™i dung">
+                        <button onClick={handleCopyMemo} className="text-slate-400 hover:text-cyan-600 p-0.5 rounded transition-colors" title="Sao chép nội dung">
                           {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
                         </button>
                       </div>
@@ -259,7 +259,7 @@ export function TuitionTab({
                 </div>
 
                 <p className="text-[10px] text-slate-400 leading-normal text-center italic">
-                  * Há»‡ thá»‘ng tá»± Ä‘á»™ng ghi nháº­n há»c phÃ­ ngay láº­p tá»©c sau khi nháº­n Ä‘Æ°á»£c tiá»n tá»« ngÃ¢n hÃ ng.
+                  * Hệ thống tự động ghi nhận học phí ngay lập tức sau khi nhận được tiền từ ngân hàng.
                 </p>
               </div>
             )}
@@ -269,28 +269,28 @@ export function TuitionTab({
             <div className="w-16 h-16 rounded-2xl bg-cyan-50 flex items-center justify-center text-cyan-500 mb-4 shadow-inner shadow-cyan-100/50">
               <Zap className="w-8 h-8" />
             </div>
-            <h4 className="text-sm font-bold text-slate-800">ThÃ´ng tin Ä‘Ã³ng phÃ­</h4>
-            <p className="text-xs text-slate-400 mt-1 max-w-[180px]">Há»c viÃªn cáº§n hoÃ n táº¥t há»c phÃ­ trÆ°á»›c ngÃ y thi sÃ¡t háº¡ch 15 ngÃ y.</p>
+            <h4 className="text-sm font-bold text-slate-800">Thông tin đóng phí</h4>
+            <p className="text-xs text-slate-400 mt-1 max-w-[180px]">Học viên cần hoàn tất học phí trước ngày thi sát hạch 15 ngày.</p>
 
             <div className="w-full mt-6 space-y-3">
               {(() => {
-                let statusLabel = 'ChÆ°a Ä‘Ã³ng';
+                let statusLabel = 'Chưa đóng';
                 let statusColor = 'text-rose-500';
                 let bgColor = 'bg-rose-50 border-rose-100';
 
                 if (remaining <= 0 && totalFee > 0) {
-                  statusLabel = 'ÄÃ£ Ä‘Ã³ng Ä‘á»§';
+                  statusLabel = 'Đã đóng đủ';
                   statusColor = 'text-emerald-600';
                   bgColor = 'bg-emerald-50 border-emerald-100';
                 } else if (paid > 0) {
-                  statusLabel = 'CÃ²n thiáº¿u';
+                  statusLabel = 'Còn thiếu';
                   statusColor = 'text-amber-600';
                   bgColor = 'bg-amber-50 border-amber-100';
                 }
 
                 return (
                   <div className={cn("p-3 rounded-xl text-left border shadow-sm", bgColor)}>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Tráº¡ng thÃ¡i hiá»‡n táº¡i</p>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Trạng thái hiện tại</p>
                     <p className={cn("text-xs font-black mt-1", statusColor)}>
                       {statusLabel}
                     </p>
@@ -298,7 +298,7 @@ export function TuitionTab({
                 );
               })()}
               <button className="w-full py-3 bg-cyan-600 text-white rounded-xl text-xs font-bold hover:bg-cyan-700 transition-all active:scale-95 shadow-lg shadow-cyan-100 mt-2">
-                Nháº¯c nhá»Ÿ Ä‘Ã³ng phÃ­
+                Nhắc nhở đóng phí
               </button>
             </div>
           </div>
@@ -331,7 +331,7 @@ function FeeCard({ label, amount, icon: Icon, color, isPaid, isWarning }: FeeCar
         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">{label}</p>
       </div>
       <p className={cn("text-2xl font-black tracking-tight whitespace-nowrap", color)}>
-        {formatVND(amount)}Ä‘
+        {formatVND(amount)}đ
       </p>
     </div>
   );

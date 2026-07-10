@@ -717,6 +717,11 @@ export default function CalendarTab({
       return;
     }
 
+    if (formType === "leave" && !(isManager || userProfile?.role === "admin" || userProfile?.role === "superadmin")) {
+      toast.error("Chỉ quản lý và admin mới có quyền đăng ký lịch nghỉ phép.");
+      return;
+    }
+
     const selectedEmployee = employees.find((emp) => emp.id === formEmployeeId);
 
     const payload: Partial<CalendarItem> = {
@@ -903,13 +908,15 @@ export default function CalendarTab({
                   <CalendarCheck className="h-4 w-4 text-blue-500" />
                   Tạo sự kiện
                 </button>
-                <button
-                  onClick={() => openCreateModal(new Date(), "leave")}
-                  className="w-full text-left px-4 py-2 hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center gap-2.5 cursor-pointer"
-                >
-                  <Users className="h-4 w-4 text-rose-500" />
-                  Đăng ký nghỉ phép
-                </button>
+                {(isManager || userProfile?.role === "admin" || userProfile?.role === "superadmin") && (
+                  <button
+                    onClick={() => openCreateModal(new Date(), "leave")}
+                    className="w-full text-left px-4 py-2 hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center gap-2.5 cursor-pointer"
+                  >
+                    <Users className="h-4 w-4 text-rose-500" />
+                    Đăng ký nghỉ phép
+                  </button>
+                )}
                 <button
                   onClick={() => openCreateModal(new Date(), "reminder")}
                   className="w-full text-left px-4 py-2 hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center gap-2.5 cursor-pointer"
@@ -1150,20 +1157,24 @@ export default function CalendarTab({
                           {typeLabel}
                         </span>
                         <div className="flex gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={() => openEditModal(item)}
-                            className="p-1 text-slate-400 hover:text-indigo-650 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
-                            title="Sửa"
-                          >
-                            <Edit className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteItem((item._id || item.id)!)}
-                            className="p-1 text-slate-400 hover:text-rose-650 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-                            title="Xóa"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
+                          {(item.type !== "leave" || isManager || userProfile?.role === "admin" || userProfile?.role === "superadmin") && (
+                            <button
+                              onClick={() => openEditModal(item)}
+                              className="p-1 text-slate-400 hover:text-indigo-650 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
+                              title="Sửa"
+                            >
+                              <Edit className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          {(item.type !== "leave" || isManager || userProfile?.role === "admin" || userProfile?.role === "superadmin") && (
+                            <button
+                              onClick={() => handleDeleteItem((item._id || item.id)!)}
+                              className="p-1 text-slate-400 hover:text-rose-650 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                              title="Xóa"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
                         </div>
                       </div>
 
@@ -1210,12 +1221,14 @@ export default function CalendarTab({
                 >
                   Sự kiện
                 </button>
-                <button
-                  onClick={() => openCreateModal(selectedDayDate, "leave")}
-                  className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-[10px] font-extrabold transition-all shadow-sm hover:shadow-md cursor-pointer"
-                >
-                  Nghỉ phép
-                </button>
+                {(isManager || userProfile?.role === "admin" || userProfile?.role === "superadmin") && (
+                  <button
+                    onClick={() => openCreateModal(selectedDayDate, "leave")}
+                    className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-[10px] font-extrabold transition-all shadow-sm hover:shadow-md cursor-pointer"
+                  >
+                    Nghỉ phép
+                  </button>
+                )}
                 <button
                   onClick={() => openCreateModal(selectedDayDate, "reminder")}
                   className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-[10px] font-extrabold transition-all shadow-sm hover:shadow-md cursor-pointer"
@@ -1256,9 +1269,9 @@ export default function CalendarTab({
                   <div className="grid grid-cols-3 gap-2">
                     {[
                       { key: "event", label: "Sự kiện", color: "border-blue-500 text-blue-600" },
-                      { key: "leave", label: "Nghỉ phép", color: "border-rose-500 text-rose-600" },
+                      { key: "leave", label: "Nghỉ phép", color: "border-rose-500 text-rose-600", roleRestricted: true },
                       { key: "reminder", label: "Nhắc hẹn", color: "border-amber-500 text-amber-600" }
-                    ].map((t) => (
+                    ].filter(t => !t.roleRestricted || (isManager || userProfile?.role === "admin" || userProfile?.role === "superadmin")).map((t) => (
                       <button
                         key={t.key}
                         type="button"

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect, @typescript-eslint/no-unused-vars, no-empty */
 import React, { useState, useEffect } from "react";
 import {
   Briefcase,
@@ -26,6 +27,7 @@ import { EmployeeNode, UserProfile, HRTask, Project, TaskHistoryEntry } from "..
 import { getAccessToken } from "../../services/authService";
 import { socketService } from "../../services/socketService";
 import { toast } from "../../pages/Toast";
+import { ConfirmDialog } from "../common/ConfirmDialog";
 
 interface KanbanTabProps {
   userProfile: any;
@@ -189,7 +191,7 @@ function TaskTable({
                       </div>
                     </div>
                   </td>
-                  
+
                   {/* Dự án (Optional) */}
                   {showProjectColumn && (
                     <td className="px-4 py-3 text-slate-500 truncate max-w-[110px]" title={projects.find(p => p.id === task.projectId)?.name || "Không có dự án"}>
@@ -204,24 +206,22 @@ function TaskTable({
 
                   {/* Ưu tiên */}
                   <td className="px-4 py-3 select-none">
-                    <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold border uppercase tracking-wider font-mono whitespace-nowrap ${
-                      task.priority === "High" ? "bg-rose-50 text-rose-700 border-rose-200" :
-                      task.priority === "Low" ? "bg-slate-100 text-slate-500 border-gray-250" : "bg-amber-50 text-amber-700 border-amber-200"
-                    }`}>
+                    <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold border uppercase tracking-wider font-mono whitespace-nowrap ${task.priority === "High" ? "bg-rose-50 text-rose-700 border-rose-200" :
+                        task.priority === "Low" ? "bg-slate-100 text-slate-500 border-gray-250" : "bg-amber-50 text-amber-700 border-amber-200"
+                      }`}>
                       {task.priority === "High" ? "Cao" : task.priority === "Low" ? "Thấp" : "Trung bình"}
                     </span>
                   </td>
 
                   {/* Trạng thái */}
                   <td className="px-4 py-3 select-none">
-                    <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold border whitespace-nowrap ${
-                      task.status === "Done" || task.status === "done" ? "bg-emerald-50 text-emerald-700 border-emerald-250" :
-                      task.status === "Review/Testing" ? "bg-indigo-50 text-indigo-700 border-indigo-200" :
-                      task.status === "In Progress" || task.status === "doing" ? "bg-sky-50 text-sky-700 border-sky-200" : "bg-slate-100 text-slate-500 border-gray-250"
-                    }`}>
+                    <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold border whitespace-nowrap ${task.status === "Done" || task.status === "done" ? "bg-emerald-50 text-emerald-700 border-emerald-250" :
+                        task.status === "Review/Testing" ? "bg-indigo-50 text-indigo-700 border-indigo-200" :
+                          task.status === "In Progress" || task.status === "doing" ? "bg-sky-50 text-sky-700 border-sky-200" : "bg-slate-100 text-slate-500 border-gray-250"
+                      }`}>
                       {task.status === "Done" || task.status === "done" ? "Đã xong" :
-                      task.status === "Review/Testing" ? "Kiểm tra" :
-                      task.status === "In Progress" || task.status === "doing" ? "Đang làm" : "Chưa làm"}
+                        task.status === "Review/Testing" ? "Kiểm tra" :
+                          task.status === "In Progress" || task.status === "doing" ? "Đang làm" : "Chưa làm"}
                     </span>
                   </td>
 
@@ -298,6 +298,10 @@ export default function KanbanTab({
     estTime: number | "";
   }>({ description: "", dueDate: "", startTime: "", estTime: "" });
   const [selectedWorkflowFilter, setSelectedWorkflowFilter] = useState<string | null>(null);
+  const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
+  const [projectToDelete, setProjectToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [isDeletingTask, setIsDeletingTask] = useState(false);
+  const [isDeletingProject, setIsDeletingProject] = useState(false);
 
   // Group tasks by workflow
   const workflowGroupedTasks = React.useMemo(() => {
@@ -358,7 +362,7 @@ export default function KanbanTab({
   const fetchTasks = async () => {
     if (!selectedCompanyCode) return;
     try {
-      const res = await fetch("/api/v1/crud/kanban-tasks", {
+      const res = await fetch("/api/v1/kanban/tasks", {
         headers: {
           "Authorization": `Bearer ${getAccessToken()}`,
         },
@@ -380,7 +384,7 @@ export default function KanbanTab({
   const fetchProjects = async () => {
     if (!selectedCompanyCode) return;
     try {
-      const res = await fetch("/api/v1/crud/projects", {
+      const res = await fetch("/api/v1/kanban/projects", {
         headers: {
           "Authorization": `Bearer ${getAccessToken()}`,
         },
@@ -609,7 +613,7 @@ export default function KanbanTab({
           category: editCategory
         };
 
-        const res = await fetch("/api/v1/crud/kanban-tasks", {
+        const res = await fetch("/api/v1/kanban/tasks", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -701,7 +705,7 @@ export default function KanbanTab({
           category: editCategory
         };
 
-        const res = await fetch(`/api/v1/crud/kanban-tasks/${selectedKanbanTask.id}`, {
+        const res = await fetch(`/api/v1/kanban/tasks/${selectedKanbanTask.id}`, {
           method: "PATCH",
           headers: {
             "Content-Type": "application/json",
@@ -719,9 +723,9 @@ export default function KanbanTab({
         setTasks(prev => prev.map(t => t.id === selectedKanbanTask.id ? { ...t, ...updatedFields } : t));
       }
       setSelectedKanbanTask(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Lỗi khi lưu công việc:", error);
-      toast.error("Không thể lưu thay đổi. Vui lòng kiểm tra quyền hạn.");
+      toast.error(error.message || "Không thể lưu thay đổi. Vui lòng kiểm tra quyền hạn.");
     }
   };
 
@@ -740,7 +744,7 @@ export default function KanbanTab({
         createdAt: new Date().toISOString()
       };
 
-      const res = await fetch("/api/v1/crud/projects", {
+      const res = await fetch("/api/v1/kanban/projects", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -765,9 +769,9 @@ export default function KanbanTab({
       setExpandedProjects(prev => ({ ...prev, [createdProj.id]: true }));
       setNewProjectName("");
       setIsNewProjectModalOpen(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Lỗi khi tạo dự án:", error);
-      toast.error("Không thể tạo dự án. Vui lòng thử lại.");
+      toast.error(error.message || "Không thể tạo dự án. Vui lòng thử lại.");
     }
   };
 
@@ -825,7 +829,7 @@ export default function KanbanTab({
       if (actualTimeUpdate !== undefined) updateData.actualTime = actualTimeUpdate;
       if (startTimeUpdate !== undefined) updateData.startTime = startTimeUpdate;
 
-      const res = await fetch(`/api/v1/crud/kanban-tasks/${id}`, {
+      const res = await fetch(`/api/v1/kanban/tasks/${id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -841,9 +845,9 @@ export default function KanbanTab({
 
       setTasks(prev => prev.map(t => t.id === id ? { ...t, ...updateData } : t));
       toast.success("Đã cập nhật trạng thái công việc!");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Lỗi khi cập nhật trạng thái công việc:", error);
-      toast.error("Không thể cập nhật trạng thái. Vui lòng thử lại.");
+      toast.error(error.message || "Không thể cập nhật trạng thái. Vui lòng thử lại.");
     }
   };
 
@@ -896,7 +900,7 @@ export default function KanbanTab({
         ],
       };
 
-      const res = await fetch(`/api/v1/crud/kanban-tasks/${t.id}`, {
+      const res = await fetch(`/api/v1/kanban/tasks/${t.id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -922,20 +926,25 @@ export default function KanbanTab({
   const doneMissing =
     selectedKanbanTask && editStatus === "Done"
       ? getMissingDoneFields({
-          description: editDescription,
-          dueDate: editDueDate,
-          startTime: editStartTime,
-          estTime: editEstTime === "" ? 0 : Number(editEstTime),
-        })
+        description: editDescription,
+        dueDate: editDueDate,
+        startTime: editStartTime,
+        estTime: editEstTime === "" ? 0 : Number(editEstTime),
+      })
       : [];
   const missingKeySet = new Set(doneMissing.map((m) => m.key));
   const missingCls = (key: DoneFieldKey, base: string) =>
     missingKeySet.has(key) ? `${base} !border-rose-400 !bg-rose-50/60` : base;
 
-  const deleteTask = async (id: string) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa công việc này?")) return false;
+  const deleteTask = (id: string) => {
+    setTaskToDelete(id);
+    return false;
+  };
+
+  const executeDeleteTask = async (id: string) => {
+    setIsDeletingTask(true);
     try {
-      const res = await fetch(`/api/v1/crud/kanban-tasks/${id}`, {
+      const res = await fetch(`/api/v1/kanban/tasks/${id}`, {
         method: "DELETE",
         headers: {
           "Authorization": `Bearer ${getAccessToken()}`,
@@ -950,17 +959,23 @@ export default function KanbanTab({
       setTasks(prev => prev.filter(t => t.id !== id));
       toast.success("Đã xóa công việc thành công!");
       return true;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Lỗi khi xóa công việc:", error);
-      toast.error("Không thể xóa công việc. Chỉ quản lý mới có quyền.");
+      toast.error(error.message || "Không thể xóa công việc. Chỉ quản lý mới có quyền.");
       return false;
+    } finally {
+      setIsDeletingTask(false);
     }
   };
 
-  const deleteProject = async (id: string, name: string) => {
-    if (!window.confirm(`Xóa dự án "${name}"? Các công việc thuộc dự án sẽ được chuyển về nhóm "Chưa phân loại".`)) return;
+  const deleteProject = (id: string, name: string) => {
+    setProjectToDelete({ id, name });
+  };
+
+  const executeDeleteProject = async (id: string) => {
+    setIsDeletingProject(true);
     try {
-      const res = await fetch(`/api/v1/crud/projects/${id}`, {
+      const res = await fetch(`/api/v1/kanban/projects/${id}`, {
         method: "DELETE",
         headers: {
           "Authorization": `Bearer ${getAccessToken()}`,
@@ -976,9 +991,11 @@ export default function KanbanTab({
       // Task thuộc dự án đã được server gỡ projectId → cập nhật local để hiện về nhóm "Chưa phân loại"
       setTasks(prev => prev.map(t => (t.projectId === id ? { ...t, projectId: "" } : t)));
       toast.success("Đã xóa dự án thành công!");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Lỗi khi xóa dự án:", error);
-      toast.error("Không thể xóa dự án. Vui lòng kiểm tra quyền hạn.");
+      toast.error(error.message || "Không thể xóa dự án. Vui lòng kiểm tra quyền hạn.");
+    } finally {
+      setIsDeletingProject(false);
     }
   };
 
@@ -1008,13 +1025,12 @@ export default function KanbanTab({
                   <button
                     key={vt}
                     onClick={() => setKanbanViewTab(vt)}
-                    className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                      kanbanViewTab === vt ? "bg-white text-slate-850 shadow-xs" : "text-gray-500 hover:text-slate-700"
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${kanbanViewTab === vt ? "bg-white text-slate-850 shadow-xs" : "text-gray-500 hover:text-slate-700"
+                      }`}
                   >
-                    {vt === "By project" ? "Theo dự án" : 
-                     vt === "Board" ? "Bảng Kanban" : 
-                     vt === "By workflow" ? "Theo quy trình" : "Tất cả công việc"}
+                    {vt === "By project" ? "Theo dự án" :
+                      vt === "Board" ? "Bảng Kanban" :
+                        vt === "By workflow" ? "Theo quy trình" : "Tất cả công việc"}
                   </button>
                 ))}
               </div>
@@ -1058,7 +1074,7 @@ export default function KanbanTab({
                     className="px-4 py-2 border border-gray-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer"
                   >
                     <Target className="h-4 w-4" />
-                    Tạo Dự Án
+                    Tạo Dự Án & Lĩnh vực
                   </button>
 
                   <button
@@ -1761,11 +1777,8 @@ export default function KanbanTab({
                 {selectedKanbanTask.id !== "new" && (isManager || selectedKanbanTask.creatorUid === userProfile?.uid) && (
                   <button
                     type="button"
-                    onClick={async () => {
-                      const success = await deleteTask(selectedKanbanTask.id);
-                      if (success) {
-                        setSelectedKanbanTask(null);
-                      }
+                    onClick={() => {
+                      setTaskToDelete(selectedKanbanTask.id);
                     }}
                     className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl cursor-pointer transition-all active:scale-95 flex items-center gap-1.5 font-sans"
                   >
@@ -1845,6 +1858,41 @@ export default function KanbanTab({
           </form>
         </div>
       )}
+
+      <ConfirmDialog
+        isOpen={taskToDelete !== null}
+        title="Xóa công việc"
+        description="Bạn có chắc chắn muốn xóa công việc này? Hành động này không thể hoàn tác và tất cả dữ liệu liên quan đến công việc sẽ bị xóa vĩnh viễn."
+        onClose={() => setTaskToDelete(null)}
+        onConfirm={async () => {
+          if (taskToDelete) {
+            const success = await executeDeleteTask(taskToDelete);
+            if (success) {
+              if (selectedKanbanTask && selectedKanbanTask.id === taskToDelete) {
+                setSelectedKanbanTask(null);
+              }
+            }
+            setTaskToDelete(null);
+          }
+        }}
+        isSubmitting={isDeletingTask}
+        tone="danger"
+      />
+
+      <ConfirmDialog
+        isOpen={projectToDelete !== null}
+        title="Xóa dự án"
+        description={`Bạn có chắc chắn muốn xóa dự án "${projectToDelete?.name}"? Các công việc thuộc dự án này sẽ được tự động chuyển về nhóm "Chưa phân loại".`}
+        onClose={() => setProjectToDelete(null)}
+        onConfirm={async () => {
+          if (projectToDelete) {
+            await executeDeleteProject(projectToDelete.id);
+            setProjectToDelete(null);
+          }
+        }}
+        isSubmitting={isDeletingProject}
+        tone="danger"
+      />
     </>
   );
 }
@@ -1875,10 +1923,9 @@ function KanbanCard({
     >
       <div className="space-y-1.5">
         <div className="flex justify-between items-start gap-2 select-none">
-          <span className={`px-2 py-0.5 rounded-md text-[8px] font-bold border uppercase tracking-wider font-mono ${
-            task.priority === "High" ? "bg-rose-50 text-rose-700 border-rose-200" :
-            task.priority === "Low" ? "bg-slate-100 text-slate-500 border-gray-250" : "bg-amber-50 text-amber-705 text-amber-700 border-amber-205 border-amber-200"
-          }`}>
+          <span className={`px-2 py-0.5 rounded-md text-[8px] font-bold border uppercase tracking-wider font-mono ${task.priority === "High" ? "bg-rose-50 text-rose-700 border-rose-200" :
+              task.priority === "Low" ? "bg-slate-100 text-slate-500 border-gray-250" : "bg-amber-50 text-amber-705 text-amber-700 border-amber-205 border-amber-200"
+            }`}>
             {task.priority === "High" ? "Cao" : task.priority === "Low" ? "Thấp" : "Trung bình"}
           </span>
           <span className="text-[9px] font-bold text-indigo-750 font-mono uppercase tracking-wider bg-slate-50 border border-slate-200 px-1.5 py-0.5 rounded">
@@ -1900,7 +1947,7 @@ function KanbanCard({
           <div
             onClick={(e) => {
               e.stopPropagation();
-              onNavigateToWorkflow && onNavigateToWorkflow(task.workflowId || "");
+              if (onNavigateToWorkflow) onNavigateToWorkflow(task.workflowId || "");
             }}
             className="flex items-center gap-1 text-[9px] text-purple-655 font-extrabold select-none bg-purple-50/70 border border-purple-100/80 rounded-lg px-2 py-0.5 w-fit hover:bg-purple-100 transition-colors"
             title="Xem quy trình chi tiết"

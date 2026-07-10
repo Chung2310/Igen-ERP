@@ -1,9 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect, @typescript-eslint/no-unused-vars */
 import React, { useState, useEffect } from "react";
 import {
   Bell, LogOut, Search, Settings, Wallet, Info, X, Image, Video, Volume2, FileText,
   Package, Megaphone, Sparkles, CheckCheck, ShoppingCart, AlertTriangle, Send, Sun, Moon,
   Briefcase, GraduationCap, LayoutGrid, LayoutDashboard, Users, MessageSquareShare,
-  FolderOpen, MessageSquare, Shield, LineChart, Menu
+  FolderOpen, MessageSquare, Shield, LineChart, Menu, FolderTree, GitBranch, Calendar, Clock, User
 } from "lucide-react";
 import { TabType } from "../types";
 import { useAuth } from "../context/AuthContext";
@@ -19,18 +20,6 @@ interface HeaderProps {
   onSearchSelect: (tab: TabType, subTab?: string) => void;
   onMenuClick?: () => void;
 }
-
-// Danh sách chức năng cho panel tiện ích — cùng bộ module và phân quyền với Sidebar
-const utilityBaseItems: Array<{ label: TabType; title: string; icon: React.ElementType; color: string }> = [
-  { label: "TỔNG QUAN" as TabType, title: "Tổng quan", icon: LayoutDashboard, color: "bg-blue-50 text-blue-600" },
-  { label: "NHÂN SỰ" as TabType, title: "Nhân sự", icon: Users, color: "bg-emerald-50 text-emerald-600" },
-  { label: "KHO & SẢN PHẨM" as TabType, title: "Kho & Sản phẩm", icon: Package, color: "bg-amber-50 text-amber-600" },
-  { label: "MARKETING" as TabType, title: "Marketing", icon: Megaphone, color: "bg-purple-50 text-purple-600" },
-  { label: "SALES CRM" as TabType, title: "Sales CRM", icon: MessageSquareShare, color: "bg-rose-50 text-rose-600" },
-  { label: "QUẢN LÝ TÀI NGUYÊN" as TabType, title: "Tài nguyên", icon: FolderOpen, color: "bg-indigo-50 text-indigo-600" },
-  { label: "TRÒ CHUYỆN" as TabType, title: "Trò chuyện", icon: MessageSquare, color: "bg-sky-50 text-sky-600" },
-  { label: "QUẢN LÝ HỌC VIÊN" as TabType, title: "Học viên", icon: GraduationCap, color: "bg-cyan-50 text-cyan-600" },
-];
 
 const searchIndex = [
   { label: "Tổng quan Doanh nghiệp", tab: "TỔNG QUAN" as TabType, keywords: "tong quan dashboard kpi hieu suat bieu do" },
@@ -225,9 +214,6 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
           if (isTabHidden(item.tab)) {
             return false;
           }
-          if (item.tab === "HIỆU SUẤT AI" && userProfile?.role !== "superadmin") {
-            return false;
-          }
           return true;
         })
         .filter(
@@ -235,19 +221,6 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
             item.label.toLowerCase().includes(normalizedQuery) ||
             item.keywords.toLowerCase().includes(normalizedQuery)
         );
-
-  // Danh sách tiện ích theo vai trò — cùng logic phân quyền với Sidebar
-  const utilityItems = [...utilityBaseItems.filter((item) => !isTabHidden(item.label))];
-  if (userProfile?.role === "superadmin" || userProfile?.role === "admin") {
-    utilityItems.push({ label: "QUẢN TRỊ USER" as TabType, title: "Quản trị user", icon: Shield, color: "bg-indigo-50 text-indigo-600" });
-  }
-  if (userProfile?.role === "superadmin") {
-    utilityItems.push({ label: "HIỆU SUẤT AI" as TabType, title: "Hiệu suất AI", icon: LineChart, color: "bg-violet-50 text-violet-600" });
-  }
-  if (userProfile) {
-    utilityItems.push({ label: "VÍ & NẠP TIỀN" as TabType, title: "Ví & Nạp tiền", icon: Wallet, color: "bg-blue-50 text-blue-600" });
-  }
-  utilityItems.push({ label: "CÀI ĐẶT" as TabType, title: "Cài đặt", icon: Settings, color: "bg-slate-100 text-slate-600" });
 
   return (
     <header className="sticky top-0 z-40 flex h-18 items-center justify-between border-b border-gray-100 bg-white px-6 shadow-xs" id="app_header">
@@ -374,33 +347,305 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
           </button>
 
           {showUtilities && (
-            <div className="absolute right-0 z-50 mt-3 w-80 overflow-hidden rounded-2xl border border-gray-100 bg-white font-sans shadow-2xl">
-              <div className="border-b border-gray-100 bg-gray-50 px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                Tiện ích hệ thống
+            <div className={`absolute right-0 z-50 mt-3 w-[580px] rounded-3xl p-6 shadow-2xl font-sans animate-fade-in border ${isDark ? "bg-[#18181b] text-neutral-100 border-neutral-800 shadow-[0_20px_50px_rgba(0,0,0,0.5)]" : "bg-white text-slate-800 border-gray-150"}`}>
+              {/* Header */}
+              <div className={`flex items-center justify-between border-b pb-3.5 mb-2 ${isDark ? "border-neutral-800" : "border-gray-100"}`}>
+                <span className={`text-base font-bold tracking-wide ${isDark ? "text-white" : "text-slate-800"}`}>Menu</span>
+                <button
+                  onClick={() => setShowUtilities(false)}
+                  className={`p-1.5 rounded-full transition-all active:scale-90 ${isDark ? "text-neutral-400 hover:text-white hover:bg-neutral-800/50" : "text-gray-400 hover:text-slate-800 hover:bg-gray-100"}`}
+                  aria-label="Đóng Menu"
+                >
+                  <X className="h-4.5 w-4.5" />
+                </button>
               </div>
-              <div className="grid grid-cols-3 gap-1.5 p-3 max-h-[420px] overflow-y-auto">
-                {utilityItems.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = currentTab === item.label;
-                  return (
-                    <button
-                      key={item.label}
-                      onClick={() => {
-                        onSearchSelect(item.label);
-                        setShowUtilities(false);
-                      }}
-                      className={`flex flex-col items-center gap-2 rounded-2xl px-2 py-3 text-center transition-all active:scale-95 ${isActive ? "bg-blue-50/80 ring-1 ring-blue-100" : "hover:bg-gray-50"}`}
-                      title={item.title}
-                    >
-                      <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${item.color}`}>
-                        <Icon className="h-5 w-5" />
-                      </span>
-                      <span className={`text-[11px] font-semibold leading-tight line-clamp-2 ${isActive ? "text-blue-700" : "text-gray-600"}`}>
-                        {item.title}
-                      </span>
-                    </button>
-                  );
-                })}
+
+              {/* Two Column Layout */}
+              <div className="flex gap-6">
+                {/* Column Left (62%): Yêu thích & Tính năng */}
+                <div className={`flex-[1.6] pr-6 border-r ${isDark ? "border-neutral-800/85" : "border-gray-100"}`}>
+                  {/* Group Yêu thích */}
+                  <div>
+                    <h3 className={`text-[11px] font-bold uppercase tracking-wider mb-2.5 mt-2 ${isDark ? "text-neutral-500" : "text-slate-400"}`}>Yêu thích</h3>
+                    <div className="space-y-1">
+                      <div
+                        onClick={() => {
+                          onSearchSelect("NHÂN SỰ" as TabType, "SƠ ĐỒ TỔ CHỨC");
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-start gap-3.5 py-2 px-3 rounded-2xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <div className={`p-2 border rounded-xl transition-all mt-0.5 ${isDark ? "bg-neutral-800/50 border-neutral-800 text-neutral-400 group-hover:text-white group-hover:bg-neutral-800" : "bg-slate-50 border-gray-100 text-slate-500 group-hover:text-slate-800 group-hover:bg-slate-100"}`}>
+                          <FolderTree className="h-4.5 w-4.5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>Phòng ban</p>
+                          <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>Quản lý các phòng ban</p>
+                        </div>
+                      </div>
+
+                      <div
+                        onClick={() => {
+                          onSearchSelect("NHÂN SỰ" as TabType, "QUY TRÌNH");
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-start gap-3.5 py-2 px-3 rounded-2xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <div className={`p-2 border rounded-xl transition-all mt-0.5 ${isDark ? "bg-neutral-800/50 border-neutral-800 text-neutral-400 group-hover:text-white group-hover:bg-neutral-800" : "bg-slate-50 border-gray-100 text-slate-500 group-hover:text-slate-800 group-hover:bg-slate-100"}`}>
+                          <GitBranch className="h-4.5 w-4.5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>Quy trình công việc</p>
+                          <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>Quy trình làm việc</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Group Tính năng */}
+                  <div className="mt-5">
+                    <h3 className={`text-[11px] font-bold uppercase tracking-wider mb-2.5 ${isDark ? "text-neutral-500" : "text-slate-400"}`}>Tính năng</h3>
+                    <div className={`space-y-1 max-h-[300px] overflow-y-auto pr-1 scrollbar-thin scrollbar-track-transparent ${isDark ? "scrollbar-thumb-neutral-800" : "scrollbar-thumb-gray-200"}`}>
+                      <div
+                        onClick={() => {
+                          onSearchSelect("TỔNG QUAN" as TabType);
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-start gap-3.5 py-2 px-3 rounded-2xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <div className={`p-2 border rounded-xl transition-all mt-0.5 ${isDark ? "bg-neutral-800/50 border-neutral-800 text-neutral-400 group-hover:text-white group-hover:bg-neutral-800" : "bg-slate-50 border-gray-100 text-slate-500 group-hover:text-slate-800 group-hover:bg-slate-100"}`}>
+                          <LayoutDashboard className="h-4.5 w-4.5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>Tổng quan</p>
+                          <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>Xem tổng quát hoạt động</p>
+                        </div>
+                      </div>
+
+                      <div
+                        onClick={() => {
+                          onSearchSelect("NHÂN SỰ" as TabType, "GIAO VIỆC KANBAN");
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-start gap-3.5 py-2 px-3 rounded-2xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <div className={`p-2 border rounded-xl transition-all mt-0.5 ${isDark ? "bg-neutral-800/50 border-neutral-800 text-neutral-400 group-hover:text-white group-hover:bg-neutral-800" : "bg-slate-50 border-gray-100 text-slate-500 group-hover:text-slate-800 group-hover:bg-slate-100"}`}>
+                          <FileText className="h-4.5 w-4.5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>Việc của tôi</p>
+                          <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>Các công việc của tôi</p>
+                        </div>
+                      </div>
+
+                      <div
+                        onClick={() => {
+                          onSearchSelect("TRÒ CHUYỆN" as TabType);
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-start gap-3.5 py-2 px-3 rounded-2xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <div className={`p-2 border rounded-xl transition-all mt-0.5 ${isDark ? "bg-neutral-800/50 border-neutral-800 text-neutral-400 group-hover:text-white group-hover:bg-neutral-800" : "bg-slate-50 border-gray-100 text-slate-500 group-hover:text-slate-800 group-hover:bg-slate-100"}`}>
+                          <MessageSquare className="h-4.5 w-4.5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>Nhắn tin & gọi điện</p>
+                          <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>Trò chuyện và gọi điện audio/video</p>
+                        </div>
+                      </div>
+
+                      <div
+                        onClick={() => {
+                          onSearchSelect("TRÒ CHUYỆN" as TabType);
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-start gap-3.5 py-2 px-3 rounded-2xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <div className={`p-2 border rounded-xl transition-all mt-0.5 ${isDark ? "bg-neutral-800/50 border-neutral-800 text-neutral-400 group-hover:text-white group-hover:bg-neutral-800" : "bg-slate-50 border-gray-100 text-slate-500 group-hover:text-slate-800 group-hover:bg-slate-100"}`}>
+                          <Video className="h-4.5 w-4.5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>Cuộc họp trực tuyến</p>
+                          <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>Tạo cuộc họp trực tuyến giống như Zoom, Google Meet</p>
+                        </div>
+                      </div>
+
+                      <div
+                        onClick={() => {
+                          onSearchSelect("NHÂN SỰ" as TabType, "LỊCH");
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-start gap-3.5 py-2 px-3 rounded-2xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <div className={`p-2 border rounded-xl transition-all mt-0.5 ${isDark ? "bg-neutral-800/50 border-neutral-800 text-neutral-400 group-hover:text-white group-hover:bg-neutral-800" : "bg-slate-50 border-gray-100 text-slate-500 group-hover:text-slate-800 group-hover:bg-slate-100"}`}>
+                          <Calendar className="h-4.5 w-4.5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>Lịch</p>
+                          <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>Lịch công việc và sự kiện</p>
+                        </div>
+                      </div>
+
+                      <div
+                        onClick={() => {
+                          onSearchSelect("QUẢN LÝ TÀI NGUYÊN" as TabType);
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-start gap-3.5 py-2 px-3 rounded-2xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <div className={`p-2 border rounded-xl transition-all mt-0.5 ${isDark ? "bg-neutral-800/50 border-neutral-800 text-neutral-400 group-hover:text-white group-hover:bg-neutral-800" : "bg-slate-50 border-gray-100 text-slate-500 group-hover:text-slate-800 group-hover:bg-slate-100"}`}>
+                          <FolderOpen className="h-4.5 w-4.5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>Tài nguyên</p>
+                          <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>Các tài nguyên (files, docs, links...)</p>
+                        </div>
+                      </div>
+
+                      <div
+                        onClick={() => {
+                          onSearchSelect("TRÒ CHUYỆN" as TabType);
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-start gap-3.5 py-2 px-3 rounded-2xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <div className={`p-2 border rounded-xl transition-all mt-0.5 ${isDark ? "bg-neutral-800/50 border-neutral-800 text-neutral-400 group-hover:text-white group-hover:bg-neutral-800" : "bg-slate-50 border-gray-100 text-slate-500 group-hover:text-slate-800 group-hover:bg-slate-100"}`}>
+                          <Users className="h-4.5 w-4.5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>Nhóm của tôi</p>
+                          <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>Các nhóm làm việc và trò chuyện</p>
+                        </div>
+                      </div>
+
+                      <div
+                        onClick={() => {
+                          onSearchSelect("NHÂN SỰ" as TabType, "GIAO VIỆC KANBAN");
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-start gap-3.5 py-2 px-3 rounded-2xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <div className={`p-2 border rounded-xl transition-all mt-0.5 ${isDark ? "bg-neutral-800/50 border-neutral-800 text-neutral-400 group-hover:text-white group-hover:bg-neutral-800" : "bg-slate-50 border-gray-100 text-slate-500 group-hover:text-slate-800 group-hover:bg-slate-100"}`}>
+                          <Briefcase className="h-4.5 w-4.5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>Lĩnh vực, dự án</p>
+                          <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>Lĩnh vực hoạt động và dự án</p>
+                        </div>
+                      </div>
+
+                      {(userProfile?.role === "superadmin" || userProfile?.role === "admin") && (
+                        <div
+                          onClick={() => {
+                            onSearchSelect("QUẢN TRỊ USER" as TabType);
+                            setShowUtilities(false);
+                          }}
+                          className={`group flex items-start gap-3.5 py-2 px-3 rounded-2xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                        >
+                          <div className={`p-2 border rounded-xl transition-all mt-0.5 ${isDark ? "bg-neutral-800/50 border-neutral-800 text-neutral-400 group-hover:text-white group-hover:bg-neutral-800" : "bg-slate-50 border-gray-100 text-slate-500 group-hover:text-slate-800 group-hover:bg-slate-100"}`}>
+                            <Shield className="h-4.5 w-4.5" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>Thành viên</p>
+                            <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>Quản lý thành viên & phân quyền</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Column Right (38%): Tạo & Cá nhân */}
+                <div className="w-[190px] shrink-0">
+                  {/* Group Tạo */}
+                  <div>
+                    <h3 className={`text-[11px] font-bold uppercase tracking-wider mb-2.5 mt-2 ${isDark ? "text-neutral-500" : "text-slate-400"}`}>Tạo</h3>
+                    <div className="space-y-1">
+                      <div
+                        onClick={() => {
+                          onSearchSelect("NHÂN SỰ" as TabType, "GIAO VIỆC KANBAN");
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-center gap-3 py-2 px-3 rounded-xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <FileText className={`h-4 w-4 transition-colors ${isDark ? "text-neutral-400 group-hover:text-white" : "text-slate-400 group-hover:text-slate-800"}`} />
+                        <span className={`text-[13px] font-semibold transition-colors ${isDark ? "text-neutral-300 group-hover:text-white" : "text-slate-650 group-hover:text-slate-900"}`}>Công việc</span>
+                      </div>
+
+                      <div
+                        onClick={() => {
+                          onSearchSelect("TRÒ CHUYỆN" as TabType);
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-center gap-3 py-2 px-3 rounded-xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <Users className={`h-4 w-4 transition-colors ${isDark ? "text-neutral-400 group-hover:text-white" : "text-slate-400 group-hover:text-slate-800"}`} />
+                        <span className={`text-[13px] font-semibold transition-colors ${isDark ? "text-neutral-300 group-hover:text-white" : "text-slate-650 group-hover:text-slate-900"}`}>Nhóm</span>
+                      </div>
+
+                      <div
+                        onClick={() => {
+                          onSearchSelect("TRÒ CHUYỆN" as TabType);
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-center gap-3 py-2 px-3 rounded-xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <MessageSquare className={`h-4 w-4 transition-colors ${isDark ? "text-neutral-400 group-hover:text-white" : "text-slate-400 group-hover:text-slate-800"}`} />
+                        <span className={`text-[13px] font-semibold transition-colors ${isDark ? "text-neutral-300 group-hover:text-white" : "text-slate-650 group-hover:text-slate-900"}`}>Nhắn tin</span>
+                      </div>
+
+                      <div
+                        onClick={() => {
+                          onSearchSelect("TRÒ CHUYỆN" as TabType);
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-center gap-3 py-2 px-3 rounded-xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <Video className={`h-4 w-4 transition-colors ${isDark ? "text-neutral-400 group-hover:text-white" : "text-slate-400 group-hover:text-slate-800"}`} />
+                        <span className={`text-[13px] font-semibold transition-colors ${isDark ? "text-neutral-300 group-hover:text-white" : "text-slate-650 group-hover:text-slate-900"}`}>Cuộc gọi video</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Group Cá nhân */}
+                  <div className={`mt-5 border-t pt-4 ${isDark ? "border-neutral-800/80" : "border-gray-100"}`}>
+                    <h3 className={`text-[11px] font-bold uppercase tracking-wider mb-2.5 ${isDark ? "text-neutral-500" : "text-slate-400"}`}>Cá nhân</h3>
+                    <div className="space-y-1">
+                      <div
+                        onClick={() => {
+                          onSearchSelect("NHÂN SỰ" as TabType, "LỊCH");
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-center gap-3 py-2 px-3 rounded-xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <Calendar className={`h-4 w-4 transition-colors ${isDark ? "text-neutral-400 group-hover:text-white" : "text-slate-400 group-hover:text-slate-800"}`} />
+                        <span className={`text-[13px] font-semibold transition-colors ${isDark ? "text-neutral-300 group-hover:text-white" : "text-slate-650 group-hover:text-slate-900"}`}>Nghỉ phép</span>
+                      </div>
+
+                      <div
+                        onClick={() => {
+                          onSearchSelect("NHÂN SỰ" as TabType, "LỊCH");
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-center gap-3 py-2 px-3 rounded-xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <Calendar className={`h-4 w-4 transition-colors ${isDark ? "text-neutral-400 group-hover:text-white" : "text-slate-400 group-hover:text-slate-800"}`} />
+                        <span className={`text-[13px] font-semibold transition-colors ${isDark ? "text-neutral-300 group-hover:text-white" : "text-slate-650 group-hover:text-slate-900"}`}>Sự kiện</span>
+                      </div>
+
+                      <div
+                        onClick={() => {
+                          onSearchSelect("NHÂN SỰ" as TabType, "LỊCH");
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-center gap-3 py-2 px-3 rounded-xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <Clock className={`h-4 w-4 transition-colors ${isDark ? "text-neutral-400 group-hover:text-white" : "text-slate-400 group-hover:text-slate-800"}`} />
+                        <span className={`text-[13px] font-semibold transition-colors ${isDark ? "text-neutral-300 group-hover:text-white" : "text-slate-650 group-hover:text-slate-900"}`}>Nhắc nhở</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}

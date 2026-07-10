@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import type { User } from "firebase/auth";
 import { authService } from "../services/authService";
-import { UserProfile, FacebookIntegration, TikTokIntegration, ZaloIntegration, AIChatConfig } from "../types";
+import { UserProfile } from "../types";
 import { toast } from "../pages/Toast";
 import { parseFirebaseError } from "../utils/firebaseErrorParser";
 
@@ -16,13 +16,6 @@ interface AuthContextType {
   refreshProfile: () => Promise<void>;
   updateProfileInfo: (displayName: string, photoURL: string) => Promise<void>;
   uploadAvatar: (file: File) => Promise<string>;
-  saveFacebookIntegration: (integration: FacebookIntegration) => Promise<void>;
-  removeFacebookIntegration: () => Promise<void>;
-  saveTikTokIntegration: (integration: TikTokIntegration) => Promise<void>;
-  removeTikTokIntegration: () => Promise<void>;
-  saveZaloIntegration: (integration: ZaloIntegration) => Promise<void>;
-  removeZaloIntegration: () => Promise<void>;
-  updateAiAutoReplyConfig: (config: AIChatConfig) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -173,132 +166,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const saveFacebookIntegration = async (integration: FacebookIntegration) => {
-    if (!userProfile) return;
-    const finalIntegration = { ...integration };
-
-    try {
-      const updatedProfile = await authService.updateProfile({
-        facebookIntegration: finalIntegration
-      });
-      setUser(updatedProfile as any);
-      setUserProfile(updatedProfile);
-      toast.success("Kết nối Facebook Page thành công!");
-    } catch (error: any) {
-      console.error("[iGen FB Connect] Lỗi kết nối:", error);
-      toast.error(error.message || "Không thể kết nối Facebook Page. Vui lòng kiểm tra lại.");
-      throw error;
-    }
-  };
-
-  const removeFacebookIntegration = async () => {
-    if (!userProfile) return;
-    try {
-      const updatedProfile = await authService.updateProfile({
-        facebookIntegration: null
-      });
-      setUser(updatedProfile as any);
-      setUserProfile(updatedProfile);
-      toast.success("Đã hủy liên kết Facebook Page.");
-    } catch (error: any) {
-      console.error("Lỗi xóa Facebook integration:", error);
-      toast.error("Lỗi khi hủy liên kết Facebook.");
-      throw error;
-    }
-  };
-
-  const saveTikTokIntegration = async (integration: TikTokIntegration) => {
-    if (!userProfile) return;
-    const finalIntegration = { ...integration };
-
-    try {
-      if (!integration.accessToken) {
-        finalIntegration.isConnected = false;
-      }
-
-      const updatedProfile = await authService.updateProfile({
-        tiktokIntegration: finalIntegration
-      });
-      setUser(updatedProfile as any);
-      setUserProfile(updatedProfile);
-      toast.success(integration.accessToken ? "Kết nối TikTok thành công!" : "Đã lưu cấu hình app TikTok.");
-    } catch (error: any) {
-      console.error("[iGen TikTok Connect] Lỗi kết nối:", error);
-      toast.error(error.message || "Không thể kết nối TikTok. Vui lòng kiểm tra lại.");
-      throw error;
-    }
-  };
-
-  const removeTikTokIntegration = async () => {
-    if (!userProfile) return;
-    try {
-      const updatedProfile = await authService.updateProfile({
-        tiktokIntegration: null
-      });
-      setUser(updatedProfile as any);
-      setUserProfile(updatedProfile);
-      toast.success("Đã hủy liên kết TikTok.");
-    } catch (error: any) {
-      console.error("Lỗi xóa TikTok integration:", error);
-      toast.error("Lỗi khi hủy liên kết TikTok.");
-      throw error;
-    }
-  };
-
-  const saveZaloIntegration = async (integration: ZaloIntegration) => {
-    if (!userProfile) return;
-    const finalIntegration = { ...integration };
-
-    try {
-      const updatedProfile = await authService.updateProfile({
-        zaloIntegration: finalIntegration
-      });
-      setUser(updatedProfile as any);
-      setUserProfile(updatedProfile);
-      toast.success("Kết nối Zalo OA thành công!");
-    } catch (error: any) {
-      console.error("[iGen Zalo Connect] Lỗi kết nối:", error);
-      toast.error(error.message || "Không thể kết nối Zalo OA. Vui lòng kiểm tra lại.");
-      throw error;
-    }
-  };
-
-  const removeZaloIntegration = async () => {
-    if (!userProfile) return;
-    try {
-      await fetch('/api/v1/zalo/integration', {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem("accessToken")}`
-        }
-      });
-
-      const updatedProfile = await authService.updateProfile({
-        zaloIntegration: null
-      });
-      setUser(updatedProfile as any);
-      setUserProfile(updatedProfile);
-      toast.success("Đã hủy liên kết Zalo OA.");
-    } catch (error: any) {
-      console.error("Lỗi xóa Zalo integration:", error);
-      toast.error("Lỗi khi hủy liên kết Zalo.");
-      throw error;
-    }
-  };
-
-  const updateAiAutoReplyConfig = async (config: AIChatConfig) => {
-    if (!userProfile) return;
-    try {
-      const updatedProfile = await authService.updateProfile({ aiAutoReplyConfig: config });
-      setUser(updatedProfile as any);
-      setUserProfile(updatedProfile);
-    } catch (error: any) {
-      console.error("[updateAiAutoReplyConfig] Error:", error);
-      toast.error(error.message || "Lỗi khi lưu cấu hình AI.");
-      throw error;
-    }
-  };
-
   return (
     <AuthContext.Provider
       value={{
@@ -312,13 +179,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         refreshProfile,
         updateProfileInfo,
         uploadAvatar,
-        saveFacebookIntegration,
-        removeFacebookIntegration,
-        saveTikTokIntegration,
-        removeTikTokIntegration,
-        saveZaloIntegration,
-        removeZaloIntegration,
-        updateAiAutoReplyConfig,
       }}
     >
       {children}

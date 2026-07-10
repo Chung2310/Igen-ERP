@@ -4,7 +4,6 @@ import jwt from "jsonwebtoken";
 import { createAdapter } from "@socket.io/redis-adapter";
 import Redis from "ioredis";
 import { UserModel } from "./model/user.model";
-import { SocialIntegrationModel } from "./model/social-integration.model";
 import { ChatRoomModel } from "./model/chat-room.model";
 import { getJwtAccessSecret } from "./config/env";
 
@@ -158,73 +157,6 @@ export async function initSocketServer(httpServer: HTTPServer) {
       })();
     }
 
-    void (async () => {
-      const roomIds = new Set<string>();
-
-      const personalPageId = user?.facebookIntegration?.isConnected && user.facebookIntegration.pageId
-        ? user.facebookIntegration.pageId
-        : "";
-      const personalOaId = user?.zaloIntegration?.isConnected && user.zaloIntegration.oaId
-        ? user.zaloIntegration.oaId
-        : "";
-      const personalTiktokId = user?.tiktokIntegration?.isConnected && user.tiktokIntegration.username
-        ? user.tiktokIntegration.username
-        : "";
-
-      if (personalPageId) roomIds.add(personalPageId);
-      if (personalOaId) roomIds.add(personalOaId);
-      if (personalTiktokId) roomIds.add(personalTiktokId);
-
-      if (user?.companyCode) {
-        try {
-          const companyIntegrations = await SocialIntegrationModel.find({
-            companyCode: user.companyCode,
-            isConnected: true,
-            platform: { $in: ["Facebook", "Zalo", "TikTok"] },
-          }).select("platform username");
-
-          companyIntegrations.forEach((integration: any) => {
-            if (integration?.username) {
-              roomIds.add(integration.username);
-            }
-          });
-        } catch (error) {
-          console.error("[Socket.IO] Khong the nap company integrations de join room:", error);
-        }
-      }
-
-      if (process.env.FB_PAGE_ID) {
-        roomIds.add(process.env.FB_PAGE_ID);
-      }
-
-      if (process.env.ZALO_OA_ID) {
-        roomIds.add(process.env.ZALO_OA_ID);
-      }
-
-      roomIds.forEach((id) => {
-        const room = `page:${id}`;
-        socket.join(room);
-        console.log(`[Socket.IO] User ${user?.email} joined room: ${room}`);
-      });
-
-      // Tự động join các phòng chat nội bộ của user
-      if (user?._id && user?.companyCode) {
-        try {
-          const chatRooms = await ChatRoomModel.find({
-            companyCode: user.companyCode,
-            "members.userId": user._id,
-          }).select("_id");
-
-          chatRooms.forEach((cr) => {
-            const chatRoomName = `chat_room:${cr._id.toString()}`;
-            socket.join(chatRoomName);
-            console.log(`[Socket.IO] User ${user.email} joined internal chat room: ${chatRoomName}`);
-          });
-        } catch (error) {
-          console.error("[Socket.IO] Khong the nap danh sach phong chat de join room:", error);
-        }
-      }
-    })();
 
     // Lắng nghe sự kiện tham gia phòng chat thủ công
     socket.on("join_chat_room", (data: { roomId: string }) => {

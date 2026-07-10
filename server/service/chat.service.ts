@@ -79,8 +79,8 @@ export const chatService = {
     // Sắp xếp các phòng chat: phòng nào được ghim (isPinned: true) bởi userId sẽ xếp lên đầu,
     // sau đó sắp xếp theo thời gian cập nhật mới nhất (updatedAt giảm dần)
     withUnread.sort((a, b) => {
-      const aMember = a.members.find((m: any) => (m.userId._id || m.userId).toString() === userId);
-      const bMember = b.members.find((m: any) => (m.userId._id || m.userId).toString() === userId);
+      const aMember = a.members.find((m: any) => m.userId && (m.userId._id || m.userId).toString() === userId);
+      const bMember = b.members.find((m: any) => m.userId && (m.userId._id || m.userId).toString() === userId);
       const aPinned = aMember?.isPinned ? 1 : 0;
       const bPinned = bMember?.isPinned ? 1 : 0;
 

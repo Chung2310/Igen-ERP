@@ -9,7 +9,6 @@ import { DEFAULT_ROLE_LEVELS } from "../middleware/auth";
 import { IUser } from "../interface/user.interface";
 import { ICompany } from "../interface/company.interface";
 import { TelegramLinkStatus } from "../interface/telegram-link.interface";
-import { getCompanyHeyGenLibrary } from "./heygen.service";
 
 import { getJwtAccessSecret, getJwtRefreshSecret } from "../config/env";
 const TELEGRAM_LINK_CODE_TTL_MS = 5 * 60 * 1000;
@@ -19,34 +18,6 @@ function generateTelegramLinkCode() {
 }
 
 export const authService = {
-  normalizeCompanyHeyGenConfig(input?: any) {
-    return {
-      apiKey: String(input?.apiKey || "").trim(),
-      defaultAvatarId: String(input?.defaultAvatarId || "").trim(),
-      defaultVoiceId: String(input?.defaultVoiceId || "").trim(),
-      isConnected: Boolean(input?.isConnected),
-      connectedAt: input?.connectedAt ? new Date(input.connectedAt) : null,
-      lastSyncAt: input?.lastSyncAt ? new Date(input.lastSyncAt) : null,
-    };
-  },
-
-  normalizeHeyGenAccess(heygenAccess?: any) {
-    const avatarIds = Array.isArray(heygenAccess?.avatarIds)
-      ? heygenAccess.avatarIds.map((item: any) => String(item || "").trim()).filter(Boolean)
-      : [];
-    const fallbackAvatarId = String(heygenAccess?.avatarId || "").trim();
-    const mergedAvatarIds = avatarIds.length > 0
-      ? avatarIds
-      : (fallbackAvatarId ? [fallbackAvatarId] : []);
-
-    return {
-      avatarIds: mergedAvatarIds,
-      avatarId: fallbackAvatarId || mergedAvatarIds[0] || "",
-      voiceId: String(heygenAccess?.voiceId || "").trim(),
-      apiKey: String(heygenAccess?.apiKey || "").trim(),
-    };
-  },
-
   /**
    * Tạo bộ đôi Access Token và Refresh Token
    */
@@ -246,7 +217,6 @@ export const authService = {
       name: companyName.trim(),
       ownerEmail: emailLower,
       createdAt: new Date(),
-      heygenConfig: this.normalizeCompanyHeyGenConfig(),
     });
     await newCompany.save();
 
@@ -411,7 +381,7 @@ export const authService = {
   /**
    * Cập nhật thông tin doanh nghiệp (Superadmin only)
    */
-  async updateCompany(companyId: string, updateData: { name?: string; code?: string; ownerEmail?: string; heygenConfig?: any }): Promise<ICompany> {
+  async updateCompany(companyId: string, updateData: { name?: string; code?: string; ownerEmail?: string }): Promise<ICompany> {
     const company = await CompanyModel.findById(companyId);
     if (!company) {
       throw new Error("Không tìm thấy doanh nghiệp trên hệ thống.");
@@ -449,30 +419,19 @@ export const authService = {
         const { TrainingEnrollmentModel } = require("../model/training-enrollment.model");
         const { TrainingCourseModel } = require("../model/training-course.model");
         const { StockLogModel } = require("../model/stock-log.model");
-        const { SocialIntegrationModel } = require("../model/social-integration.model");
         const { ProjectModel } = require("../model/project.model");
         const { ProductModel } = require("../model/product.model");
-        const { MarketingContentModel } = require("../model/marketing-content.model");
         const { KanbanTaskModel } = require("../model/kanban-task.model");
-        const { CrmTicketModel } = require("../model/crm-ticket.model");
         const { CategoryModel } = require("../model/category.model");
-        const { AIReplyLogModel } = require("../model/ai-reply-log.model");
-        const { AIKnowledgeDocumentModel, AIKnowledgeChunkModel } = require("../model/ai-knowledge.model");
 
         await Promise.all([
           TrainingEnrollmentModel.updateMany({ companyCode: oldCode }, { $set: { companyCode: newCode } }),
           TrainingCourseModel.updateMany({ companyCode: oldCode }, { $set: { companyCode: newCode } }),
           StockLogModel.updateMany({ companyCode: oldCode }, { $set: { companyCode: newCode } }),
-          SocialIntegrationModel.updateMany({ companyCode: oldCode }, { $set: { companyCode: newCode } }),
           ProjectModel.updateMany({ companyCode: oldCode }, { $set: { companyCode: newCode } }),
           ProductModel.updateMany({ companyCode: oldCode }, { $set: { companyCode: newCode } }),
-          MarketingContentModel.updateMany({ companyCode: oldCode }, { $set: { companyCode: newCode } }),
           KanbanTaskModel.updateMany({ companyCode: oldCode }, { $set: { companyCode: newCode } }),
-          CrmTicketModel.updateMany({ companyCode: oldCode }, { $set: { companyCode: newCode } }),
           CategoryModel.updateMany({ companyCode: oldCode }, { $set: { companyCode: newCode } }),
-          AIReplyLogModel.updateMany({ companyCode: oldCode }, { $set: { companyCode: newCode } }),
-          AIKnowledgeDocumentModel.updateMany({ companyCode: oldCode }, { $set: { companyCode: newCode } }),
-          AIKnowledgeChunkModel.updateMany({ companyCode: oldCode }, { $set: { companyCode: newCode } }),
           RolePermissionModel.updateMany({ companyCode: oldCode }, { $set: { companyCode: newCode } })
         ]);
       }
@@ -482,48 +441,10 @@ export const authService = {
     if (newName !== undefined) company.name = newName;
     if (newCode !== undefined) company.code = newCode;
     if (newOwnerEmail !== undefined) company.ownerEmail = newOwnerEmail;
-    if (updateData.heygenConfig) {
-      company.heygenConfig = this.normalizeCompanyHeyGenConfig({
-        ...company.heygenConfig,
-        ...updateData.heygenConfig,
-      });
-    }
 
     return await company.save();
   },
 
-  async getCompanyHeyGenConfig(companyCode: string): Promise<any> {
-    const normalizedCode = String(companyCode || "").trim().toUpperCase();
-    const company = await CompanyModel.findOne({ code: normalizedCode });
-    if (!company) {
-      throw new Error("Khong tim thay doanh nghiep tren he thong.");
-    }
-
-    const config = this.normalizeCompanyHeyGenConfig(company.heygenConfig);
-    return {
-      companyCode: company.code,
-      companyName: company.name,
-      heygenConfig: config,
-    };
-  },
-
-  async updateCompanyHeyGenConfig(companyCode: string, payload: any): Promise<any> {
-    const normalizedCode = String(companyCode || "").trim().toUpperCase();
-    const company = await CompanyModel.findOne({ code: normalizedCode });
-    if (!company) {
-      throw new Error("Khong tim thay doanh nghiep tren he thong.");
-    }
-
-    company.heygenConfig = this.normalizeCompanyHeyGenConfig({
-      ...company.heygenConfig,
-      ...payload,
-    });
-
-    await company.save();
-    return this.getCompanyHeyGenConfig(normalizedCode);
-  },
-
-  /** Lấy cấu hình Google Drive của doanh nghiệp (kèm trạng thái kết nối OAuth). */
   async getCompanyDriveConfig(companyCode: string): Promise<any> {
     const normalizedCode = String(companyCode || "").trim().toUpperCase();
     const company = await CompanyModel.findOne({ code: normalizedCode });
@@ -572,71 +493,6 @@ export const authService = {
     return this.getCompanyDriveConfig(normalizedCode);
   },
 
-  async testCompanyHeyGenConfig(companyCode: string, apiKey?: string): Promise<any> {
-    const companyInfo = await this.getCompanyHeyGenConfig(companyCode);
-    const targetApiKey = String(apiKey || companyInfo.heygenConfig.apiKey || "").trim();
-    if (!targetApiKey) {
-      throw new Error("Chua cau hinh API key HeyGen cho doanh nghiep nay.");
-    }
-
-    const library = await getCompanyHeyGenLibrary(companyInfo.companyCode, targetApiKey);
-    return {
-      status: "success",
-      avatars: library.avatars,
-      voices: library.voices,
-      sources: library.sources,
-      counts: {
-        avatars: library.avatars.length,
-        voices: library.voices.length,
-      },
-    };
-  },
-
-  async syncCompanyHeyGenLibrary(companyCode: string): Promise<any> {
-    const company = await CompanyModel.findOne({ code: String(companyCode || "").trim().toUpperCase() });
-    if (!company) {
-      throw new Error("Khong tim thay doanh nghiep tren he thong.");
-    }
-
-    const config = this.normalizeCompanyHeyGenConfig(company.heygenConfig);
-    if (!config.apiKey) {
-      throw new Error("Chua cau hinh API key HeyGen cho doanh nghiep nay.");
-    }
-
-    const library = await getCompanyHeyGenLibrary(company.code, config.apiKey);
-    const avatarIds = library.avatars.map((item: any) => String(item.id || "").trim()).filter(Boolean);
-    const voiceIds = library.voices.map((item: any) => String(item.id || "").trim()).filter(Boolean);
-
-    company.heygenConfig = this.normalizeCompanyHeyGenConfig({
-      ...config,
-      defaultAvatarId: config.defaultAvatarId && avatarIds.includes(config.defaultAvatarId)
-        ? config.defaultAvatarId
-        : (avatarIds[0] || ""),
-      defaultVoiceId: config.defaultVoiceId && voiceIds.includes(config.defaultVoiceId)
-        ? config.defaultVoiceId
-        : (voiceIds[0] || ""),
-      isConnected: true,
-      connectedAt: config.connectedAt || new Date(),
-      lastSyncAt: new Date(),
-    });
-
-    await company.save();
-
-    return {
-      ...(await this.getCompanyHeyGenConfig(company.code)),
-      avatars: library.avatars,
-      voices: library.voices,
-      counts: {
-        avatars: library.avatars.length,
-        voices: library.voices.length,
-      },
-      sources: library.sources,
-    };
-  },
-
-  /**
-   * Đăng ký người dùng mới cho doanh nghiệp
-   */
   async registerUserForCompany(data: any, callerCompanyCode?: string, callerRole?: string): Promise<IUser> {
     const {
       displayName,
@@ -650,7 +506,6 @@ export const authService = {
       department,
       division,
       phone,
-      heygenAccess,
     } = data;
 
     const finalCompanyCode = companyCode?.toUpperCase().trim() || "SYSTEM";
@@ -700,7 +555,6 @@ export const authService = {
       division: division || (role === "admin" ? "Ban Giám Đốc" : (role === "manager" ? "Quản lý" : "Nhân sự")),
       jobTitle: role === "admin" ? "CEO" : (role === "manager" ? "Quản lý phòng ban" : "Nhân viên"),
       phone: phone || "Chưa cập nhật",
-      heygenAccess: this.normalizeHeyGenAccess(heygenAccess),
       createdAt: new Date(),
       status: "offline",
       photoURL: `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName.trim())}&background=random&color=fff`
@@ -757,9 +611,6 @@ export const authService = {
       }
     }
 
-    if (updateData.heygenAccess) {
-      updateData.heygenAccess = this.normalizeHeyGenAccess(updateData.heygenAccess);
-    }
 
     return await UserModel.findByIdAndUpdate(userId, { $set: updateData }, { new: true }).select("-password");
   },

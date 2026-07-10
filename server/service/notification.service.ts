@@ -184,6 +184,42 @@ export const notificationService = {
   /**
    * Giao khóa đào tạo mới: gửi tới học viên được gán
    */
+  async notifyTaskReassigned(task: any, previousAssigneeUid?: string) {
+    if (!task.assigneeUid || task.assigneeUid === previousAssigneeUid) return;
+    await this.createNotification({
+      title: "Công việc được giao lại",
+      body: `Bạn được giao công việc "${task.title}". Hạn chót: ${new Date(task.dueDate).toLocaleString("vi-VN")}.`,
+      type: "task", companyCode: task.companyCode, recipientUid: task.assigneeUid, read: false,
+      action: { tab: "NHÂN SỰ", subTab: "GIAO VIỆC KANBAN" },
+    });
+  },
+
+  async notifyTaskDeadlineChanged(task: any) {
+    if (!task.assigneeUid) return;
+    await this.createNotification({
+      title: "Hạn chót công việc đã thay đổi",
+      body: `Công việc "${task.title}" có hạn mới: ${new Date(task.dueDate).toLocaleString("vi-VN")}.`,
+      type: "task", companyCode: task.companyCode, recipientUid: task.assigneeUid, read: false,
+      action: { tab: "NHÂN SỰ", subTab: "GIAO VIỆC KANBAN" },
+    });
+  },
+
+  async notifyTaskStatusChanged(task: any, actorUid: string) {
+    const recipients = new Set<string>();
+    if (task.creatorUid && task.creatorUid !== actorUid) recipients.add(task.creatorUid);
+    if (task.assigneeUid && task.assigneeUid !== actorUid) recipients.add(task.assigneeUid);
+    const labels: Record<string, string> = {
+      "Not Started": "Chưa làm", "In Progress": "Đang làm",
+      "Review/Testing": "Chờ kiểm tra", Done: "Hoàn thành", Archived: "Lưu trữ",
+    };
+    await Promise.all(Array.from(recipients).map((recipientUid) => this.createNotification({
+      title: "Trạng thái công việc thay đổi",
+      body: `Công việc "${task.title}" chuyển sang "${labels[task.status] || task.status}".`,
+      type: "task", companyCode: task.companyCode, recipientUid, read: false,
+      action: { tab: "NHÂN SỰ", subTab: "GIAO VIỆC KANBAN" },
+    })));
+  },
+
   async notifyCourseAssigned(
     enrollment: { companyCode: string; uid: string },
     courseTitle: string

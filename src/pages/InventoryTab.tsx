@@ -3,6 +3,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { CheckCircle, Cpu, Download, FolderTree, Pencil, Plus, Search, Tags, Trash2, Upload, ArrowDownRight, ArrowUpRight } from "lucide-react";
 import { InventoryForecastSummary, InventorySubTabType, ProductCategory, ProductItem, StockLog } from "../types";
 import { useSubTabRouter } from "../hooks/useSubTabRouter";
+import { INVENTORY_SUB_TAB_ROUTES } from "../router/subTabRoutes";
 import { toast } from "./Toast";
 import { CategoryModal } from "../components/inventory/CategoryModal";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
@@ -64,13 +65,7 @@ function getStockLogItems(log: StockLog) {
 
 export default function InventoryTab() {
   const { user, userProfile } = useAuth();
-  const INVENTORY_SUB_TAB_ROUTES = [
-    { slug: "danh-muc", value: "DANH MỤC" as InventorySubTabType },
-    { slug: "phan-loai", value: "PHÂN LOẠI SẢN PHẨM" as InventorySubTabType },
-    { slug: "nhap-xuat", value: "NHẬP / XUẤT KHO" as InventorySubTabType },
-    { slug: "du-bao-ai", value: "DỰ BÁO AI" as InventorySubTabType },
-  ] as const;
-  const [subTab, setSubTab] = useSubTabRouter<InventorySubTabType>(INVENTORY_SUB_TAB_ROUTES as any, "DANH MỤC");
+  const [subTab, setSubTab] = useSubTabRouter<InventorySubTabType>(INVENTORY_SUB_TAB_ROUTES, "DANH MỤC");
   const [products, setProducts] = useState<ProductItem[]>([]);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [stockLogs, setStockLogs] = useState<StockLog[]>([]);

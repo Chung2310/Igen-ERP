@@ -20,19 +20,12 @@ export interface UserFormModalProps {
   setUserParentId: (val: string) => void;
   userDepartment: string;
   setUserDepartment: (val: string) => void;
-  userHeyGenAvatarIds: string;
-  setUserHeyGenAvatarIds: (val: string) => void;
-  userHeyGenVoiceId: string;
-  setUserHeyGenVoiceId: (val: string) => void;
-  userHeyGenApiKey: string;
-  setUserHeyGenApiKey: (val: string) => void;
   getAvailableRoles: () => Array<{ role: string; displayName: string; level: number }>;
   userProfile: UserProfile | null;
   companies: CompanyProfile[];
   usersList: UserProfile[];
   onSubmit: (e: React.FormEvent) => void;
   submittingUser: boolean;
-  parseAvatarIdsInput: (input: string) => string[];
 }
 
 export function UserFormModal({
@@ -53,12 +46,6 @@ export function UserFormModal({
   setUserParentId,
   userDepartment,
   setUserDepartment,
-  userHeyGenAvatarIds,
-  setUserHeyGenAvatarIds,
-  userHeyGenVoiceId,
-  setUserHeyGenVoiceId,
-  userHeyGenApiKey,
-  setUserHeyGenApiKey,
   getAvailableRoles,
   userProfile,
   companies,
@@ -265,27 +252,6 @@ export function UserFormModal({
               </div>
             )}
 
-            <div className="rounded-2xl border border-cyan-100 bg-cyan-50/30 p-4 space-y-3 text-left">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-cyan-800">Cấu hình HeyGen của Thành viên</p>
-                <p className="mt-1 text-[11px] text-cyan-900/70">
-                  Nhập khóa API HeyGen riêng nếu muốn tài khoản này hoạt động độc lập với tài khoản của doanh nghiệp.
-                </p>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-                  Khóa API HeyGen (Override)
-                </label>
-                <input
-                  type="text"
-                  placeholder="Để trống nếu muốn sử dụng tài khoản HeyGen mặc định của doanh nghiệp"
-                  value={userHeyGenApiKey}
-                  onChange={(e) => setUserHeyGenApiKey(e.target.value)}
-                  className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-xs font-mono outline-none focus:ring-2 focus:ring-cyan-500 bg-white"
-                />
-              </div>
-            </div>
           </div>
 
           {/* Form Actions */}

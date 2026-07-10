@@ -1633,18 +1633,6 @@ export default function ChatTab() {
             </h2>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => {
-                  const next = !soundMuted;
-                  setSoundMuted(next);
-                  localStorage.setItem(CHAT_SOUND_MUTED_KEY, next ? "1" : "0");
-                  if (!next) playChatNotificationSound(); // nghe thử khi bật lại
-                }}
-                className={`flex h-9 w-9 items-center justify-center rounded-xl transition active:scale-95 ${soundMuted ? "bg-slate-100 text-slate-400 hover:bg-slate-200" : "bg-indigo-50 text-indigo-600 hover:bg-indigo-100"}`}
-                title={soundMuted ? "Bật âm báo tin nhắn" : "Tắt âm báo tin nhắn"}
-              >
-                {soundMuted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
-              </button>
-              <button
                 onClick={() => setShowCreateGroupModal(true)}
                 className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 transition hover:bg-indigo-100 active:scale-95"
                 title="Tạo nhóm chat mới"
@@ -1682,9 +1670,70 @@ export default function ChatTab() {
           {showUserResults ? (
             /* USER SEARCH RESULTS FOR DIRECT MESSAGING */
             <div className="p-2">
-              <p className="px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-gray-400">Kết quả tìm nhân viên</p>
+              {/* 1. HỘI THOẠI & NHÓM TRÙNG KHỚP */}
+              <p className="px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-gray-400">Cuộc trò chuyện & Nhóm</p>
+              {filteredRooms.length === 0 ? (
+                <p className="px-3 py-3 text-center text-xs text-gray-500">Không tìm thấy cuộc trò chuyện nào</p>
+              ) : (
+                filteredRooms.map((room) => {
+                  const isSelected = activeRoom?._id === room._id;
+                  const roomName = getRoomName(room);
+                  const roomAvatar = getRoomAvatar(room);
+                  const onlineStatus = getOtherUserStatus(room);
+                  const unreadCount = room.unreadCount || 0;
+                  const hasUnread = unreadCount > 0;
+
+                  return (
+                    <button
+                      key={room._id}
+                      onClick={() => {
+                        setActiveRoom(room);
+                        setSearchQuery("");
+                        setShowUserResults(false);
+                      }}
+                      className={`group mx-1 my-1 flex items-center gap-3 px-3 py-2.5 rounded-2xl text-left transition-all duration-300 ${isSelected
+                        ? "bg-gradient-to-r from-indigo-500/10 to-violet-500/5 border border-indigo-100/50 shadow-xs"
+                        : "hover:bg-slate-50/60 border border-transparent text-slate-700"
+                        }`}
+                    >
+                      {/* Avatar */}
+                      <div className="relative h-9 w-9 shrink-0 rounded-xl bg-slate-100 overflow-hidden border border-gray-100">
+                        {roomAvatar && roomAvatar !== "cloud-avatar" ? (
+                          <img src={roomAvatar} alt={roomName} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center font-bold text-slate-600 bg-indigo-50">
+                            {roomAvatar === "cloud-avatar" ? (
+                              <Cloud className="h-4.5 w-4.5 text-indigo-600" />
+                            ) : room.isGroup ? (
+                              <Users className="h-4.5 w-4.5 text-slate-500" />
+                            ) : (
+                              roomName.charAt(0).toUpperCase()
+                            )}
+                          </div>
+                        )}
+                        {!room.isGroup && room.members.length > 1 && onlineStatus && (
+                          <div className={`absolute bottom-0 right-0 h-2 w-2 rounded-full border-2 border-white ${onlineStatus === "online" ? "bg-emerald-500" : "bg-slate-300"}`} />
+                        )}
+                      </div>
+
+                      {/* Content */}
+                      <div className="min-w-0 flex-1">
+                        <p className={`truncate text-xs font-semibold ${hasUnread ? "text-slate-900 font-bold" : "text-slate-700"}`}>{roomName}</p>
+                        <p className="truncate text-[10px] text-gray-400">
+                          {room.isGroup ? `${room.members.length} thành viên` : "Trò chuyện cá nhân"}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })
+              )}
+
+              <div className="my-2 border-t border-gray-100/50" />
+
+              {/* 2. NHÂN VIÊN (BẮT ĐẦU CHAT MỚI) */}
+              <p className="px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-gray-400 mt-2">Tìm nhân viên (Chat mới)</p>
               {filteredCompanyUsers.length === 0 ? (
-                <p className="px-3 py-4 text-center text-xs text-gray-500">Không tìm thấy nhân sự phù hợp</p>
+                <p className="px-3 py-3 text-center text-xs text-gray-500">Không tìm thấy nhân sự phù hợp</p>
               ) : (
                 filteredCompanyUsers.map((user) => (
                   <button

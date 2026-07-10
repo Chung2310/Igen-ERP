@@ -5,9 +5,9 @@ import type { TabType } from "../types";
  * Đây là nguồn sự thật duy nhất: sidebar, router, cài đặt, header, dashboard đều
  * đọc từ đây. Muốn hiện lại module chỉ cần bỏ khỏi các tập hợp bên dưới.
  *
- * Lưu ý: chỉ ẩn giao diện — route BE và logic xử lý vẫn giữ nguyên.
+ * Các mục dưới đây chỉ còn phục vụ tương thích URL/quyền cũ; module đã được gỡ khỏi router ứng dụng.
  */
-export const HIDDEN_TABS = new Set<TabType>(["MARKETING", "SALES CRM"]);
+export const HIDDEN_TABS = new Set<TabType>();
 
 export function isTabHidden(tab: TabType): boolean {
   return HIDDEN_TABS.has(tab);

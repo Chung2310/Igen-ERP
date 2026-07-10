@@ -280,26 +280,8 @@ authRouter.patch(
   authController.updateCompany as any
 );
 
-authRouter.get(
-  "/companies/:code/heygen",
-  requireAuth as any,
-  validateRequest(companyCodeParamSchema),
-  authController.getCompanyHeyGenConfig as any
-);
 
-authRouter.put(
-  "/companies/:code/heygen",
-  requireAuth as any,
-  validateRequest(updateCompanyHeyGenSchema),
-  authController.updateCompanyHeyGenConfig as any
-);
 
-authRouter.post(
-  "/companies/:code/heygen/test",
-  requireAuth as any,
-  validateRequest(testCompanyHeyGenSchema),
-  authController.testCompanyHeyGenConfig as any
-);
 
 // Google Drive per-company qua OAuth (Quản lý tài nguyên)
 // Lưu ý: callback phải đặt TRƯỚC route "/companies/:code/drive" để không bị nuốt bởi ":code".
@@ -329,12 +311,6 @@ authRouter.post(
   authController.disconnectDrive as any
 );
 
-authRouter.post(
-  "/companies/:code/heygen/sync",
-  requireAuth as any,
-  validateRequest(companyCodeParamSchema),
-  authController.syncCompanyHeyGenLibrary as any
-);
 
 const bulkUpdateUsersSchema = {
   body: Joi.object({
