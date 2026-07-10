@@ -318,10 +318,232 @@ export default function WorkflowTab({
   } | null>(null);
   const [newCaseSubTask, setNewCaseSubTask] = useState("");
   const [newCaseDocLink, setNewCaseDocLink] = useState("");
+  const caseFileInputRef = useRef<HTMLInputElement>(null);
+  const [caseUploading, setCaseUploading] = useState(false);
+  const [caseRecording, setCaseRecording] = useState(false);
+  const [caseMediaRecorder, setCaseMediaRecorder] = useState<MediaRecorder | null>(null);
+  const [caseScreenRecording, setCaseScreenRecording] = useState(false);
+  const [caseScreenRecorder, setCaseScreenRecorder] = useState<MediaRecorder | null>(null);
+  const [caseLinkModal, setCaseLinkModal] = useState<{
+    open: boolean;
+    type: "notion" | "drive" | "spreadsheet";
+    title: string;
+    placeholder: string;
+    value: string;
+  } | null>(null);
   // Menu "⋯" đang mở của card case nào (participant id)
   const [cardMenuFor, setCardMenuFor] = useState<string | null>(null);
 
   const canEdit = isManager;
+
+  const triggerCaseFileUpload = () => {
+    if (caseFileInputRef.current) {
+      caseFileInputRef.current.click();
+    }
+  };
+
+  const handleCaseFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCaseUploading(true);
+    try {
+      const base64Data = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const res = await fetch("/api/v1/media/upload", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${getAccessToken()}`,
+        },
+        body: JSON.stringify({ file: base64Data, folder: "igen_erp/workflows" }),
+      });
+
+      if (!res.ok) throw new Error("Upload thất bại.");
+      const json = await res.json();
+      if (json.url) {
+        setPartDraft((prev) =>
+          prev ? { ...prev, docLinks: [...prev.docLinks, json.url] } : prev
+        );
+        toast.success(`Đã tải lên file: ${file.name}`);
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Không thể tải lên tệp.");
+    } finally {
+      setCaseUploading(false);
+      if (caseFileInputRef.current) caseFileInputRef.current.value = "";
+    }
+  };
+
+  const handleAddCaseNotion = () => {
+    setCaseLinkModal({
+      open: true,
+      type: "notion",
+      title: "Đính kèm liên kết Notion",
+      placeholder: "Nhập liên kết Notion (VD: https://notion.so/...)",
+      value: "",
+    });
+  };
+
+  const startCaseRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      const chunks: Blob[] = [];
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data);
+      };
+      recorder.onstop = async () => {
+        const audioBlob = new Blob(chunks, { type: "audio/webm" });
+        setCaseUploading(true);
+        try {
+          const reader = new FileReader();
+          reader.readAsDataURL(audioBlob);
+          reader.onloadend = async () => {
+            const base64Data = reader.result as string;
+            const res = await fetch("/api/v1/media/upload", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${getAccessToken()}`,
+              },
+              body: JSON.stringify({ file: base64Data, folder: "igen_erp/audio" }),
+            });
+            if (!res.ok) throw new Error("Upload âm thanh thất bại.");
+            const json = await res.json();
+            if (json.url) {
+              setPartDraft((prev) =>
+                prev ? { ...prev, docLinks: [...prev.docLinks, json.url] } : prev
+              );
+              toast.success("Đã tải lên bản ghi âm.");
+            }
+          };
+        } catch (err: any) {
+          toast.error(err.message || "Lỗi tải lên bản ghi âm.");
+        } finally {
+          setCaseUploading(false);
+        }
+        stream.getTracks().forEach((track) => track.stop());
+      };
+      recorder.start();
+      setCaseMediaRecorder(recorder);
+      setCaseRecording(true);
+      toast.success("Bắt đầu ghi âm...");
+    } catch (err) {
+      console.error(err);
+      toast.error("Không thể truy cập microphone.");
+    }
+  };
+
+  const stopCaseRecording = () => {
+    if (caseMediaRecorder && caseRecording) {
+      caseMediaRecorder.stop();
+      setCaseRecording(false);
+      toast.info("Đang xử lý bản ghi âm...");
+    }
+  };
+
+  const startCaseScreenRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+      const recorder = new MediaRecorder(stream);
+      const chunks: Blob[] = [];
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data);
+      };
+      recorder.onstop = async () => {
+        const videoBlob = new Blob(chunks, { type: "video/webm" });
+        setCaseUploading(true);
+        try {
+          const reader = new FileReader();
+          reader.readAsDataURL(videoBlob);
+          reader.onloadend = async () => {
+            const base64Data = reader.result as string;
+            const res = await fetch("/api/v1/media/upload", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${getAccessToken()}`,
+              },
+              body: JSON.stringify({ file: base64Data, folder: "igen_erp/video" }),
+            });
+            if (!res.ok) throw new Error("Upload video thất bại.");
+            const json = await res.json();
+            if (json.url) {
+              setPartDraft((prev) =>
+                prev ? { ...prev, docLinks: [...prev.docLinks, json.url] } : prev
+              );
+              toast.success("Đã tải lên bản quay màn hình.");
+            }
+          };
+        } catch (err: any) {
+          toast.error(err.message || "Lỗi tải lên bản quay màn hình.");
+        } finally {
+          setCaseUploading(false);
+        }
+        stream.getTracks().forEach((track) => track.stop());
+      };
+      recorder.start();
+      setCaseScreenRecorder(recorder);
+      setCaseScreenRecording(true);
+      toast.success("Bắt đầu quay màn hình...");
+    } catch (err) {
+      console.error(err);
+      toast.error("Không thể bắt đầu quay màn hình.");
+    }
+  };
+
+  const stopCaseScreenRecording = () => {
+    if (caseScreenRecorder && caseScreenRecording) {
+      caseScreenRecorder.stop();
+      setCaseScreenRecording(false);
+      toast.info("Đang xử lý video quay màn hình...");
+    }
+  };
+
+  const handleAddCaseDrive = () => {
+    setCaseLinkModal({
+      open: true,
+      type: "drive",
+      title: "Đính kèm liên kết Google Drive",
+      placeholder: "Nhập liên kết Google Drive (VD: https://drive.google.com/...)",
+      value: "",
+    });
+  };
+
+  const handleAddCaseSpreadsheet = () => {
+    setCaseLinkModal({
+      open: true,
+      type: "spreadsheet",
+      title: "Đính kèm liên kết Bảng tính",
+      placeholder: "Nhập liên kết Bảng tính / Spreadsheet (VD: https://docs.google.com/spreadsheets/...)",
+      value: "",
+    });
+  };
+
+  const handleConfirmCaseLink = () => {
+    if (!caseLinkModal) return;
+    const url = caseLinkModal.value.trim();
+    if (!url) {
+      toast.error("Vui lòng nhập liên kết.");
+      return;
+    }
+    if (!url.startsWith("http")) {
+      toast.error("Liên kết không hợp lệ. Vui lòng nhập link bắt đầu bằng http:// hoặc https://");
+      return;
+    }
+
+    setPartDraft((prev) =>
+      prev ? { ...prev, docLinks: [...prev.docLinks, url] } : prev
+    );
+    toast.success(`Đã đính kèm liên kết ${caseLinkModal.type === "notion" ? "Notion" : caseLinkModal.type === "drive" ? "Google Drive" : "Bảng tính"}.`);
+    setCaseLinkModal(null);
+  };
 
   // ---- Nạp danh sách quy trình ----
   const fetchWorkflows = useCallback(async () => {
@@ -1679,10 +1901,105 @@ export default function WorkflowTab({
 
               {/* Link tài liệu */}
               <div>
-                <label className={`text-[11px] font-extrabold uppercase tracking-wide ${isDark ? "text-zinc-500" : "text-slate-450"}`}>
-                  Link tài liệu / hồ sơ
-                </label>
-                <div className="mt-1.5 space-y-1.5">
+                <span className={`text-[11px] font-extrabold uppercase tracking-wide block flex items-center justify-between ${
+                  isDark ? "text-cyan-400" : "text-cyan-600"
+                }`}>
+                  <span>Tài liệu đính kèm</span>
+                  {caseUploading && (
+                    <span className="text-[10px] lowercase text-indigo-400 flex items-center gap-1 font-semibold">
+                      <div className="w-2.5 h-2.5 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+                      Đang tải lên...
+                    </span>
+                  )}
+                </span>
+
+                {/* Hidden file input */}
+                <input
+                  type="file"
+                  ref={caseFileInputRef}
+                  onChange={handleCaseFileUpload}
+                  className="hidden"
+                />
+
+                <div className="flex flex-wrap items-center gap-3 mt-1.5 mb-2.5">
+                  {/* Tập tin */}
+                  <button
+                    type="button"
+                    title="Tập tin"
+                    onClick={triggerCaseFileUpload}
+                    className={`p-1.5 rounded-lg transition-colors cursor-pointer text-slate-500 ${
+                      isDark ? "hover:bg-zinc-800" : "hover:bg-slate-100"
+                    }`}
+                  >
+                    <Paperclip className="h-4 w-4" />
+                  </button>
+
+                  {/* Notion */}
+                  <button
+                    type="button"
+                    title="Notion"
+                    onClick={handleAddCaseNotion}
+                    className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                      isDark ? "hover:bg-zinc-800" : "hover:bg-slate-100"
+                    }`}
+                  >
+                    <span className="text-xs font-black" style={{ color: "#f97316" }}>N</span>
+                  </button>
+
+                  {/* Ghi âm */}
+                  <button
+                    type="button"
+                    title={caseRecording ? "Dừng ghi âm" : "Ghi âm"}
+                    onClick={caseRecording ? stopCaseRecording : startCaseRecording}
+                    className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                      caseRecording
+                        ? "text-white bg-red-500 hover:bg-red-650"
+                        : "text-purple-500 " + (isDark ? "hover:bg-zinc-800" : "hover:bg-slate-100")
+                    }`}
+                  >
+                    <Mic className={`h-4 w-4 ${caseRecording ? "animate-pulse" : ""}`} />
+                  </button>
+
+                  {/* Quay màn hình */}
+                  <button
+                    type="button"
+                    title={caseScreenRecording ? "Dừng quay" : "Quay màn hình"}
+                    onClick={caseScreenRecording ? stopCaseScreenRecording : startCaseScreenRecording}
+                    className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                      caseScreenRecording
+                        ? "text-white bg-red-500 hover:bg-red-650 animate-pulse"
+                        : "text-red-500 " + (isDark ? "hover:bg-zinc-800" : "hover:bg-slate-100")
+                    }`}
+                  >
+                    <Circle className={`h-4 w-4 ${caseScreenRecording ? "animate-pulse fill-white" : "fill-red-500"}`} />
+                  </button>
+
+                  {/* Google Drive */}
+                  <button
+                    type="button"
+                    title="Google Drive"
+                    onClick={handleAddCaseDrive}
+                    className={`p-1.5 rounded-lg transition-colors cursor-pointer text-green-500 ${
+                      isDark ? "hover:bg-zinc-800" : "hover:bg-slate-100"
+                    }`}
+                  >
+                    <CloudUpload className="h-4 w-4" />
+                  </button>
+
+                  {/* Bảng */}
+                  <button
+                    type="button"
+                    title="Bảng"
+                    onClick={handleAddCaseSpreadsheet}
+                    className={`p-1.5 rounded-lg transition-colors cursor-pointer text-indigo-400 ${
+                      isDark ? "hover:bg-zinc-800" : "hover:bg-slate-100"
+                    }`}
+                  >
+                    <Table2 className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <div className="space-y-1.5">
                   {partDraft.docLinks.map((link, i) => (
                     <div
                       key={i}
@@ -1691,15 +2008,16 @@ export default function WorkflowTab({
                       }`}
                     >
                       <Paperclip className="h-3 w-3 shrink-0 text-slate-400" />
-                      <span className="flex-1 truncate text-indigo-600">{link}</span>
+                      <span className="flex-1 truncate text-indigo-650 font-mono">{link}</span>
                       <button
+                        type="button"
                         onClick={() =>
                           setPartDraft({
                             ...partDraft,
                             docLinks: partDraft.docLinks.filter((_, j) => j !== i),
                           })
                         }
-                        className="rounded p-0.5 text-slate-300 hover:bg-red-50 hover:text-red-500"
+                        className="rounded p-0.5 text-slate-350 hover:bg-red-50 hover:text-red-500 cursor-pointer"
                       >
                         <X className="h-3 w-3" />
                       </button>
@@ -1718,12 +2036,13 @@ export default function WorkflowTab({
                           setNewCaseDocLink("");
                         }
                       }}
-                      placeholder="https://… (Drive, Notion, hợp đồng…) rồi Enter"
+                      placeholder="Hoặc dán link trực tiếp vào đây rồi Enter..."
                       className={`flex-1 rounded-xl border px-3 py-1.5 text-xs outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 ${
                         isDark ? "bg-[#242424] border-zinc-700 text-zinc-200" : "border-gray-200"
                       }`}
                     />
                     <button
+                      type="button"
                       onClick={() => {
                         if (!newCaseDocLink.trim()) return;
                         setPartDraft({
@@ -1732,7 +2051,7 @@ export default function WorkflowTab({
                         });
                         setNewCaseDocLink("");
                       }}
-                      className="rounded-xl bg-indigo-600 px-3 text-white hover:bg-indigo-500"
+                      className="rounded-xl bg-indigo-600 px-3 text-white hover:bg-indigo-500 cursor-pointer"
                     >
                       <Plus className="h-3.5 w-3.5" />
                     </button>
@@ -2477,6 +2796,78 @@ function NewWorkflowWizard({
           onClose={() => setConfirmState(null)}
           onConfirm={confirmState.onConfirm}
         />
+      )}
+
+      {/* Custom link modal for Case Creation */}
+      {caseLinkModal && caseLinkModal.open && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fade-in"
+          onClick={() => setCaseLinkModal(null)}
+        >
+          <div
+            className={`w-full max-w-md rounded-2xl border shadow-2xl overflow-hidden flex flex-col transition-all transform scale-100 ${
+              isDark
+                ? "bg-[#222222] text-zinc-150 border-zinc-800"
+                : "bg-white text-slate-850 border-gray-200"
+            }`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Title */}
+            <div className={`px-5 py-3.5 border-b text-xs font-extrabold uppercase tracking-wider ${
+              isDark ? "border-zinc-800 bg-[#1d1d1d] text-cyan-400" : "border-gray-200 bg-slate-50 text-cyan-600"
+            }`}>
+              {caseLinkModal.title}
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 space-y-4">
+              <span className={`text-[11px] font-bold block ${isDark ? "text-zinc-400" : "text-slate-500"}`}>
+                Vui lòng nhập liên kết hợp lệ bắt đầu bằng http:// hoặc https://
+              </span>
+              <input
+                type="text"
+                value={caseLinkModal.value}
+                onChange={(e) => setCaseLinkModal({ ...caseLinkModal, value: e.target.value })}
+                placeholder={caseLinkModal.placeholder}
+                autoFocus
+                className={`w-full px-3 py-2.5 rounded-xl text-xs font-semibold outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all ${
+                  isDark
+                    ? "bg-[#2c2c2c] border border-zinc-700 text-zinc-200"
+                    : "bg-white border border-gray-250 text-slate-850"
+                }`}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleConfirmCaseLink();
+                  }
+                }}
+              />
+            </div>
+
+            {/* Modal Footer */}
+            <div className={`px-5 py-3.5 border-t flex justify-end gap-2.5 ${
+              isDark ? "border-zinc-800 bg-[#1d1d1d]" : "border-gray-200 bg-slate-50"
+            }`}>
+              <button
+                type="button"
+                onClick={() => setCaseLinkModal(null)}
+                className={`px-4 py-2 rounded-xl text-xs font-bold border transition-colors cursor-pointer ${
+                  isDark
+                    ? "border-zinc-700 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850"
+                    : "border-gray-250 text-slate-650 hover:bg-gray-100"
+                }`}
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmCaseLink}
+                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-extrabold transition-all cursor-pointer shadow-sm active:scale-98 shadow-indigo-500/15"
+              >
+                Đồng ý
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
