@@ -3,7 +3,7 @@ import {
   Bell, LogOut, Search, Settings, Wallet, Info, X, Image, Video, Volume2, FileText,
   Package, Megaphone, Sparkles, CheckCheck, ShoppingCart, AlertTriangle, Send, Sun, Moon,
   Briefcase, GraduationCap, LayoutGrid, LayoutDashboard, Users, MessageSquareShare,
-  FolderOpen, MessageSquare, Shield, LineChart
+  FolderOpen, MessageSquare, Shield, LineChart, Menu
 } from "lucide-react";
 import { TabType } from "../types";
 import { useAuth } from "../context/AuthContext";
@@ -17,6 +17,7 @@ import { socketService } from "../services/socketService";
 interface HeaderProps {
   currentTab: TabType;
   onSearchSelect: (tab: TabType, subTab?: string) => void;
+  onMenuClick?: () => void;
 }
 
 // Danh sách chức năng cho panel tiện ích — cùng bộ module và phân quyền với Sidebar
@@ -47,7 +48,7 @@ const searchIndex = [
   { label: "Ví & Nạp tiền", tab: "VÍ & NẠP TIỀN" as TabType, keywords: "vi nap tien so du payos vietqr nap bank" },
 ];
 
-export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
+export default function Header({ currentTab, onSearchSelect, onMenuClick }: HeaderProps) {
   const { userProfile, logout } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [showResults, setShowResults] = useState(false);
@@ -250,54 +251,66 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
 
   return (
     <header className="sticky top-0 z-40 flex h-18 items-center justify-between border-b border-gray-100 bg-white px-6 shadow-xs" id="app_header">
-      <div className="relative w-full max-w-2xl" id="search_container">
-        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
-          <Search className="h-5 w-5 text-gray-400" />
-        </div>
-        <input
-          type="text"
-          placeholder="Tìm kiếm trong ERP..."
-          className="block h-12 w-full rounded-full border border-gray-200 bg-white pl-12 pr-5 text-sm text-gray-900 shadow-[0_8px_24px_rgba(15,23,42,0.05)] outline-none transition-all placeholder:text-gray-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
-          value={searchQuery}
-          onChange={(event) => {
-            setSearchQuery(event.target.value);
-            setShowResults(true);
-          }}
-          onFocus={() => setShowResults(true)}
-          id="global_search_input"
-        />
-
-        {showResults && searchQuery.trim() !== "" && (
-          <div className="absolute left-0 z-50 mt-3 w-full overflow-hidden rounded-2xl border border-gray-100 bg-white font-sans text-xs shadow-2xl">
-            <div className="border-b border-gray-100 bg-gray-50 px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-gray-400">
-              Kết quả tìm kiếm ({filteredResults.length})
-            </div>
-            {filteredResults.length > 0 ? (
-              <div className="max-h-72 overflow-y-auto">
-                {filteredResults.map((item, index) => (
-                  <button
-                    key={`${item.label}_${index}`}
-                    onClick={() => {
-                      onSearchSelect(item.tab, item.subTab);
-                      setSearchQuery("");
-                      setShowResults(false);
-                    }}
-                    className="flex w-full flex-col gap-1 border-b border-gray-100 px-4 py-3 text-left transition-colors last:border-0 hover:bg-blue-50/60"
-                  >
-                    <span className="text-sm font-semibold text-gray-800">{item.label}</span>
-                    <span className="text-[10px] text-gray-400">
-                      {item.tab}
-                      {item.subTab ? ` › ${item.subTab}` : ""}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div className="p-5 text-center text-sm text-gray-500">Không tìm thấy phân mục phù hợp.</div>
-            )}
-          </div>
+      <div className="flex flex-1 items-center max-w-2xl">
+        {onMenuClick && (
+          <button
+            onClick={onMenuClick}
+            className="mr-3 md:hidden p-2 rounded-xl text-gray-600 hover:bg-gray-50 active:scale-95 cursor-pointer shrink-0"
+            title="Mở menu"
+            id="header_menu_btn"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
         )}
-        {showResults && <div className="fixed inset-0 z-[-1]" onClick={() => setShowResults(false)} />}
+        <div className="relative w-full" id="search_container">
+          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
+            <Search className="h-5 w-5 text-gray-400" />
+          </div>
+          <input
+            type="text"
+            placeholder="Tìm kiếm trong ERP..."
+            className="block h-12 w-full rounded-full border border-gray-200 bg-white pl-12 pr-5 text-sm text-gray-900 shadow-[0_8px_24px_rgba(15,23,42,0.05)] outline-none transition-all placeholder:text-gray-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+            value={searchQuery}
+            onChange={(event) => {
+              setSearchQuery(event.target.value);
+              setShowResults(true);
+            }}
+            onFocus={() => setShowResults(true)}
+            id="global_search_input"
+          />
+
+          {showResults && searchQuery.trim() !== "" && (
+            <div className="absolute left-0 z-50 mt-3 w-full overflow-hidden rounded-2xl border border-gray-100 bg-white font-sans text-xs shadow-2xl">
+              <div className="border-b border-gray-100 bg-gray-50 px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                Kết quả tìm kiếm ({filteredResults.length})
+              </div>
+              {filteredResults.length > 0 ? (
+                <div className="max-h-72 overflow-y-auto">
+                  {filteredResults.map((item, index) => (
+                    <button
+                      key={`${item.label}_${index}`}
+                      onClick={() => {
+                        onSearchSelect(item.tab, item.subTab);
+                        setSearchQuery("");
+                        setShowResults(false);
+                      }}
+                      className="flex w-full flex-col gap-1 border-b border-gray-100 px-4 py-3 text-left transition-colors last:border-0 hover:bg-blue-50/60"
+                    >
+                      <span className="text-sm font-semibold text-gray-800">{item.label}</span>
+                      <span className="text-[10px] text-gray-400">
+                        {item.tab}
+                        {item.subTab ? ` › ${item.subTab}` : ""}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-5 text-center text-sm text-gray-500">Không tìm thấy phân mục phù hợp.</div>
+              )}
+            </div>
+          )}
+          {showResults && <div className="fixed inset-0 z-[-1]" onClick={() => setShowResults(false)} />}
+        </div>
       </div>
 
       <div className="ml-6 flex items-center gap-3" id="header_controls">
