@@ -654,15 +654,21 @@ export const googleDriveController = {
       }
 
       const resource = await ResourceModel.findOne({
-        _id: resourceId,
-        companyCode,
+        $or: [
+          { _id: /^[0-9a-fA-F]{24}$/.test(resourceId) ? resourceId : undefined },
+          { driveFileId: resourceId }
+        ].filter(Boolean) as any,
+        companyCode
       });
 
-      if (!resource) {
-        return res.status(404).json({
-          status: "error",
-          message: "Không tìm thấy tài nguyên hoặc bạn không có quyền xóa.",
-        });
+      let driveFileIdToDelete = resourceId;
+      let uploadedByUserId = userId;
+      let chatRoomId = "";
+
+      if (resource) {
+        driveFileIdToDelete = resource.driveFileId;
+        uploadedByUserId = resource.uploadedBy ? resource.uploadedBy.toString() : "";
+        chatRoomId = resource.chatRoomId ? resource.chatRoomId.toString() : "";
       }
 
       // Kiểm tra quyền xóa:
@@ -673,10 +679,10 @@ export const googleDriveController = {
 
       if (isAdmin) {
         isAllowed = true;
-      } else if (resource.uploadedBy.toString() === userId) {
+      } else if (uploadedByUserId === userId) {
         isAllowed = true;
-      } else if (resource.chatRoomId) {
-        const chatRoom = await ChatRoomModel.findOne({ _id: resource.chatRoomId, companyCode });
+      } else if (chatRoomId) {
+        const chatRoom = await ChatRoomModel.findOne({ _id: chatRoomId, companyCode });
         if (chatRoom) {
           const memberInfo = chatRoom.members.find(m => m.userId.toString() === userId);
           const isRoomAdmin = memberInfo?.role === "admin";
@@ -685,6 +691,9 @@ export const googleDriveController = {
             isAllowed = true;
           }
         }
+      } else {
+        // Tài nguyên không có trong DB và không thuộc phòng nhóm nào -> cho phép chủ tài khoản drive xóa
+        isAllowed = true;
       }
 
       if (!isAllowed) {
@@ -697,20 +706,22 @@ export const googleDriveController = {
       // Xóa trên Google Drive
       try {
         let authClient;
-        if (resource.chatRoomId) {
+        if (chatRoomId) {
           const adminInfo = await getAdminDriveClient(companyCode);
           authClient = adminInfo.authClient;
         } else {
-          authClient = await GoogleDriveService.getClientForUser(resource.uploadedBy.toString());
+          authClient = await GoogleDriveService.getClientForUser(uploadedByUserId);
         }
-        await GoogleDriveService.deleteFile(authClient, resource.driveFileId);
+        await GoogleDriveService.deleteFile(authClient, driveFileIdToDelete);
       } catch (err: any) {
         // Log và cho phép xóa tiếp ở DB nếu file đã bị xóa trên Drive thủ công từ trước
         console.warn(`[googleDriveController.deleteResource] File không tìm thấy trên Drive hoặc không thể xóa:`, err.message);
       }
 
       // Xóa trong local DB
-      await resource.deleteOne();
+      if (resource) {
+        await resource.deleteOne();
+      }
 
       return res.status(200).json({
         status: "success",

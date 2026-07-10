@@ -1635,6 +1635,36 @@ export default function ResourceTab() {
                   </button>
                 )}
 
+                {/* Tải xuống */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveMenuId(null);
+                    const token = localStorage.getItem("accessToken") || "";
+                    if (isFolder) {
+                      const zipUrl = `/api/v1/resources/${resource.driveFileId}/download-zip?space=${selectedSpace}&token=${encodeURIComponent(token)}`;
+                      window.open(zipUrl, "_blank");
+                    } else if (resource.webContentLink) {
+                      window.open(resource.webContentLink, "_blank");
+                    } else {
+                      // Google Workspace files export
+                      let exportUrl = resource.webViewLink;
+                      if (resource.mimeType === "application/vnd.google-apps.document") {
+                        exportUrl = `https://docs.google.com/document/d/${resource.driveFileId}/export?format=docx`;
+                      } else if (resource.mimeType === "application/vnd.google-apps.spreadsheet") {
+                        exportUrl = `https://docs.google.com/spreadsheets/d/${resource.driveFileId}/export?format=xlsx`;
+                      } else if (resource.mimeType === "application/vnd.google-apps.presentation") {
+                        exportUrl = `https://docs.google.com/presentation/d/${resource.driveFileId}/export?format=pptx`;
+                      }
+                      window.open(exportUrl, "_blank");
+                    }
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                >
+                  <Download className="h-4 w-4 text-slate-500" />
+                  <span>Tải xuống</span>
+                </button>
+
                 {/* Đổi tên */}
                 <button
                   onClick={(e) => {
@@ -3869,6 +3899,37 @@ export default function ResourceTab() {
                 <span>Sao chép đường liên kết</span>
               </button>
             )}
+            {/* Tải xuống */}
+            <button
+              type="button"
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                setActiveMenuId(null); setMenuPosition(null);
+                const token = localStorage.getItem("accessToken") || "";
+                if (isFolder) {
+                  const zipUrl = `/api/v1/resources/${resource.driveFileId}/download-zip?space=${selectedSpace}&token=${encodeURIComponent(token)}`;
+                  window.open(zipUrl, "_blank");
+                } else if (resource.webContentLink) {
+                  window.open(resource.webContentLink, "_blank");
+                } else {
+                  // Google Workspace files export
+                  let exportUrl = resource.webViewLink;
+                  if (resource.mimeType === "application/vnd.google-apps.document") {
+                    exportUrl = `https://docs.google.com/document/d/${resource.driveFileId}/export?format=docx`;
+                  } else if (resource.mimeType === "application/vnd.google-apps.spreadsheet") {
+                    exportUrl = `https://docs.google.com/spreadsheets/d/${resource.driveFileId}/export?format=xlsx`;
+                  } else if (resource.mimeType === "application/vnd.google-apps.presentation") {
+                    exportUrl = `https://docs.google.com/presentation/d/${resource.driveFileId}/export?format=pptx`;
+                  }
+                  window.open(exportUrl, "_blank");
+                }
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+            >
+              <Download className="h-4 w-4 text-slate-500" />
+              <span>Tải xuống</span>
+            </button>
             {/* Đổi tên */}
             <button
               type="button"

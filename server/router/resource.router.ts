@@ -107,3 +107,5 @@ resourceRouter.patch("/:id/rename", requireAuth as any, validateRequest(renameSc
 resourceRouter.patch("/:id/move", requireAuth as any, validateRequest(moveSchema), resourceController.move as any);
 resourceRouter.post("/:id/restore", requireAuth as any, validateRequest(idParamSchema), resourceController.restore as any);
 resourceRouter.delete("/:id", requireAuth as any, validateRequest(idParamSchema), resourceController.remove as any);
+resourceRouter.get("/:id/download-zip", requireAuth as any, resourceController.downloadZip as any);
+

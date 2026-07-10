@@ -1,6 +1,61 @@
 import { Response } from "express";
+import mongoose from "mongoose";
 import { AuthenticatedRequest } from "../middleware/auth";
 import { resourceService, resourceDriveService } from "../service/resource.service";
+
+interface ZipFileItem {
+  name: string;
+  url: string;
+  relativePath: string;
+}
+
+async function getAllLocalFiles(companyCode: string, folderId: string, relativePath: string = ""): Promise<ZipFileItem[]> {
+  const { ResourceItemModel } = await import("../model/resource-item.model");
+  const items = await ResourceItemModel.find({
+    companyCode,
+    parentId: folderId,
+    isDeleted: { $ne: true }
+  }).lean();
+
+  let files: ZipFileItem[] = [];
+  for (const item of items) {
+    if (item.type === "folder") {
+      const childFiles = await getAllLocalFiles(companyCode, String(item._id), `${relativePath}${item.name}/`);
+      files = files.concat(childFiles);
+    } else if (item.type === "file" && item.fileUrl) {
+      files.push({
+        name: item.name,
+        url: item.fileUrl,
+        relativePath: `${relativePath}${item.name}`
+      });
+    }
+  }
+  return files;
+}
+
+async function getGoogleDriveFilesRecursive(drive: any, folderId: string, relativePath: string = ""): Promise<any[]> {
+  const response = await drive.files.list({
+    q: `'${folderId}' in parents and trashed = false`,
+    fields: "files(id, name, mimeType, size)",
+  });
+  const files = response.data.files || [];
+  let result: any[] = [];
+  for (const file of files) {
+    if (file.mimeType === "application/vnd.google-apps.folder") {
+      const childFiles = await getGoogleDriveFilesRecursive(drive, file.id, `${relativePath}${file.name}/`);
+      result = result.concat(childFiles);
+    } else {
+      result.push({
+        id: file.id,
+        name: file.name,
+        mimeType: file.mimeType,
+        relativePath: `${relativePath}${file.name}`,
+        size: file.size ? parseInt(file.size, 10) : 0
+      });
+    }
+  }
+  return result;
+}
 
 function getCompanyCode(req: AuthenticatedRequest): string {
   return req.user?.companyCode || "SYSTEM";
@@ -305,4 +360,129 @@ export const resourceController = {
       return sendError(res, error, "driveDelete");
     }
   },
+
+  /** GET /api/v1/resources/:id/download-zip */
+  async downloadZip(req: AuthenticatedRequest, res: Response) {
+    try {
+      const companyCode = getCompanyCode(req);
+      const { id } = req.params; // MongoDB ObjectId or Google Drive folder ID
+      const userId = req.user?.id;
+      const selectedSpace = req.query.space as string || "personal";
+
+      const AdmZip = (await import("adm-zip")).default;
+      const zip = new AdmZip();
+
+      // Check if it's Google Drive folder ID (i.e. not a 24-char hex ObjectId)
+      const isDriveFolder = !mongoose.Types.ObjectId.isValid(id);
+
+      let zipFilename = "folder-download.zip";
+
+      if (isDriveFolder) {
+        if (!userId) {
+          return res.status(401).json({ success: false, message: "Unauthorized." });
+        }
+        const { GoogleDriveService } = await import("../service/personal-google-drive.service");
+        const { CompanyModel } = await import("../model/company.model");
+        const { google } = await import("googleapis");
+        
+        let authClient;
+        if (selectedSpace === "personal") {
+          authClient = await GoogleDriveService.getClientForUser(userId);
+        } else {
+          // Group space -> use company drive
+          const company = await CompanyModel.findOne({ code: companyCode });
+          if (!company || !company.driveOAuth?.refreshToken) {
+            throw new Error("Doanh nghiệp chưa kết nối Google Drive.");
+          }
+          const { googleOAuthService } = await import("../service/google-oauth.service");
+          const accessToken = await googleOAuthService.getAccessToken(company.driveOAuth.refreshToken);
+          const oauth2Client = new google.auth.OAuth2();
+          oauth2Client.setCredentials({ access_token: accessToken });
+          authClient = oauth2Client;
+        }
+
+        const drive = google.drive({ version: "v3", auth: authClient });
+
+        // Get folder name
+        const folderMeta = await drive.files.get({ fileId: id, fields: "name" });
+        if (folderMeta.data.name) {
+          zipFilename = `${folderMeta.data.name}.zip`;
+        }
+
+        // Fetch all files recursively
+        const driveFiles = await getGoogleDriveFilesRecursive(drive, id);
+        
+        for (const file of driveFiles) {
+          try {
+            let buffer: Buffer;
+            let filename = file.relativePath;
+            if (file.mimeType.startsWith("application/vnd.google-apps.")) {
+              let exportMime = "application/pdf";
+              let ext = ".pdf";
+              if (file.mimeType === "application/vnd.google-apps.document") {
+                exportMime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+                ext = ".docx";
+              } else if (file.mimeType === "application/vnd.google-apps.spreadsheet") {
+                exportMime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+                ext = ".xlsx";
+              } else if (file.mimeType === "application/vnd.google-apps.presentation") {
+                exportMime = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+                ext = ".pptx";
+              }
+              const exportRes = await drive.files.export(
+                { fileId: file.id, mimeType: exportMime },
+                { responseType: "arraybuffer" }
+              );
+              buffer = Buffer.from(exportRes.data as any);
+              // Add extension if not already present
+              if (!filename.toLowerCase().endsWith(ext)) {
+                filename += ext;
+              }
+            } else {
+              const downloadRes = await drive.files.get(
+                { fileId: file.id, alt: "media" },
+                { responseType: "arraybuffer" }
+              );
+              buffer = Buffer.from(downloadRes.data as any);
+            }
+            zip.addFile(filename, buffer);
+          } catch (fileErr) {
+            console.error(`Failed to download/export drive file ${file.id} (${file.name}):`, fileErr);
+          }
+        }
+      } else {
+        // Local Folder zipping
+        const { ResourceItemModel } = await import("../model/resource-item.model");
+        const folder = await ResourceItemModel.findOne({ _id: id, companyCode }).lean();
+        if (!folder || folder.type !== "folder") {
+          return res.status(404).json({ success: false, message: "Không tìm thấy thư mục." });
+        }
+        zipFilename = `${folder.name}.zip`;
+
+        const localFiles = await getAllLocalFiles(companyCode, id);
+        for (const file of localFiles) {
+          try {
+            const fetchRes = await fetch(file.url);
+            if (fetchRes.ok) {
+              const arrayBuf = await fetchRes.arrayBuffer();
+              zip.addFile(file.relativePath, Buffer.from(arrayBuf));
+            }
+          } catch (fileErr) {
+            console.error(`Failed to download local file from Cloudinary ${file.url}:`, fileErr);
+          }
+        }
+      }
+
+      const zipBuffer = zip.toBuffer();
+      res.setHeader("Content-Type", "application/zip");
+      const asciiFallback = zipFilename.replace(/["\\]/g, "").replace(/[^\x20-\x7E]/g, "_");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(zipFilename)}`
+      );
+      return res.send(zipBuffer);
+    } catch (error) {
+      return sendError(res, error, "downloadZip");
+    }
+  }
 };
