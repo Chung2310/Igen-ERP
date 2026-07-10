@@ -39,6 +39,16 @@ export const resourceService = {
     return data.items as ResourceItem[];
   },
 
+  /** Lấy chi tiết tài nguyên theo ID. */
+  async getDetail(id: string): Promise<ResourceItem> {
+    const res = await fetch(`/api/v1/resources/${id}`, {
+      headers: authHeaders(false),
+    });
+    if (!res.ok) await parseError(res, "Không tải được thông tin tài nguyên.");
+    const data = await res.json();
+    return data.item as ResourceItem;
+  },
+
   /** Breadcrumb từ gốc tới thư mục hiện tại. */
   async breadcrumb(folderId: string, ownerId?: string, roomId?: string): Promise<BreadcrumbEntry[]> {
     const params = new URLSearchParams();

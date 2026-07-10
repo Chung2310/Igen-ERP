@@ -98,6 +98,7 @@ resourceRouter.delete("/drive/files/:fileId", requireAuth as any, resourceContro
 resourceRouter.get("/", requireAuth as any, validateRequest(listSchema), resourceController.list as any);
 resourceRouter.get("/trash", requireAuth as any, resourceController.trashList as any);
 resourceRouter.get("/breadcrumb/:id", requireAuth as any, resourceController.breadcrumb as any);
+resourceRouter.get("/:id", requireAuth as any, validateRequest(idParamSchema), resourceController.getDetail as any);
 resourceRouter.post("/folder", requireAuth as any, validateRequest(folderSchema), resourceController.createFolder as any);
 resourceRouter.post("/file", requireAuth as any, validateRequest(fileSchema), resourceController.createFile as any);
 resourceRouter.post("/drive", requireAuth as any, validateRequest(driveSchema), resourceController.addDriveLink as any);
