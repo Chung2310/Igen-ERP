@@ -701,6 +701,16 @@ export default function ResourceTab() {
     setViewingTrash(false);
   }, [selectedSpace, selectedOwnerId, subTab]);
 
+  // Reset selectedOwnerId to current user if switching to GOOGLE DRIVE and viewing another employee's space
+  useEffect(() => {
+    if (subTab === "GOOGLE DRIVE") {
+      const myId = userProfile?.uid || userProfile?.id || "";
+      if (selectedSpace === "personal" && selectedOwnerId !== myId) {
+        setSelectedOwnerId(myId);
+      }
+    }
+  }, [subTab, selectedSpace, selectedOwnerId, userProfile]);
+
 
 
   // Fetch chat groups on userProfile load
@@ -1940,7 +1950,7 @@ export default function ResourceTab() {
                       </button>
 
                       {/* Admin/Superadmin: List all employees */}
-                      {allStaff.length > 0 && (
+                      {allStaff.length > 0 && subTab !== "GOOGLE DRIVE" && (
                         <>
                           <div className="border-t border-slate-100 my-1"></div>
                           <div className="text-[9px] text-slate-400 font-bold px-2.5 py-1 uppercase tracking-wider text-left">Không gian nhân sự</div>
