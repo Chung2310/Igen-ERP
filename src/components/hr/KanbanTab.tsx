@@ -725,9 +725,9 @@ export default function KanbanTab({
         setTasks(prev => prev.map(t => t.id === selectedKanbanTask.id ? { ...t, ...updatedFields } : t));
       }
       setSelectedKanbanTask(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Lỗi khi lưu công việc:", error);
-      toast.error("Không thể lưu thay đổi. Vui lòng kiểm tra quyền hạn.");
+      toast.error(error.message || "Không thể lưu thay đổi. Vui lòng kiểm tra quyền hạn.");
     }
   };
 
@@ -771,9 +771,9 @@ export default function KanbanTab({
       setExpandedProjects(prev => ({ ...prev, [createdProj.id]: true }));
       setNewProjectName("");
       setIsNewProjectModalOpen(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Lỗi khi tạo dự án:", error);
-      toast.error("Không thể tạo dự án. Vui lòng thử lại.");
+      toast.error(error.message || "Không thể tạo dự án. Vui lòng thử lại.");
     }
   };
 
@@ -847,9 +847,9 @@ export default function KanbanTab({
 
       setTasks(prev => prev.map(t => t.id === id ? { ...t, ...updateData } : t));
       toast.success("Đã cập nhật trạng thái công việc!");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Lỗi khi cập nhật trạng thái công việc:", error);
-      toast.error("Không thể cập nhật trạng thái. Vui lòng thử lại.");
+      toast.error(error.message || "Không thể cập nhật trạng thái. Vui lòng thử lại.");
     }
   };
 
@@ -961,9 +961,9 @@ export default function KanbanTab({
       setTasks(prev => prev.filter(t => t.id !== id));
       toast.success("Đã xóa công việc thành công!");
       return true;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Lỗi khi xóa công việc:", error);
-      toast.error("Không thể xóa công việc. Chỉ quản lý mới có quyền.");
+      toast.error(error.message || "Không thể xóa công việc. Chỉ quản lý mới có quyền.");
       return false;
     } finally {
       setIsDeletingTask(false);
@@ -993,9 +993,9 @@ export default function KanbanTab({
       // Task thuộc dự án đã được server gỡ projectId → cập nhật local để hiện về nhóm "Chưa phân loại"
       setTasks(prev => prev.map(t => (t.projectId === id ? { ...t, projectId: "" } : t)));
       toast.success("Đã xóa dự án thành công!");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Lỗi khi xóa dự án:", error);
-      toast.error("Không thể xóa dự án. Vui lòng kiểm tra quyền hạn.");
+      toast.error(error.message || "Không thể xóa dự án. Vui lòng kiểm tra quyền hạn.");
     } finally {
       setIsDeletingProject(false);
     }
