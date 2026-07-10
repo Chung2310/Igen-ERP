@@ -9,6 +9,8 @@ export type SupportedModelName =
   | "workflows"
   | "users"
   | "hr-calendar-events"
+  | "hr-leave-templates"
+  | "hr-leave-applications"
   | "timekeeping-logs";
 
 export interface ICRUDQueryOptions {
