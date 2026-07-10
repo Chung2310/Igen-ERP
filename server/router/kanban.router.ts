@@ -202,8 +202,8 @@ kanbanRouter.patch("/tasks/:id", async (req: AuthenticatedRequest, res: Response
     const assigned = task.assigneeUid === req.user?.id;
     if (!manager && !assigned) throw httpError(403, "Bạn không có quyền cập nhật công việc này.");
 
-    const managerFields = ["title", "description", "assigneeUid", "dueDate", "priority", "status", "projectId", "startTime", "endTime", "estTime", "actualTime", "tags", "linkNote", "category"];
-    const staffFields = ["status", "startTime", "endTime", "actualTime", "linkNote", "description", "dueDate", "estTime"];
+    const managerFields = ["title", "description", "assigneeUid", "dueDate", "priority", "status", "projectId", "startTime", "actualStartTime", "endTime", "estTime", "actualTime", "tags", "linkNote", "category"];
+    const staffFields = ["status", "startTime", "actualStartTime", "endTime", "actualTime", "linkNote", "description", "dueDate", "estTime"];
     const allowed = manager ? managerFields : staffFields;
     const update: any = {};
     for (const key of allowed) if (req.body[key] !== undefined) update[key] = req.body[key];
@@ -222,7 +222,10 @@ kanbanRouter.patch("/tasks/:id", async (req: AuthenticatedRequest, res: Response
       update.assignee = assignee?.displayName || "Thành viên";
       update.assigneeAvatar = assignee?.photoURL || "";
     }
-    if (update.status === "In Progress" && !task.startTime && !update.startTime) update.startTime = new Date().toISOString();
+    if (update.status === "In Progress") {
+      if (task.isFromWorkflow && !task.actualStartTime && !update.actualStartTime) update.actualStartTime = new Date().toISOString();
+      else if (!task.isFromWorkflow && !task.startTime && !update.startTime) update.startTime = new Date().toISOString();
+    }
     if (update.status === "Done") {
       const merged = { ...task, ...update };
       if (!merged.description?.trim() || !merged.startTime || !Number(merged.estTime)) {

@@ -25,6 +25,7 @@ const KanbanTaskSchema = new Schema<IKanbanTask>({
   createdAt: { type: Date, default: Date.now, index: true },
   projectId: { type: String, index: true },
   startTime: { type: String },
+  actualStartTime: { type: String },
   estTime: { type: Number },
   endTime: { type: String },
   actualTime: { type: Number },

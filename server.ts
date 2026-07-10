@@ -1,3 +1,4 @@
+import "./server/config/timezone"; // PHẢI đứng đầu — cố định TZ trước mọi phép tính ngày giờ
 import { assertSecurityEnv } from "./server/config/env";
 import express from "express";
 import helmet from "helmet";
