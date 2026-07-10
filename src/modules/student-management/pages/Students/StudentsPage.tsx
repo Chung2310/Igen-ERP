@@ -733,6 +733,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
         isOpen={isImportOpen}
         onClose={() => setIsImportOpen(false)}
         onSuccess={() => setIsImportOpen(false)}
+        selectedCenter={selectedCenter}
       />
     </div>
   );
