@@ -16,7 +16,7 @@ export function useResources() {
     }
 
     try {
-      const res = await apiFetch("/resources");
+      const res = await apiFetch("/student-resources");
       if (res.success && res.resources) {
         const mapped = res.resources.map((r: Omit<ResourceItem, 'id' | 'bookings'> & { _id: string; bookings: (Omit<ResourceBooking, 'id'> & { _id: string })[] }) => ({
           ...r,

@@ -48,7 +48,7 @@ export function ResourcesPage() {
   const handleCancelBooking = async (resource: ResourceItem, bookingId?: string) => {
     if (!bookingId) return;
     try {
-      await apiFetch(`/resources/${resource.id}/bookings/${bookingId}`, { method: 'DELETE' });
+      await apiFetch(`/student-resources/${resource.id}/bookings/${bookingId}`, { method: 'DELETE' });
       window.dispatchEvent(new Event('resource-mutation'));
       toast.success('Đã hủy lịch đặt.');
     } catch (error: unknown) {
@@ -60,7 +60,7 @@ export function ResourcesPage() {
   const handleToggleMaintenance = async (resource: ResourceItem) => {
     const nextStatus = resource.status === 'MAINTENANCE' ? 'AVAILABLE' : 'MAINTENANCE';
     try {
-      await apiFetch(`/resources/${resource.id}`, {
+      await apiFetch(`/student-resources/${resource.id}`, {
         method: 'PATCH',
         body: JSON.stringify({ status: nextStatus }),
       });
@@ -76,7 +76,7 @@ export function ResourcesPage() {
 
   const handleDelete = async (resource: ResourceItem) => {
     try {
-      await apiFetch(`/resources/${resource.id}`, { method: 'DELETE' });
+      await apiFetch(`/student-resources/${resource.id}`, { method: 'DELETE' });
       window.dispatchEvent(new Event('resource-mutation'));
       toast.success(`Đã xóa tài nguyên ${resource.name}.`);
     } catch (error: unknown) {

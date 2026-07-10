@@ -23,7 +23,7 @@ export function ResourceTable({
   const darkMode = false;
 
   return (
-    <ErpCard className="rounded-[2.5rem] overflow-hidden">
+    <ErpCard className="overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-xs text-left border-collapse">
           <ErpTableHead columns={['Mã nhận diện', 'Tên tài nguyên', 'Phân loại', 'Khả năng đáp ứng', 'Hiện trạng', 'Thao tác']} />
@@ -84,9 +84,9 @@ function ResourceTableRow({
 
   return (
     <tr className={cn("transition-colors", darkMode ? "text-slate-355 hover:bg-slate-800/10" : "text-slate-600 hover:bg-slate-50/40")}>
-      <td className="py-4.5 px-6 font-black text-sm text-left">{resource.identifier}</td>
-      <td className="py-4.5 px-6 font-bold text-left">{resource.name}</td>
-      <td className="py-4.5 px-6 text-left">
+      <td className="py-2.5 px-4 font-black text-sm text-left">{resource.identifier}</td>
+      <td className="py-2.5 px-4 font-bold text-left">{resource.name}</td>
+      <td className="py-2.5 px-4 text-left">
         <span className={cn(
           "px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider",
           getTypeColor(resource.type)
@@ -94,8 +94,8 @@ function ResourceTableRow({
           {resource.type}
         </span>
       </td>
-      <td className="py-4.5 px-6 font-bold text-left">{resource.capacity}</td>
-      <td className="py-4.5 px-6 space-y-1 text-left">
+      <td className="py-2.5 px-4 font-bold text-left">{resource.capacity}</td>
+      <td className="py-2.5 px-4 space-y-1 text-left">
         {resource.status === 'MAINTENANCE' ? (
           <span className="inline-flex items-center gap-1 text-rose-500 font-bold text-[10px]">
             <AlertTriangle className="w-3.5 h-3.5" /> Bảo trì
@@ -118,7 +118,7 @@ function ResourceTableRow({
           </div>
         )}
       </td>
-      <td className="py-4.5 px-6 text-left">
+      <td className="py-2.5 px-4 text-left">
         <div className="flex items-center gap-2">
           <button
             onClick={() => onToggleMaintenance(resource)}
@@ -147,7 +147,7 @@ function ResourceTableRow({
             title="Xóa tài nguyên"
             className={cn(
               "p-1.5 rounded-lg transition-colors border cursor-pointer",
-              darkMode ? "text-slate-450 hover:text-rose-455 bg-slate-800 hover:bg-rose-900/40 border-transparent" : "text-slate-500 hover:text-rose-500 bg-slate-50 hover:bg-rose-50 border-slate-200/60"
+              darkMode ? "text-slate-450 hover:text-rose-455 bg-slate-800 hover:bg-rose-900/40 border-transparent" : "text-slate-500 hover:text-rose-500 bg-slate-50 hover:bg-rose-550 border-slate-200/60"
             )}
           >
             <Trash2 className="w-3.5 h-3.5" />
