@@ -59,7 +59,7 @@ export function getFileIcon(mimeType?: string, name?: string): { Icon: LucideIco
     return { Icon: FileArchive, color: "text-amber-500" };
   }
   if (mt === "text/html" || mt.includes("html") || ext === "html") {
-    return { Icon: LinkIcon, color: "text-[#008080]" };
+    return { Icon: LinkIcon, color: "text-cyan-600" };
   }
   return { Icon: FileIcon, color: "text-slate-400" };
 }

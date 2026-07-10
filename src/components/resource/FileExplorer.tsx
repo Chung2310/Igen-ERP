@@ -846,7 +846,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
                               <Icon className={`h-6 w-6 ${iconDetails.color}`} strokeWidth={1.5} />
                             )}
                           </div>
-                          <span className="font-bold text-slate-700 truncate pr-2 hover:text-[#008080] transition-colors">{item.name}</span>
+                          <span className="font-bold text-slate-700 truncate pr-2 hover:text-cyan-600 transition-colors">{item.name}</span>
                         </div>
                         <div className="w-56 pl-4 text-slate-500 font-semibold">{formatDate(item.createdAt)}</div>
                         <div className="w-32 text-right text-slate-400 font-semibold">—</div>
@@ -982,7 +982,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
                               <Icon className={`h-6 w-6 ${iconDetails.color}`} strokeWidth={1.5} />
                             )}
                           </div>
-                          <span className="font-bold text-slate-700 truncate pr-2 hover:text-[#008080] transition-colors">{item.name}</span>
+                          <span className="font-bold text-slate-700 truncate pr-2 hover:text-cyan-600 transition-colors">{item.name}</span>
                         </div>
                         <div className="w-56 pl-4 text-slate-500 font-semibold">{formatDate(item.createdAt)}</div>
                         <div className="w-32 text-right text-slate-500 font-semibold">
@@ -1120,7 +1120,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
                             onClick={() => setListPage(p as number)}
                             className={`w-8 h-8 rounded-lg text-xs font-bold transition ${
                               safeListPage === p
-                                ? "bg-[#008080] text-white shadow-sm"
+                                ? "bg-cyan-600 text-white shadow-sm"
                                 : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
                             }`}
                           >
@@ -1624,7 +1624,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
                     (ownerId && moveSpace === ownerId) ||
                     (!roomId && !ownerId && moveSpace === "personal")
                   ))}
-                  className="px-6 py-2.5 rounded-xl bg-[#009b94] hover:bg-[#00827d] text-sm font-extrabold text-white transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  className="px-6 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-sm font-extrabold text-white transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
                   Đồng ý
                 </button>
@@ -1757,7 +1757,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
                   setTempSelected([...sharedList]);
                   setShowPickerModal(true);
                 }}
-                className="mt-2 w-full py-2.5 px-4 rounded-xl bg-[#009b94] hover:bg-[#00827d] text-white text-xs font-extrabold flex items-center justify-center gap-1.5 transition cursor-pointer"
+                className="mt-2 w-full py-2.5 px-4 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-extrabold flex items-center justify-center gap-1.5 transition cursor-pointer"
               >
                 <Plus className="h-4 w-4" />
                 Thêm thành viên, nhóm, lĩnh vực/dự án
@@ -1774,7 +1774,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
               <button
                 onClick={handleSaveShares}
                 disabled={savingShares}
-                className="px-6 py-2 rounded-xl bg-[#009b94] hover:bg-[#00827d] text-xs font-extrabold text-white transition disabled:opacity-50 cursor-pointer"
+                className="px-6 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-xs font-extrabold text-white transition disabled:opacity-50 cursor-pointer"
               >
                 {savingShares ? "Đang lưu..." : "Lưu"}
               </button>
@@ -1855,7 +1855,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
                       >
                         {/* Checkbox */}
                         <div className={`h-4.5 w-4.5 rounded border flex items-center justify-center transition shrink-0 ${
-                          isChecked ? "bg-[#009b94] border-[#009b94] text-white" : "border-slate-300"
+                          isChecked ? "bg-cyan-600 border-cyan-600 text-white" : "border-slate-300"
                         }`}>
                           {isChecked && <Check className="h-3 w-3" strokeWidth={3} />}
                         </div>
@@ -1931,7 +1931,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
                   setSharedList(tempSelected);
                   setShowPickerModal(false);
                 }}
-                className="px-6 py-2.5 rounded-xl bg-[#009b94] hover:bg-[#00827d] text-sm font-extrabold text-white transition cursor-pointer"
+                className="px-6 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-sm font-extrabold text-white transition cursor-pointer"
               >
                 Áp dụng
               </button>
@@ -1958,7 +1958,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
                   onClick={() => {
                     toast.info("Tính năng tạo nhóm chat mới từ đây đang được phát triển.");
                   }}
-                  className="flex items-center gap-1.5 bg-[#008080] hover:bg-[#006666] text-white rounded-full px-4 py-2 transition text-xs font-black shadow-sm cursor-pointer active:scale-95 animate-fadeIn"
+                  className="flex items-center gap-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-full px-4 py-2 transition text-xs font-black shadow-sm cursor-pointer active:scale-95 animate-fadeIn"
                 >
                   <Users className="h-4 w-4" />
                   <span>Nhóm chat mới</span>
@@ -1978,7 +1978,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
                 onClick={() => setSendToChatTab("Thành viên")}
                 className={`px-4 py-1.5 rounded-full text-xs font-extrabold transition cursor-pointer ${
                   sendToChatTab === "Thành viên"
-                    ? "bg-slate-100 text-[#008080] border border-[#008080]/30 font-black shadow-xs"
+                    ? "bg-slate-100 text-cyan-600 border border-cyan-600/30 font-black shadow-xs"
                     : "bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
                 }`}
               >
@@ -1988,7 +1988,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
                 onClick={() => setSendToChatTab("Nhóm")}
                 className={`px-4 py-1.5 rounded-full text-xs font-extrabold transition cursor-pointer ${
                   sendToChatTab === "Nhóm"
-                    ? "bg-slate-100 text-[#008080] border border-[#008080]/30 font-black shadow-xs"
+                    ? "bg-slate-100 text-cyan-600 border border-cyan-600/30 font-black shadow-xs"
                     : "bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
                 }`}
               >
@@ -2004,7 +2004,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
                 placeholder={`Tìm kiếm ${sendToChatTab.toLowerCase()}...`}
                 value={sendToChatSearch}
                 onChange={(e) => setSendToChatSearch(e.target.value)}
-                className="w-full text-xs bg-slate-50/50 hover:bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-2 focus:outline-hidden focus:ring-2 focus:ring-[#008080]/20 text-slate-700 font-bold"
+                className="w-full text-xs bg-slate-50/50 hover:bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-2 focus:outline-hidden focus:ring-2 focus:ring-cyan-600/20 text-slate-700 font-bold"
               />
             </div>
 
@@ -2063,7 +2063,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
                         <button
                           onClick={() => handleSendToChat(u._id, "user")}
                           disabled={sendingToChatId !== null}
-                          className="px-4 py-1.5 rounded-xl bg-slate-100 hover:bg-[#008080] text-slate-600 hover:text-white text-xs font-black transition cursor-pointer active:scale-95 flex items-center gap-1 disabled:opacity-50"
+                          className="px-4 py-1.5 rounded-xl bg-slate-100 hover:bg-cyan-600 text-slate-600 hover:text-white text-xs font-black transition cursor-pointer active:scale-95 flex items-center gap-1 disabled:opacity-50"
                         >
                           {isSending ? (
                             <Loader2 className="h-3 w-3 animate-spin" />
@@ -2118,7 +2118,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
                         <button
                           onClick={() => handleSendToChat(r._id, "room")}
                           disabled={sendingToChatId !== null}
-                          className="px-4 py-1.5 rounded-xl bg-slate-100 hover:bg-[#008080] text-slate-600 hover:text-white text-xs font-black transition cursor-pointer active:scale-95 flex items-center gap-1 disabled:opacity-50"
+                          className="px-4 py-1.5 rounded-xl bg-slate-100 hover:bg-cyan-600 text-slate-600 hover:text-white text-xs font-black transition cursor-pointer active:scale-95 flex items-center gap-1 disabled:opacity-50"
                         >
                           {isSending ? (
                             <Loader2 className="h-3 w-3 animate-spin" />
@@ -2203,7 +2203,7 @@ const ResourceCard: React.FC<{
       {/* Badge chia sẻ */}
       {item.isShared && (
         <div className="absolute top-1.5 left-2 z-10">
-          <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-[#009b94]/10 text-[#009b94] text-[9px] font-black tracking-wide">
+          <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-cyan-600/10 text-cyan-600 text-[9px] font-black tracking-wide">
             <Share2 className="h-2.5 w-2.5" />
             Chia sẻ
           </span>
