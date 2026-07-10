@@ -159,14 +159,23 @@ function AppContent() {
   };
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-background font-sans text-on-surface" id="app_root_layout">
+    <div className="flex h-dvh w-screen overflow-hidden bg-background font-sans text-on-surface" id="app_root_layout">
       <SEOHead meta={getSeoForTab(activeTab)} />
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+      <Sidebar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        mobileOpen={mobileNavOpen}
+        onMobileClose={() => setMobileNavOpen(false)}
+      />
 
-      <div className="flex h-screen flex-1 flex-col overflow-hidden" id="main_content_area">
-        <Header currentTab={activeTab} onSearchSelect={handleSearchNavigation} />
+      <div className="flex h-dvh min-w-0 flex-1 flex-col overflow-hidden" id="main_content_area">
+        <Header
+          currentTab={activeTab}
+          onSearchSelect={handleSearchNavigation}
+          onMenuClick={() => setMobileNavOpen(true)}
+        />
 
-        <main className="flex-1 overflow-hidden bg-surface p-6" id="primary_page_container">
+        <main className="flex-1 overflow-hidden bg-surface p-3 sm:p-6" id="primary_page_container">
           <AppRouterView activeTab={activeTab} userProfile={userProfile} />
         </main>
       </div>

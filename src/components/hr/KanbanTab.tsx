@@ -957,6 +957,31 @@ export default function KanbanTab({
     }
   };
 
+  const deleteProject = async (id: string, name: string) => {
+    if (!window.confirm(`Xóa dự án "${name}"? Các công việc thuộc dự án sẽ được chuyển về nhóm "Chưa phân loại".`)) return;
+    try {
+      const res = await fetch(`/api/v1/crud/projects/${id}`, {
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${getAccessToken()}`,
+        },
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Xóa dự án thất bại");
+      }
+
+      setProjects(prev => prev.filter(p => p.id !== id));
+      // Task thuộc dự án đã được server gỡ projectId → cập nhật local để hiện về nhóm "Chưa phân loại"
+      setTasks(prev => prev.map(t => (t.projectId === id ? { ...t, projectId: "" } : t)));
+      toast.success("Đã xóa dự án thành công!");
+    } catch (error) {
+      console.error("Lỗi khi xóa dự án:", error);
+      toast.error("Không thể xóa dự án. Vui lòng kiểm tra quyền hạn.");
+    }
+  };
+
   const visibleTasks = React.useMemo(() => {
     let list = tasks;
     if (kanbanFilter) {
@@ -1106,6 +1131,19 @@ export default function KanbanTab({
                           </div>
                           <div className="flex items-center gap-4 text-[10px] text-gray-400 font-medium">
                             <span>Tạo ngày: {new Date(proj.createdAt).toLocaleDateString("vi-VN")}</span>
+                            {isManager && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteProject(proj.id, proj.name);
+                                }}
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                                title="Xóa dự án"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            )}
                           </div>
                         </div>
 
