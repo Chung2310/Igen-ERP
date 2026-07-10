@@ -30,10 +30,9 @@ async function archivePendingTasks(
   return result.modifiedCount || 0;
 }
 
-/** Đổi Date → chuỗi "YYYY-MM-DDTHH:mm" theo giờ địa phương (định dạng KanbanTask dùng) */
-function toLocalDatetimeString(date: Date): string {
-  const tzOffset = date.getTimezoneOffset() * 60000;
-  return new Date(date.getTime() - tzOffset).toISOString().slice(0, 16);
+function toLocalDatetimeString(d: Date): string {
+  const tzOffset = d.getTimezoneOffset() * 60000;
+  return new Date(d.getTime() - tzOffset).toISOString().slice(0, 16);
 }
 
 function calculateDueDate(deadlineType?: string, deadlineDays?: number, deadlineTime?: string): string {
@@ -88,6 +87,34 @@ function getStepDurationDays(step: {
   }
 }
 
+function isWeekend(d: Date): boolean {
+  const day = d.getDay();
+  return day === 0 || day === 6;
+}
+
+/**
+ * Cộng N ngày làm việc (bỏ T7/CN). Nếu mốc xuất phát rơi vào cuối tuần thì
+ * dời tới thứ Hai kế tiếp trước khi cộng.
+ */
+function addWorkingDays(from: Date, days: number): Date {
+  const d = new Date(from);
+  while (isWeekend(d)) d.setDate(d.getDate() + 1);
+  let remaining = days;
+  while (remaining > 0) {
+    d.setDate(d.getDate() + 1);
+    if (!isWeekend(d)) remaining--;
+  }
+  return d;
+}
+
+/** Dời sang ngày làm việc kế tiếp, giữ nguyên giờ */
+function nextWorkingDay(d: Date): Date {
+  const out = new Date(d);
+  out.setDate(out.getDate() + 1);
+  while (isWeekend(out)) out.setDate(out.getDate() + 1);
+  return out;
+}
+
 type StepWindow = { start: Date; due: Date | null; durationDays: number | null };
 
 /**
@@ -120,24 +147,32 @@ function calculateStepSchedule(
   const schedule = new Map<string, StepWindow>();
   for (const step of workflow.steps || []) {
     const durationDays = getStepDurationDays(step);
+    // Mốc bắt đầu hiệu dụng của bước: né cuối tuần (rơi T7/CN → sáng thứ Hai kế tiếp)
+    const start = new Date(cursor);
+    if (isWeekend(start)) {
+      while (isWeekend(start)) start.setDate(start.getDate() + 1);
+      start.setHours(8, 0, 0, 0);
+    }
     if (durationDays === null) {
       // Bước không có thông tin thời gian → không dịch mốc, hạn để trống
-      schedule.set(step.id, { start: new Date(cursor), due: null, durationDays: null });
+      schedule.set(step.id, { start, due: null, durationDays: null });
       continue;
     }
-    const due = new Date(cursor);
-    due.setDate(due.getDate() + durationDays);
+    // Hạn = mốc bắt đầu + N ngày LÀM VIỆC (bỏ T7/CN)
+    const due = addWorkingDays(start, durationDays);
     if (step.deadlineTime && step.deadlineTime.includes(":")) {
       const [h, m] = step.deadlineTime.split(":");
       due.setHours(parseInt(h, 10), parseInt(m, 10), 0, 0);
     } else {
       due.setHours(18, 0, 0, 0);
     }
-    // Bước 0 ngày mà giờ hạn lại sớm hơn mốc bắt đầu (VD bắt đầu 19:00, hạn 18:00) → dồn sang hôm sau
-    if (due.getTime() < cursor.getTime()) {
-      due.setDate(due.getDate() + 1);
+    // Bước 0 ngày mà giờ hạn lại sớm hơn mốc bắt đầu (VD bắt đầu 19:00, hạn 18:00)
+    // → dồn sang ngày làm việc kế tiếp
+    if (due.getTime() < start.getTime()) {
+      const shifted = nextWorkingDay(due);
+      due.setTime(shifted.getTime());
     }
-    schedule.set(step.id, { start: new Date(cursor), due, durationDays });
+    schedule.set(step.id, { start, due, durationDays });
     cursor = new Date(due);
   }
   return schedule;
@@ -184,12 +219,17 @@ async function generateStepTasks(
   const now = new Date();
   let stepStart = stepWindow ? new Date(stepWindow.start) : now;
   let stepDue = stepWindow?.due ? new Date(stepWindow.due) : null;
-  // Case chạy chậm hơn kế hoạch (vào bước khi hạn dự kiến đã qua) → dời nguyên
-  // cửa sổ về hiện tại, giữ nguyên thời lượng của bước
+  // Case chạy chậm hơn kế hoạch (vào bước khi hạn dự kiến đã qua) → dời cửa sổ
+  // về hiện tại, giữ nguyên thời lượng bước tính theo ngày làm việc
   if (stepDue && stepDue.getTime() < now.getTime()) {
-    const durationMs = Math.max(stepDue.getTime() - stepStart.getTime(), 0);
+    const dueHours = stepDue.getHours();
+    const dueMinutes = stepDue.getMinutes();
     stepStart = new Date(now);
-    stepDue = new Date(now.getTime() + durationMs);
+    stepDue = addWorkingDays(now, stepWindow?.durationDays ?? 0);
+    stepDue.setHours(dueHours, dueMinutes, 0, 0);
+    if (stepDue.getTime() < stepStart.getTime()) {
+      stepDue = nextWorkingDay(stepDue);
+    }
   }
 
   const subTasksToCreate = [...stepSubTasks, ...extraSubTasks];
@@ -218,22 +258,18 @@ async function generateStepTasks(
       }
     }
 
-    // Công việc con riêng của case ưu tiên dùng hạn hoàn thành của case (nếu có);
-    // còn lại lấy hạn theo lịch trình chuỗi bước, fallback cách tính cũ nếu bước
-    // không có thông tin thời gian
+    // Công việc con riêng của case ưu tiên dùng hạn hoàn thành của case (nếu có)
     const isExtra = extraSubTasks.includes(sub);
     const dueDate =
       isExtra && participant.dueDate
         ? `${participant.dueDate}T18:00`
-        : stepDue
-        ? toLocalDatetimeString(stepDue)
         : calculateDueDate(step.deadlineType, step.deadlineDays, step.deadlineTime);
     // Ưu tiên của bước; nếu bước không đặt thì dùng ưu tiên của công việc
     const priority = mapPriority(step.priority && step.priority !== "normal" ? step.priority : participant.priority || step.priority);
 
-    // Xác định projectId từ participant.projectId hoặc step.domain (có thể là project ID hoặc project name)
-    let projectId = participant.projectId || "";
-    if (!projectId && step.domain) {
+    // Xác định projectId từ step.domain (có thể là project ID hoặc project name)
+    let projectId = "";
+    if (step.domain) {
       if (/^[0-9a-fA-F]{24}$/.test(step.domain)) {
         projectId = step.domain;
       } else {
@@ -264,11 +300,12 @@ async function generateStepTasks(
       projectId,
       // Thời gian bắt đầu dự kiến của bước — công việc con dùng chung với bước cha
       startTime: toLocalDatetimeString(stepStart),
+      actualStartTime: "",
       // Prefill số giờ dự tính từ thời lượng hiệu dụng của bước (8h làm việc/ngày)
       // để người nhận không phải điền tay khi hoàn thành
-      estTime: stepWindow?.durationDays ? stepWindow.durationDays * 8 : 0,
+      estTime: step.estDays && step.estDays > 0 ? step.estDays * 8 : 0,
       tags: [workflow.name, step.title],
-      linkNote: (participant.docLinks && participant.docLinks[0]) || (step.docLinks && step.docLinks[0]) || "",
+      linkNote: (participant.docLinks && participant.docLinks[0]) || "",
       workflowId: workflow.id,
       workflowStepId: step.id,
       participantId: participant.id,
@@ -387,7 +424,6 @@ export const workflowLinkService = {
       dueDate?: string;
       docLinks?: string[];
       customSubTasks?: SubTaskLike[];
-      projectId?: string;
     }
   ) {
     const workflow = await WorkflowModel.findOne({ _id: workflowId, companyCode });
@@ -417,10 +453,21 @@ export const workflowLinkService = {
       dueDate: caseData.dueDate || "",
       docLinks: caseData.docLinks || [],
       customSubTasks: caseData.customSubTasks || [],
-      projectId: caseData.projectId || "",
       startedAt: now,
       updatedAt: now,
     };
+
+    // Một nguồn thời gian duy nhất: không gửi hạn hoàn thành thì hạn của case
+    // = ngày kết thúc lịch trình các bước (UI chỉ gửi dueDate khi người giao việc
+    // chủ động điều chỉnh và đã xác nhận)
+    if (!participant.dueDate) {
+      const schedule = calculateStepSchedule(workflow, participant);
+      let lastDue: Date | null = null;
+      for (const w of schedule.values()) {
+        if (w.due && (!lastDue || w.due.getTime() > lastDue.getTime())) lastDue = w.due;
+      }
+      if (lastDue) participant.dueDate = toLocalDatetimeString(lastDue).slice(0, 10);
+    }
 
     workflow.participants.push(participant);
     await workflow.save();

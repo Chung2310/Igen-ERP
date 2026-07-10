@@ -44,7 +44,6 @@ import {
 import { getAccessToken } from "../../services/authService";
 import { socketService } from "../../services/socketService";
 import { toast } from "../../pages/Toast";
-import { ConfirmDialog } from "../common/ConfirmDialog";
 
 interface WorkflowTabProps {
   userProfile: UserProfile | null;
@@ -106,10 +105,32 @@ type StepSchedulePreview = {
   durationDays: number | null;
 };
 
+const isWeekend = (d: Date) => d.getDay() === 0 || d.getDay() === 6;
+
+/** Cộng N ngày làm việc (bỏ T7/CN) — cùng logic với server */
+const addWorkingDays = (from: Date, days: number): Date => {
+  const d = new Date(from);
+  while (isWeekend(d)) d.setDate(d.getDate() + 1);
+  let remaining = days;
+  while (remaining > 0) {
+    d.setDate(d.getDate() + 1);
+    if (!isWeekend(d)) remaining--;
+  }
+  return d;
+};
+
+const nextWorkingDay = (d: Date): Date => {
+  const out = new Date(d);
+  out.setDate(out.getDate() + 1);
+  while (isWeekend(out)) out.setDate(out.getDate() + 1);
+  return out;
+};
+
 /**
  * Lịch trình dự kiến khi giao việc theo quy trình: các bước nối đuôi nhau từ ngày
- * bắt đầu — bước sau bắt đầu khi bước trước đến hạn. Hiển thị xem trước trong modal
- * giao việc; server tính lại cùng logic khi sinh task.
+ * bắt đầu — bước sau bắt đầu khi bước trước đến hạn, tính theo ngày làm việc
+ * (bỏ T7/CN). Hiển thị xem trước trong modal giao việc; server tính lại cùng
+ * logic khi sinh task (workflow-link.service.ts).
  */
 const buildStepSchedulePreview = (steps: WorkflowStep[], startDate?: string): StepSchedulePreview[] => {
   let cursor =
@@ -120,23 +141,41 @@ const buildStepSchedulePreview = (steps: WorkflowStep[], startDate?: string): St
 
   return steps.map((step) => {
     const durationDays = getStepDurationDays(step);
-    if (durationDays === null) {
-      return { stepId: step.id, title: step.title, start: new Date(cursor), due: null, durationDays };
+    const start = new Date(cursor);
+    if (isWeekend(start)) {
+      while (isWeekend(start)) start.setDate(start.getDate() + 1);
+      start.setHours(8, 0, 0, 0);
     }
-    const due = new Date(cursor);
-    due.setDate(due.getDate() + durationDays);
+    if (durationDays === null) {
+      return { stepId: step.id, title: step.title, start, due: null, durationDays };
+    }
+    let due = addWorkingDays(start, durationDays);
     if (step.deadlineTime && step.deadlineTime.includes(":")) {
       const [h, m] = step.deadlineTime.split(":");
       due.setHours(parseInt(h, 10), parseInt(m, 10), 0, 0);
     } else {
       due.setHours(18, 0, 0, 0);
     }
-    if (due.getTime() < cursor.getTime()) due.setDate(due.getDate() + 1);
-    const entry = { stepId: step.id, title: step.title, start: new Date(cursor), due, durationDays };
+    if (due.getTime() < start.getTime()) due = nextWorkingDay(due);
+    const entry = { stepId: step.id, title: step.title, start, due, durationDays };
     cursor = new Date(due);
     return entry;
   });
 };
+
+/** Ngày kết thúc dự kiến của cả lịch trình (hạn muộn nhất trong các bước) */
+const scheduleEndDate = (preview: StepSchedulePreview[]): Date | null => {
+  let last: Date | null = null;
+  for (const s of preview) {
+    if (s.due && (!last || s.due.getTime() > last.getTime())) last = s.due;
+  }
+  return last;
+};
+
+const toDateInputValue = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+const WEEKDAY_LABELS = ["Chủ nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
 
 const fmtScheduleDatetime = (d: Date) =>
   `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")} ${String(
@@ -155,31 +194,6 @@ export default function WorkflowTab({
   const [view, setView] = useState<"list" | "detail">("list");
   const [wizardOpen, setWizardOpen] = useState(false);
   const [wizardData, setWizardData] = useState<Workflow | null>(null);
-  const [projects, setProjects] = useState<any[]>([]);
-
-  // Fetch projects list for selecting project/domain in case creation
-  useEffect(() => {
-    const fetchProjects = async () => {
-      try {
-        const res = await fetch("/api/v1/crud/projects", {
-          headers: {
-            "Authorization": `Bearer ${getAccessToken()}`,
-          },
-        });
-        if (res.ok) {
-          const json = await res.json();
-          const projData = (json.data || []).map((item: any) => ({
-            ...item,
-            id: item._id,
-          }));
-          setProjects(projData);
-        }
-      } catch (err) {
-        console.error("Lỗi khi tải danh sách dự án:", err);
-      }
-    };
-    fetchProjects();
-  }, []);
 
   // ---- Theme & Task linkage states ----
   const [isDark, setIsDark] = useState(() =>
@@ -213,34 +227,6 @@ export default function WorkflowTab({
   const [steps, setSteps] = useState<WorkflowStep[]>([]);
   const [participants, setParticipants] = useState<WorkflowParticipant[]>([]);
   const [saving, setSaving] = useState(false);
-  const [confirmState, setConfirmState] = useState<{
-    isOpen: boolean;
-    title: string;
-    description: string;
-    confirmLabel?: string;
-    cancelLabel?: string;
-    onConfirm: () => void | Promise<void>;
-  } | null>(null);
-
-  const askConfirm = (
-    title: string,
-    description: string,
-    onConfirm: () => void | Promise<void>,
-    confirmLabel = "Xác nhận",
-    cancelLabel = "Hủy"
-  ) => {
-    setConfirmState({
-      isOpen: true,
-      title,
-      description,
-      confirmLabel,
-      cancelLabel,
-      onConfirm: async () => {
-        await onConfirm();
-        setConfirmState(null);
-      },
-    });
-  };
 
   const fetchWfTasks = useCallback(async () => {
     if (!activeId) return;
@@ -314,10 +300,17 @@ export default function WorkflowTab({
     dueDate: string;
     docLinks: string[];
     customSubTasks: WorkflowSubTask[];
-    projectId: string;
   } | null>(null);
   const [newCaseSubTask, setNewCaseSubTask] = useState("");
   const [newCaseDocLink, setNewCaseDocLink] = useState("");
+  // Wizard giao việc 3 bước: 1 = việc gì, 2 = ai làm, 3 = khi nào
+  const [caseWizStep, setCaseWizStep] = useState<1 | 2 | 3>(1);
+  const [caseUserSearch, setCaseUserSearch] = useState("");
+  const [showAdvancedCase, setShowAdvancedCase] = useState(false);
+  // Điều chỉnh hạn thủ công: chỉ gửi dueDate lên server khi người dùng chủ động
+  // override; hạn sớm hơn lịch tự tính phải tick xác nhận mới cho tạo
+  const [dueOverride, setDueOverride] = useState(false);
+  const [dueOverrideConfirmed, setDueOverrideConfirmed] = useState(false);
   const caseFileInputRef = useRef<HTMLInputElement>(null);
   const [caseUploading, setCaseUploading] = useState(false);
   const [caseRecording, setCaseRecording] = useState(false);
@@ -335,215 +328,6 @@ export default function WorkflowTab({
   const [cardMenuFor, setCardMenuFor] = useState<string | null>(null);
 
   const canEdit = isManager;
-
-  const triggerCaseFileUpload = () => {
-    if (caseFileInputRef.current) {
-      caseFileInputRef.current.click();
-    }
-  };
-
-  const handleCaseFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setCaseUploading(true);
-    try {
-      const base64Data = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-
-      const res = await fetch("/api/v1/media/upload", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${getAccessToken()}`,
-        },
-        body: JSON.stringify({ file: base64Data, folder: "igen_erp/workflows" }),
-      });
-
-      if (!res.ok) throw new Error("Upload thất bại.");
-      const json = await res.json();
-      if (json.url) {
-        setPartDraft((prev) =>
-          prev ? { ...prev, docLinks: [...prev.docLinks, json.url] } : prev
-        );
-        toast.success(`Đã tải lên file: ${file.name}`);
-      }
-    } catch (err: any) {
-      console.error(err);
-      toast.error(err.message || "Không thể tải lên tệp.");
-    } finally {
-      setCaseUploading(false);
-      if (caseFileInputRef.current) caseFileInputRef.current.value = "";
-    }
-  };
-
-  const handleAddCaseNotion = () => {
-    setCaseLinkModal({
-      open: true,
-      type: "notion",
-      title: "Đính kèm liên kết Notion",
-      placeholder: "Nhập liên kết Notion (VD: https://notion.so/...)",
-      value: "",
-    });
-  };
-
-  const startCaseRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
-      const chunks: Blob[] = [];
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunks.push(e.data);
-      };
-      recorder.onstop = async () => {
-        const audioBlob = new Blob(chunks, { type: "audio/webm" });
-        setCaseUploading(true);
-        try {
-          const reader = new FileReader();
-          reader.readAsDataURL(audioBlob);
-          reader.onloadend = async () => {
-            const base64Data = reader.result as string;
-            const res = await fetch("/api/v1/media/upload", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${getAccessToken()}`,
-              },
-              body: JSON.stringify({ file: base64Data, folder: "igen_erp/audio" }),
-            });
-            if (!res.ok) throw new Error("Upload âm thanh thất bại.");
-            const json = await res.json();
-            if (json.url) {
-              setPartDraft((prev) =>
-                prev ? { ...prev, docLinks: [...prev.docLinks, json.url] } : prev
-              );
-              toast.success("Đã tải lên bản ghi âm.");
-            }
-          };
-        } catch (err: any) {
-          toast.error(err.message || "Lỗi tải lên bản ghi âm.");
-        } finally {
-          setCaseUploading(false);
-        }
-        stream.getTracks().forEach((track) => track.stop());
-      };
-      recorder.start();
-      setCaseMediaRecorder(recorder);
-      setCaseRecording(true);
-      toast.success("Bắt đầu ghi âm...");
-    } catch (err) {
-      console.error(err);
-      toast.error("Không thể truy cập microphone.");
-    }
-  };
-
-  const stopCaseRecording = () => {
-    if (caseMediaRecorder && caseRecording) {
-      caseMediaRecorder.stop();
-      setCaseRecording(false);
-      toast.info("Đang xử lý bản ghi âm...");
-    }
-  };
-
-  const startCaseScreenRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-      const recorder = new MediaRecorder(stream);
-      const chunks: Blob[] = [];
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunks.push(e.data);
-      };
-      recorder.onstop = async () => {
-        const videoBlob = new Blob(chunks, { type: "video/webm" });
-        setCaseUploading(true);
-        try {
-          const reader = new FileReader();
-          reader.readAsDataURL(videoBlob);
-          reader.onloadend = async () => {
-            const base64Data = reader.result as string;
-            const res = await fetch("/api/v1/media/upload", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${getAccessToken()}`,
-              },
-              body: JSON.stringify({ file: base64Data, folder: "igen_erp/video" }),
-            });
-            if (!res.ok) throw new Error("Upload video thất bại.");
-            const json = await res.json();
-            if (json.url) {
-              setPartDraft((prev) =>
-                prev ? { ...prev, docLinks: [...prev.docLinks, json.url] } : prev
-              );
-              toast.success("Đã tải lên bản quay màn hình.");
-            }
-          };
-        } catch (err: any) {
-          toast.error(err.message || "Lỗi tải lên bản quay màn hình.");
-        } finally {
-          setCaseUploading(false);
-        }
-        stream.getTracks().forEach((track) => track.stop());
-      };
-      recorder.start();
-      setCaseScreenRecorder(recorder);
-      setCaseScreenRecording(true);
-      toast.success("Bắt đầu quay màn hình...");
-    } catch (err) {
-      console.error(err);
-      toast.error("Không thể bắt đầu quay màn hình.");
-    }
-  };
-
-  const stopCaseScreenRecording = () => {
-    if (caseScreenRecorder && caseScreenRecording) {
-      caseScreenRecorder.stop();
-      setCaseScreenRecording(false);
-      toast.info("Đang xử lý video quay màn hình...");
-    }
-  };
-
-  const handleAddCaseDrive = () => {
-    setCaseLinkModal({
-      open: true,
-      type: "drive",
-      title: "Đính kèm liên kết Google Drive",
-      placeholder: "Nhập liên kết Google Drive (VD: https://drive.google.com/...)",
-      value: "",
-    });
-  };
-
-  const handleAddCaseSpreadsheet = () => {
-    setCaseLinkModal({
-      open: true,
-      type: "spreadsheet",
-      title: "Đính kèm liên kết Bảng tính",
-      placeholder: "Nhập liên kết Bảng tính / Spreadsheet (VD: https://docs.google.com/spreadsheets/...)",
-      value: "",
-    });
-  };
-
-  const handleConfirmCaseLink = () => {
-    if (!caseLinkModal) return;
-    const url = caseLinkModal.value.trim();
-    if (!url) {
-      toast.error("Vui lòng nhập liên kết.");
-      return;
-    }
-    if (!url.startsWith("http")) {
-      toast.error("Liên kết không hợp lệ. Vui lòng nhập link bắt đầu bằng http:// hoặc https://");
-      return;
-    }
-
-    setPartDraft((prev) =>
-      prev ? { ...prev, docLinks: [...prev.docLinks, url] } : prev
-    );
-    toast.success(`Đã đính kèm liên kết ${caseLinkModal.type === "notion" ? "Notion" : caseLinkModal.type === "drive" ? "Google Drive" : "Bảng tính"}.`);
-    setCaseLinkModal(null);
-  };
 
   // ---- Nạp danh sách quy trình ----
   const fetchWorkflows = useCallback(async () => {
@@ -730,7 +514,12 @@ export default function WorkflowTab({
     }
   };
 
-  const deleteWorkflowConfirmed = async () => {
+  const handleDeleteWorkflow = async () => {
+    if (!activeId) {
+      backToList();
+      return;
+    }
+    if (!window.confirm("Xóa quy trình này?")) return;
     try {
       const res = await fetch(`/api/v1/crud/workflows/${activeId}`, {
         method: "DELETE",
@@ -745,20 +534,6 @@ export default function WorkflowTab({
     }
   };
 
-  const handleDeleteWorkflow = () => {
-    if (!activeId) {
-      backToList();
-      return;
-    }
-    askConfirm(
-      "Xóa quy trình này?",
-      "Bạn có chắc chắn muốn xóa quy trình này? Thao tác này không thể hoàn tác.",
-      deleteWorkflowConfirmed,
-      "Xóa quy trình",
-      "Hủy"
-    );
-  };
-
   // ---- Thao tác với bước ----
   const openNewStep = () => {
     setStepDraft({
@@ -767,7 +542,8 @@ export default function WorkflowTab({
       description: "",
       assigneeUid: "",
       assignee: "",
-      estDays: undefined,
+      // Mặc định 1 ngày làm việc để quy trình mới luôn tính được lịch giao việc
+      estDays: 1,
       deliverable: "",
       note: "",
     });
@@ -788,22 +564,16 @@ export default function WorkflowTab({
   };
 
   const deleteStep = (id: string) => {
-    askConfirm(
-      "Xóa bước này?",
-      "Người đang ở bước này sẽ được tự động chuyển về bước đầu tiên. Thao tác này không thể hoàn tác.",
-      () => {
-        const nextSteps = steps.filter((s) => s.id !== id);
-        const firstId = nextSteps[0]?.id ?? DONE_COL;
-        const nextParts = participants.map((p) =>
-          p.currentStepId === id ? { ...p, currentStepId: firstId, updatedAt: nowISO() } : p
-        );
-        setSteps(nextSteps);
-        setParticipants(nextParts);
-        autoPersist({ steps: nextSteps, participants: nextParts });
-      },
-      "Xóa bước",
-      "Hủy"
+    if (!window.confirm("Xóa bước này? Người đang ở bước này sẽ chuyển về bước đầu."))
+      return;
+    const nextSteps = steps.filter((s) => s.id !== id);
+    const firstId = nextSteps[0]?.id ?? DONE_COL;
+    const nextParts = participants.map((p) =>
+      p.currentStepId === id ? { ...p, currentStepId: firstId, updatedAt: nowISO() } : p
     );
+    setSteps(nextSteps);
+    setParticipants(nextParts);
+    autoPersist({ steps: nextSteps, participants: nextParts });
   };
 
   const moveStep = (id: string, dir: -1 | 1) => {
@@ -829,14 +599,19 @@ export default function WorkflowTab({
       note: "",
       relatedUids: [],
       priority: "normal",
-      startDate: "",
+      // Mặc định bắt đầu hôm nay — hạn hoàn thành do hệ thống tự tính từ các bước
+      startDate: toDateInputValue(new Date()),
       dueDate: "",
       docLinks: [],
       customSubTasks: [],
-      projectId: "",
     });
     setNewCaseSubTask("");
     setNewCaseDocLink("");
+    setCaseWizStep(1);
+    setCaseUserSearch("");
+    setShowAdvancedCase(false);
+    setDueOverride(false);
+    setDueOverrideConfirmed(false);
   };
 
   const saveParticipantDraft = async () => {
@@ -870,7 +645,6 @@ export default function WorkflowTab({
           dueDate: partDraft.dueDate,
           docLinks: partDraft.docLinks.filter((l) => l.trim()),
           customSubTasks: partDraft.customSubTasks,
-          projectId: partDraft.projectId,
         }),
       });
       if (!res.ok) {
@@ -946,15 +720,10 @@ export default function WorkflowTab({
         const j = await res.json().catch(() => null);
         // Server chặn vì còn task chưa xong → hỏi quản lý có muốn ép chuyển không
         if (res.status === 409 && !force) {
-          askConfirm(
-            "Cảnh báo công việc chưa xong",
-            `${j?.message || "Còn task Kanban chưa hoàn thành ở bước hiện tại."} Vẫn tiếp tục chuyển bước? Các task chưa xong sẽ giữ nguyên trên bảng Kanban.`,
-            async () => {
-              await advanceParticipantApi(pid, nextStepId, true);
-            },
-            "Vẫn chuyển bước",
-            "Hủy"
+          const ok = window.confirm(
+            `${j?.message || "Còn task Kanban chưa hoàn thành ở bước hiện tại."}\n\nVẫn chuyển bước? Các task chưa xong sẽ giữ nguyên trên bảng Kanban.`
           );
+          if (ok) await advanceParticipantApi(pid, nextStepId, true);
           return;
         }
         throw new Error(j?.message || "Không thể chuyển bước.");
@@ -1001,6 +770,10 @@ export default function WorkflowTab({
     });
     return cols;
   }, [steps, participants]);
+
+  const assignmentConflicts = partDraft?.userUid
+    ? wfTasks.filter((task) => task.assigneeUid === partDraft.userUid && task.status !== "Done" && task.status !== "done" && task.status !== "Archived")
+    : [];
 
   const doneCount = participants.filter((p) => p.currentStepId === DONE_COL).length;
 
@@ -1276,9 +1049,11 @@ export default function WorkflowTab({
                     {!col.isDone && (
                       <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[10px] font-semibold text-slate-400">
                         {col.step.assignee && <span>👤 {col.step.assignee}</span>}
-                        {typeof col.step.estDays === "number" && col.step.estDays > 0 && (
-                          <span>⏱ {col.step.estDays} ngày</span>
-                        )}
+                        {(() => {
+                          const dur = getStepDurationDays(col.step);
+                          if (dur === null) return <span className="text-amber-500">⚠ Chưa có thời lượng</span>;
+                          return <span>⏱ {dur === 0 ? "Trong ngày" : `${dur} ngày`}</span>;
+                        })()}
                       </div>
                     )}
                   </div>
@@ -1338,7 +1113,10 @@ export default function WorkflowTab({
                     const pStepTasks = wfTasks.filter(
                       (t) => t.participantId === p.id && t.workflowStepId === p.currentStepId && t.status !== "Archived"
                     );
+                    const caseTasks = wfTasks.filter((t) => t.participantId === p.id && t.status !== "Archived");
                     const doneTasks = pStepTasks.filter((t) => t.status === "Done" || t.status === "done").length;
+                    const doneCaseTasks = caseTasks.filter((t) => t.status === "Done" || t.status === "done").length;
+                    const caseProgressPct = caseTasks.length ? Math.round((doneCaseTasks / caseTasks.length) * 100) : 0;
                     const totalTasks = pStepTasks.length;
                     const progressPct = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 100;
                     const allTasksDone = pStepTasks.every((t) => t.status === "Done" || t.status === "done");
@@ -1417,13 +1195,13 @@ export default function WorkflowTab({
                             title="Nhấp để xem chi tiết công việc Kanban"
                           >
                             <div className="flex items-center justify-between text-[9px] font-extrabold text-indigo-700 uppercase mb-1">
-                              <span>Công việc ({doneTasks}/{totalTasks})</span>
-                              <span>{progressPct}%</span>
+                              <span>Tiến độ case ({doneCaseTasks}/{caseTasks.length})</span>
+                              <span>{caseProgressPct}%</span>
                             </div>
                             <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
                               <div
                                 className="bg-indigo-650 h-full rounded-full transition-all"
-                                style={{ width: `${progressPct}%` }}
+                                style={{ width: `${caseProgressPct}%` }}
                               />
                             </div>
                           </div>
@@ -1620,6 +1398,14 @@ export default function WorkflowTab({
               </button>
             </div>
 
+            <div className={`mx-5 mt-4 grid grid-cols-3 gap-2 rounded-xl p-1 ${isDark ? "bg-zinc-900" : "bg-slate-100"}`}>
+              {([1, 2, 3] as const).map((step) => (
+                <button key={step} type="button" onClick={() => setCaseWizStep(step)} className={`rounded-lg px-2 py-1.5 text-[10px] font-extrabold transition ${caseWizStep === step ? "bg-indigo-600 text-white shadow-sm" : isDark ? "text-zinc-400" : "text-slate-500"}`}>
+                  {step}. {step === 1 ? "Công việc" : step === 2 ? "Phụ trách" : "Lịch & xác nhận"}
+                </button>
+              ))}
+            </div>
+
             <div className="flex-1 space-y-4 overflow-y-auto p-5">
               {/* Tên công việc */}
               <div>
@@ -1635,27 +1421,6 @@ export default function WorkflowTab({
                     isDark ? "bg-[#242424] border-zinc-700 text-zinc-200" : "border-gray-200"
                   }`}
                 />
-              </div>
-
-              {/* Dự án/ Lĩnh vực */}
-              <div>
-                <label className={`text-[11px] font-extrabold uppercase tracking-wide ${isDark ? "text-zinc-500" : "text-slate-450"}`}>
-                  Dự án/ Lĩnh vực
-                </label>
-                <select
-                  value={partDraft.projectId}
-                  onChange={(e) => setPartDraft({ ...partDraft, projectId: e.target.value })}
-                  className={`mt-1.5 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 ${
-                    isDark ? "bg-[#242424] border-zinc-700 text-zinc-200" : "border-gray-200"
-                  }`}
-                >
-                  <option value="">— Chưa chọn dự án —</option>
-                  {projects.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
               </div>
 
               {/* Phụ trách + Ưu tiên */}
@@ -1679,6 +1444,11 @@ export default function WorkflowTab({
                       </option>
                     ))}
                   </select>
+                  {assignmentConflicts.length > 0 && (
+                    <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1.5 text-[10px] font-semibold text-amber-700">
+                      Cảnh báo: người này đang có {assignmentConflicts.length} task quy trình chưa hoàn thành.
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className={`text-[11px] font-extrabold uppercase tracking-wide ${isDark ? "text-zinc-500" : "text-slate-450"}`}>
@@ -1732,47 +1502,15 @@ export default function WorkflowTab({
                   </label>
                   <input
                     type="date"
-                    value={partDraft.dueDate}
-                    onChange={(e) => setPartDraft({ ...partDraft, dueDate: e.target.value })}
+                    value="Tự tính theo lịch các bước"
+                    readOnly
+                    title="Hạn hoàn thành được hệ thống tự tính theo lịch quy trình"
                     className={`mt-1.5 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 ${
                       isDark ? "bg-[#242424] border-zinc-700 text-zinc-200" : "border-gray-200"
                     }`}
                   />
                 </div>
               </div>
-
-              {/* Lịch trình dự kiến — tự tính từ thông tin các bước, nối đuôi nhau */}
-              {steps.length > 0 && (
-                <div
-                  className={`rounded-2xl border p-3 ${
-                    isDark ? "border-zinc-800 bg-[#181818]" : "border-gray-200 bg-gray-50"
-                  }`}
-                >
-                  <p className={`text-[11px] font-extrabold uppercase tracking-wide ${isDark ? "text-zinc-500" : "text-slate-450"}`}>
-                    Lịch trình dự kiến theo các bước
-                  </p>
-                  <div className="mt-2 space-y-1.5">
-                    {buildStepSchedulePreview(steps, partDraft.startDate).map((s, i) => (
-                      <div key={s.stepId} className="flex items-center justify-between gap-3 text-[11px]">
-                        <span className={`truncate font-semibold ${isDark ? "text-zinc-300" : "text-slate-600"}`}>
-                          {i + 1}. {s.title}
-                        </span>
-                        <span className={`shrink-0 font-mono ${isDark ? "text-zinc-500" : "text-slate-450"}`}>
-                          {s.due
-                            ? `${fmtScheduleDatetime(s.start)} → ${fmtScheduleDatetime(s.due)}${
-                                s.durationDays ? ` · ${s.durationDays} ngày` : ""
-                              }`
-                            : "Chưa có thời lượng"}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                  <p className={`mt-2 text-[10px] ${isDark ? "text-zinc-600" : "text-slate-400"}`}>
-                    Công việc con trong mỗi bước dùng chung thời gian với bước cha. Bước chưa có
-                    thời lượng (không ước lượng ngày, không deadline) sẽ không dịch lịch các bước sau.
-                  </p>
-                </div>
-              )}
 
               {/* Mô tả */}
               <div>
@@ -1901,105 +1639,10 @@ export default function WorkflowTab({
 
               {/* Link tài liệu */}
               <div>
-                <span className={`text-[11px] font-extrabold uppercase tracking-wide block flex items-center justify-between ${
-                  isDark ? "text-cyan-400" : "text-cyan-600"
-                }`}>
-                  <span>Tài liệu đính kèm</span>
-                  {caseUploading && (
-                    <span className="text-[10px] lowercase text-indigo-400 flex items-center gap-1 font-semibold">
-                      <div className="w-2.5 h-2.5 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
-                      Đang tải lên...
-                    </span>
-                  )}
-                </span>
-
-                {/* Hidden file input */}
-                <input
-                  type="file"
-                  ref={caseFileInputRef}
-                  onChange={handleCaseFileUpload}
-                  className="hidden"
-                />
-
-                <div className="flex flex-wrap items-center gap-3 mt-1.5 mb-2.5">
-                  {/* Tập tin */}
-                  <button
-                    type="button"
-                    title="Tập tin"
-                    onClick={triggerCaseFileUpload}
-                    className={`p-1.5 rounded-lg transition-colors cursor-pointer text-slate-500 ${
-                      isDark ? "hover:bg-zinc-800" : "hover:bg-slate-100"
-                    }`}
-                  >
-                    <Paperclip className="h-4 w-4" />
-                  </button>
-
-                  {/* Notion */}
-                  <button
-                    type="button"
-                    title="Notion"
-                    onClick={handleAddCaseNotion}
-                    className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                      isDark ? "hover:bg-zinc-800" : "hover:bg-slate-100"
-                    }`}
-                  >
-                    <span className="text-xs font-black" style={{ color: "#f97316" }}>N</span>
-                  </button>
-
-                  {/* Ghi âm */}
-                  <button
-                    type="button"
-                    title={caseRecording ? "Dừng ghi âm" : "Ghi âm"}
-                    onClick={caseRecording ? stopCaseRecording : startCaseRecording}
-                    className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                      caseRecording
-                        ? "text-white bg-red-500 hover:bg-red-650"
-                        : "text-purple-500 " + (isDark ? "hover:bg-zinc-800" : "hover:bg-slate-100")
-                    }`}
-                  >
-                    <Mic className={`h-4 w-4 ${caseRecording ? "animate-pulse" : ""}`} />
-                  </button>
-
-                  {/* Quay màn hình */}
-                  <button
-                    type="button"
-                    title={caseScreenRecording ? "Dừng quay" : "Quay màn hình"}
-                    onClick={caseScreenRecording ? stopCaseScreenRecording : startCaseScreenRecording}
-                    className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                      caseScreenRecording
-                        ? "text-white bg-red-500 hover:bg-red-650 animate-pulse"
-                        : "text-red-500 " + (isDark ? "hover:bg-zinc-800" : "hover:bg-slate-100")
-                    }`}
-                  >
-                    <Circle className={`h-4 w-4 ${caseScreenRecording ? "animate-pulse fill-white" : "fill-red-500"}`} />
-                  </button>
-
-                  {/* Google Drive */}
-                  <button
-                    type="button"
-                    title="Google Drive"
-                    onClick={handleAddCaseDrive}
-                    className={`p-1.5 rounded-lg transition-colors cursor-pointer text-green-500 ${
-                      isDark ? "hover:bg-zinc-800" : "hover:bg-slate-100"
-                    }`}
-                  >
-                    <CloudUpload className="h-4 w-4" />
-                  </button>
-
-                  {/* Bảng */}
-                  <button
-                    type="button"
-                    title="Bảng"
-                    onClick={handleAddCaseSpreadsheet}
-                    className={`p-1.5 rounded-lg transition-colors cursor-pointer text-indigo-400 ${
-                      isDark ? "hover:bg-zinc-800" : "hover:bg-slate-100"
-                    }`}
-                  >
-                    <Table2 className="h-4 w-4" />
-                  </button>
-                </div>
-
-                <div className="space-y-1.5">
+                <label className={`text-[11px] font-extrabold uppercase tracking-wide ${isDark ? "text-zinc-500" : "text-slate-450"}`}>
+                  Link tài liệu / hồ sơ
+                </label>
+                <div className="mt-1.5 space-y-1.5">
                   {partDraft.docLinks.map((link, i) => (
                     <div
                       key={i}
@@ -2008,16 +1651,15 @@ export default function WorkflowTab({
                       }`}
                     >
                       <Paperclip className="h-3 w-3 shrink-0 text-slate-400" />
-                      <span className="flex-1 truncate text-indigo-650 font-mono">{link}</span>
+                      <span className="flex-1 truncate text-indigo-600">{link}</span>
                       <button
-                        type="button"
                         onClick={() =>
                           setPartDraft({
                             ...partDraft,
                             docLinks: partDraft.docLinks.filter((_, j) => j !== i),
                           })
                         }
-                        className="rounded p-0.5 text-slate-350 hover:bg-red-50 hover:text-red-500 cursor-pointer"
+                        className="rounded p-0.5 text-slate-300 hover:bg-red-50 hover:text-red-500"
                       >
                         <X className="h-3 w-3" />
                       </button>
@@ -2036,13 +1678,12 @@ export default function WorkflowTab({
                           setNewCaseDocLink("");
                         }
                       }}
-                      placeholder="Hoặc dán link trực tiếp vào đây rồi Enter..."
+                      placeholder="https://… (Drive, Notion, hợp đồng…) rồi Enter"
                       className={`flex-1 rounded-xl border px-3 py-1.5 text-xs outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 ${
                         isDark ? "bg-[#242424] border-zinc-700 text-zinc-200" : "border-gray-200"
                       }`}
                     />
                     <button
-                      type="button"
                       onClick={() => {
                         if (!newCaseDocLink.trim()) return;
                         setPartDraft({
@@ -2051,7 +1692,7 @@ export default function WorkflowTab({
                         });
                         setNewCaseDocLink("");
                       }}
-                      className="rounded-xl bg-indigo-600 px-3 text-white hover:bg-indigo-500 cursor-pointer"
+                      className="rounded-xl bg-indigo-600 px-3 text-white hover:bg-indigo-500"
                     >
                       <Plus className="h-3.5 w-3.5" />
                     </button>
@@ -2096,10 +1737,14 @@ export default function WorkflowTab({
                   Hủy
                 </button>
                 <button
-                  onClick={saveParticipantDraft}
+                  onClick={() => {
+                    if (caseWizStep === 1 && !partDraft.name.trim()) { toast.warning("Vui lòng nhập tên công việc."); return; }
+                    if (caseWizStep < 3) { setCaseWizStep((caseWizStep + 1) as 2 | 3); return; }
+                    saveParticipantDraft();
+                  }}
                   className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-5 py-2 text-xs font-extrabold text-white hover:bg-indigo-500"
                 >
-                  <Plus className="h-3.5 w-3.5" /> Tạo công việc
+                  {caseWizStep < 3 ? <>Tiếp tục <ChevronRight className="h-3.5 w-3.5" /></> : <><Plus className="h-3.5 w-3.5" /> Tạo công việc</>}
                 </button>
               </div>
             </div>
@@ -2195,90 +1840,6 @@ export default function WorkflowTab({
           </div>
         </div>
       )}
-      {/* Custom confirm dialog */}
-      {confirmState && (
-        <ConfirmDialog
-          isOpen={confirmState.isOpen}
-          title={confirmState.title}
-          description={confirmState.description}
-          confirmLabel={confirmState.confirmLabel}
-          cancelLabel={confirmState.cancelLabel}
-          onClose={() => setConfirmState(null)}
-          onConfirm={confirmState.onConfirm}
-        />
-      )}
-
-      {/* Custom link modal for Case Creation */}
-      {caseLinkModal && caseLinkModal.open && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fade-in"
-          onClick={() => setCaseLinkModal(null)}
-        >
-          <div
-            className={`w-full max-w-md rounded-2xl border shadow-2xl overflow-hidden flex flex-col transition-all transform scale-100 ${
-              isDark
-                ? "bg-[#222222] text-zinc-150 border-zinc-800"
-                : "bg-white text-slate-850 border-gray-200"
-            }`}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Modal Title */}
-            <div className={`px-5 py-3.5 border-b text-xs font-extrabold uppercase tracking-wider ${
-              isDark ? "border-zinc-800 bg-[#1d1d1d] text-cyan-400" : "border-gray-200 bg-slate-50 text-cyan-600"
-            }`}>
-              {caseLinkModal.title}
-            </div>
-
-            {/* Modal Body */}
-            <div className="p-5 space-y-4">
-              <span className={`text-[11px] font-bold block ${isDark ? "text-zinc-400" : "text-slate-500"}`}>
-                Vui lòng nhập liên kết hợp lệ bắt đầu bằng http:// hoặc https://
-              </span>
-              <input
-                type="text"
-                value={caseLinkModal.value}
-                onChange={(e) => setCaseLinkModal({ ...caseLinkModal, value: e.target.value })}
-                placeholder={caseLinkModal.placeholder}
-                autoFocus
-                className={`w-full px-3 py-2.5 rounded-xl text-xs font-semibold outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all ${
-                  isDark
-                    ? "bg-[#2c2c2c] border border-zinc-700 text-zinc-200"
-                    : "bg-white border border-gray-250 text-slate-850"
-                }`}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    handleConfirmCaseLink();
-                  }
-                }}
-              />
-            </div>
-
-            {/* Modal Footer */}
-            <div className={`px-5 py-3.5 border-t flex justify-end gap-2.5 ${
-              isDark ? "border-zinc-800 bg-[#1d1d1d]" : "border-gray-200 bg-slate-50"
-            }`}>
-              <button
-                type="button"
-                onClick={() => setCaseLinkModal(null)}
-                className={`px-4 py-2 rounded-xl text-xs font-bold border transition-colors cursor-pointer ${
-                  isDark
-                    ? "border-zinc-700 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850"
-                    : "border-gray-250 text-slate-650 hover:bg-gray-100"
-                }`}
-              >
-                Hủy
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmCaseLink}
-                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-extrabold transition-all cursor-pointer shadow-sm active:scale-98 shadow-indigo-500/15"
-              >
-                Đồng ý
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -2341,7 +1902,8 @@ function NewWorkflowWizard({
       description: "",
       assigneeUid: "",
       assignee: "",
-      estDays: undefined,
+      // Mặc định 1 ngày làm việc để quy trình mới luôn tính được lịch giao việc
+      estDays: 1,
       deliverable: "",
       note: "",
     };
@@ -2384,6 +1946,16 @@ function NewWorkflowWizard({
     if (steps.some((s) => !s.title.trim())) {
       toast.error("Mỗi bước cần có tên.");
       return;
+    }
+    // Không chặn lưu, nhưng nhắc rõ để lịch giao việc tính được đầy đủ
+    const missingDuration = steps.filter((s) => getStepDurationDays(s) === null);
+    if (missingDuration.length > 0) {
+      toast.error(
+        `${missingDuration.length} bước chưa có thời lượng (${missingDuration
+          .map((s) => s.title)
+          .slice(0, 3)
+          .join(", ")}${missingDuration.length > 3 ? "..." : ""}). Quy trình vẫn được lưu nhưng hạn các bước này sẽ không tự tính khi giao việc.`
+      );
     }
     setSubmitting(true);
     try {
@@ -2754,6 +2326,14 @@ function NewWorkflowWizard({
                       >
                         {s.title || "(Chưa đặt tên)"}
                       </span>
+                      {getStepDurationDays(s) === null && (
+                        <span
+                          className="bg-amber-500/10 text-amber-500 border border-amber-500/30 text-[9px] px-1.5 py-0.5 rounded-md font-extrabold shadow-3xs"
+                          title="Bước chưa có thời lượng — hạn công việc giao theo quy trình này sẽ không tự tính được. Bấm sửa để đặt số ngày."
+                        >
+                          ⚠ Thiếu thời lượng
+                        </span>
+                      )}
                       {i === 0 && (
                         <span className="bg-emerald-955 text-emerald-400 border border-emerald-900/40 text-[9px] px-1.5 py-0.5 rounded-md font-extrabold shadow-3xs">
                           Bắt đầu
@@ -2920,20 +2500,12 @@ function WizardStepEditorModal({
     fetchProjects();
   }, []);
   const [priority, setPriority] = useState<WorkflowStep["priority"]>(step.priority || "normal");
-  const [deadlineType, setDeadlineType] = useState<WorkflowStep["deadlineType"]>(step.deadlineType || "none");
-  const [deadlineDays, setDeadlineDays] = useState(step.deadlineDays ?? 3);
-  const [deadlineTime, setDeadlineTime] = useState(step.deadlineTime || "");
+  // Một trường thời lượng duy nhất (ngày làm việc, 0 = xong trong ngày) — thay cho
+  // cặp estDays + deadlineType cũ; đọc dữ liệu cũ qua getStepDurationDays
+  const [durationDays, setDurationDays] = useState<number>(getStepDurationDays(step) ?? 1);
+  const [deadlineTime, setDeadlineTime] = useState(step.deadlineTime || "18:00");
   const [subTasks, setSubTasks] = useState<WorkflowSubTask[]>(step.subTasks || []);
   const [newSubTask, setNewSubTask] = useState("");
-  const [docLinks, setDocLinks] = useState<string[]>(step.docLinks || []);
-  const [uploading, setUploading] = useState(false);
-  const [linkModal, setLinkModal] = useState<{
-    open: boolean;
-    type: "notion" | "drive" | "spreadsheet";
-    title: string;
-    placeholder: string;
-    value: string;
-  } | null>(null);
 
   const isFirstStep = stepIndex === 0;
   const nextStep = steps[stepIndex + 1] || null;
@@ -2976,221 +2548,13 @@ function WizardStepEditorModal({
       relatedUids,
       domain,
       priority,
-      deadlineType,
-      deadlineDays,
+      // Ghi cả bộ trường cũ để tương thích dữ liệu/luồng đọc cũ
+      estDays: durationDays,
+      deadlineType: durationDays === 0 ? ("same_day" as const) : ("after_x" as const),
+      deadlineDays: durationDays > 0 ? durationDays : undefined,
       deadlineTime,
       subTasks,
-      docLinks,
     });
-  };
-
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
-
-  const triggerFileUpload = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
-    }
-  };
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    try {
-      const base64Data = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-
-      const res = await fetch("/api/v1/media/upload", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${getAccessToken()}`,
-        },
-        body: JSON.stringify({ file: base64Data, folder: "igen_erp/workflows" }),
-      });
-
-      if (!res.ok) throw new Error("Upload thất bại.");
-      const json = await res.json();
-      if (json.url) {
-        setDocLinks((prev) => [...prev, json.url]);
-        toast.success(`Đã tải lên file: ${file.name}`);
-      }
-    } catch (err: any) {
-      console.error(err);
-      toast.error(err.message || "Không thể tải lên file.");
-    } finally {
-      setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
-  };
-
-  const handleAddNotion = () => {
-    setLinkModal({
-      open: true,
-      type: "notion",
-      title: "Đính kèm liên kết Notion",
-      placeholder: "Nhập liên kết Notion (VD: https://notion.so/...)",
-      value: "",
-    });
-  };
-
-  const [recording, setRecording] = useState(false);
-  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
-
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
-      const chunks: Blob[] = [];
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunks.push(e.data);
-      };
-      recorder.onstop = async () => {
-        const audioBlob = new Blob(chunks, { type: "audio/webm" });
-        setUploading(true);
-        try {
-          const reader = new FileReader();
-          reader.readAsDataURL(audioBlob);
-          reader.onloadend = async () => {
-            const base64Data = reader.result as string;
-            const res = await fetch("/api/v1/media/upload", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${getAccessToken()}`,
-              },
-              body: JSON.stringify({ file: base64Data, folder: "igen_erp/audio" }),
-            });
-            if (!res.ok) throw new Error("Upload âm thanh thất bại.");
-            const json = await res.json();
-            if (json.url) {
-              setDocLinks((prev) => [...prev, json.url]);
-              toast.success("Đã tải lên bản ghi âm.");
-            }
-          };
-        } catch (err: any) {
-          toast.error(err.message || "Lỗi tải lên bản ghi âm.");
-        } finally {
-          setUploading(false);
-        }
-        stream.getTracks().forEach((track) => track.stop());
-      };
-      recorder.start();
-      setMediaRecorder(recorder);
-      setRecording(true);
-      toast.success("Bắt đầu ghi âm...");
-    } catch (err) {
-      console.error(err);
-      toast.error("Không thể truy cập microphone.");
-    }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorder && recording) {
-      mediaRecorder.stop();
-      setRecording(false);
-      toast.info("Đang xử lý bản ghi âm...");
-    }
-  };
-
-  const [screenRecording, setScreenRecording] = useState(false);
-  const [screenRecorder, setScreenRecorder] = useState<MediaRecorder | null>(null);
-
-  const startScreenRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-      const recorder = new MediaRecorder(stream);
-      const chunks: Blob[] = [];
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunks.push(e.data);
-      };
-      recorder.onstop = async () => {
-        const videoBlob = new Blob(chunks, { type: "video/webm" });
-        setUploading(true);
-        try {
-          const reader = new FileReader();
-          reader.readAsDataURL(videoBlob);
-          reader.onloadend = async () => {
-            const base64Data = reader.result as string;
-            const res = await fetch("/api/v1/media/upload", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${getAccessToken()}`,
-              },
-              body: JSON.stringify({ file: base64Data, folder: "igen_erp/video" }),
-            });
-            if (!res.ok) throw new Error("Upload video thất bại.");
-            const json = await res.json();
-            if (json.url) {
-              setDocLinks((prev) => [...prev, json.url]);
-              toast.success("Đã tải lên bản quay màn hình.");
-            }
-          };
-        } catch (err: any) {
-          toast.error(err.message || "Lỗi tải lên bản quay màn hình.");
-        } finally {
-          setUploading(false);
-        }
-        stream.getTracks().forEach((track) => track.stop());
-      };
-      recorder.start();
-      setScreenRecorder(recorder);
-      setScreenRecording(true);
-      toast.success("Bắt đầu quay màn hình...");
-    } catch (err) {
-      console.error(err);
-      toast.error("Không thể bắt đầu quay màn hình.");
-    }
-  };
-
-  const stopScreenRecording = () => {
-    if (screenRecorder && screenRecording) {
-      screenRecorder.stop();
-      setScreenRecording(false);
-      toast.info("Đang xử lý video quay màn hình...");
-    }
-  };
-
-  const handleAddDrive = () => {
-    setLinkModal({
-      open: true,
-      type: "drive",
-      title: "Đính kèm liên kết Google Drive",
-      placeholder: "Nhập liên kết Google Drive (VD: https://drive.google.com/...)",
-      value: "",
-    });
-  };
-
-  const handleAddSpreadsheet = () => {
-    setLinkModal({
-      open: true,
-      type: "spreadsheet",
-      title: "Đính kèm liên kết Bảng tính",
-      placeholder: "Nhập liên kết Bảng tính / Spreadsheet (VD: https://docs.google.com/spreadsheets/...)",
-      value: "",
-    });
-  };
-
-  const handleConfirmLink = () => {
-    if (!linkModal) return;
-    const url = linkModal.value.trim();
-    if (!url) {
-      toast.error("Vui lòng nhập liên kết.");
-      return;
-    }
-    if (!url.startsWith("http")) {
-      toast.error("Liên kết không hợp lệ. Vui lòng nhập link bắt đầu bằng http:// hoặc https://");
-      return;
-    }
-
-    setDocLinks((prev) => [...prev, url]);
-    toast.success(`Đã đính kèm liên kết ${linkModal.type === "notion" ? "Notion" : linkModal.type === "drive" ? "Google Drive" : "Bảng tính"}.`);
-    setLinkModal(null);
   };
 
   const avatarUrl = (u: UserProfile) =>
@@ -3215,13 +2579,12 @@ function WizardStepEditorModal({
     { key: "normal",           label: "Thoải mái",          color: "#94a3b8", icon: <Smile className="h-3 w-3" /> },
   ];
 
-  const DEADLINES: { key: WorkflowStep["deadlineType"]; label: string }[] = [
-    { key: "same_day", label: "Cùng ngày" },
-    { key: "after_1",  label: "Sau 1 ngày" },
-    { key: "after_2",  label: "Sau 2 ngày" },
-    { key: "after_x",  label: "Sau x ngày" },
-    { key: "none",     label: "Không có" },
-    { key: "custom_time", label: "..." },
+  const DURATION_PRESETS: { value: number; label: string }[] = [
+    { value: 0, label: "Xong trong ngày" },
+    { value: 1, label: "1 ngày" },
+    { value: 2, label: "2 ngày" },
+    { value: 3, label: "3 ngày" },
+    { value: 5, label: "5 ngày" },
   ];
 
   const row = `flex items-start gap-3 py-2.5 border-b transition-colors ${
@@ -3470,17 +2833,17 @@ function WizardStepEditorModal({
             </div>
           </div>
 
-          {/* Hạn chốt */}
+          {/* Thời lượng — một trường duy nhất, quyết định lịch trình khi giao việc */}
           <div className={row}>
-            <span className={rowLabel}>Hạn chốt</span>
+            <span className={rowLabel}>Làm trong</span>
             <div className="flex-1">
               <div className="flex flex-wrap gap-1.5">
-                {DEADLINES.map((d) => (
+                {DURATION_PRESETS.map((d) => (
                   <button
-                    key={d.key}
-                    onClick={() => setDeadlineType(d.key)}
+                    key={d.value}
+                    onClick={() => setDurationDays(d.value)}
                     className={`px-3 py-1.5 rounded-xl border text-[11px] font-extrabold transition-all ${
-                      deadlineType === d.key
+                      durationDays === d.value
                         ? isDark
                           ? "bg-cyan-600 border-cyan-500 text-white"
                           : "bg-cyan-500 border-cyan-400 text-white"
@@ -3492,40 +2855,34 @@ function WizardStepEditorModal({
                     {d.label}
                   </button>
                 ))}
-              </div>
-              {deadlineType === "after_x" && (
-                <div className="mt-2 flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                   <input
                     type="number"
-                    min={1}
-                    value={deadlineDays}
-                    onChange={(e) => setDeadlineDays(Number(e.target.value))}
-                    className={`${inp} w-20`}
+                    min={0}
+                    max={365}
+                    value={durationDays}
+                    onChange={(e) => {
+                      const v = Math.max(0, Math.min(365, Math.floor(Number(e.target.value) || 0)));
+                      setDurationDays(v);
+                    }}
+                    className={`${inp} w-16 text-center`}
                   />
                   <span className={`text-xs ${isDark ? "text-zinc-500" : "text-slate-400"}`}>ngày</span>
                 </div>
-              )}
-              {/* Chọn giờ */}
-              <div className="mt-2 flex items-center gap-2">
-                <button
-                  onClick={() => setDeadlineType(deadlineType === "custom_time" ? "none" : "custom_time")}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-semibold transition-all ${
-                    deadlineType === "custom_time"
-                      ? isDark ? "bg-cyan-600 border-cyan-500 text-white" : "bg-cyan-500 border-cyan-400 text-white"
-                      : isDark ? "bg-zinc-800 border-zinc-700 text-zinc-450" : "bg-white border-gray-200 text-slate-500"
-                  }`}
-                >
-                  <Clock className="h-3 w-3" /> Chọn giờ
-                </button>
-                {deadlineType === "custom_time" && (
-                  <input
-                    type="time"
-                    value={deadlineTime}
-                    onChange={(e) => setDeadlineTime(e.target.value)}
-                    className={`${inp} w-28`}
-                  />
-                )}
               </div>
+              <div className="mt-2 flex items-center gap-2">
+                <Clock className={`h-3 w-3 ${isDark ? "text-zinc-500" : "text-slate-400"}`} />
+                <span className={`text-[11px] ${isDark ? "text-zinc-500" : "text-slate-400"}`}>Giờ hết hạn</span>
+                <input
+                  type="time"
+                  value={deadlineTime}
+                  onChange={(e) => setDeadlineTime(e.target.value)}
+                  className={`${inp} w-28`}
+                />
+              </div>
+              <p className={`mt-1.5 text-[10px] ${isDark ? "text-zinc-600" : "text-slate-400"}`}>
+                Tính theo ngày làm việc (bỏ Thứ 7 & Chủ nhật). Dùng để tự tính hạn khi giao việc theo quy trình.
+              </p>
             </div>
           </div>
 
@@ -3602,136 +2959,32 @@ function WizardStepEditorModal({
           <div className={`py-2.5 border-b transition-colors ${
             isDark ? "border-zinc-800/60" : "border-gray-100"
           }`}>
-            <span className={`text-[11px] font-extrabold uppercase tracking-wide mb-2 block flex items-center justify-between ${
+            <span className={`text-[11px] font-extrabold uppercase tracking-wide mb-2 block ${
               isDark ? "text-cyan-400" : "text-cyan-600"
             }`}>
-              <span>File đính kèm</span>
-              {uploading && (
-                <span className="text-[10px] lowercase text-indigo-400 flex items-center gap-1 font-semibold">
-                  <div className="w-2.5 h-2.5 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
-                  Đang tải lên...
-                </span>
-              )}
+              File đính kèm
             </span>
-
-            {/* Hidden file input */}
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileUpload}
-              className="hidden"
-            />
-
-            <div className="flex flex-wrap items-center gap-3">
-              {/* Tập tin */}
-              <button
-                type="button"
-                title="Tập tin"
-                onClick={triggerFileUpload}
-                className={`p-1.5 rounded-lg transition-colors cursor-pointer text-slate-500 ${
-                  isDark ? "hover:bg-zinc-800" : "hover:bg-slate-100"
-                }`}
-              >
-                <Paperclip className="h-4 w-4" />
-              </button>
-
-              {/* Notion */}
-              <button
-                type="button"
-                title="Notion"
-                onClick={handleAddNotion}
-                className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                  isDark ? "hover:bg-zinc-800" : "hover:bg-slate-100"
-                }`}
-              >
-                <span className="text-xs font-black" style={{ color: "#f97316" }}>N</span>
-              </button>
-
-              {/* Ghi âm */}
-              <button
-                type="button"
-                title={recording ? "Dừng ghi âm" : "Ghi âm"}
-                onClick={recording ? stopRecording : startRecording}
-                className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                  recording
-                    ? "text-white bg-red-500 hover:bg-red-650"
-                    : "text-purple-500 " + (isDark ? "hover:bg-zinc-800" : "hover:bg-slate-100")
-                }`}
-              >
-                <Mic className={`h-4 w-4 ${recording ? "animate-pulse" : ""}`} />
-              </button>
-
-              {/* Quay màn hình */}
-              <button
-                type="button"
-                title={screenRecording ? "Dừng quay" : "Quay màn hình"}
-                onClick={screenRecording ? stopScreenRecording : startScreenRecording}
-                className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                  screenRecording
-                    ? "text-white bg-red-500 hover:bg-red-650 animate-pulse"
-                    : "text-red-500 " + (isDark ? "hover:bg-zinc-800" : "hover:bg-slate-100")
-                }`}
-              >
-                <Circle className={`h-4 w-4 ${screenRecording ? "animate-pulse fill-white" : "fill-red-500"}`} />
-              </button>
-
-              {/* Google Drive */}
-              <button
-                type="button"
-                title="Google Drive"
-                onClick={handleAddDrive}
-                className={`p-1.5 rounded-lg transition-colors cursor-pointer text-green-500 ${
-                  isDark ? "hover:bg-zinc-800" : "hover:bg-slate-100"
-                }`}
-              >
-                <CloudUpload className="h-4 w-4" />
-              </button>
-
-              {/* Bảng */}
-              <button
-                type="button"
-                title="Bảng"
-                onClick={handleAddSpreadsheet}
-                className={`p-1.5 rounded-lg transition-colors cursor-pointer text-indigo-400 ${
-                  isDark ? "hover:bg-zinc-800" : "hover:bg-slate-100"
-                }`}
-              >
-                <Table2 className="h-4 w-4" />
-              </button>
+            <div className="flex items-center gap-3">
+              {[
+                { icon: <Paperclip className="h-4 w-4" />, color: "text-slate-500", title: "Tập tin" },
+                { icon: <span className="text-xs font-black" style={{color:"#f97316"}}>N</span>, color: "", title: "Notion" },
+                { icon: <Mic className="h-4 w-4" />, color: "text-purple-500", title: "Ghi âm" },
+                { icon: <Circle className="h-4 w-4 fill-red-500" />, color: "text-red-500", title: "Quay màn hình" },
+                { icon: <CloudUpload className="h-4 w-4" />, color: "text-green-500", title: "Google Drive" },
+                { icon: <Table2 className="h-4 w-4" />, color: "text-indigo-400", title: "Bảng" },
+              ].map((a, i) => (
+                <button
+                  key={i}
+                  title={a.title}
+                  className={`p-1.5 rounded-lg transition-colors ${a.color} ${
+                    isDark ? "hover:bg-zinc-800" : "hover:bg-slate-100"
+                  }`}
+                  onClick={() => toast.info("Tính năng đính kèm đang phát triển.")}
+                >
+                  {a.icon}
+                </button>
+              ))}
             </div>
-
-            {/* Attached documents list */}
-            {docLinks.length > 0 && (
-              <div className="mt-3 space-y-1.5 max-h-32 overflow-y-auto pr-1">
-                {docLinks.map((link, idx) => (
-                  <div
-                    key={idx}
-                    className={`flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-xl border text-[11px] font-semibold transition-colors ${
-                      isDark ? "bg-[#242424] border-zinc-750 text-zinc-300" : "bg-slate-50 border-gray-150 text-slate-700"
-                    }`}
-                  >
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <Paperclip className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                      <a
-                        href={link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="truncate hover:underline text-indigo-500 font-mono"
-                      >
-                        {link}
-                      </a>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setDocLinks((prev) => prev.filter((_, i) => i !== idx))}
-                      className="text-slate-400 hover:text-red-500 p-0.5 cursor-pointer"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
 
           {/* Giai đoạn tiếp theo */}
@@ -3791,78 +3044,6 @@ function WizardStepEditorModal({
           </button>
         </div>
       </div>
-
-      {/* Custom dialog for inputting Notion/Drive/Spreadsheet links */}
-      {linkModal && linkModal.open && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fade-in"
-          onClick={() => setLinkModal(null)}
-        >
-          <div
-            className={`w-full max-w-md rounded-2xl border shadow-2xl overflow-hidden flex flex-col transition-all transform scale-100 ${
-              isDark
-                ? "bg-[#222222] text-zinc-150 border-zinc-800"
-                : "bg-white text-slate-850 border-gray-200"
-            }`}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Modal Title */}
-            <div className={`px-5 py-3.5 border-b text-xs font-extrabold uppercase tracking-wider ${
-              isDark ? "border-zinc-800 bg-[#1d1d1d] text-cyan-400" : "border-gray-200 bg-slate-50 text-cyan-600"
-            }`}>
-              {linkModal.title}
-            </div>
-
-            {/* Modal Body */}
-            <div className="p-5 space-y-4">
-              <span className={`text-[11px] font-bold block ${isDark ? "text-zinc-400" : "text-slate-500"}`}>
-                Vui lòng nhập liên kết hợp lệ bắt đầu bằng http:// hoặc https://
-              </span>
-              <input
-                type="text"
-                value={linkModal.value}
-                onChange={(e) => setLinkModal({ ...linkModal, value: e.target.value })}
-                placeholder={linkModal.placeholder}
-                autoFocus
-                className={`w-full px-3 py-2.5 rounded-xl text-xs font-semibold outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all ${
-                  isDark
-                    ? "bg-[#2c2c2c] border border-zinc-700 text-zinc-200"
-                    : "bg-white border border-gray-250 text-slate-850"
-                }`}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    handleConfirmLink();
-                  }
-                }}
-              />
-            </div>
-
-            {/* Modal Footer */}
-            <div className={`px-5 py-3.5 border-t flex justify-end gap-2.5 ${
-              isDark ? "border-zinc-800 bg-[#1d1d1d]" : "border-gray-200 bg-slate-50"
-            }`}>
-              <button
-                type="button"
-                onClick={() => setLinkModal(null)}
-                className={`px-4 py-2 rounded-xl text-xs font-bold border transition-colors cursor-pointer ${
-                  isDark
-                    ? "border-zinc-700 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850"
-                    : "border-gray-250 text-slate-650 hover:bg-gray-100"
-                }`}
-              >
-                Hủy
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmLink}
-                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-extrabold transition-all cursor-pointer shadow-sm active:scale-98 shadow-indigo-500/15"
-              >
-                Đồng ý
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

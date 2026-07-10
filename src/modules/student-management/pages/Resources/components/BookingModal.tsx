@@ -69,7 +69,7 @@ export function BookingModal({ bookingResource, onClose, onSuccess }: BookingMod
 
     setIsSubmitting(true);
     try {
-      await apiFetch(`/resources/${bookingResource.id}/bookings`, {
+      await apiFetch(`/student-resources/${bookingResource.id}/bookings`, {
         method: 'POST',
         body: JSON.stringify(newBooking),
       });

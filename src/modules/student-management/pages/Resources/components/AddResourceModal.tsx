@@ -16,7 +16,7 @@ interface AddResourceModalProps {
 }
 
 export function AddResourceModal({ isOpen, onClose, categories, onSuccess }: AddResourceModalProps) {
-  
+
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [newResource, setNewResource] = useState({
@@ -37,7 +37,7 @@ export function AddResourceModal({ isOpen, onClose, categories, onSuccess }: Add
 
     setIsSubmitting(true);
     try {
-      await apiFetch('/resources', {
+      await apiFetch('/student-resources', {
         method: 'POST',
         body: JSON.stringify({
           ...newResource,
@@ -46,11 +46,11 @@ export function AddResourceModal({ isOpen, onClose, categories, onSuccess }: Add
         }),
       });
       toast.success(`Đã thêm mới tài nguyên ${newResource.name} vào danh sách!`);
-      setNewResource({ 
-        name: '', 
-        type: '', 
-        identifier: '', 
-        capacity: '' 
+      setNewResource({
+        name: '',
+        type: '',
+        identifier: '',
+        capacity: ''
       });
       onSuccess();
       onClose();

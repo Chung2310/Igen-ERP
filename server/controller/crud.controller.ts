@@ -5,6 +5,8 @@ import { SupportedModelName } from "../interface/crud.interface";
 import { UserModel } from "../model/user.model";
 import { TrainingCourseModel } from "../model/training-course.model";
 import { HRCalendarEventModel } from "../model/hr-calendar-event.model";
+import { HRLeaveTemplateModel } from "../model/hr-leave-template.model";
+import { HRLeaveApplicationModel } from "../model/hr-leave-application.model";
 
 export const crudController = {
   /**
@@ -38,6 +40,13 @@ export const crudController = {
         }
         if (!isSupervisor) {
           filters.uid = req.user?.id;
+        }
+      }
+
+      if (modelName === "hr-leave-applications") {
+        const isSupervisor = ["superadmin", "admin", "manager"].includes(userRole);
+        if (!isSupervisor && req.user?.id) {
+          filters.employeeId = req.user.id;
         }
       }
 
@@ -117,6 +126,16 @@ export const crudController = {
         }
       }
 
+      if (modelName === "hr-leave-templates") {
+        const userRole = req.user?.role || "user";
+        if (userRole !== "superadmin" && userRole !== "admin" && userRole !== "manager") {
+          return res.status(403).json({
+            status: "error",
+            message: "Chỉ quản lý và admin mới có quyền tải lên biểu mẫu mẫu.",
+          });
+        }
+      }
+
       const item = await crudService.create(modelName, req.body, companyCode);
       return res.status(201).json({
         status: "success",
@@ -172,7 +191,70 @@ export const crudController = {
         }
       }
 
+      if (modelName === "hr-leave-templates") {
+        if (userRole !== "superadmin" && userRole !== "admin" && userRole !== "manager") {
+          return res.status(403).json({
+            status: "error",
+            message: "Chỉ quản lý và admin mới có quyền chỉnh sửa biểu mẫu mẫu.",
+          });
+        }
+      }
+
+      if (modelName === "hr-leave-applications") {
+        const app = await HRLeaveApplicationModel.findById(id).lean();
+        if (app) {
+          const isSupervisor = ["superadmin", "admin", "manager"].includes(userRole);
+          if (!isSupervisor) {
+            if (app.employeeId !== req.user?.id) {
+              return res.status(403).json({
+                status: "error",
+                message: "Bạn không có quyền chỉnh sửa đơn của người khác.",
+              });
+            }
+            if (req.body.status && req.body.status !== app.status) {
+              return res.status(403).json({
+                status: "error",
+                message: "Chỉ quản lý mới có quyền phê duyệt/thay đổi trạng thái đơn từ.",
+              });
+            }
+          }
+        }
+      }
+
       const item = await crudService.update(modelName as SupportedModelName, id, req.body, companyCode, userRole);
+
+      // Tự động đồng bộ sang hr-calendar-events khi đơn xin nghỉ/trễ được duyệt
+      if (modelName === "hr-leave-applications" && item && item.status === "approved") {
+        const existingEvent = await HRCalendarEventModel.findOne({
+          employeeId: item.employeeId,
+          startDate: item.startDate,
+          endDate: item.endDate,
+          type: "leave",
+          companyCode: item.companyCode
+        });
+
+        if (!existingEvent) {
+          let title = `${item.employeeName} - ${item.type}`;
+          if (item.type === "leave") title = `${item.employeeName} xin nghỉ phép`;
+          if (item.type === "late") title = `${item.employeeName} xin đi trễ`;
+          if (item.type === "early") title = `${item.employeeName} xin về sớm`;
+          if (item.type === "other") title = `${item.employeeName} xin phép khác`;
+
+          await HRCalendarEventModel.create({
+            companyCode: item.companyCode,
+            type: "leave",
+            title,
+            description: `Đơn đã duyệt. Lý do: ${item.reason}. Đơn đính kèm: ${item.uploadedFileName}${item.note ? `. Phản hồi: ${item.note}` : ""}`,
+            startDate: item.startDate,
+            endDate: item.endDate,
+            employeeId: item.employeeId,
+            employeeName: item.employeeName,
+            status: "approved",
+            creatorId: item.approvedBy || req.user?.id || "system"
+          });
+        }
+      }
+
       return res.status(200).json({
         status: "success",
         data: item,
@@ -214,6 +296,28 @@ export const crudController = {
             return res.status(403).json({
               status: "error",
               message: "Chỉ quản lý và admin mới có quyền xóa đơn nghỉ phép / làm tại nhà / ngoại lệ.",
+            });
+          }
+        }
+      }
+
+      if (modelName === "hr-leave-templates") {
+        if (userRole !== "superadmin" && userRole !== "admin" && userRole !== "manager") {
+          return res.status(403).json({
+            status: "error",
+            message: "Chỉ quản lý và admin mới có quyền xóa biểu mẫu mẫu.",
+          });
+        }
+      }
+
+      if (modelName === "hr-leave-applications") {
+        const app = await HRLeaveApplicationModel.findById(id).lean();
+        if (app) {
+          const isSupervisor = ["superadmin", "admin", "manager"].includes(userRole);
+          if (!isSupervisor && app.employeeId !== req.user?.id) {
+            return res.status(403).json({
+              status: "error",
+              message: "Bạn không có quyền xóa đơn của người khác.",
             });
           }
         }

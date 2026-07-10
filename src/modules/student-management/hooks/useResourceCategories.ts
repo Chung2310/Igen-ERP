@@ -20,7 +20,7 @@ export function useResourceCategories() {
     }
 
     try {
-      const res = await apiFetch("/resources/categories");
+      const res = await apiFetch("/student-resources/categories");
       if (res.success && res.data) {
         const mapped = res.data.map((cat: { _id: string; name: string }) => ({
           id: cat._id,

@@ -141,6 +141,7 @@ export interface HRTask {
   // New Notion fields
   projectId?: string;
   startTime?: string;
+  actualStartTime?: string;
   estTime?: number;
   endTime?: string;
   actualTime?: number;
