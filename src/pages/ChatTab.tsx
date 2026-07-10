@@ -1633,18 +1633,6 @@ export default function ChatTab() {
             </h2>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => {
-                  const next = !soundMuted;
-                  setSoundMuted(next);
-                  localStorage.setItem(CHAT_SOUND_MUTED_KEY, next ? "1" : "0");
-                  if (!next) playChatNotificationSound(); // nghe thử khi bật lại
-                }}
-                className={`flex h-9 w-9 items-center justify-center rounded-xl transition active:scale-95 ${soundMuted ? "bg-slate-100 text-slate-400 hover:bg-slate-200" : "bg-indigo-50 text-indigo-600 hover:bg-indigo-100"}`}
-                title={soundMuted ? "Bật âm báo tin nhắn" : "Tắt âm báo tin nhắn"}
-              >
-                {soundMuted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
-              </button>
-              <button
                 onClick={() => setShowCreateGroupModal(true)}
                 className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 transition hover:bg-indigo-100 active:scale-95"
                 title="Tạo nhóm chat mới"
