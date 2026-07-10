@@ -76,6 +76,85 @@ export default function CalendarTab({
   const [logEndDate, setLogEndDate] = useState("");
   const [isLogsLoading, setIsLogsLoading] = useState(false);
 
+  // Attendance View Mode & Week selection states
+  const [attendanceViewMode, setAttendanceViewMode] = useState<"table" | "week">("table");
+  const [currentWeekDate, setCurrentWeekDate] = useState<Date>(new Date());
+
+  const formatLocalDate = (date: Date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  };
+
+  const getStartAndEndOfWeek = (date: Date) => {
+    const tempDate = new Date(date);
+    const day = tempDate.getDay();
+    const diff = tempDate.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(tempDate.setDate(diff));
+    monday.setHours(0, 0, 0, 0);
+
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    sunday.setHours(23, 59, 59, 999);
+
+    return { monday, sunday };
+  };
+
+  const getWeekDates = (date: Date) => {
+    const { monday } = getStartAndEndOfWeek(date);
+    const dates = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      dates.push(d);
+    }
+    return dates;
+  };
+
+  const getWeeksOfYear = (year: number) => {
+    const d = new Date(year, 0, 1);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    const firstMonday = new Date(d.setDate(diff));
+    
+    const weeks = [];
+    const current = new Date(firstMonday);
+    
+    while (current.getFullYear() === year || (current.getFullYear() === year - 1 && weeks.length === 0)) {
+      const mon = new Date(current);
+      const sun = new Date(mon);
+      sun.setDate(mon.getDate() + 6);
+      
+      weeks.push({
+        monday: mon,
+        sunday: sun,
+      });
+      
+      current.setDate(current.getDate() + 7);
+    }
+    return weeks;
+  };
+
+  const formatWeekOption = (monday: Date, sunday: Date) => {
+    const formatD = (d: Date) => String(d.getDate()).padStart(2, "0");
+    const formatM = (d: Date) => String(d.getMonth() + 1).padStart(2, "0");
+    return `${formatD(monday)}/${formatM(monday)} tới ${formatD(sunday)}/${formatM(sunday)}`;
+  };
+
+  useEffect(() => {
+    if (attendanceViewMode === "week") {
+      const { monday, sunday } = getStartAndEndOfWeek(currentWeekDate);
+      setLogStartDate(formatLocalDate(monday));
+      setLogEndDate(formatLocalDate(sunday));
+      setLogsPage(1);
+    } else {
+      setLogStartDate("");
+      setLogEndDate("");
+      setLogsPage(1);
+    }
+  }, [attendanceViewMode, currentWeekDate]);
+
   // Filters State
   const [filterType, setFilterType] = useState<string>("all");
   const [filterEmployee, setFilterEmployee] = useState<string>("all");
@@ -185,14 +264,43 @@ export default function CalendarTab({
       };
     };
 
-    const formatLocalDate = (date: Date) => {
-      const y = date.getFullYear();
-      const m = String(date.getMonth() + 1).padStart(2, "0");
-      const d = String(date.getDate()).padStart(2, "0");
-      return `${y}-${m}-${d}`;
+    const formatLogTime = (timeStr: any) => {
+      if (!timeStr) return "--:--";
+      const date = new Date(timeStr);
+      return date.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
     };
 
-    // Generate date range in local time to avoid timezone offset shifts
+    const formatDateString = (dateStr: string) => {
+      if (!dateStr) return "";
+      const parts = dateStr.split("-");
+      if (parts.length !== 3) return dateStr;
+      const [y, m, d] = parts;
+      return `${d}/${m}/${y}`;
+    };
+
+    const getStatusStyle = (status: string) => {
+      switch (status) {
+        case "Present":
+          return "bg-emerald-50 text-emerald-700 border-emerald-100";
+        case "Late":
+          return "bg-amber-50 text-amber-700 border-amber-100";
+        case "Approved-Leave":
+          return "bg-blue-50 text-blue-700 border-blue-100";
+        case "Absent":
+          return "bg-rose-50 text-rose-700 border-rose-100";
+        default:
+          return "bg-slate-50 text-slate-700 border-slate-100";
+      }
+    };
+
+    const targetEmployees = isManager
+      ? (logFilterEmployee === "all" ? usersList : usersList.filter(u => u.uid === logFilterEmployee))
+      : (userProfile ? [userProfile] : []);
+
+    const weekDaysShort = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
+    const weekDaysFull = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"];
+
+    // 1. Logic for Table View:
     const getDatesRange = () => {
       let start: Date;
       if (logStartDate) {
@@ -223,10 +331,6 @@ export default function CalendarTab({
     };
 
     const dates = getDatesRange();
-    const targetEmployees = isManager
-      ? (logFilterEmployee === "all" ? usersList : usersList.filter(u => u.uid === logFilterEmployee))
-      : (userProfile ? [userProfile] : []);
-
     const generatedRows: any[] = [];
     const todayStr = formatLocalDate(new Date());
 
@@ -244,7 +348,6 @@ export default function CalendarTab({
             note: dbLog.note
           });
         } else {
-          // Check leave events
           const hasLeave = items.some(item => {
             if (item.type !== "leave" || item.status !== "approved") return false;
             const empMatch = item.employeeId === emp.uid || item.creatorId === emp.uid;
@@ -277,8 +380,13 @@ export default function CalendarTab({
       return row.status === logFilterStatus;
     });
 
-    const totalPages = Math.ceil(filteredRows.length / logsLimit) || 1;
+    const totalPagesTable = Math.ceil(filteredRows.length / logsLimit) || 1;
     const paginatedRows = filteredRows.slice((logsPage - 1) * logsLimit, logsPage * logsLimit);
+
+    // 2. Logic for Weekly View:
+    const weekDates = getWeekDates(currentWeekDate);
+    const totalPagesWeek = Math.ceil(targetEmployees.length / logsLimit) || 1;
+    const paginatedEmployees = targetEmployees.slice((logsPage - 1) * logsLimit, logsPage * logsLimit);
 
     return (
       <div className="space-y-5 animate-fade-in text-left">
@@ -293,12 +401,41 @@ export default function CalendarTab({
                 Bảng theo dõi hiện diện và thời gian làm việc
               </p>
             </div>
-            <button
-              onClick={fetchTimekeepingLogs}
-              className="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-2xl transition-all cursor-pointer border-0"
-            >
-              Làm mới dữ liệu
-            </button>
+            
+            <div className="flex items-center gap-3">
+              {/* View Toggle */}
+              <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200/50">
+                <button
+                  type="button"
+                  onClick={() => setAttendanceViewMode("table")}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border-0 ${
+                    attendanceViewMode === "table"
+                      ? "bg-white text-slate-850 shadow-xs"
+                      : "text-slate-500 hover:text-slate-800 bg-transparent"
+                  }`}
+                >
+                  Dạng bảng
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAttendanceViewMode("week")}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border-0 ${
+                    attendanceViewMode === "week"
+                      ? "bg-white text-slate-850 shadow-xs"
+                      : "text-slate-500 hover:text-slate-800 bg-transparent"
+                  }`}
+                >
+                  Dạng lịch
+                </button>
+              </div>
+
+              <button
+                onClick={fetchTimekeepingLogs}
+                className="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-2xl transition-all cursor-pointer border-0"
+              >
+                Làm mới dữ liệu
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
@@ -341,190 +478,530 @@ export default function CalendarTab({
               </select>
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Từ ngày</label>
-              <input
-                type="date"
-                value={logStartDate}
-                onChange={(e) => {
-                  setLogStartDate(e.target.value);
-                  setLogsPage(1);
-                }}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 cursor-pointer outline-none"
-              />
-            </div>
+            {attendanceViewMode === "table" ? (
+              <>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Từ ngày</label>
+                  <input
+                    type="date"
+                    value={logStartDate}
+                    onChange={(e) => {
+                      setLogStartDate(e.target.value);
+                      setLogsPage(1);
+                    }}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 cursor-pointer outline-none"
+                  />
+                </div>
 
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Đến ngày</label>
-              <input
-                type="date"
-                value={logEndDate}
-                onChange={(e) => {
-                  setLogEndDate(e.target.value);
-                  setLogsPage(1);
-                }}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 cursor-pointer outline-none"
-              />
-            </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Đến ngày</label>
+                  <input
+                    type="date"
+                    value={logEndDate}
+                    onChange={(e) => {
+                      setLogEndDate(e.target.value);
+                      setLogsPage(1);
+                    }}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 cursor-pointer outline-none"
+                  />
+                </div>
+              </>
+            ) : (
+              <div className="space-y-1.5 col-span-1 sm:col-span-2">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Chọn Ngày</label>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const prev = new Date(currentWeekDate);
+                      prev.setDate(prev.getDate() - 7);
+                      setCurrentWeekDate(prev);
+                    }}
+                    className="p-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-2xl text-xs text-slate-650 transition cursor-pointer border-0 flex items-center justify-center shrink-0"
+                    title="Tuần trước"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <select
+                    value={currentWeekDate.getFullYear()}
+                    onChange={(e) => {
+                      const newYear = Number(e.target.value);
+                      const newDate = new Date(currentWeekDate);
+                      newDate.setFullYear(newYear);
+                      setCurrentWeekDate(newDate);
+                    }}
+                    className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 cursor-pointer outline-none shrink-0"
+                  >
+                    {(() => {
+                      const currentYear = new Date().getFullYear();
+                      const years = [];
+                      for (let y = currentYear - 5; y <= currentYear + 5; y++) {
+                        years.push(y);
+                      }
+                      return years.map((y) => (
+                        <option key={y} value={y}>
+                          Năm {y}
+                        </option>
+                      ));
+                    })()}
+                  </select>
+
+                  <select
+                    value={formatLocalDate(getStartAndEndOfWeek(currentWeekDate).monday)}
+                    onChange={(e) => {
+                      const [y, m, d] = e.target.value.split("-").map(Number);
+                      setCurrentWeekDate(new Date(y, m - 1, d));
+                    }}
+                    className="flex-1 text-center py-2 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 cursor-pointer outline-none"
+                  >
+                    {getWeeksOfYear(currentWeekDate.getFullYear()).map((wk, idx) => {
+                      const val = formatLocalDate(wk.monday);
+                      const label = formatWeekOption(wk.monday, wk.sunday);
+                      return (
+                        <option key={idx} value={val}>
+                          {label}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = new Date(currentWeekDate);
+                      next.setDate(next.getDate() + 7);
+                      setCurrentWeekDate(next);
+                    }}
+                    className="p-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-2xl text-xs text-slate-650 transition cursor-pointer border-0 flex items-center justify-center shrink-0"
+                    title="Tuần sau"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentWeekDate(new Date())}
+                    className="px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-0 rounded-2xl text-xs font-bold transition cursor-pointer shrink-0"
+                  >
+                    Tuần này
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Table Content */}
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left text-slate-700">
-              <thead className="bg-slate-50 border-b border-slate-100 font-extrabold uppercase text-[10px] text-slate-400 tracking-wider">
-                <tr>
-                  <th className="px-6 py-4">Ngày</th>
-                  <th className="px-6 py-4">Nhân sự</th>
-                  <th className="px-6 py-4">Giờ Vào (Check-in)</th>
-                  <th className="px-6 py-4">Giờ Ra (Check-out)</th>
-                  <th className="px-6 py-4">Trạng thái</th>
-                  <th className="px-6 py-4">Ghi chú</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
-                {isLogsLoading ? (
+        {/* Attendance Content */}
+        {attendanceViewMode === "table" ? (
+          /* Original Table View */
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left text-slate-700">
+                <thead className="bg-slate-50 border-b border-slate-100 font-extrabold uppercase text-[10px] text-slate-400 tracking-wider">
                   <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
-                      <div className="flex justify-center items-center gap-2">
-                        <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-                        Đang tải danh sách lịch sử...
-                      </div>
-                    </td>
+                    <th className="px-6 py-4">Ngày</th>
+                    <th className="px-6 py-4">Nhân sự</th>
+                    <th className="px-6 py-4">Giờ Vào (Check-in)</th>
+                    <th className="px-6 py-4">Giờ Ra (Check-out)</th>
+                    <th className="px-6 py-4">Trạng thái</th>
+                    <th className="px-6 py-4">Ghi chú</th>
                   </tr>
-                ) : paginatedRows.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center text-slate-400 font-medium">
-                      Không tìm thấy lịch sử chấm công nào trong bộ lọc này.
-                    </td>
-                  </tr>
-                ) : (
-                  paginatedRows.map((log) => {
-                    const user = getUserDetail(log.uid);
-                    const formatLogTime = (timeStr: any) => {
-                      if (!timeStr) return "--:--";
-                      const date = new Date(timeStr);
-                      return date.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
-                    };
-
-                    const formatDateString = (dateStr: string) => {
-                      if (!dateStr) return "";
-                      const parts = dateStr.split("-");
-                      if (parts.length !== 3) return dateStr;
-                      const [y, m, d] = parts;
-                      return `${d}/${m}/${y}`;
-                    };
-
-                    const getStatusStyle = (status: string) => {
-                      switch (status) {
-                        case "Present":
-                          return "bg-emerald-50 text-emerald-700 border-emerald-100";
-                        case "Late":
-                          return "bg-amber-50 text-amber-700 border-amber-100";
-                        case "Approved-Leave":
-                          return "bg-blue-50 text-blue-700 border-blue-100";
-                        case "Absent":
-                          return "bg-rose-50 text-rose-700 border-rose-100";
-                        default:
-                          return "bg-slate-50 text-slate-700 border-slate-100";
-                      }
-                    };
-
-                    return (
-                      <tr key={log.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-6 py-4 whitespace-nowrap font-mono text-gray-800">
-                          {formatDateString(log.date)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center gap-3">
-                            {user.photoURL ? (
-                              <img src={user.photoURL} alt={user.displayName} className="w-8 h-8 rounded-full object-cover ring-2 ring-slate-100" />
-                            ) : (
-                              <div className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-650 flex items-center justify-center font-bold">
-                                {user.displayName.slice(0, 2).toUpperCase()}
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
+                  {isLogsLoading ? (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
+                        <div className="flex justify-center items-center gap-2">
+                          <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                          Đang tải danh sách lịch sử...
+                        </div>
+                      </td>
+                    </tr>
+                  ) : paginatedRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-12 text-center text-slate-400 font-medium">
+                        Không tìm thấy lịch sử chấm công nào trong bộ lọc này.
+                      </td>
+                    </tr>
+                  ) : (
+                    paginatedRows.map((log) => {
+                      const user = getUserDetail(log.uid);
+                      return (
+                        <tr key={log.id} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="px-6 py-4 whitespace-nowrap font-mono text-gray-800">
+                            {formatDateString(log.date)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center gap-3">
+                              {user.photoURL ? (
+                                <img src={user.photoURL} alt={user.displayName} className="w-8 h-8 rounded-full object-cover ring-2 ring-slate-100" />
+                              ) : (
+                                <div className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-650 flex items-center justify-center font-bold">
+                                  {user.displayName.slice(0, 2).toUpperCase()}
+                                </div>
+                              )}
+                              <div className="text-left">
+                                <p className="font-bold text-slate-800 leading-snug">{user.displayName}</p>
+                                <p className="text-[10px] text-slate-400 font-medium">{user.email}</p>
                               </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {log.checkIn ? (
+                              <div>
+                                <span className="font-bold text-slate-800">{formatLogTime(log.checkIn.time)}</span>
+                                <span className="block text-[10px] text-slate-400 font-medium">
+                                  IP: {log.checkIn.ipAddress || "N/A"} · {Math.round(log.checkIn.distance)}m
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-slate-400">--:--</span>
                             )}
-                            <div className="text-left">
-                              <p className="font-bold text-slate-800 leading-snug">{user.displayName}</p>
-                              <p className="text-[10px] text-slate-400 font-medium">{user.email}</p>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {log.checkOut ? (
+                              <div>
+                                <span className="font-bold text-slate-800">{formatLogTime(log.checkOut.time)}</span>
+                                <span className="block text-[10px] text-slate-400 font-medium">
+                                  IP: {log.checkOut.ipAddress || "N/A"} · {Math.round(log.checkOut.distance)}m
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-slate-400">--:--</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${getStatusStyle(log.status)}`}>
+                              {log.status === "Present"
+                                ? "Đúng giờ"
+                                : log.status === "Late"
+                                ? "Đi muộn"
+                                : log.status === "Approved-Leave"
+                                ? "Nghỉ có phép"
+                                : "Nghỉ không phép"}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-slate-500 max-w-[200px] truncate" title={log.note}>
+                            {log.note || <span className="text-slate-350 italic">Không có ghi chú</span>}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Table Pagination */}
+            {!isLogsLoading && filteredRows.length > 0 && (
+              <div className="flex items-center justify-between border-t border-slate-100 px-6 py-4">
+                <span className="text-xs text-slate-500">
+                  Hiển thị {paginatedRows.length} / {filteredRows.length} dòng
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    disabled={logsPage <= 1}
+                    onClick={() => setLogsPage(logsPage - 1)}
+                    className="px-3.5 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50 transition-all cursor-pointer"
+                  >
+                    Trước
+                  </button>
+                  <span className="text-xs font-bold text-slate-850 px-2">
+                    Trang {logsPage} / {totalPagesTable}
+                  </span>
+                  <button
+                    disabled={logsPage >= totalPagesTable}
+                    onClick={() => setLogsPage(logsPage + 1)}
+                    className="px-3.5 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50 transition-all cursor-pointer"
+                  >
+                    Sau
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          /* Weekly Grid View */
+          <div className="space-y-4">
+            {isLogsLoading ? (
+              <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-12 text-center text-slate-400">
+                <div className="flex justify-center items-center gap-2">
+                  <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                  Đang tải dữ liệu tuần...
+                </div>
+              </div>
+            ) : targetEmployees.length === 1 ? (
+              /* Single Employee Weekly Card Grid View */
+              (() => {
+                const emp = targetEmployees[0];
+                return (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+                    {weekDates.map((date, idx) => {
+                      const dateStr = formatLocalDate(date);
+                      const dbLog = logs.find(l => l.uid === emp.uid && l.date === dateStr);
+                      
+                      let displayStatus = "";
+                      let checkInTime = "";
+                      let checkOutTime = "";
+                      let statusStyle = "";
+                      let noteText = "";
+                      let checkInDetails = "";
+                      let checkOutDetails = "";
+
+                      if (dbLog) {
+                        displayStatus = dbLog.status === "Present" ? "Đúng giờ"
+                                      : dbLog.status === "Late" ? "Đi muộn"
+                                      : dbLog.status === "Approved-Leave" ? "Nghỉ phép"
+                                      : "Nghỉ KP";
+                        checkInTime = dbLog.checkIn ? formatLogTime(dbLog.checkIn.time) : "--:--";
+                        checkOutTime = dbLog.checkOut ? formatLogTime(dbLog.checkOut.time) : "--:--";
+                        statusStyle = getStatusStyle(dbLog.status);
+                        noteText = dbLog.note || "";
+                        if (dbLog.checkIn) {
+                          checkInDetails = `IP: ${dbLog.checkIn.ipAddress || "N/A"} · ${Math.round(dbLog.checkIn.distance)}m`;
+                        }
+                        if (dbLog.checkOut) {
+                          checkOutDetails = `IP: ${dbLog.checkOut.ipAddress || "N/A"} · ${Math.round(dbLog.checkOut.distance)}m`;
+                        }
+                      } else {
+                        const hasLeave = items.some(item => {
+                          if (item.type !== "leave" || item.status !== "approved") return false;
+                          const empMatch = item.employeeId === emp.uid || item.creatorId === emp.uid;
+                          if (!empMatch) return false;
+                          const sDate = item.startDate.split("T")[0];
+                          const eDate = item.endDate.split("T")[0];
+                          return dateStr >= sDate && dateStr <= eDate;
+                        });
+
+                        const isTodayOrPast = dateStr <= todayStr;
+                        if (isTodayOrPast) {
+                          displayStatus = hasLeave ? "Nghỉ phép" : "Nghỉ KP";
+                          statusStyle = getStatusStyle(hasLeave ? "Approved-Leave" : "Absent");
+                          noteText = hasLeave ? "Nghỉ phép có duyệt" : "Nghỉ không phép / Vắng mặt";
+                          checkInTime = "--:--";
+                          checkOutTime = "--:--";
+                        } else {
+                          displayStatus = "Chưa diễn ra";
+                          statusStyle = "bg-slate-50 text-slate-400 border-slate-100";
+                          checkInTime = "--:--";
+                          checkOutTime = "--:--";
+                        }
+                      }
+
+                      const isTodayDate = dateStr === todayStr;
+
+                      return (
+                        <div
+                          key={dateStr}
+                          className={`border rounded-2xl p-4 flex flex-col justify-between min-h-[170px] transition-all bg-white hover:shadow-md ${
+                            isTodayDate ? "ring-2 ring-indigo-500 ring-offset-1 border-indigo-200/50" : "border-slate-100"
+                          }`}
+                        >
+                          <div className="flex justify-between items-center border-b border-slate-100 pb-2 mb-2">
+                            <span className="text-xs font-extrabold text-slate-700">{weekDaysFull[idx]}</span>
+                            <span className="text-[10px] font-bold font-mono text-slate-400">{date.getDate()}/{date.getMonth() + 1}</span>
+                          </div>
+
+                          <div className="flex-1 flex flex-col gap-2 justify-center text-left">
+                            <div className="flex flex-col gap-1">
+                              <div className="flex justify-between items-center">
+                                <span className="text-[9px] font-bold text-slate-400 uppercase">Check-in:</span>
+                                <span className="text-xs font-extrabold text-slate-800">{checkInTime}</span>
+                              </div>
+                              {checkInDetails && (
+                                <span className="text-[8px] text-slate-450 font-semibold text-right block truncate" title={checkInDetails}>
+                                  {checkInDetails}
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex flex-col gap-1">
+                              <div className="flex justify-between items-center">
+                                <span className="text-[9px] font-bold text-slate-400 uppercase">Check-out:</span>
+                                <span className="text-xs font-extrabold text-slate-800">{checkOutTime}</span>
+                              </div>
+                              {checkOutDetails && (
+                                <span className="text-[8px] text-slate-450 font-semibold text-right block truncate" title={checkOutDetails}>
+                                  {checkOutDetails}
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="mt-2 text-center">
+                              <span className={`inline-flex rounded-full px-2 py-0.5 text-[9px] font-bold border ${statusStyle}`}>
+                                {displayStatus}
+                              </span>
                             </div>
                           </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {log.checkIn ? (
-                            <div>
-                              <span className="font-bold text-slate-800">{formatLogTime(log.checkIn.time)}</span>
-                              <span className="block text-[10px] text-slate-400 font-medium">
-                                IP: {log.checkIn.ipAddress || "N/A"} · {Math.round(log.checkIn.distance)}m
-                              </span>
-                            </div>
-                          ) : (
-                            <span className="text-slate-400">--:--</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {log.checkOut ? (
-                            <div>
-                              <span className="font-bold text-slate-800">{formatLogTime(log.checkOut.time)}</span>
-                              <span className="block text-[10px] text-slate-400 font-medium">
-                                IP: {log.checkOut.ipAddress || "N/A"} · {Math.round(log.checkOut.distance)}m
-                              </span>
-                            </div>
-                          ) : (
-                            <span className="text-slate-400">--:--</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${getStatusStyle(log.status)}`}>
-                            {log.status === "Present"
-                              ? "Đúng giờ"
-                              : log.status === "Late"
-                              ? "Đi muộn"
-                              : log.status === "Approved-Leave"
-                              ? "Nghỉ có phép"
-                              : "Nghỉ không phép"}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-slate-500 max-w-[200px] truncate" title={log.note}>
-                          {log.note || <span className="text-slate-350 italic">Không có ghi chú</span>}
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
 
-          {/* Pagination */}
-          {!isLogsLoading && filteredRows.length > 0 && (
-            <div className="flex items-center justify-between border-t border-slate-100 px-6 py-4">
-              <span className="text-xs text-slate-500">
-                Hiển thị {paginatedRows.length} / {filteredRows.length} dòng
-              </span>
-              <div className="flex items-center gap-2">
-                <button
-                  disabled={logsPage <= 1}
-                  onClick={() => setLogsPage(logsPage - 1)}
-                  className="px-3.5 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50 transition-all cursor-pointer"
-                >
-                  Trước
-                </button>
-                <span className="text-xs font-bold text-slate-850 px-2">
-                  Trang {logsPage} / {totalPages}
-                </span>
-                <button
-                  disabled={logsPage >= totalPages}
-                  onClick={() => setLogsPage(logsPage + 1)}
-                  className="px-3.5 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50 transition-all cursor-pointer"
-                >
-                  Sau
-                </button>
+                          <div className="border-t border-slate-100 pt-2 mt-2 max-h-[40px] overflow-hidden">
+                            <p className="text-[9px] text-slate-500 italic truncate text-center font-medium" title={noteText}>
+                              {noteText || "Không có ghi chú"}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()
+            ) : (
+              /* Multiple Employees Weekly Pivoted Matrix Table View */
+              <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs text-left text-slate-700 table-fixed min-w-[1200px]">
+                    <thead className="bg-slate-50 border-b border-slate-100 font-extrabold uppercase text-[10px] text-slate-400 tracking-wider">
+                      <tr>
+                        <th className="px-4 py-4 w-48 shrink-0">Nhân sự</th>
+                        {weekDates.map((date, idx) => (
+                          <th key={idx} className="px-3 py-4 text-center">
+                            <div className="font-extrabold text-slate-700">{weekDaysShort[idx]}</div>
+                            <div className="text-[8px] text-slate-400 font-mono mt-0.5">
+                              {date.getDate()}/{date.getMonth() + 1}
+                            </div>
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
+                      {paginatedEmployees.length === 0 ? (
+                        <tr>
+                          <td colSpan={8} className="px-6 py-12 text-center text-slate-400 font-medium">
+                            Không tìm thấy nhân sự nào.
+                          </td>
+                        </tr>
+                      ) : (
+                        paginatedEmployees.map(emp => {
+                          const user = getUserDetail(emp.uid);
+                          return (
+                            <tr key={emp.uid} className="hover:bg-slate-50/50 transition-colors">
+                              <td className="px-4 py-3 whitespace-nowrap align-middle">
+                                <div className="flex items-center gap-2">
+                                  {user.photoURL ? (
+                                    <img src={user.photoURL} alt={user.displayName} className="w-8 h-8 rounded-full object-cover ring-2 ring-slate-100 shrink-0" />
+                                  ) : (
+                                    <div className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-650 flex items-center justify-center font-bold text-xs shrink-0">
+                                      {user.displayName.slice(0, 2).toUpperCase()}
+                                    </div>
+                                  )}
+                                  <div className="text-left min-w-0">
+                                    <p className="font-bold text-slate-800 leading-snug truncate text-xs font-black" title={user.displayName}>
+                                      {user.displayName}
+                                    </p>
+                                    <p className="text-[9px] text-slate-400 font-medium truncate" title={user.email}>
+                                      {user.email}
+                                    </p>
+                                  </div>
+                                </div>
+                              </td>
+
+                              {weekDates.map((date, idx) => {
+                                const dateStr = formatLocalDate(date);
+                                const dbLog = logs.find(l => l.uid === emp.uid && l.date === dateStr);
+                                
+                                let displayStatus = "";
+                                let checkInTime = "";
+                                let checkOutTime = "";
+                                let statusStyle = "";
+                                let noteText = "";
+
+                                if (dbLog) {
+                                  displayStatus = dbLog.status === "Present" ? "Đúng giờ"
+                                                : dbLog.status === "Late" ? "Đi muộn"
+                                                : dbLog.status === "Approved-Leave" ? "Nghỉ phép"
+                                                : "Nghỉ KP";
+                                  checkInTime = dbLog.checkIn ? formatLogTime(dbLog.checkIn.time) : "--:--";
+                                  checkOutTime = dbLog.checkOut ? formatLogTime(dbLog.checkOut.time) : "--:--";
+                                  statusStyle = getStatusStyle(dbLog.status);
+                                  noteText = dbLog.note || "";
+                                } else {
+                                  const hasLeave = items.some(item => {
+                                    if (item.type !== "leave" || item.status !== "approved") return false;
+                                    const empMatch = item.employeeId === emp.uid || item.creatorId === emp.uid;
+                                    if (!empMatch) return false;
+                                    const sDate = item.startDate.split("T")[0];
+                                    const eDate = item.endDate.split("T")[0];
+                                    return dateStr >= sDate && dateStr <= eDate;
+                                  });
+
+                                  const isTodayOrPast = dateStr <= todayStr;
+                                  if (isTodayOrPast) {
+                                    displayStatus = hasLeave ? "Nghỉ phép" : "Nghỉ KP";
+                                    statusStyle = getStatusStyle(hasLeave ? "Approved-Leave" : "Absent");
+                                    noteText = hasLeave ? "Nghỉ phép có duyệt" : "Nghỉ không phép / Vắng mặt";
+                                    checkInTime = "--:--";
+                                    checkOutTime = "--:--";
+                                  } else {
+                                    displayStatus = "";
+                                    statusStyle = "";
+                                    checkInTime = "--:--";
+                                    checkOutTime = "--:--";
+                                  }
+                                }
+
+                                return (
+                                  <td key={idx} className="px-2 py-3 text-center align-middle">
+                                    <div className="flex flex-col items-center gap-1.5 min-h-[75px] justify-center bg-slate-50/20 hover:bg-slate-50/70 border border-slate-100/50 rounded-2xl p-2 transition-all">
+                                      {displayStatus ? (
+                                        <span className={`inline-flex rounded-full px-1.5 py-0.5 text-[8px] font-bold border ${statusStyle} scale-95`}>
+                                          {displayStatus}
+                                        </span>
+                                      ) : (
+                                        <span className="text-[10px] text-slate-300 font-bold">--:--</span>
+                                      )}
+                                      
+                                      {(checkInTime !== "--:--" || checkOutTime !== "--:--") && (
+                                        <div className="text-[9px] font-bold text-slate-650 leading-none">
+                                          {checkInTime} / {checkOutTime}
+                                        </div>
+                                      )}
+
+                                      {noteText && (
+                                        <div className="text-[8px] text-slate-400 italic max-w-[80px] truncate leading-tight font-medium" title={noteText}>
+                                          {noteText}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Weekly Pivoted Table Pagination */}
+                {targetEmployees.length > 0 && (
+                  <div className="flex items-center justify-between border-t border-slate-100 px-6 py-4">
+                    <span className="text-xs text-slate-500">
+                      Hiển thị {paginatedEmployees.length} / {targetEmployees.length} nhân sự
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        disabled={logsPage <= 1}
+                        onClick={() => setLogsPage(logsPage - 1)}
+                        className="px-3.5 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50 transition-all cursor-pointer"
+                      >
+                        Trước
+                      </button>
+                      <span className="text-xs font-bold text-slate-850 px-2">
+                        Trang {logsPage} / {totalPagesWeek}
+                      </span>
+                      <button
+                        disabled={logsPage >= totalPagesWeek}
+                        onClick={() => setLogsPage(logsPage + 1)}
+                        className="px-3.5 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50 transition-all cursor-pointer"
+                      >
+                        Sau
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </div>
     );
   };
