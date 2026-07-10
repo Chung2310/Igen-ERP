@@ -1212,13 +1212,13 @@ export default function ResourceTab() {
           
           // Vẽ khung nét đứt màu teal
           ctx.setLineDash([5, 5]);
-          ctx.strokeStyle = "#008080";
+          ctx.strokeStyle = "#008bad";
           ctx.lineWidth = 1.5;
           ctx.strokeRect(editingImage.x, editingImage.y, editingImage.w, editingImage.h);
           ctx.setLineDash([]);
           
           // Vẽ nút tròn resize ở góc dưới bên phải
-          ctx.fillStyle = "#008080";
+          ctx.fillStyle = "#008bad";
           ctx.beginPath();
           ctx.arc(editingImage.x + editingImage.w, editingImage.y + editingImage.h, 7, 0, 2 * Math.PI);
           ctx.fill();
@@ -2015,7 +2015,7 @@ export default function ResourceTab() {
                       onClick={() => { setCurrentPill("KHO_LUU_TRU"); setViewingTrash(false); }}
                       className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all duration-150 cursor-pointer ${
                         currentPill === "KHO_LUU_TRU"
-                          ? "bg-[#009b94] text-white shadow-sm"
+                          ? "bg-cyan-600 text-white shadow-sm"
                           : "text-slate-500 hover:text-slate-800 hover:bg-slate-200/60"
                       }`}
                     >
@@ -2025,7 +2025,7 @@ export default function ResourceTab() {
                       onClick={() => { setCurrentPill("DUOC_CHIA_SE"); setViewingTrash(false); }}
                       className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all duration-150 cursor-pointer ${
                         currentPill === "DUOC_CHIA_SE"
-                          ? "bg-[#009b94] text-white shadow-sm"
+                          ? "bg-cyan-600 text-white shadow-sm"
                           : "text-slate-500 hover:text-slate-800 hover:bg-slate-200/60"
                       }`}
                     >
@@ -2112,7 +2112,7 @@ export default function ResourceTab() {
                         onClick={() => setShowFilters(!showFilters)}
                         className={`p-2 rounded-xl transition active:scale-95 border flex items-center justify-center h-9 w-9 cursor-pointer ${
                           showFilters 
-                            ? "bg-[#e0f2f1] hover:bg-[#b2dfdb]/50 text-[#008080] border-[#008080]" 
+                            ? "bg-cyan-50 hover:bg-cyan-100/50 text-cyan-600 border-cyan-600" 
                             : "bg-white hover:bg-slate-50 text-slate-500 hover:text-slate-800 border-slate-200"
                         }`}
                         title="Bộ lọc"
@@ -2139,7 +2139,7 @@ export default function ResourceTab() {
                       <div className="relative" ref={addMenuRef}>
                         <button
                           onClick={() => setShowAddMenu(!showAddMenu)}
-                          className="p-2 bg-[#008080] hover:bg-[#006666] text-white rounded-xl transition duration-150 active:scale-95 shadow-md shadow-teal-500/10 flex items-center justify-center h-9 w-9 cursor-pointer"
+                          className="p-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl transition duration-150 active:scale-95 shadow-md shadow-teal-500/10 flex items-center justify-center h-9 w-9 cursor-pointer"
                           title="Thêm mới"
                         >
                           <Plus className="h-4 w-4" />
@@ -2574,7 +2574,7 @@ export default function ResourceTab() {
                           <div className="h-full flex flex-col">
                             {loading && filteredResources.length === 0 ? (
                               <div className="flex-1 flex flex-col items-center justify-center py-20 text-center">
-                                <RefreshCw className="h-8 w-8 animate-spin text-[#008080]" />
+                                <RefreshCw className="h-8 w-8 animate-spin text-cyan-600" />
                                 <p className="text-xs text-gray-500 mt-2 font-medium">Đang tải tài nguyên...</p>
                               </div>
                             ) : filteredResources.length === 0 ? (
@@ -2585,7 +2585,7 @@ export default function ResourceTab() {
                                   <div className="relative">
                                     <button
                                       onClick={() => setShowAddMenu(!showAddMenu)}
-                                      className="mt-5 inline-flex items-center gap-2 px-6 py-2.5 bg-[#008080] hover:bg-[#006666] text-white rounded-xl text-sm font-bold shadow-md shadow-teal-500/10 transition duration-150 active:scale-95 cursor-pointer"
+                                      className="mt-5 inline-flex items-center gap-2 px-6 py-2.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl text-sm font-bold shadow-md shadow-teal-500/10 transition duration-150 active:scale-95 cursor-pointer"
                                     >
                                       <Plus className="h-4 w-4" />
                                       <span>Thêm mới</span>
@@ -2744,7 +2744,7 @@ export default function ResourceTab() {
                                               onClick={() => setDriveListPage(p as number)}
                                               className={`w-8 h-8 rounded-lg text-xs font-bold transition ${
                                                 safeDrivePage === p
-                                                  ? "bg-[#008080] text-white shadow-sm"
+                                                  ? "bg-cyan-600 text-white shadow-sm"
                                                   : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
                                               }`}
                                             >
@@ -2895,7 +2895,7 @@ export default function ResourceTab() {
               <button
                 onClick={handleCreateFile}
                 disabled={creatingFile || !newFileName.trim() || (createFileDialog.type === "link" && !newFileLink.trim())}
-                className="flex-1 rounded-xl bg-[#008080] py-2.5 text-xs font-bold text-white hover:bg-[#006666] transition active:scale-95 disabled:opacity-55 flex items-center justify-center gap-1.5"
+                className="flex-1 rounded-xl bg-cyan-600 hover:bg-cyan-700 py-2.5 text-xs font-bold text-white transition active:scale-95 disabled:opacity-55 flex items-center justify-center gap-1.5"
               >
                 {creatingFile && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                 Tạo
@@ -2977,7 +2977,7 @@ export default function ResourceTab() {
               <button
                 onClick={handleSaveLink}
                 disabled={savingLink || !linkName.trim() || !linkUrl.trim()}
-                className="px-5 py-2.5 rounded-xl bg-[#008080] hover:bg-[#006666] text-xs font-bold text-white transition active:scale-95 disabled:opacity-55 flex items-center justify-center gap-1.5 cursor-pointer"
+                className="px-5 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-xs font-bold text-white transition active:scale-95 disabled:opacity-55 flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 {savingLink && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                 Lưu
@@ -3264,7 +3264,7 @@ export default function ResourceTab() {
               <button
                 onClick={handleSaveNote}
                 disabled={savingNote}
-                className="px-5 py-2.5 rounded-xl bg-[#008080] hover:bg-[#006666] text-xs font-bold text-white transition active:scale-95 disabled:opacity-55 flex items-center justify-center gap-1.5 cursor-pointer"
+                className="px-5 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-xs font-bold text-white transition active:scale-95 disabled:opacity-55 flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 {savingNote && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                 Lưu
@@ -3313,7 +3313,7 @@ export default function ResourceTab() {
                   className={`h-20 w-20 rounded-full flex items-center justify-center shadow-lg transition active:scale-95 cursor-pointer z-10 ${
                     isRecording 
                       ? "bg-red-500 hover:bg-red-600 text-white" 
-                      : "bg-[#e0f2f1] hover:bg-[#b2dfdb] text-[#008080]"
+                      : "bg-cyan-50 hover:bg-cyan-100 text-cyan-600"
                   }`}
                 >
                   <Mic className={`h-8 w-8 ${isRecording ? "animate-pulse" : ""}`} />
@@ -3564,7 +3564,7 @@ export default function ResourceTab() {
                             onClick={() => setMoveFilterTab(tab as any)}
                             className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition ${
                               moveFilterTab === tab 
-                                ? "bg-[#008080] text-white" 
+                                ? "bg-cyan-600 text-white" 
                                 : "bg-slate-50 hover:bg-slate-100 text-slate-600"
                             }`}
                           >
@@ -3650,7 +3650,7 @@ export default function ResourceTab() {
                       toast.error(err.message);
                     }
                   }}
-                  className="p-2 hover:bg-slate-100 rounded-xl text-[#008080] border border-slate-200 transition cursor-pointer"
+                  className="p-2 hover:bg-slate-100 rounded-xl text-cyan-600 border border-slate-200 transition cursor-pointer"
                   title="Tạo thư mục mới tại đây"
                 >
                   <FolderPlus className="h-5 w-5" />
@@ -3703,7 +3703,7 @@ export default function ResourceTab() {
 
               {loadingMoveFolders ? (
                 <div className="flex flex-col items-center justify-center py-16">
-                  <Loader2 className="h-8 w-8 animate-spin text-[#008080]" />
+                  <Loader2 className="h-8 w-8 animate-spin text-cyan-600" />
                   <p className="text-xs text-gray-500 mt-2">Đang tải danh sách thư mục...</p>
                 </div>
               ) : moveFolders.filter(f => f.driveFileId !== moveTarget?.driveFileId).length === 0 ? (
@@ -3757,7 +3757,7 @@ export default function ResourceTab() {
             <div className="px-6 py-4 border-t border-slate-100 bg-white flex items-center justify-between shrink-0">
               <div className="text-xs text-slate-500 truncate max-w-[60%] text-left">
                 Di chuyển <span className="font-bold text-slate-800">"{moveTarget?.name}"</span> đến{" "}
-                <span className="font-bold text-[#008080]">
+                <span className="font-bold text-cyan-600">
                   {moveBreadcrumbs.length === 0
                     ? (moveSpace === "personal" ? "Thư mục gốc" : (rooms.find(r => r._id === moveSpace)?.name || "Thư mục gốc"))
                     : moveBreadcrumbs[moveBreadcrumbs.length - 1].name}
@@ -3773,7 +3773,7 @@ export default function ResourceTab() {
                 </button>
                 <button
                   onClick={handleConfirmMove}
-                  className="px-4 py-2 bg-[#008080] hover:bg-[#006666] text-white rounded-xl text-xs font-bold transition cursor-pointer shadow-sm"
+                  className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl text-xs font-bold transition cursor-pointer shadow-sm"
                 >
                   Đồng ý
                 </button>
