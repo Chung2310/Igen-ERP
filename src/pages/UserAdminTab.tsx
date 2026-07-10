@@ -317,7 +317,7 @@ export default function UserAdminTab() {
   // - Superadmin: see all, filter by selectedCompanyCode
   // - Admin: see all users in the same company (except superadmins)
   const visibleUsers = usersList.filter((usr) => {
-    // 1. Lá»c theo Doanh nghiá»‡p
+    // 1. Lọc theo Doanh nghiệp
     if (userProfile?.role === "superadmin") {
       if (selectedCompanyCode !== "all" && usr.companyCode !== selectedCompanyCode) {
         return false;
@@ -329,7 +329,7 @@ export default function UserAdminTab() {
       }
     }
 
-    // 2. Lá»c theo TÃªn hoáº·c Email
+    // 2. Lọc theo Tên hoặc Email
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim();
       const matchName = usr.displayName?.toLowerCase().includes(query);
@@ -337,7 +337,7 @@ export default function UserAdminTab() {
       if (!matchName && !matchEmail) return false;
     }
 
-    // 3. Lá»c theo NgÃ y Ä‘Äƒng kÃ½ (createdAt)
+    // 3. Lọc theo Ngày đăng ký (createdAt)
     if (filterStartDate || filterEndDate) {
       if (!usr.createdAt) return false;
       const userDate = new Date(usr.createdAt);

@@ -22,7 +22,7 @@ const BANK_NAMES: Record<string, string> = {
 
 function removeVietnameseTones(str: string): string {
   let result = str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  result = result.replace(/đ/g, "d").replace(/Đ/g, "D");
+  result = result.replace(//g, "d").replace(//g, "D");
   result = result.replace(/[^a-zA-Z0-9\s-_/.]/g, "");
   result = result.replace(/\s+/g, " ");
   return result.trim().toUpperCase();
@@ -64,7 +64,7 @@ export function AddPaymentModal({ student, isOpen, onClose, onSuccess }: AddPaym
     const accountNo = localConfig?.accountNo || user?.bankAccountNo || '';
     const accountName = localConfig?.accountName || user?.bankAccountName || user?.displayName || '';
     const enabled = localConfig?.enabled ?? (user?.bankQrEnabled !== false);
-    const template = localConfig?.template || '[MÃ£ HV] - [Há» tÃªn] - Ná»™p há»c phÃ­ khÃ³a {hang}';
+    const template = localConfig?.template || '[Mã HV] - [Họ tên] - Nộp học phí khóa {hang}';
     return { enabled, bankId, accountNo, accountName, template };
   });
 
@@ -76,7 +76,7 @@ export function AddPaymentModal({ student, isOpen, onClose, onSuccess }: AddPaym
       bankId: localConfig?.bankId || user?.bankId || '',
       accountNo: localConfig?.accountNo || user?.bankAccountNo || '',
       accountName: localConfig?.accountName || user?.bankAccountName || user?.displayName || '',
-      template: localConfig?.template || '[MÃ£ HV] - [Há» tÃªn] - Ná»™p há»c phÃ­ khÃ³a {hang}',
+      template: localConfig?.template || '[Mã HV] - [Họ tên] - Nộp học phí khóa {hang}',
     });
   }, [isOpen, user]);
 
@@ -93,8 +93,8 @@ export function AddPaymentModal({ student, isOpen, onClose, onSuccess }: AddPaym
 
         if (vietqrConfig.enabled && vietqrConfig.template) {
           const compiled = vietqrConfig.template
-            .replace(/\[MÃ£ HV\]|\[Ma HV\]/gi, student.id || student.idCard || '')
-            .replace(/\[Há» tÃªn\]|\[Ho ten\]/gi, student.fullName || '')
+            .replace(/\[Mã HV\]|\[Ma HV\]/gi, student.id || student.idCard || '')
+            .replace(/\[Họ tên\]|\[Ho ten\]/gi, student.fullName || '')
             .replace(/\{hang\}|\{rank\}/gi, student.rank || '');
           setNote(removeVietnameseTones(compiled));
         } else {
@@ -120,12 +120,12 @@ export function AddPaymentModal({ student, isOpen, onClose, onSuccess }: AddPaym
       const remaining = totalFee - paidSoFar;
 
       if (isNaN(payAmount) || payAmount <= 0) {
-        toast.warning('Vui lÃ²ng nháº­p sá»‘ tiá»n há»£p lá»‡');
+        toast.warning('Vui lòng nhập số tiền hợp lệ');
         return;
       }
 
       if (payAmount > remaining) {
-        toast.warning('Sá»‘ tiá»n Ä‘Ã³ng vÆ°á»£t quÃ¡ sá»‘ tiá»n cÃ²n ná»£. Vui lÃ²ng kiá»ƒm tra láº¡i!');
+        toast.warning('Số tiền đóng vượt quá số tiền còn nợ. Vui lòng kiểm tra lại!');
         return;
       }
 
@@ -145,12 +145,12 @@ export function AddPaymentModal({ student, isOpen, onClose, onSuccess }: AddPaym
       window.dispatchEvent(new Event("payment-mutation"));
       window.dispatchEvent(new Event("student-mutation"));
 
-      toast.success('Ghi nháº­n thanh toÃ¡n thÃ nh cÃ´ng!');
+      toast.success('Ghi nhận thanh toán thành công!');
       onSuccess();
       onClose();
     } catch (error: unknown) {
       console.error("Payment Submission Error:", error);
-      toast.error('ÄÃ£ cÃ³ lá»—i xáº£y ra khi ghi nháº­n thanh toÃ¡n: ' + (error instanceof Error ? error.message : 'Lá»—i khÃ´ng xÃ¡c Ä‘á»‹nh'));
+      toast.error('Đã có lỗi xảy ra khi ghi nhận thanh toán: ' + (error instanceof Error ? error.message : 'Lỗi không xác định'));
     } finally {
       setIsSubmitting(false);
     }
@@ -180,7 +180,7 @@ export function AddPaymentModal({ student, isOpen, onClose, onSuccess }: AddPaym
           className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
         >
           <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between shrink-0">
-            <h3 className="text-xl font-extrabold text-slate-800">Thanh toÃ¡n há»c phÃ­</h3>
+            <h3 className="text-xl font-extrabold text-slate-800">Thanh toán học phí</h3>
             <button onClick={onClose} className="p-2 rounded-full hover:bg-slate-100 text-slate-400">
               <X className="w-5 h-5" />
             </button>
@@ -194,10 +194,10 @@ export function AddPaymentModal({ student, isOpen, onClose, onSuccess }: AddPaym
               <div>
                 <p className="text-sm font-black text-slate-900 leading-none">{student.fullName}</p>
                 <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 mt-1.5 ">
-                  <p className="text-[10px] font-bold text-cyan-500 uppercase tracking-wider">Há»c phÃ­: {student.fee}Ä‘</p>
+                  <p className="text-[10px] font-bold text-cyan-500 uppercase tracking-wider">Học phí: {student.fee}đ</p>
                   <div className="hidden sm:block w-1 h-1 rounded-full bg-slate-300" />
                   <p className="text-[10px] font-bold text-rose-500 uppercase tracking-wider">
-                    CÃ²n ná»£: {new Intl.NumberFormat('vi-VN').format(parseInt(student.fee.replace(/\D/g, '')) - (student.paidAmount || 0))}Ä‘
+                    Còn nợ: {new Intl.NumberFormat('vi-VN').format(parseInt(student.fee.replace(/\D/g, '')) - (student.paidAmount || 0))}đ
                   </p>
                 </div>
               </div>
@@ -205,7 +205,7 @@ export function AddPaymentModal({ student, isOpen, onClose, onSuccess }: AddPaym
 
             <div className="space-y-4">
               <div className="space-y-2">
-                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Sá»‘ tiá»n Ä‘Ã³ng (VNÄ)*</label>
+                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Số tiền đóng (VNĐ)*</label>
                 <div className="relative">
                   <input
                     type="text"
@@ -215,12 +215,12 @@ export function AddPaymentModal({ student, isOpen, onClose, onSuccess }: AddPaym
                     placeholder="VD: 5.000.000"
                     className="w-full h-14 bg-slate-50 px-5 rounded-2xl border border-slate-200 text-lg font-black text-cyan-600 outline-none focus:border-cyan-600 focus:ring-4 focus:ring-cyan-500/5 transition-all"
                   />
-                  <span className="absolute right-5 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">VNÄ</span>
+                  <span className="absolute right-5 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">VNĐ</span>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">NgÃ y Ä‘Ã³ng</label>
+                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Ngày đóng</label>
                 <div className="relative">
                   <input
                     type="date"
@@ -234,13 +234,13 @@ export function AddPaymentModal({ student, isOpen, onClose, onSuccess }: AddPaym
               </div>
 
               <div className="space-y-2">
-                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Ghi chÃº</label>
+                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Ghi chú</label>
                 <div className="relative">
                   <textarea
                     rows={3}
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
-                    placeholder="VD: ÄÃ³ng Ä‘á»£t 1, chuyá»ƒn khoáº£n..."
+                    placeholder="VD: Đóng đợt 1, chuyển khoản..."
                     className="w-full p-5 bg-slate-50 rounded-2xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-cyan-600 focus:ring-4 focus:ring-cyan-500/5 transition-all resize-none"
                   />
                   <FileText className="absolute right-5 top-5 w-5 h-5 text-slate-400 pointer-events-none" />
@@ -261,26 +261,26 @@ export function AddPaymentModal({ student, isOpen, onClose, onSuccess }: AddPaym
                   <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                        <QrCode className="w-3.5 h-3.5 text-cyan-600" /> QuÃ©t mÃ£ thanh toÃ¡n (VietQR)
+                        <QrCode className="w-3.5 h-3.5 text-cyan-600" /> Quét mã thanh toán (VietQR)
                       </span>
-                      <span className="text-[9px] font-bold text-emerald-500 bg-emerald-50 px-1.5 py-0.5 rounded-md">Tá»± Ä‘á»™ng Ä‘iá»n sá»‘ tiá»n</span>
+                      <span className="text-[9px] font-bold text-emerald-500 bg-emerald-50 px-1.5 py-0.5 rounded-md">Tự động điền số tiền</span>
                     </div>
                     <div className="flex gap-4 items-center">
                       <div className="bg-white p-2 border border-slate-100 rounded-xl shrink-0 flex items-center justify-center">
                         <img
                           src={`https://img.vietqr.io/image/${getVietQRBankCode(vietqrConfig.bankId)}-${vietqrConfig.accountNo}-compact2.png?amount=${amount.replace(/\D/g, '') || '0'}&addInfo=${encodeURIComponent(qrCodeMemo)}&accountName=${encodeURIComponent(vietqrConfig.accountName)}`}
-                          alt="VietQR Chuyá»ƒn khoáº£n"
+                          alt="VietQR Chuyển khoản"
                           className="w-24 h-24 object-contain"
                         />
                       </div>
                       <div className="text-xs space-y-1.5 select-all flex-1 min-w-0">
-                        <p className="font-medium text-slate-500">NgÃ¢n hÃ ng: <span className="text-slate-800 font-bold uppercase">{BANK_NAMES[vietqrConfig.bankId] || vietqrConfig.bankId.toUpperCase()}</span></p>
-                        <p className="font-medium text-slate-500">Sá»‘ tÃ i khoáº£n: <span className="text-slate-800 font-bold">{vietqrConfig.accountNo}</span></p>
-                        <p className="font-medium text-slate-500">Chá»§ tÃ i khoáº£n: <span className="text-slate-800 font-bold uppercase">{vietqrConfig.accountName}</span></p>
+                        <p className="font-medium text-slate-500">Ngân hàng: <span className="text-slate-800 font-bold uppercase">{BANK_NAMES[vietqrConfig.bankId] || vietqrConfig.bankId.toUpperCase()}</span></p>
+                        <p className="font-medium text-slate-500">Số tài khoản: <span className="text-slate-800 font-bold">{vietqrConfig.accountNo}</span></p>
+                        <p className="font-medium text-slate-500">Chủ tài khoản: <span className="text-slate-800 font-bold uppercase">{vietqrConfig.accountName}</span></p>
                         <p className="font-medium text-slate-500 flex flex-col gap-0.5">
-                          <span>Ná»™i dung chuyá»ƒn khoáº£n QR:</span>
+                          <span>Nội dung chuyển khoản QR:</span>
                           <span className="bg-slate-200/80 text-slate-800 font-mono px-1.5 py-0.5 rounded text-[10px] font-semibold break-all inline-block select-all">
-                            {qrCodeMemo || '(Trá»‘ng)'}
+                            {qrCodeMemo || '(Trống)'}
                           </span>
                         </p>
                       </div>
@@ -296,7 +296,7 @@ export function AddPaymentModal({ student, isOpen, onClose, onSuccess }: AddPaym
                 onClick={onClose}
                 className="flex-1 h-14 bg-slate-100 text-slate-600 rounded-2xl text-base font-black hover:bg-slate-200 transition-all"
               >
-                Há»§y
+                Hủy
               </button>
               <button
                 type="submit"
@@ -304,7 +304,7 @@ export function AddPaymentModal({ student, isOpen, onClose, onSuccess }: AddPaym
                 className="flex-[2] flex items-center justify-center gap-3 h-14 bg-cyan-600 text-white rounded-2xl text-base font-black shadow-xl shadow-cyan-100 hover:bg-cyan-700 transition-all disabled:opacity-50"
               >
                 {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-                XÃ¡c nháº­n
+                Xác nhận
               </button>
             </div>
           </form>

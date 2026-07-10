@@ -354,7 +354,7 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
                 <button
                   onClick={() => setShowUtilities(false)}
                   className={`p-1.5 rounded-full transition-all active:scale-90 ${isDark ? "text-neutral-400 hover:text-white hover:bg-neutral-800/50" : "text-gray-400 hover:text-slate-800 hover:bg-gray-100"}`}
-                  aria-label="ÄÃ³ng Menu"
+                  aria-label="Đóng Menu"
                 >
                   <X className="h-4.5 w-4.5" />
                 </button>
@@ -362,15 +362,15 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
 
               {/* Two Column Layout */}
               <div className="flex gap-6">
-                {/* Column Left (62%): YÃªu thÃ­ch & TÃ­nh nÄƒng */}
+                {/* Column Left (62%): Yêu thích & Tính năng */}
                 <div className={`flex-[1.6] pr-6 border-r ${isDark ? "border-neutral-800/85" : "border-gray-100"}`}>
-                  {/* Group YÃªu thÃ­ch */}
+                  {/* Group Yêu thích */}
                   <div>
-                    <h3 className={`text-[11px] font-bold uppercase tracking-wider mb-2.5 mt-2 ${isDark ? "text-neutral-500" : "text-slate-400"}`}>YÃªu thÃ­ch</h3>
+                    <h3 className={`text-[11px] font-bold uppercase tracking-wider mb-2.5 mt-2 ${isDark ? "text-neutral-500" : "text-slate-400"}`}>Yêu thích</h3>
                     <div className="space-y-1">
                       <div
                         onClick={() => {
-                          onSearchSelect("NHÃ‚N Sá»°" as TabType, "SÆ  Äá»’ Tá»” CHá»¨C");
+                          onSearchSelect("NHÂN SỰ" as TabType, "SƠ ĐỒ TỔ CHỨC");
                           setShowUtilities(false);
                         }}
                         className={`group flex items-start gap-3.5 py-2 px-3 rounded-2xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
@@ -379,14 +379,14 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
                           <FolderTree className="h-4.5 w-4.5" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>PhÃ²ng ban</p>
-                          <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>Quáº£n lÃ½ cÃ¡c phÃ²ng ban</p>
+                          <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>Phòng ban</p>
+                          <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>Quản lý các phòng ban</p>
                         </div>
                       </div>
 
                       <div
                         onClick={() => {
-                          onSearchSelect("NHÃ‚N Sá»°" as TabType, "QUY TRÃŒNH");
+                          onSearchSelect("NHÂN SỰ" as TabType, "QUY TRÌNH");
                           setShowUtilities(false);
                         }}
                         className={`group flex items-start gap-3.5 py-2 px-3 rounded-2xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
@@ -395,20 +395,20 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
                           <GitBranch className="h-4.5 w-4.5" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>Quy trÃ¬nh cÃ´ng viá»‡c</p>
-                          <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>Quy trÃ¬nh lÃ m viá»‡c</p>
+                          <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>Quy trình công việc</p>
+                          <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>Quy trình làm việc</p>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  {/* Group TÃ­nh nÄƒng */}
+                  {/* Group Tính năng */}
                   <div className="mt-5">
-                    <h3 className={`text-[11px] font-bold uppercase tracking-wider mb-2.5 ${isDark ? "text-neutral-500" : "text-slate-400"}`}>TÃ­nh nÄƒng</h3>
+                    <h3 className={`text-[11px] font-bold uppercase tracking-wider mb-2.5 ${isDark ? "text-neutral-500" : "text-slate-400"}`}>Tính năng</h3>
                     <div className={`space-y-1 max-h-[300px] overflow-y-auto pr-1 scrollbar-thin scrollbar-track-transparent ${isDark ? "scrollbar-thumb-neutral-800" : "scrollbar-thumb-gray-200"}`}>
                       <div
                         onClick={() => {
-                          onSearchSelect("Tá»”NG QUAN" as TabType);
+                          onSearchSelect("TỔNG QUAN" as TabType);
                           setShowUtilities(false);
                         }}
                         className={`group flex items-start gap-3.5 py-2 px-3 rounded-2xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
@@ -417,14 +417,14 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
                           <LayoutDashboard className="h-4.5 w-4.5" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>Tá»•ng quan</p>
-                          <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>Xem tá»•ng quÃ¡t hoáº¡t Ä‘á»™ng</p>
+                          <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>Tổng quan</p>
+                          <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>Xem tổng quát hoạt động</p>
                         </div>
                       </div>
 
                       <div
                         onClick={() => {
-                          onSearchSelect("NHÃ‚N Sá»°" as TabType, "GIAO VIá»†C KANBAN");
+                          onSearchSelect("NHÂN SỰ" as TabType, "GIAO VIỆC KANBAN");
                           setShowUtilities(false);
                         }}
                         className={`group flex items-start gap-3.5 py-2 px-3 rounded-2xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
@@ -433,14 +433,14 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
                           <FileText className="h-4.5 w-4.5" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>Viá»‡c cá»§a tÃ´i</p>
-                          <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>CÃ¡c cÃ´ng viá»‡c cá»§a tÃ´i</p>
+                          <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>Việc của tôi</p>
+                          <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>Các công việc của tôi</p>
                         </div>
                       </div>
 
                       <div
                         onClick={() => {
-                          onSearchSelect("TRÃ’ CHUYá»†N" as TabType);
+                          onSearchSelect("TRÒ CHUYỆN" as TabType);
                           setShowUtilities(false);
                         }}
                         className={`group flex items-start gap-3.5 py-2 px-3 rounded-2xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
@@ -449,14 +449,14 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
                           <MessageSquare className="h-4.5 w-4.5" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>Nháº¯n tin & gá»i Ä‘iá»‡n</p>
-                          <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>TrÃ² chuyá»‡n vÃ  gá»i Ä‘iá»‡n audio/video</p>
+                          <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>Nhắn tin & gọi điện</p>
+                          <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>Trò chuyện và gọi điện audio/video</p>
                         </div>
                       </div>
 
                       <div
                         onClick={() => {
-                          onSearchSelect("TRÃ’ CHUYá»†N" as TabType);
+                          onSearchSelect("TRÒ CHUYỆN" as TabType);
                           setShowUtilities(false);
                         }}
                         className={`group flex items-start gap-3.5 py-2 px-3 rounded-2xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
@@ -465,14 +465,14 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
                           <Video className="h-4.5 w-4.5" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>Cuá»™c há»p trá»±c tuyáº¿n</p>
-                          <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>Táº¡o cuá»™c há»p trá»±c tuyáº¿n giá»‘ng nhÆ° Zoom, Google Meet</p>
+                          <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>Cuộc họp trực tuyến</p>
+                          <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>Tạo cuộc họp trực tuyến giống như Zoom, Google Meet</p>
                         </div>
                       </div>
 
                       <div
                         onClick={() => {
-                          onSearchSelect("NHÃ‚N Sá»°" as TabType, "Lá»ŠCH");
+                          onSearchSelect("NHÂN SỰ" as TabType, "LỊCH");
                           setShowUtilities(false);
                         }}
                         className={`group flex items-start gap-3.5 py-2 px-3 rounded-2xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
@@ -481,14 +481,14 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
                           <Calendar className="h-4.5 w-4.5" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>Lá»‹ch</p>
-                          <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>Lá»‹ch cÃ´ng viá»‡c vÃ  sá»± kiá»‡n</p>
+                          <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>Lịch</p>
+                          <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>Lịch công việc và sự kiện</p>
                         </div>
                       </div>
 
                       <div
                         onClick={() => {
-                          onSearchSelect("QUáº¢N LÃ TÃ€I NGUYÃŠN" as TabType);
+                          onSearchSelect("QUẢN LÝ TÀI NGUYÊN" as TabType);
                           setShowUtilities(false);
                         }}
                         className={`group flex items-start gap-3.5 py-2 px-3 rounded-2xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
@@ -497,14 +497,14 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
                           <FolderOpen className="h-4.5 w-4.5" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>TÃ i nguyÃªn</p>
-                          <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>CÃ¡c tÃ i nguyÃªn (files, docs, links...)</p>
+                          <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>Tài nguyên</p>
+                          <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>Các tài nguyên (files, docs, links...)</p>
                         </div>
                       </div>
 
                       <div
                         onClick={() => {
-                          onSearchSelect("TRÃ’ CHUYá»†N" as TabType);
+                          onSearchSelect("TRÒ CHUYỆN" as TabType);
                           setShowUtilities(false);
                         }}
                         className={`group flex items-start gap-3.5 py-2 px-3 rounded-2xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
@@ -513,14 +513,14 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
                           <Users className="h-4.5 w-4.5" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>NhÃ³m cá»§a tÃ´i</p>
-                          <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>CÃ¡c nhÃ³m lÃ m viá»‡c vÃ  trÃ² chuyá»‡n</p>
+                          <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>Nhóm của tôi</p>
+                          <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>Các nhóm làm việc và trò chuyện</p>
                         </div>
                       </div>
 
                       <div
                         onClick={() => {
-                          onSearchSelect("NHÃ‚N Sá»°" as TabType, "GIAO VIá»†C KANBAN");
+                          onSearchSelect("NHÂN SỰ" as TabType, "GIAO VIỆC KANBAN");
                           setShowUtilities(false);
                         }}
                         className={`group flex items-start gap-3.5 py-2 px-3 rounded-2xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
@@ -529,15 +529,15 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
                           <Briefcase className="h-4.5 w-4.5" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>LÄ©nh vá»±c, dá»± Ã¡n</p>
-                          <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>LÄ©nh vá»±c hoáº¡t Ä‘á»™ng vÃ  dá»± Ã¡n</p>
+                          <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>Lĩnh vực, dự án</p>
+                          <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>Lĩnh vực hoạt động và dự án</p>
                         </div>
                       </div>
 
                       {(userProfile?.role === "superadmin" || userProfile?.role === "admin") && (
                         <div
                           onClick={() => {
-                            onSearchSelect("QUáº¢N TRá»Š USER" as TabType);
+                            onSearchSelect("QUẢN TRỊ USER" as TabType);
                             setShowUtilities(false);
                           }}
                           className={`group flex items-start gap-3.5 py-2 px-3 rounded-2xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
@@ -546,8 +546,8 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
                             <Shield className="h-4.5 w-4.5" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>ThÃ nh viÃªn</p>
-                            <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>Quáº£n lÃ½ thÃ nh viÃªn & phÃ¢n quyá»n</p>
+                            <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>Thành viên</p>
+                            <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>Quản lý thành viên & phân quyền</p>
                           </div>
                         </div>
                       )}
@@ -555,93 +555,93 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
                   </div>
                 </div>
 
-                {/* Column Right (38%): Táº¡o & CÃ¡ nhÃ¢n */}
+                {/* Column Right (38%): Tạo & Cá nhân */}
                 <div className="w-[190px] shrink-0">
-                  {/* Group Táº¡o */}
+                  {/* Group Tạo */}
                   <div>
-                    <h3 className={`text-[11px] font-bold uppercase tracking-wider mb-2.5 mt-2 ${isDark ? "text-neutral-500" : "text-slate-400"}`}>Táº¡o</h3>
+                    <h3 className={`text-[11px] font-bold uppercase tracking-wider mb-2.5 mt-2 ${isDark ? "text-neutral-500" : "text-slate-400"}`}>Tạo</h3>
                     <div className="space-y-1">
                       <div
                         onClick={() => {
-                          onSearchSelect("NHÃ‚N Sá»°" as TabType, "GIAO VIá»†C KANBAN");
+                          onSearchSelect("NHÂN SỰ" as TabType, "GIAO VIỆC KANBAN");
                           setShowUtilities(false);
                         }}
                         className={`group flex items-center gap-3 py-2 px-3 rounded-xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
                       >
                         <FileText className={`h-4 w-4 transition-colors ${isDark ? "text-neutral-400 group-hover:text-white" : "text-slate-400 group-hover:text-slate-800"}`} />
-                        <span className={`text-[13px] font-semibold transition-colors ${isDark ? "text-neutral-300 group-hover:text-white" : "text-slate-650 group-hover:text-slate-900"}`}>CÃ´ng viá»‡c</span>
+                        <span className={`text-[13px] font-semibold transition-colors ${isDark ? "text-neutral-300 group-hover:text-white" : "text-slate-650 group-hover:text-slate-900"}`}>Công việc</span>
                       </div>
 
                       <div
                         onClick={() => {
-                          onSearchSelect("TRÃ’ CHUYá»†N" as TabType);
+                          onSearchSelect("TRÒ CHUYỆN" as TabType);
                           setShowUtilities(false);
                         }}
                         className={`group flex items-center gap-3 py-2 px-3 rounded-xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
                       >
                         <Users className={`h-4 w-4 transition-colors ${isDark ? "text-neutral-400 group-hover:text-white" : "text-slate-400 group-hover:text-slate-800"}`} />
-                        <span className={`text-[13px] font-semibold transition-colors ${isDark ? "text-neutral-300 group-hover:text-white" : "text-slate-650 group-hover:text-slate-900"}`}>NhÃ³m</span>
+                        <span className={`text-[13px] font-semibold transition-colors ${isDark ? "text-neutral-300 group-hover:text-white" : "text-slate-650 group-hover:text-slate-900"}`}>Nhóm</span>
                       </div>
 
                       <div
                         onClick={() => {
-                          onSearchSelect("TRÃ’ CHUYá»†N" as TabType);
+                          onSearchSelect("TRÒ CHUYỆN" as TabType);
                           setShowUtilities(false);
                         }}
                         className={`group flex items-center gap-3 py-2 px-3 rounded-xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
                       >
                         <MessageSquare className={`h-4 w-4 transition-colors ${isDark ? "text-neutral-400 group-hover:text-white" : "text-slate-400 group-hover:text-slate-800"}`} />
-                        <span className={`text-[13px] font-semibold transition-colors ${isDark ? "text-neutral-300 group-hover:text-white" : "text-slate-650 group-hover:text-slate-900"}`}>Nháº¯n tin</span>
+                        <span className={`text-[13px] font-semibold transition-colors ${isDark ? "text-neutral-300 group-hover:text-white" : "text-slate-650 group-hover:text-slate-900"}`}>Nhắn tin</span>
                       </div>
 
                       <div
                         onClick={() => {
-                          onSearchSelect("TRÃ’ CHUYá»†N" as TabType);
+                          onSearchSelect("TRÒ CHUYỆN" as TabType);
                           setShowUtilities(false);
                         }}
                         className={`group flex items-center gap-3 py-2 px-3 rounded-xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
                       >
                         <Video className={`h-4 w-4 transition-colors ${isDark ? "text-neutral-400 group-hover:text-white" : "text-slate-400 group-hover:text-slate-800"}`} />
-                        <span className={`text-[13px] font-semibold transition-colors ${isDark ? "text-neutral-300 group-hover:text-white" : "text-slate-650 group-hover:text-slate-900"}`}>Cuá»™c gá»i video</span>
+                        <span className={`text-[13px] font-semibold transition-colors ${isDark ? "text-neutral-300 group-hover:text-white" : "text-slate-650 group-hover:text-slate-900"}`}>Cuộc gọi video</span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Group CÃ¡ nhÃ¢n */}
+                  {/* Group Cá nhân */}
                   <div className={`mt-5 border-t pt-4 ${isDark ? "border-neutral-800/80" : "border-gray-100"}`}>
-                    <h3 className={`text-[11px] font-bold uppercase tracking-wider mb-2.5 ${isDark ? "text-neutral-500" : "text-slate-400"}`}>CÃ¡ nhÃ¢n</h3>
+                    <h3 className={`text-[11px] font-bold uppercase tracking-wider mb-2.5 ${isDark ? "text-neutral-500" : "text-slate-400"}`}>Cá nhân</h3>
                     <div className="space-y-1">
                       <div
                         onClick={() => {
-                          onSearchSelect("NHÃ‚N Sá»°" as TabType, "Lá»ŠCH");
+                          onSearchSelect("NHÂN SỰ" as TabType, "LỊCH");
                           setShowUtilities(false);
                         }}
                         className={`group flex items-center gap-3 py-2 px-3 rounded-xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
                       >
                         <Calendar className={`h-4 w-4 transition-colors ${isDark ? "text-neutral-400 group-hover:text-white" : "text-slate-400 group-hover:text-slate-800"}`} />
-                        <span className={`text-[13px] font-semibold transition-colors ${isDark ? "text-neutral-300 group-hover:text-white" : "text-slate-650 group-hover:text-slate-900"}`}>Nghá»‰ phÃ©p</span>
+                        <span className={`text-[13px] font-semibold transition-colors ${isDark ? "text-neutral-300 group-hover:text-white" : "text-slate-650 group-hover:text-slate-900"}`}>Nghỉ phép</span>
                       </div>
 
                       <div
                         onClick={() => {
-                          onSearchSelect("NHÃ‚N Sá»°" as TabType, "Lá»ŠCH");
+                          onSearchSelect("NHÂN SỰ" as TabType, "LỊCH");
                           setShowUtilities(false);
                         }}
                         className={`group flex items-center gap-3 py-2 px-3 rounded-xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
                       >
                         <Calendar className={`h-4 w-4 transition-colors ${isDark ? "text-neutral-400 group-hover:text-white" : "text-slate-400 group-hover:text-slate-800"}`} />
-                        <span className={`text-[13px] font-semibold transition-colors ${isDark ? "text-neutral-300 group-hover:text-white" : "text-slate-650 group-hover:text-slate-900"}`}>Sá»± kiá»‡n</span>
+                        <span className={`text-[13px] font-semibold transition-colors ${isDark ? "text-neutral-300 group-hover:text-white" : "text-slate-650 group-hover:text-slate-900"}`}>Sự kiện</span>
                       </div>
 
                       <div
                         onClick={() => {
-                          onSearchSelect("NHÃ‚N Sá»°" as TabType, "Lá»ŠCH");
+                          onSearchSelect("NHÂN SỰ" as TabType, "LỊCH");
                           setShowUtilities(false);
                         }}
                         className={`group flex items-center gap-3 py-2 px-3 rounded-xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
                       >
                         <Clock className={`h-4 w-4 transition-colors ${isDark ? "text-neutral-400 group-hover:text-white" : "text-slate-400 group-hover:text-slate-800"}`} />
-                        <span className={`text-[13px] font-semibold transition-colors ${isDark ? "text-neutral-300 group-hover:text-white" : "text-slate-650 group-hover:text-slate-900"}`}>Nháº¯c nhá»Ÿ</span>
+                        <span className={`text-[13px] font-semibold transition-colors ${isDark ? "text-neutral-300 group-hover:text-white" : "text-slate-650 group-hover:text-slate-900"}`}>Nhắc nhở</span>
                       </div>
                     </div>
                   </div>
