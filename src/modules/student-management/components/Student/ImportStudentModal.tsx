@@ -56,6 +56,7 @@ const formatExcelPhone = (phoneVal: unknown): string => {
 };
 
 export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter }: ImportStudentModalProps) {
+  const { userProfile: user } = useAuth();
   const businessType = 'general';
   
   const fileInputRef = useRef<HTMLInputElement>(null);
