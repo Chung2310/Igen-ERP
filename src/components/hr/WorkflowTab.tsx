@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   Plus,
   Save,
@@ -2195,6 +2195,90 @@ export default function WorkflowTab({
           </div>
         </div>
       )}
+      {/* Custom confirm dialog */}
+      {confirmState && (
+        <ConfirmDialog
+          isOpen={confirmState.isOpen}
+          title={confirmState.title}
+          description={confirmState.description}
+          confirmLabel={confirmState.confirmLabel}
+          cancelLabel={confirmState.cancelLabel}
+          onClose={() => setConfirmState(null)}
+          onConfirm={confirmState.onConfirm}
+        />
+      )}
+
+      {/* Custom link modal for Case Creation */}
+      {caseLinkModal && caseLinkModal.open && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fade-in"
+          onClick={() => setCaseLinkModal(null)}
+        >
+          <div
+            className={`w-full max-w-md rounded-2xl border shadow-2xl overflow-hidden flex flex-col transition-all transform scale-100 ${
+              isDark
+                ? "bg-[#222222] text-zinc-150 border-zinc-800"
+                : "bg-white text-slate-850 border-gray-200"
+            }`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Title */}
+            <div className={`px-5 py-3.5 border-b text-xs font-extrabold uppercase tracking-wider ${
+              isDark ? "border-zinc-800 bg-[#1d1d1d] text-cyan-400" : "border-gray-200 bg-slate-50 text-cyan-600"
+            }`}>
+              {caseLinkModal.title}
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 space-y-4">
+              <span className={`text-[11px] font-bold block ${isDark ? "text-zinc-400" : "text-slate-500"}`}>
+                Vui lòng nhập liên kết hợp lệ bắt đầu bằng http:// hoặc https://
+              </span>
+              <input
+                type="text"
+                value={caseLinkModal.value}
+                onChange={(e) => setCaseLinkModal({ ...caseLinkModal, value: e.target.value })}
+                placeholder={caseLinkModal.placeholder}
+                autoFocus
+                className={`w-full px-3 py-2.5 rounded-xl text-xs font-semibold outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all ${
+                  isDark
+                    ? "bg-[#2c2c2c] border border-zinc-700 text-zinc-200"
+                    : "bg-white border border-gray-250 text-slate-850"
+                }`}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleConfirmCaseLink();
+                  }
+                }}
+              />
+            </div>
+
+            {/* Modal Footer */}
+            <div className={`px-5 py-3.5 border-t flex justify-end gap-2.5 ${
+              isDark ? "border-zinc-800 bg-[#1d1d1d]" : "border-gray-200 bg-slate-50"
+            }`}>
+              <button
+                type="button"
+                onClick={() => setCaseLinkModal(null)}
+                className={`px-4 py-2 rounded-xl text-xs font-bold border transition-colors cursor-pointer ${
+                  isDark
+                    ? "border-zinc-700 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850"
+                    : "border-gray-250 text-slate-650 hover:bg-gray-100"
+                }`}
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmCaseLink}
+                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-extrabold transition-all cursor-pointer shadow-sm active:scale-98 shadow-indigo-500/15"
+              >
+                Đồng ý
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -2783,91 +2867,6 @@ function NewWorkflowWizard({
             setEditingStep(null);
           }}
         />
-      )}
-
-      {/* Custom confirm dialog */}
-      {confirmState && (
-        <ConfirmDialog
-          isOpen={confirmState.isOpen}
-          title={confirmState.title}
-          description={confirmState.description}
-          confirmLabel={confirmState.confirmLabel}
-          cancelLabel={confirmState.cancelLabel}
-          onClose={() => setConfirmState(null)}
-          onConfirm={confirmState.onConfirm}
-        />
-      )}
-
-      {/* Custom link modal for Case Creation */}
-      {caseLinkModal && caseLinkModal.open && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fade-in"
-          onClick={() => setCaseLinkModal(null)}
-        >
-          <div
-            className={`w-full max-w-md rounded-2xl border shadow-2xl overflow-hidden flex flex-col transition-all transform scale-100 ${
-              isDark
-                ? "bg-[#222222] text-zinc-150 border-zinc-800"
-                : "bg-white text-slate-850 border-gray-200"
-            }`}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Modal Title */}
-            <div className={`px-5 py-3.5 border-b text-xs font-extrabold uppercase tracking-wider ${
-              isDark ? "border-zinc-800 bg-[#1d1d1d] text-cyan-400" : "border-gray-200 bg-slate-50 text-cyan-600"
-            }`}>
-              {caseLinkModal.title}
-            </div>
-
-            {/* Modal Body */}
-            <div className="p-5 space-y-4">
-              <span className={`text-[11px] font-bold block ${isDark ? "text-zinc-400" : "text-slate-500"}`}>
-                Vui lòng nhập liên kết hợp lệ bắt đầu bằng http:// hoặc https://
-              </span>
-              <input
-                type="text"
-                value={caseLinkModal.value}
-                onChange={(e) => setCaseLinkModal({ ...caseLinkModal, value: e.target.value })}
-                placeholder={caseLinkModal.placeholder}
-                autoFocus
-                className={`w-full px-3 py-2.5 rounded-xl text-xs font-semibold outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all ${
-                  isDark
-                    ? "bg-[#2c2c2c] border border-zinc-700 text-zinc-200"
-                    : "bg-white border border-gray-250 text-slate-850"
-                }`}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    handleConfirmCaseLink();
-                  }
-                }}
-              />
-            </div>
-
-            {/* Modal Footer */}
-            <div className={`px-5 py-3.5 border-t flex justify-end gap-2.5 ${
-              isDark ? "border-zinc-800 bg-[#1d1d1d]" : "border-gray-200 bg-slate-50"
-            }`}>
-              <button
-                type="button"
-                onClick={() => setCaseLinkModal(null)}
-                className={`px-4 py-2 rounded-xl text-xs font-bold border transition-colors cursor-pointer ${
-                  isDark
-                    ? "border-zinc-700 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850"
-                    : "border-gray-250 text-slate-650 hover:bg-gray-100"
-                }`}
-              >
-                Hủy
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmCaseLink}
-                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-extrabold transition-all cursor-pointer shadow-sm active:scale-98 shadow-indigo-500/15"
-              >
-                Đồng ý
-              </button>
-            </div>
-          </div>
-        </div>
       )}
     </div>
   );
