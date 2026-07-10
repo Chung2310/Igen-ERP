@@ -335,6 +335,18 @@ export const crudService = {
     const { companyCode: _cCode, _id: _itemId, id: _plainId, ...rawUpdatePayload } = data;
     const updatePayload = sanitizeInventoryPayload(modelName, rawUpdatePayload);
 
+    // Enforce the planned start time for every task update entry point, not only
+    // the dedicated Kanban router.
+    if (modelName === "kanban-tasks" && ["Done", "done"].includes(updatePayload.status)) {
+      const existingTask = await KanbanTaskModel.findOne(query).select("startTime").lean();
+      const plannedStartAt = new Date(updatePayload.startTime ?? existingTask?.startTime).getTime();
+      if (Number.isFinite(plannedStartAt) && plannedStartAt > Date.now()) {
+        const err: any = new Error("Chưa đến thời gian bắt đầu đã chọn nên không thể hoàn thành công việc.");
+        err.statusCode = 400;
+        throw err;
+      }
+    }
+
     const updatedItem = await model.findOneAndUpdate(query, updatePayload, { new: true });
     if (!updatedItem) {
       throw new Error("Khong tim thay tai nguyen hoac ban khong co quyen chinh sua.");

@@ -52,13 +52,16 @@ export const buildStepSchedulePreview = (steps: WorkflowStep[], startDate?: stri
     if (start.getDay() === 1 && isWeekend(cursor)) start.setHours(8, 0, 0, 0);
     if (durationDays === null) return { stepId: step.id, title: step.title, start, due: null, durationDays };
 
-    let due = addWorkingDays(start, durationDays);
+    let due = addWorkingDays(start, Math.max(durationDays - 1, 0));
     if (step.deadlineTime?.includes(":")) {
       const [hours, minutes] = step.deadlineTime.split(":");
       due.setHours(Number(hours), Number(minutes), 0, 0);
-    } else due.setHours(18, 0, 0, 0);
+    } else due.setHours(23, 59, 59, 999);
     if (due < start) due = nextWorkingDay(due);
-    cursor = new Date(due);
+    // A following step begins on the next working day, not at the previous
+    // step''s deadline time on the same date.
+    cursor = nextWorkingDay(due);
+    cursor.setHours(8, 0, 0, 0);
     return { stepId: step.id, title: step.title, start, due, durationDays };
   });
 };

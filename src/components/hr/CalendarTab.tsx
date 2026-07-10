@@ -932,6 +932,10 @@ export default function CalendarTab({
           return "bg-amber-50 text-amber-700 border-amber-100";
         case "Approved-Leave":
           return "bg-blue-50 text-blue-700 border-blue-100";
+        case "Approved-WFH":
+          return "bg-teal-50 text-teal-700 border-teal-100";
+        case "Approved-Exception":
+          return "bg-violet-50 text-violet-700 border-violet-100";
         case "Absent":
           return "bg-rose-50 text-rose-700 border-rose-100";
         default:
@@ -994,8 +998,8 @@ export default function CalendarTab({
             note: dbLog.note
           });
         } else {
-          const hasLeave = items.some(item => {
-            if (item.type !== "leave" || item.status !== "approved") return false;
+          const matchedItem = items.find(item => {
+            if (!["leave", "wfh", "exception"].includes(item.type) || item.status !== "approved") return false;
             const empMatch = item.employeeId === emp.uid || item.creatorId === emp.uid;
             if (!empMatch) return false;
 
@@ -1007,14 +1011,29 @@ export default function CalendarTab({
           const isTodayOrPast = dateStr <= todayStr;
 
           if (isTodayOrPast) {
+            let status = "Absent";
+            let note = "Nghỉ không phép / Vắng mặt";
+            if (matchedItem) {
+              if (matchedItem.type === "leave") {
+                status = "Approved-Leave";
+                note = "Nghỉ phép có duyệt";
+              } else if (matchedItem.type === "wfh") {
+                status = "Approved-WFH";
+                note = "Làm tại nhà (WFH) có duyệt";
+              } else if (matchedItem.type === "exception") {
+                status = "Approved-Exception";
+                note = "Ngoại lệ có duyệt";
+              }
+            }
+
             generatedRows.push({
               id: `missing-${emp.uid}-${dateStr}`,
               uid: emp.uid,
               date: dateStr,
               checkIn: null,
               checkOut: null,
-              status: hasLeave ? "Approved-Leave" : "Absent",
-              note: hasLeave ? "Nghỉ phép có duyệt" : "Nghỉ không phép / Vắng mặt"
+              status,
+              note
             });
           }
         }
@@ -1119,8 +1138,10 @@ export default function CalendarTab({
                 <option value="all">Tất cả trạng thái</option>
                 <option value="Present">Đúng giờ (Present)</option>
                 <option value="Late">Đi muộn (Late)</option>
-                <option value="Approved-Leave">Nghỉ có phép</option>
-                <option value="Absent">Nghỉ không phép</option>
+                <option value="Approved-Leave">Nghỉ có phép (Leave)</option>
+                <option value="Approved-WFH">Làm tại nhà (WFH)</option>
+                <option value="Approved-Exception">Ngoại lệ (Exception)</option>
+                <option value="Absent">Vắng mặt / Không phép (Absent)</option>
               </select>
             </div>
 
@@ -1322,6 +1343,10 @@ export default function CalendarTab({
                                 ? "Đi muộn"
                                 : log.status === "Approved-Leave"
                                 ? "Nghỉ có phép"
+                                : log.status === "Approved-WFH"
+                                ? "Làm tại nhà"
+                                : log.status === "Approved-Exception"
+                                ? "Ngoại lệ"
                                 : "Nghỉ không phép"}
                             </span>
                           </td>
@@ -1393,44 +1418,56 @@ export default function CalendarTab({
                       let checkOutDetails = "";
 
                       if (dbLog) {
-                        displayStatus = dbLog.status === "Present" ? "Đúng giờ"
-                                      : dbLog.status === "Late" ? "Đi muộn"
-                                      : dbLog.status === "Approved-Leave" ? "Nghỉ phép"
-                                      : "Nghỉ KP";
-                        checkInTime = dbLog.checkIn ? formatLogTime(dbLog.checkIn.time) : "--:--";
-                        checkOutTime = dbLog.checkOut ? formatLogTime(dbLog.checkOut.time) : "--:--";
-                        statusStyle = getStatusStyle(dbLog.status);
-                        noteText = dbLog.note || "";
-                        if (dbLog.checkIn) {
-                          checkInDetails = `IP: ${dbLog.checkIn.ipAddress || "N/A"} · ${Math.round(dbLog.checkIn.distance)}m`;
-                        }
-                        if (dbLog.checkOut) {
-                          checkOutDetails = `IP: ${dbLog.checkOut.ipAddress || "N/A"} · ${Math.round(dbLog.checkOut.distance)}m`;
-                        }
-                      } else {
-                        const hasLeave = items.some(item => {
-                          if (item.type !== "leave" || item.status !== "approved") return false;
-                          const empMatch = item.employeeId === emp.uid || item.creatorId === emp.uid;
-                          if (!empMatch) return false;
-                          const sDate = item.startDate.split("T")[0];
-                          const eDate = item.endDate.split("T")[0];
-                          return dateStr >= sDate && dateStr <= eDate;
-                        });
+                                   displayStatus = dbLog.status === "Present" ? "Đúng giờ"
+                                                 : dbLog.status === "Late" ? "Đi muộn"
+                                                 : dbLog.status === "Approved-Leave" ? "Nghỉ phép"
+                                                 : dbLog.status === "Approved-WFH" ? "Tại nhà"
+                                                 : dbLog.status === "Approved-Exception" ? "Ngoại lệ"
+                                                 : "Nghỉ KP";
+                                   checkInTime = dbLog.checkIn ? formatLogTime(dbLog.checkIn.time) : "--:--";
+                                   checkOutTime = dbLog.checkOut ? formatLogTime(dbLog.checkOut.time) : "--:--";
+                                   statusStyle = getStatusStyle(dbLog.status);
+                                   noteText = dbLog.note || "";
+                                 } else {
+                                   const matchedItem = items.find(item => {
+                                     if (!["leave", "wfh", "exception"].includes(item.type) || item.status !== "approved") return false;
+                                     const empMatch = item.employeeId === emp.uid || item.creatorId === emp.uid;
+                                     if (!empMatch) return false;
+                                     const sDate = item.startDate.split("T")[0];
+                                     const eDate = item.endDate.split("T")[0];
+                                     return dateStr >= sDate && dateStr <= eDate;
+                                   });
 
-                        const isTodayOrPast = dateStr <= todayStr;
-                        if (isTodayOrPast) {
-                          displayStatus = hasLeave ? "Nghỉ phép" : "Nghỉ KP";
-                          statusStyle = getStatusStyle(hasLeave ? "Approved-Leave" : "Absent");
-                          noteText = hasLeave ? "Nghỉ phép có duyệt" : "Nghỉ không phép / Vắng mặt";
-                          checkInTime = "--:--";
-                          checkOutTime = "--:--";
-                        } else {
-                          displayStatus = "Chưa diễn ra";
-                          statusStyle = "bg-slate-50 text-slate-400 border-slate-100";
-                          checkInTime = "--:--";
-                          checkOutTime = "--:--";
-                        }
-                      }
+                                   const isTodayOrPast = dateStr <= todayStr;
+                                   if (isTodayOrPast) {
+                                     if (matchedItem) {
+                                       if (matchedItem.type === "leave") {
+                                         displayStatus = "Nghỉ phép";
+                                         statusStyle = getStatusStyle("Approved-Leave");
+                                         noteText = "Nghỉ phép có duyệt";
+                                       } else if (matchedItem.type === "wfh") {
+                                         displayStatus = "Tại nhà";
+                                         statusStyle = getStatusStyle("Approved-WFH");
+                                         noteText = "Làm tại nhà có duyệt";
+                                       } else if (matchedItem.type === "exception") {
+                                         displayStatus = "Ngoại lệ";
+                                         statusStyle = getStatusStyle("Approved-Exception");
+                                         noteText = "Ngoại lệ có duyệt";
+                                       }
+                                     } else {
+                                       displayStatus = "Nghỉ KP";
+                                       statusStyle = getStatusStyle("Absent");
+                                       noteText = "Nghỉ không phép / Vắng mặt";
+                                     }
+                                     checkInTime = "--:--";
+                                     checkOutTime = "--:--";
+                                   } else {
+                                     displayStatus = "";
+                                     statusStyle = "";
+                                     checkInTime = "--:--";
+                                     checkOutTime = "--:--";
+                                   }
+                                 }
 
                       const isTodayDate = dateStr === todayStr;
 

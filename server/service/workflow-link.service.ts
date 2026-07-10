@@ -159,12 +159,12 @@ function calculateStepSchedule(
       continue;
     }
     // Hạn = mốc bắt đầu + N ngày LÀM VIỆC (bỏ T7/CN)
-    const due = addWorkingDays(start, durationDays);
+    const due = addWorkingDays(start, Math.max(durationDays - 1, 0));
     if (step.deadlineTime && step.deadlineTime.includes(":")) {
       const [h, m] = step.deadlineTime.split(":");
       due.setHours(parseInt(h, 10), parseInt(m, 10), 0, 0);
     } else {
-      due.setHours(18, 0, 0, 0);
+      due.setHours(23, 59, 59, 999);
     }
     // Bước 0 ngày mà giờ hạn lại sớm hơn mốc bắt đầu (VD bắt đầu 19:00, hạn 18:00)
     // → dồn sang ngày làm việc kế tiếp
@@ -173,7 +173,10 @@ function calculateStepSchedule(
       due.setTime(shifted.getTime());
     }
     schedule.set(step.id, { start, due, durationDays });
-    cursor = new Date(due);
+    // A following step begins on the next working day, not at the previous
+    // step''s deadline time on the same date.
+    cursor = nextWorkingDay(due);
+    cursor.setHours(8, 0, 0, 0);
   }
   return schedule;
 }
@@ -224,8 +227,10 @@ async function generateStepTasks(
   if (stepDue && stepDue.getTime() < now.getTime()) {
     const dueHours = stepDue.getHours();
     const dueMinutes = stepDue.getMinutes();
-    stepStart = new Date(now);
-    stepDue = addWorkingDays(now, stepWindow?.durationDays ?? 0);
+    const stepIndex = (workflow.steps || []).findIndex((candidate: any) => candidate.id === step.id);
+    stepStart = stepIndex > 0 ? nextWorkingDay(now) : new Date(now);
+    if (stepIndex > 0) stepStart.setHours(8, 0, 0, 0);
+    stepDue = addWorkingDays(stepStart, Math.max((stepWindow?.durationDays ?? 0) - 1, 0));
     stepDue.setHours(dueHours, dueMinutes, 0, 0);
     if (stepDue.getTime() < stepStart.getTime()) {
       stepDue = nextWorkingDay(stepDue);
@@ -263,7 +268,9 @@ async function generateStepTasks(
     const dueDate =
       isExtra && participant.dueDate
         ? `${participant.dueDate}T18:00`
-        : calculateDueDate(step.deadlineType, step.deadlineDays, step.deadlineTime);
+        : stepDue
+          ? toLocalDatetimeString(stepDue)
+          : calculateDueDate(step.deadlineType, step.deadlineDays, step.deadlineTime);
     // Ưu tiên của bước; nếu bước không đặt thì dùng ưu tiên của công việc
     const priority = mapPriority(step.priority && step.priority !== "normal" ? step.priority : participant.priority || step.priority);
 
@@ -303,7 +310,7 @@ async function generateStepTasks(
       actualStartTime: "",
       // Prefill số giờ dự tính từ thời lượng hiệu dụng của bước (8h làm việc/ngày)
       // để người nhận không phải điền tay khi hoàn thành
-      estTime: step.estDays && step.estDays > 0 ? step.estDays * 8 : 0,
+      estTime: step.estDays && step.estDays > 0 ? step.estDays * 24 : 0,
       tags: [workflow.name, step.title],
       linkNote: (participant.docLinks && participant.docLinks[0]) || "",
       workflowId: workflow.id,
@@ -378,29 +385,52 @@ export const workflowLinkService = {
       }
     }
 
+    // Only one request may move a case out of its current step. This protects
+    // auto-advance when the final tasks of a step are completed concurrently.
     const previousStepId = participant.currentStepId;
-    participant.currentStepId = nextStepId;
-    participant.updatedAt = new Date().toISOString();
+    const updatedAt = new Date().toISOString();
+    const transitionedWorkflow = await WorkflowModel.findOneAndUpdate(
+      {
+        _id: workflowId,
+        companyCode,
+        participants: { $elemMatch: { id: participantId, currentStepId: previousStepId } },
+      },
+      {
+        $set: {
+          "participants.$.currentStepId": nextStepId,
+          "participants.$.updatedAt": updatedAt,
+        },
+      },
+      { new: true }
+    );
+    if (!transitionedWorkflow) {
+      const err: any = new Error("Workflow case was moved by another request. Please reload.");
+      err.statusCode = 409;
+      throw err;
+    }
 
-    await workflow.save();
+    const transitionedParticipant = transitionedWorkflow.participants.find((p) => p.id === participantId);
+    if (!transitionedParticipant) {
+      throw new Error("Workflow case was not found after advancing.");
+    }
 
     // 3. Nếu sang bước hoàn thành, không sinh task
     if (nextStepId === "__done__") {
-      return { workflow, participant, tasksCreated: 0 };
+      return { workflow: transitionedWorkflow, participant: transitionedParticipant, tasksCreated: 0 };
     }
 
     // 4. Tìm thông tin bước mới để sinh task
     const step = workflow.steps.find((s) => s.id === nextStepId);
     if (!step) {
-      return { workflow, participant, tasksCreated: 0 };
+      return { workflow: transitionedWorkflow, participant: transitionedParticipant, tasksCreated: 0 };
     }
 
     // 5. Sinh Kanban Tasks từ subtasks của bước mới
-    const tasksCreated = await generateStepTasks(companyCode, workflow, participant, step);
+    const tasksCreated = await generateStepTasks(companyCode, transitionedWorkflow, transitionedParticipant, step);
 
     return {
-      workflow,
-      participant,
+      workflow: transitionedWorkflow,
+      participant: transitionedParticipant,
       tasksCreated,
     };
   },
@@ -580,17 +610,29 @@ export const workflowLinkService = {
       const nextStepId = orderIds[idx + 1];
       if (!nextStepId) return;
 
-      const result = await this.advanceParticipant(
-        task.companyCode,
-        task.workflowId,
-        participant.id,
-        nextStepId
-      );
-      emitToCompany(task.companyCode, "workflow:participant-advanced", {
-        ...eventPayload,
-        nextStepId,
-        tasksCreated: result.tasksCreated,
-      });
+      try {
+        const result = await this.advanceParticipant(
+          task.companyCode,
+          task.workflowId,
+          participant.id,
+          nextStepId
+        );
+        emitToCompany(task.companyCode, "workflow:participant-advanced", {
+          ...eventPayload,
+          nextStepId,
+          tasksCreated: result.tasksCreated,
+        });
+      } catch (error: any) {
+        // Another final task may have advanced this participant first. The task
+        // update itself succeeded, so this is an expected idempotent outcome.
+        if (error?.statusCode !== 409) throw error;
+      }
     }
+  },
+
+  /** Re-evaluate the active workflow step after a linked Kanban task is deleted. */
+  async handleTaskDeletion(task: any) {
+    if (!task?.isFromWorkflow) return;
+    await this.handleTaskStatusChange({ ...task, status: "Done" });
   },
 };
