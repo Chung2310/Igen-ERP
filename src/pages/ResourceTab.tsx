@@ -878,6 +878,7 @@ export default function ResourceTab() {
         const payload = {
           spaceType: selectedSpace === "personal" ? "personal" : "group",
           roomId: selectedSpace !== "personal" ? selectedSpace : undefined,
+          ownerId: selectedSpace === "personal" ? selectedOwnerId : undefined,
           type: createFileDialog.type,
           name,
           linkUrl: createFileDialog.type === "link" ? newFileLink.trim() : undefined,
@@ -2315,22 +2316,6 @@ export default function ResourceTab() {
                                 </button>
 
                                 <div className="border-t border-slate-100 my-1"></div>
-
-                                <button
-                                  onClick={() => {
-                                    setCreateFileDialog({
-                                      isOpen: true,
-                                      type: "link",
-                                      title: "Thêm tài nguyên từ liên kết có sẵn",
-                                      placeholder: "Nhập tên hiển thị..."
-                                    });
-                                    setShowAddMenu(false);
-                                  }}
-                                  className="w-full flex items-center gap-3 px-3 py-2 hover:bg-slate-50 rounded-xl text-xs font-semibold text-slate-700 transition cursor-pointer"
-                                >
-                                  <LinkIcon className="h-4 w-4 text-indigo-500" />
-                                  <span>Thêm từ đường link có sẵn</span>
-                                </button>
 
                                 <button
                                   onClick={() => {
