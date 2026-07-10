@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type RequestHandler } from "express";
 import Joi from "joi";
 import { chatbotController } from "../controller/chatbot.controller";
 import { validateRequest } from "../middleware/validation";
@@ -22,7 +22,7 @@ const chatSchema = {
 
 chatbotRouter.post(
   "/chat",
-  requireAuth as any,
+  requireAuth as RequestHandler,
   validateRequest(chatSchema),
-  chatbotController.chat as any
+  chatbotController.chat as unknown as RequestHandler
 );

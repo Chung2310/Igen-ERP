@@ -13,13 +13,14 @@ export const chatbotController = {
       const user = req.user!;
       const reply = await ChatbotService.getResponse(user, messages);
       return res.json({ success: true, reply });
-    } catch (error: any) {
+    } catch (error) {
       // App không có JSON error middleware — trả JSON trực tiếp để client đọc được lỗi.
       console.error("[chatbotController.chat] Error:", error);
       return res.status(500).json({
         status: "error",
         success: false,
-        message: error?.message || "Đã xảy ra lỗi khi xử lý yêu cầu trợ lý ảo.",
+        message:
+          error instanceof Error ? error.message : "Đã xảy ra lỗi khi xử lý yêu cầu trợ lý ảo.",
       });
     }
   },

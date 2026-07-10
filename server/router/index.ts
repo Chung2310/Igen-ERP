@@ -7,6 +7,7 @@ import { crudRouter } from "./crud.router";
 import { walletRouter } from "./wallet.router";
 import { googleDriveRouter } from "./google-drive.router";
 import { chatRouter } from "./chat.router";
+import { chatbotRouter } from "./chatbot.router";
 import { resourceRouter } from "./resource.router";
 import { studentManagementRouter } from "../modules/student-management/router";
 import { timekeepingRouter } from "./timekeeping.router";
@@ -75,6 +76,7 @@ apiRouter.use("/kanban", kanbanRouter);
 apiRouter.use("/chat", chatRouter);
 
 // Trợ lý ảo AI — chatbot ngữ cảnh dữ liệu doanh nghiệp
+apiRouter.use("/chatbot", chatbotRouter);
 
 // Module Quản lý Học viên
 apiRouter.use("/", studentManagementRouter);
