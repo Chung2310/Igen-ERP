@@ -27,6 +27,7 @@ import { EmployeeNode, UserProfile, HRTask, Project, TaskHistoryEntry } from "..
 import { getAccessToken } from "../../services/authService";
 import { socketService } from "../../services/socketService";
 import { toast } from "../../pages/Toast";
+import { ConfirmDialog } from "../common/ConfirmDialog";
 
 interface KanbanTabProps {
   userProfile: any;
@@ -299,6 +300,10 @@ export default function KanbanTab({
     estTime: number | "";
   }>({ description: "", dueDate: "", startTime: "", estTime: "" });
   const [selectedWorkflowFilter, setSelectedWorkflowFilter] = useState<string | null>(null);
+  const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
+  const [projectToDelete, setProjectToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [isDeletingTask, setIsDeletingTask] = useState(false);
+  const [isDeletingProject, setIsDeletingProject] = useState(false);
 
   // Group tasks by workflow
   const workflowGroupedTasks = React.useMemo(() => {
@@ -933,8 +938,13 @@ export default function KanbanTab({
   const missingCls = (key: DoneFieldKey, base: string) =>
     missingKeySet.has(key) ? `${base} !border-rose-400 !bg-rose-50/60` : base;
 
-  const deleteTask = async (id: string) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa công việc này?")) return false;
+  const deleteTask = (id: string) => {
+    setTaskToDelete(id);
+    return false;
+  };
+
+  const executeDeleteTask = async (id: string) => {
+    setIsDeletingTask(true);
     try {
       const res = await fetch(`/api/v1/crud/kanban-tasks/${id}`, {
         method: "DELETE",
@@ -955,11 +965,17 @@ export default function KanbanTab({
       console.error("Lỗi khi xóa công việc:", error);
       toast.error("Không thể xóa công việc. Chỉ quản lý mới có quyền.");
       return false;
+    } finally {
+      setIsDeletingTask(false);
     }
   };
 
-  const deleteProject = async (id: string, name: string) => {
-    if (!window.confirm(`Xóa dự án "${name}"? Các công việc thuộc dự án sẽ được chuyển về nhóm "Chưa phân loại".`)) return;
+  const deleteProject = (id: string, name: string) => {
+    setProjectToDelete({ id, name });
+  };
+
+  const executeDeleteProject = async (id: string) => {
+    setIsDeletingProject(true);
     try {
       const res = await fetch(`/api/v1/crud/projects/${id}`, {
         method: "DELETE",
@@ -980,6 +996,8 @@ export default function KanbanTab({
     } catch (error) {
       console.error("Lỗi khi xóa dự án:", error);
       toast.error("Không thể xóa dự án. Vui lòng kiểm tra quyền hạn.");
+    } finally {
+      setIsDeletingProject(false);
     }
   };
 
@@ -1762,11 +1780,8 @@ export default function KanbanTab({
                 {selectedKanbanTask.id !== "new" && (isManager || selectedKanbanTask.creatorUid === userProfile?.uid) && (
                   <button
                     type="button"
-                    onClick={async () => {
-                      const success = await deleteTask(selectedKanbanTask.id);
-                      if (success) {
-                        setSelectedKanbanTask(null);
-                      }
+                    onClick={() => {
+                      setTaskToDelete(selectedKanbanTask.id);
                     }}
                     className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl cursor-pointer transition-all active:scale-95 flex items-center gap-1.5 font-sans"
                   >
@@ -1846,6 +1861,41 @@ export default function KanbanTab({
           </form>
         </div>
       )}
+
+      <ConfirmDialog
+        isOpen={taskToDelete !== null}
+        title="Xóa công việc"
+        description="Bạn có chắc chắn muốn xóa công việc này? Hành động này không thể hoàn tác và tất cả dữ liệu liên quan đến công việc sẽ bị xóa vĩnh viễn."
+        onClose={() => setTaskToDelete(null)}
+        onConfirm={async () => {
+          if (taskToDelete) {
+            const success = await executeDeleteTask(taskToDelete);
+            if (success) {
+              if (selectedKanbanTask && selectedKanbanTask.id === taskToDelete) {
+                setSelectedKanbanTask(null);
+              }
+            }
+            setTaskToDelete(null);
+          }
+        }}
+        isSubmitting={isDeletingTask}
+        tone="danger"
+      />
+
+      <ConfirmDialog
+        isOpen={projectToDelete !== null}
+        title="Xóa dự án"
+        description={`Bạn có chắc chắn muốn xóa dự án "${projectToDelete?.name}"? Các công việc thuộc dự án này sẽ được tự động chuyển về nhóm "Chưa phân loại".`}
+        onClose={() => setProjectToDelete(null)}
+        onConfirm={async () => {
+          if (projectToDelete) {
+            await executeDeleteProject(projectToDelete.id);
+            setProjectToDelete(null);
+          }
+        }}
+        isSubmitting={isDeletingProject}
+        tone="danger"
+      />
     </>
   );
 }
