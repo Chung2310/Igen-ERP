@@ -31,7 +31,7 @@ interface CalendarItem {
   _id?: string;
   id?: string;
   companyCode: string;
-  type: "event" | "leave" | "reminder";
+  type: "event" | "leave" | "wfh" | "exception" | "reminder";
   title: string;
   description?: string;
   startDate: string;
@@ -89,7 +89,7 @@ export default function CalendarTab({
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
 
   // Form Fields
-  const [formType, setFormType] = useState<"event" | "leave" | "reminder">("event");
+  const [formType, setFormType] = useState<"event" | "leave" | "wfh" | "exception" | "reminder">("event");
   const [formTitle, setFormTitle] = useState<string>("");
   const [formDescription, setFormDescription] = useState<string>("");
   const [formStartDate, setFormStartDate] = useState<string>("");
@@ -628,6 +628,8 @@ export default function CalendarTab({
   const getStatistics = () => {
     let events = 0;
     let leaves = 0;
+    let wfhs = 0;
+    let exceptions = 0;
     let reminders = 0;
 
     filteredItems.forEach((item) => {
@@ -636,11 +638,13 @@ export default function CalendarTab({
       if (sDate.getMonth() === month && sDate.getFullYear() === year) {
         if (item.type === "event") events++;
         if (item.type === "leave") leaves++;
+        if (item.type === "wfh") wfhs++;
+        if (item.type === "exception") exceptions++;
         if (item.type === "reminder") reminders++;
       }
     });
 
-    return { events, leaves, reminders };
+    return { events, leaves, wfhs, exceptions, reminders };
   };
 
   const stats = getStatistics();
@@ -659,7 +663,7 @@ export default function CalendarTab({
     }
   };
 
-  const openCreateModal = (date: Date, type: "event" | "leave" | "reminder" = "event") => {
+  const openCreateModal = (date: Date, type: "event" | "leave" | "wfh" | "exception" | "reminder" = "event") => {
     const formattedDate = date.toISOString().slice(0, 10);
     setFormMode("create");
     setFormType(type);
@@ -717,14 +721,14 @@ export default function CalendarTab({
       return;
     }
 
-    if (formType === "leave" && !(isManager || userProfile?.role === "admin" || userProfile?.role === "superadmin")) {
-      toast.error("Chỉ quản lý và admin mới có quyền đăng ký lịch nghỉ phép.");
+    if ((formType === "leave" || formType === "wfh" || formType === "exception") && !(isManager || userProfile?.role === "admin" || userProfile?.role === "superadmin")) {
+      toast.error("Chỉ quản lý và admin mới có quyền tạo đơn nghỉ phép, làm tại nhà hoặc ngoại lệ.");
       return;
     }
 
-    if (formType === "leave" && formStatus === "approved") {
+    if ((formType === "leave" || formType === "wfh" || formType === "exception") && formStatus === "approved") {
       if (formMode === "create" || selectedItem?.creatorId === userProfile?.uid) {
-        toast.error("Người tạo đơn không được phép tự phê duyệt đơn nghỉ phép.");
+        toast.error("Người tạo đơn không được phép tự phê duyệt.");
         return;
       }
     }
@@ -737,10 +741,10 @@ export default function CalendarTab({
       description: formDescription,
       startDate: startDateTime.toISOString(),
       endDate: endDateTime.toISOString(),
-      employeeId: formType === "leave" ? formEmployeeId : undefined,
-      employeeName: formType === "leave" ? (selectedEmployee?.name || userProfile?.displayName) : undefined,
+      employeeId: (formType === "leave" || formType === "wfh" || formType === "exception") ? formEmployeeId : undefined,
+      employeeName: (formType === "leave" || formType === "wfh" || formType === "exception") ? (selectedEmployee?.name || userProfile?.displayName) : undefined,
       assigneeId: formType === "reminder" ? formAssigneeId : undefined,
-      status: formStatus as any,
+      status: (formType === "leave" || formType === "wfh" || formType === "exception") && formMode === "create" ? "pending" : formStatus as any,
       companyCode: selectedCompanyCode,
       creatorId: userProfile?.uid || "unknown",
     };
@@ -907,7 +911,7 @@ export default function CalendarTab({
                 <Plus className="h-4 w-4" />
                 Thêm mới
               </button>
-              <div className="absolute right-0 mt-1.5 w-48 bg-white border border-slate-150 rounded-2xl shadow-xl py-1.5 hidden group-hover:block group-focus-within:block z-20 transition-all animate-in fade-in duration-100">
+              <div className="absolute right-0 mt-1.5 w-52 bg-white border border-slate-150 rounded-2xl shadow-xl py-1.5 hidden group-hover:block group-focus-within:block z-20 transition-all animate-in fade-in duration-100">
                 <button
                   onClick={() => openCreateModal(new Date(), "event")}
                   className="w-full text-left px-4 py-2 hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center gap-2.5 cursor-pointer"
@@ -916,13 +920,29 @@ export default function CalendarTab({
                   Tạo sự kiện
                 </button>
                 {(isManager || userProfile?.role === "admin" || userProfile?.role === "superadmin") && (
-                  <button
-                    onClick={() => openCreateModal(new Date(), "leave")}
-                    className="w-full text-left px-4 py-2 hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center gap-2.5 cursor-pointer"
-                  >
-                    <Users className="h-4 w-4 text-rose-500" />
-                    Đăng ký nghỉ phép
-                  </button>
+                  <>
+                    <button
+                      onClick={() => openCreateModal(new Date(), "leave")}
+                      className="w-full text-left px-4 py-2 hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center gap-2.5 cursor-pointer"
+                    >
+                      <Users className="h-4 w-4 text-rose-500" />
+                      Xin nghỉ phép
+                    </button>
+                    <button
+                      onClick={() => openCreateModal(new Date(), "wfh")}
+                      className="w-full text-left px-4 py-2 hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center gap-2.5 cursor-pointer"
+                    >
+                      <Info className="h-4 w-4 text-teal-500" />
+                      Làm tại nhà
+                    </button>
+                    <button
+                      onClick={() => openCreateModal(new Date(), "exception")}
+                      className="w-full text-left px-4 py-2 hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center gap-2.5 cursor-pointer"
+                    >
+                      <CheckCircle className="h-4 w-4 text-violet-500" />
+                      Ngoại lệ
+                    </button>
+                  </>
                 )}
                 <button
                   onClick={() => openCreateModal(new Date(), "reminder")}
@@ -954,6 +974,8 @@ export default function CalendarTab({
               <option value="all">Tất cả danh mục</option>
               <option value="event">📅 Sự kiện</option>
               <option value="leave">🌴 Nghỉ phép</option>
+              <option value="wfh">🏠 Làm tại nhà</option>
+              <option value="exception">⚡ Ngoại lệ</option>
               <option value="reminder">🔔 Nhắc hẹn</option>
             </select>
 
@@ -973,8 +995,8 @@ export default function CalendarTab({
           </div>
 
           {/* Premium stats widgets (6 cols) */}
-          <div className="lg:col-span-6 flex justify-end gap-3 flex-wrap">
-            <div className="bg-white border-l-4 border-l-blue-500 border-y border-r border-slate-100/80 rounded-2xl px-4 py-2 text-xs font-bold text-slate-700 flex items-center justify-between min-w-[130px] shadow-sm hover:-translate-y-0.5 hover:shadow-md hover:shadow-blue-500/5 transition-all duration-300">
+          <div className="lg:col-span-6 flex justify-end gap-2 flex-wrap">
+            <div className="bg-white border-l-4 border-l-blue-500 border-y border-r border-slate-100/80 rounded-2xl px-3 py-2 text-xs font-bold text-slate-700 flex items-center justify-between min-w-[110px] shadow-sm hover:-translate-y-0.5 hover:shadow-md hover:shadow-blue-500/5 transition-all duration-300">
               <div className="flex flex-col">
                 <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Sự kiện</span>
                 <span className="text-sm font-extrabold text-slate-800">{stats.events}</span>
@@ -984,7 +1006,7 @@ export default function CalendarTab({
               </div>
             </div>
 
-            <div className="bg-white border-l-4 border-l-rose-500 border-y border-r border-slate-100/80 rounded-2xl px-4 py-2 text-xs font-bold text-slate-700 flex items-center justify-between min-w-[130px] shadow-sm hover:-translate-y-0.5 hover:shadow-md hover:shadow-rose-500/5 transition-all duration-300">
+            <div className="bg-white border-l-4 border-l-rose-500 border-y border-r border-slate-100/80 rounded-2xl px-3 py-2 text-xs font-bold text-slate-700 flex items-center justify-between min-w-[110px] shadow-sm hover:-translate-y-0.5 hover:shadow-md hover:shadow-rose-500/5 transition-all duration-300">
               <div className="flex flex-col">
                 <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Nghỉ phép</span>
                 <span className="text-sm font-extrabold text-slate-800">{stats.leaves}</span>
@@ -994,7 +1016,27 @@ export default function CalendarTab({
               </div>
             </div>
 
-            <div className="bg-white border-l-4 border-l-amber-500 border-y border-r border-slate-100/80 rounded-2xl px-4 py-2 text-xs font-bold text-slate-700 flex items-center justify-between min-w-[130px] shadow-sm hover:-translate-y-0.5 hover:shadow-md hover:shadow-amber-500/5 transition-all duration-300">
+            <div className="bg-white border-l-4 border-l-teal-500 border-y border-r border-slate-100/80 rounded-2xl px-3 py-2 text-xs font-bold text-slate-700 flex items-center justify-between min-w-[110px] shadow-sm hover:-translate-y-0.5 hover:shadow-md hover:shadow-teal-500/5 transition-all duration-300">
+              <div className="flex flex-col">
+                <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Tại nhà</span>
+                <span className="text-sm font-extrabold text-slate-800">{stats.wfhs}</span>
+              </div>
+              <div className="bg-teal-50 p-1.5 rounded-full text-teal-600">
+                <Info className="h-4 w-4" />
+              </div>
+            </div>
+
+            <div className="bg-white border-l-4 border-l-violet-500 border-y border-r border-slate-100/80 rounded-2xl px-3 py-2 text-xs font-bold text-slate-700 flex items-center justify-between min-w-[110px] shadow-sm hover:-translate-y-0.5 hover:shadow-md hover:shadow-violet-500/5 transition-all duration-300">
+              <div className="flex flex-col">
+                <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Ngoại lệ</span>
+                <span className="text-sm font-extrabold text-slate-800">{stats.exceptions}</span>
+              </div>
+              <div className="bg-violet-50 p-1.5 rounded-full text-violet-600">
+                <CheckCircle className="h-4 w-4" />
+              </div>
+            </div>
+
+            <div className="bg-white border-l-4 border-l-amber-500 border-y border-r border-slate-100/80 rounded-2xl px-3 py-2 text-xs font-bold text-slate-700 flex items-center justify-between min-w-[110px] shadow-sm hover:-translate-y-0.5 hover:shadow-md hover:shadow-amber-500/5 transition-all duration-300">
               <div className="flex flex-col">
                 <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Nhắc hẹn</span>
                 <span className="text-sm font-extrabold text-slate-800">{stats.reminders}</span>
@@ -1080,6 +1122,10 @@ export default function CalendarTab({
                         const styleClass =
                           item.type === "leave"
                             ? "bg-rose-50/80 text-rose-700 border-rose-100/60 hover:bg-rose-100/60"
+                            : item.type === "wfh"
+                            ? "bg-teal-50/80 text-teal-700 border-teal-100/60 hover:bg-teal-100/60"
+                            : item.type === "exception"
+                            ? "bg-violet-50/80 text-violet-700 border-violet-100/60 hover:bg-violet-100/60"
                             : item.type === "reminder"
                             ? "bg-amber-50/80 text-amber-700 border-amber-100/60 hover:bg-amber-100/60"
                             : "bg-blue-50/80 text-blue-700 border-blue-100/60 hover:bg-blue-100/60";
@@ -1093,10 +1139,10 @@ export default function CalendarTab({
                             }}
                             className={`text-[9px] px-2 py-0.5 rounded-lg border font-bold truncate transition-all duration-200 hover:scale-[1.01] active:scale-100 ${styleClass}`}
                             title={`${item.title} (${
-                              item.type === "leave" ? "Nghỉ phép" : item.type === "reminder" ? "Nhắc hẹn" : "Sự kiện"
+                              item.type === "leave" ? "Nghỉ phép" : item.type === "wfh" ? "Làm tại nhà" : item.type === "exception" ? "Ngoại lệ" : item.type === "reminder" ? "Nhắc hẹn" : "Sự kiện"
                             })`}
                           >
-                            {item.type === "leave" ? `🌴 ` : item.type === "reminder" ? `🔔 ` : `📅 `}
+                            {item.type === "leave" ? `🌴 ` : item.type === "wfh" ? `🏠 ` : item.type === "exception" ? `⚡ ` : item.type === "reminder" ? `🔔 ` : `📅 `}
                             {item.title}
                           </div>
                         );
@@ -1147,12 +1193,16 @@ export default function CalendarTab({
                   const badgeColor =
                     item.type === "leave"
                       ? "bg-rose-50 text-rose-700 border-rose-100"
+                      : item.type === "wfh"
+                      ? "bg-teal-50 text-teal-700 border-teal-100"
+                      : item.type === "exception"
+                      ? "bg-violet-50 text-violet-700 border-violet-100"
                       : item.type === "reminder"
                       ? "bg-amber-50 text-amber-700 border-amber-100"
                       : "bg-blue-50 text-blue-700 border-blue-100";
 
                   const typeLabel =
-                    item.type === "leave" ? "Nghỉ phép" : item.type === "reminder" ? "Nhắc hẹn" : "Sự kiện";
+                    item.type === "leave" ? "Nghỉ phép" : item.type === "wfh" ? "Làm tại nhà" : item.type === "exception" ? "Ngoại lệ" : item.type === "reminder" ? "Nhắc hẹn" : "Sự kiện";
 
                   return (
                     <div
@@ -1164,7 +1214,7 @@ export default function CalendarTab({
                           {typeLabel}
                         </span>
                         <div className="flex gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
-                          {(item.type !== "leave" || isManager || userProfile?.role === "admin" || userProfile?.role === "superadmin") && (
+                          {(!["leave","wfh","exception"].includes(item.type) || isManager || userProfile?.role === "admin" || userProfile?.role === "superadmin") && (
                             <button
                               onClick={() => openEditModal(item)}
                               className="p-1 text-slate-400 hover:text-indigo-650 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
@@ -1173,7 +1223,7 @@ export default function CalendarTab({
                               <Edit className="h-3.5 w-3.5" />
                             </button>
                           )}
-                          {(item.type !== "leave" || isManager || userProfile?.role === "admin" || userProfile?.role === "superadmin") && (
+                          {(!["leave","wfh","exception"].includes(item.type) || isManager || userProfile?.role === "admin" || userProfile?.role === "superadmin") && (
                             <button
                               onClick={() => handleDeleteItem((item._id || item.id)!)}
                               className="p-1 text-slate-400 hover:text-rose-650 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
@@ -1203,7 +1253,7 @@ export default function CalendarTab({
                             {item.employeeName}
                           </span>
                         )}
-                        {item.type === "leave" && (
+                        {["leave","wfh","exception"].includes(item.type) && (
                           <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider ${
                             item.status === "approved"
                               ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
@@ -1220,8 +1270,8 @@ export default function CalendarTab({
 
             {/* Modal Footer (Actions to Quick Add) */}
             <div className="bg-slate-50 border-t border-slate-150 px-6 py-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-              <span className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wide">Thêm mới lịch:</span>
-              <div className="flex gap-1.5">
+              <span className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wide">Thêm mới:</span>
+              <div className="flex flex-wrap gap-1.5">
                 <button
                   onClick={() => openCreateModal(selectedDayDate, "event")}
                   className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-extrabold transition-all shadow-sm hover:shadow-md cursor-pointer"
@@ -1229,12 +1279,26 @@ export default function CalendarTab({
                   Sự kiện
                 </button>
                 {(isManager || userProfile?.role === "admin" || userProfile?.role === "superadmin") && (
-                  <button
-                    onClick={() => openCreateModal(selectedDayDate, "leave")}
-                    className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-[10px] font-extrabold transition-all shadow-sm hover:shadow-md cursor-pointer"
-                  >
-                    Nghỉ phép
-                  </button>
+                  <>
+                    <button
+                      onClick={() => openCreateModal(selectedDayDate, "leave")}
+                      className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-[10px] font-extrabold transition-all shadow-sm hover:shadow-md cursor-pointer"
+                    >
+                      Nghỉ phép
+                    </button>
+                    <button
+                      onClick={() => openCreateModal(selectedDayDate, "wfh")}
+                      className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-[10px] font-extrabold transition-all shadow-sm hover:shadow-md cursor-pointer"
+                    >
+                      Tại nhà
+                    </button>
+                    <button
+                      onClick={() => openCreateModal(selectedDayDate, "exception")}
+                      className="px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-[10px] font-extrabold transition-all shadow-sm hover:shadow-md cursor-pointer"
+                    >
+                      Ngoại lệ
+                    </button>
+                  </>
                 )}
                 <button
                   onClick={() => openCreateModal(selectedDayDate, "reminder")}
@@ -1273,18 +1337,20 @@ export default function CalendarTab({
                   <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
                     Loại lịch trình
                   </label>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {[
-                      { key: "event", label: "Sự kiện", color: "border-blue-500 text-blue-600" },
-                      { key: "leave", label: "Nghỉ phép", color: "border-rose-500 text-rose-600", roleRestricted: true },
-                      { key: "reminder", label: "Nhắc hẹn", color: "border-amber-500 text-amber-600" }
+                      { key: "event", label: "📅 Sự kiện", color: "border-blue-500 text-blue-600" },
+                      { key: "leave", label: "🌴 Nghỉ phép", color: "border-rose-500 text-rose-600", roleRestricted: true },
+                      { key: "wfh", label: "🏠 Tại nhà", color: "border-teal-500 text-teal-600", roleRestricted: true },
+                      { key: "exception", label: "⚡ Ngoại lệ", color: "border-violet-500 text-violet-600", roleRestricted: true },
+                      { key: "reminder", label: "🔔 Nhắc hẹn", color: "border-amber-500 text-amber-600" }
                     ].filter(t => !t.roleRestricted || (isManager || userProfile?.role === "admin" || userProfile?.role === "superadmin")).map((t) => (
                       <button
                         key={t.key}
                         type="button"
                         onClick={() => {
                           setFormType(t.key as any);
-                          if (t.key === "leave") setFormStatus("pending");
+                          if (["leave","wfh","exception"].includes(t.key)) setFormStatus("pending");
                           else setFormStatus("active");
                         }}
                         className={`py-2 border text-center rounded-2xl text-xs font-extrabold transition-all cursor-pointer ${
@@ -1376,10 +1442,10 @@ export default function CalendarTab({
                 </div>
 
                 {/* Conditional Fields based on Type */}
-                {formType === "leave" && (
+                {["leave","wfh","exception"].includes(formType) && (
                   <div>
                     <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
-                      Nhân sự nghỉ phép
+                      {formType === "leave" ? "Nhân sự nghỉ phép" : formType === "wfh" ? "Nhân sự làm tại nhà" : "Nhân sự (Ngoại lệ)"}
                     </label>
                     <select
                       value={formEmployeeId}
@@ -1414,8 +1480,8 @@ export default function CalendarTab({
                   </div>
                 )}
 
-                {/* Status for Leaves */}
-                {formType === "leave" && (
+                {/* Status for Leaves / WFH / Exception */}
+                {["leave","wfh","exception"].includes(formType) && (
                   <div>
                     <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
                       Trạng thái duyệt

@@ -4,7 +4,7 @@ import { IHRCalendarEvent } from "../interface/hr-calendar-event.interface";
 const HRCalendarEventSchema = new Schema<IHRCalendarEvent>(
   {
     companyCode: { type: String, required: true, index: true },
-    type: { type: String, enum: ["event", "leave", "reminder"], required: true, index: true },
+    type: { type: String, enum: ["event", "leave", "wfh", "exception", "reminder"], required: true, index: true },
     title: { type: String, required: true, index: true },
     description: { type: String },
     startDate: { type: Date, required: true, index: true },
