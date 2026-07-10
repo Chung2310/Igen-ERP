@@ -364,7 +364,7 @@ export default function KanbanTab({
   const fetchTasks = async () => {
     if (!selectedCompanyCode) return;
     try {
-      const res = await fetch("/api/v1/crud/kanban-tasks", {
+      const res = await fetch("/api/v1/kanban/tasks", {
         headers: {
           "Authorization": `Bearer ${getAccessToken()}`,
         },
@@ -386,7 +386,7 @@ export default function KanbanTab({
   const fetchProjects = async () => {
     if (!selectedCompanyCode) return;
     try {
-      const res = await fetch("/api/v1/crud/projects", {
+      const res = await fetch("/api/v1/kanban/projects", {
         headers: {
           "Authorization": `Bearer ${getAccessToken()}`,
         },
@@ -615,7 +615,7 @@ export default function KanbanTab({
           category: editCategory
         };
 
-        const res = await fetch("/api/v1/crud/kanban-tasks", {
+        const res = await fetch("/api/v1/kanban/tasks", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -707,7 +707,7 @@ export default function KanbanTab({
           category: editCategory
         };
 
-        const res = await fetch(`/api/v1/crud/kanban-tasks/${selectedKanbanTask.id}`, {
+        const res = await fetch(`/api/v1/kanban/tasks/${selectedKanbanTask.id}`, {
           method: "PATCH",
           headers: {
             "Content-Type": "application/json",
@@ -746,7 +746,7 @@ export default function KanbanTab({
         createdAt: new Date().toISOString()
       };
 
-      const res = await fetch("/api/v1/crud/projects", {
+      const res = await fetch("/api/v1/kanban/projects", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -831,7 +831,7 @@ export default function KanbanTab({
       if (actualTimeUpdate !== undefined) updateData.actualTime = actualTimeUpdate;
       if (startTimeUpdate !== undefined) updateData.startTime = startTimeUpdate;
 
-      const res = await fetch(`/api/v1/crud/kanban-tasks/${id}`, {
+      const res = await fetch(`/api/v1/kanban/tasks/${id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -902,7 +902,7 @@ export default function KanbanTab({
         ],
       };
 
-      const res = await fetch(`/api/v1/crud/kanban-tasks/${t.id}`, {
+      const res = await fetch(`/api/v1/kanban/tasks/${t.id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -946,7 +946,7 @@ export default function KanbanTab({
   const executeDeleteTask = async (id: string) => {
     setIsDeletingTask(true);
     try {
-      const res = await fetch(`/api/v1/crud/kanban-tasks/${id}`, {
+      const res = await fetch(`/api/v1/kanban/tasks/${id}`, {
         method: "DELETE",
         headers: {
           "Authorization": `Bearer ${getAccessToken()}`,
@@ -977,7 +977,7 @@ export default function KanbanTab({
   const executeDeleteProject = async (id: string) => {
     setIsDeletingProject(true);
     try {
-      const res = await fetch(`/api/v1/crud/projects/${id}`, {
+      const res = await fetch(`/api/v1/kanban/projects/${id}`, {
         method: "DELETE",
         headers: {
           "Authorization": `Bearer ${getAccessToken()}`,
