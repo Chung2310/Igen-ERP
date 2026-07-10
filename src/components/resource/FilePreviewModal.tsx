@@ -25,7 +25,30 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ item, onClos
   const downloadHref = `/api/v1/media/download?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(item.name)}`;
   const officeViewer = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
   const { Icon, color } = getFileIcon(item.mimeType, item.name);
+
+  // Helper to convert standard Google view/edit links to embeddable /preview links
+  const getEmbeddableGoogleUrl = (rawUrl: string): string => {
+    try {
+      if (rawUrl.includes("drive.google.com/file/d/")) {
+        return rawUrl.replace(/\/view(\?.*)?$/, "/preview");
+      }
+      if (rawUrl.includes("docs.google.com/document/d/")) {
+        return rawUrl.replace(/\/edit(\?.*)?$/, "/preview");
+      }
+      if (rawUrl.includes("docs.google.com/spreadsheets/d/")) {
+        return rawUrl.replace(/\/edit(\?.*)?$/, "/preview");
+      }
+      if (rawUrl.includes("docs.google.com/presentation/d/")) {
+        return rawUrl.replace(/\/edit(\?.*)?$/, "/preview");
+      }
+    } catch (e) {
+      console.error("Error formatting Google embed URL", e);
+    }
+    return rawUrl;
+  };
+
   const isGoogleDoc = item.mimeType?.startsWith("application/vnd.google-apps") || url.includes("drive.google.com") || url.includes("docs.google.com");
+  const embedUrl = isGoogleDoc ? getEmbeddableGoogleUrl(url) : url;
 
   const handleShare = async () => {
     try {
@@ -90,7 +113,7 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ item, onClos
         <div className="min-h-0 flex-1 overflow-auto bg-slate-50">
           {isGoogleDoc ? (
             <iframe
-              src={url}
+              src={embedUrl}
               title={item.name}
               className="h-[80vh] w-full border-0 bg-white"
               allow="autoplay; encrypted-media; clipboard-write; clipboard-read"
@@ -122,6 +145,41 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ item, onClos
 
           {(kind === "pdf" || kind === "text") && (
             <iframe src={url} title={item.name} className="h-[80vh] w-full border-0 bg-white" />
+          )}
+
+          {kind === "link" && (
+            <div className="flex min-h-[50vh] flex-col items-center justify-center gap-6 p-8 text-center max-w-xl mx-auto">
+              <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-cyan-50 text-cyan-600 shadow-sm border border-cyan-100/50">
+                <Icon className="w-8 h-8" />
+              </div>
+              <div className="space-y-2">
+                <p className="font-bold text-slate-800 text-lg">Không thể hiển thị liên kết trực tiếp</p>
+                <p className="text-sm text-slate-500 leading-relaxed">
+                  Vì lý do bảo mật, hầu hết các trang web bên ngoài đều chặn việc nhúng trang của họ vào khung phụ (iframe) của trang khác (chính sách bảo mật chống Clickjacking).
+                </p>
+                <div className="p-3 bg-slate-100 rounded-2xl break-all text-xs font-mono text-slate-600 select-all border border-slate-200/50">
+                  {url}
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <a
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 hover:shadow-lg transition cursor-pointer"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  Mở trong tab mới
+                </a>
+                <button
+                  onClick={handleShare}
+                  className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                >
+                  <Share2 className="w-4 h-4" />
+                  Sao chép liên kết
+                </button>
+              </div>
+            </div>
           )}
 
           {kind === "office" && (
