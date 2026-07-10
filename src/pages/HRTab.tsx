@@ -5,6 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import { authService, getAccessToken } from "../services/authService";
 import { toast } from "./Toast";
 import { useSubTabRouter } from "../hooks/useSubTabRouter";
+import { HR_SUB_TAB_ROUTES } from "../router/subTabRoutes";
 
 // Lazy-loaded subcomponents
 const OrgChartTab = lazy(() => import("../components/hr/OrgChartTab"));
@@ -20,14 +21,7 @@ export default function HRTab() {
     userProfile?.role === "admin" ||
     userProfile?.role === "manager";
 
-  const HR_SUB_TAB_ROUTES = [
-    { slug: "so-do", value: "SƠ ĐỒ TỔ CHỨC" as HRSubTabType },
-    { slug: "kanban", value: "GIAO VIỆC KANBAN" as HRSubTabType },
-    { slug: "dao-tao", value: "ĐÀO TẠO" as HRSubTabType },
-    { slug: "quy-trinh", value: "QUY TRÌNH" as HRSubTabType },
-    { slug: "lich", value: "LỊCH" as HRSubTabType },
-  ] as const;
-  const [subTab, setSubTab] = useSubTabRouter<HRSubTabType>(HR_SUB_TAB_ROUTES as any, "SƠ ĐỒ TỔ CHỨC");
+  const [subTab, setSubTab] = useSubTabRouter<HRSubTabType>(HR_SUB_TAB_ROUTES, "SƠ ĐỒ TỔ CHỨC");
   const [usersList, setUsersList] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
 

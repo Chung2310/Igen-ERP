@@ -16,13 +16,10 @@ export const crudSwagger = {
                 "products",
                 "categories",
                 "stock-logs",
-                "crm-tickets",
-                "marketing-contents",
                 "projects",
                 "kanban-tasks",
                 "training-courses",
                 "training-enrollments",
-                "social-integrations"
               ]
             },
             description: "Tên Model/Resource cần truy vấn"

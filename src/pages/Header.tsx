@@ -1,9 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect, @typescript-eslint/no-unused-vars */
 import React, { useState, useEffect } from "react";
 import {
   Bell, LogOut, Search, Settings, Wallet, Info, X, Image, Video, Volume2, FileText,
-  Package, Megaphone, Sparkles, CheckCheck, ShoppingCart, AlertTriangle, Send, Sun, Moon,
-  Briefcase, GraduationCap, LayoutGrid, LayoutDashboard, Users, MessageSquareShare,
-  FolderOpen, MessageSquare, Shield, LineChart
+  Package, Sparkles, CheckCheck, ShoppingCart, AlertTriangle, Send, Sun, Moon,
+  Briefcase, GraduationCap, LayoutGrid, LayoutDashboard, Users,
+  FolderOpen, MessageSquare, Shield, Menu, FolderTree, GitBranch, Calendar, Clock, User
 } from "lucide-react";
 import { TabType } from "../types";
 import { useAuth } from "../context/AuthContext";
@@ -17,37 +18,21 @@ import { socketService } from "../services/socketService";
 interface HeaderProps {
   currentTab: TabType;
   onSearchSelect: (tab: TabType, subTab?: string) => void;
+  onMenuClick?: () => void;
 }
 
-// Danh sách chức năng cho panel tiện ích — cùng bộ module và phân quyền với Sidebar
-const utilityBaseItems: Array<{ label: TabType; title: string; icon: React.ElementType; color: string }> = [
-  { label: "TỔNG QUAN" as TabType, title: "Tổng quan", icon: LayoutDashboard, color: "bg-blue-50 text-blue-600" },
-  { label: "NHÂN SỰ" as TabType, title: "Nhân sự", icon: Users, color: "bg-emerald-50 text-emerald-600" },
-  { label: "KHO & SẢN PHẨM" as TabType, title: "Kho & Sản phẩm", icon: Package, color: "bg-amber-50 text-amber-600" },
-  { label: "MARKETING" as TabType, title: "Marketing", icon: Megaphone, color: "bg-purple-50 text-purple-600" },
-  { label: "SALES CRM" as TabType, title: "Sales CRM", icon: MessageSquareShare, color: "bg-rose-50 text-rose-600" },
-  { label: "QUẢN LÝ TÀI NGUYÊN" as TabType, title: "Tài nguyên", icon: FolderOpen, color: "bg-indigo-50 text-indigo-600" },
-  { label: "TRÒ CHUYỆN" as TabType, title: "Trò chuyện", icon: MessageSquare, color: "bg-sky-50 text-sky-600" },
-  { label: "QUẢN LÝ HỌC VIÊN" as TabType, title: "Học viên", icon: GraduationCap, color: "bg-cyan-50 text-cyan-600" },
-];
-
 const searchIndex = [
-  { label: "Tổng quan Doanh nghiệp", tab: "TỔNG QUAN" as TabType, keywords: "tong quan dashboard kpi hieu suat bieu do" },
-  { label: "Sơ đồ tổ chức", tab: "NHÂN SỰ" as TabType, subTab: "SƠ ĐỒ TỔ CHỨC", keywords: "hr so do to chuc nhan su phong ban" },
-  { label: "Giao việc Kanban", tab: "NHÂN SỰ" as TabType, subTab: "GIAO VIỆC KANBAN", keywords: "hr giao viec kanban task list cong viec" },
-  { label: "Đào tạo e-Learning", tab: "NHÂN SỰ" as TabType, subTab: "ĐÀO TẠO", keywords: "onboarding hoc tap dao tao kien thuc video" },
-  { label: "Danh mục Kho & Sản phẩm", tab: "KHO & SẢN PHẨM" as TabType, subTab: "DANH MỤC", keywords: "kho hang san pham price danh muc gia ban" },
-  { label: "Nhập / Xuất kho hàng", tab: "KHO & SẢN PHẨM" as TabType, subTab: "NHẬP / XUẤT KHO", keywords: "nhap kho xuat kho phieu nhap phieu xuat chung tu" },
-  { label: "Dự báo AI & cảnh báo tồn kho", tab: "KHO & SẢN PHẨM" as TabType, subTab: "DỰ BÁO AI", keywords: "ai forecast du bao nhu cau canh bao" },
-  { label: "Lên ý tưởng AI Marketing", tab: "MARKETING" as TabType, subTab: "LÊN Ý TƯỞNG AI", keywords: "viet content y tuong campaign facebook tiktok copywriter" },
-  { label: "Duyệt nội dung Marketing", tab: "MARKETING" as TabType, subTab: "DUYỆT NỘI DUNG", keywords: "duyet content post facebook linkedin tiktok" },
-  { label: "Lịch đăng Content", tab: "MARKETING" as TabType, subTab: "LỊCH ĐĂNG CONTENT", keywords: "lich dang content calendar publish" },
-  { label: "Phễu Khách hàng", tab: "SALES CRM" as TabType, subTab: "PHỄU KHÁCH HÀNG", keywords: "crm phieu khach hang lead cold warm hot" },
-  { label: "Omni-Inbox Chat", tab: "SALES CRM" as TabType, subTab: "OMNI-INBOX CHAT", keywords: "chat vip mailbox tro ly ai" },
-  { label: "Ví & Nạp tiền", tab: "VÍ & NẠP TIỀN" as TabType, keywords: "vi nap tien so du payos vietqr nap bank" },
+  { label: "Tá»•ng quan Doanh nghiá»‡p", tab: "Tá»”NG QUAN" as TabType, keywords: "tong quan dashboard kpi hieu suat bieu do" },
+  { label: "SÆ¡ Ä‘á»“ tá»• chá»©c", tab: "NHÃ‚N Sá»°" as TabType, subTab: "SÆ  Äá»’ Tá»” CHá»¨C", keywords: "hr so do to chuc nhan su phong ban" },
+  { label: "Giao viá»‡c Kanban", tab: "NHÃ‚N Sá»°" as TabType, subTab: "GIAO VIá»†C KANBAN", keywords: "hr giao viec kanban task list cong viec" },
+  { label: "ÄÃ o táº¡o e-Learning", tab: "NHÃ‚N Sá»°" as TabType, subTab: "ÄÃ€O Táº O", keywords: "onboarding hoc tap dao tao kien thuc video" },
+  { label: "Danh má»¥c Kho & Sáº£n pháº©m", tab: "KHO & Sáº¢N PHáº¨M" as TabType, subTab: "DANH Má»¤C", keywords: "kho hang san pham price danh muc gia ban" },
+  { label: "Nháº­p / Xuáº¥t kho hÃ ng", tab: "KHO & Sáº¢N PHáº¨M" as TabType, subTab: "NHáº¬P / XUáº¤T KHO", keywords: "nhap kho xuat kho phieu nhap phieu xuat chung tu" },
+  { label: "Dá»± bÃ¡o AI & cáº£nh bÃ¡o tá»“n kho", tab: "KHO & Sáº¢N PHáº¨M" as TabType, subTab: "Dá»° BÃO AI", keywords: "ai forecast du bao nhu cau canh bao" },
+  { label: "VÃ­ & Náº¡p tiá»n", tab: "VÃ & Náº P TIá»€N" as TabType, keywords: "vi nap tien so du payos vietqr nap bank" },
 ];
 
-export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
+export default function Header({ currentTab, onSearchSelect, onMenuClick }: HeaderProps) {
   const { userProfile, logout } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [showResults, setShowResults] = useState(false);
@@ -79,11 +64,11 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
       const data = await authService.getTelegramLinkStatus();
       setTelegramLink(data);
     } catch (error) {
-      console.error("Lỗi lấy trạng thái Telegram:", error);
+      console.error("Lá»—i láº¥y tráº¡ng thÃ¡i Telegram:", error);
     }
   };
 
-  // ─── helpers & API calls ────────────────────────────────────
+  // â”€â”€â”€ helpers & API calls â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const fetchNotifications = async () => {
     if (!userProfile) return;
     try {
@@ -91,7 +76,7 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
       setNotifs(res.data);
       setUnreadCount(res.unreadCount);
     } catch (err) {
-      console.error("Lỗi khi tải thông báo từ API:", err);
+      console.error("Lá»—i khi táº£i thÃ´ng bÃ¡o tá»« API:", err);
     }
   };
 
@@ -101,10 +86,10 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
       const now = new Date();
       const diffMs = now.getTime() - d.getTime();
       const diffMin = Math.floor(diffMs / (60 * 1000));
-      if (diffMin < 1) return "Vừa xong";
-      if (diffMin < 60) return `${diffMin} phút trước`;
+      if (diffMin < 1) return "Vá»«a xong";
+      if (diffMin < 60) return `${diffMin} phÃºt trÆ°á»›c`;
       const diffHr = Math.floor(diffMin / 60);
-      if (diffHr < 24) return `${diffHr} giờ trước`;
+      if (diffHr < 24) return `${diffHr} giá» trÆ°á»›c`;
       return d.toLocaleDateString("vi-VN", {
         hour: "2-digit",
         minute: "2-digit",
@@ -112,7 +97,7 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
         month: "2-digit",
       });
     } catch {
-      return "Vừa xong";
+      return "Vá»«a xong";
     }
   };
 
@@ -122,7 +107,7 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
       setNotifs(prev => prev.map(n => n._id === id ? { ...n, read: true } : n));
       setUnreadCount(prev => Math.max(0, prev - 1));
     } catch (err) {
-      console.error("Lỗi khi đánh dấu đã đọc thông báo:", err);
+      console.error("Lá»—i khi Ä‘Ã¡nh dáº¥u Ä‘Ã£ Ä‘á»c thÃ´ng bÃ¡o:", err);
     }
   };
 
@@ -132,31 +117,31 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
       setNotifs(prev => prev.map(n => ({ ...n, read: true })));
       setUnreadCount(0);
     } catch (err) {
-      console.error("Lỗi khi đánh dấu đọc tất cả thông báo:", err);
+      console.error("Lá»—i khi Ä‘Ã¡nh dáº¥u Ä‘á»c táº¥t cáº£ thÃ´ng bÃ¡o:", err);
     }
   };
 
-  // Đồng bộ thông báo thời gian thực qua Socket.IO và sự kiện nội bộ
+  // Äá»“ng bá»™ thÃ´ng bÃ¡o thá»i gian thá»±c qua Socket.IO vÃ  sá»± kiá»‡n ná»™i bá»™
   useEffect(() => {
     if (!userProfile) return;
 
     fetchNotifications();
 
-    // Lắng nghe thông báo mới từ socket
+    // Láº¯ng nghe thÃ´ng bÃ¡o má»›i tá»« socket
     const unsubSocket = socketService.on("new_notification", (notif: WebNotification) => {
       setNotifs((prev) => {
-        // Tránh trùng lặp
+        // TrÃ¡nh trÃ¹ng láº·p
         if (prev.some((n) => n._id === notif._id)) return prev;
         return [notif, ...prev];
       });
       if (!notif.read) {
         setUnreadCount((prev) => prev + 1);
       }
-      // Kích hoạt CustomEvent để hiển thị popup nổi góc phải dưới
+      // KÃ­ch hoáº¡t CustomEvent Ä‘á»ƒ hiá»ƒn thá»‹ popup ná»•i gÃ³c pháº£i dÆ°á»›i
       window.dispatchEvent(new CustomEvent("new_notification_toast", { detail: notif }));
     });
 
-    // Lắng nghe sự kiện đồng bộ từ các component khác
+    // Láº¯ng nghe sá»± kiá»‡n Ä‘á»“ng bá»™ tá»« cÃ¡c component khÃ¡c
     const handleMutation = () => {
       fetchNotifications();
     };
@@ -169,20 +154,20 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userProfile?.uid]);
 
-  // ─── Wallet balance ──────────────────────────────────────────
+  // â”€â”€â”€ Wallet balance â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   useEffect(() => {
     const fetchBalance = async () => {
       try {
         const bal = await walletService.getWalletBalance();
         setBalance(bal);
       } catch (err) {
-        console.error("Lỗi khi lấy số dư ví ở Header:", err);
+        console.error("Lá»—i khi láº¥y sá»‘ dÆ° vÃ­ á»Ÿ Header:", err);
       }
     };
 
     fetchBalance();
 
-    // Polling số dư định kỳ mỗi 10 giây để đồng bộ tức thời
+    // Polling sá»‘ dÆ° Ä‘á»‹nh ká»³ má»—i 10 giÃ¢y Ä‘á»ƒ Ä‘á»“ng bá»™ tá»©c thá»i
     const interval = setInterval(fetchBalance, 10000);
     return () => clearInterval(interval);
   }, []);
@@ -224,10 +209,6 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
           if (isTabHidden(item.tab)) {
             return false;
           }
-          if (item.tab === "HIỆU SUẤT AI" && userProfile?.role !== "superadmin") {
-            return false;
-          }
-          return true;
         })
         .filter(
           (item) =>
@@ -235,28 +216,25 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
             item.keywords.toLowerCase().includes(normalizedQuery)
         );
 
-  // Danh sách tiện ích theo vai trò — cùng logic phân quyền với Sidebar
-  const utilityItems = [...utilityBaseItems.filter((item) => !isTabHidden(item.label))];
-  if (userProfile?.role === "superadmin" || userProfile?.role === "admin") {
-    utilityItems.push({ label: "QUẢN TRỊ USER" as TabType, title: "Quản trị user", icon: Shield, color: "bg-indigo-50 text-indigo-600" });
-  }
-  if (userProfile?.role === "superadmin") {
-    utilityItems.push({ label: "HIỆU SUẤT AI" as TabType, title: "Hiệu suất AI", icon: LineChart, color: "bg-violet-50 text-violet-600" });
-  }
-  if (userProfile) {
-    utilityItems.push({ label: "VÍ & NẠP TIỀN" as TabType, title: "Ví & Nạp tiền", icon: Wallet, color: "bg-blue-50 text-blue-600" });
-  }
-  utilityItems.push({ label: "CÀI ĐẶT" as TabType, title: "Cài đặt", icon: Settings, color: "bg-slate-100 text-slate-600" });
-
   return (
     <header className="sticky top-0 z-40 flex h-18 items-center justify-between border-b border-gray-100 bg-white px-6 shadow-xs" id="app_header">
+      {/* NÃºt má»Ÿ Sidebar trÃªn mobile â€” Sidebar chá»‰ hiá»ƒn thá»‹ cá»‘ Ä‘á»‹nh tá»« md trá»Ÿ lÃªn */}
+      <button
+        onClick={onMenuClick}
+        className="mr-3 flex items-center justify-center rounded-xl p-2.5 text-gray-600 transition-all hover:bg-gray-50 active:scale-95 md:hidden"
+        aria-label="Má»Ÿ menu Ä‘iá»u hÆ°á»›ng"
+        id="header_mobile_menu_btn"
+      >
+        <Menu className="h-5 w-5" />
+      </button>
+
       <div className="relative w-full max-w-2xl" id="search_container">
         <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
           <Search className="h-5 w-5 text-gray-400" />
         </div>
         <input
           type="text"
-          placeholder="Tìm kiếm trong ERP..."
+          placeholder="TÃ¬m kiáº¿m trong ERP..."
           className="block h-12 w-full rounded-full border border-gray-200 bg-white pl-12 pr-5 text-sm text-gray-900 shadow-[0_8px_24px_rgba(15,23,42,0.05)] outline-none transition-all placeholder:text-gray-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
           value={searchQuery}
           onChange={(event) => {
@@ -270,7 +248,7 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
         {showResults && searchQuery.trim() !== "" && (
           <div className="absolute left-0 z-50 mt-3 w-full overflow-hidden rounded-2xl border border-gray-100 bg-white font-sans text-xs shadow-2xl">
             <div className="border-b border-gray-100 bg-gray-50 px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-gray-400">
-              Kết quả tìm kiếm ({filteredResults.length})
+              Káº¿t quáº£ tÃ¬m kiáº¿m ({filteredResults.length})
             </div>
             {filteredResults.length > 0 ? (
               <div className="max-h-72 overflow-y-auto">
@@ -287,13 +265,13 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
                     <span className="text-sm font-semibold text-gray-800">{item.label}</span>
                     <span className="text-[10px] text-gray-400">
                       {item.tab}
-                      {item.subTab ? ` › ${item.subTab}` : ""}
+                      {item.subTab ? ` â€º ${item.subTab}` : ""}
                     </span>
                   </button>
                 ))}
               </div>
             ) : (
-              <div className="p-5 text-center text-sm text-gray-500">Không tìm thấy phân mục phù hợp.</div>
+              <div className="p-5 text-center text-sm text-gray-500">KhÃ´ng tÃ¬m tháº¥y phÃ¢n má»¥c phÃ¹ há»£p.</div>
             )}
           </div>
         )}
@@ -305,7 +283,7 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
         {/* Wallet Balance Pill */}
         {userProfile && (
           <button
-            onClick={() => onSearchSelect("VÍ & NẠP TIỀN" as TabType)}
+            onClick={() => onSearchSelect("VÃ & Náº P TIá»€N" as TabType)}
             className="flex items-center gap-2 rounded-full bg-blue-50 border border-blue-100 px-4 py-2 font-sans transition-all hover:bg-blue-100/50 hover:border-blue-200 active:scale-95 shadow-xs shadow-blue-500/5 cursor-pointer"
             id="header_wallet_pill"
           >
@@ -320,7 +298,7 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
         <button
           onClick={() => setShowPricingModal(true)}
           className="flex items-center justify-center p-2 rounded-full text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-all active:scale-95 cursor-pointer"
-          title="Bảng giá dịch vụ"
+          title="Báº£ng giÃ¡ dá»‹ch vá»¥"
           id="header_pricing_info_btn"
         >
           <Info className="h-4.5 w-4.5 shrink-0" />
@@ -334,16 +312,16 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
             if (nextDark) {
               document.documentElement.classList.add("dark");
               localStorage.setItem("theme", "dark");
-              toast.success("Đã chuyển sang giao diện tối");
+              toast.success("ÄÃ£ chuyá»ƒn sang giao diá»‡n tá»‘i");
             } else {
               document.documentElement.classList.remove("dark");
               localStorage.setItem("theme", "light");
-              toast.success("Đã chuyển sang giao diện sáng");
+              toast.success("ÄÃ£ chuyá»ƒn sang giao diá»‡n sÃ¡ng");
             }
             window.dispatchEvent(new CustomEvent("theme-change", { detail: { theme: nextDark ? "dark" : "light" } }));
           }}
           className="flex items-center justify-center p-2 rounded-full text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-all active:scale-95 cursor-pointer"
-          title={isDark ? "Giao diện sáng" : "Giao diện tối"}
+          title={isDark ? "Giao diá»‡n sÃ¡ng" : "Giao diá»‡n tá»‘i"}
           id="header_darkmode_btn"
         >
           {isDark ? <Sun className="h-4.5 w-4.5 shrink-0 text-amber-500" /> : <Moon className="h-4.5 w-4.5 shrink-0" />}
@@ -354,40 +332,312 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
           <button
             onClick={() => setShowUtilities(!showUtilities)}
             className={`flex items-center justify-center p-2 rounded-full transition-all active:scale-95 cursor-pointer ${showUtilities ? "bg-blue-50 text-blue-600" : "text-gray-400 hover:text-blue-600 hover:bg-blue-50"}`}
-            title="Tiện ích — mở nhanh các chức năng"
+            title="Tiá»‡n Ã­ch â€” má»Ÿ nhanh cÃ¡c chá»©c nÄƒng"
             id="header_utilities_btn"
           >
             <LayoutGrid className="h-4.5 w-4.5 shrink-0" />
           </button>
 
           {showUtilities && (
-            <div className="absolute right-0 z-50 mt-3 w-80 overflow-hidden rounded-2xl border border-gray-100 bg-white font-sans shadow-2xl">
-              <div className="border-b border-gray-100 bg-gray-50 px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                Tiện ích hệ thống
+            <div className={`absolute right-0 z-50 mt-3 w-[580px] rounded-3xl p-6 shadow-2xl font-sans animate-fade-in border ${isDark ? "bg-[#18181b] text-neutral-100 border-neutral-800 shadow-[0_20px_50px_rgba(0,0,0,0.5)]" : "bg-white text-slate-800 border-gray-150"}`}>
+              {/* Header */}
+              <div className={`flex items-center justify-between border-b pb-3.5 mb-2 ${isDark ? "border-neutral-800" : "border-gray-100"}`}>
+                <span className={`text-base font-bold tracking-wide ${isDark ? "text-white" : "text-slate-800"}`}>Menu</span>
+                <button
+                  onClick={() => setShowUtilities(false)}
+                  className={`p-1.5 rounded-full transition-all active:scale-90 ${isDark ? "text-neutral-400 hover:text-white hover:bg-neutral-800/50" : "text-gray-400 hover:text-slate-800 hover:bg-gray-100"}`}
+                  aria-label="ÄÃ³ng Menu"
+                >
+                  <X className="h-4.5 w-4.5" />
+                </button>
               </div>
-              <div className="grid grid-cols-3 gap-1.5 p-3 max-h-[420px] overflow-y-auto">
-                {utilityItems.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = currentTab === item.label;
-                  return (
-                    <button
-                      key={item.label}
-                      onClick={() => {
-                        onSearchSelect(item.label);
-                        setShowUtilities(false);
-                      }}
-                      className={`flex flex-col items-center gap-2 rounded-2xl px-2 py-3 text-center transition-all active:scale-95 ${isActive ? "bg-blue-50/80 ring-1 ring-blue-100" : "hover:bg-gray-50"}`}
-                      title={item.title}
-                    >
-                      <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${item.color}`}>
-                        <Icon className="h-5 w-5" />
-                      </span>
-                      <span className={`text-[11px] font-semibold leading-tight line-clamp-2 ${isActive ? "text-blue-700" : "text-gray-600"}`}>
-                        {item.title}
-                      </span>
-                    </button>
-                  );
-                })}
+
+              {/* Two Column Layout */}
+              <div className="flex gap-6">
+                {/* Column Left (62%): YÃªu thÃ­ch & TÃ­nh nÄƒng */}
+                <div className={`flex-[1.6] pr-6 border-r ${isDark ? "border-neutral-800/85" : "border-gray-100"}`}>
+                  {/* Group YÃªu thÃ­ch */}
+                  <div>
+                    <h3 className={`text-[11px] font-bold uppercase tracking-wider mb-2.5 mt-2 ${isDark ? "text-neutral-500" : "text-slate-400"}`}>YÃªu thÃ­ch</h3>
+                    <div className="space-y-1">
+                      <div
+                        onClick={() => {
+                          onSearchSelect("NHÃ‚N Sá»°" as TabType, "SÆ  Äá»’ Tá»” CHá»¨C");
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-start gap-3.5 py-2 px-3 rounded-2xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <div className={`p-2 border rounded-xl transition-all mt-0.5 ${isDark ? "bg-neutral-800/50 border-neutral-800 text-neutral-400 group-hover:text-white group-hover:bg-neutral-800" : "bg-slate-50 border-gray-100 text-slate-500 group-hover:text-slate-800 group-hover:bg-slate-100"}`}>
+                          <FolderTree className="h-4.5 w-4.5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>PhÃ²ng ban</p>
+                          <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>Quáº£n lÃ½ cÃ¡c phÃ²ng ban</p>
+                        </div>
+                      </div>
+
+                      <div
+                        onClick={() => {
+                          onSearchSelect("NHÃ‚N Sá»°" as TabType, "QUY TRÃŒNH");
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-start gap-3.5 py-2 px-3 rounded-2xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <div className={`p-2 border rounded-xl transition-all mt-0.5 ${isDark ? "bg-neutral-800/50 border-neutral-800 text-neutral-400 group-hover:text-white group-hover:bg-neutral-800" : "bg-slate-50 border-gray-100 text-slate-500 group-hover:text-slate-800 group-hover:bg-slate-100"}`}>
+                          <GitBranch className="h-4.5 w-4.5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>Quy trÃ¬nh cÃ´ng viá»‡c</p>
+                          <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>Quy trÃ¬nh lÃ m viá»‡c</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Group TÃ­nh nÄƒng */}
+                  <div className="mt-5">
+                    <h3 className={`text-[11px] font-bold uppercase tracking-wider mb-2.5 ${isDark ? "text-neutral-500" : "text-slate-400"}`}>TÃ­nh nÄƒng</h3>
+                    <div className={`space-y-1 max-h-[300px] overflow-y-auto pr-1 scrollbar-thin scrollbar-track-transparent ${isDark ? "scrollbar-thumb-neutral-800" : "scrollbar-thumb-gray-200"}`}>
+                      <div
+                        onClick={() => {
+                          onSearchSelect("Tá»”NG QUAN" as TabType);
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-start gap-3.5 py-2 px-3 rounded-2xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <div className={`p-2 border rounded-xl transition-all mt-0.5 ${isDark ? "bg-neutral-800/50 border-neutral-800 text-neutral-400 group-hover:text-white group-hover:bg-neutral-800" : "bg-slate-50 border-gray-100 text-slate-500 group-hover:text-slate-800 group-hover:bg-slate-100"}`}>
+                          <LayoutDashboard className="h-4.5 w-4.5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>Tá»•ng quan</p>
+                          <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>Xem tá»•ng quÃ¡t hoáº¡t Ä‘á»™ng</p>
+                        </div>
+                      </div>
+
+                      <div
+                        onClick={() => {
+                          onSearchSelect("NHÃ‚N Sá»°" as TabType, "GIAO VIá»†C KANBAN");
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-start gap-3.5 py-2 px-3 rounded-2xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <div className={`p-2 border rounded-xl transition-all mt-0.5 ${isDark ? "bg-neutral-800/50 border-neutral-800 text-neutral-400 group-hover:text-white group-hover:bg-neutral-800" : "bg-slate-50 border-gray-100 text-slate-500 group-hover:text-slate-800 group-hover:bg-slate-100"}`}>
+                          <FileText className="h-4.5 w-4.5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>Viá»‡c cá»§a tÃ´i</p>
+                          <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>CÃ¡c cÃ´ng viá»‡c cá»§a tÃ´i</p>
+                        </div>
+                      </div>
+
+                      <div
+                        onClick={() => {
+                          onSearchSelect("TRÃ’ CHUYá»†N" as TabType);
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-start gap-3.5 py-2 px-3 rounded-2xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <div className={`p-2 border rounded-xl transition-all mt-0.5 ${isDark ? "bg-neutral-800/50 border-neutral-800 text-neutral-400 group-hover:text-white group-hover:bg-neutral-800" : "bg-slate-50 border-gray-100 text-slate-500 group-hover:text-slate-800 group-hover:bg-slate-100"}`}>
+                          <MessageSquare className="h-4.5 w-4.5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>Nháº¯n tin & gá»i Ä‘iá»‡n</p>
+                          <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>TrÃ² chuyá»‡n vÃ  gá»i Ä‘iá»‡n audio/video</p>
+                        </div>
+                      </div>
+
+                      <div
+                        onClick={() => {
+                          onSearchSelect("TRÃ’ CHUYá»†N" as TabType);
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-start gap-3.5 py-2 px-3 rounded-2xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <div className={`p-2 border rounded-xl transition-all mt-0.5 ${isDark ? "bg-neutral-800/50 border-neutral-800 text-neutral-400 group-hover:text-white group-hover:bg-neutral-800" : "bg-slate-50 border-gray-100 text-slate-500 group-hover:text-slate-800 group-hover:bg-slate-100"}`}>
+                          <Video className="h-4.5 w-4.5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>Cuá»™c há»p trá»±c tuyáº¿n</p>
+                          <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>Táº¡o cuá»™c há»p trá»±c tuyáº¿n giá»‘ng nhÆ° Zoom, Google Meet</p>
+                        </div>
+                      </div>
+
+                      <div
+                        onClick={() => {
+                          onSearchSelect("NHÃ‚N Sá»°" as TabType, "Lá»ŠCH");
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-start gap-3.5 py-2 px-3 rounded-2xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <div className={`p-2 border rounded-xl transition-all mt-0.5 ${isDark ? "bg-neutral-800/50 border-neutral-800 text-neutral-400 group-hover:text-white group-hover:bg-neutral-800" : "bg-slate-50 border-gray-100 text-slate-500 group-hover:text-slate-800 group-hover:bg-slate-100"}`}>
+                          <Calendar className="h-4.5 w-4.5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>Lá»‹ch</p>
+                          <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>Lá»‹ch cÃ´ng viá»‡c vÃ  sá»± kiá»‡n</p>
+                        </div>
+                      </div>
+
+                      <div
+                        onClick={() => {
+                          onSearchSelect("QUáº¢N LÃ TÃ€I NGUYÃŠN" as TabType);
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-start gap-3.5 py-2 px-3 rounded-2xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <div className={`p-2 border rounded-xl transition-all mt-0.5 ${isDark ? "bg-neutral-800/50 border-neutral-800 text-neutral-400 group-hover:text-white group-hover:bg-neutral-800" : "bg-slate-50 border-gray-100 text-slate-500 group-hover:text-slate-800 group-hover:bg-slate-100"}`}>
+                          <FolderOpen className="h-4.5 w-4.5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>TÃ i nguyÃªn</p>
+                          <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>CÃ¡c tÃ i nguyÃªn (files, docs, links...)</p>
+                        </div>
+                      </div>
+
+                      <div
+                        onClick={() => {
+                          onSearchSelect("TRÃ’ CHUYá»†N" as TabType);
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-start gap-3.5 py-2 px-3 rounded-2xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <div className={`p-2 border rounded-xl transition-all mt-0.5 ${isDark ? "bg-neutral-800/50 border-neutral-800 text-neutral-400 group-hover:text-white group-hover:bg-neutral-800" : "bg-slate-50 border-gray-100 text-slate-500 group-hover:text-slate-800 group-hover:bg-slate-100"}`}>
+                          <Users className="h-4.5 w-4.5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>NhÃ³m cá»§a tÃ´i</p>
+                          <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>CÃ¡c nhÃ³m lÃ m viá»‡c vÃ  trÃ² chuyá»‡n</p>
+                        </div>
+                      </div>
+
+                      <div
+                        onClick={() => {
+                          onSearchSelect("NHÃ‚N Sá»°" as TabType, "GIAO VIá»†C KANBAN");
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-start gap-3.5 py-2 px-3 rounded-2xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <div className={`p-2 border rounded-xl transition-all mt-0.5 ${isDark ? "bg-neutral-800/50 border-neutral-800 text-neutral-400 group-hover:text-white group-hover:bg-neutral-800" : "bg-slate-50 border-gray-100 text-slate-500 group-hover:text-slate-800 group-hover:bg-slate-100"}`}>
+                          <Briefcase className="h-4.5 w-4.5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>LÄ©nh vá»±c, dá»± Ã¡n</p>
+                          <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>LÄ©nh vá»±c hoáº¡t Ä‘á»™ng vÃ  dá»± Ã¡n</p>
+                        </div>
+                      </div>
+
+                      {(userProfile?.role === "superadmin" || userProfile?.role === "admin") && (
+                        <div
+                          onClick={() => {
+                            onSearchSelect("QUáº¢N TRá»Š USER" as TabType);
+                            setShowUtilities(false);
+                          }}
+                          className={`group flex items-start gap-3.5 py-2 px-3 rounded-2xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                        >
+                          <div className={`p-2 border rounded-xl transition-all mt-0.5 ${isDark ? "bg-neutral-800/50 border-neutral-800 text-neutral-400 group-hover:text-white group-hover:bg-neutral-800" : "bg-slate-50 border-gray-100 text-slate-500 group-hover:text-slate-800 group-hover:bg-slate-100"}`}>
+                            <Shield className="h-4.5 w-4.5" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-[13px] font-bold transition-colors ${isDark ? "text-neutral-200 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"}`}>ThÃ nh viÃªn</p>
+                            <p className={`text-[11px] font-normal leading-normal mt-0.5 ${isDark ? "text-neutral-400" : "text-slate-500"}`}>Quáº£n lÃ½ thÃ nh viÃªn & phÃ¢n quyá»n</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Column Right (38%): Táº¡o & CÃ¡ nhÃ¢n */}
+                <div className="w-[190px] shrink-0">
+                  {/* Group Táº¡o */}
+                  <div>
+                    <h3 className={`text-[11px] font-bold uppercase tracking-wider mb-2.5 mt-2 ${isDark ? "text-neutral-500" : "text-slate-400"}`}>Táº¡o</h3>
+                    <div className="space-y-1">
+                      <div
+                        onClick={() => {
+                          onSearchSelect("NHÃ‚N Sá»°" as TabType, "GIAO VIá»†C KANBAN");
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-center gap-3 py-2 px-3 rounded-xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <FileText className={`h-4 w-4 transition-colors ${isDark ? "text-neutral-400 group-hover:text-white" : "text-slate-400 group-hover:text-slate-800"}`} />
+                        <span className={`text-[13px] font-semibold transition-colors ${isDark ? "text-neutral-300 group-hover:text-white" : "text-slate-650 group-hover:text-slate-900"}`}>CÃ´ng viá»‡c</span>
+                      </div>
+
+                      <div
+                        onClick={() => {
+                          onSearchSelect("TRÃ’ CHUYá»†N" as TabType);
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-center gap-3 py-2 px-3 rounded-xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <Users className={`h-4 w-4 transition-colors ${isDark ? "text-neutral-400 group-hover:text-white" : "text-slate-400 group-hover:text-slate-800"}`} />
+                        <span className={`text-[13px] font-semibold transition-colors ${isDark ? "text-neutral-300 group-hover:text-white" : "text-slate-650 group-hover:text-slate-900"}`}>NhÃ³m</span>
+                      </div>
+
+                      <div
+                        onClick={() => {
+                          onSearchSelect("TRÃ’ CHUYá»†N" as TabType);
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-center gap-3 py-2 px-3 rounded-xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <MessageSquare className={`h-4 w-4 transition-colors ${isDark ? "text-neutral-400 group-hover:text-white" : "text-slate-400 group-hover:text-slate-800"}`} />
+                        <span className={`text-[13px] font-semibold transition-colors ${isDark ? "text-neutral-300 group-hover:text-white" : "text-slate-650 group-hover:text-slate-900"}`}>Nháº¯n tin</span>
+                      </div>
+
+                      <div
+                        onClick={() => {
+                          onSearchSelect("TRÃ’ CHUYá»†N" as TabType);
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-center gap-3 py-2 px-3 rounded-xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <Video className={`h-4 w-4 transition-colors ${isDark ? "text-neutral-400 group-hover:text-white" : "text-slate-400 group-hover:text-slate-800"}`} />
+                        <span className={`text-[13px] font-semibold transition-colors ${isDark ? "text-neutral-300 group-hover:text-white" : "text-slate-650 group-hover:text-slate-900"}`}>Cuá»™c gá»i video</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Group CÃ¡ nhÃ¢n */}
+                  <div className={`mt-5 border-t pt-4 ${isDark ? "border-neutral-800/80" : "border-gray-100"}`}>
+                    <h3 className={`text-[11px] font-bold uppercase tracking-wider mb-2.5 ${isDark ? "text-neutral-500" : "text-slate-400"}`}>CÃ¡ nhÃ¢n</h3>
+                    <div className="space-y-1">
+                      <div
+                        onClick={() => {
+                          onSearchSelect("NHÃ‚N Sá»°" as TabType, "Lá»ŠCH");
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-center gap-3 py-2 px-3 rounded-xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <Calendar className={`h-4 w-4 transition-colors ${isDark ? "text-neutral-400 group-hover:text-white" : "text-slate-400 group-hover:text-slate-800"}`} />
+                        <span className={`text-[13px] font-semibold transition-colors ${isDark ? "text-neutral-300 group-hover:text-white" : "text-slate-650 group-hover:text-slate-900"}`}>Nghá»‰ phÃ©p</span>
+                      </div>
+
+                      <div
+                        onClick={() => {
+                          onSearchSelect("NHÃ‚N Sá»°" as TabType, "Lá»ŠCH");
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-center gap-3 py-2 px-3 rounded-xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <Calendar className={`h-4 w-4 transition-colors ${isDark ? "text-neutral-400 group-hover:text-white" : "text-slate-400 group-hover:text-slate-800"}`} />
+                        <span className={`text-[13px] font-semibold transition-colors ${isDark ? "text-neutral-300 group-hover:text-white" : "text-slate-650 group-hover:text-slate-900"}`}>Sá»± kiá»‡n</span>
+                      </div>
+
+                      <div
+                        onClick={() => {
+                          onSearchSelect("NHÃ‚N Sá»°" as TabType, "Lá»ŠCH");
+                          setShowUtilities(false);
+                        }}
+                        className={`group flex items-center gap-3 py-2 px-3 rounded-xl transition-all cursor-pointer ${isDark ? "hover:bg-neutral-800/40" : "hover:bg-slate-50"}`}
+                      >
+                        <Clock className={`h-4 w-4 transition-colors ${isDark ? "text-neutral-400 group-hover:text-white" : "text-slate-400 group-hover:text-slate-800"}`} />
+                        <span className={`text-[13px] font-semibold transition-colors ${isDark ? "text-neutral-300 group-hover:text-white" : "text-slate-650 group-hover:text-slate-900"}`}>Nháº¯c nhá»Ÿ</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -412,7 +662,7 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
               {/* Panel Header */}
               <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-4 py-3">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-gray-800">Thông báo</span>
+                  <span className="text-sm font-bold text-gray-800">ThÃ´ng bÃ¡o</span>
                   {unreadCount > 0 && (
                     <span className="rounded-full bg-red-500 px-1.5 py-0.5 font-mono text-[10px] font-bold text-white">
                       {unreadCount}
@@ -424,7 +674,7 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
                   className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-blue-600 transition-colors hover:bg-blue-50"
                 >
                   <CheckCheck className="h-3.5 w-3.5" />
-                  Xem tất cả
+                  Xem táº¥t cáº£
                 </button>
               </div>
 
@@ -433,8 +683,8 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
                 {notifs.length === 0 ? (
                   <div className="flex flex-col items-center gap-2 py-10 text-center">
                     <Bell className="h-8 w-8 text-gray-200" />
-                    <p className="text-sm font-medium text-gray-400">Không có thông báo</p>
-                    <p className="text-xs text-gray-300">Mọi hoạt động sẽ xuất hiện tại đây</p>
+                    <p className="text-sm font-medium text-gray-400">KhÃ´ng cÃ³ thÃ´ng bÃ¡o</p>
+                    <p className="text-xs text-gray-300">Má»i hoáº¡t Ä‘á»™ng sáº½ xuáº¥t hiá»‡n táº¡i Ä‘Ã¢y</p>
                   </div>
                 ) : (
                   notifs.map((notif) => {
@@ -488,7 +738,7 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
               {/* Footer */}
               <div className="border-t border-gray-100 bg-gray-50/80 px-4 py-2.5 text-center">
                 <p className="text-[10px] font-medium text-gray-400">
-                  {unreadCount === 0 ? "✔ Tất cả đã được đọc" : `${unreadCount} thông báo chưa đọc`}
+                  {unreadCount === 0 ? "âœ” Táº¥t cáº£ Ä‘Ã£ Ä‘Æ°á»£c Ä‘á»c" : `${unreadCount} thÃ´ng bÃ¡o chÆ°a Ä‘á»c`}
                 </p>
               </div>
             </div>
@@ -525,7 +775,7 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
               <div className="fixed inset-0 z-40" onClick={() => setShowProfileMenu(false)} />
               <div className="absolute right-0 z-50 mt-3 w-56 rounded-2xl border border-gray-100 bg-white/95 py-2 font-sans shadow-2xl backdrop-blur-md">
                 <div className="border-b border-gray-100 px-4 py-2.5">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Tài khoản</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">TÃ i khoáº£n</p>
                   <p className="mt-0.5 truncate text-sm font-bold text-gray-800">{userProfile?.displayName}</p>
                   <p className="truncate text-xs text-gray-500">{userProfile?.email}</p>
                   {userProfile?.role && (
@@ -546,18 +796,18 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
                     <Send className="h-4 w-4 text-sky-500" />
                     <span className="flex-1">Telegram</span>
                     <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold ${telegramLink?.linked ? "bg-emerald-50 text-emerald-600" : "bg-gray-100 text-gray-500"}`}>
-                      {telegramLink?.linked ? "Đã liên kết" : "Chưa"}
+                      {telegramLink?.linked ? "ÄÃ£ liÃªn káº¿t" : "ChÆ°a"}
                     </span>
                   </button>
                   <button
                     onClick={() => {
-                      onSearchSelect("CÀI ĐẶT" as TabType);
+                      onSearchSelect("CÃ€I Äáº¶T" as TabType);
                       setShowProfileMenu(false);
                     }}
                     className="flex w-full cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-semibold text-gray-700 transition-colors hover:bg-blue-50/80"
                   >
                     <Settings className="h-4 w-4 text-gray-500" />
-                    <span>Cài đặt cá nhân</span>
+                    <span>CÃ i Ä‘áº·t cÃ¡ nhÃ¢n</span>
                   </button>
                   <button
                     onClick={async () => {
@@ -567,7 +817,7 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
                     className="mt-1 flex w-full cursor-pointer items-center gap-2.5 rounded-xl border-t border-gray-50 px-3 py-2 pt-2 text-left text-xs font-semibold text-red-600 transition-colors hover:bg-red-50/80"
                   >
                     <LogOut className="h-4 w-4 text-red-500" />
-                    <span>Đăng xuất hệ thống</span>
+                    <span>ÄÄƒng xuáº¥t há»‡ thá»‘ng</span>
                   </button>
                 </div>
               </div>
@@ -598,57 +848,57 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
             {/* Header */}
             <div>
               <h2 className="text-xl font-bold text-gray-950 flex items-center gap-2">
-                Bảng giá dịch vụ
+                Báº£ng giÃ¡ dá»‹ch vá»¥
               </h2>
               <p className="text-xs text-gray-500 mt-1">
-                Chi phí được tính dựa trên số lượng Credit tiêu thụ cho mỗi đơn vị sử dụng.
+                Chi phÃ­ Ä‘Æ°á»£c tÃ­nh dá»±a trÃªn sá»‘ lÆ°á»£ng Credit tiÃªu thá»¥ cho má»—i Ä‘Æ¡n vá»‹ sá»­ dá»¥ng.
               </p>
             </div>
 
             {/* Exchange Rate Card */}
             <div className="bg-blue-50/50 border border-blue-100/60 rounded-2xl p-4 flex flex-col gap-1.5 shadow-xs">
               <div className="flex items-center gap-2 text-blue-700 font-bold text-sm">
-                <span>💡</span> 100 VND = 1 Credit
+                <span>ðŸ’¡</span> 100 VND = 1 Credit
               </div>
               <div className="text-xs text-blue-800 font-medium leading-relaxed">
-                Chi phí được tính cố định cho mỗi lần phân tích prompt hoặc mỗi ảnh/video được tạo ra.
+                Chi phÃ­ Ä‘Æ°á»£c tÃ­nh cá»‘ Ä‘á»‹nh cho má»—i láº§n phÃ¢n tÃ­ch prompt hoáº·c má»—i áº£nh/video Ä‘Æ°á»£c táº¡o ra.
               </div>
             </div>
 
-            {/* 1. Hình ảnh */}
+            {/* 1. HÃ¬nh áº£nh */}
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-2 text-gray-900 font-bold text-sm border-b border-gray-100 pb-2">
                 <div className="p-1.5 bg-cyan-50 text-cyan-600 rounded-lg">
                   <Image className="h-4 w-4" />
                 </div>
-                <span>Hình ảnh</span>
+                <span>HÃ¬nh áº£nh</span>
               </div>
 
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="text-gray-400 font-medium border-b border-gray-100">
-                      <th className="py-2 font-semibold">Mô hình / Dịch vụ</th>
-                      <th className="py-2 text-right font-semibold pr-8">Giá (Credit)</th>
-                      <th className="py-2 text-right font-semibold">Đơn vị</th>
+                      <th className="py-2 font-semibold">MÃ´ hÃ¬nh / Dá»‹ch vá»¥</th>
+                      <th className="py-2 text-right font-semibold pr-8">GiÃ¡ (Credit)</th>
+                      <th className="py-2 text-right font-semibold">ÄÆ¡n vá»‹</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
                     <tr className="hover:bg-gray-50/50">
                       <td className="py-3">
                         <div className="font-bold text-gray-800">iGen 3.1 flash image preview</div>
-                        <div className="text-[10px] text-gray-400 font-medium mt-0.5">1K: 27.5| 2K: 42 (Tính theo Credit)</div>
+                        <div className="text-[10px] text-gray-400 font-medium mt-0.5">1K: 27.5| 2K: 42 (TÃ­nh theo Credit)</div>
                       </td>
                       <td className="py-3 text-right font-bold text-cyan-600 pr-8 text-sm">27,5</td>
-                      <td className="py-3 text-right text-gray-400 font-medium">/ ảnh</td>
+                      <td className="py-3 text-right text-gray-400 font-medium">/ áº£nh</td>
                     </tr>
                     <tr className="hover:bg-gray-50/50">
                       <td className="py-3">
                         <div className="font-bold text-gray-800">iGen 3 pro image preview</div>
-                        <div className="text-[10px] text-gray-400 font-medium mt-0.5">1K: 57 | 2K: 57 (Tính theo Credit)</div>
+                        <div className="text-[10px] text-gray-400 font-medium mt-0.5">1K: 57 | 2K: 57 (TÃ­nh theo Credit)</div>
                       </td>
                       <td className="py-3 text-right font-bold text-cyan-600 pr-8 text-sm">57</td>
-                      <td className="py-3 text-right text-gray-400 font-medium">/ ảnh</td>
+                      <td className="py-3 text-right text-gray-400 font-medium">/ áº£nh</td>
                     </tr>
                   </tbody>
                 </table>
@@ -747,88 +997,88 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
               </div>
             </div>
 
-            {/* 3. Âm thanh */}
+            {/* 3. Ã‚m thanh */}
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-2 text-gray-900 font-bold text-sm border-b border-gray-100 pb-2">
                 <div className="p-1.5 bg-purple-50 text-purple-600 rounded-lg">
                   <Volume2 className="h-4 w-4" />
                 </div>
-                <span>Âm thanh</span>
+                <span>Ã‚m thanh</span>
               </div>
 
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="text-gray-400 font-medium border-b border-gray-100">
-                      <th className="py-2 font-semibold">Mô hình / Dịch vụ</th>
-                      <th className="py-2 text-right font-semibold pr-8">Giá (Credit)</th>
-                      <th className="py-2 text-right font-semibold">Đơn vị</th>
+                      <th className="py-2 font-semibold">MÃ´ hÃ¬nh / Dá»‹ch vá»¥</th>
+                      <th className="py-2 text-right font-semibold pr-8">GiÃ¡ (Credit)</th>
+                      <th className="py-2 text-right font-semibold">ÄÆ¡n vá»‹</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
                     <tr className="hover:bg-gray-50/50">
                       <td className="py-3">
                         <div className="font-bold text-gray-800">iGen 2.5 Flash TTS</div>
-                        <div className="text-[10px] text-gray-400 font-medium mt-0.5">Quy đổi từ $0.0005/giây gốc</div>
+                        <div className="text-[10px] text-gray-400 font-medium mt-0.5">Quy Ä‘á»•i tá»« $0.0005/giÃ¢y gá»‘c</div>
                       </td>
                       <td className="py-3 text-right font-bold text-purple-600 pr-8 text-sm">0,128</td>
-                      <td className="py-3 text-right text-gray-400 font-medium">/ giây</td>
+                      <td className="py-3 text-right text-gray-400 font-medium">/ giÃ¢y</td>
                     </tr>
                     <tr className="hover:bg-gray-50/50">
                       <td className="py-3">
                         <div className="font-bold text-gray-800">iGen 2.5 Pro TTS</div>
-                        <div className="text-[10px] text-gray-400 font-medium mt-0.5">Quy đổi từ $0.001/giây gốc</div>
+                        <div className="text-[10px] text-gray-400 font-medium mt-0.5">Quy Ä‘á»•i tá»« $0.001/giÃ¢y gá»‘c</div>
                       </td>
                       <td className="py-3 text-right font-bold text-purple-600 pr-8 text-sm">0,255</td>
-                      <td className="py-3 text-right text-gray-400 font-medium">/ giây</td>
+                      <td className="py-3 text-right text-gray-400 font-medium">/ giÃ¢y</td>
                     </tr>
                   </tbody>
                 </table>
               </div>
             </div>
 
-            {/* 4. Văn bản / Prompt */}
+            {/* 4. VÄƒn báº£n / Prompt */}
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-2 text-gray-900 font-bold text-sm border-b border-gray-100 pb-2">
                 <div className="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg">
                   <FileText className="h-4 w-4" />
                 </div>
-                <span>Văn bản / Prompt</span>
+                <span>VÄƒn báº£n / Prompt</span>
               </div>
 
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="text-gray-400 font-medium border-b border-gray-100">
-                      <th className="py-2 font-semibold">Mô hình / Dịch vụ</th>
-                      <th className="py-2 text-right font-semibold pr-8">Giá (Credit)</th>
-                      <th className="py-2 text-right font-semibold">Đơn vị</th>
+                      <th className="py-2 font-semibold">MÃ´ hÃ¬nh / Dá»‹ch vá»¥</th>
+                      <th className="py-2 text-right font-semibold pr-8">GiÃ¡ (Credit)</th>
+                      <th className="py-2 text-right font-semibold">ÄÆ¡n vá»‹</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
                     <tr className="hover:bg-gray-50/50">
                       <td className="py-3">
                         <div className="font-bold text-gray-800">iGen 3.1 pro</div>
-                        <div className="text-[10px] text-gray-400 font-medium mt-0.5">Cố định mỗi lần tạo</div>
+                        <div className="text-[10px] text-gray-400 font-medium mt-0.5">Cá»‘ Ä‘á»‹nh má»—i láº§n táº¡o</div>
                       </td>
                       <td className="py-3 text-right font-bold text-emerald-600 pr-8 text-sm">10</td>
-                      <td className="py-3 text-right text-gray-400 font-medium">/ lần</td>
+                      <td className="py-3 text-right text-gray-400 font-medium">/ láº§n</td>
                     </tr>
                     <tr className="hover:bg-gray-50/50">
                       <td className="py-3">
                         <div className="font-bold text-gray-800">iGen 3.1 flash lite</div>
-                        <div className="text-[10px] text-gray-400 font-medium mt-0.5">Cố định mỗi lần tạo</div>
+                        <div className="text-[10px] text-gray-400 font-medium mt-0.5">Cá»‘ Ä‘á»‹nh má»—i láº§n táº¡o</div>
                       </td>
                       <td className="py-3 text-right font-bold text-emerald-600 pr-8 text-sm">1,5</td>
-                      <td className="py-3 text-right text-gray-400 font-medium">/ lần</td>
+                      <td className="py-3 text-right text-gray-400 font-medium">/ láº§n</td>
                     </tr>
                     <tr className="hover:bg-gray-50/50">
                       <td className="py-3">
                         <div className="font-bold text-gray-800">iGen 3 flash</div>
-                        <div className="text-[10px] text-gray-400 font-medium mt-0.5">Cố định mỗi lần tạo</div>
+                        <div className="text-[10px] text-gray-400 font-medium mt-0.5">Cá»‘ Ä‘á»‹nh má»—i láº§n táº¡o</div>
                       </td>
                       <td className="py-3 text-right font-bold text-emerald-600 pr-8 text-sm">2,5</td>
-                      <td className="py-3 text-right text-gray-400 font-medium">/ lần</td>
+                      <td className="py-3 text-right text-gray-400 font-medium">/ láº§n</td>
                     </tr>
                   </tbody>
                 </table>
@@ -837,7 +1087,7 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
 
             {/* Note Footer */}
             <div className="text-[10px] text-gray-400 font-medium italic mt-2 border-t border-gray-100 pt-3">
-              * Bảng giá có thể thay đổi tùy theo chính sách của nhà cung cấp dịch vụ AI.
+              * Báº£ng giÃ¡ cÃ³ thá»ƒ thay Ä‘á»•i tÃ¹y theo chÃ­nh sÃ¡ch cá»§a nhÃ  cung cáº¥p dá»‹ch vá»¥ AI.
             </div>
 
           </div>
@@ -858,41 +1108,41 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
               <div className="mb-2 inline-flex rounded-2xl bg-sky-50 p-2 text-sky-600">
                 <Send className="h-4 w-4" />
               </div>
-              <h3 className="text-base font-bold text-gray-900">Liên kết Telegram</h3>
-              <p className="mt-1 text-xs text-gray-500">Chỉ dùng link liên kết từ web, không dùng đăng nhập Telegram nữa.</p>
+              <h3 className="text-base font-bold text-gray-900">LiÃªn káº¿t Telegram</h3>
+              <p className="mt-1 text-xs text-gray-500">Chá»‰ dÃ¹ng link liÃªn káº¿t tá»« web, khÃ´ng dÃ¹ng Ä‘Äƒng nháº­p Telegram ná»¯a.</p>
             </div>
 
             <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
               <div className="flex items-center justify-between gap-3">
-                <span className="text-xs font-semibold text-gray-600">Trạng thái</span>
+                <span className="text-xs font-semibold text-gray-600">Tráº¡ng thÃ¡i</span>
                 <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${telegramLink?.linked ? "bg-emerald-100 text-emerald-700" : "border border-gray-200 bg-white text-gray-500"}`}>
-                  {telegramLink?.linked ? "Đã liên kết" : "Chưa liên kết"}
+                  {telegramLink?.linked ? "ÄÃ£ liÃªn káº¿t" : "ChÆ°a liÃªn káº¿t"}
                 </span>
               </div>
               {telegramLink?.linked && (
-                <p className="mt-2 text-[11px] text-gray-500">Telegram đã được liên kết với tài khoản này.</p>
+                <p className="mt-2 text-[11px] text-gray-500">Telegram Ä‘Ã£ Ä‘Æ°á»£c liÃªn káº¿t vá»›i tÃ i khoáº£n nÃ y.</p>
               )}
               {!telegramLink?.linked && telegramLink?.pendingCode && (
-                <p className="mt-2 text-[11px] text-gray-500">Web sẽ tự cập nhật ngay sau khi bạn liên kết xong trên Telegram.</p>
+                <p className="mt-2 text-[11px] text-gray-500">Web sáº½ tá»± cáº­p nháº­t ngay sau khi báº¡n liÃªn káº¿t xong trÃªn Telegram.</p>
               )}
             </div>
 
             {!telegramLink?.linked && (
               <div className="mt-4 rounded-2xl border border-sky-100 bg-sky-50/70 p-4">
-                <p className="text-[11px] font-semibold text-sky-700">1. Mở bot</p>
+                <p className="text-[11px] font-semibold text-sky-700">1. Má»Ÿ bot</p>
                 <a
                   href={`https://t.me/${telegramLink?.botUsername || "iGEN_ERP_Bot"}?start=${encodeURIComponent(telegramLink?.pendingCode || "")}`}
                   target="_blank"
                   rel="noreferrer"
                   className="mt-1 inline-block text-sm font-bold text-sky-800 underline decoration-sky-300 underline-offset-4"
                 >
-                  Mở @{telegramLink?.botUsername || "iGEN_ERP_Bot"}
+                  Má»Ÿ @{telegramLink?.botUsername || "iGEN_ERP_Bot"}
                 </a>
-                <p className="mt-3 text-[11px] font-semibold text-sky-700">2. Mã dự phòng</p>
+                <p className="mt-3 text-[11px] font-semibold text-sky-700">2. MÃ£ dá»± phÃ²ng</p>
                 <div className="mt-1 rounded-xl bg-white px-3 py-2 font-mono text-sm font-bold text-gray-900">
                   /link {telegramLink?.pendingCode || "......"}
                 </div>
-                <p className="mt-2 text-[11px] text-gray-500">Thông thường chỉ cần bấm link mở bot ở trên. Lệnh này chỉ là phương án dự phòng.</p>
+                <p className="mt-2 text-[11px] text-gray-500">ThÃ´ng thÆ°á»ng chá»‰ cáº§n báº¥m link má»Ÿ bot á»Ÿ trÃªn. Lá»‡nh nÃ y chá»‰ lÃ  phÆ°Æ¡ng Ã¡n dá»± phÃ²ng.</p>
               </div>
             )}
 
@@ -904,9 +1154,9 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
                       setTelegramLoading(true);
                       const data = await authService.createTelegramLinkCode();
                       setTelegramLink(data);
-                      toast.success("Đã tạo mã liên kết Telegram.");
+                      toast.success("ÄÃ£ táº¡o mÃ£ liÃªn káº¿t Telegram.");
                     } catch (error: any) {
-                      toast.error(error.message || "Không thể tạo mã liên kết Telegram.");
+                      toast.error(error.message || "KhÃ´ng thá»ƒ táº¡o mÃ£ liÃªn káº¿t Telegram.");
                     } finally {
                       setTelegramLoading(false);
                     }
@@ -914,7 +1164,7 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
                   className="flex-1 rounded-2xl bg-sky-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
                   disabled={telegramLoading}
                 >
-                  {telegramLoading ? "Đang tạo..." : telegramLink?.pendingCode ? "Tạo lại mã" : "Tạo mã"}
+                  {telegramLoading ? "Äang táº¡o..." : telegramLink?.pendingCode ? "Táº¡o láº¡i mÃ£" : "Táº¡o mÃ£"}
                 </button>
               )}
 
@@ -925,9 +1175,9 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
                       setTelegramLoading(true);
                       const data = await authService.unlinkTelegram();
                       setTelegramLink(data);
-                      toast.success("Đã gỡ liên kết Telegram và tạo sẵn mã liên kết mới.");
+                      toast.success("ÄÃ£ gá»¡ liÃªn káº¿t Telegram vÃ  táº¡o sáºµn mÃ£ liÃªn káº¿t má»›i.");
                     } catch (error: any) {
-                      toast.error(error.message || "Không thể gỡ liên kết Telegram.");
+                      toast.error(error.message || "KhÃ´ng thá»ƒ gá»¡ liÃªn káº¿t Telegram.");
                     } finally {
                       setTelegramLoading(false);
                     }
@@ -935,7 +1185,7 @@ export default function Header({ currentTab, onSearchSelect }: HeaderProps) {
                   className="flex-1 rounded-2xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-bold text-red-600 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
                   disabled={telegramLoading}
                 >
-                  {telegramLoading ? "Đang xử lý..." : "Gỡ liên kết"}
+                  {telegramLoading ? "Äang xá»­ lÃ½..." : "Gá»¡ liÃªn káº¿t"}
                 </button>
               )}
             </div>

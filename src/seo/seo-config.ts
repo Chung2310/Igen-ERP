@@ -117,26 +117,6 @@ export const TAB_SEO_MAP: Record<TabType, SeoMeta> = {
     priority: "0.8",
     changeFrequency: "weekly",
   },
-  MARKETING: {
-    title: "Marketing AI - Sáng tạo nội dung, sản xuất video AI",
-    description:
-      "Tăng tốc chiến dịch tiếp thị số với bộ công cụ Marketing AI tự động tạo ý tưởng bài viết, lên kế hoạch nội dung và sản xuất video quảng cáo AI.",
-    keywords:
-      "marketing AI, tạo nội dung AI, tạo video AI, lập kế hoạch marketing, chiến dịch số, heygen video",
-    path: "/marketing",
-    priority: "0.9",
-    changeFrequency: "daily",
-  },
-  "SALES CRM": {
-    title: "Sales CRM - Quản lý khách hàng, hội thoại Omni-Inbox",
-    description:
-      "Chăm sóc khách hàng tập trung với tính năng chat đa kênh Omni-Inbox (Facebook, Zalo), AI tự động phản hồi và quản lý phễu bán hàng CRM hiệu quả.",
-    keywords:
-      "sales crm, quản lý khách hàng, omni channel crm, chăm sóc khách hàng, crm doanh nghiệp, omni inbox",
-    path: "/sales-crm",
-    priority: "0.8",
-    changeFrequency: "weekly",
-  },
   "QUẢN LÝ TÀI NGUYÊN": {
     title: "Quản lý tài nguyên - Lưu trữ và đồng bộ Google Drive",
     description:
@@ -165,16 +145,6 @@ export const TAB_SEO_MAP: Record<TabType, SeoMeta> = {
       "quản lý học viên, quản lý đào tạo, lớp học, lịch thi, học phí, đối tác tuyển sinh, erp giáo dục",
     path: "/quan-ly-hoc-vien",
     priority: "0.8",
-    changeFrequency: "weekly",
-  },
-  "HIỆU SUẤT AI": {
-    title: "Giám sát hiệu suất AI - Phân tích tự động hóa vận hành",
-    description:
-      "Đo lường hiệu suất của trợ lý AI, thống kê tác vụ tự động hóa và phân tích tốc độ xử lý nghiệp vụ so với quy trình truyền thống.",
-    keywords:
-      "hiệu suất AI, tự động hóa doanh nghiệp, AI analytics, đo lường AI, iGen ERP, hiệu năng xử lý",
-    path: "/hieu-suat-ai",
-    priority: "0.7",
     changeFrequency: "weekly",
   },
   "QUẢN TRỊ USER": {
@@ -228,10 +198,7 @@ export const PUBLIC_SEO_PAGES: SeoMeta[] = [
   TAB_SEO_MAP["TỔNG QUAN"],
   TAB_SEO_MAP["NHÂN SỰ"],
   TAB_SEO_MAP["KHO & SẢN PHẨM"],
-  TAB_SEO_MAP.MARKETING,
-  TAB_SEO_MAP["SALES CRM"],
   TAB_SEO_MAP["QUẢN LÝ HỌC VIÊN"],
-  TAB_SEO_MAP["HIỆU SUẤT AI"],
 ];
 
 export function getSeoForTab(tab: TabType): SeoMeta {

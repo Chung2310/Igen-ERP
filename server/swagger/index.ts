@@ -1,15 +1,10 @@
 import { Router } from "express";
 import swaggerUi from "swagger-ui-express";
-import { geminiSwagger } from "./gemini.swagger";
-import { facebookPostSwagger } from "./facebook-post.swagger";
-import { tiktokSwagger } from "./tiktok.swagger";
-import { schedulerSwagger } from "./scheduler.swagger";
 import { mediaSwagger } from "./media.swagger";
 import { authSwagger } from "./auth.swagger";
 import { permissionSwagger } from "./permission.swagger";
 import { rolePermissionSwagger } from "./role-permission.swagger";
 import { crudSwagger } from "./crud.swagger";
-import { opusclipSwagger } from "./opusclip.swagger";
 import { chatSwagger } from "./chat.swagger";
 import { notificationSwagger } from "./notification.swagger";
 
@@ -18,7 +13,7 @@ const swaggerDocument = {
   info: {
     title: "iGen ERP Smart AI API Docs",
     version: "1.0.0",
-    description: "Tài liệu API Swagger cho các tính năng AI Marketing và Chatbot CRM của iGen ERP.",
+    description: "Tài liệu API Swagger của iGen ERP.",
   },
   servers: [
     {
@@ -27,16 +22,11 @@ const swaggerDocument = {
     },
   ],
   paths: {
-    ...geminiSwagger.paths,
-    ...facebookPostSwagger.paths,
-    ...tiktokSwagger.paths,
-    ...schedulerSwagger.paths,
     ...mediaSwagger.paths,
     ...authSwagger.paths,
     ...permissionSwagger.paths,
     ...rolePermissionSwagger.paths,
     ...crudSwagger.paths,
-    ...opusclipSwagger.paths,
     ...chatSwagger.paths,
     ...notificationSwagger.paths,
   },

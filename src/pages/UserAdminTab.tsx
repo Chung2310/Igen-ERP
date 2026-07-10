@@ -16,7 +16,6 @@ import { CompanyEditFormState, CompanyFormState } from "../components/user-admin
 import { UserFormModal } from "../components/user-admin/UserFormModal";
 import { BalanceModal } from "../components/user-admin/BalanceModal";
 import { RoleModal } from "../components/user-admin/RoleModal";
-import { HeyGenModal } from "../components/user-admin/HeyGenModal";
 
 export default function UserAdminTab() {
   const { userProfile } = useAuth();
@@ -55,22 +54,8 @@ export default function UserAdminTab() {
   const [userCompanyCode, setUserCompanyCode] = useState<string>("");
   const [userParentId, setUserParentId] = useState<string>("");
   const [userDepartment, setUserDepartment] = useState("");
-  const [userHeyGenAvatarIds, setUserHeyGenAvatarIds] = useState("");
-  const [userHeyGenVoiceId, setUserHeyGenVoiceId] = useState("");
-  const [userHeyGenApiKey, setUserHeyGenApiKey] = useState("");
   const [submittingUser, setSubmittingUser] = useState(false);
-  const [isHeyGenModalOpen, setIsHeyGenModalOpen] = useState(false);
-  const [editingHeyGenUser, setEditingHeyGenUser] = useState<UserProfile | null>(null);
-  const [editingHeyGenAvatarIds, setEditingHeyGenAvatarIds] = useState("");
-  const [editingHeyGenVoiceId, setEditingHeyGenVoiceId] = useState("");
-  const [editingHeyGenApiKey, setEditingHeyGenApiKey] = useState("");
-  const [savingHeyGenAccess, setSavingHeyGenAccess] = useState(false);
 
-  const parseAvatarIdsInput = (value: string) =>
-    value
-      .split(/[\n,]+/)
-      .map((item) => item.trim())
-      .filter(Boolean);
   const resetUserForm = () => {
     setEditingUser(null);
     setUserDisplayName("");
@@ -79,15 +64,7 @@ export default function UserAdminTab() {
     setUserRole("user");
     setUserParentId("");
     setUserDepartment("");
-    setUserHeyGenAvatarIds("");
-    setUserHeyGenVoiceId("");
-    setUserHeyGenApiKey("");
   };
-  const formatAvatarIds = (user?: UserProfile | null) =>
-    Array.isArray(user?.heygenAccess?.avatarIds) && user?.heygenAccess?.avatarIds.length > 0
-      ? user.heygenAccess.avatarIds.join(", ")
-      : (user?.heygenAccess?.avatarId || "-");
-
   const companyFormState: CompanyFormState = {
     companyName,
     companyCode,
@@ -553,12 +530,6 @@ export default function UserAdminTab() {
 
       // Tìm level của người quản lý để tính level nhân viên mới
       const managerProfile = userParentId ? usersList.find(u => u.uid === userParentId) : null;
-      const heygenAccessPayload = {
-          avatarIds: parseAvatarIdsInput(userHeyGenAvatarIds),
-          avatarId: parseAvatarIdsInput(userHeyGenAvatarIds)[0] || undefined,
-          voiceId: userHeyGenVoiceId.trim() || undefined,
-          apiKey: userHeyGenApiKey.trim() || undefined,
-        };
 
       if (editingUser) {
         await authService.updateUser(editingUser.uid, {
@@ -571,7 +542,6 @@ export default function UserAdminTab() {
           department: userDepartment.trim() || "",
           division: userDepartment.trim() || "",
           phone: editingUser.phone || "",
-          heygenAccess: heygenAccessPayload,
         });
 
         toast.success(`Đã cập nhật tài khoản "${userDisplayName}".`);
@@ -588,7 +558,6 @@ export default function UserAdminTab() {
           userDepartment.trim() || undefined,
           userDepartment.trim() || undefined,
           undefined,
-          heygenAccessPayload
         );
 
         toast.success(`Đăng ký tài khoản cho "${userDisplayName}" thành công!`);
@@ -624,9 +593,6 @@ export default function UserAdminTab() {
     setUserCompanyCode(user.companyCode || "");
     setUserParentId(user.parentId || "");
     setUserDepartment(user.department || "");
-    setUserHeyGenAvatarIds(formatAvatarIds(user) === "-" ? "" : formatAvatarIds(user));
-    setUserHeyGenVoiceId(user.heygenAccess?.voiceId || "");
-    setUserHeyGenApiKey(user.heygenAccess?.apiKey || "");
     setIsUserModalOpen(true);
   };
 
@@ -722,64 +688,6 @@ export default function UserAdminTab() {
     setBalanceAction("add");
     setNewBalanceValue("");
     setBalanceNote("");
-  };
-
-  const openHeyGenEditor = (user: UserProfile) => {
-    setOpenActionMenuId(null);
-    setEditingHeyGenUser(user);
-    setEditingHeyGenAvatarIds(
-      Array.isArray(user.heygenAccess?.avatarIds) && user.heygenAccess?.avatarIds.length > 0
-        ? user.heygenAccess.avatarIds.join(", ")
-        : (user.heygenAccess?.avatarId || "")
-    );
-    setEditingHeyGenVoiceId(user.heygenAccess?.voiceId || "");
-    setEditingHeyGenApiKey(user.heygenAccess?.apiKey || "");
-    setIsHeyGenModalOpen(true);
-  };
-
-  const handleSaveHeyGenAccess = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingHeyGenUser) {
-      return;
-    }
-
-    setSavingHeyGenAccess(true);
-    try {
-      const avatarIds = parseAvatarIdsInput(editingHeyGenAvatarIds);
-      await authService.updateUser(editingHeyGenUser.uid, {
-        heygenAccess: {
-          avatarIds,
-          avatarId: avatarIds[0] || "",
-          voiceId: editingHeyGenVoiceId.trim(),
-          apiKey: editingHeyGenApiKey.trim(),
-        },
-      });
-
-      setUsersList((prev) =>
-        prev.map((user) =>
-          user.uid === editingHeyGenUser.uid
-            ? {
-                ...user,
-                heygenAccess: {
-                  avatarIds,
-                  avatarId: avatarIds[0] || "",
-                  voiceId: editingHeyGenVoiceId.trim(),
-                  apiKey: editingHeyGenApiKey.trim(),
-                },
-              }
-            : user
-        )
-      );
-
-      toast.success(`Đã cập nhật cấu hình HeyGen cho "${editingHeyGenUser.displayName}".`);
-      setIsHeyGenModalOpen(false);
-      setEditingHeyGenUser(null);
-    } catch (error: any) {
-      console.error("Lỗi cập nhật HeyGen access:", error);
-      toast.error(error.message || "Không thể cập nhật cấu hình HeyGen cho người dùng này.");
-    } finally {
-      setSavingHeyGenAccess(false);
-    }
   };
 
   return (
@@ -1277,19 +1185,12 @@ export default function UserAdminTab() {
         setUserParentId={setUserParentId}
         userDepartment={userDepartment}
         setUserDepartment={setUserDepartment}
-        userHeyGenAvatarIds={userHeyGenAvatarIds}
-        setUserHeyGenAvatarIds={setUserHeyGenAvatarIds}
-        userHeyGenVoiceId={userHeyGenVoiceId}
-        setUserHeyGenVoiceId={setUserHeyGenVoiceId}
-        userHeyGenApiKey={userHeyGenApiKey}
-        setUserHeyGenApiKey={setUserHeyGenApiKey}
         getAvailableRoles={getAvailableRoles}
         userProfile={userProfile}
         companies={companies}
         usersList={usersList}
         onSubmit={handleRegisterUser}
         submittingUser={submittingUser}
-        parseAvatarIdsInput={parseAvatarIdsInput}
       />
 
       <BalanceModal
@@ -1359,22 +1260,6 @@ export default function UserAdminTab() {
         }}
       />
 
-      <HeyGenModal
-        open={isHeyGenModalOpen}
-        onClose={() => {
-          setIsHeyGenModalOpen(false);
-          setEditingHeyGenUser(null);
-        }}
-        editingHeyGenUser={editingHeyGenUser}
-        editingHeyGenAvatarIds={editingHeyGenAvatarIds}
-        setEditingHeyGenAvatarIds={setEditingHeyGenAvatarIds}
-        editingHeyGenVoiceId={editingHeyGenVoiceId}
-        setEditingHeyGenVoiceId={setEditingHeyGenVoiceId}
-        editingHeyGenApiKey={editingHeyGenApiKey}
-        setEditingHeyGenApiKey={setEditingHeyGenApiKey}
-        savingHeyGenAccess={savingHeyGenAccess}
-        onSubmit={handleSaveHeyGenAccess}
-      />
     </div>
   );
 }

@@ -10,11 +10,8 @@ import { connectDB } from "./server/config/database";
 import { apiRouter } from "./server/router";
 import { swaggerRouter } from "./server/swagger";
 import { initSocketServer } from "./server/socket";
-import { remotionQueueService } from "./server/service/remotion-queue.service";
-import { tiktokController } from "./server/controller/tiktok.controller";
 import { buildDocumentTitle, getSeoForPath, resolveSeoUrl } from "./src/seo/seo-config";
 import { BRAND_NAME, BRAND_TAGLINE, BRAND_LOGO_URL, SERVICE_WEBSITE_URL } from "./src/config/brand";
-import { telegramService } from "./server/service/telegram.service";
 
 dotenv.config();
 
@@ -29,11 +26,8 @@ function shouldSkipRoutineApiLog(method: string, url: string) {
   }
 
   const noisyPrefixes = [
-    "/api/v1/crud/marketing-contents",
-    "/api/v1/crud/crm-tickets",
     "/api/v1/crud/products",
     "/api/v1/wallet/balance",
-    "/api/v1/gemini/media-history",
   ];
 
   return noisyPrefixes.some((prefix) => normalizedUrl.startsWith(prefix));
@@ -204,11 +198,6 @@ async function startServer() {
   // Kết nối cơ sở dữ liệu MongoDB
   await connectDB();
 
-  // Khởi động hàng đợi xử lý Remotion
-  remotionQueueService.initWorker();
-
-
-
   const app = express();
   // Chỉ tin 1 hop proxy (nginx) — dùng số thay vì true để X-Forwarded-For không thể bị client giả mạo
   app.set("trust proxy", 1);
@@ -280,16 +269,6 @@ async function startServer() {
   });
 
   // 3. Đăng ký Versioned API Router với tiền tố /api/v1/
-  app.get("/webhooks/tiktok", (req, res) => {
-    return res.status(200).json({
-      status: "ok",
-      path: "/webhooks/tiktok",
-      message: "TikTok webhook endpoint is reachable",
-      timestamp: new Date().toISOString(),
-    });
-  });
-  app.post("/webhooks/tiktok", tiktokController.receiveWebhook as any);
-
   app.use("/api/v1", apiRouter);
 
   // Bộ xử lý lỗi dung lượng yêu cầu quá lớn (Payload Too Large)
@@ -376,11 +355,6 @@ async function startServer() {
   httpServer.listen(PORT, "0.0.0.0", () => {
     console.log(`Express and Socket.IO server running on http://localhost:${PORT}`);
     console.log(`Swagger documentation available at http://localhost:${PORT}/api-docs`);
-    
-    // Khởi chạy Telegram Bot long-polling để xử lý lệnh /image, /video
-    telegramService.startPolling().catch((err) => {
-      console.error("[Telegram Bot] Khởi động polling thất bại:", err);
-    });
   });
 }
 

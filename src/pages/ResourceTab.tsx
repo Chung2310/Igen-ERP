@@ -15,6 +15,8 @@ import { getAccessToken, authService } from "../services/authService";
 import { FileExplorer } from "../components/resource/FileExplorer";
 import { internalChatService } from "../services/internalChatService";
 import { resourceService } from "../services/resourceService";
+import { useSubTabRouter } from "../hooks/useSubTabRouter";
+import { RESOURCE_SUB_TAB_ROUTES } from "../router/subTabRoutes";
 
 interface Resource {
   _id: string;
@@ -136,7 +138,7 @@ interface OpenedTab {
 
 export default function ResourceTab() {
   const { userProfile, setActiveTab, refreshProfile } = useAuth();
-  const [subTab, setSubTab] = useState<ResourceSubTabType>("TÀI LIỆU KHÁC");
+  const [subTab, setSubTab] = useSubTabRouter<ResourceSubTabType>(RESOURCE_SUB_TAB_ROUTES, "TÀI LIỆU KHÁC");
   const [openedTabs, setOpenedTabs] = useState<OpenedTab[]>([
     { id: "explorer", title: "Thẻ mới", type: "explorer" }
   ]);

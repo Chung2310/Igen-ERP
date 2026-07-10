@@ -1,50 +1,18 @@
 import { ProductModel } from "../model/product.model";
 import { CategoryModel } from "../model/category.model";
 import { StockLogModel } from "../model/stock-log.model";
-import { CRMTicketModel } from "../model/crm-ticket.model";
-import { MarketingContentModel } from "../model/marketing-content.model";
 import { ProjectModel } from "../model/project.model";
 import { KanbanTaskModel } from "../model/kanban-task.model";
 import { TrainingCourseModel } from "../model/training-course.model";
 import { TrainingEnrollmentModel } from "../model/training-enrollment.model";
 import { UserModel } from "../model/user.model";
-import { SocialIntegrationModel } from "../model/social-integration.model";
 import { WorkflowModel } from "../model/workflow.model";
 import { HRCalendarEventModel } from "../model/hr-calendar-event.model";
 import { TimekeepingLogModel } from "../model/timekeeping.model";
 import { SupportedModelName, ICRUDQueryOptions } from "../interface/crud.interface";
 import mongoose from "mongoose";
-import { facebookPostService } from "./facebook-post.service";
-import { zaloMessengerService } from "./zalo-messenger.service";
-import { telegramService } from "./telegram.service";
 import { workflowLinkService } from "./workflow-link.service";
 import { notificationService } from "./notification.service";
-
-const DEMO_VIDEO_URL_PATTERNS = [
-  "w3schools.com/html/mov_bbb.mp4",
-  "example.com/video.mp4",
-  "example.com/videos/"
-];
-
-function stripDemoVideoUrl(videoUrl?: string | null) {
-  const value = String(videoUrl || "").trim();
-  if (!value) return videoUrl;
-  const normalized = value.toLowerCase();
-  return DEMO_VIDEO_URL_PATTERNS.some((pattern) => normalized.includes(pattern)) ? "" : videoUrl;
-}
-
-function sanitizeMarketingPayload(modelName: string, payload: any) {
-  if (modelName !== "marketing-contents" || !payload || typeof payload !== "object") {
-    return payload;
-  }
-  if (!Object.prototype.hasOwnProperty.call(payload, "videoUrl")) {
-    return payload;
-  }
-  return {
-    ...payload,
-    videoUrl: stripDemoVideoUrl(payload.videoUrl),
-  };
-}
 
 function sanitizeInventoryPayload(modelName: string, payload: any) {
   if (!payload || typeof payload !== "object") {
@@ -156,16 +124,7 @@ function sanitizeInventoryResult(modelName: string, item: any) {
   return plainItem;
 }
 
-function sanitizeMarketingResult(modelName: string, item: any) {
-  if (modelName !== "marketing-contents" || !item) {
-    return item;
-  }
-  const plainItem = typeof item.toObject === "function" ? item.toObject() : item;
-  return sanitizeMarketingPayload(modelName, plainItem);
-}
-
-/**
- * Model chỉ được đọc qua router CRUD chung; mọi thao tác ghi (tạo/sửa/xóa)
+/**`r`n * Model chỉ được đọc qua router CRUD chung; mọi thao tác ghi (tạo/sửa/xóa)
  * phải đi qua router chuyên biệt có kiểm tra phân quyền & phân cấp đầy đủ.
  * Chặn ở đây để tránh leo thang đặc quyền (vd tự set role/permissions qua /crud/users).
  */
@@ -194,90 +153,17 @@ function assertWritable(modelName: string) {
 
 function sanitizeCrudResult(modelName: string, item: any) {
   const inventoryItem = sanitizeInventoryResult(modelName, item);
-  const marketingItem = sanitizeMarketingResult(modelName, inventoryItem);
-  return sanitizeUserResult(modelName, marketingItem);
-}
-
-async function handlePendingVideoUrl(item: any, modelName: string) {
-  if (modelName === "marketing-contents" && item && item.videoUrl && item.videoUrl.startsWith("pending://piapi/")) {
-    const taskId = item.videoUrl.replace("pending://piapi/", "");
-    try {
-      const { AIMediaModel } = require("../model/ai-media.model");
-      const { geminiService } = require("./gemini.service");
-      
-      const existingRecord = await AIMediaModel.findOne({ url: item.videoUrl });
-      if (!existingRecord) {
-        const record = await AIMediaModel.create({
-          userId: item.authorUid,
-          mediaType: "video",
-          url: item.videoUrl,
-          prompt: item.mediaPrompt || item.title,
-          metadata: {
-            status: "processing",
-            progress: 10,
-            provider: "piapi",
-            title: `Video Auto-pilot: ${item.title}`,
-            description: `Đang kết xuất video tự động bằng PiAPI.`,
-            aspectRatio: "16:9",
-            activeCardId: item._id.toString()
-          }
-        });
-
-        // Trigger background polling immediately
-        geminiService.pollPiAPIVideoStatusBackground(record._id.toString(), taskId, item.authorUid);
-        console.log(`[crudService] Triggered background polling for pending video task ${taskId} on card ${item._id}`);
-      }
-    } catch (err) {
-      console.error("[crudService] Failed to register pending video poll:", err);
-    }
-  }
-}
-
-async function validateSocialIntegrationPayload(payload: any) {
-  if (!payload || typeof payload !== "object" || payload.isConnected === false || payload.isMock === true) {
-    return;
-  }
-
-  const platform = String(payload.platform || "").trim();
-  const username = String(payload.username || "").trim();
-  const accessToken = String(payload.accessToken || "").trim();
-
-  if (accessToken.startsWith("mock_") || accessToken === "EAA...") {
-    console.log(`[validateSocialIntegrationPayload] Bỏ qua xác thực cho Access Token mock: ${accessToken}`);
-    return;
-  }
-
-  if (platform === "Facebook") {
-    if (!username || !accessToken) {
-      throw new Error("Facebook company integration yeu cau Page ID va Page Access Token.");
-    }
-    await facebookPostService.validateToken(username, accessToken);
-    return;
-  }
-
-  if (platform === "Zalo") {
-    if (!username || !accessToken) {
-      throw new Error("Zalo company integration yeu cau OA ID va Access Token.");
-    }
-    await zaloMessengerService.validateIntegrationToken({
-      oaId: username,
-      oaName: payload.displayName,
-      accessToken,
-    });
-  }
+  return sanitizeUserResult(modelName, inventoryItem);
 }
 
 const MODEL_MAPPING: Record<SupportedModelName, mongoose.Model<any>> = {
   "products": ProductModel,
   "categories": CategoryModel,
   "stock-logs": StockLogModel,
-  "crm-tickets": CRMTicketModel,
-  "marketing-contents": MarketingContentModel,
   "projects": ProjectModel,
   "kanban-tasks": KanbanTaskModel,
   "training-courses": TrainingCourseModel,
   "training-enrollments": TrainingEnrollmentModel,
-  "social-integrations": SocialIntegrationModel,
   "workflows": WorkflowModel,
   "users": UserModel,
   "hr-calendar-events": HRCalendarEventModel,
@@ -379,31 +265,18 @@ export const crudService = {
     assertWritable(modelName);
 
     // Ép buộc gán companyCode để bảo mật dữ liệu doanh nghiệp
-    const payload = sanitizeMarketingPayload(modelName, {
+    const payload = {
       ...sanitizeInventoryPayload(modelName, data),
       companyCode,
-    });
-
-    if (modelName === "social-integrations") {
-      await validateSocialIntegrationPayload(payload);
-    }
+    };
 
     const newItem = new model(payload);
     await newItem.save();
-
-    if (modelName === "crm-tickets" && newItem.status === "won") {
-      telegramService.sendLeadWonNotification(newItem).catch((err) => {
-        console.error("[crudService.create] Error sending Telegram notification:", err);
-      });
-    }
 
     if (modelName === "products" && newItem) {
       const stock = Number(newItem.stock || 0);
       const minStockAlert = Number(newItem.minStockAlert || 15);
       if (stock <= minStockAlert) {
-        telegramService.sendLowStockAlert(newItem).catch((err) => {
-          console.error("[crudService.create] Error sending low stock alert:", err);
-        });
         notificationService.notifyLowStock(newItem).catch((err) => {
           console.error("[crudService.create] Error sending low stock web notification:", err);
         });
@@ -428,10 +301,6 @@ export const crudService = {
         }
       })();
     }
-
-    handlePendingVideoUrl(newItem, modelName).catch((err) => {
-      console.error("[crudService.create] error in handlePendingVideoUrl:", err);
-    });
 
     return sanitizeCrudResult(modelName, newItem);
   },
@@ -460,57 +329,22 @@ export const crudService = {
 
     // Loại bỏ các trường nhạy cảm không cho phép đè trực tiếp
     const { companyCode: _cCode, _id: _itemId, id: _plainId, ...rawUpdatePayload } = data;
-    const updatePayload = sanitizeMarketingPayload(
-      modelName,
-      sanitizeInventoryPayload(modelName, rawUpdatePayload)
-    );
-
-    if (modelName === "social-integrations") {
-      const existingItem = await model.findOne(query).lean();
-      if (!existingItem) {
-        throw new Error("Khong tim thay tai nguyen hoac ban khong co quyen chinh sua.");
-      }
-      await validateSocialIntegrationPayload({
-        ...existingItem,
-        ...updatePayload,
-      });
-    }
-
-    let oldStatus = "";
-    if (modelName === "crm-tickets" && updatePayload.status === "won") {
-      const oldItem = await model.findOne(query).select("status").lean();
-      if (oldItem) {
-        oldStatus = oldItem.status;
-      }
-    }
+    const updatePayload = sanitizeInventoryPayload(modelName, rawUpdatePayload);
 
     const updatedItem = await model.findOneAndUpdate(query, updatePayload, { new: true });
     if (!updatedItem) {
-      throw new Error("Không tìm thấy tài nguyên hoặc bạn không có quyền chỉnh sửa.");
-    }
-
-    if (modelName === "crm-tickets" && updatePayload.status === "won" && oldStatus !== "won") {
-      telegramService.sendLeadWonNotification(updatedItem).catch((err) => {
-        console.error("[crudService.update] Error sending Telegram notification:", err);
-      });
+      throw new Error("Khong tim thay tai nguyen hoac ban khong co quyen chinh sua.");
     }
 
     if (modelName === "products" && updatedItem) {
       const stock = Number(updatedItem.stock || 0);
       const minStockAlert = Number(updatedItem.minStockAlert || 15);
       if (stock <= minStockAlert) {
-        telegramService.sendLowStockAlert(updatedItem).catch((err) => {
-          console.error("[crudService.update] Error sending low stock alert:", err);
-        });
         notificationService.notifyLowStock(updatedItem).catch((err) => {
           console.error("[crudService.update] Error sending low stock web notification:", err);
         });
       }
     }
-
-    handlePendingVideoUrl(updatedItem, modelName).catch((err) => {
-      console.error("[crudService.update] error in handlePendingVideoUrl:", err);
-    });
 
     // Task Kanban thuộc quy trình đổi trạng thái → đồng bộ ngược về Quy trình
     if (modelName === "kanban-tasks" && updatedItem) {
