@@ -42,7 +42,7 @@ export function ManageCategoriesModal({
 
     setIsCategorySubmitting(true);
     try {
-      await apiFetch('/resources/categories', {
+      await apiFetch('/student-resources/categories', {
         method: 'POST',
         body: JSON.stringify({ name: newCategoryName }),
       });
@@ -60,7 +60,7 @@ export function ManageCategoriesModal({
   const handleDeleteCategory = async () => {
     if (!deleteConfirm.id) return;
     try {
-      await apiFetch(`/resources/categories/${deleteConfirm.id}`, {
+      await apiFetch(`/student-resources/categories/${deleteConfirm.id}`, {
         method: 'DELETE',
       });
       toast.success('Đã xóa phân loại thành công.');

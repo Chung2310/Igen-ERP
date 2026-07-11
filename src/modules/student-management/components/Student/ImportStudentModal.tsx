@@ -13,6 +13,7 @@ interface ImportStudentModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  selectedCenter?: string;
 }
 
 interface ParsedStudent {
@@ -54,7 +55,8 @@ const formatExcelPhone = (phoneVal: unknown): string => {
   return clean;
 };
 
-export function ImportStudentModal({ isOpen, onClose, onSuccess }: ImportStudentModalProps) {
+export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter }: ImportStudentModalProps) {
+  const { userProfile: user } = useAuth();
   const businessType = 'general';
   
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -97,6 +99,13 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess }: ImportStudent
 
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Danh sách học viên');
+      // ownerId/centerId are intentionally excluded: the server resolves the center automatically.
+      const guide = XLSX.utils.aoa_to_sheet([
+        ['L\u01b0u \u00fd'],
+        ['Kh\u00f4ng c\u1ea7n nh\u1eadp ownerId, centerId ho\u1eb7c m\u00e3 trung t\u00e2m. H\u1ec7 th\u1ed1ng t\u1ef1 g\u00e1n trung t\u00e2m khi nh\u1eadp d\u1eef li\u1ec7u.'],
+      ]);
+      guide['!cols'] = [{ wch: 110 }];
+      XLSX.utils.book_append_sheet(wb, guide, 'Huong dan');
       XLSX.writeFile(wb, `mau_import_hoc_vien_${businessType}.xlsx`);
       toast.success('Đã tải xuống file mẫu thành công!');
     } catch (error) {
@@ -232,7 +241,10 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess }: ImportStudent
     setIsUploading(true);
     setErrorMsg(null);
     try {
-      const res = await apiFetch('/students/bulk', {
+      const centerQuery = user?.role === 'superadmin' && selectedCenter && selectedCenter !== 'all'
+        ? `?centerId=${encodeURIComponent(selectedCenter)}`
+        : '';
+      const res = await apiFetch(`/students/bulk${centerQuery}`, {
         method: 'POST',
         body: JSON.stringify({ students: validData }),
       });

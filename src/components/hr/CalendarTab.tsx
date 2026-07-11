@@ -24,6 +24,7 @@ import {
 import { UserProfile, EmployeeNode } from "../../types";
 import { getAccessToken } from "../../services/authService";
 import { toast } from "../../pages/Toast";
+import { ConfirmDialog } from "../common/ConfirmDialog";
 
 interface CalendarTabProps {
   userProfile: UserProfile | null;
@@ -37,7 +38,7 @@ interface CalendarItem {
   _id?: string;
   id?: string;
   companyCode: string;
-  type: "event" | "leave" | "reminder";
+  type: "event" | "leave" | "wfh" | "exception" | "reminder";
   title: string;
   description?: string;
   startDate: string;
@@ -92,6 +93,36 @@ export default function CalendarTab({
 
   // Uploading state for files
   const [isFileUploading, setIsFileUploading] = useState<boolean>(false);
+
+  // Premium confirm dialog state (replaces native window.confirm)
+  const [confirmState, setConfirmState] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    confirmLabel?: string;
+    cancelLabel?: string;
+    onConfirm: () => void | Promise<void>;
+  } | null>(null);
+
+  const askConfirm = (
+    title: string,
+    description: string,
+    onConfirm: () => void | Promise<void>,
+    confirmLabel = "Xác nhận",
+    cancelLabel = "Hủy"
+  ) => {
+    setConfirmState({
+      isOpen: true,
+      title,
+      description,
+      confirmLabel,
+      cancelLabel,
+      onConfirm: async () => {
+        await onConfirm();
+        setConfirmState(null);
+      },
+    });
+  };
 
   // Time States
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
@@ -205,7 +236,7 @@ export default function CalendarTab({
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
 
   // Form Fields
-  const [formType, setFormType] = useState<"event" | "leave" | "reminder">("event");
+  const [formType, setFormType] = useState<"event" | "leave" | "wfh" | "exception" | "reminder">("event");
   const [formTitle, setFormTitle] = useState<string>("");
   const [formDescription, setFormDescription] = useState<string>("");
   const [formStartDate, setFormStartDate] = useState<string>("");
@@ -557,41 +588,81 @@ export default function CalendarTab({
   };
 
   const handleDeleteApp = async (appId: string) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa đơn xin nghỉ này?")) return;
+    askConfirm(
+      "Xóa đơn xin nghỉ",
+      "Bạn có chắc chắn muốn xóa đơn xin nghỉ này không? Hành động này không thể hoàn tác.",
+      async () => {
+        try {
+          const res = await fetch(`/api/v1/crud/hr-leave-applications/${appId}`, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${getAccessToken()}` },
+          });
 
-    try {
-      const res = await fetch(`/api/v1/crud/hr-leave-applications/${appId}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${getAccessToken()}` },
-      });
+          if (!res.ok) throw new Error("Lỗi khi xóa đơn.");
 
-      if (!res.ok) throw new Error("Lỗi khi xóa đơn.");
-
-      toast.success("Đã xóa đơn thành công.");
-      fetchApplications();
-    } catch (err: any) {
-      console.error(err);
-      toast.error("Xóa đơn thất bại.");
-    }
+          toast.success("Đã xóa đơn thành công.");
+          fetchApplications();
+        } catch (err: any) {
+          console.error(err);
+          toast.error("Xóa đơn thất bại.");
+        }
+      },
+      "Xóa"
+    );
   };
 
   const handleDeleteTpl = async (tplId: string) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa biểu mẫu mẫu này?")) return;
+    askConfirm(
+      "Xóa biểu mẫu",
+      "Bạn có chắc chắn muốn xóa biểu mẫu mẫu này không? Hành động này không thể hoàn tác.",
+      async () => {
+        try {
+          const res = await fetch(`/api/v1/crud/hr-leave-templates/${tplId}`, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${getAccessToken()}` },
+          });
 
-    try {
-      const res = await fetch(`/api/v1/crud/hr-leave-templates/${tplId}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${getAccessToken()}` },
-      });
+          if (!res.ok) throw new Error("Lỗi khi xóa biểu mẫu.");
 
-      if (!res.ok) throw new Error("Lỗi khi xóa biểu mẫu.");
+          toast.success("Đã xóa biểu mẫu thành công.");
+          fetchTemplates();
+        } catch (err: any) {
+          console.error(err);
+          toast.error("Xóa biểu mẫu thất bại.");
+        }
+      },
+      "Xóa"
+    );
+  };
 
-      toast.success("Đã xóa biểu mẫu thành công.");
-      fetchTemplates();
-    } catch (err: any) {
-      console.error(err);
-      toast.error("Xóa biểu mẫu thất bại.");
-    }
+  const handleDeleteItem = async (itemId: string) => {
+    askConfirm(
+      "Xóa lịch trình",
+      "Bạn có chắc chắn muốn xóa lịch trình này không? Hành động này không thể hoàn tác.",
+      async () => {
+        try {
+          const res = await fetch(`/api/v1/crud/hr-calendar-events/${itemId}`, {
+            method: "DELETE",
+            headers: {
+              Authorization: `Bearer ${getAccessToken()}`,
+            },
+          });
+
+          if (!res.ok) {
+            throw new Error("Lỗi mạng khi xóa.");
+          }
+
+          toast.success("Đã xóa lịch trình thành công.");
+          setIsDetailModalOpen(false);
+          setIsFormModalOpen(false);
+          fetchCalendarItems();
+        } catch (err: any) {
+          console.error(err);
+          toast.error("Xóa lịch trình thất bại.");
+        }
+      },
+      "Xóa"
+    );
   };
 
   useEffect(() => {
@@ -1683,6 +1754,8 @@ export default function CalendarTab({
   const getStatistics = () => {
     let events = 0;
     let leaves = 0;
+    let wfhs = 0;
+    let exceptions = 0;
     let reminders = 0;
 
     filteredItems.forEach((item) => {
@@ -1691,11 +1764,13 @@ export default function CalendarTab({
       if (sDate.getMonth() === month && sDate.getFullYear() === year) {
         if (item.type === "event") events++;
         if (item.type === "leave") leaves++;
+        if (item.type === "wfh") wfhs++;
+        if (item.type === "exception") exceptions++;
         if (item.type === "reminder") reminders++;
       }
     });
 
-    return { events, leaves, reminders };
+    return { events, leaves, wfhs, exceptions, reminders };
   };
 
   const stats = getStatistics();
@@ -1714,7 +1789,7 @@ export default function CalendarTab({
     }
   };
 
-  const openCreateModal = (date: Date, type: "event" | "leave" | "reminder" = "event") => {
+  const openCreateModal = (date: Date, type: "event" | "leave" | "wfh" | "exception" | "reminder" = "event") => {
     const formattedDate = date.toISOString().slice(0, 10);
     setFormMode("create");
     setFormType(type);
@@ -1772,9 +1847,16 @@ export default function CalendarTab({
       return;
     }
 
-    if (formType === "leave" && !(isManager || userProfile?.role === "admin" || userProfile?.role === "superadmin")) {
-      toast.error("Chỉ quản lý và admin mới có quyền đăng ký lịch nghỉ phép.");
+    if ((formType === "leave" || formType === "wfh" || formType === "exception") && !(isManager || userProfile?.role === "admin" || userProfile?.role === "superadmin")) {
+      toast.error("Chỉ quản lý và admin mới có quyền tạo đơn nghỉ phép, làm tại nhà hoặc ngoại lệ.");
       return;
+    }
+
+    if ((formType === "leave" || formType === "wfh" || formType === "exception") && formStatus === "approved") {
+      if (formMode === "create" || selectedItem?.creatorId === userProfile?.uid) {
+        toast.error("Người tạo đơn không được phép tự phê duyệt.");
+        return;
+      }
     }
 
     const selectedEmployee = employees.find((emp) => emp.id === formEmployeeId);
@@ -1785,10 +1867,10 @@ export default function CalendarTab({
       description: formDescription,
       startDate: startDateTime.toISOString(),
       endDate: endDateTime.toISOString(),
-      employeeId: formType === "leave" ? formEmployeeId : undefined,
-      employeeName: formType === "leave" ? (selectedEmployee?.name || userProfile?.displayName) : undefined,
+      employeeId: (formType === "leave" || formType === "wfh" || formType === "exception") ? formEmployeeId : undefined,
+      employeeName: (formType === "leave" || formType === "wfh" || formType === "exception") ? (selectedEmployee?.name || userProfile?.displayName) : undefined,
       assigneeId: formType === "reminder" ? formAssigneeId : undefined,
-      status: formStatus as any,
+      status: (formType === "leave" || formType === "wfh" || formType === "exception") && formMode === "create" ? "pending" : formStatus as any,
       companyCode: selectedCompanyCode,
       creatorId: userProfile?.uid || "unknown",
     };
@@ -1828,31 +1910,6 @@ export default function CalendarTab({
     }
   };
 
-  // Delete Handler
-  const handleDeleteItem = async (itemId: string) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa lịch trình này?")) return;
-
-    try {
-      const res = await fetch(`/api/v1/crud/hr-calendar-events/${itemId}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${getAccessToken()}`,
-        },
-      });
-
-      if (!res.ok) {
-        throw new Error("Lỗi mạng khi xóa.");
-      }
-
-      toast.success("Đã xóa lịch trình thành công.");
-      setIsDetailModalOpen(false);
-      setIsFormModalOpen(false);
-      fetchCalendarItems();
-    } catch (err: any) {
-      console.error(err);
-      toast.error("Không thể xóa lịch trình.");
-    }
-  };
 
   return (
     <div
@@ -1976,13 +2033,29 @@ export default function CalendarTab({
                   Tạo sự kiện
                 </button>
                 {(isManager || userProfile?.role === "admin" || userProfile?.role === "superadmin") && (
-                  <button
-                    onClick={() => openCreateModal(new Date(), "leave")}
-                    className="w-full text-left px-4 py-2 hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center gap-2.5 cursor-pointer"
-                  >
-                    <Users className="h-4 w-4 text-rose-500" />
-                    Đăng ký nghỉ phép
-                  </button>
+                  <>
+                    <button
+                      onClick={() => openCreateModal(new Date(), "leave")}
+                      className="w-full text-left px-4 py-2 hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center gap-2.5 cursor-pointer"
+                    >
+                      <Users className="h-4 w-4 text-rose-500" />
+                      Đăng ký nghỉ phép
+                    </button>
+                    <button
+                      onClick={() => openCreateModal(new Date(), "wfh")}
+                      className="w-full text-left px-4 py-2 hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center gap-2.5 cursor-pointer"
+                    >
+                      <Info className="h-4 w-4 text-teal-500" />
+                      Làm tại nhà
+                    </button>
+                    <button
+                      onClick={() => openCreateModal(new Date(), "exception")}
+                      className="w-full text-left px-4 py-2 hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center gap-2.5 cursor-pointer"
+                    >
+                      <CheckCircle className="h-4 w-4 text-violet-500" />
+                      Ngoại lệ
+                    </button>
+                  </>
                 )}
                 <button
                   onClick={() => openCreateModal(new Date(), "reminder")}
@@ -2014,6 +2087,8 @@ export default function CalendarTab({
               <option value="all">Tất cả danh mục</option>
               <option value="event">📅 Sự kiện</option>
               <option value="leave">🌴 Nghỉ phép</option>
+              <option value="wfh">🏠 Làm tại nhà</option>
+              <option value="exception">⚡ Ngoại lệ</option>
               <option value="reminder">🔔 Nhắc hẹn</option>
             </select>
 
@@ -2051,6 +2126,26 @@ export default function CalendarTab({
               </div>
               <div className="bg-rose-50 p-1.5 rounded-full text-rose-600">
                 <Users className="h-4 w-4" />
+              </div>
+            </div>
+
+            <div className="bg-white border-l-4 border-l-teal-500 border-y border-r border-slate-100/80 rounded-2xl px-4 py-2 text-xs font-bold text-slate-700 flex items-center justify-between min-w-[130px] shadow-sm hover:-translate-y-0.5 hover:shadow-md hover:shadow-teal-500/5 transition-all duration-300">
+              <div className="flex flex-col">
+                <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Tại nhà</span>
+                <span className="text-sm font-extrabold text-slate-800">{stats.wfhs}</span>
+              </div>
+              <div className="bg-teal-50 p-1.5 rounded-full text-teal-600">
+                <Info className="h-4 w-4" />
+              </div>
+            </div>
+
+            <div className="bg-white border-l-4 border-l-violet-500 border-y border-r border-slate-100/80 rounded-2xl px-4 py-2 text-xs font-bold text-slate-700 flex items-center justify-between min-w-[130px] shadow-sm hover:-translate-y-0.5 hover:shadow-md hover:shadow-violet-500/5 transition-all duration-300">
+              <div className="flex flex-col">
+                <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Ngoại lệ</span>
+                <span className="text-sm font-extrabold text-slate-800">{stats.exceptions}</span>
+              </div>
+              <div className="bg-violet-50 p-1.5 rounded-full text-violet-600">
+                <CheckCircle className="h-4 w-4" />
               </div>
             </div>
 
@@ -2140,6 +2235,10 @@ export default function CalendarTab({
                         const styleClass =
                           item.type === "leave"
                             ? "bg-rose-50/80 text-rose-700 border-rose-100/60 hover:bg-rose-100/60"
+                            : item.type === "wfh"
+                            ? "bg-teal-50/80 text-teal-700 border-teal-100/60 hover:bg-teal-100/60"
+                            : item.type === "exception"
+                            ? "bg-violet-50/80 text-violet-700 border-violet-100/60 hover:bg-violet-100/60"
                             : item.type === "reminder"
                             ? "bg-amber-50/80 text-amber-700 border-amber-100/60 hover:bg-amber-100/60"
                             : "bg-blue-50/80 text-blue-700 border-blue-100/60 hover:bg-blue-100/60";
@@ -2153,10 +2252,10 @@ export default function CalendarTab({
                             }}
                             className={`text-[9px] px-2 py-0.5 rounded-lg border font-bold truncate transition-all duration-200 hover:scale-[1.01] active:scale-100 ${styleClass}`}
                             title={`${item.title} (${
-                              item.type === "leave" ? "Nghỉ phép" : item.type === "reminder" ? "Nhắc hẹn" : "Sự kiện"
+                              item.type === "leave" ? "Nghỉ phép" : item.type === "wfh" ? "Làm tại nhà" : item.type === "exception" ? "Ngoại lệ" : item.type === "reminder" ? "Nhắc hẹn" : "Sự kiện"
                             })`}
                           >
-                            {item.type === "leave" ? `🌴 ` : item.type === "reminder" ? `🔔 ` : `📅 `}
+                            {item.type === "leave" ? `🌴 ` : item.type === "wfh" ? `🏠 ` : item.type === "exception" ? `⚡ ` : item.type === "reminder" ? `🔔 ` : `📅 `}
                             {item.title}
                           </div>
                         );
@@ -2207,12 +2306,16 @@ export default function CalendarTab({
                   const badgeColor =
                     item.type === "leave"
                       ? "bg-rose-50 text-rose-700 border-rose-100"
+                      : item.type === "wfh"
+                      ? "bg-teal-50 text-teal-700 border-teal-100"
+                      : item.type === "exception"
+                      ? "bg-violet-50 text-violet-700 border-violet-100"
                       : item.type === "reminder"
                       ? "bg-amber-50 text-amber-700 border-amber-100"
                       : "bg-blue-50 text-blue-700 border-blue-100";
 
                   const typeLabel =
-                    item.type === "leave" ? "Nghỉ phép" : item.type === "reminder" ? "Nhắc hẹn" : "Sự kiện";
+                    item.type === "leave" ? "Nghỉ phép" : item.type === "wfh" ? "Làm tại nhà" : item.type === "exception" ? "Ngoại lệ" : item.type === "reminder" ? "Nhắc hẹn" : "Sự kiện";
 
                   return (
                     <div
@@ -2224,7 +2327,7 @@ export default function CalendarTab({
                           {typeLabel}
                         </span>
                         <div className="flex gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
-                          {(item.type !== "leave" || isManager || userProfile?.role === "admin" || userProfile?.role === "superadmin") && (
+                          {(!["leave", "wfh", "exception"].includes(item.type) || isManager || userProfile?.role === "admin" || userProfile?.role === "superadmin") && (
                             <button
                               onClick={() => openEditModal(item)}
                               className="p-1 text-slate-400 hover:text-indigo-650 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
@@ -2233,7 +2336,7 @@ export default function CalendarTab({
                               <Edit className="h-3.5 w-3.5" />
                             </button>
                           )}
-                          {(item.type !== "leave" || isManager || userProfile?.role === "admin" || userProfile?.role === "superadmin") && (
+                          {(!["leave", "wfh", "exception"].includes(item.type) || isManager || userProfile?.role === "admin" || userProfile?.role === "superadmin") && (
                             <button
                               onClick={() => handleDeleteItem((item._id || item.id)!)}
                               className="p-1 text-slate-400 hover:text-rose-650 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
@@ -2257,13 +2360,13 @@ export default function CalendarTab({
                           {` - `}
                           {new Date(item.endDate).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
                         </span>
-                        {item.type === "leave" && item.employeeName && (
+                        {["leave", "wfh", "exception"].includes(item.type) && item.employeeName && (
                           <span className="flex items-center gap-1.5">
                             <Users className="h-3 w-3 text-rose-450" />
                             {item.employeeName}
                           </span>
                         )}
-                        {item.type === "leave" && (
+                        {["leave", "wfh", "exception"].includes(item.type) && (
                           <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider ${
                             item.status === "approved"
                               ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
@@ -2280,8 +2383,8 @@ export default function CalendarTab({
 
             {/* Modal Footer (Actions to Quick Add) */}
             <div className="bg-slate-50 border-t border-slate-150 px-6 py-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-              <span className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wide">Thêm mới lịch:</span>
-              <div className="flex gap-1.5">
+              <span className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wide">Thêm mới:</span>
+              <div className="flex flex-wrap gap-1.5">
                 <button
                   onClick={() => openCreateModal(selectedDayDate, "event")}
                   className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-extrabold transition-all shadow-sm hover:shadow-md cursor-pointer"
@@ -2289,12 +2392,26 @@ export default function CalendarTab({
                   Sự kiện
                 </button>
                 {(isManager || userProfile?.role === "admin" || userProfile?.role === "superadmin") && (
-                  <button
-                    onClick={() => openCreateModal(selectedDayDate, "leave")}
-                    className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-[10px] font-extrabold transition-all shadow-sm hover:shadow-md cursor-pointer"
-                  >
-                    Nghỉ phép
-                  </button>
+                  <>
+                    <button
+                      onClick={() => openCreateModal(selectedDayDate, "leave")}
+                      className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-[10px] font-extrabold transition-all shadow-sm hover:shadow-md cursor-pointer"
+                    >
+                      Nghỉ phép
+                    </button>
+                    <button
+                      onClick={() => openCreateModal(selectedDayDate, "wfh")}
+                      className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-[10px] font-extrabold transition-all shadow-sm hover:shadow-md cursor-pointer"
+                    >
+                      Tại nhà
+                    </button>
+                    <button
+                      onClick={() => openCreateModal(selectedDayDate, "exception")}
+                      className="px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-[10px] font-extrabold transition-all shadow-sm hover:shadow-md cursor-pointer"
+                    >
+                      Ngoại lệ
+                    </button>
+                  </>
                 )}
                 <button
                   onClick={() => openCreateModal(selectedDayDate, "reminder")}
@@ -2333,18 +2450,20 @@ export default function CalendarTab({
                   <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
                     Loại lịch trình
                   </label>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {[
-                      { key: "event", label: "Sự kiện", color: "border-blue-500 text-blue-600" },
-                      { key: "leave", label: "Nghỉ phép", color: "border-rose-500 text-rose-600", roleRestricted: true },
-                      { key: "reminder", label: "Nhắc hẹn", color: "border-amber-500 text-amber-600" }
+                      { key: "event", label: "📅 Sự kiện", color: "border-blue-500 text-blue-600" },
+                      { key: "leave", label: "🌴 Nghỉ phép", color: "border-rose-500 text-rose-600", roleRestricted: true },
+                      { key: "wfh", label: "🏠 Tại nhà", color: "border-teal-500 text-teal-600", roleRestricted: true },
+                      { key: "exception", label: "⚡ Ngoại lệ", color: "border-violet-500 text-violet-600", roleRestricted: true },
+                      { key: "reminder", label: "🔔 Nhắc hẹn", color: "border-amber-500 text-amber-600" }
                     ].filter(t => !t.roleRestricted || (isManager || userProfile?.role === "admin" || userProfile?.role === "superadmin")).map((t) => (
                       <button
                         key={t.key}
                         type="button"
                         onClick={() => {
                           setFormType(t.key as any);
-                          if (t.key === "leave") setFormStatus("pending");
+                          if (["leave","wfh","exception"].includes(t.key)) setFormStatus("pending");
                           else setFormStatus("active");
                         }}
                         className={`py-2 border text-center rounded-2xl text-xs font-extrabold transition-all cursor-pointer ${
@@ -2436,10 +2555,10 @@ export default function CalendarTab({
                 </div>
 
                 {/* Conditional Fields based on Type */}
-                {formType === "leave" && (
+                {["leave","wfh","exception"].includes(formType) && (
                   <div>
                     <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
-                      Nhân sự nghỉ phép
+                      {formType === "leave" ? "Nhân sự nghỉ phép" : formType === "wfh" ? "Nhân sự làm tại nhà" : "Nhân sự (Ngoại lệ)"}
                     </label>
                     <select
                       value={formEmployeeId}
@@ -2474,8 +2593,8 @@ export default function CalendarTab({
                   </div>
                 )}
 
-                {/* Status for Leaves */}
-                {formType === "leave" && (
+                {/* Status for Leaves / WFH / Exception */}
+                {["leave","wfh","exception"].includes(formType) && (
                   <div>
                     <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
                       Trạng thái duyệt
@@ -2483,10 +2602,13 @@ export default function CalendarTab({
                     <select
                       value={formStatus}
                       onChange={(e) => setFormStatus(e.target.value)}
-                      className="w-full px-3.5 py-2 border border-slate-200/80 bg-white rounded-2xl text-xs focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-semibold cursor-pointer transition-all"
+                      disabled={formMode === "create" || selectedItem?.creatorId === userProfile?.uid}
+                      className="w-full px-3.5 py-2 border border-slate-200/80 bg-white rounded-2xl text-xs focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-semibold cursor-pointer transition-all disabled:bg-slate-50 disabled:text-slate-400"
                     >
                       <option value="pending">Chờ phê duyệt</option>
-                      <option value="approved">Đã phê duyệt</option>
+                      {!(formMode === "create" || selectedItem?.creatorId === userProfile?.uid) && (
+                        <option value="approved">Đã phê duyệt</option>
+                      )}
                     </select>
                   </div>
                 )}
@@ -2866,6 +2988,19 @@ export default function CalendarTab({
             </form>
           </div>
         </div>
+      )}
+
+      {/* Custom confirm dialog — thay thế native window.confirm */}
+      {confirmState && (
+        <ConfirmDialog
+          isOpen={confirmState.isOpen}
+          title={confirmState.title}
+          description={confirmState.description}
+          confirmLabel={confirmState.confirmLabel}
+          cancelLabel={confirmState.cancelLabel}
+          onClose={() => setConfirmState(null)}
+          onConfirm={confirmState.onConfirm}
+        />
       )}
     </div>
   );

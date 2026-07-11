@@ -16,6 +16,9 @@ import { browserNotificationService } from "./services/browserNotificationServic
 import { pushService } from "./services/pushService";
 
 const AuthPage = lazy(() => import("./pages/AuthPage"));
+const ChatbotWidget = lazy(() =>
+  import("./components/common/ChatbotWidget").then((m) => ({ default: m.ChatbotWidget }))
+);
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const TermsOfService = lazy(() => import("./pages/TermsOfService"));
 const UserDataDeletion = lazy(() => import("./pages/UserDataDeletion"));
@@ -197,6 +200,7 @@ function AppContent() {
 
       {/* Trợ lý ảo AI — chatbot ngữ cảnh dữ liệu doanh nghiệp */}
       <Suspense fallback={null}>
+        <ChatbotWidget />
       </Suspense>
 
       {/* Popup thông báo nổi thời gian thực ở góc dưới bên phải màn hình */}

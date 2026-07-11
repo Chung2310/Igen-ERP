@@ -412,7 +412,7 @@ export function NotificationsPage() {
   const fetchHistory = useCallback(async () => {
     try {
       setLoadingHistory(true);
-      const res = await apiFetch('/notifications');
+      const res = await apiFetch('/student-notifications');
       if (res.success && res.notifications) {
         const mapped = res.notifications.map((n: Omit<BroadcastNotification, 'id'> & { _id: string }) => ({
           ...n,
@@ -718,7 +718,7 @@ export function NotificationsPage() {
         .map(r => r.student.id)
         .filter(Boolean) as string[];
 
-      await apiFetch('/notifications', {
+      await apiFetch('/student-notifications', {
         method: 'POST',
         body: JSON.stringify({
           title,
@@ -756,7 +756,7 @@ export function NotificationsPage() {
 
   const handleDeleteNotification = async (id: string) => {
     try {
-      await apiFetch(`/notifications/${id}`, {
+      await apiFetch(`/student-notifications/${id}`, {
         method: 'DELETE',
       });
       window.dispatchEvent(new Event('notification-mutation'));

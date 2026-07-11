@@ -23,13 +23,13 @@ router.use("/auth", authRoutes);
 router.use("/students", studentRoutes);
 router.use("/exams", examRoutes);
 router.use("/payments", paymentRoutes);
-router.use("/notifications", notificationRoutes);
+router.use("/student-notifications", notificationRoutes);
 router.use("/upload", uploadRoutes);
 router.use("/ai", aiRoutes);
 router.use("/chatbot", chatbotRoutes);
 router.use("/webhook", webhookRoutes);
 router.use("/courses", courseRoutes);
-router.use("/resources", resourceRoutes);
+router.use("/student-resources", resourceRoutes);
 router.use("/batches", batchRoutes);
 router.use("/schedule", scheduleRoutes);
 router.use("/partners", partnerRoutes);
@@ -60,11 +60,11 @@ router.post("/send-email", authMiddleware as unknown as RequestHandler, async (r
     if (check) {
       const checkResult = await EmailService.verifyConnection(smtpSettings);
       if (!checkResult.success) {
-        return res.status(400).json({ 
-          success: false, 
-          error: checkResult.error === "SMTP_CONFIG_missing" 
-            ? "Cấu hình SMTP (host, port, user, pass) còn thiếu." 
-            : `Lỗi kết nối SMTP: ${checkResult.error}` 
+        return res.status(400).json({
+          success: false,
+          error: checkResult.error === "SMTP_CONFIG_missing"
+            ? "Cấu hình SMTP (host, port, user, pass) còn thiếu."
+            : `Lỗi kết nối SMTP: ${checkResult.error}`
         });
       }
       return res.json({ success: true, status: 'Ready' });

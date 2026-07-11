@@ -91,7 +91,9 @@ export class StudentController {
         if (!companyCode || typeof companyCode !== "string") {
           return res.status(400).json({ success: false, error: "Vui long chon cong ty." });
         }
-        targetOwnerId = companyCode;
+        // Student.ownerId stores the actual owner user id, not the company code.
+        // Keep bulk import consistent with manual creation and with owner filters.
+        targetOwnerId = await resolveCreateOwnerId(req.user!, companyCode);
         ownerId = await getCenterOwnerIds({ uid: companyCode, role: "admin", centerId: companyCode, companyCode });
       } else {
         ownerId = await getCenterOwnerIds(req.user!);
