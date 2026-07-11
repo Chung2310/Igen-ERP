@@ -7,10 +7,17 @@ import { getFileIcon, getPreviewKind, formatBytes } from "./resourceHelpers";
 interface FilePreviewModalProps {
   item: ResourceItem | null;
   onClose: () => void;
+  hideDownload?: boolean;
+  hideShare?: boolean;
 }
 
 /** Cửa sổ xem trước tài liệu: ảnh, video, audio, PDF, tài liệu Office, văn bản. */
-export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ item, onClose }) => {
+export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
+  item,
+  onClose,
+  hideDownload = false,
+  hideShare = false,
+}) => {
   useEffect(() => {
     if (!item) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -122,25 +129,29 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ item, onClos
               {(item.mimeType || "Tệp").replace(/^application\//, "")} · {formatBytes(item.size)}
             </p>
           </div>
-          <button
-            onClick={handleShare}
-            className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-blue-600 transition"
-            title="Chia sẻ (sao chép liên kết)"
-          >
-            <Share2 className="w-4.5 h-4.5" />
-          </button>
-          <button
-            onClick={handleDownload}
-            disabled={downloading}
-            className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-blue-600 transition disabled:opacity-50"
-            title="Tải xuống"
-          >
-            {downloading ? (
-              <Loader2 className="w-4.5 h-4.5 animate-spin" />
-            ) : (
-              <Download className="w-4.5 h-4.5" />
-            )}
-          </button>
+          {!hideShare && (
+            <button
+              onClick={handleShare}
+              className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-blue-600 transition"
+              title="Chia sẻ (sao chép liên kết)"
+            >
+              <Share2 className="w-4.5 h-4.5" />
+            </button>
+          )}
+          {!hideDownload && (
+            <button
+              onClick={handleDownload}
+              disabled={downloading}
+              className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-blue-600 transition disabled:opacity-50"
+              title="Tải xuống"
+            >
+              {downloading ? (
+                <Loader2 className="w-4.5 h-4.5 animate-spin" />
+              ) : (
+                <Download className="w-4.5 h-4.5" />
+              )}
+            </button>
+          )}
           <button
             onClick={onClose}
             className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
@@ -212,13 +223,15 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ item, onClos
                   <ExternalLink className="w-4 h-4" />
                   Mở trong tab mới
                 </a>
-                <button
-                  onClick={handleShare}
-                  className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
-                >
-                  <Share2 className="w-4 h-4" />
-                  Sao chép liên kết
-                </button>
+                {!hideShare && (
+                  <button
+                    onClick={handleShare}
+                    className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                  >
+                    <Share2 className="w-4 h-4" />
+                    Sao chép liên kết
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -258,18 +271,20 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ item, onClos
                     <ExternalLink className="w-4 h-4" />
                     Mở tab mới
                   </a>
-                  <button
-                    onClick={handleDownload}
-                    disabled={downloading}
-                    className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 hover:shadow-lg transition cursor-pointer disabled:opacity-50"
-                  >
-                    {downloading ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Download className="w-4 h-4" />
-                    )}
-                    Tải xuống
-                  </button>
+                  {!hideDownload && (
+                    <button
+                      onClick={handleDownload}
+                      disabled={downloading}
+                      className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 hover:shadow-lg transition cursor-pointer disabled:opacity-50"
+                    >
+                      {downloading ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Download className="w-4 h-4" />
+                      )}
+                      Tải xuống
+                    </button>
+                  )}
                 </div>
               </div>
             )
@@ -292,18 +307,20 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ item, onClos
                   <ExternalLink className="w-4 h-4" />
                   Mở tab mới
                 </a>
-                <button
-                  onClick={handleDownload}
-                  disabled={downloading}
-                  className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-50"
-                >
-                  {downloading ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Download className="w-4 h-4" />
-                  )}
-                  Tải xuống
-                </button>
+                {!hideDownload && (
+                  <button
+                    onClick={handleDownload}
+                    disabled={downloading}
+                    className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-50"
+                  >
+                    {downloading ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Download className="w-4 h-4" />
+                    )}
+                    Tải xuống
+                  </button>
+                )}
               </div>
             </div>
           )}

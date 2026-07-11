@@ -2186,7 +2186,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
       )}
 
       {/* Cửa sổ xem trước tài liệu */}
-      <FilePreviewModal item={previewItem} onClose={() => setPreviewItem(null)} />
+      <FilePreviewModal item={previewItem} onClose={() => setPreviewItem(null)} hideDownload={true} hideShare={true} />
     </div>
   );
 };
