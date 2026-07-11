@@ -215,7 +215,7 @@ export const crudService = {
     const page = options.page || 1;
     const limit = options.limit || 1000;
     const skip = (page - 1) * limit;
-    const sort = options.sort || "-_id";
+    const sort = options.sort || (modelName === "projects" ? "-createdAt" : "-_id");
 
     const items = await model.find(query).sort(sort).skip(skip).limit(limit).lean();
     const total = await model.countDocuments(query);

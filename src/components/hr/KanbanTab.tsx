@@ -760,7 +760,7 @@ export default function KanbanTab({
         ...item,
         id: item._id,
       }));
-      setProjects(projData);
+      setProjects(projData.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()));
 
       const expanded: Record<string, boolean> = {};
       projData.forEach(p => {
@@ -777,6 +777,12 @@ export default function KanbanTab({
     if (selectedCompanyCode) {
       fetchTasks();
       fetchProjects();
+      void fetch("/api/v1/crud/workflows", {
+        headers: { Authorization: `Bearer ${getAccessToken()}` },
+      })
+        .then((res) => (res.ok ? res.json() : Promise.reject(new Error("Unable to load workflows"))))
+        .then((json) => setWfOptions((json.data || []).map((item: any) => ({ ...item, id: item._id }))))
+        .catch((error) => console.error("Failed to load workflows for filter:", error));
     }
   }, [selectedCompanyCode]);
 
@@ -1216,7 +1222,7 @@ export default function KanbanTab({
       };
 
       toast.success("Đã tạo dự án mới thành công!");
-      setProjects(prev => [...prev, createdProj]);
+      setProjects(prev => [createdProj, ...prev]);
       setExpandedProjects(prev => ({ ...prev, [createdProj.id]: true }));
       setNewProjectName("");
       setIsNewProjectModalOpen(false);
@@ -1512,7 +1518,7 @@ export default function KanbanTab({
                   className="border border-gray-200 p-1.5 rounded-xl text-xs bg-white outline-none cursor-pointer ml-1"
                 >
                   <option value="">Lọc quy trình</option>
-                  {uniqueWorkflows.map(wf => (
+                  {wfOptions.map(wf => (
                     <option key={wf.id} value={wf.id}>
                       {wf.name}
                     </option>

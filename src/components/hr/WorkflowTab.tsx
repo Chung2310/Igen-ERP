@@ -2319,7 +2319,7 @@ function WizardStepEditorModal({
             ...item,
             id: item._id,
           }));
-          setProjects(projData);
+          setProjects(projData.sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()));
         }
       } catch (err) {
         console.error("Lỗi khi tải danh sách dự án:", err);
