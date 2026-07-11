@@ -3,6 +3,7 @@ import { HardDrive, Trash2, CheckCircle } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { toast } from "../../pages/Toast";
 import { getAccessToken } from "../../services/authService";
+import { ConfirmDialog } from "../common/ConfirmDialog";
 
 /**
  * Kết nối Google Drive cá nhân — tách riêng khỏi tab MXH (đang ẩn) để người dùng
@@ -11,6 +12,8 @@ import { getAccessToken } from "../../services/authService";
 export default function GoogleDriveTab() {
   const { userProfile, refreshProfile } = useAuth();
   const [connectingGoogleDrive, setConnectingGoogleDrive] = useState(false);
+  const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
 
   useEffect(() => {
     const handleGoogleDriveMessage = async (event: MessageEvent) => {
@@ -86,9 +89,7 @@ export default function GoogleDriveTab() {
   };
 
   const handleDisconnectGoogleDrive = async () => {
-    if (!window.confirm("Bạn có chắc chắn muốn ngắt kết nối Google Drive cá nhân không?")) {
-      return;
-    }
+    setDisconnecting(true);
     try {
       const res = await fetch("/api/v1/integrations/google-drive/disconnect", {
         method: "POST",
@@ -96,11 +97,14 @@ export default function GoogleDriveTab() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Không thể ngắt kết nối.");
-      toast.success("Đã ngắt kết nối Google Drive.");
+      toast.success("Đã ngắt kết nối Google Drive cá nhân.");
+      setShowDisconnectConfirm(false);
       void refreshProfile();
     } catch (err: any) {
       console.error(err);
-      toast.error(err.message || "Lỗi ngắt kết nối Google Drive.");
+      toast.error(err.message || "Không ngắt kết nối được. Vui lòng thử lại.");
+    } finally {
+      setDisconnecting(false);
     }
   };
 
@@ -132,7 +136,7 @@ export default function GoogleDriveTab() {
               </p>
             </div>
             <button
-              onClick={handleDisconnectGoogleDrive}
+              onClick={() => setShowDisconnectConfirm(true)}
               className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-red-200 bg-red-50 py-2.5 text-xs font-bold text-red-700 transition hover:bg-red-100/60 cursor-pointer"
             >
               <Trash2 className="h-3.5 w-3.5" />
@@ -155,6 +159,18 @@ export default function GoogleDriveTab() {
           </>
         )}
       </div>
+
+      <ConfirmDialog
+        isOpen={showDisconnectConfirm}
+        title="Ngắt kết nối Google Drive cá nhân?"
+        description={`Sau khi ngắt kết nối${userProfile?.googleDriveIntegration?.driveEmail ? ` tài khoản ${userProfile.googleDriveIntegration.driveEmail}` : ""}, bạn sẽ không upload hoặc đồng bộ được tài nguyên lên Google Drive nữa. Các file đã upload vẫn được giữ nguyên trong Drive của bạn. Bạn có thể kết nối lại bất cứ lúc nào.`}
+        confirmLabel="Ngắt kết nối"
+        cancelLabel="Giữ kết nối"
+        tone="danger"
+        isSubmitting={disconnecting}
+        onClose={() => setShowDisconnectConfirm(false)}
+        onConfirm={handleDisconnectGoogleDrive}
+      />
     </div>
   );
 }
