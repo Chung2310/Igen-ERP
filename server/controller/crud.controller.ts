@@ -211,10 +211,12 @@ export const crudController = {
                 message: "Bạn không có quyền chỉnh sửa đơn của người khác.",
               });
             }
-            if (req.body.status && req.body.status !== app.status) {
+          }
+          if (req.body.status && req.body.status !== app.status) {
+            if (userRole !== "admin" && userRole !== "superadmin") {
               return res.status(403).json({
                 status: "error",
-                message: "Chỉ quản lý mới có quyền phê duyệt/thay đổi trạng thái đơn từ.",
+                message: "Chỉ Admin và Superadmin mới có quyền phê duyệt/thay đổi trạng thái đơn từ.",
               });
             }
           }
