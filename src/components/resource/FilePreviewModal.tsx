@@ -3,7 +3,6 @@ import { Download, ExternalLink, Loader2, X, FileQuestion, Share2 } from "lucide
 import type { ResourceItem } from "../../types";
 import { toast } from "../../pages/Toast";
 import { getFileIcon, getPreviewKind, formatBytes } from "./resourceHelpers";
-import { getAccessToken } from "../../services/authService";
 
 interface FilePreviewModalProps {
   item: ResourceItem | null;
@@ -34,7 +33,7 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ item, onClos
     if (downloading) return;
     try {
       setDownloading(true);
-      const token = getAccessToken();
+      const token = localStorage.getItem("accessToken");
       const headers: Record<string, string> = {};
       if (token) {
         headers["Authorization"] = `Bearer ${token}`;
@@ -224,26 +223,19 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ item, onClos
             </div>
           )}
 
-          {kind === "office" && (() => {
-            // Google Docs Viewer chỉ hoạt động với URL công khai (Google Drive).
-            // Với file nội bộ (Cloudinary, server nội bộ…), viewer không thể fetch được → hiển thị fallback.
-            const isPublicGoogleUrl = url.includes("drive.google.com") || url.includes("docs.google.com");
-            if (isPublicGoogleUrl) {
-              return (
-                <div className="relative h-[80vh] w-full">
-                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-slate-300">
-                    <Loader2 className="w-6 h-6 animate-spin" />
-                  </div>
-                  <iframe
-                    src={officeViewer}
-                    title={item.name}
-                    className="relative h-full w-full border-0 bg-white"
-                  />
+          {kind === "office" && (
+            url.includes("drive.google.com") || url.includes("docs.google.com") ? (
+              <div className="relative h-[80vh] w-full">
+                <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-slate-300">
+                  <Loader2 className="w-6 h-6 animate-spin" />
                 </div>
-              );
-            }
-            // File nội bộ: không thể nhúng iframe — hiển thị fallback thân thiện
-            return (
+                <iframe
+                  src={officeViewer}
+                  title={item.name}
+                  className="relative h-full w-full border-0 bg-white"
+                />
+              </div>
+            ) : (
               <div className="flex min-h-[50vh] flex-col items-center justify-center gap-6 p-8 text-center max-w-xl mx-auto">
                 <div className={`flex h-20 w-20 items-center justify-center rounded-3xl bg-white shadow-md border border-slate-100 ${color}`}>
                   <Icon className="w-10 h-10" strokeWidth={1.4} />
@@ -280,8 +272,8 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ item, onClos
                   </button>
                 </div>
               </div>
-            );
-          })()}
+            )
+          )}
 
           {kind === "unsupported" && (
             <div className="flex min-h-[40vh] flex-col items-center justify-center gap-4 p-8 text-center">
