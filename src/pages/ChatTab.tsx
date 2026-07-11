@@ -849,7 +849,12 @@ export default function ChatTab() {
       });
 
       toast.success("Chúc mừng! Phòng chat nhóm đã được khởi tạo thành công.");
-      setRooms((prev) => sortRoomsList([room, ...prev]));
+      // Không thêm trực tiếp vào state để tránh bị duplicate với socket event
+      // Socket event 'internal_room_updated' sẽ tự đồng bộ phòng mới cho tất cả thành viên
+      setRooms((prev) => {
+        if (prev.some((r) => r._id === room._id)) return prev;
+        return sortRoomsList([room, ...prev]);
+      });
       setActiveRoom(room);
       setShowCreateGroupModal(false);
       // Clear form
