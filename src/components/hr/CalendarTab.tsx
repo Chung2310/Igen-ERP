@@ -62,6 +62,7 @@ export default function CalendarTab({
 }: CalendarTabProps) {
   // Sub-tab Navigation
   const [currentSubTab, setCurrentSubTab] = useState<"schedule" | "attendance" | "leave-requests">("schedule");
+  const isAdmin = userProfile?.role === "admin" || userProfile?.role === "superadmin";
 
   // Leave Templates & Applications States
   const [templates, setTemplates] = useState<any[]>([]);
@@ -723,7 +724,7 @@ export default function CalendarTab({
             </p>
           </div>
           <div className="flex gap-2">
-            {!isManager && (
+            {userProfile?.role !== "admin" && userProfile?.role !== "superadmin" && (
               <button
                 onClick={openAppForm}
                 className="flex items-center gap-1.5 px-4.5 py-2 bg-indigo-650 hover:bg-indigo-700 active:scale-98 text-white rounded-2xl text-xs font-bold transition shadow-sm cursor-pointer border-0"
@@ -769,7 +770,7 @@ export default function CalendarTab({
                         <>
                           <th className="px-5 py-4 text-center min-w-[110px]">Trạng thái</th>
                           <th className="px-5 py-4 min-w-[200px]">Phản hồi của Admin</th>
-                          <th className="px-5 py-4 text-center min-w-[90px]">Thao tác</th>
+                          {isAdmin && <th className="px-5 py-4 text-center min-w-[90px]">Thao tác</th>}
                         </>
                       ) : (
                         <>
@@ -782,7 +783,7 @@ export default function CalendarTab({
                   <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
                     {isAppLoading ? (
                       <tr>
-                        <td colSpan={isManager ? 8 : 6} className="px-5 py-12 text-center text-slate-400">
+                        <td colSpan={isManager ? (isAdmin ? 8 : 7) : 6} className="px-5 py-12 text-center text-slate-400">
                           <div className="flex justify-center items-center gap-2">
                             <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
                             Đang tải danh sách đơn từ...
@@ -791,14 +792,14 @@ export default function CalendarTab({
                       </tr>
                     ) : applications.length === 0 ? (
                       <tr>
-                        <td colSpan={isManager ? 8 : 6} className="px-5 py-12 text-center text-slate-400 font-medium">
+                        <td colSpan={isManager ? (isAdmin ? 8 : 7) : 6} className="px-5 py-12 text-center text-slate-400 font-medium">
                           Chưa có đơn từ nào được đăng ký.
                         </td>
                       </tr>
                     ) : (
                       applications.map((app) => {
-                        const showDelete = app.status === "pending" || isManager;
                         const isOwner = app.employeeId === userProfile?.uid;
+                        const showDelete = (isOwner && app.status === "pending") || isAdmin;
 
                         return (
                           <tr key={app._id || app.id} className="hover:bg-slate-50/50 transition-colors">
@@ -840,41 +841,43 @@ export default function CalendarTab({
                                 <td className="px-5 py-4 min-w-[200px] max-w-[350px] whitespace-normal leading-relaxed text-slate-650 font-medium" style={{ wordBreak: "break-all" }}>
                                   {app.note || app.rejectReason || <span className="text-slate-400 italic">-</span>}
                                 </td>
-                                <td className="px-5 py-4 whitespace-nowrap text-center">
-                                  <div className="flex items-center justify-center gap-1.5">
-                                    {app.status === "pending" && (
-                                      <>
+                                {isAdmin && (
+                                  <td className="px-5 py-4 whitespace-nowrap text-center">
+                                    <div className="flex items-center justify-center gap-1.5">
+                                      {isAdmin && app.status === "pending" && (
+                                        <>
+                                          <button
+                                            onClick={() => handleApproveApp(app)}
+                                            className="p-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg transition cursor-pointer border-0"
+                                            title="Duyệt đơn"
+                                          >
+                                            <Check className="h-3.5 w-3.5" />
+                                          </button>
+                                          <button
+                                            onClick={() => {
+                                              setSelectedAppId(app._id || app.id);
+                                              setRejectReasonText("");
+                                              setAppRejectModalOpen(true);
+                                            }}
+                                            className="p-1 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg transition cursor-pointer border-0"
+                                            title="Từ chối"
+                                          >
+                                            <XCircle className="h-3.5 w-3.5" />
+                                          </button>
+                                        </>
+                                      )}
+                                      {showDelete && (
                                         <button
-                                          onClick={() => handleApproveApp(app)}
-                                          className="p-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg transition cursor-pointer border-0"
-                                          title="Duyệt đơn"
+                                          onClick={() => handleDeleteApp(app._id || app.id)}
+                                          className="p-1 hover:bg-slate-100 text-slate-400 hover:text-rose-600 rounded-lg transition cursor-pointer border-0 bg-transparent"
+                                          title="Xóa đơn"
                                         >
-                                          <Check className="h-3.5 w-3.5" />
+                                          <Trash2 className="h-3.5 w-3.5" />
                                         </button>
-                                        <button
-                                          onClick={() => {
-                                            setSelectedAppId(app._id || app.id);
-                                            setRejectReasonText("");
-                                            setAppRejectModalOpen(true);
-                                          }}
-                                          className="p-1 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg transition cursor-pointer border-0"
-                                          title="Từ chối"
-                                        >
-                                          <XCircle className="h-3.5 w-3.5" />
-                                        </button>
-                                      </>
-                                    )}
-                                    {showDelete && (
-                                      <button
-                                        onClick={() => handleDeleteApp(app._id || app.id)}
-                                        className="p-1 hover:bg-slate-100 text-slate-400 hover:text-rose-600 rounded-lg transition cursor-pointer border-0 bg-transparent"
-                                        title="Xóa đơn"
-                                      >
-                                        <Trash2 className="h-3.5 w-3.5" />
-                                      </button>
-                                    )}
-                                  </div>
-                                </td>
+                                      )}
+                                    </div>
+                                  </td>
+                                )}
                               </>
                             ) : (
                               <>
