@@ -26,6 +26,9 @@ export interface ICompanyLocationConfig {
   addressName?: string;
   checkInLimit?: string;
   checkOutLimit?: string;
+  lunchBreakStart?: string;
+  lunchBreakEnd?: string;
+  workingDays?: number[];
 }
 
 export interface ICompany extends Document {

@@ -87,6 +87,23 @@ function validateTimeline(data: any, existing?: any) {
   }
 }
 
+const ATTACHMENT_TYPES = new Set(["image", "video", "audio", "file", "link"]);
+
+/** Làm sạch mảng đính kèm từ client: chỉ giữ các trường hợp lệ, bỏ phần tử thiếu url/name */
+function sanitizeAttachments(value: unknown) {
+  if (!Array.isArray(value)) return undefined;
+  return value
+    .filter((a: any) => a && typeof a.url === "string" && a.url.trim() && typeof a.name === "string" && a.name.trim())
+    .slice(0, 30)
+    .map((a: any) => ({
+      id: String(a.id || `att_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`),
+      name: String(a.name).trim().slice(0, 255),
+      url: String(a.url).trim(),
+      type: ATTACHMENT_TYPES.has(a.type) ? a.type : "file",
+      ...(Number.isFinite(Number(a.size)) && Number(a.size) > 0 ? { size: Number(a.size) } : {}),
+    }));
+}
+
 function changesFor(oldTask: any, update: any) {
   const labels: Record<string, string> = {
     title: "Tên việc",
@@ -103,10 +120,15 @@ function changesFor(oldTask: any, update: any) {
     category: "Phân loại",
     tags: "Nhãn",
     linkNote: "Ghi chú",
+    attachments: "Tệp đính kèm",
   };
   return Object.keys(labels)
     .filter((key) => update[key] !== undefined && JSON.stringify(oldTask[key] ?? "") !== JSON.stringify(update[key] ?? ""))
-    .map((key) => `${labels[key]}: "${String(oldTask[key] ?? "Chưa thiết lập")}" → "${String(update[key] ?? "Chưa thiết lập")}"`);
+    .map((key) =>
+      key === "attachments"
+        ? `${labels[key]}: ${(oldTask[key] || []).length} → ${(update[key] || []).length} file`
+        : `${labels[key]}: "${String(oldTask[key] ?? "Chưa thiết lập")}" → "${String(update[key] ?? "Chưa thiết lập")}"`
+    );
 }
 
 async function handleError(res: Response, error: any) {
@@ -183,6 +205,7 @@ kanbanRouter.post("/tasks", async (req: AuthenticatedRequest, res: Response) => 
       actualTime: Number(req.body.actualTime || 0),
       tags: Array.isArray(req.body.tags) ? req.body.tags : [],
       linkNote: String(req.body.linkNote || ""),
+      attachments: sanitizeAttachments(req.body.attachments) || [],
       history: [{ time: now.toISOString(), user: await actorName(req), action: "Tạo công việc mới" }],
     });
     await notificationService.notifyTaskAssigned(task as any);
@@ -203,11 +226,13 @@ kanbanRouter.patch("/tasks/:id", async (req: AuthenticatedRequest, res: Response
     const assigned = task.assigneeUid === req.user?.id;
     if (!manager && !assigned) throw httpError(403, "Bạn không có quyền cập nhật công việc này.");
 
-    const managerFields = ["title", "description", "assigneeUid", "dueDate", "priority", "status", "projectId", "startTime", "actualStartTime", "endTime", "estTime", "actualTime", "tags", "linkNote", "category"];
-    const staffFields = ["status", "startTime", "actualStartTime", "endTime", "actualTime", "linkNote", "description", "dueDate", "estTime"];
+    const managerFields = ["title", "description", "assigneeUid", "dueDate", "priority", "status", "projectId", "startTime", "actualStartTime", "endTime", "estTime", "actualTime", "tags", "linkNote", "attachments", "category"];
+    // Nhân viên được đính kèm file kết quả (ghi âm, hình ảnh, tài liệu…) vào task của mình
+    const staffFields = ["status", "startTime", "actualStartTime", "endTime", "actualTime", "linkNote", "attachments", "description", "dueDate", "estTime"];
     const allowed = manager ? managerFields : staffFields;
     const update: any = {};
     for (const key of allowed) if (req.body[key] !== undefined) update[key] = req.body[key];
+    if (update.attachments !== undefined) update.attachments = sanitizeAttachments(update.attachments) || [];
 
     if (update.status !== undefined) {
       update.status = normalizeStatus(update.status);

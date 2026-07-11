@@ -37,6 +37,9 @@ const CompanyLocationConfigSchema = new Schema(
     addressName: { type: String, default: "Tòa nhà Bitexco" },
     checkInLimit: { type: String, default: "08:30" },
     checkOutLimit: { type: String, default: "17:30" },
+    lunchBreakStart: { type: String, default: "12:00" },
+    lunchBreakEnd: { type: String, default: "13:00" },
+    workingDays: { type: [Number], default: () => [1, 2, 3, 4, 5] },
   },
   { _id: false }
 );

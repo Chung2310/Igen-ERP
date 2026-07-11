@@ -6,6 +6,15 @@ export interface ITaskHistoryEntry {
   action: string;
 }
 
+/** File/đường dẫn đính kèm vào task: ghi âm, hình ảnh, video, tài liệu, link… */
+export interface ITaskAttachment {
+  id: string;
+  name: string;
+  url: string;
+  type: "image" | "video" | "audio" | "file" | "link";
+  size?: number;
+}
+
 export interface IKanbanTask extends Document {
   title: string;
   description?: string;
@@ -31,6 +40,7 @@ export interface IKanbanTask extends Document {
   overdueNotifiedAt?: Date;
   tags?: string[];
   linkNote?: string;
+  attachments?: ITaskAttachment[];
   history?: ITaskHistoryEntry[];
   workflowId?: string;
   workflowStepId?: string;
