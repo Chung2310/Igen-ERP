@@ -183,18 +183,59 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ item, onClos
             </div>
           )}
 
-          {kind === "office" && (
-            <div className="relative h-[80vh] w-full">
-              <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-slate-300">
-                <Loader2 className="w-6 h-6 animate-spin" />
+          {kind === "office" && (() => {
+            // Google Docs Viewer chỉ hoạt động với URL công khai (Google Drive).
+            // Với file nội bộ (Cloudinary, server nội bộ…), viewer không thể fetch được → hiển thị fallback.
+            const isPublicGoogleUrl = url.includes("drive.google.com") || url.includes("docs.google.com");
+            if (isPublicGoogleUrl) {
+              return (
+                <div className="relative h-[80vh] w-full">
+                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-slate-300">
+                    <Loader2 className="w-6 h-6 animate-spin" />
+                  </div>
+                  <iframe
+                    src={officeViewer}
+                    title={item.name}
+                    className="relative h-full w-full border-0 bg-white"
+                  />
+                </div>
+              );
+            }
+            // File nội bộ: không thể nhúng iframe — hiển thị fallback thân thiện
+            return (
+              <div className="flex min-h-[50vh] flex-col items-center justify-center gap-6 p-8 text-center max-w-xl mx-auto">
+                <div className={`flex h-20 w-20 items-center justify-center rounded-3xl bg-white shadow-md border border-slate-100 ${color}`}>
+                  <Icon className="w-10 h-10" strokeWidth={1.4} />
+                </div>
+                <div className="space-y-2">
+                  <p className="font-bold text-slate-800 text-base">{item.name}</p>
+                  <p className="text-sm text-slate-500 leading-relaxed">
+                    Tệp Office không thể xem trực tiếp trên trình duyệt.<br />
+                    Bạn có thể tải xuống hoặc mở tệp trong tab mới để xem nội dung.
+                  </p>
+                  <p className="text-xs text-slate-400">{(item.mimeType || "Tệp").replace(/^application\//, "")} · {formatBytes(item.size)}</p>
+                </div>
+                <div className="flex gap-3">
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    Mở tab mới
+                  </a>
+                  <a
+                    href={downloadHref}
+                    className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 hover:shadow-lg transition cursor-pointer"
+                  >
+                    <Download className="w-4 h-4" />
+                    Tải xuống
+                  </a>
+                </div>
               </div>
-              <iframe
-                src={officeViewer}
-                title={item.name}
-                className="relative h-full w-full border-0 bg-white"
-              />
-            </div>
-          )}
+            );
+          })()}
 
           {kind === "unsupported" && (
             <div className="flex min-h-[40vh] flex-col items-center justify-center gap-4 p-8 text-center">
