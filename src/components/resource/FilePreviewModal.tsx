@@ -1,8 +1,9 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { Download, ExternalLink, Loader2, X, FileQuestion, Share2 } from "lucide-react";
 import type { ResourceItem } from "../../types";
 import { toast } from "../../pages/Toast";
 import { getFileIcon, getPreviewKind, formatBytes } from "./resourceHelpers";
+import { getAccessToken } from "../../services/authService";
 
 interface FilePreviewModalProps {
   item: ResourceItem | null;
@@ -25,6 +26,41 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ item, onClos
   const downloadHref = `/api/v1/media/download?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(item.name)}`;
   const officeViewer = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
   const { Icon, color } = getFileIcon(item.mimeType, item.name);
+
+  const [downloading, setDownloading] = useState(false);
+
+  const handleDownload = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (downloading) return;
+    try {
+      setDownloading(true);
+      const token = getAccessToken();
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
+      const res = await fetch(downloadHref, { headers });
+      if (!res.ok) {
+        throw new Error(`Không thể tải xuống tệp. Mã phản hồi: ${res.status}`);
+      }
+
+      const blob = await res.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = item.name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (err: any) {
+      console.error("[Download Error]:", err);
+      toast.error(err.message || "Tải xuống thất bại.");
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   // Helper to convert standard Google view/edit links to embeddable /preview links
   const getEmbeddableGoogleUrl = (rawUrl: string): string => {
@@ -94,13 +130,18 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ item, onClos
           >
             <Share2 className="w-4.5 h-4.5" />
           </button>
-          <a
-            href={downloadHref}
-            className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-blue-600 transition"
+          <button
+            onClick={handleDownload}
+            disabled={downloading}
+            className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-blue-600 transition disabled:opacity-50"
             title="Tải xuống"
           >
-            <Download className="w-4.5 h-4.5" />
-          </a>
+            {downloading ? (
+              <Loader2 className="w-4.5 h-4.5 animate-spin" />
+            ) : (
+              <Download className="w-4.5 h-4.5" />
+            )}
+          </button>
           <button
             onClick={onClose}
             className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
@@ -225,13 +266,18 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ item, onClos
                     <ExternalLink className="w-4 h-4" />
                     Mở tab mới
                   </a>
-                  <a
-                    href={downloadHref}
-                    className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 hover:shadow-lg transition cursor-pointer"
+                  <button
+                    onClick={handleDownload}
+                    disabled={downloading}
+                    className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 hover:shadow-lg transition cursor-pointer disabled:opacity-50"
                   >
-                    <Download className="w-4 h-4" />
+                    {downloading ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Download className="w-4 h-4" />
+                    )}
                     Tải xuống
-                  </a>
+                  </button>
                 </div>
               </div>
             );
@@ -254,13 +300,18 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ item, onClos
                   <ExternalLink className="w-4 h-4" />
                   Mở tab mới
                 </a>
-                <a
-                  href={downloadHref}
-                  className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition"
+                <button
+                  onClick={handleDownload}
+                  disabled={downloading}
+                  className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-50"
                 >
-                  <Download className="w-4 h-4" />
+                  {downloading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Download className="w-4 h-4" />
+                  )}
                   Tải xuống
-                </a>
+                </button>
               </div>
             </div>
           )}
