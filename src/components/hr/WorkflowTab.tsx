@@ -40,10 +40,13 @@ import {
   WorkflowStep,
   WorkflowSubTask,
   WorkflowParticipant,
+  TaskAttachment,
 } from "../../types";
 import { getAccessToken } from "../../services/authService";
 import { socketService } from "../../services/socketService";
 import { toast } from "../../pages/Toast";
+import { ConfirmDialog } from "../common/ConfirmDialog";
+import { AttachmentEditor } from "./KanbanTab";
 
 interface WorkflowTabProps {
   userProfile: UserProfile | null;
@@ -198,6 +201,38 @@ export default function WorkflowTab({
   const [wizardOpen, setWizardOpen] = useState(false);
   const [wizardData, setWizardData] = useState<Workflow | null>(null);
 
+  const [confirmState, setConfirmState] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    confirmLabel?: string;
+    cancelLabel?: string;
+    onConfirm: () => void | Promise<void>;
+  } | null>(null);
+
+  const askConfirm = (
+    title: string,
+    description: string,
+    onConfirm: () => void | Promise<void>,
+    confirmLabel = "Xác nhận",
+    cancelLabel = "Hủy"
+  ) => {
+    setConfirmState({
+      isOpen: true,
+      title,
+      description,
+      confirmLabel,
+      cancelLabel,
+      onConfirm: async () => {
+        try {
+          await onConfirm();
+        } finally {
+          setConfirmState(null);
+        }
+      },
+    });
+  };
+
   // ---- Theme & Task linkage states ----
   const [isDark, setIsDark] = useState(() =>
     document.documentElement.classList.contains("dark")
@@ -302,6 +337,7 @@ export default function WorkflowTab({
     startDate: string;
     dueDate: string;
     docLinks: string[];
+    attachments: TaskAttachment[];
     customSubTasks: WorkflowSubTask[];
   } | null>(null);
   const [newCaseSubTask, setNewCaseSubTask] = useState("");
@@ -517,24 +553,31 @@ export default function WorkflowTab({
     }
   };
 
-  const handleDeleteWorkflow = async () => {
+  const handleDeleteWorkflow = () => {
     if (!activeId) {
       backToList();
       return;
     }
-    if (!window.confirm("Xóa quy trình này?")) return;
-    try {
-      const res = await fetch(`/api/v1/crud/workflows/${activeId}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${getAccessToken()}` },
-      });
-      if (!res.ok) throw new Error("delete failed");
-      toast.success("Đã xóa quy trình.");
-      backToList();
-    } catch (err) {
-      console.error("Lỗi xóa quy trình:", err);
-      toast.error("Không thể xóa quy trình.");
-    }
+    askConfirm(
+      "Xóa quy trình?",
+      `Bạn có chắc chắn muốn xóa quy trình "${wfName}"? Thao tác này không thể hoàn tác.`,
+      async () => {
+        try {
+          const res = await fetch(`/api/v1/crud/workflows/${activeId}`, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${getAccessToken()}` },
+          });
+          if (!res.ok) throw new Error("delete failed");
+          toast.success("Đã xóa quy trình.");
+          backToList();
+        } catch (err) {
+          console.error("Lỗi xóa quy trình:", err);
+          toast.error("Không thể xóa quy trình.");
+        }
+      },
+      "Xóa quy trình",
+      "Hủy"
+    );
   };
 
   // ---- Thao tác với bước ----
@@ -567,16 +610,22 @@ export default function WorkflowTab({
   };
 
   const deleteStep = (id: string) => {
-    if (!window.confirm("Xóa bước này? Người đang ở bước này sẽ chuyển về bước đầu."))
-      return;
-    const nextSteps = steps.filter((s) => s.id !== id);
-    const firstId = nextSteps[0]?.id ?? DONE_COL;
-    const nextParts = participants.map((p) =>
-      p.currentStepId === id ? { ...p, currentStepId: firstId, updatedAt: nowISO() } : p
+    askConfirm(
+      "Xóa bước này?",
+      "Người đang ở bước này sẽ chuyển về bước đầu.",
+      () => {
+        const nextSteps = steps.filter((s) => s.id !== id);
+        const firstId = nextSteps[0]?.id ?? DONE_COL;
+        const nextParts = participants.map((p) =>
+          p.currentStepId === id ? { ...p, currentStepId: firstId, updatedAt: nowISO() } : p
+        );
+        setSteps(nextSteps);
+        setParticipants(nextParts);
+        autoPersist({ steps: nextSteps, participants: nextParts });
+      },
+      "Xóa bước",
+      "Hủy"
     );
-    setSteps(nextSteps);
-    setParticipants(nextParts);
-    autoPersist({ steps: nextSteps, participants: nextParts });
   };
 
   const moveStep = (id: string, dir: -1 | 1) => {
@@ -606,6 +655,7 @@ export default function WorkflowTab({
       startDate: toDateInputValue(new Date()),
       dueDate: "",
       docLinks: [],
+      attachments: [],
       customSubTasks: [],
     });
     setNewCaseSubTask("");
@@ -647,6 +697,7 @@ export default function WorkflowTab({
           startDate: partDraft.startDate,
           dueDate: partDraft.dueDate,
           docLinks: partDraft.docLinks.filter((l) => l.trim()),
+          attachments: partDraft.attachments,
           customSubTasks: partDraft.customSubTasks,
         }),
       });
@@ -723,10 +774,13 @@ export default function WorkflowTab({
         const j = await res.json().catch(() => null);
         // Server chặn vì còn task chưa xong → hỏi quản lý có muốn ép chuyển không
         if (res.status === 409 && !force) {
-          const ok = window.confirm(
-            `${j?.message || "Còn task Kanban chưa hoàn thành ở bước hiện tại."}\n\nVẫn chuyển bước? Các task chưa xong sẽ giữ nguyên trên bảng Kanban.`
+          askConfirm(
+            "Xác nhận chuyển bước",
+            `${j?.message || "Còn task Kanban chưa hoàn thành ở bước hiện tại."} Bạn vẫn muốn chuyển bước? Các task chưa xong sẽ giữ nguyên trên bảng Kanban.`,
+            () => advanceParticipantApi(pid, nextStepId, true),
+            "Chuyển bước",
+            "Hủy"
           );
-          if (ok) await advanceParticipantApi(pid, nextStepId, true);
           return;
         }
         throw new Error(j?.message || "Không thể chuyển bước.");
@@ -1364,82 +1418,59 @@ export default function WorkflowTab({
       {/* Modal thêm người tham gia */}
       {partDraft && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-2xs p-4"
           onClick={() => setPartDraft(null)}
         >
           <div
-            className={`flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border shadow-2xl ${
-              isDark
-                ? "bg-[#1c1c1c] text-zinc-150 border-zinc-800"
-                : "bg-white text-slate-850 border-gray-200"
-            }`}
+            className="bg-white border border-gray-200 rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden relative text-left"
             onClick={(e) => e.stopPropagation()}
           >
-            <div
-              className={`flex items-center justify-between border-b px-5 py-4 ${
-                isDark ? "border-zinc-800 bg-[#181818]" : "border-gray-200 bg-white"
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <Target className={`h-5 w-5 ${isDark ? "text-indigo-400" : "text-indigo-600"}`} />
-                <div>
-                  <h3 className={`text-sm font-extrabold ${isDark ? "text-zinc-150" : "text-slate-800"}`}>
-                    Tạo công việc theo quy trình
-                  </h3>
-                  <p className={`text-[11px] ${isDark ? "text-zinc-500" : "text-slate-400"}`}>
-                    Công việc sẽ bắt đầu ở bước 1 · «{steps[0]?.title}» và tự sinh task Kanban
-                  </p>
-                </div>
-              </div>
+            <div className="flex justify-between items-center px-6 py-4 border-b border-gray-150">
+              <h4 className="font-bold text-slate-800 text-sm font-sans uppercase flex items-center gap-2">
+                <WorkflowIcon className="h-4 w-4 text-purple-600" />
+                Giao Việc Theo Quy Trình
+              </h4>
               <button
+                type="button"
                 onClick={() => setPartDraft(null)}
-                className={`p-1.5 rounded-xl ${
-                  isDark ? "hover:bg-zinc-800 text-zinc-400" : "hover:bg-gray-100 text-slate-400"
-                }`}
+                className="text-gray-400 hover:text-slate-800 cursor-pointer"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <div className={`mx-5 mt-4 grid grid-cols-3 gap-2 rounded-xl p-1 ${isDark ? "bg-zinc-900" : "bg-slate-100"}`}>
-              {([1, 2, 3] as const).map((step) => (
-                <button key={step} type="button" onClick={() => setCaseWizStep(step)} className={`rounded-lg px-2 py-1.5 text-[10px] font-extrabold transition ${caseWizStep === step ? "bg-indigo-600 text-white shadow-sm" : isDark ? "text-zinc-400" : "text-slate-500"}`}>
-                  {step}. {step === 1 ? "Công việc" : step === 2 ? "Phụ trách" : "Lịch & xác nhận"}
-                </button>
-              ))}
-            </div>
-
-            <div className="flex-1 space-y-4 overflow-y-auto p-5">
-              {/* Tên công việc */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-4 text-xs">
               <div>
-                <label className={`text-[11px] font-extrabold uppercase tracking-wide ${isDark ? "text-zinc-500" : "text-slate-450"}`}>
-                  Tên công việc <span className="text-red-500">*</span>
-                </label>
+                <label className="block font-bold text-gray-500 mb-1.5 font-sans">Quy trình *</label>
+                <select
+                  disabled
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-gray-200 text-slate-500 rounded-xl font-sans cursor-not-allowed"
+                >
+                  <option>{wfName}</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-bold text-gray-500 mb-1.5 font-sans">Tên công việc *</label>
                 <input
+                  type="text"
+                  autoFocus
+                  placeholder="VD: Onboarding Nguyễn Văn A, Xử lý hợp đồng #123…"
                   value={partDraft.name}
                   onChange={(e) => setPartDraft({ ...partDraft, name: e.target.value })}
-                  placeholder="VD: Onboarding Nguyễn Văn A, Xử lý hợp đồng #123…"
-                  autoFocus
-                  className={`mt-1.5 w-full rounded-xl border px-3 py-2 text-sm font-semibold outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 ${
-                    isDark ? "bg-[#242424] border-zinc-700 text-zinc-200" : "border-gray-200"
-                  }`}
+                  className="w-full px-3.5 py-2.5 bg-white border border-gray-200 text-slate-800 placeholder-gray-300 hover:border-gray-300 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 rounded-xl font-sans"
                 />
               </div>
 
-              {/* Phụ trách + Ưu tiên */}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                  <label className={`text-[11px] font-extrabold uppercase tracking-wide ${isDark ? "text-zinc-500" : "text-slate-450"}`}>
-                    Người phụ trách chính
-                  </label>
+                  <label className="block font-bold text-gray-500 mb-1.5 font-sans">Người phụ trách chính</label>
                   <select
                     value={partDraft.userUid}
                     onChange={(e) => setPartDraft({ ...partDraft, userUid: e.target.value })}
-                    className={`mt-1.5 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 ${
-                      isDark ? "bg-[#242424] border-zinc-700 text-zinc-200" : "border-gray-200"
-                    }`}
+                    className="w-full px-3.5 py-2.5 bg-white border border-gray-200 text-slate-800 hover:border-gray-300 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 rounded-xl font-sans"
                   >
-                    <option value="">— Chưa gán —</option>
+                    <option value="">— Theo người gán ở từng bước —</option>
                     {usersList.map((u) => (
                       <option key={u.uid} value={u.uid}>
                         {u.displayName}
@@ -1447,313 +1478,95 @@ export default function WorkflowTab({
                       </option>
                     ))}
                   </select>
-                  {assignmentConflicts.length > 0 && (
-                    <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1.5 text-[10px] font-semibold text-amber-700">
-                      Cảnh báo: người này đang có {assignmentConflicts.length} task quy trình chưa hoàn thành.
-                    </p>
-                  )}
                 </div>
                 <div>
-                  <label className={`text-[11px] font-extrabold uppercase tracking-wide ${isDark ? "text-zinc-500" : "text-slate-450"}`}>
-                    Độ ưu tiên
-                  </label>
-                  <div className="mt-1.5 grid grid-cols-2 gap-1.5">
-                    {(
-                      [
-                        { key: "urgent_important", label: "Gấp & Q.trọng" },
-                        { key: "urgent", label: "Cần gấp" },
-                        { key: "important", label: "Quan trọng" },
-                        { key: "normal", label: "Thoải mái" },
-                      ] as const
-                    ).map((pr) => (
-                      <button
-                        key={pr.key}
-                        onClick={() => setPartDraft({ ...partDraft, priority: pr.key })}
-                        className={`rounded-lg border px-2 py-1.5 text-[11px] font-bold transition-all ${
-                          partDraft.priority === pr.key
-                            ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                            : isDark
-                            ? "border-zinc-700 text-zinc-400 hover:border-zinc-500"
-                            : "border-gray-200 text-slate-500 hover:border-gray-300"
-                        }`}
-                      >
-                        {pr.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Thời gian */}
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <label className={`text-[11px] font-extrabold uppercase tracking-wide ${isDark ? "text-zinc-500" : "text-slate-450"}`}>
-                    Ngày bắt đầu
-                  </label>
+                  <label className="block font-bold text-gray-500 mb-1.5 font-sans">Ngày bắt đầu</label>
                   <input
                     type="date"
                     value={partDraft.startDate}
                     onChange={(e) => setPartDraft({ ...partDraft, startDate: e.target.value })}
-                    className={`mt-1.5 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 ${
-                      isDark ? "bg-[#242424] border-zinc-700 text-zinc-200" : "border-gray-200"
-                    }`}
-                  />
-                </div>
-                <div>
-                  <label className={`text-[11px] font-extrabold uppercase tracking-wide ${isDark ? "text-zinc-500" : "text-slate-450"}`}>
-                    Hạn hoàn thành toàn quy trình
-                  </label>
-                  <input
-                    type="date"
-                    value="Tự tính theo lịch các bước"
-                    readOnly
-                    title="Hạn hoàn thành được hệ thống tự tính theo lịch quy trình"
-                    className={`mt-1.5 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 ${
-                      isDark ? "bg-[#242424] border-zinc-700 text-zinc-200" : "border-gray-200"
-                    }`}
+                    className="w-full px-3.5 py-2.5 bg-white border border-gray-200 text-slate-800 hover:border-gray-300 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 rounded-xl font-sans"
                   />
                 </div>
               </div>
 
-              {/* Mô tả */}
               <div>
-                <label className={`text-[11px] font-extrabold uppercase tracking-wide ${isDark ? "text-zinc-500" : "text-slate-450"}`}>
-                  Mô tả chi tiết
-                </label>
+                <label className="block font-bold text-gray-500 mb-1.5 font-sans">Độ ưu tiên</label>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {(
+                    [
+                      { key: "normal", label: "Bình thường" },
+                      { key: "important", label: "★ Quan trọng" },
+                      { key: "urgent", label: "⚡ Cần gấp" },
+                      { key: "urgent_important", label: "🔥 Gấp & Q.trọng" },
+                    ] as const
+                  ).map((pr) => (
+                    <button
+                      key={pr.key}
+                      type="button"
+                      onClick={() => setPartDraft({ ...partDraft, priority: pr.key })}
+                      className={`rounded-xl border px-2 py-2 font-bold transition-all cursor-pointer ${
+                        partDraft.priority === pr.key
+                          ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                          : "border-gray-200 text-slate-500 hover:border-gray-300"
+                      }`}
+                    >
+                      {pr.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-gray-500 mb-1.5 font-sans">Mô tả chi tiết</label>
                 <textarea
+                  rows={3}
+                  placeholder="Bối cảnh, yêu cầu, kết quả mong muốn…"
                   value={partDraft.description}
                   onChange={(e) => setPartDraft({ ...partDraft, description: e.target.value })}
-                  rows={3}
-                  placeholder="Bối cảnh, yêu cầu, thông tin cần thiết cho công việc này…"
-                  className={`mt-1.5 w-full resize-none rounded-xl border px-3 py-2 text-sm outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 ${
-                    isDark ? "bg-[#242424] border-zinc-700 text-zinc-200" : "border-gray-200"
-                  }`}
+                  className="w-full resize-none px-3.5 py-2.5 bg-white border border-gray-200 text-slate-800 placeholder-gray-300 hover:border-gray-300 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 rounded-xl font-sans"
                 />
               </div>
 
-              {/* Người liên quan */}
               <div>
-                <label className={`text-[11px] font-extrabold uppercase tracking-wide ${isDark ? "text-zinc-500" : "text-slate-450"}`}>
-                  Người liên quan
-                </label>
-                <div className="mt-1.5 flex flex-wrap gap-1.5">
-                  {usersList.map((u) => {
-                    const selected = partDraft.relatedUids.includes(u.uid);
-                    return (
-                      <button
-                        key={u.uid}
-                        onClick={() =>
-                          setPartDraft({
-                            ...partDraft,
-                            relatedUids: selected
-                              ? partDraft.relatedUids.filter((x) => x !== u.uid)
-                              : [...partDraft.relatedUids, u.uid],
-                          })
-                        }
-                        className={`flex items-center gap-1.5 rounded-full border px-2 py-1 text-[11px] font-bold transition-all ${
-                          selected
-                            ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                            : isDark
-                            ? "border-zinc-700 text-zinc-400 hover:border-zinc-500"
-                            : "border-gray-200 text-slate-500 hover:border-gray-300"
-                        }`}
-                      >
-                        <img
-                          src={avatarUrl(u.displayName, u.photoURL)}
-                          alt={u.displayName}
-                          className="h-4 w-4 rounded-full object-cover"
-                        />
-                        {u.displayName}
-                        {selected && <Check className="h-3 w-3" />}
-                      </button>
-                    );
-                  })}
-                </div>
+                <label className="block font-bold text-gray-500 mb-1.5 font-sans">Tệp đính kèm và liên kết</label>
+                <AttachmentEditor
+                  attachments={partDraft.attachments}
+                  onChange={(attachments) => setPartDraft({ ...partDraft, attachments })}
+                />
               </div>
-
-              {/* Công việc con bổ sung */}
               <div>
-                <label className={`text-[11px] font-extrabold uppercase tracking-wide ${isDark ? "text-zinc-500" : "text-slate-450"}`}>
-                  Công việc con bổ sung (ngoài subtasks của bước 1)
-                </label>
-                <div className="mt-1.5 space-y-1.5">
-                  {partDraft.customSubTasks.map((st) => (
-                    <div
-                      key={st.id}
-                      className={`flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs ${
-                        isDark ? "border-zinc-700 bg-[#242424]" : "border-gray-150 bg-slate-50"
-                      }`}
-                    >
-                      <Circle className="h-3 w-3 shrink-0 text-indigo-400" />
-                      <span className="flex-1 truncate font-semibold">{st.title}</span>
-                      <button
-                        onClick={() =>
-                          setPartDraft({
-                            ...partDraft,
-                            customSubTasks: partDraft.customSubTasks.filter((x) => x.id !== st.id),
-                          })
-                        }
-                        className="rounded p-0.5 text-slate-300 hover:bg-red-50 hover:text-red-500"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  ))}
-                  <div className="flex gap-1.5">
-                    <input
-                      value={newCaseSubTask}
-                      onChange={(e) => setNewCaseSubTask(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && newCaseSubTask.trim()) {
-                          setPartDraft({
-                            ...partDraft,
-                            customSubTasks: [
-                              ...partDraft.customSubTasks,
-                              { id: genId("cst"), title: newCaseSubTask.trim() },
-                            ],
-                          });
-                          setNewCaseSubTask("");
-                        }
-                      }}
-                      placeholder="Nhập tên công việc con rồi Enter…"
-                      className={`flex-1 rounded-xl border px-3 py-1.5 text-xs outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 ${
-                        isDark ? "bg-[#242424] border-zinc-700 text-zinc-200" : "border-gray-200"
-                      }`}
-                    />
-                    <button
-                      onClick={() => {
-                        if (!newCaseSubTask.trim()) return;
-                        setPartDraft({
-                          ...partDraft,
-                          customSubTasks: [
-                            ...partDraft.customSubTasks,
-                            { id: genId("cst"), title: newCaseSubTask.trim() },
-                          ],
-                        });
-                        setNewCaseSubTask("");
-                      }}
-                      className="rounded-xl bg-indigo-600 px-3 text-white hover:bg-indigo-500"
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Link tài liệu */}
-              <div>
-                <label className={`text-[11px] font-extrabold uppercase tracking-wide ${isDark ? "text-zinc-500" : "text-slate-450"}`}>
-                  Link tài liệu / hồ sơ
-                </label>
-                <div className="mt-1.5 space-y-1.5">
-                  {partDraft.docLinks.map((link, i) => (
-                    <div
-                      key={i}
-                      className={`flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs ${
-                        isDark ? "border-zinc-700 bg-[#242424]" : "border-gray-150 bg-slate-50"
-                      }`}
-                    >
-                      <Paperclip className="h-3 w-3 shrink-0 text-slate-400" />
-                      <span className="flex-1 truncate text-indigo-600">{link}</span>
-                      <button
-                        onClick={() =>
-                          setPartDraft({
-                            ...partDraft,
-                            docLinks: partDraft.docLinks.filter((_, j) => j !== i),
-                          })
-                        }
-                        className="rounded p-0.5 text-slate-300 hover:bg-red-50 hover:text-red-500"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  ))}
-                  <div className="flex gap-1.5">
-                    <input
-                      value={newCaseDocLink}
-                      onChange={(e) => setNewCaseDocLink(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && newCaseDocLink.trim()) {
-                          setPartDraft({
-                            ...partDraft,
-                            docLinks: [...partDraft.docLinks, newCaseDocLink.trim()],
-                          });
-                          setNewCaseDocLink("");
-                        }
-                      }}
-                      placeholder="https://… (Drive, Notion, hợp đồng…) rồi Enter"
-                      className={`flex-1 rounded-xl border px-3 py-1.5 text-xs outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 ${
-                        isDark ? "bg-[#242424] border-zinc-700 text-zinc-200" : "border-gray-200"
-                      }`}
-                    />
-                    <button
-                      onClick={() => {
-                        if (!newCaseDocLink.trim()) return;
-                        setPartDraft({
-                          ...partDraft,
-                          docLinks: [...partDraft.docLinks, newCaseDocLink.trim()],
-                        });
-                        setNewCaseDocLink("");
-                      }}
-                      className="rounded-xl bg-indigo-600 px-3 text-white hover:bg-indigo-500"
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Ghi chú */}
-              <div>
-                <label className={`text-[11px] font-extrabold uppercase tracking-wide ${isDark ? "text-zinc-500" : "text-slate-450"}`}>
-                  Ghi chú
-                </label>
+                <label className="block font-bold text-gray-500 mb-1.5 font-sans">Ghi chú</label>
                 <input
+                  type="text"
+                  placeholder="Ghi chú ngắn hiển thị trên thẻ công việc"
                   value={partDraft.note}
                   onChange={(e) => setPartDraft({ ...partDraft, note: e.target.value })}
-                  placeholder="Lưu ý ngắn hiển thị trên thẻ công việc…"
-                  className={`mt-1.5 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 ${
-                    isDark ? "bg-[#242424] border-zinc-700 text-zinc-200" : "border-gray-200"
-                  }`}
+                  className="w-full px-3.5 py-2.5 bg-white border border-gray-200 text-slate-800 placeholder-gray-300 hover:border-gray-300 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 rounded-xl font-sans"
                 />
               </div>
             </div>
 
-            <div
-              className={`flex items-center justify-between border-t px-5 py-3.5 ${
-                isDark ? "border-zinc-800 bg-[#181818]" : "border-gray-200 bg-white"
-              }`}
-            >
-              <p className={`text-[11px] ${isDark ? "text-zinc-500" : "text-slate-400"}`}>
-                {(steps[0]?.subTasks?.length || 1) + partDraft.customSubTasks.length} task Kanban
-                sẽ được tạo ở bước 1
-              </p>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setPartDraft(null)}
-                  className={`rounded-xl border px-4 py-2 text-xs font-bold ${
-                    isDark
-                      ? "border-zinc-700 text-zinc-400 hover:bg-zinc-800"
-                      : "border-gray-200 text-slate-650 hover:bg-gray-50"
-                  }`}
-                >
-                  Hủy
-                </button>
-                <button
-                  onClick={() => {
-                    if (caseWizStep === 1 && !partDraft.name.trim()) { toast.warning("Vui lòng nhập tên công việc."); return; }
-                    if (caseWizStep < 3) { setCaseWizStep((caseWizStep + 1) as 2 | 3); return; }
-                    saveParticipantDraft();
-                  }}
-                  className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-5 py-2 text-xs font-extrabold text-white hover:bg-indigo-500"
-                >
-                  {caseWizStep < 3 ? <>Tiếp tục <ChevronRight className="h-3.5 w-3.5" /></> : <><Plus className="h-3.5 w-3.5" /> Tạo công việc</>}
-                </button>
-              </div>
+            <div className="px-6 py-4 border-t border-gray-150 flex justify-end gap-3 text-xs font-bold animate-in">
+              <button
+                type="button"
+                onClick={() => setPartDraft(null)}
+                className="px-4 py-2 border border-gray-200 text-slate-500 hover:text-slate-800 rounded-xl bg-white hover:bg-slate-50 cursor-pointer transition-all active:scale-95 font-sans"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={saveParticipantDraft}
+                className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl cursor-pointer transition-all active:scale-95 font-sans flex items-center gap-1.5"
+              >
+                <Plus className="h-3.5 w-3.5" /> Tạo công việc
+              </button>
             </div>
           </div>
         </div>
       )}
+
       {/* Drawer xem danh sách công việc Kanban của người tham gia */}
       {selectedPartTasks && (
         <div
@@ -1842,6 +1655,18 @@ export default function WorkflowTab({
             </div>
           </div>
         </div>
+      )}
+
+      {confirmState && (
+        <ConfirmDialog
+          isOpen={confirmState.isOpen}
+          title={confirmState.title}
+          description={confirmState.description}
+          confirmLabel={confirmState.confirmLabel}
+          cancelLabel={confirmState.cancelLabel}
+          onClose={() => setConfirmState(null)}
+          onConfirm={confirmState.onConfirm}
+        />
       )}
     </div>
   );
@@ -2509,6 +2334,7 @@ function WizardStepEditorModal({
   const [deadlineTime, setDeadlineTime] = useState(step.deadlineTime || "18:00");
   const [subTasks, setSubTasks] = useState<WorkflowSubTask[]>(step.subTasks || []);
   const [newSubTask, setNewSubTask] = useState("");
+  const [attachments, setAttachments] = useState<TaskAttachment[]>(step.attachments || []);
 
   const isFirstStep = stepIndex === 0;
   const nextStep = steps[stepIndex + 1] || null;
@@ -2959,35 +2785,11 @@ function WizardStepEditorModal({
           </div>
 
           {/* File đính kèm */}
-          <div className={`py-2.5 border-b transition-colors ${
-            isDark ? "border-zinc-800/60" : "border-gray-100"
-          }`}>
-            <span className={`text-[11px] font-extrabold uppercase tracking-wide mb-2 block ${
-              isDark ? "text-cyan-400" : "text-cyan-600"
-            }`}>
-              File đính kèm
+          <div className={`py-3 border-b transition-colors ${isDark ? "border-zinc-800/60" : "border-gray-100"}`}>
+            <span className={`text-[11px] font-extrabold uppercase tracking-wide mb-2 block ${isDark ? "text-cyan-400" : "text-cyan-600"}`}>
+              Tệp, ảnh, video, ghi âm và liên kết
             </span>
-            <div className="flex items-center gap-3">
-              {[
-                { icon: <Paperclip className="h-4 w-4" />, color: "text-slate-500", title: "Tập tin" },
-                { icon: <span className="text-xs font-black" style={{color:"#f97316"}}>N</span>, color: "", title: "Notion" },
-                { icon: <Mic className="h-4 w-4" />, color: "text-purple-500", title: "Ghi âm" },
-                { icon: <Circle className="h-4 w-4 fill-red-500" />, color: "text-red-500", title: "Quay màn hình" },
-                { icon: <CloudUpload className="h-4 w-4" />, color: "text-green-500", title: "Google Drive" },
-                { icon: <Table2 className="h-4 w-4" />, color: "text-indigo-400", title: "Bảng" },
-              ].map((a, i) => (
-                <button
-                  key={i}
-                  title={a.title}
-                  className={`p-1.5 rounded-lg transition-colors ${a.color} ${
-                    isDark ? "hover:bg-zinc-800" : "hover:bg-slate-100"
-                  }`}
-                  onClick={() => toast.info("Tính năng đính kèm đang phát triển.")}
-                >
-                  {a.icon}
-                </button>
-              ))}
-            </div>
+            <AttachmentEditor attachments={attachments} onChange={setAttachments} />
           </div>
 
           {/* Giai đoạn tiếp theo */}

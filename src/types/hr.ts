@@ -1,5 +1,14 @@
 export type HRSubTabType = "SƠ ĐỒ TỔ CHỨC" | "GIAO VIỆC KANBAN" | "ĐÀO TẠO" | "QUY TRÌNH" | "LỊCH";
 
+/** File/đường dẫn đính kèm vào task: ghi âm, hình ảnh, video, tài liệu, link… */
+export interface TaskAttachment {
+  id: string;
+  name: string;
+  url: string;
+  type: "image" | "video" | "audio" | "file" | "link";
+  size?: number;
+}
+
 export interface WorkflowSubTask {
   id: string;
   title: string;
@@ -39,6 +48,8 @@ export interface WorkflowStep {
   /** Sub-tasks (công việc con) */
   subTasks?: WorkflowSubTask[];
   docLinks?: string[];
+  /** Tệp và liên kết gắn với riêng bước quy trình. */
+  attachments?: TaskAttachment[];
   /** @deprecated Không còn dùng canvas — giữ lại để tương thích dữ liệu cũ */
   position?: { x: number; y: number };
 }
@@ -73,6 +84,8 @@ export interface WorkflowParticipant {
   dueDate?: string;
   /** Link tài liệu/hồ sơ đính kèm */
   docLinks?: string[];
+  /** File đính kèm (ghi âm, hình ảnh, video, tài liệu…) — gắn vào mọi task Kanban sinh ra */
+  attachments?: TaskAttachment[];
   /** Công việc con riêng của case — sinh task Kanban ở bước đầu tiên */
   customSubTasks?: WorkflowSubTask[];
   projectId?: string;
@@ -149,6 +162,7 @@ export interface HRTask {
   revision?: number;
   tags?: string[];
   linkNote?: string;
+  attachments?: TaskAttachment[];
   history?: TaskHistoryEntry[];
   workflowId?: string;
   workflowStepId?: string;
