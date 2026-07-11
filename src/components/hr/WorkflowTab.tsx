@@ -972,17 +972,15 @@ export default function WorkflowTab({
         <div className="h-5 w-px bg-gray-200" />
         <input
           value={wfName}
-          onChange={(e) => setWfName(e.target.value)}
-          disabled={!canEdit}
+          readOnly
           placeholder="Tên quy trình"
-          className="w-52 rounded-lg border border-gray-205 px-2 py-1 text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-400 disabled:bg-gray-50"
+          className="w-52 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-sm font-bold text-slate-700 outline-none cursor-default"
         />
         <input
           value={wfCategory}
-          onChange={(e) => setWfCategory(e.target.value)}
-          disabled={!canEdit}
+          readOnly
           placeholder="Nhóm (vd: Onboarding)"
-          className="w-40 rounded-lg border border-gray-205 px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-indigo-400 disabled:bg-gray-50"
+          className="w-40 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-slate-600 outline-none cursor-default"
         />
         <div className="ml-auto flex items-center gap-2">
           <button
