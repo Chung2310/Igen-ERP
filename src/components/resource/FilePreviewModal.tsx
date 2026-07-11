@@ -3,6 +3,9 @@ import { Download, ExternalLink, Loader2, X, FileQuestion, Share2 } from "lucide
 import type { ResourceItem } from "../../types";
 import { toast } from "../../pages/Toast";
 import { getFileIcon, getPreviewKind, formatBytes } from "./resourceHelpers";
+import { ExcelPreview } from "./ExcelPreview";
+import { TextPreview } from "./TextPreview";
+import { DocxPreview } from "./DocxPreview";
 
 interface FilePreviewModalProps {
   item: ResourceItem | null;
@@ -18,6 +21,14 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
   hideDownload = false,
   hideShare = false,
 }) => {
+  const [downloading, setDownloading] = useState(false);
+  // Preview nâng cao (Excel/Word/Text) lỗi → rơi về fallback thay vì màn hình trống
+  const [previewFailed, setPreviewFailed] = useState(false);
+
+  useEffect(() => {
+    setPreviewFailed(false);
+  }, [item]);
+
   useEffect(() => {
     if (!item) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -32,8 +43,16 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
   const downloadHref = `/api/v1/media/download?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(item.name)}`;
   const officeViewer = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
   const { Icon, color } = getFileIcon(item.mimeType, item.name);
-
-  const [downloading, setDownloading] = useState(false);
+  const lowerName = item.name.toLowerCase();
+  const lowerMime = (item.mimeType || "").toLowerCase();
+  const isExcel =
+    /\.(xlsx|xls|csv)$/.test(lowerName) ||
+    lowerMime.includes("sheet") ||
+    lowerMime.includes("excel") ||
+    lowerMime.includes("csv");
+  // docx-preview chỉ hỗ trợ định dạng .docx (không hỗ trợ .doc cũ)
+  const isDocx = /\.docx$/.test(lowerName) || lowerMime.includes("wordprocessingml");
+  const isCsv = /\.csv$/.test(lowerName) || lowerMime.includes("csv");
 
   const handleDownload = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -196,8 +215,26 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
               </div>
             )}
 
-            {(kind === "pdf" || kind === "text") && (
+            {kind === "pdf" && (
               <iframe src={url} title={item.name} className="h-[80vh] w-full border-0 bg-white" />
+            )}
+
+            {kind === "text" && (
+              previewFailed ? (
+                <iframe src={url} title={item.name} className="h-[80vh] w-full border-0 bg-white" />
+              ) : isCsv ? (
+                <ExcelPreview
+                  downloadHref={downloadHref}
+                  fileName={item.name}
+                  onError={() => setPreviewFailed(true)}
+                />
+              ) : (
+                <TextPreview
+                  downloadHref={downloadHref}
+                  fileName={item.name}
+                  onError={() => setPreviewFailed(true)}
+                />
+              )
             )}
 
             {kind === "link" && (
@@ -249,6 +286,18 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
                     className="relative h-full w-full border-0 bg-white"
                   />
                 </div>
+              ) : isExcel && !previewFailed ? (
+                <ExcelPreview
+                  downloadHref={downloadHref}
+                  fileName={item.name}
+                  onError={() => setPreviewFailed(true)}
+                />
+              ) : isDocx && !previewFailed ? (
+                <DocxPreview
+                  downloadHref={downloadHref}
+                  fileName={item.name}
+                  onError={() => setPreviewFailed(true)}
+                />
               ) : (
                 <div className="flex min-h-[50vh] flex-col items-center justify-center gap-6 p-8 text-center max-w-xl mx-auto">
                   <div className={`flex h-20 w-20 items-center justify-center rounded-3xl bg-white shadow-md border border-slate-100 ${color}`}>
