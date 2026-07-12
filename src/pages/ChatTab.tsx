@@ -2223,7 +2223,7 @@ export default function ChatTab() {
 
 
                             {/* Message content block */}
-                            <div className="max-w-[70%]">
+                            <div className="min-w-0 max-w-[85%] sm:max-w-[70%]">
                               {/* Sender Name in group */}
                               {/* Sender Name in group */}
                               {showSenderName && (
@@ -2334,11 +2334,11 @@ export default function ChatTab() {
                                       // Audio rendering
                                       if (file.type.startsWith("audio/")) {
                                         return (
-                                          <div key={idx} className={`rounded-xl overflow-hidden border ${isMe ? "border-indigo-500/30" : "border-slate-200"}`}>
+                                          <div key={idx} className={`w-[min(280px,calc(100vw-7rem))] max-w-full rounded-xl overflow-hidden border bg-white ${isMe ? "border-indigo-500/30" : "border-slate-200"}`}>
                                             <audio
                                               controls
                                               src={file.url}
-                                              className="w-full max-w-[280px] h-10"
+                                              className="block h-10 w-full max-w-full"
                                               style={{ colorScheme: "normal" }}
                                             />
                                           </div>
@@ -3048,48 +3048,47 @@ export default function ChatTab() {
                       onChange={handleFileUpload}
                       className="hidden"
                     />
-                    <button
+                    {!isRecording && <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      disabled={uploadingFile || isRecording}
+                      disabled={uploadingFile}
                       className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-slate-450 hover:text-indigo-655 hover:bg-indigo-50 border border-slate-150/40 transition active:scale-95 disabled:opacity-50"
                       title="Đính kèm tài liệu, ảnh, video"
                     >
                       {uploadingFile ? <Loader2 className="h-5 w-5 animate-spin" /> : <Paperclip className="h-5 w-5" />}
-                    </button>
+                    </button>}
 
                     {/* Sticker button */}
-                    <button
+                    {!isRecording && <button
                       type="button"
                       onClick={() => setShowStickerPicker((p) => !p)}
-                      disabled={isRecording}
                       className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border transition active:scale-95 disabled:opacity-50 ${showStickerPicker ? "bg-amber-50 text-amber-500 border-amber-200" : "bg-slate-50 text-slate-450 hover:text-amber-500 hover:bg-amber-50 border-slate-150/40"}`}
                       title="Chọn emoji"
                     >
                       <Smile className="h-5 w-5" />
-                    </button>
+                    </button>}
 
                     {/* Video record button */}
-                    <button
+                    {!isRecording && <button
                       type="button"
                       onClick={startVideoRecording}
-                      disabled={isRecording || uploadingVideo}
+                      disabled={uploadingVideo}
                       className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-slate-450 hover:text-rose-500 hover:bg-rose-50 border border-slate-150/40 transition active:scale-95 disabled:opacity-50"
                       title="Ghi hình gửi tin nhắn video"
                     >
                       {uploadingVideo ? <Loader2 className="h-5 w-5 animate-spin" /> : <Video className="h-5 w-5" />}
-                    </button>
+                    </button>}
 
                     {/* Recording UI or Normal Input */}
                     {isRecording ? (
-                      <div className="flex flex-1 items-center gap-3 rounded-2xl border border-rose-300 bg-rose-50 px-4 py-2.5">
+                      <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3 rounded-2xl border border-rose-300 bg-rose-50 px-3 sm:px-4 py-2.5">
                         {/* Pulse indicator */}
                         <span className="relative flex h-3 w-3 shrink-0">
                           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
                           <span className="relative inline-flex h-3 w-3 rounded-full bg-rose-500" />
                         </span>
-                        <span className="text-sm font-semibold text-rose-600 flex-1">
-                          Đang ghi... {Math.floor(recordingSeconds / 60).toString().padStart(2, "0")}:{(recordingSeconds % 60).toString().padStart(2, "0")}
+                        <span className="min-w-0 flex-1 truncate text-sm font-semibold text-rose-600">
+                          <span className="hidden sm:inline">Đang ghi... </span>{Math.floor(recordingSeconds / 60).toString().padStart(2, "0")}:{(recordingSeconds % 60).toString().padStart(2, "0")}
                         </span>
                         {/* Cancel button */}
                         <button type="button" onClick={cancelRecording} className="text-slate-400 hover:text-rose-600 transition" title="Hủy">
