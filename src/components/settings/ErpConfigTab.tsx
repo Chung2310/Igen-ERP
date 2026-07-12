@@ -14,6 +14,9 @@ export default function ErpConfigTab() {
   const [allowedRadius, setAllowedRadius] = useState<number | "">("");
   const [checkInLimit, setCheckInLimit] = useState("08:30");
   const [checkOutLimit, setCheckOutLimit] = useState("17:30");
+  const [lunchBreakStart, setLunchBreakStart] = useState("12:00");
+  const [lunchBreakEnd, setLunchBreakEnd] = useState("13:00");
+  const [workingDays, setWorkingDays] = useState<number[]>([1, 2, 3, 4, 5]);
   const [isLocating, setIsLocating] = useState(false);
   const [savingLocation, setSavingLocation] = useState(false);
 
@@ -39,6 +42,9 @@ export default function ErpConfigTab() {
               setAllowedRadius(result.data.allowedRadius ?? "");
               setCheckInLimit(result.data.checkInLimit || "08:30");
               setCheckOutLimit(result.data.checkOutLimit || "17:30");
+              setLunchBreakStart(result.data.lunchBreakStart || "12:00");
+              setLunchBreakEnd(result.data.lunchBreakEnd || "13:00");
+              setWorkingDays(Array.isArray(result.data.workingDays) && result.data.workingDays.length ? result.data.workingDays : [1, 2, 3, 4, 5]);
             }
           }
         } catch (err) {
@@ -78,6 +84,8 @@ export default function ErpConfigTab() {
       return;
     }
 
+    if (workingDays.length === 0) { toast.error("Please select at least one working day."); return; }
+
     setSavingLocation(true);
     try {
       const res = await fetch("/api/v1/timekeeping/company-location", {
@@ -93,6 +101,9 @@ export default function ErpConfigTab() {
           addressName,
           checkInLimit,
           checkOutLimit,
+          lunchBreakStart,
+          lunchBreakEnd,
+          workingDays,
         }),
       });
       const result = await res.json();
@@ -132,7 +143,7 @@ export default function ErpConfigTab() {
               </div>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
-            
+
               <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
             </label>
           </div>
@@ -222,6 +233,43 @@ export default function ErpConfigTab() {
                 />
               </div>
 
+              <div className="space-y-1.5 text-left">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Bắt đầu nghỉ trưa</label>
+                <input
+                  type="text"
+                  value={lunchBreakStart}
+                  onChange={(e) => setLunchBreakStart(e.target.value)}
+                  placeholder="HH:MM (ví dụ: 12:00)"
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none"
+                  required
+                />
+              </div>
+
+              <div className="space-y-1.5 text-left">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Kết thúc nghỉ trưa</label>
+                <input
+                  type="text"
+                  value={lunchBreakEnd}
+                  onChange={(e) => setLunchBreakEnd(e.target.value)}
+                  placeholder="HH:MM (ví dụ: 13:00)"
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2 text-left md:col-span-2">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Ngày làm việc để lên lịch quy trình</label>
+                <div className="flex flex-wrap gap-2">
+                  {[{ day: 1, label: "T2" }, { day: 2, label: "T3" }, { day: 3, label: "T4" }, { day: 4, label: "T5" }, { day: 5, label: "T6" }, { day: 6, label: "T7" }, { day: 0, label: "CN" }].map(({ day, label }) => (
+                    <label key={day} className="flex items-center gap-1.5 text-xs text-gray-700 cursor-pointer">
+                      <input type="checkbox" checked={workingDays.includes(day)} onChange={() => setWorkingDays((current) => current.includes(day) ? current.filter((value) => value !== day) : [...current, day])} />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+                <p className="text-[10px] text-gray-500">Các bước trong quy trình sẽ tự động bỏ qua các ngày không được chọn. Hãy chọn Thứ Bảy và/hoặc Chủ Nhật nếu công ty của bạn làm việc vào những ngày đó.</p>
+              </div>
+
               <div className="flex items-end justify-start">
                 <button
                   type="button"
@@ -241,7 +289,7 @@ export default function ErpConfigTab() {
                 disabled={savingLocation}
                 className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-md shadow-indigo-600/10 active:scale-[0.98] cursor-pointer disabled:opacity-50"
               >
-                {savingLocation ? "Đang lưu cấu hình..." : "Lưu Cấu hình GPS"}
+                {savingLocation ? "Đang lưu cấu hình..." : "Lưu Cấu hình"}
               </button>
             </div>
           </form>

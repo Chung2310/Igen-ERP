@@ -2,6 +2,7 @@ import { WorkflowModel } from "../model/workflow.model";
 import { KanbanTaskModel } from "../model/kanban-task.model";
 import { UserModel } from "../model/user.model";
 import { ProjectModel } from "../model/project.model";
+import { CompanyModel } from "../model/company.model";
 import { emitToCompany, emitToUser } from "../socket";
 
 const DONE_COL = "__done__";
@@ -87,31 +88,32 @@ function getStepDurationDays(step: {
   }
 }
 
-function isWeekend(d: Date): boolean {
-  const day = d.getDay();
-  return day === 0 || day === 6;
+const DEFAULT_WORKING_DAYS = [1, 2, 3, 4, 5];
+
+function isNonWorkingDay(d: Date, workingDays: number[]): boolean {
+  return !workingDays.includes(d.getDay());
 }
 
 /**
  * Cộng N ngày làm việc (bỏ T7/CN). Nếu mốc xuất phát rơi vào cuối tuần thì
  * dời tới thứ Hai kế tiếp trước khi cộng.
  */
-function addWorkingDays(from: Date, days: number): Date {
+function addWorkingDays(from: Date, days: number, workingDays: number[]): Date {
   const d = new Date(from);
-  while (isWeekend(d)) d.setDate(d.getDate() + 1);
+  while (isNonWorkingDay(d, workingDays)) d.setDate(d.getDate() + 1);
   let remaining = days;
   while (remaining > 0) {
     d.setDate(d.getDate() + 1);
-    if (!isWeekend(d)) remaining--;
+    if (!isNonWorkingDay(d, workingDays)) remaining--;
   }
   return d;
 }
 
 /** Dời sang ngày làm việc kế tiếp, giữ nguyên giờ */
-function nextWorkingDay(d: Date): Date {
+function nextWorkingDay(d: Date, workingDays: number[]): Date {
   const out = new Date(d);
   out.setDate(out.getDate() + 1);
-  while (isWeekend(out)) out.setDate(out.getDate() + 1);
+  while (isNonWorkingDay(out, workingDays)) out.setDate(out.getDate() + 1);
   return out;
 }
 
@@ -132,7 +134,8 @@ function calculateStepSchedule(
       deadlineTime?: string;
     }>;
   },
-  participant: { startDate?: string; startedAt?: string }
+  participant: { startDate?: string; startedAt?: string },
+  workingDays: number[] = DEFAULT_WORKING_DAYS
 ): Map<string, StepWindow> {
   let cursor: Date;
   if (participant.startDate && /^\d{4}-\d{2}-\d{2}/.test(participant.startDate)) {
@@ -149,8 +152,8 @@ function calculateStepSchedule(
     const durationDays = getStepDurationDays(step);
     // Mốc bắt đầu hiệu dụng của bước: né cuối tuần (rơi T7/CN → sáng thứ Hai kế tiếp)
     const start = new Date(cursor);
-    if (isWeekend(start)) {
-      while (isWeekend(start)) start.setDate(start.getDate() + 1);
+    if (isNonWorkingDay(start, workingDays)) {
+      while (isNonWorkingDay(start, workingDays)) start.setDate(start.getDate() + 1);
       start.setHours(8, 0, 0, 0);
     }
     if (durationDays === null) {
@@ -159,7 +162,7 @@ function calculateStepSchedule(
       continue;
     }
     // Hạn = mốc bắt đầu + N ngày LÀM VIỆC (bỏ T7/CN)
-    const due = addWorkingDays(start, Math.max(durationDays - 1, 0));
+    const due = addWorkingDays(start, Math.max(durationDays - 1, 0), workingDays);
     if (step.deadlineTime && step.deadlineTime.includes(":")) {
       const [h, m] = step.deadlineTime.split(":");
       due.setHours(parseInt(h, 10), parseInt(m, 10), 0, 0);
@@ -169,13 +172,13 @@ function calculateStepSchedule(
     // Bước 0 ngày mà giờ hạn lại sớm hơn mốc bắt đầu (VD bắt đầu 19:00, hạn 18:00)
     // → dồn sang ngày làm việc kế tiếp
     if (due.getTime() < start.getTime()) {
-      const shifted = nextWorkingDay(due);
+      const shifted = nextWorkingDay(due, workingDays);
       due.setTime(shifted.getTime());
     }
     schedule.set(step.id, { start, due, durationDays });
     // A following step begins on the next working day, not at the previous
     // step''s deadline time on the same date.
-    cursor = nextWorkingDay(due);
+    cursor = nextWorkingDay(due, workingDays);
     cursor.setHours(8, 0, 0, 0);
   }
   return schedule;
@@ -198,7 +201,8 @@ async function generateStepTasks(
   workflow: any,
   participant: any,
   step: any,
-  extraSubTasks: SubTaskLike[] = []
+  extraSubTasks: SubTaskLike[] = [],
+  workingDays: number[] = DEFAULT_WORKING_DAYS
 ): Promise<number> {
   // Chống sinh trùng: nếu case đã có task ở bước này (VD: lùi bước rồi tiến lại)
   // thì giữ nguyên các task cũ, không tạo lại
@@ -217,7 +221,7 @@ async function generateStepTasks(
 
   // Lịch trình dự kiến của cả quy trình: các bước nối đuôi nhau từ ngày bắt đầu case.
   // Mọi công việc con trong một bước dùng chung cửa sổ thời gian của bước cha.
-  const schedule = calculateStepSchedule(workflow, participant);
+  const schedule = calculateStepSchedule(workflow, participant, workingDays);
   const stepWindow = schedule.get(step.id);
   const now = new Date();
   let stepStart = stepWindow ? new Date(stepWindow.start) : now;
@@ -228,12 +232,12 @@ async function generateStepTasks(
     const dueHours = stepDue.getHours();
     const dueMinutes = stepDue.getMinutes();
     const stepIndex = (workflow.steps || []).findIndex((candidate: any) => candidate.id === step.id);
-    stepStart = stepIndex > 0 ? nextWorkingDay(now) : new Date(now);
+    stepStart = stepIndex > 0 ? nextWorkingDay(now, workingDays) : new Date(now);
     if (stepIndex > 0) stepStart.setHours(8, 0, 0, 0);
-    stepDue = addWorkingDays(stepStart, Math.max((stepWindow?.durationDays ?? 0) - 1, 0));
+    stepDue = addWorkingDays(stepStart, Math.max((stepWindow?.durationDays ?? 0) - 1, 0), workingDays);
     stepDue.setHours(dueHours, dueMinutes, 0, 0);
     if (stepDue.getTime() < stepStart.getTime()) {
-      stepDue = nextWorkingDay(stepDue);
+      stepDue = nextWorkingDay(stepDue, workingDays);
     }
   }
 
@@ -313,6 +317,8 @@ async function generateStepTasks(
       estTime: step.estDays && step.estDays > 0 ? step.estDays * 24 : 0,
       tags: [workflow.name, step.title],
       linkNote: (participant.docLinks && participant.docLinks[0]) || "",
+      // File đính kèm của case (ghi âm, hình ảnh, video, tài liệu…) đi theo mọi task sinh ra
+      attachments: participant.attachments || [],
       workflowId: workflow.id,
       workflowStepId: step.id,
       participantId: participant.id,
@@ -426,7 +432,9 @@ export const workflowLinkService = {
     }
 
     // 5. Sinh Kanban Tasks từ subtasks của bước mới
-    const tasksCreated = await generateStepTasks(companyCode, transitionedWorkflow, transitionedParticipant, step);
+    const company = await CompanyModel.findOne({ code: companyCode }).select("locationConfig.workingDays").lean();
+    const workingDays = company?.locationConfig?.workingDays?.length ? company.locationConfig.workingDays : DEFAULT_WORKING_DAYS;
+    const tasksCreated = await generateStepTasks(companyCode, transitionedWorkflow, transitionedParticipant, step, [], workingDays);
 
     return {
       workflow: transitionedWorkflow,
@@ -453,6 +461,7 @@ export const workflowLinkService = {
       startDate?: string;
       dueDate?: string;
       docLinks?: string[];
+      attachments?: any[];
       customSubTasks?: SubTaskLike[];
     }
   ) {
@@ -466,6 +475,9 @@ export const workflowLinkService = {
     if (!caseData.name || !caseData.name.trim()) {
       throw new Error("Tên công việc là bắt buộc.");
     }
+
+    const company = await CompanyModel.findOne({ code: companyCode }).select("locationConfig.workingDays").lean();
+    const workingDays = company?.locationConfig?.workingDays?.length ? company.locationConfig.workingDays : DEFAULT_WORKING_DAYS;
 
     const firstStep = workflow.steps[0];
     const now = new Date().toISOString();
@@ -482,6 +494,7 @@ export const workflowLinkService = {
       startDate: caseData.startDate || "",
       dueDate: caseData.dueDate || "",
       docLinks: caseData.docLinks || [],
+      attachments: Array.isArray(caseData.attachments) ? caseData.attachments : [],
       customSubTasks: caseData.customSubTasks || [],
       startedAt: now,
       updatedAt: now,
@@ -491,7 +504,7 @@ export const workflowLinkService = {
     // = ngày kết thúc lịch trình các bước (UI chỉ gửi dueDate khi người giao việc
     // chủ động điều chỉnh và đã xác nhận)
     if (!participant.dueDate) {
-      const schedule = calculateStepSchedule(workflow, participant);
+      const schedule = calculateStepSchedule(workflow, participant, workingDays);
       let lastDue: Date | null = null;
       for (const w of schedule.values()) {
         if (w.due && (!lastDue || w.due.getTime() > lastDue.getTime())) lastDue = w.due;
@@ -508,7 +521,8 @@ export const workflowLinkService = {
       workflow,
       participant,
       firstStep,
-      participant.customSubTasks
+      participant.customSubTasks,
+      workingDays
     );
 
     return { workflow, participant, tasksCreated };

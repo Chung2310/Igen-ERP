@@ -21,9 +21,20 @@ import {
   Tag,
   User,
   Target,
-  RefreshCw
+  RefreshCw,
+  Workflow as WorkflowIcon,
+  Layers,
+  Paperclip,
+  Mic,
+  Square,
+  Link2,
+  FileText,
+  Image as ImageIcon,
+  Film,
+  Music,
+  Video
 } from "lucide-react";
-import { EmployeeNode, UserProfile, HRTask, Project, TaskHistoryEntry } from "../../types";
+import { EmployeeNode, UserProfile, HRTask, Project, TaskHistoryEntry, Workflow, WorkflowParticipant, TaskAttachment } from "../../types";
 import { getAccessToken } from "../../services/authService";
 import { socketService } from "../../services/socketService";
 import { toast } from "../../pages/Toast";
@@ -48,6 +59,351 @@ const getLocalDatetimeString = (date = new Date()) => {
   const localISOTime = (new Date(date.getTime() - tzOffset)).toISOString().slice(0, 16);
   return localISOTime;
 };
+
+const toDateInputValue = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+const avatarUrl = (name: string, photo?: string) => {
+  if (photo && (photo.startsWith("http") || photo.startsWith("/"))) return photo;
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(
+    name || "NV"
+  )}&background=4f46e5&color=fff`;
+};
+
+/** Bản nháp giao việc theo quy trình từ tab Kanban — cùng payload với modal "Tạo công việc" ở tab Quy trình */
+interface WorkflowAssignDraft {
+  workflowId: string;
+  name: string;
+  userUid: string;
+  priority: NonNullable<WorkflowParticipant["priority"]>;
+  startDate: string;
+  description: string;
+  note: string;
+}
+
+const WF_PRIORITY_OPTIONS: { key: NonNullable<WorkflowParticipant["priority"]>; label: string }[] = [
+  { key: "normal", label: "Bình thường" },
+  { key: "important", label: "★ Quan trọng" },
+  { key: "urgent", label: "⚡ Cần gấp" },
+  { key: "urgent_important", label: "🔥 Gấp & Q.trọng" },
+];
+
+// ================== ĐÍNH KÈM FILE VÀO TASK ==================
+
+let attIdCounter = 0;
+const genAttachmentId = () =>
+  `att_${Date.now().toString(36)}_${(attIdCounter++).toString(36)}`;
+
+const detectAttachmentType = (mime: string): TaskAttachment["type"] => {
+  if (mime.startsWith("image/")) return "image";
+  if (mime.startsWith("video/")) return "video";
+  if (mime.startsWith("audio/")) return "audio";
+  return "file";
+};
+
+const formatBytes = (bytes?: number) => {
+  if (!bytes || bytes <= 0) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
+
+/** Đẩy file lên Cloudinary qua media relay sẵn có của server, trả về URL công khai */
+const uploadToMediaRelay = async (file: File | Blob, fileName: string): Promise<string> => {
+  const base64Data = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+  const res = await fetch("/api/v1/media/upload", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${getAccessToken()}`,
+    },
+    body: JSON.stringify({ file: base64Data, folder: "igen_erp/kanban_tasks" }),
+  });
+  if (!res.ok) {
+    const j = await res.json().catch(() => null);
+    throw new Error(j?.message || j?.error || `Tải "${fileName}" lên lưu trữ thất bại.`);
+  }
+  const { url } = await res.json();
+  if (!url) throw new Error(`Tải "${fileName}" lên lưu trữ thất bại.`);
+  return url;
+};
+
+const ATTACHMENT_ICONS: Record<TaskAttachment["type"], React.ReactNode> = {
+  image: <ImageIcon className="h-3.5 w-3.5 text-emerald-500" />,
+  video: <Film className="h-3.5 w-3.5 text-rose-500" />,
+  audio: <Music className="h-3.5 w-3.5 text-purple-500" />,
+  file: <FileText className="h-3.5 w-3.5 text-sky-500" />,
+  link: <Link2 className="h-3.5 w-3.5 text-indigo-500" />,
+};
+
+/**
+ * Khối chỉnh sửa file đính kèm dùng chung cho modal task và modal giao việc
+ * theo quy trình: upload file (ảnh/video/tài liệu…), ghi âm trực tiếp, thêm link.
+ */
+export function AttachmentEditor({
+  attachments,
+  onChange,
+}: {
+  attachments: TaskAttachment[];
+  onChange: (next: TaskAttachment[]) => void;
+}) {
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [recorder, setRecorder] = useState<MediaRecorder | null>(null);
+  const [videoRecorder, setVideoRecorder] = useState<MediaRecorder | null>(null);
+  const [linkDraft, setLinkDraft] = useState<string | null>(null);
+
+  const handleFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const list = Array.from(files);
+    const oversize = list.find((f) => f.size > 25 * 1024 * 1024);
+    if (oversize) {
+      toast.warning(`File "${oversize.name}" vượt quá 25MB.`);
+      return;
+    }
+    setUploading(true);
+    try {
+      const uploaded: TaskAttachment[] = [];
+      for (const f of list) {
+        const url = await uploadToMediaRelay(f, f.name);
+        uploaded.push({
+          id: genAttachmentId(),
+          name: f.name,
+          url,
+          type: detectAttachmentType(f.type),
+          size: f.size,
+        });
+      }
+      onChange([...attachments, ...uploaded]);
+      toast.success(`Đã đính kèm ${uploaded.length} file.`);
+    } catch (err: any) {
+      console.error("Lỗi upload file đính kèm:", err);
+      toast.error(err?.message || "Không thể tải file lên.");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mr = new MediaRecorder(stream);
+      const chunks: Blob[] = [];
+      mr.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data);
+      };
+      mr.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(chunks, { type: mr.mimeType || "audio/webm" });
+        if (blob.size === 0) return;
+        setUploading(true);
+        try {
+          const name = `Ghi âm ${new Date().toLocaleString("vi-VN")}.webm`;
+          const url = await uploadToMediaRelay(blob, name);
+          onChange([
+            ...attachments,
+            { id: genAttachmentId(), name, url, type: "audio", size: blob.size },
+          ]);
+          toast.success("Đã đính kèm bản ghi âm.");
+        } catch (err: any) {
+          console.error("Lỗi upload ghi âm:", err);
+          toast.error(err?.message || "Không thể tải bản ghi âm lên.");
+        } finally {
+          setUploading(false);
+        }
+      };
+      mr.start();
+      setRecorder(mr);
+    } catch (err) {
+      console.error("Không thể truy cập micro:", err);
+      toast.error("Không thể truy cập micro. Hãy kiểm tra quyền trình duyệt.");
+    }
+  };
+
+  const startVideoRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      const mr = new MediaRecorder(stream);
+      const chunks: Blob[] = [];
+      mr.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+      mr.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(chunks, { type: mr.mimeType || "video/webm" });
+        if (!blob.size) return;
+        setUploading(true);
+        try {
+          const name = `Ghi hình ${new Date().toLocaleString("vi-VN")}.webm`;
+          const url = await uploadToMediaRelay(blob, name);
+          onChange([...attachments, { id: genAttachmentId(), name, url, type: "video", size: blob.size }]);
+          toast.success("Đã đính kèm bản ghi hình.");
+        } catch (err: any) {
+          toast.error(err?.message || "Không thể tải bản ghi hình lên.");
+        } finally { setUploading(false); }
+      };
+      mr.start();
+      setVideoRecorder(mr);
+    } catch (err) {
+      console.error("Không thể truy cập camera:", err);
+      toast.error("Không thể truy cập camera và micro. Hãy kiểm tra quyền trình duyệt.");
+    }
+  };
+  const stopRecording = () => {
+    recorder?.stop();
+    setRecorder(null);
+  };
+
+  const addLink = () => {
+    const raw = (linkDraft || "").trim();
+    if (!raw) {
+      setLinkDraft(null);
+      return;
+    }
+    const url = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+    let name = url;
+    try {
+      name = new URL(url).hostname + new URL(url).pathname;
+    } catch {
+      /* giữ nguyên name = url */
+    }
+    onChange([...attachments, { id: genAttachmentId(), name, url, type: "link" }]);
+    setLinkDraft(null);
+  };
+
+  return (
+    <div>
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        className="hidden"
+        onChange={(e) => handleFiles(e.target.files)}
+      />
+
+      {attachments.length > 0 && (
+        <div className="space-y-1.5 mb-2">
+          {attachments.map((att) => (
+            <div
+              key={att.id}
+              className="flex items-center gap-2 rounded-lg border border-gray-150 bg-slate-50 px-2.5 py-1.5 text-xs"
+            >
+              <span className="shrink-0">{ATTACHMENT_ICONS[att.type]}</span>
+              {att.type === "audio" ? (
+                <div className="flex-1 min-w-0 flex items-center gap-2">
+                  <span className="truncate font-semibold text-slate-600 max-w-[40%]">{att.name}</span>
+                  <audio src={att.url} controls className="h-7 flex-1 min-w-0" />
+                </div>
+              ) : (
+                <a
+                  href={att.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex-1 truncate font-semibold text-slate-600 hover:text-indigo-600 hover:underline"
+                  title={att.name}
+                >
+                  {att.name}
+                </a>
+              )}
+              {att.size ? (
+                <span className="shrink-0 text-[10px] text-slate-400">{formatBytes(att.size)}</span>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => onChange(attachments.filter((x) => x.id !== att.id))}
+                className="shrink-0 rounded p-0.5 text-slate-300 hover:bg-red-50 hover:text-red-500 cursor-pointer"
+                title="Gỡ đính kèm"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {linkDraft !== null ? (
+        <div className="flex gap-1.5 mb-2">
+          <input
+            autoFocus
+            value={linkDraft}
+            onChange={(e) => setLinkDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") addLink();
+              if (e.key === "Escape") setLinkDraft(null);
+            }}
+            placeholder="https://… (Drive, Notion, tài liệu…) rồi Enter"
+            className="flex-1 px-3 py-1.5 bg-white border border-gray-200 text-slate-800 placeholder-gray-300 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 rounded-lg text-xs"
+          />
+          <button
+            type="button"
+            onClick={addLink}
+            className="px-3 rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 text-xs font-bold cursor-pointer"
+          >
+            Thêm
+          </button>
+        </div>
+      ) : null}
+
+      <div className="flex flex-wrap items-center gap-1.5">
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading}
+          className="flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-[11px] font-bold text-slate-500 hover:bg-slate-50 hover:text-slate-700 disabled:opacity-50 cursor-pointer"
+          title="Đính kèm hình ảnh, video, tài liệu…"
+        >
+          <Paperclip className="h-3.5 w-3.5" /> Tệp / Ảnh / Video
+        </button>
+        {recorder ? (
+          <button
+            type="button"
+            onClick={stopRecording}
+            className="flex items-center gap-1 rounded-lg border border-red-300 bg-red-50 px-2.5 py-1.5 text-[11px] font-bold text-red-600 animate-pulse cursor-pointer"
+            title="Dừng và lưu bản ghi âm"
+          >
+            <Square className="h-3.5 w-3.5 fill-red-600" /> Dừng ghi âm
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={startRecording}
+            disabled={uploading}
+            className="flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-[11px] font-bold text-slate-500 hover:bg-purple-50 hover:text-purple-600 disabled:opacity-50 cursor-pointer"
+            title="Ghi âm trực tiếp"
+          >
+            <Mic className="h-3.5 w-3.5" /> Ghi âm
+          </button>
+        )}
+        {videoRecorder ? (
+          <button type="button" onClick={() => { videoRecorder.stop(); setVideoRecorder(null); }} className="flex items-center gap-1 rounded-lg border border-red-300 bg-red-50 px-2.5 py-1.5 text-[11px] font-bold text-red-600 animate-pulse cursor-pointer" title="Dừng và lưu bản ghi hình">
+            <Square className="h-3.5 w-3.5 fill-red-600" /> Dừng ghi hình
+          </button>
+        ) : (
+          <button type="button" onClick={startVideoRecording} disabled={uploading || !!recorder} className="flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-[11px] font-bold text-slate-500 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50 cursor-pointer" title="Ghi hình trực tiếp bằng camera">
+            <Video className="h-3.5 w-3.5" /> Ghi hình
+          </button>
+        )}        <button
+          type="button"
+          onClick={() => setLinkDraft(linkDraft === null ? "" : null)}
+          disabled={uploading}
+          className="flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-[11px] font-bold text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-50 cursor-pointer"
+          title="Đính kèm đường dẫn tài liệu"
+        >
+          <Link2 className="h-3.5 w-3.5" /> Thêm link
+        </button>
+        {uploading && (
+          <span className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-400">
+            <RefreshCw className="h-3.5 w-3.5 animate-spin" /> Đang tải lên…
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
 
 /**
  * Các trường bắt buộc phải điền trước khi đánh dấu Hoàn thành —
@@ -337,6 +693,12 @@ export default function KanbanTab({
 
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
+
+  // Giao việc theo quy trình ngay trong tab Kanban (dùng chung API với tab Quy trình)
+  const [wfAssignDraft, setWfAssignDraft] = useState<WorkflowAssignDraft | null>(null);
+  const [wfOptions, setWfOptions] = useState<Workflow[]>([]);
+  const [wfOptionsLoading, setWfOptionsLoading] = useState(false);
+  const [wfAssignSubmitting, setWfAssignSubmitting] = useState(false);
   const [expandedProjects, setExpandedProjects] = useState<Record<string, boolean>>({});
 
   const [editTitle, setEditTitle] = useState("");
@@ -354,6 +716,7 @@ export default function KanbanTab({
   const [editActualTime, setEditActualTime] = useState<number | "">("");
   const [editTags, setEditTags] = useState("");
   const [editLinkNote, setEditLinkNote] = useState("");
+  const [editAttachments, setEditAttachments] = useState<TaskAttachment[]>([]);
   const [taskHistory, setTaskHistory] = useState<TaskHistoryEntry[]>([]);
   const [editCategory, setEditCategory] = useState<string>("Onboarding");
 
@@ -397,7 +760,7 @@ export default function KanbanTab({
         ...item,
         id: item._id,
       }));
-      setProjects(projData);
+      setProjects(projData.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()));
 
       const expanded: Record<string, boolean> = {};
       projData.forEach(p => {
@@ -414,6 +777,12 @@ export default function KanbanTab({
     if (selectedCompanyCode) {
       fetchTasks();
       fetchProjects();
+      void fetch("/api/v1/crud/workflows", {
+        headers: { Authorization: `Bearer ${getAccessToken()}` },
+      })
+        .then((res) => (res.ok ? res.json() : Promise.reject(new Error("Unable to load workflows"))))
+        .then((json) => setWfOptions((json.data || []).map((item: any) => ({ ...item, id: item._id }))))
+        .catch((error) => console.error("Failed to load workflows for filter:", error));
     }
   }, [selectedCompanyCode]);
 
@@ -467,6 +836,7 @@ export default function KanbanTab({
       setEditActualTime(selectedKanbanTask.actualTime ?? "");
       setEditTags(selectedKanbanTask.tags ? selectedKanbanTask.tags.join(", ") : "");
       setEditLinkNote(selectedKanbanTask.linkNote || "");
+      setEditAttachments(selectedKanbanTask.attachments || []);
       setTaskHistory(selectedKanbanTask.history || []);
       setEditCategory(selectedKanbanTask.category || "Onboarding");
       if (presetDoneOnOpen) {
@@ -609,6 +979,7 @@ export default function KanbanTab({
           actualTime: finalActualTime,
           tags: parsedTags,
           linkNote: editLinkNote.trim(),
+          attachments: editAttachments,
           history: initialHistory,
           category: editCategory
         };
@@ -672,6 +1043,9 @@ export default function KanbanTab({
         if ((selectedKanbanTask.linkNote || "") !== editLinkNote.trim()) {
           changes.push(`Cập nhật link ghi chú`);
         }
+        if (JSON.stringify(selectedKanbanTask.attachments || []) !== JSON.stringify(editAttachments)) {
+          changes.push(`Cập nhật ${editAttachments.length} tệp đính kèm`);
+        }
         if ((selectedKanbanTask.category || "Onboarding") !== editCategory) {
           changes.push(`Đổi phân loại: "${selectedKanbanTask.category || 'Onboarding'}" → "${editCategory}"`);
         }
@@ -701,6 +1075,7 @@ export default function KanbanTab({
           actualTime: finalActualTime,
           tags: parsedTags,
           linkNote: editLinkNote.trim(),
+          attachments: editAttachments,
           history: updatedHistory,
           category: editCategory
         };
@@ -726,6 +1101,88 @@ export default function KanbanTab({
     } catch (error: any) {
       console.error("Lỗi khi lưu công việc:", error);
       toast.error(error.message || "Không thể lưu thay đổi. Vui lòng kiểm tra quyền hạn.");
+    }
+  };
+
+  // Mở modal giao việc theo quy trình: tải danh sách quy trình rồi hiện form
+  const openWorkflowAssign = async () => {
+    setWfAssignDraft({
+      workflowId: "",
+      name: "",
+      userUid: "",
+      priority: "normal",
+      startDate: toDateInputValue(new Date()),
+      description: "",
+      note: "",
+    });
+    setWfOptionsLoading(true);
+    try {
+      const res = await fetch("/api/v1/crud/workflows", {
+        headers: { Authorization: `Bearer ${getAccessToken()}` },
+      });
+      if (!res.ok) throw new Error("Không thể tải danh sách quy trình");
+      const json = await res.json();
+      const list: Workflow[] = (json.data || []).map((it: any) => ({ ...it, id: it._id }));
+      setWfOptions(list);
+    } catch (error) {
+      console.error("Lỗi khi tải danh sách quy trình:", error);
+      toast.error("Không thể tải danh sách quy trình.");
+      setWfAssignDraft(null);
+    } finally {
+      setWfOptionsLoading(false);
+    }
+  };
+
+  // Gửi lên cùng endpoint tạo case của tab Quy trình — server sinh task Kanban cho bước đầu
+  const submitWorkflowAssign = async () => {
+    if (!wfAssignDraft) return;
+    if (!wfAssignDraft.workflowId) {
+      toast.warning("Vui lòng chọn quy trình.");
+      return;
+    }
+    const name = wfAssignDraft.name.trim();
+    if (!name) {
+      toast.warning("Vui lòng nhập tên công việc.");
+      return;
+    }
+    const u = usersList.find((x) => x.uid === wfAssignDraft.userUid);
+    setWfAssignSubmitting(true);
+    try {
+      const res = await fetch(`/api/v1/crud/workflows/${wfAssignDraft.workflowId}/participants`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${getAccessToken()}`,
+        },
+        body: JSON.stringify({
+          name,
+          userUid: wfAssignDraft.userUid || "",
+          avatar: avatarUrl(name, u?.photoURL),
+          note: wfAssignDraft.note.trim(),
+          description: wfAssignDraft.description.trim(),
+          relatedUids: [],
+          priority: wfAssignDraft.priority,
+          startDate: wfAssignDraft.startDate,
+          dueDate: "",
+          docLinks: [],
+          customSubTasks: [],
+        }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => null);
+        throw new Error(j?.message || "Không thể tạo công việc theo quy trình.");
+      }
+      const json = await res.json();
+      setWfAssignDraft(null);
+      toast.success(
+        `Đã tạo công việc theo quy trình và ${json.data?.tasksCreated ?? 0} task Kanban cho bước đầu tiên.`
+      );
+      fetchTasks();
+    } catch (error: any) {
+      console.error("Lỗi khi giao việc theo quy trình:", error);
+      toast.error(error.message || "Không thể tạo công việc theo quy trình.");
+    } finally {
+      setWfAssignSubmitting(false);
     }
   };
 
@@ -765,7 +1222,7 @@ export default function KanbanTab({
       };
 
       toast.success("Đã tạo dự án mới thành công!");
-      setProjects(prev => [...prev, createdProj]);
+      setProjects(prev => [createdProj, ...prev]);
       setExpandedProjects(prev => ({ ...prev, [createdProj.id]: true }));
       setNewProjectName("");
       setIsNewProjectModalOpen(false);
@@ -1061,7 +1518,7 @@ export default function KanbanTab({
                   className="border border-gray-200 p-1.5 rounded-xl text-xs bg-white outline-none cursor-pointer ml-1"
                 >
                   <option value="">Lọc quy trình</option>
-                  {uniqueWorkflows.map(wf => (
+                  {wfOptions.map(wf => (
                     <option key={wf.id} value={wf.id}>
                       {wf.name}
                     </option>
@@ -1078,6 +1535,15 @@ export default function KanbanTab({
                   >
                     <Target className="h-4 w-4" />
                     Tạo Dự Án & Lĩnh vực
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={openWorkflowAssign}
+                    className="px-4 py-2 border border-purple-200 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer"
+                  >
+                    <WorkflowIcon className="h-4 w-4" />
+                    Giao Theo Quy Trình
                   </button>
 
                   <button
@@ -1727,6 +2193,10 @@ export default function KanbanTab({
               </div>
             </div>
 
+            <div className="py-4 border-b text-xs">
+              <label className="block text-gray-400 font-bold mb-2 flex items-center gap-1 select-none"><Paperclip className="w-3.5 h-3.5" /> Tệp, ảnh, video, ghi âm và liên kết</label>
+              <AttachmentEditor attachments={editAttachments} onChange={setEditAttachments} />
+            </div>
             {/* Description field */}
             <div className="py-5 flex-1 min-h-[140px] flex flex-col text-xs">
               <label className="block text-gray-400 font-bold mb-1.5 select-none">Mô tả công việc chi tiết</label>
@@ -1859,6 +2329,198 @@ export default function KanbanTab({
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* MODAL GIAO VIỆC THEO QUY TRÌNH */}
+      {wfAssignDraft && (
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-2xs flex items-center justify-center z-50 p-4"
+          onClick={() => setWfAssignDraft(null)}
+        >
+          <div
+            className="bg-white border border-gray-200 rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden relative text-left"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center px-6 py-4 border-b border-gray-150">
+              <h4 className="font-bold text-slate-800 text-sm font-sans uppercase flex items-center gap-2">
+                <WorkflowIcon className="h-4 w-4 text-purple-600" />
+                Giao Việc Theo Quy Trình
+              </h4>
+              <button
+                type="button"
+                onClick={() => setWfAssignDraft(null)}
+                className="text-gray-400 hover:text-slate-800 cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-4 text-xs">
+              <div>
+                <label className="block font-bold text-gray-500 mb-1.5 font-sans">Quy trình *</label>
+                {wfOptionsLoading ? (
+                  <div className="flex items-center gap-2 text-slate-400 py-2">
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" /> Đang tải danh sách quy trình…
+                  </div>
+                ) : wfOptions.length === 0 ? (
+                  <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 font-semibold text-amber-700">
+                    Chưa có quy trình nào. Hãy tạo quy trình trong tab Quy trình trước.
+                  </p>
+                ) : (
+                  <select
+                    value={wfAssignDraft.workflowId}
+                    onChange={(e) => setWfAssignDraft({ ...wfAssignDraft, workflowId: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-white border border-gray-200 text-slate-800 hover:border-gray-300 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 rounded-xl font-sans"
+                  >
+                    <option value="">— Chọn quy trình —</option>
+                    {wfOptions.map((wf) => (
+                      <option key={wf.id} value={wf.id} disabled={(wf.steps?.length || 0) === 0}>
+                        {wf.name}
+                        {wf.category ? ` · ${wf.category}` : ""} ({wf.steps?.length || 0} bước
+                        {(wf.steps?.length || 0) === 0 ? " — chưa dùng được" : ""})
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              {/* Xem trước các bước của quy trình đã chọn */}
+              {(() => {
+                const wf = wfOptions.find((w) => w.id === wfAssignDraft.workflowId);
+                if (!wf || !wf.steps?.length) return null;
+                return (
+                  <div className="rounded-xl border border-gray-150 bg-slate-50/70 p-3">
+                    <p className="flex items-center gap-1.5 font-bold text-slate-500 uppercase text-[10px] mb-2">
+                      <Layers className="h-3.5 w-3.5" /> Các bước sẽ chạy tuần tự
+                    </p>
+                    <ol className="space-y-1">
+                      {wf.steps.map((s, i) => (
+                        <li key={s.id} className="flex items-center gap-2 text-slate-600">
+                          <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-purple-100 text-[9px] font-bold text-purple-700">
+                            {i + 1}
+                          </span>
+                          <span className="truncate font-semibold">{s.title}</span>
+                          {s.assignee && <span className="text-slate-400">👤 {s.assignee}</span>}
+                        </li>
+                      ))}
+                    </ol>
+                    <p className="mt-2 text-[10px] text-slate-400">
+                      Task Kanban của bước đầu tiên sẽ được tạo ngay; các bước sau sinh task khi chuyển bước.
+                    </p>
+                  </div>
+                );
+              })()}
+
+              <div>
+                <label className="block font-bold text-gray-500 mb-1.5 font-sans">Tên công việc *</label>
+                <input
+                  type="text"
+                  autoFocus
+                  placeholder="VD: Onboarding Nguyễn Văn A, Xử lý hợp đồng #123…"
+                  value={wfAssignDraft.name}
+                  onChange={(e) => setWfAssignDraft({ ...wfAssignDraft, name: e.target.value })}
+                  className="w-full px-3.5 py-2.5 bg-white border border-gray-200 text-slate-800 placeholder-gray-300 hover:border-gray-300 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 rounded-xl font-sans"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="block font-bold text-gray-500 mb-1.5 font-sans">Người phụ trách chính</label>
+                  <select
+                    value={wfAssignDraft.userUid}
+                    onChange={(e) => setWfAssignDraft({ ...wfAssignDraft, userUid: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-white border border-gray-200 text-slate-800 hover:border-gray-300 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 rounded-xl font-sans"
+                  >
+                    <option value="">— Theo người gán ở từng bước —</option>
+                    {usersList.map((u) => (
+                      <option key={u.uid} value={u.uid}>
+                        {u.displayName}
+                        {u.jobTitle ? ` (${u.jobTitle})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-bold text-gray-500 mb-1.5 font-sans">Ngày bắt đầu</label>
+                  <input
+                    type="date"
+                    value={wfAssignDraft.startDate}
+                    onChange={(e) => setWfAssignDraft({ ...wfAssignDraft, startDate: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-white border border-gray-200 text-slate-800 hover:border-gray-300 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 rounded-xl font-sans"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-gray-500 mb-1.5 font-sans">Độ ưu tiên</label>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {WF_PRIORITY_OPTIONS.map((pr) => (
+                    <button
+                      key={pr.key}
+                      type="button"
+                      onClick={() => setWfAssignDraft({ ...wfAssignDraft, priority: pr.key })}
+                      className={`rounded-xl border px-2 py-2 font-bold transition-all cursor-pointer ${
+                        wfAssignDraft.priority === pr.key
+                          ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                          : "border-gray-200 text-slate-500 hover:border-gray-300"
+                      }`}
+                    >
+                      {pr.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-gray-500 mb-1.5 font-sans">Mô tả chi tiết</label>
+                <textarea
+                  rows={3}
+                  placeholder="Bối cảnh, yêu cầu, kết quả mong muốn…"
+                  value={wfAssignDraft.description}
+                  onChange={(e) => setWfAssignDraft({ ...wfAssignDraft, description: e.target.value })}
+                  className="w-full resize-none px-3.5 py-2.5 bg-white border border-gray-200 text-slate-800 placeholder-gray-300 hover:border-gray-300 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 rounded-xl font-sans"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-gray-500 mb-1.5 font-sans">Ghi chú</label>
+                <input
+                  type="text"
+                  placeholder="Ghi chú ngắn hiển thị trên thẻ công việc"
+                  value={wfAssignDraft.note}
+                  onChange={(e) => setWfAssignDraft({ ...wfAssignDraft, note: e.target.value })}
+                  className="w-full px-3.5 py-2.5 bg-white border border-gray-200 text-slate-800 placeholder-gray-300 hover:border-gray-300 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 rounded-xl font-sans"
+                />
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-150 flex justify-end gap-3 text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => setWfAssignDraft(null)}
+                className="px-4 py-2 border border-gray-200 text-slate-500 hover:text-slate-800 rounded-xl bg-white hover:bg-slate-50 cursor-pointer transition-all active:scale-95 font-sans"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={submitWorkflowAssign}
+                disabled={wfAssignSubmitting || wfOptionsLoading}
+                className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl cursor-pointer transition-all active:scale-95 font-sans disabled:opacity-50 flex items-center gap-1.5"
+              >
+                {wfAssignSubmitting ? (
+                  <>
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" /> Đang tạo…
+                  </>
+                ) : (
+                  <>
+                    <Plus className="h-3.5 w-3.5" /> Tạo công việc
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

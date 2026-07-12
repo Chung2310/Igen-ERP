@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { HardDrive, ExternalLink, Loader2, Lock, CheckCircle2, Link2, Unlink } from "lucide-react";
 import { toast } from "../../pages/Toast";
 import { authService } from "../../services/authService";
+import { ConfirmDialog } from "../common/ConfirmDialog";
 
 interface CompanyDriveConfigCardProps {
   userProfile: any;
@@ -21,6 +22,7 @@ export default function CompanyDriveConfigCard({ userProfile }: CompanyDriveConf
   const [loading, setLoading] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
 
   const popupRef = useRef<Window | null>(null);
 
@@ -109,12 +111,13 @@ export default function CompanyDriveConfigCard({ userProfile }: CompanyDriveConf
     setDisconnecting(true);
     try {
       await authService.disconnectCompanyDrive(companyCode);
-      toast.success("Đã ngắt kết nối Google Drive.");
+      toast.success("Đã ngắt kết nối Google Drive của công ty.");
       setConnected(false);
       setEmail("");
       setFolderLink("");
+      setShowDisconnectConfirm(false);
     } catch (err: any) {
-      toast.error(err.message || "Không ngắt kết nối được.");
+      toast.error(err.message || "Không ngắt kết nối được. Vui lòng thử lại.");
     } finally {
       setDisconnecting(false);
     }
@@ -163,7 +166,7 @@ export default function CompanyDriveConfigCard({ userProfile }: CompanyDriveConf
                 )}
                 {canEdit && (
                   <button
-                    onClick={handleDisconnect}
+                    onClick={() => setShowDisconnectConfirm(true)}
                     disabled={disconnecting}
                     className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 bg-white px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 transition disabled:opacity-50"
                   >
@@ -206,6 +209,18 @@ export default function CompanyDriveConfigCard({ userProfile }: CompanyDriveConf
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        isOpen={showDisconnectConfirm}
+        title="Ngắt kết nối Google Drive của công ty?"
+        description={`Sau khi ngắt kết nối${email ? ` tài khoản ${email}` : ""}, nhân viên sẽ không tải được tài liệu mới lên mục Tài nguyên → Google Drive. Các tài liệu đã tải lên vẫn được giữ nguyên trong Drive của công ty. Bạn có thể kết nối lại bất cứ lúc nào.`}
+        confirmLabel="Ngắt kết nối"
+        cancelLabel="Giữ kết nối"
+        tone="danger"
+        isSubmitting={disconnecting}
+        onClose={() => setShowDisconnectConfirm(false)}
+        onConfirm={handleDisconnect}
+      />
     </div>
   );
 }

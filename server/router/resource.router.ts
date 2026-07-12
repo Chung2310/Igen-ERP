@@ -30,7 +30,7 @@ const folderSchema = {
 const fileSchema = {
   body: Joi.object({
     name: Joi.string().trim().min(1).max(300).required(),
-    fileUrl: Joi.string().uri().required().messages({
+    fileUrl: Joi.string().trim().uri({ scheme: ["http", "https"] }).required().messages({
       "any.required": "Đường dẫn file là bắt buộc.",
       "string.uri": "Đường dẫn file phải là URL hợp lệ.",
     }),
@@ -44,7 +44,7 @@ const fileSchema = {
 const driveSchema = {
   body: Joi.object({
     name: Joi.string().trim().min(1).max(300).required(),
-    driveLink: Joi.string().uri().required().messages({
+    driveLink: Joi.string().trim().uri({ scheme: ["http", "https"] }).required().messages({
       "any.required": "Link Google Drive là bắt buộc.",
       "string.uri": "Link Google Drive phải là URL hợp lệ.",
     }),

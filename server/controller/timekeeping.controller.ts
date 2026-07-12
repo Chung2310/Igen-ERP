@@ -33,6 +33,69 @@ function getLocalDateString(): string {
   return new Date(Date.now() - localOffset).toISOString().slice(0, 10);
 }
 
+// Helper to calculate attendance status based on check-in/out times and limits
+function calculateAttendanceStatus(
+  checkInTime: Date,
+  checkOutTime: Date | null,
+  config: {
+    checkInLimit?: string;
+    checkOutLimit?: string;
+    lunchBreakStart?: string;
+    lunchBreakEnd?: string;
+  }
+): string {
+  const parseTimeToMinutes = (timeStr?: string, defaultVal: number = 0): number => {
+    if (!timeStr) return defaultVal;
+    const [h, m] = timeStr.split(":").map(Number);
+    return h * 60 + m;
+  };
+
+  const T_in_limit = parseTimeToMinutes(config.checkInLimit, 8 * 60 + 30); // default 08:30
+  const T_out_limit = parseTimeToMinutes(config.checkOutLimit, 17 * 60 + 30); // default 17:30
+  const T_lunch_start = parseTimeToMinutes(config.lunchBreakStart, 12 * 60); // default 12:00
+  const T_lunch_end = parseTimeToMinutes(config.lunchBreakEnd, 13 * 60); // default 13:00
+
+  const getLocalMinutes = (date: Date): number => {
+    const localTime = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+    return localTime.getUTCHours() * 60 + localTime.getUTCMinutes();
+  };
+
+  const m_in = getLocalMinutes(checkInTime);
+
+  if (!checkOutTime) {
+    if (m_in >= T_lunch_start) {
+      return "Half-Day";
+    }
+    if (m_in > T_in_limit) {
+      return "Late";
+    }
+    return "Present";
+  }
+
+  const m_out = getLocalMinutes(checkOutTime);
+
+  const onlyMorning = m_out <= T_lunch_end;
+  const onlyAfternoon = m_in >= T_lunch_start;
+
+  if (onlyMorning || onlyAfternoon) {
+    return "Half-Day";
+  }
+
+  const isLate = m_in > T_in_limit;
+  const isEarly = m_out < T_out_limit;
+
+  if (isLate && isEarly) {
+    return "Late-Left-Early";
+  }
+  if (isLate) {
+    return "Late";
+  }
+  if (isEarly) {
+    return "Left-Early";
+  }
+  return "Present";
+}
+
 export const timekeepingController = {
   /**
    * GET /api/v1/timekeeping/today
@@ -107,17 +170,18 @@ export const timekeepingController = {
         });
       }
 
-      // Check-in after the configured limit local time is marked as Late
       const now = new Date();
       const checkInLimitStr = company?.locationConfig?.checkInLimit || "08:30";
-      const [limitHours, limitMinutes] = checkInLimitStr.split(":").map(Number);
+      const lunchBreakStartStr = company?.locationConfig?.lunchBreakStart || "12:00";
+      const lunchBreakEndStr = company?.locationConfig?.lunchBreakEnd || "13:00";
+      const checkOutLimitStr = company?.locationConfig?.checkOutLimit || "17:30";
 
-      // Adjust to local time zone for checking hour/minutes
-      const localTime = new Date(Date.now() - new Date().getTimezoneOffset() * 60000);
-      const hours = localTime.getUTCHours();
-      const minutes = localTime.getUTCMinutes();
-      const isLate = hours > limitHours || (hours === limitHours && minutes > limitMinutes);
-      const status = isLate ? "Late" : "Present";
+      const status = calculateAttendanceStatus(now, null, {
+        checkInLimit: checkInLimitStr,
+        checkOutLimit: checkOutLimitStr,
+        lunchBreakStart: lunchBreakStartStr,
+        lunchBreakEnd: lunchBreakEndStr,
+      }) as any;
 
       const checkInDetail = {
         time: now,
@@ -138,7 +202,7 @@ export const timekeepingController = {
         });
       } else {
         log.checkIn = checkInDetail;
-        log.status = status;
+        log.status = status as any;
       }
 
       await log.save();
@@ -208,14 +272,27 @@ export const timekeepingController = {
         });
       }
 
+      const checkOutTime = new Date();
       log.checkOut = {
-        time: new Date(),
+        time: checkOutTime,
         latitude,
         longitude,
         distance,
         deviceInfo: deviceInfo || "",
         ipAddress,
       };
+
+      const checkInLimitStr = company?.locationConfig?.checkInLimit || "08:30";
+      const lunchBreakStartStr = company?.locationConfig?.lunchBreakStart || "12:00";
+      const lunchBreakEndStr = company?.locationConfig?.lunchBreakEnd || "13:00";
+      const checkOutLimitStr = company?.locationConfig?.checkOutLimit || "17:30";
+
+      log.status = calculateAttendanceStatus(log.checkIn.time, checkOutTime, {
+        checkInLimit: checkInLimitStr,
+        checkOutLimit: checkOutLimitStr,
+        lunchBreakStart: lunchBreakStartStr,
+        lunchBreakEnd: lunchBreakEndStr,
+      }) as any;
 
       await log.save();
 
@@ -247,11 +324,16 @@ export const timekeepingController = {
         longitude: 106.7009,
         allowedRadius: 1000,
         addressName: "Tòa nhà Bitexco",
+        checkInLimit: "08:30",
+        checkOutLimit: "17:30",
+        lunchBreakStart: "12:00",
+        lunchBreakEnd: "13:00",
+        workingDays: [1, 2, 3, 4, 5],
       };
 
       return res.status(200).json({
         status: "success",
-        data: company?.locationConfig || fallbackConfig,
+        data: { ...fallbackConfig, ...(company?.locationConfig || {}) },
       });
     } catch (error: any) {
       console.error("[timekeepingController.getCompanyLocation] Error:", error);
@@ -278,7 +360,7 @@ export const timekeepingController = {
         });
       }
 
-      const { latitude, longitude, allowedRadius, addressName, checkInLimit, checkOutLimit } = req.body;
+      const { latitude, longitude, allowedRadius, addressName, checkInLimit, checkOutLimit, lunchBreakStart, lunchBreakEnd, workingDays } = req.body;
 
       const updatedCompany = await CompanyModel.findOneAndUpdate(
         { code: companyCode },
@@ -291,6 +373,9 @@ export const timekeepingController = {
               addressName: addressName || "",
               checkInLimit: checkInLimit || "08:30",
               checkOutLimit: checkOutLimit || "17:30",
+              lunchBreakStart: lunchBreakStart || "12:00",
+              lunchBreakEnd: lunchBreakEnd || "13:00",
+              workingDays: workingDays || [1, 2, 3, 4, 5],
             },
           },
         },
