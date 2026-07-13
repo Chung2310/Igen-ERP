@@ -14,9 +14,11 @@ import { Batch, BatchStatus } from '../../types';
 import {
   ErpPageHeader, ErpPrimaryButton, ErpSearchBar, ErpFilterTab, ErpFilterRail,
   ErpModal, ErpField, ErpInput, ErpSelect,
-  ErpEmptyState, ErpLoadingState, ErpCard, ErpConfirmModal, ErpTableHead
+  ErpEmptyState, ErpLoadingState, ErpCard, ErpConfirmModal, ErpTableHead,
+  erpInputClass
 } from '../../components/Erp/ErpUI';
 import { Pagination } from '../../components/ui/Pagination';
+import { TimeInput24 } from '../../../../components/common/TimeInput24';
 
 const BATCH_STATUSES: BatchStatus[] = ['Sắp khai giảng', 'Đang học', 'Đã kết thúc'];
 
@@ -510,12 +512,11 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
               <div className="grid grid-cols-2 gap-4">
                 <ErpField label="Giờ bắt đầu">
                   <div className="relative">
-                    <ErpInput
-                      type="time"
+                    <TimeInput24
                       required
                       value={form.startTime}
-                      onChange={(e) => setForm({ ...form, startTime: e.target.value })}
-                      className="pl-10"
+                      onChange={(v) => setForm({ ...form, startTime: v })}
+                      className={cn(erpInputClass(darkMode), "pl-10")}
                     />
                     <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
                       <Clock className="w-4 h-4" />
@@ -524,12 +525,11 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
                 </ErpField>
                 <ErpField label="Giờ kết thúc">
                   <div className="relative">
-                    <ErpInput
-                      type="time"
+                    <TimeInput24
                       required
                       value={form.endTime}
-                      onChange={(e) => setForm({ ...form, endTime: e.target.value })}
-                      className="pl-10"
+                      onChange={(v) => setForm({ ...form, endTime: v })}
+                      className={cn(erpInputClass(darkMode), "pl-10")}
                     />
                     <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
                       <Clock className="w-4 h-4" />

@@ -4,7 +4,8 @@ import { cn } from '../../../lib/utils';
 import { apiFetch } from '../../../lib/api';
 import { toast } from '../../../../../pages/Toast';
 import { ResourceItem } from '../../../types';
-import { ErpModal, ErpField, ErpInput, ErpSubmitButton } from '../../../components/Erp/ErpUI';
+import { ErpModal, ErpField, ErpInput, ErpSubmitButton, erpInputClass } from '../../../components/Erp/ErpUI';
+import { TimeInput24 } from '../../../../../components/common/TimeInput24';
 import { todayStr, getTypeColor } from '../utils';
 
 interface BookingModalProps {
@@ -179,14 +180,14 @@ export function BookingModal({ bookingResource, onClose, onSuccess }: BookingMod
               <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-primary transition-colors pointer-events-none">
                 <Clock className="w-4 h-4" />
               </div>
-              <ErpInput
-                type="time"
+              <TimeInput24
                 required
                 value={newBooking.startTime}
-                onChange={(e) => setNewBooking({ ...newBooking, startTime: e.target.value })}
+                onChange={(v) => setNewBooking({ ...newBooking, startTime: v })}
                 className={cn(
-                  "pl-11 pr-3 focus:ring-4 focus:ring-brand-primary/5 transition-all w-full",
-                  isTimeInvalid && "border-rose-300 focus:border-rose-500 focus:ring-rose-500/10 bg-rose-50/20"
+                  erpInputClass(darkMode),
+                  "pl-11 pr-3 focus-within:ring-4 focus-within:ring-brand-primary/5 transition-all w-full",
+                  isTimeInvalid && "border-rose-300 focus-within:border-rose-500 focus-within:ring-rose-500/10 bg-rose-50/20"
                 )}
               />
             </div>
@@ -197,14 +198,14 @@ export function BookingModal({ bookingResource, onClose, onSuccess }: BookingMod
               <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-primary transition-colors pointer-events-none">
                 <Clock className="w-4 h-4" />
               </div>
-              <ErpInput
-                type="time"
+              <TimeInput24
                 required
                 value={newBooking.endTime}
-                onChange={(e) => setNewBooking({ ...newBooking, endTime: e.target.value })}
+                onChange={(v) => setNewBooking({ ...newBooking, endTime: v })}
                 className={cn(
-                  "pl-11 pr-3 focus:ring-4 focus:ring-brand-primary/5 transition-all w-full",
-                  isTimeInvalid && "border-rose-300 focus:border-rose-500 focus:ring-rose-500/10 bg-rose-50/20"
+                  erpInputClass(darkMode),
+                  "pl-11 pr-3 focus-within:ring-4 focus-within:ring-brand-primary/5 transition-all w-full",
+                  isTimeInvalid && "border-rose-300 focus-within:border-rose-500 focus-within:ring-rose-500/10 bg-rose-50/20"
                 )}
               />
             </div>

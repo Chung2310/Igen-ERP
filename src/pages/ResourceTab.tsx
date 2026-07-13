@@ -1852,28 +1852,24 @@ export default function ResourceTab() {
             <button
               key={tab.value}
               onClick={() => {
-                if (active) {
-                  // Bấm lại icon tab đang mở → xóa bộ lọc, quay về thư mục gốc và tải lại kho lưu trữ
-                  setCurrentPill("KHO_LUU_TRU");
-                  setViewingTrash(false);
-                  setSearchQuery("");
-                  setShowFilters(false);
-                  setFilterStartDate("");
-                  setFilterEndDate("");
-                  setFilterType("");
-                  if (tab.value === "TÀI LIỆU KHÁC") {
-                    setLocalFolderId(null);
-                    setExplorerKey((k) => k + 1);
-                  } else if (currentFolderId === "root") {
-                    void fetchResources();
-                  } else {
-                    setCurrentFolderId("root");
-                    setBreadcrumbs([]);
-                  }
-                  return;
-                }
-                setSubTab(tab.value);
+                // Xóa bộ lọc, quay về thư mục gốc và tải lại kho lưu trữ của tab đích
                 setCurrentPill("KHO_LUU_TRU");
+                setViewingTrash(false);
+                setSearchQuery("");
+                setShowFilters(false);
+                setFilterStartDate("");
+                setFilterEndDate("");
+                setFilterType("");
+                if (tab.value === "TÀI LIỆU KHÁC") {
+                  setLocalFolderId(null);
+                  setExplorerKey((k) => k + 1);
+                } else if (active && currentFolderId === "root") {
+                  void fetchResources();
+                } else {
+                  setCurrentFolderId("root");
+                  setBreadcrumbs([]);
+                }
+                if (!active) setSubTab(tab.value);
               }}
               className={`p-3 rounded-2xl transition-all duration-200 active:scale-95 cursor-pointer flex items-center justify-center ${
                 active 
