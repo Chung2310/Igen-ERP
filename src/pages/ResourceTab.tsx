@@ -13,6 +13,7 @@ import { useAuth } from "../context/AuthContext";
 import { toast } from "./Toast";
 import { getAccessToken, authService } from "../services/authService";
 import { FileExplorer } from "../components/resource/FileExplorer";
+import UploadProgressPanel, { type UploadQueueItem } from "../components/resource/UploadProgressPanel";
 import { internalChatService } from "../services/internalChatService";
 import { resourceService } from "../services/resourceService";
 import { useSubTabRouter } from "../hooks/useSubTabRouter";
@@ -146,11 +147,14 @@ export default function ResourceTab() {
   const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadQueue, setUploadQueue] = useState<UploadQueueItem[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const addMenuRef = useRef<HTMLDivElement>(null);
 
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  // Tăng để remount FileExplorer (về thư mục gốc + tải lại) khi bấm lại icon tab con đang mở
+  const [explorerKey, setExplorerKey] = useState(0);
   const [localFolderId, setLocalFolderId] = useState<string | null>(null);
   const [localItemsCount, setLocalItemsCount] = useState({ count: 0, total: 0 });
   const [viewingTrash, setViewingTrash] = useState(false);
@@ -942,75 +946,83 @@ export default function ResourceTab() {
     return { Icon: FileIcon, iconColor: "text-gray-400" };
   };
 
-  const handleFileUpload = async (file: File) => {
-    if (!canUpload()) {
+  /** Upload 1 tệp lên Google Drive; ném lỗi nếu thất bại. */
+  const uploadDriveFile = async (file: File) => {
+    const base64String = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(new Error("Không đọc được tệp."));
+      reader.readAsDataURL(file);
+    });
+
+    let url = "/api/v1/integrations/google-drive/upload";
+    if (selectedSpace !== "personal") {
+      url = `/api/v1/integrations/google-drive/upload/group/${selectedSpace}`;
+    }
+
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${getAccessToken()}`,
+      },
+      body: JSON.stringify({
+        file: base64String,
+        name: file.name,
+        mimeType: file.type,
+        folderId: currentFolderId
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || "Tải lên thất bại.");
+  };
+
+  /** Upload 1 tệp vào kho tài liệu nội bộ; ném lỗi nếu thất bại. */
+  const uploadLocalFile = async (file: File) => {
+    const ownerIdParam = selectedSpace === "personal" ? selectedOwnerId : undefined;
+    const roomIdParam = selectedSpace !== "personal" ? selectedSpace : undefined;
+    await resourceService.uploadFile(file, localFolderId, ownerIdParam, roomIdParam);
+  };
+
+  /** Upload nhiều tệp tuần tự, cập nhật tiến trình từng tệp. */
+  const uploadManyFiles = async (files: File[]) => {
+    if (files.length === 0) return;
+    const isLocal = subTab === "TÀI LIỆU KHÁC";
+    if (!isLocal && !canUpload()) {
       toast.error("Bạn không có quyền tải lên thư mục này.");
       return;
     }
     setUploading(true);
-    try {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = async () => {
-        const base64String = reader.result as string;
-        
-        let url = "/api/v1/integrations/google-drive/upload";
-        if (selectedSpace !== "personal") {
-          url = `/api/v1/integrations/google-drive/upload/group/${selectedSpace}`;
-        }
-
-        const res = await fetch(url, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${getAccessToken()}`,
-          },
-          body: JSON.stringify({
-            file: base64String,
-            name: file.name,
-            mimeType: file.type,
-            folderId: currentFolderId
-          }),
-        });
-
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.message || "Tải lên thất bại.");
-
-        toast.success(`Đã tải lên thành công: ${file.name}`);
-        void fetchResources();
-      };
-    } catch (err: any) {
-      console.error(err);
-      toast.error(err.message || "Có lỗi xảy ra khi tải lên tệp tin.");
-    } finally {
-      setUploading(false);
+    setUploadQueue(files.map((f) => ({ name: f.name, status: "pending" as const })));
+    let ok = 0;
+    for (let i = 0; i < files.length; i++) {
+      setUploadQueue((q) => q.map((it, idx) => (idx === i ? { ...it, status: "uploading" } : it)));
+      try {
+        if (isLocal) await uploadLocalFile(files[i]);
+        else await uploadDriveFile(files[i]);
+        ok += 1;
+        setUploadQueue((q) => q.map((it, idx) => (idx === i ? { ...it, status: "done" } : it)));
+      } catch (err: any) {
+        console.error(err);
+        setUploadQueue((q) =>
+          q.map((it, idx) => (idx === i ? { ...it, status: "error", error: err?.message || "Tải lên thất bại." } : it))
+        );
+      }
     }
-  };
-
-  const handleLocalFileUpload = async (file: File) => {
-    setUploading(true);
-    try {
-      const ownerIdParam = selectedSpace === "personal" ? selectedOwnerId : undefined;
-      const roomIdParam = selectedSpace !== "personal" ? selectedSpace : undefined;
-      await resourceService.uploadFile(file, localFolderId, ownerIdParam, roomIdParam);
-      toast.success(`Đã tải lên thành công: ${file.name}`);
-      setRefreshTrigger(prev => prev + 1);
-    } catch (err: any) {
-      console.error(err);
-      toast.error(err.message || "Có lỗi xảy ra khi tải lên tệp tin.");
-    } finally {
-      setUploading(false);
+    setUploading(false);
+    if (ok > 0) {
+      toast.success(`Đã tải lên ${ok}/${files.length} tệp.`);
+      if (isLocal) setRefreshTrigger(prev => prev + 1);
+      else void fetchResources();
     }
   };
 
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      if (subTab === "TÀI LIỆU KHÁC") {
-        void handleLocalFileUpload(e.target.files[0]);
-      } else {
-        void handleFileUpload(e.target.files[0]);
-      }
+      void uploadManyFiles(Array.from(e.target.files));
     }
+    e.target.value = "";
   };
 
   const onDragOver = (e: React.DragEvent) => {
@@ -1020,7 +1032,7 @@ export default function ResourceTab() {
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault();
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      void handleFileUpload(e.dataTransfer.files[0]);
+      void uploadManyFiles(Array.from(e.dataTransfer.files));
     }
   };
 
@@ -1840,6 +1852,26 @@ export default function ResourceTab() {
             <button
               key={tab.value}
               onClick={() => {
+                if (active) {
+                  // Bấm lại icon tab đang mở → xóa bộ lọc, quay về thư mục gốc và tải lại kho lưu trữ
+                  setCurrentPill("KHO_LUU_TRU");
+                  setViewingTrash(false);
+                  setSearchQuery("");
+                  setShowFilters(false);
+                  setFilterStartDate("");
+                  setFilterEndDate("");
+                  setFilterType("");
+                  if (tab.value === "TÀI LIỆU KHÁC") {
+                    setLocalFolderId(null);
+                    setExplorerKey((k) => k + 1);
+                  } else if (currentFolderId === "root") {
+                    void fetchResources();
+                  } else {
+                    setCurrentFolderId("root");
+                    setBreadcrumbs([]);
+                  }
+                  return;
+                }
                 setSubTab(tab.value);
                 setCurrentPill("KHO_LUU_TRU");
               }}
@@ -2361,10 +2393,14 @@ export default function ResourceTab() {
 
                     <input
                       type="file"
+                      multiple
                       ref={fileInputRef}
                       onChange={onFileChange}
                       className="hidden"
                     />
+
+                    {/* Tiến trình tải lên nhiều tệp */}
+                    <UploadProgressPanel queue={uploadQueue} onClose={() => setUploadQueue([])} />
 
                     {/* Reload/sync button */}
                     <button
@@ -2482,8 +2518,9 @@ export default function ResourceTab() {
                 <div className="flex-1 overflow-hidden relative text-left">
                   {subTab === "TÀI LIỆU KHÁC" ? (
                     <div className="w-full h-full overflow-y-auto p-6">
-                      <FileExplorer 
-                        onOpenFile={handleOpenFile} 
+                      <FileExplorer
+                        key={explorerKey}
+                        onOpenFile={handleOpenFile}
                         searchQuery={searchQuery}
                         refreshTrigger={refreshTrigger}
                         onFolderChange={setLocalFolderId}
