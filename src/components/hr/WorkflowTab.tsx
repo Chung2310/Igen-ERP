@@ -46,6 +46,7 @@ import { getAccessToken } from "../../services/authService";
 import { socketService } from "../../services/socketService";
 import { toast } from "../../pages/Toast";
 import { ConfirmDialog } from "../common/ConfirmDialog";
+import { TimeInput24 } from "../common/TimeInput24";
 import { AttachmentEditor } from "./KanbanTab";
 
 interface WorkflowTabProps {
@@ -2633,10 +2634,9 @@ function WizardStepEditorModal({
               <div className="mt-2 flex items-center gap-2">
                 <Clock className={`h-3 w-3 ${isDark ? "text-zinc-500" : "text-slate-400"}`} />
                 <span className={`text-[11px] ${isDark ? "text-zinc-500" : "text-slate-400"}`}>Giờ hết hạn</span>
-                <input
-                  type="time"
+                <TimeInput24
                   value={deadlineTime}
-                  onChange={(e) => setDeadlineTime(e.target.value)}
+                  onChange={setDeadlineTime}
                   className={`${inp} w-28`}
                 />
               </div>

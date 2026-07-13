@@ -39,6 +39,7 @@ import { getAccessToken } from "../../services/authService";
 import { socketService } from "../../services/socketService";
 import { toast } from "../../pages/Toast";
 import { ConfirmDialog } from "../common/ConfirmDialog";
+import { DateTimeInput24 } from "../common/TimeInput24";
 
 interface KanbanTabProps {
   userProfile: any;
@@ -1926,22 +1927,20 @@ export default function KanbanTab({
               {quickDone.missing.some((m) => m.key === "dueDate") && (
                 <div>
                   <label className="block text-gray-400 font-bold mb-1">Hạn chót</label>
-                  <input
-                    type="datetime-local"
+                  <DateTimeInput24
                     value={qdFields.dueDate}
-                    onChange={(e) => setQdFields((f) => ({ ...f, dueDate: e.target.value }))}
-                    className="w-full p-2 bg-slate-50 border border-gray-200 focus:bg-white focus:border-indigo-500 rounded-lg outline-none"
+                    onChange={(v) => setQdFields((f) => ({ ...f, dueDate: v }))}
+                    className="w-full p-2 bg-slate-50 border border-gray-200 focus-within:bg-white focus-within:border-indigo-500 rounded-lg"
                   />
                 </div>
               )}
               {quickDone.missing.some((m) => m.key === "startTime") && (
                 <div>
                   <label className="block text-gray-400 font-bold mb-1">Ngày giờ bắt đầu</label>
-                  <input
-                    type="datetime-local"
+                  <DateTimeInput24
                     value={qdFields.startTime}
-                    onChange={(e) => setQdFields((f) => ({ ...f, startTime: e.target.value }))}
-                    className="w-full p-2 bg-slate-50 border border-gray-200 focus:bg-white focus:border-indigo-500 rounded-lg outline-none"
+                    onChange={(v) => setQdFields((f) => ({ ...f, startTime: v }))}
+                    className="w-full p-2 bg-slate-50 border border-gray-200 focus-within:bg-white focus-within:border-indigo-500 rounded-lg"
                   />
                 </div>
               )}
@@ -2100,31 +2099,28 @@ export default function KanbanTab({
 
                 <div className="flex items-center gap-4">
                   <span className="w-24 text-gray-400 font-semibold select-none flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> Hạn chót</span>
-                  <input
-                    type="datetime-local"
+                  <DateTimeInput24
                     value={editDueDate}
-                    onChange={(e) => setEditDueDate(e.target.value)}
-                    className={missingCls("dueDate", "flex-1 p-1 bg-slate-50 border border-transparent hover:border-gray-200 rounded-lg outline-none text-[10px] font-semibold")}
+                    onChange={setEditDueDate}
+                    className={missingCls("dueDate", "flex-1 p-1 bg-slate-50 border border-transparent hover:border-gray-200 rounded-lg text-[10px] font-semibold")}
                   />
                 </div>
 
                 <div className="flex items-center gap-4">
                   <span className="w-24 text-gray-400 font-semibold select-none flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> Bắt đầu</span>
-                  <input
-                    type="datetime-local"
+                  <DateTimeInput24
                     value={editStartTime}
-                    onChange={(e) => setEditStartTime(e.target.value)}
-                    className={missingCls("startTime", "flex-1 p-1 bg-slate-50 border border-transparent hover:border-gray-200 rounded-lg outline-none text-[10px] font-semibold")}
+                    onChange={setEditStartTime}
+                    className={missingCls("startTime", "flex-1 p-1 bg-slate-50 border border-transparent hover:border-gray-200 rounded-lg text-[10px] font-semibold")}
                   />
                 </div>
 
                 <div className="flex items-center gap-4">
                   <span className="w-24 text-gray-400 font-semibold select-none flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> Kết thúc</span>
-                  <input
-                    type="datetime-local"
+                  <DateTimeInput24
                     value={editEndTime}
-                    onChange={(e) => setEditEndTime(e.target.value)}
-                    className="flex-1 p-1 bg-slate-50 border border-transparent hover:border-gray-200 rounded-lg outline-none text-[10px] font-semibold"
+                    onChange={setEditEndTime}
+                    className="flex-1 p-1 bg-slate-50 border border-transparent hover:border-gray-200 rounded-lg text-[10px] font-semibold"
                   />
                 </div>
 
