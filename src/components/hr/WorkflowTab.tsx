@@ -1695,6 +1695,7 @@ function NewWorkflowWizard({
   const [dragId, setDragId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [editingStep, setEditingStep] = useState<WorkflowStep | null>(null);
+  const isEditing = Boolean(initialData);
 
   // Check if dark mode is active in the document element
   const [isDarkTheme, setIsDarkTheme] = useState(() =>
@@ -1806,16 +1807,7 @@ function NewWorkflowWizard({
           <div className="flex items-center gap-2">
             <WorkflowIcon className={`h-5 w-5 ${isDark ? "text-indigo-400" : "text-indigo-650"}`} />
             <h3 className={`text-sm font-extrabold uppercase tracking-wide ${isDark ? "text-zinc-150" : "text-slate-800"}`}>
-              {isDark ? (
-                <>
-                  Sửa các Giai đoạn cho Quy trình{" "}
-                  <span className="text-indigo-400 font-black">
-                    {name.trim() ? name.toUpperCase() : "QUY TRÌNH MỚI"}
-                  </span>
-                </>
-              ) : (
-                "Tạo quy trình mới"
-              )}
+              {isEditing ? "Sửa quy trình" : "Tạo quy trình mới"}
             </h3>
           </div>
           <button
@@ -2040,21 +2032,10 @@ function NewWorkflowWizard({
                 }`}
             >
               <div
-                className={`px-4 py-3 border-b flex flex-wrap items-center justify-between gap-2 shadow-2xs transition-colors duration-300 ${isDark ? "bg-[#1d1d1d] border-zinc-800/85" : "bg-slate-50 border-gray-200"
-                  }`}
+                className={`px-4 py-3 border-b flex flex-wrap items-center justify-end gap-2 shadow-2xs transition-colors duration-300 ${
+                  isDark ? "bg-[#1d1d1d] border-zinc-800/85" : "bg-slate-50 border-gray-200"
+                }`}
               >
-                <button
-                  type="button"
-                  onClick={() => toast.info("Tính năng đang phát triển.")}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 border text-[10px] font-extrabold rounded-xl transition-all cursor-pointer ${isDark
-                      ? "bg-zinc-850 border-zinc-750 text-zinc-350 hover:text-white hover:bg-zinc-800"
-                      : "bg-white border-gray-200 text-slate-500 hover:text-slate-800 hover:bg-gray-50"
-                    }`}
-                >
-                  <WorkflowIcon className="h-3.5 w-3.5 text-indigo-400" />
-                  Thiết lập thông tin cho nhiều giai đoạn
-                </button>
-
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
