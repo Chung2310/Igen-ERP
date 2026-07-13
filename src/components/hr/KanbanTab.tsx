@@ -81,6 +81,9 @@ interface WorkflowAssignDraft {
   note: string;
 }
 
+// Cắt ngắn nhãn option: danh sách xổ xuống của <select> native luôn giãn theo option dài nhất, CSS không khống chế được
+const truncateLabel = (text: string, max = 32) => (text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text);
+
 const WF_PRIORITY_OPTIONS: { key: NonNullable<WorkflowParticipant["priority"]>; label: string }[] = [
   { key: "normal", label: "Bình thường" },
   { key: "important", label: "★ Quan trọng" },
@@ -563,7 +566,7 @@ function TaskTable({
                   {/* Ưu tiên */}
                   <td className="px-4 py-3 select-none">
                     <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold border uppercase tracking-wider font-mono whitespace-nowrap ${task.priority === "High" ? "bg-rose-50 text-rose-700 border-rose-200" :
-                        task.priority === "Low" ? "bg-slate-100 text-slate-500 border-gray-250" : "bg-amber-50 text-amber-700 border-amber-200"
+                      task.priority === "Low" ? "bg-slate-100 text-slate-500 border-gray-250" : "bg-amber-50 text-amber-700 border-amber-200"
                       }`}>
                       {task.priority === "High" ? "Cao" : task.priority === "Low" ? "Thấp" : "Trung bình"}
                     </span>
@@ -572,8 +575,8 @@ function TaskTable({
                   {/* Trạng thái */}
                   <td className="px-4 py-3 select-none">
                     <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold border whitespace-nowrap ${task.status === "Done" || task.status === "done" ? "bg-emerald-50 text-emerald-700 border-emerald-250" :
-                        task.status === "Review/Testing" ? "bg-indigo-50 text-indigo-700 border-indigo-200" :
-                          task.status === "In Progress" || task.status === "doing" ? "bg-sky-50 text-sky-700 border-sky-200" : "bg-slate-100 text-slate-500 border-gray-250"
+                      task.status === "Review/Testing" ? "bg-indigo-50 text-indigo-700 border-indigo-200" :
+                        task.status === "In Progress" || task.status === "doing" ? "bg-sky-50 text-sky-700 border-sky-200" : "bg-slate-100 text-slate-500 border-gray-250"
                       }`}>
                       {task.status === "Done" || task.status === "done" ? "Đã xong" :
                         task.status === "Review/Testing" ? "Kiểm tra" :
@@ -2371,14 +2374,16 @@ export default function KanbanTab({
                   <select
                     value={wfAssignDraft.workflowId}
                     onChange={(e) => setWfAssignDraft({ ...wfAssignDraft, workflowId: e.target.value })}
-                    className="w-full px-3.5 py-2.5 bg-white border border-gray-200 text-slate-800 hover:border-gray-300 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 rounded-xl font-sans"
+                    style={{ width: "100%", maxWidth: "100%", textOverflow: "ellipsis" }}
+                    className="min-w-0 truncate pl-3.5 pr-8 py-2.5 bg-white border border-gray-200 text-slate-800 hover:border-gray-300 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 rounded-xl font-sans"
                   >
                     <option value="">— Chọn quy trình —</option>
                     {wfOptions.map((wf) => (
                       <option key={wf.id} value={wf.id} disabled={(wf.steps?.length || 0) === 0}>
-                        {wf.name}
-                        {wf.category ? ` · ${wf.category}` : ""} ({wf.steps?.length || 0} bước
-                        {(wf.steps?.length || 0) === 0 ? " — chưa dùng được" : ""})
+                        {truncateLabel(
+                          `${wf.name}${wf.category ? ` · ${wf.category}` : ""} (${wf.steps?.length || 0} bước${(wf.steps?.length || 0) === 0 ? " — chưa dùng được" : ""})`,
+                          48
+                        )}
                       </option>
                     ))}
                   </select>
@@ -2425,18 +2430,18 @@ export default function KanbanTab({
               </div>
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
+                <div className="min-w-0">
                   <label className="block font-bold text-gray-500 mb-1.5 font-sans">Người phụ trách chính</label>
                   <select
                     value={wfAssignDraft.userUid}
                     onChange={(e) => setWfAssignDraft({ ...wfAssignDraft, userUid: e.target.value })}
-                    className="w-full px-3.5 py-2.5 bg-white border border-gray-200 text-slate-800 hover:border-gray-300 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 rounded-xl font-sans"
+                    style={{ width: "100%", maxWidth: "100%", textOverflow: "ellipsis" }}
+                    className="min-w-0 truncate pl-3.5 pr-8 py-2.5 bg-white border border-gray-200 text-slate-800 hover:border-gray-300 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 rounded-xl font-sans"
                   >
-                    <option value="">— Theo người gán ở từng bước —</option>
+                    <option value="">Theo người gán ở từng bước</option>
                     {usersList.map((u) => (
-                      <option key={u.uid} value={u.uid}>
-                        {u.displayName}
-                        {u.jobTitle ? ` (${u.jobTitle})` : ""}
+                      <option key={u.uid} value={u.uid} title={`${u.displayName}${u.jobTitle ? ` (${u.jobTitle})` : ""}`}>
+                        {truncateLabel(`${u.displayName}${u.jobTitle ? ` (${u.jobTitle})` : ""}`)}
                       </option>
                     ))}
                   </select>
@@ -2460,11 +2465,10 @@ export default function KanbanTab({
                       key={pr.key}
                       type="button"
                       onClick={() => setWfAssignDraft({ ...wfAssignDraft, priority: pr.key })}
-                      className={`rounded-xl border px-2 py-2 font-bold transition-all cursor-pointer ${
-                        wfAssignDraft.priority === pr.key
-                          ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                          : "border-gray-200 text-slate-500 hover:border-gray-300"
-                      }`}
+                      className={`rounded-xl border px-2 py-2 font-bold transition-all cursor-pointer ${wfAssignDraft.priority === pr.key
+                        ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                        : "border-gray-200 text-slate-500 hover:border-gray-300"
+                        }`}
                     >
                       {pr.label}
                     </button>
@@ -2589,7 +2593,7 @@ function KanbanCard({
       <div className="space-y-1.5">
         <div className="flex justify-between items-start gap-2 select-none">
           <span className={`px-2 py-0.5 rounded-md text-[8px] font-bold border uppercase tracking-wider font-mono ${task.priority === "High" ? "bg-rose-50 text-rose-700 border-rose-200" :
-              task.priority === "Low" ? "bg-slate-100 text-slate-500 border-gray-250" : "bg-amber-50 text-amber-705 text-amber-700 border-amber-205 border-amber-200"
+            task.priority === "Low" ? "bg-slate-100 text-slate-500 border-gray-250" : "bg-amber-50 text-amber-705 text-amber-700 border-amber-205 border-amber-200"
             }`}>
             {task.priority === "High" ? "Cao" : task.priority === "Low" ? "Thấp" : "Trung bình"}
           </span>
