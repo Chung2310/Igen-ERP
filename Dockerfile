@@ -42,11 +42,15 @@ COPY --from=builder /app/package.json /app/yarn.lock ./
 # Install only production dependencies
 RUN --mount=type=cache,target=/root/.cache/yarn yarn install --production --frozen-lockfile
 
-# Copy only the compiled output directory from builder
+# Copy only the compiled output directories from builder.
+# dist/ = static frontend assets (publicly served via express.static)
+# dist-server/ = bundled Express server (must stay outside the publicly served
+# directory — it is never served over HTTP)
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/dist-server ./dist-server
 
 # Expose Express server port
 EXPOSE 3000
 
 # Run the bundled production server
-CMD ["node", "dist/server.cjs"]
+CMD ["node", "dist-server/server.cjs"]
