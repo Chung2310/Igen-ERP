@@ -67,8 +67,8 @@ export function ProductModal({
 
   return (
     <div className="fixed inset-0 z-50 flex animate-fade-in items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs" id="add_product_modal_backdrop">
-      <div className="w-full max-w-2xl overflow-hidden rounded-3xl border border-slate-100 bg-white font-sans shadow-2xl animate-scale-in">
-        <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 p-6">
+      <div className="flex w-full max-w-2xl max-h-[90vh] flex-col overflow-hidden rounded-3xl border border-slate-100 bg-white font-sans shadow-2xl animate-scale-in">
+        <div className="flex shrink-0 items-center justify-between border-b border-slate-100 bg-slate-50/50 p-6">
           <div>
             <h4 className="flex items-center gap-2 text-base font-bold text-slate-800">
               <Package className="h-5 w-5 text-blue-600" />
@@ -87,7 +87,7 @@ export function ProductModal({
           </button>
         </div>
 
-        <form onSubmit={onSubmit} className="space-y-4 p-6 text-left text-xs">
+        <form onSubmit={onSubmit} className="space-y-4 overflow-y-auto p-6 text-left text-xs">
           <div className="grid gap-4 md:grid-cols-[1.4fr_0.9fr]">
             <div className="space-y-4">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
