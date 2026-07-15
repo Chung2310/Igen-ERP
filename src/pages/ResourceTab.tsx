@@ -1959,7 +1959,7 @@ export default function ResourceTab() {
           if (activeTab?.type === "google-doc") return null;
 
           return (
-            <div className="h-16 px-6 border-b border-slate-200 bg-white grid grid-cols-3 items-center shrink-0 select-none text-left">
+            <div className="min-h-16 px-3 sm:px-6 py-2 sm:py-0 border-b border-slate-200 bg-white flex flex-wrap sm:grid sm:grid-cols-3 items-center gap-2 shrink-0 select-none text-left">
               {/* Left: Title & Space Selector Dropdown */}
               <div className="flex items-center gap-2 justify-start">
                 <span className="text-base font-extrabold text-slate-800 tracking-tight">Tài nguyên với</span>
@@ -2159,10 +2159,10 @@ export default function ResourceTab() {
             return (
               <div className="flex-1 flex flex-col overflow-hidden">
                 {/* Unified Toolbar Row matching image 1 */}
-                <div className="h-16 px-6 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white select-none">
+                <div className="min-h-16 px-3 sm:px-6 py-2 sm:py-0 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2 shrink-0 bg-white select-none">
                   {/* Left side search & count */}
                   <div className="flex flex-col items-start gap-1">
-                    <div className="relative w-64">
+                    <div className="relative w-full sm:w-64">
                       <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                       <input
                         type="text"
@@ -2181,7 +2181,7 @@ export default function ResourceTab() {
                   </div>
 
                   {/* Right side actions */}
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 overflow-x-auto max-w-full">
                     {/* Filters icon button */}
                     {subTab === "TÀI LIỆU KHÁC" && (
                       <button
