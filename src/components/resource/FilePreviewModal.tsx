@@ -3,9 +3,17 @@ import { Download, ExternalLink, Loader2, X, FileQuestion, Share2 } from "lucide
 import type { ResourceItem } from "../../types";
 import { toast } from "../../pages/Toast";
 import { getFileIcon, getPreviewKind, formatBytes } from "./resourceHelpers";
-import { ExcelPreview } from "./ExcelPreview";
 import { TextPreview } from "./TextPreview";
-import { DocxPreview } from "./DocxPreview";
+
+// Lazy: tách thư viện xlsx / docx-preview thành chunk riêng, chỉ tải khi xem trước đúng loại file
+const ExcelPreview = React.lazy(() => import("./ExcelPreview").then((m) => ({ default: m.ExcelPreview })));
+const DocxPreview = React.lazy(() => import("./DocxPreview").then((m) => ({ default: m.DocxPreview })));
+
+const PreviewChunkLoader = () => (
+  <div className="flex h-full min-h-[200px] items-center justify-center text-slate-400">
+    <Loader2 className="w-6 h-6 animate-spin" />
+  </div>
+);
 
 interface FilePreviewModalProps {
   item: ResourceItem | null;
@@ -223,11 +231,13 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
               previewFailed ? (
                 <iframe src={url} title={item.name} className="h-[80vh] w-full border-0 bg-white" />
               ) : isCsv ? (
-                <ExcelPreview
-                  downloadHref={downloadHref}
-                  fileName={item.name}
-                  onError={() => setPreviewFailed(true)}
-                />
+                <React.Suspense fallback={<PreviewChunkLoader />}>
+                  <ExcelPreview
+                    downloadHref={downloadHref}
+                    fileName={item.name}
+                    onError={() => setPreviewFailed(true)}
+                  />
+                </React.Suspense>
               ) : (
                 <TextPreview
                   downloadHref={downloadHref}
@@ -287,17 +297,21 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
                   />
                 </div>
               ) : isExcel && !previewFailed ? (
-                <ExcelPreview
-                  downloadHref={downloadHref}
-                  fileName={item.name}
-                  onError={() => setPreviewFailed(true)}
-                />
+                <React.Suspense fallback={<PreviewChunkLoader />}>
+                  <ExcelPreview
+                    downloadHref={downloadHref}
+                    fileName={item.name}
+                    onError={() => setPreviewFailed(true)}
+                  />
+                </React.Suspense>
               ) : isDocx && !previewFailed ? (
-                <DocxPreview
-                  downloadHref={downloadHref}
-                  fileName={item.name}
-                  onError={() => setPreviewFailed(true)}
-                />
+                <React.Suspense fallback={<PreviewChunkLoader />}>
+                  <DocxPreview
+                    downloadHref={downloadHref}
+                    fileName={item.name}
+                    onError={() => setPreviewFailed(true)}
+                  />
+                </React.Suspense>
               ) : (
                 <div className="flex min-h-[50vh] flex-col items-center justify-center gap-6 p-8 text-center max-w-xl mx-auto">
                   <div className={`flex h-20 w-20 items-center justify-center rounded-3xl bg-white shadow-md border border-slate-100 ${color}`}>

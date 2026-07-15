@@ -25,6 +25,7 @@ import { UserProfile, EmployeeNode } from "../../types";
 import { getAccessToken } from "../../services/authService";
 import { toast } from "../../pages/Toast";
 import { ConfirmDialog } from "../common/ConfirmDialog";
+import { TimeInput24 } from "../common/TimeInput24";
 
 interface CalendarTabProps {
   userProfile: UserProfile | null;
@@ -1934,10 +1935,10 @@ export default function CalendarTab({
 
       {/* 4. Create/Edit Form Modal */}
       {isFormModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md border border-white/20 overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-3 sm:p-4">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md border border-white/20 overflow-hidden animate-in fade-in zoom-in duration-200 max-h-[90dvh] flex flex-col">
             {/* Modal Header */}
-            <div className="flex justify-between items-center bg-slate-50/50 border-b border-slate-100 px-6 py-4.5">
+            <div className="flex justify-between items-center bg-slate-50/50 border-b border-slate-100 px-4 sm:px-6 py-4.5 shrink-0">
               <h3 className="font-extrabold text-slate-800 text-sm">
                 {formMode === "create" ? "Tạo lịch trình mới" : "Chỉnh sửa lịch trình"}
               </h3>
@@ -1950,8 +1951,8 @@ export default function CalendarTab({
             </div>
 
             {/* Modal Form */}
-            <form onSubmit={handleFormSubmit}>
-              <div className="p-6 flex flex-col gap-4">
+            <form onSubmit={handleFormSubmit} className="flex flex-col flex-1 min-h-0">
+              <div className="p-4 sm:p-6 flex flex-col gap-4 overflow-y-auto flex-1 min-h-0">
                 {/* Category Picker */}
                 <div>
                   <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
@@ -2023,12 +2024,11 @@ export default function CalendarTab({
                     <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
                       Giờ bắt đầu
                     </label>
-                    <input
-                      type="time"
+                    <TimeInput24
                       required
                       value={formStartTime}
-                      onChange={(e) => setFormStartTime(e.target.value)}
-                      className="w-full px-3.5 py-2 border border-slate-200/80 rounded-2xl text-xs focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-semibold transition-all"
+                      onChange={setFormStartTime}
+                      className="w-full px-3.5 py-2 border border-slate-200/80 rounded-2xl text-xs focus-within:ring-4 focus-within:ring-indigo-500/10 focus-within:border-indigo-500 font-semibold transition-all"
                     />
                   </div>
                 </div>
@@ -2050,12 +2050,11 @@ export default function CalendarTab({
                     <label className="block text-[10px] uppercase tracking-wide font-extrabold text-slate-500 mb-1.5">
                       Giờ kết thúc
                     </label>
-                    <input
-                      type="time"
+                    <TimeInput24
                       required
                       value={formEndTime}
-                      onChange={(e) => setFormEndTime(e.target.value)}
-                      className="w-full px-3.5 py-2 border border-slate-200/80 rounded-2xl text-xs focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-semibold transition-all"
+                      onChange={setFormEndTime}
+                      className="w-full px-3.5 py-2 border border-slate-200/80 rounded-2xl text-xs focus-within:ring-4 focus-within:ring-indigo-500/10 focus-within:border-indigo-500 font-semibold transition-all"
                     />
                   </div>
                 </div>
@@ -2146,7 +2145,7 @@ export default function CalendarTab({
               </div>
 
               {/* Modal Actions */}
-              <div className="bg-slate-50 border-t border-slate-150 px-6 py-4.5 flex justify-between items-center gap-3">
+              <div className="bg-slate-50 border-t border-slate-150 px-4 sm:px-6 py-4.5 flex justify-between items-center gap-3 shrink-0 flex-wrap">
                 <div>
                   {formMode === "edit" && (
                     <button
