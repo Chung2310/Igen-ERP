@@ -32,9 +32,9 @@ Type=simple
 User=root
 WorkingDirectory=$REMOTE_DIR
 Environment=ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-Environment=CLAUDE_RENDER_KEY=${CLAUDE_RENDER_KEY:-igen-render-2024}
+Environment=CLAUDE_RENDER_KEY=${CLAUDE_RENDER_KEY:?"CLAUDE_RENDER_KEY phải được set trước khi deploy"}
 Environment=CLAUDE_RENDER_PORT=8644
-Environment=CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME:-dgaofuhmv}
+Environment=CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME:?"CLOUDINARY_CLOUD_NAME phải được set trước khi deploy"}
 Environment=CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
 Environment=CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
 ExecStart=/usr/bin/python3 $REMOTE_DIR/server.py
@@ -59,8 +59,8 @@ echo "=== DONE ==="
 echo ""
 echo "Endpoint công khai từ iGen ERP:"
 echo "  POST http://$VPS_HOST:8644/render"
-echo "  Header: X-API-Key: igen-render-2024"
+echo "  Header: X-API-Key: <giá trị CLAUDE_RENDER_KEY đã set>"
 echo ""
 echo "Env vars cần set trong iGen ERP (.env):"
 echo "  CLAUDE_RENDER_VPS_URL=http://$VPS_HOST:8644"
-echo "  CLAUDE_RENDER_API_KEY=igen-render-2024"
+echo "  CLAUDE_RENDER_API_KEY=<giá trị CLAUDE_RENDER_KEY đã set>"

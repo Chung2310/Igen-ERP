@@ -239,8 +239,11 @@ export function requireCompanyAccess(model: mongoose.Model<any>, idParamName: st
         });
       }
 
-      // Kiểm tra trường companyCode của tài nguyên
-      if (resource.companyCode && resource.companyCode !== req.user.companyCode) {
+      // Kiểm tra trường companyCode của tài nguyên. Nếu tài nguyên không có
+      // companyCode (VD: tài khoản SYSTEM/superadmin) thì chỉ superadmin (đã
+      // return ở nhánh trên) mới được truy cập — không được bỏ qua kiểm tra
+      // vì điều đó sẽ cho phép mọi công ty đụng vào tài nguyên không thuộc công ty nào.
+      if (resource.companyCode !== req.user.companyCode) {
         return res.status(403).json({
           status: "error",
           message: "Bạn không có quyền truy cập hoặc chỉnh sửa tài nguyên của doanh nghiệp khác.",

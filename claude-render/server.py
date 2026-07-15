@@ -17,14 +17,16 @@ Requirements (cài trên VPS):
 
 Environment variables:
   ANTHROPIC_API_KEY     — bắt buộc
-  CLAUDE_RENDER_KEY     — API key để xác thực client (default: igen-render-2024)
+  CLAUDE_RENDER_KEY     — API key để xác thực client (bắt buộc, không có default —
+                           server từ chối mọi request nếu chưa cấu hình)
   CLAUDE_RENDER_PORT    — port server (default: 8644)
-  CLOUDINARY_CLOUD_NAME — mặc định: dgaofuhmv
-  CLOUDINARY_API_KEY    — mặc định: 784587127497449
-  CLOUDINARY_API_SECRET — mặc định: GSQvrcPRPuGdIYWw2zESpj2z0Qw
+  CLOUDINARY_CLOUD_NAME — bắt buộc để upload lên Cloudinary
+  CLOUDINARY_API_KEY    — bắt buộc để upload lên Cloudinary
+  CLOUDINARY_API_SECRET — bắt buộc để upload lên Cloudinary
 """
 
-import os, sys, json, time, re, subprocess, threading, traceback, urllib.request, ssl
+import os, sys, json, time, re, subprocess, threading, traceback, urllib.request, ipaddress, socket
+from urllib.parse import urlparse
 from pathlib import Path
 from datetime import datetime
 from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -38,12 +40,14 @@ for d in [QUEUE_DIR, LOG_DIR]:
     Path(d).mkdir(parents=True, exist_ok=True)
 
 # ─── Config ──────────────────────────────────────────────────────────────────
-API_KEY       = os.environ.get("CLAUDE_RENDER_KEY") or os.environ.get("CLAUDE_RENDER_API_KEY") or "igen-render-2024"
+# Không còn giá trị mặc định cho API_KEY: nếu chưa cấu hình, server từ chối
+# toàn bộ request (fail closed) thay vì dùng key public đã lộ trong repo.
+API_KEY       = os.environ.get("CLAUDE_RENDER_KEY") or os.environ.get("CLAUDE_RENDER_API_KEY") or ""
 PORT          = int(os.environ.get("CLAUDE_RENDER_PORT", "8644"))
 ANTHROPIC_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
-CLD_NAME      = os.environ.get("CLOUDINARY_CLOUD_NAME", "dgaofuhmv")
-CLD_KEY       = os.environ.get("CLOUDINARY_API_KEY", "784587127497449")
-CLD_SECRET    = os.environ.get("CLOUDINARY_API_SECRET", "GSQvrcPRPuGdIYWw2zESpj2z0Qw")
+CLD_NAME      = os.environ.get("CLOUDINARY_CLOUD_NAME", "")
+CLD_KEY       = os.environ.get("CLOUDINARY_API_KEY", "")
+CLD_SECRET    = os.environ.get("CLOUDINARY_API_SECRET", "")
 
 SCENE_DURATIONS = {
     "hook": 8, "story": 12, "insight": 12,
@@ -118,18 +122,35 @@ def fail_job(tid: str, error: str):
     log(f"Job {tid} failed: {error}")
 
 # ─── Webhook ─────────────────────────────────────────────────────────────────
+def _is_safe_webhook_url(url: str) -> bool:
+    """Chặn SSRF: chỉ cho phép http(s) tới host công khai, không cho phép
+    loopback/private/link-local (VD: 127.0.0.1, 169.254.169.254, 10.x, 192.168.x)."""
+    try:
+        parsed = urlparse(url)
+        if parsed.scheme not in ("http", "https") or not parsed.hostname:
+            return False
+        for family, _, _, _, sockaddr in socket.getaddrinfo(parsed.hostname, None):
+            ip = ipaddress.ip_address(sockaddr[0])
+            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
+                return False
+        return True
+    except Exception:
+        return False
+
 def call_webhook(url: str, payload: dict):
     if not url:
         return
+    if not _is_safe_webhook_url(url):
+        log(f"Webhook BLOCKED (unsafe target) → {url}")
+        return
     try:
-        ctx = ssl._create_unverified_context()
         req = urllib.request.Request(
             url,
             data=json.dumps(payload).encode(),
             headers={"Content-Type": "application/json"},
             method="POST",
         )
-        urllib.request.urlopen(req, timeout=10, context=ctx)
+        urllib.request.urlopen(req, timeout=10)
         log(f"Webhook sent → {url}")
     except Exception as e:
         log(f"Webhook failed → {url}: {e}")
@@ -543,7 +564,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def _auth(self) -> bool:
         k = self.headers.get("X-API-Key", "")
-        if k != API_KEY:
+        if not API_KEY or k != API_KEY:
             self._json({"error": "Unauthorized: thiếu hoặc sai X-API-Key"}, 401)
             return False
         return True

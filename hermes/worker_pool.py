@@ -1,4 +1,5 @@
-import os, sys, json, time, subprocess, re, urllib.request, ssl
+import os, sys, json, time, subprocess, re, urllib.request, ipaddress, socket
+from urllib.parse import urlparse
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, Dict
@@ -9,6 +10,14 @@ QUEUE_DIR = f"{HERMES_HOME}/worker_queue"
 RESULT_DIR = f"{HERMES_HOME}/worker_results"
 LOG_DIR = f"{HERMES_HOME}/logs/workers"
 
+# API key bắt buộc cho mọi request tới run_api() — không có giá trị mặc định,
+# nếu không cấu hình thì API sẽ từ chối toàn bộ request thay vì mở public.
+HERMES_API_KEY = os.environ.get("HERMES_API_KEY", "")
+
+CLOUDINARY_CLOUD_NAME = os.environ.get("CLOUDINARY_CLOUD_NAME", "")
+CLOUDINARY_API_KEY = os.environ.get("CLOUDINARY_API_KEY", "")
+CLOUDINARY_API_SECRET = os.environ.get("CLOUDINARY_API_SECRET", "")
+
 for d in [QUEUE_DIR, RESULT_DIR, LOG_DIR]:
     Path(d).mkdir(parents=True, exist_ok=True)
 
@@ -18,11 +27,29 @@ def log(msg):
     with open(f"{HERMES_HOME}/logs/pool.log", "a") as f:
         f.write(f"[{ts}] {msg}\n")
 
+def _is_safe_webhook_url(webhook_url: str) -> bool:
+    """Chặn SSRF: chỉ cho phép http(s) tới host công khai, không cho phép
+    loopback/private/link-local (VD: 127.0.0.1, 169.254.169.254, 10.x, 192.168.x)."""
+    try:
+        parsed = urlparse(webhook_url)
+        if parsed.scheme not in ("http", "https") or not parsed.hostname:
+            return False
+        addrs = socket.getaddrinfo(parsed.hostname, None)
+        for family, _, _, _, sockaddr in addrs:
+            ip = ipaddress.ip_address(sockaddr[0])
+            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
+                return False
+        return True
+    except Exception:
+        return False
+
 def call_webhook(webhook_url, payload):
     if not webhook_url:
         return
+    if not _is_safe_webhook_url(webhook_url):
+        log(f"Webhook BLOCKED (unsafe target): {webhook_url}")
+        return
     try:
-        context = ssl._create_unverified_context()
         data = json.dumps(payload).encode()
         req = urllib.request.Request(
             webhook_url,
@@ -33,7 +60,7 @@ def call_webhook(webhook_url, payload):
             },
             method="POST"
         )
-        with urllib.request.urlopen(req, timeout=10, context=context) as resp:
+        with urllib.request.urlopen(req, timeout=10) as resp:
             log(f"Webhook OK: {resp.status} -> {webhook_url}")
     except Exception as e:
         log(f"Webhook FAIL: {e} -> {webhook_url}")
@@ -172,9 +199,9 @@ def run_task(tid):
     hp += (
         f"\nYeu cau / Kich ban chinh sua:\n{editing_script}\n\n"
         "Upload len Cloudinary("
-        "cloud_name=dgaofuhmv,"
-        "api_key=784587127497449,"
-        "api_secret=GSQvrcPRPuGdIYWw2zESpj2z0Qw"
+        f"cloud_name={CLOUDINARY_CLOUD_NAME},"
+        f"api_key={CLOUDINARY_API_KEY},"
+        f"api_secret={CLOUDINARY_API_SECRET}"
         ").\n"
         "Tra ve URL Cloudinary."
     )
@@ -291,8 +318,17 @@ def run_api(port=8643):
             self.end_headers()
             self.wfile.write(json.dumps(data).encode("utf-8"))
 
+        def _authorized(self) -> bool:
+            if not HERMES_API_KEY:
+                # Không cấu hình key -> từ chối toàn bộ (fail closed), tránh mở API public.
+                return False
+            return self.headers.get("X-API-Key", "") == HERMES_API_KEY
+
         def do_GET(self):
             if self.path == "/health":
+                if not self._authorized():
+                    self._json({"error": "unauthorized"}, 401)
+                    return
                 r = subprocess.run(
                     "tmux list-sessions 2>/dev/null",
                     shell=True, capture_output=True, text=True
@@ -303,6 +339,9 @@ def run_api(port=8643):
                 self._json({"error": "not found"}, 404)
 
         def do_POST(self):
+            if not self._authorized():
+                self._json({"error": "unauthorized"}, 401)
+                return
             try:
                 content_length = int(self.headers.get('Content-Length', 0))
                 body_data = self.rfile.read(content_length)
