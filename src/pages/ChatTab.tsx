@@ -38,6 +38,7 @@ import {
   Cloud,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { useChatUnread } from "../context/ChatUnreadContext";
 import { authService } from "../services/authService";
 import { socketService } from "../services/socketService";
 import {
@@ -55,6 +56,7 @@ import { toast } from "./Toast";
 
 export default function ChatTab() {
   const { userProfile } = useAuth();
+  const { markRoomRead } = useChatUnread();
   const currentUserId = userProfile?.uid || "";
   const companyCode = userProfile?.companyCode || "SYSTEM";
 
@@ -427,6 +429,7 @@ export default function ChatTab() {
           });
           // Đánh dấu đã đọc trên server
           internalChatService.markAsRead(data.roomId);
+          markRoomRead(data.roomId);
           // Chỉ tự cuộn nếu là tin của mình hoặc đang ở gần đáy; nếu không → tăng đếm tin mới
           if (isMyMessage || isNearBottomRef.current) {
             scrollToBottom("smooth");
@@ -639,6 +642,7 @@ export default function ChatTab() {
       fetchMessages(activeRoom._id);
       // Mark as read + xóa badge chưa đọc của phòng này
       internalChatService.markAsRead(activeRoom._id);
+      markRoomRead(activeRoom._id);
       setRooms((prev) => prev.map((r) => (r._id === activeRoom._id ? { ...r, unreadCount: 0 } : r)));
       // Khôi phục bản nháp đang gõ dở của phòng này + reset trạng thái phụ
       setEditingMessage(null);
