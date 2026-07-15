@@ -247,8 +247,11 @@ async function startServer() {
     next();
   });
 
-  // 2. Tài liệu API Swagger tại đường dẫn /api-docs
-  app.use("/api-docs", swaggerRouter);
+  // 2. Tài liệu API Swagger tại đường dẫn /api-docs — chỉ bật ở non-production
+  // để tránh lộ toàn bộ cấu trúc API (endpoint, params, response shape) ra công khai.
+  if (process.env.NODE_ENV !== "production") {
+    app.use("/api-docs", swaggerRouter);
+  }
 
   // Đảm bảo thư mục uploads tồn tại
   const uploadsDir = path.join(process.cwd(), "uploads");
@@ -317,6 +320,14 @@ async function startServer() {
     });
   } else {
     const distPath = path.join(process.cwd(), "dist");
+    // Chặn phòng thủ chiều sâu: không bao giờ phục vụ sourcemap/bundle server hay
+    // dotfile công khai, kể cả khi lỡ bị copy nhầm vào thư mục dist tĩnh.
+    app.use((req, res, next) => {
+      if (/\.map$/i.test(req.path) || /\.cjs$/i.test(req.path) || /(^|\/)\.[^/]+$/.test(req.path)) {
+        return res.status(404).end();
+      }
+      next();
+    });
     app.use(express.static(distPath, {
       index: false,
       setHeaders: (res, filePath) => {
@@ -355,7 +366,9 @@ async function startServer() {
 
   httpServer.listen(PORT, "0.0.0.0", () => {
     console.log(`Express and Socket.IO server running on http://localhost:${PORT}`);
-    console.log(`Swagger documentation available at http://localhost:${PORT}/api-docs`);
+    if (process.env.NODE_ENV !== "production") {
+      console.log(`Swagger documentation available at http://localhost:${PORT}/api-docs`);
+    }
   });
 }
 
