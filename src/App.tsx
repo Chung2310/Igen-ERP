@@ -5,6 +5,7 @@ import Sidebar from "./pages/Sidebar";
 import Header from "./pages/Header";
 import { ToastContainer } from "./pages/Toast";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { ChatUnreadProvider, useChatUnread } from "./context/ChatUnreadContext";
 import type { TabType } from "./types";
 import { SEOHead } from "./seo/SEOHead";
 import { AUTH_SEO, getSeoForTab, tabToPath } from "./seo/seo-config";
@@ -14,6 +15,9 @@ import { socketService } from "./services/socketService";
 import { NotificationToastContainer } from "./components/notification/NotificationToastContainer";
 import { browserNotificationService } from "./services/browserNotificationService";
 import { pushService } from "./services/pushService";
+import { setFaviconBadge } from "./utils/faviconBadge";
+
+const UNREAD_TITLE_PREFIX_RE = /^\(\d+\+?\d*\)\s/;
 
 const AuthPage = lazy(() => import("./pages/AuthPage"));
 const ChatbotWidget = lazy(() =>
@@ -94,6 +98,16 @@ function AppContent() {
       }
     }
   }, [user, userProfile]);
+
+  const { totalUnread } = useChatUnread();
+
+  // Chạy sau effect của SEOHead trong cùng lượt commit (component con luôn chạy effect
+  // trước component cha) nên luôn bóc tiền tố cũ rồi gắn lại trên title mới nhất.
+  React.useEffect(() => {
+    const rawTitle = document.title.replace(UNREAD_TITLE_PREFIX_RE, "");
+    document.title = totalUnread > 0 ? `(${totalUnread > 99 ? "99+" : totalUnread}) ${rawTitle}` : rawTitle;
+    void setFaviconBadge(totalUnread);
+  }, [totalUnread, activeTab]);
 
   if (isLandingGuestPage) {
     return (
@@ -218,8 +232,10 @@ function normalizePublicPath(pathname: string) {
 export default function App() {
   return (
     <AuthProvider>
-      <AppContent />
-      <ToastContainer />
+      <ChatUnreadProvider>
+        <AppContent />
+        <ToastContainer />
+      </ChatUnreadProvider>
     </AuthProvider>
   );
 }
