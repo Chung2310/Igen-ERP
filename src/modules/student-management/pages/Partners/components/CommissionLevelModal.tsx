@@ -238,8 +238,8 @@ export function CommissionLevelModal({ isOpen, onClose, selectedCenter }: Commis
                 </p>
               </div>
             ) : (
-              <div className="border border-slate-100 rounded-2xl overflow-hidden bg-white shadow-sm shadow-slate-100/50">
-                <table className="w-full text-xs text-left font-semibold">
+              <div className="border border-slate-100 rounded-2xl overflow-x-auto bg-white shadow-sm shadow-slate-100/50">
+                <table className="w-full min-w-[560px] text-xs text-left font-semibold">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-400">
                       <th className="py-3 px-4">Tên cấp</th>
