@@ -1624,7 +1624,10 @@ export default function ChatTab() {
   };
 
   return (
-    <div className="flex h-full w-full overflow-hidden rounded-3xl border border-gray-100 bg-white/70 shadow-2xl shadow-slate-100 backdrop-blur-xl" id="chat_tab_root">
+    <div
+      className="flex h-full w-full overflow-hidden rounded-none border-0 bg-white/70 shadow-none backdrop-blur-xl md:rounded-3xl md:border md:border-gray-100 md:shadow-2xl md:shadow-slate-100"
+      id="chat_tab_root"
+    >
 
       {/* LEFT SIDEBAR: Conversations & Search */}
       <div className={`flex w-80 shrink-0 flex-col border-r border-gray-100 bg-white/30 transition-all duration-300 ${activeRoom ? "hidden md:flex" : "w-full flex"}`} id="chat_sidebar">
@@ -1872,7 +1875,7 @@ export default function ChatTab() {
           <>
             {/* CHAT HEADER */}
             <div className="flex h-[72px] items-center justify-between border-b border-gray-100 bg-white/50 px-4 md:px-6 backdrop-blur-md">
-              <div className="flex items-center gap-3">
+              <div className="flex min-w-0 flex-1 items-center gap-3">
                 {/* Back button on mobile */}
                 <button
                   type="button"
@@ -1901,15 +1904,15 @@ export default function ChatTab() {
                     <div className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500" />
                   )}
                 </div>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-800">{getRoomName(activeRoom)}</h3>
-                  <p className="text-[10px] text-gray-400">
+                <div className="min-w-0">
+                  <h3 className="truncate text-sm font-bold text-slate-800">{getRoomName(activeRoom)}</h3>
+                  <p className="truncate text-[10px] text-gray-400">
                     {activeRoom.isGroup ? `${activeRoom.members.length} thành viên` : getOtherUserStatus(activeRoom) === "online" ? "Đang hoạt động" : "Ngoại tuyến"}
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex shrink-0 items-center gap-2">
                 {/* Pin Room Button */}
                 <button
                   onClick={() => handleTogglePinRoom(activeRoom._id)}
@@ -3026,13 +3029,13 @@ export default function ChatTab() {
                       </div>
 
                       {/* Emojis Grid */}
-                      <div className="grid grid-cols-8 gap-2.5 max-h-48 overflow-y-auto pr-1">
+                      <div className="grid grid-cols-6 sm:grid-cols-8 gap-1.5 sm:gap-2.5 max-h-48 overflow-y-auto pr-1">
                         {EMOJI_CATEGORIES[activeEmojiCategoryTab].emojis.map((emoji, i) => (
                           <button
                             key={`${emoji}-${i}`}
                             type="button"
                             onClick={() => handleSelectEmoji(emoji)}
-                            className="text-2xl hover:scale-125 transition-transform duration-100 leading-none p-1 rounded-lg hover:bg-slate-50"
+                            className="text-2xl hover:scale-125 transition-transform duration-100 leading-none p-1.5 sm:p-1 rounded-lg hover:bg-slate-50"
                           >
                             {emoji}
                           </button>
@@ -3186,7 +3189,7 @@ export default function ChatTab() {
       {/* MODAL: VIDEO RECORDING */}
       {isVideoRecording && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-4 shadow-2xl">
+          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-4 shadow-2xl">
             <div className="relative overflow-hidden rounded-xl bg-black">
               <video
                 ref={attachVideoPreview}
@@ -3230,7 +3233,7 @@ export default function ChatTab() {
       {/* MODAL: CREATE GROUP CHAT */}
       {showCreateGroupModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
             <div className="flex items-center justify-between border-b border-gray-100 pb-4 mb-4">
               <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
                 <Users className="h-5 w-5 text-indigo-600" />
@@ -3323,7 +3326,7 @@ export default function ChatTab() {
       {/* MODAL: ADD MEMBER TO GROUP */}
       {showAddMemberModal && activeRoom && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+          <div className="w-full max-w-sm max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
             <div className="flex items-center justify-between border-b border-gray-100 pb-4 mb-4">
               <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
                 <Users className="h-5 w-5 text-indigo-600" />
@@ -3401,7 +3404,7 @@ export default function ChatTab() {
       {previewAttachment && (
         <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-slate-950/95 p-4 backdrop-blur-md animate-fade-in">
           {/* Header */}
-          <div className="absolute top-0 left-0 right-0 flex items-center justify-between p-4 bg-slate-900/40 backdrop-blur-xs text-white">
+          <div className="absolute top-0 left-0 right-0 flex items-center justify-between p-4 pt-[max(1rem,env(safe-area-inset-top))] bg-slate-900/40 backdrop-blur-xs text-white">
             <div className="min-w-0 flex-1 pr-4">
               <h4 className="text-sm font-bold truncate">{previewAttachment.name}</h4>
               {previewAttachment.size && (
@@ -3455,7 +3458,7 @@ export default function ChatTab() {
 
           {/* Footer action */}
           {(previewAttachment.type.startsWith("image/") || previewAttachment.type.startsWith("video/")) && (
-            <div className="absolute bottom-6 left-0 right-0 flex justify-center">
+            <div className="absolute bottom-[max(1.5rem,env(safe-area-inset-bottom))] left-0 right-0 flex justify-center">
               <a
                 href={previewAttachment.url}
                 target="_blank"

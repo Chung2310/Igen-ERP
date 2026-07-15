@@ -193,7 +193,12 @@ function AppContent() {
           onMenuClick={() => setMobileNavOpen(true)}
         />
 
-        <main className="flex-1 overflow-hidden bg-surface p-3 sm:p-6" id="primary_page_container">
+        <main
+          className={`flex-1 overflow-hidden bg-surface ${
+            activeTab === "TRÒ CHUYỆN" ? "p-0 sm:p-6" : "p-3 sm:p-6"
+          }`}
+          id="primary_page_container"
+        >
           <AppRouterView activeTab={activeTab} userProfile={userProfile} />
         </main>
       </div>
