@@ -1,14 +1,19 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useAuth } from "./AuthContext";
 import { socketService } from "../services/socketService";
 import { internalChatService } from "../services/internalChatService";
 
 interface ChatUnreadContextValue {
   totalUnread: number;
+  /** Gọi khi người dùng đã xem tin nhắn của một phòng (mở phòng / nhận tin khi đang mở) để xoá badge ngay lập tức. */
+  markRoomRead: (roomId: string) => void;
 }
 
-const ChatUnreadContext = createContext<ChatUnreadContextValue>({ totalUnread: 0 });
+const ChatUnreadContext = createContext<ChatUnreadContextValue>({
+  totalUnread: 0,
+  markRoomRead: () => {},
+});
 
 export function useChatUnread() {
   return useContext(ChatUnreadContext);
@@ -96,12 +101,21 @@ export function ChatUnreadProvider({ children }: { children: React.ReactNode }) 
     };
   }, [user, currentUserId]);
 
+  const markRoomRead = useCallback((roomId: string) => {
+    setUnreadByRoom((prev) => {
+      if (!prev[roomId]) return prev;
+      const next = { ...prev };
+      delete next[roomId];
+      return next;
+    });
+  }, []);
+
   const totalUnread = useMemo(
     () => Object.values(unreadByRoom).reduce((sum: number, n: number) => sum + n, 0),
     [unreadByRoom]
   );
 
-  const value = useMemo(() => ({ totalUnread }), [totalUnread]);
+  const value = useMemo(() => ({ totalUnread, markRoomRead }), [totalUnread, markRoomRead]);
 
   return <ChatUnreadContext.Provider value={value}>{children}</ChatUnreadContext.Provider>;
 }
