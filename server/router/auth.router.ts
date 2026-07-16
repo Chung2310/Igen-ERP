@@ -31,8 +31,9 @@ const registerSchema = {
     photoURL: Joi.string().uri().optional().allow("").messages({
       "string.uri": "photoURL phải là một đường dẫn URL hợp lệ.",
     }),
-    role: Joi.string().optional(),
-    companyCode: Joi.string().optional().allow(""),
+    // Lưu ý bảo mật: KHÔNG cho phép client tự đặt role/companyCode/level/parentId qua
+    // endpoint đăng ký công khai này — các trường đó chỉ được gán qua
+    // register-company/register-user (đã kiểm tra xác thực + phân quyền).
     companyName: Joi.string().optional().allow(""),
     jobTitle: Joi.string().optional().allow(""),
     department: Joi.string().optional().allow(""),
@@ -40,8 +41,6 @@ const registerSchema = {
     phone: Joi.string().pattern(vnPhoneRegex).optional().allow("").messages({
       "string.pattern.base": "Số điện thoại Việt Nam không đúng định dạng (ví dụ: 0987654321).",
     }),
-    level: Joi.number().integer().optional(),
-    parentId: Joi.string().optional().allow(""),
   }),
 };
 

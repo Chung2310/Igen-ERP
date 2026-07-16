@@ -190,15 +190,18 @@ export const crudService = {
     }
 
     const query: any = {};
-    
-    // Cô lập dữ liệu theo companyCode (Trừ superadmin được xem tất cả nếu chọn)
-    if (userRole !== "superadmin" || (companyCode && companyCode !== "SYSTEM")) {
-      query.companyCode = companyCode;
+
+    // Áp dụng các bộ lọc động truyền từ client (loại bỏ key nguy hiểm trước khi merge)
+    if (options.filters) {
+      for (const [key, value] of Object.entries(options.filters)) {
+        if (key === "companyCode" || key === "_id" || key.startsWith("$")) continue;
+        query[key] = value;
+      }
     }
 
-    // Áp dụng các bộ lọc động truyền từ client
-    if (options.filters) {
-      Object.assign(query, options.filters);
+    // Cô lập dữ liệu theo companyCode (áp dụng sau cùng, không cho client ghi đè)
+    if (userRole !== "superadmin" || (companyCode && companyCode !== "SYSTEM")) {
+      query.companyCode = companyCode;
     }
 
     // Áp dụng tìm kiếm tương đối (Search)
