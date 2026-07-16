@@ -9,6 +9,7 @@ import { getJwtAccessSecret } from "./config/env";
 import { ddosConfig } from "./config/ddos";
 import { getRateLimitRedisClient } from "./infrastructure/rate-limit-redis";
 import { RedisSocketProtectionCounter, SocketProtection } from "./socket-protection";
+import { getTrustedSocketClientIp } from "./socket-client-ip";
 
 let io: SocketIOServer | null = null;
 let lastSocketLimiterWarningAt = 0;
@@ -34,11 +35,7 @@ const socketProtection = new SocketProtection(
 );
 
 function getSocketIp(socket: Socket): string {
-  const forwarded = socket.handshake.headers["x-forwarded-for"];
-  if (typeof forwarded === "string" && forwarded.trim()) {
-    return forwarded.split(",").map((part) => part.trim()).filter(Boolean).at(-1) || socket.handshake.address;
-  }
-  return socket.handshake.address || "unknown";
+  return getTrustedSocketClientIp(socket.handshake.headers, socket.handshake.address);
 }
 
 function socketRateLimitError(message: string, retryAfterMs = 0) {
