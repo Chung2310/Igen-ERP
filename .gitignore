@@ -19,3 +19,25 @@ nginx/*
 logs/
 scratch/
 scripts/
+
+# Runtime-generated files and local storage
+server/cache/
+uploads/
+tmp/
+temp/
+
+# Local databases, dumps, and backups
+*.sqlite
+*.sqlite3
+*.db
+*.dump
+*.bak
+
+# Private keys, certificates, and service credentials
+*.pem
+*.key
+*.p12
+*.pfx
+credentials*.json
+service-account*.json
+service_account*.json
