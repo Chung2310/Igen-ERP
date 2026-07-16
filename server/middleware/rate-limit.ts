@@ -1,4 +1,63 @@
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
+import { ddosConfig } from "../config/ddos";
+import { getRateLimitRedisClient, RedisRateLimitStore } from "../infrastructure/rate-limit-redis";
+
+const redisClient = getRateLimitRedisClient();
+let lastStoreErrorAt = 0;
+
+function logStoreError(...args: unknown[]): void {
+  const now = Date.now();
+  if (now - lastStoreErrorAt < 60_000) return;
+  lastStoreErrorAt = now;
+  console.error("[DDoS] Redis limiter warning; fail-open policy remains active:", ...args);
+}
+
+const throttledRateLimitLogger = {
+  error: logStoreError,
+  warn: logStoreError,
+};
+
+function redisLimiter(options: {
+  prefix: string;
+  windowMs: number;
+  limit: number;
+  message: string;
+}) {
+  return rateLimit({
+    windowMs: options.windowMs,
+    limit: options.limit,
+    standardHeaders: "draft-8",
+    legacyHeaders: false,
+    passOnStoreError: true,
+    logger: throttledRateLimitLogger,
+    keyGenerator: (req) => ipKeyGenerator(req.ip || req.socket.remoteAddress || "unknown"),
+    store: new RedisRateLimitStore(redisClient, `${ddosConfig.redisKeyPrefix}${options.prefix}:`),
+    handler: (_req, res, _next, rateOptions) => {
+      res.status(rateOptions.statusCode).json({ status: "error", message: options.message });
+    },
+  });
+}
+
+export const globalApiRateLimiter = redisLimiter({
+  prefix: "http:global",
+  windowMs: ddosConfig.globalWindowMs,
+  limit: ddosConfig.globalLimit,
+  message: "Quá nhiều yêu cầu tới hệ thống. Vui lòng thử lại sau.",
+});
+
+export const publicApiRateLimiter = redisLimiter({
+  prefix: "http:public",
+  windowMs: ddosConfig.publicWindowMs,
+  limit: ddosConfig.publicLimit,
+  message: "Quá nhiều yêu cầu tới endpoint công khai. Vui lòng thử lại sau.",
+});
+
+export const expensiveApiRateLimiter = redisLimiter({
+  prefix: "http:expensive",
+  windowMs: ddosConfig.expensiveWindowMs,
+  limit: ddosConfig.expensiveLimit,
+  message: "Quá nhiều tác vụ tốn tài nguyên. Vui lòng chờ trước khi thử lại.",
+});
 
 /**
  * Giới hạn tần suất cho các endpoint xác thực nhạy cảm (login, register, change-password)

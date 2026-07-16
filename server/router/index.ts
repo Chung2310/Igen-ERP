@@ -16,6 +16,7 @@ import { pushRouter } from "./push.router";
 import { mediaRouter } from "./media.router";
 import { notificationRouter } from "./notification.router";
 import { kanbanRouter } from "./kanban.router";
+import { expensiveApiRateLimiter } from "../middleware/rate-limit";
 export const apiRouter = Router();
 /**
  * GET /api/v1/health
@@ -61,7 +62,7 @@ apiRouter.use("/timekeeping", timekeepingRouter);
 apiRouter.use("/dashboard", dashboardRouter);
 
 // Upload/download file qua Cloudinary — dùng chung cho chat, tài nguyên, kho, avatar
-apiRouter.use("/media", mediaRouter);
+apiRouter.use("/media", expensiveApiRateLimiter, mediaRouter);
 
 // Gắn kết router Web Push (thông báo đẩy khi người dùng không mở web)
 apiRouter.use("/push", pushRouter);
@@ -76,7 +77,7 @@ apiRouter.use("/kanban", kanbanRouter);
 apiRouter.use("/chat", chatRouter);
 
 // Trợ lý ảo AI — chatbot ngữ cảnh dữ liệu doanh nghiệp
-apiRouter.use("/chatbot", chatbotRouter);
+apiRouter.use("/chatbot", expensiveApiRateLimiter, chatbotRouter);
 
 // Module Quản lý Học viên
 apiRouter.use("/", studentManagementRouter);

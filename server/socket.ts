@@ -6,8 +6,55 @@ import Redis from "ioredis";
 import { UserModel } from "./model/user.model";
 import { ChatRoomModel } from "./model/chat-room.model";
 import { getJwtAccessSecret } from "./config/env";
+import { ddosConfig } from "./config/ddos";
+import { getRateLimitRedisClient } from "./infrastructure/rate-limit-redis";
+import { RedisSocketProtectionCounter, SocketProtection } from "./socket-protection";
 
 let io: SocketIOServer | null = null;
+let lastSocketLimiterWarningAt = 0;
+
+function warnSocketLimiter(message: string, error: unknown): void {
+  const now = Date.now();
+  if (now - lastSocketLimiterWarningAt < 60_000) return;
+  lastSocketLimiterWarningAt = now;
+  console.warn(message, error);
+}
+
+const socketProtection = new SocketProtection(
+  new RedisSocketProtectionCounter(getRateLimitRedisClient(), `${ddosConfig.redisKeyPrefix}socket:`),
+  {
+    handshakeWindowMs: ddosConfig.socketHandshakeWindowMs,
+    handshakeLimit: ddosConfig.socketHandshakeLimit,
+    maxPerUser: ddosConfig.socketMaxPerUser,
+    maxPerIp: ddosConfig.socketMaxPerIp,
+    eventWindowMs: ddosConfig.socketEventWindowMs,
+    eventLimit: ddosConfig.socketEventLimit,
+    violationLimit: ddosConfig.socketViolationLimit,
+  },
+);
+
+function getSocketIp(socket: Socket): string {
+  const forwarded = socket.handshake.headers["x-forwarded-for"];
+  if (typeof forwarded === "string" && forwarded.trim()) {
+    return forwarded.split(",").map((part) => part.trim()).filter(Boolean).at(-1) || socket.handshake.address;
+  }
+  return socket.handshake.address || "unknown";
+}
+
+function socketRateLimitError(message: string, retryAfterMs = 0) {
+  const error = new Error(message) as Error & { data?: Record<string, unknown> };
+  error.data = { code: "RATE_LIMITED", retryAfterMs };
+  return error;
+}
+
+function releaseSocketProtectionConnection(socket: Socket): void {
+  const connection = socket.data.ddosConnection as { userId: string; ip: string } | undefined;
+  if (!connection) return;
+  socket.data.ddosConnection = undefined;
+  void socketProtection.releaseConnection(connection.userId, connection.ip).catch((error) => {
+    warnSocketLimiter("[Socket.IO DDoS] Failed to release connection counters:", error);
+  });
+}
 
 /**
  * Gắn Redis adapter cho Socket.IO để phát sự kiện xuyên nhiều instance (scale ngang).
@@ -94,6 +141,19 @@ export async function initSocketServer(httpServer: HTTPServer) {
   // Gắn Redis adapter để scale ngang nhiều instance
   await attachRedisAdapter(io);
 
+  // Chặn handshake flood trước khi JWT verification và MongoDB lookup tiêu tốn tài nguyên.
+  io.use(async (socket: Socket, next) => {
+    try {
+      const result = await socketProtection.checkHandshake(getSocketIp(socket));
+      if (!result.allowed) {
+        return next(socketRateLimitError("Quá nhiều lần kết nối Socket.IO.", result.retryAfterMs));
+      }
+    } catch (error) {
+      warnSocketLimiter("[Socket.IO DDoS] Handshake limiter unavailable; allowing connection:", error);
+    }
+    next();
+  });
+
   // Reset tất cả users về offline khi server khởi động (tránh trạng thái lỗi từ session trước)
   void (async () => {
     try {
@@ -126,8 +186,35 @@ export async function initSocketServer(httpServer: HTTPServer) {
     }
   });
 
+  // Giới hạn số kết nối đang hoạt động sau khi user đã xác thực.
+  io.use(async (socket: Socket, next) => {
+    const userId = socket.data.user?._id?.toString();
+    const ip = getSocketIp(socket);
+    if (!userId) return next(new Error("Authentication error: User not found"));
+    try {
+      const acquired = await socketProtection.acquireConnection(userId, ip);
+      if (!acquired) return next(socketRateLimitError("Đã vượt giới hạn kết nối Socket.IO đang hoạt động."));
+      socket.data.ddosConnection = { userId, ip };
+      socket.conn.once("close", () => releaseSocketProtectionConnection(socket));
+    } catch (error) {
+      warnSocketLimiter("[Socket.IO DDoS] Connection limiter unavailable; allowing connection:", error);
+    }
+    next();
+  });
+
   io.on("connection", (socket: Socket) => {
     const user = socket.data.user;
+
+    socket.use((packet, next) => {
+      const decision = socketProtection.consumeEvent(socket.id);
+      if (decision.allowed) return next();
+
+      const possibleAck = packet.at(-1);
+      if (typeof possibleAck === "function") {
+        possibleAck({ code: "RATE_LIMITED", retryAfterMs: decision.retryAfterMs });
+      }
+      if (decision.disconnect) socket.disconnect(true);
+    });
 
     console.log(`[Socket.IO] Client connected: ${user?.email || "Unknown"} (Socket: ${socket.id})`);
 
@@ -193,6 +280,8 @@ export async function initSocketServer(httpServer: HTTPServer) {
     });
 
     socket.on("disconnect", () => {
+      socketProtection.clearSocket(socket.id);
+      releaseSocketProtectionConnection(socket);
       console.log(`[Socket.IO] Client disconnected: ${socket.id}`);
       if (user?._id) {
         const userId = user._id.toString();
