@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { googleDriveController } from "../controller/google-drive.controller";
 import { requireAuth } from "../middleware/auth";
+import { expensiveApiRateLimiter } from "../middleware/rate-limit";
 
 export const googleDriveRouter = Router();
 
@@ -20,10 +21,10 @@ googleDriveRouter.get("/resources", requireAuth as any, googleDriveController.ge
 googleDriveRouter.get("/resources/group/:roomId", requireAuth as any, googleDriveController.getGroupResources as any);
 
 // Route upload tài nguyên cá nhân
-googleDriveRouter.post("/upload", requireAuth as any, googleDriveController.uploadResource as any);
+googleDriveRouter.post("/upload", expensiveApiRateLimiter, requireAuth as any, googleDriveController.uploadResource as any);
 
 // Route upload tài nguyên nhóm
-googleDriveRouter.post("/upload/group/:roomId", requireAuth as any, googleDriveController.uploadGroupResource as any);
+googleDriveRouter.post("/upload/group/:roomId", expensiveApiRateLimiter, requireAuth as any, googleDriveController.uploadGroupResource as any);
 
 // Route tạo tài liệu/thư mục mới trên Google Drive
 googleDriveRouter.post("/create-file", requireAuth as any, googleDriveController.createFile as any);
