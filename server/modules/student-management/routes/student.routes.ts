@@ -3,11 +3,12 @@ import { StudentController } from "../controllers/student.controller";
 import { authMiddleware } from "../middlewares/auth.middleware";
 import { validate } from "../middlewares/validate.middleware";
 import { createStudentSchema, updateStudentSchema, idParamSchema, publicRegisterStudentSchema } from "../validations/student.validation";
+import { publicApiRateLimiter } from "../../../middleware/rate-limit";
 
 const router = Router();
 
-router.post("/public-register", validate(publicRegisterStudentSchema), StudentController.publicRegister);
-router.get("/public-lookup", StudentController.publicLookup);
+router.post("/public-register", publicApiRateLimiter, validate(publicRegisterStudentSchema), StudentController.publicRegister);
+router.get("/public-lookup", publicApiRateLimiter, StudentController.publicLookup);
 
 router.use(authMiddleware);
 

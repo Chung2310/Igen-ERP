@@ -3,6 +3,7 @@ import Joi from "joi";
 import { resourceController } from "../controller/resource.controller";
 import { validateRequest } from "../middleware/validation";
 import { requireAuth } from "../middleware/auth";
+import { expensiveApiRateLimiter } from "../middleware/rate-limit";
 
 export const resourceRouter = Router();
 
@@ -92,7 +93,7 @@ const sharesSchema = {
 
 // Google Drive dùng chung — đặt trước các route "/:id" để tránh trùng khớp
 resourceRouter.get("/drive/files", requireAuth as any, resourceController.driveList as any);
-resourceRouter.post("/drive/upload", requireAuth as any, validateRequest(driveUploadSchema), resourceController.driveUpload as any);
+resourceRouter.post("/drive/upload", expensiveApiRateLimiter, requireAuth as any, validateRequest(driveUploadSchema), resourceController.driveUpload as any);
 resourceRouter.delete("/drive/files/:fileId", requireAuth as any, resourceController.driveDelete as any);
 
 resourceRouter.get("/", requireAuth as any, validateRequest(listSchema), resourceController.list as any);
