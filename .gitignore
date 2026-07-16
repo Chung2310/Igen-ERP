@@ -12,7 +12,10 @@ firebase-applet-config
 temp_key
 package-lock.json
 claude-render.hyperframe-tmp
-nginx/
+nginx/*
+!nginx/igenerp.conf
+!nginx/cloudflare-realip.conf
+!nginx/igenerp.conf.test.ts
 logs/
 scratch/
 scripts/
