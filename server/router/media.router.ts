@@ -69,6 +69,36 @@ mediaRouter.get(
     if (!fileUrl) {
       return res.status(400).json({ error: "Missing url parameter" });
     }
+
+    // Chỉ cho phép proxy các domain đã được whitelist (chặn SSRF tới mạng nội bộ/metadata)
+    const allowedDomains = [
+      "res.cloudinary.com",
+      "cdn.pixabay.com",
+      "www.soundhelix.com",
+      "assets.mixkit.co",
+      "freesound.org",
+      // Google Drive (tính năng Tài nguyên)
+      "drive.google.com",
+      "docs.google.com",
+      "drive.usercontent.google.com",
+      "lh3.googleusercontent.com",
+    ];
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(fileUrl);
+    } catch {
+      return res.status(400).json({ error: "URL không hợp lệ." });
+    }
+    if (parsedUrl.protocol !== "https:" && parsedUrl.protocol !== "http:") {
+      return res.status(400).json({ error: "Giao thức URL không được phép." });
+    }
+    const isAllowed = allowedDomains.some(
+      (domain) => parsedUrl.hostname === domain || parsedUrl.hostname.endsWith(`.${domain}`)
+    );
+    if (!isAllowed) {
+      return res.status(403).json({ error: "Domain không được phép proxy." });
+    }
+
     try {
       const response = await fetch(fileUrl);
       if (!response.ok) {

@@ -22,6 +22,14 @@ export const rolePermissionController = {
         req.body.companyCode = user.companyCode;
       }
 
+      // Không cho phép tự chỉnh sửa quyền/cấp bậc của chính vai trò mình đang giữ (chặn leo thang đặc quyền)
+      if (user.role !== "superadmin" && req.body.role === user.role) {
+        return res.status(403).json({
+          status: "error",
+          message: "Bạn không thể tự chỉnh sửa quyền hoặc cấp bậc của vai trò mà bạn đang giữ.",
+        });
+      }
+
       // Kiểm tra phân cấp cấp bậc (Hierarchy Level Check)
       let callerLevel = 1;
       if (user.role !== "superadmin") {
@@ -34,16 +42,10 @@ export const rolePermissionController = {
 
       const targetLevel = req.body.level;
       if (user.role !== "superadmin") {
-        if (typeof targetLevel === "number" && targetLevel <= callerLevel && req.body.role !== user.role) {
+        if (typeof targetLevel === "number" && targetLevel <= callerLevel) {
           return res.status(403).json({
             status: "error",
             message: `Bạn không thể tạo hoặc chỉnh sửa vai trò có cấp bậc (${targetLevel - 1}) tương đương hoặc cao hơn cấp bậc của bạn (${callerLevel - 1}).`,
-          });
-        }
-        if (typeof targetLevel === "number" && targetLevel < callerLevel) {
-          return res.status(403).json({
-            status: "error",
-            message: `Bạn không thể tạo hoặc chỉnh sửa vai trò có cấp bậc (${targetLevel - 1}) cao hơn cấp bậc của bạn (${callerLevel - 1}).`,
           });
         }
       }
@@ -54,7 +56,7 @@ export const rolePermissionController = {
         role: req.body.role,
       });
 
-      if (user.role !== "superadmin" && existingRole && existingRole.level <= callerLevel && existingRole.role !== user.role) {
+      if (user.role !== "superadmin" && existingRole && existingRole.level <= callerLevel) {
         return res.status(403).json({
           status: "error",
           message: `Bạn không có quyền chỉnh sửa vai trò [${req.body.role}] vì vai trò này có cấp bậc tương đương hoặc cao hơn cấp bậc của bạn.`,
