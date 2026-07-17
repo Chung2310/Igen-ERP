@@ -10,6 +10,8 @@ import { IUser } from "../interface/user.interface";
 import { ICompany } from "../interface/company.interface";
 import { TelegramLinkStatus } from "../interface/telegram-link.interface";
 import { pickSelfServiceProfileUpdate } from "../utils/self-service-profile-update";
+import { superAdminAuthService } from "./super-admin-auth.service";
+import { requiresSuperAdminChallenge } from "./super-admin-login-policy";
 
 import { getJwtAccessSecret, getJwtRefreshSecret } from "../config/env";
 const TELEGRAM_LINK_CODE_TTL_MS = 5 * 60 * 1000;
@@ -73,7 +75,7 @@ export const authService = {
   /**
    * Đăng nhập tài khoản
    */
-  async login(email: string, password?: string) {
+  async login(email: string, password?: string, requestMetadata?: any) {
     const emailLower = email.toLowerCase().trim();
     const user = await UserModel.findOne({ email: emailLower });
 
@@ -90,8 +92,12 @@ export const authService = {
       throw new Error("Yêu cầu mật khẩu để đăng nhập.");
     }
 
+    if (requiresSuperAdminChallenge(user.role)) {
+      return superAdminAuthService.beginSuperAdminLogin(user, requestMetadata);
+    }
+
     const tokens = this.generateTokens(user);
-    return { user, ...tokens };
+    return { kind: "authenticated" as const, user, ...tokens };
   },
 
   /**
@@ -111,6 +117,7 @@ export const authService = {
         email: user.email,
         role: user.role,
         companyCode: user.companyCode,
+        ...(decoded.sid ? { sid: decoded.sid, authLevel: decoded.authLevel } : {}),
       };
 
       const accessToken = jwt.sign(payload, getJwtAccessSecret(), { expiresIn: "15m" });

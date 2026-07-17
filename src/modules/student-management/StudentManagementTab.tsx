@@ -14,7 +14,8 @@ type StudentSubTab =
   | "HỌC PHÍ"
   | "THÔNG BÁO"
   | "TÀI NGUYÊN"
-  | "ĐỐI TÁC";
+  | "ĐỐI TÁC"
+  | "CÀI ĐẶT";
 
 const DashboardPage = lazy(() => import("./pages/Dashboard/DashboardPage").then((m) => ({ default: m.DashboardPage })));
 const StudentsPage = lazy(() => import("./pages/Students/StudentsPage").then((m) => ({ default: m.StudentsPage })));
@@ -25,6 +26,7 @@ const FeesPage = lazy(() => import("./pages/Fees/FeesPage").then((m) => ({ defau
 const NotificationsPage = lazy(() => import("./pages/Notifications/NotificationsPage").then((m) => ({ default: m.NotificationsPage })));
 const ResourcesPage = lazy(() => import("./pages/Resources/ResourcesPage").then((m) => ({ default: m.ResourcesPage })));
 const PartnersPage = lazy(() => import("./pages/Partners/PartnersPage").then((m) => ({ default: m.PartnersPage })));
+const SettingsPage = lazy(() => import("./pages/Settings/SettingsPage").then((m) => ({ default: m.SettingsPage })));
 
 const SUB_TAB_ROUTES = [
   { slug: "tong-quan", value: "TỔNG QUAN" as const },
@@ -36,6 +38,7 @@ const SUB_TAB_ROUTES = [
   { slug: "thong-bao", value: "THÔNG BÁO" as const },
   { slug: "tai-nguyen", value: "TÀI NGUYÊN" as const },
   { slug: "doi-tac", value: "ĐỐI TÁC" as const },
+  { slug: "cai-dat", value: "CÀI ĐẶT" as const },
 ];
 
 function formatDateLabel() {
@@ -59,7 +62,7 @@ export default function StudentManagementTab() {
   const [activeSubTab, setActiveSubTab] = useSubTabRouter<StudentSubTab>(SUB_TAB_ROUTES, "TỔNG QUAN");
   const [selectedStudent, setSelectedStudent] = React.useState<Student | null>(null);
   const [isAddStudentOpen, setIsAddStudentOpen] = React.useState(false);
-  const [initialStudentTab, setInitialStudentTab] = React.useState<string>("Hồ sơ");
+  const [initialStudentTab, setInitialStudentTab] = React.useState<"Hồ sơ" | "Học phí" | "Lịch sử">("Hồ sơ");
   const { students } = useStudents();
 
   const handleOpenStudent = React.useCallback((student: Student, tab: string = "Hồ sơ") => {
@@ -93,6 +96,8 @@ export default function StudentManagementTab() {
         return <ResourcesPage />;
       case "ĐỐI TÁC":
         return <PartnersPage />;
+      case "CÀI ĐẶT":
+        return <SettingsPage />;
       default:
         return null;
     }
@@ -140,7 +145,7 @@ export default function StudentManagementTab() {
         <StudentDetailModal
           student={selectedStudent}
           onClose={() => setSelectedStudent(null)}
-          initialTab={initialStudentTab as any}
+          initialTab={initialStudentTab}
         />
       ) : null}
 

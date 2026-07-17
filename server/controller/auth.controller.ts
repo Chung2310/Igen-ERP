@@ -3,6 +3,7 @@ import { authService } from "../service/auth.service";
 import { AuthenticatedRequest } from "../middleware/auth";
 import { UserModel } from "../model/user.model";
 import { googleOAuthService } from "../service/google-oauth.service";
+import { getSuperAdminRequestMetadata } from "../security/super-admin-request-context";
 
 /** Redirect URI cho OAuth Google Drive (khớp Google Cloud Console). */
 function buildDriveRedirectUri(req: Request): string {
@@ -59,7 +60,11 @@ export const authController = {
   async login(req: Request, res: Response) {
     try {
       const { email, password } = req.body;
-      const { user, accessToken, refreshToken } = await authService.login(email, password);
+      const result = await authService.login(email, password, getSuperAdminRequestMetadata(req));
+      if (result.kind === "super_admin_challenge") {
+        return res.status(202).json({ status: "challenge_required", challengeId: result.challengeId, enrollmentRequired: result.enrollmentRequired, expiresAt: result.expiresAt.toISOString() });
+      }
+      const { user, accessToken, refreshToken } = result;
 
       // Lưu Refresh Token vào HTTPOnly Cookie bảo mật
       res.cookie("refreshToken", refreshToken, {

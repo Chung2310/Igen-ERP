@@ -16,6 +16,7 @@ import { BRAND_NAME, BRAND_TAGLINE, BRAND_LOGO_URL, SERVICE_WEBSITE_URL } from "
 import { selectiveBodyParser, isLargeBodyRoute } from "./server/middleware/body-limit";
 import { globalApiRateLimiter } from "./server/middleware/rate-limit";
 import { ddosConfig } from "./server/config/ddos";
+import { superAdminAuthService } from "./server/service/super-admin-auth.service";
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
@@ -199,6 +200,7 @@ async function startServer() {
 
   // Kết nối cơ sở dữ liệu MongoDB
   await connectDB();
+  await superAdminAuthService.assertSingleSuperAdmin();
 
   const app = express();
   // Chỉ tin 1 hop proxy (nginx) — dùng số thay vì true để X-Forwarded-For không thể bị client giả mạo

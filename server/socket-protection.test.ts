@@ -71,17 +71,29 @@ test("rolls back the user counter when IP acquisition throws", async () => {
   assert.equal(counter.counts.get("connections:user:user-1"), 0);
 });
 
-test("limits event tokens and disconnects after repeated violations", () => {
-  let now = 0;
-  const protection = new SocketProtection(new FakeCounter(), config, () => now);
-  assert.equal(protection.consumeEvent("socket-1").allowed, true);
-  assert.equal(protection.consumeEvent("socket-1").allowed, true);
-  const firstViolation = protection.consumeEvent("socket-1");
+test("limits event tokens and disconnects after repeated violations", async () => {
+  const protection = new SocketProtection(new FakeCounter(), config);
+  assert.equal((await protection.consumeEvent("user-1", "socket-1")).allowed, true);
+  assert.equal((await protection.consumeEvent("user-1", "socket-1")).allowed, true);
+  const firstViolation = await protection.consumeEvent("user-1", "socket-1");
   assert.equal(firstViolation.allowed, false);
   assert.equal(firstViolation.disconnect, false);
-  const secondViolation = protection.consumeEvent("socket-1");
+  const secondViolation = await protection.consumeEvent("user-1", "socket-1");
   assert.equal(secondViolation.disconnect, true);
 
-  now = 60_000;
-  assert.equal(protection.consumeEvent("socket-2").allowed, true);
+  assert.equal((await protection.consumeEvent("user-2", "socket-2")).allowed, true);
+});
+
+test("allows one connection for one hundred users sharing an IP", async () => {
+  const protection = new SocketProtection(new FakeCounter(), { ...config, maxPerIp: 500 });
+  for (let index = 0; index < 100; index++) {
+    assert.equal(await protection.acquireConnection(`user-${index}`, "shared-ip"), true);
+  }
+});
+
+test("shares the event quota across sockets owned by one user", async () => {
+  const protection = new SocketProtection(new FakeCounter(), config);
+  assert.equal((await protection.consumeEvent("user-1", "socket-1")).allowed, true);
+  assert.equal((await protection.consumeEvent("user-1", "socket-2")).allowed, true);
+  assert.equal((await protection.consumeEvent("user-1", "socket-3")).allowed, false);
 });

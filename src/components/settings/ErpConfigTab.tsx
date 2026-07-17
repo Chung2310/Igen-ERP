@@ -5,7 +5,6 @@ import { useAuth } from "../../context/AuthContext";
 
 export default function ErpConfigTab() {
   const { userProfile } = useAuth();
-  const [emailNotifications, setEmailNotifications] = useState(true);
 
   // States for timekeeping location setup
   const [addressName, setAddressName] = useState("");
@@ -19,6 +18,8 @@ export default function ErpConfigTab() {
   const [workingDays, setWorkingDays] = useState<number[]>([1, 2, 3, 4, 5]);
   const [isLocating, setIsLocating] = useState(false);
   const [savingLocation, setSavingLocation] = useState(false);
+
+
 
   // Cấu hình vị trí chấm công (GPS) chỉ dành cho admin/superadmin xem & sửa
   const canManageLocation = userProfile?.role === "superadmin" || userProfile?.role === "admin";
@@ -69,7 +70,7 @@ export default function ErpConfigTab() {
         setIsLocating(false);
         toast.success("Đã lấy tọa độ định vị GPS hiện tại!");
       },
-      (error) => {
+      () => {
         setIsLocating(false);
         toast.error("Không thể tự động lấy vị trí hiện tại. Vui lòng nhập tọa độ thủ công.");
       },
@@ -112,7 +113,7 @@ export default function ErpConfigTab() {
       } else {
         toast.error(result.message || "Lưu cấu hình thất bại.");
       }
-    } catch (err) {
+    } catch {
       toast.error("Lỗi kết nối khi gửi dữ liệu cấu hình.");
     } finally {
       setSavingLocation(false);
@@ -149,6 +150,8 @@ export default function ErpConfigTab() {
           </div>
         </div>
       </div>
+
+
 
       {/* Cấu hình Vị trí Chấm công (GPS) — chỉ admin/superadmin */}
       {canManageLocation && (

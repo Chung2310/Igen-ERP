@@ -125,10 +125,22 @@ export function NotificationToastContainer({ onNavigate }: NotificationToastCont
       const activeRoomId = sessionStorage.getItem("activeRoomId");
       if (roomId === activeRoomId && document.hasFocus()) return;
 
+      // Check if current user is mentioned (either via @all or personal mention)
+      const isMentioned = message.content && (
+        message.content.includes("@all") ||
+        message.content.includes("@Tất cả") ||
+        message.content.includes("@tất cả") ||
+        (userProfile.displayName && message.content.includes(`@${userProfile.displayName}`))
+      );
+
+      const title = isMentioned
+        ? `📢 [Nhắc đến bạn] ${message.senderName || "Tin nhắn mới"}`
+        : (message.senderName || "Tin nhắn mới");
+
       // 3. Tạo thông báo tin nhắn chat ảo
       const chatNotif: WebNotification = {
         _id: `chat-${message._id}-${Date.now()}`,
-        title: message.senderName || "Tin nhắn mới",
+        title,
         body: message.content || (message.attachments?.length > 0 ? "📎 Đã gửi một tệp đính kèm" : "Tin nhắn mới"),
         type: "he-thong",
         companyCode: userProfile.companyCode || "",

@@ -16,12 +16,6 @@ interface SocketProtectionConfig {
   violationLimit: number;
 }
 
-interface EventBucket {
-  tokens: number;
-  updatedAt: number;
-  violations: number;
-}
-
 const WINDOW_SCRIPT = `
 local count = redis.call('INCR', KEYS[1])
 if count == 1 then redis.call('PEXPIRE', KEYS[1], ARGV[1]) end
@@ -82,12 +76,11 @@ export class RedisSocketProtectionCounter implements SocketProtectionCounter {
 }
 
 export class SocketProtection {
-  private readonly buckets = new Map<string, EventBucket>();
+  private readonly socketViolations = new Map<string, number>();
 
   constructor(
     private readonly counter: SocketProtectionCounter,
     private readonly config: SocketProtectionConfig,
-    private readonly now: () => number = Date.now,
   ) {}
 
   async checkHandshake(ip: string) {
@@ -119,34 +112,22 @@ export class SocketProtection {
     ]);
   }
 
-  consumeEvent(socketId: string) {
-    const now = this.now();
-    const refillRate = this.config.eventLimit / this.config.eventWindowMs;
-    const bucket = this.buckets.get(socketId) ?? {
-      tokens: this.config.eventLimit,
-      updatedAt: now,
-      violations: 0,
-    };
-    const elapsed = Math.max(0, now - bucket.updatedAt);
-    bucket.tokens = Math.min(this.config.eventLimit, bucket.tokens + elapsed * refillRate);
-    bucket.updatedAt = now;
-
-    if (bucket.tokens >= 1) {
-      bucket.tokens -= 1;
-      this.buckets.set(socketId, bucket);
+  async consumeEvent(userId: string, socketId: string) {
+    const result = await this.counter.incrementWindow(`events:user:${userId}`, this.config.eventWindowMs);
+    if (result.count <= this.config.eventLimit) {
+      this.socketViolations.delete(socketId);
       return { allowed: true, disconnect: false, retryAfterMs: 0 };
     }
-
-    bucket.violations += 1;
-    this.buckets.set(socketId, bucket);
+    const violations = (this.socketViolations.get(socketId) ?? 0) + 1;
+    this.socketViolations.set(socketId, violations);
     return {
       allowed: false,
-      disconnect: bucket.violations >= this.config.violationLimit,
-      retryAfterMs: Math.ceil((1 - bucket.tokens) / refillRate),
+      disconnect: violations >= this.config.violationLimit,
+      retryAfterMs: result.retryAfterMs,
     };
   }
 
   clearSocket(socketId: string): void {
-    this.buckets.delete(socketId);
+    this.socketViolations.delete(socketId);
   }
 }

@@ -90,4 +90,34 @@ export class BatchController {
       res.status(400).json({ success: false, error: msg });
     }
   }
+
+  static async saveAttendance(req: AuthRequest, res: Response) {
+    try {
+      const ownerId = await getAllowedOwnerIds(req.user!);
+      const { date, records, note } = req.body;
+      if (!date) {
+        return res.status(400).json({ success: false, error: "Vui lòng truyền ngày điểm danh." });
+      }
+      const batch = await BatchService.saveAttendanceSession(ownerId, req.params.id, date, records, note);
+      res.json({ success: true, data: batch });
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : "Lỗi không xác định.";
+      res.status(400).json({ success: false, error: msg });
+    }
+  }
+
+  static async deleteAttendanceByDate(req: AuthRequest, res: Response) {
+    try {
+      const ownerId = await getAllowedOwnerIds(req.user!);
+      const { date } = req.query;
+      if (!date) {
+        return res.status(400).json({ success: false, error: "Vui lòng cung cấp ngày cần xóa điểm danh." });
+      }
+      const batch = await BatchService.deleteAttendanceSessionByDate(ownerId, req.params.id, String(date));
+      res.json({ success: true, data: batch });
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : "Lỗi không xác định.";
+      res.status(400).json({ success: false, error: msg });
+    }
+  }
 }
