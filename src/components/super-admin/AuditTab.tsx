@@ -29,7 +29,7 @@ interface AuditEvent {
   reason?: string;
   sourceIp?: string;
   userAgent?: string;
-  correlationId: string;
+  correlationId: string; entityType?: string; entityId?: string; projectId?: string; taskId?: string; workflowId?: string; tenantId?: string;
   before?: any;
   after?: any;
   backgroundJobId?: string;
@@ -49,7 +49,7 @@ export function AuditTab() {
     environment: "",
     riskClass: "",
     result: "",
-    actionType: "",
+    actionType: "", correlationId: "", projectId: "", taskId: "", workflowId: "", tenantId: "", entityType: "", entityId: "",
     startDate: "",
     endDate: "",
   });
@@ -89,7 +89,7 @@ export function AuditTab() {
       environment: "",
       riskClass: "",
       result: "",
-      actionType: "",
+      actionType: "", correlationId: "", projectId: "", taskId: "", workflowId: "", tenantId: "", entityType: "", entityId: "",
       startDate: "",
       endDate: "",
     });
@@ -166,6 +166,13 @@ export function AuditTab() {
           </div>
 
           <div className="space-y-1">
+            <label className="text-xs text-slate-400">Correlation ID</label>
+            <input type="text" name="correlationId" className="w-full rounded-xl bg-slate-850 border border-white/10 p-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none" value={filters.correlationId || ""} onChange={handleFilterChange} />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-slate-400">Project ID</label>
+            <input type="text" name="projectId" className="w-full rounded-xl bg-slate-850 border border-white/10 p-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none" value={filters.projectId || ""} onChange={handleFilterChange} />
+          </div>          <div className="space-y-1">
             <label className="text-xs text-slate-400">Mã doanh nghiệp</label>
             <input
               type="text"
