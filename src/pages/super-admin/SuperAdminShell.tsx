@@ -40,7 +40,7 @@ export default function SuperAdminShell() {
     try {
       const r = await superAdminAuthService.login(email, password);
       if (r.status !== "challenge_required") {
-        throw new Error("Tài khoản không yêu cầu xác thực Super Admin");
+        throw new Error("Tài khoản không yêu cầu xác thực quản trị viên tối cao");
       }
       setChallenge(r.challengeId);
       if (r.enrollmentRequired) {
@@ -119,9 +119,9 @@ export default function SuperAdminShell() {
           <aside className="w-full shrink-0 border-b border-white/10 bg-slate-950 p-4 sm:p-6 lg:w-64 lg:border-b-0 lg:border-r">
             <div className="space-y-6">
               <div>
-                <h1 className="text-xl font-black text-white tracking-wider">IGEN CONTROL</h1>
+                <h1 className="text-xl font-black text-white tracking-wider">BẢNG ĐIỀU KHIỂN</h1>
                 <p className="mt-1 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                  Super Admin Plane
+                  Không gian Quản trị Tối cao
                 </p>
               </div>
 
@@ -135,7 +135,7 @@ export default function SuperAdminShell() {
                   }`}
                 >
                   <LayoutDashboard className="h-4 w-4" />
-                  Tổng quan (Dashboard)
+                  Tổng quan hệ thống
                 </button>
 
                 <button
@@ -159,7 +159,7 @@ export default function SuperAdminShell() {
                   }`}
                 >
                   <UsersRound className="h-4 w-4" />
-                  Users & Access
+                  Quản trị tài khoản
                 </button>
                 <button
                   onClick={() => setActiveTab("tenants")}
@@ -170,7 +170,7 @@ export default function SuperAdminShell() {
                   }`}
                 >
                   <Building2 className="h-4 w-4" />
-                  Tenant management
+                  Quản lý doanh nghiệp
                 </button>
                 <button
                   onClick={() => setActiveTab("sessions")}
@@ -208,7 +208,7 @@ export default function SuperAdminShell() {
   return (
     <main className="min-h-screen bg-slate-950 text-white grid place-items-center p-6">
       <section className="w-full max-w-md rounded-3xl border border-white/10 bg-slate-900 p-8 shadow-2xl">
-        <p className="text-xs font-bold tracking-[.3em] text-cyan-400 uppercase">iGen Super Admin</p>
+        <p className="text-xs font-bold tracking-[.3em] text-cyan-400 uppercase">Quản trị Tối cao iGen</p>
         <h1 className="mt-3 text-2xl font-black">Đăng nhập đặc quyền</h1>
         
         {error && (
@@ -259,7 +259,7 @@ export default function SuperAdminShell() {
           <form onSubmit={submitCode} className="mt-6 space-y-4">
             {qr && (
               <div className="bg-white p-3 rounded-2xl max-w-[200px] mx-auto mb-4 border border-white/10">
-                <img src={qr} alt="QR Google Authenticator" className="w-full h-auto" />
+                <img src={qr} alt="Mã QR xác thực" className="w-full h-auto" />
               </div>
             )}
             <input
@@ -277,7 +277,7 @@ export default function SuperAdminShell() {
                 onClick={() => setStage(stage === "recovery" ? "totp" : "recovery")}
                 className="w-full text-xs text-slate-400 hover:text-white transition-all pt-2"
               >
-                {stage === "recovery" ? "Sử dụng mã OTP Authenticator" : "Sử dụng mã khôi phục dự phòng"}
+                {stage === "recovery" ? "Sử dụng ứng dụng xác thực" : "Sử dụng mã khôi phục dự phòng"}
               </button>
             )}
           </form>
