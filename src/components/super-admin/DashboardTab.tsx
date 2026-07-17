@@ -307,7 +307,7 @@ export function DashboardTab() {
                 <h5 className="text-sm font-bold text-white">Thống kê theo Doanh nghiệp</h5>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
+                <table className="w-full min-w-[540px] text-left text-sm">
                   <thead className="bg-slate-900/60 text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-white/5">
                     <tr>
                       <th className="p-3">Doanh nghiệp</th>
@@ -413,7 +413,7 @@ export function DashboardTab() {
           </h4>
           <div className="rounded-2xl border border-white/10 bg-slate-900/30 overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
+              <table className="w-full min-w-[460px] text-left text-sm">
                 <thead className="bg-slate-900/60 text-xs font-bold text-slate-400 border-b border-white/5">
                   <tr>
                     <th className="p-3">Hành động</th>
@@ -426,8 +426,11 @@ export function DashboardTab() {
                     <tr key={act.id} className="hover:bg-white/5 transition-colors">
                       <td className="p-3">
                         <span className="font-mono text-xs font-bold text-slate-200">{act.actionType}</span>
-                        <span className="block font-mono text-[9px] text-slate-500 mt-0.5">
-                          IP: {act.sourceIp} - {new Date(act.occurredAt).toLocaleTimeString("vi-VN")}
+                        <span className="hidden sm:block font-mono text-[9px] text-slate-500 mt-0.5">
+                          IP: {act.sourceIp} · {new Date(act.occurredAt).toLocaleTimeString("vi-VN")}
+                        </span>
+                        <span className="sm:hidden block font-mono text-[9px] text-slate-500 mt-0.5">
+                          {new Date(act.occurredAt).toLocaleTimeString("vi-VN")}
                         </span>
                       </td>
                       <td className="p-3 text-slate-300 truncate max-w-[150px]" title={act.actorEmail}>
