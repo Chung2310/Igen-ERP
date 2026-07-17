@@ -1,4 +1,5 @@
 import { Router, Response } from "express";
+import { randomUUID } from "node:crypto";
 import Joi from "joi";
 import mongoose from "mongoose";
 import { requireAuth, type AuthenticatedRequest } from "../middleware/auth";
@@ -7,6 +8,7 @@ import { ProjectModel } from "../model/project.model";
 import { UserModel } from "../model/user.model";
 import { notificationService } from "../service/notification.service";
 import { workflowLinkService } from "../service/workflow-link.service";
+import { kanbanAuditService } from "../service/kanban-audit.service";
 import { emitToCompany, emitToUser } from "../socket";
 
 export const kanbanRouter = Router();
@@ -36,6 +38,10 @@ function isManager(role?: string) {
 function companyFilter(req: AuthenticatedRequest) {
   const companyCode = req.user?.companyCode || "SYSTEM";
   return req.user?.role === "superadmin" && companyCode === "SYSTEM" ? {} : { companyCode };
+}
+
+function correlationId(req: AuthenticatedRequest) {
+  return String(req.get("X-Correlation-Id") || (req as any).id || randomUUID());
 }
 
 async function actorName(req: AuthenticatedRequest) {
@@ -208,6 +214,13 @@ kanbanRouter.post("/tasks", async (req: AuthenticatedRequest, res: Response) => 
       attachments: sanitizeAttachments(req.body.attachments) || [],
       history: [{ time: now.toISOString(), user: await actorName(req), action: "Tạo công việc mới" }],
     });
+    await kanbanAuditService.recordTaskMutation({
+      action: "created",
+      actorId: req.user?.id || "",
+      companyCode,
+      correlationId: correlationId(req),
+      task: toClient(task),
+    });
     await notificationService.notifyTaskAssigned(task as any);
     emitToCompany(companyCode, "kanban:task-created", toClient(task));
     return res.status(201).json({ status: "success", data: toClient(task) });
@@ -278,6 +291,15 @@ kanbanRouter.patch("/tasks/:id", async (req: AuthenticatedRequest, res: Response
     );
     if (!updated) throw httpError(409, "Công việc vừa được thay đổi. Vui lòng tải lại.");
 
+    await kanbanAuditService.recordTaskMutation({
+      action: "updated",
+      actorId: req.user?.id || "",
+      companyCode: task.companyCode,
+      correlationId: correlationId(req),
+      before: task,
+      task: toClient(updated),
+    });
+
     if (update.assigneeUid && update.assigneeUid !== task.assigneeUid) {
       await notificationService.notifyTaskReassigned(updated, task.assigneeUid);
     }
@@ -301,6 +323,13 @@ kanbanRouter.delete("/tasks/:id", async (req: AuthenticatedRequest, res: Respons
     if (!isManager(req.user?.role)) throw httpError(403, "Chỉ quản lý mới được xóa công việc.");
     const task: any = await KanbanTaskModel.findOneAndDelete({ _id: req.params.id, ...companyFilter(req) });
     if (!task) throw httpError(404, "Không tìm thấy công việc.");
+    await kanbanAuditService.recordTaskMutation({
+      action: "deleted",
+      actorId: req.user?.id || "",
+      companyCode: task.companyCode,
+      correlationId: correlationId(req),
+      task: toClient(task),
+    });
     await workflowLinkService.handleTaskDeletion(task);
     emitToCompany(task.companyCode, "kanban:task-deleted", { id: task._id.toString() });
     return res.json({ status: "success", data: toClient(task) });
@@ -325,6 +354,13 @@ kanbanRouter.post("/projects", async (req: AuthenticatedRequest, res: Response) 
     const name = String(req.body.name || "").trim();
     if (!name) throw httpError(400, "Tên dự án là bắt buộc.");
     const project = await ProjectModel.create({ name, companyCode, creatorUid: req.user?.id, createdAt: new Date() });
+    await kanbanAuditService.recordProjectMutation({
+      action: "created",
+      actorId: req.user?.id || "",
+      companyCode,
+      correlationId: correlationId(req),
+      project: project.toObject(),
+    });
     emitToCompany(companyCode, "kanban:project-created", project.toObject());
     return res.status(201).json({ status: "success", data: project });
   } catch (error) {
@@ -337,6 +373,13 @@ kanbanRouter.delete("/projects/:id", async (req: AuthenticatedRequest, res: Resp
     if (!isManager(req.user?.role)) throw httpError(403, "Chỉ quản lý mới được xóa dự án.");
     const project: any = await ProjectModel.findOneAndDelete({ _id: req.params.id, ...companyFilter(req) });
     if (!project) throw httpError(404, "Không tìm thấy dự án.");
+    await kanbanAuditService.recordProjectMutation({
+      action: "deleted",
+      actorId: req.user?.id || "",
+      companyCode: project.companyCode,
+      correlationId: correlationId(req),
+      project: toClient(project),
+    });
     await KanbanTaskModel.updateMany({ companyCode: project.companyCode, projectId: req.params.id }, { $set: { projectId: "" } });
     emitToCompany(project.companyCode, "kanban:project-deleted", { id: req.params.id });
     return res.json({ status: "success", data: project });
