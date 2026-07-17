@@ -36,4 +36,5 @@ export const AuditEventModel = Object.freeze({
   find: (filter: Record<string, unknown> = {}, projection?: any, options?: any) => RawAuditEventModel.find(filter, projection, options).lean().exec(),
   findOne: (filter: Record<string, unknown> = {}, projection?: any, options?: any) => RawAuditEventModel.findOne(filter, projection, options).lean().exec(),
   findById: (id: unknown, projection?: any, options?: any) => RawAuditEventModel.findById(id, projection, options).lean().exec(),
+  countDocuments: (filter: Record<string, unknown> = {}) => RawAuditEventModel.countDocuments(filter).exec(),
 });

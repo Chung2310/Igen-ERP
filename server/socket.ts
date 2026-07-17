@@ -364,3 +364,13 @@ export function broadcastEvent(eventName: string, data: any) {
   }
 }
 
+let mockHealthyForTesting = false;
+export function setSocketIoHealthyForTesting(healthy: boolean) {
+  mockHealthyForTesting = healthy;
+}
+
+export function isSocketIoHealthy(): boolean {
+  return io !== null || mockHealthyForTesting;
+}
+
+

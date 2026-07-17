@@ -7,7 +7,7 @@ export function createActionExecutor(deps: any) {
     const reservation = await deps.reserve({ actionId, actorId: context.actorId, idempotencyKey: request.idempotencyKey, actionType: definition.type, requestHash });
     if (!reservation.fresh) { if (reservation.requestHash !== requestHash) throw new Error("Idempotency key conflict"); return reservation.result; }
     if (definition.requiresStepUp) await deps.stepUp(context.sessionId, request.password, request.token, request.step, definition.type, actionId);
-    try { const result = await handler(parsed); await deps.complete(actionId, "succeeded", result); await deps.audit({ actionId, actionType: definition.type, riskClass: definition.risk, result: "success", reason: request.reason }); return result; }
+    try { const result = await handler(parsed); const response = { actionId, result }; await deps.complete(actionId, "succeeded", response); await deps.audit({ actionId, actionType: definition.type, riskClass: definition.risk, result: "success", reason: request.reason }); return response; }
     catch (error) { await deps.complete(actionId, "failed", undefined, error); await deps.audit({ actionId, actionType: definition.type, riskClass: definition.risk, result: "failure", reason: request.reason }); throw error; }
   };
 }

@@ -1,0 +1,6 @@
+import React from "react";
+export function RolePermissionEditor({ tenantId, role, permissions, onSave }: { tenantId: string; role: string; permissions: string[]; onSave: (role: string, permissions: string[], reason: string) => Promise<void> }) {
+  const [nextRole, setRole] = React.useState(role); const [reason, setReason] = React.useState("");
+  const blocked = tenantId !== "SYSTEM" && nextRole === "superadmin";
+  return <form className="space-y-2" onSubmit={async e => { e.preventDefault(); if (!blocked) await onSave(nextRole, permissions, reason); }}><label className="block text-sm">Role<select value={nextRole} onChange={e => setRole(e.target.value)} className="ml-2 rounded bg-slate-800 p-2"><option value="user">User</option><option value="admin">Admin</option>{tenantId === "SYSTEM" && <option value="superadmin">Super Admin</option>}</select></label>{blocked && <p className="text-sm text-red-300">Tenant users cannot be granted Super Admin.</p>}<input required value={reason} onChange={e => setReason(e.target.value)} placeholder="Written reason" className="w-full rounded bg-slate-800 p-2"/><button disabled={blocked} className="rounded bg-cyan-500 px-3 py-2 font-bold text-slate-950">Save access</button></form>;
+}

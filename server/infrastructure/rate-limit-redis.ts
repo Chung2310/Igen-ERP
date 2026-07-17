@@ -42,6 +42,10 @@ export function getRateLimitRedisClient(): Redis {
   return sharedClient;
 }
 
+export function setRateLimitRedisClientForTesting(client: any) {
+  sharedClient = client;
+}
+
 export class RedisRateLimitStore implements Store {
   readonly localKeys = false;
   readonly prefix: string;

@@ -11,7 +11,7 @@ test("dangerous actions require reason and step-up before invoking handler", asy
 
 test("exact duplicate returns its stored result without running twice", async () => {
   let calls = 0;
-  const execute = createActionExecutor({ reserve: async () => ({ fresh: false, result: { ok: true }, requestHash: "hash" }), complete: async () => undefined, audit: async () => undefined, stepUp: async () => true, hash: () => "hash", id: () => "a1" });
+  const execute = createActionExecutor({ reserve: async () => ({ fresh: false, result: { actionId: "a1", result: { ok: true } }, requestHash: "hash" }), complete: async () => undefined, audit: async () => undefined, stepUp: async () => true, hash: () => "hash", id: () => "a1" });
   const result = await execute({ actorId: "u1", sessionId: "s1" }, { definition: { type: "x", risk: "standard", requiresReason: false, requiresStepUp: false, parse: (v: any) => v }, input: {}, idempotencyKey: "k1" }, async () => { calls++; });
-  assert.deepEqual(result, { ok: true }); assert.equal(calls, 0);
+  assert.deepEqual(result, { actionId: "a1", result: { ok: true } }); assert.equal(calls, 0);
 });
