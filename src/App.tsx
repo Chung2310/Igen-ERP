@@ -17,6 +17,7 @@ import { browserNotificationService } from "./services/browserNotificationServic
 import { pushService } from "./services/pushService";
 import { setFaviconBadge } from "./utils/faviconBadge";
 import SuperAdminShell from "./pages/super-admin/SuperAdminShell";
+import { isSuperAdminPath } from "./router/superAdminRoute";
 
 const UNREAD_TITLE_PREFIX_RE = /^\(\d+\+?\d*\)\s/;
 
@@ -236,6 +237,10 @@ function normalizePublicPath(pathname: string) {
 }
 
 export default function App() {
+  if (isSuperAdminPath(window.location.pathname)) {
+    return <SuperAdminShell />;
+  }
+
   return (
     <AuthProvider>
       <ChatUnreadProvider>
