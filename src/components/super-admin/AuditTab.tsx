@@ -113,6 +113,7 @@ export function AuditTab() {
 
   // Selected event for detail modal
   const [selectedEvent, setSelectedEvent] = React.useState<AuditEvent | null>(null);
+  const [showAdvancedFilters, setShowAdvancedFilters] = React.useState(false);
 
   const fetchEvents = async (pageNumber = 1) => {
     setLoading(true);
@@ -207,35 +208,22 @@ export function AuditTab() {
 
       {/* Filters Form */}
       <form onSubmit={handleSearchSubmit} className="rounded-2xl border border-white/10 bg-slate-900/40 p-5 backdrop-blur-xl space-y-4">
-        <div className="flex items-center gap-2 text-sm font-bold text-white mb-2">
-          <Filter className="h-4 w-4 text-cyan-400" />
-          <span>Bộ lọc tìm kiếm</span>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm font-bold text-white">
+            <Filter className="h-4 w-4 text-cyan-400" />
+            <span>Bộ lọc tìm kiếm</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowAdvancedFilters((v) => !v)}
+            className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-slate-800 hover:bg-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-300 transition-all"
+          >
+            <Filter className="h-3.5 w-3.5" />
+            {showAdvancedFilters ? "Ẩn bộ lọc" : "Bộ lọc nâng cao"}
+          </button>
         </div>
+        {/* Primary filters - always visible */}
         <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
-          <div className="space-y-1">
-            <label className="text-xs text-slate-400">Mã liên kết (Correlation ID)</label>
-            <input type="text" name="correlationId" value={filters.correlationId} onChange={handleFilterChange} placeholder="VD: corr-123" className="w-full rounded-xl bg-slate-850 border border-white/10 p-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none" />
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs text-slate-400">Phân loại thực thể (Entity Type)</label>
-            <input type="text" name="entityType" value={filters.entityType} onChange={handleFilterChange} placeholder="VD: task" className="w-full rounded-xl bg-slate-850 border border-white/10 p-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none" />
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs text-slate-400">Mã thực thể (Entity ID)</label>
-            <input type="text" name="entityId" value={filters.entityId} onChange={handleFilterChange} placeholder="VD: task-123" className="w-full rounded-xl bg-slate-850 border border-white/10 p-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none" />
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs text-slate-400">Mã dự án (Project ID)</label>
-            <input type="text" name="projectId" value={filters.projectId} onChange={handleFilterChange} placeholder="VD: project-123" className="w-full rounded-xl bg-slate-850 border border-white/10 p-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none" />
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs text-slate-400">Mã công việc (Task ID)</label>
-            <input type="text" name="taskId" value={filters.taskId} onChange={handleFilterChange} placeholder="VD: task-123" className="w-full rounded-xl bg-slate-850 border border-white/10 p-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none" />
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs text-slate-400">Mã quy trình (Workflow ID)</label>
-            <input type="text" name="workflowId" value={filters.workflowId} onChange={handleFilterChange} placeholder="VD: workflow-123" className="w-full rounded-xl bg-slate-850 border border-white/10 p-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none" />
-          </div>
           <div className="space-y-1">
             <label className="text-xs text-slate-400">Loại hành động</label>
             <input
@@ -269,10 +257,10 @@ export function AuditTab() {
               onChange={handleFilterChange}
             >
               <option value="">Tất cả</option>
-              <option value="read_only">Chỉ đọc (Read Only)</option>
-              <option value="standard">Thông thường (Standard)</option>
-              <option value="sensitive">Nhạy cảm (Sensitive)</option>
-              <option value="dangerous">Nguy hiểm (Dangerous)</option>
+              <option value="read_only">Chỉ đọc</option>
+              <option value="standard">Thông thường</option>
+              <option value="sensitive">Nhạy cảm</option>
+              <option value="dangerous">Nguy hiểm</option>
             </select>
           </div>
 
@@ -285,69 +273,96 @@ export function AuditTab() {
               onChange={handleFilterChange}
             >
               <option value="">Tất cả</option>
-              <option value="success">Thành công (Success)</option>
-              <option value="partial">Thành công một phần (Partial)</option>
-              <option value="failure">Thất bại (Failure)</option>
+              <option value="success">Thành công</option>
+              <option value="partial">Thành công một phần</option>
+              <option value="failure">Thất bại</option>
             </select>
           </div>
+        </div>
 
-          <div className="space-y-1">
-            <label className="text-xs text-slate-400">Môi trường</label>
-            <select
-              name="environment"
-              className="w-full rounded-xl bg-slate-850 border border-white/10 p-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none"
-              value={filters.environment}
-              onChange={handleFilterChange}
-            >
-              <option value="">Tất cả</option>
-              <option value="staging">Staging</option>
-              <option value="production">Production</option>
-            </select>
+        {/* Advanced filters - collapsible */}
+        {showAdvancedFilters && (
+          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4 pt-2 border-t border-white/10">
+            <div className="space-y-1">
+              <label className="text-xs text-slate-400">Mã tham chiếu</label>
+              <input type="text" name="correlationId" value={filters.correlationId} onChange={handleFilterChange} placeholder="VD: corr-123" className="w-full rounded-xl bg-slate-850 border border-white/10 p-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-slate-400">Loại thực thể</label>
+              <input type="text" name="entityType" value={filters.entityType} onChange={handleFilterChange} placeholder="VD: task" className="w-full rounded-xl bg-slate-850 border border-white/10 p-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-slate-400">Mã thực thể</label>
+              <input type="text" name="entityId" value={filters.entityId} onChange={handleFilterChange} placeholder="VD: task-123" className="w-full rounded-xl bg-slate-850 border border-white/10 p-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-slate-400">Mã dự án</label>
+              <input type="text" name="projectId" value={filters.projectId} onChange={handleFilterChange} placeholder="VD: project-123" className="w-full rounded-xl bg-slate-850 border border-white/10 p-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-slate-400">Mã công việc</label>
+              <input type="text" name="taskId" value={filters.taskId} onChange={handleFilterChange} placeholder="VD: task-123" className="w-full rounded-xl bg-slate-850 border border-white/10 p-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-slate-400">Mã quy trình</label>
+              <input type="text" name="workflowId" value={filters.workflowId} onChange={handleFilterChange} placeholder="VD: workflow-123" className="w-full rounded-xl bg-slate-850 border border-white/10 p-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-slate-400">Môi trường</label>
+              <select
+                name="environment"
+                className="w-full rounded-xl bg-slate-850 border border-white/10 p-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none"
+                value={filters.environment}
+                onChange={handleFilterChange}
+              >
+                <option value="">Tất cả</option>
+                <option value="staging">Thử nghiệm</option>
+                <option value="production">Thực tế</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-slate-400">Từ ngày</label>
+              <input
+                type="date"
+                name="startDate"
+                className="w-full rounded-xl bg-slate-850 border border-white/10 p-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none"
+                value={filters.startDate}
+                onChange={handleFilterChange}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-slate-400">Đến ngày</label>
+              <input
+                type="date"
+                name="endDate"
+                className="w-full rounded-xl bg-slate-850 border border-white/10 p-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none"
+                value={filters.endDate}
+                onChange={handleFilterChange}
+              />
+            </div>
           </div>
+        )}
 
-          <div className="space-y-1">
-            <label className="text-xs text-slate-400">Từ ngày</label>
-            <input
-              type="date"
-              name="startDate"
-              className="w-full rounded-xl bg-slate-850 border border-white/10 p-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none"
-              value={filters.startDate}
-              onChange={handleFilterChange}
-            />
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-xs text-slate-400">Đến ngày</label>
-            <input
-              type="date"
-              name="endDate"
-              className="w-full rounded-xl bg-slate-850 border border-white/10 p-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none"
-              value={filters.endDate}
-              onChange={handleFilterChange}
-            />
-          </div>
-
-          <div className="flex items-end gap-2">
-            <button
-              type="button"
-              onClick={handleClearFilters}
-              className="flex-1 rounded-xl border border-white/10 bg-slate-800 hover:bg-slate-700 p-2.5 text-sm font-semibold text-slate-300 transition-all"
-            >
-              Xóa lọc
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex-1 rounded-xl bg-cyan-500 hover:bg-cyan-600 active:bg-cyan-700 p-2.5 text-sm font-bold text-slate-950 transition-all flex items-center justify-center gap-2"
-            >
-              {loading ? (
-                <RefreshCw className="h-4 w-4 animate-spin" />
-              ) : (
-                <Search className="h-4 w-4" />
-              )}
-              Tìm kiếm
-            </button>
-          </div>
+        <div className="flex items-center gap-2 pt-2">
+          <button
+            type="button"
+            onClick={handleClearFilters}
+            className="flex-1 rounded-xl border border-white/10 bg-slate-800 hover:bg-slate-700 p-2.5 text-sm font-semibold text-slate-300 transition-all"
+          >
+            Xóa lọc
+          </button>
+          <button
+            type="submit"
+            disabled={loading}
+            className="flex-1 rounded-xl bg-cyan-500 hover:bg-cyan-600 active:bg-cyan-700 p-2.5 text-sm font-bold text-slate-950 transition-all flex items-center justify-center gap-2"
+          >
+            {loading ? (
+              <RefreshCw className="h-4 w-4 animate-spin" />
+            ) : (
+              <Search className="h-4 w-4" />
+            )}
+            Tìm kiếm
+          </button>
         </div>
       </form>
 
@@ -360,7 +375,7 @@ export function AuditTab() {
       {/* Results Table */}
       <div className="rounded-2xl border border-white/10 bg-slate-900/30 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table className="w-full min-w-[720px] text-left text-sm">
             <thead className="bg-slate-950/40 text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-white/10">
               <tr>
                 <th className="p-4">Thời gian</th>
@@ -468,8 +483,8 @@ export function AuditTab() {
 
       {/* Inspect Detail Modal */}
       {selectedEvent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="relative w-full max-w-3xl rounded-3xl border border-white/10 bg-slate-900 p-6 shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="relative w-full max-w-3xl rounded-t-3xl sm:rounded-3xl border border-white/10 bg-slate-900 p-5 sm:p-6 shadow-2xl overflow-hidden flex flex-col max-h-[90vh] sm:max-h-[85vh]">
             <button
               onClick={() => setSelectedEvent(null)}
               className="absolute top-4 right-4 rounded-xl border border-white/10 bg-slate-800 hover:bg-slate-700 p-2 text-slate-400 hover:text-white transition-all"
