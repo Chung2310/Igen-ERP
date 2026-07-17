@@ -165,7 +165,7 @@ export function DashboardTab() {
             Tổng quan hệ thống
           </h3>
           <p className="text-sm text-slate-400 mt-1">
-            Theo dõi trạng thái sức khỏe, số liệu tài chính và hoạt động vận hành ERP.
+            Theo dõi trạng thái sức khỏe, số liệu tài chính và hoạt động vận hành hệ thống.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -235,7 +235,7 @@ export function DashboardTab() {
 
           <div className="rounded-2xl border border-white/10 bg-slate-900/40 p-5 backdrop-blur-xl flex items-center justify-between">
             <div className="space-y-1">
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Phiên Super Admin</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Phiên quản trị viên</p>
               <h4 className="text-3xl font-black text-white">{counts.activeSessions}</h4>
               <p className="text-[10px] text-green-400 mt-2 flex items-center gap-1">
                 <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
@@ -296,7 +296,7 @@ export function DashboardTab() {
                 </p>
                 <p className="text-xl font-black text-cyan-400 mt-1">
                   -{finance.totalUsage.toLocaleString("vi-VN")}
-                  <span className="text-xs ml-1 text-cyan-500">Credit</span>
+                  <span className="text-xs ml-1 text-cyan-500">tín dụng</span>
                 </p>
               </div>
             </div>
@@ -312,7 +312,7 @@ export function DashboardTab() {
                     <tr>
                       <th className="p-3">Doanh nghiệp</th>
                       <th className="p-3 text-right">Tổng nạp (USD)</th>
-                      <th className="p-3 text-right">Tổng chi (Credit)</th>
+                      <th className="p-3 text-right">Tổng chi (tín dụng)</th>
                       <th className="p-3 text-right">Số dư ví (USD)</th>
                     </tr>
                   </thead>
@@ -322,7 +322,7 @@ export function DashboardTab() {
                         <td className="p-3 font-semibold text-slate-200">
                           {tenant.companyName}
                           <span className="block font-mono text-[10px] font-normal text-slate-500">
-                            Code: {tenant.companyCode}
+                            Mã doanh nghiệp: {tenant.companyCode}
                           </span>
                         </td>
                         <td className="p-3 text-right text-green-400 font-medium">
@@ -359,12 +359,12 @@ export function DashboardTab() {
             </h4>
             <div className="rounded-2xl border border-white/10 bg-slate-900/30 p-5 space-y-4">
               {[
-                { name: "Cổng API Gateway", status: health.api },
-                { name: "Cơ sở dữ liệu (MongoDB)", status: health.database },
-                { name: "Bộ nhớ đệm (Redis)", status: health.redis },
-                { name: "Hàng đợi (BullMQ Worker)", status: health.queues },
-                { name: "Kho lưu trữ (Cloudinary)", status: health.storage },
-                { name: "Kết nối thời gian thực (Socket.IO)", status: health.socketIo },
+                { name: "Cổng kết nối hệ thống", status: health.api },
+                { name: "Cơ sở dữ liệu chính", status: health.database },
+                { name: "Bộ nhớ đệm hệ thống", status: health.redis },
+                { name: "Hàng đợi xử lý tác vụ", status: health.queues },
+                { name: "Kho lưu trữ tệp tin", status: health.storage },
+                { name: "Kênh truyền thông trực tuyến", status: health.socketIo },
               ].map((s) => (
                 <div key={s.name} className="flex items-center justify-between border-b border-white/5 pb-2.5 last:border-0 last:pb-0">
                   <span className="text-sm text-slate-300 font-medium">{s.name}</span>
@@ -443,7 +443,7 @@ export function DashboardTab() {
                               : "bg-red-500/10 text-red-400 border border-red-500/20"
                           }`}
                         >
-                          {act.result}
+                          {act.result === "success" ? "Thành công" : act.result === "partial" ? "Một phần" : "Thất bại"}
                         </span>
                       </td>
                     </tr>

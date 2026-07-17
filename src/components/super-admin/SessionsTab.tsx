@@ -142,7 +142,7 @@ export function SessionsTab() {
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <span className="font-mono text-xs font-bold text-slate-500">
-                        ID: {session.sessionId.slice(0, 8)}...
+                        Mã phiên: {session.sessionId.slice(0, 8)}...
                       </span>
                       {isCurrent && (
                         <span className="rounded-full bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 text-[10px] font-black text-cyan-400 uppercase tracking-wider">

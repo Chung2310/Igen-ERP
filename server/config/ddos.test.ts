@@ -14,6 +14,10 @@ test("uses approved DDoS protection defaults", () => {
   assert.equal(config.socketMaxPerUser, 10);
   assert.equal(config.socketMaxPerIp, 30);
   assert.equal(config.socketEventLimit, 120);
+  assert.equal(config.authIpWindowMs, 15 * 60 * 1000);
+  assert.equal(config.authIpLimit, 100);
+  assert.equal(config.loginAccountWindowMs, 15 * 60 * 1000);
+  assert.equal(config.loginAccountLimit, 10);
 });
 
 test("accepts positive integer overrides", () => {
@@ -22,11 +26,15 @@ test("accepts positive integer overrides", () => {
     DDOS_PUBLIC_LIMIT: "240",
     DDOS_SOCKET_MAX_PER_USER: "15",
     DDOS_GENERAL_BODY_LIMIT: "3mb",
+    DDOS_AUTH_IP_LIMIT: "250",
+    DDOS_LOGIN_ACCOUNT_LIMIT: "5",
   });
   assert.equal(config.globalLimit, 2500);
   assert.equal(config.publicLimit, 240);
   assert.equal(config.socketMaxPerUser, 15);
   assert.equal(config.generalBodyLimit, "3mb");
+  assert.equal(config.authIpLimit, 250);
+  assert.equal(config.loginAccountLimit, 5);
 });
 
 test("falls back for invalid, zero, and negative numeric values", () => {
