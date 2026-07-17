@@ -3,6 +3,7 @@ import { getDeploymentEnv } from "../config/env";
 import { requireAuth } from "../middleware/auth";
 import { requirePrivilegedSession, requireRealSuperAdmin } from "../middleware/super-admin-auth";
 import { superAdminAuthService } from "../service/super-admin-auth.service";
+import { createTenantRouter } from "./super-admin-tenant.router";
 
 export const superAdminRouter = Router();
 const cookie = { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict" as const, maxAge: 8 * 60 * 60_000 };
@@ -27,6 +28,7 @@ superAdminRouter.post("/auth/recovery/verify", async (req, res) => {
 
 superAdminRouter.use(requireAuth as any, requireRealSuperAdmin as any, requirePrivilegedSession as any);
 superAdminRouter.get("/environment", (_req, res) => res.json({ environment: getDeploymentEnv() }));
+superAdminRouter.use(createTenantRouter());
 superAdminRouter.get("/auth/sessions", async (req: any, res) => res.json({ sessions: await superAdminAuthService.listSessions(req.user.id) }));
 superAdminRouter.delete("/auth/sessions/:sessionId", async (req, res) => res.json({ revoked: await superAdminAuthService.revokeSession(req.params.sessionId) }));
 superAdminRouter.post("/auth/logout", async (req: any, res) => { await superAdminAuthService.revokeSession(req.user.sessionId, "logout"); res.clearCookie("refreshToken"); return res.json({ status: "ok" }); });
