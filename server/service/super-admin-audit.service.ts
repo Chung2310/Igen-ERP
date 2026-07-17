@@ -9,8 +9,15 @@ export interface AuditFilters {
   riskClass?: string;
   result?: string;
   actionType?: string;
+  correlationId?: string;
+  tenantId?: string;
+  entityType?: string;
+  entityId?: string;
+  projectId?: string;
+  taskId?: string;
+  workflowId?: string;
   startDate?: string;
-  endDate?: string; correlationId?: string; entityType?: string; entityId?: string; projectId?: string; taskId?: string; workflowId?: string; tenantId?: string;
+  endDate?: string;
 }
 
 export interface Pagination {
@@ -45,6 +52,11 @@ export const superAdminAuditService = {
     }
     if (filters.actionType) {
       query.actionType = { $regex: filters.actionType, $options: "i" };
+    }
+    for (const field of ["correlationId", "tenantId", "entityType", "entityId", "projectId", "taskId", "workflowId"] as const) {
+      if (filters[field]) {
+        query[field] = filters[field];
+      }
     }
 
     for (const field of ["correlationId", "entityType", "entityId", "projectId", "taskId", "workflowId", "tenantId"] as const) {

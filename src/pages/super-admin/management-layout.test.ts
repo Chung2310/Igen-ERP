@@ -16,3 +16,15 @@ test("super admin management screens protect narrow layouts and keep text readab
   assert.match(users, /text-slate-100/);
   assert.match(users, /truncate/);
 });
+
+test("audit timeline exposes operational trace filters and linked references", () => {
+  const audit = read("../../components/super-admin/AuditTab.tsx");
+
+  for (const field of ["correlationId", "entityType", "entityId", "projectId", "taskId", "workflowId"]) {
+    assert.match(audit, new RegExp(`name=["']${field}["']`), field);
+  }
+  assert.match(audit, /selectedEvent\.correlationId/);
+  assert.match(audit, /selectedEvent\.projectId/);
+  assert.match(audit, /selectedEvent\.taskId/);
+  assert.match(audit, /selectedEvent\.workflowId/);
+});

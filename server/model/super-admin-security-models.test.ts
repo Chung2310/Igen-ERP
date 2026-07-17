@@ -50,6 +50,18 @@ test("audit paths are immutable and action timestamps are managed", () => {
   assert.equal(AdminActionModel.schema.get("timestamps"), true);
 });
 
+test("audit events expose immutable operational references and timeline indexes", () => {
+  for (const path of ["entityType", "entityId", "projectId", "taskId", "workflowId", "tenantId"]) {
+    assert.ok(auditSchema.path(path), path);
+    assert.equal(auditSchema.path(path)?.options.immutable, true, path);
+  }
+
+  assert.equal(
+    hasIndex(auditSchema.indexes(), { companyCode: 1, occurredAt: -1 }, {}),
+    true,
+  );
+});
+
 test("toJSON and toObject omit privileged secrets", () => {
   assert.equal(UserModel.schema.path("superAdminSecurity.totpSecretEncrypted")?.options.select, false);
   assert.equal(UserModel.schema.path("superAdminSecurity.recoveryCodeHashes")?.options.select, false);

@@ -42,6 +42,13 @@ export const superAdminController = {
         riskClass: req.query.riskClass as string | undefined,
         result: req.query.result as string | undefined,
         actionType: req.query.actionType as string | undefined,
+        correlationId: req.query.correlationId as string | undefined,
+        tenantId: req.query.tenantId as string | undefined,
+        entityType: req.query.entityType as string | undefined,
+        entityId: req.query.entityId as string | undefined,
+        projectId: req.query.projectId as string | undefined,
+        taskId: req.query.taskId as string | undefined,
+        workflowId: req.query.workflowId as string | undefined,
         startDate: req.query.startDate as string | undefined,
         endDate: req.query.endDate as string | undefined,
       };

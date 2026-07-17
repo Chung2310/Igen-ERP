@@ -25,11 +25,17 @@ interface AuditEvent {
   effectiveUserId?: string;
   impersonationSessionId?: string;
   companyCode?: string;
+  tenantId?: string;
+  entityType?: string;
+  entityId?: string;
+  projectId?: string;
+  taskId?: string;
+  workflowId?: string;
   environment: "staging" | "production";
   reason?: string;
   sourceIp?: string;
   userAgent?: string;
-  correlationId: string; entityType?: string; entityId?: string; projectId?: string; taskId?: string; workflowId?: string; tenantId?: string;
+  correlationId: string;
   before?: any;
   after?: any;
   backgroundJobId?: string;
@@ -49,7 +55,14 @@ export function AuditTab() {
     environment: "",
     riskClass: "",
     result: "",
-    actionType: "", correlationId: "", projectId: "", taskId: "", workflowId: "", tenantId: "", entityType: "", entityId: "",
+    actionType: "",
+    correlationId: "",
+    tenantId: "",
+    entityType: "",
+    entityId: "",
+    projectId: "",
+    taskId: "",
+    workflowId: "",
     startDate: "",
     endDate: "",
   });
@@ -89,7 +102,14 @@ export function AuditTab() {
       environment: "",
       riskClass: "",
       result: "",
-      actionType: "", correlationId: "", projectId: "", taskId: "", workflowId: "", tenantId: "", entityType: "", entityId: "",
+      actionType: "",
+      correlationId: "",
+      tenantId: "",
+      entityType: "",
+      entityId: "",
+      projectId: "",
+      taskId: "",
+      workflowId: "",
       startDate: "",
       endDate: "",
     });
@@ -153,6 +173,30 @@ export function AuditTab() {
           <span>Bộ lọc tìm kiếm</span>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
+          <div className="space-y-1">
+            <label className="text-xs text-slate-400">Correlation ID</label>
+            <input type="text" name="correlationId" value={filters.correlationId} onChange={handleFilterChange} placeholder="corr-123" className="w-full rounded-xl bg-slate-850 border border-white/10 p-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-slate-400">Entity type</label>
+            <input type="text" name="entityType" value={filters.entityType} onChange={handleFilterChange} placeholder="task" className="w-full rounded-xl bg-slate-850 border border-white/10 p-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-slate-400">Entity ID</label>
+            <input type="text" name="entityId" value={filters.entityId} onChange={handleFilterChange} placeholder="task-123" className="w-full rounded-xl bg-slate-850 border border-white/10 p-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-slate-400">Project ID</label>
+            <input type="text" name="projectId" value={filters.projectId} onChange={handleFilterChange} placeholder="project-123" className="w-full rounded-xl bg-slate-850 border border-white/10 p-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-slate-400">Task ID</label>
+            <input type="text" name="taskId" value={filters.taskId} onChange={handleFilterChange} placeholder="task-123" className="w-full rounded-xl bg-slate-850 border border-white/10 p-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-slate-400">Workflow ID</label>
+            <input type="text" name="workflowId" value={filters.workflowId} onChange={handleFilterChange} placeholder="workflow-123" className="w-full rounded-xl bg-slate-850 border border-white/10 p-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none" />
+          </div>
           <div className="space-y-1">
             <label className="text-xs text-slate-400">Loại hành động</label>
             <input
@@ -454,6 +498,10 @@ export function AuditTab() {
                 <div>
                   <span className="text-slate-500 block">Correlation ID</span>
                   <span className="font-mono text-slate-400">{selectedEvent.correlationId}</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block">Project / Task / Workflow</span>
+                  <span className="font-mono text-slate-400">{selectedEvent.projectId || "N/A"} / {selectedEvent.taskId || "N/A"} / {selectedEvent.workflowId || "N/A"}</span>
                 </div>
               </div>
 
