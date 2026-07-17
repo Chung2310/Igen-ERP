@@ -41,3 +41,4 @@ temp/
 credentials*.json
 service-account*.json
 service_account*.json
+.worktrees/
