@@ -48,3 +48,12 @@ test("uses allow-listed create and update fields", async () => {
   assert.equal(updated.code, "ACME");
   assert.equal((updated as any).ignored, undefined);
 });
+
+test("only schedules archived tenants when preview and backup evidence are recorded", async () => {
+  const service = new TenantManagementService(repository([{ code: "ACME", name: "Acme", ownerEmail: "owner@acme.test", lifecycleStatus: "active", createdAt: new Date() }]));
+  await assert.rejects(() => service.scheduleDeletion("ACME", "contract ended", new Date(), { affectedUsers: 1 }, "backup-1"), /archived/);
+  await service.transitionLifecycle("ACME", "archived");
+  await assert.rejects(() => service.scheduleDeletion("ACME", "contract ended", new Date(), undefined as any, "backup-1"), /impact preview/);
+  const scheduled: any = await service.scheduleDeletion("ACME", "contract ended", new Date(), { affectedUsers: 1 }, "backup-1");
+  assert.equal(scheduled.deletionJob.status, "queued"); assert.equal(scheduled.deletionJob.backupEvidenceId, "backup-1");
+});
