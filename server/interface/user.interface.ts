@@ -1,5 +1,14 @@
 import { Document } from "mongoose";
 
+export interface ISuperAdminSecurity {
+  totpEnabled: boolean;
+  totpSecretEncrypted?: string;
+  recoveryCodeHashes: string[];
+  enrolledAt?: Date;
+  failedTotpAttempts: number;
+  lockedUntil?: Date;
+}
+
 export interface IFacebookIntegration {
   isConnected: boolean;
   pageId: string;
@@ -98,5 +107,6 @@ export interface IUser extends Document {
   companyCode?: string;
   companyName?: string;
   permissions?: string[];
+  superAdminSecurity?: ISuperAdminSecurity;
 }
 

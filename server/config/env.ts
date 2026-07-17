@@ -24,6 +24,18 @@ export function getJwtRefreshSecret(): string {
   return requireSecret("JWT_REFRESH_SECRET");
 }
 
+export function getSuperAdminEncryptionKey(): Buffer {
+  const value = (process.env.SUPERADMIN_ENCRYPTION_KEY || "").trim();
+  if (!/^[a-fA-F0-9]{64}$/.test(value)) throw new Error("[env] SUPERADMIN_ENCRYPTION_KEY must be exactly 64 hexadecimal characters.");
+  return Buffer.from(value, "hex");
+}
+
+export function getDeploymentEnv(): "staging" | "production" {
+  const value = (process.env.DEPLOYMENT_ENV || "").trim().toLowerCase();
+  if (value !== "staging" && value !== "production") throw new Error("[env] DEPLOYMENT_ENV must be staging or production.");
+  return value;
+}
+
 /**
  * Gọi khi khởi động server: kiểm tra toàn bộ secret bắt buộc,
  * thiếu cái nào thì từ chối khởi động thay vì chạy với giá trị mặc định không an toàn.
@@ -31,4 +43,6 @@ export function getJwtRefreshSecret(): string {
 export function assertSecurityEnv(): void {
   getJwtAccessSecret();
   getJwtRefreshSecret();
+  getSuperAdminEncryptionKey();
+  getDeploymentEnv();
 }

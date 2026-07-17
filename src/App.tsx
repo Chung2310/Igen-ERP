@@ -16,6 +16,7 @@ import { NotificationToastContainer } from "./components/notification/Notificati
 import { browserNotificationService } from "./services/browserNotificationService";
 import { pushService } from "./services/pushService";
 import { setFaviconBadge } from "./utils/faviconBadge";
+import SuperAdminShell from "./pages/super-admin/SuperAdminShell";
 
 const UNREAD_TITLE_PREFIX_RE = /^\(\d+\+?\d*\)\s/;
 
