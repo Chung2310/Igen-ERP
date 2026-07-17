@@ -56,6 +56,7 @@ test("queryEvents returns paginated audit events with resolved actor emails", as
       result: "success",
       environment: "staging",
       actionType: "totp",
+      correlationId: "corr-1", projectId: "project-1", taskId: "task-1", workflowId: "workflow-1", tenantId: "tenant-1", entityType: "task", entityId: "task-1",
       startDate: "2026-07-16T00:00:00Z",
       endDate: "2026-07-18T00:00:00Z",
     };
@@ -78,6 +79,13 @@ test("queryEvents returns paginated audit events with resolved actor emails", as
     assert.equal(findQueryFilter.result, "success");
     assert.equal(findQueryFilter.environment, "staging");
     assert.deepEqual(findQueryFilter.actionType, { $regex: "totp", $options: "i" });
+    assert.equal(findQueryFilter.correlationId, "corr-1");
+    assert.equal(findQueryFilter.projectId, "project-1");
+    assert.equal(findQueryFilter.taskId, "task-1");
+    assert.equal(findQueryFilter.workflowId, "workflow-1");
+    assert.equal(findQueryFilter.tenantId, "tenant-1");
+    assert.equal(findQueryFilter.entityType, "task");
+    assert.equal(findQueryFilter.entityId, "task-1");
     assert.ok(findQueryFilter.occurredAt.$gte instanceof Date);
     assert.ok(findQueryFilter.occurredAt.$lte instanceof Date);
 
