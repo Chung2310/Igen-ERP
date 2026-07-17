@@ -11,6 +11,7 @@ import { ICompany } from "../interface/company.interface";
 import { TelegramLinkStatus } from "../interface/telegram-link.interface";
 import { pickSelfServiceProfileUpdate } from "../utils/self-service-profile-update";
 import { superAdminAuthService } from "./super-admin-auth.service";
+import { requiresSuperAdminChallenge } from "./super-admin-login-policy";
 
 import { getJwtAccessSecret, getJwtRefreshSecret } from "../config/env";
 const TELEGRAM_LINK_CODE_TTL_MS = 5 * 60 * 1000;
@@ -91,8 +92,12 @@ export const authService = {
       throw new Error("Yêu cầu mật khẩu để đăng nhập.");
     }
 
+    if (requiresSuperAdminChallenge(user.role)) {
+      return superAdminAuthService.beginSuperAdminLogin(user);
+    }
+
     const tokens = this.generateTokens(user);
-    return { user, ...tokens };
+    return { kind: "authenticated" as const, user, ...tokens };
   },
 
   /**
