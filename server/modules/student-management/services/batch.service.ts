@@ -2,7 +2,7 @@ import { Batch } from "../models/batch.model";
 import { Course } from "../models/course.model";
 import { User } from "../models/user.model";
 import { Student } from "../models/student.model";
-import { IBatch } from "../interfaces/batch.interface";
+import { IBatch, IAttendanceSession, IAttendanceRecord } from "../interfaces/batch.interface";
 import { logger } from "../config/logger";
 import { resolveOwnerFilter } from "../utils/auth.util";
 
@@ -313,5 +313,65 @@ export class BatchService {
       }
     }
     return events;
+  }
+
+  static async saveAttendanceSession(
+    ownerId: string | string[],
+    batchId: string,
+    date: string,
+    records: { studentId: string; status: "present" | "absent" | "excused" }[],
+    note?: string
+  ): Promise<EnrichedBatch> {
+    const batch = await Batch.findOne({ _id: batchId, ...buildOwnerQuery(ownerId) });
+    if (!batch) {
+      throw new Error("Không tìm thấy lớp học.");
+    }
+    
+    const dateStr = date.trim();
+    let session = batch.attendanceSessions.find(s => s.date === dateStr);
+    
+    if (!session) {
+      const newSessionObj = {
+        date: dateStr,
+        note: note || "",
+        records: []
+      };
+      batch.attendanceSessions.push(newSessionObj as unknown as IAttendanceSession);
+      session = batch.attendanceSessions.find(s => s.date === dateStr);
+    }
+
+    if (session) {
+      if (note !== undefined) session.note = note;
+      if (records) {
+        session.records = records.map(r => ({
+          studentId: r.studentId,
+          status: r.status
+        })) as unknown as IAttendanceRecord[];
+      }
+    }
+
+    const saved = await batch.save();
+    return (await enrichBatches([saved]))[0];
+  }
+
+  static async deleteAttendanceSessionByDate(
+    ownerId: string | string[],
+    batchId: string,
+    date: string
+  ): Promise<EnrichedBatch> {
+    const batch = await Batch.findOne({ _id: batchId, ...buildOwnerQuery(ownerId) });
+    if (!batch) {
+      throw new Error("Không tìm thấy lớp học.");
+    }
+
+    const before = batch.attendanceSessions.length;
+    const dateStr = date.trim();
+    batch.attendanceSessions = batch.attendanceSessions.filter(s => s.date !== dateStr) as unknown as IAttendanceSession[];
+    if (batch.attendanceSessions.length === before) {
+      throw new Error("Không tìm thấy dữ liệu điểm danh của ngày này để xóa.");
+    }
+
+    const saved = await batch.save();
+    return (await enrichBatches([saved]))[0];
   }
 }

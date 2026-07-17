@@ -13,6 +13,7 @@ router.use(authMiddleware);
 
 router.post("/", validate(createStudentSchema), StudentController.create);
 router.post("/bulk", StudentController.bulkCreate);
+router.post("/bulk-delete", StudentController.bulkDelete);
 router.get("/", StudentController.getList);
 router.get("/:id", validate(idParamSchema, "params"), StudentController.getDetail);
 router.patch("/:id", validate(idParamSchema, "params"), validate(updateStudentSchema), StudentController.update);

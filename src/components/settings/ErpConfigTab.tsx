@@ -17,6 +17,8 @@ export default function ErpConfigTab() {
   const [isLocating, setIsLocating] = useState(false);
   const [savingLocation, setSavingLocation] = useState(false);
 
+
+
   // Cấu hình vị trí chấm công (GPS) chỉ dành cho admin/superadmin xem & sửa
   const canManageLocation = userProfile?.role === "superadmin" || userProfile?.role === "admin";
 
@@ -138,6 +140,8 @@ export default function ErpConfigTab() {
           </div>
         </div>
       </div>
+
+
 
       {/* Cấu hình Vị trí Chấm công (GPS) — chỉ admin/superadmin */}
       {canManageLocation && (

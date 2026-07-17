@@ -4,12 +4,12 @@ import { X, Save, ChevronDown, Loader2 } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
 import { useAuth } from '../../../../context/AuthContext';
 import { toast } from '../../../../pages/Toast';
-import { useBatches } from '../../hooks/useBatches';
 import { useAdminCenters } from '../../hooks/useAdminCenters';
-import { formatVND, toInputDate, toDisplayDate } from '../../lib/utils';
-import { Student, Partner } from '../../types';
+import { useCourses } from '../../hooks/useCourses';
+import { formatVND, toInputDate, toDisplayDate, compressImage } from '../../lib/utils';
+import { Student, Partner, UploadedFile } from '../../types';
 import { findDuplicateStudentField } from '../../lib/studentUniqueness';
-import { FormInput } from './components/StudentFormFields';
+import { FormInput, UploadCard } from './components/StudentFormFields';
 
 interface AddStudentModalProps {
   isOpen: boolean;
@@ -22,15 +22,14 @@ interface AddStudentModalProps {
 export function AddStudentModal({ isOpen, onClose, onSuccess, students, selectedCenter }: AddStudentModalProps) {
   const { userProfile: user } = useAuth();
   
-  const { batches } = useBatches();
   const { centers } = useAdminCenters();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [batchId, setBatchId] = useState('');
   const [selectedCenterId, setSelectedCenterId] = useState<string>(() => {
     return selectedCenter && selectedCenter !== 'all' ? selectedCenter : '';
   });
   const [prevSelectedCenter, setPrevSelectedCenter] = useState(selectedCenter);
+  const { courses } = useCourses(user?.role === 'superadmin' ? selectedCenterId : undefined);
 
   if (selectedCenter !== prevSelectedCenter) {
     setPrevSelectedCenter(selectedCenter);
@@ -67,32 +66,88 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
     partnerId: '',
     birthday: '',
     idCard: '',
+    courseId: '',
     registrationDate: new Date().toLocaleDateString('vi-VN'),
     enrollmentDate: '',
     fee: '',
     address: '',
     email: '',
+    idCardFrontFile: undefined as UploadedFile | undefined,
+    idCardBackFile: undefined as UploadedFile | undefined,
+    portraitFile: undefined as UploadedFile | undefined,
   });
 
-  const getRequiredFieldsConfig = () => {
-    const saved = localStorage.getItem('requiredFieldsConfig');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error('Error parsing requiredFieldsConfig', e);
+  const [uploadingField, setUploadingField] = useState<'idCardFrontFile' | 'idCardBackFile' | 'portraitFile' | null>(null);
+
+  const handleUploadFile = async (field: 'idCardFrontFile' | 'idCardBackFile' | 'portraitFile', file?: File) => {
+    if (!file) return;
+    setUploadingField(field);
+    try {
+      const compressedFile = await compressImage(file);
+      const body = new FormData();
+      body.append('file', compressedFile);
+      const res = await apiFetch('/upload', { method: 'POST', body });
+      if (res.success && res.data) {
+        setFormData(prev => ({
+          ...prev,
+          [field]: {
+            name: res.data.name,
+            url: res.data.url,
+            type: res.data.type,
+            uploadedAt: res.data.uploadedAt || new Date().toISOString(),
+          }
+        }));
+        toast.success('Tải ảnh thành công!');
       }
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast.error(error instanceof Error ? error.message : 'Không thể tải ảnh lên.');
+    } finally {
+      setUploadingField(null);
     }
-    return {
-      fullName: true,
-      phone: true,
-      birthday: false,
-      idCard: false,
-      email: false
-    };
   };
 
-  const requiredFields = getRequiredFieldsConfig();
+  const handleCourseChange = (courseId: string) => {
+    const course = courses.find(c => c.id === courseId);
+    setFormData(prev => ({
+      ...prev,
+      courseId: courseId,
+      fee: course ? formatVND(course.fee) : '',
+    }));
+  };
+
+  const getStudentFormConfig = () => {
+    const ownerId = user?.centerId || user?.uid || 'default';
+    const configKey = `studentFormConfig_${ownerId}`;
+    const saved = localStorage.getItem(configKey);
+    const defaults: Record<string, { visible: boolean; required: boolean }> = {
+      email:           { visible: true,  required: false },
+      birthday:        { visible: true,  required: false },
+      idCard:          { visible: true,  required: false },
+      address:         { visible: true,  required: false },
+      referral:        { visible: true,  required: false },
+      idCardFrontFile: { visible: false, required: false },
+      idCardBackFile:  { visible: false, required: false },
+      portraitFile:    { visible: false, required: false },
+    };
+    if (saved) {
+      try {
+        return { ...defaults, ...JSON.parse(saved) };
+      } catch (e) {
+        console.error('Error parsing studentFormConfig', e);
+      }
+    }
+    return defaults;
+  };
+
+  const formConfig = getStudentFormConfig();
+  const requiredFields = {
+    fullName: true,
+    phone: true,
+    birthday: formConfig.birthday?.required ?? false,
+    idCard: formConfig.idCard?.required ?? false,
+    email: formConfig.email?.required ?? false,
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,6 +163,9 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
     if (requiredFields.birthday && !formData.birthday) missingFields.push('Ngày sinh');
     if (requiredFields.idCard && !formData.idCard) missingFields.push('CCCD/CMND');
     if (requiredFields.email && !formData.email) missingFields.push('Email');
+    if (formConfig.idCardFrontFile?.required && !formData.idCardFrontFile) missingFields.push('Ảnh CCCD mặt trước');
+    if (formConfig.idCardBackFile?.required && !formData.idCardBackFile) missingFields.push('Ảnh CCCD mặt sau');
+    if (formConfig.portraitFile?.required && !formData.portraitFile) missingFields.push('Ảnh chân dung');
 
     if (missingFields.length > 0) {
       const message = `Vui lòng điền đầy đủ các trường bắt buộc: ${missingFields.join(', ')}`;
@@ -135,6 +193,13 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
       return;
     }
 
+    if (!formData.courseId) {
+      const message = "Vui lòng chọn khóa học đăng ký.";
+      setErrorMsg(message);
+      toast.error(message);
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const res = await apiFetch('/students', {
@@ -143,7 +208,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
           ...formData,
           birthday: toDisplayDate(formData.birthday),
           enrollmentDate: toDisplayDate(formData.enrollmentDate),
-          fee: '',
+          fee: formData.fee,
           idCardFront: '',
           idCardBack: '',
           status: ['Đang học'],
@@ -155,19 +220,6 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
 
       if (res.success && res.data) {
         const studentWithId = { id: res.data._id, ...res.data };
-
-        if (batchId) {
-          try {
-            await apiFetch(`/batches/${batchId}/learners`, {
-              method: 'POST',
-              body: JSON.stringify({ studentId: res.data._id }),
-            });
-            window.dispatchEvent(new Event('batch-mutation'));
-          } catch (batchError: unknown) {
-            const msg = batchError instanceof Error ? batchError.message : 'Không thể xếp lớp.';
-            toast.warning(`Đã tạo học viên nhưng chưa xếp được vào lớp: ${msg}`);
-          }
-        }
 
         window.dispatchEvent(new Event('student-mutation'));
         toast.success('Đã lưu hồ sơ học viên thành công!');
@@ -181,6 +233,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
           partnerId: '',
           birthday: '',
           idCard: '',
+          courseId: '',
           registrationDate: new Date().toLocaleDateString('vi-VN'),
           enrollmentDate: '',
           fee: '',
@@ -188,7 +241,6 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
           email: '',
         });
         setReferralMode('none');
-        setBatchId('');
         setSelectedCenterId(selectedCenter && selectedCenter !== 'all' ? selectedCenter : '');
       }
     } catch (error: unknown) {
@@ -282,114 +334,121 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
                   required={requiredFields.phone}
                   placeholder="Nhập số điện thoại..."
                 />
-                <FormInput
-                  label="Email học viên"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  required={requiredFields.email}
-                  placeholder="Nhập địa chỉ email..."
-                  className="sm:col-span-2"
-                />
+                {formConfig.email?.visible !== false && (
+                  <FormInput
+                    label="Email học viên"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    required={requiredFields.email}
+                    placeholder="Nhập địa chỉ email..."
+                    className="sm:col-span-2"
+                  />
+                )}
 
-                <div className="sm:col-span-2 space-y-1">
-                  <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider">
-                    Nguồn giới thiệu
-                  </label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="relative">
-                      <select
-                        value={referralMode}
-                        onChange={(e) => {
-                          const mode = e.target.value as 'none' | 'partner' | 'custom';
-                          setReferralMode(mode);
-                          if (mode === 'none') {
-                            setFormData(prev => ({ ...prev, partnerId: '', referral: '' }));
-                          } else if (mode === 'custom') {
-                            setFormData(prev => ({ ...prev, partnerId: '', referral: '' }));
-                          } else {
-                            setFormData(prev => ({ ...prev, partnerId: partners[0]?._id || '', referral: partners[0]?.name || '' }));
-                          }
-                        }}
-                        className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm appearance-none focus:outline-none focus:ring-4 focus:ring-cyan-600/5 focus:border-cyan-600 transition-all cursor-pointer"
-                      >
-                        <option value="none">Không có giới thiệu</option>
-                        <option value="partner">Đối tác / CTV hệ thống</option>
-                        <option value="custom">Nhập người giới thiệu khác</option>
-                      </select>
-                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                    </div>
-
-                    {referralMode === 'partner' && (
+                {formConfig.referral?.visible !== false && (
+                  <div className="sm:col-span-2 space-y-1">
+                    <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider">
+                      Nguồn giới thiệu
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="relative">
                         <select
-                          value={formData.partnerId}
+                          value={referralMode}
                           onChange={(e) => {
-                            const pId = e.target.value;
-                            const pObj = partners.find(p => p._id === pId);
-                            setFormData(prev => ({ ...prev, partnerId: pId, referral: pObj ? pObj.name : '' }));
+                            const mode = e.target.value as 'none' | 'partner' | 'custom';
+                            setReferralMode(mode);
+                            if (mode === 'none') {
+                              setFormData(prev => ({ ...prev, partnerId: '', referral: '' }));
+                            } else if (mode === 'custom') {
+                              setFormData(prev => ({ ...prev, partnerId: '', referral: '' }));
+                            } else {
+                              setFormData(prev => ({ ...prev, partnerId: partners[0]?._id || '', referral: partners[0]?.name || '' }));
+                            }
                           }}
                           className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm appearance-none focus:outline-none focus:ring-4 focus:ring-cyan-600/5 focus:border-cyan-600 transition-all cursor-pointer"
                         >
-                          <option value="">-- Chọn đối tác --</option>
-                          {partners.map(p => (
-                            <option key={p._id} value={p._id}>
-                              {p.name} ({p.phone})
-                            </option>
-                          ))}
+                          <option value="none">Không có giới thiệu</option>
+                          <option value="partner">Đối tác / CTV hệ thống</option>
+                          <option value="custom">Nhập người giới thiệu khác</option>
                         </select>
                         <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                       </div>
-                    )}
 
-                    {referralMode === 'custom' && (
-                      <input
-                        type="text"
-                        name="referral"
-                        value={formData.referral}
-                        onChange={handleInputChange}
-                        placeholder="Nhập tên người giới thiệu..."
-                        className="w-full h-10 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-cyan-600 transition-all"
-                      />
-                    )}
+                      {referralMode === 'partner' && (
+                        <div className="relative">
+                          <select
+                            value={formData.partnerId}
+                            onChange={(e) => {
+                              const pId = e.target.value;
+                              const pObj = partners.find(p => p._id === pId);
+                              setFormData(prev => ({ ...prev, partnerId: pId, referral: pObj ? pObj.name : '' }));
+                            }}
+                            className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm appearance-none focus:outline-none focus:ring-4 focus:ring-cyan-600/5 focus:border-cyan-600 transition-all cursor-pointer"
+                          >
+                            <option value="">-- Chọn đối tác --</option>
+                            {partners.map(p => (
+                              <option key={p._id} value={p._id}>
+                                {p.name} ({p.phone})
+                              </option>
+                            ))}
+                          </select>
+                          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                        </div>
+                      )}
+
+                      {referralMode === 'custom' && (
+                        <input
+                          type="text"
+                          name="referral"
+                          value={formData.referral}
+                          onChange={handleInputChange}
+                          placeholder="Nhập tên người giới thiệu..."
+                          className="w-full h-10 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-cyan-600 transition-all"
+                        />
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
 
-                <FormInput
-                  label="Ngày sinh"
-                  name="birthday"
-                  type="date"
-                  value={toInputDate(formData.birthday)}
-                  onChange={handleInputChange}
-                  required={requiredFields.birthday}
-                />
-                <FormInput
-                  label="CCCD / CMND"
-                  name="idCard"
-                  value={formData.idCard}
-                  onChange={handleInputChange}
-                  required={requiredFields.idCard}
-                  placeholder="Nhập số CCCD (12 số)..."
-                />
+                {formConfig.birthday?.visible !== false && (
+                  <FormInput
+                    label="Ngày sinh"
+                    name="birthday"
+                    type="date"
+                    value={toInputDate(formData.birthday)}
+                    onChange={handleInputChange}
+                    required={requiredFields.birthday}
+                  />
+                )}
+                {formConfig.idCard?.visible !== false && (
+                  <FormInput
+                    label="CCCD / CMND"
+                    name="idCard"
+                    value={formData.idCard}
+                    onChange={handleInputChange}
+                    required={requiredFields.idCard}
+                    placeholder="Nhập số CCCD (12 số)..."
+                  />
+                )}
                 
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider">
-                    Xếp vào lớp (tùy chọn)
+                    Khóa học đăng ký *
                   </label>
                   <div className="relative">
                     <select
-                      value={batchId}
-                      onChange={(e) => setBatchId(e.target.value)}
+                      name="courseId"
+                      value={formData.courseId}
+                      onChange={(e) => handleCourseChange(e.target.value)}
                       className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm appearance-none focus:outline-none focus:ring-4 focus:ring-cyan-600/5 focus:border-cyan-600 transition-all cursor-pointer"
                     >
-                      <option value="">-- Chưa xếp lớp --</option>
-                      {batches
-                        .filter(b => b.status !== 'Đã kết thúc')
-                        .map(b => (
-                          <option key={b.id} value={b.id}>
-                            {b.code} — {b.courseTitle}
-                          </option>
-                        ))}
+                      <option value="">-- Chọn khóa học --</option>
+                      {courses.map(c => (
+                        <option key={c.id} value={c.id}>
+                          {c.code} — {c.title}
+                        </option>
+                      ))}
                     </select>
                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
                   </div>
@@ -409,23 +468,56 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
                   value={toInputDate(formData.enrollmentDate)}
                   onChange={handleInputChange}
                 />
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider">
-                    Học phí đã chốt
-                  </label>
-                  <div className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-500">
-                    Sẽ lấy tự động từ khóa học khi xếp lớp.
-                  </div>
-                </div>
                 <FormInput
-                  label="Địa chỉ"
-                  name="address"
-                  value={formData.address}
+                  label="Học phí đã chốt (VND)"
+                  name="fee"
+                  value={formData.fee}
                   onChange={handleInputChange}
-                  placeholder="Nhập địa chỉ..."
-                  className="sm:col-span-2"
+                  placeholder="Nhập học phí đã chốt..."
                 />
+                {formConfig.address?.visible !== false && (
+                  <FormInput
+                    label="Địa chỉ"
+                    name="address"
+                    value={formData.address}
+                    onChange={handleInputChange}
+                    placeholder="Nhập địa chỉ..."
+                    className="sm:col-span-2"
+                  />
+                )}
               </div>
+
+              {(formConfig.idCardFrontFile?.visible || formConfig.idCardBackFile?.visible || formConfig.portraitFile?.visible) && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-slate-100">
+                  {formConfig.idCardFrontFile?.visible && (
+                    <UploadCard
+                      label="CCCD mặt trước"
+                      file={formData.idCardFrontFile}
+                      isUploading={uploadingField === 'idCardFrontFile'}
+                      onFileChange={(file) => handleUploadFile('idCardFrontFile', file)}
+                      onRemove={() => setFormData(prev => ({ ...prev, idCardFrontFile: undefined }))}
+                    />
+                  )}
+                  {formConfig.idCardBackFile?.visible && (
+                    <UploadCard
+                      label="CCCD mặt sau"
+                      file={formData.idCardBackFile}
+                      isUploading={uploadingField === 'idCardBackFile'}
+                      onFileChange={(file) => handleUploadFile('idCardBackFile', file)}
+                      onRemove={() => setFormData(prev => ({ ...prev, idCardBackFile: undefined }))}
+                    />
+                  )}
+                  {formConfig.portraitFile?.visible && (
+                    <UploadCard
+                      label="Ảnh chân dung"
+                      file={formData.portraitFile}
+                      isUploading={uploadingField === 'portraitFile'}
+                      onFileChange={(file) => handleUploadFile('portraitFile', file)}
+                      onRemove={() => setFormData(prev => ({ ...prev, portraitFile: undefined }))}
+                    />
+                  )}
+                </div>
+              )}
 
               <div className="flex items-center justify-end gap-4 pt-4 mt-2 border-t border-slate-50 flex-shrink-0">
                 <button

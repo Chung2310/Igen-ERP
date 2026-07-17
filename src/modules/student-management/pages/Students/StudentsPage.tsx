@@ -62,6 +62,8 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [isImportOpen, setIsImportOpen] = useState(false);
+  const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
   // Nếu phân loại đang chọn bị xóa khỏi danh mục thì quay về "Tất cả"
   React.useEffect(() => {
@@ -209,6 +211,28 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
       'Nghỉ học': 'bg-slate-200 text-slate-600 border-slate-300',
     };
     return map[status] || 'bg-slate-100 text-slate-700 border-slate-200';
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedStudentIds.length === 0) return;
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa ${selectedStudentIds.length} học viên đã chọn? Hành động này sẽ dọn dẹp các lớp học và hóa đơn liên quan và không thể hoàn tác.`)) {
+      return;
+    }
+    setIsBulkDeleting(true);
+    try {
+      await apiFetch('/students/bulk-delete', {
+        method: 'POST',
+        body: JSON.stringify({ studentIds: selectedStudentIds }),
+      });
+      toast.success('Đã xóa hàng loạt học viên thành công!');
+      setSelectedStudentIds([]);
+      window.dispatchEvent(new Event("student-mutation"));
+    } catch (error) {
+      console.error("Error bulk deleting students:", error);
+      toast.error('Có lỗi xảy ra khi xóa hàng loạt học viên.');
+    } finally {
+      setIsBulkDeleting(false);
+    }
   };
 
   const handleDelete = async (student: Student) => {
@@ -388,6 +412,15 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
           <p className="text-slate-400 text-[11px] font-medium mt-0.5">{loading ? '...' : `${filteredStudents.length} / ${students.length}`} học viên</p>
         </div>
         <div className="flex items-center gap-1.5">
+          {selectedStudentIds.length > 0 && (
+            <button
+              onClick={handleBulkDelete}
+              disabled={isBulkDeleting}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[11px] font-bold transition-all cursor-pointer shadow-sm disabled:opacity-50"
+            >
+              <Trash2 className="w-3.5 h-3.5" /> Xóa hàng loạt ({selectedStudentIds.length})
+            </button>
+          )}
           <button
             onClick={handleExport}
             className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-[11px] font-bold text-slate-600 hover:bg-slate-50 transition-all cursor-pointer shadow-sm"
@@ -545,7 +578,22 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100">
                 <th className="px-3 py-2 w-8 no-print">
-                  <input type="checkbox" className="w-3.5 h-3.5 rounded border-slate-300 text-cyan-600 focus:ring-cyan-600" />
+                  <input
+                    type="checkbox"
+                    checked={paginatedStudents.length > 0 && paginatedStudents.every(s => selectedStudentIds.includes(s.id))}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        const newIds = [...selectedStudentIds];
+                        paginatedStudents.forEach(s => {
+                          if (!newIds.includes(s.id)) newIds.push(s.id);
+                        });
+                        setSelectedStudentIds(newIds);
+                      } else {
+                        setSelectedStudentIds(selectedStudentIds.filter(id => !paginatedStudents.some(s => s.id === id)));
+                      }
+                    }}
+                    className="w-3.5 h-3.5 rounded border-slate-300 text-cyan-600 focus:ring-cyan-600 cursor-pointer"
+                  />
                 </th>
                 <th className="px-3 py-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Họ và tên</th>
                 <th className="px-3 py-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-center">Ngày ĐK</th>
@@ -562,7 +610,18 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
               ) : paginatedStudents.map((student) => (
                 <tr key={student.id} className="hover:bg-slate-50/50 transition-colors group">
                   <td className="px-3 py-1.5 no-print">
-                    <input type="checkbox" className="w-3.5 h-3.5 rounded border-slate-300 text-cyan-600 focus:ring-cyan-600" />
+                    <input
+                      type="checkbox"
+                      checked={selectedStudentIds.includes(student.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedStudentIds([...selectedStudentIds, student.id]);
+                        } else {
+                          setSelectedStudentIds(selectedStudentIds.filter(id => id !== student.id));
+                        }
+                      }}
+                      className="w-3.5 h-3.5 rounded border-slate-300 text-cyan-600 focus:ring-cyan-600 cursor-pointer"
+                    />
                   </td>
                   <td className="px-3 py-1.5">
                     <div className="flex flex-col">
