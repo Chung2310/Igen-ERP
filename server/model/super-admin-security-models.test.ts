@@ -59,3 +59,10 @@ test("toJSON and toObject omit privileged secrets", () => {
     assert.equal(value.superAdminSecurity.recoveryCodeHashes, undefined);
   }
 });
+
+test("audit events expose immutable operational trace references", () => {
+  for (const field of ["entityType", "entityId", "projectId", "taskId", "workflowId", "tenantId"]) {
+    assert.equal(auditSchema.path(field)?.options.immutable, true, field);
+  }
+  assert.equal(auditSchema.indexes().some(([keys]: any) => keys.companyCode === 1 && keys.occurredAt === -1), true);
+});

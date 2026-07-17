@@ -10,7 +10,7 @@ export interface AuditFilters {
   result?: string;
   actionType?: string;
   startDate?: string;
-  endDate?: string;
+  endDate?: string; correlationId?: string; entityType?: string; entityId?: string; projectId?: string; taskId?: string; workflowId?: string; tenantId?: string;
 }
 
 export interface Pagination {
@@ -47,6 +47,9 @@ export const superAdminAuditService = {
       query.actionType = { $regex: filters.actionType, $options: "i" };
     }
 
+    for (const field of ["correlationId", "entityType", "entityId", "projectId", "taskId", "workflowId", "tenantId"] as const) {
+      if (filters[field]) query[field] = filters[field];
+    }
     if (filters.startDate || filters.endDate) {
       query.occurredAt = {};
       if (filters.startDate) {

@@ -28,6 +28,13 @@ export interface AuditFilters {
   actionType?: string;
   startDate?: string;
   endDate?: string;
+  correlationId?: string;
+  entityType?: string;
+  entityId?: string;
+  projectId?: string;
+  taskId?: string;
+  workflowId?: string;
+  tenantId?: string;
 }
 
 export const superAdminAuditService = {

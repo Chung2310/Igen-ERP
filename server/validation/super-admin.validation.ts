@@ -25,7 +25,13 @@ export const getAuditEventsSchema = {
     result: Joi.string().valid("success", "partial", "failure").optional().messages({
       "any.only": "Tham số 'result' phải là một trong: 'success', 'partial', 'failure'.",
     }),
-    actionType: Joi.string().trim().optional().messages({
+    correlationId: Joi.string().trim().optional(),
+    entityType: Joi.string().trim().max(64).optional(),
+    entityId: Joi.string().trim().max(128).optional(),
+    projectId: Joi.string().trim().max(128).optional(),
+    taskId: Joi.string().trim().max(128).optional(),
+    workflowId: Joi.string().trim().max(128).optional(),
+    tenantId: Joi.string().trim().max(128).optional(),    actionType: Joi.string().trim().optional().messages({
       "string.base": "Tham số 'actionType' phải là kiểu chuỗi.",
     }),
     startDate: Joi.string().isoDate().optional().messages({
