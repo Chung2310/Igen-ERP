@@ -3,6 +3,7 @@ import Joi from "joi";
 import { resourceController } from "../controller/resource.controller";
 import { validateRequest } from "../middleware/validation";
 import { requireAuth } from "../middleware/auth";
+import { expensiveApiRateLimiter } from "../middleware/rate-limit";
 
 export const resourceRouter = Router();
 
@@ -30,7 +31,7 @@ const folderSchema = {
 const fileSchema = {
   body: Joi.object({
     name: Joi.string().trim().min(1).max(300).required(),
-    fileUrl: Joi.string().uri().required().messages({
+    fileUrl: Joi.string().trim().uri({ scheme: ["http", "https"] }).required().messages({
       "any.required": "Đường dẫn file là bắt buộc.",
       "string.uri": "Đường dẫn file phải là URL hợp lệ.",
     }),
@@ -44,7 +45,7 @@ const fileSchema = {
 const driveSchema = {
   body: Joi.object({
     name: Joi.string().trim().min(1).max(300).required(),
-    driveLink: Joi.string().uri().required().messages({
+    driveLink: Joi.string().trim().uri({ scheme: ["http", "https"] }).required().messages({
       "any.required": "Link Google Drive là bắt buộc.",
       "string.uri": "Link Google Drive phải là URL hợp lệ.",
     }),
@@ -92,7 +93,7 @@ const sharesSchema = {
 
 // Google Drive dùng chung — đặt trước các route "/:id" để tránh trùng khớp
 resourceRouter.get("/drive/files", requireAuth as any, resourceController.driveList as any);
-resourceRouter.post("/drive/upload", requireAuth as any, validateRequest(driveUploadSchema), resourceController.driveUpload as any);
+resourceRouter.post("/drive/upload", expensiveApiRateLimiter, requireAuth as any, validateRequest(driveUploadSchema), resourceController.driveUpload as any);
 resourceRouter.delete("/drive/files/:fileId", requireAuth as any, resourceController.driveDelete as any);
 
 resourceRouter.get("/", requireAuth as any, validateRequest(listSchema), resourceController.list as any);

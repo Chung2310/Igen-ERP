@@ -8,6 +8,8 @@ import { TrainingEnrollmentModel } from "../model/training-enrollment.model";
 import { UserModel } from "../model/user.model";
 import { WorkflowModel } from "../model/workflow.model";
 import { HRCalendarEventModel } from "../model/hr-calendar-event.model";
+import { HRLeaveTemplateModel } from "../model/hr-leave-template.model";
+import { HRLeaveApplicationModel } from "../model/hr-leave-application.model";
 import { TimekeepingLogModel } from "../model/timekeeping.model";
 import { SupportedModelName, ICRUDQueryOptions } from "../interface/crud.interface";
 import mongoose from "mongoose";
@@ -167,6 +169,8 @@ const MODEL_MAPPING: Record<SupportedModelName, mongoose.Model<any>> = {
   "workflows": WorkflowModel,
   "users": UserModel,
   "hr-calendar-events": HRCalendarEventModel,
+  "hr-leave-templates": HRLeaveTemplateModel,
+  "hr-leave-applications": HRLeaveApplicationModel,
   "timekeeping-logs": TimekeepingLogModel,
 };
 
@@ -186,15 +190,18 @@ export const crudService = {
     }
 
     const query: any = {};
-    
-    // Cô lập dữ liệu theo companyCode (Trừ superadmin được xem tất cả nếu chọn)
-    if (userRole !== "superadmin" || (companyCode && companyCode !== "SYSTEM")) {
-      query.companyCode = companyCode;
+
+    // Áp dụng các bộ lọc động truyền từ client (loại bỏ key nguy hiểm trước khi merge)
+    if (options.filters) {
+      for (const [key, value] of Object.entries(options.filters)) {
+        if (key === "companyCode" || key === "_id" || key.startsWith("$")) continue;
+        query[key] = value;
+      }
     }
 
-    // Áp dụng các bộ lọc động truyền từ client
-    if (options.filters) {
-      Object.assign(query, options.filters);
+    // Cô lập dữ liệu theo companyCode (áp dụng sau cùng, không cho client ghi đè)
+    if (userRole !== "superadmin" || (companyCode && companyCode !== "SYSTEM")) {
+      query.companyCode = companyCode;
     }
 
     // Áp dụng tìm kiếm tương đối (Search)
@@ -211,7 +218,7 @@ export const crudService = {
     const page = options.page || 1;
     const limit = options.limit || 1000;
     const skip = (page - 1) * limit;
-    const sort = options.sort || "-_id";
+    const sort = options.sort || (modelName === "projects" ? "-createdAt" : "-_id");
 
     const items = await model.find(query).sort(sort).skip(skip).limit(limit).lean();
     const total = await model.countDocuments(query);
@@ -330,6 +337,18 @@ export const crudService = {
     // Loại bỏ các trường nhạy cảm không cho phép đè trực tiếp
     const { companyCode: _cCode, _id: _itemId, id: _plainId, ...rawUpdatePayload } = data;
     const updatePayload = sanitizeInventoryPayload(modelName, rawUpdatePayload);
+
+    // Enforce the planned start time for every task update entry point, not only
+    // the dedicated Kanban router.
+    if (modelName === "kanban-tasks" && ["Done", "done"].includes(updatePayload.status)) {
+      const existingTask = await KanbanTaskModel.findOne(query).select("startTime").lean();
+      const plannedStartAt = new Date(updatePayload.startTime ?? existingTask?.startTime).getTime();
+      if (Number.isFinite(plannedStartAt) && plannedStartAt > Date.now()) {
+        const err: any = new Error("Chưa đến thời gian bắt đầu đã chọn nên không thể hoàn thành công việc.");
+        err.statusCode = 400;
+        throw err;
+      }
+    }
 
     const updatedItem = await model.findOneAndUpdate(query, updatePayload, { new: true });
     if (!updatedItem) {

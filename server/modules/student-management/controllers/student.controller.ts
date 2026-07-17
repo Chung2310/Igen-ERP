@@ -192,7 +192,16 @@ export class StudentController {
         return res.status(404).json({ success: false, error: "Khong tim thay thong tin hoc vien." });
       }
 
-      res.json({ success: true, data: student });
+      // Endpoint không yêu cầu đăng nhập: chỉ trả về các trường cần thiết để tra cứu
+      // công khai, tuyệt đối không lộ PII nhạy cảm (SĐT, địa chỉ, học phí, thanh toán...).
+      const publicData = {
+        fullName: student.fullName,
+        status: student.status,
+        courseId: student.courseId,
+        progress: student.progress,
+      };
+
+      res.json({ success: true, data: publicData });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Loi khong xac dinh.";
       res.status(400).json({ success: false, error: msg });

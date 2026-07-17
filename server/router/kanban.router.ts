@@ -1,4 +1,5 @@
 import { Router, Response } from "express";
+import { randomUUID } from "node:crypto";
 import Joi from "joi";
 import mongoose from "mongoose";
 import { requireAuth, type AuthenticatedRequest } from "../middleware/auth";
@@ -6,6 +7,8 @@ import { KanbanTaskModel } from "../model/kanban-task.model";
 import { ProjectModel } from "../model/project.model";
 import { UserModel } from "../model/user.model";
 import { notificationService } from "../service/notification.service";
+import { workflowLinkService } from "../service/workflow-link.service";
+import { kanbanAuditService } from "../service/kanban-audit.service";
 import { emitToCompany, emitToUser } from "../socket";
 
 export const kanbanRouter = Router();
@@ -35,6 +38,10 @@ function isManager(role?: string) {
 function companyFilter(req: AuthenticatedRequest) {
   const companyCode = req.user?.companyCode || "SYSTEM";
   return req.user?.role === "superadmin" && companyCode === "SYSTEM" ? {} : { companyCode };
+}
+
+function correlationId(req: AuthenticatedRequest) {
+  return String(req.get("X-Correlation-Id") || (req as any).id || randomUUID());
 }
 
 async function actorName(req: AuthenticatedRequest) {
@@ -86,6 +93,23 @@ function validateTimeline(data: any, existing?: any) {
   }
 }
 
+const ATTACHMENT_TYPES = new Set(["image", "video", "audio", "file", "link"]);
+
+/** Làm sạch mảng đính kèm từ client: chỉ giữ các trường hợp lệ, bỏ phần tử thiếu url/name */
+function sanitizeAttachments(value: unknown) {
+  if (!Array.isArray(value)) return undefined;
+  return value
+    .filter((a: any) => a && typeof a.url === "string" && a.url.trim() && typeof a.name === "string" && a.name.trim())
+    .slice(0, 30)
+    .map((a: any) => ({
+      id: String(a.id || `att_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`),
+      name: String(a.name).trim().slice(0, 255),
+      url: String(a.url).trim(),
+      type: ATTACHMENT_TYPES.has(a.type) ? a.type : "file",
+      ...(Number.isFinite(Number(a.size)) && Number(a.size) > 0 ? { size: Number(a.size) } : {}),
+    }));
+}
+
 function changesFor(oldTask: any, update: any) {
   const labels: Record<string, string> = {
     title: "Tên việc",
@@ -102,10 +126,15 @@ function changesFor(oldTask: any, update: any) {
     category: "Phân loại",
     tags: "Nhãn",
     linkNote: "Ghi chú",
+    attachments: "Tệp đính kèm",
   };
   return Object.keys(labels)
     .filter((key) => update[key] !== undefined && JSON.stringify(oldTask[key] ?? "") !== JSON.stringify(update[key] ?? ""))
-    .map((key) => `${labels[key]}: "${String(oldTask[key] ?? "Chưa thiết lập")}" → "${String(update[key] ?? "Chưa thiết lập")}"`);
+    .map((key) =>
+      key === "attachments"
+        ? `${labels[key]}: ${(oldTask[key] || []).length} → ${(update[key] || []).length} file`
+        : `${labels[key]}: "${String(oldTask[key] ?? "Chưa thiết lập")}" → "${String(update[key] ?? "Chưa thiết lập")}"`
+    );
 }
 
 async function handleError(res: Response, error: any) {
@@ -182,7 +211,15 @@ kanbanRouter.post("/tasks", async (req: AuthenticatedRequest, res: Response) => 
       actualTime: Number(req.body.actualTime || 0),
       tags: Array.isArray(req.body.tags) ? req.body.tags : [],
       linkNote: String(req.body.linkNote || ""),
+      attachments: sanitizeAttachments(req.body.attachments) || [],
       history: [{ time: now.toISOString(), user: await actorName(req), action: "Tạo công việc mới" }],
+    });
+    await kanbanAuditService.recordTaskMutation({
+      action: "created",
+      actorId: req.user?.id || "",
+      companyCode,
+      correlationId: correlationId(req),
+      task: toClient(task),
     });
     await notificationService.notifyTaskAssigned(task as any);
     emitToCompany(companyCode, "kanban:task-created", toClient(task));
@@ -202,11 +239,13 @@ kanbanRouter.patch("/tasks/:id", async (req: AuthenticatedRequest, res: Response
     const assigned = task.assigneeUid === req.user?.id;
     if (!manager && !assigned) throw httpError(403, "Bạn không có quyền cập nhật công việc này.");
 
-    const managerFields = ["title", "description", "assigneeUid", "dueDate", "priority", "status", "projectId", "startTime", "endTime", "estTime", "actualTime", "tags", "linkNote", "category"];
-    const staffFields = ["status", "startTime", "endTime", "actualTime", "linkNote", "description", "dueDate", "estTime"];
+    const managerFields = ["title", "description", "assigneeUid", "dueDate", "priority", "status", "projectId", "startTime", "actualStartTime", "endTime", "estTime", "actualTime", "tags", "linkNote", "attachments", "category"];
+    // Nhân viên được đính kèm file kết quả (ghi âm, hình ảnh, tài liệu…) vào task của mình
+    const staffFields = ["status", "startTime", "actualStartTime", "endTime", "actualTime", "linkNote", "attachments", "description", "dueDate", "estTime"];
     const allowed = manager ? managerFields : staffFields;
     const update: any = {};
     for (const key of allowed) if (req.body[key] !== undefined) update[key] = req.body[key];
+    if (update.attachments !== undefined) update.attachments = sanitizeAttachments(update.attachments) || [];
 
     if (update.status !== undefined) {
       update.status = normalizeStatus(update.status);
@@ -222,9 +261,16 @@ kanbanRouter.patch("/tasks/:id", async (req: AuthenticatedRequest, res: Response
       update.assignee = assignee?.displayName || "Thành viên";
       update.assigneeAvatar = assignee?.photoURL || "";
     }
-    if (update.status === "In Progress" && !task.startTime && !update.startTime) update.startTime = new Date().toISOString();
+    if (update.status === "In Progress") {
+      if (task.isFromWorkflow && !task.actualStartTime && !update.actualStartTime) update.actualStartTime = new Date().toISOString();
+      else if (!task.isFromWorkflow && !task.startTime && !update.startTime) update.startTime = new Date().toISOString();
+    }
     if (update.status === "Done") {
       const merged = { ...task, ...update };
+      const plannedStartAt = new Date(merged.startTime).getTime();
+      if (Number.isFinite(plannedStartAt) && plannedStartAt > Date.now()) {
+        throw httpError(400, "Chưa đến thời gian bắt đầu đã chọn nên không thể hoàn thành công việc.");
+      }
       if (!merged.description?.trim() || !merged.startTime || !Number(merged.estTime)) {
         throw httpError(400, "Hoàn thành công việc yêu cầu mô tả, thời gian bắt đầu và số giờ dự tính.");
       }
@@ -245,12 +291,24 @@ kanbanRouter.patch("/tasks/:id", async (req: AuthenticatedRequest, res: Response
     );
     if (!updated) throw httpError(409, "Công việc vừa được thay đổi. Vui lòng tải lại.");
 
+    await kanbanAuditService.recordTaskMutation({
+      action: "updated",
+      actorId: req.user?.id || "",
+      companyCode: task.companyCode,
+      correlationId: correlationId(req),
+      before: task,
+      task: toClient(updated),
+    });
+
     if (update.assigneeUid && update.assigneeUid !== task.assigneeUid) {
       await notificationService.notifyTaskReassigned(updated, task.assigneeUid);
     }
     if (update.dueDate && update.dueDate !== task.dueDate) await notificationService.notifyTaskDeadlineChanged(updated);
     if (update.status && update.status !== normalizeStatus(task.status)) {
       await notificationService.notifyTaskStatusChanged(updated, req.user?.id || "");
+      if (updated.isFromWorkflow && updated.status === "Done") {
+        await workflowLinkService.handleTaskStatusChange(updated);
+      }
     }
     emitToCompany(task.companyCode, "kanban:task-updated", toClient(updated));
     emitToUser(updated.assigneeUid, "kanban:task-updated", toClient(updated));
@@ -265,6 +323,14 @@ kanbanRouter.delete("/tasks/:id", async (req: AuthenticatedRequest, res: Respons
     if (!isManager(req.user?.role)) throw httpError(403, "Chỉ quản lý mới được xóa công việc.");
     const task: any = await KanbanTaskModel.findOneAndDelete({ _id: req.params.id, ...companyFilter(req) });
     if (!task) throw httpError(404, "Không tìm thấy công việc.");
+    await kanbanAuditService.recordTaskMutation({
+      action: "deleted",
+      actorId: req.user?.id || "",
+      companyCode: task.companyCode,
+      correlationId: correlationId(req),
+      task: toClient(task),
+    });
+    await workflowLinkService.handleTaskDeletion(task);
     emitToCompany(task.companyCode, "kanban:task-deleted", { id: task._id.toString() });
     return res.json({ status: "success", data: toClient(task) });
   } catch (error) {
@@ -288,6 +354,13 @@ kanbanRouter.post("/projects", async (req: AuthenticatedRequest, res: Response) 
     const name = String(req.body.name || "").trim();
     if (!name) throw httpError(400, "Tên dự án là bắt buộc.");
     const project = await ProjectModel.create({ name, companyCode, creatorUid: req.user?.id, createdAt: new Date() });
+    await kanbanAuditService.recordProjectMutation({
+      action: "created",
+      actorId: req.user?.id || "",
+      companyCode,
+      correlationId: correlationId(req),
+      project: project.toObject(),
+    });
     emitToCompany(companyCode, "kanban:project-created", project.toObject());
     return res.status(201).json({ status: "success", data: project });
   } catch (error) {
@@ -300,6 +373,13 @@ kanbanRouter.delete("/projects/:id", async (req: AuthenticatedRequest, res: Resp
     if (!isManager(req.user?.role)) throw httpError(403, "Chỉ quản lý mới được xóa dự án.");
     const project: any = await ProjectModel.findOneAndDelete({ _id: req.params.id, ...companyFilter(req) });
     if (!project) throw httpError(404, "Không tìm thấy dự án.");
+    await kanbanAuditService.recordProjectMutation({
+      action: "deleted",
+      actorId: req.user?.id || "",
+      companyCode: project.companyCode,
+      correlationId: correlationId(req),
+      project: toClient(project),
+    });
     await KanbanTaskModel.updateMany({ companyCode: project.companyCode, projectId: req.params.id }, { $set: { projectId: "" } });
     emitToCompany(project.companyCode, "kanban:project-deleted", { id: req.params.id });
     return res.json({ status: "success", data: project });

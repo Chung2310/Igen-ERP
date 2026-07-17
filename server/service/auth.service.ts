@@ -9,6 +9,9 @@ import { DEFAULT_ROLE_LEVELS } from "../middleware/auth";
 import { IUser } from "../interface/user.interface";
 import { ICompany } from "../interface/company.interface";
 import { TelegramLinkStatus } from "../interface/telegram-link.interface";
+import { pickSelfServiceProfileUpdate } from "../utils/self-service-profile-update";
+import { superAdminAuthService } from "./super-admin-auth.service";
+import { requiresSuperAdminChallenge } from "./super-admin-login-policy";
 
 import { getJwtAccessSecret, getJwtRefreshSecret } from "../config/env";
 const TELEGRAM_LINK_CODE_TTL_MS = 5 * 60 * 1000;
@@ -41,7 +44,7 @@ export const authService = {
   async register(data: any): Promise<IUser> {
     const emailLower = data.email.toLowerCase().trim();
     const existingUser = await UserModel.findOne({ email: emailLower });
-    
+
     if (existingUser) {
       throw new Error("Email này đã được đăng ký sử dụng.");
     }
@@ -51,10 +54,19 @@ export const authService = {
       hashedPassword = await bcrypt.hash(data.password, 10);
     }
 
+    // Đăng ký công khai (không xác thực): chỉ nhận các trường hồ sơ cơ bản,
+    // TUYỆT ĐỐI không cho client tự đặt role/companyCode/level/parentId —
+    // các trường này chỉ được gán qua register-company/register-user (đã kiểm tra phân quyền).
     const newUser = new UserModel({
-      ...data,
       email: emailLower,
       password: hashedPassword,
+      displayName: data.displayName,
+      photoURL: data.photoURL,
+      jobTitle: data.jobTitle,
+      department: data.department,
+      division: data.division,
+      phone: data.phone,
+      role: "user",
     });
 
     return await newUser.save();
@@ -80,8 +92,12 @@ export const authService = {
       throw new Error("Yêu cầu mật khẩu để đăng nhập.");
     }
 
+    if (requiresSuperAdminChallenge(user.role)) {
+      return superAdminAuthService.beginSuperAdminLogin(user);
+    }
+
     const tokens = this.generateTokens(user);
-    return { user, ...tokens };
+    return { kind: "authenticated" as const, user, ...tokens };
   },
 
   /**
@@ -101,6 +117,7 @@ export const authService = {
         email: user.email,
         role: user.role,
         companyCode: user.companyCode,
+        ...(decoded.sid ? { sid: decoded.sid, authLevel: decoded.authLevel } : {}),
       };
 
       const accessToken = jwt.sign(payload, getJwtAccessSecret(), { expiresIn: "15m" });
@@ -177,10 +194,13 @@ export const authService = {
   },
 
   /**
-   * Cập nhật thông tin tài khoản người dùng
+   * Cập nhật thông tin tài khoản người dùng (tự phục vụ - self-service).
+   * Chỉ cho phép cập nhật các trường hồ sơ cá nhân, KHÔNG bao giờ cho phép
+   * client tự đổi role/companyCode/level/parentId qua endpoint này (chặn leo thang đặc quyền).
    */
   async updateProfile(id: string, updateData: any): Promise<IUser | null> {
-    return await UserModel.findByIdAndUpdate(id, { $set: updateData }, { new: true }).select("-password");
+    const safeUpdateData = pickSelfServiceProfileUpdate(updateData);
+    return await UserModel.findByIdAndUpdate(id, { $set: safeUpdateData }, { new: true }).select("-password");
   },
 
   /**

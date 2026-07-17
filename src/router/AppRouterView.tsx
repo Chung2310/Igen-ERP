@@ -5,9 +5,12 @@ import { getRouteByTab } from "./route-config";
 export function AppRouterView({
   activeTab,
   userProfile,
+  remountKey = 0,
 }: {
   activeTab: TabType;
   userProfile: UserProfile;
+  /** Tăng giá trị này để remount trang hiện tại (bấm lại icon tab đang mở) */
+  remountKey?: number;
 }) {
   const route = getRouteByTab(activeTab);
 
@@ -19,7 +22,7 @@ export function AppRouterView({
 
   return (
     <Suspense fallback={<PageLoader label="Đang tải trang..." />}>
-      <PageComponent />
+      <PageComponent key={`${activeTab}-${remountKey}`} />
     </Suspense>
   );
 }

@@ -1,6 +1,7 @@
 node_modules/
 build/
 dist/
+dist-server/
 coverage/
 .DS_Store
 *.log
@@ -11,7 +12,33 @@ firebase-applet-config
 temp_key
 package-lock.json
 claude-render.hyperframe-tmp
-nginx/
+nginx/*
+!nginx/igenerp.conf
+!nginx/cloudflare-realip.conf
+!nginx/igenerp.conf.test.ts
 logs/
 scratch/
 scripts/
+
+# Runtime-generated files and local storage
+server/cache/
+uploads/
+tmp/
+temp/
+
+# Local databases, dumps, and backups
+*.sqlite
+*.sqlite3
+*.db
+*.dump
+*.bak
+
+# Private keys, certificates, and service credentials
+*.pem
+*.key
+*.p12
+*.pfx
+credentials*.json
+service-account*.json
+service_account*.json
+.worktrees/

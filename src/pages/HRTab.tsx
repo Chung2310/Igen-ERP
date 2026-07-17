@@ -132,13 +132,13 @@ export default function HRTab() {
       <h1 className="sr-only">Quản lý Nhân sự - {subTab}</h1>
 
       {/* Sub Tabs switcher navigation bar */}
-      <div className="border-b border-gray-200 bg-gray-50/50 p-2 text-xs flex justify-between items-center shrink-0" id="hr_sub_tabs_bar">
-        <div className="flex gap-2">
+      <div className="border-b border-gray-200 bg-gray-50/50 p-2 text-xs flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2 shrink-0" id="hr_sub_tabs_bar">
+        <div className="flex gap-2 overflow-x-auto -mx-1 px-1">
           {["SƠ ĐỒ TỔ CHỨC", "GIAO VIỆC KANBAN", "ĐÀO TẠO", "QUY TRÌNH", "LỊCH"].map((tab) => (
             <button
               key={tab}
               onClick={() => setSubTab(tab as HRSubTabType)}
-              className={`px-4 py-2 rounded-lg border font-bold uppercase transition-all tracking-wide cursor-pointer ${subTab === tab
+              className={`px-4 py-2 rounded-lg border font-bold uppercase transition-all tracking-wide cursor-pointer shrink-0 ${subTab === tab
                   ? "bg-slate-800 text-white border-slate-800 shadow-xs"
                   : "bg-white text-gray-500 border-gray-200 hover:bg-gray-100"
                 }`}
@@ -152,11 +152,11 @@ export default function HRTab() {
           {/* SaaS Multi-tenant Company Filter for Superadmin */}
           {userProfile?.role === "superadmin" && (
             <div className="flex items-center gap-2">
-              <Building2 className="h-4 w-4 text-slate-400" />
+              <Building2 className="h-4 w-4 text-slate-400 shrink-0" />
               <select
                 value={selectedCompanyCode}
                 onChange={(e) => setSelectedCompanyCode(e.target.value)}
-                className="p-1.5 border border-gray-200 bg-white rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer font-semibold"
+                className="p-1.5 border border-gray-200 bg-white rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer font-semibold max-w-[60vw] sm:max-w-none"
               >
                 <option value="SYSTEM">Hệ thống (SYSTEM)</option>
                 {companies.map((c) => (

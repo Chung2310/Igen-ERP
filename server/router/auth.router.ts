@@ -3,7 +3,7 @@ import Joi from "joi";
 import { authController } from "../controller/auth.controller";
 import { requireAuth, requireRole, requirePermission, requireCompanyAccess, requireHierarchyAccess } from "../middleware/auth";
 import { validateRequest } from "../middleware/validation";
-import { authRateLimiter, refreshTokenRateLimiter } from "../middleware/rate-limit";
+import { authRateLimiter, loginAccountRateLimiter, refreshTokenRateLimiter } from "../middleware/rate-limit";
 import { UserModel } from "../model/user.model";
 
 export const authRouter = Router();
@@ -31,8 +31,9 @@ const registerSchema = {
     photoURL: Joi.string().uri().optional().allow("").messages({
       "string.uri": "photoURL phải là một đường dẫn URL hợp lệ.",
     }),
-    role: Joi.string().optional(),
-    companyCode: Joi.string().optional().allow(""),
+    // Lưu ý bảo mật: KHÔNG cho phép client tự đặt role/companyCode/level/parentId qua
+    // endpoint đăng ký công khai này — các trường đó chỉ được gán qua
+    // register-company/register-user (đã kiểm tra xác thực + phân quyền).
     companyName: Joi.string().optional().allow(""),
     jobTitle: Joi.string().optional().allow(""),
     department: Joi.string().optional().allow(""),
@@ -40,8 +41,6 @@ const registerSchema = {
     phone: Joi.string().pattern(vnPhoneRegex).optional().allow("").messages({
       "string.pattern.base": "Số điện thoại Việt Nam không đúng định dạng (ví dụ: 0987654321).",
     }),
-    level: Joi.number().integer().optional(),
-    parentId: Joi.string().optional().allow(""),
   }),
 };
 
@@ -114,11 +113,11 @@ const updateProfileSchema = {
   }),
 };
 
-// Đăng ký tài khoản mới (giới hạn tần suất chống spam/brute-force)
-authRouter.post("/register", authRateLimiter, validateRequest(registerSchema), authController.register);
+// Đăng ký tài khoản mới: chặn brute-force theo từng email + backstop theo IP chống spray từ 1 IP.
+authRouter.post("/register", loginAccountRateLimiter, authRateLimiter, validateRequest(registerSchema), authController.register);
 
-// Đăng nhập tài khoản (giới hạn tần suất chống brute-force mật khẩu)
-authRouter.post("/login", authRateLimiter, validateRequest(loginSchema), authController.login);
+// Đăng nhập: chặn brute-force theo từng tài khoản đích + backstop theo IP (không khoá oan văn phòng NAT).
+authRouter.post("/login", loginAccountRateLimiter, authRateLimiter, validateRequest(loginSchema), authController.login);
 
 // Làm mới Access Token bằng Refresh Token
 authRouter.post("/refresh-token", refreshTokenRateLimiter, authController.refreshToken);

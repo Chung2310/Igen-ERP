@@ -5,6 +5,7 @@ import Sidebar from "./pages/Sidebar";
 import Header from "./pages/Header";
 import { ToastContainer } from "./pages/Toast";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { ChatUnreadProvider, useChatUnread } from "./context/ChatUnreadContext";
 import type { TabType } from "./types";
 import { SEOHead } from "./seo/SEOHead";
 import { AUTH_SEO, getSeoForTab, tabToPath } from "./seo/seo-config";
@@ -14,8 +15,16 @@ import { socketService } from "./services/socketService";
 import { NotificationToastContainer } from "./components/notification/NotificationToastContainer";
 import { browserNotificationService } from "./services/browserNotificationService";
 import { pushService } from "./services/pushService";
+import { setFaviconBadge } from "./utils/faviconBadge";
+import SuperAdminShell from "./pages/super-admin/SuperAdminShell";
+import { isSuperAdminPath } from "./router/superAdminRoute";
+
+const UNREAD_TITLE_PREFIX_RE = /^\(\d+\+?\d*\)\s/;
 
 const AuthPage = lazy(() => import("./pages/AuthPage"));
+const ChatbotWidget = lazy(() =>
+  import("./components/common/ChatbotWidget").then((m) => ({ default: m.ChatbotWidget }))
+);
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const TermsOfService = lazy(() => import("./pages/TermsOfService"));
 const UserDataDeletion = lazy(() => import("./pages/UserDataDeletion"));
@@ -91,6 +100,16 @@ function AppContent() {
       }
     }
   }, [user, userProfile]);
+
+  const { totalUnread } = useChatUnread();
+
+  // Chạy sau effect của SEOHead trong cùng lượt commit (component con luôn chạy effect
+  // trước component cha) nên luôn bóc tiền tố cũ rồi gắn lại trên title mới nhất.
+  React.useEffect(() => {
+    const rawTitle = document.title.replace(UNREAD_TITLE_PREFIX_RE, "");
+    document.title = totalUnread > 0 ? `(${totalUnread > 99 ? "99+" : totalUnread}) ${rawTitle}` : rawTitle;
+    void setFaviconBadge(totalUnread);
+  }, [totalUnread, activeTab]);
 
   if (isLandingGuestPage) {
     return (
@@ -190,13 +209,19 @@ function AppContent() {
           onMenuClick={() => setMobileNavOpen(true)}
         />
 
-        <main className="flex-1 overflow-hidden bg-surface p-3 sm:p-6" id="primary_page_container">
+        <main
+          className={`flex-1 overflow-hidden bg-surface ${
+            activeTab === "TRÒ CHUYỆN" ? "p-0 sm:p-6" : "p-3 sm:p-6"
+          }`}
+          id="primary_page_container"
+        >
           <AppRouterView activeTab={activeTab} userProfile={userProfile} />
         </main>
       </div>
 
       {/* Trợ lý ảo AI — chatbot ngữ cảnh dữ liệu doanh nghiệp */}
       <Suspense fallback={null}>
+        <ChatbotWidget />
       </Suspense>
 
       {/* Popup thông báo nổi thời gian thực ở góc dưới bên phải màn hình */}
@@ -212,10 +237,16 @@ function normalizePublicPath(pathname: string) {
 }
 
 export default function App() {
+  if (isSuperAdminPath(window.location.pathname)) {
+    return <SuperAdminShell />;
+  }
+
   return (
     <AuthProvider>
-      <AppContent />
-      <ToastContainer />
+      <ChatUnreadProvider>
+        <AppContent />
+        <ToastContainer />
+      </ChatUnreadProvider>
     </AuthProvider>
   );
 }

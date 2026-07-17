@@ -44,6 +44,8 @@ const SUPPORTED_MODELS = [
   "workflows",
   "users",
   "hr-calendar-events",
+  "hr-leave-templates",
+  "hr-leave-applications",
   "timekeeping-logs",
 ];
 

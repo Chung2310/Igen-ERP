@@ -12,6 +12,16 @@ const WorkflowSubTaskSchema = new Schema(
   { _id: false }
 );
 
+const WorkflowAttachmentSchema = new Schema(
+  {
+    id: { type: String, required: true },
+    name: { type: String, required: true },
+    url: { type: String, required: true },
+    type: { type: String, enum: ["image", "video", "audio", "file", "link"], default: "file" },
+    size: { type: Number },
+  },
+  { _id: false }
+);
 const WorkflowStepSchema = new Schema(
   {
     id: { type: String, required: true },
@@ -43,6 +53,8 @@ const WorkflowStepSchema = new Schema(
     estDays: { type: Number },
     deliverable: { type: String, default: "" },
     note: { type: String, default: "" },
+    docLinks: { type: [String], default: [] },
+    attachments: { type: [WorkflowAttachmentSchema], default: [] },
     position: {
       x: { type: Number, default: 0 },
       y: { type: Number, default: 0 },
@@ -57,6 +69,17 @@ const WorkflowEdgeSchema = new Schema(
     source: { type: String, required: true },
     target: { type: String, required: true },
     label: { type: String, default: "" },
+  },
+  { _id: false }
+);
+
+const ParticipantAttachmentSchema = new Schema(
+  {
+    id: { type: String, required: true },
+    name: { type: String, required: true },
+    url: { type: String, required: true },
+    type: { type: String, enum: ["image", "video", "audio", "file", "link"], default: "file" },
+    size: { type: Number },
   },
   { _id: false }
 );
@@ -79,7 +102,9 @@ const WorkflowParticipantSchema = new Schema(
     startDate: { type: String, default: "" },
     dueDate: { type: String, default: "" },
     docLinks: { type: [String], default: [] },
+    attachments: { type: [ParticipantAttachmentSchema], default: [] },
     customSubTasks: { type: [WorkflowSubTaskSchema], default: [] },
+    projectId: { type: String, default: "" },
     startedAt: { type: String, default: "" },
     updatedAt: { type: String, default: "" },
   },

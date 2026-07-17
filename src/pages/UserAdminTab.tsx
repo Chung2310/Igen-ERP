@@ -16,11 +16,40 @@ import { CompanyEditFormState, CompanyFormState } from "../components/user-admin
 import { UserFormModal } from "../components/user-admin/UserFormModal";
 import { BalanceModal } from "../components/user-admin/BalanceModal";
 import { RoleModal } from "../components/user-admin/RoleModal";
+import { ConfirmDialog } from "../components/common/ConfirmDialog";
 
 export default function UserAdminTab() {
   const { userProfile } = useAuth();
   const [usersList, setUsersList] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [confirmState, setConfirmState] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    confirmLabel?: string;
+    cancelLabel?: string;
+    onConfirm: () => void | Promise<void>;
+  } | null>(null);
+
+  const askConfirm = (
+    title: string,
+    description: string,
+    onConfirm: () => void | Promise<void>,
+    confirmLabel = "Xác nhận",
+    cancelLabel = "Hủy"
+  ) => {
+    setConfirmState({
+      isOpen: true,
+      title,
+      description,
+      confirmLabel,
+      cancelLabel,
+      onConfirm: async () => {
+        await onConfirm();
+        setConfirmState(null);
+      },
+    });
+  };
   
   // SaaS States
   const [companies, setCompanies] = useState<CompanyProfile[]>([]);
@@ -596,18 +625,34 @@ export default function UserAdminTab() {
     setIsUserModalOpen(true);
   };
 
-  const handleDeleteUser = async (user: UserProfile) => {
-    setOpenActionMenuId(null);
-    if (user.uid === userProfile?.uid) {
-      toast.warning("Bạn không thể tự xóa chính mình.");
-      return;
+  const deleteRoleConfirmed = async (role: string) => {
+    try {
+      let code = undefined;
+      if (userProfile?.role === "superadmin") {
+        code = selectedCompanyCode === "all" ? "SYSTEM" : selectedCompanyCode;
+      } else {
+        code = userProfile?.companyCode;
+      }
+      await rolePermissionService.deleteRolePermission(role, code);
+      toast.success("Xóa cấu hình vai trò thành công!");
+      await fetchRolePermissions();
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error.message || "Xóa vai trò thất bại.");
     }
+  };
 
-    const accepted = window.confirm(`Xóa người dùng "${user.displayName}"? Thao tác này không thể hoàn tác.`);
-    if (!accepted) {
-      return;
-    }
+  const handleDeleteRole = (roleInfo: any) => {
+    askConfirm(
+      "Xóa vai trò?",
+      `Bạn có chắc chắn muốn xóa vai trò "${roleInfo.displayName}"? Hành động này sẽ bỏ phân quyền vai trò.`,
+      () => deleteRoleConfirmed(roleInfo.role),
+      "Xóa vai trò",
+      "Hủy"
+    );
+  };
 
+  const deleteUserConfirmed = async (user: UserProfile) => {
     try {
       await authService.deleteUser(user.uid);
       setUsersList((prev) => prev.filter((item) => item.uid !== user.uid));
@@ -616,6 +661,22 @@ export default function UserAdminTab() {
       console.error("Lỗi xóa người dùng:", error);
       toast.error(error.message || "Không thể xóa người dùng.");
     }
+  };
+
+  const handleDeleteUser = (user: UserProfile) => {
+    setOpenActionMenuId(null);
+    if (user.uid === userProfile?.uid) {
+      toast.warning("Bạn không thể tự xóa chính mình.");
+      return;
+    }
+
+    askConfirm(
+      "Xóa người dùng?",
+      `Bạn có chắc chắn muốn xóa người dùng "${user.displayName}"? Thao tác này không thể hoàn tác.`,
+      () => deleteUserConfirmed(user),
+      "Xóa",
+      "Hủy"
+    );
   };
 
   const openBalanceEditor = (targetUser: AdminUserBalance, action: "add" | "subtract" = "add") => {
@@ -1110,24 +1171,7 @@ export default function UserAdminTab() {
                         )}
                         {!roleInfo.isDefault && (
                           <button
-                            onClick={async () => {
-                              if (window.confirm(`Bạn có chắc chắn muốn xóa vai trò "${roleInfo.displayName}"? Hành động này sẽ bỏ phân quyền vai trò.`)) {
-                                try {
-                                  let code = undefined;
-                                  if (userProfile?.role === "superadmin") {
-                                    code = selectedCompanyCode === "all" ? "SYSTEM" : selectedCompanyCode;
-                                  } else {
-                                    code = userProfile?.companyCode;
-                                  }
-                                  await rolePermissionService.deleteRolePermission(roleInfo.role, code);
-                                  toast.success("Xóa cấu hình vai trò thành công!");
-                                  await fetchRolePermissions();
-                                } catch (error: any) {
-                                  console.error(error);
-                                  toast.error(error.message || "Xóa vai trò thất bại.");
-                                }
-                              }
-                            }}
+                            onClick={() => handleDeleteRole(roleInfo)}
                             className="p-1.5 bg-red-50 hover:bg-red-100 border border-red-200 rounded-xl text-[10px] font-bold text-red-650 cursor-pointer transition-all active:scale-95"
                             title="Xóa vai trò"
                           >
@@ -1260,6 +1304,18 @@ export default function UserAdminTab() {
         }}
       />
 
+      {/* Custom confirm dialog */}
+      {confirmState && (
+        <ConfirmDialog
+          isOpen={confirmState.isOpen}
+          title={confirmState.title}
+          description={confirmState.description}
+          confirmLabel={confirmState.confirmLabel}
+          cancelLabel={confirmState.cancelLabel}
+          onClose={() => setConfirmState(null)}
+          onConfirm={confirmState.onConfirm}
+        />
+      )}
     </div>
   );
 }
