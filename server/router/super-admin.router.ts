@@ -7,6 +7,7 @@ import { createTenantRouter } from "./super-admin-tenant.router";
 import { superAdminUserAccessRouter } from "./super-admin-user-access.router";
 import { superAdminController } from "../controller/super-admin.controller";
 import { validateRequest } from "../middleware/validation";
+import { getSuperAdminRequestMetadata } from "../security/super-admin-request-context";
 import {
   getAuditEventsSchema,
   getDashboardSummarySchema,
@@ -25,7 +26,7 @@ superAdminRouter.post(
   validateRequest(startEnrollmentSchema),
   async (req, res) => {
     try {
-      return res.json(await superAdminAuthService.beginEnrollment(req.body.challengeId));
+      return res.json(await superAdminAuthService.beginEnrollment(req.body.challengeId, getSuperAdminRequestMetadata(req)));
     } catch (e) {
       return res.status(401).json({ status: "error", message: (e as Error).message });
     }
@@ -37,7 +38,7 @@ superAdminRouter.post(
   validateRequest(confirmEnrollmentSchema),
   async (req, res) => {
     try {
-      const result = await superAdminAuthService.confirmEnrollment(req.body.challengeId, req.body.token);
+      const result = await superAdminAuthService.confirmEnrollment(req.body.challengeId, req.body.token, getSuperAdminRequestMetadata(req));
       res.cookie("refreshToken", result.refreshToken, cookie);
       return res.json(result);
     } catch (e) {
@@ -51,7 +52,7 @@ superAdminRouter.post(
   validateRequest(verifyTotpSchema),
   async (req, res) => {
     try {
-      const result = await superAdminAuthService.completeTotpLogin(req.body.challengeId, req.body.token);
+      const result = await superAdminAuthService.completeTotpLogin(req.body.challengeId, req.body.token, getSuperAdminRequestMetadata(req));
       res.cookie("refreshToken", result.refreshToken, cookie);
       return res.json(result);
     } catch (e) {
@@ -65,7 +66,7 @@ superAdminRouter.post(
   validateRequest(verifyRecoverySchema),
   async (req, res) => {
     try {
-      const result = await superAdminAuthService.completeRecoveryLogin(req.body.challengeId, req.body.code);
+      const result = await superAdminAuthService.completeRecoveryLogin(req.body.challengeId, req.body.code, getSuperAdminRequestMetadata(req));
       res.cookie("refreshToken", result.refreshToken, cookie);
       return res.json(result);
     } catch (e) {

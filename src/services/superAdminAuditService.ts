@@ -1,22 +1,4 @@
-async function request(path: string, init: RequestInit = {}) {
-  const token = localStorage.getItem("accessToken");
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-  if (init.headers) {
-    const initHeaders = init.headers as Record<string, string>;
-    Object.keys(initHeaders).forEach((key) => {
-      headers[key] = initHeaders[key];
-    });
-  }
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
-  const res = await fetch(path, { ...init, headers });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.message || "Yêu cầu thất bại");
-  return data;
-}
+import { superAdminRequest as request } from "./superAdminRequest";
 
 export interface AuditFilters {
   actorSuperAdminId?: string;

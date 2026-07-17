@@ -10,12 +10,13 @@ test("uses approved DDoS protection defaults", () => {
   assert.equal(config.expensiveLimit, 60);
   assert.equal(config.generalBodyLimit, "2mb");
   assert.equal(config.largeBodyLimit, "300mb");
-  assert.equal(config.socketHandshakeLimit, 20);
-  assert.equal(config.socketMaxPerUser, 10);
-  assert.equal(config.socketMaxPerIp, 30);
+  assert.equal(config.authIpLimit, 300);
+  assert.equal(config.refreshIpLimit, 1000);
+  assert.equal(config.socketHandshakeLimit, 300);
+  assert.equal(config.socketMaxPerUser, 5);
+  assert.equal(config.socketMaxPerIp, 500);
   assert.equal(config.socketEventLimit, 120);
   assert.equal(config.authIpWindowMs, 15 * 60 * 1000);
-  assert.equal(config.authIpLimit, 100);
   assert.equal(config.loginAccountWindowMs, 15 * 60 * 1000);
   assert.equal(config.loginAccountLimit, 10);
 });

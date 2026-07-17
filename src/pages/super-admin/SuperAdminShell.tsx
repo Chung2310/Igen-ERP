@@ -1,3 +1,4 @@
+import { superAdminRequest } from "../../services/superAdminRequest";
 import React from "react";
 import { EnvironmentBanner } from "../../components/super-admin/EnvironmentBanner";
 import { superAdminAuthService } from "../../services/superAdminAuthService";
@@ -6,7 +7,7 @@ import { AuditTab } from "../../components/super-admin/AuditTab";
 import { SessionsTab } from "../../components/super-admin/SessionsTab";
 import { TenantListPage } from "./tenants/TenantListPage";
 import { UserSearchPage } from "./users/UserSearchPage";
-import { LayoutDashboard, FileText, Monitor, LogOut, UsersRound, Building2 } from "lucide-react";
+import { LayoutDashboard, FileText, Monitor, LogOut, UsersRound, Building2, Menu, X } from "lucide-react";
 
 export default function SuperAdminShell() {
   const [stage, setStage] = React.useState<"password" | "enroll" | "totp" | "recovery" | "authenticated">(
@@ -22,6 +23,7 @@ export default function SuperAdminShell() {
   const [recoveryCodes, setRecoveryCodes] = React.useState<string[]>([]);
   const [environment, setEnvironment] = React.useState<"staging" | "production">("staging");
   const [error, setError] = React.useState("");
+  const [sidebarOpen, setSidebarOpen] = React.useState(false);
 
   React.useEffect(() => {
     if (stage === "authenticated") {
@@ -81,12 +83,7 @@ export default function SuperAdminShell() {
   const handleLogout = async () => {
     try {
       // call logout endpoint if needed
-      await fetch("/api/v1/super-admin/auth/logout", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
-        },
-      }).catch(() => {});
+      await superAdminRequest("/api/v1/super-admin/auth/logout", { method: "POST" }).catch(() => {});
     } finally {
       localStorage.removeItem("accessToken");
       setStage("password");
@@ -109,91 +106,113 @@ export default function SuperAdminShell() {
     }
   };
 
+  const navItems = [
+    { id: "overview" as const, label: "Tổng quan hệ thống", icon: LayoutDashboard },
+    { id: "audit" as const, label: "Nhật ký kiểm toán", icon: FileText },
+    { id: "users" as const, label: "Quản trị tài khoản", icon: UsersRound },
+    { id: "tenants" as const, label: "Quản lý doanh nghiệp", icon: Building2 },
+    { id: "sessions" as const, label: "Quản lý phiên làm việc", icon: Monitor },
+  ];
+
+  const handleNavClick = (tabId: typeof activeTab) => {
+    setActiveTab(tabId);
+    setSidebarOpen(false);
+  };
+
+  const NavContent = () => (
+    <div className="flex flex-col h-full">
+      <div className="space-y-6 flex-1">
+        <div>
+          <h1 className="text-xl font-black text-white tracking-wider">BẢNG ĐIỀU KHIỂN</h1>
+          <p className="mt-1 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+            Không gian Quản trị Tối cao
+          </p>
+        </div>
+        <nav className="mt-6 block space-y-2">
+          {navItems.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              onClick={() => handleNavClick(id)}
+              className={`w-full flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-all ${
+                activeTab === id
+                  ? "bg-cyan-500/10 border border-cyan-500/20 text-cyan-400"
+                  : "text-slate-400 hover:text-white hover:bg-white/5 border border-transparent"
+              }`}
+            >
+              <Icon className="h-4 w-4 shrink-0" />
+              {label}
+            </button>
+          ))}
+        </nav>
+      </div>
+      <button
+        onClick={handleLogout}
+        className="w-full flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-slate-400 hover:text-red-400 hover:bg-red-500/5 transition-all border border-transparent mt-4"
+      >
+        <LogOut className="h-4 w-4 shrink-0" />
+        Đăng xuất
+      </button>
+    </div>
+  );
+
   if (stage === "authenticated") {
     return (
       <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
         <EnvironmentBanner environment={environment} />
-        
-        <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-          {/* Sidebar */}
-          <aside className="w-full shrink-0 border-b border-white/10 bg-slate-950 p-4 sm:p-6 lg:w-64 lg:border-b-0 lg:border-r">
-            <div className="space-y-6">
-              <div>
-                <h1 className="text-xl font-black text-white tracking-wider">BẢNG ĐIỀU KHIỂN</h1>
-                <p className="mt-1 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                  Không gian Quản trị Tối cao
-                </p>
-              </div>
 
-              <nav className="mt-6 flex flex-wrap gap-2 lg:mt-8 lg:block lg:space-y-2">
-                <button
-                  onClick={() => setActiveTab("overview")}
-                  className={`w-full flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-all ${
-                    activeTab === "overview"
-                      ? "bg-cyan-500/10 border border-cyan-500/20 text-cyan-400"
-                      : "text-slate-400 hover:text-white hover:bg-white/5 border border-transparent"
-                  }`}
-                >
-                  <LayoutDashboard className="h-4 w-4" />
-                  Tổng quan hệ thống
-                </button>
+        {/* Mobile Top Navigation Bar */}
+        <header className="lg:hidden sticky top-0 z-30 flex items-center justify-between border-b border-white/10 bg-slate-950/95 backdrop-blur-xl px-4 py-3">
+          <div>
+            <span className="text-sm font-black text-white tracking-wider">BẢNG ĐIỀU KHIỂN</span>
+            <span className="ml-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest hidden sm:inline">
+              Quản trị Tối cao
+            </span>
+          </div>
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="rounded-xl border border-white/10 bg-slate-800 hover:bg-slate-700 p-2 text-slate-300 transition-all"
+            aria-label="Mở menu điều hướng"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+        </header>
 
-                <button
-                  onClick={() => setActiveTab("audit")}
-                  className={`w-full flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-all ${
-                    activeTab === "audit"
-                      ? "bg-cyan-500/10 border border-cyan-500/20 text-cyan-400"
-                      : "text-slate-400 hover:text-white hover:bg-white/5 border border-transparent"
-                  }`}
-                >
-                  <FileText className="h-4 w-4" />
-                  Nhật ký kiểm toán
-                </button>
+        {/* Mobile Slide-over Drawer Backdrop */}
+        {sidebarOpen && (
+          <div
+            className="lg:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
 
-                <button
-                  onClick={() => setActiveTab("users")}
-                  className={`w-full flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-all ${
-                    activeTab === "users"
-                      ? "bg-cyan-500/10 border border-cyan-500/20 text-cyan-400"
-                      : "text-slate-400 hover:text-white hover:bg-white/5 border border-transparent"
-                  }`}
-                >
-                  <UsersRound className="h-4 w-4" />
-                  Quản trị tài khoản
-                </button>
-                <button
-                  onClick={() => setActiveTab("tenants")}
-                  className={`w-full flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-all ${
-                    activeTab === "tenants"
-                      ? "bg-cyan-500/10 border border-cyan-500/20 text-cyan-400"
-                      : "text-slate-400 hover:text-white hover:bg-white/5 border border-transparent"
-                  }`}
-                >
-                  <Building2 className="h-4 w-4" />
-                  Quản lý doanh nghiệp
-                </button>
-                <button
-                  onClick={() => setActiveTab("sessions")}
-                  className={`w-full flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-all ${
-                    activeTab === "sessions"
-                      ? "bg-cyan-500/10 border border-cyan-500/20 text-cyan-400"
-                      : "text-slate-400 hover:text-white hover:bg-white/5 border border-transparent"
-                  }`}
-                >
-                  <Monitor className="h-4 w-4" />
-                  Quản lý phiên làm việc
-                </button>
-              </nav>
+        {/* Mobile Slide-over Drawer */}
+        <aside
+          className={`lg:hidden fixed inset-y-0 left-0 z-50 w-72 bg-slate-900 border-r border-white/10 p-5 flex flex-col shadow-2xl transition-transform duration-300 ease-in-out ${
+            sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
+        >
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h1 className="text-lg font-black text-white tracking-wider">BẢNG ĐIỀU KHIỂN</h1>
+              <p className="mt-0.5 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                Quản trị Tối cao
+              </p>
             </div>
-
-            {/* Logout button in sidebar footer */}
             <button
-              onClick={handleLogout}
-              className="w-full flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-slate-400 hover:text-red-400 hover:bg-red-500/5 transition-all border border-transparent"
+              onClick={() => setSidebarOpen(false)}
+              className="rounded-xl border border-white/10 bg-slate-800 hover:bg-slate-700 p-2 text-slate-400 hover:text-white transition-all"
+              aria-label="Đóng menu"
             >
-              <LogOut className="h-4 w-4" />
-              Đăng xuất
+              <X className="h-4 w-4" />
             </button>
+          </div>
+          <NavContent />
+        </aside>
+
+        <div className="flex min-h-0 flex-1">
+          {/* Desktop Sidebar */}
+          <aside className="hidden lg:flex lg:w-64 shrink-0 flex-col border-r border-white/10 bg-slate-950 p-6">
+            <NavContent />
           </aside>
 
           {/* Main workspace */}
@@ -204,6 +223,7 @@ export default function SuperAdminShell() {
       </div>
     );
   }
+
 
   return (
     <main className="min-h-screen bg-slate-950 text-white grid place-items-center p-6">
