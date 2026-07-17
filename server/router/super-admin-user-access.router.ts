@@ -1,8 +1,10 @@
 import { Router } from "express";
 import { userAccessManagementService } from "../super-admin/user-access-management.service";
+import { executeAdminAction } from "../super-admin/action-runtime";
+import { getAdminAction } from "../super-admin/action-registry";
 
 export const superAdminUserAccessRouter = Router();
-const tenant = (req: any) => String(req.query.tenantId || req.body?.tenantId || "");
+const tenant = (req: any) => { const query = req.query.tenantId; const body = req.body?.tenantId; if (!query || (body && String(query) !== String(body))) throw new Error("tenantId must be explicit and match when supplied in body"); return String(query); };
 superAdminUserAccessRouter.get("/users", async (req: any, res) => {
   if (!tenant(req)) return res.status(400).json({ message: "tenantId is required" });
   return res.json(await userAccessManagementService.search({ tenantId: tenant(req), page: Number(req.query.page) || 1, limit: Math.min(Number(req.query.limit) || 20, 100), q: req.query.q }));
