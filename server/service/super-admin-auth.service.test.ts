@@ -114,3 +114,19 @@ test("enrollment login replaces the active privileged session", async () => {
   assert.equal(sessions.get("old").revokeReason, "replaced_by_new_login");
   assert.equal(sessions.get(login.sessionId).revokedAt, undefined);
 });
+
+test("startup preflight reports every duplicate Super Admin without modifying records", async () => {
+  const duplicateService = createSuperAdminAuthService({
+    users: {
+      listSuperAdmins: async () => [
+        { _id: "root-1", email: "root1@example.com" },
+        { _id: "root-2", email: "root2@example.com" },
+      ],
+    },
+  } as any);
+
+  await assert.rejects(
+    () => duplicateService.assertSingleSuperAdmin(),
+    /root-1.*root1@example\.com.*root-2.*root2@example\.com/i,
+  );
+});

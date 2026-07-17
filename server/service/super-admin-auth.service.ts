@@ -40,6 +40,12 @@ export function createSuperAdminAuthService(deps: any) {
     return { sessionId, ...deps.signTokens(user, sessionId) };
   };
   return {
+    async assertSingleSuperAdmin() {
+      const accounts = await deps.users.listSuperAdmins();
+      if (accounts.length <= 1) return;
+      const details = accounts.map((account: any) => `${account._id} (${account.email})`).join(", ");
+      throw new Error(`Multiple Super Admin accounts found; resolve manually: ${details}`);
+    },
     async beginSuperAdminLogin(user: any) {
       const challengeId = deps.id(); const expiresAt = new Date(deps.now().getTime() + CHALLENGE_MS);
       await deps.challenges.create({ challengeId, userId: user._id, purpose: "login", passwordVerifiedAt: deps.now(), expiresAt, attempts: 0 });
@@ -92,7 +98,10 @@ export function createSuperAdminAuthService(deps: any) {
 
 const mongoDeps = {
   now: () => new Date(), id: () => randomUUID(),
-  users: { findSecurityUser: (id: string) => UserModel.findById(id).select("+password +superAdminSecurity.totpSecretEncrypted +superAdminSecurity.recoveryCodeHashes") },
+  users: {
+    findSecurityUser: (id: string) => UserModel.findById(id).select("+password +superAdminSecurity.totpSecretEncrypted +superAdminSecurity.recoveryCodeHashes"),
+    listSuperAdmins: () => UserModel.find({ role: "superadmin" }).select("_id email").lean(),
+  },
   challenges: { create: (v: any) => SuperAdminChallengeModel.create(v), find: (id: string) => SuperAdminChallengeModel.findOne({ challengeId: id }).select("+enrollmentSecretEncrypted"), save: (v: any) => v.save() },
   sessions: {
     create: (v: any) => SuperAdminSessionModel.create(v),
