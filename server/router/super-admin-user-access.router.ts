@@ -1,13 +1,18 @@
 import { Router } from "express";
+import { randomUUID } from "node:crypto";
 import { userAccessManagementService } from "../super-admin/user-access-management.service";
 import { executeAdminAction } from "../super-admin/action-runtime";
 import { getAdminAction } from "../super-admin/action-registry";
 
 export const superAdminUserAccessRouter = Router();
-const tenant = (req: any) => { const query = req.query.tenantId; const body = req.body?.tenantId; if (!query || (body && String(query) !== String(body))) throw new Error("tenantId must be explicit and match when supplied in body"); return String(query); };
-superAdminUserAccessRouter.get("/users", async (req: any, res) => {
-  if (!tenant(req)) return res.status(400).json({ message: "tenantId is required" });
-  return res.json(await userAccessManagementService.search({ tenantId: tenant(req), page: Number(req.query.page) || 1, limit: Math.min(Number(req.query.limit) || 20, 100), q: req.query.q }));
-});
-superAdminUserAccessRouter.get("/users/:userId", async (req: any, res) => res.json(await userAccessManagementService.detail({ tenantId: tenant(req), userId: req.params.userId })));
-for (const [path, method] of [["/users/:userId/lock", "lock"], ["/users/:userId/unlock", "unlock"], ["/users/:userId/sessions/revoke", "revokeSessions"], ["/users/:userId/2fa/reset", "resetTwoFactor"], ["/users/:userId/role", "assignRole"], ["/users/:userId/impersonation", "startImpersonation"]] as const) superAdminUserAccessRouter.post(path, async (req: any, res) => { try { const result = await (userAccessManagementService as any)[method]({ ...req.body, tenantId: tenant(req), userId: req.params.userId, actorId: req.realActor?._id }); return res.json({ ...result, actionId: `access:${Date.now()}` }); } catch (e) { return res.status(400).json({ message: (e as Error).message }); } });
+const companyCode = (req: any) => { const query = req.query.companyCode || req.query.tenantId; const body = req.body?.companyCode || req.body?.tenantId; if (!query || (body && String(query) !== String(body))) throw new Error("companyCode must be explicit and match when supplied in body"); return String(query); };
+const mutation = (path: string, method: string, actionType: string) => superAdminUserAccessRouter.post(path, async (req: any, res) => { try { const tenantId = companyCode(req); const idempotencyKey = String(req.get("Idempotency-Key") || ""); if (!idempotencyKey) throw new Error("Idempotency-Key is required"); const result = await executeAdminAction({ actorId: req.realActor?._id || req.user?.id, sessionId: req.user?.sessionId }, { definition: getAdminAction(actionType), input: { ...req.body, tenantId, userId: req.params.userId }, idempotencyKey, reason: req.body?.reason, password: req.body?.password, token: req.body?.token, step: req.body?.step }, async (input: any) => (userAccessManagementService as any)[method]({ ...input, actorId: req.realActor?._id || req.user?.id, correlationId: req.get("X-Correlation-Id") || randomUUID() })); return res.json(result); } catch (e) { return res.status(400).json({ message: (e as Error).message }); } });
+superAdminUserAccessRouter.get("/users", async (req: any, res) => { try { const tenantId = companyCode(req); return res.json(await userAccessManagementService.search({ tenantId, page: Number(req.query.page) || 1, limit: Math.min(Number(req.query.limit) || 20, 100), q: req.query.q })); } catch (e) { return res.status(400).json({ message: (e as Error).message }); } });
+superAdminUserAccessRouter.get("/users/:userId", async (req: any, res) => { try { return res.json(await userAccessManagementService.detail({ tenantId: companyCode(req), userId: req.params.userId })); } catch (e) { return res.status(400).json({ message: (e as Error).message }); } });
+mutation("/users/:userId/lock", "lock", "user.access.lock");
+mutation("/users/:userId/unlock", "unlock", "user.access.unlock");
+mutation("/users/:userId/sessions/revoke", "revokeSessions", "security.session.revoke.user");
+mutation("/users/:userId/2fa/reset", "resetTwoFactor", "security.2fa.reset");
+mutation("/users/:userId/role", "assignRole", "user.access.role.assign");
+mutation("/users/:userId/impersonation", "startImpersonation", "security.impersonation.start");
+mutation("/users/:userId/impersonation/stop", "stopImpersonation", "security.impersonation.stop");

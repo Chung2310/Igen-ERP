@@ -10,3 +10,4 @@ export const resetTwoFactorAction = userAccessAction("security.2fa.reset", "dang
 export const assignUserRoleAction = userAccessAction("user.access.role.assign", "dangerous", true);
 export const startImpersonationAction = userAccessAction("security.impersonation.start", "dangerous", true);
 export const stopImpersonationAction = userAccessAction("security.impersonation.stop", "standard");
+export const revokeUserSessionsAction = userAccessAction("security.session.revoke.user", "dangerous", true);
