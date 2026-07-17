@@ -23,7 +23,7 @@ test("transitions tenants through active, suspended, archived, and scheduled del
 
   assert.equal((await service.transitionLifecycle("ACME", "suspended")).lifecycleStatus, "suspended");
   assert.equal((await service.transitionLifecycle("ACME", "archived")).lifecycleStatus, "archived");
-  assert.equal((await service.scheduleDeletion("ACME", "contract ended", new Date("2026-07-17"))).lifecycleStatus, "scheduled-deletion");
+  assert.equal((await service.scheduleDeletion("ACME", "contract ended", new Date("2026-07-17"), { affectedUsers: 1 }, "backup-1")).lifecycleStatus, "scheduled-deletion");
   assert.equal((await service.cancelDeletion("ACME")).lifecycleStatus, "archived");
   assert.equal((await service.transitionLifecycle("ACME", "active")).lifecycleStatus, "active");
 });
