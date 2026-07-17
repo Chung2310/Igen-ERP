@@ -10,6 +10,7 @@ import { IUser } from "../interface/user.interface";
 import { ICompany } from "../interface/company.interface";
 import { TelegramLinkStatus } from "../interface/telegram-link.interface";
 import { pickSelfServiceProfileUpdate } from "../utils/self-service-profile-update";
+import { superAdminAuthService } from "./super-admin-auth.service";
 
 import { getJwtAccessSecret, getJwtRefreshSecret } from "../config/env";
 const TELEGRAM_LINK_CODE_TTL_MS = 5 * 60 * 1000;
@@ -111,6 +112,7 @@ export const authService = {
         email: user.email,
         role: user.role,
         companyCode: user.companyCode,
+        ...(decoded.sid ? { sid: decoded.sid, authLevel: decoded.authLevel } : {}),
       };
 
       const accessToken = jwt.sign(payload, getJwtAccessSecret(), { expiresIn: "15m" });

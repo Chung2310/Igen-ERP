@@ -11,6 +11,8 @@ export interface AuthenticatedRequest extends Request {
     email: string;
     role: string;
     companyCode?: string;
+    sessionId?: string;
+    authLevel?: string;
   };
   resource?: any; // Để đính kèm tài nguyên sau khi qua requireCompanyAccess
 }
@@ -105,6 +107,8 @@ export function requireAuth(req: AuthenticatedRequest, res: Response, next: Next
       email: decoded.email,
       role: decoded.role,
       companyCode: decoded.companyCode,
+      sessionId: decoded.sid,
+      authLevel: decoded.authLevel,
     };
 
     // console.log(`[requireAuth] Xác thực thành công: ${req.method} ${req.originalUrl} - User: ${decoded.email} (${decoded.role}), ID: ${decoded.id}`);

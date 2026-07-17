@@ -95,6 +95,18 @@ const ElevenLabsAccessSchema = new Schema(
   { _id: false }
 );
 
+const SuperAdminSecuritySchema = new Schema({
+  totpEnabled: { type: Boolean, default: false },
+  totpSecretEncrypted: { type: String, select: false },
+  recoveryCodeHashes: { type: [String], default: [], select: false },
+  enrolledAt: { type: Date }, failedTotpAttempts: { type: Number, default: 0 }, lockedUntil: { type: Date },
+}, { _id: false });
+
+function removeSuperAdminSecrets(_doc: unknown, ret: Record<string, any>) {
+  if (ret.superAdminSecurity) { delete ret.superAdminSecurity.totpSecretEncrypted; delete ret.superAdminSecurity.recoveryCodeHashes; }
+  return ret;
+}
+
 const UserSchema = new Schema<IUser>({
   email: { type: String, required: true, unique: true, index: true, lowercase: true },
   password: { type: String },
@@ -119,6 +131,7 @@ const UserSchema = new Schema<IUser>({
   companyCode: { type: String, index: true },
   companyName: { type: String },
   permissions: { type: [String], default: [] },
-});
+  superAdminSecurity: { type: SuperAdminSecuritySchema },
+}, { toJSON: { transform: removeSuperAdminSecrets }, toObject: { transform: removeSuperAdminSecrets } });
 
 export const UserModel = model<IUser>("User", UserSchema);

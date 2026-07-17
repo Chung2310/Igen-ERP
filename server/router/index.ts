@@ -17,6 +17,7 @@ import { mediaRouter } from "./media.router";
 import { notificationRouter } from "./notification.router";
 import { kanbanRouter } from "./kanban.router";
 import { expensiveApiRateLimiter } from "../middleware/rate-limit";
+import { superAdminRouter } from "./super-admin.router";
 export const apiRouter = Router();
 /**
  * GET /api/v1/health
@@ -42,6 +43,7 @@ apiRouter.use("/resources", resourceRouter);
 
 // Gắn kết router phụ của Xác thực JWT
 apiRouter.use("/auth", authRouter);
+apiRouter.use("/super-admin", superAdminRouter);
 
 // Gắn kết router phụ của Quản lý mã quyền hệ thống
 apiRouter.use("/permissions", permissionRouter);
