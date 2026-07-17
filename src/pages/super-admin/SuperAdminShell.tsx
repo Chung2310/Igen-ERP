@@ -114,9 +114,9 @@ export default function SuperAdminShell() {
       <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
         <EnvironmentBanner environment={environment} />
         
-        <div className="flex flex-1">
+        <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
           {/* Sidebar */}
-          <aside className="w-64 border-r border-white/10 bg-slate-950 p-6 flex flex-col justify-between flex-shrink-0">
+          <aside className="w-full shrink-0 border-b border-white/10 bg-slate-950 p-4 sm:p-6 lg:w-64 lg:border-b-0 lg:border-r">
             <div className="space-y-6">
               <div>
                 <h1 className="text-xl font-black text-white tracking-wider">IGEN CONTROL</h1>
@@ -125,7 +125,7 @@ export default function SuperAdminShell() {
                 </p>
               </div>
 
-              <nav className="space-y-2 mt-8">
+              <nav className="mt-6 flex flex-wrap gap-2 lg:mt-8 lg:block lg:space-y-2">
                 <button
                   onClick={() => setActiveTab("overview")}
                   className={`w-full flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-all ${
@@ -195,7 +195,7 @@ export default function SuperAdminShell() {
           </aside>
 
           {/* Main workspace */}
-          <main className="flex-1 p-8 overflow-y-auto max-w-[calc(100vw-256px)] bg-slate-950">
+          <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-slate-950 p-4 sm:p-6 lg:p-8">
             {renderActiveTab()}
           </main>
         </div>
