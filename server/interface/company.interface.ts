@@ -38,11 +38,16 @@ export interface ICompany extends Document {
   ownerEmail: string;
   heygenConfig?: ICompanyHeyGenConfig;
   elevenlabsConfig?: ICompanyElevenLabsConfig;
-  /** Link thư mục Google Drive dùng chung cho toàn công ty (tài liệu). */
+  /** Link thÆ° má»¥c Google Drive dÃ¹ng chung cho toÃ n cÃ´ng ty (tÃ i liá»‡u). */
   driveFolderLink?: string;
-  /** OAuth Google Drive riêng của công ty (mỗi công ty kết nối tài khoản Google của họ). */
+  /** OAuth Google Drive riÃªng cá»§a cÃ´ng ty (má»—i cÃ´ng ty káº¿t ná»‘i tÃ i khoáº£n Google cá»§a há»). */
   driveOAuth?: ICompanyDriveOAuth;
-  /** ID thư mục do app tạo trong Drive của công ty để chứa tài liệu. */
+  /** ID thÆ° má»¥c do app táº¡o trong Drive cá»§a cÃ´ng ty Ä‘á»ƒ chá»©a tÃ i liá»‡u. */
   driveFolderId?: string;
   locationConfig?: ICompanyLocationConfig;
+  lifecycleStatus?: "active" | "suspended" | "archived" | "scheduled-deletion";
+  lifecycleChangedAt?: Date;
+  deletionScheduledAt?: Date | null;
+  retentionEndsAt?: Date | null;
+  deletionReason?: string;
 }

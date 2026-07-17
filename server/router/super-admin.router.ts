@@ -3,6 +3,7 @@ import { getDeploymentEnv } from "../config/env";
 import { requireAuth } from "../middleware/auth";
 import { requirePrivilegedSession, requireRealSuperAdmin } from "../middleware/super-admin-auth";
 import { superAdminAuthService } from "../service/super-admin-auth.service";
+import { createTenantRouter } from "./super-admin-tenant.router";
 import { superAdminController } from "../controller/super-admin.controller";
 import { validateRequest } from "../middleware/validation";
 import {
@@ -74,6 +75,7 @@ superAdminRouter.post(
 
 superAdminRouter.use(requireAuth as any, requireRealSuperAdmin as any, requirePrivilegedSession as any);
 superAdminRouter.get("/environment", (_req, res) => res.json({ environment: getDeploymentEnv() }));
+superAdminRouter.use(createTenantRouter());
 superAdminRouter.get("/auth/sessions", async (req: any, res) => res.json({ sessions: await superAdminAuthService.listSessions(req.user.id) }));
 
 superAdminRouter.delete(

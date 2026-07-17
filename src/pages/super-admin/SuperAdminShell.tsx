@@ -4,6 +4,7 @@ import { superAdminAuthService } from "../../services/superAdminAuthService";
 import { DashboardTab } from "../../components/super-admin/DashboardTab";
 import { AuditTab } from "../../components/super-admin/AuditTab";
 import { SessionsTab } from "../../components/super-admin/SessionsTab";
+import { TenantListPage } from "./tenants/TenantListPage";
 import { LayoutDashboard, FileText, Monitor, LogOut } from "lucide-react";
 
 export default function SuperAdminShell() {
@@ -11,7 +12,7 @@ export default function SuperAdminShell() {
     localStorage.getItem("accessToken") ? "authenticated" : "password"
   );
   
-  const [activeTab, setActiveTab] = React.useState<"overview" | "audit" | "sessions">("overview");
+  const [activeTab, setActiveTab] = React.useState<"overview" | "audit" | "sessions" | "tenants">("overview");
   const [challenge, setChallenge] = React.useState("");
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
@@ -97,6 +98,8 @@ export default function SuperAdminShell() {
         return <AuditTab />;
       case "sessions":
         return <SessionsTab />;
+      case "tenants":
+        return <TenantListPage onSelect={() => undefined} />;
       case "overview":
       default:
         return <DashboardTab />;
@@ -144,6 +147,16 @@ export default function SuperAdminShell() {
                   Nhật ký kiểm toán
                 </button>
 
+                <button
+                  onClick={() => setActiveTab("tenants")}
+                  className={`w-full flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-all ${
+                    activeTab === "tenants"
+                      ? "bg-cyan-500/10 border border-cyan-500/20 text-cyan-400"
+                      : "text-slate-400 hover:text-white hover:bg-white/5 border border-transparent"
+                  }`}
+                >
+                  Tenant management
+                </button>
                 <button
                   onClick={() => setActiveTab("sessions")}
                   className={`w-full flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-all ${
