@@ -3,6 +3,9 @@ import { Sliders, Save, Info } from "lucide-react";
 import { toast } from "../../../../pages/Toast";
 import { useAuth } from "../../../../context/AuthContext";
 
+type FieldConfig = { visible: boolean; required: boolean };
+type FieldsConfig = Record<string, FieldConfig>;
+
 export function SettingsPage() {
   const { userProfile } = useAuth();
 
@@ -11,7 +14,7 @@ export function SettingsPage() {
   };
   const configKey = `studentFormConfig_${getOwnerId()}`;
 
-  const defaultFieldsConfig = {
+  const defaultFieldsConfig: FieldsConfig = {
     email:           { visible: true,  required: false },
     birthday:        { visible: true,  required: false },
     idCard:          { visible: true,  required: false },
@@ -22,7 +25,7 @@ export function SettingsPage() {
     portraitFile:    { visible: false, required: false },
   };
 
-  const [fieldsConfig, setFieldsConfig] = useState(() => {
+  const [fieldsConfig, setFieldsConfig] = useState<FieldsConfig>(() => {
     const saved = localStorage.getItem(configKey);
     if (saved) {
       try {
@@ -37,7 +40,7 @@ export function SettingsPage() {
   const [hasChanges, setHasChanges] = useState(false);
 
   const handleToggleVisible = (field: string) => {
-    setFieldsConfig((prev: any) => {
+    setFieldsConfig((prev) => {
       const updated = {
         ...prev,
         [field]: {
@@ -52,7 +55,7 @@ export function SettingsPage() {
   };
 
   const handleToggleRequired = (field: string) => {
-    setFieldsConfig((prev: any) => {
+    setFieldsConfig((prev) => {
       const updated = {
         ...prev,
         [field]: {

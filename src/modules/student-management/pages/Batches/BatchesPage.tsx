@@ -10,15 +10,16 @@ import { useCourses } from '../../hooks/useCourses';
 import { authService } from '../../../../services/authService';
 import { useAuth } from '../../../../context/AuthContext';
 import { useStudents } from '../../hooks/useStudents';
-import { Batch, BatchStatus } from '../../types';
+import { Batch, BatchStatus, ManagedUser } from '../../types';
 import {
   ErpPageHeader, ErpPrimaryButton, ErpSearchBar, ErpFilterTab, ErpFilterRail,
-  ErpModal, ErpField, ErpInput, ErpSelect,
-  ErpEmptyState, ErpLoadingState, ErpCard, ErpConfirmModal, ErpTableHead,
-  erpInputClass
+  ErpEmptyState, ErpLoadingState, ErpCard, ErpConfirmModal, ErpTableHead
 } from '../../components/Erp/ErpUI';
 import { Pagination } from '../../components/ui/Pagination';
-import { TimeInput24 } from '../../../../components/common/TimeInput24';
+import { BatchFormModal } from '../../components/Batches/BatchFormModal';
+import { ManageLearnersModal } from '../../components/Batches/ManageLearnersModal';
+import { AttendanceModal } from '../../components/Batches/AttendanceModal';
+import { AttendanceViewModal } from '../../components/Batches/AttendanceViewModal';
 
 const BATCH_STATUSES: BatchStatus[] = ['Sắp khai giảng', 'Đang học', 'Đã kết thúc'];
 
@@ -59,7 +60,7 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
   const resolvedCenter = selectedCenter === 'all' ? undefined : selectedCenter;
   const { batches, loading, refetch } = useBatches(resolvedCenter);
   const { courses } = useCourses(resolvedCenter);
-  const [users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<ManagedUser[]>([]);
   React.useEffect(() => {
     const fetchUsers = async () => {
       try {
@@ -321,204 +322,15 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
 
       {/* Create / Edit Batch Modal */}
       {showFormModal && (
-        <ErpModal title={editingId ? 'Chỉnh sửa lớp học' : 'Mở lớp mới'} onClose={() => setShowFormModal(false)} maxWidth="max-w-lg">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Section 1: Thông tin lớp học */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
-                <div className="w-1.5 h-4 bg-brand-primary rounded-full"></div>
-                <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                  <School className="w-4 h-4 text-brand-primary" />
-                  Thông tin lớp học
-                </h4>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <ErpField label="Mã lớp">
-                  <div className="relative">
-                    <ErpInput
-                      type="text"
-                      required
-                      placeholder="Ví dụ: K32"
-                      value={form.code}
-                      onChange={(e) => setForm({ ...form, code: e.target.value })}
-                      className="pl-10"
-                    />
-                    <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
-                      <Tag className="w-4 h-4" />
-                    </div>
-                  </div>
-                </ErpField>
-                <ErpField label="Khóa học">
-                  <div className="relative">
-                    <ErpSelect
-                      required
-                      value={form.courseId}
-                      onChange={(e) => setForm({ ...form, courseId: e.target.value })}
-                      className="pl-10"
-                    >
-                      <option value="" disabled>-- Chọn khóa học --</option>
-                      {courses.map((c) => (
-                        <option key={c.id} value={c.id}>{c.code} — {c.title}</option>
-                      ))}
-                    </ErpSelect>
-                    <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400 z-10">
-                      <BookOpen className="w-4 h-4" />
-                    </div>
-                  </div>
-                </ErpField>
-              </div>
-
-              <ErpField label="Giảng viên phụ trách">
-                <div className="relative">
-                  <ErpSelect
-                    value={form.instructorId}
-                    onChange={(e) => setForm({ ...form, instructorId: e.target.value })}
-                    className="pl-10"
-                  >
-                    <option value="">— Chưa gán giảng viên —</option>
-                    {instructors.map((i) => (
-                      <option key={i.uid} value={i.uid}>{i.displayName} (Nhân viên)</option>
-                    ))}
-                  </ErpSelect>
-                  <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400 z-10">
-                    <GraduationCap className="w-4 h-4" />
-                  </div>
-                </div>
-              </ErpField>
-            </div>
-
-            {/* Section 2: Lịch học & Khung giờ */}
-            <div className="space-y-4 pt-2">
-              <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
-                <div className="w-1.5 h-4 bg-brand-primary rounded-full"></div>
-                <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                  <Clock className="w-4 h-4 text-brand-primary" />
-                  Lịch học & Khung giờ
-                </h4>
-              </div>
-
-              <ErpField label="Ngày học trong tuần">
-                <div className="grid grid-cols-7 gap-1 mt-1">
-                  {DAY_OPTIONS.map((d) => (
-                    <button
-                      key={d.value}
-                      type="button"
-                      onClick={() => toggleDay(d.value)}
-                      className={cn(
-                        "py-1.5 rounded-lg text-[10px] font-black transition-all border cursor-pointer text-center",
-                        form.daysOfWeek.includes(d.value)
-                          ? "bg-brand-primary text-white border-brand-primary shadow-sm shadow-brand-primary/15 scale-[1.02]"
-                          : "bg-slate-50 text-slate-550 border-slate-200 hover:bg-slate-100 hover:border-slate-300 active:scale-95"
-                      )}
-                    >
-                      {d.label}
-                    </button>
-                  ))}
-                </div>
-              </ErpField>
-
-              <div className="grid grid-cols-2 gap-4">
-                <ErpField label="Giờ bắt đầu">
-                  <div className="relative">
-                    <TimeInput24
-                      required
-                      value={form.startTime}
-                      onChange={(v) => setForm({ ...form, startTime: v })}
-                      className={cn(erpInputClass(darkMode), "pl-10")}
-                    />
-                    <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
-                      <Clock className="w-4 h-4" />
-                    </div>
-                  </div>
-                </ErpField>
-                <ErpField label="Giờ kết thúc">
-                  <div className="relative">
-                    <TimeInput24
-                      required
-                      value={form.endTime}
-                      onChange={(v) => setForm({ ...form, endTime: v })}
-                      className={cn(erpInputClass(darkMode), "pl-10")}
-                    />
-                    <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
-                      <Clock className="w-4 h-4" />
-                    </div>
-                  </div>
-                </ErpField>
-              </div>
-            </div>
-
-            {/* Section 3: Thời gian & Địa điểm */}
-            <div className="space-y-4 pt-2">
-              <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
-                <div className="w-1.5 h-4 bg-brand-primary rounded-full"></div>
-                <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                  <CalendarRange className="w-4 h-4 text-brand-primary" />
-                  Thời gian & Địa điểm
-                </h4>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <ErpField label="Ngày khai giảng">
-                  <div className="relative">
-                    <ErpInput
-                      type="date"
-                      required
-                      value={form.startDate}
-                      onChange={(e) => setForm({ ...form, startDate: e.target.value })}
-                      className="pl-10"
-                    />
-                    <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
-                      <Calendar className="w-4 h-4" />
-                    </div>
-                  </div>
-                </ErpField>
-                <ErpField label="Ngày kết thúc">
-                  <div className="relative">
-                    <ErpInput
-                      type="date"
-                      required
-                      value={form.endDate}
-                      onChange={(e) => setForm({ ...form, endDate: e.target.value })}
-                      className="pl-10"
-                    />
-                    <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
-                      <Calendar className="w-4 h-4" />
-                    </div>
-                  </div>
-                </ErpField>
-              </div>
-
-              <ErpField label="Địa điểm (tùy chọn)">
-                <div className="relative">
-                  <ErpInput
-                    type="text"
-                    placeholder="Ví dụ: Phòng 201 / Sân tập số 2"
-                    value={form.location}
-                    onChange={(e) => setForm({ ...form, location: e.target.value })}
-                    className="pl-10"
-                  />
-                  <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
-                    <MapPin className="w-4 h-4" />
-                  </div>
-                </div>
-              </ErpField>
-            </div>
-
-            {/* Custom submit button */}
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full py-2 bg-gradient-to-r from-brand-primary to-sky-600 hover:from-brand-primary/95 hover:to-sky-700 text-white rounded-lg text-xs font-black uppercase tracking-wider shadow-md shadow-brand-primary/10 hover:shadow-brand-primary/20 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 cursor-pointer mt-4 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSubmitting ? (
-                <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
-              ) : (
-                <School className="w-4 h-4" />
-              )}
-              {isSubmitting ? 'Đang lưu...' : editingId ? 'Lưu thay đổi' : 'Khai giảng lớp'}
-            </button>
-          </form>
-        </ErpModal>
+        <BatchFormModal
+          isOpen
+          editingId={editingId}
+          batchToEdit={batches.find(b => b.id === editingId)}
+          onClose={() => setShowFormModal(false)}
+          courses={courses}
+          instructors={instructors}
+          onSuccess={handleMutationSuccess}
+        />
       )}
 
       {/* Manage Learners Modal */}
