@@ -16,5 +16,7 @@ router.patch("/:id", validate(idParamSchema, "params"), validate(updateBatchSche
 router.delete("/:id", validate(idParamSchema, "params"), BatchController.delete);
 router.post("/:id/learners", validate(idParamSchema, "params"), validate(addLearnerSchema), BatchController.addLearner);
 router.delete("/:id/learners/:studentId", BatchController.removeLearner);
+router.put("/:id/attendance", validate(idParamSchema, "params"), BatchController.saveAttendance);
+router.delete("/:id/attendance", validate(idParamSchema, "params"), BatchController.deleteAttendanceByDate);
 
 export default router;

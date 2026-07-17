@@ -80,6 +80,20 @@ export class StudentController {
     }
   }
 
+  static async bulkDelete(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const ownerId = await getAllowedOwnerIds(req.user!);
+      const { ids } = req.body;
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ success: false, error: "Vui long chon it nhat mot hoc vien de xoa." });
+      }
+      const deletedCount = await StudentService.bulkDeleteStudents(ownerId, ids);
+      res.json({ success: true, message: `Da xoa thanh cong ${deletedCount} hoc vien.`, deletedCount });
+    } catch (error: unknown) {
+      next(error);
+    }
+  }
+
   static async bulkCreate(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const creatorId = req.user!.uid;
