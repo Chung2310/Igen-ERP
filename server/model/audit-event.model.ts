@@ -7,6 +7,7 @@ export interface IAuditEvent {
   result: "success" | "partial" | "failure"; actorSuperAdminId: Types.ObjectId;
   effectiveUserId?: Types.ObjectId; impersonationSessionId?: string; companyCode?: string;
   environment: "staging" | "production"; reason?: string; sourceIp?: string; userAgent?: string;
+  entityType?: string; entityId?: string; projectId?: string; taskId?: string; workflowId?: string; tenantId?: string;
   correlationId: string; before?: unknown; after?: unknown; backgroundJobId?: string;
   itemSummary?: { total: number; succeeded: number; failed: number }; metadata?: unknown; occurredAt: Date;
 }
@@ -18,11 +19,14 @@ const schema = new Schema<IAuditEvent>({
   riskClass: { type: String, enum: ["read_only", "standard", "sensitive", "dangerous"], required: true, immutable }, result: { type: String, enum: ["success", "partial", "failure"], required: true, immutable },
   actorSuperAdminId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true, immutable }, effectiveUserId: { type: Schema.Types.ObjectId, ref: "User", index: true, immutable },
   impersonationSessionId: { type: String, immutable }, companyCode: { type: String, index: true, immutable }, environment: { type: String, enum: ["staging", "production"], required: true, index: true, immutable },
+  entityType: { type: String, index: true, immutable }, entityId: { type: String, index: true, immutable }, projectId: { type: String, index: true, immutable }, taskId: { type: String, index: true, immutable }, workflowId: { type: String, index: true, immutable }, tenantId: { type: String, index: true, immutable },
   reason: { type: String, immutable }, sourceIp: { type: String, immutable }, userAgent: { type: String, immutable }, correlationId: { type: String, required: true, index: true, immutable },
   before: { type: Schema.Types.Mixed, immutable }, after: { type: Schema.Types.Mixed, immutable }, backgroundJobId: { type: String, immutable },
   itemSummary: { type: { total: { type: Number, immutable }, succeeded: { type: Number, immutable }, failed: { type: Number, immutable } }, immutable },
   metadata: { type: Schema.Types.Mixed, immutable }, occurredAt: { type: Date, required: true, default: Date.now, index: true, immutable },
 }, { strict: true, timestamps: false, collection: "audit_events" });
+
+schema.index({ companyCode: 1, occurredAt: -1 });
 
 const RawAuditEventModel = model<IAuditEvent>("AuditEvent", schema);
 
