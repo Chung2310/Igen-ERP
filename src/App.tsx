@@ -78,7 +78,17 @@ function AppContent() {
       if (!document.hidden) return; // Đang xem giao diện — âm thanh/badge trong app đã lo
 
       const body = msg.content && msg.content.trim() ? msg.content.slice(0, 120) : "Đã gửi tệp đính kèm";
-      browserNotificationService.show(`Tin nhắn mới từ ${msg.senderName || "đồng nghiệp"}`, {
+      const isMentioned = msg.content && (
+        msg.content.includes("@all") ||
+        msg.content.includes("@Tất cả") ||
+        msg.content.includes("@tất cả") ||
+        (userProfile.displayName && msg.content.includes(`@${userProfile.displayName}`))
+      );
+      const title = isMentioned
+        ? `📢 [Nhắc đến bạn] ${msg.senderName || "Đồng nghiệp"}`
+        : `Tin nhắn mới từ ${msg.senderName || "đồng nghiệp"}`;
+
+      browserNotificationService.show(title, {
         body,
         tag: `chat-${data.roomId}`,
         onClick: () => setActiveTab("TRÒ CHUYỆN" as TabType),

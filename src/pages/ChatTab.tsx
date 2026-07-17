@@ -181,10 +181,21 @@ export default function ChatTab() {
   const mentionCandidates = React.useMemo(() => {
     if (!mention || !activeRoom || !activeRoom.isGroup) return [] as any[];
     const q = mention.query.toLowerCase();
-    return activeRoom.members
+    const members = activeRoom.members
       .map((m: any) => m.userId)
-      .filter((u: any) => u && String(u._id) !== currentUserId && u.uid !== currentUserId && (u.displayName || "").toLowerCase().includes(q))
-      .slice(0, 6);
+      .filter((u: any) => u && String(u._id) !== currentUserId && u.uid !== currentUserId && (u.displayName || "").toLowerCase().includes(q));
+
+    const showAllOption = "all".includes(q) || "tất cả".includes(q) || "tat ca".includes(q) || q === "";
+    if (showAllOption) {
+      const allCandidate = {
+        _id: "all",
+        displayName: "all",
+        photoURL: "",
+        isSpecialAll: true
+      };
+      return [allCandidate, ...members].slice(0, 6);
+    }
+    return members.slice(0, 6);
   }, [mention, activeRoom, currentUserId]);
 
   // Regex nhận diện "@Tên thành viên" để tô sáng trong tin nhắn
@@ -193,8 +204,13 @@ export default function ChatTab() {
     const names = activeRoom.members
       .map((m: any) => m.userId?.displayName)
       .filter(Boolean)
-      .map((n: string) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
-      .sort((a: string, b: string) => b.length - a.length);
+      .map((n: string) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+
+    if (activeRoom.isGroup) {
+      names.push("all", "Tất cả", "tất cả");
+    }
+
+    names.sort((a: string, b: string) => b.length - a.length);
     if (names.length === 0) return null;
     return new RegExp("@(" + names.join("|") + ")", "g");
   }, [activeRoom]);
@@ -209,9 +225,10 @@ export default function ChatTab() {
     mentionRegex.lastIndex = 0;
     while ((m = mentionRegex.exec(text)) !== null) {
       if (m.index > last) nodes.push(text.slice(last, m.index));
+      const isMentionAll = ["all", "Tất cả", "tất cả"].includes(m[1]);
       const cls =
-        m[1] === myName
-          ? "bg-amber-300/80 text-amber-950"
+        m[1] === myName || isMentionAll
+          ? "bg-amber-300/80 text-amber-950 font-bold"
           : onDark
             ? "bg-white/25 text-white"
             : "bg-indigo-100 text-indigo-700";
@@ -2941,11 +2958,21 @@ export default function ChatTab() {
                                 <img src={u.photoURL} alt={u.displayName} className="h-full w-full object-cover" />
                               ) : (
                                 <div className="flex h-full w-full items-center justify-center text-[11px] font-bold text-slate-500">
-                                  {(u.displayName || "?").charAt(0).toUpperCase()}
+                                  {u.isSpecialAll ? (
+                                    <Users className="h-4 w-4 text-indigo-600" />
+                                  ) : (
+                                    (u.displayName || "?").charAt(0).toUpperCase()
+                                  )}
                                 </div>
                               )}
                             </div>
-                            <span className="truncate text-sm font-medium text-slate-700">{u.displayName}</span>
+                            <span className="truncate text-sm font-medium text-slate-700">
+                              {u.isSpecialAll ? (
+                                <span className="font-bold text-indigo-600">@all (Nhắc cả nhóm)</span>
+                              ) : (
+                                u.displayName
+                              )}
+                            </span>
                           </button>
                         ))}
                       </div>
