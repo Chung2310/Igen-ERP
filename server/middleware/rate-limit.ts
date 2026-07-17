@@ -1,7 +1,8 @@
-import rateLimit, { ipKeyGenerator } from "express-rate-limit";
+import rateLimit from "express-rate-limit";
 import { ddosConfig } from "../config/ddos";
 import { getRateLimitRedisClient, RedisRateLimitStore } from "../infrastructure/rate-limit-redis";
 import { shouldBypassRateLimits } from "./load-test-bypass";
+import { resolveClientRateKey, resolveLoginAccountKey } from "./rate-limit-key";
 
 const redisClient = getRateLimitRedisClient();
 let lastStoreErrorAt = 0;
@@ -32,7 +33,7 @@ function redisLimiter(options: {
     legacyHeaders: false,
     passOnStoreError: true,
     logger: throttledRateLimitLogger,
-    keyGenerator: (req) => ipKeyGenerator(req.ip || req.socket.remoteAddress || "unknown"),
+    keyGenerator: resolveClientRateKey,
     store: new RedisRateLimitStore(redisClient, `${ddosConfig.redisKeyPrefix}${options.prefix}:`),
     handler: (_req, res, _next, rateOptions) => {
       res.status(rateOptions.statusCode).json({ status: "error", message: options.message });
@@ -62,19 +63,38 @@ export const expensiveApiRateLimiter = redisLimiter({
 });
 
 /**
- * Giới hạn tần suất cho các endpoint xác thực nhạy cảm (login, register, change-password)
- * nhằm chặn brute-force mật khẩu. Giới hạn theo IP — đặt đủ rộng để văn phòng
- * nhiều người dùng chung một IP (NAT) không bị chặn nhầm.
+ * Backstop theo IP cho các endpoint xác thực (login, register, change-password): chỉ để chặn spray
+ * ồ ạt từ MỘT IP. Đặt rộng (mặc định 100/15ph, chỉnh qua DDOS_AUTH_IP_LIMIT) để văn phòng nhiều
+ * người dùng chung một IP (NAT/CGNAT) — mỗi người một tài khoản khác nhau — không bị chặn nhầm.
+ * Chống brute-force đúng từng tài khoản do loginAccountRateLimiter đảm nhiệm.
  */
 export const authRateLimiter = rateLimit({
   skip: shouldBypassRateLimits,
-  windowMs: 15 * 60 * 1000, // 15 phút
-  limit: 30,
+  windowMs: ddosConfig.authIpWindowMs,
+  limit: ddosConfig.authIpLimit,
   standardHeaders: "draft-8",
   legacyHeaders: false,
   message: {
     status: "error",
     message: "Bạn đã thử quá nhiều lần. Vui lòng đợi 15 phút rồi thử lại.",
+  },
+});
+
+/**
+ * Throttle brute-force chặt theo TỪNG TÀI KHOẢN đích (email trong body), không theo IP — nên một văn
+ * phòng NAT đăng nhập các tài khoản khác nhau không ảnh hưởng lẫn nhau, còn dò mật khẩu một tài khoản
+ * vẫn bị chặn. Không xác định được email thì bỏ qua (để authRateLimiter theo IP lo).
+ */
+export const loginAccountRateLimiter = rateLimit({
+  skip: (req) => shouldBypassRateLimits(req) || resolveLoginAccountKey(req) === null,
+  keyGenerator: (req) => resolveLoginAccountKey(req) as string,
+  windowMs: ddosConfig.loginAccountWindowMs,
+  limit: ddosConfig.loginAccountLimit,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  message: {
+    status: "error",
+    message: "Tài khoản này đã thử đăng nhập quá nhiều lần. Vui lòng đợi 15 phút rồi thử lại.",
   },
 });
 
