@@ -9,7 +9,7 @@ export function createUserAccessManagementService(deps: any) {
   return {
     async search({ tenantId, page = 1, limit = 20, q }: any) { const filter = { ...scoped(tenantId), ...(q ? { $or: [{ email: new RegExp(q, "i") }, { displayName: new RegExp(q, "i") }] } : {}) }; const total = await deps.users.count(filter); return { data: await deps.users.search(filter, { skip: (page - 1) * limit, limit }), total, page, limit }; },
     async detail(data: any) { return user(data); },
-    async update(data: any) { const value = await user(data); Object.assign(value, data.patch); await value.save(); await audit("user.access.update", data); return value; },
+    async update(data: any) { const value = await user(data); const allowed = ["role", "permissions", "status", "lockedAt", "displayName", "department", "jobTitle"]; for (const key of allowed) if (key in (data.patch || {})) (value as any)[key] = data.patch[key]; await value.save(); await audit("user.access.update", { actorId: data.actorId, userId: data.userId, tenantId: data.tenantId, correlationId: data.correlationId, changedFields: Object.keys(data.patch || {}).filter(key => allowed.includes(key)) }); return value; },
     async lock(data: any) { return this.update({ ...data, patch: { status: "offline", lockedAt: new Date() } }); },
     async unlock(data: any) { return this.update({ ...data, patch: { lockedAt: undefined } }); },
     async revokeSessions(data: any) { await user(data); await deps.sessions.revokeAll(data.userId); await audit("security.session.revoke", data); return { revoked: true }; },
