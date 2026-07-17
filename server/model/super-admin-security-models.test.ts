@@ -17,6 +17,10 @@ test("identifiers and actor idempotency are unique", () => {
   assert.equal(hasIndex(AdminActionModel.schema.indexes(), { actionId: 1 }, { unique: true }), true);
   assert.equal(hasIndex(auditSchema.indexes(), { eventId: 1 }, { unique: true }), true);
   assert.equal(hasIndex(AdminActionModel.schema.indexes(), { actorId: 1, idempotencyKey: 1 }, { unique: true }), true);
+  assert.equal(
+    hasIndex(UserModel.schema.indexes(), { role: 1 }, { unique: true, name: "unique_superadmin_role" }),
+    true,
+  );
 });
 
 test("only challenge and session use TTL", () => {

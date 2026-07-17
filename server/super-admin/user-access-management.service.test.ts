@@ -16,3 +16,19 @@ test("impersonation needs a reason and never targets superadmin", async () => {
   const service = createUserAccessManagementService({ users: { find: async () => ({ _id: "u1", role: "superadmin" }) }, sessions: {}, audit: async () => {} });
   await assert.rejects(() => service.startImpersonation({ tenantId: "SYSTEM", userId: "u1", reason: "incident" }));
 });
+
+test("assignRole rejects a second Super Admin account", async () => {
+  const service = createUserAccessManagementService({
+    users: {
+      findOtherSuperAdmin: async () => ({ _id: "root", email: "root@example.com" }),
+      find: async () => ({ _id: "other", role: "user", save: async () => {} }),
+    },
+    sessions: {},
+    audit: async () => {},
+  });
+
+  await assert.rejects(
+    () => service.assignRole({ tenantId: "SYSTEM", userId: "other", role: "superadmin" }),
+    /already exists/i,
+  );
+});

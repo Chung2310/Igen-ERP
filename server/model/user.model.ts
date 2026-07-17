@@ -134,4 +134,13 @@ const UserSchema = new Schema<IUser>({
   superAdminSecurity: { type: SuperAdminSecuritySchema },
 }, { toJSON: { transform: removeSuperAdminSecrets }, toObject: { transform: removeSuperAdminSecrets } });
 
+UserSchema.index(
+  { role: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { role: "superadmin" },
+    name: "unique_superadmin_role",
+  },
+);
+
 export const UserModel = model<IUser>("User", UserSchema);
