@@ -35,7 +35,9 @@ export function buildAuditEventForInsert(event: AuditEventInsert): AuditEventIns
 }
 
 export const AuditEventModel = Object.freeze({
-  create: (event: AuditEventInsert) => RawAuditEventModel.create(buildAuditEventForInsert(event)),
+  create: async (event: AuditEventInsert, options?: any) => options
+    ? (await RawAuditEventModel.create([buildAuditEventForInsert(event)], options))[0]
+    : RawAuditEventModel.create(buildAuditEventForInsert(event)),
   insertMany: (events: AuditEventInsert[]) => RawAuditEventModel.insertMany(events.map(buildAuditEventForInsert)),
   find: (filter: Record<string, unknown> = {}, projection?: any, options?: any) => RawAuditEventModel.find(filter, projection, options).lean().exec(),
   findOne: (filter: Record<string, unknown> = {}, projection?: any, options?: any) => RawAuditEventModel.findOne(filter, projection, options).lean().exec(),

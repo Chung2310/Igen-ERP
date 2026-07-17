@@ -23,5 +23,6 @@ const SuperAdminSessionSchema = new Schema<ISuperAdminSession>({
 });
 
 SuperAdminSessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+SuperAdminSessionSchema.index({ revokedAt: 1, expiresAt: 1 });
 
 export const SuperAdminSessionModel = model<ISuperAdminSession>("SuperAdminSession", SuperAdminSessionSchema);

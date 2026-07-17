@@ -11,14 +11,30 @@ function fixture() {
     now: () => new Date("2026-07-17T00:00:00.000Z"), id: (() => { let n = 0; return () => `id-${++n}`; })(),
     users: { findSecurityUser: async () => user },
     challenges: { create: async (v: any) => (challenges.set(v.challengeId, v), v), find: async (id: string) => challenges.get(id), save: async (v: any) => (challenges.set(v.challengeId, v), v) },
-    sessions: { create: async (v: any) => (sessions.set(v.sessionId, v), v), find: async (id: string) => sessions.get(id), list: async () => [...sessions.values()], save: async (v: any) => v },
+    sessions: {
+      create: async (v: any) => (sessions.set(v.sessionId, v), v),
+      replaceActive: async ({ userId, challenge, sessionId, now, expiresAt }: any) => {
+        challenge.consumedAt = now;
+        challenges.set(challenge.challengeId, challenge);
+        for (const session of sessions.values()) {
+          if (session.userId === userId && !session.revokedAt && new Date(session.expiresAt) > now) {
+            session.revokedAt = now;
+            session.revokeReason = "replaced_by_new_login";
+          }
+        }
+        const created = { sessionId, userId, createdAt: now, lastSeenAt: now, expiresAt };
+        sessions.set(sessionId, created);
+        return created;
+      },
+      find: async (id: string) => sessions.get(id), list: async () => [...sessions.values()], save: async (v: any) => v,
+    },
     encrypt: (v: string) => `enc:${v}`, decrypt: (v: string) => v.slice(4), hash: (v: string) => `hash:${v}`,
     createSecret: () => "SECRET", verifyTotp: (_s: string, token: string) => token === "123456",
     recoveryCodes: () => ["AAAAA-BBBBB"], qr: async (uri: string) => `qr:${uri}`,
     signTokens: (_user: any, sid: string) => ({ accessToken: `access:${sid}`, refreshToken: `refresh:${sid}` }),
     comparePassword: async (raw: string) => raw === "password", audit: async (event: any) => { events.push(event); },
   };
-  return { service: createSuperAdminAuthService(deps), user, events };
+  return { service: createSuperAdminAuthService(deps), user, events, sessions };
 }
 
 test("password-first login creates a short-lived challenge instead of tokens", async () => {
@@ -65,4 +81,36 @@ test("password challenge creation writes a security audit event", async () => {
   await service.beginSuperAdminLogin(user);
   assert.equal(events[0]?.actionType, "security.login.password.success");
   assert.equal(events[0]?.result, "success");
+});
+
+test("TOTP login replaces the active privileged session", async () => {
+  const { service, user, sessions } = fixture();
+  user.superAdminSecurity.totpEnabled = true;
+  user.superAdminSecurity.totpSecretEncrypted = "enc:SECRET";
+  sessions.set("old", { sessionId: "old", userId: user._id, expiresAt: new Date("2026-07-18T00:00:00.000Z") });
+  const challenge = await service.beginSuperAdminLogin(user);
+  const login = await service.completeTotpLogin(challenge.challengeId, "123456");
+  assert.equal(sessions.get("old").revokeReason, "replaced_by_new_login");
+  assert.equal(sessions.get(login.sessionId).revokedAt, undefined);
+});
+
+test("recovery login replaces the active privileged session", async () => {
+  const { service, user, sessions } = fixture();
+  user.superAdminSecurity.totpEnabled = true;
+  user.superAdminSecurity.recoveryCodeHashes = ["hash:AAAAA-BBBBB"];
+  sessions.set("old", { sessionId: "old", userId: user._id, expiresAt: new Date("2026-07-18T00:00:00.000Z") });
+  const challenge = await service.beginSuperAdminLogin(user);
+  const login = await service.completeRecoveryLogin(challenge.challengeId, "AAAAA-BBBBB");
+  assert.equal(sessions.get("old").revokeReason, "replaced_by_new_login");
+  assert.equal(sessions.get(login.sessionId).revokedAt, undefined);
+});
+
+test("enrollment login replaces the active privileged session", async () => {
+  const { service, user, sessions } = fixture();
+  sessions.set("old", { sessionId: "old", userId: user._id, expiresAt: new Date("2026-07-18T00:00:00.000Z") });
+  const challenge = await service.beginSuperAdminLogin(user);
+  await service.beginEnrollment(challenge.challengeId);
+  const login = await service.confirmEnrollment(challenge.challengeId, "123456");
+  assert.equal(sessions.get("old").revokeReason, "replaced_by_new_login");
+  assert.equal(sessions.get(login.sessionId).revokedAt, undefined);
 });

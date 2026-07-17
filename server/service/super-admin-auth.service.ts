@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import QRCode from "qrcode";
+import mongoose from "mongoose";
 import { authenticator } from "otplib";
 import { UserModel } from "../model/user.model";
 import { SuperAdminChallengeModel } from "../model/super-admin-challenge.model";
@@ -27,9 +28,15 @@ export function createSuperAdminAuthService(deps: any) {
     return user;
   };
   const createSession = async (user: any, challenge: any) => {
-    challenge.consumedAt = deps.now(); await deps.challenges.save(challenge);
     const sessionId = deps.id();
-    await deps.sessions.create({ sessionId, userId: user._id, createdAt: deps.now(), lastSeenAt: deps.now(), expiresAt: new Date(deps.now().getTime() + SESSION_MS) });
+    const now = deps.now();
+    await deps.sessions.replaceActive({
+      userId: user._id,
+      challenge,
+      sessionId,
+      now,
+      expiresAt: new Date(now.getTime() + SESSION_MS),
+    });
     return { sessionId, ...deps.signTokens(user, sessionId) };
   };
   return {
@@ -87,7 +94,48 @@ const mongoDeps = {
   now: () => new Date(), id: () => randomUUID(),
   users: { findSecurityUser: (id: string) => UserModel.findById(id).select("+password +superAdminSecurity.totpSecretEncrypted +superAdminSecurity.recoveryCodeHashes") },
   challenges: { create: (v: any) => SuperAdminChallengeModel.create(v), find: (id: string) => SuperAdminChallengeModel.findOne({ challengeId: id }).select("+enrollmentSecretEncrypted"), save: (v: any) => v.save() },
-  sessions: { create: (v: any) => SuperAdminSessionModel.create(v), find: (id: string) => SuperAdminSessionModel.findOne({ sessionId: id }), list: (userId: string) => SuperAdminSessionModel.find({ userId }).sort({ createdAt: -1 }).lean(), save: (v: any) => v.save() },
+  sessions: {
+    create: (v: any) => SuperAdminSessionModel.create(v),
+    replaceActive: async ({ userId, challenge, sessionId, now, expiresAt }: any) => {
+      try {
+        return await mongoose.connection.transaction(async (transactionSession) => {
+          challenge.consumedAt = now;
+          await challenge.save({ session: transactionSession });
+          const active = await SuperAdminSessionModel.find({
+            revokedAt: { $exists: false },
+            expiresAt: { $gt: now },
+          }).session(transactionSession).lean();
+          await SuperAdminSessionModel.updateMany(
+            { revokedAt: { $exists: false }, expiresAt: { $gt: now } },
+            { $set: { revokedAt: now, revokeReason: "replaced_by_new_login" } },
+            { session: transactionSession },
+          );
+          const [created] = await SuperAdminSessionModel.create([{
+            sessionId, userId, createdAt: now, lastSeenAt: now, expiresAt,
+          }], { session: transactionSession });
+          for (const displaced of active) {
+            await auditService.record({
+              actionType: "security.session.replaced",
+              actorSuperAdminId: userId,
+              result: "success",
+              riskClass: "sensitive",
+              correlationId: sessionId,
+              metadata: { displacedSessionId: displaced.sessionId, replacementSessionId: sessionId },
+            }, { session: transactionSession });
+          }
+          return created;
+        });
+      } catch (error: any) {
+        if (/transaction|replica set|mongos/i.test(String(error?.message || ""))) {
+          throw new Error("Privileged session issuance requires MongoDB transaction support");
+        }
+        throw error;
+      }
+    },
+    find: (id: string) => SuperAdminSessionModel.findOne({ sessionId: id }),
+    list: (userId: string) => SuperAdminSessionModel.find({ userId }).sort({ createdAt: -1 }).lean(),
+    save: (v: any) => v.save(),
+  },
   encrypt: encryptSecret, decrypt: decryptSecret, hash: hashOpaque, createSecret: createTotpSecret, verifyTotp, recoveryCodes: generateRecoveryCodes,
   qr: (uri: string) => QRCode.toDataURL(uri), comparePassword: (raw: string, hash: string) => bcrypt.compare(raw, hash), audit: (event: any) => auditService.record(event),
   signTokens: (user: any, sid: string) => { const payload = { id: user._id, email: user.email, role: user.role, companyCode: user.companyCode, sid, authLevel: "totp" }; return { accessToken: jwt.sign(payload, getJwtAccessSecret(), { expiresIn: "15m" }), refreshToken: jwt.sign(payload, getJwtRefreshSecret(), { expiresIn: "8h" }) }; },

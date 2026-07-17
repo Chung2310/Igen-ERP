@@ -28,6 +28,7 @@ test("only challenge and session use TTL", () => {
   assert.equal(hasIndex(SuperAdminSessionModel.schema.indexes(), { expiresAt: 1 }, { expireAfterSeconds: 0 }), true);
   assert.equal(AdminActionModel.schema.indexes().some(([, o]) => "expireAfterSeconds" in o), false);
   assert.equal(auditSchema.indexes().some(([, o]) => "expireAfterSeconds" in o), false);
+  assert.equal(hasIndex(SuperAdminSessionModel.schema.indexes(), { revokedAt: 1, expiresAt: 1 }, {}), true);
 });
 
 test("required fields, enums, and ObjectId types are enforced", () => {
