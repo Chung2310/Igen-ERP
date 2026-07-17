@@ -64,7 +64,7 @@ export const expensiveApiRateLimiter = redisLimiter({
 
 /**
  * Backstop theo IP cho các endpoint xác thực (login, register, change-password): chỉ để chặn spray
- * ồ ạt từ MỘT IP. Đặt rộng (mặc định 100/15ph, chỉnh qua DDOS_AUTH_IP_LIMIT) để văn phòng nhiều
+ * ồ ạt từ MỘT IP. Đặt rộng (mặc định 300/15ph, chỉnh qua DDOS_AUTH_IP_LIMIT) để văn phòng nhiều
  * người dùng chung một IP (NAT/CGNAT) — mỗi người một tài khoản khác nhau — không bị chặn nhầm.
  * Chống brute-force đúng từng tài khoản do loginAccountRateLimiter đảm nhiệm.
  */
@@ -74,6 +74,10 @@ export const authRateLimiter = rateLimit({
   limit: ddosConfig.authIpLimit,
   standardHeaders: "draft-8",
   legacyHeaders: false,
+  passOnStoreError: true,
+  logger: throttledRateLimitLogger,
+  keyGenerator: resolveClientRateKey,
+  store: new RedisRateLimitStore(redisClient, `${ddosConfig.redisKeyPrefix}http:auth-ip:`),
   message: {
     status: "error",
     message: "Bạn đã thử quá nhiều lần. Vui lòng đợi 15 phút rồi thử lại.",
@@ -92,6 +96,9 @@ export const loginAccountRateLimiter = rateLimit({
   limit: ddosConfig.loginAccountLimit,
   standardHeaders: "draft-8",
   legacyHeaders: false,
+  passOnStoreError: true,
+  logger: throttledRateLimitLogger,
+  store: new RedisRateLimitStore(redisClient, `${ddosConfig.redisKeyPrefix}http:login-account:`),
   message: {
     status: "error",
     message: "Tài khoản này đã thử đăng nhập quá nhiều lần. Vui lòng đợi 15 phút rồi thử lại.",
@@ -104,10 +111,14 @@ export const loginAccountRateLimiter = rateLimit({
  */
 export const refreshTokenRateLimiter = rateLimit({
   skip: shouldBypassRateLimits,
-  windowMs: 15 * 60 * 1000, // 15 phút
-  limit: 300,
+  windowMs: ddosConfig.refreshIpWindowMs,
+  limit: ddosConfig.refreshIpLimit,
   standardHeaders: "draft-8",
   legacyHeaders: false,
+  passOnStoreError: true,
+  logger: throttledRateLimitLogger,
+  keyGenerator: resolveClientRateKey,
+  store: new RedisRateLimitStore(redisClient, `${ddosConfig.redisKeyPrefix}http:refresh-ip:`),
   message: {
     status: "error",
     message: "Quá nhiều yêu cầu làm mới phiên đăng nhập. Vui lòng thử lại sau.",

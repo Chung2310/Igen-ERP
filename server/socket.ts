@@ -202,8 +202,14 @@ export async function initSocketServer(httpServer: HTTPServer) {
   io.on("connection", (socket: Socket) => {
     const user = socket.data.user;
 
-    socket.use((packet, next) => {
-      const decision = socketProtection.consumeEvent(socket.id);
+    socket.use(async (packet, next) => {
+      let decision;
+      try {
+        decision = await socketProtection.consumeEvent(user._id.toString(), socket.id);
+      } catch (error) {
+        warnSocketLimiter("[Socket.IO DDoS] Event limiter unavailable; allowing event:", error);
+        return next();
+      }
       if (decision.allowed) return next();
 
       const possibleAck = packet.at(-1);

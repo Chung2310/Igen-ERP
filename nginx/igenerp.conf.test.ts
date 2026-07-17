@@ -54,3 +54,14 @@ test("logs normalized IP, original proxy peer, and Cloudflare request ID", () =>
   assert.match(siteConfig, /log_format\s+igen_cloudflare[^;]*\$remote_addr[^;]*\$realip_remote_addr[^;]*\$http_cf_ray[^;]*;/s);
   assert.match(siteConfig, /access_log\s+\/var\/log\/nginx\/igenerp_access\.log\s+igen_cloudflare\s*;/);
 });
+
+test("uses separate wide CGNAT backstops for API, auth, and socket traffic", () => {
+  assert.match(siteConfig, /zone=igen_api:20m rate=100r\/s/);
+  assert.match(siteConfig, /zone=igen_auth:10m rate=10r\/s/);
+  assert.match(siteConfig, /zone=igen_socket:20m rate=50r\/s/);
+  assert.match(siteConfig, /location \^~ \/api\/v1\/auth\/[\s\S]*limit_req zone=igen_auth burst=30 nodelay;[\s\S]*limit_conn igen_per_ip 100/);
+  assert.match(siteConfig, /location ~ \^\/api\/v1\/[\s\S]*limit_req zone=igen_expensive burst=10 nodelay;[\s\S]*limit_conn igen_per_ip 100/);
+  assert.match(siteConfig, /location \/api\/[\s\S]*limit_conn igen_per_ip 300/);
+  assert.match(siteConfig, /location \/socket\.io\/[\s\S]*limit_req zone=igen_socket burst=100 nodelay/);
+  assert.match(siteConfig, /location \/socket\.io\/[\s\S]*limit_conn igen_per_ip 500/);
+});
