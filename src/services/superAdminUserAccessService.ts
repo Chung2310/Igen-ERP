@@ -2,11 +2,9 @@ export interface SuperAdminUser { _id: string; email: string; displayName?: stri
 export interface UserSearchResult { data: SuperAdminUser[]; total: number; page: number; limit: number; }
 type Mutation = { reason: string; password?: string; token?: string; step?: number; [key: string]: unknown };
 
+import { superAdminRequest } from "./superAdminRequest";
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const response = await fetch(`/api/v1/super-admin${path}`, { ...init, headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("accessToken") || ""}`, ...(init.headers || {}) } });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.message || "Request failed");
-  return data;
+  return superAdminRequest(`/api/v1/super-admin${path}`, init) as Promise<T>;
 }
 function requireReason(reason: string) { if (!reason.trim()) throw new Error("A written reason is required"); }
 function mutate(tenantId: string, userId: string, path: string, input: Mutation) { requireReason(input.reason); return request<{ actionId: string }>(`/users/${encodeURIComponent(userId)}${path}?tenantId=${encodeURIComponent(tenantId)}`, { method: "POST", body: JSON.stringify(input) }); }

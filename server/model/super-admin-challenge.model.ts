@@ -9,6 +9,7 @@ export interface ISuperAdminChallenge {
   consumedAt?: Date;
   attempts: number;
   enrollmentSecretEncrypted?: string;
+  deviceId: string;
   sourceIp?: string;
   userAgent?: string;
 }
@@ -22,6 +23,7 @@ const SuperAdminChallengeSchema = new Schema<ISuperAdminChallenge>({
   consumedAt: { type: Date },
   attempts: { type: Number, default: 0 },
   enrollmentSecretEncrypted: { type: String, select: false },
+  deviceId: { type: String, required: true },
   sourceIp: { type: String },
   userAgent: { type: String },
 });
