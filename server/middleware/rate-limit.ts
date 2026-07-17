@@ -1,6 +1,7 @@
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { ddosConfig } from "../config/ddos";
 import { getRateLimitRedisClient, RedisRateLimitStore } from "../infrastructure/rate-limit-redis";
+import { shouldBypassRateLimits } from "./load-test-bypass";
 
 const redisClient = getRateLimitRedisClient();
 let lastStoreErrorAt = 0;
@@ -24,6 +25,7 @@ function redisLimiter(options: {
   message: string;
 }) {
   return rateLimit({
+    skip: shouldBypassRateLimits,
     windowMs: options.windowMs,
     limit: options.limit,
     standardHeaders: "draft-8",
@@ -65,6 +67,7 @@ export const expensiveApiRateLimiter = redisLimiter({
  * nhiều người dùng chung một IP (NAT) không bị chặn nhầm.
  */
 export const authRateLimiter = rateLimit({
+  skip: shouldBypassRateLimits,
   windowMs: 15 * 60 * 1000, // 15 phút
   limit: 30,
   standardHeaders: "draft-8",
@@ -80,6 +83,7 @@ export const authRateLimiter = rateLimit({
  * nên một văn phòng đông người vẫn phải nằm trong hạn mức.
  */
 export const refreshTokenRateLimiter = rateLimit({
+  skip: shouldBypassRateLimits,
   windowMs: 15 * 60 * 1000, // 15 phút
   limit: 300,
   standardHeaders: "draft-8",

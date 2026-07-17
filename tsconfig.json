@@ -27,6 +27,7 @@
     "src",
     "server",
     "server.ts",
+    "tools",
     "vite.config.ts"
   ],
   "exclude": [
