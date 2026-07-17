@@ -6,7 +6,7 @@ import { AuditTab } from "../../components/super-admin/AuditTab";
 import { SessionsTab } from "../../components/super-admin/SessionsTab";
 import { TenantListPage } from "./tenants/TenantListPage";
 import { UserSearchPage } from "./users/UserSearchPage";
-import { LayoutDashboard, FileText, Monitor, LogOut } from "lucide-react";
+import { LayoutDashboard, FileText, Monitor, LogOut, UsersRound, Building2 } from "lucide-react";
 
 export default function SuperAdminShell() {
   const [stage, setStage] = React.useState<"password" | "enroll" | "totp" | "recovery" | "authenticated">(
@@ -158,6 +158,7 @@ export default function SuperAdminShell() {
                       : "text-slate-400 hover:text-white hover:bg-white/5 border border-transparent"
                   }`}
                 >
+                  <UsersRound className="h-4 w-4" />
                   Users & Access
                 </button>
                 <button
@@ -168,6 +169,7 @@ export default function SuperAdminShell() {
                       : "text-slate-400 hover:text-white hover:bg-white/5 border border-transparent"
                   }`}
                 >
+                  <Building2 className="h-4 w-4" />
                   Tenant management
                 </button>
                 <button

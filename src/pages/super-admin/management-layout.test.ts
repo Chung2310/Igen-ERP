@@ -11,6 +11,8 @@ test("super admin management screens protect narrow layouts and keep text readab
 
   assert.match(shell, /min-w-0/);
   assert.match(shell, /lg:flex-row/);
+  assert.match(shell, /UsersRound/);
+  assert.match(shell, /Building2/);
   assert.match(tenants, /text-slate-100/);
   assert.match(tenants, /truncate/);
   assert.match(users, /text-slate-100/);
