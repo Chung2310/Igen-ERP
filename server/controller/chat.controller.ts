@@ -314,15 +314,29 @@ export const chatController = {
             content && String(content).trim()
               ? String(content).slice(0, 120)
               : "Đã gửi tệp đính kèm";
-          const title = room.isGroup && room.name ? `${senderName} — ${room.name}` : `Tin nhắn mới từ ${senderName}`;
+
+          const hasMentionAll = content && (
+            content.includes("@all") || 
+            content.includes("@Tất cả") || 
+            content.includes("@tất cả")
+          );
 
           await Promise.all(
             room.members.map(async (member: any) => {
               const memId = member.userId._id ? member.userId._id.toString() : member.userId.toString();
               if (memId === senderId) return;
               if (await isUserOnline(memId)) return; // Đang mở web — socket + Notification API đã lo
+
+              const memberUser = member.userId;
+              const hasPersonalMention = content && memberUser && typeof memberUser === "object" && memberUser.displayName && content.includes(`@${memberUser.displayName}`);
+              const isMentioned = room.isGroup && (hasMentionAll || hasPersonalMention);
+
+              const pushTitle = isMentioned
+                ? `📢 [Nhắc đến bạn] ${senderName} — ${room.name || "Nhóm"}`
+                : (room.isGroup && room.name ? `${senderName} — ${room.name}` : `Tin nhắn mới từ ${senderName}`);
+
               await pushService.sendToUser(memId, {
-                title,
+                title: pushTitle,
                 body: preview,
                 url: "/tro-chuyen",
                 tag: `chat-${roomId}`,
