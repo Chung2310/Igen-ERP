@@ -3,6 +3,10 @@ import { Schema, Types, model } from "mongoose";
 export interface ISuperAdminSession {
   sessionId: string;
   userId: Types.ObjectId;
+  deviceId: string;
+  loginIp?: string;
+  lastIp?: string;
+  userAgent?: string;
   createdAt: Date;
   lastSeenAt: Date;
   expiresAt: Date;
@@ -14,6 +18,10 @@ export interface ISuperAdminSession {
 const SuperAdminSessionSchema = new Schema<ISuperAdminSession>({
   sessionId: { type: String, required: true, unique: true },
   userId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+  deviceId: { type: String, required: true },
+  loginIp: { type: String },
+  lastIp: { type: String },
+  userAgent: { type: String },
   createdAt: { type: Date, default: Date.now },
   lastSeenAt: { type: Date, default: Date.now },
   expiresAt: { type: Date, required: true },

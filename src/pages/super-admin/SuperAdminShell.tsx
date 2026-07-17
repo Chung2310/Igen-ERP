@@ -1,3 +1,4 @@
+import { superAdminRequest } from "../../services/superAdminRequest";
 import React from "react";
 import { EnvironmentBanner } from "../../components/super-admin/EnvironmentBanner";
 import { superAdminAuthService } from "../../services/superAdminAuthService";
@@ -81,12 +82,7 @@ export default function SuperAdminShell() {
   const handleLogout = async () => {
     try {
       // call logout endpoint if needed
-      await fetch("/api/v1/super-admin/auth/logout", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
-        },
-      }).catch(() => {});
+      await superAdminRequest("/api/v1/super-admin/auth/logout", { method: "POST" }).catch(() => {});
     } finally {
       localStorage.removeItem("accessToken");
       setStage("password");

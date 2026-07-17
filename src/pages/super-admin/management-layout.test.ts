@@ -30,3 +30,13 @@ test("audit timeline exposes operational trace filters and linked references", (
   assert.match(audit, /selectedEvent\.taskId/);
   assert.match(audit, /selectedEvent\.workflowId/);
 });
+
+test("session tracking shows bound device and IP metadata", () => {
+  const sessions = read("../../components/super-admin/SessionsTab.tsx");
+  for (const label of ["Mã thiết bị:", "IP đăng nhập:", "IP gần nhất:", "Trình duyệt:"]) {
+    assert.match(sessions, new RegExp(label), label);
+  }
+  assert.match(sessions, /session\.deviceId/);
+  assert.match(sessions, /session\.loginIp/);
+  assert.match(sessions, /session\.lastIp/);
+});
