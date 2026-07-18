@@ -1,4 +1,5 @@
 import { UserProfile, CompanyProfile, TelegramLinkStatus } from "../types";
+import { getSuperAdminDeviceId } from "./superAdminRequest";
 
 // Helper để lấy token từ localStorage
 export function getAccessToken(): string | null {
@@ -31,6 +32,7 @@ export const authService = {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "x-device-id": getSuperAdminDeviceId(),
       },
       body: JSON.stringify({ email, password }),
     });
