@@ -31,8 +31,10 @@ import { resourceService } from "../../services/resourceService";
 import { internalChatService } from "../../services/internalChatService";
 import { toast } from "../../pages/Toast";
 import { ConfirmDialog } from "../common/ConfirmDialog";
-import { FilePreviewModal } from "./FilePreviewModal";
+// Lazy: modal xem trước kéo theo thư viện đọc Excel/Word nặng, chỉ tải khi người dùng mở xem trước
+const FilePreviewModal = React.lazy(() => import("./FilePreviewModal").then((m) => ({ default: m.FilePreviewModal })));
 import { formatBytes, formatDate, getFileIcon } from "./resourceHelpers";
+import UploadProgressPanel, { type UploadQueueItem } from "./UploadProgressPanel";
 import { useAuth } from "../../context/AuthContext";
 
 const GoogleDriveLogo: React.FC<{ className?: string }> = ({ className = "h-6 w-6" }) => (
@@ -119,6 +121,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
   const [items, setItems] = useState<ResourceItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [uploadQueue, setUploadQueue] = useState<UploadQueueItem[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [infoItem, setInfoItem] = useState<ResourceItem | null>(null);
 
@@ -140,6 +143,11 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
   // Drag and drop states for moving
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
+
+  // Kéo 1 tệp thả vào 1 tệp khác → tạo thư mục mới chứa cả 2 tệp
+  const [mergeDraft, setMergeDraft] = useState<{ sourceId: string; target: ResourceItem } | null>(null);
+  const [mergeFolderName, setMergeFolderName] = useState("");
+  const [mergingFiles, setMergingFiles] = useState(false);
 
   // Local Move Modal states
   const [localMoveTarget, setLocalMoveTarget] = useState<ResourceItem | null>(null);
@@ -284,6 +292,27 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
       load(currentFolder);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Di chuyển tài nguyên thất bại.");
+    }
+  };
+
+  const handleMergeFilesIntoFolder = async () => {
+    if (!mergeDraft) return;
+    const name = mergeFolderName.trim();
+    if (!name) return;
+    setMergingFiles(true);
+    try {
+      const folder = await resourceService.createFolder(name, currentFolder, "local", ownerId, roomId);
+      await resourceService.move(mergeDraft.sourceId, folder._id);
+      await resourceService.move(mergeDraft.target._id, folder._id);
+      toast.success(`Đã tạo thư mục "${name}" và di chuyển 2 tệp vào.`);
+      setMergeDraft(null);
+      setMergeFolderName("");
+      load(currentFolder);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Không gộp được tệp vào thư mục mới.");
+      load(currentFolder);
+    } finally {
+      setMergingFiles(false);
     }
   };
 
@@ -670,13 +699,21 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
       const arr = Array.from(files);
       if (arr.length === 0) return;
       setUploading(true);
+      setUploadQueue(arr.map((f) => ({ name: f.name, status: "pending" as const })));
       let ok = 0;
-      for (const file of arr) {
+      for (let i = 0; i < arr.length; i++) {
+        const file = arr[i];
+        setUploadQueue((q) => q.map((it, idx) => (idx === i ? { ...it, status: "uploading" } : it)));
         try {
           await resourceService.uploadFile(file, currentFolder, ownerId, roomId);
           ok += 1;
+          setUploadQueue((q) => q.map((it, idx) => (idx === i ? { ...it, status: "done" } : it)));
         } catch (e) {
-          toast.error(`Lỗi tải "${file.name}": ${e instanceof Error ? e.message : "thất bại"}`);
+          setUploadQueue((q) =>
+            q.map((it, idx) =>
+              idx === i ? { ...it, status: "error", error: e instanceof Error ? e.message : "Tải lên thất bại." } : it
+            )
+          );
         }
       }
       if (ok > 0) toast.success(`Đã tải lên ${ok}/${arr.length} tệp.`);
@@ -768,7 +805,9 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
       className="flex flex-col h-full"
       onDragOver={(e) => {
         e.preventDefault();
-        if (!isDragging && !isInsideFixedFolder) setIsDragging(true);
+        // Chỉ hiện overlay tải lên khi kéo file từ bên ngoài vào, không phải khi kéo thả nội bộ để di chuyển
+        const isExternalFileDrag = !draggedItemId && e.dataTransfer.types.includes("Files");
+        if (!isDragging && !isInsideFixedFolder && isExternalFileDrag) setIsDragging(true);
       }}
       onDragLeave={(e) => {
         if (e.currentTarget === e.target) setIsDragging(false);
@@ -786,6 +825,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
             }}
             onDrop={(e) => {
               e.preventDefault();
+              e.stopPropagation();
               const draggedId = e.dataTransfer.getData("text/plain");
               void handleMoveItem(draggedId, "root");
             }}
@@ -804,6 +844,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
                 }}
                 onDrop={(e) => {
                   e.preventDefault();
+                  e.stopPropagation();
                   const draggedId = e.dataTransfer.getData("text/plain");
                   void handleMoveItem(draggedId, b._id);
                 }}
@@ -1242,6 +1283,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
                   }}
                   onDrop={(e) => {
                     e.preventDefault();
+                    e.stopPropagation();
                     const draggedId = e.dataTransfer.getData("text/plain");
                     void handleMoveItem(draggedId, item._id);
                     setDragOverFolderId(null);
@@ -1306,6 +1348,37 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
                   onDragEnd={() => {
                     setDraggedItemId(null);
                   }}
+                  onDragOver={(e) => {
+                    // Cho phép thả 1 tệp khác lên tệp này để gộp thành thư mục mới
+                    if (draggedItemId && draggedItemId !== item._id && !showTrash && !isInsideFixedFolder) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (dragOverFolderId !== item._id) setDragOverFolderId(item._id);
+                    }
+                  }}
+                  onDragLeave={() => {
+                    if (dragOverFolderId === item._id) setDragOverFolderId(null);
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setDragOverFolderId(null);
+                    setDraggedItemId(null);
+                    const draggedId = e.dataTransfer.getData("text/plain");
+                    if (!draggedId || draggedId === item._id) return;
+                    if (draggedId.startsWith("chat-") || item._id.startsWith("chat-")) {
+                      toast.warning("Không thể gộp tệp tin đính kèm từ chat.");
+                      return;
+                    }
+                    const source = items.find((it) => it._id === draggedId);
+                    if (source?.type === "folder") {
+                      toast.warning("Chỉ có thể gộp tệp với tệp. Hãy thả vào thư mục để di chuyển.");
+                      return;
+                    }
+                    setMergeDraft({ sourceId: draggedId, target: item });
+                    setMergeFolderName("");
+                  }}
+                  isDraggedOver={dragOverFolderId === item._id}
                   onMoveClick={() => {
                     setLocalMoveTarget(item);
                     setMoveModalFolder(null);
@@ -1459,6 +1532,67 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
               >
                 {creatingFolder && <Loader2 className="w-4 h-4 animate-spin" />}
                 Tạo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tiến trình tải lên nhiều tệp */}
+      <UploadProgressPanel queue={uploadQueue} onClose={() => setUploadQueue([])} />
+
+      {/* Modal gộp 2 tệp vào thư mục mới (kéo tệp thả vào tệp khác) */}
+      {mergeDraft && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-xs"
+          onClick={() => {
+            if (!mergingFiles) {
+              setMergeDraft(null);
+              setMergeFolderName("");
+            }
+          }}
+        >
+          <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-4 flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-500">
+                <FolderPlus className="w-6 h-6" />
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-base font-bold text-slate-800">Gộp vào thư mục mới</h3>
+                <p className="text-xs text-slate-500 truncate">
+                  2 tệp sẽ được chuyển vào thư mục mới:{" "}
+                  <span className="font-semibold">{items.find((it) => it._id === mergeDraft.sourceId)?.name || "Tệp đã kéo"}</span>
+                  {" và "}
+                  <span className="font-semibold">{mergeDraft.target.name}</span>
+                </p>
+              </div>
+            </div>
+            <input
+              autoFocus
+              value={mergeFolderName}
+              onChange={(e) => setMergeFolderName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleMergeFilesIntoFolder()}
+              placeholder="Tên thư mục mới..."
+              className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+            />
+            <div className="mt-5 flex gap-2">
+              <button
+                onClick={() => {
+                  setMergeDraft(null);
+                  setMergeFolderName("");
+                }}
+                disabled={mergingFiles}
+                className="flex-1 rounded-xl bg-slate-100 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-200 transition disabled:opacity-50"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleMergeFilesIntoFolder}
+                disabled={!mergeFolderName.trim() || mergingFiles}
+                className="flex-1 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition disabled:opacity-50 inline-flex items-center justify-center gap-2"
+              >
+                {mergingFiles && <Loader2 className="w-4 h-4 animate-spin" />}
+                Tạo & gộp
               </button>
             </div>
           </div>
@@ -2186,7 +2320,11 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
       )}
 
       {/* Cửa sổ xem trước tài liệu */}
-      <FilePreviewModal item={previewItem} onClose={() => setPreviewItem(null)} />
+      {previewItem && (
+        <React.Suspense fallback={null}>
+          <FilePreviewModal item={previewItem} onClose={() => setPreviewItem(null)} hideDownload={true} hideShare={true} />
+        </React.Suspense>
+      )}
     </div>
   );
 };

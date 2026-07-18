@@ -307,12 +307,24 @@ export const walletController = {
 
   async handleMockWebhook(req: AuthenticatedRequest, res: Response) {
     try {
+      // Endpoint giả lập chỉ tồn tại để test khi chưa cấu hình PayOS thật, và
+      // không bao giờ được phép chạy ở production (tránh cộng tiền ví miễn phí).
+      if (process.env.NODE_ENV === "production" || isPayOSConfigured) {
+        return res.status(404).json({ status: "error", message: "Không tìm thấy endpoint." });
+      }
+
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Người dùng chưa xác thực." });
+      }
+
       const { orderCode } = req.body;
       if (!orderCode) {
         return res.status(400).json({ status: "error", message: "Thiếu orderCode." });
       }
 
-      const transaction = await TransactionModel.findOne({ orderCode });
+      // Chỉ được tự xác nhận giao dịch của chính mình.
+      const transaction = await TransactionModel.findOne({ orderCode, userId });
       if (!transaction) {
         return res.status(404).json({ status: "error", message: "Không tìm thấy giao dịch." });
       }

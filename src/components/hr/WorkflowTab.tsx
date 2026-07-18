@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   Plus,
   Save,
@@ -40,10 +40,14 @@ import {
   WorkflowStep,
   WorkflowSubTask,
   WorkflowParticipant,
+  TaskAttachment,
 } from "../../types";
 import { getAccessToken } from "../../services/authService";
 import { socketService } from "../../services/socketService";
 import { toast } from "../../pages/Toast";
+import { ConfirmDialog } from "../common/ConfirmDialog";
+import { TimeInput24 } from "../common/TimeInput24";
+import { AttachmentEditor } from "./KanbanTab";
 
 interface WorkflowTabProps {
   userProfile: UserProfile | null;
@@ -79,6 +83,112 @@ const fmtDate = (iso?: string) => {
   ).padStart(2, "0")}`;
 };
 
+/** Thời lượng hiệu dụng của một bước (ngày) — cùng logic với server (workflow-link.service) */
+const getStepDurationDays = (step: WorkflowStep): number | null => {
+  if (step.estDays && step.estDays > 0) return step.estDays;
+  switch (step.deadlineType) {
+    case "same_day":
+    case "custom_time":
+      return 0;
+    case "after_1":
+      return 1;
+    case "after_2":
+      return 2;
+    case "after_x":
+      return step.deadlineDays || 3;
+    default:
+      return null;
+  }
+};
+
+type StepSchedulePreview = {
+  stepId: string;
+  title: string;
+  start: Date;
+  due: Date | null;
+  durationDays: number | null;
+};
+
+const isWeekend = (d: Date) => d.getDay() === 0 || d.getDay() === 6;
+
+/** Cộng N ngày làm việc (bỏ T7/CN) — cùng logic với server */
+const addWorkingDays = (from: Date, days: number): Date => {
+  const d = new Date(from);
+  while (isWeekend(d)) d.setDate(d.getDate() + 1);
+  let remaining = days;
+  while (remaining > 0) {
+    d.setDate(d.getDate() + 1);
+    if (!isWeekend(d)) remaining--;
+  }
+  return d;
+};
+
+const nextWorkingDay = (d: Date): Date => {
+  const out = new Date(d);
+  out.setDate(out.getDate() + 1);
+  while (isWeekend(out)) out.setDate(out.getDate() + 1);
+  return out;
+};
+
+/**
+ * Lịch trình dự kiến khi giao việc theo quy trình: các bước nối đuôi nhau từ ngày
+ * bắt đầu — bước sau bắt đầu khi bước trước đến hạn, tính theo ngày làm việc
+ * (bỏ T7/CN). Hiển thị xem trước trong modal giao việc; server tính lại cùng
+ * logic khi sinh task (workflow-link.service.ts).
+ */
+const buildStepSchedulePreview = (steps: WorkflowStep[], startDate?: string): StepSchedulePreview[] => {
+  let cursor =
+    startDate && /^\d{4}-\d{2}-\d{2}/.test(startDate)
+      ? new Date(`${startDate.slice(0, 10)}T08:00:00`)
+      : new Date();
+  if (isNaN(cursor.getTime())) cursor = new Date();
+
+  return steps.map((step) => {
+    const durationDays = getStepDurationDays(step);
+    const start = new Date(cursor);
+    if (isWeekend(start)) {
+      while (isWeekend(start)) start.setDate(start.getDate() + 1);
+      start.setHours(8, 0, 0, 0);
+    }
+    if (durationDays === null) {
+      return { stepId: step.id, title: step.title, start, due: null, durationDays };
+    }
+    let due = addWorkingDays(start, Math.max(durationDays - 1, 0));
+    if (step.deadlineTime && step.deadlineTime.includes(":")) {
+      const [h, m] = step.deadlineTime.split(":");
+      due.setHours(parseInt(h, 10), parseInt(m, 10), 0, 0);
+    } else {
+      due.setHours(23, 59, 59, 999);
+    }
+    if (due.getTime() < start.getTime()) due = nextWorkingDay(due);
+    const entry = { stepId: step.id, title: step.title, start, due, durationDays };
+    // A following step begins on the next working day, not at the previous
+    // step''s deadline time on the same date.
+    cursor = nextWorkingDay(due);
+    cursor.setHours(8, 0, 0, 0);
+    return entry;
+  });
+};
+
+/** Ngày kết thúc dự kiến của cả lịch trình (hạn muộn nhất trong các bước) */
+const scheduleEndDate = (preview: StepSchedulePreview[]): Date | null => {
+  let last: Date | null = null;
+  for (const s of preview) {
+    if (s.due && (!last || s.due.getTime() > last.getTime())) last = s.due;
+  }
+  return last;
+};
+
+const toDateInputValue = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+const WEEKDAY_LABELS = ["Chủ nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
+
+const fmtScheduleDatetime = (d: Date) =>
+  `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")} ${String(
+    d.getHours()
+  ).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+
 export default function WorkflowTab({
   userProfile,
   selectedCompanyCode,
@@ -91,6 +201,38 @@ export default function WorkflowTab({
   const [view, setView] = useState<"list" | "detail">("list");
   const [wizardOpen, setWizardOpen] = useState(false);
   const [wizardData, setWizardData] = useState<Workflow | null>(null);
+
+  const [confirmState, setConfirmState] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    confirmLabel?: string;
+    cancelLabel?: string;
+    onConfirm: () => void | Promise<void>;
+  } | null>(null);
+
+  const askConfirm = (
+    title: string,
+    description: string,
+    onConfirm: () => void | Promise<void>,
+    confirmLabel = "Xác nhận",
+    cancelLabel = "Hủy"
+  ) => {
+    setConfirmState({
+      isOpen: true,
+      title,
+      description,
+      confirmLabel,
+      cancelLabel,
+      onConfirm: async () => {
+        try {
+          await onConfirm();
+        } finally {
+          setConfirmState(null);
+        }
+      },
+    });
+  };
 
   // ---- Theme & Task linkage states ----
   const [isDark, setIsDark] = useState(() =>
@@ -196,10 +338,32 @@ export default function WorkflowTab({
     startDate: string;
     dueDate: string;
     docLinks: string[];
+    attachments: TaskAttachment[];
     customSubTasks: WorkflowSubTask[];
   } | null>(null);
   const [newCaseSubTask, setNewCaseSubTask] = useState("");
   const [newCaseDocLink, setNewCaseDocLink] = useState("");
+  // Wizard giao việc 3 bước: 1 = việc gì, 2 = ai làm, 3 = khi nào
+  const [caseWizStep, setCaseWizStep] = useState<1 | 2 | 3>(1);
+  const [caseUserSearch, setCaseUserSearch] = useState("");
+  const [showAdvancedCase, setShowAdvancedCase] = useState(false);
+  // Điều chỉnh hạn thủ công: chỉ gửi dueDate lên server khi người dùng chủ động
+  // override; hạn sớm hơn lịch tự tính phải tick xác nhận mới cho tạo
+  const [dueOverride, setDueOverride] = useState(false);
+  const [dueOverrideConfirmed, setDueOverrideConfirmed] = useState(false);
+  const caseFileInputRef = useRef<HTMLInputElement>(null);
+  const [caseUploading, setCaseUploading] = useState(false);
+  const [caseRecording, setCaseRecording] = useState(false);
+  const [caseMediaRecorder, setCaseMediaRecorder] = useState<MediaRecorder | null>(null);
+  const [caseScreenRecording, setCaseScreenRecording] = useState(false);
+  const [caseScreenRecorder, setCaseScreenRecorder] = useState<MediaRecorder | null>(null);
+  const [caseLinkModal, setCaseLinkModal] = useState<{
+    open: boolean;
+    type: "notion" | "drive" | "spreadsheet";
+    title: string;
+    placeholder: string;
+    value: string;
+  } | null>(null);
   // Menu "⋯" đang mở của card case nào (participant id)
   const [cardMenuFor, setCardMenuFor] = useState<string | null>(null);
 
@@ -390,24 +554,31 @@ export default function WorkflowTab({
     }
   };
 
-  const handleDeleteWorkflow = async () => {
+  const handleDeleteWorkflow = () => {
     if (!activeId) {
       backToList();
       return;
     }
-    if (!window.confirm("Xóa quy trình này?")) return;
-    try {
-      const res = await fetch(`/api/v1/crud/workflows/${activeId}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${getAccessToken()}` },
-      });
-      if (!res.ok) throw new Error("delete failed");
-      toast.success("Đã xóa quy trình.");
-      backToList();
-    } catch (err) {
-      console.error("Lỗi xóa quy trình:", err);
-      toast.error("Không thể xóa quy trình.");
-    }
+    askConfirm(
+      "Xóa quy trình?",
+      `Bạn có chắc chắn muốn xóa quy trình "${wfName}"? Thao tác này không thể hoàn tác.`,
+      async () => {
+        try {
+          const res = await fetch(`/api/v1/crud/workflows/${activeId}`, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${getAccessToken()}` },
+          });
+          if (!res.ok) throw new Error("delete failed");
+          toast.success("Đã xóa quy trình.");
+          backToList();
+        } catch (err) {
+          console.error("Lỗi xóa quy trình:", err);
+          toast.error("Không thể xóa quy trình.");
+        }
+      },
+      "Xóa quy trình",
+      "Hủy"
+    );
   };
 
   // ---- Thao tác với bước ----
@@ -418,7 +589,8 @@ export default function WorkflowTab({
       description: "",
       assigneeUid: "",
       assignee: "",
-      estDays: undefined,
+      // Mặc định 1 ngày làm việc để quy trình mới luôn tính được lịch giao việc
+      estDays: 1,
       deliverable: "",
       note: "",
     });
@@ -439,16 +611,22 @@ export default function WorkflowTab({
   };
 
   const deleteStep = (id: string) => {
-    if (!window.confirm("Xóa bước này? Người đang ở bước này sẽ chuyển về bước đầu."))
-      return;
-    const nextSteps = steps.filter((s) => s.id !== id);
-    const firstId = nextSteps[0]?.id ?? DONE_COL;
-    const nextParts = participants.map((p) =>
-      p.currentStepId === id ? { ...p, currentStepId: firstId, updatedAt: nowISO() } : p
+    askConfirm(
+      "Xóa bước này?",
+      "Người đang ở bước này sẽ chuyển về bước đầu.",
+      () => {
+        const nextSteps = steps.filter((s) => s.id !== id);
+        const firstId = nextSteps[0]?.id ?? DONE_COL;
+        const nextParts = participants.map((p) =>
+          p.currentStepId === id ? { ...p, currentStepId: firstId, updatedAt: nowISO() } : p
+        );
+        setSteps(nextSteps);
+        setParticipants(nextParts);
+        autoPersist({ steps: nextSteps, participants: nextParts });
+      },
+      "Xóa bước",
+      "Hủy"
     );
-    setSteps(nextSteps);
-    setParticipants(nextParts);
-    autoPersist({ steps: nextSteps, participants: nextParts });
   };
 
   const moveStep = (id: string, dir: -1 | 1) => {
@@ -474,13 +652,20 @@ export default function WorkflowTab({
       note: "",
       relatedUids: [],
       priority: "normal",
-      startDate: "",
+      // Mặc định bắt đầu hôm nay — hạn hoàn thành do hệ thống tự tính từ các bước
+      startDate: toDateInputValue(new Date()),
       dueDate: "",
       docLinks: [],
+      attachments: [],
       customSubTasks: [],
     });
     setNewCaseSubTask("");
     setNewCaseDocLink("");
+    setCaseWizStep(1);
+    setCaseUserSearch("");
+    setShowAdvancedCase(false);
+    setDueOverride(false);
+    setDueOverrideConfirmed(false);
   };
 
   const saveParticipantDraft = async () => {
@@ -513,6 +698,7 @@ export default function WorkflowTab({
           startDate: partDraft.startDate,
           dueDate: partDraft.dueDate,
           docLinks: partDraft.docLinks.filter((l) => l.trim()),
+          attachments: partDraft.attachments,
           customSubTasks: partDraft.customSubTasks,
         }),
       });
@@ -589,10 +775,13 @@ export default function WorkflowTab({
         const j = await res.json().catch(() => null);
         // Server chặn vì còn task chưa xong → hỏi quản lý có muốn ép chuyển không
         if (res.status === 409 && !force) {
-          const ok = window.confirm(
-            `${j?.message || "Còn task Kanban chưa hoàn thành ở bước hiện tại."}\n\nVẫn chuyển bước? Các task chưa xong sẽ giữ nguyên trên bảng Kanban.`
+          askConfirm(
+            "Xác nhận chuyển bước",
+            `${j?.message || "Còn task Kanban chưa hoàn thành ở bước hiện tại."} Bạn vẫn muốn chuyển bước? Các task chưa xong sẽ giữ nguyên trên bảng Kanban.`,
+            () => advanceParticipantApi(pid, nextStepId, true),
+            "Chuyển bước",
+            "Hủy"
           );
-          if (ok) await advanceParticipantApi(pid, nextStepId, true);
           return;
         }
         throw new Error(j?.message || "Không thể chuyển bước.");
@@ -639,6 +828,10 @@ export default function WorkflowTab({
     });
     return cols;
   }, [steps, participants]);
+
+  const assignmentConflicts = partDraft?.userUid
+    ? wfTasks.filter((task) => task.assigneeUid === partDraft.userUid && task.status !== "Done" && task.status !== "done" && task.status !== "Archived")
+    : [];
 
   const doneCount = participants.filter((p) => p.currentStepId === DONE_COL).length;
 
@@ -780,17 +973,15 @@ export default function WorkflowTab({
         <div className="h-5 w-px bg-gray-200" />
         <input
           value={wfName}
-          onChange={(e) => setWfName(e.target.value)}
-          disabled={!canEdit}
+          readOnly
           placeholder="Tên quy trình"
-          className="w-52 rounded-lg border border-gray-205 px-2 py-1 text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-400 disabled:bg-gray-50"
+          className="w-52 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-sm font-bold text-slate-700 outline-none cursor-default"
         />
         <input
           value={wfCategory}
-          onChange={(e) => setWfCategory(e.target.value)}
-          disabled={!canEdit}
+          readOnly
           placeholder="Nhóm (vd: Onboarding)"
-          className="w-40 rounded-lg border border-gray-205 px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-indigo-400 disabled:bg-gray-50"
+          className="w-40 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-slate-600 outline-none cursor-default"
         />
         <div className="ml-auto flex items-center gap-2">
           <button
@@ -890,301 +1081,305 @@ export default function WorkflowTab({
                     />
                   </div>
                 )}
-              <div
-                className="flex h-full w-72 shrink-0 flex-col rounded-2xl border border-gray-200 bg-gray-50/70"
-              >
-                {/* Header cột */}
                 <div
-                  className="flex items-start gap-2 rounded-t-2xl px-3 py-2"
-                  style={{
-                    background: col.isDone ? "#ecfdf5" : "#fff",
-                    borderBottom: `2px solid ${col.isDone ? "#10b981" : ACCENT}`,
-                  }}
+                  className="flex h-full w-72 shrink-0 flex-col rounded-2xl border border-gray-200 bg-gray-50/70"
                 >
-                  <span
-                    className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
-                    style={{ background: col.isDone ? "#10b981" : ACCENT }}
+                  {/* Header cột */}
+                  <div
+                    className="flex items-start gap-2 rounded-t-2xl px-3 py-2"
+                    style={{
+                      background: col.isDone ? "#ecfdf5" : "#fff",
+                      borderBottom: `2px solid ${col.isDone ? "#10b981" : ACCENT}`,
+                    }}
                   >
-                    {col.isDone ? <CheckCircle2 className="h-3 w-3" /> : col.order}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-bold text-slate-800">
-                      {col.isDone ? "Hoàn thành" : col.step.title}
+                    <span
+                      className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
+                      style={{ background: col.isDone ? "#10b981" : ACCENT }}
+                    >
+                      {col.isDone ? <CheckCircle2 className="h-3 w-3" /> : col.order}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-bold text-slate-800">
+                        {col.isDone ? "Hoàn thành" : col.step.title}
+                      </div>
+                      {!col.isDone && (
+                        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[10px] font-semibold text-slate-400">
+                          {col.step.assignee && <span>👤 {col.step.assignee}</span>}
+                          {(() => {
+                            const dur = getStepDurationDays(col.step);
+                            if (dur === null) return <span className="text-amber-500">⚠ Chưa có thời lượng</span>;
+                            return <span>⏱ {dur === 0 ? "Trong ngày" : `${dur} ngày`}</span>;
+                          })()}
+                        </div>
+                      )}
                     </div>
-                    {!col.isDone && (
-                      <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[10px] font-semibold text-slate-400">
-                        {col.step.assignee && <span>👤 {col.step.assignee}</span>}
-                        {typeof col.step.estDays === "number" && col.step.estDays > 0 && (
-                          <span>⏱ {col.step.estDays} ngày</span>
-                        )}
+                    <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-500">
+                      {col.people.length}
+                    </span>
+                    {!col.isDone && canEdit && (
+                      <div className="flex flex-col gap-0.5">
+                        <button
+                          onClick={() => setStepDraft(col.step)}
+                          className="rounded p-0.5 text-slate-450 hover:bg-gray-150 hover:text-indigo-650"
+                          title="Sửa bước"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
                       </div>
                     )}
                   </div>
-                  <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-500">
-                    {col.people.length}
-                  </span>
+
+                  {/* Nút sắp xếp / xóa bước */}
                   {!col.isDone && canEdit && (
-                    <div className="flex flex-col gap-0.5">
+                    <div className="flex items-center gap-1 px-3 py-1">
                       <button
-                        onClick={() => setStepDraft(col.step)}
-                        className="rounded p-0.5 text-slate-450 hover:bg-gray-150 hover:text-indigo-650"
-                        title="Sửa bước"
+                        onClick={() => moveStep(col.step.id, -1)}
+                        disabled={col.order === 1}
+                        className="rounded p-0.5 text-slate-300 hover:bg-gray-100 hover:text-slate-600 disabled:opacity-30"
+                        title="Chuyển sang trái"
                       >
-                        <Pencil className="h-3.5 w-3.5" />
+                        <ChevronLeft className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={() => moveStep(col.step.id, 1)}
+                        disabled={col.order === steps.length}
+                        className="rounded p-0.5 text-slate-300 hover:bg-gray-100 hover:text-slate-600 disabled:opacity-30"
+                        title="Chuyển sang phải"
+                      >
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={() => deleteStep(col.step.id)}
+                        className="ml-auto rounded p-0.5 text-slate-300 hover:bg-red-50 hover:text-red-500"
+                        title="Xóa bước"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>
                   )}
-                </div>
 
-                {/* Nút sắp xếp / xóa bước */}
-                {!col.isDone && canEdit && (
-                  <div className="flex items-center gap-1 px-3 py-1">
-                    <button
-                      onClick={() => moveStep(col.step.id, -1)}
-                      disabled={col.order === 1}
-                      className="rounded p-0.5 text-slate-300 hover:bg-gray-100 hover:text-slate-600 disabled:opacity-30"
-                      title="Chuyển sang trái"
-                    >
-                      <ChevronLeft className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      onClick={() => moveStep(col.step.id, 1)}
-                      disabled={col.order === steps.length}
-                      className="rounded p-0.5 text-slate-300 hover:bg-gray-100 hover:text-slate-600 disabled:opacity-30"
-                      title="Chuyển sang phải"
-                    >
-                      <ChevronRight className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      onClick={() => deleteStep(col.step.id)}
-                      className="ml-auto rounded p-0.5 text-slate-300 hover:bg-red-50 hover:text-red-500"
-                      title="Xóa bước"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                )}
+                  {/* Danh sách người trong cột */}
+                  <div className="flex-1 space-y-2 overflow-y-auto px-2 pb-2 pt-1">
+                    {col.people.length === 0 && (
+                      <p className="px-1 py-3 text-center text-[11px] text-slate-300">
+                        Trống
+                      </p>
+                    )}
+                    {col.people.map((p) => {
+                      const pStepTasks = wfTasks.filter(
+                        (t) => t.participantId === p.id && t.workflowStepId === p.currentStepId && t.status !== "Archived"
+                      );
+                      const caseTasks = wfTasks.filter((t) => t.participantId === p.id && t.status !== "Archived");
+                      const doneTasks = pStepTasks.filter((t) => t.status === "Done" || t.status === "done").length;
+                      const doneCaseTasks = caseTasks.filter((t) => t.status === "Done" || t.status === "done").length;
+                      const caseProgressPct = caseTasks.length ? Math.round((doneCaseTasks / caseTasks.length) * 100) : 0;
+                      const totalTasks = pStepTasks.length;
+                      const progressPct = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 100;
+                      const allTasksDone = pStepTasks.every((t) => t.status === "Done" || t.status === "done");
 
-                {/* Danh sách người trong cột */}
-                <div className="flex-1 space-y-2 overflow-y-auto px-2 pb-2 pt-1">
-                  {col.people.length === 0 && (
-                    <p className="px-1 py-3 text-center text-[11px] text-slate-300">
-                      Trống
-                    </p>
-                  )}
-                  {col.people.map((p) => {
-                    const pStepTasks = wfTasks.filter(
-                      (t) => t.participantId === p.id && t.workflowStepId === p.currentStepId && t.status !== "Archived"
-                    );
-                    const doneTasks = pStepTasks.filter((t) => t.status === "Done" || t.status === "done").length;
-                    const totalTasks = pStepTasks.length;
-                    const progressPct = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 100;
-                    const allTasksDone = pStepTasks.every((t) => t.status === "Done" || t.status === "done");
-
-                    return (
-                      <div
-                        key={p.id}
-                        className="rounded-xl border border-gray-200 bg-white p-2 shadow-sm"
-                      >
-                        <div className="flex items-center gap-2">
-                          <img
-                            src={p.avatar || avatarUrl(p.name)}
-                            alt={p.name}
-                            className="h-7 w-7 shrink-0 rounded-full object-cover"
-                          />
-                          <div className="min-w-0 flex-1">
-                            <div className="truncate text-xs font-bold text-slate-700">
-                              {p.name}
-                            </div>
-                            <div className="text-[10px] text-slate-400">
-                              {col.isDone
-                                ? `✓ Xong · ${fmtDate(p.updatedAt)}`
-                                : `Bước ${col.order}/${steps.length} · ${fmtDate(
+                      return (
+                        <div
+                          key={p.id}
+                          className="rounded-xl border border-gray-200 bg-white p-2 shadow-sm"
+                        >
+                          <div className="flex items-center gap-2">
+                            <img
+                              src={p.avatar || avatarUrl(p.name)}
+                              alt={p.name}
+                              className="h-7 w-7 shrink-0 rounded-full object-cover"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className="truncate text-xs font-bold text-slate-700">
+                                {p.name}
+                              </div>
+                              <div className="text-[10px] text-slate-400">
+                                {col.isDone
+                                  ? `✓ Xong · ${fmtDate(p.updatedAt)}`
+                                  : `Bước ${col.order}/${steps.length} · ${fmtDate(
                                     p.updatedAt
                                   )}`}
+                              </div>
                             </div>
+                            {canEdit && (
+                              <button
+                                onClick={() => removeParticipant(p.id)}
+                                className="rounded p-0.5 text-slate-300 hover:bg-red-50 hover:text-red-500"
+                                title="Gỡ khỏi quy trình"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            )}
                           </div>
-                          {canEdit && (
-                            <button
-                              onClick={() => removeParticipant(p.id)}
-                              className="rounded p-0.5 text-slate-300 hover:bg-red-50 hover:text-red-500"
-                              title="Gỡ khỏi quy trình"
+
+                          {/* Badge ưu tiên & hạn hoàn thành của công việc */}
+                          {((p.priority && p.priority !== "normal") || p.dueDate) && (
+                            <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                              {p.priority === "urgent_important" && (
+                                <span className="rounded-full bg-red-50 px-1.5 py-0.5 text-[9px] font-extrabold text-red-600">
+                                  🔥 Gấp & Q.trọng
+                                </span>
+                              )}
+                              {p.priority === "urgent" && (
+                                <span className="rounded-full bg-orange-50 px-1.5 py-0.5 text-[9px] font-extrabold text-orange-600">
+                                  ⚡ Cần gấp
+                                </span>
+                              )}
+                              {p.priority === "important" && (
+                                <span className="rounded-full bg-amber-50 px-1.5 py-0.5 text-[9px] font-extrabold text-amber-600">
+                                  ★ Quan trọng
+                                </span>
+                              )}
+                              {p.dueDate && (
+                                <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold text-slate-500">
+                                  ⏰ Hạn {fmtDate(p.dueDate)}
+                                </span>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Kanban task progress */}
+                          {!col.isDone && totalTasks > 0 && (
+                            <div
+                              className="mt-2 p-1.5 rounded-lg bg-slate-50 hover:bg-indigo-50 border border-slate-100 transition-all cursor-pointer"
+                              onClick={() =>
+                                setSelectedPartTasks({
+                                  part: p,
+                                  stepTitle: col.step.title,
+                                  tasks: pStepTasks,
+                                })
+                              }
+                              title="Nhấp để xem chi tiết công việc Kanban"
                             >
-                              <X className="h-3.5 w-3.5" />
-                            </button>
+                              <div className="flex items-center justify-between text-[9px] font-extrabold text-indigo-700 uppercase mb-1">
+                                <span>Tiến độ case ({doneCaseTasks}/{caseTasks.length})</span>
+                                <span>{caseProgressPct}%</span>
+                              </div>
+                              <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                                <div
+                                  className="bg-indigo-650 h-full rounded-full transition-all"
+                                  style={{ width: `${caseProgressPct}%` }}
+                                />
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Bước đã xong hết task → badge bám trên card đến khi chuyển bước */}
+                          {!col.isDone && totalTasks > 0 && allTasksDone && (
+                            <div className="mt-1 flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[9px] font-extrabold text-emerald-600">
+                              <CheckCircle2 className="h-3 w-3" /> Sẵn sàng chuyển bước
+                            </div>
+                          )}
+
+                          {p.note && (
+                            <p className="mt-1 line-clamp-2 rounded-md bg-slate-50 px-1.5 py-1 text-[10px] text-slate-500">
+                              {p.note}
+                            </p>
+                          )}
+                          {canEdit && (
+                            <div className="mt-1.5 flex items-center gap-1">
+                              <button
+                                onClick={() => {
+                                  if (col.isDone) return;
+                                  // Còn task chưa xong → mở drawer xem thay vì disabled im lặng
+                                  if (!allTasksDone) {
+                                    setSelectedPartTasks({
+                                      part: p,
+                                      stepTitle: col.step.title,
+                                      tasks: pStepTasks,
+                                    });
+                                    return;
+                                  }
+                                  const orderIds = [...steps.map((s) => s.id), DONE_COL];
+                                  const idx = orderIds.indexOf(p.currentStepId);
+                                  const nextStepId = orderIds[idx + 1];
+                                  if (nextStepId) {
+                                    advanceParticipantApi(p.id, nextStepId);
+                                  }
+                                }}
+                                disabled={col.isDone}
+                                className={`flex flex-1 items-center justify-center gap-0.5 rounded-md py-1 text-[10px] font-bold transition-all ${col.isDone
+                                    ? "bg-slate-300 text-white opacity-30 cursor-not-allowed"
+                                    : !allTasksDone
+                                      ? "border border-amber-200 bg-amber-50 text-amber-600 hover:bg-amber-100"
+                                      : "text-white"
+                                  }`}
+                                style={!col.isDone && allTasksDone ? { background: ACCENT } : {}}
+                                title={
+                                  !allTasksDone
+                                    ? "Nhấp để xem các task còn lại của bước này"
+                                    : "Chuyển sang bước tiếp theo"
+                                }
+                              >
+                                {!col.isDone && !allTasksDone ? (
+                                  <>Còn {totalTasks - doneTasks}/{totalTasks} task</>
+                                ) : (
+                                  <>Tiếp <ChevronRight className="h-3 w-3" /></>
+                                )}
+                              </button>
+                              <div className="relative">
+                                <button
+                                  onClick={() => setCardMenuFor(cardMenuFor === p.id ? null : p.id)}
+                                  className="rounded-md border border-gray-200 px-1.5 py-1 text-[10px] font-bold leading-none text-slate-500 hover:bg-gray-50"
+                                  title="Thao tác khác"
+                                >
+                                  ⋯
+                                </button>
+                                {cardMenuFor === p.id && (
+                                  <>
+                                    <div className="fixed inset-0 z-20" onClick={() => setCardMenuFor(null)} />
+                                    <div className="absolute right-0 z-30 mt-1 w-44 rounded-lg border border-gray-200 bg-white py-1 text-[10px] font-semibold text-slate-600 shadow-xl">
+                                      <button
+                                        onClick={() => {
+                                          setCardMenuFor(null);
+                                          moveParticipant(p.id, -1);
+                                        }}
+                                        disabled={col.order === 1 && !col.isDone}
+                                        className="flex w-full items-center gap-1 px-3 py-1.5 text-left hover:bg-slate-50 disabled:opacity-30"
+                                      >
+                                        <ChevronLeft className="h-3 w-3" /> Lùi một bước
+                                      </button>
+                                      {!col.isDone && (
+                                        <>
+                                          <div className="my-1 border-t border-gray-100" />
+                                          <p className="px-3 py-0.5 text-[9px] font-extrabold uppercase text-slate-400">
+                                            Chuyển đến bước
+                                          </p>
+                                          {steps
+                                            .filter((s) => s.id !== p.currentStepId)
+                                            .map((s) => (
+                                              <button
+                                                key={s.id}
+                                                onClick={() => {
+                                                  setCardMenuFor(null);
+                                                  advanceParticipantApi(p.id, s.id);
+                                                }}
+                                                className="block w-full truncate px-3 py-1.5 text-left hover:bg-slate-50"
+                                              >
+                                                {steps.findIndex((x) => x.id === s.id) + 1}. {s.title}
+                                              </button>
+                                            ))}
+                                          <button
+                                            onClick={() => {
+                                              setCardMenuFor(null);
+                                              advanceParticipantApi(p.id, DONE_COL);
+                                            }}
+                                            className="block w-full px-3 py-1.5 text-left text-emerald-600 hover:bg-emerald-50"
+                                          >
+                                            ✓ Hoàn thành
+                                          </button>
+                                        </>
+                                      )}
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            </div>
                           )}
                         </div>
-
-                        {/* Badge ưu tiên & hạn hoàn thành của công việc */}
-                        {((p.priority && p.priority !== "normal") || p.dueDate) && (
-                          <div className="mt-1.5 flex flex-wrap items-center gap-1">
-                            {p.priority === "urgent_important" && (
-                              <span className="rounded-full bg-red-50 px-1.5 py-0.5 text-[9px] font-extrabold text-red-600">
-                                🔥 Gấp & Q.trọng
-                              </span>
-                            )}
-                            {p.priority === "urgent" && (
-                              <span className="rounded-full bg-orange-50 px-1.5 py-0.5 text-[9px] font-extrabold text-orange-600">
-                                ⚡ Cần gấp
-                              </span>
-                            )}
-                            {p.priority === "important" && (
-                              <span className="rounded-full bg-amber-50 px-1.5 py-0.5 text-[9px] font-extrabold text-amber-600">
-                                ★ Quan trọng
-                              </span>
-                            )}
-                            {p.dueDate && (
-                              <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold text-slate-500">
-                                ⏰ Hạn {fmtDate(p.dueDate)}
-                              </span>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Kanban task progress */}
-                        {!col.isDone && totalTasks > 0 && (
-                          <div
-                            className="mt-2 p-1.5 rounded-lg bg-slate-50 hover:bg-indigo-50 border border-slate-100 transition-all cursor-pointer"
-                            onClick={() =>
-                              setSelectedPartTasks({
-                                part: p,
-                                stepTitle: col.step.title,
-                                tasks: pStepTasks,
-                              })
-                            }
-                            title="Nhấp để xem chi tiết công việc Kanban"
-                          >
-                            <div className="flex items-center justify-between text-[9px] font-extrabold text-indigo-700 uppercase mb-1">
-                              <span>Công việc ({doneTasks}/{totalTasks})</span>
-                              <span>{progressPct}%</span>
-                            </div>
-                            <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
-                              <div
-                                className="bg-indigo-650 h-full rounded-full transition-all"
-                                style={{ width: `${progressPct}%` }}
-                              />
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Bước đã xong hết task → badge bám trên card đến khi chuyển bước */}
-                        {!col.isDone && totalTasks > 0 && allTasksDone && (
-                          <div className="mt-1 flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[9px] font-extrabold text-emerald-600">
-                            <CheckCircle2 className="h-3 w-3" /> Sẵn sàng chuyển bước
-                          </div>
-                        )}
-
-                        {p.note && (
-                          <p className="mt-1 line-clamp-2 rounded-md bg-slate-50 px-1.5 py-1 text-[10px] text-slate-500">
-                            {p.note}
-                          </p>
-                        )}
-                        {canEdit && (
-                          <div className="mt-1.5 flex items-center gap-1">
-                            <button
-                              onClick={() => {
-                                if (col.isDone) return;
-                                // Còn task chưa xong → mở drawer xem thay vì disabled im lặng
-                                if (!allTasksDone) {
-                                  setSelectedPartTasks({
-                                    part: p,
-                                    stepTitle: col.step.title,
-                                    tasks: pStepTasks,
-                                  });
-                                  return;
-                                }
-                                const orderIds = [...steps.map((s) => s.id), DONE_COL];
-                                const idx = orderIds.indexOf(p.currentStepId);
-                                const nextStepId = orderIds[idx + 1];
-                                if (nextStepId) {
-                                  advanceParticipantApi(p.id, nextStepId);
-                                }
-                              }}
-                              disabled={col.isDone}
-                              className={`flex flex-1 items-center justify-center gap-0.5 rounded-md py-1 text-[10px] font-bold transition-all ${
-                                col.isDone
-                                  ? "bg-slate-300 text-white opacity-30 cursor-not-allowed"
-                                  : !allTasksDone
-                                  ? "border border-amber-200 bg-amber-50 text-amber-600 hover:bg-amber-100"
-                                  : "text-white"
-                              }`}
-                              style={!col.isDone && allTasksDone ? { background: ACCENT } : {}}
-                              title={
-                                !allTasksDone
-                                  ? "Nhấp để xem các task còn lại của bước này"
-                                  : "Chuyển sang bước tiếp theo"
-                              }
-                            >
-                              {!col.isDone && !allTasksDone ? (
-                                <>Còn {totalTasks - doneTasks}/{totalTasks} task</>
-                              ) : (
-                                <>Tiếp <ChevronRight className="h-3 w-3" /></>
-                              )}
-                            </button>
-                            <div className="relative">
-                              <button
-                                onClick={() => setCardMenuFor(cardMenuFor === p.id ? null : p.id)}
-                                className="rounded-md border border-gray-200 px-1.5 py-1 text-[10px] font-bold leading-none text-slate-500 hover:bg-gray-50"
-                                title="Thao tác khác"
-                              >
-                                ⋯
-                              </button>
-                              {cardMenuFor === p.id && (
-                                <>
-                                  <div className="fixed inset-0 z-20" onClick={() => setCardMenuFor(null)} />
-                                  <div className="absolute right-0 z-30 mt-1 w-44 rounded-lg border border-gray-200 bg-white py-1 text-[10px] font-semibold text-slate-600 shadow-xl">
-                                    <button
-                                      onClick={() => {
-                                        setCardMenuFor(null);
-                                        moveParticipant(p.id, -1);
-                                      }}
-                                      disabled={col.order === 1 && !col.isDone}
-                                      className="flex w-full items-center gap-1 px-3 py-1.5 text-left hover:bg-slate-50 disabled:opacity-30"
-                                    >
-                                      <ChevronLeft className="h-3 w-3" /> Lùi một bước
-                                    </button>
-                                    {!col.isDone && (
-                                      <>
-                                        <div className="my-1 border-t border-gray-100" />
-                                        <p className="px-3 py-0.5 text-[9px] font-extrabold uppercase text-slate-400">
-                                          Chuyển đến bước
-                                        </p>
-                                        {steps
-                                          .filter((s) => s.id !== p.currentStepId)
-                                          .map((s) => (
-                                            <button
-                                              key={s.id}
-                                              onClick={() => {
-                                                setCardMenuFor(null);
-                                                advanceParticipantApi(p.id, s.id);
-                                              }}
-                                              className="block w-full truncate px-3 py-1.5 text-left hover:bg-slate-50"
-                                            >
-                                              {steps.findIndex((x) => x.id === s.id) + 1}. {s.title}
-                                            </button>
-                                          ))}
-                                        <button
-                                          onClick={() => {
-                                            setCardMenuFor(null);
-                                            advanceParticipantApi(p.id, DONE_COL);
-                                          }}
-                                          className="block w-full px-3 py-1.5 text-left text-emerald-600 hover:bg-emerald-50"
-                                        >
-                                          ✓ Hoàn thành
-                                        </button>
-                                      </>
-                                    )}
-                                  </div>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
               </React.Fragment>
             ))}
 
@@ -1221,74 +1416,61 @@ export default function WorkflowTab({
       {/* Modal thêm người tham gia */}
       {partDraft && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-2xs p-4"
           onClick={() => setPartDraft(null)}
         >
           <div
-            className={`flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border shadow-2xl ${
-              isDark
-                ? "bg-[#1c1c1c] text-zinc-150 border-zinc-800"
-                : "bg-white text-slate-850 border-gray-200"
-            }`}
+            className="bg-white border border-gray-200 rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden relative text-left"
             onClick={(e) => e.stopPropagation()}
           >
-            <div
-              className={`flex items-center justify-between border-b px-5 py-4 ${
-                isDark ? "border-zinc-800 bg-[#181818]" : "border-gray-200 bg-white"
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <Target className={`h-5 w-5 ${isDark ? "text-indigo-400" : "text-indigo-600"}`} />
-                <div>
-                  <h3 className={`text-sm font-extrabold ${isDark ? "text-zinc-150" : "text-slate-800"}`}>
-                    Tạo công việc theo quy trình
-                  </h3>
-                  <p className={`text-[11px] ${isDark ? "text-zinc-500" : "text-slate-400"}`}>
-                    Công việc sẽ bắt đầu ở bước 1 · «{steps[0]?.title}» và tự sinh task Kanban
-                  </p>
-                </div>
-              </div>
+            <div className="flex justify-between items-center px-6 py-4 border-b border-gray-150">
+              <h4 className="font-bold text-slate-800 text-sm font-sans uppercase flex items-center gap-2">
+                <WorkflowIcon className="h-4 w-4 text-purple-600" />
+                Giao Việc Theo Quy Trình
+              </h4>
               <button
+                type="button"
                 onClick={() => setPartDraft(null)}
-                className={`p-1.5 rounded-xl ${
-                  isDark ? "hover:bg-zinc-800 text-zinc-400" : "hover:bg-gray-100 text-slate-400"
-                }`}
+                className="text-gray-400 hover:text-slate-800 cursor-pointer"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="flex-1 space-y-4 overflow-y-auto p-5">
-              {/* Tên công việc */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-4 text-xs">
               <div>
-                <label className={`text-[11px] font-extrabold uppercase tracking-wide ${isDark ? "text-zinc-500" : "text-slate-450"}`}>
-                  Tên công việc <span className="text-red-500">*</span>
-                </label>
+                <label className="block font-bold text-gray-500 mb-1.5 font-sans">Quy trình *</label>
+                <select
+                  disabled
+                  style={{ appearance: "auto", WebkitAppearance: "auto", width: "100%", maxWidth: "100%", textOverflow: "ellipsis" }}
+                  className="min-w-0 truncate pl-3.5 pr-8 py-2.5 bg-slate-50 border border-gray-200 text-slate-500 rounded-xl font-sans cursor-not-allowed"
+                >
+                  <option>{wfName}</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-bold text-gray-500 mb-1.5 font-sans">Tên công việc *</label>
                 <input
+                  type="text"
+                  autoFocus
+                  placeholder="VD: Onboarding Nguyễn Văn A, Xử lý hợp đồng #123…"
                   value={partDraft.name}
                   onChange={(e) => setPartDraft({ ...partDraft, name: e.target.value })}
-                  placeholder="VD: Onboarding Nguyễn Văn A, Xử lý hợp đồng #123…"
-                  autoFocus
-                  className={`mt-1.5 w-full rounded-xl border px-3 py-2 text-sm font-semibold outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 ${
-                    isDark ? "bg-[#242424] border-zinc-700 text-zinc-200" : "border-gray-200"
-                  }`}
+                  className="w-full px-3.5 py-2.5 bg-white border border-gray-200 text-slate-800 placeholder-gray-300 hover:border-gray-300 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 rounded-xl font-sans"
                 />
               </div>
 
-              {/* Phụ trách + Ưu tiên */}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <label className={`text-[11px] font-extrabold uppercase tracking-wide ${isDark ? "text-zinc-500" : "text-slate-450"}`}>
-                    Người phụ trách chính
-                  </label>
+                <div className="min-w-0">
+                  <label className="block font-bold text-gray-500 mb-1.5 font-sans">Người phụ trách chính</label>
                   <select
                     value={partDraft.userUid}
                     onChange={(e) => setPartDraft({ ...partDraft, userUid: e.target.value })}
-                    className={`mt-1.5 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 ${
-                      isDark ? "bg-[#242424] border-zinc-700 text-zinc-200" : "border-gray-200"
-                    }`}
+                    style={{ appearance: "auto", WebkitAppearance: "auto", width: "100%", maxWidth: "100%", textOverflow: "ellipsis" }}
+                    className="min-w-0 truncate pl-3.5 pr-8 py-2.5 bg-white border border-gray-200 text-slate-800 hover:border-gray-300 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 rounded-xl font-sans"
                   >
-                    <option value="">— Chưa gán —</option>
+                    <option value="">Theo người gán ở từng bước</option>
                     {usersList.map((u) => (
                       <option key={u.uid} value={u.uid}>
                         {u.displayName}
@@ -1298,301 +1480,92 @@ export default function WorkflowTab({
                   </select>
                 </div>
                 <div>
-                  <label className={`text-[11px] font-extrabold uppercase tracking-wide ${isDark ? "text-zinc-500" : "text-slate-450"}`}>
-                    Độ ưu tiên
-                  </label>
-                  <div className="mt-1.5 grid grid-cols-2 gap-1.5">
-                    {(
-                      [
-                        { key: "urgent_important", label: "Gấp & Q.trọng" },
-                        { key: "urgent", label: "Cần gấp" },
-                        { key: "important", label: "Quan trọng" },
-                        { key: "normal", label: "Thoải mái" },
-                      ] as const
-                    ).map((pr) => (
-                      <button
-                        key={pr.key}
-                        onClick={() => setPartDraft({ ...partDraft, priority: pr.key })}
-                        className={`rounded-lg border px-2 py-1.5 text-[11px] font-bold transition-all ${
-                          partDraft.priority === pr.key
-                            ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                            : isDark
-                            ? "border-zinc-700 text-zinc-400 hover:border-zinc-500"
-                            : "border-gray-200 text-slate-500 hover:border-gray-300"
-                        }`}
-                      >
-                        {pr.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Thời gian */}
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <label className={`text-[11px] font-extrabold uppercase tracking-wide ${isDark ? "text-zinc-500" : "text-slate-450"}`}>
-                    Ngày bắt đầu
-                  </label>
+                  <label className="block font-bold text-gray-500 mb-1.5 font-sans">Ngày bắt đầu</label>
                   <input
                     type="date"
                     value={partDraft.startDate}
                     onChange={(e) => setPartDraft({ ...partDraft, startDate: e.target.value })}
-                    className={`mt-1.5 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 ${
-                      isDark ? "bg-[#242424] border-zinc-700 text-zinc-200" : "border-gray-200"
-                    }`}
-                  />
-                </div>
-                <div>
-                  <label className={`text-[11px] font-extrabold uppercase tracking-wide ${isDark ? "text-zinc-500" : "text-slate-450"}`}>
-                    Hạn hoàn thành toàn quy trình
-                  </label>
-                  <input
-                    type="date"
-                    value={partDraft.dueDate}
-                    onChange={(e) => setPartDraft({ ...partDraft, dueDate: e.target.value })}
-                    className={`mt-1.5 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 ${
-                      isDark ? "bg-[#242424] border-zinc-700 text-zinc-200" : "border-gray-200"
-                    }`}
+                    className="w-full px-3.5 py-2.5 bg-white border border-gray-200 text-slate-800 hover:border-gray-300 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 rounded-xl font-sans"
                   />
                 </div>
               </div>
 
-              {/* Mô tả */}
               <div>
-                <label className={`text-[11px] font-extrabold uppercase tracking-wide ${isDark ? "text-zinc-500" : "text-slate-450"}`}>
-                  Mô tả chi tiết
-                </label>
+                <label className="block font-bold text-gray-500 mb-1.5 font-sans">Độ ưu tiên</label>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {(
+                    [
+                      { key: "normal", label: "Bình thường" },
+                      { key: "important", label: "★ Quan trọng" },
+                      { key: "urgent", label: "⚡ Cần gấp" },
+                      { key: "urgent_important", label: "🔥 Gấp & Q.trọng" },
+                    ] as const
+                  ).map((pr) => (
+                    <button
+                      key={pr.key}
+                      type="button"
+                      onClick={() => setPartDraft({ ...partDraft, priority: pr.key })}
+                      className={`rounded-xl border px-2 py-2 font-bold transition-all cursor-pointer ${partDraft.priority === pr.key
+                          ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                          : "border-gray-200 text-slate-500 hover:border-gray-300"
+                        }`}
+                    >
+                      {pr.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-gray-500 mb-1.5 font-sans">Mô tả chi tiết</label>
                 <textarea
+                  rows={3}
+                  placeholder="Bối cảnh, yêu cầu, kết quả mong muốn…"
                   value={partDraft.description}
                   onChange={(e) => setPartDraft({ ...partDraft, description: e.target.value })}
-                  rows={3}
-                  placeholder="Bối cảnh, yêu cầu, thông tin cần thiết cho công việc này…"
-                  className={`mt-1.5 w-full resize-none rounded-xl border px-3 py-2 text-sm outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 ${
-                    isDark ? "bg-[#242424] border-zinc-700 text-zinc-200" : "border-gray-200"
-                  }`}
+                  className="w-full resize-none px-3.5 py-2.5 bg-white border border-gray-200 text-slate-800 placeholder-gray-300 hover:border-gray-300 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 rounded-xl font-sans"
                 />
               </div>
 
-              {/* Người liên quan */}
               <div>
-                <label className={`text-[11px] font-extrabold uppercase tracking-wide ${isDark ? "text-zinc-500" : "text-slate-450"}`}>
-                  Người liên quan
-                </label>
-                <div className="mt-1.5 flex flex-wrap gap-1.5">
-                  {usersList.map((u) => {
-                    const selected = partDraft.relatedUids.includes(u.uid);
-                    return (
-                      <button
-                        key={u.uid}
-                        onClick={() =>
-                          setPartDraft({
-                            ...partDraft,
-                            relatedUids: selected
-                              ? partDraft.relatedUids.filter((x) => x !== u.uid)
-                              : [...partDraft.relatedUids, u.uid],
-                          })
-                        }
-                        className={`flex items-center gap-1.5 rounded-full border px-2 py-1 text-[11px] font-bold transition-all ${
-                          selected
-                            ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                            : isDark
-                            ? "border-zinc-700 text-zinc-400 hover:border-zinc-500"
-                            : "border-gray-200 text-slate-500 hover:border-gray-300"
-                        }`}
-                      >
-                        <img
-                          src={avatarUrl(u.displayName, u.photoURL)}
-                          alt={u.displayName}
-                          className="h-4 w-4 rounded-full object-cover"
-                        />
-                        {u.displayName}
-                        {selected && <Check className="h-3 w-3" />}
-                      </button>
-                    );
-                  })}
-                </div>
+                <label className="block font-bold text-gray-500 mb-1.5 font-sans">Tệp đính kèm và liên kết</label>
+                <AttachmentEditor
+                  attachments={partDraft.attachments}
+                  onChange={(attachments) => setPartDraft({ ...partDraft, attachments })}
+                />
               </div>
-
-              {/* Công việc con bổ sung */}
               <div>
-                <label className={`text-[11px] font-extrabold uppercase tracking-wide ${isDark ? "text-zinc-500" : "text-slate-450"}`}>
-                  Công việc con bổ sung (ngoài subtasks của bước 1)
-                </label>
-                <div className="mt-1.5 space-y-1.5">
-                  {partDraft.customSubTasks.map((st) => (
-                    <div
-                      key={st.id}
-                      className={`flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs ${
-                        isDark ? "border-zinc-700 bg-[#242424]" : "border-gray-150 bg-slate-50"
-                      }`}
-                    >
-                      <Circle className="h-3 w-3 shrink-0 text-indigo-400" />
-                      <span className="flex-1 truncate font-semibold">{st.title}</span>
-                      <button
-                        onClick={() =>
-                          setPartDraft({
-                            ...partDraft,
-                            customSubTasks: partDraft.customSubTasks.filter((x) => x.id !== st.id),
-                          })
-                        }
-                        className="rounded p-0.5 text-slate-300 hover:bg-red-50 hover:text-red-500"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  ))}
-                  <div className="flex gap-1.5">
-                    <input
-                      value={newCaseSubTask}
-                      onChange={(e) => setNewCaseSubTask(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && newCaseSubTask.trim()) {
-                          setPartDraft({
-                            ...partDraft,
-                            customSubTasks: [
-                              ...partDraft.customSubTasks,
-                              { id: genId("cst"), title: newCaseSubTask.trim() },
-                            ],
-                          });
-                          setNewCaseSubTask("");
-                        }
-                      }}
-                      placeholder="Nhập tên công việc con rồi Enter…"
-                      className={`flex-1 rounded-xl border px-3 py-1.5 text-xs outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 ${
-                        isDark ? "bg-[#242424] border-zinc-700 text-zinc-200" : "border-gray-200"
-                      }`}
-                    />
-                    <button
-                      onClick={() => {
-                        if (!newCaseSubTask.trim()) return;
-                        setPartDraft({
-                          ...partDraft,
-                          customSubTasks: [
-                            ...partDraft.customSubTasks,
-                            { id: genId("cst"), title: newCaseSubTask.trim() },
-                          ],
-                        });
-                        setNewCaseSubTask("");
-                      }}
-                      className="rounded-xl bg-indigo-600 px-3 text-white hover:bg-indigo-500"
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Link tài liệu */}
-              <div>
-                <label className={`text-[11px] font-extrabold uppercase tracking-wide ${isDark ? "text-zinc-500" : "text-slate-450"}`}>
-                  Link tài liệu / hồ sơ
-                </label>
-                <div className="mt-1.5 space-y-1.5">
-                  {partDraft.docLinks.map((link, i) => (
-                    <div
-                      key={i}
-                      className={`flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs ${
-                        isDark ? "border-zinc-700 bg-[#242424]" : "border-gray-150 bg-slate-50"
-                      }`}
-                    >
-                      <Paperclip className="h-3 w-3 shrink-0 text-slate-400" />
-                      <span className="flex-1 truncate text-indigo-600">{link}</span>
-                      <button
-                        onClick={() =>
-                          setPartDraft({
-                            ...partDraft,
-                            docLinks: partDraft.docLinks.filter((_, j) => j !== i),
-                          })
-                        }
-                        className="rounded p-0.5 text-slate-300 hover:bg-red-50 hover:text-red-500"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  ))}
-                  <div className="flex gap-1.5">
-                    <input
-                      value={newCaseDocLink}
-                      onChange={(e) => setNewCaseDocLink(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && newCaseDocLink.trim()) {
-                          setPartDraft({
-                            ...partDraft,
-                            docLinks: [...partDraft.docLinks, newCaseDocLink.trim()],
-                          });
-                          setNewCaseDocLink("");
-                        }
-                      }}
-                      placeholder="https://… (Drive, Notion, hợp đồng…) rồi Enter"
-                      className={`flex-1 rounded-xl border px-3 py-1.5 text-xs outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 ${
-                        isDark ? "bg-[#242424] border-zinc-700 text-zinc-200" : "border-gray-200"
-                      }`}
-                    />
-                    <button
-                      onClick={() => {
-                        if (!newCaseDocLink.trim()) return;
-                        setPartDraft({
-                          ...partDraft,
-                          docLinks: [...partDraft.docLinks, newCaseDocLink.trim()],
-                        });
-                        setNewCaseDocLink("");
-                      }}
-                      className="rounded-xl bg-indigo-600 px-3 text-white hover:bg-indigo-500"
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Ghi chú */}
-              <div>
-                <label className={`text-[11px] font-extrabold uppercase tracking-wide ${isDark ? "text-zinc-500" : "text-slate-450"}`}>
-                  Ghi chú
-                </label>
+                <label className="block font-bold text-gray-500 mb-1.5 font-sans">Ghi chú</label>
                 <input
+                  type="text"
+                  placeholder="Ghi chú ngắn hiển thị trên thẻ công việc"
                   value={partDraft.note}
                   onChange={(e) => setPartDraft({ ...partDraft, note: e.target.value })}
-                  placeholder="Lưu ý ngắn hiển thị trên thẻ công việc…"
-                  className={`mt-1.5 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 ${
-                    isDark ? "bg-[#242424] border-zinc-700 text-zinc-200" : "border-gray-200"
-                  }`}
+                  className="w-full px-3.5 py-2.5 bg-white border border-gray-200 text-slate-800 placeholder-gray-300 hover:border-gray-300 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 rounded-xl font-sans"
                 />
               </div>
             </div>
 
-            <div
-              className={`flex items-center justify-between border-t px-5 py-3.5 ${
-                isDark ? "border-zinc-800 bg-[#181818]" : "border-gray-200 bg-white"
-              }`}
-            >
-              <p className={`text-[11px] ${isDark ? "text-zinc-500" : "text-slate-400"}`}>
-                {(steps[0]?.subTasks?.length || 1) + partDraft.customSubTasks.length} task Kanban
-                sẽ được tạo ở bước 1
-              </p>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setPartDraft(null)}
-                  className={`rounded-xl border px-4 py-2 text-xs font-bold ${
-                    isDark
-                      ? "border-zinc-700 text-zinc-400 hover:bg-zinc-800"
-                      : "border-gray-200 text-slate-650 hover:bg-gray-50"
-                  }`}
-                >
-                  Hủy
-                </button>
-                <button
-                  onClick={saveParticipantDraft}
-                  className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-5 py-2 text-xs font-extrabold text-white hover:bg-indigo-500"
-                >
-                  <Plus className="h-3.5 w-3.5" /> Tạo công việc
-                </button>
-              </div>
+            <div className="px-6 py-4 border-t border-gray-150 flex justify-end gap-3 text-xs font-bold animate-in">
+              <button
+                type="button"
+                onClick={() => setPartDraft(null)}
+                className="px-4 py-2 border border-gray-200 text-slate-500 hover:text-slate-800 rounded-xl bg-white hover:bg-slate-50 cursor-pointer transition-all active:scale-95 font-sans"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={saveParticipantDraft}
+                className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl cursor-pointer transition-all active:scale-95 font-sans flex items-center gap-1.5"
+              >
+                <Plus className="h-3.5 w-3.5" /> Tạo công việc
+              </button>
             </div>
           </div>
         </div>
       )}
+
       {/* Drawer xem danh sách công việc Kanban của người tham gia */}
       {selectedPartTasks && (
         <div
@@ -1600,9 +1573,8 @@ export default function WorkflowTab({
           onClick={() => setSelectedPartTasks(null)}
         >
           <div
-            className={`w-full max-w-md h-full shadow-2xl flex flex-col p-5 animate-in slide-in-from-right duration-200 transition-colors ${
-              isDark ? "bg-[#1c1c1c] text-zinc-150 border-l border-zinc-800" : "bg-white text-slate-800"
-            }`}
+            className={`w-full max-w-md h-full shadow-2xl flex flex-col p-5 animate-in slide-in-from-right duration-200 transition-colors ${isDark ? "bg-[#1c1c1c] text-zinc-150 border-l border-zinc-800" : "bg-white text-slate-800"
+              }`}
             onClick={(e) => e.stopPropagation()}
           >
             <div className={`flex items-center justify-between border-b pb-3 mb-4 ${isDark ? "border-zinc-800" : "border-gray-200"}`}>
@@ -1616,9 +1588,8 @@ export default function WorkflowTab({
               </div>
               <button
                 onClick={() => setSelectedPartTasks(null)}
-                className={`p-1.5 rounded-lg transition-colors ${
-                  isDark ? "hover:bg-zinc-800 text-zinc-400 hover:text-zinc-250" : "hover:bg-gray-100 text-slate-400"
-                }`}
+                className={`p-1.5 rounded-lg transition-colors ${isDark ? "hover:bg-zinc-800 text-zinc-400 hover:text-zinc-250" : "hover:bg-gray-100 text-slate-400"
+                  }`}
               >
                 <X className="h-4 w-4" />
               </button>
@@ -1632,46 +1603,42 @@ export default function WorkflowTab({
                 selectedPartTasks.tasks.map((task) => (
                   <div
                     key={task.id || task._id}
-                    className={`p-3 border rounded-xl transition-all ${
-                      isDark
+                    className={`p-3 border rounded-xl transition-all ${isDark
                         ? "bg-[#242424] border-zinc-850 hover:bg-[#282828] text-zinc-200"
                         : "bg-slate-50/50 border-gray-150 hover:bg-slate-50 text-slate-700"
-                    }`}
+                      }`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <span className="text-xs font-bold">{task.title}</span>
                       <span className="flex items-center gap-1">
-                      {onNavigateToKanban && (task._id || task.id) && (
-                        <button
-                          onClick={() => {
-                            setSelectedPartTasks(null);
-                            onNavigateToKanban(String(task._id || task.id));
-                          }}
-                          title="Mở trên bảng Kanban"
-                          className={`p-1 rounded-md transition-colors ${
-                            isDark
-                              ? "text-zinc-500 hover:bg-zinc-800 hover:text-indigo-400"
-                              : "text-slate-400 hover:bg-indigo-50 hover:text-indigo-600"
-                          }`}
-                        >
-                          <ExternalLink className="h-3 w-3" />
-                        </button>
-                      )}
-                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold border whitespace-nowrap ${
-                        task.status === "Done" || task.status === "done"
-                          ? "bg-emerald-50 text-emerald-700 border-emerald-250"
-                          : task.status === "In Progress" || task.status === "doing"
-                          ? "bg-sky-50 text-sky-700 border-sky-200"
-                          : "bg-slate-100 text-slate-500 border-gray-250"
-                      }`}>
-                        {task.status === "Done" || task.status === "done" ? "Đã xong" :
-                         task.status === "In Progress" || task.status === "doing" ? "Đang làm" : "Chưa làm"}
-                      </span>
+                        {onNavigateToKanban && (task._id || task.id) && (
+                          <button
+                            onClick={() => {
+                              setSelectedPartTasks(null);
+                              onNavigateToKanban(String(task._id || task.id));
+                            }}
+                            title="Mở trên bảng Kanban"
+                            className={`p-1 rounded-md transition-colors ${isDark
+                                ? "text-zinc-500 hover:bg-zinc-800 hover:text-indigo-400"
+                                : "text-slate-400 hover:bg-indigo-50 hover:text-indigo-600"
+                              }`}
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                          </button>
+                        )}
+                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold border whitespace-nowrap ${task.status === "Done" || task.status === "done"
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-250"
+                            : task.status === "In Progress" || task.status === "doing"
+                              ? "bg-sky-50 text-sky-700 border-sky-200"
+                              : "bg-slate-100 text-slate-500 border-gray-250"
+                          }`}>
+                          {task.status === "Done" || task.status === "done" ? "Đã xong" :
+                            task.status === "In Progress" || task.status === "doing" ? "Đang làm" : "Chưa làm"}
+                        </span>
                       </span>
                     </div>
-                    <div className={`mt-2 flex items-center justify-between text-[10px] ${
-                      isDark ? "text-zinc-550" : "text-slate-400"
-                    }`}>
+                    <div className={`mt-2 flex items-center justify-between text-[10px] ${isDark ? "text-zinc-550" : "text-slate-400"
+                      }`}>
                       <span>👤 {task.assignee}</span>
                       {task.dueDate && <span>⏱ {task.dueDate}</span>}
                     </div>
@@ -1681,6 +1648,18 @@ export default function WorkflowTab({
             </div>
           </div>
         </div>
+      )}
+
+      {confirmState && (
+        <ConfirmDialog
+          isOpen={confirmState.isOpen}
+          title={confirmState.title}
+          description={confirmState.description}
+          confirmLabel={confirmState.confirmLabel}
+          cancelLabel={confirmState.cancelLabel}
+          onClose={() => setConfirmState(null)}
+          onConfirm={confirmState.onConfirm}
+        />
       )}
     </div>
   );
@@ -1717,6 +1696,7 @@ function NewWorkflowWizard({
   const [dragId, setDragId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [editingStep, setEditingStep] = useState<WorkflowStep | null>(null);
+  const isEditing = Boolean(initialData);
 
   // Check if dark mode is active in the document element
   const [isDarkTheme, setIsDarkTheme] = useState(() =>
@@ -1744,7 +1724,8 @@ function NewWorkflowWizard({
       description: "",
       assigneeUid: "",
       assignee: "",
-      estDays: undefined,
+      // Mặc định 1 ngày làm việc để quy trình mới luôn tính được lịch giao việc
+      estDays: 1,
       deliverable: "",
       note: "",
     };
@@ -1788,6 +1769,16 @@ function NewWorkflowWizard({
       toast.error("Mỗi bước cần có tên.");
       return;
     }
+    // Không chặn lưu, nhưng nhắc rõ để lịch giao việc tính được đầy đủ
+    const missingDuration = steps.filter((s) => getStepDurationDays(s) === null);
+    if (missingDuration.length > 0) {
+      toast.error(
+        `${missingDuration.length} bước chưa có thời lượng (${missingDuration
+          .map((s) => s.title)
+          .slice(0, 3)
+          .join(", ")}${missingDuration.length > 3 ? "..." : ""}). Quy trình vẫn được lưu nhưng hạn các bước này sẽ không tự tính khi giao việc.`
+      );
+    }
     setSubmitting(true);
     try {
       await onSubmit({ name, category, description, steps });
@@ -1802,41 +1793,28 @@ function NewWorkflowWizard({
       onClick={onClose}
     >
       <div
-        className={`flex max-h-[90vh] w-full flex-col overflow-hidden rounded-3xl shadow-2xl transition-all duration-300 ${
-          step === 2 ? "max-w-6xl" : "max-w-4xl"
-        } ${
-          isDark
+        className={`flex max-h-[90vh] w-full flex-col overflow-hidden rounded-3xl shadow-2xl transition-all duration-300 ${step === 2 ? "max-w-6xl" : "max-w-4xl"
+          } ${isDark
             ? "bg-[#121212] border border-zinc-800 text-zinc-100"
             : "bg-white border border-gray-200 text-slate-850"
-        }`}
+          }`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header + Title */}
         <div
-          className={`flex items-center justify-between border-b px-6 py-4.5 transition-colors ${
-            isDark ? "bg-[#181818] border-zinc-800" : "bg-white border-gray-250"
-          }`}
+          className={`flex items-center justify-between border-b px-6 py-4.5 transition-colors ${isDark ? "bg-[#181818] border-zinc-800" : "bg-white border-gray-250"
+            }`}
         >
           <div className="flex items-center gap-2">
             <WorkflowIcon className={`h-5 w-5 ${isDark ? "text-indigo-400" : "text-indigo-650"}`} />
             <h3 className={`text-sm font-extrabold uppercase tracking-wide ${isDark ? "text-zinc-150" : "text-slate-800"}`}>
-              {isDark ? (
-                <>
-                  Sửa các Giai đoạn cho Quy trình{" "}
-                  <span className="text-indigo-400 font-black">
-                    {name.trim() ? name.toUpperCase() : "QUY TRÌNH MỚI"}
-                  </span>
-                </>
-              ) : (
-                "Tạo quy trình mới"
-              )}
+              {isEditing ? "Sửa quy trình" : "Tạo quy trình mới"}
             </h3>
           </div>
           <button
             onClick={onClose}
-            className={`p-1.5 rounded-xl transition-colors cursor-pointer ${
-              isDark ? "hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200" : "hover:bg-gray-100 text-slate-405"
-            }`}
+            className={`p-1.5 rounded-xl transition-colors cursor-pointer ${isDark ? "hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200" : "hover:bg-gray-100 text-slate-405"
+              }`}
           >
             <X className="h-4 w-4" />
           </button>
@@ -1852,9 +1830,8 @@ function NewWorkflowWizard({
               <React.Fragment key={s.n}>
                 <div className="flex items-center gap-2">
                   <span
-                    className={`flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold ${
-                      step >= (s.n as 1 | 2) ? "bg-indigo-650 text-white" : "bg-gray-200 text-slate-500"
-                    }`}
+                    className={`flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold ${step >= (s.n as 1 | 2) ? "bg-indigo-650 text-white" : "bg-gray-200 text-slate-500"
+                      }`}
                   >
                     {s.n}
                   </span>
@@ -1922,9 +1899,8 @@ function NewWorkflowWizard({
                   addStage();
                 }
               }}
-              className={`flex-1 p-8 overflow-y-auto flex items-center justify-center min-h-[450px] relative border-r transition-colors ${
-                isDark ? "bg-[#141414] border-zinc-800/80" : "bg-slate-50/50 border-gray-200"
-              }`}
+              className={`flex-1 p-8 overflow-y-auto flex items-center justify-center min-h-[450px] relative border-r transition-colors ${isDark ? "bg-[#141414] border-zinc-800/80" : "bg-slate-50/50 border-gray-200"
+                }`}
             >
               {/* Decorative top-left selection tool */}
               <button
@@ -1934,11 +1910,10 @@ function NewWorkflowWizard({
                   e.dataTransfer.setData("text/plain", "new-step");
                   e.dataTransfer.effectAllowed = "copy";
                 }}
-                className={`absolute top-4 left-4 p-2.5 border rounded-xl transition-all shadow-sm cursor-grab active:cursor-grabbing ${
-                  isDark
+                className={`absolute top-4 left-4 p-2.5 border rounded-xl transition-all shadow-sm cursor-grab active:cursor-grabbing ${isDark
                     ? "bg-[#1f1f1f] border-zinc-800 text-zinc-500 hover:text-zinc-300"
                     : "bg-white border-gray-200 text-slate-400 hover:text-slate-600"
-                }`}
+                  }`}
                 title="Kéo thả vào vùng làm việc để tạo giai đoạn mới"
               >
                 <div className={`w-4 h-4 border rounded ${isDark ? "border-zinc-500" : "border-gray-300"}`} />
@@ -2006,36 +1981,33 @@ function NewWorkflowWizard({
                         <div
                           key={s.id}
                           onClick={() => setSelectedId(s.id)}
-                          className={`w-32 h-20 relative rounded-xl border flex flex-col justify-center items-center p-2.5 transition-all duration-300 cursor-pointer ${
-                            isSelected
+                          className={`w-32 h-20 relative rounded-xl border flex flex-col justify-center items-center p-2.5 transition-all duration-300 cursor-pointer ${isSelected
                               ? isDark
                                 ? "border-indigo-500 bg-indigo-950/20 shadow-md shadow-indigo-500/10 scale-102"
                                 : "border-indigo-500 bg-indigo-50 shadow-md shadow-indigo-500/10 scale-102"
                               : isDark
-                              ? "border-zinc-700 bg-zinc-900/50 hover:bg-zinc-800/85 hover:border-zinc-500"
-                              : "border-gray-200 bg-white hover:bg-gray-50 hover:border-gray-300"
-                          }`}
+                                ? "border-zinc-700 bg-zinc-900/50 hover:bg-zinc-800/85 hover:border-zinc-500"
+                                : "border-gray-200 bg-white hover:bg-gray-50 hover:border-gray-300"
+                            }`}
                         >
                           <span
-                            className={`absolute -top-3 left-3 text-[9px] font-bold px-1.5 py-0.5 rounded border shadow-sm transition-colors ${
-                              isDark
+                            className={`absolute -top-3 left-3 text-[9px] font-bold px-1.5 py-0.5 rounded border shadow-sm transition-colors ${isDark
                                 ? "bg-zinc-800 text-zinc-400 border-zinc-700"
                                 : "bg-white text-slate-550 border-gray-200"
-                            }`}
+                              }`}
                           >
                             {idx + 1}
                           </span>
 
                           <span
-                            className={`text-[10px] font-extrabold uppercase text-center tracking-wide leading-tight px-1 line-clamp-3 transition-colors ${
-                              isSelected
+                            className={`text-[10px] font-extrabold uppercase text-center tracking-wide leading-tight px-1 line-clamp-3 transition-colors ${isSelected
                                 ? isDark
                                   ? "text-indigo-400"
                                   : "text-indigo-700"
                                 : isDark
-                                ? "text-zinc-100"
-                                : "text-slate-700"
-                            }`}
+                                  ? "text-zinc-100"
+                                  : "text-slate-700"
+                              }`}
                           >
                             {s.title || "(CHƯA ĐẶT TÊN)"}
                           </span>
@@ -2057,28 +2029,14 @@ function NewWorkflowWizard({
 
             {/* Sidebar list layout (Right Column) */}
             <div
-              className={`w-80 flex flex-col border-l transition-colors duration-300 ${
-                isDark ? "bg-[#1a1a1a] border-zinc-800" : "bg-white border-gray-200"
-              }`}
+              className={`w-80 flex flex-col border-l transition-colors duration-300 ${isDark ? "bg-[#1a1a1a] border-zinc-800" : "bg-white border-gray-200"
+                }`}
             >
               <div
-                className={`px-4 py-3 border-b flex flex-wrap items-center justify-between gap-2 shadow-2xs transition-colors duration-300 ${
+                className={`px-4 py-3 border-b flex flex-wrap items-center justify-end gap-2 shadow-2xs transition-colors duration-300 ${
                   isDark ? "bg-[#1d1d1d] border-zinc-800/85" : "bg-slate-50 border-gray-200"
                 }`}
               >
-                <button
-                  type="button"
-                  onClick={() => toast.info("Tính năng đang phát triển.")}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 border text-[10px] font-extrabold rounded-xl transition-all cursor-pointer ${
-                    isDark
-                      ? "bg-zinc-850 border-zinc-750 text-zinc-350 hover:text-white hover:bg-zinc-800"
-                      : "bg-white border-gray-200 text-slate-500 hover:text-slate-800 hover:bg-gray-50"
-                  }`}
-                >
-                  <WorkflowIcon className="h-3.5 w-3.5 text-indigo-400" />
-                  Thiết lập thông tin cho nhiều giai đoạn
-                </button>
-
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
@@ -2089,22 +2047,19 @@ function NewWorkflowWizard({
                     <Plus className="h-3.5 w-3.5" />
                   </button>
                   <div
-                    className={`flex gap-0.5 border rounded-lg p-0.5 transition-colors ${
-                      isDark ? "border-zinc-800 bg-[#141414]" : "border-gray-200 bg-gray-50"
-                    }`}
+                    className={`flex gap-0.5 border rounded-lg p-0.5 transition-colors ${isDark ? "border-zinc-800 bg-[#141414]" : "border-gray-200 bg-gray-50"
+                      }`}
                   >
                     <button
-                      className={`p-1 transition-colors ${
-                        isDark ? "text-zinc-650 hover:text-zinc-400" : "text-slate-400 hover:text-slate-655"
-                      }`}
+                      className={`p-1 transition-colors ${isDark ? "text-zinc-650 hover:text-zinc-400" : "text-slate-400 hover:text-slate-655"
+                        }`}
                       title="Sắp xếp"
                     >
                       <ChevronLeft className="h-3.5 w-3.5 rotate-90" />
                     </button>
                     <button
-                      className={`p-1 transition-colors ${
-                        isDark ? "text-zinc-650 hover:text-zinc-400" : "text-slate-400 hover:text-slate-655"
-                      }`}
+                      className={`p-1 transition-colors ${isDark ? "text-zinc-650 hover:text-zinc-400" : "text-slate-400 hover:text-slate-655"
+                        }`}
                       title="Bố cục"
                     >
                       <ChevronRight className="h-3.5 w-3.5 rotate-90" />
@@ -2125,38 +2080,42 @@ function NewWorkflowWizard({
                       onDragStart={() => setDragId(s.id)}
                       onDragOver={(e) => e.preventDefault()}
                       onDrop={() => reorder(s.id)}
-                      className={`flex items-center gap-3 border p-2.5 rounded-xl transition-all cursor-pointer shadow-3xs ${
-                        selectedId === s.id
+                      className={`flex items-center gap-3 border p-2.5 rounded-xl transition-all cursor-pointer shadow-3xs ${selectedId === s.id
                           ? isDark
                             ? "border-indigo-500/80 bg-indigo-950/10"
                             : "border-indigo-500/80 bg-indigo-50/50"
                           : isDark
-                          ? "bg-[#242424] hover:bg-[#2e2e2e] border-zinc-800"
-                          : "bg-white hover:bg-slate-50/80 border-gray-200"
-                      }`}
+                            ? "bg-[#242424] hover:bg-[#2e2e2e] border-zinc-800"
+                            : "bg-white hover:bg-slate-50/80 border-gray-200"
+                        }`}
                       onClick={() => setSelectedId(s.id)}
                     >
                       <GripVertical
-                        className={`h-4 w-4 shrink-0 cursor-grab transition-colors ${
-                          isDark ? "text-zinc-650 hover:text-zinc-450" : "text-slate-400 hover:text-slate-650"
-                        }`}
+                        className={`h-4 w-4 shrink-0 cursor-grab transition-colors ${isDark ? "text-zinc-650 hover:text-zinc-450" : "text-slate-400 hover:text-slate-650"
+                          }`}
                       />
                       <span
-                        className={`font-extrabold text-xs px-2 py-0.5 rounded-lg shadow-3xs border transition-colors ${
-                          isDark
+                        className={`font-extrabold text-xs px-2 py-0.5 rounded-lg shadow-3xs border transition-colors ${isDark
                             ? "bg-zinc-800 text-zinc-350 border-zinc-700"
                             : "bg-gray-100 text-slate-500 border-gray-200"
-                        }`}
+                          }`}
                       >
                         {i + 1}
                       </span>
                       <span
-                        className={`text-xs font-bold truncate flex-1 transition-colors ${
-                          isDark ? "text-zinc-200" : "text-slate-750"
-                        }`}
+                        className={`text-xs font-bold truncate flex-1 transition-colors ${isDark ? "text-zinc-200" : "text-slate-750"
+                          }`}
                       >
                         {s.title || "(Chưa đặt tên)"}
                       </span>
+                      {getStepDurationDays(s) === null && (
+                        <span
+                          className="bg-amber-500/10 text-amber-500 border border-amber-500/30 text-[9px] px-1.5 py-0.5 rounded-md font-extrabold shadow-3xs"
+                          title="Bước chưa có thời lượng — hạn công việc giao theo quy trình này sẽ không tự tính được. Bấm sửa để đặt số ngày."
+                        >
+                          ⚠ Thiếu thời lượng
+                        </span>
+                      )}
                       {i === 0 && (
                         <span className="bg-emerald-955 text-emerald-400 border border-emerald-900/40 text-[9px] px-1.5 py-0.5 rounded-md font-extrabold shadow-3xs">
                           Bắt đầu
@@ -2170,11 +2129,10 @@ function NewWorkflowWizard({
                             setSelectedId(s.id);
                             setEditingStep(s);
                           }}
-                          className={`p-1 rounded-md transition-colors cursor-pointer ${
-                            isDark
+                          className={`p-1 rounded-md transition-colors cursor-pointer ${isDark
                               ? "text-zinc-450 hover:bg-zinc-800 hover:text-indigo-400"
                               : "text-slate-400 hover:bg-slate-100 hover:text-indigo-650"
-                          }`}
+                            }`}
                           title="Sửa giai đoạn"
                         >
                           <Pencil className="h-3.5 w-3.5" />
@@ -2185,11 +2143,10 @@ function NewWorkflowWizard({
                             e.stopPropagation();
                             deleteStep(s.id);
                           }}
-                          className={`p-1 rounded-md transition-colors cursor-pointer ${
-                            isDark
+                          className={`p-1 rounded-md transition-colors cursor-pointer ${isDark
                               ? "text-zinc-450 hover:bg-zinc-800 hover:text-rose-455"
                               : "text-slate-400 hover:bg-slate-100 hover:text-rose-650"
-                          }`}
+                            }`}
                           title="Xóa giai đoạn"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -2205,9 +2162,8 @@ function NewWorkflowWizard({
 
         {/* Footer controls */}
         <div
-          className={`flex items-center justify-between border-t px-6 py-4.5 transition-colors ${
-            isDark ? "bg-[#181818] border-zinc-800" : "bg-white border-gray-250"
-          }`}
+          className={`flex items-center justify-between border-t px-6 py-4.5 transition-colors ${isDark ? "bg-[#181818] border-zinc-800" : "bg-white border-gray-250"
+            }`}
         >
           <div>
             {isDark && (
@@ -2314,7 +2270,7 @@ function WizardStepEditorModal({
             ...item,
             id: item._id,
           }));
-          setProjects(projData);
+          setProjects(projData.sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()));
         }
       } catch (err) {
         console.error("Lỗi khi tải danh sách dự án:", err);
@@ -2323,11 +2279,13 @@ function WizardStepEditorModal({
     fetchProjects();
   }, []);
   const [priority, setPriority] = useState<WorkflowStep["priority"]>(step.priority || "normal");
-  const [deadlineType, setDeadlineType] = useState<WorkflowStep["deadlineType"]>(step.deadlineType || "none");
-  const [deadlineDays, setDeadlineDays] = useState(step.deadlineDays ?? 3);
-  const [deadlineTime, setDeadlineTime] = useState(step.deadlineTime || "");
+  // Một trường thời lượng duy nhất (ngày làm việc, 0 = xong trong ngày) — thay cho
+  // cặp estDays + deadlineType cũ; đọc dữ liệu cũ qua getStepDurationDays
+  const [durationDays, setDurationDays] = useState<number>(getStepDurationDays(step) ?? 1);
+  const [deadlineTime, setDeadlineTime] = useState(step.deadlineTime || "18:00");
   const [subTasks, setSubTasks] = useState<WorkflowSubTask[]>(step.subTasks || []);
   const [newSubTask, setNewSubTask] = useState("");
+  const [attachments, setAttachments] = useState<TaskAttachment[]>(step.attachments || []);
 
   const isFirstStep = stepIndex === 0;
   const nextStep = steps[stepIndex + 1] || null;
@@ -2370,8 +2328,10 @@ function WizardStepEditorModal({
       relatedUids,
       domain,
       priority,
-      deadlineType,
-      deadlineDays,
+      // Ghi cả bộ trường cũ để tương thích dữ liệu/luồng đọc cũ
+      estDays: durationDays,
+      deadlineType: durationDays === 0 ? ("same_day" as const) : ("after_x" as const),
+      deadlineDays: durationDays > 0 ? durationDays : undefined,
       deadlineTime,
       subTasks,
     });
@@ -2382,39 +2342,34 @@ function WizardStepEditorModal({
       ? u.photoURL
       : `https://ui-avatars.com/api/?name=${encodeURIComponent(u.displayName)}&background=4f46e5&color=fff`;
 
-  const inp = `w-full px-3 py-2 rounded-xl text-xs focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-semibold transition-all ${
-    isDark
+  const inp = `w-full px-3 py-2 rounded-xl text-xs focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-semibold transition-all ${isDark
       ? "bg-[#242424] border border-zinc-750 text-zinc-200"
       : "bg-white border border-gray-200 text-slate-800"
-  }`;
+    }`;
 
-  const lbl = `block text-[11px] uppercase tracking-wide font-extrabold mb-1.5 ${
-    isDark ? "text-zinc-500" : "text-slate-450"
-  }`;
+  const lbl = `block text-[11px] uppercase tracking-wide font-extrabold mb-1.5 ${isDark ? "text-zinc-500" : "text-slate-450"
+    }`;
 
   const PRIORITIES: { key: WorkflowStep["priority"]; label: string; color: string; icon: React.ReactNode }[] = [
     { key: "urgent_important", label: "Cần gặp và Q.trọng", color: "#06b6d4", icon: <Zap className="h-3 w-3" /> },
-    { key: "urgent",           label: "Cần gặp",           color: "#f97316", icon: <AlertCircle className="h-3 w-3" /> },
-    { key: "important",        label: "Quan trọng",        color: "#ef4444", icon: <AlertTriangle className="h-3 w-3" /> },
-    { key: "normal",           label: "Thoải mái",          color: "#94a3b8", icon: <Smile className="h-3 w-3" /> },
+    { key: "urgent", label: "Cần gặp", color: "#f97316", icon: <AlertCircle className="h-3 w-3" /> },
+    { key: "important", label: "Quan trọng", color: "#ef4444", icon: <AlertTriangle className="h-3 w-3" /> },
+    { key: "normal", label: "Thoải mái", color: "#94a3b8", icon: <Smile className="h-3 w-3" /> },
   ];
 
-  const DEADLINES: { key: WorkflowStep["deadlineType"]; label: string }[] = [
-    { key: "same_day", label: "Cùng ngày" },
-    { key: "after_1",  label: "Sau 1 ngày" },
-    { key: "after_2",  label: "Sau 2 ngày" },
-    { key: "after_x",  label: "Sau x ngày" },
-    { key: "none",     label: "Không có" },
-    { key: "custom_time", label: "..." },
+  const DURATION_PRESETS: { value: number; label: string }[] = [
+    { value: 0, label: "Xong trong ngày" },
+    { value: 1, label: "1 ngày" },
+    { value: 2, label: "2 ngày" },
+    { value: 3, label: "3 ngày" },
+    { value: 5, label: "5 ngày" },
   ];
 
-  const row = `flex items-start gap-3 py-2.5 border-b transition-colors ${
-    isDark ? "border-zinc-800/60" : "border-gray-100"
-  }`;
+  const row = `flex items-start gap-3 py-2.5 border-b transition-colors ${isDark ? "border-zinc-800/60" : "border-gray-100"
+    }`;
 
-  const rowLabel = `w-28 shrink-0 text-[11px] font-bold pt-0.5 ${
-    isDark ? "text-zinc-500" : "text-slate-450"
-  }`;
+  const rowLabel = `w-28 shrink-0 text-[11px] font-bold pt-0.5 ${isDark ? "text-zinc-500" : "text-slate-450"
+    }`;
 
   const selectedProject = projects.find((p) => p.id === domain || p._id === domain);
   const displayDomain = selectedProject ? selectedProject.name : domain;
@@ -2425,18 +2380,16 @@ function WizardStepEditorModal({
       onClick={onClose}
     >
       <div
-        className={`w-full max-w-xl rounded-3xl border shadow-2xl overflow-hidden flex flex-col max-h-[90vh] transition-colors ${
-          isDark
+        className={`w-full max-w-xl rounded-3xl border shadow-2xl overflow-hidden flex flex-col max-h-[90vh] transition-colors ${isDark
             ? "bg-[#1c1c1c] text-zinc-150 border-zinc-800"
             : "bg-white text-slate-850 border-gray-200"
-        }`}
+          }`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div
-          className={`flex items-center justify-between px-5 py-3.5 border-b flex-shrink-0 transition-colors ${
-            isDark ? "bg-[#1a1a1a] border-zinc-800/80" : "bg-slate-50 border-gray-200"
-          }`}
+          className={`flex items-center justify-between px-5 py-3.5 border-b flex-shrink-0 transition-colors ${isDark ? "bg-[#1a1a1a] border-zinc-800/80" : "bg-slate-50 border-gray-200"
+            }`}
         >
           <div className="flex items-center gap-2">
             <span className={`text-xs font-bold ${isDark ? "text-zinc-500" : "text-slate-400"}`}>
@@ -2451,9 +2404,8 @@ function WizardStepEditorModal({
           </div>
           <button
             onClick={onClose}
-            className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-              isDark ? "hover:bg-zinc-800 text-zinc-450 hover:text-zinc-200" : "hover:bg-gray-100 text-slate-400"
-            }`}
+            className={`p-1.5 rounded-lg transition-colors cursor-pointer ${isDark ? "hover:bg-zinc-800 text-zinc-450 hover:text-zinc-200" : "hover:bg-gray-100 text-slate-400"
+              }`}
           >
             <X className="h-4 w-4" />
           </button>
@@ -2469,9 +2421,8 @@ function WizardStepEditorModal({
               <input
                 value={stepIndex + 1}
                 disabled
-                className={`w-10 text-center rounded-xl text-xs font-bold border transition-all ${
-                  isDark ? "bg-zinc-800 border-zinc-700 text-zinc-400" : "bg-gray-100 border-gray-200 text-slate-500"
-                } py-1.5`}
+                className={`w-10 text-center rounded-xl text-xs font-bold border transition-all ${isDark ? "bg-zinc-800 border-zinc-700 text-zinc-400" : "bg-gray-100 border-gray-200 text-slate-500"
+                  } py-1.5`}
               />
               <input
                 value={title}
@@ -2493,9 +2444,8 @@ function WizardStepEditorModal({
                   return (
                     <div
                       key={uid}
-                      className={`flex items-center gap-1.5 px-2 py-1 rounded-lg border text-[11px] font-bold transition-colors ${
-                        isDark ? "bg-zinc-800 border-zinc-700 text-zinc-200" : "bg-indigo-50 border-indigo-200 text-indigo-700"
-                      }`}
+                      className={`flex items-center gap-1.5 px-2 py-1 rounded-lg border text-[11px] font-bold transition-colors ${isDark ? "bg-zinc-800 border-zinc-700 text-zinc-200" : "bg-indigo-50 border-indigo-200 text-indigo-700"
+                        }`}
                     >
                       <img src={avatarUrl(u)} className="h-4 w-4 rounded-full" alt="" />
                       {u.displayName}
@@ -2508,16 +2458,14 @@ function WizardStepEditorModal({
                 {/* Unselected users to add */}
                 <div className="relative group">
                   <button
-                    className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-[11px] font-bold transition-colors ${
-                      isDark ? "bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-zinc-200" : "bg-white border-gray-200 text-slate-400 hover:text-slate-700"
-                    }`}
+                    className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-[11px] font-bold transition-colors ${isDark ? "bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-zinc-200" : "bg-white border-gray-200 text-slate-400 hover:text-slate-700"
+                      }`}
                   >
                     <Users className="h-3 w-3" /> Thêm
                   </button>
                   <div
-                    className={`absolute left-0 top-8 z-10 w-52 rounded-2xl border shadow-xl overflow-auto max-h-48 hidden group-focus-within:block ${
-                      isDark ? "bg-[#1e1e1e] border-zinc-700" : "bg-white border-gray-200"
-                    }`}
+                    className={`absolute left-0 top-8 z-10 w-52 rounded-2xl border shadow-xl overflow-auto max-h-48 hidden group-focus-within:block ${isDark ? "bg-[#1e1e1e] border-zinc-700" : "bg-white border-gray-200"
+                      }`}
                   >
                     {usersList
                       .filter((u) => !assigneeUids.includes(u.uid))
@@ -2525,9 +2473,8 @@ function WizardStepEditorModal({
                         <button
                           key={u.uid}
                           onMouseDown={(e) => { e.preventDefault(); toggleAssignee(u.uid); }}
-                          className={`flex w-full items-center gap-2 px-3 py-2 text-[11px] font-semibold transition-colors ${
-                            isDark ? "hover:bg-zinc-800 text-zinc-300" : "hover:bg-slate-50 text-slate-700"
-                          }`}
+                          className={`flex w-full items-center gap-2 px-3 py-2 text-[11px] font-semibold transition-colors ${isDark ? "hover:bg-zinc-800 text-zinc-300" : "hover:bg-slate-50 text-slate-700"
+                            }`}
                         >
                           <img src={avatarUrl(u)} className="h-5 w-5 rounded-full" alt="" />
                           {u.displayName}
@@ -2550,9 +2497,8 @@ function WizardStepEditorModal({
                   return (
                     <div
                       key={uid}
-                      className={`flex items-center gap-1.5 px-2 py-1 rounded-lg border text-[11px] font-bold ${
-                        isDark ? "bg-zinc-800 border-zinc-700 text-zinc-200" : "bg-slate-50 border-gray-200 text-slate-600"
-                      }`}
+                      className={`flex items-center gap-1.5 px-2 py-1 rounded-lg border text-[11px] font-bold ${isDark ? "bg-zinc-800 border-zinc-700 text-zinc-200" : "bg-slate-50 border-gray-200 text-slate-600"
+                        }`}
                     >
                       <img src={avatarUrl(u)} className="h-4 w-4 rounded-full" alt="" />
                       {u.displayName}
@@ -2564,16 +2510,14 @@ function WizardStepEditorModal({
                 })}
                 <div className="relative group">
                   <button
-                    className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-[11px] font-bold transition-colors ${
-                      isDark ? "bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-zinc-200" : "bg-white border-gray-200 text-slate-400 hover:text-slate-700"
-                    }`}
+                    className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-[11px] font-bold transition-colors ${isDark ? "bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-zinc-200" : "bg-white border-gray-200 text-slate-400 hover:text-slate-700"
+                      }`}
                   >
                     <User className="h-3 w-3" /> Thêm
                   </button>
                   <div
-                    className={`absolute left-0 top-8 z-10 w-52 rounded-2xl border shadow-xl overflow-auto max-h-48 hidden group-focus-within:block ${
-                      isDark ? "bg-[#1e1e1e] border-zinc-700" : "bg-white border-gray-200"
-                    }`}
+                    className={`absolute left-0 top-8 z-10 w-52 rounded-2xl border shadow-xl overflow-auto max-h-48 hidden group-focus-within:block ${isDark ? "bg-[#1e1e1e] border-zinc-700" : "bg-white border-gray-200"
+                      }`}
                   >
                     {usersList
                       .filter((u) => !relatedUids.includes(u.uid))
@@ -2581,9 +2525,8 @@ function WizardStepEditorModal({
                         <button
                           key={u.uid}
                           onMouseDown={(e) => { e.preventDefault(); toggleRelated(u.uid); }}
-                          className={`flex w-full items-center gap-2 px-3 py-2 text-[11px] font-semibold transition-colors ${
-                            isDark ? "hover:bg-zinc-800 text-zinc-300" : "hover:bg-slate-50 text-slate-700"
-                          }`}
+                          className={`flex w-full items-center gap-2 px-3 py-2 text-[11px] font-semibold transition-colors ${isDark ? "hover:bg-zinc-800 text-zinc-300" : "hover:bg-slate-50 text-slate-700"
+                            }`}
                         >
                           <img src={avatarUrl(u)} className="h-5 w-5 rounded-full" alt="" />
                           {u.displayName}
@@ -2601,9 +2544,8 @@ function WizardStepEditorModal({
             <div className="flex-1 flex items-center gap-2">
               {domain && (
                 <span
-                  className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold border ${
-                    isDark ? "bg-cyan-950/30 border-cyan-700 text-cyan-400" : "bg-cyan-50 border-cyan-200 text-cyan-700"
-                  }`}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold border ${isDark ? "bg-cyan-950/30 border-cyan-700 text-cyan-400" : "bg-cyan-50 border-cyan-200 text-cyan-700"
+                    }`}
                 >
                   {displayDomain}
                   <button onClick={() => setDomain("")} className="hover:text-red-400 ml-1">
@@ -2639,13 +2581,12 @@ function WizardStepEditorModal({
                 <button
                   key={p.key}
                   onClick={() => setPriority(p.key)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-extrabold transition-all ${
-                    priority === p.key
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-extrabold transition-all ${priority === p.key
                       ? "text-white shadow-sm"
                       : isDark
-                      ? "bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-zinc-200"
-                      : "bg-white border-gray-200 text-slate-500 hover:text-slate-700"
-                  }`}
+                        ? "bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-zinc-200"
+                        : "bg-white border-gray-200 text-slate-500 hover:text-slate-700"
+                    }`}
                   style={priority === p.key ? { background: p.color, borderColor: p.color } : {}}
                 >
                   {p.icon} {p.label}
@@ -2654,62 +2595,54 @@ function WizardStepEditorModal({
             </div>
           </div>
 
-          {/* Hạn chốt */}
+          {/* Thời lượng — một trường duy nhất, quyết định lịch trình khi giao việc */}
           <div className={row}>
-            <span className={rowLabel}>Hạn chốt</span>
+            <span className={rowLabel}>Làm trong</span>
             <div className="flex-1">
               <div className="flex flex-wrap gap-1.5">
-                {DEADLINES.map((d) => (
+                {DURATION_PRESETS.map((d) => (
                   <button
-                    key={d.key}
-                    onClick={() => setDeadlineType(d.key)}
-                    className={`px-3 py-1.5 rounded-xl border text-[11px] font-extrabold transition-all ${
-                      deadlineType === d.key
+                    key={d.value}
+                    onClick={() => setDurationDays(d.value)}
+                    className={`px-3 py-1.5 rounded-xl border text-[11px] font-extrabold transition-all ${durationDays === d.value
                         ? isDark
                           ? "bg-cyan-600 border-cyan-500 text-white"
                           : "bg-cyan-500 border-cyan-400 text-white"
                         : isDark
-                        ? "bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-zinc-200"
-                        : "bg-white border-gray-200 text-slate-500 hover:text-slate-700"
-                    }`}
+                          ? "bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-zinc-200"
+                          : "bg-white border-gray-200 text-slate-500 hover:text-slate-700"
+                      }`}
                   >
                     {d.label}
                   </button>
                 ))}
-              </div>
-              {deadlineType === "after_x" && (
-                <div className="mt-2 flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                   <input
                     type="number"
-                    min={1}
-                    value={deadlineDays}
-                    onChange={(e) => setDeadlineDays(Number(e.target.value))}
-                    className={`${inp} w-20`}
+                    min={0}
+                    max={365}
+                    value={durationDays}
+                    onChange={(e) => {
+                      const v = Math.max(0, Math.min(365, Math.floor(Number(e.target.value) || 0)));
+                      setDurationDays(v);
+                    }}
+                    className={`${inp} w-16 text-center`}
                   />
                   <span className={`text-xs ${isDark ? "text-zinc-500" : "text-slate-400"}`}>ngày</span>
                 </div>
-              )}
-              {/* Chọn giờ */}
-              <div className="mt-2 flex items-center gap-2">
-                <button
-                  onClick={() => setDeadlineType(deadlineType === "custom_time" ? "none" : "custom_time")}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-semibold transition-all ${
-                    deadlineType === "custom_time"
-                      ? isDark ? "bg-cyan-600 border-cyan-500 text-white" : "bg-cyan-500 border-cyan-400 text-white"
-                      : isDark ? "bg-zinc-800 border-zinc-700 text-zinc-450" : "bg-white border-gray-200 text-slate-500"
-                  }`}
-                >
-                  <Clock className="h-3 w-3" /> Chọn giờ
-                </button>
-                {deadlineType === "custom_time" && (
-                  <input
-                    type="time"
-                    value={deadlineTime}
-                    onChange={(e) => setDeadlineTime(e.target.value)}
-                    className={`${inp} w-28`}
-                  />
-                )}
               </div>
+              <div className="mt-2 flex items-center gap-2">
+                <Clock className={`h-3 w-3 ${isDark ? "text-zinc-500" : "text-slate-400"}`} />
+                <span className={`text-[11px] ${isDark ? "text-zinc-500" : "text-slate-400"}`}>Giờ hết hạn</span>
+                <TimeInput24
+                  value={deadlineTime}
+                  onChange={setDeadlineTime}
+                  className={`${inp} w-28`}
+                />
+              </div>
+              <p className={`mt-1.5 text-[10px] ${isDark ? "text-zinc-600" : "text-slate-400"}`}>
+                Tính theo ngày làm việc (bỏ Thứ 7 & Chủ nhật). Dùng để tự tính hạn khi giao việc theo quy trình.
+              </p>
             </div>
           </div>
 
@@ -2723,20 +2656,17 @@ function WizardStepEditorModal({
                 placeholder="Mô tả giai đoạn..."
                 className={`${inp} pr-8`}
               />
-              <Pencil className={`absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 ${
-                isDark ? "text-zinc-600" : "text-slate-350"
-              }`} />
+              <Pencil className={`absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 ${isDark ? "text-zinc-600" : "text-slate-350"
+                }`} />
             </div>
           </div>
 
           {/* Công việc con */}
-          <div className={`py-2.5 border-b transition-colors ${
-            isDark ? "border-zinc-800/60" : "border-gray-100"
-          }`}>
+          <div className={`py-2.5 border-b transition-colors ${isDark ? "border-zinc-800/60" : "border-gray-100"
+            }`}>
             <div className="flex items-center justify-between mb-2">
-              <span className={`text-[11px] font-extrabold uppercase tracking-wide ${
-                isDark ? "text-cyan-400" : "text-cyan-600"
-              }`}>
+              <span className={`text-[11px] font-extrabold uppercase tracking-wide ${isDark ? "text-cyan-400" : "text-cyan-600"
+                }`}>
                 Công việc con ({subTasks.length})
               </span>
             </div>
@@ -2744,31 +2674,27 @@ function WizardStepEditorModal({
               {subTasks.map((t) => (
                 <div
                   key={t.id}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold transition-colors ${
-                    isDark ? "bg-zinc-800/60 border-zinc-700 text-zinc-200" : "bg-slate-50 border-gray-100 text-slate-700"
-                  }`}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold transition-colors ${isDark ? "bg-zinc-800/60 border-zinc-700 text-zinc-200" : "bg-slate-50 border-gray-100 text-slate-700"
+                    }`}
                 >
                   <Check className="h-3 w-3 text-emerald-500 shrink-0" />
                   <span className="flex-1 uppercase tracking-wide">{t.title}</span>
-                  <button onClick={() => removeSubTask(t.id)} className={`hover:text-red-400 ${
-                    isDark ? "text-zinc-600" : "text-slate-350"
-                  }`}>
+                  <button onClick={() => removeSubTask(t.id)} className={`hover:text-red-400 ${isDark ? "text-zinc-600" : "text-slate-350"
+                    }`}>
                     <X className="h-3.5 w-3.5" />
                   </button>
                 </div>
               ))}
               <div className="flex items-center gap-2 mt-1">
-                <Plus className={`h-3.5 w-3.5 ${
-                  isDark ? "text-zinc-550" : "text-slate-400"
-                }`} />
+                <Plus className={`h-3.5 w-3.5 ${isDark ? "text-zinc-550" : "text-slate-400"
+                  }`} />
                 <input
                   value={newSubTask}
                   onChange={(e) => setNewSubTask(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") addSubTask(); }}
                   placeholder="Thêm công việc con..."
-                  className={`flex-1 text-xs font-semibold outline-none bg-transparent transition-colors ${
-                    isDark ? "text-zinc-300 placeholder-zinc-700" : "text-slate-700 placeholder-slate-350"
-                  }`}
+                  className={`flex-1 text-xs font-semibold outline-none bg-transparent transition-colors ${isDark ? "text-zinc-300 placeholder-zinc-700" : "text-slate-700 placeholder-slate-350"
+                    }`}
                 />
                 {newSubTask && (
                   <button
@@ -2783,61 +2709,32 @@ function WizardStepEditorModal({
           </div>
 
           {/* File đính kèm */}
-          <div className={`py-2.5 border-b transition-colors ${
-            isDark ? "border-zinc-800/60" : "border-gray-100"
-          }`}>
-            <span className={`text-[11px] font-extrabold uppercase tracking-wide mb-2 block ${
-              isDark ? "text-cyan-400" : "text-cyan-600"
-            }`}>
-              File đính kèm
+          <div className={`py-3 border-b transition-colors ${isDark ? "border-zinc-800/60" : "border-gray-100"}`}>
+            <span className={`text-[11px] font-extrabold uppercase tracking-wide mb-2 block ${isDark ? "text-cyan-400" : "text-cyan-600"}`}>
+              Tệp, ảnh, video, ghi âm và liên kết
             </span>
-            <div className="flex items-center gap-3">
-              {[
-                { icon: <Paperclip className="h-4 w-4" />, color: "text-slate-500", title: "Tập tin" },
-                { icon: <span className="text-xs font-black" style={{color:"#f97316"}}>N</span>, color: "", title: "Notion" },
-                { icon: <Mic className="h-4 w-4" />, color: "text-purple-500", title: "Ghi âm" },
-                { icon: <Circle className="h-4 w-4 fill-red-500" />, color: "text-red-500", title: "Quay màn hình" },
-                { icon: <CloudUpload className="h-4 w-4" />, color: "text-green-500", title: "Google Drive" },
-                { icon: <Table2 className="h-4 w-4" />, color: "text-indigo-400", title: "Bảng" },
-              ].map((a, i) => (
-                <button
-                  key={i}
-                  title={a.title}
-                  className={`p-1.5 rounded-lg transition-colors ${a.color} ${
-                    isDark ? "hover:bg-zinc-800" : "hover:bg-slate-100"
-                  }`}
-                  onClick={() => toast.info("Tính năng đính kèm đang phát triển.")}
-                >
-                  {a.icon}
-                </button>
-              ))}
-            </div>
+            <AttachmentEditor attachments={attachments} onChange={setAttachments} />
           </div>
 
           {/* Giai đoạn tiếp theo */}
           {nextStep && (
             <div className={`py-2.5`}>
-              <span className={`text-[11px] font-extrabold uppercase tracking-wide mb-2 block ${
-                isDark ? "text-cyan-400" : "text-cyan-600"
-              }`}>
+              <span className={`text-[11px] font-extrabold uppercase tracking-wide mb-2 block ${isDark ? "text-cyan-400" : "text-cyan-600"
+                }`}>
                 Giai đoạn tiếp theo
               </span>
               <div
-                className={`flex items-center gap-3 px-4 py-3 rounded-2xl border-2 border-dashed transition-colors ${
-                  isDark ? "border-zinc-700 bg-zinc-800/30" : "border-gray-200 bg-slate-50/50"
-                }`}
-              >
-                <ArrowRight className={`h-4 w-4 shrink-0 ${
-                  isDark ? "text-zinc-600" : "text-slate-300"
-                }`} />
-                <div
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-extrabold uppercase tracking-wide ${
-                    isDark ? "bg-zinc-800 border-zinc-700 text-zinc-200" : "bg-white border-gray-200 text-slate-700"
+                className={`flex items-center gap-3 px-4 py-3 rounded-2xl border-2 border-dashed transition-colors ${isDark ? "border-zinc-700 bg-zinc-800/30" : "border-gray-200 bg-slate-50/50"
                   }`}
+              >
+                <ArrowRight className={`h-4 w-4 shrink-0 ${isDark ? "text-zinc-600" : "text-slate-300"
+                  }`} />
+                <div
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-extrabold uppercase tracking-wide ${isDark ? "bg-zinc-800 border-zinc-700 text-zinc-200" : "bg-white border-gray-200 text-slate-700"
+                    }`}
                 >
-                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border mr-1 ${
-                    isDark ? "bg-zinc-700 border-zinc-600 text-zinc-400" : "bg-gray-100 border-gray-200 text-slate-500"
-                  }`}>
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border mr-1 ${isDark ? "bg-zinc-700 border-zinc-600 text-zinc-400" : "bg-gray-100 border-gray-200 text-slate-500"
+                    }`}>
                     {steps.indexOf(nextStep) + 1}
                   </span>
                   {nextStep.title}
@@ -2849,17 +2746,15 @@ function WizardStepEditorModal({
 
         {/* Footer */}
         <div
-          className={`flex justify-end gap-2.5 px-5 py-3.5 border-t flex-shrink-0 transition-colors ${
-            isDark ? "bg-[#1a1a1a] border-zinc-800/80" : "bg-slate-50 border-gray-200"
-          }`}
+          className={`flex justify-end gap-2.5 px-5 py-3.5 border-t flex-shrink-0 transition-colors ${isDark ? "bg-[#1a1a1a] border-zinc-800/80" : "bg-slate-50 border-gray-200"
+            }`}
         >
           <button
             onClick={onClose}
-            className={`px-4.5 py-2 border rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              isDark
+            className={`px-4.5 py-2 border rounded-xl text-xs font-bold transition-all cursor-pointer ${isDark
                 ? "border-zinc-700 text-zinc-450 hover:text-zinc-200 hover:bg-zinc-800"
                 : "border-gray-250 text-slate-600 hover:bg-gray-100"
-            }`}
+              }`}
           >
             Hủy
           </button>

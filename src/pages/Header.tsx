@@ -223,7 +223,7 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
         );
 
   return (
-    <header className="sticky top-0 z-40 flex h-18 items-center justify-between border-b border-gray-100 bg-white px-6 shadow-xs" id="app_header">
+    <header className="sticky top-0 z-40 flex h-18 items-center justify-between border-b border-gray-100 bg-white px-3 sm:px-6 shadow-xs" id="app_header">
       <div className="flex flex-1 items-center max-w-2xl">
         {onMenuClick && (
           <button
@@ -286,17 +286,17 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
         </div>
       </div>
 
-      <div className="ml-6 flex items-center gap-3" id="header_controls">
+      <div className="ml-2 sm:ml-6 flex items-center gap-1 sm:gap-3" id="header_controls">
 
         {/* Wallet Balance Pill */}
         {userProfile && (
           <button
             onClick={() => onSearchSelect("VÍ & NẠP TIỀN" as TabType)}
-            className="flex items-center gap-2 rounded-full bg-blue-50 border border-blue-100 px-4 py-2 font-sans transition-all hover:bg-blue-100/50 hover:border-blue-200 active:scale-95 shadow-xs shadow-blue-500/5 cursor-pointer"
+            className="flex items-center gap-1.5 sm:gap-2 rounded-full bg-blue-50 border border-blue-100 px-2.5 sm:px-4 py-2 font-sans transition-all hover:bg-blue-100/50 hover:border-blue-200 active:scale-95 shadow-xs shadow-blue-500/5 cursor-pointer"
             id="header_wallet_pill"
           >
             <Wallet className="h-4 w-4 text-blue-600 shrink-0" />
-            <span className="text-xs font-bold text-blue-700 font-mono select-none">
+            <span className="hidden sm:inline text-xs font-bold text-blue-700 font-mono select-none">
               {new Intl.NumberFormat("vi-VN", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(balance)} Credit
             </span>
           </button>
@@ -305,7 +305,7 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
         {/* Pricing Info Button */}
         <button
           onClick={() => setShowPricingModal(true)}
-          className="flex items-center justify-center p-2 rounded-full text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-all active:scale-95 cursor-pointer"
+          className="hidden sm:flex items-center justify-center p-2 rounded-full text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-all active:scale-95 cursor-pointer"
           title="Bảng giá dịch vụ"
           id="header_pricing_info_btn"
         >
@@ -347,7 +347,7 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
           </button>
 
           {showUtilities && (
-            <div className={`absolute right-0 z-50 mt-3 w-[580px] rounded-3xl p-6 shadow-2xl font-sans animate-fade-in border ${isDark ? "bg-[#18181b] text-neutral-100 border-neutral-800 shadow-[0_20px_50px_rgba(0,0,0,0.5)]" : "bg-white text-slate-800 border-gray-150"}`}>
+            <div className={`absolute right-0 z-50 mt-3 w-[calc(100vw-1.5rem)] max-w-[580px] max-h-[80vh] overflow-y-auto rounded-3xl p-4 sm:p-6 shadow-2xl font-sans animate-fade-in border ${isDark ? "bg-[#18181b] text-neutral-100 border-neutral-800 shadow-[0_20px_50px_rgba(0,0,0,0.5)]" : "bg-white text-slate-800 border-gray-150"}`}>
               {/* Header */}
               <div className={`flex items-center justify-between border-b pb-3.5 mb-2 ${isDark ? "border-neutral-800" : "border-gray-100"}`}>
                 <span className={`text-base font-bold tracking-wide ${isDark ? "text-white" : "text-slate-800"}`}>Menu</span>
@@ -361,9 +361,9 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
               </div>
 
               {/* Two Column Layout */}
-              <div className="flex gap-6">
+              <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
                 {/* Column Left (62%): Yêu thích & Tính năng */}
-                <div className={`flex-[1.6] pr-6 border-r ${isDark ? "border-neutral-800/85" : "border-gray-100"}`}>
+                <div className={`flex-[1.6] sm:pr-6 pb-4 sm:pb-0 border-b sm:border-b-0 sm:border-r ${isDark ? "border-neutral-800/85" : "border-gray-100"}`}>
                   {/* Group Yêu thích */}
                   <div>
                     <h3 className={`text-[11px] font-bold uppercase tracking-wider mb-2.5 mt-2 ${isDark ? "text-neutral-500" : "text-slate-400"}`}>Yêu thích</h3>
@@ -556,7 +556,7 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
                 </div>
 
                 {/* Column Right (38%): Tạo & Cá nhân */}
-                <div className="w-[190px] shrink-0">
+                <div className="w-full sm:w-[190px] shrink-0">
                   {/* Group Tạo */}
                   <div>
                     <h3 className={`text-[11px] font-bold uppercase tracking-wider mb-2.5 mt-2 ${isDark ? "text-neutral-500" : "text-slate-400"}`}>Tạo</h3>
@@ -666,7 +666,7 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
           </button>
 
           {showNotifications && (
-            <div className="absolute right-0 z-50 mt-3 w-96 overflow-hidden rounded-2xl border border-gray-100 bg-white font-sans shadow-2xl">
+            <div className="absolute right-0 z-50 mt-3 w-[calc(100vw-1.5rem)] max-w-96 overflow-hidden rounded-2xl border border-gray-100 bg-white font-sans shadow-2xl">
               {/* Panel Header */}
               <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-4 py-3">
                 <div className="flex items-center gap-2">

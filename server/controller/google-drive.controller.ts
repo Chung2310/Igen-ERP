@@ -5,6 +5,7 @@ import { GoogleDriveService } from "../service/personal-google-drive.service";
 import { UserModel } from "../model/user.model";
 import { ResourceModel } from "../model/resource.model";
 import { ChatRoomModel } from "../model/chat-room.model";
+import { canAccessPersonalDriveTarget } from "../utils/personal-drive-access";
 
 /**
  * Helper lấy OAuth2 Client và rootFolderId của tài khoản Google Drive quản trị doanh nghiệp
@@ -228,6 +229,17 @@ export const googleDriveController = {
         return res.status(400).json({ status: "error", message: "Tài khoản chưa kết nối Google Drive." });
       }
 
+      // Chặn truy cập chéo công ty: chỉ superadmin mới được thay mặt user ngoài công ty của mình
+      if (!canAccessPersonalDriveTarget({
+        callerId: req.user?.id,
+        callerRole: userRole,
+        callerCompanyCode: companyCode,
+        targetUserId: userId,
+        targetCompanyCode: user.companyCode,
+      })) {
+        return res.status(403).json({ status: "error", message: "Bạn không có quyền truy cập tài nguyên của người dùng này." });
+      }
+
       const authClient = await GoogleDriveService.getClientForUser(userId);
       const drive = google.drive({ version: "v3", auth: authClient });
 
@@ -301,6 +313,17 @@ export const googleDriveController = {
           status: "error",
           message: "Tài khoản chưa liên kết Google Drive hoặc cấu hình thư mục lỗi.",
         });
+      }
+
+      // Chặn truy cập chéo công ty: chỉ superadmin mới được thay mặt user ngoài công ty của mình
+      if (!canAccessPersonalDriveTarget({
+        callerId: req.user?.id,
+        callerRole: userRole,
+        callerCompanyCode: companyCode,
+        targetUserId: userId,
+        targetCompanyCode: user.companyCode,
+      })) {
+        return res.status(403).json({ status: "error", message: "Bạn không có quyền tải lên tài nguyên của người dùng này." });
       }
 
       // Decode base64 sang Buffer
@@ -1055,6 +1078,16 @@ export const googleDriveController = {
         const user = await UserModel.findById(targetUserId);
         if (!user || !user.googleDriveIntegration || !user.googleDriveIntegration.isConnected) {
           return res.status(400).json({ status: "error", message: "Tài khoản chưa kết nối Google Drive." });
+        }
+        // Chặn truy cập chéo công ty: chỉ superadmin mới được thay mặt user ngoài công ty của mình
+        if (!canAccessPersonalDriveTarget({
+          callerId: req.user?.id,
+          callerRole: req.user?.role,
+          callerCompanyCode: companyCode,
+          targetUserId,
+          targetCompanyCode: user.companyCode,
+        })) {
+          return res.status(403).json({ status: "error", message: "Bạn không có quyền thao tác trên tài nguyên của người dùng này." });
         }
         parentId = (folderId && folderId !== "root" && folderId !== "personal") ? folderId : user.googleDriveIntegration.rootFolderId;
         authClient = await GoogleDriveService.getClientForUser(targetUserId);

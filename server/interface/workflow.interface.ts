@@ -1,4 +1,5 @@
 import { Document } from "mongoose";
+import { ITaskAttachment } from "./kanban-task.interface";
 
 export interface IWorkflowStep {
   id: string;
@@ -19,6 +20,8 @@ export interface IWorkflowStep {
   estDays?: number;
   deliverable?: string;
   note?: string;
+  docLinks?: string[];
+  attachments?: ITaskAttachment[];
   position: { x: number; y: number };
 }
 
@@ -44,8 +47,11 @@ export interface IWorkflowParticipant {
   startDate?: string;
   dueDate?: string;
   docLinks?: string[];
+  /** File đính kèm (ghi âm, hình ảnh, video, tài liệu…) — gắn vào mọi task Kanban sinh ra */
+  attachments?: ITaskAttachment[];
   /** Công việc con riêng của case — sinh task Kanban ở bước đầu tiên */
   customSubTasks?: { id: string; title: string; assigneeUid?: string; assignee?: string; done?: boolean }[];
+  projectId?: string;
   startedAt?: string;
   updatedAt?: string;
 }

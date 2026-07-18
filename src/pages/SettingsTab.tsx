@@ -105,7 +105,7 @@ export default function SettingsTab() {
           </h1>
           <p className="text-xs text-gray-500 mt-1">Cấu hình thông tin hồ sơ của bạn và tùy chỉnh tham số vận hành của iGen ERP.</p>
         </div>
-        <div className="flex gap-2 bg-gray-150/70 p-1 rounded-xl border border-gray-200 max-w-fit">
+        <div className="flex gap-2 bg-gray-150/70 p-1 rounded-xl border border-gray-200 max-w-full overflow-x-auto">
           <button
             onClick={() => setActiveSubTab("profile")}
             className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${activeSubTab === "profile"

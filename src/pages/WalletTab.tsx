@@ -455,7 +455,7 @@ export default function WalletTab() {
               ) : (
                 <>
                   <div className="overflow-x-auto flex-1">
-                    <table className="w-full border-collapse text-left font-sans text-xs">
+                    <table className="w-full min-w-[720px] border-collapse text-left font-sans text-xs">
                       <thead>
                         <tr className="border-b border-gray-100 text-[10px] font-bold uppercase tracking-wider text-gray-400">
                           <th className="pb-3.5 font-medium">Mã đơn hàng</th>

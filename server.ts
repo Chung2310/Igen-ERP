@@ -1,9 +1,10 @@
+import "./server/config/timezone"; // PHẢI đứng đầu — cố định TZ trước mọi phép tính ngày giờ
+import "dotenv/config";
 import { assertSecurityEnv } from "./server/config/env";
 import express from "express";
 import helmet from "helmet";
 import path from "path";
 import fs from "fs";
-import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import { createServer } from "http";
 import { connectDB } from "./server/config/database";
@@ -12,8 +13,10 @@ import { swaggerRouter } from "./server/swagger";
 import { initSocketServer } from "./server/socket";
 import { buildDocumentTitle, getSeoForPath, resolveSeoUrl } from "./src/seo/seo-config";
 import { BRAND_NAME, BRAND_TAGLINE, BRAND_LOGO_URL, SERVICE_WEBSITE_URL } from "./src/config/brand";
-
-dotenv.config();
+import { selectiveBodyParser, isLargeBodyRoute } from "./server/middleware/body-limit";
+import { globalApiRateLimiter } from "./server/middleware/rate-limit";
+import { ddosConfig } from "./server/config/ddos";
+import { superAdminAuthService } from "./server/service/super-admin-auth.service";
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
@@ -197,6 +200,7 @@ async function startServer() {
 
   // Kết nối cơ sở dữ liệu MongoDB
   await connectDB();
+  await superAdminAuthService.assertSingleSuperAdmin();
 
   const app = express();
   // Chỉ tin 1 hop proxy (nginx) — dùng số thay vì true để X-Forwarded-For không thể bị client giả mạo
@@ -212,15 +216,7 @@ async function startServer() {
     })
   );
   app.use(cookieParser());
-  app.use(
-    express.json({
-      limit: "300mb",
-      verify: (req: any, res, buf) => {
-        req.rawBody = buf.toString();
-      },
-    })
-  );
-  app.use(express.urlencoded({ limit: "300mb", extended: true }));
+  app.use(selectiveBodyParser);
 
   // 1. Cấu hình CORS bảo mật sử dụng allowedOrigins từ biến môi trường LINK_COR
   const allowedOrigins = process.env.LINK_COR
@@ -246,8 +242,11 @@ async function startServer() {
     next();
   });
 
-  // 2. Tài liệu API Swagger tại đường dẫn /api-docs
-  app.use("/api-docs", swaggerRouter);
+  // 2. Tài liệu API Swagger tại đường dẫn /api-docs — chỉ bật ở non-production
+  // để tránh lộ toàn bộ cấu trúc API (endpoint, params, response shape) ra công khai.
+  if (process.env.NODE_ENV !== "production") {
+    app.use("/api-docs", swaggerRouter);
+  }
 
   // Đảm bảo thư mục uploads tồn tại
   const uploadsDir = path.join(process.cwd(), "uploads");
@@ -259,6 +258,11 @@ async function startServer() {
   app.use("/uploads", express.static(uploadsDir));
 
   // Global Request Logger - Log tất cả API requests để dễ debug
+  app.use("/api/v1", (req, res, next) => {
+    if (req.path === "/health") return next();
+    return globalApiRateLimiter(req, res, next);
+  });
+
   app.use("/api", (req, res, next) => {
     if (shouldSkipRoutineApiLog(req.method, req.originalUrl)) {
       return next();
@@ -276,7 +280,7 @@ async function startServer() {
     if (err.type === "entity.too.large" || err.status === 413 || err.name === "PayloadTooLargeError") {
       return res.status(413).json({
         status: "error",
-        message: "Dung lượng dữ liệu yêu cầu vượt quá giới hạn cho phép của hệ thống (tối đa 300MB)."
+        message: `Dung lượng dữ liệu yêu cầu vượt quá giới hạn cho phép (${isLargeBodyRoute(req.path) ? ddosConfig.largeBodyLimit : ddosConfig.generalBodyLimit}).`
       });
     }
     next(err);
@@ -316,6 +320,14 @@ async function startServer() {
     });
   } else {
     const distPath = path.join(process.cwd(), "dist");
+    // Chặn phòng thủ chiều sâu: không bao giờ phục vụ sourcemap/bundle server hay
+    // dotfile công khai, kể cả khi lỡ bị copy nhầm vào thư mục dist tĩnh.
+    app.use((req, res, next) => {
+      if (/\.map$/i.test(req.path) || /\.cjs$/i.test(req.path) || /(^|\/)\.[^/]+$/.test(req.path)) {
+        return res.status(404).end();
+      }
+      next();
+    });
     app.use(express.static(distPath, {
       index: false,
       setHeaders: (res, filePath) => {
@@ -354,7 +366,9 @@ async function startServer() {
 
   httpServer.listen(PORT, "0.0.0.0", () => {
     console.log(`Express and Socket.IO server running on http://localhost:${PORT}`);
-    console.log(`Swagger documentation available at http://localhost:${PORT}/api-docs`);
+    if (process.env.NODE_ENV !== "production") {
+      console.log(`Swagger documentation available at http://localhost:${PORT}/api-docs`);
+    }
   });
 }
 

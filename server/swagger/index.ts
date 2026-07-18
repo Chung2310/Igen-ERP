@@ -7,6 +7,7 @@ import { rolePermissionSwagger } from "./role-permission.swagger";
 import { crudSwagger } from "./crud.swagger";
 import { chatSwagger } from "./chat.swagger";
 import { notificationSwagger } from "./notification.swagger";
+import { superAdminSwagger } from "./super-admin.swagger";
 
 const swaggerDocument = {
   openapi: "3.0.0",
@@ -29,6 +30,7 @@ const swaggerDocument = {
     ...crudSwagger.paths,
     ...chatSwagger.paths,
     ...notificationSwagger.paths,
+    ...superAdminSwagger.paths,
   },
   components: {
     securitySchemes: {

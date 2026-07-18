@@ -33,7 +33,7 @@ export function BalanceModal({
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl max-w-[440px] w-full overflow-hidden transform transition-all scale-100 flex flex-col">
+      <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl max-w-[440px] w-full max-h-[90vh] overflow-y-auto transform transition-all scale-100 flex flex-col">
         <div className="bg-emerald-600 text-white px-5 py-4 flex justify-between items-center shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="p-2 bg-white/15 rounded-lg">

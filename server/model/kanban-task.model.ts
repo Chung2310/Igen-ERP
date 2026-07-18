@@ -10,6 +10,17 @@ const TaskHistorySchema = new Schema(
   { _id: false }
 );
 
+const TaskAttachmentSchema = new Schema(
+  {
+    id: { type: String, required: true },
+    name: { type: String, required: true },
+    url: { type: String, required: true },
+    type: { type: String, enum: ["image", "video", "audio", "file", "link"], default: "file" },
+    size: { type: Number },
+  },
+  { _id: false }
+);
+
 const KanbanTaskSchema = new Schema<IKanbanTask>({
   title: { type: String, required: true, index: true },
   description: { type: String },
@@ -25,6 +36,7 @@ const KanbanTaskSchema = new Schema<IKanbanTask>({
   createdAt: { type: Date, default: Date.now, index: true },
   projectId: { type: String, index: true },
   startTime: { type: String },
+  actualStartTime: { type: String },
   estTime: { type: Number },
   endTime: { type: String },
   actualTime: { type: Number },
@@ -34,6 +46,7 @@ const KanbanTaskSchema = new Schema<IKanbanTask>({
   overdueNotifiedAt: { type: Date },
   tags: { type: [String], default: [] },
   linkNote: { type: String },
+  attachments: { type: [TaskAttachmentSchema], default: [] },
   history: { type: [TaskHistorySchema], default: [] },
   workflowId: { type: String, index: true },
   workflowStepId: { type: String, index: true },

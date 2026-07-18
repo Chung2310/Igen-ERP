@@ -68,7 +68,7 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen w-screen h-screen flex items-center justify-center bg-gradient-to-br from-[#f6f8fd] via-[#eef2f7] to-[#e3ecf5] p-4 overflow-hidden relative font-sans">
+    <div className="min-h-dvh w-full flex items-center justify-center bg-gradient-to-br from-[#f6f8fd] via-[#eef2f7] to-[#e3ecf5] p-4 py-8 overflow-y-auto relative font-sans">
       
       {/* Background Decorative Blobs */}
       <div className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] rounded-full bg-blue-400/10 blur-[120px] pointer-events-none" />

@@ -38,6 +38,7 @@ import {
   Cloud,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { useChatUnread } from "../context/ChatUnreadContext";
 import { authService } from "../services/authService";
 import { socketService } from "../services/socketService";
 import {
@@ -55,6 +56,7 @@ import { toast } from "./Toast";
 
 export default function ChatTab() {
   const { userProfile } = useAuth();
+  const { markRoomRead } = useChatUnread();
   const currentUserId = userProfile?.uid || "";
   const companyCode = userProfile?.companyCode || "SYSTEM";
 
@@ -427,6 +429,7 @@ export default function ChatTab() {
           });
           // Đánh dấu đã đọc trên server
           internalChatService.markAsRead(data.roomId);
+          markRoomRead(data.roomId);
           // Chỉ tự cuộn nếu là tin của mình hoặc đang ở gần đáy; nếu không → tăng đếm tin mới
           if (isMyMessage || isNearBottomRef.current) {
             scrollToBottom("smooth");
@@ -639,6 +642,7 @@ export default function ChatTab() {
       fetchMessages(activeRoom._id);
       // Mark as read + xóa badge chưa đọc của phòng này
       internalChatService.markAsRead(activeRoom._id);
+      markRoomRead(activeRoom._id);
       setRooms((prev) => prev.map((r) => (r._id === activeRoom._id ? { ...r, unreadCount: 0 } : r)));
       // Khôi phục bản nháp đang gõ dở của phòng này + reset trạng thái phụ
       setEditingMessage(null);
@@ -849,7 +853,12 @@ export default function ChatTab() {
       });
 
       toast.success("Chúc mừng! Phòng chat nhóm đã được khởi tạo thành công.");
-      setRooms((prev) => sortRoomsList([room, ...prev]));
+      // Không thêm trực tiếp vào state để tránh bị duplicate với socket event
+      // Socket event 'internal_room_updated' sẽ tự đồng bộ phòng mới cho tất cả thành viên
+      setRooms((prev) => {
+        if (prev.some((r) => r._id === room._id)) return prev;
+        return sortRoomsList([room, ...prev]);
+      });
       setActiveRoom(room);
       setShowCreateGroupModal(false);
       // Clear form
@@ -1619,7 +1628,10 @@ export default function ChatTab() {
   };
 
   return (
-    <div className="flex h-full w-full overflow-hidden rounded-3xl border border-gray-100 bg-white/70 shadow-2xl shadow-slate-100 backdrop-blur-xl" id="chat_tab_root">
+    <div
+      className="flex h-full w-full overflow-hidden rounded-none border-0 bg-white/70 shadow-none backdrop-blur-xl md:rounded-3xl md:border md:border-gray-100 md:shadow-2xl md:shadow-slate-100"
+      id="chat_tab_root"
+    >
 
       {/* LEFT SIDEBAR: Conversations & Search */}
       <div className={`flex w-80 shrink-0 flex-col border-r border-gray-100 bg-white/30 transition-all duration-300 ${activeRoom ? "hidden md:flex" : "w-full flex"}`} id="chat_sidebar">
@@ -1867,7 +1879,7 @@ export default function ChatTab() {
           <>
             {/* CHAT HEADER */}
             <div className="flex h-[72px] items-center justify-between border-b border-gray-100 bg-white/50 px-4 md:px-6 backdrop-blur-md">
-              <div className="flex items-center gap-3">
+              <div className="flex min-w-0 flex-1 items-center gap-3">
                 {/* Back button on mobile */}
                 <button
                   type="button"
@@ -1896,15 +1908,15 @@ export default function ChatTab() {
                     <div className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500" />
                   )}
                 </div>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-800">{getRoomName(activeRoom)}</h3>
-                  <p className="text-[10px] text-gray-400">
+                <div className="min-w-0">
+                  <h3 className="truncate text-sm font-bold text-slate-800">{getRoomName(activeRoom)}</h3>
+                  <p className="truncate text-[10px] text-gray-400">
                     {activeRoom.isGroup ? `${activeRoom.members.length} thành viên` : getOtherUserStatus(activeRoom) === "online" ? "Đang hoạt động" : "Ngoại tuyến"}
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex shrink-0 items-center gap-2">
                 {/* Pin Room Button */}
                 <button
                   onClick={() => handleTogglePinRoom(activeRoom._id)}
@@ -2218,7 +2230,7 @@ export default function ChatTab() {
 
 
                             {/* Message content block */}
-                            <div className="max-w-[70%]">
+                            <div className="min-w-0 max-w-[85%] sm:max-w-[70%]">
                               {/* Sender Name in group */}
                               {/* Sender Name in group */}
                               {showSenderName && (
@@ -2329,11 +2341,11 @@ export default function ChatTab() {
                                       // Audio rendering
                                       if (file.type.startsWith("audio/")) {
                                         return (
-                                          <div key={idx} className={`rounded-xl overflow-hidden border ${isMe ? "border-indigo-500/30" : "border-slate-200"}`}>
+                                          <div key={idx} className={`w-[min(280px,calc(100vw-7rem))] max-w-full rounded-xl overflow-hidden border bg-white ${isMe ? "border-indigo-500/30" : "border-slate-200"}`}>
                                             <audio
                                               controls
                                               src={file.url}
-                                              className="w-full max-w-[280px] h-10"
+                                              className="block h-10 w-full max-w-full"
                                               style={{ colorScheme: "normal" }}
                                             />
                                           </div>
@@ -3021,13 +3033,13 @@ export default function ChatTab() {
                       </div>
 
                       {/* Emojis Grid */}
-                      <div className="grid grid-cols-8 gap-2.5 max-h-48 overflow-y-auto pr-1">
+                      <div className="grid grid-cols-6 sm:grid-cols-8 gap-1.5 sm:gap-2.5 max-h-48 overflow-y-auto pr-1">
                         {EMOJI_CATEGORIES[activeEmojiCategoryTab].emojis.map((emoji, i) => (
                           <button
                             key={`${emoji}-${i}`}
                             type="button"
                             onClick={() => handleSelectEmoji(emoji)}
-                            className="text-2xl hover:scale-125 transition-transform duration-100 leading-none p-1 rounded-lg hover:bg-slate-50"
+                            className="text-2xl hover:scale-125 transition-transform duration-100 leading-none p-1.5 sm:p-1 rounded-lg hover:bg-slate-50"
                           >
                             {emoji}
                           </button>
@@ -3043,48 +3055,47 @@ export default function ChatTab() {
                       onChange={handleFileUpload}
                       className="hidden"
                     />
-                    <button
+                    {!isRecording && <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      disabled={uploadingFile || isRecording}
+                      disabled={uploadingFile}
                       className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-slate-450 hover:text-indigo-655 hover:bg-indigo-50 border border-slate-150/40 transition active:scale-95 disabled:opacity-50"
                       title="Đính kèm tài liệu, ảnh, video"
                     >
                       {uploadingFile ? <Loader2 className="h-5 w-5 animate-spin" /> : <Paperclip className="h-5 w-5" />}
-                    </button>
+                    </button>}
 
                     {/* Sticker button */}
-                    <button
+                    {!isRecording && <button
                       type="button"
                       onClick={() => setShowStickerPicker((p) => !p)}
-                      disabled={isRecording}
                       className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border transition active:scale-95 disabled:opacity-50 ${showStickerPicker ? "bg-amber-50 text-amber-500 border-amber-200" : "bg-slate-50 text-slate-450 hover:text-amber-500 hover:bg-amber-50 border-slate-150/40"}`}
                       title="Chọn emoji"
                     >
                       <Smile className="h-5 w-5" />
-                    </button>
+                    </button>}
 
                     {/* Video record button */}
-                    <button
+                    {!isRecording && <button
                       type="button"
                       onClick={startVideoRecording}
-                      disabled={isRecording || uploadingVideo}
+                      disabled={uploadingVideo}
                       className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-slate-450 hover:text-rose-500 hover:bg-rose-50 border border-slate-150/40 transition active:scale-95 disabled:opacity-50"
                       title="Ghi hình gửi tin nhắn video"
                     >
                       {uploadingVideo ? <Loader2 className="h-5 w-5 animate-spin" /> : <Video className="h-5 w-5" />}
-                    </button>
+                    </button>}
 
                     {/* Recording UI or Normal Input */}
                     {isRecording ? (
-                      <div className="flex flex-1 items-center gap-3 rounded-2xl border border-rose-300 bg-rose-50 px-4 py-2.5">
+                      <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3 rounded-2xl border border-rose-300 bg-rose-50 px-3 sm:px-4 py-2.5">
                         {/* Pulse indicator */}
                         <span className="relative flex h-3 w-3 shrink-0">
                           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
                           <span className="relative inline-flex h-3 w-3 rounded-full bg-rose-500" />
                         </span>
-                        <span className="text-sm font-semibold text-rose-600 flex-1">
-                          Đang ghi... {Math.floor(recordingSeconds / 60).toString().padStart(2, "0")}:{(recordingSeconds % 60).toString().padStart(2, "0")}
+                        <span className="min-w-0 flex-1 truncate text-sm font-semibold text-rose-600">
+                          <span className="hidden sm:inline">Đang ghi... </span>{Math.floor(recordingSeconds / 60).toString().padStart(2, "0")}:{(recordingSeconds % 60).toString().padStart(2, "0")}
                         </span>
                         {/* Cancel button */}
                         <button type="button" onClick={cancelRecording} className="text-slate-400 hover:text-rose-600 transition" title="Hủy">
@@ -3182,7 +3193,7 @@ export default function ChatTab() {
       {/* MODAL: VIDEO RECORDING */}
       {isVideoRecording && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-4 shadow-2xl">
+          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-4 shadow-2xl">
             <div className="relative overflow-hidden rounded-xl bg-black">
               <video
                 ref={attachVideoPreview}
@@ -3226,7 +3237,7 @@ export default function ChatTab() {
       {/* MODAL: CREATE GROUP CHAT */}
       {showCreateGroupModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
             <div className="flex items-center justify-between border-b border-gray-100 pb-4 mb-4">
               <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
                 <Users className="h-5 w-5 text-indigo-600" />
@@ -3319,7 +3330,7 @@ export default function ChatTab() {
       {/* MODAL: ADD MEMBER TO GROUP */}
       {showAddMemberModal && activeRoom && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+          <div className="w-full max-w-sm max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
             <div className="flex items-center justify-between border-b border-gray-100 pb-4 mb-4">
               <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
                 <Users className="h-5 w-5 text-indigo-600" />
@@ -3397,7 +3408,7 @@ export default function ChatTab() {
       {previewAttachment && (
         <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-slate-950/95 p-4 backdrop-blur-md animate-fade-in">
           {/* Header */}
-          <div className="absolute top-0 left-0 right-0 flex items-center justify-between p-4 bg-slate-900/40 backdrop-blur-xs text-white">
+          <div className="absolute top-0 left-0 right-0 flex items-center justify-between p-4 pt-[max(1rem,env(safe-area-inset-top))] bg-slate-900/40 backdrop-blur-xs text-white">
             <div className="min-w-0 flex-1 pr-4">
               <h4 className="text-sm font-bold truncate">{previewAttachment.name}</h4>
               {previewAttachment.size && (
@@ -3451,7 +3462,7 @@ export default function ChatTab() {
 
           {/* Footer action */}
           {(previewAttachment.type.startsWith("image/") || previewAttachment.type.startsWith("video/")) && (
-            <div className="absolute bottom-6 left-0 right-0 flex justify-center">
+            <div className="absolute bottom-[max(1.5rem,env(safe-area-inset-bottom))] left-0 right-0 flex justify-center">
               <a
                 href={previewAttachment.url}
                 target="_blank"
