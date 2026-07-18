@@ -20,6 +20,7 @@ interface FeesPageProps {
 export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
   const resolvedCenter = selectedCenter === 'all' ? undefined : selectedCenter;
   const { students, loading } = useStudents(resolvedCenter);
+  const hasRankData = React.useMemo(() => students.some(s => s.rank && s.rank.trim() !== ''), [students]);
   
   const [searchQuery, setSearchQuery] = useState('');
   const [debtFilter, setDebtFilter] = useState('Tất cả');
@@ -215,7 +216,7 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
             <thead>
               <tr className="bg-slate-50/50">
                 <th className="px-3 py-2 text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">Học viên</th>
-                <th className="px-3 py-2 text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 text-center">Hạng</th>
+                {hasRankData && <th className="px-3 py-2 text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 text-center">Hạng</th>}
                 <th className="px-3 py-2 text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 text-right whitespace-nowrap">Tổng HP</th>
                 <th className="px-3 py-2 text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 text-right whitespace-nowrap">Đã đóng</th>
                 <th className="px-3 py-2 text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 text-right whitespace-nowrap">Còn nợ</th>
@@ -227,11 +228,11 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="px-6 py-20 text-center text-slate-400 italic font-medium">Đang nạp dữ liệu học phí...</td>
+                  <td colSpan={hasRankData ? 8 : 7} className="px-6 py-20 text-center text-slate-400 italic font-medium">Đang nạp dữ liệu học phí...</td>
                 </tr>
               ) : paginatedStudents.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-6 py-20 text-center text-slate-400 italic font-medium tracking-tight">
+                  <td colSpan={hasRankData ? 8 : 7} className="px-6 py-20 text-center text-slate-400 italic font-medium tracking-tight">
                     Không tìm thấy dữ liệu học phí phù hợp.
                   </td>
                 </tr>
@@ -254,11 +255,17 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
                         <span className="text-[9px] font-bold text-slate-400 mt-0.5">{student.phone}</span>
                       </div>
                     </td>
-                    <td className="px-3 py-1.5 border-b border-slate-50 text-center">
-                      <span className="px-1.5 py-0.5 bg-cyan-50 border border-cyan-100 text-cyan-600 rounded text-[8px] font-black uppercase tracking-wider">
-                        {student.rank}
-                      </span>
-                    </td>
+                    {hasRankData && (
+                      <td className="px-3 py-1.5 border-b border-slate-50 text-center">
+                        {student.rank && student.rank.trim() !== '' ? (
+                          <span className="px-1.5 py-0.5 bg-cyan-50 border border-cyan-100 text-cyan-600 rounded text-[8px] font-black uppercase tracking-wider">
+                            {student.rank}
+                          </span>
+                        ) : (
+                          <span className="text-slate-300">-</span>
+                        )}
+                      </td>
+                    )}
                     <td className="px-3 py-1.5 border-b border-slate-50 text-right whitespace-nowrap">
                       <span className="text-xs font-black text-slate-800 tracking-tight whitespace-nowrap">
                         {formatCurrency(total, false)}
