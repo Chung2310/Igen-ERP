@@ -5,13 +5,22 @@ import { UserProfile } from "../types";
 import { toast } from "../pages/Toast";
 import { parseFirebaseError } from "../utils/firebaseErrorParser";
 import { isModuleEnabled as checkModule, type ModuleKey } from "../config/modules";
-import { savePendingSuperAdminChallenge } from "../services/pendingSuperAdminChallenge";
+
+export interface ErpLoginChallenge {
+  status: "challenge_required";
+  challengeId: string;
+  enrollmentRequired: boolean;
+  expiresAt: string;
+}
+
+export type ErpLoginOutcome = { status: "authenticated" } | ErpLoginChallenge;
 
 interface AuthContextType {
   user: User | null;
   userProfile: UserProfile | null;
   loading: boolean;
-  loginWithEmail: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
+  loginWithEmail: (email: string, password: string, rememberMe?: boolean) => Promise<ErpLoginOutcome>;
+  completeErpChallenge: () => Promise<void>;
   registerWithEmail: (email: string, password: string, displayName: string, rememberMe?: boolean) => Promise<void>;
   loginWithGoogle: (rememberMe?: boolean) => Promise<void>;
   logout: () => Promise<void>;
@@ -65,19 +74,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => clearInterval(refreshInterval);
   }, []);
 
-  const loginWithEmail = async (email: string, password: string, rememberMe: boolean = true) => {
+  const loginWithEmail = async (email: string, password: string, rememberMe: boolean = true): Promise<ErpLoginOutcome> => {
     setLoading(true);
     try {
       const result = await authService.loginWithEmail(email, password);
       if (result.status === "challenge_required") {
-        toast.info("Tài khoản Super Admin cần xác thực đặc quyền. Đang chuyển hướng...");
-        savePendingSuperAdminChallenge(sessionStorage, {
+        return {
+          status: "challenge_required",
           challengeId: result.challengeId,
           enrollmentRequired: Boolean(result.enrollmentRequired),
           expiresAt: result.expiresAt,
-        });
-        window.location.pathname = "/super-admin";
-        return;
+        };
       }
       const profile: UserProfile = {
         ...result.user,
@@ -86,6 +93,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(profile as any);
       setUserProfile(profile);
       toast.success("Đăng nhập tài khoản thành công!");
+      return { status: "authenticated" };
     } catch (error: any) {
       console.error("[loginWithEmail] Error:", error);
       const friendlyMsg = parseFirebaseError(error, "Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.");
@@ -94,6 +102,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       setLoading(false);
     }
+  };
+
+  const completeErpChallenge = async (): Promise<void> => {
+    const profile = await authService.getMe();
+    if (!profile) {
+      localStorage.removeItem("accessToken");
+      throw new Error("Không thể khởi tạo phiên ERP sau khi xác thực.");
+    }
+
+    setUser(profile as any);
+    setUserProfile(profile);
   };
 
   const registerWithEmail = async (email: string, password: string, displayName: string, rememberMe: boolean = true) => {
@@ -188,6 +207,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         userProfile,
         loading,
         loginWithEmail,
+        completeErpChallenge,
         registerWithEmail,
         loginWithGoogle,
         logout,
