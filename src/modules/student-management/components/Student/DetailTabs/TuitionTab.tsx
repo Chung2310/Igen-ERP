@@ -43,20 +43,20 @@ export function TuitionTab({
   const [copied, setCopied] = useState(false);
   const [vietqrConfig, setVietqrConfig] = useState(() => {
     const localConfig = getLocalVietQrConfig();
-    const bankId = localConfig?.bankId || user?.bankId || '';
-    const accountNo = localConfig?.accountNo || user?.bankAccountNo || '';
-    const accountName = localConfig?.accountName || user?.bankAccountName || user?.displayName || '';
-    const enabled = localConfig?.enabled ?? (user?.bankQrEnabled !== false);
+    const bankId = localConfig?.bankId || (user as any)?.bankId || '';
+    const accountNo = localConfig?.accountNo || (user as any)?.bankAccountNo || '';
+    const accountName = localConfig?.accountName || (user as any)?.bankAccountName || user?.displayName || '';
+    const enabled = localConfig?.enabled ?? ((user as any)?.bankQrEnabled !== false);
     return { enabled, bankId, accountNo, accountName };
   });
 
   React.useEffect(() => {
     const localConfig = getLocalVietQrConfig();
     setVietqrConfig({
-      enabled: localConfig?.enabled ?? (user?.bankQrEnabled !== false),
-      bankId: localConfig?.bankId || user?.bankId || '',
-      accountNo: localConfig?.accountNo || user?.bankAccountNo || '',
-      accountName: localConfig?.accountName || user?.bankAccountName || user?.displayName || ''
+      enabled: localConfig?.enabled ?? ((user as any)?.bankQrEnabled !== false),
+      bankId: localConfig?.bankId || (user as any)?.bankId || '',
+      accountNo: localConfig?.accountNo || (user as any)?.bankAccountNo || '',
+      accountName: localConfig?.accountName || (user as any)?.bankAccountName || user?.displayName || ''
     });
   }, [user]);
 

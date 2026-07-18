@@ -10,7 +10,7 @@ export function SettingsPage() {
   const { userProfile } = useAuth();
 
   const getOwnerId = () => {
-    return userProfile?.centerId || userProfile?.uid || 'default';
+    return (userProfile as any)?.centerId || userProfile?.companyCode || userProfile?.uid || 'default';
   };
   const configKey = `studentFormConfig_${getOwnerId()}`;
 

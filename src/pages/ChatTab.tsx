@@ -2081,12 +2081,13 @@ export default function ChatTab() {
                     </div>
                   ) : (
                     messages.map((msg, index) => {
-                      const isMe = (msg.senderId._id || msg.senderId) === currentUserId;
+                      const msgSenderId = typeof msg.senderId === "object" ? msg.senderId?._id : msg.senderId;
+                      const isMe = msgSenderId === currentUserId;
                       const canPin = activeRoom && (!activeRoom.isGroup || isGroupAdmin());
-                      const isPinned = activeRoom && (
-                        activeRoom.pinnedMessageId === msg._id ||
-                        (typeof activeRoom.pinnedMessageId === "object" && activeRoom.pinnedMessageId !== null && (activeRoom.pinnedMessageId as any)._id === msg._id)
-                      );
+                      const isPinned = activeRoom && activeRoom.pinnedMessageIds?.some(pinned => {
+                        const pinnedId = typeof pinned === "object" ? pinned?._id : pinned;
+                        return pinnedId === msg._id;
+                      });
 
                       // Hiển thị ngày nếu tin nhắn trước đó ở ngày khác
                       const showDateHeader =
@@ -2097,14 +2098,17 @@ export default function ChatTab() {
                       const prevMsg = index > 0 ? messages[index - 1] : null;
                       const nextMsg = index < messages.length - 1 ? messages[index + 1] : null;
 
+                      const prevMsgSenderId = prevMsg ? (typeof prevMsg.senderId === "object" ? prevMsg.senderId?._id : prevMsg.senderId) : null;
+                      const nextMsgSenderId = nextMsg ? (typeof nextMsg.senderId === "object" ? nextMsg.senderId?._id : nextMsg.senderId) : null;
+
                       const isPrevSameSender = prevMsg &&
                         !showDateHeader &&
-                        ((prevMsg.senderId._id || prevMsg.senderId) === (msg.senderId._id || msg.senderId)) &&
+                        (prevMsgSenderId === msgSenderId) &&
                         (Math.abs(new Date(msg.createdAt).getTime() - new Date(prevMsg.createdAt).getTime()) < 60 * 1000);
 
                       const isNextSameSender = nextMsg &&
                         (new Date(nextMsg.createdAt).toDateString() === new Date(msg.createdAt).toDateString()) &&
-                        ((nextMsg.senderId._id || nextMsg.senderId) === (msg.senderId._id || msg.senderId)) &&
+                        (nextMsgSenderId === msgSenderId) &&
                         (Math.abs(new Date(nextMsg.createdAt).getTime() - new Date(msg.createdAt).getTime()) < 60 * 1000);
 
                       const showSenderName = !isMe && activeRoom.isGroup && !isPrevSameSender;
@@ -2686,26 +2690,27 @@ export default function ChatTab() {
 
                             <div className="space-y-2">
                               {activeRoom.members.map((member) => {
-                                const memId = member.userId._id || member.userId.uid || member.userId;
+                                const userObj = typeof member.userId === "object" ? member.userId : {} as any;
+                                const memId = (userObj._id || userObj.uid || member.userId) as string;
                                 const isMemMe = memId === currentUserId;
 
                                 return (
                                   <div key={memId} className="flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-50 transition">
                                     <div className="flex items-center gap-2.5 min-w-0">
                                       <div className="relative h-8 w-8 rounded-lg bg-slate-100 overflow-hidden shrink-0">
-                                        {member.userId.photoURL ? (
-                                          <img src={member.userId.photoURL} alt={member.userId.displayName} className="h-full w-full object-cover" />
+                                        {userObj.photoURL ? (
+                                          <img src={userObj.photoURL} alt={userObj.displayName} className="h-full w-full object-cover" />
                                         ) : (
                                           <div className="flex h-full w-full items-center justify-center font-bold text-xs text-slate-600">
-                                            {member.userId.displayName?.charAt(0).toUpperCase()}
+                                            {userObj.displayName?.charAt(0).toUpperCase() || "?"}
                                           </div>
                                         )}
                                       </div>
                                       <div className="min-w-0">
                                         <p className="text-xs font-semibold text-slate-700 truncate">
-                                          {member.userId.displayName} {isMemMe && "(Bạn)"}
+                                          {userObj.displayName || "Thành viên"} {isMemMe && "(Bạn)"}
                                         </p>
-                                        <p className="text-[10px] text-gray-400 truncate">{member.userId.email}</p>
+                                        <p className="text-[10px] text-gray-400 truncate">{userObj.email || ""}</p>
                                       </div>
                                     </div>
                                     <div className="flex items-center gap-1.5 shrink-0">

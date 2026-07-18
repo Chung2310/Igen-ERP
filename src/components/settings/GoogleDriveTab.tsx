@@ -11,6 +11,7 @@ import { ConfirmDialog } from "../common/ConfirmDialog";
  */
 export default function GoogleDriveTab() {
   const { userProfile, refreshProfile } = useAuth();
+  const userProfileAny = userProfile as any;
   const [connectingGoogleDrive, setConnectingGoogleDrive] = useState(false);
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
@@ -108,7 +109,7 @@ export default function GoogleDriveTab() {
     }
   };
 
-  const isConnected = userProfile?.googleDriveIntegration?.isConnected;
+  const isConnected = userProfileAny?.googleDriveIntegration?.isConnected;
 
   return (
     <div className="rounded-2xl border border-gray-200 bg-white/80 p-6 shadow-xs">
@@ -132,7 +133,7 @@ export default function GoogleDriveTab() {
             <div className="rounded-xl border border-indigo-100 bg-white/80 p-2.5 text-xs font-medium text-slate-700">
               <p className="text-[10px] font-bold uppercase text-gray-400">Email đã liên kết</p>
               <p className="mt-0.5 truncate font-mono text-[11px]">
-                {userProfile?.googleDriveIntegration?.driveEmail}
+                {userProfileAny?.googleDriveIntegration?.driveEmail}
               </p>
             </div>
             <button
@@ -163,7 +164,7 @@ export default function GoogleDriveTab() {
       <ConfirmDialog
         isOpen={showDisconnectConfirm}
         title="Ngắt kết nối Google Drive cá nhân?"
-        description={`Sau khi ngắt kết nối${userProfile?.googleDriveIntegration?.driveEmail ? ` tài khoản ${userProfile.googleDriveIntegration.driveEmail}` : ""}, bạn sẽ không upload hoặc đồng bộ được tài nguyên lên Google Drive nữa. Các file đã upload vẫn được giữ nguyên trong Drive của bạn. Bạn có thể kết nối lại bất cứ lúc nào.`}
+        description={`Sau khi ngắt kết nối${userProfileAny?.googleDriveIntegration?.driveEmail ? ` tài khoản ${userProfileAny.googleDriveIntegration.driveEmail}` : ""}, bạn sẽ không upload hoặc đồng bộ được tài nguyên lên Google Drive nữa. Các file đã upload vẫn được giữ nguyên trong Drive của bạn. Bạn có thể kết nối lại bất cứ lúc nào.`}
         confirmLabel="Ngắt kết nối"
         cancelLabel="Giữ kết nối"
         tone="danger"

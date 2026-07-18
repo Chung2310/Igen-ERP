@@ -65,7 +65,7 @@ export default function StudentManagementTab() {
   const [initialStudentTab, setInitialStudentTab] = React.useState<"Hồ sơ" | "Học phí" | "Lịch sử">("Hồ sơ");
   const { students } = useStudents();
 
-  const handleOpenStudent = React.useCallback((student: Student, tab: string = "Hồ sơ") => {
+  const handleOpenStudent = React.useCallback((student: Student, tab: "Hồ sơ" | "Học phí" | "Lịch sử" = "Hồ sơ") => {
     setSelectedStudent(student);
     setInitialStudentTab(tab);
   }, []);
