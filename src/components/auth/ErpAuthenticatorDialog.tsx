@@ -19,7 +19,10 @@ export function ErpAuthenticatorDialog({ challenge, onAuthenticated, onCancel }:
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
-  const enrollmentRequest = useRef<{ challengeId: string; promise: ReturnType<typeof superAdminAuthService.startEnrollment> }>();
+  const enrollmentRequest = useRef<{
+    challengeId: string;
+    promise: ReturnType<typeof superAdminAuthService.startEnrollment>;
+  } | undefined>(undefined);
 
   useEffect(() => {
     if (!challenge.enrollmentRequired) return;
