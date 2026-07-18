@@ -40,7 +40,7 @@ studentManagementRouter.use("/schedule", authMiddleware as unknown as RequestHan
 studentManagementRouter.use("/partners", authMiddleware as unknown as RequestHandler, requireStudentModule, partnerRoutes);
 studentManagementRouter.use("/assignments", assignmentRoutes);
 
-studentManagementRouter.post("/send-email", authMiddleware as unknown as RequestHandler, async (req: AuthRequest, res) => {
+studentManagementRouter.post("/send-email", authMiddleware as unknown as RequestHandler, requireStudentModule, async (req: AuthRequest, res) => {
   try {
     const { to, subject, html, check } = req.body;
 

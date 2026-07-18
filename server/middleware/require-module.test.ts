@@ -15,6 +15,14 @@ test("a tenant user cannot access a disabled module", () => {
 });
 
 test("missing or empty module data remains backward compatible", () => {
-  assert.equal(resolveModuleAccess({ role: "user", companyCode: "OLD" }, "student", []), true);
-  assert.equal(resolveModuleAccess({ role: "user", companyCode: "OLD" }, "student", undefined), true);
+  assert.equal(resolveModuleAccess({ role: "user", companyCode: "OLD" }, "student", [], true), true);
+  assert.equal(resolveModuleAccess({ role: "user", companyCode: "OLD" }, "student", undefined, true), true);
+});
+
+test("tenant module access fails closed without a company code", () => {
+  assert.equal(resolveModuleAccess({ role: "user" }, "student", ["student"], true), false);
+});
+
+test("tenant module access fails closed when the company record does not exist", () => {
+  assert.equal(resolveModuleAccess({ role: "user", companyCode: "MISSING" }, "student", undefined, false), false);
 });

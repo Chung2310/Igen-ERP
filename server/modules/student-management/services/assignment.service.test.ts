@@ -124,6 +124,9 @@ test("AssignmentService implementation flows", async (t) => {
     if (modelName === "Student" && op === "find") {
       return [mockStudent];
     }
+    if (modelName === "Student" && op === "findOne") {
+      return mockStudent;
+    }
     if (modelName === "User" && op === "findOne") {
       return mockOwner;
     }

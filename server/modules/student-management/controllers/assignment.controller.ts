@@ -1,16 +1,14 @@
 import { Response } from "express";
 import { AuthRequest } from "../middlewares/auth.middleware";
 import { AssignmentService } from "../services/assignment.service";
-import { AssignmentModel } from "../models/assignment.model";
-import { SubmissionModel } from "../models/submission.model";
-import { Student } from "../models/student.model";
-import { resolveCreateOwnerId } from "../utils/auth.util";
+import { getAllowedOwnerIds, resolveCreateOwnerId } from "../utils/auth.util";
 
 export class AssignmentController {
   static async create(req: AuthRequest, res: Response) {
     try {
       const ownerId = await resolveCreateOwnerId(req.user!);
-      const data = await AssignmentService.createAssignment(req.body, req.user!.id, ownerId);
+      const ownerScope = await getAllowedOwnerIds(req.user!);
+      const data = await AssignmentService.createAssignment(req.body, req.user!.id, ownerId, ownerScope);
       res.status(201).json({ success: true, data });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Lỗi tạo bài tập.";
@@ -24,7 +22,8 @@ export class AssignmentController {
       if (!batchId) {
         return res.status(400).json({ success: false, error: "Thiếu mã lớp học batchId." });
       }
-      const assignments = await AssignmentModel.find({ batchId: String(batchId) }).sort({ createdAt: -1 });
+      const ownerScope = await getAllowedOwnerIds(req.user!);
+      const assignments = await AssignmentService.getAssignments(ownerScope, String(batchId));
       res.json({ success: true, data: assignments });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Lỗi lấy danh sách bài tập.";
@@ -35,7 +34,8 @@ export class AssignmentController {
   static async getSubmissions(req: AuthRequest, res: Response) {
     try {
       const { id } = req.params;
-      const submissions = await SubmissionModel.find({ assignmentId: id });
+      const ownerScope = await getAllowedOwnerIds(req.user!);
+      const submissions = await AssignmentService.getSubmissions(ownerScope, id);
       res.json({ success: true, data: submissions });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Lỗi lấy danh sách bài nộp.";
@@ -46,7 +46,8 @@ export class AssignmentController {
   static async grade(req: AuthRequest, res: Response) {
     try {
       const { id, studentId } = req.params;
-      const data = await AssignmentService.gradeSubmission(id, studentId, req.body, req.user!.id);
+      const ownerScope = await getAllowedOwnerIds(req.user!);
+      const data = await AssignmentService.gradeSubmission(id, studentId, req.body, req.user!.id, ownerScope);
       res.json({ success: true, data });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Lỗi chấm điểm bài nộp.";
@@ -61,15 +62,7 @@ export class AssignmentController {
         return res.status(400).json({ success: false, error: "Thiếu liên kết mã hóa bài tập." });
       }
       const decoded = await AssignmentService.verifySubmissionToken(token);
-      const assignment = await AssignmentModel.findById(decoded.assignmentId);
-      if (!assignment) {
-        return res.status(404).json({ success: false, error: "Bài tập không tồn tại hoặc đã bị xóa." });
-      }
-      const student = await Student.findById(decoded.studentId);
-      const submission = await SubmissionModel.findOne({
-        assignmentId: decoded.assignmentId,
-        studentId: decoded.studentId
-      });
+      const { assignment, student, submission } = await AssignmentService.getPublicContext(decoded);
 
       res.json({
         success: true,
