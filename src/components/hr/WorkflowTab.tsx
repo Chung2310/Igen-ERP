@@ -871,7 +871,7 @@ export default function WorkflowTab({
         {wizardOpen && (
           <NewWorkflowWizard
             usersList={usersList}
-            initialData={wizardData || undefined}
+            initialData={wizardData ? (wizardData as any) : undefined}
             onClose={() => {
               setWizardOpen(false);
               setWizardData(null);
@@ -1442,7 +1442,7 @@ export default function WorkflowTab({
                 <label className="block font-bold text-gray-500 mb-1.5 font-sans">Quy trình *</label>
                 <select
                   disabled
-                  style={{ appearance: "auto", WebkitAppearance: "auto", width: "100%", maxWidth: "100%", textOverflow: "ellipsis" }}
+                  style={{ appearance: "auto", WebkitAppearance: "auto" as any, width: "100%", maxWidth: "100%", textOverflow: "ellipsis" }}
                   className="min-w-0 truncate pl-3.5 pr-8 py-2.5 bg-slate-50 border border-gray-200 text-slate-500 rounded-xl font-sans cursor-not-allowed"
                 >
                   <option>{wfName}</option>
@@ -1467,7 +1467,7 @@ export default function WorkflowTab({
                   <select
                     value={partDraft.userUid}
                     onChange={(e) => setPartDraft({ ...partDraft, userUid: e.target.value })}
-                    style={{ appearance: "auto", WebkitAppearance: "auto", width: "100%", maxWidth: "100%", textOverflow: "ellipsis" }}
+                    style={{ appearance: "auto", WebkitAppearance: "auto" as any, width: "100%", maxWidth: "100%", textOverflow: "ellipsis" }}
                     className="min-w-0 truncate pl-3.5 pr-8 py-2.5 bg-white border border-gray-200 text-slate-800 hover:border-gray-300 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 rounded-xl font-sans"
                   >
                     <option value="">Theo người gán ở từng bước</option>

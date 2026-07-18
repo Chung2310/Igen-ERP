@@ -323,7 +323,7 @@ export default function DashboardTab() {
 
     const loadSummary = () => {
       dashboardService
-        .getSummary({ filter: dateFilter, startDate: customStartDate, endDate: customEndDate })
+        .getSummary({ filter: dateFilter as any, startDate: customStartDate, endDate: customEndDate })
         .then((data) => {
           if (!cancelled) setSummary(data);
         })

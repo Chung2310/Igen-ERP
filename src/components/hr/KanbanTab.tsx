@@ -741,7 +741,7 @@ export default function KanbanTab({
       const tasksData: HRTask[] = (json.data || []).map((item: any) => ({
         ...item,
         id: item._id,
-      }));
+      })) as HRTask[];
       setTasks(tasksData);
     } catch (error) {
       console.error("Lỗi khi tải danh sách công việc:", error);
@@ -1006,7 +1006,7 @@ export default function KanbanTab({
         const createdTask = {
           ...newTaskDoc,
           id: json.data._id,
-        };
+        } as HRTask;
 
         toast.success("Đã thêm công việc thành công!");
         setTasks(prev => [...prev, createdTask]);
@@ -1099,7 +1099,7 @@ export default function KanbanTab({
         }
 
         toast.success("Đã lưu thay đổi công việc!");
-        setTasks(prev => prev.map(t => t.id === selectedKanbanTask.id ? { ...t, ...updatedFields } : t));
+        setTasks(prev => prev.map(t => t.id === selectedKanbanTask.id ? { ...t, ...updatedFields } as HRTask : t));
       }
       setSelectedKanbanTask(null);
     } catch (error: any) {

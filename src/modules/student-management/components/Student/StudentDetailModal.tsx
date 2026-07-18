@@ -16,13 +16,14 @@ import { EditPaymentModal } from './DetailTabs/EditPaymentModal';
 
 interface StudentDetailModalProps {
   student: Student | null;
+  selectedCenter?: string;
   onClose: () => void;
   initialTab?: TabType;
 }
 
 type TabType = 'Hồ sơ' | 'Học phí' | 'Lịch sử';
 
-export function StudentDetailModal({ student: initialStudent, onClose, initialTab = 'Hồ sơ' }: StudentDetailModalProps) {
+export function StudentDetailModal({ student: initialStudent, selectedCenter, onClose, initialTab = 'Hồ sơ' }: StudentDetailModalProps) {
   const { userProfile: user } = useAuth();
   const [student, setStudent] = React.useState<Student | null>(initialStudent);
   const [activeTab, setActiveTab] = React.useState<TabType>(initialTab);
@@ -273,7 +274,7 @@ export function StudentDetailModal({ student: initialStudent, onClose, initialTa
                 className="w-full"
               >
                 {student && activeTab === 'Hồ sơ' && (
-                  <ProfileTab student={student} />
+                  <ProfileTab student={student} selectedCenter={selectedCenter} />
                 )}
 
                 {student && activeTab === 'Học phí' && (

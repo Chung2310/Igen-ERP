@@ -115,6 +115,8 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
   viewMode = "grid",
 }) => {
   const { userProfile } = useAuth();
+  const userProfileAny = userProfile as any;
+  const userProfileId = userProfile?.uid || userProfileAny?.id || userProfileAny?._id || "";
   const [currentFolder, setCurrentFolder] = useState<string | null>(null);
   const [breadcrumb, setBreadcrumb] = useState<BreadcrumbEntry[]>([]);
   const isInsideFixedFolder = breadcrumb.some((b) => b.isFixed);
@@ -224,7 +226,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
       let targetRoom: string | undefined = undefined;
 
       if (moveSpace === "personal") {
-        targetOwner = userProfile?._id || userProfile?.id;
+        targetOwner = userProfileId;
       } else {
         const targetUser = users.find(u => u._id === moveSpace);
         if (targetUser) {
@@ -323,7 +325,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
       let targetRoom: string | undefined = undefined;
 
       if (moveSpace === "personal") {
-        targetOwner = userProfile?._id || userProfile?.id;
+        targetOwner = userProfileId;
       } else {
         const targetUser = users.find(u => u._id === moveSpace);
         if (targetUser) {
@@ -385,7 +387,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
       } else {
         // Chat 1-1: Tìm phòng chat hiện có hoặc tạo mới
         const chatRooms = await internalChatService.getRooms();
-        const currentUserId = userProfile?.uid || userProfile?.id;
+        const currentUserId = userProfileId;
         const existingRoom = chatRooms.find(r => 
           !r.isGroup && 
           Array.isArray(r.members) &&
@@ -633,7 +635,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
           break;
         case "link":
           if (item.type !== "file") return false;
-          const isLink = mime.includes("shortcut") || mime.includes("link") || (item.fileUrl && !item.driveFileId && !item.mimeType) || mime.includes("html") || name.match(/\.(html|htm)/);
+          const isLink = mime.includes("shortcut") || mime.includes("link") || (item.fileUrl && !(item as any).driveFileId && !item.mimeType) || mime.includes("html") || name.match(/\.(html|htm)/);
           if (!isLink) return false;
           break;
         default:
@@ -2195,7 +2197,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
             <div className="flex-1 overflow-y-auto pr-1 space-y-1.5 min-h-[250px]">
               {(() => {
                 const search = sendToChatSearch.toLowerCase().trim();
-                const currentUserId = userProfile?.uid || userProfile?.id;
+                const currentUserId = userProfileId;
 
                 if (sendToChatTab === "Thành viên") {
                   const filteredUsers = users.filter((u) => {

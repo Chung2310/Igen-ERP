@@ -20,7 +20,8 @@ interface AddStudentModalProps {
 }
 
 export function AddStudentModal({ isOpen, onClose, onSuccess, students, selectedCenter }: AddStudentModalProps) {
-  const { userProfile: user } = useAuth();
+  const { userProfile } = useAuth();
+  const user = userProfile as any;
   
   const { centers } = useAdminCenters();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -117,7 +118,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
   };
 
   const getStudentFormConfig = () => {
-    const ownerId = user?.centerId || user?.uid || 'default';
+    const ownerId = (user?.role === 'superadmin' ? selectedCenterId : undefined) || user?.centerId || user?.companyCode || user?.uid || 'default';
     const configKey = `studentFormConfig_${ownerId}`;
     const saved = localStorage.getItem(configKey);
     const defaults: Record<string, { visible: boolean; required: boolean }> = {
@@ -239,6 +240,9 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
           fee: '',
           address: '',
           email: '',
+          idCardFrontFile: undefined,
+          idCardBackFile: undefined,
+          portraitFile: undefined,
         });
         setReferralMode('none');
         setSelectedCenterId(selectedCenter && selectedCenter !== 'all' ? selectedCenter : '');

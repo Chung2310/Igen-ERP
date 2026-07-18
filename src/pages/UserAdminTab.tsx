@@ -594,7 +594,7 @@ export default function UserAdminTab() {
           userDisplayName,
           userEmail,
           userPassword,
-          userRole,
+          userRole as any,
           userCompanyCode,
           compName,
           userParentId || undefined,
