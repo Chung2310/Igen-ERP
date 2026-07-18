@@ -39,6 +39,7 @@ studentManagementRouter.use("/batches", authMiddleware as unknown as RequestHand
 studentManagementRouter.use("/schedule", authMiddleware as unknown as RequestHandler, requireStudentModule, scheduleRoutes);
 studentManagementRouter.use("/partners", authMiddleware as unknown as RequestHandler, requireStudentModule, partnerRoutes);
 studentManagementRouter.use("/assignments", assignmentRoutes);
+studentManagementRouter.use("/qr-attendance", qrAttendanceRoutes);
 
 studentManagementRouter.post("/send-email", authMiddleware as unknown as RequestHandler, requireStudentModule, async (req: AuthRequest, res) => {
   try {
