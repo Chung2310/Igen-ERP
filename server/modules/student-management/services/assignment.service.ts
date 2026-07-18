@@ -45,15 +45,16 @@ export class AssignmentService {
     const batch = await Batch.findOne({ _id: data.batchId, ...buildOwnerQuery(ownerScope) });
     if (!batch) throw new Error("Lớp học không tồn tại.");
 
+    const assignmentOwnerId = String(batch.ownerId);
     const assignment = await AssignmentModel.create({
       ...data,
       courseId: batch.courseId,
       instructorId,
-      ownerId,
+      ownerId: assignmentOwnerId,
     });
 
     // Bắt đầu gửi email bất đồng bộ cho học viên trong lớp
-    void this.notifyStudents(assignment, batch, ownerId);
+    void this.notifyStudents(assignment, batch, assignmentOwnerId);
 
     return assignment;
   }

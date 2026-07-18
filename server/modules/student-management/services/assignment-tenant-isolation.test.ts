@@ -17,6 +17,55 @@ test("assignment operations apply the caller owner scope to every lookup", async
   const ownerScope = ["tenant-a-admin", "tenant-a-teacher"];
   const expectedOwner = { $in: ownerScope };
 
+  await t.test("superadmin assignment uses the selected batch owner through public context", async () => {
+    const tenantOwner = "tenant-b-admin";
+    const batch = {
+      _id: "tenant-b-batch",
+      ownerId: tenantOwner,
+      courseId: "tenant-b-course",
+      learnerIds: ["tenant-b-student"],
+    };
+    let createdData: any;
+    let notifiedOwner: string | undefined;
+    const originals = [
+      (Batch as any).findOne,
+      (AssignmentModel as any).create,
+      (AssignmentModel as any).findOne,
+      (Student as any).findOne,
+      (SubmissionModel as any).findOne,
+      AssignmentService.notifyStudents,
+    ];
+    (Batch as any).findOne = async () => batch;
+    (AssignmentModel as any).create = async (data: any) => {
+      createdData = { _id: "assignment-b", ...data };
+      return createdData;
+    };
+    (AssignmentModel as any).findOne = async () => createdData;
+    (Student as any).findOne = async () => ({ _id: "tenant-b-student", ownerId: tenantOwner });
+    (SubmissionModel as any).findOne = async () => null;
+    AssignmentService.notifyStudents = async (_assignment: any, _batch: any, ownerId: string) => {
+      notifiedOwner = ownerId;
+    };
+    try {
+      const assignment = await AssignmentService.createAssignment(
+        { batchId: batch._id, title: "Tenant B work" }, "superadmin-id", "SYSTEM", "ALL"
+      );
+      const context = await AssignmentService.getPublicContext({
+        assignmentId: assignment._id, batchId: batch._id, studentId: "tenant-b-student",
+      });
+      assert.equal(assignment.ownerId, tenantOwner);
+      assert.equal(notifiedOwner, tenantOwner);
+      assert.equal(context.assignment.ownerId, tenantOwner);
+    } finally {
+      (Batch as any).findOne = originals[0];
+      (AssignmentModel as any).create = originals[1];
+      (AssignmentModel as any).findOne = originals[2];
+      (Student as any).findOne = originals[3];
+      (SubmissionModel as any).findOne = originals[4];
+      AssignmentService.notifyStudents = originals[5];
+    }
+  });
+
   await t.test("cannot create an assignment under another tenant batch", async () => {
     let batchFilter: any;
     const original = (Batch as any).findOne;
