@@ -16,6 +16,8 @@ import { pushRouter } from "./push.router";
 import { mediaRouter } from "./media.router";
 import { notificationRouter } from "./notification.router";
 import { kanbanRouter } from "./kanban.router";
+import { requireAuth } from "../middleware/auth";
+import { requireModule } from "../middleware/require-module";
 import { expensiveApiRateLimiter } from "../middleware/rate-limit";
 import { superAdminRouter } from "./super-admin.router";
 export const apiRouter = Router();
@@ -39,7 +41,7 @@ apiRouter.get("/health", (req, res) => {
 apiRouter.use("/integrations/google-drive", googleDriveRouter);
 
 // Quản lý tài nguyên — file explorer nội bộ + tài liệu Google Drive
-apiRouter.use("/resources", resourceRouter);
+apiRouter.use("/resources", requireAuth as any, requireModule("resource"), resourceRouter);
 
 // Gắn kết router phụ của Xác thực JWT
 apiRouter.use("/auth", authRouter);
@@ -58,7 +60,7 @@ apiRouter.use("/wallet", walletRouter);
 apiRouter.use("/crud", crudRouter);
 
 // Gắn kết router chấm công (GPS Timekeeping)
-apiRouter.use("/timekeeping", timekeepingRouter);
+apiRouter.use("/timekeeping", requireAuth as any, requireModule("hr"), timekeepingRouter);
 
 // Gắn kết router tổng hợp số liệu trang tổng quan
 apiRouter.use("/dashboard", dashboardRouter);
@@ -73,13 +75,13 @@ apiRouter.use("/push", pushRouter);
 apiRouter.use("/notifications", notificationRouter);
 
 // API chuyên biệt cho giao việc, dự án và audit Kanban
-apiRouter.use("/kanban", kanbanRouter);
+apiRouter.use("/kanban", requireAuth as any, requireModule("hr"), kanbanRouter);
 
 // Gắn kết router chat nội bộ
-apiRouter.use("/chat", chatRouter);
+apiRouter.use("/chat", requireAuth as any, requireModule("chat"), chatRouter);
 
 // Trợ lý ảo AI — chatbot ngữ cảnh dữ liệu doanh nghiệp
-apiRouter.use("/chatbot", expensiveApiRateLimiter, chatbotRouter);
+apiRouter.use("/chatbot", expensiveApiRateLimiter, requireAuth as any, requireModule("chat"), chatbotRouter);
 
 // Module Quản lý Học viên
 apiRouter.use("/", studentManagementRouter);

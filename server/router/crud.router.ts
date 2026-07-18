@@ -3,10 +3,30 @@ import Joi from "joi";
 import { crudController } from "../controller/crud.controller";
 import { validateRequest } from "../middleware/validation";
 import { requireAuth } from "../middleware/auth";
+import { requireModule } from "../middleware/require-module";
+import type { ModuleKey } from "../config/module-keys";
 
 import { workflowLinkController } from "../controller/workflow-link.controller";
 
 export const crudRouter = Router();
+
+export const CRUD_MODEL_MODULE_MAP: Record<string, ModuleKey> = {
+  products: "inventory",
+  categories: "inventory",
+  "stock-logs": "inventory",
+  "kanban-tasks": "hr",
+  workflows: "hr",
+  projects: "hr",
+  "hr-calendar-events": "hr",
+  "timekeeping-logs": "hr",
+  "training-courses": "hr",
+  "training-enrollments": "hr",
+};
+
+const crudModuleGuard = (req: any, res: any, next: any) => {
+  const moduleKey = CRUD_MODEL_MODULE_MAP[String(req.params.modelName || "").toLowerCase()];
+  return moduleKey ? requireModule(moduleKey)(req, res, next) : next();
+};
 
 // Custom endpoints for workflow ↔ kanban-task link
 crudRouter.post(
@@ -124,6 +144,7 @@ const deleteSchema = {
 crudRouter.get(
   "/:modelName",
   requireAuth as any,
+  crudModuleGuard,
   validateRequest(listSchema),
   crudController.getList as any
 );
@@ -131,6 +152,7 @@ crudRouter.get(
 crudRouter.get(
   "/:modelName/:id",
   requireAuth as any,
+  crudModuleGuard,
   validateRequest(getByIdSchema),
   crudController.getById as any
 );
@@ -138,6 +160,7 @@ crudRouter.get(
 crudRouter.post(
   "/:modelName",
   requireAuth as any,
+  crudModuleGuard,
   validateRequest(createSchema),
   crudController.create as any
 );
@@ -145,6 +168,7 @@ crudRouter.post(
 crudRouter.patch(
   "/:modelName/:id",
   requireAuth as any,
+  crudModuleGuard,
   validateRequest(updateSchema),
   crudController.update as any
 );
@@ -152,6 +176,7 @@ crudRouter.patch(
 crudRouter.delete(
   "/:modelName/:id",
   requireAuth as any,
+  crudModuleGuard,
   validateRequest(deleteSchema),
   crudController.delete as any
 );
