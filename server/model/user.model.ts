@@ -132,6 +132,20 @@ const UserSchema = new Schema<IUser>({
   companyName: { type: String },
   permissions: { type: [String], default: [] },
   superAdminSecurity: { type: SuperAdminSecuritySchema },
+  
+  // SMTP Configuration
+  smtpHost: { type: String },
+  smtpPort: { type: Number },
+  smtpSecure: { type: Boolean },
+  smtpUser: { type: String },
+  smtpPass: { type: String },
+  smtpFrom: { type: String },
+  smtpSandboxEmail: { type: String },
+
+  // SaaS / Business limits
+  businessType: { type: String, enum: ["driving", "language", "general"], default: "general" },
+  isActive: { type: Boolean, default: true },
+  maxUsersLimit: { type: Number },
 }, { toJSON: { transform: removeSuperAdminSecrets }, toObject: { transform: removeSuperAdminSecrets } });
 
 UserSchema.index(
