@@ -5,6 +5,7 @@ import { Student } from "../models/student.model";
 import { IBatch, IAttendanceSession, IAttendanceRecord } from "../interfaces/batch.interface";
 import { logger } from "../config/logger";
 import { resolveOwnerFilter } from "../utils/auth.util";
+import { EmailService, SmtpSettings } from "./email.service";
 
 interface BatchFilters {
   page?: number | string;
@@ -99,6 +100,100 @@ async function enrichBatches(batches: IBatch[]): Promise<EnrichedBatch[]> {
   });
 }
 
+const DAY_LABELS = ["Chủ nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
+
+function formatDaysOfWeek(days: unknown): string {
+  if (!Array.isArray(days) || days.length === 0) return "Chưa xếp lịch";
+  return days
+    .map((d) => DAY_LABELS[Number(d)])
+    .filter(Boolean)
+    .join(", ");
+}
+
+/**
+ * Lấy cấu hình SMTP riêng của công ty (chủ sở hữu lớp). Trả về undefined để
+ * EmailService dùng cấu hình SMTP mặc định từ biến môi trường.
+ */
+async function resolveSmtpForOwner(ownerId: string): Promise<SmtpSettings | undefined> {
+  const owner = await User.findById(ownerId).select(
+    "smtpHost smtpPort smtpSecure smtpUser smtpPass smtpFrom smtpSandboxEmail"
+  );
+  if (!owner || !owner.smtpHost || !owner.smtpUser || !owner.smtpPass) {
+    return undefined;
+  }
+  return {
+    smtpHost: owner.smtpHost,
+    smtpPort: owner.smtpPort,
+    smtpSecure: owner.smtpSecure,
+    smtpUser: owner.smtpUser,
+    smtpPass: owner.smtpPass,
+    smtpFrom: owner.smtpFrom,
+    smtpSandboxEmail: owner.smtpSandboxEmail,
+  };
+}
+
+function buildInstructorAssignmentHtml(instructorName: string, batch: EnrichedBatch): string {
+  const schedule = `${batch.startTime || ""} - ${batch.endTime || ""}`.trim();
+  const rows: Array<[string, string]> = [
+    ["Mã lớp", String(batch.code || "")],
+    ["Khóa học", String(batch.courseTitle || "")],
+    ["Lịch học", formatDaysOfWeek(batch.daysOfWeek)],
+    ["Khung giờ", schedule || "Chưa xác định"],
+    ["Thời gian", `${batch.startDate || "?"} → ${batch.endDate || "?"}`],
+    ["Địa điểm", String(batch.location || "Chưa cập nhật")],
+  ];
+  const rowsHtml = rows
+    .map(
+      ([label, value]) =>
+        `<tr><td style="padding:6px 12px;color:#6b7280;font-weight:600;">${label}</td><td style="padding:6px 12px;color:#111827;">${value}</td></tr>`
+    )
+    .join("");
+
+  return `
+  <div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#111827;">
+    <h2 style="color:#2563eb;">Bạn được phân công phụ trách một lớp học</h2>
+    <p>Xin chào <strong>${instructorName || "Thầy/Cô"}</strong>,</p>
+    <p>Bạn vừa được phân công làm giáo viên phụ trách lớp học với thông tin sau:</p>
+    <table style="border-collapse:collapse;width:100%;background:#f9fafb;border-radius:8px;overflow:hidden;">
+      ${rowsHtml}
+    </table>
+    <p style="margin-top:16px;">Vui lòng đăng nhập hệ thống để xem chi tiết lớp và danh sách học viên.</p>
+    <p style="color:#6b7280;font-size:13px;">Email được gửi tự động, vui lòng không trả lời email này.</p>
+  </div>`;
+}
+
+/**
+ * Gửi email thông báo cho giáo viên khi được phân công phụ trách một lớp học.
+ * Chạy nền, không chặn và không làm hỏng luồng tạo/cập nhật lớp nếu gửi thất bại.
+ */
+async function notifyInstructorAssigned(ownerId: string, instructorId: string, batch: EnrichedBatch): Promise<void> {
+  try {
+    const instructor = await User.findById(instructorId).select("email displayName");
+    if (!instructor || !instructor.email) {
+      logger.warn(`[Batch] Skip instructor email: no email for instructorId=${instructorId}`);
+      return;
+    }
+
+    const smtpSettings = await resolveSmtpForOwner(ownerId);
+    const result = await EmailService.sendMail(
+      {
+        to: instructor.email,
+        subject: `[Phân công lớp] Bạn phụ trách lớp ${batch.code || ""} - ${batch.courseTitle || ""}`,
+        html: buildInstructorAssignmentHtml(instructor.displayName || "", batch),
+      },
+      smtpSettings
+    );
+
+    if (result.success) {
+      logger.info(`[Batch] Instructor assignment email sent to ${instructor.email} for batch=${batch.code}`);
+    } else {
+      logger.warn(`[Batch] Instructor assignment email failed (${result.error}) for batch=${batch.code}`);
+    }
+  } catch (error: unknown) {
+    logger.error("[Batch] notifyInstructorAssigned error: %o", error);
+  }
+}
+
 export class BatchService {
   static async createBatch(ownerId: string, actor: BatchActor, data: BatchData): Promise<EnrichedBatch> {
     logger.info(`[Batch] Creating batch for ownerId=${ownerId}, code=${data.code}`);
@@ -118,7 +213,14 @@ export class BatchService {
     const batch = new Batch({ ...data, ownerId });
     const saved = await batch.save();
     logger.info(`[Batch] Batch created: id=${saved._id}, code=${saved.code}`);
-    return (await enrichBatches([saved]))[0];
+    const enriched = (await enrichBatches([saved]))[0];
+
+    // Tự động thông báo cho giáo viên khi lớp được tạo kèm phân công giáo viên.
+    if (saved.instructorId) {
+      void notifyInstructorAssigned(ownerId, saved.instructorId, enriched);
+    }
+
+    return enriched;
   }
 
   static async getBatches(ownerId: string | string[], filters: BatchFilters) {
@@ -189,9 +291,17 @@ export class BatchService {
       await assertInstructorAssignable(actor, data.instructorId);
     }
 
+    const previousInstructorId = batch.instructorId;
     batch.set(data);
     const saved = await batch.save();
-    return (await enrichBatches([saved]))[0];
+    const enriched = (await enrichBatches([saved]))[0];
+
+    // Thông báo cho giáo viên khi được phân công vào lớp (mới gán hoặc đổi giáo viên).
+    if (saved.instructorId && saved.instructorId !== previousInstructorId) {
+      void notifyInstructorAssigned(saved.ownerId, saved.instructorId, enriched);
+    }
+
+    return enriched;
   }
 
   static async deleteBatch(ownerId: string | string[], id: string): Promise<IBatch | null> {
