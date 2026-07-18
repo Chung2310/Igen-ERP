@@ -18,6 +18,7 @@ import { pushService } from "./services/pushService";
 import { setFaviconBadge } from "./utils/faviconBadge";
 import SuperAdminShell from "./pages/super-admin/SuperAdminShell";
 import { isSuperAdminPath } from "./router/superAdminRoute";
+import { resolveEnabledTab } from "./config/modules";
 
 const UNREAD_TITLE_PREFIX_RE = /^\(\d+\+?\d*\)\s/;
 
@@ -48,6 +49,11 @@ function AppContent() {
 
     enabled: !isPublicPage && !loading && Boolean(user && userProfile),
   });
+  const resolvedActiveTab = resolveEnabledTab(activeTab, userProfile?.enabledModules);
+
+  React.useEffect(() => {
+    if (resolvedActiveTab !== activeTab) setActiveTab(resolvedActiveTab);
+  }, [activeTab, resolvedActiveTab, setActiveTab]);
 
   React.useEffect(() => {
     const token = localStorage.getItem("accessToken");
@@ -216,9 +222,9 @@ function AppContent() {
 
   return (
     <div className="flex h-dvh w-screen overflow-hidden bg-background font-sans text-on-surface" id="app_root_layout">
-      <SEOHead meta={getSeoForTab(activeTab)} />
+      <SEOHead meta={getSeoForTab(resolvedActiveTab)} />
       <Sidebar
-        activeTab={activeTab}
+        activeTab={resolvedActiveTab}
         setActiveTab={setActiveTab}
         mobileOpen={mobileNavOpen}
         onMobileClose={() => setMobileNavOpen(false)}
@@ -226,7 +232,7 @@ function AppContent() {
 
       <div className="flex h-dvh min-w-0 flex-1 flex-col overflow-hidden" id="main_content_area">
         <Header
-          currentTab={activeTab}
+          currentTab={resolvedActiveTab}
           onSearchSelect={handleSearchNavigation}
           onMenuClick={() => setMobileNavOpen(true)}
         />
@@ -237,7 +243,7 @@ function AppContent() {
           }`}
           id="primary_page_container"
         >
-          <AppRouterView activeTab={activeTab} userProfile={userProfile} />
+          <AppRouterView activeTab={resolvedActiveTab} userProfile={userProfile} />
         </main>
       </div>
 

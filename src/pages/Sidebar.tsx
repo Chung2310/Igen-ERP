@@ -24,6 +24,7 @@ import {
 import type { TabType } from "../types";
 import { useAuth } from "../context/AuthContext";
 import { useIsMobile } from "../hooks/useMediaQuery";
+import { filterEnabledTabs } from "../config/modules";
 
 interface SidebarProps {
   activeTab: TabType;
@@ -134,7 +135,8 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
   // Trên mobile drawer luôn ở dạng mở rộng; thu gọn chỉ là hành vi desktop
   const isCollapsed = isCollapsedState && !isMobile;
   // Loại các module bị ẩn tạm khỏi thanh điều hướng
-  const menuItems = [...baseMenuItems];
+  const enabledTabs = new Set(filterEnabledTabs(baseMenuItems.map((item) => item.label), userProfile?.enabledModules));
+  const menuItems = baseMenuItems.filter((item) => enabledTabs.has(item.label));
 
   if (userProfile?.role === "superadmin" || userProfile?.role === "admin") {
     menuItems.push({
