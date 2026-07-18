@@ -327,7 +327,17 @@ export function emitToPage(pageId: string, eventName: string, data: any) {
   }
 }
 
+export let emitToUserMock: ((userId: string, eventName: string, data: any) => void) | null = null;
+
+export function setEmitToUserMockForTesting(mock: typeof emitToUserMock) {
+  emitToUserMock = mock;
+}
+
 export function emitToUser(userId: string, eventName: string, data: any) {
+  if (emitToUserMock) {
+    emitToUserMock(userId, eventName, data);
+    return;
+  }
   if (io) {
     const room = `user:${userId}`;
     console.log(`[Socket.IO] Emitting event "${eventName}" to room: ${room}`);
@@ -336,6 +346,7 @@ export function emitToUser(userId: string, eventName: string, data: any) {
     console.warn("[Socket.IO] Server instance (io) not initialized.");
   }
 }
+
 
 /**
  * Kiểm tra user có đang mở web (còn socket kết nối) hay không.
