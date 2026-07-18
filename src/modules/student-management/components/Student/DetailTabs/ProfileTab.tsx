@@ -2,14 +2,22 @@ import React from 'react';
 import { Student } from '../../../types';
 import { formatDisplayDate } from '../../../lib/utils';
 import { Image as ImageIcon } from 'lucide-react';
+import { useAuth } from '../../../../../context/AuthContext';
 
 interface ProfileTabProps {
   student: Student;
+  selectedCenter?: string;
 }
 
-export function ProfileTab({ student }: ProfileTabProps) {
+export function ProfileTab({ student, selectedCenter }: ProfileTabProps) {
+  const { userProfile } = useAuth();
+  
   const getStudentFormConfig = () => {
-    const ownerId = student.centerId || student.ownerId || 'default';
+    const viewerCenter = (userProfile?.role === 'superadmin' && selectedCenter && selectedCenter !== 'all')
+      ? selectedCenter
+      : ((userProfile as any)?.centerId || userProfile?.companyCode);
+
+    const ownerId = student.centerId || viewerCenter || student.ownerId || 'default';
     const configKey = `studentFormConfig_${ownerId}`;
     const saved = localStorage.getItem(configKey);
     const defaults: Record<string, { visible: boolean; required: boolean }> = {
