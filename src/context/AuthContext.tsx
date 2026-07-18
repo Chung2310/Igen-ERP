@@ -68,6 +68,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(true);
     try {
       const result = await authService.loginWithEmail(email, password);
+      if (result.status === "challenge_required") {
+        toast.info("Tài khoản Super Admin cần xác thực đặc quyền. Đang chuyển hướng...");
+        setTimeout(() => {
+          window.location.pathname = "/super-admin";
+        }, 1500);
+        return;
+      }
       const profile: UserProfile = {
         ...result.user,
         uid: result.user._id,
