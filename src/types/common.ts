@@ -33,6 +33,8 @@ export interface UserProfile {
   division?: string;
   companyCode?: string;
   companyName?: string;
+  /** Module nghiệp vụ được bật cho doanh nghiệp. Thiếu hoặc rỗng = bật tất cả. */
+  enabledModules?: string[];
 }
 
 export interface CompanyProfile {
@@ -41,6 +43,7 @@ export interface CompanyProfile {
   name: string;
   createdAt: any;
   ownerEmail: string;
+  enabledModules?: string[];
 }
 
 export interface TelegramLinkStatus {

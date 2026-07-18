@@ -8,6 +8,7 @@ import {
   gradeSubmissionSchema
 } from "../validations/assignment.validation";
 import { idParamSchema } from "../validations/student.validation";
+import { requireModule } from "../../../middleware/require-module";
 
 const router = Router();
 
@@ -18,6 +19,7 @@ router.post("/public/cancel", AssignmentController.cancelSubmission);
 
 // Private routes for Teachers & Admins
 router.use(authMiddleware);
+router.use(requireModule("student"));
 router.post("/", validate(createAssignmentSchema), AssignmentController.create);
 router.get("/", AssignmentController.getList);
 router.get("/:id/submissions", validate(idParamSchema, "params"), AssignmentController.getSubmissions);

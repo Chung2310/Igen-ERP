@@ -1,6 +1,7 @@
 import type { FormEvent } from "react";
 import { Building2, Lock, Mail, RefreshCw, User, X } from "lucide-react";
 import { CompanyEditFormState, CompanyFormState } from "./types";
+import { MODULE_KEYS, MODULE_LABELS, type ModuleKey } from "../../config/modules";
 
 interface Props {
   mode: "create" | "edit";
@@ -9,6 +10,7 @@ interface Props {
   submitting: boolean;
   onClose: () => void;
   onChange: (field: string, value: string) => void;
+  onModulesChange: (modules: string[]) => void;
   onSubmit: (e: FormEvent) => void;
 }
 
@@ -19,12 +21,20 @@ export function CompanyModal({
   submitting,
   onClose,
   onChange,
+  onModulesChange,
   onSubmit,
 }: Props) {
   if (!open) return null;
 
   const isEdit = mode === "edit";
   const editForm = form as CompanyEditFormState;
+  const enabledModules = form.enabledModules;
+
+  const toggleModule = (key: ModuleKey, checked: boolean) => {
+    onModulesChange(checked
+      ? [...new Set([...enabledModules, key])]
+      : enabledModules.filter((moduleKey) => moduleKey !== key));
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
@@ -140,6 +150,23 @@ export function CompanyModal({
               </div>
             </div>
           )}
+
+          <div className="space-y-2 border-t border-gray-100 pt-4 text-left">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Module sử dụng *</p>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {MODULE_KEYS.map((key) => (
+                <label key={key} className="flex cursor-pointer items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 text-xs text-gray-700 hover:bg-slate-50">
+                  <input
+                    type="checkbox"
+                    checked={enabledModules.includes(key)}
+                    onChange={(event) => toggleModule(key, event.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  {MODULE_LABELS[key]}
+                </label>
+              ))}
+            </div>
+          </div>
 
           <div className="flex justify-end gap-3 border-t border-gray-100 pt-4">
             <button type="button" onClick={onClose} className="rounded-xl border border-gray-200 px-4 py-2 text-xs font-bold text-gray-500 transition hover:bg-gray-50">

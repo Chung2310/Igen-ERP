@@ -13,6 +13,8 @@ import { pickSelfServiceProfileUpdate } from "../utils/self-service-profile-upda
 import { superAdminAuthService } from "./super-admin-auth.service";
 import { requiresSuperAdminChallenge } from "./super-admin-login-policy";
 import { sanitizeModuleKeys } from "../config/module-keys";
+import { resolveCompanyModuleUpdate } from "./auth-company-modules";
+import { clearModuleCache } from "../middleware/require-module";
 
 import { getJwtAccessSecret, getJwtRefreshSecret } from "../config/env";
 const TELEGRAM_LINK_CODE_TTL_MS = 5 * 60 * 1000;
@@ -403,7 +405,7 @@ export const authService = {
   /**
    * Cập nhật thông tin doanh nghiệp (Superadmin only)
    */
-  async updateCompany(companyId: string, updateData: { name?: string; code?: string; ownerEmail?: string }): Promise<ICompany> {
+  async updateCompany(companyId: string, updateData: { name?: string; code?: string; ownerEmail?: string; enabledModules?: string[] }): Promise<ICompany> {
     const company = await CompanyModel.findById(companyId);
     if (!company) {
       throw new Error("Không tìm thấy doanh nghiệp trên hệ thống.");
@@ -415,6 +417,7 @@ export const authService = {
     const newCode = updateData.code ? updateData.code.toUpperCase().trim() : undefined;
     const newName = updateData.name ? updateData.name.trim() : undefined;
     const newOwnerEmail = updateData.ownerEmail ? updateData.ownerEmail.toLowerCase().trim() : undefined;
+    const newEnabledModules = resolveCompanyModuleUpdate(updateData);
 
     // 1. Nếu có thay đổi mã doanh nghiệp, kiểm tra tính duy nhất
     if (newCode && newCode !== oldCode) {
@@ -463,8 +466,12 @@ export const authService = {
     if (newName !== undefined) company.name = newName;
     if (newCode !== undefined) company.code = newCode;
     if (newOwnerEmail !== undefined) company.ownerEmail = newOwnerEmail;
+    if (newEnabledModules !== undefined) company.enabledModules = newEnabledModules;
 
-    return await company.save();
+    const savedCompany = await company.save();
+    clearModuleCache(oldCode);
+    clearModuleCache(savedCompany.code);
+    return savedCompany;
   },
 
   async getCompanyDriveConfig(companyCode: string): Promise<any> {

@@ -64,3 +64,17 @@ export function isModuleEnabled(enabledModules: string[] | undefined, key: Modul
   if (!enabledModules || enabledModules.length === 0) return true;
   return enabledModules.includes(key);
 }
+
+/** Keep permanent tabs and tenant modules that are enabled. */
+export function filterEnabledTabs(tabs: TabType[], enabledModules: string[] | undefined): TabType[] {
+  return tabs.filter((tab) => {
+    const moduleKey = TAB_MODULE_MAP[tab];
+    return !moduleKey || isModuleEnabled(enabledModules, moduleKey);
+  });
+}
+
+/** Resolve direct navigation to a disabled module without rendering restricted content. */
+export function resolveEnabledTab(tab: TabType, enabledModules: string[] | undefined): TabType {
+  const moduleKey = TAB_MODULE_MAP[tab];
+  return moduleKey && !isModuleEnabled(enabledModules, moduleKey) ? "TỔNG QUAN" : tab;
+}

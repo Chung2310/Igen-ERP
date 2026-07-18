@@ -19,23 +19,25 @@ import assignmentRoutes from "./routes/assignment.routes";
 import { logger } from "./config/logger";
 import { authMiddleware, AuthRequest } from "./middlewares/auth.middleware";
 import { EmailService } from "./services/email.service";
+import { requireModule } from "../../middleware/require-module";
 
 export const studentManagementRouter = Router();
 
-studentManagementRouter.use("/students", studentRoutes);
-studentManagementRouter.use("/exams", examRoutes);
-studentManagementRouter.use("/payments", paymentRoutes);
-studentManagementRouter.use("/student-notifications", notificationRoutes);
-studentManagementRouter.use("/upload", uploadRoutes);
-studentManagementRouter.use("/ai", aiRoutes);
-studentManagementRouter.use("/chatbot", chatbotRoutes);
+const requireStudentModule = requireModule("student") as RequestHandler;
+
+studentManagementRouter.use("/students", authMiddleware as unknown as RequestHandler, requireStudentModule, studentRoutes);
+studentManagementRouter.use("/exams", authMiddleware as unknown as RequestHandler, requireStudentModule, examRoutes);
+studentManagementRouter.use("/payments", authMiddleware as unknown as RequestHandler, requireStudentModule, paymentRoutes);
+studentManagementRouter.use("/student-notifications", authMiddleware as unknown as RequestHandler, requireStudentModule, notificationRoutes);
+studentManagementRouter.use("/upload", authMiddleware as unknown as RequestHandler, requireStudentModule, uploadRoutes);
+studentManagementRouter.use("/ai", authMiddleware as unknown as RequestHandler, requireStudentModule, aiRoutes);
+studentManagementRouter.use("/chatbot", authMiddleware as unknown as RequestHandler, requireStudentModule, chatbotRoutes);
 studentManagementRouter.use("/webhook", webhookRoutes);
-studentManagementRouter.use("/courses", courseRoutes);
-studentManagementRouter.use("/student-resources", resourceRoutes);
-studentManagementRouter.use("/batches", batchRoutes);
-studentManagementRouter.use("/schedule", scheduleRoutes);
-studentManagementRouter.use("/partners", partnerRoutes);
-studentManagementRouter.use("/qr-attendance", qrAttendanceRoutes);
+studentManagementRouter.use("/courses", authMiddleware as unknown as RequestHandler, requireStudentModule, courseRoutes);
+studentManagementRouter.use("/student-resources", authMiddleware as unknown as RequestHandler, requireStudentModule, resourceRoutes);
+studentManagementRouter.use("/batches", authMiddleware as unknown as RequestHandler, requireStudentModule, batchRoutes);
+studentManagementRouter.use("/schedule", authMiddleware as unknown as RequestHandler, requireStudentModule, scheduleRoutes);
+studentManagementRouter.use("/partners", authMiddleware as unknown as RequestHandler, requireStudentModule, partnerRoutes);
 studentManagementRouter.use("/assignments", assignmentRoutes);
 
 studentManagementRouter.post("/send-email", authMiddleware as unknown as RequestHandler, async (req: AuthRequest, res) => {

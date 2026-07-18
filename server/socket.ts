@@ -10,6 +10,7 @@ import { ddosConfig } from "./config/ddos";
 import { getRateLimitRedisClient } from "./infrastructure/rate-limit-redis";
 import { RedisSocketProtectionCounter, SocketProtection } from "./socket-protection";
 import { getTrustedSocketClientIp } from "./socket-client-ip";
+import { getEnabledModulesForCompany, resolveModuleAccess } from "./middleware/require-module";
 
 let io: SocketIOServer | null = null;
 let lastSocketLimiterWarningAt = 0;
@@ -249,8 +250,20 @@ export async function initSocketServer(httpServer: HTTPServer) {
 
 
     // Lắng nghe sự kiện tham gia phòng chat thủ công
-    socket.on("join_chat_room", (data: { roomId: string }) => {
+    socket.on("join_chat_room", async (data: { roomId: string }) => {
       if (!data?.roomId || !user?._id) return;
+      try {
+        const modules = user.companyCode
+          ? await getEnabledModulesForCompany(user.companyCode)
+          : undefined;
+        if (!resolveModuleAccess(user, "chat", modules)) {
+          socket.emit("chat_module_disabled", { message: "Module chưa được kích hoạt cho doanh nghiệp của bạn." });
+          return;
+        }
+      } catch (error) {
+        console.error("Error checking chat module access:", error);
+        return;
+      }
       ChatRoomModel.findOne({ _id: data.roomId, "members.userId": user._id })
         .then((room) => {
           if (room) {
