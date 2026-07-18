@@ -1,14 +1,15 @@
-﻿import { TabType } from "../types/common";
-import { MODULE_KEYS, ModuleKey } from "../../server/config/module-keys";
+﻿import type { TabType } from "../types";
 
-export { MODULE_KEYS, type ModuleKey };
+/** Đồng bộ với server/config/module-keys.ts */
+export const MODULE_KEYS = ["hr", "inventory", "resource", "chat", "student"] as const;
+export type ModuleKey = (typeof MODULE_KEYS)[number];
 
 export const MODULE_LABELS: Record<ModuleKey, string> = {
-  hr: "NHÂN SỰ",
-  inventory: "KHO & SẢN PHẨM",
-  resource: "QUẢN LÝ TÀI NGUYÊN",
-  chat: "TRÒ CHUYỆN",
-  student: "QUẢN LÝ HỌC VIÊN",
+  hr: "Nhân sự",
+  inventory: "Kho & Sản phẩm",
+  resource: "Quản lý tài nguyên",
+  chat: "Trò chuyện",
+  student: "Quản lý học viên",
 };
 
 export const MODULE_TAB_MAP: Record<ModuleKey, TabType> = {
@@ -28,19 +29,38 @@ export const TAB_MODULE_MAP: Partial<Record<TabType, ModuleKey>> = {
 };
 
 /**
+ * Cấu hình ẩn tạm các module ở tầng UI (global — áp dụng cho mọi người dùng).
+ * Đây là nguồn sự thật duy nhất: sidebar, router, cài đặt, header, dashboard đều
+ * đọc từ đây. Muốn hiện lại module chỉ cần bỏ khỏi các tập hợp bên dưới.
+ *
+ * Các mục dưới đây chỉ còn phục vụ tương thích URL/quyền cũ; module đã được gỡ khỏi router ứng dụng.
+ */
+export const HIDDEN_TABS = new Set<TabType>();
+
+export function isTabHidden(tab: TabType): boolean {
+  return HIDDEN_TABS.has(tab);
+}
+
+/**
+ * Các sub-tab trong trang Cài đặt bị ẩn (giá trị `value` của sub-tab).
+ * personal-integrations = "MXH Cá Nhân", company-integrations = "MXH Doanh nghiệp".
+ */
+export const HIDDEN_SETTINGS_SUBTABS = new Set<string>([
+  "personal-integrations",
+  "company-integrations",
+]);
+
+export function isSettingsSubTabHidden(value: string): boolean {
+  return HIDDEN_SETTINGS_SUBTABS.has(value);
+}
+
+/** Ẩn khối cấu hình AI trả lời tự động (thuộc CRM omni-inbox) trong Cấu hình ERP */
+export const HIDE_AI_AUTO_REPLY = true;
+
+/**
  * Thiếu dữ liệu (company cũ) → bật tất cả.
  */
 export function isModuleEnabled(enabledModules: string[] | undefined, key: ModuleKey): boolean {
   if (!enabledModules || enabledModules.length === 0) return true;
   return enabledModules.includes(key);
-}
-
-/**
- * Kiểm tra xem tab có bị ẩn (module chưa bật) không.
- * TODO: Kết nối với context công ty để lấy enabledModules.
- */
-export function isTabHidden(tab: TabType): boolean {
-  // For now, no tabs are hidden. This will be implemented in a future task
-  // when we have access to the company's enabledModules.
-  return false;
 }
