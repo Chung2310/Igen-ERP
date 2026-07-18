@@ -1,16 +1,19 @@
-import { resolveModuleAccess } from "../middleware/require-module";
-
 interface DashboardModuleUser {
   role: string;
   enabledModules?: string[];
 }
 
 export function resolveDashboardModuleAccess(user: DashboardModuleUser) {
-  const accessUser = { role: user.role };
+  const hasAccess = (key: string) => {
+    if (user.role === "superadmin") return true;
+    if (!user.enabledModules || user.enabledModules.length === 0) return true;
+    return user.enabledModules.includes(key);
+  };
+
   return {
-    hr: resolveModuleAccess(accessUser, "hr", user.enabledModules),
-    student: resolveModuleAccess(accessUser, "student", user.enabledModules),
-    chat: resolveModuleAccess(accessUser, "chat", user.enabledModules),
-    resource: resolveModuleAccess(accessUser, "resource", user.enabledModules),
+    hr: hasAccess("hr"),
+    student: hasAccess("student"),
+    chat: hasAccess("chat"),
+    resource: hasAccess("resource"),
   };
 }

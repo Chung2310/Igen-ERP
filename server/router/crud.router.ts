@@ -32,24 +32,28 @@ const crudModuleGuard = (req: any, res: any, next: any) => {
 crudRouter.post(
   "/workflows/:id/participants",
   requireAuth as any,
+  requireModule("hr"),
   workflowLinkController.createCase as any
 );
 
 crudRouter.post(
   "/workflows/:id/participants/:participantId/advance",
   requireAuth as any,
+  requireModule("hr"),
   workflowLinkController.advanceParticipant as any
 );
 
 crudRouter.get(
   "/workflows/:id/participants/:participantId/tasks",
   requireAuth as any,
+  requireModule("hr"),
   workflowLinkController.getParticipantTasks as any
 );
 
 crudRouter.delete(
   "/workflows/:id/participants/:participantId",
   requireAuth as any,
+  requireModule("hr"),
   workflowLinkController.removeCase as any
 );
 

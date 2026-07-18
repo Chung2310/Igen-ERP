@@ -10,6 +10,13 @@ import { emitToUser } from "../../../socket";
 import { logger } from "../config/logger";
 import { IAssignment } from "../interfaces/assignment.interface";
 
+type OwnerScope = string | string[];
+
+function buildOwnerQuery(ownerId: OwnerScope): Record<string, unknown> {
+  if (ownerId === "ALL") return {};
+  return { ownerId: Array.isArray(ownerId) ? { $in: ownerId } : ownerId };
+}
+
 async function resolveSmtpForOwner(ownerId: string): Promise<SmtpSettings | undefined> {
   const owner = await User.findById(ownerId).select(
     "smtpHost smtpPort smtpSecure smtpUser smtpPass smtpFrom smtpSandboxEmail"
@@ -29,8 +36,13 @@ async function resolveSmtpForOwner(ownerId: string): Promise<SmtpSettings | unde
 }
 
 export class AssignmentService {
-  static async createAssignment(data: any, instructorId: string, ownerId: string): Promise<IAssignment> {
-    const batch = await Batch.findById(data.batchId);
+  static async createAssignment(
+    data: any,
+    instructorId: string,
+    ownerId: string,
+    ownerScope: OwnerScope = ownerId
+  ): Promise<IAssignment> {
+    const batch = await Batch.findOne({ _id: data.batchId, ...buildOwnerQuery(ownerScope) });
     if (!batch) throw new Error("Lớp học không tồn tại.");
 
     const assignment = await AssignmentModel.create({
@@ -46,12 +58,22 @@ export class AssignmentService {
     return assignment;
   }
 
+  static async getAssignments(ownerScope: OwnerScope, batchId: string): Promise<any[]> {
+    return AssignmentModel.find({ batchId, ...buildOwnerQuery(ownerScope) }).sort({ createdAt: -1 });
+  }
+
+  static async getSubmissions(ownerScope: OwnerScope, assignmentId: string): Promise<any[]> {
+    const assignment = await AssignmentModel.findOne({ _id: assignmentId, ...buildOwnerQuery(ownerScope) });
+    if (!assignment) throw new Error("Assignment not found.");
+    return SubmissionModel.find({ assignmentId });
+  }
+
   static async notifyStudents(assignment: IAssignment, batch: any, ownerId: string): Promise<void> {
     try {
       const studentIds = batch.learnerIds || [];
       if (studentIds.length === 0) return;
 
-      const students = await Student.find({ _id: { $in: studentIds } });
+      const students = await Student.find({ _id: { $in: studentIds }, ownerId: assignment.ownerId });
       const smtpSettings = await resolveSmtpForOwner(ownerId);
       const appUrl = process.env.APP_URL || "http://localhost:5173";
 
@@ -117,11 +139,32 @@ export class AssignmentService {
     }
   }
 
+  private static async validateSubmissionContext(decodedToken: any): Promise<any> {
+    const { studentId, assignmentId, batchId } = decodedToken;
+    const assignment = await AssignmentModel.findOne({ _id: assignmentId, batchId });
+    if (!assignment) throw new Error("Invalid submission link.");
+
+    const [batch, student] = await Promise.all([
+      Batch.findOne({ _id: batchId, ownerId: assignment.ownerId, learnerIds: studentId }),
+      Student.findOne({ _id: studentId, ownerId: assignment.ownerId }),
+    ]);
+    if (!batch || !student) throw new Error("Invalid submission link.");
+    return assignment;
+  }
+
+  static async getPublicContext(decodedToken: any): Promise<any> {
+    const assignment = await this.validateSubmissionContext(decodedToken);
+    const [student, submission] = await Promise.all([
+      Student.findOne({ _id: decodedToken.studentId, ownerId: assignment.ownerId }),
+      SubmissionModel.findOne({ assignmentId: decodedToken.assignmentId, studentId: decodedToken.studentId }),
+    ]);
+    return { assignment, student, submission };
+  }
+
   static async submitProof(decodedToken: any, data: any): Promise<any> {
     const { studentId, assignmentId } = decodedToken;
 
-    const assignment = await AssignmentModel.findById(assignmentId);
-    if (!assignment) throw new Error("Bài tập không tồn tại hoặc đã bị xóa.");
+    const assignment = await this.validateSubmissionContext(decodedToken);
 
     // Kiểm tra xem có nộp muộn không
     let status: "submitted" | "late" = "submitted";
@@ -157,8 +200,7 @@ export class AssignmentService {
   static async cancelSubmission(decodedToken: any): Promise<void> {
     const { studentId, assignmentId } = decodedToken;
 
-    const assignment = await AssignmentModel.findById(assignmentId);
-    if (!assignment) throw new Error("Bài tập không tồn tại hoặc đã bị xóa.");
+    const assignment = await this.validateSubmissionContext(decodedToken);
 
     // Delete Submission record to allow clean resubmission
     await SubmissionModel.deleteOne({ assignmentId, studentId });
@@ -172,10 +214,16 @@ export class AssignmentService {
     });
   }
 
-  static async gradeSubmission(assignmentId: string, studentId: string, data: any, instructorId: string): Promise<any> {
-    const assignment = await AssignmentModel.findById(assignmentId);
+  static async gradeSubmission(
+    assignmentId: string,
+    studentId: string,
+    data: any,
+    instructorId: string,
+    ownerScope: OwnerScope = instructorId
+  ): Promise<any> {
+    const assignment = await AssignmentModel.findOne({ _id: assignmentId, ...buildOwnerQuery(ownerScope) });
     if (!assignment) throw new Error("Bài tập không tồn tại.");
-    if (assignment.instructorId !== instructorId) {
+    if (String(assignment.instructorId) !== instructorId) {
       throw new Error("Bạn không có quyền chấm điểm bài tập này.");
     }
 
