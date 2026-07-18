@@ -6,11 +6,18 @@ import { useAuth } from "../../../../context/AuthContext";
 type FieldConfig = { visible: boolean; required: boolean };
 type FieldsConfig = Record<string, FieldConfig>;
 
-export function SettingsPage() {
+interface SettingsPageProps {
+  selectedCenter?: string;
+}
+
+export function SettingsPage({ selectedCenter }: SettingsPageProps) {
   const { userProfile } = useAuth();
 
   const getOwnerId = () => {
-    return userProfile?.centerId || userProfile?.uid || 'default';
+    if (userProfile?.role === "superadmin" && selectedCenter && selectedCenter !== "all") {
+      return selectedCenter;
+    }
+    return (userProfile as any)?.centerId || userProfile?.companyCode || userProfile?.uid || 'default';
   };
   const configKey = `studentFormConfig_${getOwnerId()}`;
 
@@ -39,7 +46,26 @@ export function SettingsPage() {
 
   const [hasChanges, setHasChanges] = useState(false);
 
+  // Reload settings dynamically when active center / owner changes
+  React.useEffect(() => {
+    const saved = localStorage.getItem(configKey);
+    if (saved) {
+      try {
+        setFieldsConfig({ ...defaultFieldsConfig, ...JSON.parse(saved) });
+        setHasChanges(false);
+        return;
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    setFieldsConfig(defaultFieldsConfig);
+    setHasChanges(false);
+  }, [configKey]);
+
+  const isReadOnly = userProfile?.role === "superadmin" && selectedCenter === "all";
+
   const handleToggleVisible = (field: string) => {
+    if (isReadOnly) return;
     setFieldsConfig((prev) => {
       const updated = {
         ...prev,
@@ -55,6 +81,7 @@ export function SettingsPage() {
   };
 
   const handleToggleRequired = (field: string) => {
+    if (isReadOnly) return;
     setFieldsConfig((prev) => {
       const updated = {
         ...prev,
@@ -70,13 +97,14 @@ export function SettingsPage() {
   };
 
   const handleSave = () => {
+    if (isReadOnly) return;
     localStorage.setItem(configKey, JSON.stringify(fieldsConfig));
     setHasChanges(false);
     toast.success("Cấu hình form học viên đã được lưu thành công!");
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6 text-left">
       {/* Settings Header */}
       <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -96,9 +124,9 @@ export function SettingsPage() {
           )}
           <button
             onClick={handleSave}
-            disabled={!hasChanges}
+            disabled={!hasChanges || isReadOnly}
             className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all ${
-              hasChanges
+              hasChanges && !isReadOnly
                 ? "bg-cyan-600 hover:bg-cyan-700 text-white shadow-md shadow-cyan-150 hover:-translate-y-0.5 active:scale-95 cursor-pointer"
                 : "bg-slate-100 text-slate-400 cursor-not-allowed"
             }`}
@@ -108,6 +136,19 @@ export function SettingsPage() {
           </button>
         </div>
       </div>
+
+      {/* Warning Alert if superadmin selected "all" */}
+      {isReadOnly && (
+        <div className="bg-amber-50 border border-amber-200/60 rounded-2xl p-4 flex gap-3 text-left">
+          <Info className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+          <div>
+            <h4 className="text-xs font-bold text-amber-800 uppercase tracking-wider">Cần chọn một cơ sở cụ thể</h4>
+            <p className="text-xs text-amber-700 mt-1 leading-relaxed">
+              Bạn đang ở chế độ xem <strong>"Tất cả cơ sở"</strong>. Vui lòng chọn một cơ sở cụ thể ở góc trên bên phải để bắt đầu thiết lập và lưu cấu hình cho cơ sở đó.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Main Settings Table */}
       <div className="bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden">
@@ -141,8 +182,9 @@ export function SettingsPage() {
                     <td className="py-4 px-4 text-center">
                       <button
                         type="button"
+                        disabled={isReadOnly}
                         onClick={() => handleToggleVisible(item.key)}
-                        className={`relative inline-flex items-center h-5 w-9 rounded-full transition-colors focus:outline-none ${config.visible ? 'bg-cyan-600' : 'bg-slate-200'}`}
+                        className={`relative inline-flex items-center h-5 w-9 rounded-full transition-colors focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed ${config.visible ? 'bg-cyan-600' : 'bg-slate-200'}`}
                       >
                         <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transform transition-transform ${config.visible ? 'translate-x-4.5' : 'translate-x-0.5'}`} />
                       </button>
@@ -151,7 +193,7 @@ export function SettingsPage() {
                       <button
                         type="button"
                         onClick={() => config.visible && handleToggleRequired(item.key)}
-                        disabled={!config.visible}
+                        disabled={isReadOnly || !config.visible}
                         className={`relative inline-flex items-center h-5 w-9 rounded-full transition-colors focus:outline-none disabled:opacity-30 disabled:cursor-not-allowed ${config.required ? 'bg-rose-500' : 'bg-slate-200'}`}
                       >
                         <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transform transition-transform ${config.required ? 'translate-x-4.5' : 'translate-x-0.5'}`} />
