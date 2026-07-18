@@ -172,6 +172,7 @@ const registerCompanySchema = {
       "string.empty": "Mật khẩu không được để trống.",
       "string.min": "Mật khẩu phải có ít nhất 6 ký tự.",
     }),
+    enabledModules: Joi.array().items(Joi.string()).optional(),
   }),
 };
 

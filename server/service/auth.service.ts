@@ -12,6 +12,7 @@ import { TelegramLinkStatus } from "../interface/telegram-link.interface";
 import { pickSelfServiceProfileUpdate } from "../utils/self-service-profile-update";
 import { superAdminAuthService } from "./super-admin-auth.service";
 import { requiresSuperAdminChallenge } from "./super-admin-login-policy";
+import { sanitizeModuleKeys } from "../config/module-keys";
 
 import { getJwtAccessSecret, getJwtRefreshSecret } from "../config/env";
 const TELEGRAM_LINK_CODE_TTL_MS = 5 * 60 * 1000;
@@ -215,7 +216,7 @@ export const authService = {
    * Đăng ký doanh nghiệp mới và tài khoản admin tương ứng
    */
   async registerCompanyAndAdmin(data: any): Promise<any> {
-    const { companyName, companyCode, ownerName, ownerEmail, ownerPassword } = data;
+    const { companyName, companyCode, ownerName, ownerEmail, ownerPassword, enabledModules } = data;
     const normalizedCode = companyCode.toUpperCase().trim();
     const emailLower = ownerEmail.toLowerCase().trim();
 
@@ -236,6 +237,7 @@ export const authService = {
       code: normalizedCode,
       name: companyName.trim(),
       ownerEmail: emailLower,
+      enabledModules: sanitizeModuleKeys(enabledModules),
       createdAt: new Date(),
     });
     await newCompany.save();
