@@ -56,8 +56,8 @@ TỔNG QUAN, Ví, Cài đặt, User Admin luôn hiển thị, không thuộc ph�
 
 ## 6. Super-admin
 
-- `tenant-management.service.ts`: action mới cập nhật `enabledModules` cho tenant, ghi audit theo pattern action hiện có (action-registry).
-- `TenantDetailPage.tsx`: section "Modules" với toggle từng module, lưu qua action trên. Đây là nơi duy nhất chỉnh sửa sau đăng ký.
+- Chỉnh sửa sau khi tạo: mở rộng endpoint `updateCompany` hiện có (superadmin-only) để nhận `enabledModules`, kèm clear cache middleware.
+- UI: thêm nhóm checkbox module vào modal "Sửa doanh nghiệp" trong `UserAdminTab.tsx` (giao diện quản trị của superadmin — `TenantDetailPage.tsx` hiện chỉ là stub nên không dùng). Đây là nơi duy nhất chỉnh sửa sau khi tạo.
 - Khi super-admin tắt module, user đang online sẽ thấy hiệu lực ở lần load/refresh tiếp theo (không cần realtime push).
 
 ## 7. Kiểm thử

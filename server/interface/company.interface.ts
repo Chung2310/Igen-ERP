@@ -36,6 +36,8 @@ export interface ICompany extends Document {
   name: string;
   createdAt: Date;
   ownerEmail: string;
+  /** Các module nghiệp vụ được bật cho doanh nghiệp. Rỗng/thiếu = bật tất cả. */
+  enabledModules?: string[];
   heygenConfig?: ICompanyHeyGenConfig;
   elevenlabsConfig?: ICompanyElevenLabsConfig;
   /** Link thÆ° má»¥c Google Drive dÃ¹ng chung cho toÃ n cÃ´ng ty (tÃ i liá»‡u). */
