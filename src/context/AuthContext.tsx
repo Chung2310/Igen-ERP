@@ -4,6 +4,7 @@ import { authService } from "../services/authService";
 import { UserProfile } from "../types";
 import { toast } from "../pages/Toast";
 import { parseFirebaseError } from "../utils/firebaseErrorParser";
+import { isModuleEnabled as checkModule, type ModuleKey } from "../config/modules";
 
 interface AuthContextType {
   user: User | null;
@@ -16,6 +17,7 @@ interface AuthContextType {
   refreshProfile: () => Promise<void>;
   updateProfileInfo: (displayName: string, photoURL: string) => Promise<void>;
   uploadAvatar: (file: File) => Promise<string>;
+  isModuleEnabled: (key: ModuleKey) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -166,6 +168,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const isModuleEnabled = (key: ModuleKey) => checkModule(userProfile?.enabledModules, key);
+
   return (
     <AuthContext.Provider
       value={{
@@ -179,6 +183,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         refreshProfile,
         updateProfileInfo,
         uploadAvatar,
+        isModuleEnabled,
       }}
     >
       {children}
