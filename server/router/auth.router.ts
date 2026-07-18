@@ -239,6 +239,7 @@ const updateCompanySchema = {
     id: Joi.string().regex(/^[0-9a-fA-F]{24}$/).required(),
   }),
   body: Joi.object({
+    enabledModules: Joi.array().items(Joi.string()).optional(),
     name: Joi.string().optional().allow(""),
     code: Joi.string().optional().allow(""),
     ownerEmail: Joi.string().pattern(emailRegex).optional().allow("").messages({

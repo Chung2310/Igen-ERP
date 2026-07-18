@@ -43,6 +43,7 @@ export interface CompanyProfile {
   name: string;
   createdAt: any;
   ownerEmail: string;
+  enabledModules?: string[];
 }
 
 export interface TelegramLinkStatus {

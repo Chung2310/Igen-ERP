@@ -240,7 +240,7 @@ export const authService = {
     }));
   },
 
-  async updateCompany(companyId: string, updateData: { name?: string; code?: string; ownerEmail?: string }): Promise<CompanyProfile> {
+  async updateCompany(companyId: string, updateData: { name?: string; code?: string; ownerEmail?: string; enabledModules?: string[] }): Promise<CompanyProfile> {
     const res = await fetch(`/api/v1/auth/companies/${companyId}`, {
       method: "PATCH",
       headers: {
@@ -317,7 +317,8 @@ export const authService = {
     companyCode: string,
     ownerName: string,
     ownerEmail: string,
-    ownerPassword: string
+    ownerPassword: string,
+    enabledModules: string[]
   ): Promise<void> {
     const res = await fetch("/api/v1/auth/register-company", {
       method: "POST",
@@ -331,6 +332,7 @@ export const authService = {
         ownerName,
         ownerEmail,
         ownerPassword,
+        enabledModules,
       }),
     });
 
