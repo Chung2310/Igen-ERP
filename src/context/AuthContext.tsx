@@ -5,6 +5,7 @@ import { UserProfile } from "../types";
 import { toast } from "../pages/Toast";
 import { parseFirebaseError } from "../utils/firebaseErrorParser";
 import { isModuleEnabled as checkModule, type ModuleKey } from "../config/modules";
+import { savePendingSuperAdminChallenge } from "../services/pendingSuperAdminChallenge";
 
 interface AuthContextType {
   user: User | null;
@@ -70,9 +71,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const result = await authService.loginWithEmail(email, password);
       if (result.status === "challenge_required") {
         toast.info("Tài khoản Super Admin cần xác thực đặc quyền. Đang chuyển hướng...");
-        setTimeout(() => {
-          window.location.pathname = "/super-admin";
-        }, 1500);
+        savePendingSuperAdminChallenge(sessionStorage, {
+          challengeId: result.challengeId,
+          enrollmentRequired: Boolean(result.enrollmentRequired),
+          expiresAt: result.expiresAt,
+        });
+        window.location.pathname = "/super-admin";
         return;
       }
       const profile: UserProfile = {
