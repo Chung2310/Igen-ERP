@@ -40,22 +40,39 @@ import { AuthService } from "../services/auth.service";
 
 router.post("/send-email", authMiddleware as unknown as RequestHandler, async (req: AuthRequest, res) => {
   try {
-    const { to, subject, html, check } = req.body;
+    const { to, subject, html, check, smtpHost, smtpPort, smtpSecure, smtpUser, smtpPass, smtpFrom, smtpSandboxEmail } = req.body;
 
-    const user = await AuthService.getUserProfile(req.user.uid);
-    const smtpOwner = user && user.role === "user" && user.centerId
-      ? await AuthService.getUserProfile(user.centerId)
-      : user;
-    const hasCustomSmtp = !!(smtpOwner && smtpOwner.smtpHost && smtpOwner.smtpUser && smtpOwner.smtpPass);
-    const smtpSettings = hasCustomSmtp ? {
-      smtpHost: smtpOwner.smtpHost,
-      smtpPort: smtpOwner.smtpPort,
-      smtpSecure: smtpOwner.smtpSecure,
-      smtpUser: smtpOwner.smtpUser,
-      smtpPass: smtpOwner.smtpPass,
-      smtpFrom: smtpOwner.smtpFrom,
-      smtpSandboxEmail: smtpOwner.smtpSandboxEmail,
-    } : undefined;
+    let smtpSettings: any = undefined;
+
+    // Use SMTP settings from body if provided (for connection testing before saving)
+    if (smtpHost && smtpUser && smtpPass) {
+      smtpSettings = {
+        smtpHost: smtpHost.trim(),
+        smtpPort: smtpPort !== undefined && smtpPort !== "" ? parseInt(smtpPort, 10) : undefined,
+        smtpSecure: smtpSecure === true || smtpSecure === "true",
+        smtpUser: smtpUser.trim(),
+        smtpPass: smtpPass.trim(),
+        smtpFrom: smtpFrom?.trim(),
+        smtpSandboxEmail: smtpSandboxEmail?.trim(),
+      };
+    } else {
+      const user = await AuthService.getUserProfile(req.user.uid);
+      const smtpOwner = user && user.role === "user" && user.centerId
+        ? await AuthService.getUserProfile(user.centerId)
+        : user;
+      const hasCustomSmtp = !!(smtpOwner && smtpOwner.smtpHost && smtpOwner.smtpUser && smtpOwner.smtpPass);
+      if (hasCustomSmtp) {
+        smtpSettings = {
+          smtpHost: smtpOwner.smtpHost,
+          smtpPort: smtpOwner.smtpPort,
+          smtpSecure: smtpOwner.smtpSecure,
+          smtpUser: smtpOwner.smtpUser,
+          smtpPass: smtpOwner.smtpPass,
+          smtpFrom: smtpOwner.smtpFrom,
+          smtpSandboxEmail: smtpOwner.smtpSandboxEmail,
+        };
+      }
+    }
 
     if (check) {
       const checkResult = await EmailService.verifyConnection(smtpSettings);
