@@ -144,7 +144,7 @@ export function EditStudentModal({ student, isOpen, onClose, onSuccess, students
   };
 
   const getStudentFormConfig = () => {
-    const ownerId = student?.centerId || student?.ownerId || user?.centerId || user?.uid || 'default';
+    const ownerId = student?.centerId || student?.ownerId || (user as any)?.centerId || user?.uid || 'default';
     const configKey = `studentFormConfig_${ownerId}`;
     const saved = localStorage.getItem(configKey);
     const defaults: Record<string, { visible: boolean; required: boolean }> = {

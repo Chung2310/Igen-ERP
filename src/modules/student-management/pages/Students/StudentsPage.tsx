@@ -127,7 +127,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
       };
       const dbStatus = statusMap[selectedStatus] || selectedStatus;
       const studentStatuses = Array.isArray(student.status) ? student.status : [student.status];
-      const hasMatch = studentStatuses.includes(dbStatus);
+      const hasMatch = (studentStatuses as string[]).includes(dbStatus);
       if (!hasMatch) return false;
     }
 

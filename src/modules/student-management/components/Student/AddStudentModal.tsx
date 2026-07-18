@@ -20,7 +20,8 @@ interface AddStudentModalProps {
 }
 
 export function AddStudentModal({ isOpen, onClose, onSuccess, students, selectedCenter }: AddStudentModalProps) {
-  const { userProfile: user } = useAuth();
+  const { userProfile } = useAuth();
+  const user = userProfile as any;
   
   const { centers } = useAdminCenters();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -239,6 +240,9 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
           fee: '',
           address: '',
           email: '',
+          idCardFrontFile: undefined,
+          idCardBackFile: undefined,
+          portraitFile: undefined,
         });
         setReferralMode('none');
         setSelectedCenterId(selectedCenter && selectedCenter !== 'all' ? selectedCenter : '');
