@@ -1,4 +1,32 @@
-import type { TabType } from "../types";
+﻿import type { TabType } from "../types";
+
+/** Đồng bộ với server/config/module-keys.ts */
+export const MODULE_KEYS = ["hr", "inventory", "resource", "chat", "student"] as const;
+export type ModuleKey = (typeof MODULE_KEYS)[number];
+
+export const MODULE_LABELS: Record<ModuleKey, string> = {
+  hr: "Nhân sự",
+  inventory: "Kho & Sản phẩm",
+  resource: "Quản lý tài nguyên",
+  chat: "Trò chuyện",
+  student: "Quản lý học viên",
+};
+
+export const MODULE_TAB_MAP: Record<ModuleKey, TabType> = {
+  hr: "NHÂN SỰ",
+  inventory: "KHO & SẢN PHẨM",
+  resource: "QUẢN LÝ TÀI NGUYÊN",
+  chat: "TRÒ CHUYỆN",
+  student: "QUẢN LÝ HỌC VIÊN",
+};
+
+export const TAB_MODULE_MAP: Partial<Record<TabType, ModuleKey>> = {
+  "NHÂN SỰ": "hr",
+  "KHO & SẢN PHẨM": "inventory",
+  "QUẢN LÝ TÀI NGUYÊN": "resource",
+  "TRÒ CHUYỆN": "chat",
+  "QUẢN LÝ HỌC VIÊN": "student",
+};
 
 /**
  * Cấu hình ẩn tạm các module ở tầng UI (global — áp dụng cho mọi người dùng).
@@ -28,3 +56,11 @@ export function isSettingsSubTabHidden(value: string): boolean {
 
 /** Ẩn khối cấu hình AI trả lời tự động (thuộc CRM omni-inbox) trong Cấu hình ERP */
 export const HIDE_AI_AUTO_REPLY = true;
+
+/**
+ * Thiếu dữ liệu (company cũ) → bật tất cả.
+ */
+export function isModuleEnabled(enabledModules: string[] | undefined, key: ModuleKey): boolean {
+  if (!enabledModules || enabledModules.length === 0) return true;
+  return enabledModules.includes(key);
+}

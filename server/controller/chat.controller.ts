@@ -316,9 +316,8 @@ export const chatController = {
               : "Đã gửi tệp đính kèm";
 
           const hasMentionAll = content && (
-            content.includes("@all") || 
-            content.includes("@Tất cả") || 
-            content.includes("@tất cả")
+            content.toLowerCase().includes("@all") || 
+            content.toLowerCase().includes("@tất cả")
           );
 
           await Promise.all(

@@ -212,7 +212,7 @@ export default function ChatTab() {
 
     names.sort((a: string, b: string) => b.length - a.length);
     if (names.length === 0) return null;
-    return new RegExp("@(" + names.join("|") + ")", "g");
+    return new RegExp("@(" + names.join("|") + ")", "gi");
   }, [activeRoom]);
 
   // Tô sáng các @mention thành viên trong một đoạn văn bản (không chứa URL)
@@ -225,7 +225,7 @@ export default function ChatTab() {
     mentionRegex.lastIndex = 0;
     while ((m = mentionRegex.exec(text)) !== null) {
       if (m.index > last) nodes.push(text.slice(last, m.index));
-      const isMentionAll = ["all", "Tất cả", "tất cả"].includes(m[1]);
+      const isMentionAll = ["all", "tất cả"].includes(m[1].toLowerCase());
       const cls =
         m[1] === myName || isMentionAll
           ? "bg-amber-300/80 text-amber-950 font-bold"
@@ -3151,6 +3151,12 @@ export default function ChatTab() {
                             }
                             e.preventDefault();
                             handleSendMessage(e as unknown as React.FormEvent);
+                          } else if (e.key === "Tab") {
+                            // Nếu đang mở gợi ý @mention → chọn người đầu tiên khi gõ Tab
+                            if (mention && mentionCandidates.length > 0) {
+                              e.preventDefault();
+                              insertMention(mentionCandidates[0].displayName);
+                            }
                           } else if (e.key === "Escape") {
                             if (mention) {
                               e.preventDefault();

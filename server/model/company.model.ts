@@ -1,5 +1,6 @@
 import { Schema, model } from "mongoose";
 import { ICompany } from "../interface/company.interface";
+import { MODULE_KEYS } from "../config/module-keys";
 
 const CompanyHeyGenConfigSchema = new Schema(
   {
@@ -49,6 +50,7 @@ const CompanySchema = new Schema<ICompany>({
   name: { type: String, required: true },
   createdAt: { type: Date, default: Date.now },
   ownerEmail: { type: String, required: true },
+  enabledModules: { type: [String], enum: MODULE_KEYS, default: () => [...MODULE_KEYS] },
   heygenConfig: { type: CompanyHeyGenConfigSchema, default: () => ({}) },
   elevenlabsConfig: { type: CompanyElevenLabsConfigSchema, default: () => ({}) },
   driveFolderLink: { type: String, default: "" },

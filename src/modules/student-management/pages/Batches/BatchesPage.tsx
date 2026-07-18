@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  School, Trash2, Pencil, Users, CalendarRange, GraduationCap, BarChart2
+  School, Trash2, Pencil, Users, CalendarRange, GraduationCap, BarChart2, FileText
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { apiFetch } from '../../lib/api';
@@ -20,6 +20,7 @@ import { BatchFormModal } from '../../components/Batches/BatchFormModal';
 import { ManageLearnersModal } from '../../components/Batches/ManageLearnersModal';
 import { AttendanceModal } from '../../components/Batches/AttendanceModal';
 import { AttendanceViewModal } from '../../components/Batches/AttendanceViewModal';
+import { AssignmentModal } from '../../components/Batches/AssignmentModal';
 
 const BATCH_STATUSES: BatchStatus[] = ['Sắp khai giảng', 'Đang học', 'Đã kết thúc'];
 
@@ -95,10 +96,12 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
 
   const [attendanceBatchId, setAttendanceBatchId] = useState<string | null>(null);
   const [viewAttendanceBatchId, setViewAttendanceBatchId] = useState<string | null>(null);
+  const [assignmentBatchId, setAssignmentBatchId] = useState<string | null>(null);
 
   // Lấy bản mới nhất từ danh sách để modal học viên không bị dữ liệu cũ sau refetch
   const manageBatch = manageLearnersId ? batches.find(b => b.id === manageLearnersId) : undefined;
   const attendanceBatch = attendanceBatchId ? batches.find(b => b.id === attendanceBatchId) : undefined;
+  const assignmentBatch = assignmentBatchId ? batches.find(b => b.id === assignmentBatchId) : undefined;
 
   const openCreateModal = () => {
     setEditingId(null);
@@ -268,6 +271,18 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
                         >
                           <CalendarRange className="w-3.5 h-3.5" /> Điểm danh
                         </button>
+                        <button
+                          onClick={() => setAssignmentBatchId(b.id)}
+                          title="Quản lý bài tập"
+                          className={cn(
+                            "flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-black border transition-all cursor-pointer shadow-sm",
+                            darkMode
+                              ? "bg-slate-800 hover:bg-indigo-900/30 text-indigo-400 border-transparent"
+                              : "bg-indigo-50 hover:bg-indigo-100 text-indigo-650 border-indigo-150/40"
+                          )}
+                        >
+                          <FileText className="w-3.5 h-3.5" /> Bài tập
+                        </button>
                         {isManager && (
                           <button
                             onClick={() => setViewAttendanceBatchId(b.id)}
@@ -367,6 +382,16 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
           />
         ) : null;
       })()}
+
+      {/* Assignment Modal */}
+      {assignmentBatch && (
+        <AssignmentModal
+          isOpen={!!assignmentBatch}
+          batch={assignmentBatch}
+          onClose={() => setAssignmentBatchId(null)}
+          students={students}
+        />
+      )}
 
       {/* Confirm Delete Modal */}
       <ErpConfirmModal
