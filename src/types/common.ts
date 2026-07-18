@@ -9,7 +9,8 @@ export type TabType =
   | "QUẢN LÝ HỌC VIÊN"
   | "QUẢN TRỊ USER"
   | "VÍ & NẠP TIỀN"
-  | "CÀI ĐẶT";
+  | "CÀI ĐẶT"
+  | "HƯỚNG DẪN";
 
 export interface GoogleDriveIntegration {
   isConnected: boolean;
