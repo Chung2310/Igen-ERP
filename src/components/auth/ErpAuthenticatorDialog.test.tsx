@@ -69,11 +69,13 @@ describe("ErpAuthenticatorDialog", () => {
     const onAuthenticated = vi.fn().mockResolvedValue(undefined);
 
     render(
-      <ErpAuthenticatorDialog
-        challenge={{ ...challenge, enrollmentRequired: true }}
-        onAuthenticated={onAuthenticated}
-        onCancel={vi.fn()}
-      />,
+      <React.StrictMode>
+        <ErpAuthenticatorDialog
+          challenge={{ ...challenge, enrollmentRequired: true }}
+          onAuthenticated={onAuthenticated}
+          onCancel={vi.fn()}
+        />
+      </React.StrictMode>,
     );
 
     const qr = await screen.findByAltText("Mã QR Google Authenticator");

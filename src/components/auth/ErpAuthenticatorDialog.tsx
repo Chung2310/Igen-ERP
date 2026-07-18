@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import type { ErpLoginChallenge } from "../../context/AuthContext";
 import { superAdminAuthService } from "../../services/superAdminAuthService";
 
@@ -19,6 +19,7 @@ export function ErpAuthenticatorDialog({ challenge, onAuthenticated, onCancel }:
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
+  const enrollmentRequest = useRef<{ challengeId: string; promise: ReturnType<typeof superAdminAuthService.startEnrollment> }>();
 
   useEffect(() => {
     if (!challenge.enrollmentRequired) return;
@@ -26,7 +27,14 @@ export function ErpAuthenticatorDialog({ challenge, onAuthenticated, onCancel }:
     let active = true;
     setPending(true);
     setError("");
-    superAdminAuthService.startEnrollment(challenge.challengeId)
+    if (enrollmentRequest.current?.challengeId !== challenge.challengeId) {
+      enrollmentRequest.current = {
+        challengeId: challenge.challengeId,
+        promise: superAdminAuthService.startEnrollment(challenge.challengeId),
+      };
+    }
+
+    enrollmentRequest.current.promise
       .then((result) => {
         if (active) setQrDataUrl(result.qrDataUrl);
       })
