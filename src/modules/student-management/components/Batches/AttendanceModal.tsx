@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Calendar, CalendarRange, Trash2 } from 'lucide-react';
+import { Calendar, CalendarRange, Trash2, Sparkles } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { apiFetch } from '../../lib/api';
 import { toast } from '../../../../pages/Toast';
+import { QRAttendanceModal } from './QRAttendanceModal';
 import { ErpModal, ErpField, ErpInput } from '../Erp/ErpUI';
 import { Batch, Student } from '../../types';
 
@@ -42,6 +43,7 @@ export function AttendanceModal({
   const [attendanceRecords, setAttendanceRecords] = useState<Record<string, 'present' | 'absent' | 'excused'>>({});
   const [sessionNote, setSessionNote] = useState('');
   const [bulkSelectStudents, setBulkSelectStudents] = useState<string[]>([]);
+  const [showQrModal, setShowQrModal] = useState(false);
 
   if (!isOpen) return null;
 
@@ -303,6 +305,13 @@ export function AttendanceModal({
               </button>
               <button
                 type="button"
+                onClick={() => setShowQrModal(true)}
+                className="px-4 py-2 bg-brand-primary/10 text-brand-primary rounded-xl text-xs font-bold transition-all hover:bg-brand-primary/15 flex items-center gap-1.5 cursor-pointer"
+              >
+                <Sparkles className="w-4 h-4 text-brand-primary" /> Điểm danh QR
+              </button>
+              <button
+                type="button"
                 onClick={handleUpdateAttendance}
                 className="px-4 py-2 bg-brand-primary text-white rounded-xl text-xs font-bold hover:bg-brand-primary/95 cursor-pointer"
               >
@@ -443,6 +452,25 @@ export function AttendanceModal({
             )}
           </div>
         </div>
+      )}
+
+      {selectedSessionDate !== null && showQrModal && (
+        <QRAttendanceModal
+          isOpen={showQrModal}
+          batch={{
+            id: batch.id,
+            code: batch.code,
+            courseTitle: batch.courseTitle,
+            learnerIds: batch.learnerIds
+          }}
+          date={selectedSessionDate}
+          students={students}
+          onClose={() => setShowQrModal(false)}
+          onSuccess={() => {
+            onSuccess();
+            setSelectedSessionDate(null);
+          }}
+        />
       )}
     </ErpModal>
   );

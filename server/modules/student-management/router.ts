@@ -14,6 +14,7 @@ import resourceRoutes from "./routes/resource.routes";
 import batchRoutes from "./routes/batch.routes";
 import scheduleRoutes from "./routes/schedule.routes";
 import partnerRoutes from "./routes/partner.routes";
+import qrAttendanceRoutes from "./routes/qr-attendance.routes";
 import { logger } from "./config/logger";
 import { authMiddleware, AuthRequest } from "./middlewares/auth.middleware";
 import { EmailService } from "./services/email.service";
@@ -33,6 +34,7 @@ studentManagementRouter.use("/student-resources", resourceRoutes);
 studentManagementRouter.use("/batches", batchRoutes);
 studentManagementRouter.use("/schedule", scheduleRoutes);
 studentManagementRouter.use("/partners", partnerRoutes);
+studentManagementRouter.use("/qr-attendance", qrAttendanceRoutes);
 
 studentManagementRouter.post("/send-email", authMiddleware as unknown as RequestHandler, async (req: AuthRequest, res) => {
   try {
