@@ -21,16 +21,18 @@ export function getDdosConfig(env: EnvLike = process.env) {
     // Backstop per-IP lỏng cho endpoint xác thực: chỉ để chặn spray từ một IP, không khoá oan văn
     // phòng NAT (nhiều người đăng nhập tài khoản khác nhau qua cùng IP).
     authIpWindowMs: positiveInt(env.DDOS_AUTH_IP_WINDOW_MS, 15 * 60 * 1000),
-    authIpLimit: positiveInt(env.DDOS_AUTH_IP_LIMIT, 100),
+    authIpLimit: positiveInt(env.DDOS_AUTH_IP_LIMIT, 300),
     // Throttle brute-force chặt theo từng tài khoản đích của /login.
     loginAccountWindowMs: positiveInt(env.DDOS_LOGIN_ACCOUNT_WINDOW_MS, 15 * 60 * 1000),
     loginAccountLimit: positiveInt(env.DDOS_LOGIN_ACCOUNT_LIMIT, 10),
+    refreshIpWindowMs: positiveInt(env.DDOS_REFRESH_IP_WINDOW_MS, 15 * 60 * 1000),
+    refreshIpLimit: positiveInt(env.DDOS_REFRESH_IP_LIMIT, 1000),
     generalBodyLimit: bodyLimit(env.DDOS_GENERAL_BODY_LIMIT, "2mb"),
     largeBodyLimit: bodyLimit(env.DDOS_LARGE_BODY_LIMIT, "300mb"),
     socketHandshakeWindowMs: positiveInt(env.DDOS_SOCKET_HANDSHAKE_WINDOW_MS, 60 * 1000),
-    socketHandshakeLimit: positiveInt(env.DDOS_SOCKET_HANDSHAKE_LIMIT, 20),
-    socketMaxPerUser: positiveInt(env.DDOS_SOCKET_MAX_PER_USER, 10),
-    socketMaxPerIp: positiveInt(env.DDOS_SOCKET_MAX_PER_IP, 30),
+    socketHandshakeLimit: positiveInt(env.DDOS_SOCKET_HANDSHAKE_LIMIT, 300),
+    socketMaxPerUser: positiveInt(env.DDOS_SOCKET_MAX_PER_USER, 5),
+    socketMaxPerIp: positiveInt(env.DDOS_SOCKET_MAX_PER_IP, 500),
     socketEventWindowMs: positiveInt(env.DDOS_SOCKET_EVENT_WINDOW_MS, 60 * 1000),
     socketEventLimit: positiveInt(env.DDOS_SOCKET_EVENT_LIMIT, 120),
     socketViolationLimit: positiveInt(env.DDOS_SOCKET_VIOLATION_LIMIT, 3),

@@ -17,7 +17,6 @@ import { apiFetch } from '../../lib/api';
 import { EditStudentModal } from '../../components/Student/EditStudentModal';
 import { ImportStudentModal } from '../../components/Student/ImportStudentModal';
 import { Pagination } from '../../components/ui/Pagination';
-import { useAuth } from '../../../../context/AuthContext';
 import * as XLSX from 'xlsx';
 
 interface StudentsPageProps {
@@ -42,7 +41,6 @@ function categoryIcon(name: string): React.ComponentType<{ className?: string }>
 }
 
 export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: StudentsPageProps) {
-  const { userProfile: user } = useAuth();
   const resolvedCenter = selectedCenter === 'all' ? undefined : selectedCenter;
   const { students, loading } = useStudents(resolvedCenter);
   const { batches } = useBatches();
@@ -54,7 +52,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
   const [searchQuery, setSearchQuery] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [rankFilter, setRankFilter] = useState('Tất cả hạng');
+  const [rankFilter] = useState('Tất cả hạng');
   const [feeStatusFilter, setFeeStatusFilter] = useState('Tất cả học phí');
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 5;
@@ -109,10 +107,6 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
 
   // Hạng bằng là dữ liệu riêng ngành lái xe — chỉ hiện filter/cột khi còn học viên có hạng
   const hasRankData = useMemo(() => students.some(s => s.rank), [students]);
-  const rankOptions = useMemo(() => {
-    const ranks = [...new Set(students.map(s => s.rank).filter(Boolean))] as string[];
-    return ['Tất cả hạng', ...ranks.sort()];
-  }, [students]);
 
   const filteredStudents = students.filter(student => {
     // 1. Category Filter (theo phân loại khóa học của lớp học viên đang tham gia)
@@ -255,10 +249,6 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
       return;
     }
 
-    let headers: string[];
-    let getRowData: (student: Student) => (string | number)[];
-    let cols: { wch: number }[];
-
     const commonHeadersAfter = [
       'Học phí', 'Đã đóng', 'Còn nợ',
       'Ngày đăng ký', 'Trạng thái học phí', 'Trạng thái học tập',
@@ -297,15 +287,15 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
       ];
     };
 
-    headers = ['Họ và tên', 'Số điện thoại', ...commonHeadersAfter];
-    getRowData = (student: Student) => {
+    const headers = ['Họ và tên', 'Số điện thoại', ...commonHeadersAfter];
+    const getRowData = (student: Student) => {
       return [
         student.fullName,
         student.phone,
         ...getCommonRowDataAfter(student)
       ];
     };
-    cols = [
+    const cols = [
       { wch: 20 }, { wch: 15 },
       { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 18 }, { wch: 18 },
       { wch: 12 }, { wch: 18 }, { wch: 22 }, { wch: 18 }, { wch: 35 }, { wch: 16 },

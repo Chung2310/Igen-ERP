@@ -1,6 +1,6 @@
 import React from "react";
 import { Activity, Trash2, Monitor, Calendar, RefreshCw } from "lucide-react";
-import { superAdminAuthService } from "../../services/superAdminAuthService";
+import { superAdminRequest } from "../../services/superAdminRequest";
 
 interface Session {
   sessionId: string;
@@ -9,6 +9,10 @@ interface Session {
   expiresAt: string;
   revokedAt?: string;
   revokeReason?: string;
+  deviceId: string;
+  loginIp?: string;
+  lastIp?: string;
+  userAgent?: string;
 }
 
 export function SessionsTab() {
@@ -37,15 +41,7 @@ export function SessionsTab() {
       // We need a request function, wait, where can we get sessions?
       // Let's call the listSessions equivalent or request it directly.
       // Wait, let's add listSessions to superAdminAuthService, or let's fetch it here.
-      const res = await fetch("/api/v1/super-admin/auth/sessions", {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Không thể tải danh sách phiên.");
+      const data = await superAdminRequest("/api/v1/super-admin/auth/sessions");
       setSessions(data.sessions || []);
     } catch (e: any) {
       setError(e.message || "Lỗi khi tải danh sách phiên.");
@@ -60,17 +56,7 @@ export function SessionsTab() {
     }
     setError("");
     try {
-      const token = localStorage.getItem("accessToken");
-      const res = await fetch(`/api/v1/super-admin/auth/sessions/${sessionId}`, {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Thu hồi phiên thất bại.");
-      
+      await superAdminRequest(`/api/v1/super-admin/auth/sessions/${sessionId}`, { method: "DELETE" });
       // Reload sessions list
       await fetchSessions();
     } catch (e: any) {
@@ -180,6 +166,13 @@ export function SessionsTab() {
                       <span className="font-semibold text-slate-300">
                         {new Date(session.lastSeenAt).toLocaleString("vi-VN")}
                       </span>
+                    </div>
+
+                    <div className="mt-3 space-y-1 text-xs text-slate-400">
+                      <p title={session.deviceId}><span className="text-slate-500">Mã thiết bị:</span> <span className="font-mono text-slate-300">{session.deviceId || "N/A"}</span></p>
+                      <p><span className="text-slate-500">IP đăng nhập:</span> {session.loginIp || "N/A"}</p>
+                      <p><span className="text-slate-500">IP gần nhất:</span> {session.lastIp || "N/A"}</p>
+                      <p className="break-all" title={session.userAgent}><span className="text-slate-500">Trình duyệt:</span> {session.userAgent || "N/A"}</p>
                     </div>
 
                     {isRevoked && (

@@ -32,7 +32,7 @@ test("only challenge and session use TTL", () => {
 });
 
 test("required fields, enums, and ObjectId types are enforced", () => {
-  for (const [schema, paths] of [[SuperAdminChallengeModel.schema, ["challengeId", "userId", "purpose", "passwordVerifiedAt", "expiresAt"]], [SuperAdminSessionModel.schema, ["sessionId", "userId", "expiresAt"]], [AdminActionModel.schema, ["actionId", "actorId", "idempotencyKey", "actionType", "requestHash", "status"]], [auditSchema, ["eventId", "actionType", "riskClass", "result", "actorSuperAdminId", "environment", "correlationId", "occurredAt"]]] as any) paths.forEach((p: string) => assert.equal(schema.path(p)?.options.required, true, p));
+  for (const [schema, paths] of [[SuperAdminChallengeModel.schema, ["challengeId", "userId", "purpose", "passwordVerifiedAt", "expiresAt", "deviceId"]], [SuperAdminSessionModel.schema, ["sessionId", "userId", "expiresAt", "deviceId"]], [AdminActionModel.schema, ["actionId", "actorId", "idempotencyKey", "actionType", "requestHash", "status"]], [auditSchema, ["eventId", "actionType", "riskClass", "result", "actorSuperAdminId", "environment", "correlationId", "occurredAt"]]] as any) paths.forEach((p: string) => assert.equal(schema.path(p)?.options.required, true, p));
   for (const [schema, path] of [[SuperAdminChallengeModel.schema, "userId"], [SuperAdminSessionModel.schema, "userId"], [AdminActionModel.schema, "actorId"], [auditSchema, "actorSuperAdminId"]] as any) assert.equal(schema.path(path) instanceof Schema.Types.ObjectId, true);
   assert.deepEqual(AdminActionModel.schema.path("status")?.options.enum, ["reserved", "running", "succeeded", "partial", "failed"]);
   assert.deepEqual(auditSchema.path("riskClass")?.options.enum, ["read_only", "standard", "sensitive", "dangerous"]);

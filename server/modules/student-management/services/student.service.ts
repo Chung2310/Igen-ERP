@@ -73,7 +73,6 @@ async function ensureUniqueFieldsInScope(
   data: StudentUpdateData,
   excludeId?: string
 ) {
-  const userId = Array.isArray(ownerScope) ? ownerScope[0] : ownerScope;
   const isDriving = false;
 
   const checks: Array<{ field: "email" | "phone" | "idCard"; value: string; message: string }> = [
@@ -320,7 +319,7 @@ export class StudentService {
 
     try {
       await Payment.deleteMany({ studentId: { $in: resolvedIds } });
-      await Batch.updateMany({ learnerIds: { $in: resolvedIds } }, { $pull: { learnerIds: { $in: resolvedIds } } } as any);
+      await Batch.updateMany({ learnerIds: { $in: resolvedIds } }, { $pull: { learnerIds: { $in: resolvedIds } } });
     } catch (err) {
       logger.error(`[Student] Failed to clean up associated records for bulk deleted students: %o`, err);
     }

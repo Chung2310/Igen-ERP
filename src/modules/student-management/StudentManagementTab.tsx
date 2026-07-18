@@ -62,7 +62,7 @@ export default function StudentManagementTab() {
   const [activeSubTab, setActiveSubTab] = useSubTabRouter<StudentSubTab>(SUB_TAB_ROUTES, "TỔNG QUAN");
   const [selectedStudent, setSelectedStudent] = React.useState<Student | null>(null);
   const [isAddStudentOpen, setIsAddStudentOpen] = React.useState(false);
-  const [initialStudentTab, setInitialStudentTab] = React.useState<string>("Hồ sơ");
+  const [initialStudentTab, setInitialStudentTab] = React.useState<"Hồ sơ" | "Học phí" | "Lịch sử">("Hồ sơ");
   const { students } = useStudents();
 
   const handleOpenStudent = React.useCallback((student: Student, tab: string = "Hồ sơ") => {
@@ -145,7 +145,7 @@ export default function StudentManagementTab() {
         <StudentDetailModal
           student={selectedStudent}
           onClose={() => setSelectedStudent(null)}
-          initialTab={initialStudentTab as any}
+          initialTab={initialStudentTab}
         />
       ) : null}
 

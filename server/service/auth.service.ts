@@ -75,7 +75,7 @@ export const authService = {
   /**
    * Đăng nhập tài khoản
    */
-  async login(email: string, password?: string) {
+  async login(email: string, password?: string, requestMetadata?: any) {
     const emailLower = email.toLowerCase().trim();
     const user = await UserModel.findOne({ email: emailLower });
 
@@ -93,7 +93,7 @@ export const authService = {
     }
 
     if (requiresSuperAdminChallenge(user.role)) {
-      return superAdminAuthService.beginSuperAdminLogin(user);
+      return superAdminAuthService.beginSuperAdminLogin(user, requestMetadata);
     }
 
     const tokens = this.generateTokens(user);

@@ -1,4 +1,4 @@
-async function request(path: string, init: RequestInit) { const res = await fetch(path, { ...init, headers: { "Content-Type": "application/json", ...(init.headers || {}) } }); const data = await res.json().catch(() => ({})); if (!res.ok) throw new Error(data.message || "Yêu cầu thất bại"); return data; }
+import { superAdminRequest as request } from "./superAdminRequest";
 function accept(data: any) { if (data.accessToken) localStorage.setItem("accessToken", data.accessToken); return data; }
 export const superAdminAuthService = {
   login: (email: string, password: string) => request("/api/v1/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }),

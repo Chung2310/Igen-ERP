@@ -10,7 +10,7 @@ import { useCourses } from '../../hooks/useCourses';
 import { authService } from '../../../../services/authService';
 import { useAuth } from '../../../../context/AuthContext';
 import { useStudents } from '../../hooks/useStudents';
-import { Batch, BatchStatus } from '../../types';
+import { Batch, BatchStatus, ManagedUser } from '../../types';
 import {
   ErpPageHeader, ErpPrimaryButton, ErpSearchBar, ErpFilterTab, ErpFilterRail,
   ErpEmptyState, ErpLoadingState, ErpCard, ErpConfirmModal, ErpTableHead
@@ -60,7 +60,7 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
   const resolvedCenter = selectedCenter === 'all' ? undefined : selectedCenter;
   const { batches, loading, refetch } = useBatches(resolvedCenter);
   const { courses } = useCourses(resolvedCenter);
-  const [users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<ManagedUser[]>([]);
   React.useEffect(() => {
     const fetchUsers = async () => {
       try {
@@ -321,15 +321,17 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
       )}
 
       {/* Create / Edit Batch Modal */}
-      <BatchFormModal
-        isOpen={showFormModal}
-        editingId={editingId}
-        batchToEdit={batches.find(b => b.id === editingId)}
-        onClose={() => setShowFormModal(false)}
-        courses={courses}
-        instructors={instructors}
-        onSuccess={handleMutationSuccess}
-      />
+      {showFormModal && (
+        <BatchFormModal
+          isOpen
+          editingId={editingId}
+          batchToEdit={batches.find(b => b.id === editingId)}
+          onClose={() => setShowFormModal(false)}
+          courses={courses}
+          instructors={instructors}
+          onSuccess={handleMutationSuccess}
+        />
+      )}
 
       {/* Manage Learners Modal */}
       {manageBatch && (

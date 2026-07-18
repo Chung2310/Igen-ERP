@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { School, Tag, BookOpen, GraduationCap, Clock, CalendarRange, Calendar, MapPin } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { apiFetch } from '../../lib/api';
@@ -66,27 +66,21 @@ export function BatchFormModal({
   instructors,
   onSuccess,
 }: BatchFormModalProps) {
-  const [form, setForm] = useState<BatchForm>(EMPTY_FORM);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  useEffect(() => {
-    if (editingId && batchToEdit) {
-      setForm({
-        code: batchToEdit.code,
-        courseId: batchToEdit.courseId,
-        instructorId: batchToEdit.instructorId || '',
-        daysOfWeek: batchToEdit.daysOfWeek || [],
-        startTime: batchToEdit.startTime,
-        endTime: batchToEdit.endTime,
-        location: batchToEdit.location || '',
-        startDate: batchToEdit.startDate,
-        endDate: batchToEdit.endDate,
-        status: batchToEdit.status,
-      });
-    } else {
-      setForm({ ...EMPTY_FORM, courseId: courses[0]?.id || '' });
+  const [form, setForm] = useState<BatchForm>(() => editingId && batchToEdit
+    ? {
+      code: batchToEdit.code,
+      courseId: batchToEdit.courseId,
+      instructorId: batchToEdit.instructorId || '',
+      daysOfWeek: batchToEdit.daysOfWeek || [],
+      startTime: batchToEdit.startTime,
+      endTime: batchToEdit.endTime,
+      location: batchToEdit.location || '',
+      startDate: batchToEdit.startDate,
+      endDate: batchToEdit.endDate,
+      status: batchToEdit.status,
     }
-  }, [editingId, batchToEdit, courses]);
+    : { ...EMPTY_FORM, courseId: courses[0]?.id || '' });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const toggleDay = (day: number) => {
     setForm((prev) => ({

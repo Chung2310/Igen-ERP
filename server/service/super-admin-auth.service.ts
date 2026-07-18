@@ -16,9 +16,10 @@ const CHALLENGE_MS = 5 * 60_000;
 const SESSION_MS = 8 * 60 * 60_000;
 
 export function createSuperAdminAuthService(deps: any) {
-  const getChallenge = async (id: string) => {
+  const getChallenge = async (id: string, metadata: any) => {
     const challenge = await deps.challenges.find(id);
     if (!challenge || challenge.consumedAt || new Date(challenge.expiresAt) <= deps.now()) throw new Error("Challenge expired or invalid");
+    if (!metadata?.deviceId || challenge.deviceId !== metadata.deviceId) throw new Error("Device verification failed");
     return challenge;
   };
   const getUser = async (challenge: any) => {
@@ -46,28 +47,29 @@ export function createSuperAdminAuthService(deps: any) {
       const details = accounts.map((account: any) => `${account._id} (${account.email})`).join(", ");
       throw new Error(`Multiple Super Admin accounts found; resolve manually: ${details}`);
     },
-    async beginSuperAdminLogin(user: any) {
+    async beginSuperAdminLogin(user: any, metadata: any) {
+      if (!metadata?.deviceId) throw new Error("Device verification failed");
       const challengeId = deps.id(); const expiresAt = new Date(deps.now().getTime() + CHALLENGE_MS);
-      await deps.challenges.create({ challengeId, userId: user._id, purpose: "login", passwordVerifiedAt: deps.now(), expiresAt, attempts: 0 });
+      await deps.challenges.create({ challengeId, userId: user._id, purpose: "login", passwordVerifiedAt: deps.now(), expiresAt, attempts: 0, deviceId: metadata.deviceId, sourceIp: metadata.sourceIp, userAgent: metadata.userAgent });
       await deps.audit({ actionType: "security.login.password.success", actorSuperAdminId: user._id, result: "success" });
       return { kind: "super_admin_challenge" as const, challengeId, enrollmentRequired: !user.superAdminSecurity?.totpEnabled, expiresAt };
     },
-    async beginEnrollment(challengeId: string) {
-      const c = await getChallenge(challengeId); const user = await getUser(c);
+    async beginEnrollment(challengeId: string, metadata: any) {
+      const c = await getChallenge(challengeId, metadata); const user = await getUser(c);
       if (user.superAdminSecurity.totpEnabled) throw new Error("TOTP already enrolled");
       const secret = deps.createSecret(); c.enrollmentSecretEncrypted = deps.encrypt(secret); await deps.challenges.save(c);
       const uri = `otpauth://totp/Igen%20ERP:${encodeURIComponent(user.email)}?secret=${secret}&issuer=Igen%20ERP`;
       return { qrDataUrl: await deps.qr(uri) };
     },
-    async confirmEnrollment(challengeId: string, token: string) {
-      const c = await getChallenge(challengeId); const user = await getUser(c);
+    async confirmEnrollment(challengeId: string, token: string, metadata: any) {
+      const c = await getChallenge(challengeId, metadata); const user = await getUser(c);
       if (!c.enrollmentSecretEncrypted) throw new Error("Enrollment not started");
       const secret = deps.decrypt(c.enrollmentSecretEncrypted); if (!deps.verifyTotp(secret, token)) throw new Error("Invalid TOTP code");
       const recoveryCodes = deps.recoveryCodes(); user.superAdminSecurity = { ...user.superAdminSecurity, totpEnabled: true, totpSecretEncrypted: deps.encrypt(secret), recoveryCodeHashes: recoveryCodes.map(deps.hash), enrolledAt: deps.now(), failedTotpAttempts: 0 }; await user.save();
       return { ...(await createSession(user, c)), recoveryCodes };
     },
-    async completeTotpLogin(challengeId: string, token: string) {
-      const c = await getChallenge(challengeId); const user = await getUser(c);
+    async completeTotpLogin(challengeId: string, token: string, metadata: any) {
+      const c = await getChallenge(challengeId, metadata); const user = await getUser(c);
       if (user.superAdminSecurity.lockedUntil && new Date(user.superAdminSecurity.lockedUntil) > deps.now()) throw new Error("Account temporarily locked");
       const secret = deps.decrypt(user.superAdminSecurity.totpSecretEncrypted);
       if (!deps.verifyTotp(secret, token)) {
@@ -80,8 +82,8 @@ export function createSuperAdminAuthService(deps: any) {
       await deps.audit({ actionType: "security.login.totp.success", actorSuperAdminId: user._id, result: "success" });
       return createSession(user, c);
     },
-    async completeRecoveryLogin(challengeId: string, code: string) {
-      const c = await getChallenge(challengeId); const user = await getUser(c); const hash = deps.hash(code.trim().toUpperCase());
+    async completeRecoveryLogin(challengeId: string, code: string, metadata: any) {
+      const c = await getChallenge(challengeId, metadata); const user = await getUser(c); const hash = deps.hash(code.trim().toUpperCase());
       const index = user.superAdminSecurity.recoveryCodeHashes.indexOf(hash); if (index < 0) throw new Error("Invalid recovery code");
       user.superAdminSecurity.recoveryCodeHashes.splice(index, 1); await user.save(); return createSession(user, c);
     },
@@ -120,7 +122,7 @@ const mongoDeps = {
             { session: transactionSession },
           );
           const [created] = await SuperAdminSessionModel.create([{
-            sessionId, userId, createdAt: now, lastSeenAt: now, expiresAt,
+            sessionId, userId, deviceId: challenge.deviceId, loginIp: challenge.sourceIp, lastIp: challenge.sourceIp, userAgent: challenge.userAgent, createdAt: now, lastSeenAt: now, expiresAt,
           }], { session: transactionSession });
           for (const displaced of active) {
             await auditService.record({
