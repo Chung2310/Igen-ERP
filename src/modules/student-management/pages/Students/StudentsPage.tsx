@@ -771,6 +771,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
       {/* Edit Student Modal */}
       <EditStudentModal
         student={editingStudent}
+        selectedCenter={selectedCenter}
         isOpen={!!editingStudent}
         onClose={() => setEditingStudent(null)}
         onSuccess={() => setEditingStudent(null)}

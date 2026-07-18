@@ -12,13 +12,14 @@ import { FormInput, UploadCard } from './components/StudentFormFields';
 
 interface EditStudentModalProps {
   student: Student | null;
+  selectedCenter?: string;
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
   students: Student[];
 }
 
-export function EditStudentModal({ student, isOpen, onClose, onSuccess, students }: EditStudentModalProps) {
+export function EditStudentModal({ student, selectedCenter, isOpen, onClose, onSuccess, students }: EditStudentModalProps) {
   const { userProfile: user } = useAuth();
   const { courses } = useCourses(student?.centerId || student?.ownerId || undefined);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -144,7 +145,10 @@ export function EditStudentModal({ student, isOpen, onClose, onSuccess, students
   };
 
   const getStudentFormConfig = () => {
-    const ownerId = student?.centerId || student?.ownerId || (user as any)?.centerId || user?.uid || 'default';
+    const viewerCenter = (user?.role === 'superadmin' && selectedCenter && selectedCenter !== 'all')
+      ? selectedCenter
+      : ((user as any)?.centerId || user?.companyCode);
+    const ownerId = student?.centerId || viewerCenter || student?.ownerId || 'default';
     const configKey = `studentFormConfig_${ownerId}`;
     const saved = localStorage.getItem(configKey);
     const defaults: Record<string, { visible: boolean; required: boolean }> = {

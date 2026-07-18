@@ -118,7 +118,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
   };
 
   const getStudentFormConfig = () => {
-    const ownerId = user?.centerId || user?.uid || 'default';
+    const ownerId = (user?.role === 'superadmin' ? selectedCenterId : undefined) || user?.centerId || user?.companyCode || user?.uid || 'default';
     const configKey = `studentFormConfig_${ownerId}`;
     const saved = localStorage.getItem(configKey);
     const defaults: Record<string, { visible: boolean; required: boolean }> = {
