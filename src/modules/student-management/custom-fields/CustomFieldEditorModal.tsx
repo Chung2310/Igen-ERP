@@ -95,10 +95,23 @@ export function CustomFieldEditorModal({ open, moduleKey, initialField, onClose,
     const nextErrors = validate();
     if (nextErrors.length) { setErrors(nextErrors); return; }
     let validation: Record<string, unknown> | undefined;
-    if (["text", "email", "phone", "url"].includes(form.type)) validation = { minLength: numberOrUndefined(form.minLength), maxLength: numberOrUndefined(form.maxLength) };
+    if (form.type === "text") {
+      validation = { minLength: numberOrUndefined(form.minLength), maxLength: numberOrUndefined(form.maxLength) };
+    } else if (form.type === "phone") {
+      validation = { minLength: 10, maxLength: 11, pattern: "^[0-9]+$" };
+    } else if (form.type === "email") {
+      validation = { pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$" };
+    } else if (form.type === "url") {
+      validation = { pattern: "^https?:\\/\\/(www\\.)?[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}\\b([-a-zA-Z0-9()@:%_\\+.~#?&//=]*)$" };
+    }
     if (["percent", "currency"].includes(form.type)) validation = { min: numberOrUndefined(form.min), max: numberOrUndefined(form.max), decimals: numberOrUndefined(form.decimals) };
     if (form.type === "dateTime") validation = { minDateTime: form.minDateTime || undefined, maxDateTime: form.maxDateTime || undefined };
-    if (["file", "image"].includes(form.type)) validation = { maxSizeMb: createMaxSizeMb(Number(form.maxSizeMb)), maxFiles: Number(form.maxFiles), allowedMimeTypes: form.allowedMimeTypes.split(",").map((item) => item.trim()).filter(Boolean) };
+    if (["file", "image"].includes(form.type)) {
+      const allowedMimeTypes = form.type === "image"
+        ? ["image/*"]
+        : form.allowedMimeTypes.split(",").map((item) => item.trim()).filter(Boolean);
+      validation = { maxSizeMb: createMaxSizeMb(Number(form.maxSizeMb)), maxFiles: Number(form.maxFiles), allowedMimeTypes };
+    }
     let defaultValue: CreateFieldInput["defaultValue"];
     if (["file", "image"].includes(form.type)) defaultValue = undefined;
     else if (form.type === "checkbox") defaultValue = form.defaultValue === true;
@@ -113,7 +126,7 @@ export function CustomFieldEditorModal({ open, moduleKey, initialField, onClose,
     } finally { setSubmitting(false); }
   };
 
-  const textType = ["text", "email", "phone", "url"].includes(form.type);
+  const textType = form.type === "text";
   const numericType = ["percent", "currency"].includes(form.type);
   const fileType = ["file", "image"].includes(form.type);
   const handleKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
@@ -146,7 +159,15 @@ export function CustomFieldEditorModal({ open, moduleKey, initialField, onClose,
           {textType ? <div className="grid gap-4 sm:grid-cols-2"><label className="block text-[10px] font-bold text-slate-800 uppercase tracking-wider">Dài tối thiểu<input type="number" className={inputClass} value={form.minLength} onChange={(e) => set("minLength", e.target.value)} /></label><label className="block text-[10px] font-bold text-slate-800 uppercase tracking-wider">Dài tối đa<input type="number" className={inputClass} value={form.maxLength} onChange={(e) => set("maxLength", e.target.value)} /></label></div> : null}
           {numericType ? <div className="grid gap-4 sm:grid-cols-3"><label className="block text-[10px] font-bold text-slate-800 uppercase tracking-wider">Giá trị nhỏ nhất<input type="number" className={inputClass} value={form.min} onChange={(e) => set("min", e.target.value)} /></label><label className="block text-[10px] font-bold text-slate-800 uppercase tracking-wider">Giá trị lớn nhất<input type="number" className={inputClass} value={form.max} onChange={(e) => set("max", e.target.value)} /></label><label className="block text-[10px] font-bold text-slate-800 uppercase tracking-wider">Số thập phân<input type="number" className={inputClass} value={form.decimals} onChange={(e) => set("decimals", e.target.value)} /></label></div> : null}
           {form.type === "dateTime" ? <div className="grid grid-cols-2 gap-4"><label className="block text-[10px] font-bold text-slate-800 uppercase tracking-wider">Ngày giờ nhỏ nhất<input type="datetime-local" className={inputClass} value={form.minDateTime} onChange={(e) => set("minDateTime", e.target.value)} /></label><label className="block text-[10px] font-bold text-slate-800 uppercase tracking-wider">Ngày giờ lớn nhất<input type="datetime-local" className={inputClass} value={form.maxDateTime} onChange={(e) => set("maxDateTime", e.target.value)} /></label></div> : null}
-          {fileType ? <div className="grid gap-4 sm:grid-cols-3"><label className="block text-[10px] font-bold text-slate-800 uppercase tracking-wider">Kích thước tối đa (MB)<input type="number" min="1" max="100" className={inputClass} value={form.maxSizeMb} onChange={(e) => set("maxSizeMb", e.target.value)} /></label><label className="block text-[10px] font-bold text-slate-800 uppercase tracking-wider">Số tệp tối đa<input type="number" min="1" className={inputClass} value={form.maxFiles} onChange={(e) => set("maxFiles", e.target.value)} /></label><label className="block text-[10px] font-bold text-slate-800 uppercase tracking-wider">Loại File cho phép<input className={inputClass} placeholder="image/png, image/jpeg" value={form.allowedMimeTypes} onChange={(e) => set("allowedMimeTypes", e.target.value)} /></label></div> : null}
+          {fileType ? (
+            <div className={`grid gap-4 ${form.type === "image" ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}>
+              <label className="block text-[10px] font-bold text-slate-800 uppercase tracking-wider">Kích thước tối đa (MB)<input type="number" min="1" max="100" className={inputClass} value={form.maxSizeMb} onChange={(e) => set("maxSizeMb", e.target.value)} /></label>
+              <label className="block text-[10px] font-bold text-slate-800 uppercase tracking-wider">Số tệp tối đa<input type="number" min="1" className={inputClass} value={form.maxFiles} onChange={(e) => set("maxFiles", e.target.value)} /></label>
+              {form.type !== "image" && (
+                <label className="block text-[10px] font-bold text-slate-800 uppercase tracking-wider">Loại File cho phép<input className={inputClass} placeholder="image/png, image/jpeg" value={form.allowedMimeTypes} onChange={(e) => set("allowedMimeTypes", e.target.value)} /></label>
+              )}
+            </div>
+          ) : null}
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-50 flex-shrink-0">
             <button
               type="button"

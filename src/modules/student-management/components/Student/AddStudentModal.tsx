@@ -69,8 +69,10 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
     }
   };
 
+  const [isEditingFields, setIsEditingFields] = useState(false);
+
   const renderFieldActions = (fieldKey: string) => {
-    if (!manageable) return null;
+    if (!manageable || !isEditingFields) return null;
     const fieldConfig = stdFields.find(f => f.key === fieldKey);
     if (!fieldConfig) return null;
     return (
@@ -556,6 +558,8 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
                 mode="create"
                 disabled={isSubmitting}
                 tenantId={selectedCenterId || undefined}
+                isEditingFields={isEditingFields}
+                onToggleEditingFields={setIsEditingFields}
               />
 
               {manageable && archivedStdFields.length ? (

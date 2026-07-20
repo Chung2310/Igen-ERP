@@ -62,6 +62,7 @@ interface BatchForm {
   startDate: string;
   endDate: string;
   status: BatchStatus;
+  customFields?: CustomFieldValues;
 }
 
 const EMPTY_FORM: BatchForm = {
@@ -75,6 +76,7 @@ const EMPTY_FORM: BatchForm = {
   startDate: '',
   endDate: '',
   status: 'Sắp khai giảng',
+  customFields: {},
 };
 
 /** Bắn sự kiện để các hook liên quan tự refetch (lớp, khóa học, giảng viên, lịch) */
@@ -129,8 +131,10 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
     }
   };
 
+  const [isEditingFields, setIsEditingFields] = useState(false);
+
   const renderFieldActions = (fieldKey: string) => {
-    if (!manageable) return null;
+    if (!manageable || !isEditingFields) return null;
     const fieldConfig = stdFields.find(f => f.key === fieldKey);
     if (!fieldConfig) return null;
     return (
@@ -205,7 +209,7 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
 
   const openCreateModal = () => {
     setEditingId(null);
-    setForm({ ...EMPTY_FORM, courseId: courses[0]?.id || '' });
+    setForm({ ...EMPTY_FORM, courseId: courses[0]?.id || '', customFields: {} });
     setShowFormModal(true);
   };
 
@@ -222,6 +226,7 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
       startDate: batch.startDate,
       endDate: batch.endDate,
       status: batch.status,
+      customFields: batch.customFields || {},
     });
     setShowFormModal(true);
   };
@@ -734,6 +739,17 @@ export function BatchesPage({ selectedCenter }: { selectedCenter?: string }) {
                 </div>
               )}
             </div>
+
+            <CustomFieldsSection
+              moduleKey="batches"
+              values={form.customFields || {}}
+              onChange={(customFields) => setForm((previous) => ({ ...previous, customFields }))}
+              mode={editingId ? 'edit' : 'create'}
+              disabled={isSubmitting}
+              tenantId={resolvedCenter || batches.find((batch) => batch.id === editingId)?.ownerId}
+              isEditingFields={isEditingFields}
+              onToggleEditingFields={setIsEditingFields}
+            />
 
             {manageable && archivedStdFields.length ? (
               <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-3 mt-4 text-left">

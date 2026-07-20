@@ -66,8 +66,10 @@ export function AddPartnerModal({ isOpen, onClose, onSuccess, partner }: AddPart
     }
   };
 
+  const [isEditingFields, setIsEditingFields] = useState(false);
+
   const renderFieldActions = (fieldKey: string) => {
-    if (!manageable) return null;
+    if (!manageable || !isEditingFields) return null;
     const fieldConfig = stdFields.find(f => f.key === fieldKey);
     if (!fieldConfig) return null;
     return (
@@ -364,6 +366,8 @@ export function AddPartnerModal({ isOpen, onClose, onSuccess, partner }: AddPart
             mode={partner ? 'edit' : 'create'}
             disabled={isSubmitting}
             tenantId={formData.centerId || partner?.ownerId}
+            isEditingFields={isEditingFields}
+            onToggleEditingFields={setIsEditingFields}
           />
         </div>
 

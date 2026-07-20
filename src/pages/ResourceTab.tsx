@@ -2184,7 +2184,7 @@ export default function ResourceTab() {
                   </div>
 
                   {/* Right side actions */}
-                  <div className="flex items-center gap-2 overflow-x-auto max-w-full">
+                  <div className="flex items-center gap-2 overflow-visible max-w-full">
                     {/* Filters icon button */}
                     {subTab === "TÀI LIỆU KHÁC" && (
                       <button
@@ -2214,7 +2214,7 @@ export default function ResourceTab() {
                     </button>
 
                     {/* Popover Add Button */}
-                    {!viewingTrash && localFolderId !== "chat-attachments" && (
+                    {!viewingTrash && (subTab === "TÀI LIỆU KHÁC" ? localFolderId !== "chat-attachments" : true) && (
                       <div className="relative" ref={addMenuRef}>
                         <button
                           onClick={() => setShowAddMenu(!showAddMenu)}
