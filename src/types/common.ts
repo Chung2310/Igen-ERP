@@ -24,6 +24,7 @@ export interface UserProfile {
   displayName: string;
   photoURL?: string;
   role: "user" | "manager" | "admin" | "superadmin";
+  permissions?: string[];
   createdAt: any;
   jobTitle?: string;
   department?: string;
