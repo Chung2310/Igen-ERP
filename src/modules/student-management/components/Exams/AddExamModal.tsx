@@ -97,11 +97,18 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
   };
   
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    name: string;
+    rank: string;
+    tentativeDate: string;
+    location: string;
+    customFields?: CustomFieldValues;
+  }>({
     name: '',
     rank: '',
     tentativeDate: '',
     location: '',
+    customFields: {},
   });
 
   const dateInputRef = React.useRef<HTMLInputElement>(null);
@@ -129,6 +136,7 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
           rank: initialData.rank || '',
           tentativeDate: formattedDate,
           location: initialData.location || '',
+          customFields: initialData.customFields || {},
         });
       } else {
         setFormData({
@@ -136,6 +144,7 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
           rank: '',
           tentativeDate: '',
           location: '',
+          customFields: {},
         });
       }
     }, 0);

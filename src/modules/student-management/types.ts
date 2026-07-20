@@ -150,6 +150,7 @@ export interface ExamSession {
   passCount: number;
   failCount: number;
   customFields?: CustomFieldValues;
+  ownerId?: string;
   __v?: number;
   createdAt?: Date | string;
   updatedAt?: Date | string;

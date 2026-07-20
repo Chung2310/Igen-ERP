@@ -61,6 +61,7 @@ interface NewCourseFormState {
   fee: string;
   duration: string;
   maxLearners: number | '';
+  customFields?: CustomFieldValues;
 }
 
 interface MutationResponse {
@@ -93,6 +94,7 @@ const DEFAULT_NEW_COURSE: NewCourseFormState = {
   fee: '',
   duration: '',
   maxLearners: 20,
+  customFields: {},
 };
 
 const CATEGORY_COLORS = [
@@ -242,6 +244,7 @@ export function CoursesPage({ selectedCenter }: { selectedCenter?: string }) {
           fee: editingCourse.fee || '',
           duration: editingCourse.duration || '',
           maxLearners: editingCourse.maxLearners || 20,
+          customFields: editingCourse.customFields || {},
         });
       }, 0);
     }
