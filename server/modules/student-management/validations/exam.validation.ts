@@ -2,6 +2,7 @@ import Joi from "joi";
 import { objectIdSchema } from "./student.validation";
 
 export const createExamSchema = Joi.object({
+  companyCode: Joi.string().trim().min(1).optional(),
   name: Joi.string().required().messages({
     "any.required": "Tên kỳ thi là bắt buộc.",
     "string.empty": "Tên kỳ thi không được để trống.",
@@ -20,9 +21,11 @@ export const createExamSchema = Joi.object({
   studentCount: Joi.number().optional(),
   passCount: Joi.number().optional(),
   failCount: Joi.number().optional(),
+  customFields: Joi.object().unknown(true).optional(),
 });
 
 export const updateExamSchema = Joi.object({
+  expectedVersion: Joi.number().integer().min(0).optional(),
   name: Joi.string().optional(),
   status: Joi.string().valid("Sắp diễn ra", "Đã xác nhận", "Đã hoàn thành", "Đã hủy").optional(),
   rank: Joi.string().allow("").optional(),
@@ -32,6 +35,7 @@ export const updateExamSchema = Joi.object({
   studentCount: Joi.number().optional(),
   passCount: Joi.number().optional(),
   failCount: Joi.number().optional(),
+  customFields: Joi.object().unknown(true).optional(),
 });
 
 export const assignStudentSchema = Joi.object({

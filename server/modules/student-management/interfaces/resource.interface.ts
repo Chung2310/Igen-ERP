@@ -1,4 +1,5 @@
 import { Document } from "mongoose";
+import type { CustomFieldValues } from "./custom-field.interface";
 
 // Phân loại tài nguyên là chuỗi động (quản lý qua ResourceCategory);
 // các giá trị cũ 'ROOM' | 'VEHICLE' | 'EQUIPMENT' vẫn hợp lệ.
@@ -15,6 +16,7 @@ export interface IResourceBooking {
 }
 
 export interface IResource extends Document {
+  customFields?: CustomFieldValues;
   name: string;
   type: ResourceType;
   identifier: string; // Số phòng, Biển số xe, Serial thiết bị

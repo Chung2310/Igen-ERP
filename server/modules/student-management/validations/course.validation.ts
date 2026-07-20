@@ -1,6 +1,7 @@
 import Joi from "joi";
 
 export const createCourseSchema = Joi.object({
+  companyCode: Joi.string().trim().min(1).optional(),
   code: Joi.string().required().messages({
     "any.required": "Mã khóa học là bắt buộc.",
     "string.empty": "Mã khóa học không được để trống.",
@@ -20,9 +21,11 @@ export const createCourseSchema = Joi.object({
   maxLearners: Joi.number().min(1).optional(),
   activeBatches: Joi.number().min(0).optional(),
   status: Joi.string().valid("Hoạt động", "Tạm dừng").optional(),
+  customFields: Joi.object().unknown(true).optional(),
 });
 
 export const updateCourseSchema = Joi.object({
+  expectedVersion: Joi.number().integer().min(0).optional(),
   code: Joi.string().optional(),
   title: Joi.string().optional(),
   category: Joi.string().optional(),
@@ -31,4 +34,5 @@ export const updateCourseSchema = Joi.object({
   maxLearners: Joi.number().min(1).optional(),
   activeBatches: Joi.number().min(0).optional(),
   status: Joi.string().valid("Hoạt động", "Tạm dừng").optional(),
+  customFields: Joi.object().unknown(true).optional(),
 });

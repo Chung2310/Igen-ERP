@@ -2,6 +2,7 @@ import { Response, NextFunction } from "express";
 import { ExamService } from "../services/exam.service";
 import { AuthRequest } from "../middlewares/auth.middleware";
 import { getAllowedOwnerIds, resolveCreateOwnerId } from "../utils/auth.util";
+import { resolveCustomFieldTenantForOwner } from "../utils/custom-field.util";
 
 export class ExamController {
   static async create(req: AuthRequest, res: Response) {
@@ -10,7 +11,11 @@ export class ExamController {
         req.user!,
         typeof req.body.companyCode === "string" ? req.body.companyCode : undefined
       );
-      const exam = await ExamService.createExam(ownerId, req.body);
+      const exam = await ExamService.createExam(ownerId, req.body, {
+        tenantId: req.user!.role === "superadmin" ? await resolveCustomFieldTenantForOwner(ownerId) : (req.user!.companyCode || req.user!.centerId),
+        moduleKey: "exams",
+        actorRole: req.user!.role,
+      });
       res.status(201).json({ success: true, data: exam });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Lỗi không xác định.";
@@ -44,14 +49,21 @@ export class ExamController {
   static async update(req: AuthRequest, res: Response) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);
-      const exam = await ExamService.updateExam(ownerId, req.params.id, req.body);
+      const exam = await ExamService.updateExam(ownerId, req.params.id, req.body, {
+        tenantId: req.user!.companyCode || req.user!.centerId,
+        moduleKey: "exams",
+        actorRole: req.user!.role,
+      });
       if (!exam) {
         return res.status(404).json({ success: false, error: "Không tìm thấy kỳ thi để cập nhật." });
       }
       res.json({ success: true, data: exam });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Lỗi không xác định.";
-      res.status(400).json({ success: false, error: msg });
+      const status = typeof (error as { status?: unknown })?.status === "number"
+        ? (error as { status: number }).status
+        : 400;
+      res.status(status).json({ success: false, error: msg });
     }
   }
 

@@ -4,22 +4,111 @@ import { X, Save, ChevronDown, Loader2, Calendar } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
 import { ExamSession } from '../../types';
 import { toast } from '../../../../pages/Toast';
+import { CustomFieldsSection } from '../../custom-fields/CustomFieldsSection';
+import type { CustomFieldValues } from '../../custom-fields/types';
+import { useStandardFields, getAdaptedFieldDefinition, type StandardFieldConfig } from '../../hooks/useStandardFields';
+import { CustomFieldEditorModal } from '../../custom-fields/CustomFieldEditorModal';
+import { canManageCustomFields } from '../../custom-fields/permissions';
+import { useAuth } from '../../../../context/AuthContext';
+import type { CreateFieldInput, FieldDefinition } from '../../custom-fields/types';
 
 interface AddExamModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: (exam: ExamSession) => void;
   initialData?: ExamSession | null;
+  tenantId?: string;
 }
 
-export function AddExamModal({ isOpen, onClose, onSuccess, initialData }: AddExamModalProps) {
+export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId }: AddExamModalProps) {
+  const { userProfile: user } = useAuth();
+  const {
+    fields: stdFields,
+    activeFields: activeStdFields,
+    archivedFields: archivedStdFields,
+    updateField: updateStdField,
+    archiveField: archiveStdField,
+    restoreField: restoreStdField,
+    deleteField: deleteStdField
+  } = useStandardFields("exams");
+
+  const manageable = canManageCustomFields(user?.role);
+  const [stdEditorOpen, setStdEditorOpen] = useState(false);
+  const [editingStdField, setEditingStdField] = useState<FieldDefinition | null>(null);
+
+  const openEditStdField = (field: StandardFieldConfig) => {
+    setEditingStdField(getAdaptedFieldDefinition(field, "exams"));
+    setStdEditorOpen(true);
+  };
+
+  const handleStdFieldSubmit = (input: CreateFieldInput) => {
+    if (editingStdField) {
+      updateStdField(editingStdField.key, {
+        label: input.label,
+        placeholder: input.placeholder,
+        isRequired: input.isRequired,
+        isVisible: input.isVisible,
+      });
+    }
+  };
+
+  const archiveStd = (field: StandardFieldConfig) => {
+    if (window.confirm(`Lưu trữ trường “${field.label}”?`)) {
+      archiveStdField(field.key);
+    }
+  };
+
+  const deleteStd = (field: StandardFieldConfig) => {
+    if (window.confirm(`Xóa vĩnh viễn trường “${field.label}”?`)) {
+      deleteStdField(field.key);
+    }
+  };
+
+  const renderFieldActions = (fieldKey: string) => {
+    if (!manageable) return null;
+    const fieldConfig = stdFields.find(f => f.key === fieldKey);
+    if (!fieldConfig) return null;
+    return (
+      <div className="absolute right-0 top-0 z-10 flex items-center gap-1.5 text-[10px] font-semibold text-slate-400 opacity-60 hover:opacity-100 transition-opacity">
+        <button type="button" className="hover:text-cyan-600 transition-colors" onClick={() => openEditStdField(fieldConfig)}>Sửa</button>
+        <span>|</span>
+        <button type="button" className="hover:text-cyan-600 transition-colors" onClick={() => archiveStd(fieldConfig)}>Lưu trữ</button>
+        <span>|</span>
+        <button type="button" className="text-rose-500 hover:text-rose-600 transition-colors" onClick={() => deleteStd(fieldConfig)}>Xóa</button>
+      </div>
+    );
+  };
+
+  const isFieldVisible = (fieldKey: string) => {
+    const fieldConfig = stdFields.find(f => f.key === fieldKey);
+    return fieldConfig ? (fieldConfig.isVisible && !fieldConfig.isArchived) : true;
+  };
+  const getFieldLabel = (fieldKey: string, defaultLabel: string) => {
+    const fieldConfig = stdFields.find(f => f.key === fieldKey);
+    return fieldConfig ? fieldConfig.label : defaultLabel;
+  };
+  const getFieldPlaceholder = (fieldKey: string, defaultPlaceholder: string) => {
+    const fieldConfig = stdFields.find(f => f.key === fieldKey);
+    return fieldConfig ? fieldConfig.placeholder || defaultPlaceholder : defaultPlaceholder;
+  };
+  const isFieldRequired = (fieldKey: string, defaultRequired = false) => {
+    const fieldConfig = stdFields.find(f => f.key === fieldKey);
+    return fieldConfig ? fieldConfig.isRequired : defaultRequired;
+  };
   
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    name: string;
+    rank: string;
+    tentativeDate: string;
+    location: string;
+    customFields?: CustomFieldValues;
+  }>({
     name: '',
     rank: '',
     tentativeDate: '',
     location: '',
+    customFields: {},
   });
 
   const dateInputRef = React.useRef<HTMLInputElement>(null);
@@ -47,6 +136,7 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData }: AddExa
           rank: initialData.rank || '',
           tentativeDate: formattedDate,
           location: initialData.location || '',
+          customFields: initialData.customFields || {},
         });
       } else {
         setFormData({
@@ -54,6 +144,7 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData }: AddExa
           rank: '',
           tentativeDate: '',
           location: '',
+          customFields: {},
         });
       }
     }, 0);
@@ -64,22 +155,34 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData }: AddExa
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.tentativeDate || !formData.location) {
-      toast.warning('Vui lòng điền đầy đủ các trường bắt buộc (*)');
+    const missingFields: string[] = [];
+    stdFields.forEach((f) => {
+      if (f.isVisible && !f.isArchived && f.isRequired) {
+        if (f.key === 'name' && !formData.name) missingFields.push(f.label);
+        if (f.key === 'rank' && !formData.rank) missingFields.push(f.label);
+        if (f.key === 'tentativeDate' && !formData.tentativeDate) missingFields.push(f.label);
+        if (f.key === 'location' && !formData.location) missingFields.push(f.label);
+      }
+    });
+
+    if (missingFields.length > 0) {
+      toast.warning(`Vui lòng điền đầy đủ các trường bắt buộc: ${missingFields.join(', ')}`);
       return;
     }
 
     setIsSubmitting(true);
     try {
       const dateParts = formData.tentativeDate.split('-');
-      const formattedDate = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`;
+      const formattedDate = dateParts.length === 3 ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : formData.tentativeDate;
 
       if (initialData) {
         const updateData = {
+          expectedVersion: initialData.__v,
           name: formData.name,
           rank: formData.rank,
           tentativeDate: formattedDate,
           location: formData.location,
+          customFields: formData.customFields,
         };
 
         const res = await apiFetch(`/exams/${initialData.id}`, {
@@ -119,6 +222,7 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData }: AddExa
         rank: '',
         tentativeDate: '',
         location: '',
+        customFields: {},
       });
     } catch (error) {
       console.error('Error creating/updating exam:', error);
@@ -166,73 +270,121 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData }: AddExa
 
           <form className="p-5 overflow-y-auto space-y-4" onSubmit={handleSubmit}>
             <div className="space-y-3.5">
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider">
-                  Tên đợt thi <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                  required
-                  placeholder="Ví dụ: Đợt thi Ô tô - Tháng 3/2026"
-                  className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-brand-primary/5 focus:border-brand-primary transition-all"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
+              {isFieldVisible('name') && (
+                <div className="space-y-1 relative group/std">
+                  {renderFieldActions('name')}
                   <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider">
-                    Nhóm thi
+                    {getFieldLabel('name', 'Tên đợt thi')}{' '}
+                    {isFieldRequired('name', true) && <span className="text-rose-500">*</span>}
                   </label>
                   <input
                     type="text"
-                    name="rank"
-                    value={formData.rank}
+                    name="name"
+                    value={formData.name}
                     onChange={handleInputChange}
-                    placeholder="Nhập nhóm thi"
+                    required={isFieldRequired('name', true)}
+                    placeholder={getFieldPlaceholder('name', 'Ví dụ: Đợt thi Ô tô - Tháng 3/2026')}
                     className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-brand-primary/5 focus:border-brand-primary transition-all"
                   />
                 </div>
+              )}
 
-                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider">
-                    Ngày thi dự kiến <span className="text-rose-500">*</span>
-                  </label>
-                  <div className="relative">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {isFieldVisible('rank') && (
+                  <div className="space-y-1 relative group/std">
+                    {renderFieldActions('rank')}
+                    <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider">
+                      {getFieldLabel('rank', 'Nhóm thi')}{' '}
+                      {isFieldRequired('rank', false) && <span className="text-rose-500">*</span>}
+                    </label>
                     <input
-                      ref={dateInputRef}
-                      type="date"
-                      name="tentativeDate"
-                      value={localTentativeDate}
-                      onChange={(e) => {
-                        setLocalTentativeDate(e.target.value);
-                        handleInputChange(e);
-                      }}
-                      required
-                      className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-brand-primary/5 focus:border-brand-primary transition-all pr-10"
+                      type="text"
+                      name="rank"
+                      value={formData.rank}
+                      onChange={handleInputChange}
+                      required={isFieldRequired('rank', false)}
+                      placeholder={getFieldPlaceholder('rank', 'Nhập nhóm thi')}
+                      className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-brand-primary/5 focus:border-brand-primary transition-all"
                     />
-                    <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
                   </div>
-                </div>
+                )}
+
+                {isFieldVisible('tentativeDate') && (
+                  <div className="space-y-1 relative group/std">
+                    {renderFieldActions('tentativeDate')}
+                    <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider">
+                      {getFieldLabel('tentativeDate', 'Ngày thi dự kiến')}{' '}
+                      {isFieldRequired('tentativeDate', true) && <span className="text-rose-500">*</span>}
+                    </label>
+                    <div className="relative">
+                      <input
+                        ref={dateInputRef}
+                        type="date"
+                        name="tentativeDate"
+                        value={localTentativeDate}
+                        onChange={(e) => {
+                          setLocalTentativeDate(e.target.value);
+                          handleInputChange(e);
+                        }}
+                        required={isFieldRequired('tentativeDate', true)}
+                        className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-brand-primary/5 focus:border-brand-primary transition-all pr-10"
+                      />
+                      <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider">
-                  Địa điểm thi <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="location"
-                  value={formData.location}
-                  onChange={handleInputChange}
-                  required
-                  placeholder="Ví dụ: Trung tâm sát hạch quận 1"
-                  className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-brand-primary/5 focus:border-brand-primary transition-all"
-                />
-              </div>
+              {isFieldVisible('location') && (
+                <div className="space-y-1 relative group/std">
+                  {renderFieldActions('location')}
+                  <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider">
+                    {getFieldLabel('location', 'Địa điểm thi')}{' '}
+                    {isFieldRequired('location', true) && <span className="text-rose-500">*</span>}
+                  </label>
+                  <input
+                    type="text"
+                    name="location"
+                    value={formData.location}
+                    onChange={handleInputChange}
+                    required={isFieldRequired('location', true)}
+                    placeholder={getFieldPlaceholder('location', 'Ví dụ: Trung tâm sát hạch quận 1')}
+                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-brand-primary/5 focus:border-brand-primary transition-all"
+                  />
+                </div>
+              )}
             </div>
+
+            <CustomFieldsSection
+              moduleKey="exams"
+              values={formData.customFields}
+              onChange={(customFields) => setFormData((previous) => ({ ...previous, customFields }))}
+              mode={initialData ? 'edit' : 'create'}
+              disabled={isSubmitting}
+              tenantId={tenantId}
+            />
+
+            {manageable && archivedStdFields.length ? (
+              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-3 mt-4 text-left">
+                <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Trường mặc định đã lưu trữ</h4>
+                <ul className="mt-2 divide-y divide-slate-100">
+                  {archivedStdFields.map((field) => (
+                    <li key={field.key} className="flex items-center justify-between py-2 text-xs text-slate-600">
+                      <span>{field.label}</span>
+                      <button
+                        type="button"
+                        disabled={isSubmitting}
+                        className="font-bold text-cyan-600 hover:text-cyan-700 disabled:opacity-50 transition-colors cursor-pointer"
+                        aria-label={`Khôi phục ${field.label}`}
+                        onClick={() => restoreStdField(field.key)}
+                      >
+                        Khôi phục
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
 
             <div className="flex items-center justify-end gap-3 pt-3 mt-4 border-t border-slate-50 flex-shrink-0">
               <button
@@ -255,6 +407,15 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData }: AddExa
           </form>
         </motion.div>
       </div>
+
+      <CustomFieldEditorModal
+        open={stdEditorOpen}
+        moduleKey="exams"
+        initialField={editingStdField}
+        onClose={() => setStdEditorOpen(false)}
+        onSubmit={handleStdFieldSubmit}
+        isStandard={true}
+      />
     </AnimatePresence>
   );
 }

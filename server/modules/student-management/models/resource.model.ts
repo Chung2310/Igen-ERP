@@ -14,6 +14,7 @@ const bookingSchema = new Schema(
 
 const resourceSchema = new Schema<IResource>(
   {
+    customFields: { type: Schema.Types.Mixed, default: {} },
     name: { type: String, required: true, trim: true },
     type: {
       type: String,

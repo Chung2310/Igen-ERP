@@ -72,6 +72,7 @@ const installmentStatusSchema = new Schema({
 
 const studentSchema = new Schema<IStudent>(
   {
+    customFields: { type: Schema.Types.Mixed, default: {} },
     fullName: { type: String, required: true, trim: true },
     slug: { type: String, trim: true, index: true },
     email: { type: String, lowercase: true, trim: true },

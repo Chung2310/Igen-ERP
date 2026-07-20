@@ -1493,7 +1493,7 @@ export default function KanbanTab({
                       }`}
                   >
                     {vt === "By project" ? "Theo dự án" :
-                      vt === "Board" ? "Bảng Kanban" :
+                      vt === "Board" ? "Bảng công việc" :
                         vt === "By workflow" ? "Theo quy trình" : "Tất cả công việc"}
                   </button>
                 ))}

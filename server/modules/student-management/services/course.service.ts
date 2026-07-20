@@ -3,6 +3,13 @@ import { ICourse } from "../interfaces/course.interface";
 import { BatchService } from "./batch.service";
 import { logger } from "../config/logger";
 import { resolveOwnerFilter } from "../utils/auth.util";
+import { resolveCustomFieldTenantForOwner } from "../utils/custom-field.util";
+import {
+  customFieldWriteService,
+  CustomFieldWriteConflictError,
+  expectedVersionOf,
+  type CustomFieldWriteContext,
+} from "./custom-field-write.service";
 
 interface CourseFilters {
   page?: number | string;
@@ -32,13 +39,16 @@ function buildOwnerQuery(ownerId: string | string[]): Record<string, unknown> {
 }
 
 export class CourseService {
-  static async createCourse(ownerId: string, data: CourseData): Promise<ICourse> {
+  static customFieldWrites = customFieldWriteService;
+
+  static async createCourse(ownerId: string, data: CourseData, context: CustomFieldWriteContext): Promise<ICourse> {
     logger.info(`[Course] Creating course for ownerId=${ownerId}, code=${data.code}`);
-    const existing = await Course.findOne({ ownerId, code: String(data.code || "").toUpperCase() });
+    const writeData = await this.customFieldWrites.prepareCreate(context, data);
+    const existing = await Course.findOne({ ownerId, code: String(writeData.code || "").toUpperCase() });
     if (existing) {
       throw new Error(`Mã khóa học "${data.code}" đã tồn tại.`);
     }
-    const course = new Course({ ...data, fee: normalizeCourseFee(data.fee), ownerId });
+    const course = new Course({ ...writeData, fee: normalizeCourseFee(writeData.fee), ownerId });
     const saved = await course.save();
     logger.info(`[Course] Course created: id=${saved._id}, code=${saved.code}`);
     return saved;
@@ -84,17 +94,30 @@ export class CourseService {
     return { ...course.toObject(), activeBatches: activeCounts.get(String(course._id)) || 0 };
   }
 
-  static async updateCourse(ownerId: string | string[], id: string, data: CourseData): Promise<ICourse | null> {
+  static async updateCourse(
+    ownerId: string | string[],
+    id: string,
+    data: CourseData,
+    context: CustomFieldWriteContext,
+  ): Promise<ICourse | null> {
     logger.info(`[Course] Updating course: id=${id}`);
+    const query = { _id: id, ...buildOwnerQuery(ownerId) };
+    const existing = await Course.findOne(query);
+    if (!existing) return null;
+    const expectedVersion = expectedVersionOf(data);
+    const targetContext = context.actorRole === "superadmin" ? { ...context, tenantId: await resolveCustomFieldTenantForOwner(existing.ownerId) } : context;
+    const writeData = await this.customFieldWrites.prepareUpdate(targetContext, existing, data);
     const normalizedData = {
-      ...data,
-      ...(Object.prototype.hasOwnProperty.call(data, "fee") ? { fee: normalizeCourseFee(data.fee) } : {}),
+      ...writeData,
+      ...(Object.prototype.hasOwnProperty.call(writeData, "fee") ? { fee: normalizeCourseFee(writeData.fee) } : {}),
     };
-    return await Course.findOneAndUpdate(
-      { _id: id, ...buildOwnerQuery(ownerId) },
-      { $set: normalizedData },
+    const updated = await Course.findOneAndUpdate(
+      { ...query, ...(expectedVersion === undefined ? {} : { __v: expectedVersion }) },
+      { $set: normalizedData, $inc: { __v: 1 } },
       { new: true, runValidators: true }
     );
+    if (!updated) throw new CustomFieldWriteConflictError();
+    return updated;
   }
 
   static async deleteCourse(ownerId: string | string[], id: string): Promise<ICourse | null> {

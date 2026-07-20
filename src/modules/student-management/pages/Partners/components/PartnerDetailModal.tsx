@@ -5,6 +5,7 @@ import { formatVND, cn, getBankDisplayName } from '../../../lib/utils';
 import { AddPayoutModal } from './AddPayoutModal';
 import { Handshake, Phone, Mail, Landmark, FileText, Plus, Landmark as BankIcon, Users, CheckCircle } from 'lucide-react';
 import { Partner, PartnerPayout, PartnerReferredStudent } from '../../../types';
+import { CustomFieldDetails } from '../../../custom-fields/CustomFieldDetails';
 
 interface PartnerDetailModalProps {
   isOpen: boolean;
@@ -198,6 +199,9 @@ export function PartnerDetailModal({ isOpen, onClose, partnerId, onMutation }: P
                   ) : (
                     <p className="text-xs font-bold text-slate-400 italic">Chưa bổ sung tài khoản ngân hàng chi trả.</p>
                   )}
+                </div>
+                <div className="md:col-span-2">
+                  <CustomFieldDetails moduleKey="partners" values={partner.customFields || {}} />
                 </div>
               </div>
             )}

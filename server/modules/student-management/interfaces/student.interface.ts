@@ -1,4 +1,5 @@
 import { Document } from "mongoose";
+import type { CustomFieldValues } from "./custom-field.interface";
 
 export type StudentStatus = 'Chờ KSK' | 'Đã KSK' | 'Đã nộp HS' | 'Đang học' | 'Đang thi' | 'Đã đậu' | 'Thi lại' | 'Nghỉ học' | 'Nợ học phí';
 
@@ -58,6 +59,7 @@ export interface IStudentPayment {
 }
 
 export interface IStudent extends Document {
+  customFields?: CustomFieldValues;
   fullName: string;
   slug?: string;
   email?: string;

@@ -1,4 +1,5 @@
 import { Document } from "mongoose";
+import type { CustomFieldValues } from "./custom-field.interface";
 
 export interface IPayout {
   id: string;
@@ -9,6 +10,7 @@ export interface IPayout {
 }
 
 export interface IPartner extends Document {
+  customFields?: CustomFieldValues;
   name: string;
   phone: string;
   email?: string;

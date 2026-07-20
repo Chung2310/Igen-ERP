@@ -16,7 +16,7 @@ export type SettingsSubTabType =
 // (handleSearchNavigation) đều dùng chung để không bao giờ lệch nhau.
 export const HR_SUB_TAB_ROUTES: SubTabRouteMap<HRSubTabType> = [
   { slug: "so-do", value: "SƠ ĐỒ TỔ CHỨC" },
-  { slug: "kanban", value: "GIAO VIỆC KANBAN" },
+  { slug: "kanban", value: "Giao Việc" },
   { slug: "dao-tao", value: "ĐÀO TẠO" },
   { slug: "quy-trinh", value: "QUY TRÌNH" },
   { slug: "lich", value: "LỊCH" },

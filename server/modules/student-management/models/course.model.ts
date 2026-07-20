@@ -3,6 +3,7 @@ import { ICourse } from "../interfaces/course.interface";
 
 const courseSchema = new Schema<ICourse>(
   {
+    customFields: { type: Schema.Types.Mixed, default: {} },
     code: { type: String, required: true, trim: true, uppercase: true, index: true },
     title: { type: String, required: true, trim: true },
     category: {

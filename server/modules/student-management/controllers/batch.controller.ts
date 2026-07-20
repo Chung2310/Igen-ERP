@@ -2,6 +2,7 @@ import { Response, NextFunction } from "express";
 import { BatchService } from "../services/batch.service";
 import { AuthRequest } from "../middlewares/auth.middleware";
 import { getAllowedOwnerIds, resolveCreateOwnerId } from "../utils/auth.util";
+import { resolveCustomFieldTenantForOwner } from "../utils/custom-field.util";
 
 export class BatchController {
   static async create(req: AuthRequest, res: Response) {
@@ -10,7 +11,11 @@ export class BatchController {
         req.user!,
         typeof req.body.companyCode === "string" ? req.body.companyCode : undefined
       );
-      const batch = await BatchService.createBatch(ownerId, req.user!, req.body);
+      const batch = await BatchService.createBatch(ownerId, req.user!, req.body, {
+        tenantId: req.user!.role === "superadmin" ? await resolveCustomFieldTenantForOwner(ownerId) : (req.user!.companyCode || req.user!.centerId),
+        moduleKey: "batches",
+        actorRole: req.user!.role,
+      });
       res.status(201).json({ success: true, data: batch });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Lỗi không xác định.";
@@ -44,14 +49,21 @@ export class BatchController {
   static async update(req: AuthRequest, res: Response) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);
-      const batch = await BatchService.updateBatch(ownerId, req.user!, req.params.id, req.body);
+      const batch = await BatchService.updateBatch(ownerId, req.user!, req.params.id, req.body, {
+        tenantId: req.user!.companyCode || req.user!.centerId,
+        moduleKey: "batches",
+        actorRole: req.user!.role,
+      });
       if (!batch) {
         return res.status(404).json({ success: false, error: "Không tìm thấy lớp học để cập nhật." });
       }
       res.json({ success: true, data: batch });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Lỗi không xác định.";
-      res.status(400).json({ success: false, error: msg });
+      const status = typeof (error as { status?: unknown })?.status === "number"
+        ? (error as { status: number }).status
+        : 400;
+      res.status(status).json({ success: false, error: msg });
     }
   }
 

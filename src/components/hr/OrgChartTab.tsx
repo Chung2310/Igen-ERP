@@ -1151,6 +1151,100 @@ export default function OrgChartTab({
         </div>
       </div>
 
+      {/* Primary Sub Tab Layout View */}
+      <div className="flex-1 p-6 overflow-y-auto" id="hr_tab_content">
+        <div className="grid grid-cols-1 xl:grid-cols-4 gap-6 h-full min-h-[500px]" id="org_chart_block">
+          {/* Functional categories and operating instructions sidebar */}
+          <div className="xl:col-span-1 bg-white p-5 rounded-2xl border border-gray-200 flex flex-col justify-between h-full space-y-6" id="employee_detail_card">
+            <div className="space-y-4">
+              <h3 className="text-xs font-extrabold uppercase text-slate-400 tracking-wider font-mono">
+                MÀU SẮC CHỨC NĂNG
+              </h3>
+              <div className="space-y-2">
+                {FUNCTIONAL_CATEGORIES.map(cat => {
+                  const count = employees.filter(emp => getCategoryByDivision(emp.division).key === cat.key).length;
+                  return (
+                    <div key={cat.key} className="flex items-center justify-between p-2.5 bg-slate-50 hover:bg-slate-100 rounded-xl transition-all duration-200">
+                      <div className="flex items-center gap-2.5">
+                        <span className="w-3.5 h-3.5 rounded-full border border-white shadow-xs shrink-0" style={{ backgroundColor: cat.dot }} />
+                        <span className="text-xs font-bold text-slate-700">{cat.label}</span>
+                      </div>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white border border-gray-200 text-slate-600 min-w-[20px] text-center shadow-2xs font-mono">
+                        {count}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Interactive guidelines bottom banner */}
+            <div className="p-4 bg-indigo-50/70 border border-indigo-100 rounded-2xl space-y-2.5">
+              <div className="flex items-center gap-1.5 text-indigo-850 text-xs font-bold">
+                <span className="text-sm">💡</span>
+                <h4 className="uppercase tracking-wide font-sans text-indigo-900">HƯỚNG DẪN THAO TÁC</h4>
+              </div>
+              <ul className="text-[10px] text-indigo-700 space-y-2 font-medium leading-relaxed list-disc list-inside">
+                <li className="pl-0.5">Kéo thả chuột trái lên nền để di chuyển sơ đồ.</li>
+                <li className="pl-0.5">Sử dụng con lăn chuột hoặc thanh zoom để thu phóng.</li>
+                <li className="pl-0.5">Kéo thả thẻ nhân sự để thay đổi cấp quản lý.</li>
+                <li className="pl-0.5">Nhấp vào thẻ nhân sự để xem chi tiết / chỉnh sửa.</li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Interactive Tree viewport diagram */}
+          <div className="xl:col-span-3 bg-slate-50 border border-gray-250 rounded-2xl relative overflow-hidden flex flex-col min-h-[500px]" id="tree_viewport">
+            <div className="absolute top-4 left-4 bg-white/85 border px-2.5 py-1 rounded-full text-[10px] font-bold text-slate-500 select-none z-10 flex items-center gap-1 shadow-2xs">
+              <span>🖱️ Giữ chuột trái kéo để xem sơ đồ</span>
+            </div>
+
+            <div
+              ref={containerRef}
+              onMouseDown={handleMouseDown}
+              onMouseLeave={handleMouseLeaveOrUp}
+              onMouseUp={handleMouseLeaveOrUp}
+              onMouseMove={handleMouseMove}
+              onWheel={handleWheel}
+              className={`flex-1 overflow-auto p-12 flex items-start justify-start min-h-[440px] select-none ${isDragging ? "cursor-grabbing" : "cursor-grab"
+                }`}
+              id="interactive_org_chart"
+            >
+              <div
+                style={
+                  isSafari
+                    ? {
+                      transform: `scale(${zoomLevel})`,
+                      transformOrigin: "top center",
+                      transition: "transform 0.2s ease-out",
+                    }
+                    : {
+                      zoom: zoomLevel,
+                      transition: "zoom 0.2s ease-out",
+                    }
+                }
+                className="flex flex-col items-center mx-auto min-w-max"
+              >
+                {employees.length === 0 ? (
+                  <div className="text-center py-20 text-gray-400">
+                    <Users className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-sm font-bold">Chưa có cơ cấu nhân sự</p>
+                    <p className="text-xs mt-1">Vui lòng thêm thành viên mới đầu tiên</p>
+                  </div>
+                ) : (
+                  rootEmployees.map(root => renderBranch(root))
+                )}
+              </div>
+            </div>
+
+            {/* Chart footer notification guide */}
+            <div className="p-3 bg-white border-t border-gray-200 select-none text-center text-xs text-gray-400 font-medium">
+              💡 Nhấn chọn nhân sự để hiển thị liên kết vận hành Giao việc / Đào tạo của thành viên đó
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* EMPLOYEE DETAIL & EDIT MODAL */}
       {isDetailModalOpen && selectedEmp && (
         <div className="fixed inset-0 bg-black/55 backdrop-blur-2xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-200" id="employee_detail_modal">

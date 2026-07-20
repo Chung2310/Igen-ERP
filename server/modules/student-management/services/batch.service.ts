@@ -5,6 +5,13 @@ import { Student } from "../models/student.model";
 import { IBatch, IAttendanceSession, IAttendanceRecord } from "../interfaces/batch.interface";
 import { logger } from "../config/logger";
 import { resolveOwnerFilter } from "../utils/auth.util";
+import { resolveCustomFieldTenantForOwner } from "../utils/custom-field.util";
+import {
+  customFieldWriteService,
+  CustomFieldWriteConflictError,
+  expectedVersionOf,
+  type CustomFieldWriteContext,
+} from "./custom-field-write.service";
 import { EmailService, SmtpSettings } from "./email.service";
 
 interface BatchFilters {
@@ -195,22 +202,30 @@ async function notifyInstructorAssigned(ownerId: string, instructorId: string, b
 }
 
 export class BatchService {
-  static async createBatch(ownerId: string, actor: BatchActor, data: BatchData): Promise<EnrichedBatch> {
+  static customFieldWrites = customFieldWriteService;
+
+  static async createBatch(
+    ownerId: string,
+    actor: BatchActor,
+    data: BatchData,
+    context?: CustomFieldWriteContext,
+  ): Promise<EnrichedBatch> {
     logger.info(`[Batch] Creating batch for ownerId=${ownerId}, code=${data.code}`);
-    const existing = await Batch.findOne({ ownerId, code: String(data.code || "").toUpperCase() });
+    const writeData = context ? await this.customFieldWrites.prepareCreate(context, data) : data;
+    const existing = await Batch.findOne({ ownerId, code: String(writeData.code || "").toUpperCase() });
     if (existing) {
       throw new Error(`Mã lớp "${data.code}" đã tồn tại.`);
     }
-    assertScheduleValid(data);
+    assertScheduleValid(writeData);
 
-    const course = await Course.findOne({ _id: data.courseId, ownerId });
+    const course = await Course.findOne({ _id: writeData.courseId, ownerId });
     if (!course) {
       throw new Error("Không tìm thấy khóa học của lớp.");
     }
 
-    await assertInstructorAssignable(actor, data.instructorId);
+    await assertInstructorAssignable(actor, writeData.instructorId);
 
-    const batch = new Batch({ ...data, ownerId });
+    const batch = new Batch({ ...writeData, ownerId });
     const saved = await batch.save();
     logger.info(`[Batch] Batch created: id=${saved._id}, code=${saved.code}`);
     const enriched = (await enrichBatches([saved]))[0];
@@ -260,40 +275,55 @@ export class BatchService {
     ownerId: string | string[],
     actor: BatchActor,
     id: string,
-    data: BatchData
+    data: BatchData,
+    context?: CustomFieldWriteContext,
   ): Promise<EnrichedBatch | null> {
     logger.info(`[Batch] Updating batch: id=${id}`);
     const batch = await Batch.findOne({ _id: id, ...buildOwnerQuery(ownerId) });
     if (!batch) return null;
+    const expectedVersion = expectedVersionOf(data);
+    const targetContext = context?.actorRole === "superadmin" ? { ...context, tenantId: await resolveCustomFieldTenantForOwner(batch.ownerId) } : context;
+    const writeData = targetContext ? await this.customFieldWrites.prepareUpdate(targetContext, batch, data) : data;
 
-    if (data.code && String(data.code).toUpperCase() !== batch.code) {
-      const dup = await Batch.findOne({ ownerId: batch.ownerId, code: String(data.code).toUpperCase() });
+    if (writeData.code && String(writeData.code).toUpperCase() !== batch.code) {
+      const dup = await Batch.findOne({ ownerId: batch.ownerId, code: String(writeData.code).toUpperCase() });
       if (dup) {
         throw new Error(`Mã lớp "${data.code}" đã tồn tại.`);
       }
     }
 
     assertScheduleValid({
-      startTime: data.startTime ?? batch.startTime,
-      endTime: data.endTime ?? batch.endTime,
-      startDate: data.startDate ?? batch.startDate,
-      endDate: data.endDate ?? batch.endDate,
+      startTime: writeData.startTime ?? batch.startTime,
+      endTime: writeData.endTime ?? batch.endTime,
+      startDate: writeData.startDate ?? batch.startDate,
+      endDate: writeData.endDate ?? batch.endDate,
     });
 
-    if (data.courseId && data.courseId !== batch.courseId) {
-      const course = await Course.findOne({ _id: data.courseId, ownerId: batch.ownerId });
+    if (writeData.courseId && writeData.courseId !== batch.courseId) {
+      const course = await Course.findOne({ _id: writeData.courseId, ownerId: batch.ownerId });
       if (!course) {
         throw new Error("Không tìm thấy khóa học của lớp.");
       }
     }
 
-    if (data.instructorId && data.instructorId !== batch.instructorId) {
-      await assertInstructorAssignable(actor, data.instructorId);
+    if (writeData.instructorId && writeData.instructorId !== batch.instructorId) {
+      await assertInstructorAssignable(actor, writeData.instructorId);
     }
 
     const previousInstructorId = batch.instructorId;
-    batch.set(data);
-    const saved = await batch.save();
+    let saved: IBatch;
+    if (context) {
+      const updated = await Batch.findOneAndUpdate(
+        { _id: id, ...buildOwnerQuery(ownerId), ...(expectedVersion === undefined ? {} : { __v: expectedVersion }) },
+        { $set: writeData, $inc: { __v: 1 } },
+        { new: true, runValidators: true },
+      );
+      if (!updated) throw new CustomFieldWriteConflictError();
+      saved = updated;
+    } else {
+      batch.set(writeData);
+      saved = await batch.save();
+    }
     const enriched = (await enrichBatches([saved]))[0];
 
     // Thông báo cho giáo viên khi được phân công vào lớp (mới gán hoặc đổi giáo viên).
