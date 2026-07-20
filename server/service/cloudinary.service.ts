@@ -12,6 +12,14 @@ function ensureConfigured() {
   isConfigured = true;
 }
 
+export interface PrivateImageAsset {
+  publicId: string;
+  resourceType: string;
+  type: string;
+  format: string;
+  bytes: number;
+}
+
 export const cloudinaryService = {
   /**
    * Tải tệp tin (Base64 hoặc URL công khai) lên Cloudinary
@@ -78,6 +86,71 @@ export const cloudinaryService = {
       );
       uploadStream.write(buffer);
       uploadStream.end();
+    });
+  },
+
+  async uploadPrivateImage(buffer: Buffer, folder: string): Promise<PrivateImageAsset> {
+    if (
+      !process.env.CLOUDINARY_CLOUD_NAME ||
+      !process.env.CLOUDINARY_API_KEY ||
+      !process.env.CLOUDINARY_API_SECRET
+    ) {
+      throw new Error("Cloudinary configuration is incomplete");
+    }
+    ensureConfigured();
+
+    return new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: folder || "igen_erp/attendance/evidence",
+          resource_type: "image",
+          type: "authenticated",
+        },
+        (error, result) => {
+          if (error) {
+            reject(new Error(`Private Cloudinary upload failed: ${error.message || error}`));
+            return;
+          }
+          if (
+            !result ||
+            !result.public_id ||
+            !result.resource_type ||
+            !result.type ||
+            !result.format ||
+            typeof result.bytes !== "number"
+          ) {
+            reject(new Error("Cloudinary returned incomplete private asset metadata"));
+            return;
+          }
+          resolve({
+            publicId: result.public_id,
+            resourceType: result.resource_type,
+            type: result.type,
+            format: result.format,
+            bytes: result.bytes,
+          });
+        },
+      );
+      uploadStream.end(buffer);
+    });
+  },
+
+  createSignedImageUrl(publicId: string, expiresAt: Date): string {
+    return cloudinary.url(publicId, {
+      resource_type: "image",
+      type: "authenticated",
+      secure: true,
+      sign_url: true,
+      expires_at: Math.floor(expiresAt.getTime() / 1000),
+    });
+  },
+
+  async deleteAsset(publicId: string): Promise<void> {
+    ensureConfigured();
+    await cloudinary.uploader.destroy(publicId, {
+      resource_type: "image",
+      type: "authenticated",
+      invalidate: true,
     });
   },
 };

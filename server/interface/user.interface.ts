@@ -81,7 +81,17 @@ export interface IGoogleDriveIntegration {
   connectedAt?: Date;
 }
 
+export interface IWorkHoursConfig {
+  useCustom: boolean;
+  checkInLimit?: string;
+  checkOutLimit?: string;
+  lunchBreakStart?: string;
+  lunchBreakEnd?: string;
+  workingDays?: number[];
+}
+
 export interface IUser extends Document {
+  workHoursConfig?: IWorkHoursConfig;
   email: string;
   password?: string; // Hashed password
   displayName: string;

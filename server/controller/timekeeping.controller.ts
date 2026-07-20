@@ -2,6 +2,7 @@ import { Response } from "express";
 import { AuthenticatedRequest } from "../middleware/auth";
 import { CompanyModel } from "../model/company.model";
 import { TimekeepingLogModel } from "../model/timekeeping.model";
+import { UserModel } from "../model/user.model";
 
 // Haversine formula to compute distance in meters
 function calculateHaversineDistance(
@@ -171,10 +172,12 @@ export const timekeepingController = {
       }
 
       const now = new Date();
-      const checkInLimitStr = company?.locationConfig?.checkInLimit || "08:30";
-      const lunchBreakStartStr = company?.locationConfig?.lunchBreakStart || "12:00";
-      const lunchBreakEndStr = company?.locationConfig?.lunchBreakEnd || "13:00";
-      const checkOutLimitStr = company?.locationConfig?.checkOutLimit || "17:30";
+      const me = await UserModel.findById(uid).select("workHoursConfig").lean();
+      const custom = me?.workHoursConfig?.useCustom ? me.workHoursConfig : undefined;
+      const checkInLimitStr = custom?.checkInLimit || company?.locationConfig?.checkInLimit || "08:30";
+      const lunchBreakStartStr = custom?.lunchBreakStart || company?.locationConfig?.lunchBreakStart || "12:00";
+      const lunchBreakEndStr = custom?.lunchBreakEnd || company?.locationConfig?.lunchBreakEnd || "13:00";
+      const checkOutLimitStr = custom?.checkOutLimit || company?.locationConfig?.checkOutLimit || "17:30";
 
       const status = calculateAttendanceStatus(now, null, {
         checkInLimit: checkInLimitStr,
@@ -282,10 +285,12 @@ export const timekeepingController = {
         ipAddress,
       };
 
-      const checkInLimitStr = company?.locationConfig?.checkInLimit || "08:30";
-      const lunchBreakStartStr = company?.locationConfig?.lunchBreakStart || "12:00";
-      const lunchBreakEndStr = company?.locationConfig?.lunchBreakEnd || "13:00";
-      const checkOutLimitStr = company?.locationConfig?.checkOutLimit || "17:30";
+      const me = await UserModel.findById(uid).select("workHoursConfig").lean();
+      const custom = me?.workHoursConfig?.useCustom ? me.workHoursConfig : undefined;
+      const checkInLimitStr = custom?.checkInLimit || company?.locationConfig?.checkInLimit || "08:30";
+      const lunchBreakStartStr = custom?.lunchBreakStart || company?.locationConfig?.lunchBreakStart || "12:00";
+      const lunchBreakEndStr = custom?.lunchBreakEnd || company?.locationConfig?.lunchBreakEnd || "13:00";
+      const checkOutLimitStr = custom?.checkOutLimit || company?.locationConfig?.checkOutLimit || "17:30";
 
       log.status = calculateAttendanceStatus(log.checkIn.time, checkOutTime, {
         checkInLimit: checkInLimitStr,
@@ -399,6 +404,95 @@ export const timekeepingController = {
       return res.status(500).json({
         status: "error",
         message: "Lỗi hệ thống khi cập nhật vị trí công ty.",
+        details: error.message,
+      });
+    }
+  },
+
+  /**
+   * GET /api/v1/timekeeping/work-hours
+   */
+  async listEmployeeWorkHours(req: AuthenticatedRequest, res: Response) {
+    try {
+      const companyCode = req.user?.companyCode || "SYSTEM";
+      const userRole = req.user?.role || "user";
+
+      if (userRole !== "superadmin" && userRole !== "admin") {
+        return res.status(403).json({
+          status: "error",
+          message: "Bạn không có quyền xem giờ làm việc của nhân viên.",
+        });
+      }
+
+      const users = await UserModel.find({ companyCode })
+        .select("_id fullName email role workHoursConfig")
+        .lean();
+
+      return res.status(200).json({ status: "success", data: users });
+    } catch (error: any) {
+      console.error("[timekeepingController.listEmployeeWorkHours] Error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Lỗi hệ thống khi lấy giờ làm việc nhân viên.",
+        details: error.message,
+      });
+    }
+  },
+
+  /**
+   * PATCH /api/v1/timekeeping/work-hours/:uid
+   */
+  async updateEmployeeWorkHours(req: AuthenticatedRequest, res: Response) {
+    try {
+      const companyCode = req.user?.companyCode || "SYSTEM";
+      const userRole = req.user?.role || "user";
+
+      if (userRole !== "superadmin" && userRole !== "admin") {
+        return res.status(403).json({
+          status: "error",
+          message: "Bạn không có quyền thay đổi giờ làm việc của nhân viên.",
+        });
+      }
+
+      const { uid } = req.params;
+      const { useCustom, checkInLimit, checkOutLimit, lunchBreakStart, lunchBreakEnd, workingDays } = req.body;
+
+      const updatedUser = await UserModel.findOneAndUpdate(
+        { _id: uid, companyCode },
+        {
+          $set: {
+            workHoursConfig: {
+              useCustom: !!useCustom,
+              checkInLimit: checkInLimit || "08:30",
+              checkOutLimit: checkOutLimit || "17:30",
+              lunchBreakStart: lunchBreakStart || "12:00",
+              lunchBreakEnd: lunchBreakEnd || "13:00",
+              workingDays: workingDays || [1, 2, 3, 4, 5],
+            },
+          },
+        },
+        { new: true }
+      )
+        .select("_id fullName email role workHoursConfig")
+        .lean();
+
+      if (!updatedUser) {
+        return res.status(404).json({
+          status: "error",
+          message: "Không tìm thấy nhân viên cần cập nhật.",
+        });
+      }
+
+      return res.status(200).json({
+        status: "success",
+        message: "Cập nhật giờ làm việc nhân viên thành công!",
+        data: updatedUser,
+      });
+    } catch (error: any) {
+      console.error("[timekeepingController.updateEmployeeWorkHours] Error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Lỗi hệ thống khi cập nhật giờ làm việc nhân viên.",
         details: error.message,
       });
     }

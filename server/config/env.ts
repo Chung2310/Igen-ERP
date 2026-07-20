@@ -46,3 +46,20 @@ export function assertSecurityEnv(): void {
   getSuperAdminEncryptionKey();
   getDeploymentEnv();
 }
+
+export interface InsightFaceConfig {
+  baseUrl: string;
+  apiKey: string;
+  timeoutMs: number;
+}
+
+export function getInsightFaceConfig(): InsightFaceConfig {
+  const baseUrl = (process.env.INSIGHTFACE_URL || "").trim().replace(/\/$/, "");
+  const apiKey = (process.env.INSIGHTFACE_API_KEY || "").trim();
+  if (!baseUrl || !apiKey) {
+    throw new Error("INSIGHTFACE_URL and INSIGHTFACE_API_KEY must be configured");
+  }
+  const parsedTimeout = Number(process.env.INSIGHTFACE_TIMEOUT_MS || "10000");
+  const timeoutMs = Number.isFinite(parsedTimeout) && parsedTimeout > 0 ? parsedTimeout : 10000;
+  return { baseUrl, apiKey, timeoutMs };
+}
