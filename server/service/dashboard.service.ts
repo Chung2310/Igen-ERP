@@ -13,11 +13,13 @@ import { Payment } from "../modules/student-management/models/payment.model";
 import { Course } from "../modules/student-management/models/course.model";
 import { Batch } from "../modules/student-management/models/batch.model";
 import { getAllowedOwnerIds } from "../modules/student-management/utils/auth.util";
+import { resolveDashboardModuleAccess } from "./dashboard-module-access";
 
 export interface DashboardUser {
   id: string;
   role: string;
   companyCode?: string;
+  enabledModules?: string[];
 }
 
 export interface DashboardRange {
@@ -209,14 +211,23 @@ export const dashboardService = {
    */
   async getSummary(user: DashboardUser, range: DashboardRange) {
     const companyQ = buildCompanyQuery(user);
+    const access = resolveDashboardModuleAccess(user);
 
     const [projects, students, timekeeping, chat, resources, training] = await Promise.all([
-      getProjectStats(companyQ),
-      getStudentStats(user, range),
-      getTimekeepingStats(user),
-      getChatStats(user),
-      getResourceStats(companyQ, range),
-      getTrainingStats(companyQ),
+      access.hr
+        ? getProjectStats(companyQ)
+        : Promise.resolve({ activeProjects: 0, tasks: { todo: 0, doing: 0, done: 0, total: 0 }, overdueTasks: 0 }),
+      access.student
+        ? getStudentStats(user, range)
+        : Promise.resolve({ totalStudents: 0, newStudents: 0, tuitionRevenue: 0, paymentCount: 0, outstandingDebt: 0, activeCourses: 0, activeBatches: 0 }),
+      access.hr
+        ? getTimekeepingStats(user)
+        : Promise.resolve({ checkedInToday: 0, lateToday: 0, totalEmployees: 0, date: getLocalDateString() }),
+      access.chat ? getChatStats(user) : Promise.resolve({ unreadMessages: 0, roomCount: 0 }),
+      access.resource ? getResourceStats(companyQ, range) : Promise.resolve({ fileCount: 0, recentUploads: 0, totalSize: 0 }),
+      access.hr
+        ? getTrainingStats(companyQ)
+        : Promise.resolve({ totalCourses: 0, ongoingCourses: 0, enrollments: { notStarted: 0, inProgress: 0, completed: 0, total: 0 } }),
     ]);
 
     return {

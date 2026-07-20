@@ -96,6 +96,7 @@ const studentSchema = new Schema<IStudent>(
       index: true,
     },
     ownerId: { type: String, required: true, index: true },
+    centerId: { type: String, default: "", trim: true, index: true },
     healthCheckDate: { type: String, default: "" },
     healthCheckNotes: { type: String, default: "" },
     healthCheckFiles: [uploadedFileSchema],

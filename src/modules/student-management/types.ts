@@ -194,6 +194,18 @@ export type ManagedUser = {
 
 export type BatchStatus = 'Sắp khai giảng' | 'Đang học' | 'Đã kết thúc';
 
+export interface AttendanceRecord {
+  studentId: string;
+  status: 'present' | 'absent' | 'excused';
+}
+
+export interface AttendanceSession {
+  _id: string;
+  date: string;
+  note?: string;
+  records: AttendanceRecord[];
+}
+
 export interface Batch {
   id: string;
   code: string;
@@ -208,6 +220,7 @@ export interface Batch {
   endDate: string;      // YYYY-MM-DD
   status: BatchStatus;
   ownerId: string;
+  attendanceSessions?: AttendanceSession[];
   // Thông tin server gắn kèm để hiển thị
   courseCode: string;
   courseTitle: string;

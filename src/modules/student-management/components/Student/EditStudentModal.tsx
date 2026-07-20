@@ -21,6 +21,7 @@ interface EditStudentModalProps {
   onClose: () => void;
   onSuccess: () => void;
   students: Student[];
+  selectedCenter?: string;
 }
 
 export function EditStudentModal({ student, isOpen, onClose, onSuccess, students }: EditStudentModalProps) {

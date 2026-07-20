@@ -1,4 +1,5 @@
 import { UserProfile, CompanyProfile, TelegramLinkStatus } from "../types";
+import { getSuperAdminDeviceId } from "./superAdminRequest";
 
 // Helper để lấy token từ localStorage
 export function getAccessToken(): string | null {
@@ -31,6 +32,7 @@ export const authService = {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "x-device-id": getSuperAdminDeviceId(),
       },
       body: JSON.stringify({ email, password }),
     });
@@ -240,7 +242,7 @@ export const authService = {
     }));
   },
 
-  async updateCompany(companyId: string, updateData: { name?: string; code?: string; ownerEmail?: string }): Promise<CompanyProfile> {
+  async updateCompany(companyId: string, updateData: { name?: string; code?: string; ownerEmail?: string; enabledModules?: string[] }): Promise<CompanyProfile> {
     const res = await fetch(`/api/v1/auth/companies/${companyId}`, {
       method: "PATCH",
       headers: {
@@ -317,7 +319,8 @@ export const authService = {
     companyCode: string,
     ownerName: string,
     ownerEmail: string,
-    ownerPassword: string
+    ownerPassword: string,
+    enabledModules: string[]
   ): Promise<void> {
     const res = await fetch("/api/v1/auth/register-company", {
       method: "POST",
@@ -331,6 +334,7 @@ export const authService = {
         ownerName,
         ownerEmail,
         ownerPassword,
+        enabledModules,
       }),
     });
 

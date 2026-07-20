@@ -5,6 +5,7 @@ import { CustomFieldDetails } from '../../../custom-fields/CustomFieldDetails';
 
 interface ProfileTabProps {
   student: Student;
+  selectedCenter?: string;
 }
 
 export function ProfileTab({ student }: ProfileTabProps) {

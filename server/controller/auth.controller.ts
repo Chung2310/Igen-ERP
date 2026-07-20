@@ -4,6 +4,8 @@ import { AuthenticatedRequest } from "../middleware/auth";
 import { UserModel } from "../model/user.model";
 import { googleOAuthService } from "../service/google-oauth.service";
 import { getSuperAdminRequestMetadata } from "../security/super-admin-request-context";
+import { CompanyModel } from "../model/company.model";
+import { resolveProfileEnabledModules } from "../service/auth-profile-modules";
 
 /** Redirect URI cho OAuth Google Drive (khớp Google Cloud Console). */
 function buildDriveRedirectUri(req: Request): string {
@@ -175,9 +177,15 @@ export const authController = {
       }
 
       // console.log(`[Auth getMe] Trả về profile cho user ${user.email}. FBConnected=${user.facebookIntegration?.isConnected}, FBPageId=${user.facebookIntegration?.pageId}`);
+      const userObj = user.toObject();
+      const company = userObj.companyCode && userObj.companyCode !== "SYSTEM"
+        ? await CompanyModel.findOne({ code: userObj.companyCode }).select("enabledModules").lean()
+        : null;
+      userObj.enabledModules = resolveProfileEnabledModules(company?.enabledModules);
+
       return res.status(200).json({
         status: "success",
-        user,
+        user: userObj,
       });
     } catch (error: any) {
       console.error("[Auth getMe] Error:", error);

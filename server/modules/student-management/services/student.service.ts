@@ -3,6 +3,7 @@ import { logger } from "../config/logger";
 import { IStudent, StudentStatus } from "../interfaces/student.interface";
 import { Student, slugify } from "../models/student.model";
 import { Payment } from "../models/payment.model";
+import { Batch } from "../models/batch.model";
 import { resolveOwnerFilter } from "../utils/auth.util";
 import { resolveCustomFieldTenantForOwner } from "../utils/custom-field.util";
 import {
@@ -79,7 +80,6 @@ async function ensureUniqueFieldsInScope(
   data: StudentUpdateData,
   excludeId?: string
 ) {
-  const userId = Array.isArray(ownerScope) ? ownerScope[0] : ownerScope;
   const isDriving = false;
 
   const checks: Array<{ field: "email" | "phone" | "idCard"; value: string; message: string }> = [
@@ -307,10 +307,39 @@ export class StudentService {
     const deletedStudent = await Student.findOneAndDelete(query);
     if (deletedStudent) {
       logger.info(`[Student] Student deleted successfully: id=${id}`);
+      try {
+        await Payment.deleteMany({ studentId: id });
+        await Batch.updateMany({ learnerIds: id }, { $pull: { learnerIds: id } });
+      } catch (err) {
+        logger.error(`[Student] Failed to clean up associated records for deleted student: %o`, err);
+      }
     } else {
       logger.warn(`[Student] Student delete failed/not found: id=${id}, ownerId=${ownerId}`);
     }
     return deletedStudent;
+  }
+
+  static async bulkDeleteStudents(ownerId: string | string[], ids: string[]): Promise<number> {
+    const validIds = ids.filter(id => Types.ObjectId.isValid(id));
+    if (validIds.length === 0) return 0;
+
+    const query: Record<string, unknown> = {
+      _id: { $in: validIds },
+      ...buildOwnerScopeQuery(ownerId),
+    };
+    const studentsToDelete = await Student.find(query).select("_id");
+    const resolvedIds = studentsToDelete.map(s => s._id.toString());
+    if (resolvedIds.length === 0) return 0;
+
+    try {
+      await Payment.deleteMany({ studentId: { $in: resolvedIds } });
+      await Batch.updateMany({ learnerIds: { $in: resolvedIds } }, { $pull: { learnerIds: { $in: resolvedIds } } });
+    } catch (err) {
+      logger.error(`[Student] Failed to clean up associated records for bulk deleted students: %o`, err);
+    }
+
+    const result = await Student.deleteMany({ _id: { $in: resolvedIds } });
+    return result.deletedCount || 0;
   }
 
   static async bulkCreateStudents(creatorId: string, ownerId: string | string[], studentsData: BulkStudentInput[], targetOwnerId?: string) {

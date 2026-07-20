@@ -17,7 +17,6 @@ import { apiFetch } from '../../lib/api';
 import { EditStudentModal } from '../../components/Student/EditStudentModal';
 import { ImportStudentModal } from '../../components/Student/ImportStudentModal';
 import { Pagination } from '../../components/ui/Pagination';
-import { useAuth } from '../../../../context/AuthContext';
 import * as XLSX from 'xlsx';
 
 interface StudentsPageProps {
@@ -42,7 +41,6 @@ function categoryIcon(name: string): React.ComponentType<{ className?: string }>
 }
 
 export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: StudentsPageProps) {
-  const { userProfile: user } = useAuth();
   const resolvedCenter = selectedCenter === 'all' ? undefined : selectedCenter;
   const { students, loading } = useStudents(resolvedCenter);
   const { batches } = useBatches();
@@ -54,7 +52,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
   const [searchQuery, setSearchQuery] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [rankFilter, setRankFilter] = useState('Tất cả hạng');
+  const [rankFilter] = useState('Tất cả hạng');
   const [feeStatusFilter, setFeeStatusFilter] = useState('Tất cả học phí');
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 5;
@@ -62,6 +60,8 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [isImportOpen, setIsImportOpen] = useState(false);
+  const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
   // Nếu phân loại đang chọn bị xóa khỏi danh mục thì quay về "Tất cả"
   React.useEffect(() => {
@@ -107,10 +107,6 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
 
   // Hạng bằng là dữ liệu riêng ngành lái xe — chỉ hiện filter/cột khi còn học viên có hạng
   const hasRankData = useMemo(() => students.some(s => s.rank), [students]);
-  const rankOptions = useMemo(() => {
-    const ranks = [...new Set(students.map(s => s.rank).filter(Boolean))] as string[];
-    return ['Tất cả hạng', ...ranks.sort()];
-  }, [students]);
 
   const filteredStudents = students.filter(student => {
     // 1. Category Filter (theo phân loại khóa học của lớp học viên đang tham gia)
@@ -131,7 +127,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
       };
       const dbStatus = statusMap[selectedStatus] || selectedStatus;
       const studentStatuses = Array.isArray(student.status) ? student.status : [student.status];
-      const hasMatch = studentStatuses.includes(dbStatus);
+      const hasMatch = (studentStatuses as string[]).includes(dbStatus);
       if (!hasMatch) return false;
     }
 
@@ -211,6 +207,28 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
     return map[status] || 'bg-slate-100 text-slate-700 border-slate-200';
   };
 
+  const handleBulkDelete = async () => {
+    if (selectedStudentIds.length === 0) return;
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa ${selectedStudentIds.length} học viên đã chọn? Hành động này sẽ dọn dẹp các lớp học và hóa đơn liên quan và không thể hoàn tác.`)) {
+      return;
+    }
+    setIsBulkDeleting(true);
+    try {
+      await apiFetch('/students/bulk-delete', {
+        method: 'POST',
+        body: JSON.stringify({ studentIds: selectedStudentIds }),
+      });
+      toast.success('Đã xóa hàng loạt học viên thành công!');
+      setSelectedStudentIds([]);
+      window.dispatchEvent(new Event("student-mutation"));
+    } catch (error) {
+      console.error("Error bulk deleting students:", error);
+      toast.error('Có lỗi xảy ra khi xóa hàng loạt học viên.');
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
+
   const handleDelete = async (student: Student) => {
     setIsDeleting(student.id);
     try {
@@ -230,10 +248,6 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
       toast.warning('Không có dữ liệu để xuất.');
       return;
     }
-
-    let headers: string[];
-    let getRowData: (student: Student) => (string | number)[];
-    let cols: { wch: number }[];
 
     const commonHeadersAfter = [
       'Học phí', 'Đã đóng', 'Còn nợ',
@@ -273,15 +287,15 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
       ];
     };
 
-    headers = ['Họ và tên', 'Số điện thoại', ...commonHeadersAfter];
-    getRowData = (student: Student) => {
+    const headers = ['Họ và tên', 'Số điện thoại', ...commonHeadersAfter];
+    const getRowData = (student: Student) => {
       return [
         student.fullName,
         student.phone,
         ...getCommonRowDataAfter(student)
       ];
     };
-    cols = [
+    const cols = [
       { wch: 20 }, { wch: 15 },
       { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 18 }, { wch: 18 },
       { wch: 12 }, { wch: 18 }, { wch: 22 }, { wch: 18 }, { wch: 35 }, { wch: 16 },
@@ -388,6 +402,15 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
           <p className="text-slate-400 text-[11px] font-medium mt-0.5">{loading ? '...' : `${filteredStudents.length} / ${students.length}`} học viên</p>
         </div>
         <div className="flex items-center gap-1.5">
+          {selectedStudentIds.length > 0 && (
+            <button
+              onClick={handleBulkDelete}
+              disabled={isBulkDeleting}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[11px] font-bold transition-all cursor-pointer shadow-sm disabled:opacity-50"
+            >
+              <Trash2 className="w-3.5 h-3.5" /> Xóa hàng loạt ({selectedStudentIds.length})
+            </button>
+          )}
           <button
             onClick={handleExport}
             className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-[11px] font-bold text-slate-600 hover:bg-slate-50 transition-all cursor-pointer shadow-sm"
@@ -545,7 +568,22 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100">
                 <th className="px-3 py-2 w-8 no-print">
-                  <input type="checkbox" className="w-3.5 h-3.5 rounded border-slate-300 text-cyan-600 focus:ring-cyan-600" />
+                  <input
+                    type="checkbox"
+                    checked={paginatedStudents.length > 0 && paginatedStudents.every(s => selectedStudentIds.includes(s.id))}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        const newIds = [...selectedStudentIds];
+                        paginatedStudents.forEach(s => {
+                          if (!newIds.includes(s.id)) newIds.push(s.id);
+                        });
+                        setSelectedStudentIds(newIds);
+                      } else {
+                        setSelectedStudentIds(selectedStudentIds.filter(id => !paginatedStudents.some(s => s.id === id)));
+                      }
+                    }}
+                    className="w-3.5 h-3.5 rounded border-slate-300 text-cyan-600 focus:ring-cyan-600 cursor-pointer"
+                  />
                 </th>
                 <th className="px-3 py-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Họ và tên</th>
                 <th className="px-3 py-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-center">Ngày ĐK</th>
@@ -562,7 +600,18 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
               ) : paginatedStudents.map((student) => (
                 <tr key={student.id} className="hover:bg-slate-50/50 transition-colors group">
                   <td className="px-3 py-1.5 no-print">
-                    <input type="checkbox" className="w-3.5 h-3.5 rounded border-slate-300 text-cyan-600 focus:ring-cyan-600" />
+                    <input
+                      type="checkbox"
+                      checked={selectedStudentIds.includes(student.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedStudentIds([...selectedStudentIds, student.id]);
+                        } else {
+                          setSelectedStudentIds(selectedStudentIds.filter(id => id !== student.id));
+                        }
+                      }}
+                      className="w-3.5 h-3.5 rounded border-slate-300 text-cyan-600 focus:ring-cyan-600 cursor-pointer"
+                    />
                   </td>
                   <td className="px-3 py-1.5">
                     <div className="flex flex-col">
@@ -722,6 +771,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter }: 
       {/* Edit Student Modal */}
       <EditStudentModal
         student={editingStudent}
+        selectedCenter={selectedCenter}
         isOpen={!!editingStudent}
         onClose={() => setEditingStudent(null)}
         onSuccess={() => setEditingStudent(null)}

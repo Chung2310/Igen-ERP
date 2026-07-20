@@ -10,6 +10,7 @@ import { ddosConfig } from "./config/ddos";
 import { getRateLimitRedisClient } from "./infrastructure/rate-limit-redis";
 import { RedisSocketProtectionCounter, SocketProtection } from "./socket-protection";
 import { getTrustedSocketClientIp } from "./socket-client-ip";
+import { getEnabledModulesForCompany, resolveModuleAccess } from "./middleware/require-module";
 
 let io: SocketIOServer | null = null;
 let lastSocketLimiterWarningAt = 0;
@@ -249,8 +250,20 @@ export async function initSocketServer(httpServer: HTTPServer) {
 
 
     // Lắng nghe sự kiện tham gia phòng chat thủ công
-    socket.on("join_chat_room", (data: { roomId: string }) => {
+    socket.on("join_chat_room", async (data: { roomId: string }) => {
       if (!data?.roomId || !user?._id) return;
+      try {
+        const modules = user.companyCode
+          ? await getEnabledModulesForCompany(user.companyCode)
+          : undefined;
+        if (!resolveModuleAccess(user, "chat", modules)) {
+          socket.emit("chat_module_disabled", { message: "Module chưa được kích hoạt cho doanh nghiệp của bạn." });
+          return;
+        }
+      } catch (error) {
+        console.error("Error checking chat module access:", error);
+        return;
+      }
       ChatRoomModel.findOne({ _id: data.roomId, "members.userId": user._id })
         .then((room) => {
           if (room) {
@@ -327,7 +340,17 @@ export function emitToPage(pageId: string, eventName: string, data: any) {
   }
 }
 
+export let emitToUserMock: ((userId: string, eventName: string, data: any) => void) | null = null;
+
+export function setEmitToUserMockForTesting(mock: typeof emitToUserMock) {
+  emitToUserMock = mock;
+}
+
 export function emitToUser(userId: string, eventName: string, data: any) {
+  if (emitToUserMock) {
+    emitToUserMock(userId, eventName, data);
+    return;
+  }
   if (io) {
     const room = `user:${userId}`;
     console.log(`[Socket.IO] Emitting event "${eventName}" to room: ${room}`);
@@ -336,6 +359,7 @@ export function emitToUser(userId: string, eventName: string, data: any) {
     console.warn("[Socket.IO] Server instance (io) not initialized.");
   }
 }
+
 
 /**
  * Kiểm tra user có đang mở web (còn socket kết nối) hay không.

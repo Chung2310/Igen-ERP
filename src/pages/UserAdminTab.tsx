@@ -17,6 +17,7 @@ import { UserFormModal } from "../components/user-admin/UserFormModal";
 import { BalanceModal } from "../components/user-admin/BalanceModal";
 import { RoleModal } from "../components/user-admin/RoleModal";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
+import { MODULE_KEYS } from "../config/modules";
 
 export default function UserAdminTab() {
   const { userProfile } = useAuth();
@@ -72,6 +73,7 @@ export default function UserAdminTab() {
   const [submittingCompany, setSubmittingCompany] = useState(false);
   const [isEditCompanyModalOpen, setIsEditCompanyModalOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<CompanyEditFormState | null>(null);
+  const [selectedModules, setSelectedModules] = useState<string[]>([...MODULE_KEYS]);
 
   // Register User Modal States
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
@@ -100,6 +102,7 @@ export default function UserAdminTab() {
     ownerName,
     ownerEmail,
     ownerPassword,
+    enabledModules: selectedModules,
   };
 
   // Sub-tabs State
@@ -447,6 +450,10 @@ export default function UserAdminTab() {
       toast.warning("Mật khẩu của chủ sở hữu phải từ 6 ký tự trở lên!");
       return;
     }
+    if (selectedModules.length === 0) {
+      toast.warning("Vui lòng chọn ít nhất 1 module!");
+      return;
+    }
 
     setSubmittingCompany(true);
     try {
@@ -455,7 +462,8 @@ export default function UserAdminTab() {
         companyCode,
         ownerName,
         ownerEmail,
-        ownerPassword
+        ownerPassword,
+        selectedModules
       );
       toast.success(`Đăng ký doanh nghiệp ${companyName} và tài khoản Admin thành công!`);
       setIsCompanyModalOpen(false);
@@ -465,6 +473,7 @@ export default function UserAdminTab() {
       setOwnerName("");
       setOwnerEmail("");
       setOwnerPassword("");
+      setSelectedModules([...MODULE_KEYS]);
       // Refresh lists
       await fetchUsers();
       await fetchCompanies();
@@ -501,6 +510,7 @@ export default function UserAdminTab() {
       name: targetCompany.name,
       code: targetCompany.code,
       ownerEmail: targetCompany.ownerEmail,
+      enabledModules: targetCompany.enabledModules?.length ? targetCompany.enabledModules : [...MODULE_KEYS],
     });
     setIsEditCompanyModalOpen(true);
   };
@@ -512,12 +522,17 @@ export default function UserAdminTab() {
       return;
     }
 
+    if (editingCompany.enabledModules.length === 0) {
+      toast.warning("Vui lòng chọn ít nhất 1 module!");
+      return;
+    }
     setSubmittingCompany(true);
     try {
       await authService.updateCompany(editingCompany.id, {
         name: editingCompany.name.trim(),
         code: editingCompany.code.trim(),
         ownerEmail: editingCompany.ownerEmail.trim(),
+        enabledModules: editingCompany.enabledModules,
       });
       toast.success(`Đã cập nhật doanh nghiệp "${editingCompany.name}".`);
       setIsEditCompanyModalOpen(false);
@@ -579,7 +594,7 @@ export default function UserAdminTab() {
           userDisplayName,
           userEmail,
           userPassword,
-          userRole,
+          userRole as any,
           userCompanyCode,
           compName,
           userParentId || undefined,
@@ -1195,16 +1210,18 @@ export default function UserAdminTab() {
         submitting={submittingCompany}
         onClose={() => setIsCompanyModalOpen(false)}
         onChange={(field, value) => handleCompanyFormChange(field as keyof CompanyFormState, value)}
+        onModulesChange={setSelectedModules}
         onSubmit={handleRegisterCompany}
       />
 
       <CompanyModal
         mode="edit"
         open={isEditCompanyModalOpen && !!editingCompany}
-        form={editingCompany || { id: "", name: "", code: "", ownerEmail: "" }}
+        form={editingCompany || { id: "", name: "", code: "", ownerEmail: "", enabledModules: [...MODULE_KEYS] }}
         submitting={submittingCompany}
         onClose={() => setIsEditCompanyModalOpen(false)}
         onChange={(field, value) => handleEditCompanyFormChange(field as keyof CompanyEditFormState, value)}
+        onModulesChange={(enabledModules) => setEditingCompany((prev) => prev ? { ...prev, enabledModules } : prev)}
         onSubmit={handleUpdateCompany}
       />
 

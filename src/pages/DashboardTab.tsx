@@ -27,6 +27,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { isModuleEnabled } from "../config/modules";
 import { authService } from "../services/authService";
 import { inventoryProductService } from "../services/inventoryProductService";
 import { inventoryStockLogService } from "../services/inventoryStockLogService";
@@ -118,6 +119,11 @@ const formatDashboardCurrency = (val: number, decimalDigits: number = 1, useK: b
 
 export default function DashboardTab() {
   const { userProfile } = useAuth();
+  const canSeeHr = isModuleEnabled(userProfile?.enabledModules, "hr");
+  const canSeeInventory = isModuleEnabled(userProfile?.enabledModules, "inventory");
+  const canSeeResource = isModuleEnabled(userProfile?.enabledModules, "resource");
+  const canSeeChat = isModuleEnabled(userProfile?.enabledModules, "chat");
+  const canSeeStudent = isModuleEnabled(userProfile?.enabledModules, "student");
   const [activeView, setActiveView] = useState<DashboardView>("overview");
   const [employeeCount, setEmployeeCount] = useState<string>("...");
   const [employeeLabel, setEmployeeLabel] = useState<string>("Tổng nhân sự");
@@ -157,6 +163,12 @@ export default function DashboardTab() {
 
   useEffect(() => {
     const loadEmployeeData = async () => {
+      if (!canSeeHr) {
+        setEmployeeCount("0");
+        setNewHiresCount(0);
+        setRawEmployees([]);
+        return;
+      }
       if (!userProfile) {
         setEmployeeCount("0");
         setEmployeeLabel("Nhân sự");
@@ -204,10 +216,19 @@ export default function DashboardTab() {
     };
 
     loadEmployeeData();
-  }, [userProfile?.uid, userProfile?.role, userProfile?.companyCode]);
+  }, [userProfile?.uid, userProfile?.role, userProfile?.companyCode, canSeeHr]);
 
   // Subscribe to inventory products to compute total products
   useEffect(() => {
+    if (!canSeeInventory) {
+      setRawProducts([]);
+      setTotalProducts("0");
+      setLowStockCount("0");
+      setLowStockItems([]);
+      setOverstockItems([]);
+      setTotalInventoryValue("0");
+      return;
+    }
     let unsubProducts: any = null;
     try {
       unsubProducts = inventoryProductService.subscribe((products) => {
@@ -241,10 +262,14 @@ export default function DashboardTab() {
     return () => {
       if (unsubProducts && typeof unsubProducts === "function") unsubProducts();
     };
-  }, []);
+  }, [canSeeInventory]);
 
   // Subscribe to stock logs to compute pending outbound shipments
   useEffect(() => {
+    if (!canSeeInventory) {
+      setRawStockLogs([]);
+      return;
+    }
     let unsubLogs: any = null;
     try {
       unsubLogs = inventoryStockLogService.subscribe((logs) => {
@@ -258,11 +283,12 @@ export default function DashboardTab() {
     return () => {
       if (unsubLogs && typeof unsubLogs === "function") unsubLogs();
     };
-  }, []);
+  }, [canSeeInventory]);
 
   const getAccessToken = () => localStorage.getItem("accessToken") || "";
 
   const fetchTodayTimekeeping = async () => {
+    if (!canSeeHr) return;
     setIsTimekeepingLoading(true);
     try {
       const token = getAccessToken();
@@ -284,10 +310,10 @@ export default function DashboardTab() {
   };
 
   useEffect(() => {
-    if (userProfile) {
+    if (userProfile && canSeeHr) {
       fetchTodayTimekeeping();
     }
-  }, [userProfile]);
+  }, [userProfile, canSeeHr]);
 
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
 
@@ -297,7 +323,7 @@ export default function DashboardTab() {
 
     const loadSummary = () => {
       dashboardService
-        .getSummary({ filter: dateFilter, startDate: customStartDate, endDate: customEndDate })
+        .getSummary({ filter: dateFilter as any, startDate: customStartDate, endDate: customEndDate })
         .then((data) => {
           if (!cancelled) setSummary(data);
         })
@@ -760,7 +786,7 @@ export default function DashboardTab() {
 
         <div className="flex flex-col gap-4 border-b border-slate-100 pb-3 md:flex-row md:items-center md:justify-between">
           <div className="inline-flex rounded-xl bg-slate-100/80 p-1 w-fit">
-            {tabs.map((tab) => {
+            {tabs.filter((tab) => tab.id !== "revenue" || canSeeInventory).map((tab) => {
               const isActive = activeView === tab.id;
               return (
                 <button
@@ -841,9 +867,14 @@ export default function DashboardTab() {
           isTimekeepingLoading={isTimekeepingLoading}
           onRefreshTimekeeping={fetchTodayTimekeeping}
           summary={summary}
+          canSeeHr={canSeeHr}
+          canSeeInventory={canSeeInventory}
+          canSeeResource={canSeeResource}
+          canSeeChat={canSeeChat}
+          canSeeStudent={canSeeStudent}
         />
       )}
-      {activeView === "revenue" && (
+      {activeView === "revenue" && canSeeInventory && (
         <RevenuePanel
           totalRevenue={filteredTotalRevenue}
           growthRate={growthRate}
@@ -877,6 +908,11 @@ function OverviewPanel({
   isTimekeepingLoading,
   onRefreshTimekeeping,
   summary,
+  canSeeHr,
+  canSeeInventory,
+  canSeeResource,
+  canSeeChat,
+  canSeeStudent,
 }: {
   employeeCount: string;
   employeeLabel: string;
@@ -895,6 +931,11 @@ function OverviewPanel({
   isTimekeepingLoading: boolean;
   onRefreshTimekeeping: () => void;
   summary: DashboardSummary | null;
+  canSeeHr: boolean;
+  canSeeInventory: boolean;
+  canSeeResource: boolean;
+  canSeeChat: boolean;
+  canSeeStudent: boolean;
 }) {
   const [showLowStockModal, setShowLowStockModal] = useState<boolean>(false);
 
@@ -923,14 +964,14 @@ function OverviewPanel({
   return (
     <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_280px]">
       <div className="space-y-6">
-        <TimekeepingWidget
+        {canSeeHr && <TimekeepingWidget
           todayTimekeeping={todayTimekeeping}
           isLoading={isTimekeepingLoading}
           onRefresh={onRefreshTimekeeping}
-        />
+        />}
 
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          <ModuleCard
+          {canSeeHr && <ModuleCard
             icon={Users}
             tone="amber"
             title="Nhân sự"
@@ -940,13 +981,13 @@ function OverviewPanel({
             footerValue={`+${newHiresCount}`}
             progress={Math.min(100, (parseInt(employeeCount) || 0) > 0 ? Math.round((newHiresCount / (parseInt(employeeCount) || 1)) * 100) : 0)}
             onClick={() => goToTab("NHÂN SỰ")}
-          />
-          <ModuleCard icon={PackageCheck} tone="blue" title="Kho & Sản phẩm" value={totalProducts} label="Tổng sản phẩm" footer="Đơn chờ xuất" footerValue={`${pendingShipments} Đơn`} progress={78} alert lowCount={lowStockCount} onClick={() => goToTab("KHO & SẢN PHẨM")} />
+          />}
+          {canSeeInventory && <ModuleCard icon={PackageCheck} tone="blue" title="Kho & Sản phẩm" value={totalProducts} label="Tổng sản phẩm" footer="Đơn chờ xuất" footerValue={`${pendingShipments} Đơn`} progress={78} alert lowCount={lowStockCount} onClick={() => goToTab("KHO & SẢN PHẨM")} />}
         </div>
 
         {/* Số liệu các module còn lại — dữ liệu tổng hợp từ /api/v1/dashboard/summary */}
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-          <ModuleCard
+          {canSeeHr && <ModuleCard
             icon={KanbanSquare}
             tone="indigo"
             title="Dự án & Công việc"
@@ -962,8 +1003,8 @@ function OverviewPanel({
             alert
             lowCount={summary ? String(summary.projects.overdueTasks) : "..."}
             onClick={() => goToTab("NHÂN SỰ", "kanban")}
-          />
-          <ModuleCard
+          />}
+          {canSeeStudent && <ModuleCard
             icon={GraduationCap}
             tone="emerald"
             title="Học viên"
@@ -977,8 +1018,8 @@ function OverviewPanel({
                 : 0
             }
             onClick={() => goToTab("QUẢN LÝ HỌC VIÊN", "hoc-vien")}
-          />
-          <ModuleCard
+          />}
+          {canSeeStudent && <ModuleCard
             icon={Wallet}
             tone="amber"
             title="Học phí & Công nợ"
@@ -996,8 +1037,8 @@ function OverviewPanel({
                 : 0
             }
             onClick={() => goToTab("QUẢN LÝ HỌC VIÊN", "hoc-phi")}
-          />
-          <ModuleCard
+          />}
+          {canSeeHr && <ModuleCard
             icon={UserCheck}
             tone="blue"
             title="Chấm công hôm nay"
@@ -1011,8 +1052,8 @@ function OverviewPanel({
                 : 0
             }
             onClick={() => goToTab("NHÂN SỰ", "lich")}
-          />
-          <ModuleCard
+          />}
+          {canSeeChat && <ModuleCard
             icon={MessageSquare}
             tone="slate"
             title="Trò chuyện"
@@ -1022,8 +1063,8 @@ function OverviewPanel({
             footerValue={summary ? String(summary.chat.roomCount) : "..."}
             progress={summary && summary.chat.unreadMessages > 0 ? 100 : 0}
             onClick={() => goToTab("TRÒ CHUYỆN")}
-          />
-          <ModuleCard
+          />}
+          {canSeeResource && <ModuleCard
             icon={FolderOpen}
             tone="indigo"
             title="Tài nguyên"
@@ -1037,8 +1078,8 @@ function OverviewPanel({
                 : 0
             }
             onClick={() => goToTab("QUẢN LÝ TÀI NGUYÊN")}
-          />
-          <ModuleCard
+          />}
+          {canSeeHr && <ModuleCard
             icon={BookOpen}
             tone="emerald"
             title="Đào tạo"
@@ -1052,11 +1093,11 @@ function OverviewPanel({
                 : 0
             }
             onClick={() => goToTab("NHÂN SỰ", "dao-tao")}
-          />
+          />}
         </div>
 
         {/* Biểu đồ tổng quát các module */}
-        {summary && (
+        {summary && canSeeHr && (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
             <DonutCard
               title="Trạng thái công việc"
@@ -1100,7 +1141,7 @@ function OverviewPanel({
           </div>
         )}
 
-        <div className="grid grid-cols-1 gap-6">
+        {canSeeInventory && <div className="grid grid-cols-1 gap-6">
           <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md transition-all duration-300">
             <div className="mb-5 flex items-center justify-between">
               <h3 className="text-sm font-bold uppercase tracking-wider text-gray-800">Doanh thu xuất kho</h3>
@@ -1108,9 +1149,9 @@ function OverviewPanel({
             </div>
             <BarChart data={trendData} />
           </div>
-        </div>
+        </div>}
 
-        <div className="grid grid-cols-1 gap-6">
+        {canSeeInventory && <div className="grid grid-cols-1 gap-6">
           <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col justify-between">
             <div>
               <div className="mb-5 flex items-center justify-between">
@@ -1153,7 +1194,7 @@ function OverviewPanel({
             )}
             {showLowStockModal && <LowStockModal products={lowStockItems} onClose={() => setShowLowStockModal(false)} />}
           </div>
-        </div>
+        </div>}
       </div>
 
       <aside className="rounded-3xl border border-blue-100 bg-blue-50/60 p-6 shadow-sm flex flex-col justify-start">
@@ -1171,6 +1212,7 @@ function OverviewPanel({
           {[
             {
               icon: AlertTriangle,
+              moduleKey: "inventory",
               title: lowStockItems.length > 0 ? `${lowStockItems[0].name} có nguy cơ cạn kho` : "Kho hiện ổn định",
               body: lowStockItems.length > 0
                 ? `AI dự báo sản phẩm ${lowStockItems[0].name} có tồn ${lowStockItems[0].stock}, thấp hơn ngưỡng cảnh báo ${lowStockItems[0].minStockAlert}.`
@@ -1188,6 +1230,7 @@ function OverviewPanel({
             },
             {
               icon: Bot,
+              moduleKey: undefined,
               title: "Tự động hóa CSKH bằng AI",
               body: "AI phát hiện có cơ hội thiết lập thêm Agent trả lời tự động để chăm sóc khách hàng 24/7 và cải thiện chuyển đổi.",
               action: "Trải nghiệm AI Agent",
@@ -1196,7 +1239,7 @@ function OverviewPanel({
                 onRecommendAgent();
               },
             },
-          ].map((item) => (
+          ].filter((item) => !item.moduleKey || canSeeInventory).map((item) => (
             <AiInsightCard key={item.title} {...item} />
           ))}
         </div>

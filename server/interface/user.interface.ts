@@ -108,5 +108,19 @@ export interface IUser extends Document {
   companyName?: string;
   permissions?: string[];
   superAdminSecurity?: ISuperAdminSecurity;
+  
+  // SMTP Configuration
+  smtpHost?: string;
+  smtpPort?: number;
+  smtpSecure?: boolean;
+  smtpUser?: string;
+  smtpPass?: string;
+  smtpFrom?: string;
+  smtpSandboxEmail?: string;
+
+  // SaaS / Business limits
+  businessType?: "driving" | "language" | "general";
+  isActive?: boolean;
+  maxUsersLimit?: number;
 }
 

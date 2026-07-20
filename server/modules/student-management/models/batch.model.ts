@@ -1,6 +1,22 @@
 import { Schema, model } from "mongoose";
 import { IBatch } from "../interfaces/batch.interface";
 
+const attendanceRecordSchema = new Schema(
+  {
+    studentId: { type: String, required: true },
+    status: { type: String, enum: ["present", "absent", "excused"], default: "present" },
+  },
+  { _id: false }
+);
+
+const attendanceSessionSchema = new Schema(
+  {
+    date: { type: String, required: true },
+    note: { type: String, default: "" },
+    records: [attendanceRecordSchema],
+  }
+);
+
 const batchSchema = new Schema<IBatch>(
   {
     customFields: { type: Schema.Types.Mixed, default: {} },
@@ -21,6 +37,7 @@ const batchSchema = new Schema<IBatch>(
       index: true,
     },
     ownerId: { type: String, required: true, index: true },
+    attendanceSessions: { type: [attendanceSessionSchema], default: [] },
   },
   {
     timestamps: true,

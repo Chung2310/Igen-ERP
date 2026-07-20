@@ -8,14 +8,21 @@ import { SessionsTab } from "../../components/super-admin/SessionsTab";
 import { TenantListPage } from "./tenants/TenantListPage";
 import { UserSearchPage } from "./users/UserSearchPage";
 import { LayoutDashboard, FileText, Monitor, LogOut, UsersRound, Building2, Menu, X } from "lucide-react";
+import {
+  clearPendingSuperAdminChallenge,
+  readPendingSuperAdminChallenge,
+  resolveSuperAdminChallengeStage,
+  savePendingSuperAdminChallenge,
+} from "../../services/pendingSuperAdminChallenge";
 
 export default function SuperAdminShell() {
+  const [pendingChallenge] = React.useState(() => readPendingSuperAdminChallenge(sessionStorage));
   const [stage, setStage] = React.useState<"password" | "enroll" | "totp" | "recovery" | "authenticated">(
-    localStorage.getItem("accessToken") ? "authenticated" : "password"
+    localStorage.getItem("accessToken") ? "authenticated" : resolveSuperAdminChallengeStage(pendingChallenge)
   );
   
   const [activeTab, setActiveTab] = React.useState<"overview" | "audit" | "sessions" | "tenants" | "users">("overview");
-  const [challenge, setChallenge] = React.useState("");
+  const [challenge, setChallenge] = React.useState(pendingChallenge?.challengeId || "");
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [code, setCode] = React.useState("");
@@ -24,6 +31,20 @@ export default function SuperAdminShell() {
   const [environment, setEnvironment] = React.useState<"staging" | "production">("staging");
   const [error, setError] = React.useState("");
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
+  const enrollmentHydrated = React.useRef(false);
+
+  React.useEffect(() => {
+    if (stage !== "enroll" || !pendingChallenge || enrollmentHydrated.current) return;
+    enrollmentHydrated.current = true;
+    superAdminAuthService.startEnrollment(pendingChallenge.challengeId)
+      .then((enrollment) => setQr(enrollment.qrDataUrl))
+      .catch((cause: any) => {
+        clearPendingSuperAdminChallenge(sessionStorage);
+        setChallenge("");
+        setStage("password");
+        setError(cause.message || "Phiên xác thực đã hết hạn. Vui lòng đăng nhập lại.");
+      });
+  }, [pendingChallenge, stage]);
 
   React.useEffect(() => {
     if (stage === "authenticated") {
@@ -45,6 +66,11 @@ export default function SuperAdminShell() {
         throw new Error("Tài khoản không yêu cầu xác thực quản trị viên tối cao");
       }
       setChallenge(r.challengeId);
+      savePendingSuperAdminChallenge(sessionStorage, {
+        challengeId: r.challengeId,
+        enrollmentRequired: Boolean(r.enrollmentRequired),
+        expiresAt: r.expiresAt,
+      });
       if (r.enrollmentRequired) {
         const enrollment = await superAdminAuthService.startEnrollment(r.challengeId);
         setQr(enrollment.qrDataUrl);
@@ -68,6 +94,8 @@ export default function SuperAdminShell() {
           ? await superAdminAuthService.verifyRecovery(challenge, code)
           : await superAdminAuthService.verifyTotp(challenge, code);
 
+      clearPendingSuperAdminChallenge(sessionStorage);
+
       if (r.recoveryCodes) {
         setRecoveryCodes(r.recoveryCodes);
         return;
@@ -86,6 +114,7 @@ export default function SuperAdminShell() {
       await superAdminRequest("/api/v1/super-admin/auth/logout", { method: "POST" }).catch(() => {});
     } finally {
       localStorage.removeItem("accessToken");
+      clearPendingSuperAdminChallenge(sessionStorage);
       setStage("password");
     }
   };
@@ -268,6 +297,7 @@ export default function SuperAdminShell() {
               onClick={() => {
                 setRecoveryCodes([]);
                 setQr("");
+                clearPendingSuperAdminChallenge(sessionStorage);
                 setStage("authenticated");
               }}
               className="w-full rounded-xl bg-cyan-500 hover:bg-cyan-600 p-3 text-sm font-bold text-slate-950 transition-all"
